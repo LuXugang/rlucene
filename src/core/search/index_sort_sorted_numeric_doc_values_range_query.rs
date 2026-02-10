@@ -31,7 +31,6 @@ use crate::core::search::doc_id_set_iterator::{
     AllDISI, DocIdSetIterator, DocIdSetIteratorEnum4, EmptyDISI, RangeDISI,
 };
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
 use crate::core::search::field_exists_query::FieldExistsQuery;
@@ -40,14 +39,16 @@ use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldC
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::pruning::Pruning;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{
+    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::sort_field::{MissingValueEnum, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
-use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::search::weight::Weight;
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::core::util::bit_util::BitUtil;
@@ -272,10 +273,10 @@ where
                     self.query.field.clone(),
                     self.base.score(),
                 )?;
-                Ok(Some(Box::new(BoxedScorerSupplier::new(scorer_supplier))))
+                Ok(Some(Box::new(scorer_supplier)))
             },
             None => match self.fallback_query_weight.scorer_supplier(context)? {
-                Some(v) => Ok(Some(Box::new(BoxedScorerSupplier::new(v)))),
+                Some(v) => Ok(Some(v)),
                 None => Ok(None),
             },
         }
@@ -419,8 +420,8 @@ impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl<Disi<LR>>
 where
     LR: LeafReader + 'static,
 {
-    type Scorer = ConstantScoreScorer<IteratorAndCountDisi<Disi<LR>>, DummyTwoPhaseIterator>;
-    type BulkScorer = DefaultBulkScorer<Self::Scorer>;
+    type Scorer = QueryWeightSsScorer;
+    type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let disi = match self.disi.take() {
@@ -438,11 +439,11 @@ where
             },
         };
         let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, disi);
-        Ok(v)
+        Ok(Box::new(v))
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(self.default_bulk_scorer(context)?))
+        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {

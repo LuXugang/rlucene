@@ -21,36 +21,34 @@ use crate::core::document::int_point::IntPointRangeQuery;
 use crate::core::document::long_point::LongPointRangeQuery;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRPointValues, LRTermState, LeafReader};
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
 use crate::core::index::term_states::TermStates;
-use crate::core::search::bulk_scorer::BulkScorerEnum2;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{
+    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef, ScorerEnum2};
-use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::search::weight::Weight;
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::core_helper::HasIdentity;
-use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
+use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ints_ref::IntsRef;
-use crate::either_scorer_supplier;
 #[cfg(test)]
 use crate::test::search::test_point_queries::PointRangeQueryBaseImpl;
 use std::fmt::Debug;
@@ -508,23 +506,22 @@ where
             all_docs_match = false;
         }
         let max_doc = reader.max_doc()?;
-        let supplier = if all_docs_match {
-            PointRangeWeightSs::Impl(ScorerSupplierImpl::new(
+        if all_docs_match {
+            Ok(Some(Box::new(ScorerSupplierImpl::new(
                 self.base.score(),
                 self.score_mode,
                 max_doc,
-            ))
+            ))))
         } else {
             let result =
                 DocIdSetBuilder::with_point_values(max_doc, &values, self.query.field.as_ref())?;
-            PointRangeWeightSs::Impl1(ScorerSupplierImpl1::new(
+            Ok(Some(Box::new(ScorerSupplierImpl1::new(
                 self.base.score(),
                 self.score_mode,
                 values,
                 Self::get_intersect_visitor(result, self),
-            ))
-        };
-        Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))))
+            ))))
+        }
     }
 
     fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
@@ -563,13 +560,6 @@ where
         self.default_count(context)
     }
 }
-either_scorer_supplier!(
-    pub PointRangeWeightSs
-    => { bulk: BulkScorerEnum2, scorer: ScorerEnum2 }
-    { Impl: A, Impl1: B}
-);
-pub type PointRangeWeightScorerSupplier<PV> =
-    PointRangeWeightSs<ScorerSupplierImpl, ScorerSupplierImpl1<PV>>;
 pub(crate) fn matches(
     query: &PointRangeQuery,
     comparator: &ByteArrayComparatorEnum,
@@ -662,16 +652,12 @@ where
         }
     }
 }
-pub type PointRangeWeightScorer = ScorerEnum2<
-    ConstantScoreScorer<BitSetIterator<FixedBitSet>, DummyTwoPhaseIterator>,
-    ConstantScoreScorer<DocIdSetBuilderIterator, DummyTwoPhaseIterator>,
->;
 impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl1<LR::PointValues>
 where
     LR: LeafReader,
 {
-    type Scorer = PointRangeWeightScorer;
-    type BulkScorer = DefaultBulkScorer<Self::Scorer>;
+    type Scorer = QueryWeightSsScorer;
+    type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let reader = context.reader();
@@ -695,7 +681,7 @@ where
             self.values.intersect(&mut visitor)?;
             let cost = visitor.cost;
             let iterator = BitSetIterator::new(result, cost)?;
-            return Ok(PointRangeWeightScorer::A(ConstantScoreScorer::from_disi(
+            return Ok(Box::new(ConstantScoreScorer::from_disi(
                 self.score,
                 self.score_mode,
                 iterator,
@@ -704,7 +690,7 @@ where
         self.values.intersect(&mut self.visitor)?;
         let iterator = self.visitor.result.build()?.iterator()?;
         debug_assert!(iterator.is_some());
-        Ok(PointRangeWeightScorer::B(ConstantScoreScorer::from_disi(
+        Ok(Box::new(ConstantScoreScorer::from_disi(
             self.score,
             self.score_mode,
             iterator.unwrap(),
@@ -712,7 +698,7 @@ where
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(self.default_bulk_scorer(context)?))
+        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
@@ -724,11 +710,6 @@ where
         Ok(self.cost)
     }
 }
-pub type PointRangeSs<LR> = PointRangeWeightScorerSupplier<LRPointValues<LR>>;
-pub type PointRangeSsBulkScorer<LR> = <PointRangeSs<LR> as ScorerSupplier<LR>>::BulkScorer;
-pub type PointRangeSsScorer<LR> = <PointRangeSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type PointRangeSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
-pub type PointRangeSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
 pub struct ScorerSupplierImpl {
     score_mode: ScoreMode,
     max_doc: i32,
@@ -747,20 +728,20 @@ impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl
 where
     LR: LeafReader,
 {
-    type Scorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
-    type BulkScorer = DefaultBulkScorer<Self::Scorer>;
+    type Scorer = QueryWeightSsScorer;
+    type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         debug_assert!(context.reader().max_doc()? == self.max_doc);
-        Ok(ConstantScoreScorer::from_disi(
+        Ok(Box::new(ConstantScoreScorer::from_disi(
             self.score,
             self.score_mode,
             AllDISI::new(self.max_doc),
-        ))
+        )))
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(self.default_bulk_scorer(context)?))
+        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
     fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {

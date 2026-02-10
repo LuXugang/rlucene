@@ -20,7 +20,7 @@ use crate::core::index::doc_values::{DocValues, SortedSet};
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRDocValuesSkipper, LRTermState, LeafReader};
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
@@ -30,20 +30,19 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator, EmptyDISI, RangeDISI};
 use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{
+    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::ScorerEnum5;
-use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
-use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use std::hash::{Hash, Hasher};
@@ -242,14 +241,12 @@ where
         }
 
         let values = DocValues::get_sorted_set(context.reader(), &self.query.field)?;
-        Ok(Some(Box::new(BoxedScorerSupplier::new(
-            ScorerSupplierImpl3::new(
-                self.query.clone(),
-                values,
-                self.base.score(),
-                self.score_mode,
-            )?,
-        ))))
+        Ok(Some(Box::new(ScorerSupplierImpl3::new(
+            self.query.clone(),
+            values,
+            self.base.score(),
+            self.score_mode,
+        )?)))
     }
 }
 fn get_doc_id_set_iterator_or_null_for_primary_sort<LR, SDV, SK>(
@@ -385,8 +382,8 @@ impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl3<LR>
 where
     LR: LeafReader + 'static,
 {
-    type Scorer = ScorerType<LR>;
-    type BulkScorer = DefaultBulkScorer<Self::Scorer>;
+    type Scorer = QueryWeightSsScorer;
+    type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let mut skipper_opt = context.reader().get_doc_values_skipper(&self.query.field)?;
@@ -426,7 +423,7 @@ where
         if min_ord > max_ord {
             let v =
                 ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());
-            return Ok(ScorerType::<LR>::A(v));
+            return Ok(Box::new(v));
         }
 
         if let Some(ref skipper) = skipper_opt
@@ -434,7 +431,7 @@ where
         {
             let v =
                 ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());
-            return Ok(ScorerType::<LR>::A(v));
+            return Ok(Box::new(v));
         }
 
         if let Some(ref skipper) = skipper_opt
@@ -447,7 +444,7 @@ where
                 self.score_mode,
                 AllDISI::new(skipper.doc_count()),
             );
-            return Ok(ScorerType::<LR>::B(v));
+            return Ok(Box::new(v));
         }
         let iterator = if values.is_single_valued() {
             let mut singleton = DocValues::unwrap_singleton_sorted(&mut values)?;
@@ -468,7 +465,7 @@ where
                                 self.score_mode,
                                 ps_iterator,
                             );
-                            return Ok(ScorerType::<LR>::C(v));
+                            return Ok(Box::new(v));
                         },
                         None => TwoPhaseIteratorEnum2::A(TwoPhaseIterator5::new(
                             singleton, min_ord, max_ord,
@@ -486,34 +483,23 @@ where
             Some(skipper) => {
                 let v = DocValuesRangeIterator::new(iterator, skipper, min_ord, max_ord, false);
                 let scorer = ConstantScoreScorer::from_tpi(self.score, self.score_mode, v);
-                Ok(ScorerType::<LR>::E(scorer))
+                Ok(Box::new(scorer))
             },
             None => {
                 let scorer = ConstantScoreScorer::from_tpi(self.score, self.score_mode, iterator);
-                Ok(ScorerType::<LR>::D(scorer))
+                Ok(Box::new(scorer))
             },
         }
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(self.default_bulk_scorer(context)?))
+        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
         Ok(self.cost)
     }
 }
-pub type TPI1<LR> = TwoPhaseIteratorEnum2<
-    TwoPhaseIterator5<<SortedSet<LR> as SortedSetDocValues>::SortedDocValues>,
-    TwoPhaseIterator6<SortedSet<LR>>,
->;
-pub type ScorerType<LR> = ScorerEnum5<
-    ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>,
-    ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>,
-    ConstantScoreScorer<DISI, DummyTwoPhaseIterator>,
-    ConstantScoreScorer<DummyDISI, TPI1<LR>>,
-    ConstantScoreScorer<DummyDISI, DocValuesRangeIterator<TPI1<LR>, LRDocValuesSkipper<LR>>>,
->;
 pub struct TwoPhaseIterator5<S>
 where
     S: SortedDocValues,

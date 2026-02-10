@@ -28,19 +28,20 @@ use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3, EmptyDISI,
 };
 
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{IdentityQuery, Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{
+    IdentityQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer,
+    QueryWeightSsScorer,
+};
 use crate::core::search::query_cache::QueryCache;
 use crate::core::search::query_caching_policy::{QueryCachingPolicy, QueryCachingPolicyEnum};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::ScorerEnum2;
-use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::search::weight::Weight;
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
@@ -804,13 +805,10 @@ where
                         query,
                         reader.get_core_cache_helper()?.unwrap(),
                     )?;
-                    let s: QueryWeightSs<LR> = Box::new(BoxedScorerSupplier::new(ss));
+                    let s = Box::new(ss);
                     return Ok(Some(s));
                 }
-                Ok(self.in_.scorer_supplier(context)?.map(|v| {
-                    let s: QueryWeightSs<LR> = Box::new(BoxedScorerSupplier::new(v));
-                    s
-                }))
+                self.in_.scorer_supplier(context)
             },
             Some(cached) => {
                 if matches!(&*cached, CacheAndCountEnum::Empty(_)) {
@@ -819,8 +817,7 @@ where
                 let Some(disi) = cached.iterator()? else {
                     return Ok(None);
                 };
-                let s: QueryWeightSs<LR> =
-                    Box::new(BoxedScorerSupplier::new(ScorerSupplierImpl2::new(disi)?));
+                let s: QueryWeightSs<LR> = Box::new(ScorerSupplierImpl2::new(disi)?);
                 Ok(Some(s))
             },
         }
@@ -869,33 +866,31 @@ where
         self.in_.count(context)
     }
 }
-pub struct ScorerSupplierImpl1<S, C, P, LR>
+pub struct ScorerSupplierImpl1<C, P, LR>
 where
     LR: LeafReader,
-    S: ScorerSupplier<LR>,
     C: CacheHelper,
     P: Predicate<TopParentMeta>,
 {
     cost: i64,
     skip_cache_factor: f32,
-    supplier: S,
+    supplier: QueryWeightSs<LR>,
     max_doc: i32,
     lru_query_cache: Arc<LRUQueryCache<P>>,
     query: Arc<Query>,
     cache_helper: C,
     _marker: PhantomData<LR>,
 }
-impl<S, C, P, LR> ScorerSupplierImpl1<S, C, P, LR>
+impl<C, P, LR> ScorerSupplierImpl1<C, P, LR>
 where
     LR: LeafReader,
-    S: ScorerSupplier<LR>,
     C: CacheHelper,
     P: Predicate<TopParentMeta>,
 {
     pub(crate) fn new(
         cost: i64,
         skip_cache_factor: f32,
-        supplier: S,
+        supplier: QueryWeightSs<LR>,
         max_doc: i32,
         lru_query_cache: Arc<LRUQueryCache<P>>,
         query: Arc<Query>,
@@ -915,20 +910,19 @@ where
 }
 #[allow(clippy::upper_case_acronyms)]
 pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, CacheAndCountDISI>;
-impl<S, C, P, LR> ScorerSupplier<LR> for ScorerSupplierImpl1<S, C, P, LR>
+impl<C, P, LR> ScorerSupplier<LR> for ScorerSupplierImpl1<C, P, LR>
 where
     LR: LeafReader,
-    S: ScorerSupplier<LR>,
     C: CacheHelper,
     P: Predicate<TopParentMeta>,
 {
-    type Scorer = ScorerEnum2<S::Scorer, ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>;
-    type BulkScorer = DefaultBulkScorer<Self::Scorer>;
+    type Scorer = QueryWeightSsScorer;
+    type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         if (self.cost as f32 / self.skip_cache_factor) > lead_cost as f32 {
             let scorer = self.supplier.get(lead_cost, context)?;
-            return Ok(ScorerEnum2::A(scorer));
+            return Ok(scorer);
         };
         let mut bulk_scorer = match self.supplier.bulk_scorer(context)? {
             Some(bulk_scorer) => bulk_scorer,
@@ -942,7 +936,7 @@ where
             Some(disi) => DISI::B(disi),
             None => DISI::A(EmptyDISI::default()),
         };
-        Ok(ScorerEnum2::B(ConstantScoreScorer::from_disi(
+        Ok(Box::new(ConstantScoreScorer::from_disi(
             0.0,
             ScoreMode::CompleteNoScores,
             disi,
@@ -950,7 +944,7 @@ where
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(self.default_bulk_scorer(context)?))
+        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
@@ -972,19 +966,19 @@ impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl2
 where
     LR: LeafReader,
 {
-    type Scorer = ConstantScoreScorer<CacheAndCountDISI, DummyTwoPhaseIterator>;
-    type BulkScorer = DefaultBulkScorer<Self::Scorer>;
+    type Scorer = QueryWeightSsScorer;
+    type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
-        Ok(ConstantScoreScorer::from_disi(
+        Ok(Box::new(ConstantScoreScorer::from_disi(
             0.0,
             ScoreMode::CompleteNoScores,
             std::mem::take(&mut self.disi),
-        ))
+        )))
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(self.default_bulk_scorer(context)?))
+        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
