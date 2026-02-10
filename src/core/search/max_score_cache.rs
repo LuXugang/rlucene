@@ -19,7 +19,7 @@ use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Compute maximum scores based on [`Impacts`] and keep them in a cache
 /// in order not to run expensive similarity score computations multiple times
 /// on the same data.
@@ -61,12 +61,14 @@ where
         target: i32,
         impacts_source: &mut Option<&mut IS>,
     ) -> Result<i32> {
-        let impacts_source = match self.impacts_source {
-            Some(ref mut is) => {
-                debug_assert!(impacts_source.is_none());
-                is
+        let impacts_source = match (&mut self.impacts_source, impacts_source) {
+            (Some(is), None) => is,
+            (None, Some(is)) => *is,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "exactly one impacts_source must be present",
+                ));
             },
-            None => impacts_source.as_mut().unwrap(),
         };
         impacts_source.advance_shallow(target)?;
         let impacts = impacts_source.get_impacts()?;
@@ -111,12 +113,14 @@ where
     /// Return the first level that includes all doc IDs up to `up_to`,
     /// or -1 if there is no such level.
     fn get_level(&mut self, up_to: i32, impacts_source: &mut Option<&mut IS>) -> Result<i32> {
-        let impacts_source = match self.impacts_source {
-            Some(ref mut is) => {
-                debug_assert!(impacts_source.is_none());
-                is
+        let impacts_source: &mut IS = match (&mut self.impacts_source, impacts_source) {
+            (Some(is), None) => is,
+            (None, Some(is)) => is,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "exactly one impacts_source must be present",
+                ));
             },
-            None => impacts_source.as_mut().unwrap(),
         };
         let impacts = impacts_source.get_impacts()?;
         let num_levels = impacts.num_levels();
@@ -142,13 +146,16 @@ where
         impacts_source: &Option<&mut IS>,
     ) -> Result<f32> {
         self.ensure_cache_size((level + 1) as usize)?;
-        let impacts_source = match self.impacts_source {
-            Some(ref is) => {
-                debug_assert!(impacts_source.is_none());
-                is
+        let impacts_source: &IS = match (&self.impacts_source, impacts_source) {
+            (Some(is), None) => is,
+            (None, Some(is)) => is,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "exactly one impacts_source must be present",
+                ));
             },
-            None => impacts_source.as_ref().unwrap(),
         };
+
         debug_assert!(level >= 0, "level must not be negative; got {}", level);
         let mut impacts = impacts_source.get_impacts()?;
 
