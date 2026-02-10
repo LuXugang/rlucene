@@ -215,10 +215,7 @@ where
         match self.tpi_state {
             TwoPhaseState::No => self.iterator_mut(),
             _ => match self.disi {
-                ConstantDISI_::A(_) => {
-                    debug_assert!(false, "should not be here");
-                    self.iterator_mut()
-                },
+                ConstantDISI_::A(_) => self.iterator_mut(),
                 ConstantDISI_::B(ref mut v) => v.two_phase_iterator.approximation_mut(),
             },
         }
@@ -228,10 +225,7 @@ where
         match self.tpi_state {
             TwoPhaseState::No => self.iterator(),
             _ => match self.disi {
-                ConstantDISI_::A(_) => {
-                    debug_assert!(false, "should not be here");
-                    self.iterator()
-                },
+                ConstantDISI_::A(_) => self.iterator(),
                 ConstantDISI_::B(ref v) => v.two_phase_iterator.approximation(),
             },
         }

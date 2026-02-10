@@ -230,10 +230,7 @@ where
         match self.tpi_state {
             TwoPhaseState::No => self.iterator_mut(),
             _ => match self.disi {
-                DocIdSetIteratorEnum2::A(_) => {
-                    debug_assert!(false, "should not be here");
-                    self.iterator_mut()
-                },
+                DocIdSetIteratorEnum2::A(_) => self.iterator_mut(),
                 DocIdSetIteratorEnum2::B(ref mut wrapper) => {
                     wrapper.two_phase_iterator.approximation_mut()
                 },
@@ -245,10 +242,7 @@ where
         match self.tpi_state {
             TwoPhaseState::No => self.iterator(),
             _ => match self.disi {
-                DocIdSetIteratorEnum2::A(_) => {
-                    debug_assert!(false, "should not be here");
-                    self.iterator()
-                },
+                DocIdSetIteratorEnum2::A(_) => self.iterator(),
                 DocIdSetIteratorEnum2::B(ref wrapper) => wrapper.two_phase_iterator.approximation(),
             },
         }
