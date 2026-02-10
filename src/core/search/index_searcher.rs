@@ -501,8 +501,7 @@ where
         };
 
         if let Some(mut scorer_supplier) = weight.scorer_supplier(ctx)? {
-            // TODO IMPORTANT 这里没有实现 set_top_level_scoring_clause 方法
-            // scorer_supplier.set_top_level_scoring_clause()?;
+            scorer_supplier.set_top_level_scoring_clause()?;
             let mut scorer = match scorer_supplier.bulk_scorer(ctx)? {
                 Some(scorer) => scorer,
                 None => return Err(LuceneError::illegal_state("BulkScorer is None")),
