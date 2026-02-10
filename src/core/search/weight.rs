@@ -475,18 +475,7 @@ where
         // The scorer has an approximation, so run the approximation first, then check acceptDocs,
         // then confirm
         loop {
-            let (doc, matches) = {
-                let mut two_phase = scorer.two_phase_iterator_mut().unwrap();
-                let doc = {
-                    let mut iter = two_phase.approximation_mut();
-                    iter.next_doc()?
-                };
-                if doc == NO_MORE_DOCS {
-                    (doc, false)
-                } else {
-                    (doc, two_phase.matches()?)
-                }
-            };
+            let doc = ScorerUtil::next_doc(scorer)?;
             if doc == NO_MORE_DOCS {
                 break;
             }
@@ -494,8 +483,21 @@ where
                 None => true,
                 Some(a) => a.get(doc as usize)?,
             };
-            if is_accept && matches {
-                collector.collect(doc, scorer)?;
+            if is_accept {
+                let matches = {
+                    let tpi = scorer.two_phase_iterator_mut();
+                    match tpi {
+                        Some(mut two_phase) => two_phase.matches()?,
+                        None => {
+                            return Err(LuceneError::illegal_state(
+                                "TwoPhaseIterator should not None",
+                            ));
+                        },
+                    }
+                };
+                if matches {
+                    collector.collect(doc, scorer)?;
+                }
             }
         }
     }
