@@ -20,6 +20,7 @@ use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error;
+use crate::core::util::error::lucene_error::LuceneError;
 use std::borrow::Cow;
 
 /// Extension of `PostingsEnum` which also provides information about upcoming
@@ -150,3 +151,88 @@ where
     B: ImpactsEnum,
 {
 }
+
+pub struct ImpactsEnumEmptyPosting<IS>
+where
+    IS: ImpactsSource,
+{
+    inner: IS,
+}
+impl<IS> ImpactsEnumEmptyPosting<IS>
+where
+    IS: ImpactsSource,
+{
+    pub fn new(inner: IS) -> ImpactsEnumEmptyPosting<IS> {
+        Self { inner }
+    }
+}
+
+impl<IS> PostingsEnum for ImpactsEnumEmptyPosting<IS>
+where
+    IS: ImpactsSource,
+{
+    fn freq(&mut self) -> lucene_error::Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn next_position(&mut self) -> lucene_error::Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn start_offset(&self) -> lucene_error::Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn end_offset(&self) -> lucene_error::Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn get_payload(&self) -> lucene_error::Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
+
+impl<IS> DocIdSetIterator for ImpactsEnumEmptyPosting<IS>
+where
+    IS: ImpactsSource,
+{
+    fn doc_id(&self) -> i32 {
+        unreachable!("")
+    }
+
+    fn next_doc(&mut self) -> lucene_error::Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn advance(&mut self, _target: i32) -> lucene_error::Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn slow_advance(&mut self, _target: i32) -> lucene_error::Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn cost(&self) -> lucene_error::Result<i64> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
+
+impl<IS> ImpactsSource for ImpactsEnumEmptyPosting<IS>
+where
+    IS: ImpactsSource,
+{
+    fn advance_shallow(&mut self, _target: i32) -> lucene_error::Result<()> {
+        todo!()
+    }
+
+    type Impacts<'a>
+        = IS::Impacts<'a>
+    where
+        Self: 'a;
+
+    fn get_impacts(&self) -> lucene_error::Result<Self::Impacts<'_>> {
+        self.inner.get_impacts()
+    }
+}
+
+impl<IS> ImpactsEnum for ImpactsEnumEmptyPosting<IS> where IS: ImpactsEnum {}
