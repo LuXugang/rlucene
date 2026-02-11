@@ -16,8 +16,10 @@
  */
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::term::Term;
+use crate::core::search::similarities_impl::similarities::SimScorer;
+use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::util::TryIntoInt;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Position of a term in a document that takes into account the term offset
 /// within the phrase.
@@ -40,7 +42,7 @@ pub struct PhrasePositions {
     pub(crate) terms: Vec<Term>,
 }
 impl PhrasePositions {
-    pub fn new(postings: usize, offset: usize, ord: usize, terms: Vec<Term>) -> Self {
+    pub(crate) fn new(postings: usize, offset: usize, ord: usize, terms: Vec<Term>) -> Self {
         Self {
             postings_idx: postings,
             offset,
@@ -53,13 +55,19 @@ impl PhrasePositions {
         }
     }
 
-    pub fn first_position<PE>(&mut self, postings: &mut [PE]) -> Result<()>
+    pub(crate) fn first_position<PE, SS>(
+        phrase_matcher: &mut SloppyPhraseMatcher<PE, SS>,
+        pp_idx: usize,
+    ) -> Result<()>
     where
         PE: PostingsEnum,
+        SS: SimScorer,
     {
         // read first position
-        self.count = postings[self.postings_idx].freq()?;
-        self.next_position(postings)?;
+        let freq = phrase_matcher.posting(pp_idx)?.next_position()?;
+        let pp = &mut phrase_matcher.pq.compare.phrase_positions[pp_idx];
+        pp.count = freq;
+        Self::next_position(phrase_matcher, pp_idx)?;
         Ok(())
     }
 
@@ -67,14 +75,26 @@ impl PhrasePositions {
     /// `position` as `location - offset`, so that a matching exact phrase is
     /// easily identified when all `PhrasePositions` have exactly the same
     /// `position`.
-    pub fn next_position<PE>(&mut self, postings: &mut [PE]) -> Result<bool>
+    pub(crate) fn next_position<PE, SS>(
+        phrase_matcher: &mut SloppyPhraseMatcher<PE, SS>,
+        pp_idx: usize,
+    ) -> Result<bool>
     where
         PE: PostingsEnum,
+        SS: SimScorer,
     {
-        if self.count > 0 {
-            self.count -= 1;
-            let pos = postings[self.postings_idx].next_position()?.try_convert()?;
-            self.position = pos.saturating_sub(self.offset);
+        let count = phrase_matcher.pq.compare.phrase_positions[pp_idx].count;
+        if count > 0 {
+            let pos = phrase_matcher
+                .posting(pp_idx)?
+                .next_position()?
+                .try_convert()?;
+            let pp = &mut phrase_matcher.pq.compare.phrase_positions[pp_idx];
+            pp.count -= 1;
+            pp.position = pos
+                .checked_sub(pp.offset)
+                .ok_or_else(|| LuceneError::illegal_state("position underflow"))?;
+
             Ok(true)
         } else {
             Ok(false)

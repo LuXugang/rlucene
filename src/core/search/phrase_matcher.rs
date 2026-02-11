@@ -17,9 +17,9 @@
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
 pub trait PhraseMatcher {
-    type ApproximationApproximation: DocIdSetIterator;
+    type Disi: DocIdSetIterator;
     /// Approximation that only matches documents that have all terms.
-    fn approximation(&mut self) -> &Self::ImpactsApproximation;
+    fn approximation(&mut self) -> &mut Self::Disi;
 
     type ImpactsApproximation;
     /// Approximation that is aware of impacts.
