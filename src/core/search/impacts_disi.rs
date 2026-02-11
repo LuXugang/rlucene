@@ -106,6 +106,13 @@ where
             self.max_score = self.max_score_cache.get_max_score_with_level_zero()?;
         }
     }
+
+    fn disi_mut(&mut self) -> Disi<&mut D, &mut IE> {
+        match self.in_.as_mut() {
+            Some(in_) => Disi::A(in_),
+            None => Disi::B(&mut self.max_score_cache.impacts_source),
+        }
+    }
 }
 impl<D, IE, SS> DocIdSetIterator for ImpactsDISI<D, IE, SS>
 where
@@ -121,25 +128,16 @@ where
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        match self.in_ {
-            Some(ref mut in_) => {
-                let doc = in_.doc_id();
-                if doc < self.up_to {
-                    in_.next_doc()
-                } else {
-                    self.advance(doc + 1)
-                }
-            },
-            None => {
-                let in_ = &mut self.max_score_cache.impacts_source;
-                let doc = in_.doc_id();
-                if doc < self.up_to {
-                    in_.next_doc()
-                } else {
-                    self.advance(doc + 1)
-                }
-            },
-        }
+        let up_to = self.up_to;
+        let doc = {
+            let mut disi = self.disi_mut();
+            let doc = disi.doc_id();
+            if doc < up_to {
+                return disi.next_doc();
+            }
+            doc
+        };
+        self.advance(doc + 1)
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
