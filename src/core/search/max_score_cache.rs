@@ -19,7 +19,7 @@ use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 /// Compute maximum scores based on [`Impacts`] and keep them in a cache
 /// in order not to run expensive similarity score computations multiple times
 /// on the same data.
@@ -30,7 +30,7 @@ where
     IS: ImpactsSource,
     SS: SimScorer,
 {
-    pub(crate) impacts_source: Option<IS>,
+    pub(crate) impacts_source: IS,
     pub(crate) scorer: SS,
     global_max_score: f32,
     max_score_cache: Vec<f32>,
@@ -42,7 +42,7 @@ where
     IS: ImpactsSource,
     SS: SimScorer,
 {
-    pub fn new(impacts_source: Option<IS>, scorer: SS) -> Self {
+    pub fn new(impacts_source: IS, scorer: SS) -> Self {
         let global_max_score = scorer.score(f32::MAX, 1);
 
         Self {
@@ -56,22 +56,9 @@ where
     /// Implement the contract of [`Scorer::advance_shallow`](ImpactsSource::advance_shallow) based on the wrapped [`ImpactsSource`].
     ///
     /// See also [`Scorer::advance_shallow`].
-    pub fn advance_shallow(
-        &mut self,
-        target: i32,
-        impacts_source: &mut Option<&mut IS>,
-    ) -> Result<i32> {
-        let impacts_source = match (&mut self.impacts_source, impacts_source) {
-            (Some(is), None) => is,
-            (None, Some(is)) => *is,
-            _ => {
-                return Err(LuceneError::illegal_state(
-                    "exactly one impacts_source must be present",
-                ));
-            },
-        };
-        impacts_source.advance_shallow(target)?;
-        let impacts = impacts_source.get_impacts()?;
+    pub fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+        self.impacts_source.advance_shallow(target)?;
+        let impacts = self.impacts_source.get_impacts()?;
         Ok(impacts.get_doc_id_upto(0))
     }
 
@@ -97,32 +84,19 @@ where
         max_score
     }
     /// Return the maximum score up to upTo included.
-    pub fn get_max_score(
-        &mut self,
-        up_to: i32,
-        impacts_source: &mut Option<&mut IS>,
-    ) -> Result<f32> {
-        let level = self.get_level(up_to, impacts_source)?;
+    pub fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+        let level = self.get_level(up_to)?;
         if level == -1 {
             Ok(self.global_max_score)
         } else {
-            self.get_max_score_for_level(level, impacts_source)
+            self.get_max_score_with_level(level)
         }
     }
 
     /// Return the first level that includes all doc IDs up to `up_to`,
     /// or -1 if there is no such level.
-    fn get_level(&mut self, up_to: i32, impacts_source: &mut Option<&mut IS>) -> Result<i32> {
-        let impacts_source: &mut IS = match (&mut self.impacts_source, impacts_source) {
-            (Some(is), None) => is,
-            (None, Some(is)) => is,
-            _ => {
-                return Err(LuceneError::illegal_state(
-                    "exactly one impacts_source must be present",
-                ));
-            },
-        };
-        let impacts = impacts_source.get_impacts()?;
+    fn get_level(&self, up_to: i32) -> Result<i32> {
+        let impacts = self.impacts_source.get_impacts()?;
         let num_levels = impacts.num_levels();
         for level in 0..num_levels {
             let impacts_up_to = impacts.get_doc_id_upto(level);
@@ -133,32 +107,14 @@ where
         Ok(-1)
     }
 
-    pub fn get_max_score_for_level_zero(
-        &mut self,
-        impacts_source: &mut Option<&mut IS>,
-    ) -> Result<f32> {
-        self.get_max_score_for_level(0, impacts_source)
+    pub fn get_max_score_with_level_zero(&mut self) -> Result<f32> {
+        self.get_max_score_with_level(0)
     }
     /// Return the maximum score for the given `level`.
-    fn get_max_score_for_level(
-        &mut self,
-        level: i32,
-        impacts_source: &Option<&mut IS>,
-    ) -> Result<f32> {
-        self.ensure_cache_size((level + 1) as usize)?;
-        let impacts_source: &IS = match (&self.impacts_source, impacts_source) {
-            (Some(is), None) => is,
-            (None, Some(is)) => is,
-            _ => {
-                return Err(LuceneError::illegal_state(
-                    "exactly one impacts_source must be present",
-                ));
-            },
-        };
-
+    fn get_max_score_with_level(&mut self, level: i32) -> Result<f32> {
         debug_assert!(level >= 0, "level must not be negative; got {}", level);
-        let mut impacts = impacts_source.get_impacts()?;
-
+        self.ensure_cache_size((level + 1) as usize)?;
+        let mut impacts = self.impacts_source.get_impacts()?;
         let level_up_to = impacts.get_doc_id_upto(level);
         if self.max_score_cache_upto[level as usize] < level_up_to {
             let max_score = self.compute_max_score(impacts.get_impacts(level)?.as_ref());
@@ -170,18 +126,13 @@ where
 
     /// Return the maximum level at which scores are all less than `min_score`,
     /// or -1 if none.
-    fn get_skip_level<I>(
-        &mut self,
-        impacts: &I,
-        min_score: f32,
-        impacts_source: &Option<&mut IS>,
-    ) -> Result<i32>
-    where
-        I: Impacts,
-    {
-        let num_levels = impacts.num_levels();
+    fn get_skip_level(&mut self, min_score: f32) -> Result<i32> {
+        let num_levels = {
+            let impacts = self.impacts_source.get_impacts()?;
+            impacts.num_levels()
+        };
         for level in 0..num_levels {
-            if self.get_max_score_for_level(level, impacts_source)? >= min_score {
+            if self.get_max_score_with_level(level)? >= min_score {
                 return Ok(level - 1);
             }
         }
@@ -190,16 +141,12 @@ where
 
     /// Return an inclusive upper bound of documents that all have a score less than `min_score`,
     /// or -1 if the current document may be competitive.
-    pub fn get_skip_up_to(
-        &mut self,
-        min_score: f32,
-        impacts_source: &mut Option<&mut IS>,
-    ) -> Result<i32> {
-        let impacts = impacts_source.as_ref().unwrap().get_impacts()?;
-        let level = self.get_skip_level(&impacts, min_score, impacts_source)?;
+    pub fn get_skip_up_to(&mut self, min_score: f32) -> Result<i32> {
+        let level = self.get_skip_level(min_score)?;
         if level == -1 {
             Ok(-1)
         } else {
+            let impacts = self.impacts_source.get_impacts()?;
             Ok(impacts.get_doc_id_upto(level))
         }
     }

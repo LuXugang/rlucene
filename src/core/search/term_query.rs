@@ -442,13 +442,14 @@ where
                 };
 
                 if self.score_mode == ScoreMode::TopScores {
-                    let v =
-                        TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(TermScorer::new(
+                    let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
+                        TermScorer::from_impacts(
                             terms_enum.impacts(FREQS as i32)?,
                             self.sim_scorer.as_ref().unwrap().clone(),
                             norms,
                             false,
-                        ));
+                        ),
+                    );
                     Ok(Some(v))
                 } else {
                     let flags = if self.score_mode.needs_scores() {
@@ -457,7 +458,7 @@ where
                         NONE
                     };
                     let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
-                        TermScorer::with_postings(
+                        TermScorer::from_postings(
                             terms_enum.postings_with_flags(None, flags as i32)?,
                             self.sim_scorer.as_ref().unwrap().clone(),
                             norms,
@@ -560,13 +561,14 @@ where
                 };
 
                 if self.score_mode == ScoreMode::TopScores {
-                    let v =
-                        TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(TermScorer::new(
+                    let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
+                        TermScorer::from_impacts(
                             self.terms_enum.as_mut().unwrap().impacts(FREQS as i32)?,
                             self.sim_scorer.clone(),
                             norms,
                             self.top_level_scoring_clause,
-                        ));
+                        ),
+                    );
                     Ok(Box::new(v))
                 } else {
                     let flags = if self.score_mode.needs_scores() {
@@ -575,7 +577,7 @@ where
                         NONE
                     };
                     let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
-                        TermScorer::with_postings(
+                        TermScorer::from_postings(
                             self.terms_enum
                                 .as_mut()
                                 .unwrap()

@@ -25,25 +25,25 @@ use crate::core::util::error::lucene_error::Result;
 /// iterator the ability to skip low-scoring documents.
 ///
 /// @lucene.internal
-pub struct ImpactsDISI<I, IE, SS>
+pub struct ImpactsDISI<D, IE, SS>
 where
-    I: DocIdSetIterator,
+    D: DocIdSetIterator,
     IE: ImpactsEnum,
     SS: SimScorer,
 {
-    pub(crate) in_: Disi<I, IE>,
+    pub(crate) in_: Option<D>,
     pub(crate) max_score_cache: MaxScoreCache<IE, SS>,
     min_competitive_score: f32,
     up_to: i32,
     max_score: f32,
 }
-impl<I, IE, SS> ImpactsDISI<I, IE, SS>
+impl<D, IE, SS> ImpactsDISI<D, IE, SS>
 where
-    I: DocIdSetIterator,
+    D: DocIdSetIterator,
     IE: ImpactsEnum,
     SS: SimScorer,
 {
-    pub fn new(in_: Disi<I, IE>, max_score_cache: MaxScoreCache<IE, SS>) -> Self {
+    pub fn new(in_: Option<D>, max_score_cache: MaxScoreCache<IE, SS>) -> Self {
         Self {
             in_,
             max_score_cache,
@@ -76,14 +76,8 @@ where
             // according to impacts, no skipping
             return Ok(target);
         }
-        let (mut impacts_source, max_score_cache) = {
-            match self.in_ {
-                DocIdSetIteratorEnum2::A(_) => (None, &mut self.max_score_cache),
-                DocIdSetIteratorEnum2::B(ref mut s) => (Some(s), &mut self.max_score_cache),
-            }
-        };
-        self.up_to = max_score_cache.advance_shallow(target, &mut impacts_source)?;
-        self.max_score = max_score_cache.get_max_score_for_level_zero(&mut impacts_source)?;
+        self.up_to = self.max_score_cache.advance_shallow(target)?;
+        self.max_score = self.max_score_cache.get_max_score_with_level_zero()?;
 
         loop {
             debug_assert!(self.up_to >= target);
@@ -96,8 +90,9 @@ where
                 return Ok(NO_MORE_DOCS);
             }
 
-            let skip_up_to =
-                max_score_cache.get_skip_up_to(self.min_competitive_score, &mut impacts_source)?;
+            let skip_up_to = self
+                .max_score_cache
+                .get_skip_up_to(self.min_competitive_score)?;
             if skip_up_to == -1 {
                 // no further skipping
                 target = self.up_to + 1;
@@ -107,36 +102,59 @@ where
                 target = skip_up_to + 1;
             }
 
-            self.up_to = max_score_cache.advance_shallow(target, &mut impacts_source)?;
-            self.max_score = max_score_cache.get_max_score_for_level_zero(&mut impacts_source)?;
+            self.up_to = self.max_score_cache.advance_shallow(target)?;
+            self.max_score = self.max_score_cache.get_max_score_with_level_zero()?;
         }
     }
 }
-impl<I, IE, SS> DocIdSetIterator for ImpactsDISI<I, IE, SS>
+impl<D, IE, SS> DocIdSetIterator for ImpactsDISI<D, IE, SS>
 where
-    I: DocIdSetIterator,
+    D: DocIdSetIterator,
     IE: ImpactsEnum,
     SS: SimScorer,
 {
     fn doc_id(&self) -> i32 {
-        self.in_.doc_id()
+        match self.in_ {
+            Some(ref d) => d.doc_id(),
+            None => self.max_score_cache.impacts_source.doc_id(),
+        }
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let doc = self.in_.doc_id();
-        if doc < self.up_to {
-            self.in_.next_doc()
-        } else {
-            self.advance(doc + 1)
+        match self.in_ {
+            Some(ref mut in_) => {
+                let doc = in_.doc_id();
+                if doc < self.up_to {
+                    in_.next_doc()
+                } else {
+                    self.advance(doc + 1)
+                }
+            },
+            None => {
+                let in_ = &mut self.max_score_cache.impacts_source;
+                let doc = in_.doc_id();
+                if doc < self.up_to {
+                    in_.next_doc()
+                } else {
+                    self.advance(doc + 1)
+                }
+            },
         }
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        self.in_.advance(target)
+        let doc_id = self.advance_target(target)?;
+        match self.in_ {
+            Some(ref mut in_) => in_.advance(doc_id),
+            None => self.max_score_cache.impacts_source.advance(doc_id),
+        }
     }
 
     fn cost(&self) -> Result<i64> {
-        self.in_.cost()
+        match self.in_ {
+            Some(ref in_) => in_.cost(),
+            None => self.max_score_cache.impacts_source.cost(),
+        }
     }
 }
 

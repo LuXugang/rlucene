@@ -18,7 +18,8 @@ use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::impacts_disi::ImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::scorable::Scorable;
@@ -35,47 +36,35 @@ where
     IE: ImpactsEnum,
 {
     norms: Option<N>,
-    impacts_disi: Option<ImpactsDISI<IE, IE, SS>>,
+    impacts_disi: Option<ImpactsDISI<DummyDISI, IE, SS>>,
     max_score_cache: Option<MaxScoreCache<ImpactsEnums<IE, PE>, SS>>,
 }
 
-enum TermScorerPostings<'a, IE, PE, SS>
+enum TSPostings<'a, IE, PE>
 where
     IE: ImpactsEnum,
     PE: PostingsEnum,
-    SS: SimScorer,
 {
-    Disi(&'a mut ImpactsDISI<IE, IE, SS>),
-    Cache(&'a mut ImpactsEnums<IE, PE>),
+    Impacts(&'a mut IE),
+    Posting(&'a mut PE),
 }
 
-impl<'a, IE, PE, SS> TermScorerPostings<'a, IE, PE, SS>
+impl<'a, IE, PE> TSPostings<'a, IE, PE>
 where
     IE: ImpactsEnum,
     PE: PostingsEnum,
-    SS: SimScorer,
 {
     fn freq(&mut self) -> Result<i32> {
         match self {
-            TermScorerPostings::Disi(disi) => match &mut disi.in_ {
-                DocIdSetIteratorEnum2::A(_) => {
-                    Err(LuceneError::illegal_state("should not be here"))
-                },
-                DocIdSetIteratorEnum2::B(s) => s.freq(),
-            },
-            TermScorerPostings::Cache(impacts) => impacts.freq(),
+            TSPostings::Impacts(disi) => disi.freq(),
+            TSPostings::Posting(impacts) => impacts.freq(),
         }
     }
 
     fn doc_id(&mut self) -> Result<i32> {
         match self {
-            TermScorerPostings::Disi(disi) => match &mut disi.in_ {
-                DocIdSetIteratorEnum2::A(_) => {
-                    Err(LuceneError::illegal_state("should not be here"))
-                },
-                DocIdSetIteratorEnum2::B(s) => Ok(s.doc_id()),
-            },
-            TermScorerPostings::Cache(impacts) => Ok(impacts.doc_id()),
+            TSPostings::Impacts(disi) => Ok(disi.doc_id()),
+            TSPostings::Posting(impacts) => Ok(impacts.doc_id()),
         }
     }
 }
@@ -87,11 +76,9 @@ where
     IE: ImpactsEnum,
 {
     /// Construct a [`TermScorer`] that will iterate all documents.
-    pub fn with_postings(postings_enum: PE, scorer: SS, norms: Option<N>) -> Self {
+    pub fn from_postings(postings_enum: PE, scorer: SS, norms: Option<N>) -> Self {
         let impacts_enum = SlowImpactsEnum::new(postings_enum);
-
-        let max_score_cache = MaxScoreCache::new(Some(ImpactsEnumEnum2::B(impacts_enum)), scorer);
-
+        let max_score_cache = MaxScoreCache::new(ImpactsEnumEnum2::B(impacts_enum), scorer);
         Self {
             norms,
             impacts_disi: None,
@@ -99,19 +86,18 @@ where
         }
     }
     /// Construct a [`TermScorer`] that will use impacts to skip blocks of non-competitive documents.
-    pub fn new(
+    pub fn from_impacts(
         impacts_enum: IE,
         scorer: SS,
         norms: Option<N>,
         top_level_scoring_clause: bool,
     ) -> Self {
         let (impacts_disi, max_score_cache) = if top_level_scoring_clause {
-            let max_score_cache = MaxScoreCache::new(None, scorer);
-            let disi = ImpactsDISI::new(DocIdSetIteratorEnum2::B(impacts_enum), max_score_cache);
+            let max_score_cache = MaxScoreCache::new(impacts_enum, scorer);
+            let disi = ImpactsDISI::new(Some(DummyDISI), max_score_cache);
             (Some(disi), None)
         } else {
-            let max_score_cache =
-                MaxScoreCache::new(Some(ImpactsEnumEnum2::A(impacts_enum)), scorer);
+            let max_score_cache = MaxScoreCache::new(ImpactsEnumEnum2::A(impacts_enum), scorer);
             (None, Some(max_score_cache))
         };
 
@@ -127,32 +113,30 @@ where
         postings.freq()
     }
 
-    fn postings(&mut self) -> Result<TermScorerPostings<'_, IE, PE, SS>> {
-        if let Some(disi) = self.impacts_disi.as_mut() {
-            debug_assert!(self.max_score_cache.is_none());
-            Ok(TermScorerPostings::Disi(disi))
-        } else {
-            let max_score_cache = self.max_score_cache.as_mut().ok_or_else(|| {
-                LuceneError::illegal_state(
-                    "when max_score_cache is None, impacts_disi must not be None",
-                )
-            })?;
-            debug_assert!(max_score_cache.impacts_source.is_some());
-            let impacts_source = max_score_cache.impacts_source.as_mut().unwrap();
-            Ok(TermScorerPostings::Cache(impacts_source))
+    fn postings(&mut self) -> Result<TSPostings<'_, IE, PE>> {
+        match (&mut self.impacts_disi, &mut self.max_score_cache) {
+            (Some(impacts_disi), None) => {
+                let v = &mut impacts_disi.max_score_cache.impacts_source;
+                Ok(TSPostings::Impacts(v))
+            },
+            (None, Some(inner)) => match inner.impacts_source {
+                ImpactsEnumEnum2::A(ref mut impacts_enum) => Ok(TSPostings::Impacts(impacts_enum)),
+                ImpactsEnumEnum2::B(ref mut slow_impacts) => {
+                    Ok(TSPostings::Posting(&mut slow_impacts.delegate))
+                },
+            },
+            _ => {
+                debug_assert!(false);
+                unreachable!("")
+            },
         }
     }
 
     fn sim_scorer(&self) -> Result<&SS> {
-        if let Some(ref max_score_cache) = self.max_score_cache {
-            debug_assert!(self.impacts_disi.is_none());
-            Ok(&max_score_cache.scorer)
-        } else if let Some(ref disi) = self.impacts_disi {
-            Ok(&disi.max_score_cache.scorer)
-        } else {
-            Err(LuceneError::illegal_state(
-                "when max_score_cache is None, impacts_disi must not be None",
-            ))
+        match (&self.impacts_disi, &self.max_score_cache) {
+            (Some(impacts_disi), None) => Ok(&impacts_disi.max_score_cache.scorer),
+            (None, Some(inner)) => Ok(&inner.scorer),
+            _ => Err(LuceneError::illegal_state("")),
         }
     }
 }
@@ -217,107 +201,61 @@ where
     }
 
     fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-        if let Some(impacts_disi) = &self.impacts_disi {
-            debug_assert!(self.max_score_cache.is_none());
-            Box::new(impacts_disi)
-        } else {
-            match self
-                .max_score_cache
-                .as_ref()
-                .unwrap()
-                .impacts_source
-                .as_ref()
-                .unwrap()
-            {
-                ImpactsEnumEnum2::A(t) => Box::new(t),
-                ImpactsEnumEnum2::B(s) => Box::new(&s.delegate),
-            }
+        match (&self.impacts_disi, &self.max_score_cache) {
+            (Some(impacts_disi), None) => Box::new(impacts_disi),
+            (None, Some(inner)) => match inner.impacts_source {
+                ImpactsEnumEnum2::A(ref impacts_enum) => Box::new(impacts_enum),
+                ImpactsEnumEnum2::B(ref slow_impacts) => Box::new(&slow_impacts.delegate),
+            },
+            _ => {
+                debug_assert!(false);
+                unreachable!("")
+            },
         }
     }
 
     fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        if let Some(impacts_disi) = &mut self.impacts_disi {
-            debug_assert!(self.max_score_cache.is_none());
-            Box::new(impacts_disi)
-        } else {
-            match self
-                .max_score_cache
-                .as_mut()
-                .unwrap()
-                .impacts_source
-                .as_mut()
-                .unwrap()
-            {
-                ImpactsEnumEnum2::A(t) => Box::new(t),
-                ImpactsEnumEnum2::B(s) => Box::new(&mut s.delegate),
-            }
+        match (&mut self.impacts_disi, &mut self.max_score_cache) {
+            (Some(impacts_disi), None) => Box::new(impacts_disi),
+            (None, Some(inner)) => match inner.impacts_source {
+                ImpactsEnumEnum2::A(ref mut impacts_enum) => Box::new(impacts_enum),
+                ImpactsEnumEnum2::B(ref mut slow_impacts) => Box::new(&mut slow_impacts.delegate),
+            },
+            _ => {
+                debug_assert!(false);
+                unreachable!("")
+            },
         }
     }
 
     fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-        let mut scorer = *self;
-        #[allow(clippy::redundant_pattern_matching)]
-        if let Some(_) = scorer.impacts_disi {
-            debug_assert!(scorer.max_score_cache.is_none());
-            Box::new(scorer.impacts_disi.take().unwrap()) as Box<dyn DocIdSetIterator>
-        } else {
-            let mut max_score_cache = scorer.max_score_cache.take().unwrap();
-            let impacts_source = max_score_cache.impacts_source.take().unwrap();
-            match impacts_source {
+        let mut this = *self;
+        match (this.impacts_disi.take(), this.max_score_cache.take()) {
+            (Some(impacts_disi), None) => Box::new(impacts_disi),
+            (None, Some(inner)) => match inner.impacts_source {
                 ImpactsEnumEnum2::A(impacts_enum) => Box::new(impacts_enum),
-                ImpactsEnumEnum2::B(slow_impacts) => {
-                    let SlowImpactsEnum { delegate } = slow_impacts;
-                    Box::new(delegate)
-                },
-            }
+                ImpactsEnumEnum2::B(slow_impacts) => Box::new(slow_impacts.delegate),
+            },
+            _ => {
+                debug_assert!(false);
+                unreachable!()
+            },
         }
     }
 
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-        match self.max_score_cache {
-            Some(ref mut max_score_cache) => max_score_cache.advance_shallow(target, &mut None),
-            None => match self.impacts_disi {
-                Some(ref mut disi) => {
-                    let (mut impacts_source, max_score_cache) = {
-                        match disi.in_ {
-                            DocIdSetIteratorEnum2::A(_) => {
-                                return Err(LuceneError::illegal_state("should not be here"));
-                            },
-                            DocIdSetIteratorEnum2::B(ref mut s) => {
-                                (Some(s), &mut disi.max_score_cache)
-                            },
-                        }
-                    };
-                    max_score_cache.advance_shallow(target, &mut impacts_source)
-                },
-                None => Err(LuceneError::illegal_state(
-                    "when max_score_cache is None, impacts_disi must not be None",
-                )),
-            },
+        match (&mut self.impacts_disi, &mut self.max_score_cache) {
+            (Some(impacts_disi), None) => impacts_disi.max_score_cache.advance_shallow(target),
+            (None, Some(inner)) => inner.advance_shallow(target),
+            _ => Err(LuceneError::illegal_state("")),
         }
     }
 
     fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
-        match self.max_score_cache {
-            Some(ref mut max_score_cache) => max_score_cache.get_max_score(up_to, &mut None),
-            None => match self.impacts_disi {
-                Some(ref mut disi) => {
-                    let (mut impacts_source, max_score_cache) = {
-                        match disi.in_ {
-                            DocIdSetIteratorEnum2::A(_) => {
-                                return Err(LuceneError::illegal_state("should not be here"));
-                            },
-                            DocIdSetIteratorEnum2::B(ref mut s) => {
-                                (Some(s), &mut disi.max_score_cache)
-                            },
-                        }
-                    };
-                    max_score_cache.get_max_score(up_to, &mut impacts_source)
-                },
-                None => Err(LuceneError::illegal_state(
-                    "when max_score_cache is None, impacts_disi must not be None",
-                )),
-            },
+        match (&mut self.impacts_disi, &mut self.max_score_cache) {
+            (Some(impacts_disi), None) => impacts_disi.max_score_cache.get_max_score(up_to),
+            (None, Some(inner)) => inner.get_max_score(up_to),
+            _ => Err(LuceneError::illegal_state("")),
         }
     }
 
