@@ -16,7 +16,10 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::scorer::Scorer;
+use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::dummy::dummy_scorer::DummyScorer;
+use crate::core::search::scorable::{ChildScorable, Scorable};
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::array_util::ArrayUtil;
@@ -26,20 +29,47 @@ use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{Comparator, ToInt, TryIntoInt};
 
-pub struct ConjunctionDISI<S>
+pub struct ConjunctionDISI<S, D>
 where
     S: Scorer,
+    D: DocIdSetIterator,
 {
     lead1: usize,
     lead2: usize,
     others: Vec<usize>,
-    pub(crate) all_disi: Vec<S>,
+    pub(crate) all_disi: Vec<DISIEnum<S, D>>,
 }
-impl<S> ConjunctionDISI<S>
+impl<S> ConjunctionDISI<S, DummyDISI>
 where
     S: Scorer,
 {
-    pub(crate) fn new(iterators: Vec<S>) -> Result<Self> {
+    pub(crate) fn from_scorer(scorers: Vec<S>) -> Result<Self> {
+        let mut iters = Vec::with_capacity(scorers.len());
+        for x in scorers.into_iter() {
+            iters.push(DISIEnum::Scorer(x));
+        }
+        Self::new(iters)
+    }
+}
+impl<D> ConjunctionDISI<DummyScorer, D>
+where
+    D: DocIdSetIterator,
+{
+    pub(crate) fn from_disi(iterators: Vec<D>) -> Result<Self> {
+        let mut iters = Vec::with_capacity(iterators.len());
+        for x in iterators.into_iter() {
+            iters.push(DISIEnum::DocIdSetIterator(x));
+        }
+        Self::new(iters)
+    }
+}
+
+impl<S, D> ConjunctionDISI<S, D>
+where
+    S: Scorer,
+    D: DocIdSetIterator,
+{
+    fn new(iterators: Vec<DISIEnum<S, D>>) -> Result<Self> {
         debug_assert!(iterators.len() >= 2);
         let mut cost = Vec::with_capacity(iterators.len());
         for idx in 0..iterators.len() {
@@ -62,29 +92,29 @@ where
     }
     fn do_next(&mut self, mut doc: i32) -> Result<i32> {
         'advance_head: loop {
-            debug_assert_eq!(doc, ScorerUtil::doc_id(&self.all_disi[self.lead1]));
+            debug_assert_eq!(doc, self.all_disi[self.lead1].doc_id());
             // find agreement between the two iterators with the lower costs
             // we special case them because they do not need the
             // 'other.docID() < doc' check that the 'others' iterators need
-            let next2 = ScorerUtil::advance(&mut self.all_disi[self.lead2], doc)?;
+            let next2 = self.all_disi[self.lead2].advance(doc)?;
             if next2 != doc {
-                doc = ScorerUtil::advance(&mut self.all_disi[self.lead1], next2)?;
+                doc = self.all_disi[self.lead1].advance(next2)?;
                 if doc != next2 {
                     continue;
                 }
             }
             // then find agreement with other iterators
             for other_idx in self.others.iter() {
-                let other_doc = ScorerUtil::doc_id(&self.all_disi[*other_idx]);
+                let other_doc = self.all_disi[*other_idx].doc_id();
 
                 // other.doc may already be equal to doc if we "continued advanceHead"
                 // on the previous iteration and the advance on the lead scorer exactly matched.
                 if other_doc < doc {
-                    let next = ScorerUtil::advance(&mut self.all_disi[*other_idx], doc)?;
+                    let next = self.all_disi[*other_idx].advance(doc)?;
 
                     if next > doc {
                         // iterator beyond the current doc - advance lead and continue to the new highest doc.
-                        doc = ScorerUtil::advance(&mut self.all_disi[self.lead1], next)?;
+                        doc = self.all_disi[self.lead1].next_doc()?;
                         continue 'advance_head;
                     }
                 }
@@ -94,24 +124,24 @@ where
     }
     // Returns {@code true} if all sub-iterators are on the same doc ID, {@code false} otherwise
     fn assert_iters_on_same_doc(&self) -> bool {
-        let cur_doc = ScorerUtil::doc_id(&self.all_disi[self.lead1]);
-        let mut iterators_on_the_same_doc =
-            ScorerUtil::doc_id(&self.all_disi[self.lead2]) == cur_doc;
+        let cur_doc = self.all_disi[self.lead1].doc_id();
+        let mut iterators_on_the_same_doc = self.all_disi[self.lead2].doc_id() == cur_doc;
         let mut i = 0;
         while i < self.others.len() && iterators_on_the_same_doc {
-            iterators_on_the_same_doc = iterators_on_the_same_doc
-                && (ScorerUtil::doc_id(&self.all_disi[self.others[i]]) == cur_doc);
+            iterators_on_the_same_doc =
+                iterators_on_the_same_doc && (self.all_disi[self.others[i]].doc_id() == cur_doc);
             i += 1;
         }
         iterators_on_the_same_doc
     }
 }
-impl<S> DocIdSetIterator for ConjunctionDISI<S>
+impl<S, D> DocIdSetIterator for ConjunctionDISI<S, D>
 where
     S: Scorer,
+    D: DocIdSetIterator,
 {
     fn doc_id(&self) -> i32 {
-        ScorerUtil::doc_id(&self.all_disi[self.lead1])
+        self.all_disi[self.lead1].doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
@@ -119,7 +149,7 @@ where
             self.assert_iters_on_same_doc(),
             "Sub-iterators of ConjunctionDISI are not on the same document!"
         );
-        let doc = ScorerUtil::next_doc(&mut self.all_disi[self.lead1])?;
+        let doc = self.all_disi[self.lead1].next_doc()?;
         self.do_next(doc)
     }
 
@@ -128,37 +158,40 @@ where
             self.assert_iters_on_same_doc(),
             "Sub-iterators of ConjunctionDISI are not on the same document!"
         );
-        let doc = ScorerUtil::advance(&mut self.all_disi[self.lead1], target)?;
+        let doc = self.all_disi[self.lead1].advance(target)?;
         self.do_next(doc)
     }
 
     fn cost(&self) -> Result<i64> {
-        ScorerUtil::cost(&self.all_disi[self.lead1])
+        self.all_disi[self.lead1].cost()
     }
 }
-struct DisiCmp<'a, S>
+struct DisiCmp<'a, S, D>
 where
     S: Scorer,
+    D: DocIdSetIterator,
 {
-    disi: &'a [S],
+    disi: &'a [DISIEnum<S, D>],
 }
-impl<'a, S> DisiCmp<'a, S>
+impl<'a, S, D> DisiCmp<'a, S, D>
 where
     S: Scorer,
+    D: DocIdSetIterator,
 {
-    fn new(disi: &'a [S]) -> Self {
+    fn new(disi: &'a [DISIEnum<S, D>]) -> Self {
         DisiCmp { disi }
     }
 }
-impl<S> Comparator<usize> for DisiCmp<'_, S>
+impl<S, D> Comparator<usize> for DisiCmp<'_, S, D>
 where
     S: Scorer,
+    D: DocIdSetIterator,
 {
     const TYPE: &'static str = "DisiCmp";
 
     fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
-        let lf = ScorerUtil::cost(&self.disi[*a])?;
-        let rg = ScorerUtil::cost(&self.disi[*b])?;
+        let lf = self.disi[*a].cost()?;
+        let rg = self.disi[*b].cost()?;
         Ok(lf.cmp(&rg).to_int())
     }
 }
@@ -304,14 +337,14 @@ where
     S: Scorer,
 {
     two_phase_iterator_idx: Vec<usize>,
-    pub(crate) approximation: ConjunctionDISI<S>,
+    pub(crate) approximation: ConjunctionDISI<S, DummyDISI>,
     match_cost: f32,
 }
 impl<S> ConjunctionTwoPhaseIterator<S>
 where
     S: Scorer,
 {
-    pub(crate) fn new(mut approximation: ConjunctionDISI<S>) -> Result<Self> {
+    pub(crate) fn new(mut approximation: ConjunctionDISI<S, DummyDISI>) -> Result<Self> {
         debug_assert!(
             {
                 let mut has_tpi = false;
@@ -406,5 +439,219 @@ where
             .partial_cmp(&self.tpis[*b].match_cost())
             .unwrap()
             .to_int())
+    }
+}
+
+pub enum DISIEnum<S, D>
+where
+    S: Scorer,
+    D: DocIdSetIterator,
+{
+    Scorer(S),
+    DocIdSetIterator(D),
+}
+
+impl<S> Scorable for DISIEnum<S, DummyDISI>
+where
+    S: Scorer,
+{
+    fn score(&mut self) -> Result<f32> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.score(),
+            DISIEnum::DocIdSetIterator(_) => Err(LuceneError::unsupported_operation("")),
+        }
+    }
+
+    fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.smoothing_score(doc_id),
+            DISIEnum::DocIdSetIterator(_) => Err(LuceneError::unsupported_operation("")),
+        }
+    }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.set_min_competitive_score(min_score),
+            DISIEnum::DocIdSetIterator(_) => Err(LuceneError::unsupported_operation("")),
+        }
+    }
+
+    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.get_children(),
+            DISIEnum::DocIdSetIterator(_) => Err(LuceneError::unsupported_operation("")),
+        }
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.cost(),
+            DISIEnum::DocIdSetIterator(disi) => disi.cost(),
+        }
+    }
+}
+
+impl<S> Scorer for DISIEnum<S, DummyDISI>
+where
+    S: Scorer,
+{
+    fn doc_id(&mut self) -> Result<i32> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.doc_id(),
+            DISIEnum::DocIdSetIterator(_) => Err(LuceneError::unsupported_operation("")),
+        }
+    }
+
+    fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.iterator(),
+            DISIEnum::DocIdSetIterator(_) => {
+                unreachable!("")
+            },
+        }
+    }
+
+    fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.iterator_mut(),
+            DISIEnum::DocIdSetIterator(_) => {
+                unreachable!("")
+            },
+        }
+    }
+
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        match *self {
+            DISIEnum::Scorer(scorer) => Box::new(scorer).take_iterator(),
+            DISIEnum::DocIdSetIterator(_) => {
+                unreachable!("")
+            },
+        }
+    }
+
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.two_phase_iterator(),
+            DISIEnum::DocIdSetIterator(_) => {
+                unreachable!("")
+            },
+        }
+    }
+
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.two_phase_iterator_mut(),
+            DISIEnum::DocIdSetIterator(_) => {
+                unreachable!("")
+            },
+        }
+    }
+
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
+        match *self {
+            DISIEnum::Scorer(scorer) => Box::new(scorer).take_two_phase_iterator(),
+            DISIEnum::DocIdSetIterator(_) => {
+                unreachable!("")
+            },
+        }
+    }
+
+    fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.advance_shallow(target),
+            DISIEnum::DocIdSetIterator(_) => Err(LuceneError::unsupported_operation("")),
+        }
+    }
+
+    fn default_advance_shallow(&mut self, target: i32) -> Result<i32> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.default_advance_shallow(target),
+            DISIEnum::DocIdSetIterator(_) => Err(LuceneError::unsupported_operation("")),
+        }
+    }
+
+    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.get_max_score(up_to),
+            DISIEnum::DocIdSetIterator(_) => Err(LuceneError::unsupported_operation("")),
+        }
+    }
+
+    fn default_cost(&mut self) -> Result<i64> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.default_cost(),
+            DISIEnum::DocIdSetIterator(_) => Err(LuceneError::unsupported_operation("")),
+        }
+    }
+
+    fn has_two_phase_iterator(&self) -> TwoPhaseState {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.has_two_phase_iterator(),
+            DISIEnum::DocIdSetIterator(_) => {
+                debug_assert!(false, "should not be here");
+                TwoPhaseState::No
+            },
+        }
+    }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.approximation(),
+            DISIEnum::DocIdSetIterator(_) => {
+                debug_assert!(false, "should not be here");
+                Box::new(DummyDISI)
+            },
+        }
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        match self {
+            DISIEnum::Scorer(scorer) => scorer.approximation_mut(),
+            DISIEnum::DocIdSetIterator(_) => {
+                debug_assert!(false, "should not be here");
+                Box::new(DummyDISI)
+            },
+        }
+    }
+}
+
+impl<S, D> DocIdSetIterator for DISIEnum<S, D>
+where
+    S: Scorer,
+    D: DocIdSetIterator,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            DISIEnum::Scorer(scorer) => ScorerUtil::doc_id(scorer),
+            DISIEnum::DocIdSetIterator(disi) => disi.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            DISIEnum::Scorer(scorer) => ScorerUtil::next_doc(scorer),
+            DISIEnum::DocIdSetIterator(disi) => disi.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        match self {
+            DISIEnum::Scorer(scorer) => ScorerUtil::advance(scorer, _target),
+            DISIEnum::DocIdSetIterator(disi) => disi.advance(_target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            DISIEnum::Scorer(scorer) => ScorerUtil::slow_advance(scorer, target),
+            DISIEnum::DocIdSetIterator(disi) => disi.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            DISIEnum::Scorer(scorer) => ScorerUtil::cost(scorer),
+            DISIEnum::DocIdSetIterator(disi) => disi.cost(),
+        }
     }
 }

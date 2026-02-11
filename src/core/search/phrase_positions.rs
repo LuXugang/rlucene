@@ -30,7 +30,6 @@ pub struct PhrasePositions {
     pub(crate) offset: usize,
     /// Unique ordinal across all `PhrasePositions` instances.
     pub(crate) ord: usize,
-    /// Stream of documents and positions.
     pub(crate) postings_idx: usize,
     /// Repetition group identifier.
     /// A value >= 0 indicates that this is a repeating `PhrasePositions`.

@@ -16,6 +16,7 @@
  */
 use crate::core::search::conjunction_disi::{ConjunctionDISI, ConjunctionTwoPhaseIterator};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
+use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
@@ -24,7 +25,7 @@ use crate::core::search::two_phase_iterator::{
 use crate::core::util::error::lucene_error::Result;
 
 pub type ConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
-    ConjunctionDISI<S>,
+    ConjunctionDISI<S, DummyDISI>,
     TwoPhaseIteratorAsDocIdSetIterator<ConjunctionTwoPhaseIterator<S>>,
 >;
 // TODO IMPORTANT This implementation is quite different from the Java version, and performance is worse in some scenarios.
@@ -50,7 +51,7 @@ where
                 break;
             }
         }
-        let v = ConjunctionDISI::new(required)?;
+        let v = ConjunctionDISI::from_scorer(required)?;
         let disi = match has_tpi {
             false => ConjunctionScorerDisi::A(v),
             true => {
