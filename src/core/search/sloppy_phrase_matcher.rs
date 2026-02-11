@@ -18,11 +18,39 @@ use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::phrase_positions::PhrasePositions;
+use crate::core::search::phrase_queue::PhraseQueue;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
+use std::rc::Rc;
 use std::vec;
 
-pub struct SloppyPhraseMatcher;
+pub struct SloppyPhraseMatcher {
+    phrase_positions: Vec<Rc<PhrasePositions>>,
+
+    slop: i32,
+    num_postings: i32,
+    pq: PhraseQueue,
+    capture_lead_match: bool,
+
+    // approximation: A,
+    // impacts_approximation: I,
+    end: i32,
+
+    lead_position: i32,
+    lead_offset: i32,
+    lead_end_offset: i32,
+    lead_ord: i32,
+
+    has_rpts: bool,
+    checked_rpts: bool,
+    has_multi_term_rpts: bool,
+    rpt_groups: Vec<Vec<usize>>,
+    rpt_stack: Vec<usize>,
+
+    positioned: bool,
+    match_length: i32,
+}
 
 struct ImpactsSourceImpl;
 impl ImpactsSource for ImpactsSourceImpl {

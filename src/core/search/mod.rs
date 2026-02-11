@@ -112,6 +112,7 @@ mod max_score_bulk_scorer;
 pub mod phrase_matcher;
 mod phrase_positions;
 pub mod phrase_query;
+pub(crate) mod phrase_queue;
 pub mod point_range_query;
 pub(crate) mod req_excl_bulk_scorer;
 pub(crate) mod req_excl_scorer;
