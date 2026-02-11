@@ -18,6 +18,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LRTermState;
+use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -32,6 +33,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+
 #[derive(Debug, Clone)]
 pub struct PhraseQuery {
     id: Identity,
@@ -380,4 +382,34 @@ fn to_terms_from_bytes(field: &str, term_bytes: Vec<BytesRef<Vec<u8>>>) -> Vec<T
         terms.push(Term::new(field, b));
     }
     terms
+}
+
+pub struct PostingsAndFreq<PE>
+where
+    PE: PostingsEnum,
+{
+    postings: PE,
+    position: usize,
+    terms: Vec<Term>,
+}
+impl<PE> PostingsAndFreq<PE>
+where
+    PE: PostingsEnum,
+{
+    pub fn new(postings: PE, position: usize, terms: &[Term]) -> Self {
+        let terms_vec = if terms.is_empty() {
+            Vec::new()
+        } else if terms.len() == 1 {
+            vec![terms[0].clone()]
+        } else {
+            let mut v = terms.to_vec();
+            v.sort();
+            v
+        };
+        Self {
+            postings,
+            position,
+            terms: terms_vec,
+        }
+    }
 }

@@ -16,18 +16,7 @@
  */
 use crate::core::search::phrase_positions::PhrasePositions;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::priority_queue::{Compare, PriorityQueue};
-
-pub(crate) struct PhraseQueue;
-impl PhraseQueue {
-    pub(crate) fn new(
-        pp: Vec<PhrasePositions>,
-        size: usize,
-    ) -> Result<PriorityQueue<PhrasePositions, PhraseQueueCmp>> {
-        let cmp = PhraseQueueCmp::new(pp);
-        PriorityQueue::new(size, cmp)
-    }
-}
+use crate::core::util::priority_queue::Compare;
 
 pub(crate) struct PhraseQueueCmp {
     pub(crate) pp: Vec<PhrasePositions>,
@@ -38,11 +27,7 @@ impl PhraseQueueCmp {
     }
 }
 impl Compare<PhrasePositions> for PhraseQueueCmp {
-    fn less_than(
-        &self,
-        pp1: &PhrasePositions,
-        pp2: &PhrasePositions,
-    ) -> Result<bool> {
+    fn less_than(&self, pp1: &PhrasePositions, pp2: &PhrasePositions) -> Result<bool> {
         if pp1.position == pp2.position {
             // same doc and pp.position, so decide by actual term positions.
             // rely on: pp.position == tp.position - offset.

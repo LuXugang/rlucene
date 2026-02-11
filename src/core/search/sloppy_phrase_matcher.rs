@@ -19,38 +19,40 @@ use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::phrase_positions::PhrasePositions;
-use crate::core::search::phrase_queue::PhraseQueue;
+use crate::core::search::phrase_queue::PhraseQueueCmp;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::priority_queue::PriorityQueue;
 use std::borrow::Cow;
-use std::rc::Rc;
 use std::vec;
 
 pub struct SloppyPhraseMatcher {
-    phrase_positions: Vec<Rc<PhrasePositions>>,
-
     slop: i32,
     num_postings: i32,
-    pq: PhraseQueue,
+    /// for advancing min position
+    pq: PriorityQueue<PhrasePositions, PhraseQueueCmp>,
     capture_lead_match: bool,
 
-    // approximation: A,
     // impacts_approximation: I,
+    /// current largest phrase position
     end: i32,
 
     lead_position: i32,
     lead_offset: i32,
     lead_end_offset: i32,
     lead_ord: i32,
-
+    /// flag indicating that there are repetitions (as checked in first candidate doc)
     has_rpts: bool,
     checked_rpts: bool,
     has_multi_term_rpts: bool,
+    /// in each group are PPs that repeats each other (i.e. same term), sorted by (query) offset
     rpt_groups: Vec<Vec<usize>>,
+    /// temporary stack for switching colliding repeating pps
     rpt_stack: Vec<usize>,
 
     positioned: bool,
     match_length: i32,
 }
+impl SloppyPhraseMatcher {}
 
 struct ImpactsSourceImpl;
 impl ImpactsSource for ImpactsSourceImpl {
