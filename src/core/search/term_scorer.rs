@@ -94,7 +94,7 @@ where
     ) -> Self {
         let (impacts_disi, max_score_cache) = if top_level_scoring_clause {
             let max_score_cache = MaxScoreCache::new(impacts_enum, scorer);
-            let disi = ImpactsDISI::new(Some(DummyDISI), max_score_cache);
+            let disi = ImpactsDISI::new(DummyDISI, max_score_cache, false);
             (Some(disi), None)
         } else {
             let max_score_cache = MaxScoreCache::new(ImpactsEnumEnum2::A(impacts_enum), scorer);

@@ -204,11 +204,12 @@ where
 
     #[inline]
     pub(crate) fn posting(&mut self, posting_idx: usize) -> Result<&mut PE> {
-        let impacts = self
-            .impacts_approximation
-            .in_
-            .as_mut()
-            .ok_or_else(|| LuceneError::illegal_state("impacts approximation missing"))?;
+        if !self.impacts_approximation.use_disi {
+            return Err(LuceneError::illegal_state(
+                "sloopy_phrase_matcher should use disi",
+            ));
+        }
+        let impacts = &mut self.impacts_approximation.in_;
         let disi = &mut impacts.all_disi[posting_idx];
         match disi {
             DISIEnum::DocIdSetIterator(v) => Ok(v),
@@ -227,7 +228,8 @@ where
     type Disi = ConjunctionDISI<DummyScorer, PE>;
 
     fn approximation(&mut self) -> &mut Self::Disi {
-        self.impacts_approximation.in_.as_mut().unwrap()
+        debug_assert!(self.impacts_approximation.use_disi);
+        &mut self.impacts_approximation.in_
     }
 
     type ImpactsApproximation = SloopyImpactsDISI<PE, SS>;
@@ -240,11 +242,7 @@ where
         // every term position in each postings list can be at the head of at most
         // one matching phrase, so the maximum possible phrase freq is the sum of
         // the freqs of the postings lists.
-        let impacts = self
-            .impacts_approximation
-            .in_
-            .as_mut()
-            .ok_or_else(|| LuceneError::illegal_state("impacts approximation missing"))?;
+        let impacts = &mut self.impacts_approximation.in_;
         let mut max_freq = 0f32;
         for phrase_position in &self.pq.compare.phrase_positions {
             let idx = phrase_position.postings_idx;

@@ -31,11 +31,12 @@ where
     IE: ImpactsEnum,
     SS: SimScorer,
 {
-    pub(crate) in_: Option<D>,
+    pub(crate) in_: D,
     pub(crate) max_score_cache: MaxScoreCache<IE, SS>,
     min_competitive_score: f32,
     up_to: i32,
     max_score: f32,
+    pub(crate) use_disi: bool,
 }
 impl<D, IE, SS> ImpactsDISI<D, IE, SS>
 where
@@ -43,13 +44,14 @@ where
     IE: ImpactsEnum,
     SS: SimScorer,
 {
-    pub fn new(in_: Option<D>, max_score_cache: MaxScoreCache<IE, SS>) -> Self {
+    pub fn new(in_: D, max_score_cache: MaxScoreCache<IE, SS>, use_disi: bool) -> Self {
         Self {
             in_,
             max_score_cache,
             min_competitive_score: 0.0,
             up_to: NO_MORE_DOCS,
             max_score: f32::INFINITY,
+            use_disi,
         }
     }
     /// Get the [`MaxScoreCache`].
@@ -108,9 +110,9 @@ where
     }
 
     fn disi_mut(&mut self) -> Disi<&mut D, &mut IE> {
-        match self.in_.as_mut() {
-            Some(in_) => Disi::A(in_),
-            None => Disi::B(&mut self.max_score_cache.impacts_source),
+        match self.use_disi {
+            true => Disi::A(&mut self.in_),
+            false => Disi::B(&mut self.max_score_cache.impacts_source),
         }
     }
 }
@@ -121,9 +123,9 @@ where
     SS: SimScorer,
 {
     fn doc_id(&self) -> i32 {
-        match self.in_ {
-            Some(ref d) => d.doc_id(),
-            None => self.max_score_cache.impacts_source.doc_id(),
+        match self.use_disi {
+            true => self.in_.doc_id(),
+            false => self.max_score_cache.impacts_source.doc_id(),
         }
     }
 
@@ -142,16 +144,16 @@ where
 
     fn advance(&mut self, target: i32) -> Result<i32> {
         let doc_id = self.advance_target(target)?;
-        match self.in_ {
-            Some(ref mut in_) => in_.advance(doc_id),
-            None => self.max_score_cache.impacts_source.advance(doc_id),
+        match self.use_disi {
+            true => self.in_.advance(doc_id),
+            false => self.max_score_cache.impacts_source.advance(doc_id),
         }
     }
 
     fn cost(&self) -> Result<i64> {
-        match self.in_ {
-            Some(ref in_) => in_.cost(),
-            None => self.max_score_cache.impacts_source.cost(),
+        match self.use_disi {
+            true => self.in_.cost(),
+            false => self.max_score_cache.impacts_source.cost(),
         }
     }
 }
