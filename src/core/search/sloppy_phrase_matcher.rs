@@ -43,7 +43,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::vec;
 
-pub type SloopyImpactsDISI<PE, SS> = ImpactsDISI<ConjunctionDISI<PE>, ImpactsSourceImpl, SS>;
+pub type SloopyImpactsDISI<IE, SS> = ImpactsDISI<ConjunctionDISI<IE>, ImpactsSourceImpl, SS>;
 /**
  * Find all slop-valid position-combinations (matches) encountered while traversing/hopping the
  * PhrasePositions. <br>
@@ -59,9 +59,9 @@ pub type SloopyImpactsDISI<PE, SS> = ImpactsDISI<ConjunctionDISI<PE>, ImpactsSou
  * would get same score as "g f"~2, although "c b"~2 could be matched twice. We may want to fix this
  * in the future (currently not, for performance reasons).
  */
-pub struct SloppyPhraseMatcher<PE, SS>
+pub struct SloppyPhraseMatcher<IE, SS>
 where
-    PE: PostingsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
 {
     slop: usize,
@@ -70,7 +70,7 @@ where
     pub(crate) pq: PriorityQueue<usize, PhraseQueueCmp>,
     capture_lead_match: bool,
 
-    impacts_approximation: SloopyImpactsDISI<PE, SS>,
+    impacts_approximation: SloopyImpactsDISI<IE, SS>,
     /// current largest phrase position
     end: usize,
 
@@ -91,13 +91,13 @@ where
     match_length: usize,
     match_cost: f32,
 }
-impl<PE, SS> SloppyPhraseMatcher<PE, SS>
+impl<IE, SS> SloppyPhraseMatcher<IE, SS>
 where
-    PE: PostingsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
 {
     pub fn new(
-        postings: Vec<PostingsAndFreq<PE>>,
+        postings: Vec<PostingsAndFreq<IE>>,
         slop: usize,
         scorer: SS,
         match_cost: f32,
@@ -663,32 +663,32 @@ where
     }
 
     #[inline]
-    pub(crate) fn posting_mut(&mut self, posting_idx: usize) -> &mut PE {
+    pub(crate) fn posting_mut(&mut self, posting_idx: usize) -> &mut IE {
         debug_assert!(self.impacts_approximation.use_disi);
         let impacts = &mut self.impacts_approximation.in_;
         &mut impacts.all_disi[posting_idx]
     }
     #[inline]
-    pub(crate) fn posting(&self, posting_idx: usize) -> &PE {
+    pub(crate) fn posting(&self, posting_idx: usize) -> &IE {
         debug_assert!(self.impacts_approximation.use_disi);
         let impacts = &self.impacts_approximation.in_;
         &impacts.all_disi[posting_idx]
     }
 }
 
-impl<PE, SS> PhraseMatcher for SloppyPhraseMatcher<PE, SS>
+impl<IE, SS> PhraseMatcher for SloppyPhraseMatcher<IE, SS>
 where
-    PE: PostingsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
 {
-    type Disi = ConjunctionDISI<PE>;
+    type Disi = ConjunctionDISI<IE>;
 
     fn approximation(&mut self) -> &mut Self::Disi {
         debug_assert!(self.impacts_approximation.use_disi);
         &mut self.impacts_approximation.in_
     }
 
-    type ImpactsApproximation = SloopyImpactsDISI<PE, SS>;
+    type ImpactsApproximation = SloopyImpactsDISI<IE, SS>;
 
     fn impacts_approximation(&mut self) -> &mut Self::ImpactsApproximation {
         &mut self.impacts_approximation

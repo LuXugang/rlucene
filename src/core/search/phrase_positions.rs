@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::postings_enum::PostingsEnum;
+use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::term::Term;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
@@ -55,12 +55,12 @@ impl PhrasePositions {
         }
     }
 
-    pub(crate) fn first_position<PE, SS>(
-        phrase_matcher: &mut SloppyPhraseMatcher<PE, SS>,
+    pub(crate) fn first_position<IE, SS>(
+        phrase_matcher: &mut SloppyPhraseMatcher<IE, SS>,
         pp_idx: usize,
     ) -> Result<()>
     where
-        PE: PostingsEnum,
+        IE: ImpactsEnum,
         SS: SimScorer,
     {
         // read first position
@@ -75,12 +75,12 @@ impl PhrasePositions {
     /// `position` as `location - offset`, so that a matching exact phrase is
     /// easily identified when all `PhrasePositions` have exactly the same
     /// `position`.
-    pub(crate) fn next_position<PE, SS>(
-        phrase_matcher: &mut SloppyPhraseMatcher<PE, SS>,
+    pub(crate) fn next_position<IE, SS>(
+        phrase_matcher: &mut SloppyPhraseMatcher<IE, SS>,
         pp_idx: usize,
     ) -> Result<bool>
     where
-        PE: PostingsEnum,
+        IE: ImpactsEnum,
         SS: SimScorer,
     {
         let count = phrase_matcher.pq.compare.phrase_positions[pp_idx].count;

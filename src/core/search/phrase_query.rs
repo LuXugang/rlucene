@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
+use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LRTermState;
-use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -384,19 +384,19 @@ fn to_terms_from_bytes(field: &str, term_bytes: Vec<BytesRef<Vec<u8>>>) -> Vec<T
     terms
 }
 
-pub struct PostingsAndFreq<PE>
+pub struct PostingsAndFreq<IE>
 where
-    PE: PostingsEnum,
+    IE: ImpactsEnum,
 {
-    pub(crate) postings: PE,
+    pub(crate) postings: IE,
     pub(crate) position: usize,
     pub(crate) terms: Vec<Term>,
 }
-impl<PE> PostingsAndFreq<PE>
+impl<IE> PostingsAndFreq<IE>
 where
-    PE: PostingsEnum,
+    IE: ImpactsEnum,
 {
-    pub fn new(postings: PE, position: usize, terms: &[Term]) -> Self {
+    pub fn new(postings: IE, position: usize, terms: &[Term]) -> Self {
         let terms_vec = if terms.is_empty() {
             Vec::new()
         } else if terms.len() == 1 {
