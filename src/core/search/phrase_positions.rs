@@ -64,7 +64,7 @@ impl PhrasePositions {
         SS: SimScorer,
     {
         // read first position
-        let freq = phrase_matcher.posting_mut(pp_idx)?.next_position()?;
+        let freq = phrase_matcher.posting_mut(pp_idx).next_position()?;
         let pp = &mut phrase_matcher.pq.compare.phrase_positions[pp_idx];
         pp.count = freq;
         Self::next_position(phrase_matcher, pp_idx)?;
@@ -86,7 +86,7 @@ impl PhrasePositions {
         let count = phrase_matcher.pq.compare.phrase_positions[pp_idx].count;
         if count > 0 {
             let pos = phrase_matcher
-                .posting_mut(pp_idx)?
+                .posting_mut(pp_idx)
                 .next_position()?
                 .try_convert()?;
             let pp = &mut phrase_matcher.pq.compare.phrase_positions[pp_idx];

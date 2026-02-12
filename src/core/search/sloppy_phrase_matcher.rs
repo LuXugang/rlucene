@@ -21,10 +21,9 @@ use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::term::Term;
-use crate::core::search::conjunction_disi::{ConjunctionDISI, DISIEnum};
+use crate::core::search::conjunction_disi::ConjunctionDISI;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::impacts_disi::ImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::phrase_matcher::PhraseMatcher;
@@ -44,8 +43,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::vec;
 
-pub type SloopyImpactsDISI<PE, SS> =
-    ImpactsDISI<ConjunctionDISI<DummyScorer, PE>, ImpactsSourceImpl, SS>;
+pub type SloopyImpactsDISI<PE, SS> = ImpactsDISI<ConjunctionDISI<PE>, ImpactsSourceImpl, SS>;
 /**
  * Find all slop-valid position-combinations (matches) encountered while traversing/hopping the
  * PhrasePositions. <br>
@@ -160,7 +158,7 @@ where
         self.lead_position = pp.position + pp.offset;
 
         let postings_idx = pp.postings_idx;
-        let postings = self.posting_mut(postings_idx)?;
+        let postings = self.posting_mut(postings_idx);
         let start_offset = postings.start_offset()?;
         let end_offset = postings.end_offset()?;
         self.lead_offset = start_offset;
@@ -665,28 +663,16 @@ where
     }
 
     #[inline]
-    pub(crate) fn posting_mut(&mut self, posting_idx: usize) -> Result<&mut PE> {
+    pub(crate) fn posting_mut(&mut self, posting_idx: usize) -> &mut PE {
         debug_assert!(self.impacts_approximation.use_disi);
         let impacts = &mut self.impacts_approximation.in_;
-        let disi = &mut impacts.all_disi[posting_idx];
-        match disi {
-            DISIEnum::DocIdSetIterator(v) => Ok(v),
-            DISIEnum::Scorer(_) => Err(LuceneError::illegal_state(
-                "unexpected scorer in SloppyPhraseMatcher",
-            )),
-        }
+        &mut impacts.all_disi[posting_idx]
     }
     #[inline]
-    pub(crate) fn posting(&self, posting_idx: usize) -> Result<&PE> {
+    pub(crate) fn posting(&self, posting_idx: usize) -> &PE {
         debug_assert!(self.impacts_approximation.use_disi);
         let impacts = &self.impacts_approximation.in_;
-        let disi = &impacts.all_disi[posting_idx];
-        match disi {
-            DISIEnum::DocIdSetIterator(v) => Ok(v),
-            DISIEnum::Scorer(_) => Err(LuceneError::illegal_state(
-                "unexpected scorer in SloppyPhraseMatcher",
-            )),
-        }
+        &impacts.all_disi[posting_idx]
     }
 }
 
@@ -695,7 +681,7 @@ where
     PE: PostingsEnum,
     SS: SimScorer,
 {
-    type Disi = ConjunctionDISI<DummyScorer, PE>;
+    type Disi = ConjunctionDISI<PE>;
 
     fn approximation(&mut self) -> &mut Self::Disi {
         debug_assert!(self.impacts_approximation.use_disi);
@@ -716,16 +702,7 @@ where
         let mut max_freq = 0f32;
         for phrase_position in &self.pq.compare.phrase_positions {
             let idx = phrase_position.postings_idx;
-            let disi = &mut impacts.all_disi[idx];
-            let freq = match disi {
-                DISIEnum::DocIdSetIterator(v) => v.freq()?,
-                DISIEnum::Scorer(_) => {
-                    return Err(LuceneError::illegal_state(
-                        "unexpected scorer in SloppyPhraseMatcher",
-                    ));
-                },
-            };
-
+            let freq = impacts.all_disi[idx].freq()?;
             max_freq += freq as f32;
         }
         Ok(max_freq)
@@ -857,7 +834,7 @@ where
         let len = self.pq.compare.phrase_positions.len();
         for idx in 0..len {
             let postings_idx = self.pq.compare.phrase_positions[idx].postings_idx;
-            let offset = self.posting(postings_idx)?.start_offset()?;
+            let offset = self.posting(postings_idx).start_offset()?;
             lead_offset = lead_offset.min(offset);
         }
 
@@ -872,7 +849,7 @@ where
             let pp = &self.pq.compare.phrase_positions[idx];
             if pp.ord != self.lead_ord {
                 let postings_idx = pp.postings_idx;
-                let offset = self.posting(postings_idx)?.end_offset()?;
+                let offset = self.posting(postings_idx).end_offset()?;
                 end_offset = end_offset.max(offset);
             }
         }
