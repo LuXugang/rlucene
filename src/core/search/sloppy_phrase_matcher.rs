@@ -674,6 +674,9 @@ where
         let impacts = &self.impacts_approximation.in_;
         &impacts.all_disi[posting_idx]
     }
+    pub(crate) fn impacts_approximation(&mut self) -> &mut SloopyImpactsDISI<IE, SS> {
+        &mut self.impacts_approximation
+    }
 }
 
 impl<IE, SS> PhraseMatcher for SloppyPhraseMatcher<IE, SS>
@@ -681,12 +684,6 @@ where
     IE: ImpactsEnum,
     SS: SimScorer,
 {
-    type ImpactsApproximation = SloopyImpactsDISI<IE, SS>;
-
-    fn impacts_approximation(&mut self) -> &mut Self::ImpactsApproximation {
-        &mut self.impacts_approximation
-    }
-
     fn max_freq(&mut self) -> Result<f32> {
         // every term position in each postings list can be at the head of at most
         // one matching phrase, so the maximum possible phrase freq is the sum of

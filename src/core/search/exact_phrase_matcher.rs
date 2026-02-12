@@ -117,6 +117,9 @@ where
             .impacts_enums
             .all_disi[idx]
     }
+    pub(crate) fn impacts_approximation(&mut self) -> &mut ImpactsApproximationType<TE, SS> {
+        &mut self.impacts_approximation
+    }
 }
 pub type Disi<TE, SS> =
     DocIdSetIteratorEnum2<ImpactsApproximationType<TE, SS>, ConjunctionDISI<ImpactsEnumEnum<TE>>>;
@@ -125,12 +128,6 @@ where
     TE: TermsEnum,
     SS: SimScorer,
 {
-    type ImpactsApproximation = ImpactsApproximationType<TE, SS>;
-
-    fn impacts_approximation(&mut self) -> &mut Self::ImpactsApproximation {
-        &mut self.impacts_approximation
-    }
-
     fn max_freq(&mut self) -> Result<f32> {
         let mut min_freq = self.postings[0].freq;
 

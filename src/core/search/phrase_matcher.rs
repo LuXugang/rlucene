@@ -16,10 +16,6 @@
  */
 use crate::core::util::error::lucene_error::Result;
 pub trait PhraseMatcher {
-    type ImpactsApproximation;
-    /// Approximation that is aware of impacts.
-    fn impacts_approximation(&mut self) -> &mut Self::ImpactsApproximation;
-
     /// An upper bound on the number of possible matches on this document.
     fn max_freq(&mut self) -> Result<f32>;
 
