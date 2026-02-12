@@ -388,9 +388,9 @@ pub struct PostingsAndFreq<PE>
 where
     PE: PostingsEnum,
 {
-    postings: PE,
-    position: usize,
-    terms: Vec<Term>,
+    pub(crate) postings: PE,
+    pub(crate) position: usize,
+    pub(crate) terms: Vec<Term>,
 }
 impl<PE> PostingsAndFreq<PE>
 where
