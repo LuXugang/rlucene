@@ -261,11 +261,11 @@ where
         }
     }
 
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+    fn get_max_score(&mut self, upto: i32) -> Result<f32> {
         match self.disi {
-            Disi::A(ref mut v) => self.sub.get_max_score(up_to, &mut v.all_scores),
+            Disi::A(ref mut v) => self.sub.get_max_score(upto, &mut v.all_scores),
             Disi::B(ref mut v) => self.sub.get_max_score(
-                up_to,
+                upto,
                 v.two_phase_iterator
                     .unverified_matches
                     .compare
@@ -450,7 +450,7 @@ pub trait DisjunctionScorerBase {
     ) -> Result<i32>
     where
         S: Scorer;
-    fn get_max_score<S>(&mut self, up_to: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<f32>
+    fn get_max_score<S>(&mut self, upto: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<f32>
     where
         S: Scorer;
     fn set_min_competitive_score<S>(

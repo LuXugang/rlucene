@@ -188,21 +188,21 @@ where
         self.default_advance_shallow(target)
     }
 
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+    fn get_max_score(&mut self, upto: i32) -> Result<f32> {
         let mut max_score = 0f64;
 
         match &mut self.disi {
             DocIdSetIteratorEnum2::A(v) => {
                 for s in v.all_disi.iter_mut() {
-                    if s.doc_id()? <= up_to {
-                        max_score += s.get_max_score(up_to)? as f64;
+                    if s.doc_id()? <= upto {
+                        max_score += s.get_max_score(upto)? as f64;
                     }
                 }
             },
             DocIdSetIteratorEnum2::B(v) => {
                 for s in v.two_phase_iterator.approximation.all_disi.iter_mut() {
-                    if s.doc_id()? <= up_to {
-                        max_score += s.get_max_score(up_to)? as f64;
+                    if s.doc_id()? <= upto {
+                        max_score += s.get_max_score(upto)? as f64;
                     }
                 }
             },

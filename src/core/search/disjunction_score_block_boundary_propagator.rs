@@ -72,7 +72,7 @@ impl DisjunctionScoreBlockBoundaryPropagator {
         let lead_idx = self.lead_index as usize;
         let lead_scorer = &mut scorers[self.cost[lead_idx].idx];
         let doc_id = lead_scorer.scorer.doc_id()?;
-        let mut up_to = lead_scorer
+        let mut upto = lead_scorer
             .scorer
             .advance_shallow(std::cmp::max(doc_id, target))?;
 
@@ -80,7 +80,7 @@ impl DisjunctionScoreBlockBoundaryPropagator {
             let scorer = &mut scorers[self.cost[i].idx];
             if scorer.scorer.doc_id()? <= target {
                 let v = scorer.scorer.advance_shallow(target)?;
-                up_to = std::cmp::min(v, up_to);
+                upto = std::cmp::min(v, upto);
             }
         }
 
@@ -92,14 +92,14 @@ impl DisjunctionScoreBlockBoundaryPropagator {
             let scorer = &mut scorers[self.cost[i].idx];
             let doc = scorer.scorer.doc_id()?;
             if doc > target {
-                up_to = std::cmp::min(up_to, doc - 1);
+                upto = std::cmp::min(upto, doc - 1);
             } else {
                 break;
             }
             i -= 1;
         }
 
-        Ok(up_to)
+        Ok(upto)
     }
 
     /// Set the minimum competitive score to filter out clauses that score less than this threshold.

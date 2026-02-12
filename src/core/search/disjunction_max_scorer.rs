@@ -109,7 +109,7 @@ impl DisjunctionScorerBase for DisjunctionMaxScorer {
         }
     }
 
-    fn get_max_score<S>(&mut self, up_to: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<f32>
+    fn get_max_score<S>(&mut self, upto: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<f32>
     where
         S: Scorer,
     {
@@ -117,8 +117,8 @@ impl DisjunctionScorerBase for DisjunctionMaxScorer {
         let mut other_score_sum: f64 = 0.0;
 
         for scorer in disi_wrapper.iter_mut() {
-            if scorer.scorer.doc_id()? <= up_to {
-                let sub_score = scorer.scorer.get_max_score(up_to)?;
+            if scorer.scorer.doc_id()? <= upto {
+                let sub_score = scorer.scorer.get_max_score(upto)?;
 
                 if sub_score >= score_max {
                     other_score_sum += score_max as f64;

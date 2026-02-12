@@ -200,11 +200,11 @@ where
         }
     }
 
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+    fn get_max_score(&mut self, upto: i32) -> Result<f32> {
         match self.disi {
-            DocIdSetIteratorEnum2::A(ref mut disi) => disi.get_max_score(up_to),
+            DocIdSetIteratorEnum2::A(ref mut disi) => disi.get_max_score(upto),
             DocIdSetIteratorEnum2::B(ref mut tpi_disi) => {
-                tpi_disi.two_phase_iterator.approx.get_max_score(up_to)
+                tpi_disi.two_phase_iterator.approx.get_max_score(upto)
             },
         }
     }

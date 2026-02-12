@@ -213,11 +213,11 @@ where
         }
     }
 
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+    fn get_max_score(&mut self, upto: i32) -> Result<f32> {
         match self.disi {
-            DocIdSetIteratorEnum2::A(ref mut disi) => disi.get_max_score(up_to),
+            DocIdSetIteratorEnum2::A(ref mut disi) => disi.get_max_score(upto),
             DocIdSetIteratorEnum2::B(ref mut wrapper) => {
-                wrapper.two_phase_iterator.disi.get_max_score(up_to)
+                wrapper.two_phase_iterator.disi.get_max_score(upto)
             },
         }
     }
@@ -293,30 +293,30 @@ where
         Ok(())
     }
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-        let mut up_to = self.req_scorer.advance_shallow(target)?;
+        let mut upto = self.req_scorer.advance_shallow(target)?;
 
         let opt_doc = self.opt_scorer.doc_id()?;
 
         if opt_doc <= target {
             let v = self.opt_scorer.advance_shallow(target)?;
-            up_to = up_to.min(v);
+            upto = upto.min(v);
         } else if opt_doc != NO_MORE_DOCS {
-            up_to = up_to.min(opt_doc - 1);
+            upto = upto.min(opt_doc - 1);
         }
 
-        Ok(up_to)
+        Ok(upto)
     }
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+    fn get_max_score(&mut self, upto: i32) -> Result<f32> {
         #[cfg(test)]
         {
             if self.fixed_max_score {
                 return Ok(f32::INFINITY);
             }
         }
-        let mut max_score = self.req_scorer.get_max_score(up_to)?;
+        let mut max_score = self.req_scorer.get_max_score(upto)?;
 
-        if self.opt_scorer.doc_id()? <= up_to {
-            max_score += self.opt_scorer.get_max_score(up_to)?;
+        if self.opt_scorer.doc_id()? <= upto {
+            max_score += self.opt_scorer.get_max_score(upto)?;
         }
 
         Ok(max_score)

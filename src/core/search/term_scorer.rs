@@ -251,10 +251,10 @@ where
         }
     }
 
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+    fn get_max_score(&mut self, upto: i32) -> Result<f32> {
         match (&mut self.impacts_disi, &mut self.max_score_cache) {
-            (Some(impacts_disi), None) => impacts_disi.max_score_cache.get_max_score(up_to),
-            (None, Some(inner)) => inner.get_max_score(up_to),
+            (Some(impacts_disi), None) => impacts_disi.max_score_cache.get_max_score(upto),
+            (None, Some(inner)) => inner.get_max_score(upto),
             _ => Err(LuceneError::illegal_state("")),
         }
     }

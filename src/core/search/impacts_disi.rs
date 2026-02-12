@@ -34,7 +34,7 @@ where
     pub(crate) in_: D,
     pub(crate) max_score_cache: MaxScoreCache<IE, SS>,
     min_competitive_score: f32,
-    up_to: i32,
+    upto: i32,
     max_score: f32,
     pub(crate) use_disi: bool,
 }
@@ -49,7 +49,7 @@ where
             in_,
             max_score_cache,
             min_competitive_score: 0.0,
-            up_to: NO_MORE_DOCS,
+            upto: NO_MORE_DOCS,
             max_score: f32::INFINITY,
             use_disi,
         }
@@ -66,29 +66,29 @@ where
         debug_assert!(min_competitive_score >= self.min_competitive_score);
         if min_competitive_score > self.min_competitive_score {
             self.min_competitive_score = min_competitive_score;
-            // force `up_to` and `max_score` to be recomputed so that we will skip
+            // force `upto` and `max_score` to be recomputed so that we will skip
             // documents if the current block of documents is not competitive
             // only if the min competitive score actually increased
-            self.up_to = -1;
+            self.upto = -1;
         }
     }
     fn advance_target(&mut self, mut target: i32) -> Result<i32> {
-        if target <= self.up_to {
+        if target <= self.upto {
             // we are still in the current block, which is considered competitive
             // according to impacts, no skipping
             return Ok(target);
         }
-        self.up_to = self.max_score_cache.advance_shallow(target)?;
+        self.upto = self.max_score_cache.advance_shallow(target)?;
         self.max_score = self.max_score_cache.get_max_score_with_level_zero()?;
 
         loop {
-            debug_assert!(self.up_to >= target);
+            debug_assert!(self.upto >= target);
 
             if self.max_score >= self.min_competitive_score {
                 return Ok(target);
             }
 
-            if self.up_to == NO_MORE_DOCS {
+            if self.upto == NO_MORE_DOCS {
                 return Ok(NO_MORE_DOCS);
             }
 
@@ -97,14 +97,14 @@ where
                 .get_skip_up_to(self.min_competitive_score)?;
             if skip_up_to == -1 {
                 // no further skipping
-                target = self.up_to + 1;
+                target = self.upto + 1;
             } else if skip_up_to == NO_MORE_DOCS {
                 return Ok(NO_MORE_DOCS);
             } else {
                 target = skip_up_to + 1;
             }
 
-            self.up_to = self.max_score_cache.advance_shallow(target)?;
+            self.upto = self.max_score_cache.advance_shallow(target)?;
             self.max_score = self.max_score_cache.get_max_score_with_level_zero()?;
         }
     }
@@ -130,11 +130,11 @@ where
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let up_to = self.up_to;
+        let upto = self.upto;
         let doc = {
             let mut disi = self.disi_mut();
             let doc = disi.doc_id();
-            if doc < up_to {
+            if doc < upto {
                 return disi.next_doc();
             }
             doc

@@ -140,10 +140,10 @@ where
         }
     }
 
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+    fn get_max_score(&mut self, upto: i32) -> Result<f32> {
         match self.disi.two_phase_iterator {
-            TwoPhaseIteratorEnum2::A(ref mut tpi) => Ok(tpi.req_scorer.get_max_score(up_to)?),
-            TwoPhaseIteratorEnum2::B(ref mut tpi) => Ok(tpi.req_scorer.get_max_score(up_to)?),
+            TwoPhaseIteratorEnum2::A(ref mut tpi) => Ok(tpi.req_scorer.get_max_score(upto)?),
+            TwoPhaseIteratorEnum2::B(ref mut tpi) => Ok(tpi.req_scorer.get_max_score(upto)?),
         }
     }
 

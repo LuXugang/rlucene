@@ -84,8 +84,8 @@ where
         max_score
     }
     /// Return the maximum score up to upTo included.
-    pub fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
-        let level = self.get_level(up_to)?;
+    pub fn get_max_score(&mut self, upto: i32) -> Result<f32> {
+        let level = self.get_level(upto)?;
         if level == -1 {
             Ok(self.global_max_score)
         } else {
@@ -93,14 +93,14 @@ where
         }
     }
 
-    /// Return the first level that includes all doc IDs up to `up_to`,
+    /// Return the first level that includes all doc IDs up to `upto`,
     /// or -1 if there is no such level.
-    fn get_level(&self, up_to: i32) -> Result<i32> {
+    fn get_level(&self, upto: i32) -> Result<i32> {
         let impacts = self.impacts_source.get_impacts()?;
         let num_levels = impacts.num_levels();
         for level in 0..num_levels {
             let impacts_up_to = impacts.get_doc_id_upto(level);
-            if up_to <= impacts_up_to {
+            if upto <= impacts_up_to {
                 return Ok(level);
             }
         }

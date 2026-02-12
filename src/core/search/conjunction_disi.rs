@@ -540,8 +540,8 @@ where
         self.scorer.default_advance_shallow(_target)
     }
 
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
-        self.scorer.get_max_score(up_to)
+    fn get_max_score(&mut self, upto: i32) -> Result<f32> {
+        self.scorer.get_max_score(upto)
     }
 
     fn default_cost(&mut self) -> Result<i64> {

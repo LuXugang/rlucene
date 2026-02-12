@@ -260,7 +260,7 @@ where
         &mut self,
         collector: &mut dyn LeafCollector,
         accept_docs: Option<&dyn Bits>,
-        up_to: i32,
+        upto: i32,
     ) -> Result<()> {
         let top_index = self.essential_queue.top().expect("top ie empty");
         let (mut doc, mut score) = {
@@ -270,7 +270,7 @@ where
             (top.doc, top.scorer.score()? as f64)
         };
 
-        while doc < up_to {
+        while doc < upto {
             let accepted = match accept_docs {
                 None => true,
                 Some(bits) => bits.get(doc as usize)?,
@@ -514,8 +514,8 @@ where
             let scorer = &mut self.all_scorers[index];
 
             if self.filter.is_none() || scorer.cost >= self.filter.as_ref().unwrap().cost {
-                let up_to = scorer.scorer.advance_shallow(scorer.doc.max(window_min))? as i64;
-                window_max = (window_max as i64).min(up_to + 1) as i32; // upTo is inclusive
+                let upto = scorer.scorer.advance_shallow(scorer.doc.max(window_min))? as i64;
+                window_max = (window_max as i64).min(upto + 1) as i32; // upTo is inclusive
             }
         }
 

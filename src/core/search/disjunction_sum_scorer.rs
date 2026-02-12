@@ -69,15 +69,15 @@ impl DisjunctionScorerBase for DisjunctionSumScorer {
         Ok(min)
     }
 
-    fn get_max_score<S>(&mut self, up_to: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<f32>
+    fn get_max_score<S>(&mut self, upto: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<f32>
     where
         S: Scorer,
     {
         let mut sum: f64 = 0.0;
 
         for w in disi_wrapper.iter_mut() {
-            if w.scorer.doc_id()? <= up_to {
-                let v = w.scorer.get_max_score(up_to)? as f64;
+            if w.scorer.doc_id()? <= upto {
+                let v = w.scorer.get_max_score(upto)? as f64;
                 sum += v;
             }
         }

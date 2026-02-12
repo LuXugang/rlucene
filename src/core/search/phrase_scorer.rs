@@ -133,15 +133,15 @@ where
         }
     }
 
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+    fn get_max_score(&mut self, upto: i32) -> Result<f32> {
         match self.disi.two_phase_iterator.matcher {
             PhraseMatcherEnum::Exact(ref mut m) => {
-                m.impacts_approximation.max_score_cache.get_max_score(up_to)
+                m.impacts_approximation.max_score_cache.get_max_score(upto)
             },
             PhraseMatcherEnum::Sloppy(ref mut m) => m
                 .impacts_approximation()
                 .max_score_cache
-                .get_max_score(up_to),
+                .get_max_score(upto),
         }
     }
 

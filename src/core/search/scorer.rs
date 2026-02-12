@@ -104,8 +104,8 @@ pub trait Scorer: Scorable {
     }
 
     /// Return the maximum score that documents between the last `target` that this
-    /// iterator was `advance_shallow`’d to (included) and `up_to` (included) can get.
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32>;
+    /// iterator was `advance_shallow`’d to (included) and `upto` (included) can get.
+    fn get_max_score(&mut self, upto: i32) -> Result<f32>;
 
     fn default_cost(&mut self) -> Result<i64> {
         self.iterator_mut().cost()
@@ -395,8 +395,8 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
-                match self { $( Self::$Variant(inner) => inner.get_max_score(up_to), )+ }
+            fn get_max_score(&mut self, upto: i32) -> Result<f32> {
+                match self { $( Self::$Variant(inner) => inner.get_max_score(upto), )+ }
             }
 
             #[inline]

@@ -2249,12 +2249,12 @@ pub(crate) mod tests {
             self.scorer.advance_shallow(target)
         }
 
-        fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+        fn get_max_score(&mut self, upto: i32) -> Result<f32> {
             let v = self.doc_id()?.max(self.last_shallow_target);
-            if up_to - v >= self.max_range {
+            if upto - v >= self.max_range {
                 return Ok(self.max_score);
             }
-            self.scorer.get_max_score(up_to)
+            self.scorer.get_max_score(upto)
         }
 
         fn has_two_phase_iterator(&self) -> TwoPhaseState {

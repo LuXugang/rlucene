@@ -276,7 +276,7 @@ impl CheckHits {
             let mut s1 = s1.unwrap();
             let mut s2 = s2.unwrap();
 
-            let mut up_to: i32 = -1;
+            let mut upto: i32 = -1;
             let mut max_score: f32 = 0.0;
             let mut min_score: f32 = 0.0;
 
@@ -296,10 +296,10 @@ impl CheckHits {
                     break;
                 }
 
-                if doc2 > up_to {
-                    up_to = s2.advance_shallow(doc2)?;
-                    assert!(up_to >= doc2);
-                    max_score = s2.get_max_score(up_to)?;
+                if doc2 > upto {
+                    upto = s2.advance_shallow(doc2)?;
+                    assert!(upto >= doc2);
+                    max_score = s2.get_max_score(upto)?;
                 }
 
                 let matches2 = Self::matches(&mut s2)?;
@@ -347,7 +347,7 @@ impl CheckHits {
             let mut s1 = s1.unwrap();
             let mut s2 = s2.unwrap();
 
-            let mut up_to: i32 = -1;
+            let mut upto: i32 = -1;
             let mut min_score: f32 = 0.0;
             let mut max_score: f32 = 0.0;
 
@@ -361,12 +361,12 @@ impl CheckHits {
                     (true, s2.doc_id()? + delta)
                 };
 
-                if target > up_to && random.random_bool(0.5) {
+                if target > upto && random.random_bool(0.5) {
                     let delta = std::cmp::min(random.random_range(0..512), NO_MORE_DOCS - target);
-                    up_to = target + delta;
+                    upto = target + delta;
                     let m = s2.advance_shallow(target)?;
                     assert!(m >= target);
-                    max_score = s2.get_max_score(up_to)?;
+                    max_score = s2.get_max_score(upto)?;
                 }
 
                 let doc2 = if advance {
@@ -397,10 +397,10 @@ impl CheckHits {
                     let score = s2.score()?;
                     assert_eq!(s1.score()?, score);
 
-                    if doc2 > up_to {
-                        up_to = s2.advance_shallow(doc2)?;
-                        assert!(up_to >= doc2);
-                        max_score = s2.get_max_score(up_to)?;
+                    if doc2 > upto {
+                        upto = s2.advance_shallow(doc2)?;
+                        assert!(upto >= doc2);
+                        max_score = s2.get_max_score(upto)?;
                     }
 
                     assert!(score <= max_score);
