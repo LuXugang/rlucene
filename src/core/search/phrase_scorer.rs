@@ -15,111 +15,245 @@
  * limitations under the License.
  */
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::phrase_matcher::PhraseMatcher;
+use crate::core::search::phrase_matcher::{PhraseMatcher, PhraseMatcherEnum};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::score_mode::ScoreMode::TopScores;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::similarities_impl::similarities::SimScorer;
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+use crate::core::search::two_phase_iterator::{
+    TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
+};
 use crate::core::util::error::lucene_error::Result;
-
-pub struct PhraseScorer<PM, SS, N>
+pub type Disi<TE, SS, N> = TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<TE, SS, N>>;
+pub struct PhraseScorer<TE, SS, N>
 where
-    PM: PhraseMatcher,
+    TE: TermsEnum,
     SS: SimScorer,
     N: NumericDocValues,
 {
-    matcher: PM,
-    scorer_mode: ScoreMode,
-    sim_scorer: SS,
-    norms: Option<N>,
-    match_cost: f32,
-    min_competitive_score: f32,
-    freq: f32,
+    disi: Disi<TE, SS, N>,
 }
-impl<PM, SS, N> PhraseScorer<PM, SS, N>
+impl<TE, SS, N> PhraseScorer<TE, SS, N>
 where
-    PM: PhraseMatcher,
+    TE: TermsEnum,
     SS: SimScorer,
     N: NumericDocValues,
 {
+    pub(crate) fn new(
+        matcher: PhraseMatcherEnum<TE, SS>,
+        score_mode: ScoreMode,
+        sim_scorer: SS,
+        norms: Option<N>,
+    ) -> Self {
+        let v = TwoPhaseIteratorImpl::new(matcher, score_mode, sim_scorer, norms);
+        let disi = TwoPhaseIteratorAsDocIdSetIterator::new(v);
+        Self { disi }
+    }
 }
 
-impl<PM, SS, N> Scorable for PhraseScorer<PM, SS, N>
+impl<TE, SS, N> Scorable for PhraseScorer<TE, SS, N>
 where
-    PM: PhraseMatcher,
+    TE: TermsEnum,
     SS: SimScorer,
     N: NumericDocValues,
 {
     fn score(&mut self) -> Result<f32> {
-        todo!()
+        {
+            let tpi = &mut self.disi.two_phase_iterator;
+            if tpi.freq == 0.0 {
+                tpi.freq = tpi.matcher.sloppy_weight();
+                while tpi.matcher.next_match()? {
+                    tpi.freq += tpi.matcher.sloppy_weight();
+                }
+            }
+        }
+
+        let mut norm: i64 = 1;
+        let doc_id = self.disi.doc_id();
+        let tpi = &mut self.disi.two_phase_iterator;
+        if let Some(norms) = tpi.norms.as_mut()
+            && norms.advance_exact(doc_id)?
+        {
+            norm = norms.long_value()?;
+        }
+
+        Ok(tpi.sim_scorer.score(tpi.freq, norm))
+    }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        self.disi.two_phase_iterator.min_competitive_score = min_score;
+        match self.disi.two_phase_iterator.matcher {
+            PhraseMatcherEnum::Exact(ref mut m) => m
+                .impacts_approximation()
+                .set_min_competitive_score(min_score),
+            PhraseMatcherEnum::Sloppy(ref mut m) => m
+                .impacts_approximation()
+                .set_min_competitive_score(min_score),
+        }
+        Ok(())
     }
 }
 
-impl<PM, SS, N> Scorer for PhraseScorer<PM, SS, N>
+impl<TE, SS, N> Scorer for PhraseScorer<TE, SS, N>
 where
-    PM: PhraseMatcher,
-    SS: SimScorer,
-    N: NumericDocValues,
+    TE: TermsEnum + 'static,
+    SS: SimScorer + 'static,
+    N: NumericDocValues + 'static,
 {
     fn doc_id(&mut self) -> Result<i32> {
-        todo!()
+        Ok(self.disi.two_phase_iterator.doc_id())
     }
 
     fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-        todo!()
+        Box::new(&self.disi)
     }
 
     fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        todo!()
+        Box::new(&mut self.disi)
     }
 
     fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-        todo!()
+        let PhraseScorer { disi, .. } = *self;
+        Box::new(disi)
+    }
+
+    fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+        match self.disi.two_phase_iterator.matcher {
+            PhraseMatcherEnum::Exact(ref mut m) => m
+                .impacts_approximation
+                .max_score_cache
+                .advance_shallow(target),
+            PhraseMatcherEnum::Sloppy(ref mut m) => m
+                .impacts_approximation()
+                .max_score_cache
+                .advance_shallow(target),
+        }
     }
 
     fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
-        todo!()
+        match self.disi.two_phase_iterator.matcher {
+            PhraseMatcherEnum::Exact(ref mut m) => {
+                m.impacts_approximation.max_score_cache.get_max_score(up_to)
+            },
+            PhraseMatcherEnum::Sloppy(ref mut m) => m
+                .impacts_approximation()
+                .max_score_cache
+                .get_max_score(up_to),
+        }
     }
 
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
-        todo!()
+        TwoPhaseState::Yes
     }
 
     fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-        todo!()
+        self.disi.two_phase_iterator.approximation()
     }
 
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        todo!()
+        self.disi.two_phase_iterator.approximation_mut()
     }
 }
 
-pub struct TwoPhaseIteratorImpl<PM, SS, N>
+pub struct TwoPhaseIteratorImpl<TE, SS, N>
 where
-    PM: PhraseMatcher,
+    TE: TermsEnum,
     SS: SimScorer,
     N: NumericDocValues,
 {
-    matcher: PM,
+    matcher: PhraseMatcherEnum<TE, SS>,
     sim_scorer: SS,
     norms: Option<N>,
     match_cost: f32,
+    freq: f32,
+    min_competitive_score: f32,
+    score_mode: ScoreMode,
 }
-impl<PM, SS, N> TwoPhaseIteratorImpl<PM, SS, N> where PM: PhraseMatcher, SS:SimScorer,N:NumericDocValues {
+impl<TE, SS, N> TwoPhaseIteratorImpl<TE, SS, N>
+where
+    TE: TermsEnum,
+    SS: SimScorer,
+    N: NumericDocValues,
+{
+    fn new(
+        matcher: PhraseMatcherEnum<TE, SS>,
+        score_mode: ScoreMode,
+        sim_scorer: SS,
+        norms: Option<N>,
+    ) -> Self {
+        let match_cost = matcher.get_match_cost();
+        Self {
+            matcher,
+            sim_scorer,
+            norms,
+            match_cost,
+            freq: 0.0,
+            min_competitive_score: 0.0,
+            score_mode,
+        }
+    }
+
+    fn doc_id(&self) -> i32 {
+        self.approximation().doc_id()
+    }
 }
-impl<PM, SS, N> TwoPhaseIterator for TwoPhaseIteratorImpl<PM, SS, N> where PM: PhraseMatcher, SS:SimScorer,N:NumericDocValues {
+impl<TE, SS, N> TwoPhaseIterator for TwoPhaseIteratorImpl<TE, SS, N>
+where
+    TE: TermsEnum,
+    SS: SimScorer,
+    N: NumericDocValues,
+{
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        todo!()
+        match self.matcher {
+            PhraseMatcherEnum::Exact(ref mut m) => {
+                if m.score_mode == TopScores {
+                    Box::new(m.approximation_top_scorers_mut())
+                } else {
+                    Box::new(m.approximation_mut())
+                }
+            },
+            PhraseMatcherEnum::Sloppy(ref mut m) => Box::new(m.approximation_mut()),
+        }
     }
 
     fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-        todo!()
+        match self.matcher {
+            PhraseMatcherEnum::Exact(ref m) => {
+                if m.score_mode == TopScores {
+                    Box::new(m.approximation_top_scorers())
+                } else {
+                    Box::new(m.approximation())
+                }
+            },
+            PhraseMatcherEnum::Sloppy(ref m) => Box::new(m.approximation()),
+        }
     }
 
     fn matches(&mut self) -> Result<bool> {
-        todo!()
+        self.matcher.reset()?;
+
+        if self.score_mode == TopScores && self.min_competitive_score > 0.0 {
+            let max_freq = self.matcher.max_freq()?;
+
+            let mut norm: i64 = 1;
+            let doc_id = self.doc_id();
+            if let Some(norms) = self.norms.as_mut()
+                && norms.advance_exact(doc_id)?
+            {
+                norm = norms.long_value()?;
+            }
+
+            if self.sim_scorer.score(max_freq, norm) < self.min_competitive_score {
+                // The maximum score we could get is less than the min competitive score
+                return Ok(false);
+            }
+        }
+
+        self.freq = 0.0;
+        self.matcher.next_match()
     }
 
     fn match_cost(&self) -> f32 {

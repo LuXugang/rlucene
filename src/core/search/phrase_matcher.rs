@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::terms_enum::TermsEnum;
+use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
+use crate::core::search::similarities_impl::similarities::SimScorer;
+use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::util::error::lucene_error::Result;
 pub trait PhraseMatcher {
     /// An upper bound on the number of possible matches on this document.
@@ -48,4 +52,80 @@ pub trait PhraseMatcher {
     ///
     /// See `TwoPhaseIterator::match_cost`.
     fn get_match_cost(&self) -> f32;
+}
+pub enum PhraseMatcherEnum<TE, SS>
+where
+    TE: TermsEnum,
+    SS: SimScorer,
+{
+    Exact(ExactPhraseMatcher<TE, SS>),
+    Sloppy(SloppyPhraseMatcher<TE::ImpactsEnum, SS>),
+}
+impl<TE, SS> PhraseMatcher for PhraseMatcherEnum<TE, SS>
+where
+    TE: TermsEnum,
+    SS: SimScorer,
+{
+    fn max_freq(&mut self) -> Result<f32> {
+        match self {
+            PhraseMatcherEnum::Exact(m) => m.max_freq(),
+            PhraseMatcherEnum::Sloppy(m) => m.max_freq(),
+        }
+    }
+
+    fn reset(&mut self) -> Result<()> {
+        match self {
+            PhraseMatcherEnum::Exact(m) => m.reset(),
+            PhraseMatcherEnum::Sloppy(m) => m.reset(),
+        }
+    }
+
+    fn next_match(&mut self) -> Result<bool> {
+        match self {
+            PhraseMatcherEnum::Exact(m) => m.next_match(),
+            PhraseMatcherEnum::Sloppy(m) => m.next_match(),
+        }
+    }
+
+    fn sloppy_weight(&self) -> f32 {
+        match self {
+            PhraseMatcherEnum::Exact(m) => m.sloppy_weight(),
+            PhraseMatcherEnum::Sloppy(m) => m.sloppy_weight(),
+        }
+    }
+
+    fn start_position(&self) -> i32 {
+        match self {
+            PhraseMatcherEnum::Exact(m) => m.start_position(),
+            PhraseMatcherEnum::Sloppy(m) => m.start_position(),
+        }
+    }
+
+    fn end_position(&self) -> i32 {
+        match self {
+            PhraseMatcherEnum::Exact(m) => m.end_position(),
+            PhraseMatcherEnum::Sloppy(m) => m.end_position(),
+        }
+    }
+
+    fn start_offset(&self) -> Result<i32> {
+        match self {
+            PhraseMatcherEnum::Exact(m) => m.start_offset(),
+            PhraseMatcherEnum::Sloppy(m) => m.start_offset(),
+        }
+    }
+
+    fn end_offset(&self) -> Result<i32> {
+        match self {
+            PhraseMatcherEnum::Exact(m) => m.end_offset(),
+            PhraseMatcherEnum::Sloppy(m) => m.end_offset(),
+        }
+    }
+
+    fn get_match_cost(&self) -> f32 {
+        match self {
+            PhraseMatcherEnum::Exact(m) => m.get_match_cost(),
+            PhraseMatcherEnum::Sloppy(m) => m.get_match_cost(),
+        }
+    }
 }

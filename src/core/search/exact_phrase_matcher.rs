@@ -43,9 +43,9 @@ where
     TE: TermsEnum,
     SS: SimScorer,
 {
-    impacts_approximation: ImpactsApproximationType<TE, SS>,
+    pub(crate) impacts_approximation: ImpactsApproximationType<TE, SS>,
     match_cost: f32,
-    score_mode: ScoreMode,
+    pub(crate) score_mode: ScoreMode,
     postings: Vec<PostingsAndPosition>,
 }
 impl<TE, SS> ExactPhraseMatcher<TE, SS>
@@ -119,6 +119,28 @@ where
     }
     pub(crate) fn impacts_approximation(&mut self) -> &mut ImpactsApproximationType<TE, SS> {
         &mut self.impacts_approximation
+    }
+    pub(crate) fn approximation_top_scorers_mut(
+        &mut self,
+    ) -> &mut ImpactsApproximationType<TE, SS> {
+        self.impacts_approximation()
+    }
+    pub(crate) fn approximation_top_scorers(&self) -> &ImpactsApproximationType<TE, SS> {
+        &self.impacts_approximation
+    }
+    pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISI<ImpactsEnumEnum<TE>> {
+        &mut self
+            .impacts_approximation
+            .max_score_cache
+            .impacts_source
+            .impacts_enums
+    }
+    pub(crate) fn approximation(&self) -> &ConjunctionDISI<ImpactsEnumEnum<TE>> {
+        &self
+            .impacts_approximation
+            .max_score_cache
+            .impacts_source
+            .impacts_enums
     }
 }
 pub type Disi<TE, SS> =

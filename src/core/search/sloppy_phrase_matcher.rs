@@ -677,6 +677,12 @@ where
     pub(crate) fn impacts_approximation(&mut self) -> &mut SloopyImpactsDISI<IE, SS> {
         &mut self.impacts_approximation
     }
+    pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISI<IE> {
+        &mut self.impacts_approximation.in_
+    }
+    pub(crate) fn approximation(&self) -> &ConjunctionDISI<IE> {
+        &self.impacts_approximation.in_
+    }
 }
 
 impl<IE, SS> PhraseMatcher for SloppyPhraseMatcher<IE, SS>
