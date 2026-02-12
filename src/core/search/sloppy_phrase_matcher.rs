@@ -934,7 +934,7 @@ impl Impacts for ImpactsImpl {
         NO_MORE_DOCS
     }
 
-    fn get_impacts(&'_ mut self, _level: i32) -> Result<Cow<'_, [Impact]>> {
-        Ok(Cow::Owned(vec![Impact::new(i32::MAX, 1)]))
+    fn get_impacts(&self, _level: i32) -> Result<Vec<Impact>> {
+        Ok(vec![Impact::new(i32::MAX, 1)])
     }
 }

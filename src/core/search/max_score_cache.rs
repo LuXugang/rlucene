@@ -114,7 +114,7 @@ where
     fn get_max_score_with_level(&mut self, level: i32) -> Result<f32> {
         debug_assert!(level >= 0, "level must not be negative; got {}", level);
         self.ensure_cache_size((level + 1) as usize)?;
-        let mut impacts = self.impacts_source.get_impacts()?;
+        let impacts = self.impacts_source.get_impacts()?;
         let level_up_to = impacts.get_doc_id_upto(level);
         if self.max_score_cache_upto[level as usize] < level_up_to {
             let max_score = self.compute_max_score(impacts.get_impacts(level)?.as_ref());

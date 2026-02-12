@@ -129,7 +129,7 @@ impl Impacts for DummyImpacts {
         NO_MORE_DOCS
     }
 
-    fn get_impacts(&'_ mut self, _level: i32) -> Result<Cow<'_, [Impact]>> {
-        Ok(Cow::Borrowed(self.impacts.as_slice()))
+    fn get_impacts(&self, _level: i32) -> Result<Vec<Impact>> {
+        Ok(self.impacts.clone())
     }
 }

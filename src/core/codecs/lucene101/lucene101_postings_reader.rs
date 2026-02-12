@@ -47,7 +47,6 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::vector_util::VECTOR_UTIL;
 use crate::core::util::{SliceCopyOps, TryIntoInt};
-use once_cell::sync::Lazy;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -1494,7 +1493,7 @@ impl Impacts for ImpactsImpl<'_> {
         }
     }
 
-    fn get_impacts(&'_ mut self, level: i32) -> Result<Cow<'_, [Impact]>> {
+    fn get_impacts(&self, level: i32) -> Result<Vec<Impact>> {
         if self.index_has_freq {
             // We don't reuse level0_impacts and level1_impacts like Java Lucene does.
             if level == 0 && self.level0_last_doc_id != NO_MORE_DOCS {
@@ -1506,7 +1505,7 @@ impl Impacts for ImpactsImpl<'_> {
                         .as_slice(),
                     self.max_num_impacts_at_level0,
                 )?;
-                Ok(Cow::Owned(level0_impacts.impacts))
+                Ok(level0_impacts.impacts)
             } else {
                 let level1_impacts = ImpactsImpl::read_impacts(
                     self.level1_serialized_impacts
@@ -1516,10 +1515,10 @@ impl Impacts for ImpactsImpl<'_> {
                         .as_slice(),
                     self.max_num_impacts_at_level1,
                 )?;
-                Ok(Cow::Owned(level1_impacts.impacts))
+                Ok(level1_impacts.impacts)
             }
         } else {
-            Ok(Cow::Borrowed(DUMMY_IMPACTS.as_slice()))
+            Ok(vec![Impact::new(i32::MAX, 1)])
         }
     }
 }
@@ -1547,12 +1546,6 @@ impl MutableImpactList {
         self.length
     }
 }
-// Dummy impacts, composed of the maximum possible term frequency and the lowest
-// possible (unsigned) norm value. This is typically used on tail blocks, which
-// don't actually record impacts as the storage overhead would not be worth any
-// query evaluation speedup, since there's less than 128 docs left to evaluate
-// anyway.
-static DUMMY_IMPACTS: Lazy<Vec<Impact>> = Lazy::new(|| vec![Impact::new(i32::MAX, 1)]);
 
 fn prefix_sum(buffer: &mut [i32], count: usize, base: i32) {
     buffer[0] += base;

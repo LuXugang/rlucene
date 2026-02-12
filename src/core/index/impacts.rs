@@ -16,7 +16,6 @@
  */
 use crate::core::index::impact::Impact;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 /// Information about upcoming impacts, i.e., (freq, norm) pairs.
 pub trait Impacts {
@@ -45,7 +44,7 @@ pub trait Impacts {
     /// NOTE: There is no guarantee that these impacts actually appear in
     /// postings, only that they trigger scores that are greater than or
     /// equal to the impacts that actually appear in postings.
-    fn get_impacts(&'_ mut self, level: i32) -> Result<Cow<'_, [Impact]>>;
+    fn get_impacts(&self, level: i32) -> Result<Vec<Impact>>;
 }
 
 // Impacts
@@ -77,7 +76,7 @@ where
         }
     }
 
-    fn get_impacts(&'_ mut self, level: i32) -> Result<Cow<'_, [Impact]>> {
+    fn get_impacts(&self, level: i32) -> Result<Vec<Impact>> {
         match self {
             ImpactsEnum2::A(t) => t.get_impacts(level),
             ImpactsEnum2::B(s) => s.get_impacts(level),
