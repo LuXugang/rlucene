@@ -70,7 +70,7 @@ where
     pub(crate) pq: PriorityQueue<usize, PhraseQueueCmp>,
     capture_lead_match: bool,
 
-    impacts_approximation: SloopyImpactsDISI<IE, SS>,
+    pub(crate) impacts_approximation: SloopyImpactsDISI<IE, SS>,
     /// current largest phrase position
     end: usize,
 
@@ -674,9 +674,7 @@ where
         let impacts = &self.impacts_approximation.in_;
         &impacts.all_disi[posting_idx]
     }
-    pub(crate) fn impacts_approximation(&mut self) -> &mut SloopyImpactsDISI<IE, SS> {
-        &mut self.impacts_approximation
-    }
+
     pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISI<IE> {
         &mut self.impacts_approximation.in_
     }

@@ -117,13 +117,10 @@ where
             .impacts_enums
             .all_disi[idx]
     }
-    pub(crate) fn impacts_approximation(&mut self) -> &mut ImpactsApproximationType<TE, SS> {
-        &mut self.impacts_approximation
-    }
     pub(crate) fn approximation_top_scorers_mut(
         &mut self,
     ) -> &mut ImpactsApproximationType<TE, SS> {
-        self.impacts_approximation()
+        &mut self.impacts_approximation
     }
     pub(crate) fn approximation_top_scorers(&self) -> &ImpactsApproximationType<TE, SS> {
         &self.impacts_approximation

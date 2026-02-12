@@ -86,12 +86,12 @@ where
     fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
         self.disi.two_phase_iterator.min_competitive_score = min_score;
         match self.disi.two_phase_iterator.matcher {
-            PhraseMatcherEnum::Exact(ref mut m) => m
-                .impacts_approximation()
-                .set_min_competitive_score(min_score),
-            PhraseMatcherEnum::Sloppy(ref mut m) => m
-                .impacts_approximation()
-                .set_min_competitive_score(min_score),
+            PhraseMatcherEnum::Exact(ref mut m) => {
+                m.impacts_approximation.set_min_competitive_score(min_score)
+            },
+            PhraseMatcherEnum::Sloppy(ref mut m) => {
+                m.impacts_approximation.set_min_competitive_score(min_score)
+            },
         }
         Ok(())
     }
@@ -127,7 +127,7 @@ where
                 .max_score_cache
                 .advance_shallow(target),
             PhraseMatcherEnum::Sloppy(ref mut m) => m
-                .impacts_approximation()
+                .impacts_approximation
                 .max_score_cache
                 .advance_shallow(target),
         }
@@ -138,10 +138,9 @@ where
             PhraseMatcherEnum::Exact(ref mut m) => {
                 m.impacts_approximation.max_score_cache.get_max_score(upto)
             },
-            PhraseMatcherEnum::Sloppy(ref mut m) => m
-                .impacts_approximation()
-                .max_score_cache
-                .get_max_score(upto),
+            PhraseMatcherEnum::Sloppy(ref mut m) => {
+                m.impacts_approximation.max_score_cache.get_max_score(upto)
+            },
         }
     }
 
