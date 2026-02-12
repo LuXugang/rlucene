@@ -103,6 +103,7 @@ pub(crate) mod disjunction_scorer;
 pub(crate) mod disjunction_sum_scorer;
 pub mod doc_values_range_iterator;
 mod dummy_query_caching_policy;
+mod exact_phrase_matcher;
 pub mod field_exists_query;
 pub mod filter_doc_id_set_iterator;
 pub mod filter_scorable;
