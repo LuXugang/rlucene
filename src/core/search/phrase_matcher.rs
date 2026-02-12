@@ -14,13 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
 pub trait PhraseMatcher {
-    type Disi: DocIdSetIterator;
-    /// Approximation that only matches documents that have all terms.
-    fn approximation(&mut self) -> &mut Self::Disi;
-
     type ImpactsApproximation;
     /// Approximation that is aware of impacts.
     fn impacts_approximation(&mut self) -> &mut Self::ImpactsApproximation;

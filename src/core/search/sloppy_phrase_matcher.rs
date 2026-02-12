@@ -96,7 +96,7 @@ where
     IE: ImpactsEnum,
     SS: SimScorer,
 {
-    pub fn new(
+    pub(crate) fn new(
         postings: Vec<PostingsAndFreq<IE>>,
         slop: usize,
         scorer: SS,
@@ -681,13 +681,6 @@ where
     IE: ImpactsEnum,
     SS: SimScorer,
 {
-    type Disi = ConjunctionDISI<IE>;
-
-    fn approximation(&mut self) -> &mut Self::Disi {
-        debug_assert!(self.impacts_approximation.use_disi);
-        &mut self.impacts_approximation.in_
-    }
-
     type ImpactsApproximation = SloopyImpactsDISI<IE, SS>;
 
     fn impacts_approximation(&mut self) -> &mut Self::ImpactsApproximation {

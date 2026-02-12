@@ -28,7 +28,11 @@ use std::borrow::Cow;
 /// impacts.
 pub trait ImpactsEnum: PostingsEnum + ImpactsSource {}
 
-pub enum ImpactsEnumEnum2<A, B> {
+pub enum ImpactsEnumEnum2<A, B>
+where
+    A: ImpactsEnum,
+    B: ImpactsEnum,
+{
     A(A),
     B(B),
 }
