@@ -30,13 +30,13 @@ use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::phrase_matcher::{DefaultPhraseMatcherEnum, PhraseMatcherEnum};
-use crate::core::search::phrase_weight::{PhraseWeightBase, PhraseWeightMeta, SimScorerImpl};
+use crate::core::search::phrase_weight::{
+    PhraseWeight, PhraseWeightBase, PhraseWeightMeta, SimScorerImpl, SimScorerType,
+};
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::similarities_impl::similarities::{
-    SimScorerEnum2, Similarity, SimilarityEnum,
-};
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
@@ -259,9 +259,9 @@ impl QueryBase for PhraseQuery {
 
     fn create_weight<IRC>(
         self,
-        _searcher: &IndexSearcher<IRC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
+        searcher: &IndexSearcher<IRC>,
+        score_mode: &ScoreMode,
+        boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
@@ -269,14 +269,16 @@ impl QueryBase for PhraseQuery {
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
-        // let similarity = searcher.get_similarity();
-        // let query = self.clone();
-        // let field = self.field.clone().ok_or_else(|| LuceneError::illegal_state("field is None"))?;
-        // let base = PhraseWeightMeta::new(field, *score_mode, similarity,query.into());
-        // let sub = PhraseQueryWeightBase::new(self, boost,base);
-        // let weight = PhraseWeight::new(searcher, sub)?;
-        // Ok(Box::new(weight))
-        todo!()
+        let similarity = searcher.get_similarity();
+        let query = self.clone();
+        let field = self
+            .field
+            .clone()
+            .ok_or_else(|| LuceneError::illegal_state("field is None"))?;
+        let base = PhraseWeightMeta::new(field, *score_mode, similarity, query.into());
+        let sub = PhraseQueryWeightBase::new(self, boost, base);
+        let weight = PhraseWeight::new(searcher, sub)?;
+        Ok(Box::new(weight))
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -460,13 +462,16 @@ where
     }
 }
 
-impl<IRC> PhraseWeightBase<IRC> for PhraseQueryWeightBase<IRCLeafReader<IRC>>
+impl<LR> PhraseWeightBase<LR> for PhraseQueryWeightBase<LR>
 where
-    IRC: IndexReaderContext,
+    LR: LeafReader,
 {
-    type SimScorer = Arc<SimScorerEnum2<<SimilarityEnum as Similarity>::SimScorer, SimScorerImpl>>;
+    type SimScorer = Arc<SimScorerType>;
 
-    fn get_stats(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer> {
+    fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
+    where
+        IRC: IndexReaderContext<LeafReader = LR>,
+    {
         let positions = &self.query.positions;
 
         if positions.len() < 2 {
@@ -506,24 +511,24 @@ where
                 .collection_statistics(&self.base.field)?
                 .ok_or_else(|| LuceneError::illegal_state("could not get collection stats"))?;
 
-            SimScorerEnum2::A(self.base.similarity.scorer(
+            SimScorerType::A(self.base.similarity.scorer(
                 self.boost,
                 &collection_stats,
                 term_stats[..term_up_to].as_ref(),
             ))
         } else {
             // no terms at all, we won't use similarity
-            SimScorerEnum2::B(SimScorerImpl)
+            SimScorerType::B(SimScorerImpl)
         };
         Ok(Arc::new(v))
     }
 
     fn get_phrase_matcher(
         &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        context: &LeafReaderContext<LR>,
         scorer: Self::SimScorer,
         expose_offsets: bool,
-    ) -> Result<Option<DefaultPhraseMatcherEnum<IRCLeafReader<IRC>, Self::SimScorer>>> {
+    ) -> Result<Option<DefaultPhraseMatcherEnum<LR, Self::SimScorer>>> {
         debug_assert!(!self.query.terms.is_empty());
         let reader = context.reader();
 

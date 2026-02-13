@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::index_reader_context::{
-    IRCImpactsEnum, IRCLeafReader, IRCPostingsEnum, IndexReaderContext,
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::{
+    LRImpactsEnum, LRNormNumericDocValues, LRPosting, LeafReader,
 };
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::search::explanation::Explanation;
@@ -29,63 +29,65 @@ use crate::core::search::phrase_scorer::PhraseScorer;
 use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::{SimScorer, SimilarityEnum};
+use crate::core::search::similarities_impl::similarities::{
+    SimScorer, SimScorerEnum2, Similarity, SimilarityEnum,
+};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
-pub struct PhraseWeight<IRC, S>
+pub type SimScorerType = SimScorerEnum2<<SimilarityEnum as Similarity>::SimScorer, SimScorerImpl>;
+pub struct PhraseWeight<LR, S>
 where
-    IRC: IndexReaderContext,
-    S: PhraseWeightBase<IRC>,
+    LR: LeafReader,
+    S: PhraseWeightBase<LR>,
 {
     stats: S::SimScorer,
     sub: S,
 }
-impl<IRC, S> PhraseWeight<IRC, S>
+impl<LR, S> PhraseWeight<LR, S>
 where
-    IRC: IndexReaderContext,
-    S: PhraseWeightBase<IRC>,
+    LR: LeafReader,
+    S: PhraseWeightBase<LR>,
 {
-    pub(crate) fn new(searcher: &IndexSearcher<IRC>, mut sub: S) -> Result<Self> {
+    pub(crate) fn new<IRC>(searcher: &IndexSearcher<IRC>, mut sub: S) -> Result<Self>
+    where
+        IRC: IndexReaderContext<LeafReader = LR>,
+    {
         let stats = sub.get_stats(searcher)?;
         Ok(Self { stats, sub })
     }
 }
-impl<IRC, S> SegmentCacheable<IRCLeafReader<IRC>> for PhraseWeight<IRC, S>
+impl<LR, S> SegmentCacheable<LR> for PhraseWeight<LR, S>
 where
-    IRC: IndexReaderContext,
-    S: PhraseWeightBase<IRC>,
+    LR: LeafReader,
+    S: PhraseWeightBase<LR>,
 {
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<IRC, S> Weight<IRCLeafReader<IRC>> for PhraseWeight<IRC, S>
+impl<LR, S> Weight<LR> for PhraseWeight<LR, S>
 where
-    IRC: IndexReaderContext,
-    S: PhraseWeightBase<IRC>,
-    IRCImpactsEnum<IRC>: 'static,
-    IRCPostingsEnum<IRC>: 'static,
-    <IRCLeafReader<IRC> as LeafReader>::NormNumericDocValues: 'static,
+    LR: LeafReader + 'static,
+    LRImpactsEnum<LR>: 'static,
+    LRPosting<LR>: 'static,
+    LRNormNumericDocValues<LR>: 'static,
+    S: PhraseWeightBase<LR>,
     S::SimScorer: 'static,
 {
     type Matches = MatchWithNoTerms;
 
     fn matches(
         &self,
-        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _context: &LeafReaderContext<LR>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
         todo!()
     }
 
-    fn explain(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        doc: i32,
-    ) -> Result<Explanation> {
+    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
         let mut matcher = match self
             .sub
             .get_phrase_matcher(context, self.stats.clone(), false)?
@@ -145,11 +147,11 @@ where
         self.sub.base().query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
+    type ScorerSupplier = QueryWeightSs<LR>;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         match self
             .sub
@@ -174,19 +176,21 @@ where
     }
 }
 
-pub trait PhraseWeightBase<IRC>
+pub trait PhraseWeightBase<LR>
 where
-    IRC: IndexReaderContext,
+    LR: LeafReader,
 {
     type SimScorer: SimScorer + Clone;
-    fn get_stats(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>;
+    fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
+    where
+        IRC: IndexReaderContext<LeafReader = LR>;
 
     fn get_phrase_matcher(
         &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        context: &LeafReaderContext<LR>,
         scorer: Self::SimScorer,
         expose_offsets: bool,
-    ) -> Result<Option<DefaultPhraseMatcherEnum<IRCLeafReader<IRC>, Self::SimScorer>>>;
+    ) -> Result<Option<DefaultPhraseMatcherEnum<LR, Self::SimScorer>>>;
     fn base(&self) -> &PhraseWeightMeta;
 }
 pub struct PhraseWeightMeta {
