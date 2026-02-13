@@ -17,7 +17,7 @@
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
-use crate::core::index::term_state::TermStateEnum;
+use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
@@ -86,7 +86,7 @@ impl TermsEnum for DummyTermsEnum {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type TermState = TermStateEnum;
+    type TermState = DummyTermState;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
         unreachable!("Dummy implementation: this method should never be called in real usage")

@@ -25,7 +25,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, NONE};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{EmptyTermStateEnum, PrepareState, TermStates, build};
+use crate::core::index::term_states::{PrepareState, TermStateEnum, TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::collection_statistics::CollectionStatistics;
@@ -268,11 +268,11 @@ where
             .unwrap()
             .iterator()?;
         match state.as_ref() {
-            EmptyTermStateEnum::A(s) => {
+            TermStateEnum::A(s) => {
                 terms_enum.seek_exact_with_state(parent_query.term.bytes(), s)?;
                 Ok(Some(terms_enum))
             },
-            EmptyTermStateEnum::B(_) => Err(LuceneError::illegal_argument(
+            TermStateEnum::B(_) => Err(LuceneError::illegal_argument(
                 "should never get empty term state here",
             )),
         }
@@ -519,7 +519,7 @@ where
             match state_opt {
                 None => return Ok(None),
                 Some(s) => match s.as_ref() {
-                    EmptyTermStateEnum::A(s) => {
+                    TermStateEnum::A(s) => {
                         let mut terms_enum = match context.reader().terms(self.term.field())? {
                             Some(term) => term.iterator()?,
                             None => {
@@ -532,7 +532,7 @@ where
                         terms_enum.seek_exact_with_state(self.term.bytes(), s)?;
                         self.terms_enum = Some(terms_enum);
                     },
-                    EmptyTermStateEnum::B(_) => {
+                    TermStateEnum::B(_) => {
                         return Err(LuceneError::illegal_argument(
                             "should never get empty term state here",
                         ));

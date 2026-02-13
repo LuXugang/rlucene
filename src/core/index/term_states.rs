@@ -39,7 +39,7 @@ where
     TS: TermState,
 {
     top_reader_context_identity: Identity,
-    states: Vec<Option<Arc<EmptyTermStateEnum<TS>>>>,
+    states: Vec<Option<Arc<TermStateEnum<TS>>>>,
     term: Option<Arc<Term>>,
     doc_freq: i32,
     total_term_freq: i64,
@@ -134,7 +134,7 @@ where
     pub fn register(&mut self, state: TS, ord: usize) {
         debug_assert!(ord < self.states.len(), "ord {} out of bounds", ord);
         // wrap with Arc for clone
-        self.states[ord] = Some(Arc::new(EmptyTermStateEnum::A(state)));
+        self.states[ord] = Some(Arc::new(TermStateEnum::A(state)));
     }
     /// Expert: Accumulate term statistics.
     pub fn accumulate_statistics(&mut self, doc_freq: i32, total_term_freq: i64) {
@@ -180,14 +180,14 @@ where
         if self.states[ctx_ord].is_none() {
             let terms_opt = ctx.reader().terms(self.term.as_ref().unwrap().field())?;
             if terms_opt.is_none() {
-                self.states[ctx_ord] = Some(Arc::new(EmptyTermStateEnum::B(EmptyTermState)));
+                self.states[ctx_ord] = Some(Arc::new(TermStateEnum::B(EmptyTermState)));
                 return Ok(None);
             }
 
             let mut te = terms_opt.unwrap().iterator()?;
             let io_boolean_supplier = te.prepare_seek_exact(self.term.as_ref().unwrap().bytes())?;
             if io_boolean_supplier.is_none() {
-                self.states[ctx_ord] = Some(Arc::new(EmptyTermStateEnum::B(EmptyTermState)));
+                self.states[ctx_ord] = Some(Arc::new(TermStateEnum::B(EmptyTermState)));
                 return Ok(None);
             }
             return Ok(Some(PrepareState::Pending(
@@ -197,7 +197,7 @@ where
             )));
         }
         let state = self.states[ctx_ord].as_ref().unwrap();
-        if matches!(state.as_ref(), EmptyTermStateEnum::B(_)) {
+        if matches!(state.as_ref(), TermStateEnum::B(_)) {
             Ok(None)
         } else {
             Ok(Some(PrepareState::Ready(ctx_ord)))
@@ -206,7 +206,7 @@ where
     pub fn resolve<LR>(
         &mut self,
         state: &mut PrepareState<LR>,
-    ) -> Result<Option<Arc<EmptyTermStateEnum<TS>>>>
+    ) -> Result<Option<Arc<TermStateEnum<TS>>>>
     where
         LR: LeafReader,
         <<LR as LeafReader>::Terms as Terms>::TermsEnum: TermsEnum<TermState = TS>,
@@ -218,13 +218,13 @@ where
                 if self.states[*ord].as_ref().is_none() {
                     if te.get_prepare_seek_exact_status(term.bytes())? {
                         let state = te.term_state()?;
-                        self.states[*ord] = Some(Arc::new(EmptyTermStateEnum::A(state)))
+                        self.states[*ord] = Some(Arc::new(TermStateEnum::A(state)))
                     } else {
-                        self.states[*ord] = Some(Arc::new(EmptyTermStateEnum::B(EmptyTermState)))
+                        self.states[*ord] = Some(Arc::new(TermStateEnum::B(EmptyTermState)))
                     }
                 }
                 let state = self.states[*ord].as_ref().unwrap();
-                if matches!(state.as_ref(), EmptyTermStateEnum::B(_)) {
+                if matches!(state.as_ref(), TermStateEnum::B(_)) {
                     Ok(None)
                 } else {
                     Ok(Some(state.clone()))
@@ -282,7 +282,7 @@ where
     }
 }
 
-pub type EmptyTermStateEnum<TS> = TermStateEnum2<TS, EmptyTermState>;
+pub type TermStateEnum<TS> = TermStateEnum2<TS, EmptyTermState>;
 
 pub struct EmptyTermState;
 

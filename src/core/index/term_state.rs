@@ -16,10 +16,6 @@
  */
 use std::fmt::{Display, Formatter};
 
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
-use crate::core::index::base_terms_enum::TermStateImpl1;
-use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
-use crate::core::index::ord_term_state::OrdTermState;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Encapsulates all required internal state to position the associated
@@ -29,36 +25,6 @@ pub trait TermState: Display + Clone {
     fn copy_from(&mut self, other: &Self) -> Result<()>;
 }
 
-pub enum TermStateEnum {
-    Dummy(DummyTermState),
-    Impl1(TermStateImpl1),
-    Ord(OrdTermState),
-    Block(BlockTermStateEnum),
-}
-
-impl Display for TermStateEnum {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-
-impl Clone for TermStateEnum {
-    fn clone(&self) -> Self {
-        todo!()
-    }
-}
-
-impl Default for TermStateEnum {
-    fn default() -> Self {
-        todo!()
-    }
-}
-
-impl TermState for TermStateEnum {
-    fn copy_from(&mut self, _other: &Self) -> Result<()> {
-        todo!()
-    }
-}
 // TermState
 pub enum TermStateEnum2<A, B> {
     A(A),
