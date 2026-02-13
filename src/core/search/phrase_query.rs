@@ -30,6 +30,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -390,26 +391,90 @@ where
 {
     pub(crate) postings: IE,
     pub(crate) position: usize,
-    pub(crate) terms: Vec<Term>,
+    pub(crate) terms: Option<Vec<Term>>,
+    pub(crate) n_terms: usize, // for faster comparisons
 }
 impl<IE> PostingsAndFreq<IE>
 where
     IE: ImpactsEnum,
 {
     pub fn new(postings: IE, position: usize, terms: &[Term]) -> Self {
-        let terms_vec = if terms.is_empty() {
-            Vec::new()
-        } else if terms.len() == 1 {
-            vec![terms[0].clone()]
+        let n_terms = terms.len();
+
+        let terms_vec = if n_terms == 0 {
+            None
+        } else if n_terms == 1 {
+            Some(vec![terms[0].clone()])
         } else {
             let mut v = terms.to_vec();
             v.sort();
-            v
+            Some(v)
         };
+
         Self {
             postings,
             position,
             terms: terms_vec,
+            n_terms,
         }
     }
 }
+impl<IE> Ord for PostingsAndFreq<IE>
+where
+    IE: ImpactsEnum,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.position.cmp(&other.position) {
+            Ordering::Equal => {},
+            ord => return ord,
+        }
+
+        match self.n_terms.cmp(&other.n_terms) {
+            Ordering::Equal => {},
+            ord => return ord,
+        }
+
+        if self.n_terms == 0 {
+            return Ordering::Equal;
+        }
+
+        let a = self.terms.as_ref().unwrap();
+        let b = other.terms.as_ref().unwrap();
+
+        for i in 0..a.len() {
+            let ord = a[i].cmp(&b[i]);
+            if ord != Ordering::Equal {
+                return ord;
+            }
+        }
+
+        Ordering::Equal
+    }
+}
+
+impl<IE> PartialOrd for PostingsAndFreq<IE>
+where
+    IE: ImpactsEnum,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl<IE> PartialEq for PostingsAndFreq<IE>
+where
+    IE: ImpactsEnum,
+{
+    fn eq(&self, other: &Self) -> bool {
+        if self.position != other.position {
+            return false;
+        }
+
+        match (&self.terms, &other.terms) {
+            (None, None) => true,
+            (Some(a), Some(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl<IE> Eq for PostingsAndFreq<IE> where IE: ImpactsEnum {}

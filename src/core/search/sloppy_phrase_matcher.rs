@@ -107,9 +107,13 @@ where
 
         let mut phrase_positions = Vec::with_capacity(num_postings);
         let mut posting_vec = Vec::with_capacity(num_postings);
-        for (i, p) in postings.into_iter().enumerate() {
+        for (i, mut p) in postings.into_iter().enumerate() {
             posting_vec.push(p.postings);
-            phrase_positions.push(PhrasePositions::new(i, p.position, i, p.terms));
+            let terms = p
+                .terms
+                .take()
+                .ok_or_else(|| LuceneError::illegal_state("term is None"))?;
+            phrase_positions.push(PhrasePositions::new(i, p.position, i, terms));
         }
         let cmp = PhraseQueueCmp::new(phrase_positions);
         let pq = PriorityQueue::new(num_postings, cmp)?;
