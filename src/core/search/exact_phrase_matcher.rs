@@ -16,12 +16,10 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::index::impact::Impact;
-use crate::core::index::impacts::{Impacts, ImpactsEnum2};
+use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::postings_enum::PostingsEnum;
-use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
-use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::conjunction_disi::ConjunctionDISI;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::dummy::dummy_disi::DummyDISI;
@@ -35,26 +33,25 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use std::borrow::Cow;
-pub type ImpactsApproximationType<TE, SS> =
-    ImpactsDISI<DummyDISI, ImpactsSourceImpl<ImpactsEnumEnum<TE>>, SS>;
+pub type ImpactsApproximationType<IE, SS> = ImpactsDISI<DummyDISI, ImpactsSourceImpl<IE>, SS>;
 /// Expert: Find exact phrases
-pub struct ExactPhraseMatcher<TE, SS>
+pub struct ExactPhraseMatcher<IE, SS>
 where
-    TE: TermsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
 {
-    pub(crate) impacts_approximation: ImpactsApproximationType<TE, SS>,
+    pub(crate) impacts_approximation: ImpactsApproximationType<IE, SS>,
     match_cost: f32,
     pub(crate) score_mode: ScoreMode,
     postings: Vec<PostingsAndPosition>,
 }
-impl<TE, SS> ExactPhraseMatcher<TE, SS>
+impl<IE, SS> ExactPhraseMatcher<IE, SS>
 where
-    TE: TermsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
 {
     pub fn new(
-        postings: Vec<PostingsAndFreq<ImpactsEnumEnum<TE>>>,
+        postings: Vec<PostingsAndFreq<IE>>,
         score_mode: ScoreMode,
         scorer: SS,
         match_cost: f32,
@@ -100,7 +97,7 @@ where
     }
 
     #[inline]
-    fn posting(&self, idx: usize) -> &ImpactsEnumEnum<TE> {
+    fn posting(&self, idx: usize) -> &IE {
         &self
             .impacts_approximation
             .max_score_cache
@@ -109,7 +106,7 @@ where
             .all_disi[idx]
     }
     #[inline]
-    fn posting_mut(&mut self, idx: usize) -> &mut ImpactsEnumEnum<TE> {
+    fn posting_mut(&mut self, idx: usize) -> &mut IE {
         &mut self
             .impacts_approximation
             .max_score_cache
@@ -119,20 +116,20 @@ where
     }
     pub(crate) fn approximation_top_scorers_mut(
         &mut self,
-    ) -> &mut ImpactsApproximationType<TE, SS> {
+    ) -> &mut ImpactsApproximationType<IE, SS> {
         &mut self.impacts_approximation
     }
-    pub(crate) fn approximation_top_scorers(&self) -> &ImpactsApproximationType<TE, SS> {
+    pub(crate) fn approximation_top_scorers(&self) -> &ImpactsApproximationType<IE, SS> {
         &self.impacts_approximation
     }
-    pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISI<ImpactsEnumEnum<TE>> {
+    pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISI<IE> {
         &mut self
             .impacts_approximation
             .max_score_cache
             .impacts_source
             .impacts_enums
     }
-    pub(crate) fn approximation(&self) -> &ConjunctionDISI<ImpactsEnumEnum<TE>> {
+    pub(crate) fn approximation(&self) -> &ConjunctionDISI<IE> {
         &self
             .impacts_approximation
             .max_score_cache
@@ -140,11 +137,11 @@ where
             .impacts_enums
     }
 }
-pub type Disi<TE, SS> =
-    DocIdSetIteratorEnum2<ImpactsApproximationType<TE, SS>, ConjunctionDISI<ImpactsEnumEnum<TE>>>;
-impl<TE, SS> PhraseMatcher for ExactPhraseMatcher<TE, SS>
+pub type Disi<IE, SS> =
+    DocIdSetIteratorEnum2<ImpactsApproximationType<IE, SS>, ConjunctionDISI<IE>>;
+impl<IE, SS> PhraseMatcher for ExactPhraseMatcher<IE, SS>
 where
-    TE: TermsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
 {
     fn max_freq(&mut self) -> Result<f32> {
@@ -576,119 +573,3 @@ impl PostingsAndPosition {
         }
     }
 }
-pub enum ImpactsEnumEnum<TE>
-where
-    TE: TermsEnum,
-{
-    Postings(TE::ImpactsEnum),
-    Slow(SlowImpactsEnum<TE::PostingsEnum>),
-}
-
-impl<TE> PostingsEnum for ImpactsEnumEnum<TE>
-where
-    TE: TermsEnum,
-{
-    fn freq(&mut self) -> Result<i32> {
-        match self {
-            ImpactsEnumEnum::Postings(p) => p.freq(),
-            ImpactsEnumEnum::Slow(s) => s.freq(),
-        }
-    }
-
-    fn next_position(&mut self) -> Result<i32> {
-        match self {
-            ImpactsEnumEnum::Postings(p) => p.next_position(),
-            ImpactsEnumEnum::Slow(s) => s.next_position(),
-        }
-    }
-
-    fn start_offset(&self) -> Result<i32> {
-        match self {
-            ImpactsEnumEnum::Postings(p) => p.start_offset(),
-            ImpactsEnumEnum::Slow(s) => s.start_offset(),
-        }
-    }
-
-    fn end_offset(&self) -> Result<i32> {
-        match self {
-            ImpactsEnumEnum::Postings(p) => p.end_offset(),
-            ImpactsEnumEnum::Slow(s) => s.end_offset(),
-        }
-    }
-
-    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        match self {
-            ImpactsEnumEnum::Postings(p) => p.get_payload(),
-            ImpactsEnumEnum::Slow(s) => s.get_payload(),
-        }
-    }
-}
-
-impl<TE> DocIdSetIterator for ImpactsEnumEnum<TE>
-where
-    TE: TermsEnum,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            ImpactsEnumEnum::Postings(p) => p.doc_id(),
-            ImpactsEnumEnum::Slow(s) => s.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            ImpactsEnumEnum::Postings(p) => p.next_doc(),
-            ImpactsEnumEnum::Slow(s) => s.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        match self {
-            ImpactsEnumEnum::Postings(p) => p.advance(_target),
-            ImpactsEnumEnum::Slow(s) => s.advance(_target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            ImpactsEnumEnum::Postings(p) => p.slow_advance(target),
-            ImpactsEnumEnum::Slow(s) => s.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            ImpactsEnumEnum::Postings(p) => p.cost(),
-            ImpactsEnumEnum::Slow(s) => s.cost(),
-        }
-    }
-}
-
-impl<TE> ImpactsSource for ImpactsEnumEnum<TE>
-where
-    TE: TermsEnum,
-{
-    fn advance_shallow(&mut self, target: i32) -> Result<()> {
-        match self {
-            ImpactsEnumEnum::Postings(p) => p.advance_shallow(target),
-            ImpactsEnumEnum::Slow(s) => s.advance_shallow(target),
-        }
-    }
-
-    type Impacts<'a>
-        = ImpactsEnum2<
-        <TE::ImpactsEnum as ImpactsSource>::Impacts<'a>,
-        <SlowImpactsEnum<TE::PostingsEnum> as ImpactsSource>::Impacts<'a>,
-    >
-    where
-        Self: 'a;
-
-    fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
-        match self {
-            ImpactsEnumEnum::Postings(p) => Ok(ImpactsEnum2::A(p.get_impacts()?)),
-            ImpactsEnumEnum::Slow(s) => Ok(ImpactsEnum2::B(s.get_impacts()?)),
-        }
-    }
-}
-
-impl<TE> ImpactsEnum for ImpactsEnumEnum<TE> where TE: TermsEnum {}

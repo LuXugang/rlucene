@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
@@ -53,17 +53,17 @@ pub trait PhraseMatcher {
     /// See `TwoPhaseIterator::match_cost`.
     fn get_match_cost(&self) -> f32;
 }
-pub enum PhraseMatcherEnum<TE, SS>
+pub enum PhraseMatcherEnum<IE, SS>
 where
-    TE: TermsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
 {
-    Exact(ExactPhraseMatcher<TE, SS>),
-    Sloppy(SloppyPhraseMatcher<TE::ImpactsEnum, SS>),
+    Exact(ExactPhraseMatcher<IE, SS>),
+    Sloppy(SloppyPhraseMatcher<IE, SS>),
 }
-impl<TE, SS> PhraseMatcher for PhraseMatcherEnum<TE, SS>
+impl<IE, SS> PhraseMatcher for PhraseMatcherEnum<IE, SS>
 where
-    TE: TermsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
 {
     fn max_freq(&mut self) -> Result<f32> {

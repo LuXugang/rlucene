@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::phrase_matcher::{PhraseMatcher, PhraseMatcherEnum};
 use crate::core::search::scorable::Scorable;
@@ -27,23 +27,23 @@ use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
 use crate::core::util::error::lucene_error::Result;
-pub type Disi<TE, SS, N> = TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<TE, SS, N>>;
-pub struct PhraseScorer<TE, SS, N>
+pub type Disi<IE, SS, N> = TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<IE, SS, N>>;
+pub struct PhraseScorer<IE, SS, N>
 where
-    TE: TermsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
     N: NumericDocValues,
 {
-    disi: Disi<TE, SS, N>,
+    disi: Disi<IE, SS, N>,
 }
-impl<TE, SS, N> PhraseScorer<TE, SS, N>
+impl<IE, SS, N> PhraseScorer<IE, SS, N>
 where
-    TE: TermsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
     N: NumericDocValues,
 {
     pub(crate) fn new(
-        matcher: PhraseMatcherEnum<TE, SS>,
+        matcher: PhraseMatcherEnum<IE, SS>,
         score_mode: ScoreMode,
         sim_scorer: SS,
         norms: Option<N>,
@@ -54,9 +54,9 @@ where
     }
 }
 
-impl<TE, SS, N> Scorable for PhraseScorer<TE, SS, N>
+impl<IE, SS, N> Scorable for PhraseScorer<IE, SS, N>
 where
-    TE: TermsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
     N: NumericDocValues,
 {
@@ -97,9 +97,9 @@ where
     }
 }
 
-impl<TE, SS, N> Scorer for PhraseScorer<TE, SS, N>
+impl<IE, SS, N> Scorer for PhraseScorer<IE, SS, N>
 where
-    TE: TermsEnum + 'static,
+    IE: ImpactsEnum + 'static,
     SS: SimScorer + 'static,
     N: NumericDocValues + 'static,
 {
@@ -157,13 +157,13 @@ where
     }
 }
 
-pub struct TwoPhaseIteratorImpl<TE, SS, N>
+pub struct TwoPhaseIteratorImpl<IE, SS, N>
 where
-    TE: TermsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
     N: NumericDocValues,
 {
-    matcher: PhraseMatcherEnum<TE, SS>,
+    matcher: PhraseMatcherEnum<IE, SS>,
     sim_scorer: SS,
     norms: Option<N>,
     match_cost: f32,
@@ -171,14 +171,14 @@ where
     min_competitive_score: f32,
     score_mode: ScoreMode,
 }
-impl<TE, SS, N> TwoPhaseIteratorImpl<TE, SS, N>
+impl<IE, SS, N> TwoPhaseIteratorImpl<IE, SS, N>
 where
-    TE: TermsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
     N: NumericDocValues,
 {
     fn new(
-        matcher: PhraseMatcherEnum<TE, SS>,
+        matcher: PhraseMatcherEnum<IE, SS>,
         score_mode: ScoreMode,
         sim_scorer: SS,
         norms: Option<N>,
@@ -199,9 +199,9 @@ where
         self.approximation().doc_id()
     }
 }
-impl<TE, SS, N> TwoPhaseIterator for TwoPhaseIteratorImpl<TE, SS, N>
+impl<IE, SS, N> TwoPhaseIterator for TwoPhaseIteratorImpl<IE, SS, N>
 where
-    TE: TermsEnum,
+    IE: ImpactsEnum,
     SS: SimScorer,
     N: NumericDocValues,
 {
