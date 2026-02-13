@@ -598,12 +598,15 @@ where
     /// A [`TermStatistics`] (never `None`).
     ///
     /// **Lucene Experimental**
-    pub fn term_statistics(
+    pub fn term_statistics<T>(
         &self,
-        term: Arc<Term>,
+        term: T,
         doc_freq: i32,
         total_term_freq: i64,
-    ) -> Result<TermStatistics> {
+    ) -> Result<TermStatistics>
+    where
+        T: Into<Arc<Term>>,
+    {
         TermStatistics::new(term, doc_freq as i64, total_term_freq)
     }
     /// Returns [`CollectionStatistics`] for a field, or `None` if the field does not exist

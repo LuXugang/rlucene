@@ -318,7 +318,7 @@ where
 
 pub type TermStateTerm<T> =
     TermStateEnum2<LRTermState<T>, TermStateEnum2<TermStateImpl1, DummyTermState>>;
-pub fn build<IRC,T>(
+pub fn build<IRC, T>(
     index_searcher: &IndexSearcher<IRC>,
     term: T,
     needs_stats: bool,

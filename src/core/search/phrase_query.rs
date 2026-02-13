@@ -15,17 +15,29 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::index::impacts_enum::ImpactsEnum;
+use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::LRTermState;
+use crate::core::index::index_reader_context::{
+    IRCImpactsEnum, IRCLeafReader, IRCPostingsEnum, IRCTermState, IndexReaderContext,
+};
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::postings_enum::{OFFSETS, POSITIONS};
+use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::TermStates;
+use crate::core::index::term_states::{TermStateEnum, TermStates, build};
+use crate::core::index::terms::Terms;
+use crate::core::index::terms_enum::TermsEnum;
+use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
+use crate::core::search::phrase_matcher::PhraseMatcherEnum;
+use crate::core::search::phrase_weight::PhraseWeightBase;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::{Similarity, SimilarityEnum};
+use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -383,6 +395,224 @@ fn to_terms_from_bytes(field: &str, term_bytes: Vec<BytesRef<Vec<u8>>>) -> Vec<T
         terms.push(Term::new(field, b));
     }
     terms
+}
+/// A guess of the average number of simple operations for the initial seek and buffer refill per
+/// document for the positions of a term. See also
+/// [`Lucene101PostingsReader::BlockPostingsEnum::next_position`](crate::core::codecs::lucene101::lucene101_postings_reader::BlockPostingsEnum::next_position).
+///
+/// Aside: Instead of being constant this could depend among others on
+/// [`Lucene101PostingsFormat::BLOCK_SIZE`](crate::core::codecs::lucene101::lucene101_postings_format::Lucene101PostingsFormat::BLOCK_SIZE), [`TermsEnum::doc_freq`], [`TermsEnum::total_term_freq`],
+/// [`DocIdSetIterator::cost`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost) (expected number of matching docs), [`LeafReader::max_doc`] (total
+/// number of docs in the segment), and the seek time and block size of the device storing the
+/// index.
+pub(crate) const TERM_POSNS_SEEK_OPS_PER_DOC: i32 = 128;
+
+/// Number of simple operations in [`Lucene101PostingsReader::BlockPostingsEnum::next_position`](crate::core::codecs::lucene101::lucene101_postings_reader::BlockPostingsEnum::next_position)
+/// when no seek or buffer refill is done.
+pub(crate) const TERM_OPS_PER_POS: i32 = 7;
+
+pub fn term_positions_cost<TE>(terms_enum: &mut TE) -> Result<f32>
+where
+    TE: TermsEnum,
+{
+    let doc_freq = terms_enum.doc_freq()?;
+    debug_assert!(doc_freq > 0);
+
+    let total_term_freq = terms_enum.total_term_freq()?;
+
+    let exp_occurrences_in_matching_doc = total_term_freq as f32 / doc_freq as f32;
+
+    Ok(TERM_POSNS_SEEK_OPS_PER_DOC as f32
+        + exp_occurrences_in_matching_doc * TERM_OPS_PER_POS as f32)
+}
+pub struct PhraseQueryWeightBase<IRC>
+where
+    IRC: IndexReaderContext,
+{
+    query: Arc<PhraseQuery>,
+    field: String,
+    states: Vec<TermStates<IRCTermState<IRC>>>,
+    score_mode: ScoreMode,
+    similarity: SimilarityEnum,
+    boost: f32,
+}
+impl<IRC> PhraseQueryWeightBase<IRC>
+where
+    IRC: IndexReaderContext,
+{
+    #[cfg(debug_assertions)]
+    fn term_not_in_reader(reader: &IRCLeafReader<IRC>, term: &Term) -> Result<bool> {
+        Ok(reader.doc_freq(term)? == 0)
+    }
+}
+
+impl<IRC> PhraseWeightBase<IRC> for PhraseQueryWeightBase<IRC>
+where
+    IRC: IndexReaderContext,
+{
+    type SimScorer = <SimilarityEnum as Similarity>::SimScorer;
+
+    fn get_stats(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Option<Self::SimScorer>> {
+        let positions = &self.query.positions;
+
+        if positions.len() < 2 {
+            return Err(LuceneError::illegal_state(
+                "PhraseWeight does not support less than 2 terms, call rewrite first",
+            ));
+        } else if positions[0] != 0 {
+            return Err(LuceneError::illegal_state(
+                "PhraseWeight requires that the first position is 0, call rewrite first",
+            ));
+        }
+
+        self.states = Vec::with_capacity(self.query.terms.len());
+
+        let mut term_stats = Vec::with_capacity(self.query.terms.len());
+        let mut term_up_to = 0usize;
+
+        for term in &*self.query.terms {
+            let term = Arc::new(term.clone());
+            let ts = build(searcher, term.clone(), self.score_mode.needs_scores())?;
+
+            if self.score_mode.needs_scores() && ts.doc_freq()? > 0 {
+                let stats = searcher.term_statistics(
+                    term.clone(),
+                    ts.doc_freq()?,
+                    ts.total_term_freq()?,
+                )?;
+                term_stats.push(stats);
+                term_up_to += 1;
+            }
+
+            self.states.push(ts);
+        }
+
+        if term_up_to > 0 {
+            let collection_stats = searcher
+                .collection_statistics(&self.field)?
+                .ok_or_else(|| LuceneError::illegal_state("could not get collection stats"))?;
+            Ok(Some(self.similarity.scorer(
+                self.boost,
+                &collection_stats,
+                term_stats[..term_up_to].as_ref(),
+            )))
+        } else {
+            // no terms at all, we won't use similarity
+            Ok(None)
+        }
+    }
+
+    type PhraseMatcher = PhraseMatcherEnum<
+        ImpactsEnumEnum2<IRCImpactsEnum<IRC>, SlowImpactsEnum<IRCPostingsEnum<IRC>>>,
+        Self::SimScorer,
+    >;
+
+    fn get_phrase_matcher(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        scorer: Self::SimScorer,
+        expose_offsets: bool,
+    ) -> Result<Option<Self::PhraseMatcher>> {
+        debug_assert!(!self.query.terms.is_empty());
+        let reader = context.reader();
+
+        let field_terms = match reader.terms(&self.field)? {
+            Some(t) => t,
+            None => return Ok(None),
+        };
+
+        if !field_terms.has_positions() {
+            return Err(LuceneError::illegal_state(format!(
+                "field \"{}\" was indexed without position data; cannot run PhraseQuery (phrase={})",
+                self.field,
+                self.query.as_string(&self.field)
+            )));
+        }
+
+        let mut te = field_terms.iterator()?;
+        let mut total_match_cost: f32 = 0.0;
+
+        let mut postings_freqs = Vec::with_capacity(self.query.terms.len());
+
+        for i in 0..self.query.terms.len() {
+            let t = &self.query.terms[i];
+
+            let mut supplier = self.states[i].get(context)?;
+            let state = match supplier {
+                None => None,
+                Some(ref mut s) => self.states[i].resolve(s)?,
+            };
+
+            let state = match state {
+                None => {
+                    debug_assert!(
+                        Self::term_not_in_reader(reader, t)?,
+                        "no termstate found but term exists in reader"
+                    );
+                    return Ok(None);
+                },
+                Some(s) => s,
+            };
+
+            match state.as_ref() {
+                TermStateEnum::A(s) => {
+                    te.seek_exact_with_state(t.bytes(), s)?;
+                },
+                TermStateEnum::B(_) => {
+                    return Err(LuceneError::illegal_state(
+                        "should never get empty term state here",
+                    ));
+                },
+            }
+
+            let impacts_enum = if self.score_mode == ScoreMode::TopScores {
+                let impacts = te.impacts(if expose_offsets {
+                    OFFSETS as i32
+                } else {
+                    POSITIONS as i32
+                })?;
+                ImpactsEnumEnum2::A(impacts)
+            } else {
+                let postings = te.postings_with_flags(
+                    None,
+                    if expose_offsets {
+                        OFFSETS as i32
+                    } else {
+                        POSITIONS as i32
+                    },
+                )?;
+                ImpactsEnumEnum2::B(SlowImpactsEnum::new(postings))
+            };
+
+            postings_freqs.push(PostingsAndFreq::new(
+                impacts_enum,
+                self.query.positions[i],
+                std::slice::from_ref(t),
+            ));
+
+            total_match_cost += term_positions_cost(&mut te)?;
+        }
+
+        // sort by increasing docFreq order
+        let v = if self.query.slop == 0 {
+            postings_freqs.sort();
+            PhraseMatcherEnum::Exact(ExactPhraseMatcher::new(
+                postings_freqs,
+                self.score_mode,
+                scorer,
+                total_match_cost,
+            )?)
+        } else {
+            PhraseMatcherEnum::Sloppy(SloppyPhraseMatcher::new(
+                postings_freqs,
+                self.query.slop,
+                scorer,
+                total_match_cost,
+                expose_offsets,
+            )?)
+        };
+        Ok(Some(v))
+    }
 }
 
 pub struct PostingsAndFreq<IE>

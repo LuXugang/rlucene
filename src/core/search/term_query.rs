@@ -272,7 +272,7 @@ where
                 terms_enum.seek_exact_with_state(parent_query.term.bytes(), s)?;
                 Ok(Some(terms_enum))
             },
-            TermStateEnum::B(_) => Err(LuceneError::illegal_argument(
+            TermStateEnum::B(_) => Err(LuceneError::illegal_state(
                 "should never get empty term state here",
             )),
         }
@@ -533,7 +533,7 @@ where
                         self.terms_enum = Some(terms_enum);
                     },
                     TermStateEnum::B(_) => {
-                        return Err(LuceneError::illegal_argument(
+                        return Err(LuceneError::illegal_state(
                             "should never get empty term state here",
                         ));
                     },
