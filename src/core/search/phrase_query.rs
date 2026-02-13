@@ -276,8 +276,9 @@ impl QueryBase for PhraseQuery {
             .clone()
             .ok_or_else(|| LuceneError::illegal_state("field is None"))?;
         let base = PhraseWeightMeta::new(field, *score_mode, similarity, query.into());
-        let sub = PhraseQueryWeightBase::new(self, boost, base);
-        let weight = PhraseWeight::new(searcher, sub)?;
+        let sub: PhraseQueryWeightBase<IRCLeafReader<IRC>> =
+            PhraseQueryWeightBase::new(self, boost, base);
+        let weight: PhraseWeight<IRCLeafReader<IRC>, _> = PhraseWeight::new(searcher, sub)?;
         Ok(Box::new(weight))
     }
 
