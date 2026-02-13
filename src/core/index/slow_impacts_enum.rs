@@ -79,6 +79,10 @@ where
         self.delegate.next_doc()
     }
 
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.delegate.advance(target)
+    }
+
     fn cost(&self) -> Result<i64> {
         self.delegate.cost()
     }
