@@ -80,7 +80,7 @@ impl Explanation {
         N: Into<Number>,
         S: Into<String>,
     {
-        Self::match_no_details(value,description)
+        Self::match_(value, description, vec![])
     }
     /// Create a new explanation for a match.
     ///

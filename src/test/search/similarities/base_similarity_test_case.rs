@@ -238,10 +238,7 @@ pub trait BaseSimilarityTestCase {
         // }
 
         let prev_explanation = scorer.explain(
-            Explanation::match_no_details(
-                prev_freq,
-                "freq, occurrences of term within document",
-            ),
+            Explanation::match_no_details(prev_freq, "freq, occurrences of term within document"),
             norm as i64,
         );
         assert_eq!(
@@ -275,7 +272,7 @@ pub trait BaseSimilarityTestCase {
             // }
 
             let prev_norm_explanation = scorer.explain(
-                Explanation::match_no_details(freq, "freq, occurrences of term within document", ),
+                Explanation::match_no_details(freq, "freq, occurrences of term within document"),
                 norm as i64 - 1,
             );
             assert_eq!(
@@ -324,7 +321,7 @@ pub trait BaseSimilarityTestCase {
             // }
 
             let prev_term_explanation = prev_term_scorer.explain(
-                Explanation::match_no_details(freq, "freq, occurrences of term within document" ),
+                Explanation::match_no_details(freq, "freq, occurrences of term within document"),
                 norm.into(),
             );
             assert_eq!(

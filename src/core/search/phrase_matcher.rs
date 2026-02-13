@@ -14,8 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::impacts_enum::ImpactsEnum;
+use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
+use crate::core::index::leaf_reader::{LRImpactsEnum, LRPosting};
+use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
+use crate::core::search::score_mode::ScoreMode::TopScores;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::util::error::lucene_error::Result;
@@ -60,6 +64,36 @@ where
 {
     Exact(ExactPhraseMatcher<IE, SS>),
     Sloppy(SloppyPhraseMatcher<IE, SS>),
+}
+impl<IE, SS> PhraseMatcherEnum<IE, SS>
+where
+    IE: ImpactsEnum,
+    SS: SimScorer,
+{
+    pub(crate) fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        match self {
+            PhraseMatcherEnum::Exact(m) => {
+                if m.score_mode == TopScores {
+                    Box::new(m.approximation_top_scorers())
+                } else {
+                    Box::new(m.approximation())
+                }
+            },
+            PhraseMatcherEnum::Sloppy(m) => Box::new(m.approximation()),
+        }
+    }
+    pub(crate) fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        match self {
+            PhraseMatcherEnum::Exact(m) => {
+                if m.score_mode == TopScores {
+                    Box::new(m.approximation_top_scorers_mut())
+                } else {
+                    Box::new(m.approximation_mut())
+                }
+            },
+            PhraseMatcherEnum::Sloppy(m) => Box::new(m.approximation_mut()),
+        }
+    }
 }
 impl<IE, SS> PhraseMatcher for PhraseMatcherEnum<IE, SS>
 where
@@ -129,3 +163,6 @@ where
         }
     }
 }
+
+pub type DefaultPhraseMatcherEnum<LR, SS> =
+    PhraseMatcherEnum<ImpactsEnumEnum2<LRImpactsEnum<LR>, SlowImpactsEnum<LRPosting<LR>>>, SS>;

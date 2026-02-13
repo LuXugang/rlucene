@@ -17,9 +17,7 @@
 use crate::core::index::BytesRef;
 use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{
-    IRCImpactsEnum, IRCLeafReader, IRCPostingsEnum, IRCTermState, IndexReaderContext,
-};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::{OFFSETS, POSITIONS};
@@ -31,17 +29,20 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::phrase_matcher::PhraseMatcherEnum;
-use crate::core::search::phrase_weight::PhraseWeightBase;
+use crate::core::search::phrase_matcher::{DefaultPhraseMatcherEnum, PhraseMatcherEnum};
+use crate::core::search::phrase_weight::{PhraseWeightBase, PhraseWeightMeta, SimScorerImpl};
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::similarities_impl::similarities::{Similarity, SimilarityEnum};
+use crate::core::search::similarities_impl::similarities::{
+    SimScorerEnum2, Similarity, SimilarityEnum,
+};
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -268,6 +269,13 @@ impl QueryBase for PhraseQuery {
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
+        // let similarity = searcher.get_similarity();
+        // let query = self.clone();
+        // let field = self.field.clone().ok_or_else(|| LuceneError::illegal_state("field is None"))?;
+        // let base = PhraseWeightMeta::new(field, *score_mode, similarity,query.into());
+        // let sub = PhraseQueryWeightBase::new(self, boost,base);
+        // let weight = PhraseWeight::new(searcher, sub)?;
+        // Ok(Box::new(weight))
         todo!()
     }
 
@@ -425,34 +433,40 @@ where
     Ok(TERM_POSNS_SEEK_OPS_PER_DOC as f32
         + exp_occurrences_in_matching_doc * TERM_OPS_PER_POS as f32)
 }
-pub struct PhraseQueryWeightBase<IRC>
+pub struct PhraseQueryWeightBase<LR>
 where
-    IRC: IndexReaderContext,
+    LR: LeafReader,
 {
     query: Arc<PhraseQuery>,
-    field: String,
-    states: Vec<TermStates<IRCTermState<IRC>>>,
-    score_mode: ScoreMode,
-    similarity: SimilarityEnum,
+    states: Vec<Mutex<TermStates<LRTermState<LR>>>>,
     boost: f32,
+    base: PhraseWeightMeta,
 }
-impl<IRC> PhraseQueryWeightBase<IRC>
+impl<LR> PhraseQueryWeightBase<LR>
 where
-    IRC: IndexReaderContext,
+    LR: LeafReader,
 {
+    pub(crate) fn new(query: PhraseQuery, boost: f32, base: PhraseWeightMeta) -> Self {
+        Self {
+            query: Arc::new(query),
+            states: Vec::new(),
+            boost,
+            base,
+        }
+    }
     #[cfg(debug_assertions)]
-    fn term_not_in_reader(reader: &IRCLeafReader<IRC>, term: &Term) -> Result<bool> {
-        Ok(reader.doc_freq(term)? == 0)
+    fn term_not_in_reader(reader: &LR, term: &Term) -> Result<bool> {
+        Ok(LeafReader::doc_freq(reader, term)? == 0)
     }
 }
 
-impl<IRC> PhraseWeightBase<IRC> for PhraseQueryWeightBase<IRC>
+impl<IRC> PhraseWeightBase<IRC> for PhraseQueryWeightBase<IRCLeafReader<IRC>>
 where
     IRC: IndexReaderContext,
 {
-    type SimScorer = <SimilarityEnum as Similarity>::SimScorer;
+    type SimScorer = Arc<SimScorerEnum2<<SimilarityEnum as Similarity>::SimScorer, SimScorerImpl>>;
 
-    fn get_stats(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Option<Self::SimScorer>> {
+    fn get_stats(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer> {
         let positions = &self.query.positions;
 
         if positions.len() < 2 {
@@ -472,9 +486,9 @@ where
 
         for term in &*self.query.terms {
             let term = Arc::new(term.clone());
-            let ts = build(searcher, term.clone(), self.score_mode.needs_scores())?;
+            let ts = build(searcher, term.clone(), self.base.score_mode.needs_scores())?;
 
-            if self.score_mode.needs_scores() && ts.doc_freq()? > 0 {
+            if self.base.score_mode.needs_scores() && ts.doc_freq()? > 0 {
                 let stats = searcher.term_statistics(
                     term.clone(),
                     ts.doc_freq()?,
@@ -484,39 +498,36 @@ where
                 term_up_to += 1;
             }
 
-            self.states.push(ts);
+            self.states.push(Mutex::new(ts));
         }
 
-        if term_up_to > 0 {
+        let v = if term_up_to > 0 {
             let collection_stats = searcher
-                .collection_statistics(&self.field)?
+                .collection_statistics(&self.base.field)?
                 .ok_or_else(|| LuceneError::illegal_state("could not get collection stats"))?;
-            Ok(Some(self.similarity.scorer(
+
+            SimScorerEnum2::A(self.base.similarity.scorer(
                 self.boost,
                 &collection_stats,
                 term_stats[..term_up_to].as_ref(),
-            )))
+            ))
         } else {
             // no terms at all, we won't use similarity
-            Ok(None)
-        }
+            SimScorerEnum2::B(SimScorerImpl)
+        };
+        Ok(Arc::new(v))
     }
 
-    type PhraseMatcher = PhraseMatcherEnum<
-        ImpactsEnumEnum2<IRCImpactsEnum<IRC>, SlowImpactsEnum<IRCPostingsEnum<IRC>>>,
-        Self::SimScorer,
-    >;
-
     fn get_phrase_matcher(
-        &mut self,
+        &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         scorer: Self::SimScorer,
         expose_offsets: bool,
-    ) -> Result<Option<Self::PhraseMatcher>> {
+    ) -> Result<Option<DefaultPhraseMatcherEnum<IRCLeafReader<IRC>, Self::SimScorer>>> {
         debug_assert!(!self.query.terms.is_empty());
         let reader = context.reader();
 
-        let field_terms = match reader.terms(&self.field)? {
+        let field_terms = match reader.terms(&self.base.field)? {
             Some(t) => t,
             None => return Ok(None),
         };
@@ -524,8 +535,8 @@ where
         if !field_terms.has_positions() {
             return Err(LuceneError::illegal_state(format!(
                 "field \"{}\" was indexed without position data; cannot run PhraseQuery (phrase={})",
-                self.field,
-                self.query.as_string(&self.field)
+                self.base.field,
+                self.query.as_string(&self.base.field)
             )));
         }
 
@@ -537,10 +548,10 @@ where
         for i in 0..self.query.terms.len() {
             let t = &self.query.terms[i];
 
-            let mut supplier = self.states[i].get(context)?;
+            let mut supplier = self.states[i].lock().get(context)?;
             let state = match supplier {
                 None => None,
-                Some(ref mut s) => self.states[i].resolve(s)?,
+                Some(ref mut s) => self.states[i].lock().resolve(s)?,
             };
 
             let state = match state {
@@ -565,7 +576,7 @@ where
                 },
             }
 
-            let impacts_enum = if self.score_mode == ScoreMode::TopScores {
+            let impacts_enum = if self.base.score_mode == ScoreMode::TopScores {
                 let impacts = te.impacts(if expose_offsets {
                     OFFSETS as i32
                 } else {
@@ -598,7 +609,7 @@ where
             postings_freqs.sort();
             PhraseMatcherEnum::Exact(ExactPhraseMatcher::new(
                 postings_freqs,
-                self.score_mode,
+                self.base.score_mode,
                 scorer,
                 total_match_cost,
             )?)
@@ -612,6 +623,10 @@ where
             )?)
         };
         Ok(Some(v))
+    }
+
+    fn base(&self) -> &PhraseWeightMeta {
+        &self.base
     }
 }
 

@@ -206,29 +206,11 @@ where
     N: NumericDocValues,
 {
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        match self.matcher {
-            PhraseMatcherEnum::Exact(ref mut m) => {
-                if m.score_mode == TopScores {
-                    Box::new(m.approximation_top_scorers_mut())
-                } else {
-                    Box::new(m.approximation_mut())
-                }
-            },
-            PhraseMatcherEnum::Sloppy(ref mut m) => Box::new(m.approximation_mut()),
-        }
+        self.matcher.approximation_mut()
     }
 
     fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-        match self.matcher {
-            PhraseMatcherEnum::Exact(ref m) => {
-                if m.score_mode == TopScores {
-                    Box::new(m.approximation_top_scorers())
-                } else {
-                    Box::new(m.approximation())
-                }
-            },
-            PhraseMatcherEnum::Sloppy(ref m) => Box::new(m.approximation()),
-        }
+        self.matcher.approximation()
     }
 
     fn matches(&mut self) -> Result<bool> {
