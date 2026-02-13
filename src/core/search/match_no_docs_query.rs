@@ -179,7 +179,7 @@ where
         } else {
             return Err(LuceneError::illegal_state(""));
         };
-        Ok(Explanation::no_match(parent_query.reason.clone(), vec![]))
+        Ok(Explanation::no_match_no_details(parent_query.reason.clone()))
     }
 
     fn get_query(&self) -> Arc<Query> {

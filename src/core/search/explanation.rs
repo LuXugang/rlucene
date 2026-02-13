@@ -75,6 +75,13 @@ impl Explanation {
 
         buffer
     }
+    pub fn match_no_details<N, S>(value: N, description: S) -> Explanation
+    where
+        N: Into<Number>,
+        S: Into<String>,
+    {
+        Self::match_no_details(value,description)
+    }
     /// Create a new explanation for a match.
     ///
     /// # Arguments
@@ -88,6 +95,12 @@ impl Explanation {
         S: Into<String>,
     {
         Explanation::new(true, value, description, details)
+    }
+    pub fn no_match_no_details<S>(description: S) -> Explanation
+    where
+        S: Into<String>,
+    {
+        Self::no_match(description, vec![])
     }
     /// Create a new explanation for a document which does not match.
     pub fn no_match<S>(description: S, details: Vec<Explanation>) -> Explanation

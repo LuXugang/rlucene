@@ -57,12 +57,11 @@ impl ConstantScoreWeight {
 
         if exists {
             if (self.score - 1.0).abs() < f32::EPSILON {
-                Ok(Explanation::match_(self.score, query_str.into(), vec![]))
+                Ok(Explanation::match_no_details(self.score, query_str.into()))
             } else {
-                Ok(Explanation::match_(
+                Ok(Explanation::match_no_details(
                     self.score,
                     format!("{}^{}", query_str.into(), self.score),
-                    vec![],
                 ))
             }
         } else {

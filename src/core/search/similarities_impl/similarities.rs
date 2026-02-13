@@ -308,7 +308,7 @@ pub trait SimScorer {
     fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
         let value = self.score(freq.get_value().to_f32().unwrap(), norm);
         let description = format!("score(freq={}), with freq of:", freq.get_value());
-        Explanation::match_(value, description, vec![freq])
+        Explanation::match_no_details(value, description )
     }
 }
 impl<T> SimScorer for Arc<T>

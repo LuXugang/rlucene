@@ -117,15 +117,13 @@ impl BM25Similarity {
             idf,
             "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:".to_string(),
             vec![
-                Explanation::match_(
+                Explanation::match_no_details(
                     df,
                     "n, number of documents containing term".to_string(),
-                    vec![],
                 ),
-                Explanation::match_(
+                Explanation::match_no_details(
                     doc_count,
                     "N, total number of documents with field".to_string(),
-                    vec![],
                 ),
             ],
         )
@@ -251,37 +249,32 @@ impl BM25Scorer {
         let mut subs = Vec::new();
         let freq_value = freq.get_value().to_f32().unwrap();
         subs.push(freq);
-        subs.push(Explanation::match_(
+        subs.push(Explanation::match_no_details(
             self.k1,
             "k1, term saturation parameter".to_string(),
-            vec![],
         ));
 
         let doclen = LENGTH_TABLE[(norm as u8) as usize];
-        subs.push(Explanation::match_(
+        subs.push(Explanation::match_no_details(
             self.b,
             "b, length normalization parameter".to_string(),
-            vec![],
         ));
 
         if (norm & 0xFF) > 39 {
-            subs.push(Explanation::match_(
+            subs.push(Explanation::match_no_details(
                 doclen,
                 "dl, length of field (approximate)".to_string(),
-                vec![],
             ));
         } else {
-            subs.push(Explanation::match_(
+            subs.push(Explanation::match_no_details(
                 doclen,
                 "dl, length of field".to_string(),
-                vec![],
             ));
         }
 
-        subs.push(Explanation::match_(
+        subs.push(Explanation::match_no_details(
             self.avgdl,
             "avgdl, average length of field".to_string(),
-            vec![],
         ));
 
         let norm_inverse = 1.0 / (self.k1 * ((1.0 - self.b) + self.b * doclen / self.avgdl));
@@ -297,10 +290,9 @@ impl BM25Scorer {
     fn explain_constant_factors(&self) -> Vec<Explanation> {
         let mut subs = Vec::new();
         if (self.boost - 1.0).abs() > f32::EPSILON {
-            subs.push(Explanation::match_(
+            subs.push(Explanation::match_no_details(
                 Number::F32(self.boost),
                 "boost".to_string(),
-                vec![],
             ));
         }
         subs.push(self.idf.clone());

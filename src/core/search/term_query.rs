@@ -334,10 +334,9 @@ where
                     norm = norms.long_value()?;
                 }
 
-                let freq_explanation = Explanation::match_(
+                let freq_explanation = Explanation::match_no_details(
                     freq,
                     "freq, occurrences of term within document".to_string(),
-                    vec![],
                 );
 
                 let score_explanation = self
@@ -359,9 +358,8 @@ where
             }
         }
 
-        Ok(Explanation::no_match(
+        Ok(Explanation::no_match_no_details(
             "no matching term".to_string(),
-            vec![],
         ))
     }
 
