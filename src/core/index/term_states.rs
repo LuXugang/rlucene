@@ -318,14 +318,16 @@ where
 
 pub type TermStateTerm<T> =
     TermStateEnum2<LRTermState<T>, TermStateEnum2<TermStateImpl1, DummyTermState>>;
-pub fn build<IRC>(
+pub fn build<IRC,T>(
     index_searcher: &IndexSearcher<IRC>,
-    term: Arc<Term>,
+    term: T,
     needs_stats: bool,
 ) -> Result<TermStates<IRCTermState<IRC>>>
 where
     IRC: IndexReaderContext,
+    T: Into<Arc<Term>>,
 {
+    let term = term.into();
     let context = index_searcher.get_top_reader_context();
     let mut per_reader_term_state = TermStates::new(
         if needs_stats {
