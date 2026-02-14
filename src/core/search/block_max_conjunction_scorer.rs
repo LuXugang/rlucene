@@ -242,6 +242,7 @@ pub struct DocIdSetIteratorImpl<S>
 where
     S: Scorer,
 {
+    // lead scorer is always the first one
     scorers: Vec<S>,
     upto: i32,
     max_score: f32,
@@ -285,7 +286,7 @@ where
     }
     fn do_next(&mut self, mut doc: i32) -> Result<i32> {
         'advance_head: loop {
-            assert_eq!(doc, self.scorers[0].iterator().doc_id());
+            assert_eq!(doc, self.scorers[0].approximation().doc_id());
 
             if doc == NO_MORE_DOCS {
                 return Ok(NO_MORE_DOCS);
@@ -297,7 +298,7 @@ where
                 // be in the current block already since it is always the result of
                 let next_target = self.advance_target(doc)?;
                 if next_target != doc {
-                    doc = self.scorers[0].iterator_mut().advance(next_target)?;
+                    doc = self.scorers[0].approximation_mut().advance(next_target)?;
                     continue;
                 }
             }
@@ -306,20 +307,20 @@ where
             let len = self.scorers.len();
             // then find agreement with other iterators
             for i in 1..len {
-                let other_doc_id = self.scorers[i].iterator().doc_id();
+                let other_doc_id = self.scorers[i].approximation().doc_id();
                 // other.doc may already be equal to doc if we "continued advanceHead"
                 // on the previous iteration and the advance on the lead scorer exactly matched.
                 if other_doc_id < doc {
-                    let next = self.scorers[i].iterator_mut().advance(doc)?;
+                    let next = self.scorers[i].approximation_mut().advance(doc)?;
                     if next > doc {
                         // iterator beyond the current doc - advance lead and continue to the new highest
                         // doc.
                         let v = self.advance_target(next)?;
-                        doc = self.scorers[0].iterator_mut().advance(v)?;
+                        doc = self.scorers[0].approximation_mut().advance(v)?;
                         continue 'advance_head;
                     }
                 }
-                assert_eq!(self.scorers[i].iterator().doc_id(), doc);
+                assert_eq!(self.scorers[i].approximation().doc_id(), doc);
             }
             return Ok(doc);
         }
@@ -369,12 +370,12 @@ where
 
     fn advance(&mut self, target: i32) -> Result<i32> {
         let doc = self.advance_target(target)?;
-        let v = self.scorers[0].iterator_mut().advance(doc)?;
+        let v = self.scorers[0].approximation_mut().advance(doc)?;
         self.do_next(v)
     }
 
     fn cost(&self) -> Result<i64> {
-        self.scorers[0].iterator().cost()
+        self.scorers[0].cost()
     }
 }
 pub struct TwoPhaseIteratorImpl<S>

@@ -416,7 +416,9 @@ where
             }
 
             let impact_list = self.impacts[i].get_impacts(impacts_level)?;
-            let first = &impact_list[0];
+            let first = impact_list
+                .first()
+                .ok_or_else(|| LuceneError::illegal_state("impact is None"))?;
 
             if first.freq == i32::MAX && first.norm == 1 {
                 // Dummy impacts, ignore it too.

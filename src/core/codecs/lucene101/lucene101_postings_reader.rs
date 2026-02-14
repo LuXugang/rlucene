@@ -1505,8 +1505,9 @@ impl Impacts for ImpactsImpl<'_> {
                         .as_slice(),
                     self.max_num_impacts_at_level0,
                 )?;
-                Ok(level0_impacts.impacts)
-            } else {
+                return Ok(level0_impacts.impacts);
+            }
+            if level == 1 {
                 let level1_impacts = ImpactsImpl::read_impacts(
                     self.level1_serialized_impacts
                         .as_ref()
@@ -1515,11 +1516,10 @@ impl Impacts for ImpactsImpl<'_> {
                         .as_slice(),
                     self.max_num_impacts_at_level1,
                 )?;
-                Ok(level1_impacts.impacts)
+                return Ok(level1_impacts.impacts);
             }
-        } else {
-            Ok(vec![Impact::new(i32::MAX, 1)])
         }
+        Ok(vec![Impact::new(i32::MAX, 1)])
     }
 }
 
