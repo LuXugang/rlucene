@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::scorable::{ChildScorable, Scorable};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Filter a [`Scorable`], intercepting methods and optionally changing their return values.
 ///
 /// The default implementation simply passes all calls to its delegate,
@@ -45,5 +45,9 @@ where
 
     fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
         todo!()
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Err(LuceneError::unsupported_operation(""))
     }
 }

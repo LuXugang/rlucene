@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::scorable::Scorable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Used by [`BulkScorers`](crate::core::search::bulk_scorer::BulkScorer) that need to pass a
 /// [`Scorable`] to
 /// [`LeafCollector::collect`](crate::core::search::leaf_collector::LeafCollector::collect).
@@ -30,5 +30,9 @@ impl Score {
 impl Scorable for Score {
     fn score(&mut self) -> Result<f32> {
         Ok(self.score)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Err(LuceneError::unsupported_operation(""))
     }
 }

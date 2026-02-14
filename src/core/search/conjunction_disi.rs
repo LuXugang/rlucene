@@ -493,7 +493,7 @@ where
         self.scorer.get_children()
     }
 
-    fn cost(&mut self) -> Result<i64> {
+    fn cost(&self) -> Result<i64> {
         self.scorer.cost()
     }
 }

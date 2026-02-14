@@ -108,7 +108,7 @@ where
 
 impl<S, T> Scorable for DisjunctionScorer<S, T>
 where
-    S: Scorer,
+    S: Scorer + 'static,
     T: DisjunctionScorerBase,
 {
     fn score(&mut self) -> Result<f32> {
@@ -146,6 +146,10 @@ where
 
     fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
         todo!()
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.iterator().cost()
     }
 }
 

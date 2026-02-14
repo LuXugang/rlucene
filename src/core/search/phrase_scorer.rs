@@ -56,9 +56,9 @@ where
 
 impl<IE, SS, N> Scorable for PhraseScorer<IE, SS, N>
 where
-    IE: ImpactsEnum,
-    SS: SimScorer,
-    N: NumericDocValues,
+    IE: ImpactsEnum + 'static,
+    SS: SimScorer + 'static,
+    N: NumericDocValues + 'static,
 {
     fn score(&mut self) -> Result<f32> {
         {
@@ -94,6 +94,10 @@ where
             },
         }
         Ok(())
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.iterator().cost()
     }
 }
 

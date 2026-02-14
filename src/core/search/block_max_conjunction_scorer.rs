@@ -89,7 +89,7 @@ where
 
 impl<S> Scorable for BlockMaxConjunctionScorer<S>
 where
-    S: Scorer,
+    S: Scorer + 'static,
 {
     fn score(&mut self) -> Result<f32> {
         match self.disi {
@@ -108,6 +108,10 @@ where
             },
         }
         Ok(())
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.iterator().cost()
     }
 }
 

@@ -200,6 +200,10 @@ where
     fn score(&mut self) -> Result<f32> {
         self.scorer.score()
     }
+
+    fn cost(&self) -> Result<i64> {
+        self.iterator().cost()
+    }
 }
 
 impl<S> Scorer for RandomApproximationScorer<S>

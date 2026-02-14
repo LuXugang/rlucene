@@ -70,7 +70,7 @@ where
 
 impl<S> Scorable for ConjunctionScorer<S>
 where
-    S: Scorer,
+    S: Scorer + 'static,
 {
     fn score(&mut self) -> Result<f32> {
         let mut sum = 0f64;
@@ -103,6 +103,10 @@ where
 
     fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
         todo!()
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.iterator().cost()
     }
 }
 

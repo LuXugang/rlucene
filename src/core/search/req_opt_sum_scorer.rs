@@ -100,8 +100,8 @@ where
 
 impl<S1, S2> Scorable for ReqOptSumScorer<S1, S2>
 where
-    S1: Scorer,
-    S2: Scorer,
+    S1: Scorer + 'static,
+    S2: Scorer + 'static,
 {
     fn score(&mut self) -> Result<f32> {
         match self.disi {
@@ -118,6 +118,10 @@ where
                 .disi
                 .set_min_competitive_score(min_score),
         }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.iterator().cost()
     }
 }
 
@@ -1042,11 +1046,15 @@ mod tests {
 
     impl<S1, S2> Scorable for ReqOptSumScorerWrapper<S1, S2>
     where
-        S1: Scorer,
-        S2: Scorer,
+        S1: Scorer + 'static,
+        S2: Scorer + 'static,
     {
         fn score(&mut self) -> Result<f32> {
             self.base.score()
+        }
+
+        fn cost(&self) -> Result<i64> {
+            self.iterator().cost()
         }
     }
 

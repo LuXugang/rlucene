@@ -17,7 +17,7 @@
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{ChildScorable, Scorable};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 
 /// A `Scorer`(crate::core::search::scorer::Scorer) that wraps another scorer and caches the score of the current document.
@@ -71,6 +71,10 @@ where
 
     fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
         todo!()
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Err(LuceneError::unsupported_operation(""))
     }
 }
 pub struct ScoreCachingWrappingLeafCollector<LC>

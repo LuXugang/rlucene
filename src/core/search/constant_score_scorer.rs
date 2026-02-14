@@ -116,8 +116,8 @@ where
         Ok(())
     }
 
-    fn cost(&mut self) -> Result<i64> {
-        Scorer::default_cost(self)
+    fn cost(&self) -> Result<i64> {
+        self.iterator().cost()
     }
 }
 

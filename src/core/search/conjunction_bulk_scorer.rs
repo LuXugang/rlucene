@@ -257,4 +257,8 @@ where
         }
         Ok(score)
     }
+
+    fn cost(&self) -> Result<i64> {
+        Err(LuceneError::unsupported_operation(""))
+    }
 }

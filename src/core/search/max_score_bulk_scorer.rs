@@ -26,7 +26,7 @@ use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::math_util::MathUtil;
 
@@ -825,6 +825,10 @@ impl Scorable for Score {
         self.min_competitive_score = min_score;
         Ok(())
     }
+
+    fn cost(&self) -> Result<i64> {
+        Err(LuceneError::unsupported_operation(""))
+    }
 }
 #[cfg(test)]
 mod test {
@@ -1465,6 +1469,10 @@ mod test {
     impl Scorable for FakeScorer {
         fn score(&mut self) -> Result<f32> {
             Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn cost(&self) -> Result<i64> {
+            self.iterator().cost()
         }
     }
 

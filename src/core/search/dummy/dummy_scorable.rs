@@ -35,4 +35,8 @@ impl Scorable for DummyScorable {
     fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
+
+    fn cost(&self) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
 }

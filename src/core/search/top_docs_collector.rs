@@ -608,6 +608,10 @@ mod tests {
             self.min_competitive_score = Some(score);
             Ok(())
         }
+
+        fn cost(&self) -> Result<i64> {
+            Err(LuceneError::unsupported_operation(""))
+        }
     }
     #[test]
     fn test_set_min_competitive_score() -> Result<()> {

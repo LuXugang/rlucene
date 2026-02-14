@@ -905,6 +905,10 @@ where
     fn score(&mut self) -> Result<f32> {
         Ok(0f32)
     }
+
+    fn cost(&self) -> Result<i64> {
+        self.iterator().cost()
+    }
 }
 
 impl<S> Scorer for FilterScorerImpl<S>
@@ -1101,6 +1105,10 @@ mod tests {
     impl Scorable for FakeScorer {
         fn score(&mut self) -> Result<f32> {
             Ok(1f32)
+        }
+
+        fn cost(&self) -> Result<i64> {
+            self.iterator().cost()
         }
     }
 

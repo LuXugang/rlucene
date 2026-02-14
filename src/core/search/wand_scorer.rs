@@ -93,7 +93,7 @@ where
 
 impl<S> Scorable for WANDScorer<S>
 where
-    S: Scorer,
+    S: Scorer + 'static,
 {
     fn score(&mut self) -> Result<f32> {
         let disi = &mut self.disi.two_phase_iterator.approximation;
@@ -128,6 +128,10 @@ where
         debug_assert!(scaled_min_score >= disi.min_competitive_score);
         disi.min_competitive_score = scaled_min_score;
         Ok(())
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.iterator().cost()
     }
 }
 
@@ -2206,6 +2210,10 @@ pub(crate) mod tests {
     {
         fn score(&mut self) -> Result<f32> {
             self.scorer.score()
+        }
+
+        fn cost(&self) -> Result<i64> {
+            self.iterator().cost()
         }
     }
 

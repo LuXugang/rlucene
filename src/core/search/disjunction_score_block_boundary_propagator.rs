@@ -199,6 +199,10 @@ mod tests {
         fn score(&mut self) -> Result<f32> {
             Err(LuceneError::unsupported_operation(""))
         }
+
+        fn cost(&self) -> Result<i64> {
+            self.iterator().cost()
+        }
     }
 
     impl Scorer for FakeScorer {

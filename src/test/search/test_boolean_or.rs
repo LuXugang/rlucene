@@ -103,6 +103,10 @@ impl Scorable for ScorerImpl {
     fn score(&mut self) -> Result<f32> {
         Ok(0.0)
     }
+
+    fn cost(&self) -> Result<i64> {
+        self.iterator().cost()
+    }
 }
 
 impl Scorer for ScorerImpl {

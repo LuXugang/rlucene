@@ -70,8 +70,8 @@ where
 
 impl<S1, S2> Scorable for ReqExclScorer<S1, S2>
 where
-    S1: Scorer,
-    S2: Scorer,
+    S1: Scorer + 'static,
+    S2: Scorer + 'static,
 {
     fn score(&mut self) -> Result<f32> {
         match self.disi.two_phase_iterator {
@@ -89,6 +89,10 @@ where
                 tpi.req_scorer.set_min_competitive_score(min_score)
             },
         }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.iterator().cost()
     }
 }
 

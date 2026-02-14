@@ -22,7 +22,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::Scorer;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
 
 /// BulkScorer implementation of [`BlockMaxConjunctionScorer`](crate::core::search::block_max_conjunction_scorer) that focuses on top-level
@@ -287,5 +287,9 @@ impl Scorable for DocAndScore {
     fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
         self.min_competitive_score = min_score;
         Ok(())
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Err(LuceneError::unsupported_operation(""))
     }
 }

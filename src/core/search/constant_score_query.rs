@@ -416,7 +416,7 @@ where
         self.base.get_children()
     }
 
-    fn cost(&mut self) -> Result<i64> {
+    fn cost(&self) -> Result<i64> {
         self.base.cost()
     }
 }

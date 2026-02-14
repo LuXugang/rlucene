@@ -108,7 +108,7 @@ pub trait Scorer: Scorable {
     fn get_max_score(&mut self, upto: i32) -> Result<f32>;
 
     fn default_cost(&mut self) -> Result<i64> {
-        self.iterator_mut().cost()
+        self.iterator().cost()
     }
     fn has_two_phase_iterator(&self) -> TwoPhaseState;
 
@@ -159,7 +159,7 @@ where
         (**self).get_children()
     }
 
-    fn cost(&mut self) -> Result<i64> {
+    fn cost(&self) -> Result<i64> {
         (**self).cost()
     }
 }
@@ -338,8 +338,8 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn cost(&mut self) -> Result<i64> {
-                match self { $( Self::$Variant(inner) => inner.default_cost(), )+ }
+            fn cost(&self) -> Result<i64> {
+                match self { $( Self::$Variant(inner) => inner.cost(), )+ }
             }
         }
 
