@@ -26,6 +26,7 @@ pub struct Explanation {
     pub description: String,
     pub details: Vec<Explanation>,
 }
+
 impl Explanation {
     /// Internal constructor, equivalent to private constructor in Java
     fn new<N, S>(matched: bool, value: N, description: S, details: Vec<Explanation>) -> Self
@@ -108,6 +109,13 @@ impl Explanation {
         S: Into<String>,
     {
         Explanation::new(false, Number::F32(0.0), description, details)
+    }
+
+    pub fn error_explanation<S>(description: S) -> Explanation
+    where
+        S: Into<String>,
+    {
+        Explanation::match_no_details(0, description)
     }
 }
 impl PartialEq for Explanation {
