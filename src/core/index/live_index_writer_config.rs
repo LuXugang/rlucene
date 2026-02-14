@@ -32,8 +32,8 @@ use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommi
 use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSchedulerEnum};
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
-use crate::core::search::dummy::dummy_similarity::DummySimilarity;
-use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::index_searcher::default_similarity;
+use crate::core::search::similarities_impl::similarities::{Similarity, SimilarityEnum};
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
@@ -163,7 +163,7 @@ pub struct LiveIndexWriterConfigBase {
     pub index_commit: Option<DummyIndexCommit<DummyDirectory>>,
     pub use_compound_file: bool,
     pub open_mode: OpenMode,
-    pub similarity: Arc<DummySimilarity>,
+    pub similarity: Arc<SimilarityEnum>,
     pub codec: Lucene101Codec,
     pub info_stream: InfoStreamMT,
     pub merge_policy: MergePolicyEnum,
@@ -195,7 +195,7 @@ impl LiveIndexWriterConfigBase {
             index_commit: None,
             use_compound_file: DEFAULT_USE_COMPOUND_FILE_SYSTEM,
             open_mode: OpenMode::CreateOrAppend,
-            similarity: Arc::new(DummySimilarity),
+            similarity: Arc::new(default_similarity()),
             codec: Lucene101Codec,
             info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
             merge_policy: MergePolicyEnum::Tiered(TieredMergePolicy::default()),

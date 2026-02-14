@@ -133,7 +133,7 @@ where
         let inner = Mutex::new(Inner { leaf_slices });
         Ok(Self {
             reader_context: context,
-            similarity: Arc::new(BM25Similarity::new()?.into()),
+            similarity: Arc::new(default_similarity()),
             inner,
             query_timeout: None,
             query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?.into()),
@@ -141,6 +141,12 @@ where
             partial_result: AtomicBool::new(false),
         })
     }
+}
+
+pub fn default_similarity() -> SimilarityEnum {
+    BM25Similarity::new()
+        .expect("Cannot create BM25Similarity")
+        .into()
 }
 
 impl<IRC> IndexSearcher<IRC>

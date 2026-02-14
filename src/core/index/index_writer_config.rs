@@ -24,7 +24,7 @@ use crate::core::index::live_index_writer_config::{
 };
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
-use crate::core::search::dummy::dummy_similarity::DummySimilarity;
+use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::info_stream::InfoStreamMT;
@@ -62,7 +62,7 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
         &self.base.analyzer
     }
 
-    type Similarity = DummySimilarity;
+    type Similarity = SimilarityEnum;
 
     fn get_similarity(&self) -> &Self::Similarity {
         self.base.similarity.as_ref()
