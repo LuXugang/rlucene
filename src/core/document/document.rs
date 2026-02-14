@@ -278,7 +278,7 @@ mod tests {
     use crate::core::document::stored_field::StoredField;
     use crate::core::document::string_field::StringField;
     use crate::core::document::text_field::TextField;
-    use crate::core::index::composite_reader::get_context;
+
     use crate::core::index::index_options::IndexOptions;
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::indexable_field::IndexableField;
@@ -464,8 +464,7 @@ mod tests {
         writer.add_document(make_document_with_fields()?)?;
 
         let reader = writer.get_reader()?;
-        let reader_ctx = get_context(reader)?;
-        let searcher = IndexSearcher::new(reader_ctx)?;
+        let searcher = IndexSearcher::from_cr(reader)?;
 
         // search for something that does exist
         let query = TermQuery::new(Term::from_text("keyword", "test1"));
@@ -620,8 +619,7 @@ mod tests {
         writer.add_document(doc.clone())?;
 
         let reader = writer.get_reader()?;
-        let reader_ctx = get_context(reader)?;
-        let searcher = IndexSearcher::new(reader_ctx)?;
+        let searcher = IndexSearcher::from_cr(reader)?;
 
         let query = TermQuery::new(Term::from_text("keyword", "test"));
         // ensure that queries return expected results without DateFilter first

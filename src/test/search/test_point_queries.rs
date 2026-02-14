@@ -21,7 +21,6 @@ use crate::core::document::float_point::FloatPoint;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -70,7 +69,7 @@ fn test_basic_ints() -> Result<()> {
     }
 
     let r = directory_reader_util::open_with_writer(&w)?;
-    let searcher = IndexSearcher::new(get_context(&r)?)?;
+    let searcher = IndexSearcher::from_cr(r)?;
 
     assert_eq!(
         2,
@@ -114,7 +113,7 @@ fn test_basic_floats() -> Result<()> {
     }
 
     let r = directory_reader_util::open_with_writer(&w)?;
-    let searcher = IndexSearcher::new(get_context(&r)?)?;
+    let searcher = IndexSearcher::from_cr(r)?;
 
     assert_eq!(
         2,
@@ -165,7 +164,7 @@ fn test_basic_longs() -> Result<()> {
     }
 
     let r = directory_reader_util::open_with_writer(&w)?;
-    let searcher = IndexSearcher::new(get_context(&r)?)?;
+    let searcher = IndexSearcher::from_cr(r)?;
 
     assert_eq!(
         2,
@@ -216,7 +215,7 @@ fn test_basic_doubles() -> Result<()> {
     }
 
     let r = directory_reader_util::open_with_writer(&w)?;
-    let searcher = IndexSearcher::new(get_context(&r)?)?;
+    let searcher = IndexSearcher::from_cr(r)?;
 
     assert_eq!(
         2,
@@ -291,7 +290,7 @@ fn test_crazy_doubles() -> Result<()> {
     }
 
     let r = directory_reader_util::open_with_writer(&w)?;
-    let searcher = IndexSearcher::new(get_context(&r)?)?;
+    let searcher = IndexSearcher::from_cr(r)?;
 
     // exact queries
     assert_eq!(
@@ -443,7 +442,7 @@ fn test_crazy_floats() -> Result<()> {
     }
 
     let r = directory_reader_util::open_with_writer(&w)?;
-    let searcher = IndexSearcher::new(get_context(&r)?)?;
+    let searcher = IndexSearcher::from_cr(r)?;
 
     // exact queries
     assert_eq!(
@@ -966,7 +965,7 @@ fn test_numeric_no_values_match() -> Result<()> {
     }
 
     let r = w.get_reader()?;
-    let searcher = IndexSearcher::new(get_context(&r)?)?;
+    let searcher = IndexSearcher::from_cr(r)?;
 
     assert_eq!(
         0,
@@ -1015,7 +1014,7 @@ fn test_wrong_num_dims() -> Result<()> {
     let r = w.get_reader()?;
 
     // no wrapping, else the exc might happen in executor thread:
-    let searcher = IndexSearcher::new(get_context(&r)?)?;
+    let searcher = IndexSearcher::from_cr(r)?;
 
     let point = [vec![0u8; 8], vec![0u8; 8]];
 
@@ -1466,7 +1465,7 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
 
     let query = {
         let reader = w.get_reader()?;
-        let mut searcher = IndexSearcher::new(get_context(&reader)?)?;
+        let mut searcher = IndexSearcher::from_cr(reader)?;
         searcher.set_query_cache(None);
 
         let mut lower = Vec::with_capacity(num_dims);
@@ -1489,7 +1488,7 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
     w.commit()?;
 
     let reader = w.get_reader()?;
-    let mut searcher = IndexSearcher::new(get_context(&reader)?)?;
+    let mut searcher = IndexSearcher::from_cr(reader)?;
     searcher.set_query_cache(None);
 
     let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
@@ -1544,7 +1543,7 @@ fn test_point_range_weight_count() -> Result<()> {
     // w.force_merge(1)?;
 
     let reader = w.get_reader()?;
-    let searcher = IndexSearcher::new(get_context(&reader)?)?;
+    let searcher = IndexSearcher::from_cr(reader)?;
 
     // we need at least 1 leaf in the segment
     if !searcher.get_leaf_contexts()?.is_empty() {

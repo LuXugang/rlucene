@@ -381,8 +381,8 @@ mod tests {
         writer.commit()?;
 
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(reader)?;
-        let searcher = IndexSearcher::new(reader)?;
+
+        let searcher = IndexSearcher::from_cr(reader)?;
 
         for (id, expected_val) in expected {
             let td = searcher.search_with_sort(

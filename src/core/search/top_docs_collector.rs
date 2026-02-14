@@ -801,7 +801,7 @@ mod tests {
         writer.flush()?;
 
         let reader = writer.get_reader(false, false)?;
-        let searcher = IndexSearcher::new(get_context(reader)?)?;
+        let searcher = IndexSearcher::from_cr(reader)?;
 
         let manager = TopScoreDocCollectorManager::new(2, 10)?;
         let top_docs = searcher

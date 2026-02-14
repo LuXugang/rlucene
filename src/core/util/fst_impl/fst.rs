@@ -1480,7 +1480,7 @@ mod tests {
     use crate::core::document::field::{FieldBase, Store};
     use crate::core::document::string_field::StringField;
     use crate::core::index::BytesRef;
-    use crate::core::index::composite_reader::get_context;
+
     use crate::core::index::term::Term;
     use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::search::term_query::TermQuery;
@@ -2014,8 +2014,7 @@ mod tests {
         }
 
         let reader = writer.get_reader()?;
-        let reader_ctx = get_context(reader)?;
-        let searcher = IndexSearcher::new(reader_ctx)?;
+        let searcher = IndexSearcher::from_cr(reader)?;
         writer.close()?;
 
         let mut all_terms_list: Vec<String> = all_terms.iter().cloned().collect();

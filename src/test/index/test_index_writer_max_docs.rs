@@ -16,7 +16,6 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_DOCS};
@@ -62,9 +61,8 @@ fn test_exactly_at_true_limit() -> Result<()> {
         let ir = directory_reader_util::open(dir.clone())?;
         assert_eq!(MAX_DOCS, ir.max_doc()?);
         assert_eq!(MAX_DOCS, ir.num_docs()?);
-        let ir = get_context(&ir)?;
 
-        let searcher = IndexSearcher::new(ir)?;
+        let searcher = IndexSearcher::from_cr(ir)?;
         let collector_manager =
             TopScoreDocCollectorManager::with_after(10, None, i32::MAX as usize)?;
 
