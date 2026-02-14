@@ -16,6 +16,7 @@
  */
 use crate::core::search::explanation::Explanation;
 use crate::core::search::similarities_impl::similarities::SimScorer;
+use crate::core::util::error::lucene_error::Result;
 
 pub struct DummySimScorer;
 impl SimScorer for DummySimScorer {
@@ -23,7 +24,7 @@ impl SimScorer for DummySimScorer {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn explain(&self, _freq: Explanation, _norm: i64) -> Explanation {
+    fn explain(&self, _freq: Explanation, _norm: i64) -> Result<Explanation> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

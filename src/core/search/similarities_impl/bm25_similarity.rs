@@ -313,7 +313,7 @@ impl SimScorer for BM25Scorer {
         self.weight - self.weight / (1.0 + freq * norm_inverse)
     }
 
-    fn explain(&self, freq: Explanation, encoded_norm: i64) -> Explanation {
+    fn explain(&self, freq: Explanation, encoded_norm: i64) -> Result<Explanation> {
         let mut subs = self.explain_constant_factors();
         let freq_value = freq.get_value().to_f32().unwrap();
         let tf_expl = self.explain_tf(freq, encoded_norm);
@@ -323,14 +323,14 @@ impl SimScorer for BM25Scorer {
         let score_val = self.weight - self.weight / (1.0 + freq_value * norm_inverse);
         // not using "product of" since the rewrite that we do in score()
         // introduces a small rounding error that CheckHits complains about
-        Explanation::match_(
+        Ok(Explanation::match_(
             score_val,
             format!(
                 "score(freq={}), computed as boost * idf * tf from:",
                 freq_value
             ),
             subs,
-        )
+        ))
     }
 }
 #[cfg(test)]

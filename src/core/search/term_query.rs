@@ -343,7 +343,7 @@ where
                     .sim_scorer
                     .as_ref()
                     .unwrap()
-                    .explain(freq_explanation, norm);
+                    .explain(freq_explanation, norm)?;
 
                 return Ok(Explanation::match_(
                     score_explanation.value,

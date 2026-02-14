@@ -210,7 +210,7 @@ pub trait BaseSimilarityTestCase {
         let explanation = scorer.explain(
             Explanation::match_no_details(freq, "freq, occurrences of term within document"),
             norm as i64,
-        );
+        )?;
         assert_eq!(
             score,
             explanation.get_value().to_f32().unwrap(),
@@ -240,7 +240,7 @@ pub trait BaseSimilarityTestCase {
         let prev_explanation = scorer.explain(
             Explanation::match_no_details(prev_freq, "freq, occurrences of term within document"),
             norm as i64,
-        );
+        )?;
         assert_eq!(
             prev_score,
             prev_explanation.get_value().to_f32().unwrap(),
@@ -274,7 +274,7 @@ pub trait BaseSimilarityTestCase {
             let prev_norm_explanation = scorer.explain(
                 Explanation::match_no_details(freq, "freq, occurrences of term within document"),
                 norm as i64 - 1,
-            );
+            )?;
             assert_eq!(
                 prev_norm_score,
                 prev_norm_explanation.get_value().to_f32().unwrap(),
@@ -323,7 +323,7 @@ pub trait BaseSimilarityTestCase {
             let prev_term_explanation = prev_term_scorer.explain(
                 Explanation::match_no_details(freq, "freq, occurrences of term within document"),
                 norm.into(),
-            );
+            )?;
             assert_eq!(
                 prev_term_score,
                 prev_term_explanation.get_value().to_f32().unwrap(),

@@ -314,11 +314,11 @@ pub trait SimScorer {
     ///
     /// # Returns
     ///
-    /// An `Explanation` detailing how the document’s score was derived.
-    fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
+    /// A `Result<Explanation>` detailing how the document’s score was derived.
+    fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
         let value = self.score(freq.get_value().to_f32().unwrap(), norm);
         let description = format!("score(freq={}), with freq of:", freq.get_value());
-        Explanation::match_no_details(value, description)
+        Ok(Explanation::match_no_details(value, description))
     }
 }
 impl<T> SimScorer for Arc<T>
@@ -329,7 +329,7 @@ where
         (**self).score(freq, norm)
     }
 
-    fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
+    fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
         (**self).explain(freq, norm)
     }
 }
@@ -341,7 +341,7 @@ where
         (**self).score(freq, norm)
     }
 
-    fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
+    fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
         (**self).explain(freq, norm)
     }
 }
@@ -425,7 +425,7 @@ macro_rules! either_sim_scorer {
                 }
             }
 
-            fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
+            fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
                 match self {
                     $( Self::$Variant(inner) => inner.explain(freq, norm), )+
                 }
@@ -487,7 +487,7 @@ impl<T: ?Sized + SimScorer> SimScorer for Box<T> {
         (**self).score(freq, norm)
     }
 
-    fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
+    fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
         (**self).explain(freq, norm)
     }
 }

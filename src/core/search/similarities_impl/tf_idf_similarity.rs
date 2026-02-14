@@ -442,7 +442,7 @@ impl TFIDFScorer {
                 let score = self.query_weight * v * norm;
                 Explanation::match_(
                     score,
-                    format!("score(freq={}), product of:", tf.details[0].value),
+                    format!("score(freq={}), product of:", tf.value),
                     subs,
                 )
             },
@@ -460,8 +460,8 @@ impl SimScorer for TFIDFScorer {
         raw * norm_value
     }
 
-    fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
-        self.explain_score(&freq, norm, &self.norm_table)
+    fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
+        Ok(self.explain_score(&freq, norm, &self.norm_table))
     }
 }
 #[derive(Clone)]

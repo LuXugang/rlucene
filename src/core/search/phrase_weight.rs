@@ -129,7 +129,7 @@ where
             norm = norms.long_value()?;
         }
 
-        let score_explanation = self.stats.explain(freq_explanation, norm);
+        let score_explanation = self.stats.explain(freq_explanation, norm)?;
 
         Ok(Explanation::match_(
             score_explanation.value,
