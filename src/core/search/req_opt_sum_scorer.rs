@@ -19,6 +19,8 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::TopScores;
+#[cfg(test)]
+use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::{
@@ -62,10 +64,8 @@ where
             opt_scorer.advance_shallow(0)?;
             (req_scorer.get_max_score(NO_MORE_DOCS)?, true)
         };
-        let has_tpi = (req_scorer.has_two_phase_iterator() == TwoPhaseState::Yes
-            || req_scorer.two_phase_iterator().is_some())
-            && (opt_scorer.has_two_phase_iterator() == TwoPhaseState::Yes
-                || opt_scorer.two_phase_iterator().is_some());
+        let has_tpi = req_scorer.has_two_phase_iterator() == TwoPhaseState::Yes
+            || opt_scorer.has_two_phase_iterator() == TwoPhaseState::Yes;
         let approximation =
             DocIdSetIteratorImpl::new(req_scorer, opt_scorer, req_max_score, wrapper)?;
         match has_tpi {
@@ -250,6 +250,10 @@ where
                 DocIdSetIteratorEnum2::B(ref wrapper) => wrapper.two_phase_iterator.approximation(),
             },
         }
+    }
+    #[cfg(test)]
+    fn kind(&self) -> ScorerKind {
+        ScorerKind::ReqOptSum
     }
 }
 pub struct DocIdSetIteratorImpl<S1, S2>

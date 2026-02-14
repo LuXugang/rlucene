@@ -21,6 +21,8 @@ use crate::core::search::phrase_matcher::{PhraseMatcher, PhraseMatcherEnum};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::TopScores;
+#[cfg(test)]
+use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::search::two_phase_iterator::{
@@ -171,6 +173,10 @@ where
 
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
         self.disi.two_phase_iterator.approximation_mut()
+    }
+    #[cfg(test)]
+    fn kind(&self) -> ScorerKind {
+        ScorerKind::Phrase
     }
 }
 

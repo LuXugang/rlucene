@@ -16,6 +16,8 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::Scorable;
+#[cfg(test)]
+use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::TwoPhaseState::Yes;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_util::ScorerUtil;
@@ -161,6 +163,10 @@ where
 
     fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
         self.disi.two_phase_iterator.approximation()
+    }
+    #[cfg(test)]
+    fn kind(&self) -> ScorerKind {
+        ScorerKind::ReqExcl
     }
 }
 

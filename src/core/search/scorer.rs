@@ -139,9 +139,20 @@ pub trait Scorer: Scorable {
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_>;
 
     #[cfg(test)]
-    fn as_any(&self) -> &dyn std::any::Any {
-        unreachable!("")
+    fn kind(&self) -> ScorerKind {
+        unimplemented!("")
     }
+}
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScorerKind {
+    Conjunction,
+    Disjunction,
+    ReqOptSum,
+    ReqExcl,
+    Boolean,
+    ConstantScore,
+    Phrase,
 }
 
 impl<T> Scorable for Box<T>
@@ -230,6 +241,10 @@ where
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
         (**self).approximation_mut()
     }
+    #[cfg(test)]
+    fn kind(&self) -> ScorerKind {
+        (**self).kind()
+    }
 }
 
 impl Scorer for Box<dyn Scorer> {
@@ -289,6 +304,10 @@ impl Scorer for Box<dyn Scorer> {
 
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
         (**self).approximation_mut()
+    }
+    #[cfg(test)]
+    fn kind(&self) -> ScorerKind {
+        (**self).kind()
     }
 }
 pub type ScorerDisi = Box<dyn DocIdSetIterator>;
@@ -419,6 +438,10 @@ macro_rules! either_scorer {
             #[inline]
             fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
                 match self { $( Self::$Variant(inner) => inner.approximation_mut(), )+ }
+            }
+            #[cfg(test)]
+            fn kind(&self) -> ScorerKind{
+                match self { $( Self::$Variant(inner) => inner.kind(), )+ }
             }
         }
     };

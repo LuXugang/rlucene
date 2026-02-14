@@ -985,18 +985,16 @@ mod tests {
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::term::Term;
 
-    use crate::core::search::block_max_conjunction_scorer::BlockMaxConjunctionScorer;
     use crate::core::search::boolean_clause::{BooleanClause, Occur};
     use crate::core::search::boolean_query::Builder;
     use crate::core::search::boost_query::BoostQuery;
-    use crate::core::search::conjunction_scorer::ConjunctionScorer;
 
     use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
     use crate::core::search::phrase_query::PhraseQuery;
-    use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
+    use crate::core::search::query::{Query, QueryBase};
     use crate::core::search::score_mode::ScoreMode;
-    use crate::core::search::scorer::ScorerEnum2;
+    use crate::core::search::scorer::ScorerKind;
     use crate::core::search::term_query::TermQuery;
     use crate::core::util::CoreHelper;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -1307,17 +1305,7 @@ mod tests {
         let ctx = &searcher.get_leaf_contexts()?[0];
         let scorer = weight.scorer(ctx)?.unwrap();
 
-        assert!(
-            scorer
-                .as_any()
-                .downcast_ref::<ConjunctionScorer<
-                    ScorerEnum2<
-                        QueryWeightSsScorer,
-                        BlockMaxConjunctionScorer<QueryWeightSsScorer>,
-                    >,
-                >>()
-                .is_some()
-        );
+        assert_eq!(scorer.kind(), ScorerKind::ConstantScore);
         assert!(scorer.two_phase_iterator().is_some());
 
         Ok(())
@@ -1358,12 +1346,7 @@ mod tests {
         let ctx = &searcher.get_leaf_contexts()?[0];
         let scorer = weight.scorer(ctx)?.unwrap();
 
-        // assert!(
-        //     scorer
-        //         .as_any()
-        //         .downcast_ref::<DisjunctionScorer<QueryWeightSsScorer, DisjunctionSumScorer>>()
-        //         .is_some()
-        // );
+        assert_eq!(scorer.kind(), ScorerKind::Disjunction);
         assert!(scorer.two_phase_iterator().is_some());
 
         Ok(())
@@ -1371,26 +1354,185 @@ mod tests {
 
     #[test]
     fn test_boosted_scorer_propagates_approximations() -> Result<()> {
-        // TODO PhraseQuery 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(new_text_field(
+            "field",
+            "a b c",
+            Store::No,
+            &mut field_to_type,
+        )?);
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        let reader = writer.get_reader()?;
+        // not new_searcher_with_reader to not have the asserting wrappers
+        // and do instanceof checks
+        let mut searcher = IndexSearcher::from_cr(reader)?;
+        searcher.set_query_cache(None); // to still have approximations
+
+        let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+
+        let mut b = Builder::new();
+        b.add(pq, Occur::Should)?;
+        b.add(TermQuery::new(Term::from_text("field", "d")), Occur::Should)?;
+        let q: Query = b.build().into();
+
+        let rewritten = searcher.rewrite(q)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+
+        let ctx = &searcher.get_leaf_contexts()?[0];
+        let scorer = weight.scorer(ctx)?.unwrap();
+
+        assert_eq!(scorer.kind(), ScorerKind::Phrase);
+        assert!(scorer.two_phase_iterator().is_some());
+
         Ok(())
     }
 
     #[test]
     fn test_exclusion_propagates_approximations() -> Result<()> {
-        // TODO PhraseQuery 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(new_text_field(
+            "field",
+            "a b c",
+            Store::No,
+            &mut field_to_type,
+        )?);
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        let reader = writer.get_reader()?;
+        let mut searcher = IndexSearcher::from_cr(reader)?;
+        searcher.set_query_cache(None); // to still have approximations
+
+        let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+
+        let mut b = Builder::new();
+        b.add(pq, Occur::Should)?;
+        b.add(
+            TermQuery::new(Term::from_text("field", "c")),
+            Occur::MustNot,
+        )?;
+        let q: Query = b.build().into();
+
+        let rewritten = searcher.rewrite(q)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+
+        let ctx = &searcher.get_leaf_contexts()?[0];
+        let scorer = weight.scorer(ctx)?.unwrap();
+
+        assert_eq!(scorer.kind(), ScorerKind::ReqExcl);
+        assert!(scorer.two_phase_iterator().is_some());
+
         Ok(())
     }
 
     #[test]
     fn test_req_opt_propagates_approximations() -> Result<()> {
-        // TODO PhraseQuery 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(new_text_field(
+            "field",
+            "a b c",
+            Store::No,
+            &mut field_to_type,
+        )?);
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        let reader = writer.get_reader()?;
+        let mut searcher = IndexSearcher::from_cr(reader)?;
+        searcher.set_query_cache(None); // to still have approximations
+
+        let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+
+        let mut b = Builder::new();
+        b.add(pq, Occur::Must)?;
+        b.add(TermQuery::new(Term::from_text("field", "c")), Occur::Should)?;
+        let q: Query = b.build().into();
+
+        let rewritten = searcher.rewrite(q)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+
+        let ctx = &searcher.get_leaf_contexts()?[0];
+        let scorer = weight.scorer(ctx)?.unwrap();
+
+        assert_eq!(scorer.kind(), ScorerKind::ReqOptSum);
+        assert!(scorer.two_phase_iterator().is_some());
+
         Ok(())
     }
+
     #[test]
     fn test_query_matches_count() -> Result<()> {
-        // TODO PhraseQuery 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut field_to_type = HashMap::new();
+
+        let random_num_docs = TestUtil::next_int(&mut random, 10, 101) as usize;
+        let mut num_matching_docs: i32 = 0;
+
+        for _i in 0..random_num_docs {
+            let mut doc = Document::new();
+
+            if random.random_bool(0.5) {
+                let text = format!("a b c {}", random.random::<i32>());
+                doc.add(new_text_field(
+                    "field",
+                    &text,
+                    Store::No,
+                    &mut field_to_type,
+                )?);
+                num_matching_docs += 1;
+            } else {
+                let text = random.random::<i32>().to_string();
+                doc.add(new_text_field(
+                    "field",
+                    &text,
+                    Store::No,
+                    &mut field_to_type,
+                )?);
+            }
+
+            writer.add_document(doc)?;
+        }
+        writer.commit()?;
+
+        let reader = writer.get_reader()?;
+        let searcher = IndexSearcher::from_cr(reader)?;
+
+        let mut b = Builder::new();
+        b.add(
+            PhraseQuery::from_terms(0, "field", &["a", "b"])?,
+            Occur::Should,
+        )?;
+        b.add(TermQuery::new(Term::from_text("field", "c")), Occur::Should)?;
+        let built_query: Query = b.build().into();
+
+        assert_eq!(num_matching_docs, searcher.count(built_query.clone())?);
+
         Ok(())
     }
+
     #[test]
     fn test_conjunction_matches_count() -> Result<()> {
         let mut random = random();
@@ -1668,6 +1810,7 @@ mod test {
     use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
     use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
+    use crate::core::search::phrase_query::PhraseQuery;
     use crate::core::search::query::{Query, QueryBase};
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::term_query::TermQuery;
@@ -2807,7 +2950,86 @@ mod test {
 
     #[test]
     fn test_should_clauses_less_than_or_equal_to_minimum_number_should_match() -> Result<()> {
-        // TODO PhraseQuery 未实现
+        let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
+
+        // The only one SHOULD clause is MatchNoDocsQuery
+        let mut b = Builder::new();
+        b.add(PhraseQuery::from_terms(0, "field", &[])?, Occur::Should)?;
+        b.set_minimum_number_should_match(1);
+        let query: Query = b.build().into();
+        assert_eq!(
+            Query::MatchNoDoc(MatchNoDocsQuery::new()),
+            searcher.rewrite(query)?
+        );
+
+        let mut b = Builder::new();
+        b.add(PhraseQuery::from_terms(0, "field", &[])?, Occur::Should)?;
+        b.set_minimum_number_should_match(0);
+        let query: Query = b.build().into();
+        assert_eq!(
+            Query::MatchNoDoc(MatchNoDocsQuery::new()),
+            searcher.rewrite(query)?
+        );
+
+        // Meaningful SHOULD clause count is less than MinimumNumberShouldMatch
+        let mut b = Builder::new();
+        b.add(PhraseQuery::from_terms(0, "field", &[])?, Occur::Should)?;
+        b.add(PhraseQuery::from_terms(0, "field", &["a"])?, Occur::Should)?;
+        b.set_minimum_number_should_match(2);
+        let query: Query = b.build().into();
+        assert_eq!(
+            Query::MatchNoDoc(MatchNoDocsQuery::new()),
+            searcher.rewrite(query)?
+        );
+
+        // Meaningful SHOULD clause count is equal to MinimumNumberShouldMatch
+        let mut b = Builder::new();
+        b.add(PhraseQuery::from_terms(0, "field", &["b"])?, Occur::Should)?;
+        b.add(
+            PhraseQuery::from_terms(0, "field", &["a", "c"])?,
+            Occur::Should,
+        )?;
+        b.set_minimum_number_should_match(2);
+        let query: Query = b.build().into();
+
+        let mut eb = Builder::new();
+        eb.add(TermQuery::new(Term::from_text("field", "b")), Occur::Must)?;
+        eb.add(
+            PhraseQuery::from_terms(0, "field", &["a", "c"])?,
+            Occur::Must,
+        )?;
+        let expected: Query = eb.build().into();
+
+        assert_eq!(expected, searcher.rewrite(query)?);
+
+        // Invalid Inner query get removed after rewrite
+        let mut ib = Builder::new();
+        ib.add(PhraseQuery::from_terms(0, "field", &[])?, Occur::Should)?;
+        ib.add(PhraseQuery::from_terms(0, "field", &["a"])?, Occur::Should)?;
+        ib.set_minimum_number_should_match(2);
+        let inner: Query = ib.build().into();
+
+        let mut b = Builder::new();
+        b.add(inner.clone(), Occur::Should)?;
+        b.add(PhraseQuery::from_terms(0, "field", &["b"])?, Occur::Should)?;
+        b.add(
+            PhraseQuery::from_terms(0, "field", &["a", "c"])?,
+            Occur::Should,
+        )?;
+        b.set_minimum_number_should_match(2);
+        let query: Query = b.build().into();
+        assert_eq!(expected, searcher.rewrite(query)?);
+
+        let mut b = Builder::new();
+        b.add(inner, Occur::Should)?;
+        b.add(PhraseQuery::from_terms(0, "field", &["b"])?, Occur::Should)?;
+        b.set_minimum_number_should_match(2);
+        let query: Query = b.build().into();
+        assert_eq!(
+            Query::MatchNoDoc(MatchNoDocsQuery::new()),
+            searcher.rewrite(query)?
+        );
+
         Ok(())
     }
 }

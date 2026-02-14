@@ -20,6 +20,8 @@ use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproxim
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
+#[cfg(test)]
+use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, as_doc_id_set_iterator,
@@ -302,6 +304,10 @@ where
                 Disi::B(ref v) => v.two_phase_iterator.approximation(),
             },
         }
+    }
+    #[cfg(test)]
+    fn kind(&self) -> ScorerKind {
+        ScorerKind::Disjunction
     }
 }
 
