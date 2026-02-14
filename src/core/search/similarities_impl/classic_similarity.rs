@@ -306,7 +306,7 @@ mod tests {
             Ok(ClassicSimilarity::new())
         }
     }
-    // TODO IMPORTANT 测试未通过
+    #[test]
     fn test_random_scoring() -> Result<()> {
         let mut random = random();
         let case = TestClassicSimilarity;

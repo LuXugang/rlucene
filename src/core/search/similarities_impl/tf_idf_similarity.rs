@@ -412,7 +412,7 @@ impl TFIDFScorer {
         freq: &Explanation,
         encoded_norm: i64,
         norm_table: &[f32],
-    ) -> Explanation {
+    ) -> Result<Explanation> {
         let mut subs = Vec::new();
 
         if self.boost != 1.0 {
@@ -423,13 +423,20 @@ impl TFIDFScorer {
         }
 
         subs.push(self.idf.clone());
-
+        let freq_value = freq.value.to_f32().ok_or_else(|| {
+            LuceneError::illegal_argument(format!("invalid idf#value: {}", freq.value))
+        })?;
+        let value = self.base.tf(freq_value);
         let tf = Explanation::match_(
-            freq.value,
-            format!("tf(freq={}), with freq of:", freq.value),
+            value,
+            format!("tf(freq={}), with freq of:", freq_value),
             vec![freq.clone()],
         );
-        subs.push(tf.clone());
+
+        let tf_value = tf.value.to_f32().ok_or_else(|| {
+            LuceneError::illegal_argument(format!("invalid idf#value: {}", freq.value))
+        })?;
+        subs.push(tf);
 
         let idx = (encoded_norm & 0xFF) as usize;
         let norm = norm_table[idx];
@@ -437,20 +444,12 @@ impl TFIDFScorer {
         let field_norm = Explanation::match_no_details(norm, "fieldNorm".to_string());
         subs.push(field_norm);
 
-        match tf.value.to_f32() {
-            Some(v) => {
-                let score = self.query_weight * v * norm;
-                Explanation::match_(
-                    score,
-                    format!("score(freq={}), product of:", tf.value),
-                    subs,
-                )
-            },
-            None => Explanation::error_explanation(format!(
-                "tf value {} can not convert to f32",
-                tf.value
-            )),
-        }
+        let score = self.query_weight * tf_value * norm;
+        Ok(Explanation::match_(
+            score,
+            format!("score(freq={}), product of:", freq_value),
+            subs,
+        ))
     }
 }
 impl SimScorer for TFIDFScorer {
@@ -461,7 +460,7 @@ impl SimScorer for TFIDFScorer {
     }
 
     fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
-        Ok(self.explain_score(&freq, norm, &self.norm_table))
+        self.explain_score(&freq, norm, &self.norm_table)
     }
 }
 #[derive(Clone)]
