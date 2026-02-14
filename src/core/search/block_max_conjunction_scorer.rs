@@ -356,7 +356,7 @@ where
     S: Scorer,
 {
     fn doc_id(&self) -> i32 {
-        self.scorers[0].iterator().doc_id()
+        self.scorers[0].approximation().doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {

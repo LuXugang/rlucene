@@ -634,17 +634,23 @@ where
 
         let conjunction_scorer = if required_scoring.len() + required_no_scoring.len() == 1 {
             if required_scoring.len() == 1 {
-                let v = match required_scoring.pop().unwrap() {
-                    ScorerEnum2::A(s) => s,
-                    ScorerEnum2::B(_) => {
-                        return Err(LuceneError::illegal_state(""));
+                let v = match required_scoring.pop() {
+                    Some(v) => v,
+                    None => {
+                        return Err(LuceneError::illegal_state(
+                            "required_scoring should not be empty",
+                        ));
                     },
                 };
                 ScorerEnum3::A(v)
             } else {
-                let inner = match required_no_scoring.pop().unwrap() {
-                    ScorerEnum2::A(s) => s,
-                    ScorerEnum2::B(_) => return Err(LuceneError::illegal_state("")),
+                let inner = match required_no_scoring.pop() {
+                    Some(v) => v,
+                    None => {
+                        return Err(LuceneError::illegal_state(
+                            "required_no_scoring should not be empty",
+                        ));
+                    },
                 };
                 if self.score_mode.needs_scores() {
                     ScorerEnum3::B(FilterScorerImpl::new(inner))

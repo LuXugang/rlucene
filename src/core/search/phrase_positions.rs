@@ -19,17 +19,17 @@ use crate::core::index::term::Term;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::util::TryIntoInt;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 
 /// Position of a term in a document that takes into account the term offset
 /// within the phrase.
 pub struct PhrasePositions {
     /// Position in the document.
-    pub(crate) position: usize,
+    pub(crate) position: i32,
     /// Remaining positions in this document.
     pub(crate) count: i32,
     /// Position in the phrase.
-    pub(crate) offset: usize,
+    pub(crate) offset: i32,
     /// Unique ordinal across all `PhrasePositions` instances.
     pub(crate) ord: usize,
     pub(crate) postings_idx: usize,
@@ -42,17 +42,22 @@ pub struct PhrasePositions {
     pub(crate) terms: Vec<Term>,
 }
 impl PhrasePositions {
-    pub(crate) fn new(postings: usize, offset: usize, ord: usize, terms: Vec<Term>) -> Self {
-        Self {
+    pub(crate) fn new(
+        postings: usize,
+        offset: usize,
+        ord: usize,
+        terms: Vec<Term>,
+    ) -> Result<Self> {
+        Ok(Self {
             postings_idx: postings,
-            offset,
+            offset: offset.try_convert()?,
             ord,
             terms,
             position: 0,
             count: 0,
             rpt_group: -1,
             rpt_ind: 0,
-        }
+        })
     }
 
     pub(crate) fn first_position<IE, SS>(
@@ -64,7 +69,7 @@ impl PhrasePositions {
         SS: SimScorer,
     {
         // read first position
-        let freq = phrase_matcher.posting_mut(pp_idx).next_position()?;
+        let freq = phrase_matcher.posting_mut(pp_idx).freq()?;
         let pp = &mut phrase_matcher.pq.compare.phrase_positions[pp_idx];
         pp.count = freq;
         Self::next_position(phrase_matcher, pp_idx)?;
@@ -85,15 +90,10 @@ impl PhrasePositions {
     {
         let count = phrase_matcher.pq.compare.phrase_positions[pp_idx].count;
         if count > 0 {
-            let pos = phrase_matcher
-                .posting_mut(pp_idx)
-                .next_position()?
-                .try_convert()?;
+            let pos = phrase_matcher.posting_mut(pp_idx).next_position()?;
             let pp = &mut phrase_matcher.pq.compare.phrase_positions[pp_idx];
             pp.count -= 1;
-            pp.position = pos
-                .checked_sub(pp.offset)
-                .ok_or_else(|| LuceneError::illegal_state("position underflow"))?;
+            pp.position = pos - pp.offset;
 
             Ok(true)
         } else {

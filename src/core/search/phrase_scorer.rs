@@ -120,6 +120,19 @@ where
         Box::new(disi)
     }
 
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+        Some(Box::new(&self.disi.two_phase_iterator))
+    }
+
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+        Some(Box::new(&mut self.disi.two_phase_iterator))
+    }
+
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
+        let PhraseScorer { disi, .. } = *self;
+        Some(Box::new(disi.two_phase_iterator))
+    }
+
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
         match self.disi.two_phase_iterator.matcher {
             PhraseMatcherEnum::Exact(ref mut m) => m

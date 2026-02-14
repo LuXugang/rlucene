@@ -227,9 +227,20 @@ where
         self.match_cost
     }
 }
+#[cfg(test)]
+pub(crate) fn merge_impacts_from_ie<IE>(
+    wrapped_impacts_enums: Vec<IE>,
+) -> Result<ImpactsSourceImpl<IE>>
+where
+    IE: ImpactsEnum,
+{
+    merge_impacts(ConjunctionDISI::from_disi(wrapped_impacts_enums)?)
+}
 
 /// Merge impacts for multiple terms of an exact phrase.
-fn merge_impacts<IE>(wrapped_impacts_enums: ConjunctionDISI<IE>) -> Result<ImpactsSourceImpl<IE>>
+pub(crate) fn merge_impacts<IE>(
+    wrapped_impacts_enums: ConjunctionDISI<IE>,
+) -> Result<ImpactsSourceImpl<IE>>
 where
     IE: ImpactsEnum,
 {
@@ -252,7 +263,7 @@ pub struct ImpactsSourceImpl<IE>
 where
     IE: ImpactsEnum,
 {
-    impacts_enums: ConjunctionDISI<IE>,
+    pub(crate) impacts_enums: ConjunctionDISI<IE>,
     lead_index: usize,
 }
 impl<IE> ImpactsSourceImpl<IE>
@@ -297,23 +308,23 @@ where
     IE: ImpactsEnum,
 {
     fn freq(&mut self) -> Result<i32> {
-        todo!()
+        Err(LuceneError::unsupported_operation(""))
     }
 
     fn next_position(&mut self) -> Result<i32> {
-        todo!()
+        Err(LuceneError::unsupported_operation(""))
     }
 
     fn start_offset(&self) -> Result<i32> {
-        todo!()
+        Err(LuceneError::unsupported_operation(""))
     }
 
     fn end_offset(&self) -> Result<i32> {
-        todo!()
+        Err(LuceneError::unsupported_operation(""))
     }
 
     fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        todo!()
+        Err(LuceneError::unsupported_operation(""))
     }
 }
 
@@ -322,23 +333,23 @@ where
     IE: ImpactsEnum,
 {
     fn doc_id(&self) -> i32 {
-        todo!()
+        self.impacts_enums.doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        todo!()
+        self.impacts_enums.next_doc()
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        todo!()
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.impacts_enums.advance(target)
     }
 
-    fn slow_advance(&mut self, _target: i32) -> Result<i32> {
-        todo!()
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        self.impacts_enums.slow_advance(target)
     }
 
     fn cost(&self) -> Result<i64> {
-        todo!()
+        self.impacts_enums.cost()
     }
 }
 

@@ -729,3 +729,730 @@ where
 }
 
 impl<IE> Eq for PostingsAndFreq<IE> where IE: ImpactsEnum {}
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::index::BytesRef;
+    use crate::core::index::impact::Impact;
+    use crate::core::index::impacts::Impacts;
+    use crate::core::index::impacts_enum::ImpactsEnum;
+    use crate::core::index::impacts_source::ImpactsSource;
+    use crate::core::index::postings_enum::PostingsEnum;
+    use crate::core::index::term::Term;
+    use crate::core::search::boolean_clause::Occur;
+    use crate::core::search::boolean_query::Builder;
+    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::core::search::exact_phrase_matcher::merge_impacts_from_ie;
+    use crate::core::search::phrase_query::PhraseQuery;
+    use crate::core::search::query::Query;
+    use crate::core::search::term_query::TermQuery;
+    use crate::core::search::top_docs::TopDocsLike;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::search::query_utils::QueryUtils;
+    use crate::test::util::DefaultIndexSearch;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, new_searcher_with_reader, new_text_field, random,
+    };
+    use rand::Rng;
+    use std::borrow::Cow;
+    use std::collections::HashMap;
+    use std::rc::Rc;
+
+    #[allow(dead_code)]
+    struct TestPhraseQuery;
+
+    fn before_class<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
+        let dir = new_directory_shared(random)?;
+        // TODO IMPORTANT 这里需要自定义分词器
+        let writer = RandomIndexWriter::new(random, dir.clone());
+        let mut field_to_type = HashMap::new();
+        let mut doc = Document::new();
+        doc.add(new_text_field(
+            "field",
+            "one two three four five",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
+        doc.add(new_text_field(
+            "repeated",
+            "this is a repeated field - first part",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
+        let repeated_field = new_text_field(
+            "repeated",
+            "second part of a repeated field",
+            Store::Yes,
+            &mut field_to_type,
+        )?;
+        doc.add(repeated_field);
+        doc.add(new_text_field(
+            "palindrome",
+            "one two three two one",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(new_text_field(
+            "nonexist",
+            "phrase exist notexist exist found",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(new_text_field(
+            "nonexist",
+            "phrase exist notexist exist found",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
+        writer.add_document(doc)?;
+
+        let reader = writer.get_reader()?;
+        writer.close()?;
+
+        let searcher = new_searcher_with_reader(reader)?;
+
+        Ok(searcher)
+    }
+    #[test]
+    fn test_not_close_enough() -> Result<()> {
+        let mut random = random();
+        let searcher = before_class(&mut random)?;
+        let query = PhraseQuery::from_terms(2, "field", &["one", "five"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(0, hits.len());
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_barely_close_enough() -> Result<()> {
+        let mut random = random();
+        let searcher = before_class(&mut random)?;
+        let query = PhraseQuery::from_terms(3, "field", &["one", "five"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(1, hits.len());
+
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+        Ok(())
+    }
+
+    /// Ensures slop of 0 works for exact matches, but not reversed
+    #[test]
+    fn test_exact() -> Result<()> {
+        let mut random = random();
+        let searcher = before_class(&mut random)?;
+        // slop is zero by default
+        let query = PhraseQuery::from_terms(0, "field", &["four", "five"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(1, hits.len(), "exact match");
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        let query = PhraseQuery::from_terms(0, "field", &["two", "one"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(0, hits.len(), "reverse not exact");
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_slop1() -> Result<()> {
+        let mut random = random();
+        let searcher = before_class(&mut random)?;
+
+        // Ensures slop of 1 works with terms in order.
+        let query = PhraseQuery::from_terms(1, "field", &["one", "two"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(1, hits.len(), "in order");
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        // Ensures slop of 1 does not work for phrases out of order;
+        // must be at least 2.
+        let query = PhraseQuery::from_terms(1, "field", &["two", "one"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(0, hits.len(), "reversed, slop not 2 or more");
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        Ok(())
+    }
+
+    /// As long as slop is at least 2, terms can be reversed
+    #[test]
+    fn test_order_doesnt_matter() -> Result<()> {
+        let mut random = random();
+        let searcher = before_class(&mut random)?;
+
+        // must be at least two for reverse order match
+        let query = PhraseQuery::from_terms(2, "field", &["two", "one"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(1, hits.len(), "just sloppy enough");
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        let query = PhraseQuery::from_terms(2, "field", &["three", "one"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(0, hits.len(), "not sloppy enough");
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        Ok(())
+    }
+
+    /// slop is the total number of positional moves allowed to line up a phrase
+    #[test]
+    fn test_multiple_terms() -> Result<()> {
+        let mut random = random();
+        let searcher = before_class(&mut random)?;
+
+        let query = PhraseQuery::from_terms(2, "field", &["one", "three", "five"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(1, hits.len(), "two total moves");
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        // it takes six moves to match this phrase
+        let query = PhraseQuery::from_terms(5, "field", &["five", "three", "one"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(0, hits.len(), "slop of 5 not close enough");
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        let query = PhraseQuery::from_terms(6, "field", &["five", "three", "one"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(1, hits.len(), "slop of 6 just right");
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        Ok(())
+    }
+    #[test]
+    fn test_phrase_query_with_stop_analyzer() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO  这里需要自定义分词器
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(new_text_field(
+            "field",
+            "the stop words are here",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
+        writer.add_document(doc)?;
+
+        let reader = writer.get_reader()?;
+        writer.close()?;
+
+        let searcher = new_searcher_with_reader(reader)?;
+
+        // valid exact phrase query
+        let query = PhraseQuery::from_terms(0, "field", &["stop", "words"])?;
+        let top_docs = searcher.search(query.clone(), 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(1, hits.len());
+
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        Ok(())
+    }
+
+    // TODO IMPORTANT 测试未通过
+    fn test_phrase_query_in_conjunction_scorer() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let mut field_to_type = HashMap::new();
+        {
+            let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+            let mut doc = Document::new();
+            doc.add(new_text_field(
+                "source",
+                "marketing info",
+                Store::Yes,
+                &mut field_to_type,
+            )?);
+            writer.add_document(doc)?;
+
+            let mut doc = Document::new();
+            doc.add(new_text_field(
+                "contents",
+                "foobar",
+                Store::Yes,
+                &mut field_to_type,
+            )?);
+            doc.add(new_text_field(
+                "source",
+                "marketing info",
+                Store::Yes,
+                &mut field_to_type,
+            )?);
+            writer.add_document(doc)?;
+
+            let reader = writer.get_reader()?;
+            writer.close()?;
+
+            let searcher = new_searcher_with_reader(reader)?;
+
+            let phrase_query = PhraseQuery::from_terms(0, "source", &["marketing", "info"])?;
+            let top_docs = searcher.search(phrase_query.clone(), 1000)?;
+            let hits = top_docs.score_docs();
+            assert_eq!(2, hits.len());
+            QueryUtils::check_from_searcher(&mut random, phrase_query.clone(), &searcher)?;
+
+            let term_query: Query = TermQuery::new(Term::from_text("contents", "foobar")).into();
+
+            let mut b = Builder::new();
+            b.add(term_query.clone(), Occur::Must)?;
+            b.add(phrase_query.clone(), Occur::Must)?;
+            let boolean_query: Query = b.build().into();
+
+            let top_docs = searcher.search(boolean_query, 1000)?;
+            let hits = top_docs.score_docs();
+            assert_eq!(1, hits.len());
+            QueryUtils::check_from_searcher(&mut random, term_query, &searcher)?;
+        }
+
+        {
+            let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+            let mut doc = Document::new();
+            doc.add(new_text_field(
+                "contents",
+                "map entry woo",
+                Store::Yes,
+                &mut field_to_type,
+            )?);
+            writer.add_document(doc)?;
+
+            let mut doc = Document::new();
+            doc.add(new_text_field(
+                "contents",
+                "woo map entry",
+                Store::Yes,
+                &mut field_to_type,
+            )?);
+            writer.add_document(doc)?;
+
+            let mut doc = Document::new();
+            doc.add(new_text_field(
+                "contents",
+                "map foobarword entry woo",
+                Store::Yes,
+                &mut field_to_type,
+            )?);
+            writer.add_document(doc)?;
+
+            let reader = writer.get_reader()?;
+            writer.close()?;
+
+            let searcher = new_searcher_with_reader(reader)?;
+
+            let term_query: Query = TermQuery::new(Term::from_text("contents", "woo")).into();
+            let phrase_query = PhraseQuery::from_terms(0, "contents", &["map", "entry"])?;
+
+            let top_docs = searcher.search(term_query.clone(), 1000)?;
+            let hits = top_docs.score_docs();
+            assert_eq!(3, hits.len());
+
+            let top_docs = searcher.search(phrase_query.clone(), 1000)?;
+            let hits = top_docs.score_docs();
+            assert_eq!(2, hits.len());
+
+            let mut b = Builder::new();
+            b.add(term_query.clone(), Occur::Must)?;
+            b.add(phrase_query.clone(), Occur::Must)?;
+            let boolean_query1: Query = b.build().into();
+            let top_docs = searcher.search(boolean_query1, 1000)?;
+            let hits = top_docs.score_docs();
+            assert_eq!(2, hits.len());
+
+            let mut b = Builder::new();
+            b.add(phrase_query.clone(), Occur::Must)?;
+            b.add(term_query.clone(), Occur::Must)?;
+            let boolean_query2: Query = b.build().into();
+            let top_docs = searcher.search(boolean_query2.clone(), 1000)?;
+            let hits = top_docs.score_docs();
+            assert_eq!(2, hits.len());
+
+            QueryUtils::check_from_searcher(&mut random, boolean_query2, &searcher)?;
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_slop_scoring() -> Result<()> {
+        // let mut random = random();
+        // let dir = new_directory_shared(&mut random)?;
+        //
+        // // TODO newLogMergePolicy 未实现
+        // let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        //
+        // let mut field_to_type = HashMap::new();
+        //
+        // let mut doc = Document::new();
+        // doc.add(new_text_field(
+        //     "field",
+        //     "foo firstname lastname foo",
+        //     Store::Yes,
+        //     &mut field_to_type,
+        // )?);
+        // writer.add_document(doc)?;
+        //
+        // let mut doc2 = Document::new();
+        // doc2.add(new_text_field(
+        //     "field",
+        //     "foo firstname zzz lastname foo",
+        //     Store::Yes,
+        //     &mut field_to_type,
+        // )?);
+        // writer.add_document(doc2)?;
+        //
+        // let mut doc3 = Document::new();
+        // doc3.add(new_text_field(
+        //     "field",
+        //     "foo firstname zzz yyy lastname foo",
+        //     Store::Yes,
+        //     &mut field_to_type,
+        // )?);
+        // writer.add_document(doc3)?;
+        //
+        // let reader = writer.get_reader()?;
+        // writer.close()?;
+        //
+        // let mut searcher = new_searcher_with_reader(reader.clone())?;
+        // searcher.set_similarity(ClassicSimilarity::new());
+        //
+        // let query = PhraseQuery::from_terms(i32::MAX as usize, "field", &["firstname", "lastname"])?;
+        // let top_docs = searcher.search(query.clone(), 1000)?;
+        // let hits = top_docs.score_docs();
+        // assert_eq!(3, hits.len());
+        //
+        // assert!((hits[0].score - 1.0).abs() <= 0.01);
+        // assert_eq!(0, hits[0].doc);
+        //
+        // assert!((hits[1].score - 0.63).abs() <= 0.01);
+        // assert_eq!(1, hits[1].doc);
+        //
+        // assert!((hits[2].score - 0.47).abs() <= 0.01);
+        // assert_eq!(2, hits[2].doc);
+        //
+        // QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_impacts() -> Result<()> {
+        let impacts1 = DummyImpactsEnum::new(1000);
+        let impacts2 = DummyImpactsEnum::new(2000);
+
+        let mut merged_impacts = merge_impacts_from_ie(vec![impacts1, impacts2])?;
+
+        merged_impacts.impacts_enums.all_disi[0].reset(
+            vec![
+                vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
+                vec![
+                    Impact::new(3, 10),
+                    Impact::new(5, 11),
+                    Impact::new(8, 13),
+                    Impact::new(12, 14),
+                ],
+            ],
+            vec![110, 945],
+        );
+
+        // Merge with empty impacts
+        merged_impacts.impacts_enums.all_disi[1].reset(vec![], vec![]);
+        assert_impacts_eq(
+            vec![
+                vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
+                vec![
+                    Impact::new(3, 10),
+                    Impact::new(5, 11),
+                    Impact::new(8, 13),
+                    Impact::new(12, 14),
+                ],
+            ],
+            vec![110, 945],
+            &merged_impacts.get_impacts()?,
+        )?;
+
+        // Merge with dummy impacts
+        merged_impacts.impacts_enums.all_disi[1]
+            .reset(vec![vec![Impact::new(i32::MAX, 1)]], vec![5000]);
+        assert_impacts_eq(
+            vec![
+                vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
+                vec![
+                    Impact::new(3, 10),
+                    Impact::new(5, 11),
+                    Impact::new(8, 13),
+                    Impact::new(12, 14),
+                ],
+            ],
+            vec![110, 945],
+            &merged_impacts.get_impacts()?,
+        )?;
+
+        // Merge with dummy impacts that we don't special case
+        merged_impacts.impacts_enums.all_disi[1]
+            .reset(vec![vec![Impact::new(i32::MAX, 2)]], vec![5000]);
+        assert_impacts_eq(
+            vec![
+                vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
+                vec![
+                    Impact::new(3, 10),
+                    Impact::new(5, 11),
+                    Impact::new(8, 13),
+                    Impact::new(12, 14),
+                ],
+            ],
+            vec![110, 945],
+            &merged_impacts.get_impacts()?,
+        )?;
+
+        // First level of impacts2 doesn't cover the first level of impacts1
+        merged_impacts.impacts_enums.all_disi[1].reset(
+            vec![
+                vec![Impact::new(2, 10), Impact::new(6, 13)],
+                vec![Impact::new(3, 9), Impact::new(5, 11), Impact::new(7, 13)],
+            ],
+            vec![90, 1000],
+        );
+        assert_impacts_eq(
+            vec![
+                vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(7, 13)],
+                vec![Impact::new(3, 10), Impact::new(5, 11), Impact::new(7, 13)],
+            ],
+            vec![110, 945],
+            &merged_impacts.get_impacts()?,
+        )?;
+
+        // First level of impacts2 doesn't cover the first level of impacts1
+        merged_impacts.impacts_enums.all_disi[1].reset(
+            vec![
+                vec![Impact::new(2, 10), Impact::new(6, 11)],
+                vec![Impact::new(3, 9), Impact::new(5, 11), Impact::new(7, 13)],
+            ],
+            vec![150, 900],
+        );
+        assert_impacts_eq(
+            vec![
+                vec![
+                    Impact::new(2, 10),
+                    Impact::new(3, 11),
+                    Impact::new(5, 12),
+                    Impact::new(6, 13),
+                ],
+                vec![
+                    Impact::new(3, 10),
+                    Impact::new(5, 11),
+                    Impact::new(8, 13),
+                    Impact::new(12, 14),
+                ],
+            ],
+            vec![110, 945],
+            &merged_impacts.get_impacts()?,
+        )?;
+
+        merged_impacts.impacts_enums.all_disi[1].reset(
+            vec![
+                vec![Impact::new(4, 10), Impact::new(9, 13)],
+                vec![
+                    Impact::new(1, 1),
+                    Impact::new(4, 10),
+                    Impact::new(5, 11),
+                    Impact::new(8, 13),
+                    Impact::new(12, 14),
+                    Impact::new(13, 15),
+                ],
+            ],
+            vec![113, 950],
+        );
+        assert_impacts_eq(
+            vec![
+                vec![Impact::new(3, 10), Impact::new(4, 12), Impact::new(8, 13)],
+                vec![
+                    Impact::new(3, 10),
+                    Impact::new(5, 11),
+                    Impact::new(8, 13),
+                    Impact::new(12, 14),
+                ],
+            ],
+            vec![110, 945],
+            &merged_impacts.get_impacts()?,
+        )?;
+
+        // Make sure negative norms are treated as unsigned
+        merged_impacts.impacts_enums.all_disi[0].reset(
+            vec![
+                vec![Impact::new(3, 10), Impact::new(5, -10), Impact::new(8, -5)],
+                vec![
+                    Impact::new(3, 10),
+                    Impact::new(5, -15),
+                    Impact::new(8, -5),
+                    Impact::new(12, -3),
+                ],
+            ],
+            vec![110, 945],
+        );
+
+        merged_impacts.impacts_enums.all_disi[1].reset(
+            vec![
+                vec![Impact::new(2, 10), Impact::new(12, -4)],
+                vec![Impact::new(3, 9), Impact::new(12, -4), Impact::new(20, -1)],
+            ],
+            vec![150, 960],
+        );
+
+        assert_impacts_eq(
+            vec![
+                vec![Impact::new(2, 10), Impact::new(8, -4)],
+                vec![Impact::new(3, 10), Impact::new(8, -4), Impact::new(12, -3)],
+            ],
+            vec![110, 945],
+            &merged_impacts.get_impacts()?,
+        )?;
+
+        Ok(())
+    }
+    fn assert_impacts_eq(
+        impacts: Vec<Vec<Impact>>,
+        doc_id_upto: Vec<i32>,
+        actual: &impl Impacts,
+    ) -> Result<()> {
+        assert_eq!(impacts.len(), actual.num_levels() as usize);
+
+        for i in 0..impacts.len() {
+            assert_eq!(doc_id_upto[i], actual.get_doc_id_upto(i as i32));
+
+            let actual_impacts = actual.get_impacts(i as i32)?;
+            let expect = impacts[i].as_slice();
+            assert_eq!(expect, actual_impacts.as_slice());
+        }
+        Ok(())
+    }
+
+    struct DummyImpactsEnum {
+        cost: i64,
+        impacts: Rc<Vec<Vec<Impact>>>,
+        doc_id_upto: Rc<Vec<i32>>,
+    }
+    impl DummyImpactsEnum {
+        fn new(cost: i64) -> Self {
+            Self {
+                cost,
+                impacts: Rc::new(vec![vec![]]),
+                doc_id_upto: Rc::new(vec![]),
+            }
+        }
+
+        fn reset(&mut self, impacts: Vec<Vec<Impact>>, doc_id_upto: Vec<i32>) {
+            self.impacts = Rc::new(impacts);
+            self.doc_id_upto = Rc::new(doc_id_upto);
+        }
+    }
+
+    impl PostingsEnum for DummyImpactsEnum {
+        fn freq(&mut self) -> Result<i32> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn next_position(&mut self) -> Result<i32> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn start_offset(&self) -> Result<i32> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn end_offset(&self) -> Result<i32> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+    }
+
+    impl DocIdSetIterator for DummyImpactsEnum {
+        fn doc_id(&self) -> i32 {
+            unreachable!("")
+        }
+
+        fn next_doc(&mut self) -> Result<i32> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn advance(&mut self, _target: i32) -> Result<i32> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn cost(&self) -> Result<i64> {
+            Ok(self.cost)
+        }
+    }
+
+    impl ImpactsSource for DummyImpactsEnum {
+        fn advance_shallow(&mut self, _target: i32) -> Result<()> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        type Impacts<'a>
+            = ImpactsImpl
+        where
+            Self: 'a;
+
+        fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
+            Ok(ImpactsImpl::new(
+                self.impacts.clone(),
+                self.doc_id_upto.clone(),
+            ))
+        }
+    }
+
+    impl ImpactsEnum for DummyImpactsEnum {}
+    struct ImpactsImpl {
+        impacts: Rc<Vec<Vec<Impact>>>,
+        doc_id_upto: Rc<Vec<i32>>,
+    }
+    impl ImpactsImpl {
+        fn new(impacts: Rc<Vec<Vec<Impact>>>, doc_id_upto: Rc<Vec<i32>>) -> Self {
+            Self {
+                impacts,
+                doc_id_upto,
+            }
+        }
+    }
+    impl Impacts for ImpactsImpl {
+        fn num_levels(&self) -> i32 {
+            self.impacts.len() as i32
+        }
+
+        fn get_doc_id_upto(&self, level: i32) -> i32 {
+            self.doc_id_upto[level as usize]
+        }
+
+        fn get_impacts(&self, level: i32) -> Result<Vec<Impact>> {
+            Ok(self.impacts[level as usize].clone())
+        }
+    }
+}

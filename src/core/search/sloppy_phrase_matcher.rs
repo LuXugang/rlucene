@@ -72,9 +72,9 @@ where
 
     pub(crate) impacts_approximation: SloopyImpactsDISI<IE, SS>,
     /// current largest phrase position
-    end: usize,
+    end: i32,
 
-    lead_position: usize,
+    lead_position: i32,
     lead_offset: i32,
     lead_end_offset: i32,
     lead_ord: usize,
@@ -88,7 +88,7 @@ where
     rpt_stack: Vec<usize>,
 
     positioned: bool,
-    match_length: usize,
+    match_length: i32,
     match_cost: f32,
 }
 impl<IE, SS> SloppyPhraseMatcher<IE, SS>
@@ -113,7 +113,7 @@ where
                 .terms
                 .take()
                 .ok_or_else(|| LuceneError::illegal_state("term is None"))?;
-            phrase_positions.push(PhrasePositions::new(i, p.position, i, terms));
+            phrase_positions.push(PhrasePositions::new(i, p.position, i, terms)?);
         }
         let cmp = PhraseQueueCmp::new(phrase_positions);
         let pq = PriorityQueue::new(num_postings, cmp)?;
@@ -294,7 +294,7 @@ where
     ///
     /// Returns `false` if PPs are exhausted (and so current doc will not be a match).
     fn init_phrase_positions(&mut self) -> Result<bool> {
-        self.end = i32::MIN as usize;
+        self.end = i32::MIN;
 
         if !self.checked_rpts {
             return self.init_first_time();
@@ -553,7 +553,7 @@ where
         Ok(res)
     }
 
-    fn tp_pos(&self, pp_idx: usize) -> usize {
+    fn tp_pos(&self, pp_idx: usize) -> i32 {
         let pp = &self.pq.compare.phrase_positions[pp_idx];
         pp.position + pp.offset
     }
@@ -708,8 +708,8 @@ where
 
     fn reset(&mut self) -> Result<()> {
         self.positioned = self.init_phrase_positions()?;
-        self.match_length = i32::MAX as usize;
-        self.lead_position = i32::MAX as usize;
+        self.match_length = i32::MAX;
+        self.lead_position = i32::MAX;
         Ok(())
     }
 
@@ -726,11 +726,7 @@ where
         self.capture_lead(pp_idx)?;
 
         let pp_pos = self.pq.compare.phrase_positions[pp_idx].position;
-        let diff = self
-            .end
-            .checked_sub(pp_pos)
-            .ok_or_else(|| LuceneError::illegal_state("end underflow"))?;
-        self.match_length = diff;
+        self.match_length = self.end - pp_pos;
 
         let mut next_idx = *self
             .pq
@@ -749,7 +745,7 @@ where
             if pp_pos > next {
                 self.pq.add(pp_idx)?;
 
-                if self.match_length <= self.slop {
+                if self.match_length <= self.slop.try_convert()? {
                     return Ok(true);
                 }
 
@@ -765,17 +761,9 @@ where
                 next = self.pq.compare.phrase_positions[next_idx].position;
 
                 let pp_pos = self.pq.compare.phrase_positions[pp_idx].position;
-                let diff = self
-                    .end
-                    .checked_sub(pp_pos)
-                    .ok_or_else(|| LuceneError::illegal_state("end underflow"))?;
-                self.match_length = diff;
+                self.match_length = self.end - pp_pos;
             } else {
-                let diff2 = self
-                    .end
-                    .checked_sub(pp_pos)
-                    .ok_or_else(|| LuceneError::illegal_state("end underflow"))?;
-                let match_length2 = diff2;
+                let match_length2 = self.end - pp_pos;
                 if match_length2 < self.match_length {
                     self.match_length = match_length2;
                 }
@@ -785,7 +773,7 @@ where
         }
 
         self.positioned = false;
-        Ok(self.match_length <= self.slop)
+        Ok(self.match_length <= self.slop.try_convert()?)
     }
 
     fn sloppy_weight(&self) -> f32 {
@@ -805,7 +793,7 @@ where
             lead_position = lead_position.min(pp.position + pp.offset);
         }
 
-        lead_position as i32
+        lead_position
     }
 
     fn end_position(&self) -> i32 {
@@ -817,7 +805,7 @@ where
             }
         }
 
-        end_position as i32
+        end_position
     }
 
     fn start_offset(&self) -> Result<i32> {

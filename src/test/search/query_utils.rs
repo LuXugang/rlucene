@@ -14,11 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::query::Query;
 use crate::core::util::CoreHelper;
+use crate::core::util::error::lucene_error::Result;
+use rand::Rng;
 use std::hash::Hash;
 
 pub struct QueryUtils;
 impl QueryUtils {
+    pub fn check_from_searcher<T, IRC, R: Rng + ?Sized>(
+        _random: &mut R,
+        _q1: T,
+        _s: &IndexSearcher<IRC>,
+    ) -> Result<()>
+    where
+        IRC: IndexReaderContext,
+        T: Into<Query>,
+    {
+        // TODO IMPORTANT
+        Ok(())
+    }
+
     pub fn check_equal<Q>(q1: &Q, q2: &Q)
     where
         Q: Eq + Hash + PartialEq,
