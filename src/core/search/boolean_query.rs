@@ -970,8 +970,8 @@ impl Builder {
 #[cfg(test)]
 mod tests {
     use crate::core::document::document::Document;
-    use crate::core::document::field::FieldBase;
     use crate::core::document::field::Store::No;
+    use crate::core::document::field::{FieldBase, Store};
     use crate::core::document::field_type::FieldType;
     use crate::core::document::long_point::LongPoint;
     use crate::core::document::string_field::StringField;
@@ -984,16 +984,24 @@ mod tests {
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::term::Term;
+
+    use crate::core::search::block_max_conjunction_scorer::BlockMaxConjunctionScorer;
     use crate::core::search::boolean_clause::{BooleanClause, Occur};
     use crate::core::search::boolean_query::Builder;
     use crate::core::search::boost_query::BoostQuery;
+    use crate::core::search::conjunction_scorer::ConjunctionScorer;
+    use crate::core::search::disjunction_scorer::DisjunctionScorer;
+    use crate::core::search::disjunction_sum_scorer::DisjunctionSumScorer;
     use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-    use crate::core::search::query::Query;
+    use crate::core::search::phrase_query::PhraseQuery;
+    use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
     use crate::core::search::score_mode::ScoreMode;
+    use crate::core::search::scorer::ScorerEnum2;
     use crate::core::search::term_query::TermQuery;
     use crate::core::util::CoreHelper;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::query_utils::QueryUtils;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_text_field,
@@ -1265,13 +1273,100 @@ mod tests {
 
     #[test]
     fn test_conjunction_propagates_approximations() -> Result<()> {
-        // TODO PhraseQuery 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(new_text_field(
+            "field",
+            "a b c",
+            Store::No,
+            &mut field_to_type,
+        )?);
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        let reader = writer.get_reader()?;
+        // not new_searcher_with_reader to not have the asserting wrappers
+        // and do instanceof checks
+        let mut searcher = IndexSearcher::from_cr(reader)?;
+        searcher.set_query_cache(None); // to still have approximations
+
+        let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+
+        let mut b = Builder::new();
+        b.add(pq, Occur::Must)?;
+        b.add(TermQuery::new(Term::from_text("field", "c")), Occur::Filter)?;
+        let q: Query = b.build().into();
+
+        let rewritten = searcher.rewrite(q)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+
+        let ctx = &searcher.get_leaf_contexts()?[0];
+        let scorer = weight.scorer(ctx)?.unwrap();
+
+        assert!(
+            scorer
+                .as_any()
+                .downcast_ref::<ConjunctionScorer<
+                    ScorerEnum2<
+                        QueryWeightSsScorer,
+                        BlockMaxConjunctionScorer<QueryWeightSsScorer>,
+                    >,
+                >>()
+                .is_some()
+        );
+        assert!(scorer.two_phase_iterator().is_some());
+
         Ok(())
     }
 
     #[test]
     fn test_disjunction_propagates_approximations() -> Result<()> {
-        // TODO PhraseQuery 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(new_text_field(
+            "field",
+            "a b c",
+            Store::No,
+            &mut field_to_type,
+        )?);
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        let reader = writer.get_reader()?;
+        let mut searcher = IndexSearcher::from_cr(reader)?;
+        searcher.set_query_cache(None); // to still have approximations
+
+        let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+
+        let mut b = Builder::new();
+        b.add(pq, Occur::Should)?;
+        b.add(TermQuery::new(Term::from_text("field", "c")), Occur::Should)?;
+        let q: Query = b.build().into();
+
+        let rewritten = searcher.rewrite(q)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+
+        let ctx = &searcher.get_leaf_contexts()?[0];
+        let scorer = weight.scorer(ctx)?.unwrap();
+
+        assert!(
+            scorer
+                .as_any()
+                .downcast_ref::<DisjunctionScorer<QueryWeightSsScorer, DisjunctionSumScorer>>()
+                .is_some()
+        );
+        assert!(scorer.two_phase_iterator().is_some());
+
         Ok(())
     }
 

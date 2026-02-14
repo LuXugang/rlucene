@@ -137,6 +137,11 @@ pub trait Scorer: Scorable {
     /// The returned iterator is a *view*: calling this method several times must
     /// return iterators that share the same state.
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_>;
+
+    #[cfg(test)]
+    fn as_any(&self) -> &dyn std::any::Any {
+        unreachable!("")
+    }
 }
 
 impl<T> Scorable for Box<T>

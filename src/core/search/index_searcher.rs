@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::composite_reader::{CompositeReader, get_context};
+use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
@@ -94,6 +96,7 @@ pub(crate) struct Inner {
     leaf_slices: Option<Arc<Vec<LeafSlice>>>,
 }
 pub type DefaultIndexSearcher<IRC> = IndexSearcher<IRC>;
+
 impl<IRC> DefaultIndexSearcher<IRC>
 where
     IRC: IndexReaderContext,
@@ -147,6 +150,15 @@ pub fn default_similarity() -> SimilarityEnum {
     BM25Similarity::new()
         .expect("Cannot create BM25Similarity")
         .into()
+}
+impl<CR> IndexSearcher<CompositeReaderContext<CR>>
+where
+    CR: CompositeReader,
+{
+    pub fn from_cr(context: CR) -> Result<Self> {
+        let reader = get_context(context)?;
+        Self::new(reader)
+    }
 }
 
 impl<IRC> IndexSearcher<IRC>

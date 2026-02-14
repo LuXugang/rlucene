@@ -24,6 +24,8 @@ use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
 use crate::core::util::error::lucene_error::Result;
+#[cfg(test)]
+use std::any::Any;
 
 pub type ConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
     ConjunctionDISI<ScorerDisi<S>>,
@@ -233,5 +235,9 @@ where
             DocIdSetIteratorEnum2::A(_) => self.iterator_mut(),
             DocIdSetIteratorEnum2::B(ref mut v) => v.two_phase_iterator.approximation_mut(),
         }
+    }
+    #[cfg(test)]
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
