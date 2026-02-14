@@ -22,7 +22,7 @@ use crate::core::search::similarities_impl::bm25_similarity::{BM25Scorer, BM25Si
 use crate::core::search::similarities_impl::raw_tf_similarity::{RawTFSimScorer, RawTFSimilarity};
 use crate::core::search::similarities_impl::tf_idf_similarity::{TFIDFScorer, TFIDFSimilarity};
 use crate::core::search::term_statistics::TermStatistics;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::small_float::SmallFloat;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -316,7 +316,10 @@ pub trait SimScorer {
     ///
     /// A `Result<Explanation>` detailing how the document’s score was derived.
     fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
-        let value = self.score(freq.get_value().to_f32().unwrap(), norm);
+        let freq_value = freq.get_value().to_f32().ok_or_else(|| {
+            LuceneError::illegal_argument(format!("cannot convert to f32: {}", freq.get_value()))
+        })?;
+        let value = self.score(freq_value, norm);
         let description = format!("score(freq={}), with freq of:", freq.get_value());
         Ok(Explanation::match_no_details(value, description))
     }

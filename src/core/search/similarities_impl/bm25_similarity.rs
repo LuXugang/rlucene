@@ -187,7 +187,7 @@ impl Similarity for BM25Similarity {
             cache[i] = 1.0 / (self.k1 * ((1.0 - self.b) + self.b * LENGTH_TABLE[i] / avgdl));
         }
 
-        Ok(BM25Scorer::new(boost, self.k1, self.b, idf, avgdl, cache))
+        BM25Scorer::new(boost, self.k1, self.b, idf, avgdl, cache)
     }
 }
 
@@ -232,10 +232,12 @@ impl BM25Scorer {
         idf: Explanation,
         avgdl: f32,
         cache: [f32; 256],
-    ) -> Self {
-        let idf_value = idf.get_value().to_f32().unwrap();
+    ) -> Result<Self> {
+        let idf_value = idf.get_value().to_f32().ok_or_else(|| {
+            LuceneError::illegal_argument(format!("cannot convert to f32: {}", idf.get_value()))
+        })?;
 
-        Self {
+        Ok(Self {
             boost,
             k1,
             b,
@@ -243,11 +245,13 @@ impl BM25Scorer {
             avgdl,
             cache,
             weight: boost * idf_value,
-        }
+        })
     }
-    fn explain_tf(&self, freq: Explanation, norm: i64) -> Explanation {
+    fn explain_tf(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
         let mut subs = Vec::new();
-        let freq_value = freq.get_value().to_f32().unwrap();
+        let freq_value = freq.get_value().to_f32().ok_or_else(|| {
+            LuceneError::illegal_argument(format!("cannot convert to f32: {}", freq.get_value()))
+        })?;
         subs.push(freq);
         subs.push(Explanation::match_no_details(
             self.k1,
@@ -280,11 +284,11 @@ impl BM25Scorer {
         let norm_inverse = 1.0 / (self.k1 * ((1.0 - self.b) + self.b * doclen / self.avgdl));
         let tf_val = 1.0 - 1.0 / (1.0 + freq_value * norm_inverse);
 
-        Explanation::match_(
+        Ok(Explanation::match_(
             tf_val,
             "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:".to_string(),
             subs,
-        )
+        ))
     }
 
     fn explain_constant_factors(&self) -> Vec<Explanation> {
@@ -315,8 +319,10 @@ impl SimScorer for BM25Scorer {
 
     fn explain(&self, freq: Explanation, encoded_norm: i64) -> Result<Explanation> {
         let mut subs = self.explain_constant_factors();
-        let freq_value = freq.get_value().to_f32().unwrap();
-        let tf_expl = self.explain_tf(freq, encoded_norm);
+        let freq_value = freq.get_value().to_f32().ok_or_else(|| {
+            LuceneError::illegal_argument(format!("cannot convert to f32: {}", freq.get_value()))
+        })?;
+        let tf_expl = self.explain_tf(freq, encoded_norm)?;
         subs.push(tf_expl);
 
         let norm_inverse = self.cache[(encoded_norm as u8) as usize];

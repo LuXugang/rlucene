@@ -74,7 +74,9 @@ impl CheckHits {
         deep: bool,
         expl: &Explanation,
     ) -> Result<()> {
-        let value = expl.get_value().to_f32().unwrap();
+        let value = expl.get_value().to_f32().ok_or_else(|| {
+            LuceneError::illegal_argument(format!("cannot convert to f32: {}", expl.get_value()))
+        })?;
         if value != score {
             unreachable!(
                 "{}: score(doc={})={} != explanationScore={} Explanation: {}",
@@ -150,7 +152,12 @@ impl CheckHits {
             let mut max_error = 0f64;
 
             for d in details.iter() {
-                let dval = d.get_value().to_f32().unwrap();
+                let dval = d.get_value().to_f32().ok_or_else(|| {
+                    LuceneError::illegal_argument(format!(
+                        "cannot convert to f32: {}",
+                        d.get_value()
+                    ))
+                })?;
                 Self::verify_explanation(q, doc, dval, deep, d)?;
 
                 product *= dval;

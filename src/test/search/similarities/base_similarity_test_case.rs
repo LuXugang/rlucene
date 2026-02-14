@@ -19,7 +19,7 @@ use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::similarities_impl::similarities::{SimScorer, Similarity};
 use crate::core::search::term_statistics::TermStatistics;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::small_float::SmallFloat;
 use crate::test::search::check_hits::CheckHits;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, rarely};
@@ -211,9 +211,14 @@ pub trait BaseSimilarityTestCase {
             Explanation::match_no_details(freq, "freq, occurrences of term within document"),
             norm as i64,
         )?;
+        let explanation_value = explanation.get_value().to_f32().ok_or_else(|| {
+            LuceneError::illegal_argument(format!(
+                "cannot convert to f32: {}",
+                explanation.get_value()
+            ))
+        })?;
         assert_eq!(
-            score,
-            explanation.get_value().to_f32().unwrap(),
+            score, explanation_value,
             "expected: {score}, got: {explanation}"
         );
 
@@ -241,9 +246,14 @@ pub trait BaseSimilarityTestCase {
             Explanation::match_no_details(prev_freq, "freq, occurrences of term within document"),
             norm as i64,
         )?;
+        let prev_explanation_value = prev_explanation.get_value().to_f32().ok_or_else(|| {
+            LuceneError::illegal_argument(format!(
+                "cannot convert to f32: {}",
+                prev_explanation.get_value()
+            ))
+        })?;
         assert_eq!(
-            prev_score,
-            prev_explanation.get_value().to_f32().unwrap(),
+            prev_score, prev_explanation_value,
             "expected: {prev_score}, got: {prev_explanation}"
         );
 
@@ -275,9 +285,15 @@ pub trait BaseSimilarityTestCase {
                 Explanation::match_no_details(freq, "freq, occurrences of term within document"),
                 norm as i64 - 1,
             )?;
+            let prev_norm_explanation_value =
+                prev_norm_explanation.get_value().to_f32().ok_or_else(|| {
+                    LuceneError::illegal_argument(format!(
+                        "cannot convert to f32: {}",
+                        prev_norm_explanation.get_value()
+                    ))
+                })?;
             assert_eq!(
-                prev_norm_score,
-                prev_norm_explanation.get_value().to_f32().unwrap(),
+                prev_norm_score, prev_norm_explanation_value,
                 "expected: {prev_norm_score}, got: {prev_norm_explanation}"
             );
 
@@ -324,9 +340,15 @@ pub trait BaseSimilarityTestCase {
                 Explanation::match_no_details(freq, "freq, occurrences of term within document"),
                 norm.into(),
             )?;
+            let prev_term_explanation_value =
+                prev_term_explanation.get_value().to_f32().ok_or_else(|| {
+                    LuceneError::illegal_argument(format!(
+                        "cannot convert to f32: {}",
+                        prev_term_explanation.get_value()
+                    ))
+                })?;
             assert_eq!(
-                prev_term_score,
-                prev_term_explanation.get_value().to_f32().unwrap(),
+                prev_term_score, prev_term_explanation_value,
                 "expected: {prev_term_score}, got: {prev_term_explanation}"
             );
 

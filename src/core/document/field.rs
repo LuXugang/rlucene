@@ -1769,7 +1769,10 @@ mod tests {
             if field.field_type().stored() {
                 match field.stored_value() {
                     Some(FieldDataEnum::Number(v)) => {
-                        assert!((v.to_f32().unwrap() + 28.8).abs() < f32::EPSILON);
+                        let v = v.to_f32().ok_or_else(|| {
+                            LuceneError::illegal_argument(format!("cannot convert to f32: {}", v))
+                        })?;
+                        assert!((v + 28.8).abs() < f32::EPSILON);
                     },
                     _ => unreachable!(),
                 }
