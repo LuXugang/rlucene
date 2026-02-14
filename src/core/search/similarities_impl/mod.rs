@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 pub mod bm25_similarity;
+pub mod classic_similarity;
 pub mod per_field_similarity_wrapper;
 pub mod raw_tf_similarity;
 pub mod similarities;
 pub mod similarity_base;
-pub(crate) mod tf_idf_similarity;
+pub mod tf_idf_similarity;

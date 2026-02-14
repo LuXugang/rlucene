@@ -16,6 +16,7 @@
  */
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
 use crate::core::search::similarities_impl::similarities::{SimScorer, Similarity};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -464,34 +465,48 @@ impl SimScorer for TFIDFScorer {
     }
 }
 #[derive(Clone)]
-pub enum TFIDFSubEnum {}
+pub enum TFIDFSubEnum {
+    Classic(ClassicSimilarity),
+}
 impl TFIDFSimilarityBase for TFIDFSubEnum {
-    fn tf(&self, _freq: f32) -> f32 {
-        todo!()
+    fn tf(&self, freq: f32) -> f32 {
+        match self {
+            TFIDFSubEnum::Classic(classic) => classic.tf(freq),
+        }
     }
 
     fn idf_explain(
         &self,
-        _collection_stats: &CollectionStatistics,
-        _term_stats: &TermStatistics,
+        collection_stats: &CollectionStatistics,
+        term_stats: &TermStatistics,
     ) -> Explanation {
-        todo!()
+        match self {
+            TFIDFSubEnum::Classic(classic) => classic.idf_explain(collection_stats, term_stats),
+        }
     }
 
     fn idf_explain_from_multi_ts(
         &self,
-        _collection_stats: &CollectionStatistics,
-        _term_stats: &[TermStatistics],
+        collection_stats: &CollectionStatistics,
+        term_stats: &[TermStatistics],
     ) -> Explanation {
-        todo!()
+        match self {
+            TFIDFSubEnum::Classic(classic) => {
+                classic.idf_explain_from_multi_ts(collection_stats, term_stats)
+            },
+        }
     }
 
-    fn idf(&self, _doc_freq: i64, _doc_count: i64) -> f32 {
-        todo!()
+    fn idf(&self, doc_freq: i64, doc_count: i64) -> f32 {
+        match self {
+            TFIDFSubEnum::Classic(classic) => classic.idf(doc_freq, doc_count),
+        }
     }
 
-    fn length_norm(&self, _length: i32) -> f32 {
-        todo!()
+    fn length_norm(&self, length: i32) -> f32 {
+        match self {
+            TFIDFSubEnum::Classic(classic) => classic.length_norm(length),
+        }
     }
 }
 pub trait TFIDFSimilarityBase {
