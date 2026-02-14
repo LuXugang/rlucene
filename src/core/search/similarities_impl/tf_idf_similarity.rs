@@ -331,7 +331,7 @@ impl TFIDFSimilarity {
     pub fn new(sub: TFIDFSubEnum) -> Self {
         Self {
             sub,
-            discount_overlaps: false,
+            discount_overlaps: true,
         }
     }
     pub fn with_discount_overlaps(sub: TFIDFSubEnum, discount_overlaps: bool) -> Self {
@@ -383,7 +383,7 @@ pub struct TFIDFScorer {
     idf: Explanation,
     boost: f32,
     query_weight: f32,
-    norm_table: Vec<f32>,
+    pub(crate) norm_table: Vec<f32>,
     base: TFIDFSubEnum,
 }
 impl TFIDFScorer {
