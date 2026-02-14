@@ -173,7 +173,7 @@ impl Similarity for BM25Similarity {
         boost: f32,
         collection_stats: &CollectionStatistics,
         term_stats: &[TermStatistics],
-    ) -> Self::SimScorer {
+    ) -> Result<Self::SimScorer> {
         let idf = if term_stats.len() == 1 {
             self.idf_explain(collection_stats, &term_stats[0])
         } else {
@@ -187,7 +187,7 @@ impl Similarity for BM25Similarity {
             cache[i] = 1.0 / (self.k1 * ((1.0 - self.b) + self.b * LENGTH_TABLE[i] / avgdl));
         }
 
-        BM25Scorer::new(boost, self.k1, self.b, idf, avgdl, cache)
+        Ok(BM25Scorer::new(boost, self.k1, self.b, idf, avgdl, cache))
     }
 }
 

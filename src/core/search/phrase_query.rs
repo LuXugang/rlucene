@@ -516,7 +516,7 @@ where
                 self.boost,
                 &collection_stats,
                 term_stats[..term_up_to].as_ref(),
-            ))
+            )?)
         } else {
             // no terms at all, we won't use similarity
             SimScorerType::B(SimScorerImpl)

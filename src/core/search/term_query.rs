@@ -216,7 +216,7 @@ where
                     boost,
                     collection_stats.as_ref().unwrap(),
                     &[term_stats],
-                ))))
+                )?)))
             } else {
                 Some(Arc::new(TermQuerySimScorer::B(SimScorerImpl)))
             }

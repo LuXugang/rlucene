@@ -190,7 +190,7 @@ pub trait BaseSimilarityTestCase {
         norm: i32,
         random: &mut R,
     ) -> Result<()> {
-        let scorer = similarity.scorer(boost, corpus, term);
+        let scorer = similarity.scorer(boost, corpus, term)?;
 
         let max_score = scorer.score(f32::MAX, 1);
         assert!(!max_score.is_nan(), "maxScore is NaN");
@@ -312,7 +312,7 @@ pub trait BaseSimilarityTestCase {
             )?;
             let prev_term = vec![prev_term];
 
-            let prev_term_scorer = similarity.scorer(boost, corpus, prev_term.as_slice());
+            let prev_term_scorer = similarity.scorer(boost, corpus, prev_term.as_slice())?;
 
             let prev_term_score = prev_term_scorer.score(freq, norm.into());
             assert!(prev_term_score.is_finite());

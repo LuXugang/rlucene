@@ -17,6 +17,7 @@
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::similarities_impl::similarities::{SimScorer, Similarity};
 use crate::core::search::term_statistics::TermStatistics;
+use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
 /// Similarity that returns the raw TF as score.
@@ -55,8 +56,8 @@ impl Similarity for RawTFSimilarity {
         boost: f32,
         _collection_stats: &CollectionStatistics,
         _term_stats: &[TermStatistics],
-    ) -> Self::SimScorer {
-        RawTFSimScorer { boost }
+    ) -> Result<Self::SimScorer> {
+        Ok(RawTFSimScorer { boost })
     }
 }
 

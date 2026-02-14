@@ -150,7 +150,7 @@ pub trait Similarity: Display {
         boost: f32,
         collection_stats: &CollectionStatistics,
         term_stats: &[TermStatistics],
-    ) -> Self::SimScorer;
+    ) -> Result<Self::SimScorer>;
 }
 pub type DynSimScorer = dyn SimScorer + Send + Sync;
 pub type BoxSimScorer = Box<DynSimScorer>;
@@ -221,19 +221,19 @@ impl Similarity for SimilarityEnum {
         boost: f32,
         collection_stats: &CollectionStatistics,
         term_stats: &[TermStatistics],
-    ) -> Self::SimScorer {
+    ) -> Result<Self::SimScorer> {
         match self {
             Self::BM25(inner) => {
-                let scorer = inner.scorer(boost, collection_stats, term_stats);
-                SimScorerEnum3::A(scorer)
+                let scorer = inner.scorer(boost, collection_stats, term_stats)?;
+                Ok(SimScorerEnum3::A(scorer))
             },
             Self::RawTF(inner) => {
-                let scorer = inner.scorer(boost, collection_stats, term_stats);
-                SimScorerEnum3::B(scorer)
+                let scorer = inner.scorer(boost, collection_stats, term_stats)?;
+                Ok(SimScorerEnum3::B(scorer))
             },
             Self::Custom(inner) => {
-                let scorer = inner.scorer(boost, collection_stats, term_stats);
-                SimScorerEnum3::C(scorer)
+                let scorer = inner.scorer(boost, collection_stats, term_stats)?;
+                Ok(SimScorerEnum3::C(scorer))
             },
         }
     }
@@ -254,7 +254,7 @@ impl<T: ?Sized + Similarity> Similarity for Box<T> {
         boost: f32,
         collection_stats: &CollectionStatistics,
         term_stats: &[TermStatistics],
-    ) -> Self::SimScorer {
+    ) -> Result<Self::SimScorer> {
         (**self).scorer(boost, collection_stats, term_stats)
     }
 }
@@ -380,12 +380,12 @@ macro_rules! either_similarity {
                 boost: f32,
                 collection_stats: &CollectionStatistics,
                 term_stats: &[TermStatistics],
-            ) -> Self::SimScorer {
+            ) -> Result<Self::SimScorer> {
                 match self {
                     $(
                         Self::$Variant(inner) => {
-                            let scorer = inner.scorer(boost, collection_stats, term_stats);
-                            $scorer_enum::$Variant(scorer)
+                            let scorer = inner.scorer(boost, collection_stats, term_stats)?;
+                            Ok($scorer_enum::$Variant(scorer))
                         }
                     ),+
                 }
@@ -445,7 +445,7 @@ where
         boost: f32,
         collection_stats: &CollectionStatistics,
         term_stats: &[TermStatistics],
-    ) -> Self::SimScorer {
+    ) -> Result<Self::SimScorer> {
         (**self).scorer(boost, collection_stats, term_stats)
     }
 }
@@ -468,7 +468,7 @@ where
         boost: f32,
         collection_stats: &CollectionStatistics,
         term_stats: &[TermStatistics],
-    ) -> Self::SimScorer {
+    ) -> Result<Self::SimScorer> {
         (**self).scorer(boost, collection_stats, term_stats)
     }
 }

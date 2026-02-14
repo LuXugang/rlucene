@@ -19,6 +19,7 @@ use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::dummy::dummy_sim_scorer::DummySimScorer;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_statistics::TermStatistics;
+use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
 pub struct DummySimilarity;
@@ -48,7 +49,7 @@ impl Similarity for DummySimilarity {
         _boost: f32,
         _collection_stats: &CollectionStatistics,
         _term_stats: &[TermStatistics],
-    ) -> Self::SimScorer {
+    ) -> Result<Self::SimScorer> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
