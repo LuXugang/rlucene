@@ -35,12 +35,13 @@ use crate::core::search::query::{
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::bits::Bits;
 use crate::core::util::core_helper::HasIdentity;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -256,9 +257,20 @@ where
 
     fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let inner_scorer = self.inner_scorer_supplier.get(lead_cost, context)?;
-        let disi = inner_scorer.take_iterator();
-        let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, disi);
-        Ok(Box::new(v))
+        match inner_scorer.has_two_phase_iterator() {
+            TwoPhaseState::Yes => {
+                let tpi = inner_scorer
+                    .take_two_phase_iterator()
+                    .ok_or_else(|| LuceneError::illegal_state("no tpi?"))?;
+                let v = ConstantScoreScorer::from_tpi(self.score, self.score_mode, tpi);
+                Ok(Box::new(v))
+            },
+            TwoPhaseState::No => {
+                let disi = inner_scorer.take_iterator();
+                let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, disi);
+                Ok(Box::new(v))
+            },
+        }
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
@@ -514,12 +526,14 @@ mod tests {
     use crate::core::search::boolean_query::Builder;
     use crate::core::search::constant_score_query::ConstantScoreQuery;
     use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-    use crate::core::search::query::Query;
+    use crate::core::search::phrase_query::PhraseQuery;
+    use crate::core::search::query::{Query, QueryBase};
+    use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::term_query::TermQuery;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_searcher_with_reader, new_string_field, random,
+        new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field, random,
     };
     use std::collections::HashMap;
 
@@ -591,9 +605,40 @@ mod tests {
 
     #[test]
     fn test_propagates_approximations() -> Result<()> {
-        // TODO PhraseQuery未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(new_text_field(
+            "field",
+            "a b",
+            Store::No,
+            &mut field_to_type,
+        )?);
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        let reader = writer.get_reader()?;
+        let mut searcher = new_searcher_with_reader(reader)?;
+        searcher.set_query_cache(None); // to still have approximations
+
+        let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+        let csq: Query = ConstantScoreQuery::new(pq).into();
+
+        let rewritten = searcher.rewrite(csq)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+
+        let ctx = &searcher.get_leaf_contexts()?[0];
+        let scorer = weight.scorer(ctx)?.unwrap();
+
+        assert!(scorer.two_phase_iterator().is_some());
+
         Ok(())
     }
+
     #[test]
     fn test_rewrite_bubbles_up_match_no_docs_query() -> Result<()> {
         let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
