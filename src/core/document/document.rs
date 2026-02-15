@@ -286,13 +286,14 @@ mod tests {
     use crate::core::index::stored_fields::StoredFields;
     use crate::core::index::term::Term;
     use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::search::phrase_query::PhraseQuery;
     use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::term_query::TermQuery;
     use crate::core::search::top_docs::TopDocsLike;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, random,
+        new_directory_shared, new_searcher_with_reader, random,
     };
 
     #[allow(dead_code)] // for quick search
@@ -506,7 +507,25 @@ mod tests {
     }
     #[test]
     fn test_position_increment_multi_fields() -> Result<()> {
-        // TODO PhraseQuery未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        writer.add_document(make_document_with_fields()?)?;
+
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let query = PhraseQuery::from_terms(0, "indexed_not_tokenized", &["test1", "test2"])?;
+
+        let top_docs = searcher.search(query, 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(1, hits.len());
+
+        let doc = searcher.stored_fields()?.document(hits[0].doc)?;
+        do_assert(&doc, true)?;
+
+        writer.close()?;
         Ok(())
     }
 

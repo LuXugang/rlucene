@@ -988,11 +988,12 @@ mod tests {
     use crate::core::search::boolean_clause::{BooleanClause, Occur};
     use crate::core::search::boolean_query::Builder;
     use crate::core::search::boost_query::BoostQuery;
-
+    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
     use crate::core::search::phrase_query::PhraseQuery;
     use crate::core::search::query::{Query, QueryBase};
+    use crate::core::search::score_doc::ScoreDoc;
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::scorer::ScorerKind;
     use crate::core::search::term_query::TermQuery;
@@ -1001,8 +1002,8 @@ mod tests {
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::query_utils::QueryUtils;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_text_field,
-        random,
+        at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
+        new_text_field, random, random_multiplier,
     };
     use crate::test::util::test_util::TestUtil;
     #[allow(dead_code)]
@@ -1216,19 +1217,132 @@ mod tests {
 
     #[test]
     fn test_null_or_sub_scorer() -> Result<()> {
-        // TODO PhraseQuery未实现
+        // TODO DisjunctionMaxQuery 未实现
         Ok(())
     }
     #[test]
     fn test_de_morgan() -> Result<()> {
-        // TODO DeMorgan 相关逻辑尚未实现
+        // TODO WildcardQuery 相关逻辑尚未实现
         Ok(())
     }
     #[test]
-    fn test_bs2disjunction_next_vs_advance() -> Result<()> {
-        // TODO IMPORTANT 等BooleanQuery稳定后再来实现
+    fn test_bs2_disjunction_next_vs_advance() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut field_to_type = HashMap::new();
+
+        let num_docs = at_least(&mut random, 300) as i32;
+        for _doc_upto in 0..num_docs {
+            let mut contents = String::from("a");
+            if random.random_range(0..20) <= 16 {
+                contents.push_str(" b");
+            }
+            if random.random_range(0..20) <= 8 {
+                contents.push_str(" c");
+            }
+            if random.random_range(0..20) <= 4 {
+                contents.push_str(" d");
+            }
+            if random.random_range(0..20) <= 2 {
+                contents.push_str(" e");
+            }
+            if random.random_range(0..20) <= 1 {
+                contents.push_str(" f");
+            }
+
+            let mut doc = Document::new();
+            doc.add(new_text_field(
+                "field",
+                &contents,
+                Store::No,
+                &mut field_to_type,
+            )?);
+            writer.add_document(doc)?;
+        }
+        // TODO force_merge未实现
+        // writer.force_merge(1)?;
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
+        writer.close()?;
+
+        for _ in 0..(10 * random_multiplier()) {
+            let mut terms: Vec<&'static str> = vec!["a", "b", "c", "d", "e", "f"];
+            let num_terms = random.random_range(1..(terms.len() + 1)) as usize;
+            while terms.len() > num_terms {
+                let idx = random.random_range(0..terms.len()) as usize;
+                terms.remove(idx);
+            }
+
+            let mut bq = Builder::new();
+            for term in &terms {
+                bq.add(
+                    TermQuery::new(Term::from_text("field", *term)),
+                    Occur::Should,
+                )?;
+            }
+            let q: Query = bq.build().into();
+
+            let rewritten = searcher.rewrite(q.clone())?;
+            let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+
+            let ctx = &searcher.get_leaf_contexts()?[0];
+            let mut scorer = weight.scorer(ctx)?.unwrap();
+
+            // First pass: just use next_doc() to gather all hits
+            let mut hits = Vec::new();
+            loop {
+                let doc_id = scorer.iterator_mut().next_doc()?;
+                if doc_id == NO_MORE_DOCS {
+                    break;
+                }
+                hits.push(ScoreDoc::new(scorer.doc_id()?, scorer.score()?));
+            }
+
+            // Now, randomly next/advance through the list and verify exact match
+            for _ in 0..10 {
+                let rewritten = searcher.rewrite(q.clone())?;
+                let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+                let mut scorer = weight.scorer(ctx)?.unwrap();
+
+                let mut upto: i32 = -1;
+                while (upto as usize) < hits.len() {
+                    let next_upto: usize;
+                    let next_doc: i32;
+                    let left = hits.len() as i32 - upto;
+
+                    if left == 1 || random.random_bool(0.5) {
+                        next_upto = (upto + 1) as usize;
+                        next_doc = scorer.iterator_mut().next_doc()?;
+                    } else {
+                        let inc = random.random_range(1..left) - 1;
+                        let inc = inc.max(1);
+                        next_upto = (upto + inc) as usize;
+                        next_doc = scorer.iterator_mut().advance(hits[next_upto].doc)?;
+                    }
+
+                    if next_upto == hits.len() {
+                        assert_eq!(NO_MORE_DOCS, next_doc);
+                    } else {
+                        let hit = &hits[next_upto];
+                        assert_eq!(hit.doc, next_doc);
+                        let actual = scorer.score()?;
+                        assert_eq!(
+                            hit.score, actual,
+                            "doc {} has wrong score: expected={} actual={}",
+                            hit.doc, hit.score, actual
+                        );
+                    }
+
+                    upto = next_upto as i32;
+                }
+            }
+        }
+
         Ok(())
     }
+
     #[test]
     fn test_min_should_match_leniency() -> Result<()> {
         let mut random = random();
