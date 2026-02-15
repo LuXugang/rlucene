@@ -26,11 +26,6 @@ pub trait TwoPhaseIterator {
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_>;
     fn approximation(&self) -> Box<dyn DocIdSetIterator + '_>;
 
-    /// Set the approximation to an empty iterator
-    fn set_empty(&mut self) -> Result<()> {
-        Err(LuceneError::unsupported_operation(""))
-    }
-
     /// Return whether the current doc ID that `approximation()` is on matches.
     ///
     /// This method should only be called when the iterator is positioned
@@ -64,11 +59,6 @@ where
     }
 
     #[inline]
-    fn set_empty(&mut self) -> Result<()> {
-        (**self).set_empty()
-    }
-
-    #[inline]
     fn matches(&mut self) -> Result<bool> {
         (**self).matches()
     }
@@ -90,11 +80,6 @@ where
     #[inline]
     fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
         (**self).approximation()
-    }
-
-    #[inline]
-    fn set_empty(&mut self) -> Result<()> {
-        Err(LuceneError::unsupported_operation(""))
     }
 
     #[inline]
@@ -120,11 +105,6 @@ where
     #[inline]
     fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
         (**self).approximation()
-    }
-
-    #[inline]
-    fn set_empty(&mut self) -> Result<()> {
-        (**self).set_empty()
     }
 
     #[inline]
@@ -232,13 +212,6 @@ macro_rules! either_two_phase_iterator_gat {
             }
 
             #[inline]
-            fn set_empty(&mut self) -> Result<()>{
-                match self {
-                    $( Self::$Variant(inner) => inner.set_empty(), )+
-                }
-            }
-
-            #[inline]
             fn matches(&mut self) -> Result<bool> {
                 match self {
                     $( Self::$Variant(inner) => inner.matches(), )+
@@ -257,44 +230,4 @@ macro_rules! either_two_phase_iterator_gat {
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum2
     { A: A, B: B}
-);
-either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum3
-    { A: A, B: B, C: C}
-);
-either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum4
-    { A: A, B: B, C: C,D:D}
-);
-either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum5
-    { A: A, B: B, C: C, D: D, E: E }
-);
-either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum6
-    { A: A, B: B, C: C, D: D, E: E, F: F }
-);
-either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum7
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G }
-);
-either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum8
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
-);
-either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum9
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I }
-);
-either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum10
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
-);
-either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum11
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K }
-);
-either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum12
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K, L: L }
 );
