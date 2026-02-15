@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::{
-    DocIdSetIterator, DocIdSetIteratorEnum2, EmptyDISI, EmptyEnum,
+    DocIdSetIterator, DocIdSetIteratorEnum2, EmptyDISI,
 };
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
@@ -51,7 +51,7 @@ where
     pub fn from_disi(score: f32, score_mode: ScoreMode, disi: DISI) -> Self {
         let approximation = match score_mode {
             ScoreMode::TopScores => {
-                ConstantDISI::A(DocIdSetIteratorWrapper::new(EmptyEnum::A(disi)))
+                ConstantDISI::A(DocIdSetIteratorWrapper::new(DelegateEnum::Disi(disi)))
             },
             _ => ConstantDISI::B(disi),
         };
@@ -76,7 +76,11 @@ where
     /// - `two_phase_iterator`: the iterator that defines matching documents.
     pub fn from_tpi(score: f32, score_mode: ScoreMode, two_phase_iterator: TPI) -> Self {
         let two_phase_iterator = match score_mode {
-            ScoreMode::TopScores => ConstantTPI::A(TwoPhaseIteratorImpl::new(two_phase_iterator)),
+            ScoreMode::TopScores => {
+                let v: DocIdSetIteratorWrapper<TPI, DummyDISI> =
+                    DocIdSetIteratorWrapper::new(DelegateEnum::TPI(two_phase_iterator));
+                ConstantTPI::A(TwoPhaseIteratorImpl::new(v))
+            },
             _ => ConstantTPI::B(two_phase_iterator),
         };
         Self {
@@ -104,13 +108,20 @@ where
             match self.disi {
                 ConstantDISI_::A(ref mut v) => match v {
                     DocIdSetIteratorEnum2::A(v) => {
-                        v.delegate = EmptyEnum::B(EmptyDISI::new());
+                        v.delegate = DelegateEnum::Empty(EmptyDISI::new());
                     },
                     DocIdSetIteratorEnum2::B(_) => {
-                        return Err(LuceneError::illegal_state("not DocIdSetIteratorWrapper"));
+                        return Err(LuceneError::illegal_state("TopScores: should not be here"));
                     },
                 },
-                ConstantDISI_::B(ref mut v) => v.two_phase_iterator.set_empty()?,
+                ConstantDISI_::B(ref mut v) => match v.two_phase_iterator {
+                    TwoPhaseIteratorEnum2::A(ref mut wrapper) => {
+                        wrapper.two_phase_iterator.delegate = DelegateEnum::Empty(EmptyDISI::new());
+                    },
+                    TwoPhaseIteratorEnum2::B(_) => {
+                        return Err(LuceneError::illegal_state("TopScores: should not be here"));
+                    },
+                },
             }
         }
         Ok(())
@@ -236,13 +247,13 @@ pub struct TwoPhaseIteratorImpl<TPI>
 where
     TPI: TwoPhaseIterator,
 {
-    two_phase_iterator: TPI,
+    two_phase_iterator: DocIdSetIteratorWrapper<TPI, DummyDISI>,
 }
 impl<TPI> TwoPhaseIteratorImpl<TPI>
 where
     TPI: TwoPhaseIterator,
 {
-    pub fn new(two_phase_iterator: TPI) -> Self {
+    pub fn new(two_phase_iterator: DocIdSetIteratorWrapper<TPI, DummyDISI>) -> Self {
         Self { two_phase_iterator }
     }
 }
@@ -251,53 +262,120 @@ where
     TPI: TwoPhaseIterator,
 {
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        self.two_phase_iterator.approximation_mut()
+        match self.two_phase_iterator.delegate {
+            DelegateEnum::TPI(ref mut t) => Box::new(t.approximation_mut()),
+            _ => unreachable!("should not be here"),
+        }
     }
 
     fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-        self.two_phase_iterator.approximation()
-    }
-
-    fn set_empty(&mut self) -> Result<()> {
-        self.two_phase_iterator.set_empty()
+        match self.two_phase_iterator.delegate {
+            DelegateEnum::TPI(ref t) => Box::new(t.approximation()),
+            _ => unreachable!("should not be here"),
+        }
     }
 
     fn matches(&mut self) -> Result<bool> {
-        self.two_phase_iterator.matches()
+        match self.two_phase_iterator.delegate {
+            DelegateEnum::TPI(ref mut t) => t.matches(),
+            _ => unreachable!("should not be here"),
+        }
     }
 
     fn match_cost(&self) -> f32 {
-        self.two_phase_iterator.match_cost()
+        match self.two_phase_iterator.delegate {
+            DelegateEnum::TPI(ref t) => t.match_cost(),
+            _ => unreachable!("should not be here"),
+        }
     }
 }
 
 // used for Constructor from DISI
-pub type ConstantDISI<DISI> = DocIdSetIteratorEnum2<DocIdSetIteratorWrapper<EmptyEnum<DISI>>, DISI>;
+pub type ConstantDISI<DISI> =
+    DocIdSetIteratorEnum2<DocIdSetIteratorWrapper<DummyTwoPhaseIterator, DISI>, DISI>;
 // used Constructor from TwoPhaseIterator
 pub type ConstantTPI<TPI> = TwoPhaseIteratorEnum2<TwoPhaseIteratorImpl<TPI>, TPI>;
 
 pub type ConstantDISI_<DISI, TPI> =
     DocIdSetIteratorEnum2<ConstantDISI<DISI>, TwoPhaseIteratorAsDocIdSetIterator<ConstantTPI<TPI>>>;
 
-pub struct DocIdSetIteratorWrapper<D>
+pub enum DelegateEnum<T, D>
 where
+    T: TwoPhaseIterator,
+    D: DocIdSetIterator,
+{
+    TPI(T),
+    Disi(D),
+    Empty(EmptyDISI),
+}
+impl<T, D> DocIdSetIterator for DelegateEnum<T, D>
+where
+    T: TwoPhaseIterator,
+    D: DocIdSetIterator,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            DelegateEnum::TPI(t) => t.approximation().doc_id(),
+            DelegateEnum::Disi(d) => d.doc_id(),
+            DelegateEnum::Empty(e) => e.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            DelegateEnum::TPI(t) => t.approximation_mut().next_doc(),
+            DelegateEnum::Disi(d) => d.next_doc(),
+            DelegateEnum::Empty(e) => e.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        match self {
+            DelegateEnum::TPI(t) => t.approximation_mut().advance(_target),
+            DelegateEnum::Disi(d) => d.advance(_target),
+            DelegateEnum::Empty(e) => e.advance(_target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            DelegateEnum::TPI(t) => t.approximation_mut().slow_advance(target),
+            DelegateEnum::Disi(d) => d.slow_advance(target),
+            DelegateEnum::Empty(e) => e.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            DelegateEnum::TPI(t) => t.approximation().cost(),
+            DelegateEnum::Disi(d) => d.cost(),
+            DelegateEnum::Empty(e) => e.cost(),
+        }
+    }
+}
+
+pub struct DocIdSetIteratorWrapper<T, D>
+where
+    T: TwoPhaseIterator,
     D: DocIdSetIterator,
 {
     doc: i32,
-    delegate: D,
+    delegate: DelegateEnum<T, D>,
 }
 
-impl<D> DocIdSetIteratorWrapper<D>
+impl<T, D> DocIdSetIteratorWrapper<T, D>
 where
+    T: TwoPhaseIterator,
     D: DocIdSetIterator,
 {
-    pub fn new(delegate: D) -> Self {
+    pub fn new(delegate: DelegateEnum<T, D>) -> Self {
         Self { doc: -1, delegate }
     }
 }
 
-impl<D> DocIdSetIterator for DocIdSetIteratorWrapper<D>
+impl<T, D> DocIdSetIterator for DocIdSetIteratorWrapper<T, D>
 where
+    T: TwoPhaseIterator,
     D: DocIdSetIterator,
 {
     fn doc_id(&self) -> i32 {
