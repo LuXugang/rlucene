@@ -384,7 +384,7 @@ where
                 DisjunctionSumScorer,
             )?)
         };
-        let v = ReqExclBulkScorer::from_scorer(positive, prohibited_scorer)?;
+        let v = ReqExclBulkScorer::new(positive, prohibited_scorer);
         Ok(Some(Box::new(v)))
     }
     #[allow(clippy::type_complexity)]

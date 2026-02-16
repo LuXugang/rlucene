@@ -265,6 +265,12 @@ where
             random_match_cost: random.random::<f32>() * 200f32,
         }
     }
+    pub fn disi(&self) -> &DISI {
+        &self.approximation.disi
+    }
+    pub fn disi_mut(&mut self) -> &mut DISI {
+        &mut self.approximation.disi
+    }
 }
 impl<DISI> TwoPhaseIterator for RandomTwoPhaseView<DISI>
 where

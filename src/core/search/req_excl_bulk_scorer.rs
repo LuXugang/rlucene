@@ -17,44 +17,32 @@
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::scorer::Scorer;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 
-pub struct ReqExclBulkScorer<BS>
+pub struct ReqExclBulkScorer<BS, S>
 where
     BS: BulkScorer,
+    S: Scorer,
 {
     req: BS,
-    excl_two_phase: Option<Box<dyn TwoPhaseIterator>>,
-    excl_approximation: Option<Box<dyn DocIdSetIterator>>,
+    excl: S,
 }
-impl<BS> ReqExclBulkScorer<BS>
+impl<BS, S> ReqExclBulkScorer<BS, S>
 where
     BS: BulkScorer,
+    S: Scorer,
 {
-    pub(crate) fn from_scorer<S>(req: BS, excl: S) -> Result<Self>
-    where
-        S: Scorer,
-    {
-        Ok(match excl.has_two_phase_iterator() == TwoPhaseState::Yes {
-            true => Self {
-                req,
-                excl_two_phase: Some(Box::new(excl).take_two_phase_iterator().unwrap()),
-                excl_approximation: None,
-            },
-            false => Self {
-                req,
-                excl_two_phase: None,
-                excl_approximation: Some(Box::new(excl).take_iterator()),
-            },
-        })
+    pub(crate) fn new(req: BS, excl: S) -> Self {
+        Self { req, excl }
     }
 }
-impl<BS> BulkScorer for ReqExclBulkScorer<BS>
+impl<BS, S> BulkScorer for ReqExclBulkScorer<BS, S>
 where
     BS: BulkScorer,
+    S: Scorer,
 {
     fn score(
         &mut self,
@@ -65,47 +53,22 @@ where
     ) -> Result<i32> {
         let mut upto = min;
 
-        let mut excl_doc = match self.excl_approximation {
-            Some(ref approx) => approx.doc_id(),
-            None => self
-                .excl_two_phase
-                .as_mut()
-                .unwrap()
-                .approximation_mut()
-                .doc_id(),
-        };
+        let mut excl_doc = self.excl.approximation().doc_id();
 
         while upto < max {
             if excl_doc < upto {
-                excl_doc = match self.excl_approximation {
-                    Some(ref mut approx) => approx.advance(upto)?,
-                    None => self
-                        .excl_two_phase
-                        .as_mut()
-                        .unwrap()
-                        .approximation_mut()
-                        .advance(upto)?,
-                };
+                excl_doc = self.excl.approximation_mut().advance(upto)?;
             }
-
             if excl_doc == upto {
-                let excluded = match &mut self.excl_two_phase {
+                let excluded = match self.excl.two_phase_iterator_mut() {
                     None => true,
-                    Some(tpi) => tpi.matches()?,
+                    Some(ref mut tpi) => tpi.matches()?,
                 };
 
                 if excluded {
                     upto += 1;
                 }
-                excl_doc = match self.excl_approximation {
-                    Some(ref mut approx) => approx.next_doc()?,
-                    None => self
-                        .excl_two_phase
-                        .as_mut()
-                        .unwrap()
-                        .approximation_mut()
-                        .next_doc()?,
-                };
+                excl_doc = self.excl.approximation_mut().next_doc()?;
             } else {
                 let limit = excl_doc.min(max);
                 upto = self.req.score(collector, accept_docs, upto, limit)?;
@@ -142,9 +105,7 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::fixed_bit_set::FixedBitSet;
     use crate::test::search::random_approximation_query::RandomTwoPhaseView;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, random, random_from_seed,
-    };
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use rand::Rng;
     use std::fmt::{Display, Formatter};
 
@@ -196,21 +157,11 @@ mod tests {
         let req_bulk_scorer = BulkScorerImpl::new(req_iter);
 
         let excl_iter = excl.iterator()?.unwrap();
-        let mut req_excl = if two_phase {
-            let scorer = ScorerImpl {
-                disi: excl_iter,
-                random_seed: random.random(),
-                has_tpi: true,
-            };
-            ReqExclBulkScorer::from_scorer(req_bulk_scorer, scorer)?
-        } else {
-            let scorer = ScorerImpl {
-                disi: excl_iter,
-                random_seed: random.random(),
-                has_tpi: false,
-            };
-            ReqExclBulkScorer::from_scorer(req_bulk_scorer, scorer)?
+        let scorer = ScorerImpl {
+            disi: RandomTwoPhaseView::new(&mut random, excl_iter),
+            has_tpi: two_phase,
         };
+        let mut req_excl = ReqExclBulkScorer::new(req_bulk_scorer, scorer);
 
         let mut actual_matches = FixedBitSet::new(max_doc as usize);
 
@@ -251,8 +202,7 @@ mod tests {
     where
         DISI: DocIdSetIterator,
     {
-        disi: DISI,
-        random_seed: u64,
+        disi: RandomTwoPhaseView<DISI>,
         has_tpi: bool,
     }
 
@@ -273,32 +223,35 @@ mod tests {
         }
 
         fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-            unreachable!("")
+            Box::new(self.disi.disi())
         }
 
         fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-            unreachable!("")
+            Box::new(self.disi.disi_mut())
         }
 
         fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-            let scorer = *self;
-            Box::new(scorer.disi)
+            unreachable!("")
         }
 
         fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-            unreachable!("")
+            if self.has_tpi {
+                Some(Box::new(&self.disi))
+            } else {
+                None
+            }
         }
 
         fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-            unreachable!("")
+            if self.has_tpi {
+                Some(Box::new(&mut self.disi))
+            } else {
+                None
+            }
         }
 
         fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-            let seed = self.random_seed;
-            let scorer = *self;
-            let mut random = random_from_seed(seed);
-            let v = RandomTwoPhaseView::new(&mut random, scorer.disi);
-            Some(Box::new(v))
+            unreachable!("")
         }
 
         fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
@@ -314,11 +267,19 @@ mod tests {
         }
 
         fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-            unreachable!("")
+            if self.has_tpi {
+                Box::new(self.disi.approximation())
+            } else {
+                Box::new(self.iterator())
+            }
         }
 
         fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-            unreachable!("")
+            if self.has_tpi {
+                Box::new(self.disi.approximation_mut())
+            } else {
+                Box::new(self.iterator_mut())
+            }
         }
     }
 

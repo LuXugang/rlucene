@@ -462,19 +462,3 @@ either_scorer!(
         A: A, B: B,C: C,
     }
 );
-either_scorer!(
-    pub ScorerEnum4 {
-        iter = DocIdSetIteratorEnum4,
-        two_phase = TwoPhaseIteratorEnum4,
-        scorable = ScorableEnum4;
-        A: A, B: B,C: C,D:D
-    }
-);
-either_scorer!(
-    pub ScorerEnum5 {
-        iter = DocIdSetIteratorEnum5,
-        two_phase = TwoPhaseIteratorEnum5,
-        scorable = ScorableEnum5;
-        A: A, B: B,C: C, D: D,E: E,
-    }
-);
