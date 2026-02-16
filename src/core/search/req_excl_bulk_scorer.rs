@@ -38,42 +38,18 @@ where
     where
         S: Scorer,
     {
-        Ok(
-            match excl.has_two_phase_iterator() == TwoPhaseState::Yes
-                || excl.two_phase_iterator().is_some()
-            {
-                true => Self {
-                    req,
-                    excl_two_phase: Some(Box::new(excl).take_two_phase_iterator().unwrap()),
-                    excl_approximation: None,
-                },
-                false => Self {
-                    req,
-                    excl_two_phase: None,
-                    excl_approximation: Some(Box::new(excl).take_iterator()),
-                },
+        Ok(match excl.has_two_phase_iterator() == TwoPhaseState::Yes {
+            true => Self {
+                req,
+                excl_two_phase: Some(Box::new(excl).take_two_phase_iterator().unwrap()),
+                excl_approximation: None,
             },
-        )
-    }
-    pub(crate) fn from_disi<DISI>(req: BS, disi: DISI) -> Self
-    where
-        DISI: DocIdSetIterator + 'static,
-    {
-        Self {
-            req,
-            excl_two_phase: None,
-            excl_approximation: Some(Box::new(disi)),
-        }
-    }
-    pub(crate) fn with_two_phase<TPI>(req: BS, two_phase: TPI) -> Self
-    where
-        TPI: TwoPhaseIterator + 'static,
-    {
-        Self {
-            req,
-            excl_two_phase: Some(Box::new(two_phase)),
-            excl_approximation: None,
-        }
+            false => Self {
+                req,
+                excl_two_phase: None,
+                excl_approximation: Some(Box::new(excl).take_iterator()),
+            },
+        })
     }
 }
 impl<BS> BulkScorer for ReqExclBulkScorer<BS>
@@ -161,10 +137,14 @@ mod tests {
     use crate::core::util::bits::Bits;
     use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
 
+    use crate::core::search::scorer::{Scorer, TwoPhaseState};
+    use crate::core::search::two_phase_iterator::TwoPhaseIterator;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::fixed_bit_set::FixedBitSet;
     use crate::test::search::random_approximation_query::RandomTwoPhaseView;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, random, random_from_seed,
+    };
     use rand::Rng;
     use std::fmt::{Display, Formatter};
 
@@ -217,10 +197,19 @@ mod tests {
 
         let excl_iter = excl.iterator()?.unwrap();
         let mut req_excl = if two_phase {
-            let tpi = RandomTwoPhaseView::new(&mut random, excl_iter);
-            ReqExclBulkScorer::with_two_phase(req_bulk_scorer, tpi)
+            let scorer = ScorerImpl {
+                disi: excl_iter,
+                random_seed: random.random(),
+                has_tpi: true,
+            };
+            ReqExclBulkScorer::from_scorer(req_bulk_scorer, scorer)?
         } else {
-            ReqExclBulkScorer::from_disi(req_bulk_scorer, excl_iter)
+            let scorer = ScorerImpl {
+                disi: excl_iter,
+                random_seed: random.random(),
+                has_tpi: false,
+            };
+            ReqExclBulkScorer::from_scorer(req_bulk_scorer, scorer)?
         };
 
         let mut actual_matches = FixedBitSet::new(max_doc as usize);
@@ -256,6 +245,81 @@ mod tests {
         expected_matches.and_not_fixed_bit_set(&excluded_set);
         assert_eq!(expected_matches.get_bits(), actual_matches.get_bits());
         Ok(())
+    }
+
+    struct ScorerImpl<DISI>
+    where
+        DISI: DocIdSetIterator,
+    {
+        disi: DISI,
+        random_seed: u64,
+        has_tpi: bool,
+    }
+
+    impl<DISI> Scorable for ScorerImpl<DISI>
+    where
+        DISI: DocIdSetIterator,
+    {
+        fn score(&mut self) -> Result<f32> {
+            unreachable!("")
+        }
+    }
+    impl<DISI> Scorer for ScorerImpl<DISI>
+    where
+        DISI: DocIdSetIterator + 'static,
+    {
+        fn doc_id(&mut self) -> Result<i32> {
+            unreachable!("")
+        }
+
+        fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+            unreachable!("")
+        }
+
+        fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            unreachable!("")
+        }
+
+        fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+            let scorer = *self;
+            Box::new(scorer.disi)
+        }
+
+        fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+            unreachable!("")
+        }
+
+        fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+            unreachable!("")
+        }
+
+        fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
+            let seed = self.random_seed;
+            let scorer = *self;
+            let mut random = random_from_seed(seed);
+            let v = RandomTwoPhaseView::new(&mut random, scorer.disi);
+            Some(Box::new(v))
+        }
+
+        fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
+            unreachable!("")
+        }
+
+        fn has_two_phase_iterator(&self) -> TwoPhaseState {
+            if self.has_tpi {
+                TwoPhaseState::Yes
+            } else {
+                TwoPhaseState::No
+            }
+        }
+
+        fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+            unreachable!("")
+        }
+
+        fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            unreachable!("")
+        }
     }
 
     struct LeafCollectorImpl<'a> {
