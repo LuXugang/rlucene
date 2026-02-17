@@ -361,7 +361,7 @@ impl Automata {
                     a.add_transition(last_state, sink_state, min_label + 1, 255)?;
                     a.add_transition_label(last_state, next_state, min_label)?;
                 } else {
-                    assert!(max_label > min_label);
+                    debug_assert!(max_label > min_label);
 
                     a.add_transition_label(last_state, next_state, min_label)?;
                     if max_label > min_label + 1 {

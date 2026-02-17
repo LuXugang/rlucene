@@ -133,7 +133,7 @@ where
 {
     fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()> {
         debug_assert!(!self.closed, "Point writer is already closed");
-        assert_eq!(
+        debug_assert_eq!(
             packed_value.len(),
             self.config.packed_bytes_length(),
             "[packedValue] must have length [{}] but was [{}]",
@@ -161,7 +161,7 @@ where
     fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()> {
         debug_assert!(!self.closed, "Point writer is already closed");
         let (value, offset, length) = point_value.packed_value_doc_id_bytes();
-        assert_eq!(
+        debug_assert_eq!(
             length,
             self.config.bytes_per_doc(),
             "[packedValue and docID] must have length [{}] but was [{}]",

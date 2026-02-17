@@ -461,7 +461,7 @@ where
             inner.flush_bytes += bytes;
             inner.active_bytes -= bytes;
             inner.num_pending += 1;
-            assert!(self.assert_memory(inner, config));
+            debug_assert!(self.assert_memory(inner, config));
         }
         Ok(())
     }

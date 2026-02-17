@@ -98,7 +98,7 @@ impl HnswUtil {
         debug_assert!(hnsw.size() <= i32::MAX as usize);
         let mut connected_nodes = FixedBitSet::new(hnsw.size());
 
-        assert_eq!(hnsw.size(), hnsw.get_nodes_on_level(0)?.size());
+        debug_assert_eq!(hnsw.size(), hnsw.get_nodes_on_level(0)?.size());
 
         if level >= hnsw.num_levels()? {
             return Err(LuceneError::illegal_argument(format!(
@@ -178,7 +178,7 @@ impl HnswUtil {
             }
         }
 
-        assert_eq!(
+        debug_assert_eq!(
             total,
             hnsw.get_nodes_on_level(level)?.size(),
             "Mismatch total={total} vs node size on level {level}"

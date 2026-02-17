@@ -173,7 +173,7 @@ impl NeighborArray {
     where
         S: RandomVectorScorer,
     {
-        assert!(
+        debug_assert!(
             self.sorted_node_size < self.size,
             "Call this method only when there's an unsorted node"
         );

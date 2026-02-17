@@ -198,7 +198,7 @@ pub mod builder {
                     self.sets[self.current_block as usize] = sparse;
                 }
             } else {
-                assert_ne!(self.dense_buffer.length(), 0);
+                debug_assert_ne!(self.dense_buffer.length(), 0);
                 debug_assert_eq!(
                     self.dense_buffer.cardinality(),
                     self.current_block_cardinality
@@ -213,7 +213,7 @@ pub mod builder {
 
                     for excluded_doc_ref in excluded_docs.iter_mut() {
                         let v = self.dense_buffer.next_set_bit(excluded_doc);
-                        assert_ne!(v, NO_MORE_DOCS as usize);
+                        debug_assert_ne!(v, NO_MORE_DOCS as usize);
                         *excluded_doc_ref = v as i16;
                         excluded_doc = v + 1;
                     }

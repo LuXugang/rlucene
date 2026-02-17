@@ -139,7 +139,7 @@ impl FiniteStringsIteratorBase for FiniteStringsIterator<'_> {
             } else {
                 // No more transitions leaving this state, pop/return back to previous state:
                 let state = node.state;
-                assert!(self.path_states.contains(state as usize));
+                debug_assert!(self.path_states.contains(state as usize));
                 self.path_states.remove(state as usize);
 
                 depth -= 1;

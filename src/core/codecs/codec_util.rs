@@ -690,7 +690,7 @@ impl CodecUtil {
         let mut clone = input.try_clone()?;
         clone.seek(0)?;
         let mut checksum_in = BufferedChecksumIndexInput::new(clone);
-        assert_eq!(checksum_in.get_file_pointer()?, 0);
+        debug_assert_eq!(checksum_in.get_file_pointer()?, 0);
         if checksum_in.length() < Self::footer_length() {
             return Err(LuceneError::corrupt_index(format!(
                 "misplaced codec footer (file truncated?): length={} but footerLength=={} (resource={})",

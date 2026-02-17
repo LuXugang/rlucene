@@ -728,7 +728,7 @@ where
         version: i32,
         terms_out: &'a mut O,
     ) -> Result<Self> {
-        assert_ne!(*field_info.get_index_options(), IndexOptions::None);
+        debug_assert_ne!(*field_info.get_index_options(), IndexOptions::None);
 
         postings_writer.set_field(field_info.clone());
 

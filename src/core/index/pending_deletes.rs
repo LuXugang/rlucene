@@ -100,7 +100,7 @@ impl PendingDeletes {
     }
     pub(crate) fn get_mutable_bits(&mut self) -> Result<&mut FixedBitSet> {
         // If we pull mutable bits but we haven't been initialized something is completely off.
-        assert!(
+        debug_assert!(
             self.live_docs_initialized,
             "can't delete if liveDocs are not initialized",
         );
@@ -223,7 +223,7 @@ impl PendingDeletesBase for PendingDeletes {
         D: Directory,
     {
         if !self.live_docs_initialized {
-            assert!(!self.writeable_live_docs);
+            debug_assert!(!self.writeable_live_docs);
             if reader.has_deletions()? {
                 // we only initialize this once either in the ctor or here
                 // if we use the live docs from a reader it has to be in a situation where we don't

@@ -713,7 +713,7 @@ where
             let ctx_idx = ctx_map[&ord];
             let ctx_max_doc = leaves[ctx_idx].reader().max_doc()?;
             if ctx_max_doc > max_docs_per_slice {
-                assert!(group.is_none());
+                debug_assert!(group.is_none());
                 // if the segment does not fit in a single slice, we split it into maximum 5 partitions of equal size
                 let num_slices = std::cmp::min(
                     5,
@@ -782,7 +782,7 @@ where
         let ctx_max_doc = leaves[ctx_idx].reader().max_doc()?;
 
         if ctx_max_doc > max_docs_per_slice {
-            assert!(group.is_none());
+            debug_assert!(group.is_none());
             grouped_leaves.push(vec![ord]);
         } else {
             if group.is_none() {

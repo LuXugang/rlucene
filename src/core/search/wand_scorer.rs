@@ -908,8 +908,8 @@ fn scaling_factor(f: f32) -> Result<i32> {
 ///
 /// Values are rounded **up** to ensure that no competitive matches are missed.
 fn scale_max_score(max_score: f32, scaling_factor: i32) -> i64 {
-    assert!(!max_score.is_nan());
-    assert!(max_score >= 0.0);
+    debug_assert!(!max_score.is_nan());
+    debug_assert!(max_score >= 0.0);
     let scaled = (max_score as f64) * (2f64.powi(scaling_factor));
 
     if scaled > MAX_SCALED_SCORE as f64 {
@@ -923,8 +923,8 @@ fn scale_max_score(max_score: f32, scaling_factor: i32) -> i64 {
 /// except values are rounded **down** in order to ensure that no matches
 /// are missed during pruning.
 fn scale_min_score(min_score: f32, scaling_factor: i32) -> i64 {
-    assert!(min_score.is_finite());
-    assert!(min_score >= 0.0);
+    debug_assert!(min_score.is_finite());
+    debug_assert!(min_score >= 0.0);
     let scaled = (min_score as f64) * (2f64.powi(scaling_factor));
     scaled.floor() as i64
 }

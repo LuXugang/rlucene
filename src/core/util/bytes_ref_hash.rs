@@ -263,7 +263,7 @@ where
                 self.bytes_start_array.set_value(self.count as usize, v);
                 e = self.count;
                 self.count += 1;
-                assert_eq!(self.ids[hash_pos], -1);
+                debug_assert_eq!(self.ids[hash_pos], -1);
                 self.ids[hash_pos] = e;
             }
 
@@ -366,7 +366,7 @@ where
             self.count += 1;
             self.bytes_start_array.set_value(e as usize, offset);
 
-            assert_eq!(self.ids[hash_pos as usize], -1);
+            debug_assert_eq!(self.ids[hash_pos as usize], -1);
             self.ids[hash_pos as usize] = e;
 
             if self.count == self.hash_half_size {

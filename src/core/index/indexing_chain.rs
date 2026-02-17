@@ -1339,7 +1339,7 @@ impl PerField {
     }
 
     pub(crate) fn set_field_info(&mut self, field_info: Arc<FieldInfo>) {
-        assert!(self.field_info.is_none());
+        debug_assert!(self.field_info.is_none());
         self.field_info = Some(field_info);
     }
     pub(crate) fn set_invert_state<D>(

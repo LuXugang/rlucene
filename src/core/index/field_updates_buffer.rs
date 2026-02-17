@@ -367,12 +367,12 @@ impl FieldUpdatesBuffer {
         {
             return Ok(0);
         }
-        assert!(self.numeric_values.is_some());
+        debug_assert!(self.numeric_values.is_some());
         let length = self.numeric_values.as_ref().unwrap().len();
         Ok(self.numeric_values.as_ref().unwrap()[Self::get_array_index(length, idx)])
     }
     fn get_array_index(array_length: usize, index: usize) -> usize {
-        assert!(
+        debug_assert!(
             array_length == 1 || array_length > index,
             "illegal array index length: {array_length} index: {index}"
         );

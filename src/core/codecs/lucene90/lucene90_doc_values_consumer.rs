@@ -566,7 +566,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             let bits_per_value = unsigned_bits_required((max - min) / gcd);
 
             buffer.reset();
-            assert_eq!(buffer.size(), 0);
+            debug_assert_eq!(buffer.size(), 0);
 
             let mut w = DirectWriter::get_instance(buffer, values.len() as i64, bits_per_value)?;
             for &v in values {

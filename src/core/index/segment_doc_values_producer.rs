@@ -82,7 +82,7 @@ where
                     dv_producers_by_field
                         .insert(fi.number, base_producer.as_ref().unwrap().clone());
                 } else {
-                    assert!(!dv_gens.contains(&doc_values_gen));
+                    debug_assert!(!dv_gens.contains(&doc_values_gen));
                     // otherwise, producer sees only the one fieldinfo it wrote
                     let field_infos = Arc::new(FieldInfos::new(vec![fi.clone()])?);
                     let dvp = seg_doc_values.get_doc_values_producer(

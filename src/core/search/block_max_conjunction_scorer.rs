@@ -286,7 +286,7 @@ where
     }
     fn do_next(&mut self, mut doc: i32) -> Result<i32> {
         'advance_head: loop {
-            assert_eq!(doc, self.scorers[0].approximation().doc_id());
+            debug_assert_eq!(doc, self.scorers[0].approximation().doc_id());
 
             if doc == NO_MORE_DOCS {
                 return Ok(NO_MORE_DOCS);
@@ -303,7 +303,7 @@ where
                 }
             }
 
-            assert!(doc <= self.upto);
+            debug_assert!(doc <= self.upto);
             let len = self.scorers.len();
             // then find agreement with other iterators
             for i in 1..len {
@@ -320,7 +320,7 @@ where
                         continue 'advance_head;
                     }
                 }
-                assert_eq!(self.scorers[i].approximation().doc_id(), doc);
+                debug_assert_eq!(self.scorers[i].approximation().doc_id(), doc);
             }
             return Ok(doc);
         }
@@ -341,7 +341,7 @@ where
         }
 
         loop {
-            assert!(self.upto >= target);
+            debug_assert!(self.upto >= target);
 
             if self.max_score >= self.min_score {
                 return Ok(target);

@@ -69,7 +69,7 @@ impl Util {
         F: FstReader,
         AV: SharedAccessVec<u8>,
     {
-        assert_eq!(fst.metadata.as_ref().unwrap().input_type, InputType::Byte1);
+        debug_assert_eq!(fst.metadata.as_ref().unwrap().input_type, InputType::Byte1);
 
         let mut fst_reader = fst.get_bytes_reader()?;
         let mut arc = Arc::<O::V>::default();

@@ -309,7 +309,7 @@ where
         let mut hit_upto = 0;
 
         while hit_upto < num_iter_on_hits {
-            assert!(queue.size() > 0);
+            debug_assert!(queue.size() > 0);
             let ref_ = match queue.top_mut() {
                 None => return Err(LuceneError::illegal_state("queue is empty")),
                 Some(v) => v,

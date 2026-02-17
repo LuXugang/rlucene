@@ -81,7 +81,7 @@ where
         min_term: Arc<BytesRef<Vec<u8>>>,
         max_term: Arc<BytesRef<Vec<u8>>>,
     ) -> Result<Self> {
-        assert!(num_terms > 0);
+        debug_assert!(num_terms > 0);
         // Read FST metadata and build the index
         let metadata = read_metadata(meta_in, ByteSequenceOutputs)?;
         let tmp = {

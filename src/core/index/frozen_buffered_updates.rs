@@ -99,7 +99,7 @@ impl FrozenBufferedUpdates {
         updates: &mut BufferedUpdates,
         private_segment: Option<String>,
     ) -> Result<Self> {
-        assert!(
+        debug_assert!(
             private_segment.is_none() || updates.delete_terms.is_empty(),
             "segment private packet should only have del queries"
         );
@@ -178,7 +178,7 @@ impl FrozenBufferedUpdates {
     /// Returns `true` if this buffered updates instance has already been
     /// applied.
     pub(crate) fn is_applied(&self) -> bool {
-        assert!(self.apply_lock.is_owned_by_current_thread());
+        debug_assert!(self.apply_lock.is_owned_by_current_thread());
         self.applied.load(Ordering::Relaxed)
     }
     /// Applies pending delete-by-term, delete-by-query and doc values updates to all segments in the index,

@@ -106,7 +106,7 @@ impl LZ4 {
             // Read matches
             let match_dec = compressed.read_short()? as u16 as i32;
 
-            assert!(match_dec > 0);
+            debug_assert!(match_dec > 0);
 
             let mut match_len = token & 0x0F;
             if match_len == 0x0F {
@@ -289,7 +289,7 @@ impl LZ4 {
                 let min = (off - LZ4::MAX_DISTANCE + 1).max(dict_off);
                 let mut r = ht.previous(ref_idx, bytes);
                 while r >= min {
-                    assert_eq!(LZ4::read_int(bytes, r), LZ4::read_int(bytes, off));
+                    debug_assert_eq!(LZ4::read_int(bytes, r), LZ4::read_int(bytes, off));
                     let r_match_len = LZ4::MIN_MATCH
                         + LZ4::common_bytes(bytes, r + LZ4::MIN_MATCH, off + LZ4::MIN_MATCH, limit);
                     if r_match_len > match_len {
@@ -309,7 +309,7 @@ impl LZ4 {
 
         // Handle last literals
         let literal_len = end - anchor;
-        assert!(literal_len >= LZ4::LAST_LITERALS || literal_len == len);
+        debug_assert!(literal_len >= LZ4::LAST_LITERALS || literal_len == len);
         LZ4::encode_last_literals(bytes, anchor, literal_len, out)?;
         Ok(())
     }
@@ -495,10 +495,10 @@ impl HashTable for FastCompressionHashTable {
 
         if need_new_table {
             self.hash_table = if bits_per_offset > 16 {
-                assert_eq!(bits_per_offset, 32);
+                debug_assert_eq!(bits_per_offset, 32);
                 Some(TableEnum::Table32(Table32::new(1 << self.hash_log)))
             } else {
-                assert_eq!(bits_per_offset, 16);
+                debug_assert_eq!(bits_per_offset, 16);
                 Some(TableEnum::Table16(Table16::new(1 << self.hash_log)))
             };
         } else {

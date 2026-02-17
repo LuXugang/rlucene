@@ -203,7 +203,7 @@ where
     T: BitSet,
 {
     pub fn new(lead: DISI, bit_set_iterators: Vec<BitSetIterator<T>>) -> Result<Self> {
-        assert!(!bit_set_iterators.is_empty());
+        debug_assert!(!bit_set_iterators.is_empty());
         let mut temp_bit_set_iterators = Vec::with_capacity(bit_set_iterators.len());
         let mut cost = Vec::with_capacity(bit_set_iterators.len());
         for (idx, v) in bit_set_iterators.into_iter().enumerate() {

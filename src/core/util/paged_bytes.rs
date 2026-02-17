@@ -195,7 +195,7 @@ impl PagedBytesReader {
     ///
     /// Slices spanning more than two blocks are **not supported**.
     pub fn fill_slice(&self, b: &mut BytesRef<Vec<u8>>, start: usize, length: usize) {
-        assert!(length <= self.block_size + 1, "length={length}");
+        debug_assert!(length <= self.block_size + 1, "length={length}");
         b.length = length;
 
         if length == 0 {
@@ -312,7 +312,7 @@ impl DataInput for PagedBytesDataInput {
     }
 
     fn read_bytes(&mut self, b: &mut [u8], mut offset: usize, len: usize) -> Result<()> {
-        assert!(
+        debug_assert!(
             b.len() >= (offset + len),
             "b.len()={}, offset={}, len={}",
             b.len(),
@@ -390,7 +390,7 @@ impl DataOutput for PagedBytesDataOutput {
     }
 
     fn write_bytes_range(&mut self, b: &[u8], mut offset: usize, length: usize) -> Result<()> {
-        assert!(
+        debug_assert!(
             b.len() >= (offset + length),
             "b.len={} offset={} length={}",
             b.len(),

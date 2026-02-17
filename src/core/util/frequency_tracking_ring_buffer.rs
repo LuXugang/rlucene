@@ -96,7 +96,7 @@ impl IntBag {
     pub fn new(max_size: usize) -> Self {
         let mut capacity = cmp::max(2, max_size * 3 / 2);
         capacity = capacity.next_power_of_two();
-        assert!(capacity > max_size);
+        debug_assert!(capacity > max_size);
 
         let keys = vec![0; capacity];
         let freqs = vec![0; capacity];

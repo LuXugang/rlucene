@@ -35,8 +35,8 @@ impl CharacterUtils {
         }
     }
     pub fn get_upper_case(buffer: &mut [char], offset: usize, limit: usize) {
-        assert!(buffer.len() >= limit);
-        assert!(offset <= buffer.len());
+        debug_assert!(buffer.len() >= limit);
+        debug_assert!(offset <= buffer.len());
 
         for ch in &mut buffer[offset..limit] {
             *ch = ch.to_uppercase().next().unwrap_or(*ch);

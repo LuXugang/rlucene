@@ -168,7 +168,7 @@ where
     I: IndexInput,
 {
     fn get_block_id(&mut self, doc_id: i32) -> Result<i64> {
-        assert!(doc_id >= 0 && doc_id < self.max_doc);
+        debug_assert!(doc_id >= 0 && doc_id < self.max_doc);
         let block_index = self
             .docs
             .binary_search(0, self.num_chunks as i64, doc_id as i64)?;

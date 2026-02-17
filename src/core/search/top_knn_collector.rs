@@ -87,7 +87,7 @@ impl KnnCollector for TopKnnCollector {
     type Item = ScoreDoc;
 
     fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
-        assert!(
+        debug_assert!(
             self.queue.size() <= self.k(),
             "Tried to collect more results than the maximum number allowed"
         );

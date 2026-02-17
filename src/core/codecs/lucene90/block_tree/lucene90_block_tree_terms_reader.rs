@@ -200,7 +200,7 @@ where
                 let mut max_term = Arc::new(read_bytes_ref(&mut meta_in)?);
 
                 if num_terms == 1 {
-                    assert_eq!(max_term, min_term);
+                    debug_assert_eq!(max_term, min_term);
                     max_term = min_term.clone();
                 }
 

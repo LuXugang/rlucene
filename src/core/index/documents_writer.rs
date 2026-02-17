@@ -461,7 +461,7 @@ where
         L: LiveIndexWriterConfig,
     {
         loop {
-            assert!(!flushing_dwpt.state.has_flushed());
+            debug_assert!(!flushing_dwpt.state.has_flushed());
 
             let res: Result<_> = (|| {
                 debug_assert!({

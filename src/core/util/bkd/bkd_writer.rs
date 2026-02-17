@@ -473,7 +473,7 @@ where
 
         for (i, mut point_values) in readers.into_iter().enumerate() {
             debug_assert_eq!(point_values.get_num_dimensions()?, self.config.num_dims);
-            assert_eq!(
+            debug_assert_eq!(
                 point_values.get_bytes_per_dimension()?,
                 self.config.bytes_per_dim
             );
