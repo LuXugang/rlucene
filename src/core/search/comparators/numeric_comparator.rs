@@ -294,18 +294,11 @@ where
             return Err(LuceneError::illegal_state("point_values is None"));
         }
 
-        match visitor.result.build()?.iterator()? {
-            Some(it) => {
-                self.iterator_cost = it.cost()?;
-                self.competitive_iterator =
-                    Some(CompetitiveIterator::new(CompetitiveIteratorType::C(it)));
-                self.update_skip_interval(true);
-                Ok(())
-            },
-            None => Err(LuceneError::illegal_state(
-                "DocIdSetBuilder returned None iterator",
-            ))?,
-        }
+        let it = visitor.result.build()?.iterator()?;
+        self.iterator_cost = it.cost()?;
+        self.competitive_iterator = Some(CompetitiveIterator::new(CompetitiveIteratorType::C(it)));
+        self.update_skip_interval(true);
+        Ok(())
     }
     fn init_point_tree(&mut self) -> Result<()> {
         if self.point_tree.is_none() {

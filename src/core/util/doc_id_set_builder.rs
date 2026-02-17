@@ -186,14 +186,12 @@ impl Accountable for DocIdSetBuilderEnum {
 impl DocIdSet for DocIdSetBuilderEnum {
     type DocIdSetIterator = DocIdSetBuilderIterator;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
         match self {
-            DocIdSetBuilderEnum::BitDoc(m) => Ok(Some(DocIdSetBuilderIterator::BitSet(
-                m.iterator()?.unwrap(),
-            ))),
-            DocIdSetBuilderEnum::IntArray(m) => Ok(Some(DocIdSetBuilderIterator::IntArray(
-                m.iterator()?.unwrap(),
-            ))),
+            DocIdSetBuilderEnum::BitDoc(m) => Ok(DocIdSetBuilderIterator::BitSet(m.iterator()?)),
+            DocIdSetBuilderEnum::IntArray(m) => {
+                Ok(DocIdSetBuilderIterator::IntArray(m.iterator()?))
+            },
         }
     }
 
@@ -279,28 +277,20 @@ mod tests {
     ) -> Result<()> {
         match (d1.as_mut(), d2.as_mut()) {
             (None, None) => {
-                assert_eq!(
-                    d2.as_mut()
-                        .unwrap()
-                        .iterator()?
-                        .as_mut()
-                        .unwrap()
-                        .next_doc()?,
-                    NO_MORE_DOCS
-                );
+                assert_eq!(d2.as_mut().unwrap().iterator()?.next_doc()?, NO_MORE_DOCS);
             },
 
             (None, Some(d2v)) => {
-                assert_eq!(d2v.iterator()?.unwrap().next_doc()?, NO_MORE_DOCS);
+                assert_eq!(d2v.iterator()?.next_doc()?, NO_MORE_DOCS);
             },
 
             (Some(d1v), None) => {
-                assert_eq!(d1v.iterator()?.unwrap().next_doc()?, NO_MORE_DOCS);
+                assert_eq!(d1v.iterator()?.next_doc()?, NO_MORE_DOCS);
             },
 
             (Some(d1v), Some(d2v)) => {
-                let mut i1 = d1v.iterator()?.unwrap();
-                let mut i2 = d2v.iterator()?.unwrap();
+                let mut i1 = d1v.iterator()?;
+                let mut i2 = d2v.iterator()?;
 
                 let mut doc = i1.next_doc()?;
                 while doc != NO_MORE_DOCS {
@@ -331,7 +321,7 @@ mod tests {
                 doc += base_inc + random.random_range(0..10000);
             }
             let roaring_doc_id_set = b.build();
-            let mut iter = roaring_doc_id_set.iterator()?.unwrap();
+            let mut iter = roaring_doc_id_set.iterator()?;
             builder.add_disi(&mut iter)?;
         }
         let result = builder.build()?;
@@ -362,7 +352,7 @@ mod tests {
                 doc += 1 + random.random_range(0..100);
             }
             let roaring_doc_id_set = b.build();
-            let mut iter = roaring_doc_id_set.iterator()?.unwrap();
+            let mut iter = roaring_doc_id_set.iterator()?;
             builder.add_disi(&mut iter)?;
         }
         let result = builder.build()?;
@@ -501,7 +491,7 @@ mod tests {
             DocIdSetBuilderEnum::IntArray(_) => enum_type2,
         };
         assert_eq!(doc_id_set_type, enum_type1);
-        assert_eq!(set.iterator()?.unwrap().cost()?, 2);
+        assert_eq!(set.iterator()?.cost()?, 2);
 
         // multi-valued
         doc_count = 42;
@@ -518,7 +508,7 @@ mod tests {
             DocIdSetBuilderEnum::IntArray(_) => enum_type2,
         };
         assert_eq!(doc_id_set_type, enum_type1);
-        assert_eq!(set.iterator()?.unwrap().cost()?, 1);
+        assert_eq!(set.iterator()?.cost()?, 1);
 
         // incomplete stats
         doc_count = 42;
@@ -550,7 +540,7 @@ mod tests {
             DocIdSetBuilderEnum::IntArray(_) => enum_type2,
         };
         assert_eq!(doc_id_set_type, enum_type1);
-        assert_eq!(set.iterator()?.unwrap().cost()?, 1000000 >> 6);
+        assert_eq!(set.iterator()?.cost()?, 1000000 >> 6);
         Ok(())
     }
 }

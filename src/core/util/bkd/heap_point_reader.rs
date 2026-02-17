@@ -60,11 +60,11 @@ impl PointReader for HeapPointReader {
             None => return Err(LuceneError::illegal_state("Iterator not yet advanced")),
         };
         match self.points {
-            None => return Err(LuceneError::illegal_state("No points available")),
+            None => Err(LuceneError::illegal_state("No points available")),
             Some(ref mut points) => {
                 points.set_offset(self.bytes_per_doc * cur_read);
+                Ok(points)
             },
         }
-        Ok(self.points.as_ref().unwrap())
     }
 }

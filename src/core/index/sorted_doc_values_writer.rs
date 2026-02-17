@@ -227,7 +227,7 @@ impl DocValuesWriter for SortedDocValuesWriter {
             self.pool.clone(),
             self.final_ords.as_ref().unwrap(),
             self.final_ord_map.as_ref().unwrap().clone(),
-            self.docs_with_field.iterator()?.unwrap(),
+            self.docs_with_field.iterator()?,
         ))
     }
 
@@ -304,7 +304,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
             self.pool.clone(),
             &self.ords,
             self.ord_map.clone(),
-            self.docs_with_field.iterator()?.unwrap(),
+            self.docs_with_field.iterator()?,
         );
         if self.sorted.is_none() {
             return Ok(SortedDocValuesEnum2::A(buf));
@@ -529,9 +529,7 @@ where
     DM: DocMap,
 {
     let sorted = if let Some(sort_map) = sort_map {
-        let docs_iter = docs_with_field
-            .iterator()?
-            .ok_or_else(|| LuceneError::illegal_state("docsWithField.iterator() returned None"))?;
+        let docs_iter = docs_with_field.iterator()?;
         let mut old_values = BufferedSortedDocValues::new(
             hash.clone(),
             pool.clone(),

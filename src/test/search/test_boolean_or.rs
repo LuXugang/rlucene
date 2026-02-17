@@ -39,9 +39,7 @@ fn scorer(mut matches: Vec<i32>) -> Result<ScorerImpl> {
     ArrayUtil::grow_exact(&mut matches, len + 1)?;
     len = matches.len();
     matches[len - 1] = NO_MORE_DOCS;
-    let it = IntArrayDocIdSet::new(matches, (len - 1).try_convert()?)?
-        .iterator()?
-        .unwrap();
+    let it = IntArrayDocIdSet::new(matches, (len - 1).try_convert()?)?.iterator()?;
     Ok(ScorerImpl::new(it))
 }
 #[test]

@@ -689,11 +689,10 @@ where
         }
         self.values.intersect(&mut self.visitor)?;
         let iterator = self.visitor.result.build()?.iterator()?;
-        debug_assert!(iterator.is_some());
         Ok(Box::new(ConstantScoreScorer::from_disi(
             self.score,
             self.score_mode,
-            iterator.unwrap(),
+            iterator,
         )))
     }
 

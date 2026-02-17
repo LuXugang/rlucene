@@ -97,7 +97,7 @@ pub(crate) type DocsWithFieldSetDISI =
 impl DocIdSet for DocsWithFieldSet {
     type DocIdSetIterator = DocsWithFieldSetDISI;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
         if !self.finish {
             return Err(LuceneError::illegal_state(
                 "DocsWithFieldSet must be call finish() before creating an iterator",
@@ -106,14 +106,12 @@ impl DocIdSet for DocsWithFieldSet {
         if let Some(set_iter) = self.set_iter.as_ref() {
             debug_assert!(self.set.is_none());
             debug_assert!(self.cardinality > 0);
-            Ok(Some(DocIdSetIteratorEnum2::B(BitSetIterator::new(
+            Ok(DocIdSetIteratorEnum2::B(BitSetIterator::new(
                 set_iter.clone(),
                 self.cardinality as i64,
-            )?)))
+            )?))
         } else {
-            Ok(Some(DocIdSetIteratorEnum2::A(AllDISI::new(
-                self.cardinality,
-            ))))
+            Ok(DocIdSetIteratorEnum2::A(AllDISI::new(self.cardinality)))
         }
     }
 
@@ -158,14 +156,14 @@ mod tests {
         match random.random_range(0..3) {
             0 => {
                 set.finish();
-                let mut it = set.iterator()?.unwrap();
+                let mut it = set.iterator()?;
                 assert_eq!(it.next_doc()?, NO_MORE_DOCS);
                 Ok(())
             },
             1 => {
                 set.add(0)?;
                 set.finish();
-                it = set.iterator()?.unwrap();
+                it = set.iterator()?;
                 assert_eq!(0, it.next_doc()?);
                 assert_eq!(it.next_doc()?, NO_MORE_DOCS);
                 Ok(())
@@ -184,7 +182,7 @@ mod tests {
                 // TODO: 之后可以加断言
                 // assert_eq!(ram_bytes_used, set.ram_bytes_used());
 
-                it = set.iterator()?.unwrap();
+                it = set.iterator()?;
                 for i in 0..1000 {
                     assert_eq!(i, it.next_doc()?);
                 }
@@ -203,7 +201,7 @@ mod tests {
         if random.random_bool(0.5) {
             set.finish();
             {
-                let mut it = set.iterator()?.unwrap();
+                let mut it = set.iterator()?;
                 assert_eq!(doc, it.next_doc()?);
                 assert_eq!(it.next_doc()?, NO_MORE_DOCS);
             }
@@ -211,7 +209,7 @@ mod tests {
             let doc2 = doc + TestUtil::next_int(&mut random, 1, 100);
             set.add(doc2)?;
             set.finish();
-            let mut it = set.iterator()?.unwrap();
+            let mut it = set.iterator()?;
             assert_eq!(doc, it.next_doc()?);
             assert_eq!(doc2, it.next_doc()?);
             assert_eq!(it.next_doc()?, NO_MORE_DOCS);
@@ -230,7 +228,7 @@ mod tests {
         }
         set.add(next_doc)?;
         set.finish();
-        let mut it = set.iterator()?.unwrap();
+        let mut it = set.iterator()?;
         for i in 0..dense_count {
             assert_eq!(i, it.next_doc()?);
         }

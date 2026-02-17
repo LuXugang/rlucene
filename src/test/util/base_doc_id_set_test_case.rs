@@ -120,64 +120,54 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
         ds2: impl DocIdSet,
     ) -> Result<()> {
         // nextDoc
-        let mut it2_opt = ds2.iterator()?;
-        match it2_opt {
-            Some(it2) => {
-                assert_eq!(-1, it2.doc_id());
-                let mut disi = ds2.iterator()?.unwrap();
-                let iter = ds1.iter();
-                for doc in iter {
-                    assert_eq!(doc, disi.next_doc()? as usize);
-                    assert_eq!(doc, disi.doc_id() as usize);
-                }
-                assert_eq!(disi.next_doc()?, NO_MORE_DOCS);
-                assert_eq!(disi.doc_id(), NO_MORE_DOCS);
-            },
-            None => {
-                assert!(ds1.is_empty())
-            },
+        let it2 = ds2.iterator()?;
+        assert_eq!(-1, it2.doc_id());
+        let mut disi = ds2.iterator()?;
+        let iter = ds1.iter();
+        for doc in iter {
+            assert_eq!(doc, disi.next_doc()? as usize);
+            assert_eq!(doc, disi.doc_id() as usize);
         }
+        assert_eq!(disi.next_doc()?, NO_MORE_DOCS);
+        assert_eq!(disi.doc_id(), NO_MORE_DOCS);
         // nextDoc / advance
-        it2_opt = ds2.iterator()?;
-        match it2_opt {
-            None => assert!(ds1.is_empty()),
-            Some(ref mut disi) => {
-                let iter = ds1.iter();
-                let mut docs = vec![];
-                iter.for_each(|doc| docs.push(doc));
-                let mut index = 0;
-                let mut doc;
-                while index < docs.len() {
-                    if random.random_bool(0.5) {
-                        assert_eq!(docs[index], disi.next_doc()? as usize);
-                        assert_eq!(docs[index], disi.doc_id() as usize);
-                        index += 1;
-                    } else {
-                        let skip_length = if random.random_bool(0.5) {
-                            64
-                        } else {
-                            std::cmp::max(num_bits / 8, 1)
-                        };
-                        let target =
-                            docs[index] + 1 + random.random_range(0..=skip_length) as usize;
-                        if let Some(i) = docs.iter().position(|&doc| doc == target) {
-                            index = i + 1;
-                            doc = target
-                        } else {
-                            break;
-                        }
-                        assert_eq!(doc as i32, disi.advance(target as i32)?);
-                        assert_eq!(doc as i32, disi.doc_id());
-                    }
+        let mut disi = ds2.iterator()?;
+        let iter = ds1.iter();
+        let mut docs = vec![];
+        iter.for_each(|doc| docs.push(doc));
+        let mut index = 0;
+        let mut doc;
+        while index < docs.len() {
+            if random.random_bool(0.5) {
+                assert_eq!(docs[index], disi.next_doc()? as usize);
+                assert_eq!(docs[index], disi.doc_id() as usize);
+                index += 1;
+            } else {
+                let skip_length = if random.random_bool(0.5) {
+                    64
+                } else {
+                    std::cmp::max(num_bits / 8, 1)
+                };
+                let target = docs[index] + 1 + random.random_range(0..=skip_length) as usize;
+                if let Some(i) = docs.iter().position(|&doc| doc == target) {
+                    index = i + 1;
+                    doc = target
+                } else {
+                    break;
                 }
-            },
+                assert_eq!(doc as i32, disi.advance(target as i32)?);
+                assert_eq!(doc as i32, disi.doc_id());
+            }
+        }
+        if docs.is_empty() {
+            assert_eq!(disi.next_doc()?, NO_MORE_DOCS);
         }
         // bits
         let bitss = ds2.bits();
         let mut doc = -1;
         let mut previes_doc: Option<usize> = None;
         if let Some(bits) = bitss {
-            let mut disi = ds2.iterator()?.unwrap();
+            let mut disi = ds2.iterator()?;
             while doc != NO_MORE_DOCS {
                 doc = disi.next_doc()?;
                 let max = if doc == NO_MORE_DOCS {

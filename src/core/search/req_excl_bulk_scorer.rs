@@ -153,10 +153,10 @@ mod tests {
         let req = req_builder.build()?;
         let excl = excl_builder.build()?;
 
-        let req_iter = req.iterator()?.unwrap();
+        let req_iter = req.iterator()?;
         let req_bulk_scorer = BulkScorerImpl::new(req_iter);
 
-        let excl_iter = excl.iterator()?.unwrap();
+        let excl_iter = excl.iterator()?;
         let scorer = ScorerImpl {
             disi: RandomTwoPhaseView::new(&mut random, excl_iter),
             has_tpi: two_phase,
@@ -188,10 +188,10 @@ mod tests {
         }
 
         let mut expected_matches = FixedBitSet::new(max_doc as usize);
-        BitSet::or(&mut expected_matches, &mut req.iterator()?.unwrap())?;
+        BitSet::or(&mut expected_matches, &mut req.iterator()?)?;
 
         let mut excluded_set = FixedBitSet::new(max_doc as usize);
-        BitSet::or(&mut excluded_set, &mut excl.iterator()?.unwrap())?;
+        BitSet::or(&mut excluded_set, &mut excl.iterator()?)?;
 
         expected_matches.and_not_fixed_bit_set(&excluded_set);
         assert_eq!(expected_matches.get_bits(), actual_matches.get_bits());

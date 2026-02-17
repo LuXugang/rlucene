@@ -25,7 +25,7 @@ use std::sync::Arc;
 /// to access the set.
 pub trait DocIdSet: Accountable {
     type DocIdSetIterator: DocIdSetIterator;
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>>;
+    fn iterator(&self) -> Result<Self::DocIdSetIterator>;
 
     // TODO: somehow this struct should express the cost of
     // iteration vs the cost of random access Bits; for
@@ -75,8 +75,8 @@ impl All {
 impl DocIdSet for All {
     type DocIdSetIterator = AllDISI;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
-        Ok(Some(AllDISI::new(self.max_doc)))
+    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+        Ok(AllDISI::new(self.max_doc))
     }
 
     type BitType = MatchAllBits;
@@ -101,8 +101,8 @@ impl Accountable for EmptyDocIdSet {
 impl DocIdSet for EmptyDocIdSet {
     type DocIdSetIterator = EmptyDISI;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
-        Ok(None)
+    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+        Ok(EmptyDISI::new())
     }
 
     type BitType = MatchNoBits;

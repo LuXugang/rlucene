@@ -146,7 +146,7 @@ impl DocValuesWriter for NumericDocValuesWriter {
         }
         Ok(BufferedNumericDocValues::new(
             self.final_values.as_ref().unwrap(),
-            self.docs_with_field.iterator()?.unwrap(),
+            self.docs_with_field.iterator()?,
         ))
     }
 
@@ -193,7 +193,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
             ))),
             None => Ok(NumericDocValuesEnum2::A(BufferedNumericDocValues::new(
                 &self.values,
-                self.docs_with_field.iterator()?.unwrap(),
+                self.docs_with_field.iterator()?,
             ))),
         }
     }
@@ -412,10 +412,7 @@ where
 {
     let sorter = if let Some(sort_map) = sort_map {
         let dense = sort_map.size() == docs_with_field.cardinality();
-        let iter = match docs_with_field.iterator()? {
-            Some(iter) => iter,
-            None => return Err(LuceneError::illegal_state("DocsWithFieldSet is None")),
-        };
+        let iter = docs_with_field.iterator()?;
         let mut old_values = BufferedNumericDocValues::new(values, iter);
         let sorted = sort_doc_values(sort_map.size(), sort_map.as_ref(), &mut old_values, dense)?;
         Some(sorted)

@@ -226,9 +226,7 @@ impl SortedSetDocValuesWriter {
             BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
         >,
     > {
-        let docs_iter = docs_with_field
-            .iterator()?
-            .ok_or_else(|| LuceneError::illegal_state("docsWithField.iterator() returned None"))?;
+        let docs_iter = docs_with_field.iterator()?;
         match ord_counts {
             Some(ords_counts) => Ok(SortedSetDocValuesEnum2::B(BufferedSortedSetDocValues::new(
                 ord_map,

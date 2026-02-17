@@ -75,8 +75,8 @@ where
 {
     type DocIdSetIterator = BitSetIterator<Arc<T>>;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
-        Ok(Some(BitSetIterator::new(self.set.clone(), self.cost)?))
+    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+        BitSetIterator::new(self.set.clone(), self.cost)
     }
 
     type BitType = T;

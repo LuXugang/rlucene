@@ -71,11 +71,11 @@ impl RoaringDocIdSet {
 impl DocIdSet for RoaringDocIdSet {
     type DocIdSetIterator = Iterator;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
-        Ok(Some(Iterator::new(
+    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+        Ok(Iterator::new(
             self.doc_id_sets.clone(),
             self.cardinality as i64,
-        )))
+        ))
     }
 
     type BitType = MatchNoBits;
@@ -273,8 +273,8 @@ impl Accountable for ShortArrayDocIdSet {
 impl DocIdSet for ShortArrayDocIdSet {
     type DocIdSetIterator = ShortArrayDISI;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
-        Ok(Some(ShortArrayDISI::new(self.doc_ids.clone())))
+    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+        Ok(ShortArrayDISI::new(self.doc_ids.clone()))
     }
 
     type BitType = MatchNoBits;
@@ -370,10 +370,12 @@ impl Iterator {
                 self.doc = NO_MORE_DOCS;
                 break;
             } else if self.doc_id_sets[self.block as usize].is_some() {
-                self.sub = self.doc_id_sets[self.block as usize]
-                    .as_ref()
-                    .unwrap()
-                    .iterator()?;
+                self.sub = Some(
+                    self.doc_id_sets[self.block as usize]
+                        .as_ref()
+                        .unwrap()
+                        .iterator()?,
+                );
                 let sub_next = self.sub.as_mut().unwrap().next_doc()?;
                 debug_assert!(sub_next != NO_MORE_DOCS);
                 self.doc = (self.block << 16) | sub_next;
@@ -409,10 +411,12 @@ impl DocIdSetIterator for Iterator {
             if self.doc_id_sets[self.block as usize].is_none() {
                 return self.first_doc_from_next_block();
             }
-            self.sub = self.doc_id_sets[self.block as usize]
-                .as_ref()
-                .unwrap()
-                .iterator()?
+            self.sub = Some(
+                self.doc_id_sets[self.block as usize]
+                    .as_ref()
+                    .unwrap()
+                    .iterator()?,
+            )
         }
         let sub_next = self.sub.as_mut().unwrap().advance(target & 0xFFFF)?;
         if sub_next == NO_MORE_DOCS {
@@ -441,15 +445,11 @@ impl Accountable for DocIdSetEnum {
 impl DocIdSet for DocIdSetEnum {
     type DocIdSetIterator = DocIdSetIteratorEnum;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
         match self {
-            DocIdSetEnum::Sparse(s) => {
-                Ok(Some(DocIdSetIteratorEnum::Sparse(s.iterator()?.unwrap())))
-            },
-            DocIdSetEnum::Medium(m) => {
-                Ok(Some(DocIdSetIteratorEnum::Medium(m.iterator()?.unwrap())))
-            },
-            DocIdSetEnum::Dense(d) => Ok(Some(DocIdSetIteratorEnum::Dense(d.iterator()?.unwrap()))),
+            DocIdSetEnum::Sparse(s) => Ok(DocIdSetIteratorEnum::Sparse(s.iterator()?)),
+            DocIdSetEnum::Medium(m) => Ok(DocIdSetIteratorEnum::Medium(m.iterator()?)),
+            DocIdSetEnum::Dense(d) => Ok(DocIdSetIteratorEnum::Dense(d.iterator()?)),
         }
     }
 

@@ -70,11 +70,11 @@ fn assert_array_sorted(docs: &[i32]) -> bool {
 impl DocIdSet for IntArrayDocIdSet {
     type DocIdSetIterator = IntArrayDocIdSetIterator;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
-        Ok(Some(IntArrayDocIdSetIterator::new(
+    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+        Ok(IntArrayDocIdSetIterator::new(
             self.docs.clone(),
             self.length,
-        )))
+        ))
     }
 
     type BitType = MatchNoBits;

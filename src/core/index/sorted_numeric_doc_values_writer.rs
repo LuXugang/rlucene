@@ -170,9 +170,7 @@ impl SortedNumericDocValuesWriter {
             BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
         >,
     > {
-        let iter = docs_with_field
-            .iterator()?
-            .ok_or_else(|| LuceneError::illegal_state("docsWithField.iterator() returned None"))?;
+        let iter = docs_with_field.iterator()?;
 
         match value_counts {
             None => {

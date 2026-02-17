@@ -63,7 +63,7 @@ where
 {
     type DocIdSetIterator = NotDocDocIdSetIterator<T::DocIdSetIterator>;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
         Ok(NotDocDocIdSetIterator::new(
             self.set.iterator()?,
             self.max_doc,
@@ -117,13 +117,13 @@ pub struct NotDocDocIdSetIterator<D: DocIdSetIterator> {
 }
 
 impl<D: DocIdSetIterator> NotDocDocIdSetIterator<D> {
-    fn new(in_iterator: Option<D>, max_doc: i32) -> Option<Self> {
-        in_iterator.map(|iterator| NotDocDocIdSetIterator {
-            in_iterator: iterator,
+    fn new(in_iterator: D, max_doc: i32) -> Self {
+        NotDocDocIdSetIterator {
+            in_iterator,
             doc: -1,
             next_skipped_doc: -1,
             max_doc,
-        })
+        }
     }
 }
 

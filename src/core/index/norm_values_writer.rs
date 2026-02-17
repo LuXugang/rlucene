@@ -105,10 +105,7 @@ impl NormValuesWriter {
         let sorted = match sort_map {
             Some(sort_map) => {
                 let dense = sort_map.size() == self.docs_with_field.cardinality();
-                let iter = match self.docs_with_field.iterator()? {
-                    Some(iter) => iter,
-                    None => return Err(LuceneError::illegal_state("DocsWithFieldSet is None")),
-                };
+                let iter = self.docs_with_field.iterator()?;
                 let mut buffer_norms = BufferedNorms::new(&values, iter);
                 let sorted = sort_doc_values(
                     segment_info.max_doc()?,
@@ -159,7 +156,7 @@ impl NormsProducer for NormsProducerImpl {
             ))),
             None => Ok(NumericDocValuesEnum2::A(BufferedNorms::new(
                 &self.values,
-                self.docs_with_field.iterator()?.unwrap(),
+                self.docs_with_field.iterator()?,
             ))),
         }
     }

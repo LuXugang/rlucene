@@ -156,7 +156,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
                     self.final_lengths.as_ref().unwrap(),
                     self.max_length as usize,
                     get_data_input(&self.bytes_out.paged_bytes)?,
-                    self.docs_with_field.iterator()?.unwrap(),
+                    self.docs_with_field.iterator()?,
                 );
                 Some(BinaryDVs::new(
                     segment_info.max_doc()?.try_convert()?,
@@ -190,7 +190,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
             self.final_lengths.as_ref().unwrap(),
             self.max_length as usize,
             get_data_input(&self.bytes_out.paged_bytes)?,
-            self.docs_with_field.iterator()?.unwrap(),
+            self.docs_with_field.iterator()?,
         ))
     }
 
@@ -250,7 +250,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
                 &self.final_lengths,
                 self.max_length as usize,
                 get_data_input(&self.paged_bytes)?,
-                self.docs_with_field.iterator()?.unwrap(),
+                self.docs_with_field.iterator()?,
             ))),
         }
     }

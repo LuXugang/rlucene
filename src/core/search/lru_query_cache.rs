@@ -814,9 +814,7 @@ where
                 if matches!(&*cached, CacheAndCountEnum::Empty(_)) {
                     return Ok(None);
                 }
-                let Some(disi) = cached.iterator()? else {
-                    return Ok(None);
-                };
+                let disi = cached.iterator()?;
                 let s: QueryWeightSs<LR> = Box::new(ScorerSupplierImpl2::new(disi)?);
                 Ok(Some(s))
             },
@@ -932,10 +930,7 @@ where
         let disi = cached.iterator()?;
         self.lru_query_cache
             .put_if_absent(self.query.clone(), cached, &self.cache_helper);
-        let disi = match disi {
-            Some(disi) => DISI::B(disi),
-            None => DISI::A(EmptyDISI::default()),
-        };
+        let disi = DISI::B(disi);
         Ok(Box::new(ConstantScoreScorer::from_disi(
             0.0,
             ScoreMode::CompleteNoScores,
@@ -1011,7 +1006,7 @@ where
         Self { cache, count }
     }
 
-    pub(crate) fn iterator(&self) -> Result<Option<D::DocIdSetIterator>> {
+    pub(crate) fn iterator(&self) -> Result<D::DocIdSetIterator> {
         self.cache.iterator()
     }
     pub(crate) fn count(&self) -> usize {
@@ -1121,11 +1116,11 @@ impl CacheAndCountEnum {
             CacheAndCountEnum::Empty(c) => c.count(),
         }
     }
-    pub(crate) fn iterator(&self) -> Result<Option<CacheAndCountDISI>> {
+    pub(crate) fn iterator(&self) -> Result<CacheAndCountDISI> {
         match self {
-            CacheAndCountEnum::BitSet(c) => Ok(c.iterator()?.map(DocIdSetIteratorEnum3::B)),
-            CacheAndCountEnum::Roaring(c) => Ok(c.iterator()?.map(DocIdSetIteratorEnum3::C)),
-            CacheAndCountEnum::Empty(c) => Ok(c.iterator()?.map(DocIdSetIteratorEnum3::A)),
+            CacheAndCountEnum::BitSet(c) => Ok(DocIdSetIteratorEnum3::B(c.iterator()?)),
+            CacheAndCountEnum::Roaring(c) => Ok(DocIdSetIteratorEnum3::C(c.iterator()?)),
+            CacheAndCountEnum::Empty(c) => Ok(DocIdSetIteratorEnum3::A(c.iterator()?)),
         }
     }
 }

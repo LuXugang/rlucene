@@ -554,7 +554,7 @@ mod tests {
 
         let iter = a.iter();
         for index in iter {
-            assert_eq!(index, b.next_set_bit(index).unwrap());
+            assert_eq!(index, b.next_set_bit(index).expect(""));
         }
 
         loop {
@@ -566,7 +566,7 @@ mod tests {
             if bb.is_none() {
                 break;
             }
-            assert!(a.contains(bb.unwrap()));
+            assert!(a.contains(bb.expect("")));
         }
     }
 
