@@ -159,7 +159,8 @@ impl SmallFloat {
     }
 }
 
-static MAX_INT4: Lazy<i32> = Lazy::new(|| SmallFloat::long_to_int4(i32::MAX as i64).unwrap());
+static MAX_INT4: Lazy<i32> =
+    Lazy::new(|| SmallFloat::long_to_int4(i32::MAX as i64).expect("should not fail"));
 static NUM_FREE_VALUES: Lazy<i32> = Lazy::new(|| 255 - *MAX_INT4);
 
 #[cfg(test)]

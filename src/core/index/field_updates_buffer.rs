@@ -29,8 +29,8 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::{
-    BytesRefArray, Counter, IndexedBytesRefIteratorImpl, NaturalOrder, SharedCounter, SortState,
-    SortableBytesRefArray,
+    BytesRefArray, Counter, IndexedBytesRefIterator, IndexedBytesRefIteratorImpl, NaturalOrder,
+    SharedCounter, SortState, SortableBytesRefArray,
 };
 
 /// This struct efficiently buffers numeric and binary field updates and stores
@@ -326,17 +326,15 @@ impl FieldUpdatesBuffer {
                     debug_assert_ne!(cmp, Ordering::Less, "term in reverse order");
                     let last_doc_upto =
                         self.docs_upto[Self::get_array_index(self.docs_upto.len(), last_ord)];
-                    let current_doc_upto = self.docs_upto[Self::get_array_index(
-                        self.docs_upto.len(),
-                        *iterator.ord().as_ref().unwrap(),
-                    )];
+                    let current_doc_upto =
+                        self.docs_upto[Self::get_array_index(self.docs_upto.len(), iterator.ord())];
                     debug_assert!(
                         cmp != Ordering::Equal || last_doc_upto <= current_doc_upto,
                         "doc id in reverse order"
                     );
                 }
                 last = Some(current);
-                last_ord = *iterator.ord().as_ref().unwrap();
+                last_ord = iterator.ord();
             }
             Ok(())
         })();
@@ -458,10 +456,7 @@ impl<'a> BufferedUpdateIterator<'a> {
         let next_term = self.next_term()?;
 
         if let Some(next) = next_term {
-            let idx = match self.term_values_iterator.ord() {
-                Some(idx) => idx,
-                None => return Err(LuceneError::illegal_state("idx is None")),
-            };
+            let idx = self.term_values_iterator.ord();
             self.buffered_update.term_value = Some(next.clone());
             buffered_update.term_value = Some(next);
             buffered_update.has_value = self.updates_with_value.as_ref().unwrap().get(idx)?;

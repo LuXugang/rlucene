@@ -261,8 +261,8 @@ impl Accountable for SortState {
 }
 
 pub struct IndexedBytesRefIteratorImpl<'a> {
-    pos: Option<usize>,
-    pub(crate) ord: Option<usize>,
+    pos: usize,
+    pub(crate) ord: usize,
     sort_state: Arc<SortState>,
     spare: BytesRefBuilder<Vec<u8>>,
     size: usize,
@@ -275,8 +275,8 @@ impl<'a> IndexedBytesRefIteratorImpl<'a> {
         bytes_ref_array: &'a BytesRefArray,
     ) -> IndexedBytesRefIteratorImpl<'a> {
         Self {
-            pos: None,
-            ord: None,
+            pos: 0,
+            ord: 0,
             sort_state,
             spare: BytesRefBuilder::new(),
             size: bytes_ref_array.size(),
@@ -284,28 +284,18 @@ impl<'a> IndexedBytesRefIteratorImpl<'a> {
             result: BytesRef::new(),
         }
     }
-    pub fn ord(&self) -> Option<usize> {
-        self.ord
-    }
 }
 impl BytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
     fn next(&'_ mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.pos = match self.pos {
-            None => Some(0),
-            Some(i) => i.checked_add(1),
-        };
-        let pos = *self.pos.as_ref().unwrap();
-        if pos < self.size {
+        if self.pos < self.size {
             self.ord = match self.sort_state.indices.as_ref() {
                 None => self.pos,
-                Some(indices) => Some(indices[pos]),
+                Some(indices) => indices[self.pos],
             };
 
-            self.bytes_ref_array.set_bytes_ref(
-                &mut self.spare,
-                &mut self.result,
-                *self.ord.as_ref().unwrap(),
-            )?;
+            self.bytes_ref_array
+                .set_bytes_ref(&mut self.spare, &mut self.result, self.ord)?;
+            self.pos += 1;
             Ok(Some(Cow::Borrowed(&self.result)))
         } else {
             Ok(None)
@@ -313,7 +303,7 @@ impl BytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
     }
 }
 impl IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
-    fn ord(&self) -> Option<usize> {
+    fn ord(&self) -> usize {
         self.ord
     }
 }
@@ -326,7 +316,7 @@ pub trait IndexedBytesRefIterator {
     /// This method must not be called if [`next`](BytesRefIterator::next) has
     /// not been called yet, or if the last call to
     /// [`next`](BytesRefIterator::next) returned `None`.
-    fn ord(&self) -> Option<usize>;
+    fn ord(&self) -> usize;
 }
 
 struct StableStringSorterImpl<'a> {
@@ -396,7 +386,8 @@ mod tests {
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::{
-        AtomicCounter, BytesRefArray, Natural, NaturalOrder, SortableBytesRefArray,
+        AtomicCounter, BytesRefArray, IndexedBytesRefIterator, Natural, NaturalOrder,
+        SortableBytesRefArray,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
     use crate::test::util::test_util::TestUtil;
@@ -583,11 +574,11 @@ mod tests {
                     && next == *last_ref
                 {
                     let ord = iter.ord();
-                    assert!(ord > last_ord);
+                    assert!(last_ord.is_none() || Some(ord) > last_ord);
                 }
 
                 last = Some(BytesRef::deep_copy_of(&next));
-                last_ord = iter.ord();
+                last_ord = Some(iter.ord());
                 i += 1;
             }
 
