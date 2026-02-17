@@ -633,7 +633,7 @@ mod tests {
         ArrayUtil::parse_int_default(&chars, start as i32, s.len() as i32)
     }
     #[test]
-    fn test_parse_int() {
+    fn test_parse_int() -> Result<()> {
         let mut random = random();
         let result = parse_int(&mut random, "");
         assert!(matches!(result, Err(LuceneError::NumberFormat(_))));
@@ -649,29 +649,30 @@ mod tests {
 
         let result = parse_int(&mut random, "1");
         assert!(result.is_ok());
-        let value = result.unwrap();
+        let value = result?;
         assert_eq!(value, 1, "{} does not equal: 1", value);
 
         let result = parse_int(&mut random, "-10000");
         assert!(result.is_ok());
-        let value = result.unwrap();
+        let value = result?;
         assert_eq!(value, -10000, "{} does not equal: -10000", value);
 
         let result = parse_int(&mut random, "1923");
         assert!(result.is_ok());
-        let value = result.unwrap();
+        let value = result?;
         assert_eq!(value, 1923, "{} does not equal: 1923", value);
 
         let result = parse_int(&mut random, "-1");
         assert!(result.is_ok());
-        let value = result.unwrap();
+        let value = result?;
         assert_eq!(value, -1, "{} does not equal: -1", value);
 
         let result =
             ArrayUtil::parse_int_default(&"foo 1923 bar".chars().collect::<Vec<char>>(), 4, 4);
         assert!(result.is_ok());
-        let value = result.unwrap();
+        let value = result?;
         assert_eq!(value, 1923, "{} does not equal: 1923", value);
+        Ok(())
     }
     fn create_random_array<R: Rng + ?Sized>(random: &mut R, max_size: i32) -> Vec<i32> {
         let size = random.random_range(1..=max_size);

@@ -284,7 +284,7 @@ impl FieldInfos {
     }
 }
 pub(crate) static EMPTY: Lazy<Arc<FieldInfos>> =
-    Lazy::new(|| Arc::new(FieldInfos::new(vec![]).expect("should not failed")));
+    Lazy::new(|| Arc::new(FieldInfos::new(vec![]).expect("should not fail")));
 
 pub fn get_merged_field_infos<CR>(reader: CR) -> Result<Arc<FieldInfos>>
 where

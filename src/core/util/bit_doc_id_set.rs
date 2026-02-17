@@ -42,11 +42,9 @@ impl<T: BitSet> BitDocIdSet<T> {
             )));
         }
         match set {
-            None => Err(LuceneError::illegal_argument(
-                "set must not be None".to_string(),
-            )),
-            _ => Ok(BitDocIdSet {
-                set: Arc::new(set.unwrap()),
+            None => Err(LuceneError::illegal_argument("set must not be None")),
+            Some(v) => Ok(BitDocIdSet {
+                set: Arc::new(v),
                 cost,
             }),
         }
@@ -54,7 +52,10 @@ impl<T: BitSet> BitDocIdSet<T> {
     /// Same as [`BitDocIdSet`] but uses the set's
     /// [`BitSet::approximate_cardinality`] as a cost.
     pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>> {
-        let cost = set.as_ref().unwrap().approximate_cardinality();
+        let cost = match set.as_ref() {
+            None => return Err(LuceneError::illegal_argument("set must not be None")),
+            Some(s) => s.approximate_cardinality(),
+        };
         Self::with_cost(set, cost as i64)
     }
 }
@@ -107,9 +108,7 @@ mod tests {
             for doc in iter {
                 set.set(doc);
             }
-            let result = BitDocIdSet::new(Some(set));
-            assert!(result.is_ok());
-            result.unwrap()
+            BitDocIdSet::new(Some(set)).expect("Should succeed")
         }
 
         fn assert_equals<R: Rng + ?Sized>(

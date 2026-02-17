@@ -22,7 +22,7 @@ use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::core::util::bkd::point_writer::PointWriter;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Writes points to disk in a fixed-width format.
 pub struct OfflinePointWriter<O>
@@ -141,9 +141,13 @@ where
             packed_value.len()
         );
         debug_assert!(packed_value.len() <= i32::MAX as usize);
-        let out = self.out.as_mut().unwrap();
-        out.write_bytes_range(packed_value, 0, packed_value.len())?;
-        out.write_int(i32::to_be(doc_id))?;
+        match self.out {
+            None => return Err(LuceneError::illegal_state("Point writer is already closed")),
+            Some(ref mut out) => {
+                out.write_bytes_range(packed_value, 0, packed_value.len())?;
+                out.write_int(i32::to_be(doc_id))?;
+            },
+        }
         self.count += 1;
         debug_assert!(
             self.expected_count == 0 || self.count <= self.expected_count,
@@ -164,10 +168,12 @@ where
             self.config.bytes_per_doc(),
             length
         );
-        self.out
-            .as_mut()
-            .unwrap()
-            .write_bytes_range(value, offset, length)?;
+        match self.out {
+            None => return Err(LuceneError::illegal_state("Point writer is already closed")),
+            Some(ref mut out) => {
+                out.write_bytes_range(value, offset, length)?;
+            },
+        }
         self.count += 1;
         debug_assert!(
             self.expected_count == 0 || self.count <= self.expected_count,
@@ -210,11 +216,15 @@ where
     fn close(&mut self) {
         if !self.closed {
             self.closed = true;
-            let mut out = self.out.take().unwrap();
-            match CodecUtil::write_footer(&mut out) {
-                Ok(_) => {},
-                Err(e) => {
-                    eprintln!("Failed to write footer: {e:?}");
+            match self.out.take() {
+                None => eprintln!("Point writer is already closed"),
+                Some(mut out) => {
+                    match CodecUtil::write_footer(&mut out) {
+                        Ok(_) => {},
+                        Err(e) => {
+                            eprintln!("Failed to write footer: {e:?}");
+                        },
+                    };
                 },
             };
         }

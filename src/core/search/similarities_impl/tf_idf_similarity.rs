@@ -28,7 +28,7 @@ use std::sync::LazyLock;
 static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
     let mut table = [0i32; 256];
     for (i, slot) in table.iter_mut().enumerate() {
-        *slot = SmallFloat::byte4_to_int(i as u8).expect("should not failed");
+        *slot = SmallFloat::byte4_to_int(i as u8).expect("should not fail");
     }
     table
 });

@@ -248,10 +248,16 @@ where
                 }
             }
         }
-        self.point_writer
-            .as_mut()
-            .unwrap()
-            .append_bytes(packed_value, doc_id)?;
+        match self.point_writer.as_mut() {
+            None => {
+                return Err(LuceneError::illegal_state(
+                    "point writer is not initialized",
+                ));
+            },
+            Some(ref mut writer) => {
+                writer.append_bytes(packed_value, doc_id)?;
+            },
+        }
         self.point_count += 1;
         self.docs_seen.set(doc_id as usize);
         Ok(())
@@ -458,7 +464,10 @@ where
         CR: CodecReader,
     {
         let readers_len = readers.len();
-        debug_assert!(doc_maps.is_none() || readers_len == doc_maps.as_ref().unwrap().len());
+        debug_assert!(match doc_maps {
+            None => true,
+            Some(ref doc_maps) => doc_maps.len() == readers_len,
+        });
         let mut queue =
             PriorityQueue::new(readers_len, MergeReaderCmp::new(self.config.bytes_per_dim))?;
 
@@ -548,8 +557,13 @@ where
         // Mark as finished
         self.finished = true;
 
-        self.point_writer.as_mut().unwrap().close();
-        let mut point_writer = self.point_writer.take().unwrap();
+        let mut point_writer = match self.point_writer.take() {
+            None => return Err(LuceneError::illegal_state("point writer is None")),
+            Some(mut writer) => {
+                writer.close();
+                writer
+            },
+        };
         let mut points = PathSlice::new(&mut point_writer, 0, self.point_count as usize);
 
         let max_points_in_leaf_node = self.config.max_points_in_leaf_node;
@@ -694,8 +708,10 @@ where
         let mut index = vec![0u8; total_size];
         let mut upto = 0;
         for block in &blocks {
-            debug_assert!(block.is_some());
-            let block = block.as_ref().unwrap();
+            let block = match block {
+                None => return Err(LuceneError::illegal_state("block should not be None")),
+                Some(block) => block,
+            };
             let block_len = block.len();
             index.copy_from(block, upto);
             upto += block_len;
@@ -1774,9 +1790,23 @@ where
                                 let (bytes, bytes_offset, _) =
                                     heap_source.get_packed_value_slice(i).packed_value();
                                 let bucket = bytes[bytes_offset + offset + prefix] as usize;
-                                used_bytes[dim].as_mut().unwrap().set(bucket);
+                                match used_bytes[dim] {
+                                    Some(ref mut set) => set.set(bucket),
+                                    None => {
+                                        return Err(LuceneError::illegal_state(
+                                            "used_bytes[dim] should not be None",
+                                        ));
+                                    },
+                                }
                             }
-                            let cardinality = used_bytes[dim].as_ref().unwrap().cardinality();
+                            let cardinality = match used_bytes[dim] {
+                                Some(ref set) => set.cardinality(),
+                                None => {
+                                    return Err(LuceneError::illegal_state(
+                                        "used_bytes[dim] should not be None",
+                                    ));
+                                },
+                            };
                             if cardinality < sorted_dim_cardinality as usize {
                                 sorted_dim = dim;
                                 sorted_dim_cardinality = cardinality as i32;
