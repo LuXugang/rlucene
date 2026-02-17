@@ -71,16 +71,16 @@ where
 
         self.doc_id_merger.clear_subs();
         self.idxs.clear();
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..count {
-            let enum_with_slice = &subs_array[i];
+        for enum_with_slice in subs_array.iter().take(count) {
             let reader_index = enum_with_slice.slice.get_reader_index() as usize;
 
             let sub = &mut self.all_subs[reader_index];
             sub.postings = postings[enum_with_slice.postings_enum_idx].take();
+
             self.idxs
                 .push((reader_index, enum_with_slice.postings_enum_idx));
         }
+
         let subs = self.doc_id_merger.get_subs_vec();
         debug_assert!(subs.is_empty());
         for i in 0..count {

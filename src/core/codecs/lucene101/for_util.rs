@@ -204,8 +204,11 @@ impl ForUtil {
 
         let mut tmp_idx = 0;
         let mut remaining_bits = remaining_bits_per_int;
-        #[allow(clippy::needless_range_loop)]
-        for ints_idx in num_ints as usize..(Self::BLOCK_SIZE) {
+        for out in ints
+            .iter_mut()
+            .take(Self::BLOCK_SIZE)
+            .skip(num_ints as usize)
+        {
             let mut b = bits_per_value as usize - remaining_bits;
             let mut l = (tmp[tmp_idx] & Self::MASKS32[remaining_bits]) << b;
             tmp_idx += 1;
@@ -222,8 +225,7 @@ impl ForUtil {
             } else {
                 remaining_bits = remaining_bits_per_int;
             }
-
-            ints[ints_idx] = l;
+            *out = l;
         }
 
         Ok(())

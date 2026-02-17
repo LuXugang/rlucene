@@ -110,13 +110,13 @@ impl MinimizationOperations {
                 }
             }
         }
-        #[allow(clippy::needless_range_loop)]
-        for x in 0..sigma_len {
-            let j = if active[0][x].size <= active[1][x].size {
-                0
-            } else {
-                1
-            };
+        for (x, (a0, a1)) in active[0]
+            .iter()
+            .zip(active[1].iter())
+            .take(sigma_len)
+            .enumerate()
+        {
+            let j = if a0.size <= a1.size { 0 } else { 1 };
             pending.push_back(IntPair(j, x));
             pending2.insert(x * states_len + j);
         }

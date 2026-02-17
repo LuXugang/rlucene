@@ -419,7 +419,6 @@ mod tests {
             let entries = at_least_usize(&mut random, 500);
             let mut spare = BytesRefBuilder::new();
             let init_size = list.size();
-            #[allow(clippy::needless_range_loop)]
             for i in 0..entries {
                 let random_realistic_unicode_string =
                     TestUtil::random_realistic_unicode_string(&mut random);
@@ -427,10 +426,9 @@ mod tests {
                 assert_eq!(i + init_size, list.append(spare.get_bytes_mut_ref())?);
                 string_list.push(random_realistic_unicode_string);
             }
-            #[allow(clippy::needless_range_loop)]
-            for i in 0..entries {
+            for (i, expected) in string_list.iter().take(entries).enumerate() {
                 assert_eq!(
-                    string_list[i],
+                    *expected,
                     list.get(&mut spare, i).unwrap().utf8_to_string()?,
                     "entry {} doesn't match",
                     i

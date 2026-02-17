@@ -316,10 +316,10 @@ impl HeapPointWriter {
         for i in (from + 1)..to {
             let point_offset = (i - 1) * bytes_per_doc;
             let next_point_offset = point_offset + bytes_per_doc;
-            #[allow(clippy::needless_range_loop)]
-            for dim in 0..num_dims {
-                let start = dim * bytes_per_dim + common_prefix_lengths[dim];
-                let end = dim * bytes_per_dim + bytes_per_dim;
+            for (dim, &prefix_len) in common_prefix_lengths.iter().take(num_dims).enumerate() {
+                let base = dim * bytes_per_dim;
+                let start = base + prefix_len;
+                let end = base + bytes_per_dim;
 
                 if CoreHelper::miss_match(
                     &heap_value.value[next_point_offset + start..next_point_offset + end],

@@ -678,12 +678,15 @@ pub(crate) mod tests {
 
             let first_value = points[0].packed_value.clone();
             for point in points.iter_mut().skip(1) {
-                #[allow(clippy::needless_range_loop)]
-                for dim in 0..config.num_dims {
+                for (dim, &prefix_len) in common_prefix_lengths
+                    .iter()
+                    .take(config.num_dims)
+                    .enumerate()
+                {
                     let offset = dim * config.bytes_per_dim;
-                    let prefix_len = common_prefix_lengths[dim];
                     let src_start = first_value.offset + offset;
                     let dst_start = point.packed_value.offset + offset;
+
                     point.packed_value.bytes.copy_from(
                         &first_value.bytes[src_start..src_start + prefix_len],
                         dst_start,
@@ -721,12 +724,16 @@ pub(crate) mod tests {
 
             let first_value = points[0].packed_value.clone();
             for point in points.iter_mut().skip(1) {
-                #[allow(clippy::needless_range_loop)]
-                for dim in config.num_index_dims..config.num_dims {
+                for (dim, &prefix_len) in common_prefix_lengths
+                    .iter()
+                    .enumerate()
+                    .skip(config.num_index_dims)
+                    .take(config.num_dims - config.num_index_dims)
+                {
                     let offset = dim * config.bytes_per_dim;
-                    let prefix_len = common_prefix_lengths[dim];
                     let src_start = first_value.offset + offset;
                     let dst_start = point.packed_value.offset + offset;
+
                     point.packed_value.bytes.copy_from(
                         &first_value.bytes[src_start..src_start + prefix_len],
                         dst_start,

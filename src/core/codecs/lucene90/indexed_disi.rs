@@ -1010,16 +1010,16 @@ fn create_rank(buffer: &FixedBitSet, dense_rank_power: u8) -> Vec<u8> {
     let mut rank = vec![0u8; rank];
     let bits = buffer.get_bits();
     let mut bit_count = 0;
-    #[allow(clippy::needless_range_loop)]
-    for word in 0..DENSE_BLOCK_LONGS as usize {
+    for (word, b) in bits.iter().take(DENSE_BLOCK_LONGS as usize).enumerate() {
         // Every longsPerRank longs
         if (word & rank_mark) == 0 {
             let rank_index = word >> rank_index_shift;
             rank[rank_index] = (bit_count >> 8) as u8;
             rank[rank_index + 1] = (bit_count & 0xFF) as u8;
         }
-        bit_count += bits[word].count_ones() as i32;
+        bit_count += b.count_ones() as i32;
     }
+
     rank
 }
 

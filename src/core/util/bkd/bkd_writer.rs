@@ -1453,16 +1453,17 @@ where
                 // Find the dimension that has the least number of unique bytes
                 // at commonPrefixLengths[dim]
                 let mut used_bytes = vec![None; self.config.num_dims];
-                #[allow(clippy::needless_range_loop)]
-                for dim in 0..self.config.num_dims {
+                for (dim, used) in used_bytes.iter_mut().take(self.config.num_dims).enumerate() {
                     if self.common_prefix_lengths[dim] < self.config.bytes_per_dim {
-                        used_bytes[dim] = Some(FixedBitSet::new(256));
+                        *used = Some(FixedBitSet::new(256));
                     }
                 }
+
                 #[allow(clippy::needless_range_loop)]
                 for i in from + 1..to {
-                    for dim in 0..self.config.num_dims {
-                        if let Some(ref mut set) = used_bytes[dim] {
+                    for (dim, used) in used_bytes.iter_mut().take(self.config.num_dims).enumerate()
+                    {
+                        if let Some(set) = used {
                             let b = reader.get_byte_at(
                                 i,
                                 dim * self.config.bytes_per_dim + self.common_prefix_lengths[dim],
@@ -1472,9 +1473,8 @@ where
                     }
                 }
                 let mut sorted_dim_cardinality = i32::MAX;
-                #[allow(clippy::needless_range_loop)]
-                for dim in 0..self.config.num_dims {
-                    if let Some(ref set) = used_bytes[dim] {
+                for (dim, used) in used_bytes.iter().take(self.config.num_dims).enumerate() {
+                    if let Some(set) = used {
                         let cardinality = set.cardinality();
                         if cardinality < sorted_dim_cardinality as usize {
                             sorted_dim = dim;
@@ -1775,12 +1775,13 @@ where
                     self.compute_common_prefix_length(heap_source, from, to)?;
                     let mut sorted_dim_cardinality = i32::MAX;
                     let mut used_bytes = vec![None; self.config.num_dims];
-                    #[allow(clippy::needless_range_loop)]
-                    for dim in 0..self.config.num_dims {
+                    for (dim, used) in used_bytes.iter_mut().take(self.config.num_dims).enumerate()
+                    {
                         if self.common_prefix_lengths[dim] < self.config.bytes_per_dim {
-                            used_bytes[dim] = Some(FixedBitSet::new(256));
+                            *used = Some(FixedBitSet::new(256));
                         }
                     }
+
                     #[allow(clippy::needless_range_loop)]
                     for dim in 0..self.config.num_dims {
                         let prefix = self.common_prefix_lengths[dim];
@@ -1835,9 +1836,8 @@ where
 
                     debug_assert!(count > 0);
                     debug_assert!(count <= spare_doc_ids.len());
-                    #[allow(clippy::needless_range_loop)]
-                    for i in 0..count {
-                        spare_doc_ids[i] = heap_source.get_packed_value_slice(from + i).doc_id();
+                    for (i, out) in spare_doc_ids.iter_mut().take(count).enumerate() {
+                        *out = heap_source.get_packed_value_slice(from + i).doc_id();
                     }
                 },
                 _ => debug_assert!(false),

@@ -481,9 +481,8 @@ fn test_all_equal() -> Result<()> {
 
     for doc_id in 0..num_docs as usize {
         if doc_id == 0 {
-            #[allow(clippy::needless_range_loop)]
-            for dim in 0..num_data_dims as usize {
-                random.fill_bytes(&mut doc_values[doc_id][dim]);
+            for values in doc_values[doc_id].iter_mut().take(num_data_dims as usize) {
+                random.fill_bytes(values);
             }
         } else {
             doc_values[doc_id] = doc_values[0].clone();
@@ -568,10 +567,10 @@ fn test_one_dim_equal() -> Result<()> {
     ];
 
     for doc_id in 0..num_docs as usize {
-        #[allow(clippy::needless_range_loop)]
-        for dim in 0..num_data_dims as usize {
-            random.fill_bytes(&mut doc_values[doc_id][dim]);
+        for values in doc_values[doc_id].iter_mut().take(num_data_dims) {
+            random.fill_bytes(values);
         }
+
         if doc_id > 0 {
             doc_values[doc_id][the_equal_dim as usize] =
                 doc_values[0][the_equal_dim as usize].clone();
@@ -911,28 +910,9 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
     for ord in 0..num_values {
         let doc_id = doc_ids.as_ref().map_or(ord as i32, |ids| ids[ord]);
-
-        if cfg!(feature = "test_log_verbose") {
-            println!(
-                "  ord={} docID={} lastDocIDBase={}",
-                ord, doc_id, last_doc_id_base
-            );
+        for (dim, value) in doc_values[ord].iter().take(num_data_dims).enumerate() {
+            scratch.copy_from(&value[0..num_bytes_per_dim], dim * num_bytes_per_dim);
         }
-        #[allow(clippy::needless_range_loop)]
-        for dim in 0..num_data_dims {
-            if cfg!(feature = "test_log_verbose") {
-                println!(
-                    "  {} -> {}",
-                    dim,
-                    BytesRef::from_bytes(doc_values[ord][dim].to_vec())
-                );
-            }
-            scratch.copy_from(
-                &doc_values[ord][dim][0..num_bytes_per_dim],
-                dim * num_bytes_per_dim,
-            );
-        }
-
         writer.add(&scratch, doc_id - last_doc_id_base)?;
 
         seg_count += 1;

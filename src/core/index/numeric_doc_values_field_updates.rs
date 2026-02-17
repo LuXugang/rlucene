@@ -493,24 +493,23 @@ mod tests {
 
         let num_docs = 10;
         let mut expected_values = vec![0i64; num_docs];
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..num_docs {
+        for (i, expected) in expected_values.iter_mut().take(num_docs).enumerate() {
             writer.add_document(doc(i as i32)?)?;
-            expected_values[i] = (i + 1) as i64;
+            *expected = (i + 1) as i64;
         }
+
         writer.commit()?;
 
         // update few docs
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..num_docs {
+        for (i, expected) in expected_values.iter_mut().take(num_docs).enumerate() {
             if random.random_range(0.0..1.0) < 0.4 {
                 let value = ((i + 1) * 2) as i64;
                 writer.update_numeric_doc_value(
-                    Term::from_text("id", format!("doc-{}", i)),
+                    Term::from_text("id", format!("doc-{i}")),
                     "val",
                     value,
                 )?;
-                expected_values[i] = value;
+                *expected = value;
             }
         }
 
