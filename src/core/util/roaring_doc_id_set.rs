@@ -347,7 +347,7 @@ pub struct Iterator {
     block: i32,
     doc: i32,
     set_length: usize,
-    sub: Option<DocIdSetIteratorEnum>,
+    sub: DocIdSetIteratorEnum,
     doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>>,
     cardinality: i64,
 }
@@ -358,7 +358,7 @@ impl Iterator {
             block: -1,
             doc: -1,
             set_length,
-            sub: Some(DocIdSetIteratorEnum::Empty(EmptyDISI::new())),
+            sub: DocIdSetIteratorEnum::Empty(EmptyDISI::new()),
             doc_id_sets,
             cardinality,
         }
@@ -370,13 +370,11 @@ impl Iterator {
                 self.doc = NO_MORE_DOCS;
                 break;
             } else if self.doc_id_sets[self.block as usize].is_some() {
-                self.sub = Some(
-                    self.doc_id_sets[self.block as usize]
-                        .as_ref()
-                        .unwrap()
-                        .iterator()?,
-                );
-                let sub_next = self.sub.as_mut().unwrap().next_doc()?;
+                self.sub = self.doc_id_sets[self.block as usize]
+                    .as_ref()
+                    .unwrap()
+                    .iterator()?;
+                let sub_next = self.sub.next_doc()?;
                 debug_assert!(sub_next != NO_MORE_DOCS);
                 self.doc = (self.block << 16) | sub_next;
                 break;
@@ -391,7 +389,7 @@ impl DocIdSetIterator for Iterator {
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let sub_next = self.sub.as_mut().unwrap().next_doc()?;
+        let sub_next = self.sub.next_doc()?;
         if sub_next == NO_MORE_DOCS {
             return self.first_doc_from_next_block();
         }
@@ -404,21 +402,18 @@ impl DocIdSetIterator for Iterator {
         if target_block != self.block {
             self.block = target_block;
             if self.block > self.doc_id_sets.len() as i32 {
-                self.sub = None;
                 self.doc = NO_MORE_DOCS;
                 return Ok(self.doc);
             }
             if self.doc_id_sets[self.block as usize].is_none() {
                 return self.first_doc_from_next_block();
             }
-            self.sub = Some(
-                self.doc_id_sets[self.block as usize]
-                    .as_ref()
-                    .unwrap()
-                    .iterator()?,
-            )
+            self.sub = self.doc_id_sets[self.block as usize]
+                .as_ref()
+                .unwrap()
+                .iterator()?;
         }
-        let sub_next = self.sub.as_mut().unwrap().advance(target & 0xFFFF)?;
+        let sub_next = self.sub.advance(target & 0xFFFF)?;
         if sub_next == NO_MORE_DOCS {
             return self.first_doc_from_next_block();
         }
