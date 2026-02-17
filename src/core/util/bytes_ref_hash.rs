@@ -646,8 +646,9 @@ pub trait BytesStartArray {
 /// `Counter` instance.
 pub struct DirectBytesStartArray {
     init_size: i32,
-    bytes_start: Option<Vec<i32>>,
+    bytes_start: Vec<i32>,
     bytes_used: SharedCounter,
+    init: bool,
 }
 impl DirectBytesStartArray {
     pub fn new(init_size: i32) -> Self {
@@ -656,32 +657,30 @@ impl DirectBytesStartArray {
     pub fn with_counter(init_size: i32, counter: SharedCounter) -> Self {
         DirectBytesStartArray {
             init_size,
-            bytes_start: None,
+            bytes_start: vec![],
             bytes_used: counter,
+            init: false,
         }
     }
 }
 
 impl BytesStartArray for DirectBytesStartArray {
     fn init(&mut self) {
-        self.bytes_start = Some(vec![
-            0;
-            ArrayUtil::oversize(
-                self.init_size as usize,
-                BitUtil::INT_BYTES
-            )
-        ]);
+        self.init = true;
+        self.bytes_start =
+            vec![0; ArrayUtil::oversize(self.init_size as usize, BitUtil::INT_BYTES)];
     }
 
     fn grow(&mut self) -> Result<()> {
-        debug_assert!(self.bytes_start.is_some());
-        let length = self.bytes_start.as_ref().unwrap().len();
-        ArrayUtil::grow_i32(self.bytes_start.as_mut().unwrap(), length + 1)?;
+        debug_assert!(self.init);
+        let length = self.bytes_start.len();
+        ArrayUtil::grow_i32(&mut self.bytes_start, length + 1)?;
         Ok(())
     }
 
     fn clear(&mut self) {
-        self.bytes_start = None;
+        self.init = false;
+        self.bytes_start = vec![];
     }
 
     fn bytes_used(&mut self) -> SharedCounter {
@@ -689,19 +688,19 @@ impl BytesStartArray for DirectBytesStartArray {
     }
 
     fn get_value(&self, index: usize) -> i32 {
-        self.bytes_start.as_ref().unwrap()[index]
+        self.bytes_start[index]
     }
 
     fn set_value(&mut self, index: usize, value: i32) {
-        self.bytes_start.as_mut().unwrap()[index] = value;
+        self.bytes_start[index] = value;
     }
 
     fn len(&self) -> usize {
-        self.bytes_start.as_ref().unwrap().len()
+        self.bytes_start.len()
     }
 
     fn need_init(&self) -> bool {
-        self.bytes_start.is_none()
+        !self.init
     }
 }
 

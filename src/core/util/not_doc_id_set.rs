@@ -171,7 +171,7 @@ mod tests {
     use crate::core::util::bit_doc_id_set::BitDocIdSet;
     use crate::core::util::bit_set::BitSet;
     use crate::core::util::bits::Bits;
-    use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::fixed_bit_set::FixedBitSet;
     use crate::core::util::not_doc_id_set::NotDocIdSet;
     use crate::test::util::base_doc_id_set_test_case::{
@@ -181,15 +181,17 @@ mod tests {
 
     struct TestNotDocIdSet;
     impl BaseDocIdSetTestCase for TestNotDocIdSet {
-        fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> impl DocIdSet {
+        type DocIdSet = NotDocIdSet<BitDocIdSet<FixedBitSet>>;
+
+        fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> Result<Self::DocIdSet> {
             let mut set = FixedBitSet::new(length);
             for i in 0..length {
                 if !bs.contains(i) {
                     set.set(i);
                 }
             }
-            let bit_doc_id_set = BitDocIdSet::new(Some(set)).unwrap();
-            NotDocIdSet::new(length as i32, bit_doc_id_set)
+            let bit_doc_id_set = BitDocIdSet::new(Some(set))?;
+            Ok(NotDocIdSet::new(length as i32, bit_doc_id_set))
         }
 
         fn assert_equals<R: Rng + ?Sized>(
@@ -199,9 +201,7 @@ mod tests {
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,
         ) -> Result<()> {
-            let bits2_wrap = ds2.bits();
-            assert!(bits2_wrap.is_some());
-            let bits = bits2_wrap.unwrap();
+            let bits = ds2.bits().ok_or_else(|| LuceneError::illegal_state(""))?;
             assert_eq!(num_bits, bits.length());
             for i in 0..num_bits {
                 assert_eq!(ds1.contains(i), bits.get(i)?);
@@ -243,13 +243,14 @@ mod tests {
 
     impl BaseDocIdSetTestCaseSupperImpl for TestNotDocIdSet {}
     #[test]
-    fn test_bits() {
+    fn test_bits() -> Result<()> {
         assert!(NotDocIdSet::new(3, EmptyDocIdSet).bits().is_none());
         assert!(
-            NotDocIdSet::new(3, BitDocIdSet::new(Some(FixedBitSet::new(3))).unwrap())
+            NotDocIdSet::new(3, BitDocIdSet::new(Some(FixedBitSet::new(3)))?)
                 .bits()
                 .is_some()
         );
+        Ok(())
     }
     struct Buffer {
         array: Vec<i32>,

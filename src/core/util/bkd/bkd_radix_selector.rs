@@ -564,7 +564,7 @@ impl BKDRadixSelector {
         match points {
             PointWriterEnum::Heap(ref mut heap_writer) => {
                 for i in from..to {
-                    let value = heap_writer.get_packed_value_slice(i);
+                    let value = heap_writer.get_packed_value_slice(i)?;
                     if i < partition_point {
                         left.append_point_value(value)?;
                     } else {
@@ -614,7 +614,7 @@ impl BKDRadixSelector {
 
         match points {
             PointWriterEnum::Heap(heap_writer) => {
-                let point_value = heap_writer.get_packed_value_slice(partition_point);
+                let point_value = heap_writer.get_packed_value_slice(partition_point)?;
                 let (bytes, offset, _length) = point_value.packed_value();
 
                 let start = offset + (dim * bytes_per_dim);
@@ -1939,7 +1939,7 @@ mod tests {
                         end,
                         split_dim,
                         random,
-                    );
+                    )?;
                 }
 
                 radix_selector.heap_radix_sort(
@@ -1959,7 +1959,7 @@ mod tests {
                 match points {
                     PointWriterEnum::Heap(heap_writer) => {
                         for j in start..end {
-                            let point_value = heap_writer.get_packed_value_slice(j);
+                            let point_value = heap_writer.get_packed_value_slice(j)?;
                             let mut cmp;
                             let (bytes_ref, packed_value_offset, _) = point_value.packed_value();
                             {
@@ -2019,11 +2019,11 @@ mod tests {
             end: usize,
             sort_dim: usize,
             random: &mut R,
-        ) -> usize {
+        ) -> Result<usize> {
             match points {
                 PointWriterEnum::Heap(heap_writer) => {
                     let mut common_prefix_length = config.bytes_per_dim;
-                    let point_value = heap_writer.get_packed_value_slice(start);
+                    let point_value = heap_writer.get_packed_value_slice(start)?;
                     let (bytes_ref, packed_value_offset, _length) = point_value.packed_value();
                     let mut first_value = vec![0u8; config.bytes_per_dim];
                     let offset = sort_dim * config.bytes_per_dim;
@@ -2033,7 +2033,7 @@ mod tests {
                         0,
                     );
                     for i in (start + 1)..end {
-                        let point_value = heap_writer.get_packed_value_slice(i);
+                        let point_value = heap_writer.get_packed_value_slice(i)?;
                         let (bytes_ref, packed_value_offset, _length) = point_value.packed_value();
                         let diff = CoreHelper::miss_match(
                             &bytes_ref[packed_value_offset + offset
@@ -2042,16 +2042,16 @@ mod tests {
                         );
                         if diff != -1 && common_prefix_length > diff as usize {
                             if diff == 0 {
-                                return diff as usize;
+                                return Ok(diff as usize);
                             }
                             common_prefix_length = diff as usize;
                         }
                     }
 
                     if random.random_bool(0.5) {
-                        common_prefix_length
+                        Ok(common_prefix_length)
                     } else {
-                        random.random_range(0..common_prefix_length)
+                        Ok(random.random_range(0..common_prefix_length))
                     }
                 },
                 _ => {

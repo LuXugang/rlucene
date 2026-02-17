@@ -3048,7 +3048,9 @@ where
                 // Seek to block end if already decompressed
                 self.bytes
                     .seek(self.current_compressed_block_end.ok_or_else(|| {
-                        LuceneError::illegal_argument("current_compressed_block_end not init yet")
+                        LuceneError::illegal_argument(
+                            "current_compressed_block_end not initialized yet",
+                        )
                     })?)?;
             }
 

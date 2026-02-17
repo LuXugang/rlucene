@@ -520,6 +520,7 @@ mod tests {
 
     use crate::core::search::doc_id_set::DocIdSet;
     use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::roaring_doc_id_set::RoaringDocIdSet;
     use crate::core::util::roaring_doc_id_set::builder::Builder;
     use crate::test::util::base_doc_id_set_test_case::{
         BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
@@ -558,13 +559,15 @@ mod tests {
         test_case.test_ram_bytes_used(&mut random);
     }
     impl BaseDocIdSetTestCase for TestRoaringDocIdSet {
-        fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> impl DocIdSet {
+        type DocIdSet = RoaringDocIdSet;
+
+        fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> Result<Self::DocIdSet> {
             let mut builder = Builder::new(length);
             let iter = bs.iter();
             for doc in iter {
                 let _ = builder.add(doc as i32);
             }
-            builder.build()
+            Ok(builder.build())
         }
 
         fn assert_equals<R: Rng + ?Sized>(

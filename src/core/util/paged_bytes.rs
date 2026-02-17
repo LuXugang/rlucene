@@ -90,7 +90,10 @@ impl PagedBytes {
                 self.upto = 0;
                 left = self.block_size;
             }
-            let current_block = self.current_block.as_mut().unwrap();
+            let current_block = self
+                .current_block
+                .as_mut()
+                .ok_or_else(|| LuceneError::illegal_state("current_block not initialized"))?;
             if left < byte_count {
                 input.read_bytes_with_buffer(current_block, self.upto, left, false)?;
                 self.upto = self.block_size;
@@ -109,12 +112,13 @@ impl PagedBytes {
     /// Do **not** use this method if `freeze(true)` will be called afterward.
     ///
     /// This only supports `bytes.len() <= block_size`.
+    #[allow(dead_code)]
     pub fn copy_with_bytes_ref(
         &mut self,
         _bytes: &BytesRef<Vec<u8>>,
         _out: &mut BytesRef<Vec<u8>>,
     ) {
-        unimplemented!("not used in Java Lucene")
+        unreachable!("not used in Java Lucene")
     }
     /// Commits final byte[], trimming it if necessary and if trim=true
     pub fn freeze(&mut self, trim: bool) -> Result<PagedBytesReader> {
@@ -145,7 +149,7 @@ impl PagedBytes {
         }
         self.blocks_rc = Some(block);
 
-        Ok(PagedBytesReader::new(self))
+        PagedBytesReader::new(self)
     }
     pub fn get_pointer(&self) -> i64 {
         if self.current_block.is_none() {
@@ -178,14 +182,18 @@ pub struct PagedBytesReader {
 impl PagedBytesReader {
     /// 1<<blockBits must be bigger than biggest single BytesRef slice that will
     /// be pulled
-    pub fn new(paged_bytes: &PagedBytes) -> Self {
-        PagedBytesReader {
-            blocks: paged_bytes.blocks_rc.as_ref().unwrap().clone(),
+    pub fn new(paged_bytes: &PagedBytes) -> Result<Self> {
+        Ok(PagedBytesReader {
+            blocks: paged_bytes
+                .blocks_rc
+                .as_ref()
+                .ok_or_else(|| LuceneError::illegal_state("blocks_rc not initialized"))?
+                .clone(),
             block_bits: paged_bytes.block_bits,
             block_mask: paged_bytes.block_mask,
             block_size: paged_bytes.block_size,
             bytes_used_per_block: paged_bytes.bytes_used_per_block,
-        }
+        })
     }
     /// Gets a slice out of [`PagedBytes`] starting at `start` with the given
     /// `length`.
@@ -261,16 +269,20 @@ pub struct PagedBytesDataInput {
 }
 
 impl PagedBytesDataInput {
-    fn new(blocks: &PagedBytes) -> Self {
+    fn new(blocks: &PagedBytes) -> Result<Self> {
         debug_assert!(blocks.blocks_rc.is_some());
-        Self {
+        Ok(Self {
             current_block_index: 0,
             current_block_upto: 0,
             block_size: blocks.block_size,
             block_bits: blocks.block_bits,
             block_mask: blocks.block_mask,
-            blocks: blocks.blocks_rc.as_ref().unwrap().clone(),
-        }
+            blocks: blocks
+                .blocks_rc
+                .as_ref()
+                .ok_or_else(|| LuceneError::illegal_state("blocks_rc not initialized"))?
+                .clone(),
+        })
     }
     /// Returns the current byte position.
     pub fn get_position(&self) -> usize {
@@ -383,7 +395,11 @@ impl DataOutput for PagedBytesDataOutput {
             self.paged_bytes.upto = 0;
         }
 
-        let block = self.paged_bytes.current_block.as_mut().unwrap();
+        let block = self
+            .paged_bytes
+            .current_block
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("current_block not initialized"))?;
         block[self.paged_bytes.upto] = b;
         self.paged_bytes.upto += 1;
         Ok(())
@@ -414,12 +430,17 @@ impl DataOutput for PagedBytesDataOutput {
             let left = offset_end - offset;
             let block_left = self.paged_bytes.block_size - self.paged_bytes.upto;
 
-            let current_block = self.paged_bytes.current_block.as_mut().unwrap();
+            let current_block = self
+                .paged_bytes
+                .current_block
+                .as_mut()
+                .ok_or_else(|| LuceneError::illegal_state("current_block not initialized"))?;
             if block_left < left {
                 current_block.copy_from(&b[offset..offset + block_left], self.paged_bytes.upto);
-                let block = self.paged_bytes.current_block.take().unwrap();
-                self.paged_bytes.add_block(block);
-                self.paged_bytes.current_block = Some(vec![0u8; self.paged_bytes.block_size]);
+                let old_block =
+                    std::mem::replace(current_block, vec![0u8; self.paged_bytes.block_size]);
+                self.paged_bytes.add_block(old_block);
+
                 self.paged_bytes.upto = 0;
                 offset += block_left;
             } else {
@@ -440,7 +461,7 @@ pub fn get_data_input(paged_bytes: &PagedBytes) -> Result<PagedBytesDataInput> {
         ));
     }
 
-    Ok(PagedBytesDataInput::new(paged_bytes))
+    PagedBytesDataInput::new(paged_bytes)
 }
 /// Returns a DataOutput that you may use to write into this PagedBytes
 /// instance. If you do this,  you should not call the other writing methods

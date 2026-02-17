@@ -126,18 +126,24 @@ where
                 read_len = self.max_point_on_heap * bytes_per_doc;
                 match &mut self.point_value {
                     PointValueEnum::Offline(offline) => {
-                        if let Some(input) = self.check_sum_input.as_mut() {
-                            input.read_bytes(&mut offline.value[0..read_len], 0, read_len)?;
-                        } else {
-                            self.input.as_mut().unwrap().read_bytes(
-                                &mut offline.value[0..read_len],
-                                0,
-                                read_len,
-                            )?;
+                        match (self.check_sum_input.as_mut(), self.input.as_mut()) {
+                            (Some(input), None) => {
+                                input.read_bytes(&mut offline.value[0..read_len], 0, read_len)?;
+                            },
+                            (None, Some(input)) => {
+                                input.read_bytes(&mut offline.value[0..read_len], 0, read_len)?;
+                            },
+                            _ => {
+                                return Err(LuceneError::illegal_state(
+                                    "invalid state: exactly one of check_sum_input and input must be Some",
+                                ));
+                            },
                         }
                     },
                     _ => {
-                        debug_assert!(false, "PointValueEnum must be Offline");
+                        return Err(LuceneError::illegal_argument(
+                            "PointValueEnum must be Offline",
+                        ));
                     },
                 }
 
@@ -147,22 +153,28 @@ where
                 read_len = self.count_left * bytes_per_doc;
                 match &mut self.point_value {
                     PointValueEnum::Offline(offline) => {
-                        if let Some(check_sum_input) = self.check_sum_input.as_mut() {
-                            check_sum_input.read_bytes(
-                                &mut offline.value[0..read_len],
-                                0,
-                                read_len,
-                            )?;
-                        } else {
-                            self.input.as_mut().unwrap().read_bytes(
-                                &mut offline.value[0..read_len],
-                                0,
-                                read_len,
-                            )?;
+                        match (self.check_sum_input.as_mut(), self.input.as_mut()) {
+                            (Some(check_sum_input), None) => {
+                                check_sum_input.read_bytes(
+                                    &mut offline.value[0..read_len],
+                                    0,
+                                    read_len,
+                                )?;
+                            },
+                            (None, Some(input)) => {
+                                input.read_bytes(&mut offline.value[0..read_len], 0, read_len)?;
+                            },
+                            _ => {
+                                return Err(LuceneError::illegal_state(
+                                    "invalid state: exactly one of check_sum_input and input must be Some",
+                                ));
+                            },
                         }
                     },
                     _ => {
-                        debug_assert!(false, "PointValueEnum must be Offline");
+                        return Err(LuceneError::illegal_argument(
+                            "PointValueEnum must be Offline",
+                        ));
                     },
                 }
                 self.points_in_buffer = self.count_left - 1;
@@ -182,7 +194,9 @@ where
                 offline.set_offset(self.offset);
             },
             _ => {
-                debug_assert!(false, "PointValueEnum must be Offline");
+                return Err(LuceneError::illegal_argument(
+                    "PointValueEnum must be Offline",
+                ));
             },
         }
         Ok(&self.point_value)

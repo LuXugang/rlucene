@@ -79,7 +79,7 @@ impl HeapPointWriter {
             point_value,
         }
     }
-    pub fn get_packed_value_slice(&mut self, index: usize) -> &PointValueEnum {
+    pub fn get_packed_value_slice(&mut self, index: usize) -> Result<&PointValueEnum> {
         debug_assert!(self.closed);
         debug_assert!(
             index < self.next_write,
@@ -87,11 +87,14 @@ impl HeapPointWriter {
             self.next_write,
             index
         );
-        self.point_value
+
+        let pv = self
+            .point_value
             .as_mut()
-            .unwrap()
-            .set_offset(index * self.config.bytes_per_doc());
-        self.point_value.as_ref().unwrap()
+            .ok_or_else(|| LuceneError::illegal_state("point_value not initialized"))?;
+
+        pv.set_offset(index * self.config.bytes_per_doc());
+        Ok(pv)
     }
     /// Swaps the point at point `i` with the point at position `j`
     pub(crate) fn swap(&mut self, i: usize, j: usize) -> Result<()> {

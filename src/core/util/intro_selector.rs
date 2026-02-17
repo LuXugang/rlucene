@@ -266,11 +266,8 @@ where
     /// Shuffles the entries between from (inclusive) and to (exclusive) with
     /// Durstenfeld's algorithm.
     pub fn shuffle(&mut self, from: usize, to: usize) -> Result<()> {
-        if self.random.is_none() {
-            self.random = Some(rand::rng());
-        }
+        let random = self.random.get_or_insert_with(rand::rng);
 
-        let random = self.random.as_mut().unwrap();
         for i in (from..to).rev() {
             let j = random.random_range(from..=i);
             self.sub_selector.swap(i, j)?;

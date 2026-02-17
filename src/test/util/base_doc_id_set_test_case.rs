@@ -27,11 +27,12 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::is_night_mode;
 use crate::test::util::test_util::TestUtil;
 
 pub trait BaseDocIdSetTestCase {
-    fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> impl DocIdSet;
+    type DocIdSet: DocIdSet;
+    fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> Result<Self::DocIdSet>;
     /// Test length=0.
     fn test_bit_0<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let bs = bit_set::BitSet::with_capacity(1);
-        let copy = self.copy_of(&bs, 1);
+        let copy = self.copy_of(&bs, 1)?;
         self.assert_equals(random, 1, &bs, copy)
     }
     /// Test length=1.
@@ -40,7 +41,7 @@ pub trait BaseDocIdSetTestCase {
         if random.random_bool(0.5) {
             bs.insert(0);
         }
-        let copy = self.copy_of(&bs, 1);
+        let copy = self.copy_of(&bs, 1)?;
         self.assert_equals(random, 1, &bs, copy)
     }
     /// Test length=2.
@@ -52,7 +53,7 @@ pub trait BaseDocIdSetTestCase {
         if random.random_bool(0.5) {
             bs.insert(1);
         }
-        let copy = self.copy_of(&bs, 2);
+        let copy = self.copy_of(&bs, 2)?;
         self.assert_equals(random, 2, &bs, copy)
     }
     /// Compare the content of the set against a {@link BitSet}.
@@ -61,17 +62,17 @@ pub trait BaseDocIdSetTestCase {
         let random_float: f32 = random.random();
         for percent_set in [0f32, 0.0001f32, random_float, 0.9f32, 1f32] {
             let set = random_set(random, num_bits, percent_set);
-            let copy = self.copy_of(&set, num_bits);
+            let copy = self.copy_of(&set, num_bits)?;
             self.assert_equals(random, num_bits, &set, copy)?;
         }
         // test one doc
         let mut set = bit_set::BitSet::with_capacity(num_bits);
         set.insert(0); // 0 first
-        let mut copy = self.copy_of(&set, num_bits);
+        let mut copy = self.copy_of(&set, num_bits)?;
         self.assert_equals(random, num_bits, &set, copy)?;
         set.remove(0);
         set.insert(random.random_range(0..num_bits));
-        copy = self.copy_of(&set, num_bits);
+        copy = self.copy_of(&set, num_bits)?;
         self.assert_equals(random, num_bits, &set, copy)?;
         // rest regular increments
         let max_iterations = if is_night_mode() { i32::MAX } else { 10 };
@@ -89,7 +90,7 @@ pub trait BaseDocIdSetTestCase {
                 set.insert(d);
                 d += inc;
             }
-            copy = self.copy_of(&set, num_bits);
+            copy = self.copy_of(&set, num_bits)?;
             self.assert_equals(random, num_bits, &set, copy)?;
             inc += TestUtil::next_usize(random, 1, 100);
         }

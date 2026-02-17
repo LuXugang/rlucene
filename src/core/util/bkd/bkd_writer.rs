@@ -1789,7 +1789,7 @@ where
                             let offset = dim * self.config.bytes_per_dim;
                             for i in from..to {
                                 let (bytes, bytes_offset, _) =
-                                    heap_source.get_packed_value_slice(i).packed_value();
+                                    heap_source.get_packed_value_slice(i)?.packed_value();
                                 let bucket = bytes[bytes_offset + offset + prefix] as usize;
                                 match used_bytes[dim] {
                                     Some(ref mut set) => set.set(bucket),
@@ -1837,7 +1837,7 @@ where
                     debug_assert!(count > 0);
                     debug_assert!(count <= spare_doc_ids.len());
                     for (i, out) in spare_doc_ids.iter_mut().take(count).enumerate() {
-                        *out = heap_source.get_packed_value_slice(from + i).doc_id();
+                        *out = heap_source.get_packed_value_slice(from + i)?.doc_id();
                     }
                 },
                 _ => debug_assert!(false),
@@ -1992,7 +1992,7 @@ where
         self.common_prefix_lengths.fill(self.config.bytes_per_dim);
 
         {
-            let point_value = heap_point_writer.get_packed_value_slice(from);
+            let point_value = heap_point_writer.get_packed_value_slice(from)?;
             let (bytes, offset, _) = point_value.packed_value();
 
             for dim in 0..self.config.num_dims {
@@ -2006,7 +2006,7 @@ where
         }
 
         for i in from + 1..to {
-            let point_value = heap_point_writer.get_packed_value_slice(i);
+            let point_value = heap_point_writer.get_packed_value_slice(i)?;
             let (bytes, offset, _) = point_value.packed_value();
 
             for dim in 0..self.config.num_dims {
@@ -2789,7 +2789,7 @@ where
         match self.heap_source {
             PointWriterEnum::Heap(heap_source) => {
                 let (v, offset, length) = heap_source
-                    .get_packed_value_slice(self.from + i)
+                    .get_packed_value_slice(self.from + i)?
                     .packed_value();
                 // TODO; could we avoid copy here
                 self.bytes = v[offset..(offset + length)].to_vec();

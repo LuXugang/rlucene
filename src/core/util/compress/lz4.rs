@@ -270,7 +270,7 @@ impl LZ4 {
                     if off >= match_limit {
                         break 'outer;
                     }
-                    ref_idx = ht.get(off, bytes);
+                    ref_idx = ht.get(off, bytes)?;
                     ref_idx == -1
                 } {
                     off += 1;
@@ -327,7 +327,7 @@ pub trait HashTable {
     /// bytes as `b[off:off+4]`. This may only be called on strictly
     /// increasing sequences of offsets. A return value of `-1` indicates
     /// that no other index could be found.
-    fn get(&mut self, off: i32, bytes: &[u8]) -> i32;
+    fn get(&mut self, off: i32, bytes: &[u8]) -> Result<i32>;
 
     /// Return an index that is less than `off` and stores the same 4 bytes.
     /// Unlike `get`, it doesn't need to be called on increasing offsets.
@@ -523,7 +523,7 @@ impl HashTable for FastCompressionHashTable {
         self.last_off += dict_len;
     }
 
-    fn get(&mut self, off: i32, bytes: &[u8]) -> i32 {
+    fn get(&mut self, off: i32, bytes: &[u8]) -> Result<i32> {
         debug_assert!(off > self.last_off);
         debug_assert!(off < self.end);
         let v = LZ4::read_int(bytes, off);
@@ -533,15 +533,15 @@ impl HashTable for FastCompressionHashTable {
             + self
                 .hash_table
                 .as_mut()
-                .unwrap()
+                .ok_or_else(|| LuceneError::illegal_state("hash_table not initialized"))?
                 .get_and_set(h, off - self.base);
         self.last_off = off;
 
         if ref_idx < off && off - ref_idx < LZ4::MAX_DISTANCE && LZ4::read_int(bytes, ref_idx) == v
         {
-            ref_idx
+            Ok(ref_idx)
         } else {
-            -1
+            Ok(-1)
         }
     }
 
@@ -641,7 +641,7 @@ impl HashTable for HighCompressionHashTable {
         self.next += dict_len;
     }
 
-    fn get(&mut self, off: i32, bytes: &[u8]) -> i32 {
+    fn get(&mut self, off: i32, bytes: &[u8]) -> Result<i32> {
         debug_assert!(off >= self.next);
         debug_assert!(off < self.end);
 
@@ -656,17 +656,17 @@ impl HashTable for HighCompressionHashTable {
         let mut ref_idx = self.hash_table[h as usize];
         if ref_idx >= off {
             // remainder from a previous call to compress()
-            return -1;
+            return Ok(-1);
         }
         let min = std::cmp::max(self.base, off - LZ4::MAX_DISTANCE + 1);
         while ref_idx >= min && self.attempts < Self::MAX_ATTEMPTS {
             if LZ4::read_int(bytes, ref_idx) == v {
-                return ref_idx;
+                return Ok(ref_idx);
             }
             ref_idx -= self.chain_table[(ref_idx & Self::MASK) as usize] as i32;
             self.attempts += 1;
         }
-        -1
+        Ok(-1)
     }
 
     fn previous(&mut self, off: i32, bytes: &[u8]) -> i32 {
@@ -709,7 +709,7 @@ impl HashTable for HashTableEnum {
         }
     }
 
-    fn get(&mut self, off: i32, bytes: &[u8]) -> i32 {
+    fn get(&mut self, off: i32, bytes: &[u8]) -> Result<i32> {
         match self {
             HashTableEnum::Fast(table) => table.get(off, bytes),
             HashTableEnum::High(table) => table.get(off, bytes),
@@ -1257,7 +1257,7 @@ mod tests {
             self.ht.init_dictionary(dict_len, bytes)
         }
 
-        fn get(&mut self, off: i32, bytes: &[u8]) -> i32 {
+        fn get(&mut self, off: i32, bytes: &[u8]) -> Result<i32> {
             self.ht.get(off, bytes)
         }
 

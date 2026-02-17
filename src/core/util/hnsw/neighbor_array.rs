@@ -380,10 +380,6 @@ mod tests {
         neighbors.add_in_order(0, 1.0)?;
         neighbors.add_in_order(1, 0.8)?;
 
-        fn panic_add_in_order(neighbors: &mut NeighborArray) {
-            neighbors.add_in_order(2, 0.9).unwrap();
-        }
-
         let result = catch_unwind(AssertUnwindSafe(|| {
             neighbors.add_in_order(2, 0.9).unwrap();
         }));

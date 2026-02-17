@@ -570,7 +570,7 @@ impl IndexableField for Field {
             Ok(Some(TokenStreamEnum2::A(token_stream)))
         } else {
             Err(LuceneError::illegal_state(
-                "not init Analyzer's token stream in IndexableField::init_token_stream()?",
+                "not initialized Analyzer's token stream in IndexableField::init_token_stream()?",
             ))
         }
     }

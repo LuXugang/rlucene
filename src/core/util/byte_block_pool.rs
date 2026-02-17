@@ -224,7 +224,7 @@ impl ByteBlockPool {
         debug_assert!(self.buffer_upto.is_some());
         let buffer_upto = self
             .buffer_upto
-            .ok_or_else(|| LuceneError::number_format("buffer not init"))?;
+            .ok_or_else(|| LuceneError::number_format("buffer not initialized"))?;
         while length > 0 {
             let src_pos = src_offset & BYTE_BLOCK_MASK as i64;
             let bytes_to_copy = std::cmp::min(BYTE_BLOCK_SIZE - src_pos as i32, length);
@@ -350,7 +350,7 @@ impl ByteBlockPool {
         match self.buffer_upto {
             Some(upto) => Ok(upto),
             None => Err(LuceneError::illegal_state(
-                "buffer_upto not init yet, call next_buffer first.",
+                "buffer_upto not initialized yet, call next_buffer first.",
             )),
         }
     }
