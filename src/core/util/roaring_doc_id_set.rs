@@ -24,6 +24,7 @@ use crate::core::util::bits::MatchNoBits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
+use crate::either_docidsetiterator_named;
 use std::sync::Arc;
 
 // Number of documents in a block
@@ -347,7 +348,7 @@ pub struct Iterator {
     block: i32,
     doc: i32,
     set_length: usize,
-    sub: DocIdSetIteratorEnum,
+    sub: Disi,
     doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>>,
     cardinality: i64,
 }
@@ -425,7 +426,6 @@ impl DocIdSetIterator for Iterator {
         Ok(self.cardinality)
     }
 }
-
 enum DocIdSetEnum {
     Sparse(ShortArrayDocIdSet),
     Medium(BitDocIdSet<FixedBitSet>),
@@ -438,7 +438,7 @@ impl Accountable for DocIdSetEnum {
 }
 
 impl DocIdSet for DocIdSetEnum {
-    type DocIdSetIterator = DocIdSetIteratorEnum;
+    type DocIdSetIterator = Disi;
 
     fn iterator(&self) -> Result<Self::DocIdSetIterator> {
         match self {
@@ -454,59 +454,13 @@ impl DocIdSet for DocIdSetEnum {
         None
     }
 }
-
-enum DocIdSetIteratorEnum {
-    Sparse(ShortArrayDISI),
-    Medium(BitSetIterator<Arc<FixedBitSet>>),
-    Dense(NotDocDocIdSetIterator<ShortArrayDISI>),
-    Empty(EmptyDISI),
-}
-impl DocIdSetIterator for DocIdSetIteratorEnum {
-    fn doc_id(&self) -> i32 {
-        match self {
-            DocIdSetIteratorEnum::Sparse(s) => s.doc_id(),
-            DocIdSetIteratorEnum::Medium(m) => m.doc_id(),
-            DocIdSetIteratorEnum::Dense(d) => d.doc_id(),
-            DocIdSetIteratorEnum::Empty(e) => e.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            DocIdSetIteratorEnum::Sparse(s) => s.next_doc(),
-            DocIdSetIteratorEnum::Medium(m) => m.next_doc(),
-            DocIdSetIteratorEnum::Dense(d) => d.next_doc(),
-            DocIdSetIteratorEnum::Empty(e) => e.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            DocIdSetIteratorEnum::Sparse(s) => s.advance(target),
-            DocIdSetIteratorEnum::Medium(m) => m.advance(target),
-            DocIdSetIteratorEnum::Dense(d) => d.advance(target),
-            DocIdSetIteratorEnum::Empty(e) => e.advance(target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            DocIdSetIteratorEnum::Sparse(s) => s.slow_advance(target),
-            DocIdSetIteratorEnum::Medium(m) => m.slow_advance(target),
-            DocIdSetIteratorEnum::Dense(d) => d.slow_advance(target),
-            DocIdSetIteratorEnum::Empty(e) => e.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            DocIdSetIteratorEnum::Sparse(s) => s.cost(),
-            DocIdSetIteratorEnum::Medium(m) => m.cost(),
-            DocIdSetIteratorEnum::Dense(d) => d.cost(),
-            DocIdSetIteratorEnum::Empty(e) => e.cost(),
-        }
-    }
-}
+either_docidsetiterator_named!(pub DocIdSetIteratorEnum{ Sparse: A, Medium: B,Dense:C,Empty:D});
+pub type Disi = DocIdSetIteratorEnum<
+    ShortArrayDISI,
+    BitSetIterator<Arc<FixedBitSet>>,
+    NotDocDocIdSetIterator<ShortArrayDISI>,
+    EmptyDISI,
+>;
 
 #[cfg(test)]
 mod tests {

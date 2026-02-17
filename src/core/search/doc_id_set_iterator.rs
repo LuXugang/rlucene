@@ -307,6 +307,7 @@ pub mod disi_const {
     /// it means there are no more documents in the iterator.
     pub const NO_MORE_DOCS: i32 = i32::MAX;
 }
+#[macro_export]
 macro_rules! either_docidsetiterator_named {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
         $vis enum $name<$( $T ),+> {
@@ -358,61 +359,6 @@ either_docidsetiterator_named!(pub DocIdSetIteratorEnum2 { A: A, B: B});
 either_docidsetiterator_named!(pub DocIdSetIteratorEnum3 { A: A, B: B,C:C});
 either_docidsetiterator_named!(pub DocIdSetIteratorEnum4 { A: A, B: B,C:C,D:D});
 either_docidsetiterator_named!(pub DocIdSetIteratorEnum5 { A: A, B: B, C: C, D: D, E: E });
-either_docidsetiterator_named!(pub DocIdSetIteratorEnum6 { A: A, B: B, C: C, D: D, E: E, F: F });
-either_docidsetiterator_named!(pub DocIdSetIteratorEnum7 { A: A, B: B, C: C, D: D, E: E, F: F, G: G });
-either_docidsetiterator_named!(
-    pub DocIdSetIteratorEnum8 { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
-);
-either_docidsetiterator_named!(pub DocIdSetIteratorEnum9 {
-    A: A,
-    B: B,
-    C: C,
-    D: D,
-    E: E,
-    F: F,
-    G: G,
-    H: H,
-    I: I
-});
-either_docidsetiterator_named!(pub DocIdSetIteratorEnum10 {
-    A: A,
-    B: B,
-    C: C,
-    D: D,
-    E: E,
-    F: F,
-    G: G,
-    H: H,
-    I: I,
-    J: J
-});
-either_docidsetiterator_named!(pub DocIdSetIteratorEnum11 {
-    A: A,
-    B: B,
-    C: C,
-    D: D,
-    E: E,
-    F: F,
-    G: G,
-    H: H,
-    I: I,
-    J: J,
-    K: K
-});
-either_docidsetiterator_named!(pub DocIdSetIteratorEnum12 {
-    A: A,
-    B: B,
-    C: C,
-    D: D,
-    E: E,
-    F: F,
-    G: G,
-    H: H,
-    I: I,
-    J: J,
-    K: K,
-    L: L
-});
 pub type EmptyEnum<DISI> = DocIdSetIteratorEnum2<DISI, EmptyDISI>;
 
 #[cfg(test)]
