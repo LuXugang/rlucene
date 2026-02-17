@@ -80,18 +80,16 @@ impl DeltaPackedLongValuesBuilder {
     }
 
     pub(crate) fn build(mut self, values_off: i32) -> Result<DeltaPackedLongValues> {
-        let sub_reader = if self.sub_builder.is_some() {
-            Some(self.sub_builder.take().unwrap().build(values_off)?)
-        } else {
-            None
+        let sub_reader = match self.sub_builder.take() {
+            Some(sb) => Some(sb.build(values_off)?),
+            None => None,
         };
-        let _ = self.mins.split_off(values_off as usize);
+
+        self.mins.truncate(values_off as usize);
         // TODO:
         let _ram_bytes_used = 0;
-        Ok(DeltaPackedLongValues::new(
-            std::mem::take(&mut self.mins),
-            sub_reader,
-        ))
+
+        Ok(DeltaPackedLongValues::new(self.mins, sub_reader))
     }
     pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) {
         if let Some(sub_builder) = self.sub_builder.as_mut() {

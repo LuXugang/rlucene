@@ -16,7 +16,7 @@
  */
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::delta_packed_long_values::{
     DeltaPackedLongValues, DeltaPackedLongValuesBuilder,
@@ -173,7 +173,7 @@ pub struct PackedLongValuesBuilder {
     pub(crate) page_mask: i32,
     page_size: i32,
     acceptable_overhead_ratio: f32,
-    pending: Option<Vec<i64>>,
+    pending: Vec<i64>,
     pub(crate) size: i64,
     pub(crate) values: Vec<PackedIntsReadEnum>,
     pub(crate) ram_bytes_used: i64,
@@ -197,7 +197,7 @@ impl PackedLongValuesBuilder {
     ) -> Result<PackedLongValuesBuilder> {
         let page_shift = PackedInts::check_block_size(page_size, MIN_PAGE_SIZE, MAX_PAGE_SIZE)?;
         let page_mask = page_size - 1;
-        let pending = Some(vec![0; page_size as usize]);
+        let pending = vec![0; page_size as usize];
         let mut values = Vec::new();
         // TODO: maybe we should impl `Clone` for `PackedIntsReadEnum`
         for _ in 0..INITIAL_PAGE_COUNT {
@@ -223,34 +223,26 @@ impl PackedLongValuesBuilder {
         self.finish()?;
         // TODO
         let ram_bytes_used = 0;
+
         let mut values = std::mem::take(&mut self.values);
-        let _ = values.split_off(self.values_off as usize);
-        if self.sub_builder.is_some() {
-            let sub = self.sub_builder.take().unwrap().build(self.values_off)?;
-            return Ok(PackedLongValues::new(
-                self.page_shift,
-                self.page_mask,
-                std::mem::take(&mut values),
-                self.size,
-                ram_bytes_used,
-                Some(sub),
-            ));
+        values.truncate(self.values_off as usize);
+
+        let sub = match self.sub_builder.take() {
+            Some(sb) => Some(sb.build(self.values_off)?),
+            None => None,
         };
+
         Ok(PackedLongValues::new(
             self.page_shift,
             self.page_mask,
             values,
             self.size,
             ram_bytes_used,
-            None,
+            sub,
         ))
     }
     pub fn add(&mut self, l: i64) -> Result<&mut Self> {
-        if self.pending.is_none() {
-            return Err(LuceneError::illegal_state("Cannot be reused after build()"));
-        }
-
-        if self.pending_off as usize == self.pending.as_ref().unwrap().len() {
+        if self.pending_off as usize == self.pending.len() {
             let current_value_len = self.values.len();
             if current_value_len == self.values_off as usize {
                 // Not consistent with the Java version implementation, we
@@ -260,14 +252,9 @@ impl PackedLongValuesBuilder {
                 self.grow(new_length as i32)?;
             }
             self.pack_impl()?;
-            debug_assert!(
-                self.pending.is_none(),
-                "pending should be None after pack_impl"
-            );
-            self.pending = Some(vec![0; self.page_size as usize])
         }
 
-        self.pending.as_mut().unwrap()[self.pending_off as usize] = l;
+        self.pending[self.pending_off as usize] = l;
         self.pending_off += 1;
         self.size += 1;
         Ok(self)
@@ -282,13 +269,11 @@ impl PackedLongValuesBuilder {
         Ok(())
     }
     fn pack_impl(&mut self) -> Result<()> {
-        let mut pending = self.pending.take().unwrap();
         if let Some(sub_builder) = self.sub_builder.as_mut() {
-            sub_builder.pack(&mut pending, self.pending_off, self.values_off);
+            sub_builder.pack(self.pending.as_mut(), self.pending_off, self.values_off);
         }
 
         self.pack(
-            &mut pending,
             self.pending_off,
             self.values_off,
             self.acceptable_overhead_ratio,
@@ -306,17 +291,11 @@ impl PackedLongValuesBuilder {
         todo!()
     }
 
-    fn pack(
-        &mut self,
-        values: &mut [i64],
-        num_values: i32,
-        block: i32,
-        acceptable_overhead_ratio: f32,
-    ) -> Result<()> {
-        let mut min_value = values[0];
-        let mut max_value = values[0];
+    fn pack(&mut self, num_values: i32, block: i32, acceptable_overhead_ratio: f32) -> Result<()> {
+        let mut min_value = self.pending[0];
+        let mut max_value = self.pending[0];
 
-        for &value in values.iter().take(num_values as usize).skip(1) {
+        for &value in self.pending.iter().take(num_values as usize).skip(1) {
             min_value = min_value.min(value);
             max_value = max_value.max(value);
         }
@@ -337,7 +316,7 @@ impl PackedLongValuesBuilder {
                 PackedInts::get_mutable(num_values, bits_required, acceptable_overhead_ratio);
             let mut i = 0;
             while i < num_values {
-                i += mutable.set_bulk(i, values, i, num_values - i);
+                i += mutable.set_bulk(i, self.pending.as_slice(), i, num_values - i);
             }
 
             self.values[block as usize] = PackedIntsReadEnum::PackedReader(mutable);
