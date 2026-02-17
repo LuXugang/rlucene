@@ -101,13 +101,19 @@ where
         if self.remove_duplicates {
             // extract all subs from the queue that have the same top element
             while self.queue.size() > 0 {
-                let top_idx = *self.queue.top().unwrap();
+                let top_idx = *self
+                    .queue
+                    .top()
+                    .ok_or_else(|| LuceneError::number_format("queue is empty"))?;
                 let first_idx = self.top[0];
 
                 if self.queue.compare.sub_iterator[top_idx].current
                     == self.queue.compare.sub_iterator[first_idx].current
                 {
-                    let idx = self.queue.pop()?.unwrap();
+                    let idx = self
+                        .queue
+                        .pop()?
+                        .ok_or_else(|| LuceneError::number_format("queue is empty"))?;
                     self.top[self.num_top] = idx;
                     self.num_top += 1;
                 } else {

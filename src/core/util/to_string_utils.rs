@@ -21,16 +21,6 @@ use crate::core::util::access::{SharedAccessVec, WritableVec};
 pub struct ToStringUtils;
 
 impl ToStringUtils {
-    pub fn byte_array(buffer: &mut String, bytes: &[u8]) {
-        for (i, &b) in bytes.iter().enumerate() {
-            use std::fmt::Write;
-            write!(buffer, "b[{i}]={b}").unwrap();
-            if i < bytes.len() - 1 {
-                buffer.push(',');
-            }
-        }
-    }
-
     const HEX: [char; 16] = [
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
     ];

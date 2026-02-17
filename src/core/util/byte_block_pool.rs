@@ -200,12 +200,12 @@ impl ByteBlockPool {
             let buffer_left = BYTE_BLOCK_SIZE - self.byte_upto;
             if bytes_left < buffer_left {
                 // fits within current buffer
-                self.append_bytes_single_buffer(src_pool, src_offset, bytes_left);
+                self.append_bytes_single_buffer(src_pool, src_offset, bytes_left)?;
                 break;
             } else {
                 // fill up this buffer and move to next one
                 if buffer_left > 0 {
-                    self.append_bytes_single_buffer(src_pool, src_offset, buffer_left);
+                    self.append_bytes_single_buffer(src_pool, src_offset, buffer_left)?;
                     bytes_left -= buffer_left;
                     src_offset += buffer_left as i64;
                 }
@@ -219,10 +219,12 @@ impl ByteBlockPool {
         src_pool: &ByteBlockPool,
         mut src_offset: i64,
         mut length: i32,
-    ) {
+    ) -> Result<()> {
         debug_assert!(length <= BYTE_BLOCK_SIZE - self.byte_upto);
         debug_assert!(self.buffer_upto.is_some());
-        let buffer_upto = self.buffer_upto.unwrap();
+        let buffer_upto = self
+            .buffer_upto
+            .ok_or_else(|| LuceneError::number_format("buffer not init"))?;
         while length > 0 {
             let src_pos = src_offset & BYTE_BLOCK_MASK as i64;
             let bytes_to_copy = std::cmp::min(BYTE_BLOCK_SIZE - src_pos as i32, length);
@@ -236,6 +238,7 @@ impl ByteBlockPool {
             src_offset += bytes_to_copy as i64;
             self.byte_upto += bytes_to_copy;
         }
+        Ok(())
     }
 
     /// Appends the provided byte array at the current position.

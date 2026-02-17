@@ -199,7 +199,7 @@ impl DocIdSet for DocIdSetBuilderEnum {
 
     fn bits(&self) -> Option<Arc<Self::BitType>> {
         match self {
-            DocIdSetBuilderEnum::BitDoc(bit_doc_id_set) => Some(bit_doc_id_set.bits().unwrap()),
+            DocIdSetBuilderEnum::BitDoc(bit_doc_id_set) => bit_doc_id_set.bits(),
             DocIdSetBuilderEnum::IntArray(_) => None,
         }
     }
@@ -265,10 +265,7 @@ mod tests {
         let mut random = random();
         let max_doc = random.random_range(1..1000);
         let doc_id_set: Option<IntArrayDocIdSet> = None;
-        assert_equals(
-            doc_id_set,
-            Some(DocIdSetBuilder::new(max_doc).build().unwrap()),
-        )?;
+        assert_equals(doc_id_set, Some(DocIdSetBuilder::new(max_doc).build()?))?;
         Ok(())
     }
     fn assert_equals<T1: DocIdSet, T2: DocIdSet>(
@@ -277,7 +274,7 @@ mod tests {
     ) -> Result<()> {
         match (d1.as_mut(), d2.as_mut()) {
             (None, None) => {
-                assert_eq!(d2.as_mut().unwrap().iterator()?.next_doc()?, NO_MORE_DOCS);
+                unreachable!("")
             },
 
             (None, Some(d2v)) => {

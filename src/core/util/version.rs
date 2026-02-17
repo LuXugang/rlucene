@@ -143,47 +143,43 @@ impl Version {
             ));
         }
         let mut token = tokens.next_token()?;
-        let major = token.parse::<i32>();
-        if let Err(e) = major {
-            return Err(VersionError::parse_int_error(
+        let major = token.parse::<i32>().map_err(|e| {
+            VersionError::parse_int_error(
                 format!("Failed to parse major version from {token} (got: {version})"),
                 e,
-            ));
-        }
+            )
+        })?;
 
         token = tokens.next_token()?;
-        let minor = token.parse::<i32>();
-        if let Err(e) = minor {
-            return Err(VersionError::parse_int_error(
+        let minor = token.parse::<i32>().map_err(|e| {
+            VersionError::parse_int_error(
                 format!("Failed to parse minor version from {token} (got: {version})"),
                 e,
-            ));
-        }
+            )
+        })?;
 
         let mut bug_fix_value: i32 = 0;
         if tokens.has_more_tokens() {
             token = tokens.next_token()?;
-            let bug_fix = token.parse::<i32>();
-            if let Err(e) = bug_fix {
-                return Err(VersionError::parse_int_error(
-                    format!("Failed to parse bug fix version from {token} (got: {version})"),
-                    e,
-                ));
-            }
-
-            bug_fix_value = bug_fix.unwrap();
+            bug_fix_value = match token.parse::<i32>() {
+                Ok(v) => v,
+                Err(e) => {
+                    return Err(VersionError::parse_int_error(
+                        format!("Failed to parse bug fix version from {token} (got: {version})"),
+                        e,
+                    ));
+                },
+            };
         }
         let mut prerelease_value: i32 = 0;
         if tokens.has_more_tokens() {
             token = tokens.next_token()?;
-            let prerelease = token.parse::<i32>();
-            if let Err(e) = prerelease {
-                return Err(VersionError::parse_int_error(
+            prerelease_value = token.parse::<i32>().map_err(|e| {
+                VersionError::parse_int_error(
                     format!("Failed to parse pre-release version from {token} (got: {version})"),
                     e,
-                ));
-            }
-            prerelease_value = prerelease.unwrap();
+                )
+            })?;
             if prerelease_value == 0 {
                 return Err(VersionError::parse_error_with_pos(
                     format!(
@@ -202,12 +198,7 @@ impl Version {
                 ));
             }
         }
-        let result = Version::with_prerelease(
-            major.unwrap(),
-            minor.unwrap(),
-            bug_fix_value,
-            prerelease_value,
-        );
+        let result = Version::with_prerelease(major, minor, bug_fix_value, prerelease_value);
         if let Err(e) = result {
             return Err(VersionError::parse_error_with_error(
                 format!("failed to parse version string {version}"),
@@ -239,7 +230,13 @@ impl Version {
                 ];
 
                 for (pattern, replacement) in patterns.iter() {
-                    let re = Regex::new(pattern).unwrap();
+                    let re = match Regex::new(pattern) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            let err = IllegalArgumentError::new(e.to_string());
+                            return Err(VersionError::parse_error_with_error("", err));
+                        },
+                    };
                     version = re.replace_all(&version, *replacement).to_string();
                 }
 

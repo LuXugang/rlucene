@@ -107,9 +107,6 @@ where
         v
     }
     fn get_ref_count_internal(&mut self, file_name: &str) -> &mut RefCount {
-        if self.ref_counts.contains_key(file_name) {
-            return self.ref_counts.get_mut(file_name).unwrap();
-        }
         self.ref_counts
             .entry(file_name.to_string())
             .or_insert_with(|| RefCount::new(file_name))
