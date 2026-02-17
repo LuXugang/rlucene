@@ -106,7 +106,7 @@ where
             offset,
             length,
         };
-        debug_assert!(instance.is_valid().unwrap());
+        debug_assert!(instance.is_valid().expect("not fail"));
         instance
     }
     /// Performs internal consistency checks. Always returns true (or Error)

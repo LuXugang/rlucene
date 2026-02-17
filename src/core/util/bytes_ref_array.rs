@@ -420,7 +420,9 @@ mod tests {
             for (i, expected) in string_list.iter().take(entries).enumerate() {
                 assert_eq!(
                     *expected,
-                    list.get(&mut spare, i).unwrap().utf8_to_string()?,
+                    list.get(&mut spare, i)
+                        .expect("not fail")
+                        .utf8_to_string()?,
                     "entry {} doesn't match",
                     i
                 );
@@ -431,7 +433,9 @@ mod tests {
                 let e = random.random_range(0..entries);
                 assert_eq!(
                     string_list[e as usize],
-                    list.get(&mut spare, e).unwrap().utf8_to_string()?,
+                    list.get(&mut spare, e)
+                        .expect("not fail")
+                        .utf8_to_string()?,
                     "entry {} doesn't match",
                     e
                 );
@@ -443,7 +447,7 @@ mod tests {
                 for string in &string_list {
                     let value = iterator.next()?;
                     assert!(value.is_some());
-                    assert_eq!(*string, value.unwrap().utf8_to_string()?,);
+                    assert_eq!(*string, value.expect("not fail").utf8_to_string()?,);
                 }
             }
         }

@@ -379,7 +379,7 @@ mod tests {
     fn wrap_lucene_error() {
         let inner = LuceneError::illegal_argument("inner error");
         let outer = LuceneError::illegal_state(inner);
-        let source = outer.source().unwrap().to_string();
+        let source = outer.source().expect("not fail").to_string();
         assert_eq!(source, "inner error");
     }
 
@@ -391,7 +391,12 @@ mod tests {
             outer.to_string(),
             "outer error:( supper error: (inner error))"
         );
-        let source = outer.source().unwrap().source().unwrap().to_string();
+        let source = outer
+            .source()
+            .expect("not fail")
+            .source()
+            .expect("not fail")
+            .to_string();
         assert_eq!(source, "inner error");
     }
 }

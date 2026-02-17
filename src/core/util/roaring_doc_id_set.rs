@@ -370,11 +370,10 @@ impl Iterator {
             if self.block >= self.set_length as i32 {
                 self.doc = NO_MORE_DOCS;
                 break;
-            } else if self.doc_id_sets[self.block as usize].is_some() {
-                self.sub = self.doc_id_sets[self.block as usize]
-                    .as_ref()
-                    .unwrap()
-                    .iterator()?;
+            }
+
+            if let Some(doc_id_set) = self.doc_id_sets[self.block as usize].as_ref() {
+                self.sub = doc_id_set.iterator()?;
                 let sub_next = self.sub.next_doc()?;
                 debug_assert!(sub_next != NO_MORE_DOCS);
                 self.doc = (self.block << 16) | sub_next;
@@ -406,13 +405,13 @@ impl DocIdSetIterator for Iterator {
                 self.doc = NO_MORE_DOCS;
                 return Ok(self.doc);
             }
-            if self.doc_id_sets[self.block as usize].is_none() {
-                return self.first_doc_from_next_block();
+            let slot = &self.doc_id_sets[self.block as usize];
+            match slot.as_ref() {
+                None => return self.first_doc_from_next_block(),
+                Some(doc_id_set) => {
+                    self.sub = doc_id_set.iterator()?;
+                },
             }
-            self.sub = self.doc_id_sets[self.block as usize]
-                .as_ref()
-                .unwrap()
-                .iterator()?;
         }
         let sub_next = self.sub.advance(target & 0xFFFF)?;
         if sub_next == NO_MORE_DOCS {

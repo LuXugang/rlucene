@@ -541,7 +541,7 @@ mod tests {
     fn test_zero_sized_queue() -> Result<()> {
         let mut random = random();
         let mut pq = PriorityQueue::new(0, I32Compare)?;
-        assert_eq!(1, pq.insert_with_overflow(1)?.unwrap());
+        assert_eq!(1, pq.insert_with_overflow(1)?.expect("not fail"));
         assert_eq!(0, pq.size());
 
         pq.add(1)?;
@@ -630,7 +630,7 @@ mod tests {
 
             let mut last = i32::MIN;
             for _i in 0..count {
-                let next = heap.pop()?.unwrap();
+                let next = heap.pop()?.expect("not fail");
                 assert!(next >= last);
                 last = next;
                 sum2 = sum2.wrapping_add(last);
@@ -684,8 +684,8 @@ mod tests {
         assert_eq!(pq.insert_with_overflow(i2)?, None);
         assert_eq!(pq.insert_with_overflow(i3)?, None);
         assert_eq!(pq.insert_with_overflow(i4)?, None);
-        assert_eq!(pq.insert_with_overflow(i5)?.unwrap(), i3);
-        assert_eq!(pq.insert_with_overflow(i6)?.unwrap(), i6);
+        assert_eq!(pq.insert_with_overflow(i5)?.expect("not fail"), i3);
+        assert_eq!(pq.insert_with_overflow(i6)?.expect("not fail"), i6);
         assert_eq!(size, pq.size());
         let mut random = random();
         match random.random_bool(0.5) {
@@ -780,9 +780,9 @@ mod tests {
             if let Some(evicted_value) = evicted {
                 let pos = sds.iter().position(|&x| x == evicted_value);
                 assert_ne!(pos, None);
-                sds.remove(pos.unwrap());
+                sds.remove(pos.expect("not fail"));
                 if evicted_value != new_entry {
-                    assert_eq!(evicted_value, last_least.unwrap());
+                    assert_eq!(evicted_value, last_least.expect("not fail"));
                 }
             }
             let new_least = match random.random_bool(0.5) {
@@ -906,9 +906,9 @@ mod tests {
             } else {
                 let pos = expected
                     .iter()
-                    .position(|&x| x == queue.pop().unwrap().unwrap());
+                    .position(|&x| x == queue.pop().expect("not fail").expect("not fail"));
                 assert_ne!(pos, None);
-                expected.remove(pos.unwrap());
+                expected.remove(pos.expect("not fail"));
             }
             let mut actual: Vec<i32> = Vec::new();
             expected.sort();
@@ -939,7 +939,7 @@ mod tests {
         let mut i = 0;
         let mut value: i32;
         while pq.size() > 0 {
-            value = pq.pop_unchecked().unwrap().into();
+            value = pq.pop_unchecked().expect("not fail").into();
             assert_eq!(reference_data_list[i], value);
             i += 1;
         }
@@ -962,7 +962,7 @@ mod tests {
                 if !pq
                     .get_compare()
                     .less_than(parent_value, child_value)
-                    .unwrap()
+                    .expect("not fail")
                 {
                     assert_eq!(parent_value, child_value);
                 }
