@@ -134,7 +134,10 @@ where
         } else if self.all_scorers_idx.len() - self.first_required_scorer >= 2 {
             self.score_inner_window_as_conjunction(collector, accept_docs, max)?;
         } else {
-            let top_index = self.essential_queue.top().expect("top ie empty");
+            let top_index = self
+                .essential_queue
+                .top()
+                .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
             let top2_index_opt = self.essential_queue.top2(&self.all_scorers);
 
             match top2_index_opt {
@@ -172,7 +175,10 @@ where
         max: i32,
         filter: &mut DisiWrapper<S2>,
     ) -> Result<()> {
-        let mut top_index = self.essential_queue.top().expect("top ie empty");
+        let mut top_index = self
+            .essential_queue
+            .top()
+            .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
         {
             let top = &self.all_scorers[top_index];
             debug_assert!(top.doc < max);
@@ -262,7 +268,10 @@ where
         accept_docs: Option<&dyn Bits>,
         upto: i32,
     ) -> Result<()> {
-        let top_index = self.essential_queue.top().expect("top ie empty");
+        let top_index = self
+            .essential_queue
+            .top()
+            .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
         let (mut doc, mut score) = {
             let top = &mut self.all_scorers[top_index];
             // single essential clause in this window, we can iterate it directly and skip the bitset.
@@ -314,7 +323,11 @@ where
         let leader2_idx = self.all_scorers_idx[all_scorers_len - 2];
         let (mut doc, max_score_sum_at_lead2) = {
             debug_assert!(self.essential_queue.size() == 1);
-            debug_assert!(self.essential_queue.top().expect("top ie empty") == leader1_idx);
+            let essential_top = self
+                .essential_queue
+                .top()
+                .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
+            debug_assert!(essential_top == leader1_idx);
 
             if self.all_scorers[leader1_idx].doc < self.all_scorers[leader2_idx].doc {
                 let target = self.all_scorers[leader2_idx].doc.min(max);
@@ -442,7 +455,10 @@ where
         accept_docs: Option<&dyn Bits>,
         max: i32,
     ) -> Result<()> {
-        let top_index = self.essential_queue.top().expect("top ie empty");
+        let top_index = self
+            .essential_queue
+            .top()
+            .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
         let mut top = &mut self.all_scorers[top_index];
 
         let inner_window_min = top.doc;
@@ -765,7 +781,10 @@ where
                 outer_window_max = new_outer_window_max;
             }
 
-            let mut top_index = self.essential_queue.top().expect("top ie empty");
+            let mut top_index = self
+                .essential_queue
+                .top()
+                .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
             {
                 let mut doc = self.all_scorers[top_index].doc;
                 while doc < outer_window_min {
@@ -783,7 +802,10 @@ where
 
             while top_doc < outer_window_max {
                 self.score_inner_window(collector, accept_docs, outer_window_max)?;
-                top_index = self.essential_queue.top().expect("top ie empty");
+                top_index = self
+                    .essential_queue
+                    .top()
+                    .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
                 top_doc = self.all_scorers[top_index].doc;
 
                 if self.scorable.min_competitive_score >= self.next_min_competitive_score {

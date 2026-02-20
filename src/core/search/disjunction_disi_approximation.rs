@@ -19,7 +19,7 @@ use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_util::ScorerUtil;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 #[derive(Default)]
 pub struct DisjunctionDISIApproximation<S>
@@ -56,7 +56,10 @@ where
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let mut top_idx = self.sub_iterators.top().expect("top ie empty");
+        let mut top_idx = self
+            .sub_iterators
+            .top()
+            .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
         let old_doc = self.all_scores[top_idx].doc;
 
         loop {
@@ -72,7 +75,10 @@ where
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        let mut top_idx = self.sub_iterators.top().expect("top ie empty");
+        let mut top_idx = self
+            .sub_iterators
+            .top()
+            .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
         loop {
             let top = &mut self.all_scores[top_idx];
             let v = ScorerUtil::next_doc(&mut top.scorer)?;

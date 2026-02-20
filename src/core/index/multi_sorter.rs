@@ -118,7 +118,9 @@ impl MultiSorter {
         let mut is_sorted = true;
 
         while queue.size() > 0 {
-            let top = queue.top_mut().unwrap();
+            let top = queue
+                .top_mut()
+                .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
 
             if last_reader_index > top.reader_index {
                 // merge sort is needed

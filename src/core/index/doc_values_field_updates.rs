@@ -866,7 +866,7 @@ where
     fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.queue
             .top_mut()
-            .expect("priority queue top element should exist")
+            .ok_or_else(|| LuceneError::illegal_state("no top available"))?
             .binary_value()
     }
 
@@ -914,7 +914,7 @@ where
             if self
                 .queue
                 .top_mut()
-                .expect("priority queue top element should exist")
+                .ok_or_else(|| LuceneError::illegal_state("no top available"))?
                 .next_doc()?
                 == NO_MORE_DOCS
             {

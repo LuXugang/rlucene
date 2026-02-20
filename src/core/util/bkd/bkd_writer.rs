@@ -493,7 +493,7 @@ where
         while queue.size() != 0 {
             let reader = queue
                 .top_mut()
-                .expect("priority queue top element should exist");
+                .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
             one_dim_writer.add(&reader.packed_value, reader.doc_id)?;
 
             if reader.next()? {

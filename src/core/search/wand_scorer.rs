@@ -508,7 +508,10 @@ where
                 target = target.max(self.upto + 1);
                 self.update_max_scores(target)?;
             } else {
-                let top_idx = self.head.top().expect("top is empty");
+                let top_idx = self
+                    .head
+                    .top()
+                    .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
 
                 let top_doc = self.all_scorers[top_idx].doc;
                 // We have a next candidate but it's not in the current block. We need to

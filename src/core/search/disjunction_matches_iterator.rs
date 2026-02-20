@@ -18,7 +18,7 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::matches_iterator::MatchesIterator;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -74,7 +74,7 @@ where
         if !self
             .queue
             .top_mut()
-            .expect("priority queue top element should exist")
+            .ok_or_else(|| LuceneError::illegal_state("no top available"))?
             .next()?
         {
             self.queue.pop_unchecked()?;
@@ -124,7 +124,7 @@ where
     fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>> {
         self.queue
             .top_mut()
-            .expect("priority queue top element should exist")
+            .ok_or_else(|| LuceneError::illegal_state("no top available"))?
             .get_sub_matches()
     }
 
