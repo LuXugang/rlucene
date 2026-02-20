@@ -521,8 +521,9 @@ impl DocIdSetIterator for FreqProxDocsEnum {
                     };
                     self.doc_id = p.last_doc_ids[self.term_id as usize];
                     if self.read_term_freq {
-                        self.freq = p.term_freqs.as_ref().expect("term_freqs must exist")
-                            [self.term_id as usize];
+                        self.freq = p.term_freqs.as_ref().ok_or_else(|| {
+                            LuceneError::illegal_state("term_freqs not available")
+                        })?[self.term_id as usize];
                     }
                 }
             }
@@ -671,7 +672,10 @@ impl DocIdSetIterator for FreqProxPostingsEnum {
                     };
 
                     self.doc_id = p.last_doc_ids[self.term_id as usize];
-                    self.freq = p.term_freqs.as_ref().unwrap()[self.term_id as usize];
+                    self.freq =
+                        p.term_freqs.as_ref().ok_or_else(|| {
+                            LuceneError::illegal_state("term_freqs not available")
+                        })?[self.term_id as usize];
                 }
             }
         } else {

@@ -158,7 +158,10 @@ impl SortFiledBase for SortedNumericSortField {
         let get_value = NPImpl2::new(
             self.selector,
             self.type_,
-            self.base.get_field().unwrap().to_string(),
+            self.base
+                .get_field()
+                .ok_or_else(|| LuceneError::illegal_state("field not available"))?
+                .to_string(),
         );
         match self.type_ {
             SortFieldType::Int => Ok(Some(IndexSorterNumeric::Int(IntSorter::new(
@@ -191,7 +194,11 @@ impl SortFiledBase for SortedNumericSortField {
 
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
         debug_assert!(self.base.get_field().is_some());
-        out.write_string(self.base.get_field().unwrap())?;
+        out.write_string(
+            self.base
+                .get_field()
+                .ok_or_else(|| LuceneError::illegal_state("field not available"))?,
+        )?;
         out.write_string(&self.type_.to_string())?;
         out.write_int(if self.base.reverse { 1 } else { 0 })?;
         out.write_int(self.selector as i32)?;
@@ -270,7 +277,7 @@ impl SortFiledBase for SortedNumericSortField {
         let field = self
             .base
             .get_field()
-            .expect("field must not be None")
+            .ok_or_else(|| LuceneError::illegal_state("field not available"))?
             .to_string();
         let reverse = self.base.reverse;
         let mut field_comparator: FieldComparatorEnum = match self.type_ {
@@ -314,11 +321,12 @@ impl SortFiledBase for SortedNumericSortField {
 impl Display for SortedNumericSortField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut buffer = String::new();
+        let field = match self.base.get_field() {
+            Some(f) => f,
+            None => return Err(std::fmt::Error),
+        };
         debug_assert!(self.base.get_field().is_some());
-        buffer.push_str(&format!(
-            "<sortednumeric: \"{}\">",
-            self.base.get_field().unwrap()
-        ));
+        buffer.push_str(&format!("<sortednumeric: \"{}\">", field));
         if self.base.reverse {
             buffer.push('!');
         }

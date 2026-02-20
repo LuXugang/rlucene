@@ -1409,8 +1409,7 @@ impl PerField {
         self.terms_hash_per_field
             .as_mut()
             .unwrap()
-            .finish(term_vectors_consumer, meta);
-        Ok(())
+            .finish(term_vectors_consumer, meta)
     }
     /// Inverts one field for one document; first is true if this is the first time we are seeing
     /// this field name in this document.

@@ -142,10 +142,12 @@ impl FreqProxTermsWriterPerField {
             .per_field
             .postings_array
             .as_mut()
-            .expect("postings_array must be Some");
+            .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
         match postings_array_enum {
             PostingsArrayEnum::FreqProx(f) => {
-                f.last_positions.as_mut().unwrap()[term_id] = field_state.position();
+                f.last_positions.as_mut().ok_or_else(|| {
+                    LuceneError::illegal_state("last_positions not initialized")
+                })?[term_id] = field_state.position();
             },
             _ => {
                 return Err(LuceneError::illegal_state(
@@ -181,11 +183,14 @@ impl FreqProxTermsWriterPerField {
             .per_field
             .postings_array
             .as_mut()
-            .expect("postings_array must be Some");
+            .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
 
         let (v1, v2) = match postings_array {
             PostingsArrayEnum::FreqProx(f) => {
-                let last_offsets = f.last_offsets.as_mut().expect("last_offsets must be Some");
+                let last_offsets = f
+                    .last_offsets
+                    .as_mut()
+                    .ok_or_else(|| LuceneError::illegal_state("last_offsets not available"))?;
                 let last_offset = last_offsets[term_id];
 
                 debug_assert!(
@@ -222,7 +227,8 @@ impl FreqProxTermsWriterPerField {
         &mut self,
         term_vectors_consumer: &mut TermVectorsConsumer<D>,
         meta: PerFieldMeta,
-    ) where
+    ) -> Result<()>
+    where
         D: Directory,
     {
         if let Some(next_per_field) = self.next_per_field.as_mut() {
@@ -230,10 +236,9 @@ impl FreqProxTermsWriterPerField {
         }
 
         if self.saw_payloads {
-            self.field_info
-                .set_store_payloads()
-                .expect("should not fail")
+            self.field_info.set_store_payloads()?;
         }
+        Ok(())
     }
     pub(crate) fn reset(&mut self, byte_pool: &mut ByteBlockPool) {
         self.base.reset(byte_pool);
@@ -256,17 +261,14 @@ impl FreqProxTermsWriterPerField {
         // term text into textStart address
         // Get the text & hash of this term.
         let bytes = attribute_source.get_bytes_ref();
-        let term_bytes = match term_bytes {
-            Some(t) => t,
-            None => {
-                if bytes.is_none() {
-                    return Err(LuceneError::illegal_state(
-                        "term bytes and attribute source bytes are both None",
-                    ));
-                }
-                bytes.as_ref().unwrap()
-            },
+        let term_bytes = if let Some(t) = term_bytes {
+            t
+        } else {
+            bytes.as_ref().ok_or_else(|| {
+                LuceneError::illegal_state("term bytes and attribute source bytes are both None")
+            })?
         };
+
         let mut term_id = self
             .base
             .bytes_hash
@@ -300,11 +302,10 @@ impl FreqProxTermsWriterPerField {
 
         if let Some(ref mut next_per_field) = self.next_per_field {
             let postings_array_wrapper = &self.base.bytes_hash.bytes_start_array.per_field;
-            debug_assert!(postings_array_wrapper.postings_array.is_some());
             let text_start = postings_array_wrapper
                 .postings_array
                 .as_ref()
-                .unwrap()
+                .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?
                 .get_text_starts()[term_id as usize];
             next_per_field.add_with_text_start(
                 text_start,
@@ -343,11 +344,10 @@ impl FreqProxTermsWriterPerField {
 
         if let Some(ref mut next_per_field) = self.next_per_field {
             let postings_array_wrapper = &self.base.bytes_hash.bytes_start_array.per_field;
-            debug_assert!(postings_array_wrapper.postings_array.is_some());
             let text_start = postings_array_wrapper
                 .postings_array
                 .as_ref()
-                .unwrap()
+                .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?
                 .get_text_starts()[term_id as usize];
             next_per_field.add_with_text_start(
                 text_start,
@@ -397,7 +397,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
             .per_field
             .postings_array
             .as_mut()
-            .expect("postings_array must be Some");
+            .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
 
         match postings_array_enum {
             PostingsArrayEnum::FreqProx(postings) => {
@@ -409,7 +409,9 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                     field_state.max_term_frequency = field_state.max_term_frequency.max(1);
                 } else {
                     postings.last_doc_codes[term_id] = doc_id << 1;
-                    postings.term_freqs.as_mut().unwrap()[term_id] = tf;
+                    postings.term_freqs.as_mut().ok_or_else(|| {
+                        LuceneError::illegal_state("term_freqs not initialized")
+                    })?[term_id] = tf;
 
                     if self.has_prox {
                         self.write_prox(
@@ -466,12 +468,20 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
             .per_field
             .postings_array
             .as_mut()
-            .expect("postings_array must be Some");
+            .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
         let mut v = Vec::new();
         match postings_enum {
             PostingsArrayEnum::FreqProx(postings) => {
                 if self.has_freq {
-                    debug_assert!(postings.term_freqs.as_ref().unwrap()[term_id] > 0);
+                    debug_assert!(
+                        postings
+                            .term_freqs
+                            .as_ref()
+                            .ok_or_else(|| LuceneError::illegal_state(
+                                "term_freqs not initialized"
+                            ))?[term_id]
+                            > 0
+                    );
                 }
 
                 if !self.has_freq {
@@ -506,7 +516,10 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                         term_id
                     );
 
-                    let freq = postings.term_freqs.as_ref().unwrap()[term_id];
+                    let freq =
+                        postings.term_freqs.as_ref().ok_or_else(|| {
+                            LuceneError::illegal_state("term_freqs not initialized")
+                        })?[term_id];
                     // Term not yet seen in the current doc but previously
                     // seen in other doc(s) since the last flush
 
@@ -520,7 +533,9 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                     }
 
                     // Init freq for the current document
-                    postings.term_freqs.as_mut().unwrap()[term_id] = tf;
+                    postings.term_freqs.as_mut().ok_or_else(|| {
+                        LuceneError::illegal_state("term_freqs not initialized")
+                    })?[term_id] = tf;
 
                     field_state.max_term_frequency = field_state.max_term_frequency.max(tf);
 
@@ -529,7 +544,9 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                     postings.last_doc_ids[term_id] = doc_id;
 
                     if self.has_prox && self.has_offsets {
-                        postings.last_offsets.as_mut().unwrap()[term_id] = 0;
+                        postings.last_offsets.as_mut().ok_or_else(|| {
+                            LuceneError::illegal_state("last_offsets not initialized")
+                        })?[term_id] = 0;
                     }
                     // Due to borrow conflict, we add later before handle prox/offset
                     for x in v {
@@ -558,7 +575,10 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                     }
                     field_state.unique_term_count += 1;
                 } else {
-                    let term_freqs = postings.term_freqs.as_mut().unwrap();
+                    let term_freqs = postings
+                        .term_freqs
+                        .as_mut()
+                        .ok_or_else(|| LuceneError::illegal_state("term_freqs not initialized"))?;
                     term_freqs[term_id] = term_freqs[term_id]
                         .checked_add(tf)
                         .ok_or_else(|| LuceneError::illegal_state("term frequency overflow"))?;
@@ -568,7 +588,9 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
 
                     if self.has_prox {
                         let delta = field_state.position
-                            - postings.last_positions.as_ref().unwrap()[term_id];
+                            - postings.last_positions.as_ref().ok_or_else(|| {
+                                LuceneError::illegal_state("last_positions not initialized")
+                            })?[term_id];
                         self.write_prox(
                             term_id,
                             delta,

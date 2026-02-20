@@ -859,7 +859,7 @@ where
     fn long_value(&self) -> Result<i64> {
         self.queue
             .top()
-            .expect("priority queue top element should exist")
+            .ok_or_else(|| LuceneError::illegal_state("no top available"))?
             .long_value()
     }
 
@@ -900,7 +900,7 @@ where
             let new_doc = self
                 .queue
                 .top()
-                .expect("priority queue top element should exist")
+                .ok_or_else(|| LuceneError::illegal_state("no top available"))?
                 .doc_id();
 
             if new_doc != self.doc {

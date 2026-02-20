@@ -93,7 +93,10 @@ impl TermVectorsConsumerPerField {
         let num_postings = self.base.get_num_terms();
         debug_assert!(num_postings >= 0);
 
-        let tv = term_vectors_consumer.writer.as_mut().unwrap();
+        let tv = term_vectors_consumer
+            .writer
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
 
         self.base.sort_terms(byte_pool)?;
         let term_ids = self.base.get_sorted_term_ids();
@@ -113,7 +116,7 @@ impl TermVectorsConsumerPerField {
             .per_field
             .postings_array
             .as_ref()
-            .expect("postings_array must be Some");
+            .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
         match postings_array_enum {
             PostingsArrayEnum::TermVectors(postings) => {
                 let mut off_reader = ByteSliceReader::new(byte_pool);
@@ -302,7 +305,7 @@ impl TermVectorsConsumerPerField {
             .per_field
             .postings_array
             .as_ref()
-            .unwrap();
+            .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
         let mut last_offset = None;
         let mut last_position = None;
         match postings {
@@ -368,7 +371,7 @@ impl TermVectorsConsumerPerField {
             .per_field
             .postings_array
             .as_mut()
-            .unwrap();
+            .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
         match postings {
             PostingsArrayEnum::TermVectors(postings) => {
                 if let Some(offset) = last_offset {
@@ -439,7 +442,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
             .per_field
             .postings_array
             .as_mut()
-            .unwrap();
+            .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
         if let PostingsArrayEnum::TermVectors(postings) = postings_enum {
             postings.freqs[term_id] = freq;
             postings.last_offsets[term_id] = 0;
@@ -470,7 +473,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
             .per_field
             .postings_array
             .as_mut()
-            .unwrap();
+            .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
 
         if let PostingsArrayEnum::TermVectors(postings) = postings_enum {
             postings.freqs[term_id] += freq;

@@ -124,17 +124,18 @@ where
         merger.reset()?;
         Ok(merger)
     }
-    fn set_queue_min_doc_id(&mut self) {
+    fn set_queue_min_doc_id(&mut self) -> Result<()> {
         if self.queue.size() > 0 {
             let idx = self
                 .queue
                 .top()
-                .expect("priority queue top element should exist");
+                .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
             let v = self.queue.compare.subs[*idx].mapped_doc_id;
             self.queue_min_doc_id = v;
         } else {
             self.queue_min_doc_id = NO_MORE_DOCS;
         }
+        Ok(())
     }
 }
 impl<S> DocIDMerger<S> for SortedDocIDMerger<S>
@@ -167,7 +168,7 @@ where
             self.queue.add(i)?;
         }
 
-        self.set_queue_min_doc_id();
+        self.set_queue_min_doc_id()?;
         Ok(())
     }
 
@@ -202,13 +203,13 @@ where
             let new_current_idx = *self
                 .queue
                 .top()
-                .expect("priority queue top element should exist");
+                .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
             self.queue
                 .update_top_with_new_top(self.current.take().unwrap())?;
             self.current = Some(new_current_idx);
         }
 
-        self.set_queue_min_doc_id();
+        self.set_queue_min_doc_id()?;
         match self.current {
             Some(current) => Ok(Some(current)),
             None => Ok(None),

@@ -377,16 +377,7 @@ pub(crate) struct PostingsArrayWrapper {
     pub(crate) postings_array: Option<PostingsArrayEnum>,
     pub(crate) terms_hash_per_field_type: TermsHashPerFieldType,
 }
-impl Default for PostingsArrayWrapper {
-    fn default() -> Self {
-        Self {
-            postings_array: None,
-            terms_hash_per_field_type: TermsHashPerFieldType::FreqProx(FreqProx::new(
-                IndexOptions::None,
-            )),
-        }
-    }
-}
+
 impl PostingsArrayWrapper {
     pub fn new(terms_hash_per_field_type: TermsHashPerFieldType) -> Self {
         Self {
