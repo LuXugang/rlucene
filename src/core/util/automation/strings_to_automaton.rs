@@ -43,7 +43,7 @@ use crate::core::util::unicode_util::{UTF8CodePoint, UnicodeUtil};
 pub(crate) struct StringsToAutomaton {
     // TODO IMPORTANT 这里没必要用RcRefCell包装吧
     /// A "registry" for state interning.
-    pub(crate) state_registry: Option<HashMap<StateKey, Rc<RefCell<State>>>>,
+    pub(crate) state_registry: HashMap<StateKey, Rc<RefCell<State>>>,
     /// Root automaton state.
     pub(crate) root: Rc<RefCell<State>>,
     /// Used for input order checking (only through assertions right now)
@@ -53,7 +53,7 @@ pub(crate) struct StringsToAutomaton {
 impl StringsToAutomaton {
     pub(crate) fn new() -> Self {
         StringsToAutomaton {
-            state_registry: Some(HashMap::new()),
+            state_registry: HashMap::new(),
             root: Rc::new(RefCell::new(State::new())),
             previous: None,
         }
@@ -102,17 +102,13 @@ impl StringsToAutomaton {
     /// Called after adding all terms. Performs final minimization and converts
     /// to a standard [`Automaton`] instance.
     fn complete_and_convert(&mut self) -> Result<Automaton> {
-        if self.state_registry.is_none() {
-            return Err(LuceneError::illegal_state(""));
-        }
-
         {
             if self.root.borrow().has_children() {
                 self.replace_or_register(self.root.clone())?;
             }
         }
 
-        self.state_registry = None;
+        self.state_registry.clear();
 
         let mut a = Builder::new();
         Self::convert(&mut a, &self.root, &mut HashMap::new())?;
@@ -159,8 +155,6 @@ impl StringsToAutomaton {
                 current
             )));
         }
-
-        debug_assert!(self.state_registry.is_some(), "Automaton already built.");
 
         if let Some(prev) = &mut self.previous
             && prev.bytes_ref.cmp(current) == std::cmp::Ordering::Greater
@@ -238,10 +232,10 @@ impl StringsToAutomaton {
         let state_key = StateKey {
             state: Rc::clone(&child),
         };
-        if let Some(registered) = self.state_registry.as_ref().unwrap().get(&state_key) {
+        if let Some(registered) = self.state_registry.get(&state_key) {
             state.borrow_mut().replace_last_child(Rc::clone(registered));
         } else {
-            self.state_registry.as_mut().unwrap().insert(
+            self.state_registry.insert(
                 StateKey {
                     state: Rc::clone(&child),
                 },
