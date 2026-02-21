@@ -31,7 +31,7 @@ use std::sync::Arc;
 /// SINGLETON object from [`get_no_output`](Outputs::get_no_output).
 ///
 /// # lucene.experimental
-pub trait Outputs: Display + Clone {
+pub trait Outputs: Display + Clone + Default {
     // TODO: maybe change this API to allow for re-use of the
     // output instances -- this is an insane amount of garbage
     // (new object per byte/char/int) if eg used during

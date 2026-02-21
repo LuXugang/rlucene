@@ -20,6 +20,7 @@ use crate::core::util::fst_impl::outputs::Outputs;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
+#[derive(Default)]
 pub struct NoOutputs;
 impl NoOutputs {
     pub fn get_singleton(&self) -> Self {

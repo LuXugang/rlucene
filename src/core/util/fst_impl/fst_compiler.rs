@@ -395,7 +395,7 @@ where
         // Minimize nodes in the last word's suffix
         self.freeze_tail(0)?;
         if self.frontier[0].as_ref().unwrap().num_arcs == 0 {
-            if self.fst.metadata.as_ref().unwrap().empty_output.is_none() {
+            if self.fst.metadata.empty_output.is_none() {
                 // return null for completely empty FST which accepts nothing
                 return Ok(None);
             } else {
@@ -406,7 +406,8 @@ where
         }
         let (compiled_root, _) = self.compile_node(0)?;
         self.finish(compiled_root.node)?;
-        Ok(Some(self.fst.metadata.take().unwrap()))
+        let v = std::mem::take(&mut self.fst.metadata);
+        Ok(Some(v))
     }
     // serializes new node by appending its bytes to the end
     // of the current byte[]
@@ -482,7 +483,7 @@ where
                     {
                         debug_assert!(arc.label >= 0, "v = {}", arc.label);
 
-                        match self.fst.metadata.as_ref().unwrap().input_type {
+                        match self.fst.metadata.input_type {
                             InputType::Byte1 => {
                                 debug_assert!(arc.label <= 255, "v = {}", arc.label);
                                 self.scratch_bytes.write_byte(arc.label as u8)?;
@@ -947,17 +948,10 @@ where
         Ok(())
     }
     pub(crate) fn set_empty_output(&mut self, v: O::V) -> Result<()> {
-        match self.fst.metadata {
-            Some(ref mut metadata) => {
-                if let Some(existing) = &mut metadata.empty_output {
-                    metadata.empty_output = Some(self.fst.outputs.merge(&existing.clone(), &v)?);
-                } else {
-                    metadata.empty_output = Some(v);
-                }
-            },
-            None => {
-                return Err(LuceneError::illegal_state("FSTCompiler's metadata is None"));
-            },
+        if let Some(existing) = &mut self.fst.metadata.empty_output {
+            self.fst.metadata.empty_output = Some(self.fst.outputs.merge(&existing.clone(), &v)?);
+        } else {
+            self.fst.metadata.empty_output = Some(v);
         }
         Ok(())
     }
@@ -975,31 +969,24 @@ where
     pub(crate) fn finish(&mut self, mut new_start_node: i64) -> Result<()> {
         debug_assert!(new_start_node <= self.num_bytes_written);
 
-        match self.fst.metadata {
-            Some(ref mut metadata) => {
-                if metadata.start_node != -1 {
-                    return Err(LuceneError::illegal_state("already finished"));
-                }
+        if self.fst.metadata.start_node != -1 {
+            return Err(LuceneError::illegal_state("already finished"));
+        }
 
-                if new_start_node == FINAL_END_NODE && metadata.empty_output.is_some() {
-                    new_start_node = 0;
-                }
+        if new_start_node == FINAL_END_NODE && self.fst.metadata.empty_output.is_some() {
+            new_start_node = 0;
+        }
 
-                metadata.start_node = new_start_node;
-                metadata.num_bytes = self.num_bytes_written;
+        self.fst.metadata.start_node = new_start_node;
+        self.fst.metadata.num_bytes = self.num_bytes_written;
 
-                // Freeze the data output if it's a read-write buffer
-                match self.data_output {
-                    DataOutputEnum::FromDir(_) => {
-                        // file flush by when Drop FSTCompiler
-                    },
-                    DataOutputEnum::ReadWriter(ref mut rw) => {
-                        rw.freeze()?;
-                    },
-                }
+        // Freeze the data output if it's a read-write buffer
+        match self.data_output {
+            DataOutputEnum::FromDir(_) => {
+                // file flush by when Drop FSTCompiler
             },
-            None => {
-                return Err(LuceneError::illegal_state("FSTCompiler's metadata is None"));
+            DataOutputEnum::ReadWriter(ref mut rw) => {
+                rw.freeze()?;
             },
         }
 

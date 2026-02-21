@@ -604,13 +604,11 @@ impl PendingBlock {
             }
         }
         let first_block = &mut blocks[0];
-        first_block.index = Some(
-            FST::from_fst_reader(
-                fst_compiler.compile()?,
-                Some(fst_compiler.get_fst_reader()?),
-            )
-            .unwrap(),
-        );
+        let meta = fst_compiler
+            .compile()?
+            .ok_or_else(|| LuceneError::number_format("fst_metadata is None"))?;
+        first_block.index =
+            Some(FST::from_fst_reader(meta, fst_compiler.get_fst_reader()?).unwrap());
 
         debug_assert!(first_block.sub_indices.is_empty());
         Ok(blocks.remove(0))

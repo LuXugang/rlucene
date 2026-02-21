@@ -35,7 +35,7 @@ where
     O: Outputs,
     F: FstReader,
 {
-    pub metadata: Option<FSTMetadata<O>>,
+    pub metadata: FSTMetadata<O>,
     pub outputs: O,
     // wrap with RefCell to allow interior mutability
     pub fst_reader: Mutex<F>,
@@ -65,35 +65,29 @@ where
     pub fn new(metadata: FSTMetadata<O>, fst_reader: F) -> Self {
         Self {
             outputs: metadata.outputs.clone(),
-            metadata: Some(metadata),
+            metadata,
             fst_reader: Mutex::new(fst_reader),
         }
     }
     /// Create an FST from metadata and reader. Returns `None` if the metadata
     /// is `None`.
-    pub fn from_fst_reader(
-        metadata: Option<FSTMetadata<O>>,
-        fst_reader: Option<F>,
-    ) -> Option<Self> {
-        metadata.as_ref()?;
-        let metadata = metadata?;
-        let fst_reader = fst_reader?;
+    pub fn from_fst_reader(metadata: FSTMetadata<O>, fst_reader: F) -> Option<Self> {
         Some(Self {
             outputs: metadata.outputs.clone(),
-            metadata: Some(metadata),
+            metadata,
             fst_reader: Mutex::new(fst_reader),
         })
     }
     pub fn num_bytes(&self) -> i64 {
-        self.metadata.as_ref().unwrap().num_bytes
+        self.metadata.num_bytes
     }
 
     pub fn get_empty_output(&self) -> Option<&O::V> {
-        self.metadata.as_ref().unwrap().empty_output.as_ref()
+        self.metadata.empty_output.as_ref()
     }
 
     pub fn metadata(&self) -> &FSTMetadata<O> {
-        self.metadata.as_ref().unwrap()
+        &self.metadata
     }
 
     /// Save the FST to DataOutput.
@@ -107,11 +101,11 @@ where
         meta_out: &mut impl DataOutput,
         out: &mut impl DataOutput,
     ) -> Result<()> {
-        self.metadata.as_ref().unwrap().save(meta_out)?;
+        self.metadata.save(meta_out)?;
         self.fst_reader.lock().write_to(out)
     }
     pub fn save_with_same_data_out(&self, out: &mut impl DataOutput) -> Result<()> {
-        self.metadata.as_ref().unwrap().save(out)?;
+        self.metadata.save(out)?;
         self.fst_reader.lock().write_to(out)
     }
 
@@ -128,8 +122,8 @@ where
     }
     /// Reads one BYTE1/2/4 label from the provided DataInput.
     pub fn read_label(&self, input: &mut impl DataInput) -> Result<i32> {
-        let input_type = self.metadata.as_ref().unwrap().input_type;
-        let version = self.metadata.as_ref().unwrap().version;
+        let input_type = self.metadata.input_type;
+        let version = self.metadata.version;
 
         let v = match input_type {
             InputType::Byte1 => input.read_byte()? as i32,
@@ -166,7 +160,7 @@ where
     pub fn get_first_arc(&self, arc: &mut Arc<O::V>) {
         let no_output = self.outputs.get_no_output();
 
-        if let Some(ref empty_output) = self.metadata.as_ref().unwrap().empty_output {
+        if let Some(ref empty_output) = self.metadata.empty_output {
             arc.flags = BIT_FINAL_ARC | BIT_LAST_ARC;
             arc.next_final_output = empty_output.clone();
             if *empty_output != no_output {
@@ -180,7 +174,7 @@ where
         arc.output = no_output;
         // If there are no nodes, ie, the FST only accepts the
         // empty string, then startNode is 0
-        arc.target = self.metadata.as_ref().unwrap().start_node;
+        arc.target = self.metadata.start_node;
     }
     /// Follows the `follow` arc and reads the last arc of its target; this
     /// changes the provided `arc` (2nd arg) in-place and returns it.
@@ -826,7 +820,7 @@ where
             f,
             "{}(input={:?}, output={})",
             std::any::type_name::<Self>(),
-            self.metadata.as_ref().unwrap().input_type,
+            self.metadata.input_type,
             self.outputs
         )
     }
@@ -1105,6 +1099,7 @@ impl BitTable {
 /// Represents the FST metadata.
 ///
 /// `T` is the FST output type.
+#[derive(Default)]
 pub struct FSTMetadata<O>
 where
     O: Outputs,
@@ -1195,8 +1190,9 @@ impl<O: Outputs> FSTMetadata<O> {
 }
 
 /// Specifies allowed range of each int input label for this FST.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum InputType {
+    #[default]
     Byte1,
     Byte2,
     Byte4,
@@ -1865,9 +1861,9 @@ mod tests {
         Util::get_ints_ref(&key, &mut builder);
         fst_compiler.add(builder.get(), outputs.get_no_output())?;
 
-        let metadata = fst_compiler.compile()?;
+        let metadata = fst_compiler.compile()?.unwrap();
         let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
-        let fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
+        let fst = FST::from_fst_reader(metadata, reader).unwrap();
 
         let mut fst_enum = BytesRefFSTEnum::new(fst)?;
 
@@ -1895,10 +1891,10 @@ mod tests {
         //     fst_compiler.add(builder.get(), outputs.get_no_output())?;
         // }
         //
-        // let metadata = fst_compiler.compile()?;
+        // let metadata = fst_compiler.compile()?.unwrap();
         // let reader: DataOutputEnum<DummyDirectory> =
         //     fst_compiler.get_fst_reader()?;
-        // let fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
+        // let fst = FST::from_fst_reader(metadata, reader).unwrap();
         //
         //
         //
@@ -1952,9 +1948,9 @@ mod tests {
         Util::get_ints_ref(&c, &mut v);
         fst_compiler.add(v.get(), Arc::new(13824324872317238))?;
 
-        let fst_metadata = fst_compiler.compile()?;
+        let fst_metadata = fst_compiler.compile()?.unwrap();
         let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
-        let fst = FST::from_fst_reader(fst_metadata, Some(fst_reader)).unwrap();
+        let fst = FST::from_fst_reader(fst_metadata, fst_reader).unwrap();
 
         assert_eq!(*Util::get_bytes(&fst, &c)?.unwrap(), 13824324872317238);
         assert_eq!(*Util::get_bytes(&fst, &b)?.unwrap(), 42);
@@ -2051,9 +2047,9 @@ mod tests {
     //                 fst_compiler.add(builder.get(), nothing)?;
     //             }
     //
-    //             let metadata = fst_compiler.compile()?;
+    //             let metadata = fst_compiler.compile()?.unwrap();
     //             let reader = fst_compiler.get_fst_reader()?;
-    //             let fst = FST::from_fst_reader(metadata, Some(reader))?;
+    //             let fst = FST::from_fst_reader(metadata, reader)?;
     //             Ok(fst)
     //         }
     //
@@ -2083,9 +2079,9 @@ mod tests {
         fst_compiler.add(scratch.get(), Arc::new(17))?;
 
         // Compile and load once
-        let metadata = fst_compiler.compile()?;
+        let metadata = fst_compiler.compile()?.unwrap();
         let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
-        let fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
+        let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
 
         // Save into a single output
         let mut bytes = Vec::new();
@@ -2176,9 +2172,9 @@ mod tests {
         fst_compiler.finish(root)?;
 
         // Construct FST
-        let metadata = fst_compiler.fst.metadata.take().unwrap();
+        let reader = fst_compiler.get_fst_reader()?;
 
-        let fst = FST::new(metadata, fst_compiler.get_fst_reader()?);
+        let fst = FST::new(fst_compiler.fst.metadata, reader);
 
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
@@ -2264,9 +2260,9 @@ mod tests {
             fst_compiler.add(input.get(), v)?;
         }
 
-        let metadata = fst_compiler.compile()?;
+        let metadata = fst_compiler.compile()?.unwrap();
         let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
-        let fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
+        let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
 
         for arc in 0..6 {
             input.set_int_at(0, arc);
@@ -2307,9 +2303,9 @@ mod tests {
         Util::get_ints_ref(&bd, &mut builder);
         fst_compiler.add(builder.get(), Arc::new(7))?;
 
-        let metadata = fst_compiler.compile()?;
+        let metadata = fst_compiler.compile()?.unwrap();
         let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
-        let fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
+        let fst = FST::from_fst_reader(metadata, reader).unwrap();
 
         assert_eq!(*Util::get_bytes(&fst, &ab)?.unwrap(), 3);
         assert_eq!(*Util::get_bytes(&fst, &ac)?.unwrap(), 5);

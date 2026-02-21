@@ -31,6 +31,7 @@ pub static SINGLETON: Lazy<ByteSequenceOutputs> = Lazy::new(|| ByteSequenceOutpu
 /// An FST Outputs implementation where each output is a sequence of bytes.
 ///
 /// lucene.experimental
+#[derive(Default)]
 pub struct ByteSequenceOutputs;
 impl ByteSequenceOutputs {
     pub fn get_singleton() -> &'static ByteSequenceOutputs {

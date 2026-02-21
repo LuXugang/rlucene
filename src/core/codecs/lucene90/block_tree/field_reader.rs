@@ -122,7 +122,7 @@ where
             tmp_data.index_start_fp as usize,
             tmp_data.metadata.num_bytes as usize,
         );
-        let index = match FST::from_fst_reader(Some(tmp_data.metadata), Some(store)) {
+        let index = match FST::from_fst_reader(tmp_data.metadata, store) {
             Some(fst) => fst,
             None => {
                 return Err(LuceneError::illegal_state(

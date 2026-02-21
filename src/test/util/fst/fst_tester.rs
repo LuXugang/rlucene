@@ -222,7 +222,8 @@ where
                 },
             }
         } else if fst_metadata_opt.is_some() {
-            let fst = FST::from_fst_reader(fst_metadata_opt, Some(fst_compiler.get_fst_reader()?));
+            let fst =
+                FST::from_fst_reader(fst_metadata_opt.unwrap(), fst_compiler.get_fst_reader()?);
             if random.random_bool(0.5) {
                 let ctx = new_io_context(&mut random)?;
                 {
