@@ -2620,79 +2620,79 @@ where
                 )));
             }
 
-            if commit_lock.pending_commit.is_some() {
-                debug_assert!(commit_lock.files_to_commit.is_some());
-                let mut body_res: Result<()> = (|| {
+            match commit_lock.pending_commit.as_mut() {
+                Some(pending) => {
+                    let mut body_res: Result<()> = (|| {
+                        if self.info_stream.enabled("IW") {
+                            self.info_stream
+                                .message("IW", "commit: pendingCommit != null");
+                        }
+
+                        let committed_segments_file_name =
+                            pending.finish_commit(self.directory.as_ref())?;
+                        // we committed, if anything goes wrong after this, we are screwed and it's a tragedy:
+                        commit_completed = true;
+
+                        if self.info_stream.enabled("IW") {
+                            self.info_stream.message(
+                                "IW",
+                                &format!(
+                                    "commit: done writing segments file \"{}\"",
+                                    committed_segments_file_name
+                                ),
+                            );
+                        }
+
+                        // NOTE: don't use this.checkpoint() here, because
+                        // we do not want to increment changeCount:
+                        inner.deleter.checkpoint(
+                            pending,
+                            true,
+                            self.config.get_index_deletion_policy(),
+                        )?;
+
+                        // Carry over generation to our master SegmentInfos:
+                        inner.segment_infos.update_generation(pending);
+
+                        self.last_commit_change_count.store(
+                            self.pending_commit_change_count.load(Ordering::Acquire),
+                            Ordering::Release,
+                        );
+
+                        inner.rollback_segments = pending.create_backup_segment_infos()?;
+
+                        Ok(())
+                    })();
+
+                    {
+                        self.pausing.notify_all();
+                        commit_lock.pending_commit = None;
+
+                        let files = commit_lock
+                            .files_to_commit
+                            .take()
+                            .ok_or_else(|| LuceneError::illegal_state("no files"))?;
+
+                        body_res = match inner.deleter.dec_ref(files.iter()) {
+                            Ok(()) => body_res,
+                            Err(e) => {
+                                // TODO IMPORTANT 这里没有处理好嵌套错误
+                                Err(LuceneError::illegal_state(format!("{:?}, {}", body_res, e)))
+                            },
+                        };
+                    }
+
+                    body_res?;
+                },
+                None => {
+                    debug_assert!(commit_lock.files_to_commit.is_none());
                     if self.info_stream.enabled("IW") {
                         self.info_stream
-                            .message("IW", "commit: pendingCommit != null");
+                            .message("IW", "commit: pendingCommit == null; skip");
                     }
-                    let pending = commit_lock
-                        .pending_commit
-                        .as_mut()
-                        .expect("pending_commit must exist");
-                    let committed_segments_file_name =
-                        pending.finish_commit(self.directory.as_ref())?;
-                    // we committed, if anything goes wrong after this, we are screwed and it's a tragedy:
-                    commit_completed = true;
-
-                    if self.info_stream.enabled("IW") {
-                        self.info_stream.message(
-                            "IW",
-                            &format!(
-                                "commit: done writing segments file \"{}\"",
-                                committed_segments_file_name
-                            ),
-                        );
-                    }
-                    // NOTE: don't use this.checkpoint() here, because
-                    // we do not want to increment changeCount:
-                    inner.deleter.checkpoint(
-                        commit_lock.pending_commit.as_ref().unwrap(),
-                        true,
-                        self.config.get_index_deletion_policy(),
-                    )?;
-
-                    // Carry over generation to our master SegmentInfos:
-                    inner
-                        .segment_infos
-                        .update_generation(commit_lock.pending_commit.as_ref().unwrap());
-
-                    self.last_commit_change_count.store(
-                        self.pending_commit_change_count.load(Ordering::Acquire),
-                        Ordering::Release,
-                    );
-
-                    inner.rollback_segments = commit_lock
-                        .pending_commit
-                        .as_ref()
-                        .unwrap()
-                        .create_backup_segment_infos()?;
-
-                    Ok(())
-                })();
-
-                {
-                    self.pausing.notify_all();
-                    commit_lock.pending_commit = None;
-                    let files = commit_lock.files_to_commit.take().unwrap();
-
-                    body_res = match inner.deleter.dec_ref(files.iter()) {
-                        Ok(()) => body_res,
-                        Err(e) => {
-                            // TODO IMPORTANT 这里没有处理好嵌套错误
-                            Err(LuceneError::illegal_state(format!("{:?}, {}", body_res, e)))
-                        },
-                    }
-                }
-                body_res?;
-            } else {
-                debug_assert!(commit_lock.files_to_commit.is_none());
-                if self.info_stream.enabled("IW") {
-                    self.info_stream
-                        .message("IW", "commit: pendingCommit == null; skip");
-                }
+                },
             }
+
             Ok(())
         })();
 
@@ -4198,10 +4198,12 @@ where
                     InfoFrom::All => inner.segment_infos.segments_idx.iter().collect::<Vec<_>>(),
                 };
                 for id in &keys {
-                    let info = inner
-                        .segment_infos
-                        .info(id)
-                        .expect("segment info not found");
+                    let info = inner.segment_infos.info(id).ok_or_else(|| {
+                        LuceneError::illegal_state(format!(
+                            "{} not in IndexWriter's segment_infos",
+                            id
+                        ))
+                    })?;
                     del_files.extend(info.files()?);
                 }
                 let v = match v {
@@ -4531,7 +4533,7 @@ where
                 if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(info_id) {
                     let rld = self
                         .get_pooled_instance(info, true, None)?
-                        .expect("should always be Some");
+                        .ok_or_else(|| LuceneError::illegal_state("should not None"))?;
                     let seg_state = SegmentState::new(rld, info)?;
                     seg_states.push(seg_state);
                     already_seen.insert(info_id.clone());
