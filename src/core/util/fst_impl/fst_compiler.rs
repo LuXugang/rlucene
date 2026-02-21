@@ -72,7 +72,7 @@ where
     O: Outputs,
     D: Directory,
 {
-    pub(crate) dedup_hash: Option<NodeHash<O::V>>,
+    pub(crate) dedup_hash: NodeHash<O::V>,
     /// A temporary FST used during building for NodeHash cache.
     pub(crate) fst: FST<O, NullFSTReader>,
     pub(crate) no_output: O::V,
@@ -133,9 +133,10 @@ where
                 "ramLimitMB must be >= 0; got: {suffix_ram_limit_mb}"
             )));
         } else if suffix_ram_limit_mb > 0f64 {
-            Some(NodeHash::new(suffix_ram_limit_mb)?)
+            NodeHash::new(suffix_ram_limit_mb, true)?
         } else {
-            None
+            // 1f64 is padding value
+            NodeHash::new(1f64, false)?
         };
 
         let num_bytes_written = 1; // pad 1 byte, written lazily
@@ -180,8 +181,8 @@ where
 
         let bytes_pos_start = self.num_bytes_written;
 
-        let node = match self.dedup_hash {
-            Some(_) => {
+        let node = match self.dedup_hash.enable {
+            true => {
                 if num_arcs == 0 {
                     let node = self.add_node(node_in_idx)?;
                     self.last_frozen_node = node;
@@ -190,7 +191,7 @@ where
                     NodeHash::add(node_in_idx, self)?
                 }
             },
-            _ => self.add_node(node_in_idx)?,
+            false => self.add_node(node_in_idx)?,
         };
 
         debug_assert!(node != -2);
