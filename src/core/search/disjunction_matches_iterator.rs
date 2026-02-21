@@ -20,7 +20,6 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A [`MatchesIterator`] that combines matches from a set of sub-iterators.
@@ -34,7 +33,7 @@ pub struct DisjunctionMatchesIterator<M>
 where
     M: MatchesIterator,
 {
-    queue: PriorityQueue<M, DisjunctionMatchesIteratorPQCmp<M>>,
+    queue: PriorityQueue<M, DisjunctionMatchesIteratorPQCmp>,
     started: bool,
 }
 impl<M> DisjunctionMatchesIterator<M>
@@ -44,12 +43,7 @@ where
     pub fn new(mut matches: Vec<M>) -> Result<Self> {
         debug_assert!(matches.len() <= i32::MAX as usize);
         let size = matches.len();
-        let mut queue = PriorityQueue::new(
-            size,
-            DisjunctionMatchesIteratorPQCmp {
-                _phantom: PhantomData,
-            },
-        )?;
+        let mut queue = PriorityQueue::new(size, DisjunctionMatchesIteratorPQCmp)?;
         for mut sub in matches.drain(..) {
             if sub.next()? {
                 queue.add(sub)?;
@@ -136,13 +130,8 @@ where
     }
 }
 
-pub(crate) struct DisjunctionMatchesIteratorPQCmp<M>
-where
-    M: MatchesIterator,
-{
-    _phantom: PhantomData<M>,
-}
-impl<M> Compare<M> for DisjunctionMatchesIteratorPQCmp<M>
+pub(crate) struct DisjunctionMatchesIteratorPQCmp;
+impl<M> Compare<M> for DisjunctionMatchesIteratorPQCmp
 where
     M: MatchesIterator,
 {

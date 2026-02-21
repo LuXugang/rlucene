@@ -555,7 +555,6 @@ impl SubIterator {
         }
     }
 }
-#[derive(Default)]
 struct SubIteratorCmp;
 impl Compare<SubIterator> for SubIteratorCmp {
     fn less_than(&self, a: &SubIterator, b: &SubIterator) -> Result<bool> {

@@ -2573,7 +2573,6 @@ impl MergeReaderCmp {
         }
     }
 }
-#[allow(clippy::comparison_chain)]
 impl<S, CR> Compare<MergeReader<S, CR>> for MergeReaderCmp
 where
     S: PointValues,
