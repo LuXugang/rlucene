@@ -285,16 +285,17 @@ where
     }
 }
 
-impl<LR> SegmentCacheable<LR> for TermWeight<LR>
+impl<LR> SegmentCacheable for TermWeight<LR>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<LR> Weight<LR> for TermWeight<LR>
+impl<LR> Weight for TermWeight<LR>
 where
     LR: LeafReader + 'static,
 {
@@ -541,10 +542,11 @@ where
         Ok(Some(()))
     }
 }
-impl<LR> ScorerSupplier<LR> for TermScorerSupplier<LR>
+impl<LR> ScorerSupplier for TermScorerSupplier<LR>
 where
     LR: LeafReader + 'static,
 {
+    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
 

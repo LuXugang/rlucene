@@ -178,16 +178,17 @@ where
         }
     }
 }
-impl<LR> SegmentCacheable<LR> for WeightImpl<LR>
+impl<LR> SegmentCacheable for WeightImpl<LR>
 where
     LR: LeafReader + 'static,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         self.inner_weight.is_cacheable(ctx)
     }
 }
 
-impl<LR> Weight<LR> for WeightImpl<LR>
+impl<LR> Weight for WeightImpl<LR>
 where
     LR: LeafReader + 'static,
 {
@@ -248,10 +249,11 @@ where
         }
     }
 }
-impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl<LR>
+impl<LR> ScorerSupplier for ScorerSupplierImpl<LR>
 where
     LR: LeafReader + 'static,
 {
+    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
 
@@ -446,15 +448,16 @@ where
         Self { inner }
     }
 }
-impl<LR> SegmentCacheable<LR> for ConstantScoreQueryWeight<LR>
+impl<LR> SegmentCacheable for ConstantScoreQueryWeight<LR>
 where
     LR: LeafReader + 'static,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         self.inner.is_cacheable(ctx)
     }
 }
-impl<LR> Weight<LR> for ConstantScoreQueryWeight<LR>
+impl<LR> Weight for ConstantScoreQueryWeight<LR>
 where
     LR: LeafReader + 'static,
 {
@@ -492,7 +495,7 @@ where
     fn bulk_scorer(
         &self,
         _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         self.inner.bulk_scorer(_context)
     }
 

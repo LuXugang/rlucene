@@ -49,16 +49,17 @@ impl Default for DummyWeight<DummyLeafReader> {
     }
 }
 
-impl<LR> SegmentCacheable<LR> for DummyWeight<LR>
+impl<LR> SegmentCacheable for DummyWeight<LR>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl<LR> Weight<LR> for DummyWeight<LR>
+impl<LR> Weight for DummyWeight<LR>
 where
     LR: LeafReader,
 {
@@ -91,11 +92,11 @@ where
     fn scorer(
         &self,
         _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type ScorerSupplier = DummyScorerSupplier;
+    type ScorerSupplier = DummyScorerSupplier<LR>;
 
     fn scorer_supplier(
         &self,
@@ -107,7 +108,7 @@ where
     fn bulk_scorer(
         &self,
         _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -60,7 +60,7 @@ impl Collector for TotalHitCountCollector {
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
-        W: Weight<LR> + ?Sized,
+        W: Weight<LeafReader = LR> + ?Sized,
     {
         let leaf_count = match weight {
             Some(w) => w.count(context)?,

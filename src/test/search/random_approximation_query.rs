@@ -139,16 +139,17 @@ where
     }
 }
 
-impl<LR> SegmentCacheable<LR> for RandomApproximationWeight<LR>
+impl<LR> SegmentCacheable for RandomApproximationWeight<LR>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         self.in_.is_cacheable(ctx)
     }
 }
 
-impl<LR> Weight<LR> for RandomApproximationWeight<LR>
+impl<LR> Weight for RandomApproximationWeight<LR>
 where
     LR: LeafReader,
 {

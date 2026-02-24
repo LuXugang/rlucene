@@ -718,17 +718,18 @@ where
     }
 }
 
-impl<P, LR> SegmentCacheable<LR> for CachingWrapperWeight<P, LR>
+impl<P, LR> SegmentCacheable for CachingWrapperWeight<P, LR>
 where
     P: Predicate<TopParentMeta>,
     LR: LeafReader,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         self.in_.is_cacheable(ctx)
     }
 }
 
-impl<P, LR> Weight<LR> for CachingWrapperWeight<P, LR>
+impl<P, LR> Weight for CachingWrapperWeight<P, LR>
 where
     P: Predicate<TopParentMeta> + 'static,
     LR: LeafReader + 'static,
@@ -908,12 +909,13 @@ where
 }
 #[allow(clippy::upper_case_acronyms)]
 pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, CacheAndCountDISI>;
-impl<C, P, LR> ScorerSupplier<LR> for ScorerSupplierImpl1<C, P, LR>
+impl<C, P, LR> ScorerSupplier for ScorerSupplierImpl1<C, P, LR>
 where
     LR: LeafReader,
     C: CacheHelper,
     P: Predicate<TopParentMeta>,
 {
+    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
 
@@ -947,20 +949,32 @@ where
     }
 }
 
-pub struct ScorerSupplierImpl2 {
-    disi: CacheAndCountDISI,
-    cost: i64,
-}
-impl ScorerSupplierImpl2 {
-    pub(crate) fn new(disi: CacheAndCountDISI) -> Result<Self> {
-        let cost = disi.cost()?;
-        Ok(Self { disi, cost })
-    }
-}
-impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl2
+pub struct ScorerSupplierImpl2<LR>
 where
     LR: LeafReader,
 {
+    disi: CacheAndCountDISI,
+    cost: i64,
+    _marker: PhantomData<LR>,
+}
+impl<LR> ScorerSupplierImpl2<LR>
+where
+    LR: LeafReader,
+{
+    pub(crate) fn new(disi: CacheAndCountDISI) -> Result<Self> {
+        let cost = disi.cost()?;
+        Ok(Self {
+            disi,
+            cost,
+            _marker: PhantomData,
+        })
+    }
+}
+impl<LR> ScorerSupplier for ScorerSupplierImpl2<LR>
+where
+    LR: LeafReader,
+{
+    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
 

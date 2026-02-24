@@ -30,28 +30,28 @@ use std::sync::Arc;
 ///
 /// Objects that are not segment-immutable, such as those that rely on global statistics or
 /// scores, should return `false`.
-pub trait SegmentCacheable<LR>
-where
-    LR: LeafReader,
-{
+pub trait SegmentCacheable {
+    type LeafReader: LeafReader;
     /// Returns `Ok(true)` if the object can be cached against a given leaf.
-    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool>;
+    fn is_cacheable(&self, ctx: &LeafReaderContext<Self::LeafReader>) -> Result<bool>;
 }
 
-impl<LR, T> SegmentCacheable<LR> for Arc<T>
+impl<LR, T> SegmentCacheable for Arc<T>
 where
     LR: LeafReader,
-    T: SegmentCacheable<LR>,
+    T: SegmentCacheable<LeafReader = LR>,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         self.as_ref().is_cacheable(ctx)
     }
 }
-impl<LR, T> SegmentCacheable<LR> for Box<T>
+impl<LR, T> SegmentCacheable for Box<T>
 where
     LR: LeafReader,
-    T: SegmentCacheable<LR> + ?Sized,
+    T: SegmentCacheable<LeafReader = LR> + ?Sized,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         self.as_ref().is_cacheable(ctx)
     }

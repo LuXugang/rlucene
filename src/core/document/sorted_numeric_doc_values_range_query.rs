@@ -269,17 +269,18 @@ where
     }
 }
 
-impl<LR> SegmentCacheable<LR> for SortedNumericDocValuesRangeQueryWeight<LR>
+impl<LR> SegmentCacheable for SortedNumericDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         let field = vec![self.query.field.clone()];
         DocValues::is_cacheable(ctx, field.as_ref())
     }
 }
 
-impl<LR> Weight<LR> for SortedNumericDocValuesRangeQueryWeight<LR>
+impl<LR> Weight for SortedNumericDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader + 'static,
 {

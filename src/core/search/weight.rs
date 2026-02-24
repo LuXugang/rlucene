@@ -31,6 +31,7 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Expert: Calculate query weights and build query scorers.
@@ -51,10 +52,7 @@ use std::sync::Arc;
 /// 1. A `Weight` is constructed by a top-level query, given an [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher)
 ///    (see `Query::create_weight`).
 /// 2. A `Scorer` is constructed by [`Weight::scorer`].
-pub trait Weight<LR>: SegmentCacheable<LR>
-where
-    LR: LeafReader,
-{
+pub trait Weight: SegmentCacheable {
     type Matches: Matches;
     /// Returns [`Matches`] for a specific document, or `None` if the document
     /// does not match the parent query.
@@ -66,10 +64,14 @@ where
     /// # Parameters
     /// - `context`: the reader's context to create the [`Matches`] for
     /// - `doc`: the document's id relative to the given context's reader
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>>;
+    fn matches(
+        &self,
+        context: &LeafReaderContext<Self::LeafReader>,
+        doc: i32,
+    ) -> Result<Option<Self::Matches>>;
     fn default_matches(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<Self::LeafReader>,
         doc: i32,
     ) -> Result<Option<MatchWithNoTerms>> {
         let scorer_supplier = self.scorer_supplier(context)?;
@@ -94,7 +96,11 @@ where
     /// # Parameters
     /// - `context`: the reader's context to create the [`Explanation`] for
     /// - `doc`: the document's id relative to the given context's reader
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation>;
+    fn explain(
+        &self,
+        context: &LeafReaderContext<Self::LeafReader>,
+        doc: i32,
+    ) -> Result<Explanation>;
 
     fn get_query(&self) -> Arc<Query>;
 
@@ -123,8 +129,8 @@ where
     /// Returns an error if a low-level I/O error occurs.
     fn scorer(
         &self,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
+        context: &LeafReaderContext<Self::LeafReader>,
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
             None => return Ok(None),
             Some(s) => s,
@@ -132,7 +138,7 @@ where
         Ok(Some(scorer_supplier.get(i64::MAX, context)?))
     }
 
-    type ScorerSupplier: ScorerSupplier<LR>;
+    type ScorerSupplier: ScorerSupplier<LeafReader = Self::LeafReader>;
     /// Get a [`ScorerSupplier`], which allows knowing the cost of the `Scorer`
     /// before building it.
     ///
@@ -161,7 +167,7 @@ where
     /// - [`DefaultScorerSupplier`]
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>>;
     /// Helper method that delegates to [`Weight::scorer_supplier`].
     ///
@@ -169,8 +175,8 @@ where
     /// multiple times as part of a single search call.
     fn bulk_scorer(
         &self,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
+        context: &LeafReaderContext<Self::LeafReader>,
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
             None => return Ok(None),
             Some(s) => s,
@@ -207,17 +213,17 @@ where
     /// # Errors
     ///
     /// Returns an error if a low-level I/O error occurs.
-    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         self.default_count(context)
     }
-    fn default_count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn default_count(&self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         Ok(-1)
     }
 }
-impl<LR, T> Weight<LR> for Box<T>
+impl<LR, T> Weight for Box<T>
 where
     LR: LeafReader,
-    T: Weight<LR> + ?Sized,
+    T: Weight<LeafReader = LR> + ?Sized,
 {
     type Matches = T::Matches;
 
@@ -244,7 +250,7 @@ where
     fn scorer(
         &self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
         (**self).scorer(context)
     }
 
@@ -260,7 +266,7 @@ where
     fn bulk_scorer(
         &self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         (**self).bulk_scorer(context)
     }
 
@@ -273,10 +279,10 @@ where
     }
 }
 
-impl<LR, T> Weight<LR> for Arc<T>
+impl<LR, T> Weight for Arc<T>
 where
     LR: LeafReader,
-    T: Weight<LR>,
+    T: Weight<LeafReader = LR>,
 {
     type Matches = T::Matches;
     fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
@@ -294,7 +300,7 @@ where
     fn scorer(
         &self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
         (**self).scorer(context)
     }
 
@@ -310,7 +316,7 @@ where
     fn bulk_scorer(
         &self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         (**self).bulk_scorer(context)
     }
 
@@ -323,7 +329,6 @@ where
     }
 }
 
-pub type WeightScorerSupplier<W, LR> = <W as Weight<LR>>::ScorerSupplier;
 /// Just wraps a Scorer and performs top scoring using it.
 pub struct DefaultBulkScorer<S>
 where
@@ -385,27 +390,32 @@ where
         self.scorer.iterator_mut().cost()
     }
 }
-pub struct DefaultScorerSupplier<S>
+pub struct DefaultScorerSupplier<S, LR>
 where
+    LR: LeafReader,
     S: Scorer,
 {
     scorer: Option<S>,
+    _marker: PhantomData<LR>,
 }
-impl<S> DefaultScorerSupplier<S>
+impl<S, LR> DefaultScorerSupplier<S, LR>
 where
+    LR: LeafReader,
     S: Scorer,
 {
     pub fn new(scorer: S) -> Self {
         Self {
             scorer: Some(scorer),
+            _marker: PhantomData,
         }
     }
 }
-impl<S, LR> ScorerSupplier<LR> for DefaultScorerSupplier<S>
+impl<S, LR> ScorerSupplier for DefaultScorerSupplier<S, LR>
 where
     LR: LeafReader,
     S: Scorer + 'static,
 {
+    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
 

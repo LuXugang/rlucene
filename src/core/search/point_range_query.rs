@@ -380,16 +380,17 @@ where
     }
 }
 
-impl<LR> SegmentCacheable<LR> for PointRangeWeight<LR>
+impl<LR> SegmentCacheable for PointRangeWeight<LR>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<LR> Weight<LR> for PointRangeWeight<LR>
+impl<LR> Weight for PointRangeWeight<LR>
 where
     LR: LeafReader + 'static,
     <LR as LeafReader>::PointValues: 'static,
@@ -623,8 +624,9 @@ pub(crate) fn relate(
         Ok(Relation::CellInsideQuery)
     }
 }
-pub struct ScorerSupplierImpl1<PV>
+pub struct ScorerSupplierImpl1<LR, PV>
 where
+    LR: LeafReader,
     PV: PointValues,
 {
     score: f32,
@@ -632,9 +634,11 @@ where
     values: PV,
     visitor: IntersectVisitorImpl1,
     cost: i64,
+    _marker: PhantomData<LR>,
 }
-impl<PV> ScorerSupplierImpl1<PV>
+impl<LR, PV> ScorerSupplierImpl1<LR, PV>
 where
+    LR: LeafReader,
     PV: PointValues,
 {
     pub fn new(
@@ -649,13 +653,15 @@ where
             values,
             visitor,
             cost: -1,
+            _marker: PhantomData,
         }
     }
 }
-impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl1<LR::PointValues>
+impl<LR> ScorerSupplier for ScorerSupplierImpl1<LR, LR::PointValues>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
 
@@ -709,24 +715,33 @@ where
         Ok(self.cost)
     }
 }
-pub struct ScorerSupplierImpl {
+pub struct ScorerSupplierImpl<LR>
+where
+    LR: LeafReader,
+{
     score_mode: ScoreMode,
     max_doc: i32,
     score: f32,
+    _marker: PhantomData<LR>,
 }
-impl ScorerSupplierImpl {
+impl<LR> ScorerSupplierImpl<LR>
+where
+    LR: LeafReader,
+{
     pub fn new(score: f32, score_mode: ScoreMode, max_doc: i32) -> Self {
         Self {
             score,
             score_mode,
             max_doc,
+            _marker: PhantomData,
         }
     }
 }
-impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl
+impl<LR> ScorerSupplier for ScorerSupplierImpl<LR>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
 

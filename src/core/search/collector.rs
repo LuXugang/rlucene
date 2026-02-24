@@ -59,7 +59,7 @@ pub trait Collector {
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
-        W: Weight<LR> + ?Sized;
+        W: Weight<LeafReader = LR> + ?Sized;
 
     /// Indicates what features are required from the scorer.
     fn score_mode(&self) -> ScoreMode;

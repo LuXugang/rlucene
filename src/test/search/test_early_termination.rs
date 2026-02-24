@@ -102,7 +102,7 @@ impl Collector for SimpleCollectorImpl {
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
-        W: Weight<LR> + ?Sized,
+        W: Weight<LeafReader = LR> + ?Sized,
     {
         SimpleCollector::get_leaf_collector(self, context, weight)?;
         Ok(self)

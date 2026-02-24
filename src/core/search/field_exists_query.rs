@@ -233,10 +233,11 @@ where
     }
 }
 
-impl<LR> SegmentCacheable<LR> for FieldExistsWeight<LR>
+impl<LR> SegmentCacheable for FieldExistsWeight<LR>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         let field_infos = ctx.reader().get_field_infos()?;
         let field_info = field_infos.field_info_by_name(&self.query.field);
@@ -251,7 +252,7 @@ where
     }
 }
 pub type Disi<LR> = DocIdSetIteratorEnum3<LRNormNumericDocValues<LR>, DummyDISI, LRDisis<LR>>;
-impl<LR> Weight<LR> for FieldExistsWeight<LR>
+impl<LR> Weight for FieldExistsWeight<LR>
 where
     LR: LeafReader + 'static,
 {

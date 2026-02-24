@@ -792,10 +792,11 @@ where
 pub type FilteredOptionalBulkScorer<S> =
     MaxScoreBulkScorer<S, ScorerEnum2<S, ConjunctionScorer<S>>>;
 
-impl<LR> ScorerSupplier<LR> for BooleanScorerSupplier<LR>
+impl<LR> ScorerSupplier for BooleanScorerSupplier<LR>
 where
     LR: LeafReader + 'static,
 {
+    type LeafReader = LR;
     // type Scorer = GetType<SsScorer<LR>>;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
@@ -1171,7 +1172,8 @@ mod tests {
             Box::new(v)
         }
     }
-    impl ScorerSupplier<DummyLeafReader> for FakeScorerSupplier {
+    impl ScorerSupplier for FakeScorerSupplier {
+        type LeafReader = DummyLeafReader;
         type Scorer = QueryWeightSsScorer;
         type BulkScorer = QueryWeightSsBulkScorer;
 

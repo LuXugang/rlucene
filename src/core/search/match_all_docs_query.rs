@@ -142,16 +142,17 @@ where
     }
 }
 
-impl<LR> SegmentCacheable<LR> for MatchAllWeight<LR>
+impl<LR> SegmentCacheable for MatchAllWeight<LR>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<LR> Weight<LR> for MatchAllWeight<LR>
+impl<LR> Weight for MatchAllWeight<LR>
 where
     LR: LeafReader + 'static,
 {
@@ -197,24 +198,33 @@ where
         write!(f, "weight({:?})", MatchAllDocsQuery::new())
     }
 }
-pub struct MatchAllDocsScorerSupplier {
+pub struct MatchAllDocsScorerSupplier<LR>
+where
+    LR: LeafReader,
+{
     score_mode: ScoreMode,
     weight: ConstantScoreWeight,
     max_doc: i32,
+    _marker: PhantomData<LR>,
 }
-impl MatchAllDocsScorerSupplier {
+impl<LR> MatchAllDocsScorerSupplier<LR>
+where
+    LR: LeafReader,
+{
     pub fn new(score_mode: ScoreMode, weight: ConstantScoreWeight, max_doc: i32) -> Self {
         Self {
             score_mode,
             weight,
             max_doc,
+            _marker: PhantomData,
         }
     }
 }
-impl<LR> ScorerSupplier<LR> for MatchAllDocsScorerSupplier
+impl<LR> ScorerSupplier for MatchAllDocsScorerSupplier<LR>
 where
     LR: LeafReader + 'static,
 {
+    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
 

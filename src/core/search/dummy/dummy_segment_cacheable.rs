@@ -47,10 +47,11 @@ where
     }
 }
 
-impl<LR> SegmentCacheable<LR> for DummySegmentCacheable<LR>
+impl<LR> SegmentCacheable for DummySegmentCacheable<LR>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

@@ -25,12 +25,10 @@ use std::any::Any;
 /// A supplier of `Scorer`.
 ///
 /// This allows to get an estimate of the cost before building the `Scorer`.
-pub trait ScorerSupplier<LR>
-where
-    LR: LeafReader,
-{
+pub trait ScorerSupplier {
     type Scorer: Scorer;
     type BulkScorer: BulkScorer;
+    type LeafReader: LeafReader;
 
     /// Get the `Scorer`.
     /// This must be called at most once.
@@ -43,17 +41,24 @@ where
     ///   [`TwoPhaseIterator::matches`](crate::core::search::two_phase_iterator::TwoPhaseIterator::matches) will be called.
     ///   If in doubt, pass `i64::MAX`, which will produce a `Scorer` that has good iteration capabilities.
     /// - `context`: The [`LeafReaderContext`] that this scorer supplier was created for.
-    fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer>;
+    fn get(
+        &mut self,
+        lead_cost: i64,
+        context: &LeafReaderContext<Self::LeafReader>,
+    ) -> Result<Self::Scorer>;
 
     /// Optional: Get a bulk scorer that is optimized for bulk-scoring.
     ///
     /// The default implementation wraps `get(i64::MAX)` in a `DefaultBulkScorer`,
     /// which iterates matches from the scorer. Some queries can have more efficient
     /// approaches for matching all hits.
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>>;
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<Self::LeafReader>,
+    ) -> Result<Option<Self::BulkScorer>>;
     fn default_bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<DefaultBulkScorer<Self::Scorer>> {
         let scorer = self.get(i64::MAX, context)?;
         Ok(DefaultBulkScorer::new(scorer))
@@ -63,7 +68,7 @@ where
     /// This may be a costly operation, so it should only be called if necessary.
     ///
     /// Corresponds to [`DocIdSetIterator::cost`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost).
-    fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64>;
+    fn cost(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i64>;
 
     /// Inform this [`ScorerSupplier`] that its returned scorers produce scores that get passed
     /// to the collector, as opposed to partial scores that then need to get combined (e.g. summed up).
@@ -92,13 +97,14 @@ macro_rules! either_scorer_supplier {
             $( $Variant($T), )+
         }
 
-        impl<LR, $( $T ),+> ScorerSupplier<LR> for $name<$( $T ),+>
+        impl<LR, $( $T ),+> ScorerSupplier for $name<$( $T ),+>
         where
             LR: LeafReader,
-            $( $T: ScorerSupplier<LR> ),+
+            $( $T: ScorerSupplier<LeafReader = LR> ),+
         {
-            type Scorer = $scorer<$( <$T as ScorerSupplier<LR>>::Scorer ),+>;
-            type BulkScorer = $bulk<$( <$T as ScorerSupplier<LR>>::BulkScorer ),+>;
+    type LeafReader = LR;
+            type Scorer = $scorer<$( <$T as ScorerSupplier>::Scorer ),+>;
+            type BulkScorer = $bulk<$( <$T as ScorerSupplier>::BulkScorer ),+>;
 
             fn get(
                 &mut self,
@@ -158,11 +164,12 @@ macro_rules! either_scorer_supplier {
     };
 }
 
-impl<LR, T> ScorerSupplier<LR> for Box<T>
+impl<LR, T> ScorerSupplier for Box<T>
 where
     LR: LeafReader,
-    T: ScorerSupplier<LR> + ?Sized,
+    T: ScorerSupplier<LeafReader = LR> + ?Sized,
 {
+    type LeafReader = LR;
     type Scorer = T::Scorer;
     type BulkScorer = T::BulkScorer;
 

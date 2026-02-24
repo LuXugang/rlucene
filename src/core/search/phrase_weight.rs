@@ -58,17 +58,18 @@ where
         Ok(Self { stats, sub })
     }
 }
-impl<LR, S> SegmentCacheable<LR> for PhraseWeight<LR, S>
+impl<LR, S> SegmentCacheable for PhraseWeight<LR, S>
 where
     LR: LeafReader,
     S: PhraseWeightBase<LR>,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<LR, S> Weight<LR> for PhraseWeight<LR, S>
+impl<LR, S> Weight for PhraseWeight<LR, S>
 where
     LR: LeafReader + 'static,
     LRImpactsEnum<LR>: 'static,

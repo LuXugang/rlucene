@@ -432,13 +432,14 @@ where {
         }
     }
 
-    impl SegmentCacheable<DummyLeafReader> for DummyQueryImplWeight {
+    impl SegmentCacheable for DummyQueryImplWeight {
+        type LeafReader = DummyLeafReader;
         fn is_cacheable(&self, _ctx: &LeafReaderContext<DummyLeafReader>) -> Result<bool> {
             Ok(true)
         }
     }
 
-    impl Weight<DummyLeafReader> for DummyQueryImplWeight {
+    impl Weight for DummyQueryImplWeight {
         type Matches = MatchWithNoTerms;
 
         fn matches(
@@ -461,8 +462,10 @@ where {
             unreachable!()
         }
 
-        type ScorerSupplier =
-            DefaultScorerSupplier<ConstantScoreScorer<DocIdSetIteratorImpl, DummyTwoPhaseIterator>>;
+        type ScorerSupplier = DefaultScorerSupplier<
+            ConstantScoreScorer<DocIdSetIteratorImpl, DummyTwoPhaseIterator>,
+            DummyLeafReader,
+        >;
 
         fn scorer_supplier(
             &self,

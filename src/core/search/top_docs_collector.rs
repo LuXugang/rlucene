@@ -358,7 +358,7 @@ mod tests {
         ) -> Result<Self::LeafCollector<'a, LR>>
         where
             LR: LeafReader,
-            W: Weight<LR> + ?Sized,
+            W: Weight<LeafReader = LR> + ?Sized,
         {
             let base = context.doc_base;
             Ok(LeafCollectorImpl::new(self, base, SCORES))

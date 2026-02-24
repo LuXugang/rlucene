@@ -125,10 +125,11 @@ where
     }
 }
 
-impl<LR> SegmentCacheable<LR> for BooleanWeight<LR>
+impl<LR> SegmentCacheable for BooleanWeight<LR>
 where
     LR: LeafReader + 'static,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         // Disallow caching large boolean queries to not encourage users
         // to build large boolean queries as a workaround to the fact that
@@ -147,7 +148,7 @@ where
     }
 }
 
-impl<LR> Weight<LR> for BooleanWeight<LR>
+impl<LR> Weight for BooleanWeight<LR>
 where
     LR: LeafReader + 'static,
 {

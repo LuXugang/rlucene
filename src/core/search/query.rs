@@ -54,10 +54,16 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub type QueryWeight<LR> =
-    Box<dyn Weight<LR, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<LR>>>;
-pub type QueryWeightSs<LR> =
-    Box<dyn ScorerSupplier<LR, BulkScorer = QueryWeightSsBulkScorer, Scorer = QueryWeightSsScorer>>;
+pub type QueryWeight<LR> = Box<
+    dyn Weight<LeafReader = LR, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<LR>>,
+>;
+pub type QueryWeightSs<LR> = Box<
+    dyn ScorerSupplier<
+            LeafReader = LR,
+            BulkScorer = QueryWeightSsBulkScorer,
+            Scorer = QueryWeightSsScorer,
+        >,
+>;
 pub type QueryWeightSsBulkScorer = Box<dyn BulkScorer>;
 pub type QueryWeightSsScorer = Box<dyn Scorer>;
 

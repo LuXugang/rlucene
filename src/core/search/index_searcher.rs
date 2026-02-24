@@ -439,7 +439,7 @@ where
     ) -> Result<CM::T>
     where
         CM: CollectorManager,
-        W: Weight<IRCLeafReader<IRC>> + ?Sized,
+        W: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
     {
         let leaf_slices = self.get_slices()?;
         if leaf_slices.is_empty() {
@@ -478,7 +478,7 @@ where
     ) -> Result<()>
     where
         C: Collector,
-        W: Weight<IRCLeafReader<IRC>> + ?Sized,
+        W: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
     {
         // we pass `Weight` to `Collector` via parameter in Rust Lucene
         // collector.set_weight(weight)?;
@@ -505,7 +505,7 @@ where
     ) -> Result<()>
     where
         C: Collector,
-        W: Weight<IRCLeafReader<IRC>> + ?Sized,
+        W: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
     {
         let ctx = &self.reader_context.leaves()?[ctx_ord];
         let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight)) {

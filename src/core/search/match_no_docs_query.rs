@@ -150,16 +150,17 @@ where
     }
 }
 
-impl<LR> SegmentCacheable<LR> for MatchNoDocsWeight<LR>
+impl<LR> SegmentCacheable for MatchNoDocsWeight<LR>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<LR> Weight<LR> for MatchNoDocsWeight<LR>
+impl<LR> Weight for MatchNoDocsWeight<LR>
 where
     LR: LeafReader + 'static,
 {

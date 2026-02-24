@@ -2392,16 +2392,17 @@ pub(crate) mod tests {
         }
     }
 
-    impl<LR> SegmentCacheable<LR> for MaxScoreWrapperQueryWeight<LR>
+    impl<LR> SegmentCacheable for MaxScoreWrapperQueryWeight<LR>
     where
         LR: LeafReader,
     {
+        type LeafReader = LR;
         fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
             self.weight.is_cacheable(ctx)
         }
     }
 
-    impl<LR> Weight<LR> for MaxScoreWrapperQueryWeight<LR>
+    impl<LR> Weight for MaxScoreWrapperQueryWeight<LR>
     where
         LR: LeafReader + 'static,
     {
@@ -2459,10 +2460,11 @@ pub(crate) mod tests {
             }
         }
     }
-    impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl<LR>
+    impl<LR> ScorerSupplier for ScorerSupplierImpl<LR>
     where
         LR: LeafReader,
     {
+        type LeafReader = LR;
         type Scorer = QueryWeightSsScorer;
         type BulkScorer = QueryWeightSsBulkScorer;
 
@@ -2589,16 +2591,17 @@ pub(crate) mod tests {
         }
     }
 
-    impl<LR> SegmentCacheable<LR> for WANDScorerQueryWeight<LR>
+    impl<LR> SegmentCacheable for WANDScorerQueryWeight<LR>
     where
         LR: LeafReader,
     {
+        type LeafReader = LR;
         fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
             Ok(false)
         }
     }
 
-    impl<LR> Weight<LR> for WANDScorerQueryWeight<LR>
+    impl<LR> Weight for WANDScorerQueryWeight<LR>
     where
         LR: LeafReader,
     {

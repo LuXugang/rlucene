@@ -20,13 +20,26 @@ use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::util::error::lucene_error::Result;
+use std::marker::PhantomData;
 
-pub struct DummyScorerSupplier;
+pub struct DummyScorerSupplier<LR>(PhantomData<LR>)
+where
+    LR: LeafReader;
 
-impl<LR> ScorerSupplier<LR> for DummyScorerSupplier
+impl<LR> Default for DummyScorerSupplier<LR>
 where
     LR: LeafReader,
 {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<LR> ScorerSupplier for DummyScorerSupplier<LR>
+where
+    LR: LeafReader,
+{
+    type LeafReader = LR;
     type Scorer = DummyScorer;
     type BulkScorer = DummyBulkScorer;
 

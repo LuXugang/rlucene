@@ -55,6 +55,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::hash::{Hash, Hasher};
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -220,10 +221,11 @@ where
 }
 pub type Disi<LR> = <SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues;
 
-impl<LR> SegmentCacheable<LR> for IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
+impl<LR> SegmentCacheable for IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader,
 {
+    type LeafReader = LR;
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         // Both queries should always return the same values, so we can just check
         // if the fallback query is cacheable.
@@ -231,7 +233,7 @@ where
     }
 }
 
-impl<LR> Weight<LR> for IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
+impl<LR> Weight for IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader + 'static,
 {
@@ -380,8 +382,9 @@ where
     }
 }
 
-pub struct ScorerSupplierImpl<D>
+pub struct ScorerSupplierImpl<LR, D>
 where
+    LR: LeafReader,
     D: DocIdSetIterator,
 {
     disi: Option<IteratorAndCountDisi<D>>,
@@ -391,9 +394,11 @@ where
     upper_value: i64,
     field: String,
     score: f32,
+    _marker: PhantomData<LR>,
 }
-impl<D> ScorerSupplierImpl<D>
+impl<LR, D> ScorerSupplierImpl<LR, D>
 where
+    LR: LeafReader,
     D: DocIdSetIterator,
 {
     pub fn new(
@@ -413,13 +418,15 @@ where
             upper_value,
             field,
             score,
+            _marker: PhantomData,
         })
     }
 }
-impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl<Disi<LR>>
+impl<LR> ScorerSupplier for ScorerSupplierImpl<LR, Disi<LR>>
 where
     LR: LeafReader + 'static,
 {
+    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
 
@@ -1934,8 +1941,8 @@ mod tests {
         searcher: &IndexSearcher<IRC>,
     ) -> Result<()>
     where
-        W1: Weight<IRCLeafReader<IRC>> + ?Sized,
-        W2: Weight<IRCLeafReader<IRC>> + ?Sized,
+        W1: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
+        W2: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
         IRC: IndexReaderContext,
     {
         for ctx in searcher.get_leaf_contexts()? {
