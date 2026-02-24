@@ -357,7 +357,7 @@ impl Builder {
     /// stopwords).
     ///
     /// If the position is equal, you most likely should be using
-    /// [`MultiPhraseQuery`](crate::core::search::multi_phrase_query::MultiPhraseQuery) instead, which only requires one term at each position
+    /// `MultiPhraseQuery` instead, which only requires one term at each position
     /// to match; this class requires all of them.
     pub fn add(&mut self, term: Term, position: usize) -> Result<&mut Self> {
         if let Some(&last_position) = self.positions.last()

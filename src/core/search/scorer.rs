@@ -118,7 +118,7 @@ pub trait Scorer: Scorable {
     /// returns `Some`), then this method must return the approximation of the
     /// two-phase iterator.
     ///
-    /// Otherwise, this method must return the same iterator as [`iterator`].
+    /// Otherwise, this method must return the same iterator as [`Self::iterator`].
     ///
     /// # Warning
     /// The returned iterator is a *view*: calling this method several times must
@@ -131,7 +131,7 @@ pub trait Scorer: Scorable {
     /// returns `Some`), then this method must return the mutable approximation of the
     /// two-phase iterator.
     ///
-    /// Otherwise, this method must return the same iterator as [`iterator_mut`].
+    /// Otherwise, this method must return the same iterator as [`Self::iterator_mut`].
     ///
     /// # Warning
     /// The returned iterator is a *view*: calling this method several times must
