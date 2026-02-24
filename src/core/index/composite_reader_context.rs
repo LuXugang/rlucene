@@ -50,7 +50,8 @@ where
     let base = IndexReaderContextBase::new(true, 0, 0);
     let mut builder = Builder::<CR::LeafReader>::new();
     builder.build(&v, 0, 0)?;
-    let leaves = builder.leaves.take().unwrap();
+    let max_doc = builder.max_doc;
+    let leaves = builder.leaves;
     let reader = match v {
         IndexReaderEnum::Composite(composite_reader) => composite_reader,
         _ => {
@@ -66,7 +67,7 @@ where
     };
     let top_parent_meta = TopParentMeta {
         leaves_num: ctx.leaves.len(),
-        max_doc: builder.max_doc,
+        max_doc,
         id: ctx.base.id().clone(),
     };
     ctx.leaves.iter_mut().for_each(|leaf| {
@@ -103,7 +104,7 @@ where
     LR: LeafReader,
 {
     // for easy taken
-    pub(crate) leaves: Option<Vec<LeafReaderContext<LR>>>,
+    pub(crate) leaves: Vec<LeafReaderContext<LR>>,
     pub(crate) leaf_doc_base: usize,
     pub(crate) max_doc: i32,
 }
@@ -113,7 +114,7 @@ where
 {
     fn new() -> Self {
         Self {
-            leaves: Some(Vec::new()),
+            leaves: Vec::new(),
             leaf_doc_base: 0,
             max_doc: 0,
         }
@@ -134,7 +135,7 @@ where
     {
         match &reader {
             IndexReaderEnum::Leaf(ar) => {
-                let leaves_size = self.leaves.as_ref().unwrap().len();
+                let leaves_size = self.leaves.len();
                 let atomic = LeafReaderContext::new(
                     ar.clone(),
                     ord,
@@ -143,7 +144,7 @@ where
                     self.leaf_doc_base,
                     TopParentMeta::default(),
                 );
-                self.leaves.as_mut().unwrap().push(atomic);
+                self.leaves.push(atomic);
                 let max_doc = ar.max_doc()?;
                 self.leaf_doc_base += max_doc.try_convert()?;
                 self.max_doc += max_doc;
