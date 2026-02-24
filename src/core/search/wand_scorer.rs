@@ -2340,7 +2340,7 @@ pub(crate) mod tests {
         where
             IRC: IndexReaderContext,
             Self: Sized,
-            <IRC as IndexReaderContext>::LeafReader: 'static,
+            IRCLeafReader<IRC>: 'static,
         {
             let weight =
                 self.query
@@ -2526,7 +2526,7 @@ pub(crate) mod tests {
         where
             IRC: IndexReaderContext,
             Self: Sized,
-            <IRC as IndexReaderContext>::LeafReader: 'static,
+            IRCLeafReader<IRC>: 'static,
         {
             let w = self.query.clone().raw_weight(
                 searcher,

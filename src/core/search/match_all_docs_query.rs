@@ -98,7 +98,7 @@ impl QueryBase for MatchAllDocsQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         Ok(Box::new(MatchAllWeight::new(boost, self, *score_mode)))
     }

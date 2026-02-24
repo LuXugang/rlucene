@@ -98,7 +98,7 @@ impl QueryBase for BoostQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         self.query.create_weight(
             searcher,

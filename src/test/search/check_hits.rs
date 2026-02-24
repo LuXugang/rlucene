@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
@@ -206,7 +206,7 @@ impl CheckHits {
     where
         IRC: IndexReaderContext,
         R: Rng + ?Sized,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         // Check it computed the top hits correctly
         Self::do_check_top_scores(query, searcher, 1)?;
@@ -225,7 +225,7 @@ impl CheckHits {
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         let complete = TopScoreDocCollectorManager::with_after(num_hits, None, i32::MAX as usize)?;
         let top_scores = TopScoreDocCollectorManager::with_after(num_hits, None, 1)?;
@@ -250,7 +250,7 @@ impl CheckHits {
     where
         IRC: IndexReaderContext,
         R: Rng + ?Sized,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         query = searcher.rewrite(query)?;
 

@@ -130,7 +130,7 @@ impl QueryBase for TermQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         let context = searcher.get_top_reader_context();
         let term_state = match per_reader_term_state {

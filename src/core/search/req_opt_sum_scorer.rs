@@ -579,7 +579,7 @@ mod tests {
     use crate::core::document::float_point::FloatPoint;
     use crate::core::document::string_field::StringField;
     use crate::core::index::directory_reader::directory_reader_util;
-    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::term::Term;
     use crate::core::search::boolean_clause::Occur;
@@ -1007,7 +1007,7 @@ mod tests {
     where
         Q: Into<Query>,
         IRC: IndexReaderContext,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         let req_q = req_q.into();
         let opt_q = opt_q.into();

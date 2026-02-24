@@ -134,7 +134,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         let query = self.clone();
         let fallback_query = *self.fallback_query;
@@ -1358,7 +1358,7 @@ mod tests {
         IRC: IndexReaderContext,
         T1: Into<Query>,
         T2: Into<Query>,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         let irc = searcher.get_top_reader_context();
         let max_doc = irc.reader().max_doc()?;
@@ -1488,7 +1488,7 @@ mod tests {
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         let query = query.into();
 

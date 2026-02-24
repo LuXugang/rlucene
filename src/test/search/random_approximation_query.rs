@@ -96,7 +96,7 @@ impl QueryBase for RandomApproximationQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         todo!()
     }
