@@ -510,10 +510,6 @@ where
     fn default_count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
         self.inner.default_count(_context)
     }
-
-    fn is_weight_cacheable(&self) -> bool {
-        self.inner.is_weight_cacheable()
-    }
 }
 
 #[cfg(test)]

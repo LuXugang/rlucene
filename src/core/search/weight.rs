@@ -213,9 +213,6 @@ where
     fn default_count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
         Ok(-1)
     }
-    fn is_weight_cacheable(&self) -> bool {
-        true
-    }
 }
 impl<LR, T> Weight<LR> for Box<T>
 where
@@ -274,10 +271,6 @@ where
     fn default_count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
         (**self).default_count(_context)
     }
-
-    fn is_weight_cacheable(&self) -> bool {
-        (**self).is_weight_cacheable()
-    }
 }
 
 impl<LR, T> Weight<LR> for Arc<T>
@@ -327,10 +320,6 @@ where
 
     fn default_count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
         (**self).default_count(context)
-    }
-
-    fn is_weight_cacheable(&self) -> bool {
-        (**self).is_weight_cacheable()
     }
 }
 
