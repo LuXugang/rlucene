@@ -193,7 +193,7 @@ where
     type SimScorer: SimScorer + Clone;
     fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
     where
-        IRC: IndexReaderContext<LeafReader = LR> + 'static;
+        IRC: IndexReaderContext<LeafReader = LR>;
 
     fn get_phrase_matcher(
         &self,
