@@ -1244,6 +1244,7 @@ pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = DocIdSetIteratorEnum2<
 #[cfg(test)]
 mod tests {
     use crate::core::document::document::Document;
+    use std::rc::Rc;
 
     use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 
@@ -1363,12 +1364,11 @@ mod tests {
             let doc = Document::new();
             iw.add_document(doc)?;
         }
-        let ir_concurrent = iw.get_reader()?;
-        let ir_single = iw.get_reader()?;
+        let ir = Rc::new(iw.get_reader()?);
         iw.close()?;
 
-        let concurrent_searcher = new_searcher_with_threads(ir_concurrent, true, true, true)?;
-        let single_threaded_searcher = new_searcher_with_threads(ir_single, true, true, false)?;
+        let concurrent_searcher = new_searcher_with_threads(ir.clone(), true, true, true)?;
+        let single_threaded_searcher = new_searcher_with_threads(ir.clone(), true, true, false)?;
 
         // Two Sort criteria to instantiate the multi/single comparators.
         let sorts = [

@@ -32,6 +32,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
 };
 use rand::Rng;
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 #[allow(dead_code)] // for quick search
 struct TestEarlyTermination;
@@ -48,10 +49,10 @@ fn test_early_termination() -> Result<()> {
             writer.commit()?;
         }
     }
-    let reader = writer.get_reader()?;
-    let searcher = new_searcher_with_reader(reader)?;
+    let reader = Rc::new(writer.get_reader()?);
     let iter = at_least(&mut random, 5);
     for _ in 0..iter {
+        let searcher = new_searcher_with_reader(reader.clone())?;
         searcher.search_with_collector_manager_states(
             MatchAllDocsQuery::new(),
             &CollectorManagerImpl,
