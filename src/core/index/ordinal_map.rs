@@ -52,11 +52,11 @@ impl OrdinalMap {
 
         for dv in values.iter_mut() {
             let count = dv.get_value_count()? as i64;
-            subs.push(Some(dv.terms_enum()?));
+            subs.push(dv.terms_enum()?);
             weights.push(count);
         }
 
-        OrdinalMap::build(owner, &mut subs, &weights, acceptable_overhead_ratio)
+        OrdinalMap::build(owner, subs, &weights, acceptable_overhead_ratio)
     }
     /// Create an ordinal map that uses the number of unique values of each
     /// [`SortedSetDocValues`] instance as a weight.
@@ -76,11 +76,11 @@ impl OrdinalMap {
 
         for dv in values.iter_mut() {
             let count = dv.get_value_count()?;
-            subs.push(Some(dv.terms_enum()?));
+            subs.push(dv.terms_enum()?);
             weights.push(count);
         }
 
-        OrdinalMap::build(owner, &mut subs, &weights, acceptable_overhead_ratio)
+        OrdinalMap::build(owner, subs, &weights, acceptable_overhead_ratio)
     }
 
     /// Creates an ordinal map that allows mapping ords to/from a merged space from `subs`.
@@ -96,8 +96,7 @@ impl OrdinalMap {
     /// Returns an error if an I/O error occurs while building the map.
     pub fn build<TE>(
         owner: Option<CacheKey>,
-        // wrap with Option for easy taken
-        subs: &mut [Option<TE>],
+        subs: Vec<TE>,
         weights: &[i64],
         acceptable_overhead_ratio: f32,
     ) -> Result<Self>
@@ -187,8 +186,7 @@ impl OrdinalMap {
     /// May return an error corresponding to I/O failures (equivalent to throwing `IOException` in Java).
     fn new<TE>(
         owner: Option<CacheKey>,
-        // wrap with Option for easy taken
-        subs: &mut [Option<TE>],
+        subs: Vec<TE>,
         segment_map: SegmentMap,
         acceptable_overhead_ratio: f32,
     ) -> Result<Self>
@@ -197,7 +195,6 @@ impl OrdinalMap {
     {
         // create the ordinal mappings by pulling a termsenum over each sub's
         // unique terms, and walking a multitermsenum over those
-
         let mut global_ord_deltas =
             PackedLongValues::monotonic_long_values_builder_default(PackedInts::COMPACT)?;
 
@@ -208,7 +205,7 @@ impl OrdinalMap {
 
         let sub_len = subs.len();
         let mut ord_deltas: Vec<PackedLongValuesBuilder> = Vec::with_capacity(sub_len);
-        for _ in 0..subs.len() {
+        for _ in 0..sub_len {
             ord_deltas.push(PackedLongValues::monotonic_long_values_builder_default(
                 acceptable_overhead_ratio,
             )?);
@@ -218,7 +215,8 @@ impl OrdinalMap {
         let mut segment_ords = vec![0i64; sub_len];
 
         //  queue of term enums
-        let mut terms_enum_indices = Vec::with_capacity(subs.len());
+        let mut terms_enum_indices = Vec::with_capacity(sub_len);
+        let mut subs: Vec<Option<TE>> = subs.into_iter().map(Some).collect();
         for i in 0..sub_len {
             let mapped = segment_map.new_to_old(i);
             let mut sub = TermsEnumIndex::new(subs[mapped as usize].take(), i);
@@ -228,7 +226,7 @@ impl OrdinalMap {
         }
         let len = terms_enum_indices.len();
         let cmp = TermsEnumPriorityQueueCmp::new(terms_enum_indices);
-        let mut queue = PriorityQueue::new(subs.len(), cmp)?;
+        let mut queue = PriorityQueue::new(sub_len, cmp)?;
         for i in 0..len {
             queue.add(i)?;
         }

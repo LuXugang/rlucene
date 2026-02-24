@@ -210,7 +210,7 @@ pub trait DocValuesConsumer {
                     let value_count = dvs.get_value_count()?;
                     weights[sub] = value_count as i64;
                     let terms_enum = dvs.terms_enum()?;
-                    live_terms.push(Some(TermsEnumEnum2::A(terms_enum)));
+                    live_terms.push(TermsEnumEnum2::A(terms_enum));
                 },
                 Some(live_docs) => {
                     let value_count = dvs.get_value_count()? as usize;
@@ -232,12 +232,12 @@ pub trait DocValuesConsumer {
                     let cardinality = bitset.cardinality();
                     weights[sub] = cardinality as i64;
                     let terms_enum = BitsFilteredTermsEnum::new(dvs.terms_enum()?, bitset);
-                    live_terms.push(Some(TermsEnumEnum2::B(terms_enum)));
+                    live_terms.push(TermsEnumEnum2::B(terms_enum));
                 },
             }
         }
         // step 2: create ordinal map (this conceptually does the "merging")
-        let ordinal_map = OrdinalMap::build(None, &mut live_terms, &weights, PackedInts::COMPACT)?;
+        let ordinal_map = OrdinalMap::build(None, live_terms, &weights, PackedInts::COMPACT)?;
         let producer = EmptyDocValuesProducerMerge4 {
             field_info: field_info.clone(),
             merge_state,
@@ -288,7 +288,7 @@ pub trait DocValuesConsumer {
                     let value_count = dv.get_value_count()?;
                     weights[sub] = value_count;
                     let terms_enum = dv.terms_enum()?;
-                    live_terms.push(Some(TermsEnumEnum2::A(terms_enum)));
+                    live_terms.push(TermsEnumEnum2::A(terms_enum));
                 },
                 Some(live_docs) => {
                     let value_count = dv.get_value_count()? as usize;
@@ -312,13 +312,13 @@ pub trait DocValuesConsumer {
                     weights[sub] = cardinality as i64;
 
                     let terms_enum = BitsFilteredTermsEnum::new(dv.terms_enum()?, bitset);
-                    live_terms.push(Some(TermsEnumEnum2::B(terms_enum)));
+                    live_terms.push(TermsEnumEnum2::B(terms_enum));
                 },
             }
         }
 
         // step 2: create ordinal map (this conceptually does the "merging")
-        let ordinal_map = OrdinalMap::build(None, &mut live_terms, &weights, PackedInts::COMPACT)?;
+        let ordinal_map = OrdinalMap::build(None, live_terms, &weights, PackedInts::COMPACT)?;
         let v = EmptyDocValuesProducerMerge5 {
             merge_field_info: merge_field_info.clone(),
             merge_state,

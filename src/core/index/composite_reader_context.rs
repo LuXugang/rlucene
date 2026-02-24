@@ -103,7 +103,6 @@ struct Builder<LR>
 where
     LR: LeafReader,
 {
-    // for easy taken
     pub(crate) leaves: Vec<LeafReaderContext<LR>>,
     pub(crate) leaf_doc_base: usize,
     pub(crate) max_doc: i32,

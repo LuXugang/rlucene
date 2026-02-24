@@ -1451,7 +1451,6 @@ where
     R: RandomAccessInput,
 {
     // 2 slices to avoid cache thrashing when using rank
-    // wrap with Option for easy taken
     slice: R,
     rank_slice: Option<R>,
     entry: Arc<NumericEntry>,
