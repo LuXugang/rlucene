@@ -16,7 +16,7 @@
  */
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+use crate::core::index::leaf_reader::LRTermState;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -92,9 +92,9 @@ impl QueryBase for RandomApproximationQuery {
         _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -119,7 +119,8 @@ impl QueryBase for RandomApproximationQuery {
 
 pub struct RandomApproximationWeight<LR>
 where
-    LR: LeafReader,
+    LR: IndexReaderContext + 'static,
+    IRCLeafReader<LR>: 'static,
 {
     query: Arc<Query>,
     random_seed: u64,
@@ -127,7 +128,8 @@ where
 }
 impl<LR> RandomApproximationWeight<LR>
 where
-    LR: LeafReader,
+    LR: IndexReaderContext + 'static,
+    IRCLeafReader<LR>: 'static,
 {
     fn new(query: RandomApproximationQuery, random_seed: u64, weight: QueryWeight<LR>) -> Self {
         let query = Arc::new(Query::RandomApproximation(query));
@@ -141,25 +143,36 @@ where
 
 impl<LR> SegmentCacheable for RandomApproximationWeight<LR>
 where
-    LR: LeafReader,
+    LR: IndexReaderContext + 'static,
+    IRCLeafReader<LR>: 'static,
 {
-    type LeafReader = LR;
-    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    type LeafReader = IRCLeafReader<LR>;
+    type IRC = LR;
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<LR>>) -> Result<bool> {
         self.in_.is_cacheable(ctx)
     }
 }
 
 impl<LR> Weight for RandomApproximationWeight<LR>
 where
-    LR: LeafReader,
+    LR: IndexReaderContext + 'static,
+    IRCLeafReader<LR>: 'static,
 {
     type Matches = MatchWithNoTerms;
 
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<LR>>,
+        doc: i32,
+    ) -> Result<Option<Self::Matches>> {
         self.in_.matches(context, doc)
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<LR>>,
+        doc: i32,
+    ) -> Result<Explanation> {
         self.in_.explain(context, doc)
     }
 
@@ -167,11 +180,11 @@ where
         self.in_.get_query()
     }
 
-    type ScorerSupplier = QueryWeightSs<LR>;
+    type ScorerSupplier = QueryWeightSs<IRCLeafReader<LR>>;
 
     fn scorer_supplier(
         &self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<LR>>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         todo!()
     }

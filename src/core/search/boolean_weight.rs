@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD;
 use crate::core::search::boolean_clause::Occur::{Filter, Must};
@@ -36,23 +36,25 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub struct BooleanWeight<LR>
+pub struct BooleanWeight<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext + 'static,
+    IRCLeafReader<IRC>: 'static,
 {
     pub(crate) similarity: Arc<SimilarityEnum>,
-    pub(crate) weighted_clauses: Vec<WeightedBooleanClause<LR>>,
+    pub(crate) weighted_clauses: Vec<WeightedBooleanClause<IRC>>,
     pub(crate) query: BooleanQuery,
     pub(crate) score_mode: ScoreMode,
 }
 
-impl<LR> BooleanWeight<LR>
+impl<IRC> BooleanWeight<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext + 'static,
+    IRCLeafReader<IRC>: 'static,
 {
     /// Return the number of matches of required clauses, or -1 if unknown, or numDocs if there are no
     /// required clauses.
-    fn req_count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn req_count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         let num_docs = context.reader().num_docs()?;
         let mut req_count = num_docs;
 
@@ -86,7 +88,11 @@ where
 
     /// Return the number of matches of optional clauses, or -1 if unknown, or 0 if there are no
     /// optional clauses.
-    fn opt_count(&self, context: &LeafReaderContext<LR>, occur: Occur) -> Result<i32> {
+    fn opt_count(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        occur: Occur,
+    ) -> Result<i32> {
         let num_docs = context.reader().num_docs()?;
         let mut opt_count = 0i32;
         let mut unknown_count = false;
@@ -125,12 +131,15 @@ where
     }
 }
 
-impl<LR> SegmentCacheable for BooleanWeight<LR>
+impl<IRC> SegmentCacheable for BooleanWeight<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext + 'static,
+    IRCLeafReader<IRC>: 'static,
 {
-    type LeafReader = LR;
-    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    type LeafReader = IRCLeafReader<IRC>;
+    type IRC = IRC;
+
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         // Disallow caching large boolean queries to not encourage users
         // to build large boolean queries as a workaround to the fact that
         // we disallow caching large TermInSetQueries.
@@ -148,21 +157,26 @@ where
     }
 }
 
-impl<LR> Weight for BooleanWeight<LR>
+impl<IRC> Weight for BooleanWeight<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext + 'static,
+    IRCLeafReader<IRC>: 'static,
 {
     type Matches = MatchWithNoTerms;
 
     fn matches(
         &self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
         todo!()
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+    ) -> Result<Explanation> {
         let min_should_match = self.query.get_minimum_number_should_match();
 
         let mut subs: Vec<Explanation> = Vec::new();
@@ -256,12 +270,12 @@ where
         Arc::new(v)
     }
 
-    type ScorerSupplier = QueryWeightSs<LR>;
+    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
     // type ScorerSupplier = DummyScorerSupplier;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         let mut min_should_match = self.query.get_minimum_number_should_match();
 
@@ -314,7 +328,7 @@ where
         Ok(Some(Box::new(v)))
     }
 
-    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         let num_docs = context.reader().num_docs()?;
 
         if self.query.is_pure_disjunction() {
@@ -352,19 +366,21 @@ where
         }
     }
 }
-pub(crate) struct WeightedBooleanClause<LR>
+pub(crate) struct WeightedBooleanClause<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext + 'static,
+    IRCLeafReader<IRC>: 'static,
 {
     pub(crate) clause: BooleanClause,
-    pub(crate) weight: QueryWeight<LR>,
+    pub(crate) weight: QueryWeight<IRC>,
 }
 
-impl<LR> WeightedBooleanClause<LR>
+impl<IRC> WeightedBooleanClause<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext + 'static,
+    IRCLeafReader<IRC>: 'static,
 {
-    pub(crate) fn new(clause: BooleanClause, weight: QueryWeight<LR>) -> Self {
+    pub(crate) fn new(clause: BooleanClause, weight: QueryWeight<IRC>) -> Self {
         Self { clause, weight }
     }
 }

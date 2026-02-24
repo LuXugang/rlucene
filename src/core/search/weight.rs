@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::BulkScorer;
@@ -66,12 +67,12 @@ pub trait Weight: SegmentCacheable {
     /// - `doc`: the document's id relative to the given context's reader
     fn matches(
         &self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
         doc: i32,
     ) -> Result<Option<Self::Matches>>;
     fn default_matches(
         &self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
         doc: i32,
     ) -> Result<Option<MatchWithNoTerms>> {
         let scorer_supplier = self.scorer_supplier(context)?;
@@ -98,7 +99,7 @@ pub trait Weight: SegmentCacheable {
     /// - `doc`: the document's id relative to the given context's reader
     fn explain(
         &self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
         doc: i32,
     ) -> Result<Explanation>;
 
@@ -129,7 +130,7 @@ pub trait Weight: SegmentCacheable {
     /// Returns an error if a low-level I/O error occurs.
     fn scorer(
         &self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
             None => return Ok(None),
@@ -167,7 +168,7 @@ pub trait Weight: SegmentCacheable {
     /// - [`DefaultScorerSupplier`]
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
     ) -> Result<Option<Self::ScorerSupplier>>;
     /// Helper method that delegates to [`Weight::scorer_supplier`].
     ///
@@ -175,7 +176,7 @@ pub trait Weight: SegmentCacheable {
     /// multiple times as part of a single search call.
     fn bulk_scorer(
         &self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
             None => return Ok(None),
@@ -213,33 +214,41 @@ pub trait Weight: SegmentCacheable {
     /// # Errors
     ///
     /// Returns an error if a low-level I/O error occurs.
-    fn count(&self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<i32> {
         self.default_count(context)
     }
-    fn default_count(&self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn default_count(&self, _context: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<i32> {
         Ok(-1)
     }
 }
-impl<LR, T> Weight for Box<T>
+impl<IRC, T> Weight for Box<T>
 where
-    LR: LeafReader,
-    T: Weight<LeafReader = LR> + ?Sized,
+    IRC: IndexReaderContext + 'static,
+    T: Weight<LeafReader = IRCLeafReader<IRC>, IRC = IRC> + ?Sized,
 {
     type Matches = T::Matches;
 
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+    ) -> Result<Option<Self::Matches>> {
         (**self).matches(context, doc)
     }
 
     fn default_matches(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
     ) -> Result<Option<MatchWithNoTerms>> {
         (**self).default_matches(context, doc)
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+    ) -> Result<Explanation> {
         (**self).explain(context, doc)
     }
 
@@ -249,7 +258,7 @@ where
 
     fn scorer(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
         (**self).scorer(context)
     }
@@ -258,38 +267,46 @@ where
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         (**self).scorer_supplier(context)
     }
 
     fn bulk_scorer(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         (**self).bulk_scorer(context)
     }
 
-    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         (**self).count(context)
     }
 
-    fn default_count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn default_count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         (**self).default_count(_context)
     }
 }
 
-impl<LR, T> Weight for Arc<T>
+impl<IRC, T> Weight for Arc<T>
 where
-    LR: LeafReader,
-    T: Weight<LeafReader = LR>,
+    IRC: IndexReaderContext + 'static,
+    T: Weight<LeafReader = IRCLeafReader<IRC>, IRC = IRC>,
 {
     type Matches = T::Matches;
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+    ) -> Result<Option<Self::Matches>> {
         (**self).matches(context, doc)
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+    ) -> Result<Explanation> {
         (**self).explain(context, doc)
     }
 
@@ -299,7 +316,7 @@ where
 
     fn scorer(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
         (**self).scorer(context)
     }
@@ -308,23 +325,23 @@ where
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         (**self).scorer_supplier(context)
     }
 
     fn bulk_scorer(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         (**self).bulk_scorer(context)
     }
 
-    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         (**self).count(context)
     }
 
-    fn default_count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn default_count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         (**self).default_count(context)
     }
 }

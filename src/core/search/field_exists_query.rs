@@ -112,18 +112,22 @@ impl QueryBase for FieldExistsQuery {
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        Ok(Box::new(FieldExistsWeight::new(boost, self, *score_mode)))
+        Ok(Box::new(FieldExistsWeight::<IRCLeafReader<IRC>, IRC>::new(
+            boost,
+            self,
+            *score_mode,
+        )))
     }
 
     fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
     {
         let mut all_readers_rewritable = true;
@@ -204,20 +208,23 @@ impl QueryBase for FieldExistsQuery {
     }
 }
 
-pub struct FieldExistsWeight<LR>
+pub struct FieldExistsWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     query: FieldExistsQuery,
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     score_mode: ScoreMode,
     _leaf_reader: PhantomData<LR>,
+    _irc: PhantomData<IRC>,
     score: f32,
 }
-impl<LR> FieldExistsWeight<LR>
+impl<LR, IRC> FieldExistsWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     fn new(score: f32, query: FieldExistsQuery, score_mode: ScoreMode) -> Self {
         let query_clone = query.clone();
@@ -228,16 +235,20 @@ where
             parent_query,
             score_mode,
             _leaf_reader: PhantomData,
+            _irc: PhantomData,
             score,
         }
     }
 }
 
-impl<LR> SegmentCacheable for FieldExistsWeight<LR>
+impl<LR, IRC> SegmentCacheable for FieldExistsWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type LeafReader = LR;
+    type IRC = IRC;
+
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         let field_infos = ctx.reader().get_field_infos()?;
         let field_info = field_infos.field_info_by_name(&self.query.field);
@@ -252,9 +263,10 @@ where
     }
 }
 pub type Disi<LR> = DocIdSetIteratorEnum3<LRNormNumericDocValues<LR>, DummyDISI, LRDisis<LR>>;
-impl<LR> Weight for FieldExistsWeight<LR>
+impl<LR, IRC> Weight for FieldExistsWeight<LR, IRC>
 where
     LR: LeafReader + 'static,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -1181,7 +1193,7 @@ mod test {
         scores: bool,
     ) -> Result<()>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         T1: Into<Query>,
         T2: Into<Query>,
         IRCLeafReader<IRC>: 'static,
@@ -1219,7 +1231,7 @@ mod test {
         num_matching_docs: i32,
     ) -> Result<()>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         IRCLeafReader<IRC>: 'static,
     {
         let test_query: Query = FieldExistsQuery::new(field).into();

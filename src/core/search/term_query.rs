@@ -54,6 +54,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A Query that matches documents containing a term. This may be combined with other terms with a [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery).
@@ -126,9 +127,9 @@ impl QueryBase for TermQuery {
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -137,7 +138,7 @@ impl QueryBase for TermQuery {
             Some(states) if states.was_built_for_some(context.base().id()) => states,
             _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
         };
-        Ok(Box::new(TermWeight::new(
+        Ok(Box::new(TermWeight::<IRCLeafReader<IRC>, IRC>::new(
             searcher,
             *score_mode,
             boost,
@@ -148,7 +149,7 @@ impl QueryBase for TermQuery {
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
     {
         Ok(self.into())
@@ -161,30 +162,30 @@ impl QueryBase for TermQuery {
         todo!()
     }
 }
-pub struct TermWeight<LR>
+pub struct TermWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     similarity: Arc<SimilarityEnum>,
     sim_scorer: Option<Arc<TermQuerySimScorer>>,
     term_states: Arc<Mutex<TermStates<LRTermState<LR>>>>,
     score_mode: ScoreMode,
     parent_query: Arc<Query>,
+    _irc: PhantomData<IRC>,
 }
-impl<LR> TermWeight<LR>
+impl<LR, IRC> TermWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
-    pub fn new<IRC>(
+    pub fn new(
         searcher: &IndexSearcher<IRC>,
         score_mode: ScoreMode,
         boost: f32,
         term_states: TermStates<LRTermState<LR>>,
         query: TermQuery,
-    ) -> Result<Self>
-    where
-        IRC: IndexReaderContext,
-    {
+    ) -> Result<Self> {
         let similarity = searcher.get_similarity();
 
         let (collection_stats, term_stats) = if score_mode.needs_scores() {
@@ -230,6 +231,7 @@ where
             term_states: Arc::new(Mutex::new(term_states)),
             score_mode,
             parent_query: Arc::new(query.into()),
+            _irc: PhantomData,
         })
     }
     /// Returns a TermsEnum positioned at this weights Term or None if the term does not exist in the given context
@@ -285,19 +287,23 @@ where
     }
 }
 
-impl<LR> SegmentCacheable for TermWeight<LR>
+impl<LR, IRC> SegmentCacheable for TermWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type LeafReader = LR;
+    type IRC = IRC;
+
     fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<LR> Weight for TermWeight<LR>
+impl<LR, IRC> Weight for TermWeight<LR, IRC>
 where
     LR: LeafReader + 'static,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -419,9 +425,10 @@ where
     }
 }
 
-impl<LR> TermWeight<LR>
+impl<LR, IRC> TermWeight<LR, IRC>
 where
     LR: LeafReader + 'static,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     fn build_term_scorer(
         &self,

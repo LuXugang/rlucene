@@ -34,44 +34,53 @@ use crate::core::search::similarities_impl::similarities::{
 };
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::error::lucene_error::Result;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 pub type SimScorerType = SimScorerEnum2<<SimilarityEnum as Similarity>::SimScorer, SimScorerImpl>;
-pub struct PhraseWeight<LR, S>
+pub struct PhraseWeight<LR, S, IRC>
 where
     LR: LeafReader,
     S: PhraseWeightBase<LR>,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     stats: S::SimScorer,
     sub: S,
+    _irc: PhantomData<IRC>,
 }
-impl<LR, S> PhraseWeight<LR, S>
+impl<LR, S, IRC> PhraseWeight<LR, S, IRC>
 where
     LR: LeafReader,
     S: PhraseWeightBase<LR>,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
-    pub(crate) fn new<IRC>(searcher: &IndexSearcher<IRC>, mut sub: S) -> Result<Self>
-    where
-        IRC: IndexReaderContext<LeafReader = LR>,
-    {
+    pub(crate) fn new(searcher: &IndexSearcher<IRC>, mut sub: S) -> Result<Self> {
         let stats = sub.get_stats(searcher)?;
-        Ok(Self { stats, sub })
+        Ok(Self {
+            stats,
+            sub,
+            _irc: PhantomData,
+        })
     }
 }
-impl<LR, S> SegmentCacheable for PhraseWeight<LR, S>
+impl<LR, S, IRC> SegmentCacheable for PhraseWeight<LR, S, IRC>
 where
     LR: LeafReader,
     S: PhraseWeightBase<LR>,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type LeafReader = LR;
+    type IRC = IRC;
+
     fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<LR, S> Weight for PhraseWeight<LR, S>
+impl<LR, S, IRC> Weight for PhraseWeight<LR, S, IRC>
 where
     LR: LeafReader + 'static,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
     LRImpactsEnum<LR>: 'static,
     LRPosting<LR>: 'static,
     LRNormNumericDocValues<LR>: 'static,
@@ -184,7 +193,7 @@ where
     type SimScorer: SimScorer + Clone;
     fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
     where
-        IRC: IndexReaderContext<LeafReader = LR>;
+        IRC: IndexReaderContext<LeafReader = LR> + 'static;
 
     fn get_phrase_matcher(
         &self,

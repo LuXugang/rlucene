@@ -108,17 +108,16 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        Ok(Box::new(SortedNumericDocValuesRangeQueryWeight::new(
-            self,
-            *score_mode,
-            boost,
-        )))
+        Ok(Box::new(SortedNumericDocValuesRangeQueryWeight::<
+            IRCLeafReader<IRC>,
+            IRC,
+        >::new(self, *score_mode, boost)))
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -142,19 +141,22 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         todo!()
     }
 }
-pub struct SortedNumericDocValuesRangeQueryWeight<LR>
+pub struct SortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     query: SortedNumericDocValuesRangeQuery,
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     score_mode: ScoreMode,
     _leaf_reader: PhantomData<LR>,
+    _irc: PhantomData<IRC>,
 }
-impl<LR> SortedNumericDocValuesRangeQueryWeight<LR>
+impl<LR, IRC> SortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     pub(crate) fn new(
         query: SortedNumericDocValuesRangeQuery,
@@ -169,6 +171,7 @@ where
             parent_query,
             score_mode,
             _leaf_reader: PhantomData,
+            _irc: PhantomData,
         }
     }
 
@@ -269,20 +272,24 @@ where
     }
 }
 
-impl<LR> SegmentCacheable for SortedNumericDocValuesRangeQueryWeight<LR>
+impl<LR, IRC> SegmentCacheable for SortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type LeafReader = LR;
+    type IRC = IRC;
+
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         let field = vec![self.query.field.clone()];
         DocValues::is_cacheable(ctx, field.as_ref())
     }
 }
 
-impl<LR> Weight for SortedNumericDocValuesRangeQueryWeight<LR>
+impl<LR, IRC> Weight for SortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader + 'static,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type Matches = MatchWithNoTerms;
 

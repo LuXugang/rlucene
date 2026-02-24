@@ -16,7 +16,7 @@
  */
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+use crate::core::index::leaf_reader::LRTermState;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::explanation::Explanation;
@@ -105,9 +105,9 @@ impl QueryBase for MatchNoDocsQuery {
         _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -116,7 +116,7 @@ impl QueryBase for MatchNoDocsQuery {
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
     {
         Ok(self.into())
@@ -130,17 +130,17 @@ impl QueryBase for MatchNoDocsQuery {
     }
 }
 
-pub struct MatchNoDocsWeight<LR>
+pub struct MatchNoDocsWeight<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext + 'static,
 {
     parent_query: Arc<Query>,
-    _leaf_reader: PhantomData<LR>,
+    _leaf_reader: PhantomData<IRC>,
 }
 
-impl<LR> MatchNoDocsWeight<LR>
+impl<IRC> MatchNoDocsWeight<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext + 'static,
 {
     pub fn new(query: MatchNoDocsQuery) -> Self {
         Self {
@@ -150,31 +150,38 @@ where
     }
 }
 
-impl<LR> SegmentCacheable for MatchNoDocsWeight<LR>
+impl<IRC> SegmentCacheable for MatchNoDocsWeight<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext + 'static,
 {
-    type LeafReader = LR;
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    type LeafReader = IRCLeafReader<IRC>;
+    type IRC = IRC;
+
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<LR> Weight for MatchNoDocsWeight<LR>
+impl<IRC> Weight for MatchNoDocsWeight<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext + 'static,
+    IRCLeafReader<IRC>: 'static,
 {
     type Matches = MatchWithNoTerms;
 
     fn matches(
         &self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
         Ok(None)
     }
 
-    fn explain(&self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
+    fn explain(
+        &self,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _doc: i32,
+    ) -> Result<Explanation> {
         let parent_query = if let Query::MatchNoDoc(v) = self.parent_query.as_ref() {
             v
         } else {
@@ -189,23 +196,23 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<LR>;
+    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
 
     fn scorer_supplier(
         &self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         Ok(None)
     }
 
-    fn count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         Ok(0)
     }
 }
 
-impl<LR> std::fmt::Debug for MatchNoDocsWeight<LR>
+impl<IRC> std::fmt::Debug for MatchNoDocsWeight<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "weight({:?})", self.parent_query)

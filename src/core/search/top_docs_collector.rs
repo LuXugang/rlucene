@@ -431,7 +431,7 @@ mod tests {
         index_reader: CR,
     ) -> Result<TopDocs<ScoreDoc>>
     where
-        CR: CompositeReader,
+        CR: CompositeReader + 'static,
         <CR as CompositeReader>::LeafReader: 'static,
     {
         let searcher = new_searcher_with_threads(index_reader, true, true, false)?;
@@ -446,7 +446,7 @@ mod tests {
         index_reader: CR,
     ) -> Result<TopDocs<ScoreDoc>>
     where
-        CR: CompositeReader,
+        CR: CompositeReader + 'static,
         <CR as CompositeReader>::LeafReader: 'static,
     {
         let searcher = new_searcher_with_threads(index_reader, true, true, true)?;
@@ -638,7 +638,9 @@ mod tests {
         let collector_manager = TopScoreDocCollectorManager::new(2, 2)?;
         let mut collector = collector_manager.new_collector()?;
         let mut scorer = Score::new();
-        let dummy_weight = Box::new(DummyWeight::new(v.leaves()?[0].reader().clone()));
+        let dummy_weight = Box::new(DummyWeight::<_, LeafReaderContext<_>>::new(
+            v.leaves()?[0].reader().clone(),
+        ));
         let mut leaf_collector =
             collector.get_leaf_collector(&v.leaves()?[0], Some(&dummy_weight))?;
         leaf_collector.set_scorer(&mut scorer)?;
@@ -701,14 +703,15 @@ mod tests {
         writer.flush()?;
 
         let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader2 = directory_reader_util::open_with_writer(&writer)?;
         let v = get_context(&reader)?;
         assert_eq!(v.leaves()?.len(), 2);
         writer.close()?;
 
         let query = MatchAllDocsQuery::new();
-        let tdc = do_concurrent_search_with_threshold(5, 10, query.into(), &reader)?;
+        let tdc = do_concurrent_search_with_threshold(5, 10, query.into(), reader)?;
         let query = MatchAllDocsQuery::new();
-        let tdc2 = do_search_with_threshold(5, 10, query.into(), &reader)?;
+        let tdc2 = do_search_with_threshold(5, 10, query.into(), reader2)?;
 
         let query = MatchAllDocsQuery::new();
         CheckHits::check_equal(&query.into(), &tdc.score_docs, &tdc2.score_docs)?;
@@ -742,7 +745,8 @@ mod tests {
         let v = get_context(reader)?;
         assert_eq!(v.leaves()?.len(), 2);
         writer.close()?;
-        let dummy_weight = DummyWeight::new(v.leaves()?[0].reader().clone());
+        let dummy_weight =
+            DummyWeight::<_, LeafReaderContext<_>>::new(v.leaves()?[0].reader().clone());
 
         for total_hits_threshold in 0..20 {
             let collector_manager = TopScoreDocCollectorManager::new(2, total_hits_threshold)?;
@@ -865,7 +869,7 @@ mod tests {
         let mut scorer2 = Score::new();
 
         let leaves = reader.leaves()?;
-        let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
+        let dummy_weight = DummyWeight::<_, LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
         let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
         leaf_collector.set_scorer(&mut scorer)?;

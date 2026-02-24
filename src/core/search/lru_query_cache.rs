@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::{CacheHelper, CacheKey};
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::reader_util::ReaderUtil;
@@ -578,18 +578,19 @@ where
         todo!()
     }
 }
-impl<P, LR> QueryCache<LR> for Arc<LRUQueryCache<P>>
+impl<P, IRC> QueryCache<IRC> for Arc<LRUQueryCache<P>>
 where
     P: Predicate<TopParentMeta> + 'static,
-    LR: LeafReader,
+    IRC: IndexReaderContext + 'static,
 {
     fn do_cache(
         &self,
-        weight: QueryWeight<LR>,
+        weight: QueryWeight<IRC>,
         policy: Arc<QueryCachingPolicyEnum>,
-    ) -> QueryWeight<LR>
+    ) -> QueryWeight<IRC>
     where
-        LR: LeafReader + 'static,
+        IRC: IndexReaderContext + 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         Box::new(CachingWrapperWeight::new(weight, policy, self.clone()))
     }
@@ -668,24 +669,25 @@ impl Accountable for LeafCache {
         todo!()
     }
 }
-pub struct CachingWrapperWeight<P, LR>
+pub struct CachingWrapperWeight<P, IRC>
 where
     P: Predicate<TopParentMeta>,
+    IRC: IndexReaderContext + 'static,
 {
-    in_: QueryWeight<LR>,
+    in_: QueryWeight<IRC>,
     base: ConstantScoreWeight,
     policy: Arc<QueryCachingPolicyEnum>,
     used: AtomicBool,
     lru_cache: Arc<LRUQueryCache<P>>,
-    phantom_data: PhantomData<LR>,
+    phantom_data: PhantomData<IRC>,
 }
-impl<P, LR> CachingWrapperWeight<P, LR>
+impl<P, IRC> CachingWrapperWeight<P, IRC>
 where
     P: Predicate<TopParentMeta>,
-    LR: LeafReader,
+    IRC: IndexReaderContext + 'static,
 {
     pub(crate) fn new(
-        in_: QueryWeight<LR>,
+        in_: QueryWeight<IRC>,
         policy: Arc<QueryCachingPolicyEnum>,
         lru_cache: Arc<LRUQueryCache<P>>,
     ) -> Self {
@@ -698,7 +700,7 @@ where
             phantom_data: PhantomData,
         }
     }
-    fn should_cache(&self, context: &LeafReaderContext<LR>) -> Result<bool> {
+    fn should_cache(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         let top_context = ReaderUtil::get_top_level_context(context);
         let max_doc = top_context.max_doc;
         let v = self.cache_entry_has_reasonable_worst_case_size(max_doc)
@@ -718,30 +720,41 @@ where
     }
 }
 
-impl<P, LR> SegmentCacheable for CachingWrapperWeight<P, LR>
+impl<P, IRC> SegmentCacheable for CachingWrapperWeight<P, IRC>
 where
     P: Predicate<TopParentMeta>,
-    LR: LeafReader,
+    IRC: IndexReaderContext + 'static,
 {
-    type LeafReader = LR;
-    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    type LeafReader = IRCLeafReader<IRC>;
+    type IRC = IRC;
+
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         self.in_.is_cacheable(ctx)
     }
 }
 
-impl<P, LR> Weight for CachingWrapperWeight<P, LR>
+impl<P, IRC> Weight for CachingWrapperWeight<P, IRC>
 where
     P: Predicate<TopParentMeta> + 'static,
-    LR: LeafReader + 'static,
-    <LR as LeafReader>::CacheHelper: 'static,
+    IRC: IndexReaderContext + 'static,
+    IRCLeafReader<IRC>: 'static,
+    <IRCLeafReader<IRC> as LeafReader>::CacheHelper: 'static,
 {
     type Matches = MatchWithNoTerms;
 
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+    ) -> Result<Option<Self::Matches>> {
         self.in_.matches(context, doc)
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+    ) -> Result<Explanation> {
         let scorer = self.scorer(context)?;
         self.base
             .explain(scorer, doc, self.get_query().as_string(""))
@@ -750,11 +763,11 @@ where
         self.in_.get_query()
     }
 
-    type ScorerSupplier = QueryWeightSs<LR>;
+    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         if self
             .used
@@ -816,13 +829,14 @@ where
                     return Ok(None);
                 }
                 let disi = cached.iterator()?;
-                let s: QueryWeightSs<LR> = Box::new(ScorerSupplierImpl2::new(disi)?);
+                let s: QueryWeightSs<IRCLeafReader<IRC>> =
+                    Box::new(ScorerSupplierImpl2::new(disi)?);
                 Ok(Some(s))
             },
         }
     }
 
-    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         let reader = context.reader();
 
         if reader.has_deletions()? {

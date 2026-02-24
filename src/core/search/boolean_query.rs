@@ -183,9 +183,9 @@ impl BooleanQuery {
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<BooleanWeight<IRCLeafReader<IRC>>>
+    ) -> Result<BooleanWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -281,9 +281,9 @@ impl QueryBase for BooleanQuery {
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -293,7 +293,7 @@ impl QueryBase for BooleanQuery {
 
     fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
     {
         if self.clauses.is_empty() {

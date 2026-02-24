@@ -655,7 +655,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
     let num_indices = 3;
     let num_docs_in_index = at_least_usize(&mut random, 50);
 
-    let mut readers = Vec::with_capacity(num_indices);
+    let mut dirs = Vec::with_capacity(num_indices);
 
     for i in 0..num_indices {
         let dir = new_directory_shared(&mut random)?;
@@ -671,8 +671,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
         }
         writer.flush()?;
         writer.close()?;
-        let reader = directory_reader_util::open(dir.clone())?;
-        readers.push(reader);
+        dirs.push(dir);
     }
 
     let size = 7;
@@ -692,8 +691,9 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
         let mut top_docs_vec = Vec::new();
         #[allow(clippy::needless_range_loop)]
         for i in 0..num_indices {
+            let reader = directory_reader_util::open(dirs[i].clone())?;
             let searcher =
-                new_searcher_with_threads(&readers[i], random_bool(0.5), random_bool(0.5), false)?;
+                new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
             let collector_manager = TopFieldCollectorManager::with_after(
                 sort.clone(),
                 size,

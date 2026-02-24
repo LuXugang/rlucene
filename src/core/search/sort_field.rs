@@ -1170,7 +1170,7 @@ pub trait SortFiledBase: Display {
     /// * `None` – if no rewriting is needed and the current sort field should be kept as is.
     fn rewrite<IRC>(&self, _reader: &IndexSearcher<IRC>) -> Result<Option<SortFieldEnum>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
     {
         Ok(None)
     }

@@ -434,6 +434,7 @@ where {
 
     impl SegmentCacheable for DummyQueryImplWeight {
         type LeafReader = DummyLeafReader;
+        type IRC = LeafReaderContext<DummyLeafReader>;
         fn is_cacheable(&self, _ctx: &LeafReaderContext<DummyLeafReader>) -> Result<bool> {
             Ok(true)
         }

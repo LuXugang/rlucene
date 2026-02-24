@@ -1994,7 +1994,7 @@ pub(crate) mod tests {
         // turn off concurrent search to avoid Random object used across threads resulting into
         // RuntimeException, as WANDScorerQuery#createWeight has reference to this searcher,
         // but will be called during searching
-        let searcher = new_searcher_with_threads(&reader, true, true, false)?;
+        let searcher = new_searcher_with_threads(reader, true, true, false)?;
 
         for _ in 0..100 {
             let start = random.random_range(0..10);
@@ -2060,7 +2060,7 @@ pub(crate) mod tests {
         // turn off concurrent search to avoid Random object used across threads resulting into
         // RuntimeException, as WANDScorerQuery#createWeight has reference to this searcher,
         // but will be called during searching
-        let searcher = new_searcher_with_threads(&reader, true, true, false)?;
+        let searcher = new_searcher_with_threads(reader, true, true, false)?;
 
         for _ in 0..100 {
             let start = random.random_range(0..10);
@@ -2140,7 +2140,7 @@ pub(crate) mod tests {
         // turn off concurrent search to avoid Random object used across threads resulting into
         // RuntimeException, as WANDScorerQuery::create_weight has reference to this searcher,
         // but will be called during searching
-        let searcher = new_searcher_with_threads(&reader, true, true, false)?;
+        let searcher = new_searcher_with_threads(reader, true, true, false)?;
 
         for _ in 0..100 {
             let start = random.random_range(0..10);
@@ -2336,9 +2336,9 @@ pub(crate) mod tests {
             score_mode: &ScoreMode,
             boost: f32,
             per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-        ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+        ) -> Result<QueryWeight<IRC>>
         where
-            IRC: IndexReaderContext,
+            IRC: IndexReaderContext + 'static,
             Self: Sized,
             IRCLeafReader<IRC>: 'static,
         {
@@ -2354,7 +2354,7 @@ pub(crate) mod tests {
 
         fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
         where
-            IRC: IndexReaderContext,
+            IRC: IndexReaderContext + 'static,
             Self: Sized,
         {
             let rewritten = self.query.rewrite(searcher)?;
@@ -2371,19 +2371,21 @@ pub(crate) mod tests {
         {
         }
     }
-    struct MaxScoreWrapperQueryWeight<LR>
+    struct MaxScoreWrapperQueryWeight<IRC>
     where
-        LR: LeafReader,
+        IRC: IndexReaderContext + 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         max_range: i32,
         max_score: f32,
-        weight: QueryWeight<LR>,
+        weight: QueryWeight<IRC>,
     }
-    impl<LR> MaxScoreWrapperQueryWeight<LR>
+    impl<IRC> MaxScoreWrapperQueryWeight<IRC>
     where
-        LR: LeafReader,
+        IRC: IndexReaderContext + 'static,
+        IRCLeafReader<IRC>: 'static,
     {
-        fn new(max_range: i32, max_score: f32, weight: QueryWeight<LR>) -> Self {
+        fn new(max_range: i32, max_score: f32, weight: QueryWeight<IRC>) -> Self {
             Self {
                 max_range,
                 max_score,
@@ -2392,31 +2394,39 @@ pub(crate) mod tests {
         }
     }
 
-    impl<LR> SegmentCacheable for MaxScoreWrapperQueryWeight<LR>
+    impl<IRC> SegmentCacheable for MaxScoreWrapperQueryWeight<IRC>
     where
-        LR: LeafReader,
+        IRC: IndexReaderContext + 'static,
+        IRCLeafReader<IRC>: 'static,
     {
-        type LeafReader = LR;
-        fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+        type LeafReader = IRCLeafReader<IRC>;
+        type IRC = IRC;
+
+        fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
             self.weight.is_cacheable(ctx)
         }
     }
 
-    impl<LR> Weight for MaxScoreWrapperQueryWeight<LR>
+    impl<IRC> Weight for MaxScoreWrapperQueryWeight<IRC>
     where
-        LR: LeafReader + 'static,
+        IRC: IndexReaderContext + 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         type Matches = MatchWithNoTerms;
 
         fn matches(
             &self,
-            context: &LeafReaderContext<LR>,
+            context: &LeafReaderContext<IRCLeafReader<IRC>>,
             doc: i32,
         ) -> Result<Option<Self::Matches>> {
             self.weight.matches(context, doc)
         }
 
-        fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+        fn explain(
+            &self,
+            context: &LeafReaderContext<IRCLeafReader<IRC>>,
+            doc: i32,
+        ) -> Result<Explanation> {
             self.weight.explain(context, doc)
         }
 
@@ -2424,11 +2434,11 @@ pub(crate) mod tests {
             self.weight.get_query()
         }
 
-        type ScorerSupplier = QueryWeightSs<LR>;
+        type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
 
         fn scorer_supplier(
             &self,
-            context: &LeafReaderContext<LR>,
+            context: &LeafReaderContext<IRCLeafReader<IRC>>,
         ) -> Result<Option<Self::ScorerSupplier>> {
             match self.weight.scorer_supplier(context)? {
                 Some(s) => Ok(Some(Box::new(ScorerSupplierImpl::new(
@@ -2524,9 +2534,9 @@ pub(crate) mod tests {
             score_mode: &ScoreMode,
             boost: f32,
             per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-        ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+        ) -> Result<QueryWeight<IRC>>
         where
-            IRC: IndexReaderContext,
+            IRC: IndexReaderContext + 'static,
             Self: Sized,
             IRCLeafReader<IRC>: 'static,
         {
@@ -2546,7 +2556,7 @@ pub(crate) mod tests {
 
         fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
         where
-            IRC: IndexReaderContext,
+            IRC: IndexReaderContext + 'static,
             Self: Sized,
         {
             Ok(Query::WANDScorer(self))
@@ -2559,24 +2569,26 @@ pub(crate) mod tests {
         }
     }
 
-    struct WANDScorerQueryWeight<LR>
+    struct WANDScorerQueryWeight<IRC>
     where
-        LR: LeafReader + 'static,
+        IRC: IndexReaderContext + 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         minimum_number_should_match: i32,
         query: Arc<Query>,
         do_blocks: bool,
-        weight: Rc<BooleanWeight<LR>>,
+        weight: Rc<BooleanWeight<IRC>>,
         score_mode: ScoreMode,
     }
-    impl<LR> WANDScorerQueryWeight<LR>
+    impl<IRC> WANDScorerQueryWeight<IRC>
     where
-        LR: LeafReader,
+        IRC: IndexReaderContext + 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         fn new(
             query: BooleanQuery,
             do_blocks: bool,
-            weight: BooleanWeight<LR>,
+            weight: BooleanWeight<IRC>,
             score_mode: ScoreMode,
         ) -> Self {
             let minimum_number_should_match = query.get_minimum_number_should_match();
@@ -2591,31 +2603,39 @@ pub(crate) mod tests {
         }
     }
 
-    impl<LR> SegmentCacheable for WANDScorerQueryWeight<LR>
+    impl<IRC> SegmentCacheable for WANDScorerQueryWeight<IRC>
     where
-        LR: LeafReader,
+        IRC: IndexReaderContext + 'static,
+        IRCLeafReader<IRC>: 'static,
     {
-        type LeafReader = LR;
-        fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
+        type LeafReader = IRCLeafReader<IRC>;
+        type IRC = IRC;
+
+        fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
             Ok(false)
         }
     }
 
-    impl<LR> Weight for WANDScorerQueryWeight<LR>
+    impl<IRC> Weight for WANDScorerQueryWeight<IRC>
     where
-        LR: LeafReader,
+        IRC: IndexReaderContext + 'static,
+        IRCLeafReader<IRC>: 'static,
     {
         type Matches = MatchWithNoTerms;
 
         fn matches(
             &self,
-            _context: &LeafReaderContext<LR>,
+            _context: &LeafReaderContext<IRCLeafReader<IRC>>,
             _doc: i32,
         ) -> Result<Option<Self::Matches>> {
             unreachable!("")
         }
 
-        fn explain(&self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
+        fn explain(
+            &self,
+            _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+            _doc: i32,
+        ) -> Result<Explanation> {
             unreachable!("")
         }
 
@@ -2623,11 +2643,11 @@ pub(crate) mod tests {
             self.query.clone()
         }
 
-        type ScorerSupplier = QueryWeightSs<LR>;
+        type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
 
         fn scorer_supplier(
             &self,
-            context: &LeafReaderContext<LR>,
+            context: &LeafReaderContext<IRCLeafReader<IRC>>,
         ) -> Result<Option<Self::ScorerSupplier>> {
             let mut optional_scorers = Vec::new();
             for wc in self.weight.weighted_clauses.iter() {

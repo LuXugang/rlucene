@@ -71,9 +71,9 @@ impl QueryBase for DummyQuery {
         _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> crate::core::util::error::lucene_error::Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> crate::core::util::error::lucene_error::Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -85,7 +85,7 @@ impl QueryBase for DummyQuery {
         _searcher: &IndexSearcher<IRC>,
     ) -> crate::core::util::error::lucene_error::Result<Query>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

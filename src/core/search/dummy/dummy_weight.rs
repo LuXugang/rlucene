@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
@@ -26,42 +27,53 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
-pub struct DummyWeight<LR>
+pub struct DummyWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     leaf_reader: LR,
+    _irc: PhantomData<IRC>,
 }
 
-impl<LR> DummyWeight<LR>
+impl<LR, IRC> DummyWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     pub fn new(lr: LR) -> Self {
-        Self { leaf_reader: lr }
+        Self {
+            leaf_reader: lr,
+            _irc: PhantomData,
+        }
     }
 }
-impl Default for DummyWeight<DummyLeafReader> {
+impl Default for DummyWeight<DummyLeafReader, LeafReaderContext<DummyLeafReader>> {
     fn default() -> Self {
         Self::new(DummyLeafReader)
     }
 }
 
-impl<LR> SegmentCacheable for DummyWeight<LR>
+impl<LR, IRC> SegmentCacheable for DummyWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type LeafReader = LR;
+    type IRC = IRC;
+
     fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl<LR> Weight for DummyWeight<LR>
+impl<LR, IRC> Weight for DummyWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type Matches = DummyMatches;
 

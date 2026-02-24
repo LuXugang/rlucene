@@ -1006,7 +1006,7 @@ mod tests {
     ) -> Result<ReqOptSumScorer<QueryWeightSsScorer, QueryWeightSsScorer>>
     where
         Q: Into<Query>,
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         IRCLeafReader<IRC>: 'static,
     {
         let req_q = req_q.into();

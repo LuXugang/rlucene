@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
 use crate::core::search::query::QueryWeight;
 use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
 use std::sync::Arc;
 
 /// A cache for queries.
-pub trait QueryCache<LR>
+pub trait QueryCache<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext + 'static,
 {
     /// Return a wrapper around the provided `weight` that will cache matching documents
     /// per-segment according to the given `policy`.
@@ -32,39 +32,42 @@ where
     /// See also [`Collector::score_mode`](crate::core::search::collector::Collector::score_mode).
     fn do_cache(
         &self,
-        weight: QueryWeight<LR>,
+        weight: QueryWeight<IRC>,
         policy: Arc<QueryCachingPolicyEnum>,
-    ) -> QueryWeight<LR>
+    ) -> QueryWeight<IRC>
     where
-        LR: LeafReader + 'static;
+        IRC: IndexReaderContext + 'static;
 }
-pub type BoxQueryCache<LR> = Box<dyn QueryCache<LR> + Send + Sync>;
-pub enum QueryCacheEnum<LR> {
-    Lru(Arc<LRUQueryCache<MinSegmentSizePredicate>>),
-    Custom(BoxQueryCache<LR>),
-}
-impl<LR> QueryCacheEnum<LR>
+pub type BoxQueryCache<IRC> = Box<dyn QueryCache<IRC> + Send + Sync>;
+pub enum QueryCacheEnum<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext + 'static,
+{
+    Lru(Arc<LRUQueryCache<MinSegmentSizePredicate>>),
+    Custom(BoxQueryCache<IRC>),
+}
+impl<IRC> QueryCacheEnum<IRC>
+where
+    IRC: IndexReaderContext + 'static,
 {
     pub fn custom<QC>(cache: QC) -> Self
     where
-        QC: QueryCache<LR> + Send + Sync + 'static,
+        QC: QueryCache<IRC> + Send + Sync + 'static,
     {
         Self::Custom(Box::new(cache))
     }
 }
-impl<LR> QueryCache<LR> for QueryCacheEnum<LR>
+impl<IRC> QueryCache<IRC> for QueryCacheEnum<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext + 'static,
 {
     fn do_cache(
         &self,
-        weight: QueryWeight<LR>,
+        weight: QueryWeight<IRC>,
         policy: Arc<QueryCachingPolicyEnum>,
-    ) -> QueryWeight<LR>
+    ) -> QueryWeight<IRC>
     where
-        LR: LeafReader + 'static,
+        IRC: IndexReaderContext + 'static,
     {
         match self {
             QueryCacheEnum::Lru(cache) => cache.do_cache(weight, policy),
@@ -73,9 +76,9 @@ where
     }
 }
 
-impl<LR> From<Arc<LRUQueryCache<MinSegmentSizePredicate>>> for QueryCacheEnum<LR>
+impl<IRC> From<Arc<LRUQueryCache<MinSegmentSizePredicate>>> for QueryCacheEnum<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext + 'static,
 {
     fn from(v: Arc<LRUQueryCache<MinSegmentSizePredicate>>) -> Self {
         QueryCacheEnum::Lru(v)

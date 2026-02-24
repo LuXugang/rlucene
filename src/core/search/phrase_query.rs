@@ -263,9 +263,9 @@ impl QueryBase for PhraseQuery {
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -278,13 +278,13 @@ impl QueryBase for PhraseQuery {
         let base = PhraseWeightMeta::new(field, *score_mode, similarity, query.into());
         let sub: PhraseQueryWeightBase<IRCLeafReader<IRC>> =
             PhraseQueryWeightBase::new(self, boost, base);
-        let weight: PhraseWeight<IRCLeafReader<IRC>, _> = PhraseWeight::new(searcher, sub)?;
+        let weight: PhraseWeight<IRCLeafReader<IRC>, _, IRC> = PhraseWeight::new(searcher, sub)?;
         Ok(Box::new(weight))
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
     {
         let len = self.terms.len();
@@ -471,7 +471,7 @@ where
 
     fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
     where
-        IRC: IndexReaderContext<LeafReader = LR>,
+        IRC: IndexReaderContext<LeafReader = LR> + 'static,
     {
         let positions = &self.query.positions;
 

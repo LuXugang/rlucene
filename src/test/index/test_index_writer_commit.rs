@@ -71,7 +71,7 @@ fn test_commit_on_close() -> Result<()> {
         }
 
         let r = directory_reader_util::open(dir.clone())?;
-        let searcher = new_searcher_with_reader(&r)?;
+        let searcher = new_searcher_with_reader(r)?;
         let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
         assert_eq!(
             14,
@@ -94,7 +94,7 @@ fn test_commit_on_close() -> Result<()> {
 
     {
         let r = directory_reader_util::open(dir.clone())?;
-        let searcher = new_searcher_with_reader(&r)?;
+        let searcher = new_searcher_with_reader(r)?;
         let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
         assert_eq!(
             47,

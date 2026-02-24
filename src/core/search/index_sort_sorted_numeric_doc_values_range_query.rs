@@ -131,9 +131,9 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -153,7 +153,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
 
     fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
     {
         if self.lower_value == i64::MIN && self.upper_value == i64::MAX {
@@ -189,25 +189,27 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     }
 }
 
-pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
+pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     query: IndexSortSortedNumericDocValuesRangeQuery,
     base: ConstantScoreWeight,
     score_mode: ScoreMode,
-    fallback_query_weight: QueryWeight<LR>,
+    fallback_query_weight: QueryWeight<IRC>,
     parent_query: Arc<Query>,
 }
-impl<LR> IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
+impl<LR, IRC> IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     pub fn new(
         query: IndexSortSortedNumericDocValuesRangeQuery,
         base: ConstantScoreWeight,
         score_mode: ScoreMode,
-        fallback_query_weight: QueryWeight<LR>,
+        fallback_query_weight: QueryWeight<IRC>,
     ) -> Self {
         let query_clone = query.clone();
         Self {
@@ -221,11 +223,14 @@ where
 }
 pub type Disi<LR> = <SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues;
 
-impl<LR> SegmentCacheable for IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
+impl<LR, IRC> SegmentCacheable for IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type LeafReader = LR;
+    type IRC = IRC;
+
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         // Both queries should always return the same values, so we can just check
         // if the fallback query is cacheable.
@@ -233,9 +238,10 @@ where
     }
 }
 
-impl<LR> Weight for IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
+impl<LR, IRC> Weight for IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader + 'static,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -1362,7 +1368,7 @@ mod tests {
         scores: bool,
     ) -> Result<()>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         T1: Into<Query>,
         T2: Into<Query>,
         IRCLeafReader<IRC>: 'static,
@@ -1494,7 +1500,7 @@ mod tests {
         number_of_hits: i32,
     ) -> Result<()>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         IRCLeafReader<IRC>: 'static,
     {
         let query = query.into();
@@ -1943,7 +1949,7 @@ mod tests {
     where
         W1: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
         W2: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
     {
         for ctx in searcher.get_leaf_contexts()? {
             let c1 = weight1.count(ctx)?;

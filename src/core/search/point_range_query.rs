@@ -216,18 +216,22 @@ impl QueryBase for PointRangeQuery {
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        Ok(Box::new(PointRangeWeight::new(boost, self, *score_mode)))
+        Ok(Box::new(PointRangeWeight::<IRCLeafReader<IRC>, IRC>::new(
+            boost,
+            self,
+            *score_mode,
+        )))
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
     {
         Ok(self.into())
@@ -241,20 +245,23 @@ impl QueryBase for PointRangeQuery {
     }
 }
 
-pub struct PointRangeWeight<LR>
+pub struct PointRangeWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     comparator: ByteArrayComparatorEnum,
     _leaf_reader: PhantomData<LR>,
+    _irc: PhantomData<IRC>,
     query: Arc<PointRangeQuery>,
     score_mode: ScoreMode,
 }
-impl<LR> PointRangeWeight<LR>
+impl<LR, IRC> PointRangeWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     pub fn new(score: f32, query: PointRangeQuery, score_mode: ScoreMode) -> Self {
         let comparator = ArrayUtil::get_unsigned_comparator(query.bytes_per_dim);
@@ -265,6 +272,7 @@ where
             parent_query,
             comparator,
             _leaf_reader: PhantomData,
+            _irc: PhantomData,
             query: point_range_query,
             score_mode,
         }
@@ -306,7 +314,7 @@ where
     }
     fn get_intersect_visitor(
         result: DocIdSetBuilder,
-        weight: &'_ PointRangeWeight<LR>,
+        weight: &'_ PointRangeWeight<LR, IRC>,
     ) -> IntersectVisitorImpl1 {
         IntersectVisitorImpl1::new(result, weight.query.clone(), weight.comparator.clone())
     }
@@ -380,19 +388,23 @@ where
     }
 }
 
-impl<LR> SegmentCacheable for PointRangeWeight<LR>
+impl<LR, IRC> SegmentCacheable for PointRangeWeight<LR, IRC>
 where
     LR: LeafReader,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
 {
     type LeafReader = LR;
+    type IRC = IRC;
+
     fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<LR> Weight for PointRangeWeight<LR>
+impl<LR, IRC> Weight for PointRangeWeight<LR, IRC>
 where
     LR: LeafReader + 'static,
+    IRC: IndexReaderContext<LeafReader = LR> + 'static,
     <LR as LeafReader>::PointValues: 'static,
 {
     type Matches = MatchWithNoTerms;

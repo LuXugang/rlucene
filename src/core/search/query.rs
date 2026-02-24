@@ -54,8 +54,13 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub type QueryWeight<LR> = Box<
-    dyn Weight<LeafReader = LR, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<LR>>,
+pub type QueryWeight<IRC> = Box<
+    dyn Weight<
+            IRC = IRC,
+            LeafReader = IRCLeafReader<IRC>,
+            Matches = MatchWithNoTerms,
+            ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>,
+        >,
 >;
 pub type QueryWeightSs<LR> = Box<
     dyn ScorerSupplier<
@@ -133,15 +138,15 @@ pub trait QueryBase: Debug + HasIdentity {
         _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static;
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized;
 
     fn visit<QV>(&self, visitor: &QV)
@@ -195,9 +200,9 @@ impl QueryBase for Query {
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -211,7 +216,7 @@ impl QueryBase for Query {
 
     fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
     {
         dispatch_query!(self, |q| q.rewrite(searcher))
     }
@@ -260,9 +265,9 @@ where
         _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -274,7 +279,7 @@ where
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext,
+        IRC: IndexReaderContext + 'static,
     {
         Err(LuceneError::unsupported_operation(format!(
             "Arc<QueryBase> cannot be used to rewrite directly: {}",

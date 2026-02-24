@@ -1252,6 +1252,7 @@ mod tests {
     use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
+    use crate::core::index::leaf_reader_context::LeafReaderContext;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::search::sort::Sort;
 
@@ -1362,11 +1363,12 @@ mod tests {
             let doc = Document::new();
             iw.add_document(doc)?;
         }
-        let ir = iw.get_reader()?;
+        let ir_concurrent = iw.get_reader()?;
+        let ir_single = iw.get_reader()?;
         iw.close()?;
 
-        let concurrent_searcher = new_searcher_with_threads(&ir, true, true, true)?;
-        let single_threaded_searcher = new_searcher_with_threads(&ir, true, true, false)?;
+        let concurrent_searcher = new_searcher_with_threads(ir_concurrent, true, true, true)?;
+        let single_threaded_searcher = new_searcher_with_threads(ir_single, true, true, false)?;
 
         // Two Sort criteria to instantiate the multi/single comparators.
         let sorts = [
@@ -1466,7 +1468,8 @@ mod tests {
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
 
-        let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
+        let dummy_weight =
+            DummyWeight::<_, LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
         for total_hits_threshold in 0..20 {
             let after_variants: [Option<FieldDoc>; 2] = [
                 None,
@@ -1554,7 +1557,8 @@ mod tests {
         let reader = get_context(reader)?;
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
-        let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
+        let dummy_weight =
+            DummyWeight::<_, LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
 
         let sort = Sort::with_fields(vec![
             SortField::get_field_score()?,
@@ -1628,7 +1632,8 @@ mod tests {
         let reader = get_context(reader)?;
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
-        let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
+        let dummy_weight =
+            DummyWeight::<_, LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
         for total_hits_threshold in 0..20 {
             let sort = Sort::with_fields(vec![
                 SortField::get_field_score()?,
@@ -1745,7 +1750,8 @@ mod tests {
         let mut scorer2 = Score::default();
 
         let leaves = reader.leaves()?;
-        let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
+        let dummy_weight =
+            DummyWeight::<_, LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
 
         let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
         leaf_collector.set_scorer(&mut scorer)?;

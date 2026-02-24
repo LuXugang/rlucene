@@ -78,14 +78,14 @@ pub static MAX_RAM_BYTES_USED: LazyLock<i64> = LazyLock::new(|| {
 });
 pub struct IndexSearcher<IRC>
 where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
 {
     pub reader_context: IRC,
     similarity: Arc<SimilarityEnum>,
     inner: Mutex<Inner>,
     query_timeout: Option<QueryTimeoutEnum>,
     query_caching_policy: Arc<QueryCachingPolicyEnum>,
-    query_cache: Option<QueryCacheEnum<IRCLeafReader<IRC>>>,
+    query_cache: Option<QueryCacheEnum<IRC>>,
     // partialResult may be set on one of the threads of the executor. It may be correct to not make
     // this variable volatile since joining these threads should ensure a happens-before relationship
     // that guarantees that writes become visible on the main thread, but making the variable volatile
@@ -99,7 +99,7 @@ pub type DefaultIndexSearcher<IRC> = IndexSearcher<IRC>;
 
 impl<IRC> DefaultIndexSearcher<IRC>
 where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
 {
     // TODO IMPORTANT 这里没有加入Executor的rust版本 所以暂时不添加这个参数
     pub fn new(context: IRC) -> Result<Self> {
@@ -163,7 +163,7 @@ where
 
 impl<IRC> IndexSearcher<IRC>
 where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
 {
     pub fn stored_fields(&self) -> Result<<IRC::IndexReader as IndexReader>::StoredFields> {
         self.reader_context.reader().stored_fields()
@@ -586,7 +586,7 @@ where
         score_mode: ScoreMode,
         boost: f32,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+    ) -> Result<QueryWeight<IRC>>
     where
         T: QueryBase,
         IRCLeafReader<IRC>: 'static,
@@ -667,7 +667,7 @@ where
         self.reader_context.reader()
     }
 
-    pub fn set_query_cache(&mut self, query_cache: Option<QueryCacheEnum<IRCLeafReader<IRC>>>) {
+    pub fn set_query_cache(&mut self, query_cache: Option<QueryCacheEnum<IRC>>) {
         self.query_cache = query_cache;
     }
 }
