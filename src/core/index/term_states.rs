@@ -64,7 +64,7 @@ where
 {
     pub fn new<IRC>(term: Option<Arc<Term>>, context: &IRC) -> Result<Self>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
     {
         debug_assert!(context.base().is_top_level);
         let mut states = Vec::new();
@@ -83,7 +83,7 @@ where
 
     pub fn new_empty<IRC>(context: &IRC) -> Result<Self>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
     {
         Self::new(None, context)
     }
@@ -101,7 +101,7 @@ where
         total_term_freq: i64,
     ) -> Result<Self>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
     {
         let mut ts = TermStates::new_empty(context)?;
         ts.register_with_stats(state, ord, doc_freq, total_term_freq);
@@ -324,7 +324,7 @@ pub fn build<IRC, T>(
     needs_stats: bool,
 ) -> Result<TermStates<IRCTermState<IRC>>>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     T: Into<Arc<Term>>,
 {
     let term = term.into();

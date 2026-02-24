@@ -223,7 +223,7 @@ pub trait Weight: SegmentCacheable {
 }
 impl<IRC, T> Weight for Box<T>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     T: Weight<LeafReader = IRCLeafReader<IRC>, IRC = IRC> + ?Sized,
 {
     type Matches = T::Matches;
@@ -290,7 +290,7 @@ where
 
 impl<IRC, T> Weight for Arc<T>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     T: Weight<LeafReader = IRCLeafReader<IRC>, IRC = IRC>,
 {
     type Matches = T::Matches;

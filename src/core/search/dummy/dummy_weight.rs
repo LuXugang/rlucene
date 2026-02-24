@@ -33,7 +33,7 @@ use std::sync::Arc;
 pub struct DummyWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     leaf_reader: LR,
     _irc: PhantomData<IRC>,
@@ -42,7 +42,7 @@ where
 impl<LR, IRC> DummyWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     pub fn new(lr: LR) -> Self {
         Self {
@@ -60,7 +60,7 @@ impl Default for DummyWeight<DummyLeafReader, LeafReaderContext<DummyLeafReader>
 impl<LR, IRC> SegmentCacheable for DummyWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type LeafReader = LR;
     type IRC = IRC;
@@ -73,7 +73,7 @@ where
 impl<LR, IRC> Weight for DummyWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type Matches = DummyMatches;
 

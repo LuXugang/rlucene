@@ -42,7 +42,7 @@ pub struct PhraseWeight<LR, S, IRC>
 where
     LR: LeafReader,
     S: PhraseWeightBase<LR>,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     stats: S::SimScorer,
     sub: S,
@@ -52,7 +52,7 @@ impl<LR, S, IRC> PhraseWeight<LR, S, IRC>
 where
     LR: LeafReader,
     S: PhraseWeightBase<LR>,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     pub(crate) fn new(searcher: &IndexSearcher<IRC>, mut sub: S) -> Result<Self> {
         let stats = sub.get_stats(searcher)?;
@@ -67,7 +67,7 @@ impl<LR, S, IRC> SegmentCacheable for PhraseWeight<LR, S, IRC>
 where
     LR: LeafReader,
     S: PhraseWeightBase<LR>,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type LeafReader = LR;
     type IRC = IRC;
@@ -80,7 +80,7 @@ where
 impl<LR, S, IRC> Weight for PhraseWeight<LR, S, IRC>
 where
     LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
     LRImpactsEnum<LR>: 'static,
     LRPosting<LR>: 'static,
     LRNormNumericDocValues<LR>: 'static,

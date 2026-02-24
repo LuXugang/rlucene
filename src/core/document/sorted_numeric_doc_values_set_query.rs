@@ -129,7 +129,7 @@ impl Accountable for SortedNumericDocValuesSetQuery {
 pub struct SortedNumericDocValuesSetQueryWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     query: SortedNumericDocValuesSetQuery,
     base: ConstantScoreWeight,
@@ -141,7 +141,7 @@ where
 impl<LR, IRC> SortedNumericDocValuesSetQueryWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     pub(crate) fn new(
         query: SortedNumericDocValuesSetQuery,
@@ -164,7 +164,7 @@ where
 impl<LR, IRC> SegmentCacheable for SortedNumericDocValuesSetQueryWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type LeafReader = LR;
     type IRC = IRC;
@@ -178,7 +178,7 @@ where
 impl<LR, IRC> Weight for SortedNumericDocValuesSetQueryWeight<LR, IRC>
 where
     LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
     <LR as LeafReader>::NumericDocValues: 'static,
     <LR as LeafReader>::SortedNumericDocValues: 'static,
     <<LR as LeafReader>::SortedNumericDocValues as SortedNumericDocValues>::NumericDocValues:

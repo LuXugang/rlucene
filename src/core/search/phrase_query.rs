@@ -265,7 +265,7 @@ impl QueryBase for PhraseQuery {
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -284,7 +284,7 @@ impl QueryBase for PhraseQuery {
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
     {
         let len = self.terms.len();
@@ -471,7 +471,7 @@ where
 
     fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
     where
-        IRC: IndexReaderContext<LeafReader = LR> + 'static,
+        IRC: IndexReaderContext<LeafReader = LR>,
     {
         let positions = &self.query.positions;
 

@@ -2338,7 +2338,7 @@ pub(crate) mod tests {
             per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
         ) -> Result<QueryWeight<IRC>>
         where
-            IRC: IndexReaderContext + 'static,
+            IRC: IndexReaderContext,
             Self: Sized,
             IRCLeafReader<IRC>: 'static,
         {
@@ -2354,7 +2354,7 @@ pub(crate) mod tests {
 
         fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
         where
-            IRC: IndexReaderContext + 'static,
+            IRC: IndexReaderContext,
             Self: Sized,
         {
             let rewritten = self.query.rewrite(searcher)?;
@@ -2373,7 +2373,7 @@ pub(crate) mod tests {
     }
     struct MaxScoreWrapperQueryWeight<IRC>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
         max_range: i32,
@@ -2382,7 +2382,7 @@ pub(crate) mod tests {
     }
     impl<IRC> MaxScoreWrapperQueryWeight<IRC>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
         fn new(max_range: i32, max_score: f32, weight: QueryWeight<IRC>) -> Self {
@@ -2396,7 +2396,7 @@ pub(crate) mod tests {
 
     impl<IRC> SegmentCacheable for MaxScoreWrapperQueryWeight<IRC>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
         type LeafReader = IRCLeafReader<IRC>;
@@ -2409,7 +2409,7 @@ pub(crate) mod tests {
 
     impl<IRC> Weight for MaxScoreWrapperQueryWeight<IRC>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
         type Matches = MatchWithNoTerms;
@@ -2536,7 +2536,7 @@ pub(crate) mod tests {
             per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
         ) -> Result<QueryWeight<IRC>>
         where
-            IRC: IndexReaderContext + 'static,
+            IRC: IndexReaderContext,
             Self: Sized,
             IRCLeafReader<IRC>: 'static,
         {
@@ -2556,7 +2556,7 @@ pub(crate) mod tests {
 
         fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
         where
-            IRC: IndexReaderContext + 'static,
+            IRC: IndexReaderContext,
             Self: Sized,
         {
             Ok(Query::WANDScorer(self))
@@ -2571,7 +2571,7 @@ pub(crate) mod tests {
 
     struct WANDScorerQueryWeight<IRC>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
         minimum_number_should_match: i32,
@@ -2582,7 +2582,7 @@ pub(crate) mod tests {
     }
     impl<IRC> WANDScorerQueryWeight<IRC>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
         fn new(
@@ -2605,7 +2605,7 @@ pub(crate) mod tests {
 
     impl<IRC> SegmentCacheable for WANDScorerQueryWeight<IRC>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
         type LeafReader = IRCLeafReader<IRC>;
@@ -2618,7 +2618,7 @@ pub(crate) mod tests {
 
     impl<IRC> Weight for WANDScorerQueryWeight<IRC>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
         type Matches = MatchWithNoTerms;

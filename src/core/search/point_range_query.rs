@@ -218,7 +218,7 @@ impl QueryBase for PointRangeQuery {
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -231,7 +231,7 @@ impl QueryBase for PointRangeQuery {
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
     {
         Ok(self.into())
@@ -248,7 +248,7 @@ impl QueryBase for PointRangeQuery {
 pub struct PointRangeWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
@@ -261,7 +261,7 @@ where
 impl<LR, IRC> PointRangeWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     pub fn new(score: f32, query: PointRangeQuery, score_mode: ScoreMode) -> Self {
         let comparator = ArrayUtil::get_unsigned_comparator(query.bytes_per_dim);
@@ -391,7 +391,7 @@ where
 impl<LR, IRC> SegmentCacheable for PointRangeWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type LeafReader = LR;
     type IRC = IRC;
@@ -404,7 +404,7 @@ where
 impl<LR, IRC> Weight for PointRangeWeight<LR, IRC>
 where
     LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
     <LR as LeafReader>::PointValues: 'static,
 {
     type Matches = MatchWithNoTerms;

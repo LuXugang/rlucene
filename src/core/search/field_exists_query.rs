@@ -114,7 +114,7 @@ impl QueryBase for FieldExistsQuery {
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -127,7 +127,7 @@ impl QueryBase for FieldExistsQuery {
 
     fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
     {
         let mut all_readers_rewritable = true;
@@ -211,7 +211,7 @@ impl QueryBase for FieldExistsQuery {
 pub struct FieldExistsWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     query: FieldExistsQuery,
     base: ConstantScoreWeight,
@@ -224,7 +224,7 @@ where
 impl<LR, IRC> FieldExistsWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     fn new(score: f32, query: FieldExistsQuery, score_mode: ScoreMode) -> Self {
         let query_clone = query.clone();
@@ -244,7 +244,7 @@ where
 impl<LR, IRC> SegmentCacheable for FieldExistsWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type LeafReader = LR;
     type IRC = IRC;
@@ -266,7 +266,7 @@ pub type Disi<LR> = DocIdSetIteratorEnum3<LRNormNumericDocValues<LR>, DummyDISI,
 impl<LR, IRC> Weight for FieldExistsWeight<LR, IRC>
 where
     LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type Matches = MatchWithNoTerms;
 
@@ -1193,7 +1193,7 @@ mod test {
         scores: bool,
     ) -> Result<()>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         T1: Into<Query>,
         T2: Into<Query>,
         IRCLeafReader<IRC>: 'static,
@@ -1231,7 +1231,7 @@ mod test {
         num_matching_docs: i32,
     ) -> Result<()>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
         let test_query: Query = FieldExistsQuery::new(field).into();

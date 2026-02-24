@@ -185,7 +185,7 @@ impl BooleanQuery {
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<BooleanWeight<IRC>>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -283,7 +283,7 @@ impl QueryBase for BooleanQuery {
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -293,7 +293,7 @@ impl QueryBase for BooleanQuery {
 
     fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
     {
         if self.clauses.is_empty() {

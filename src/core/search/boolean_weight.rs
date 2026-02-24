@@ -38,7 +38,7 @@ use std::sync::Arc;
 
 pub struct BooleanWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     pub(crate) similarity: Arc<SimilarityEnum>,
@@ -49,7 +49,7 @@ where
 
 impl<IRC> BooleanWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     /// Return the number of matches of required clauses, or -1 if unknown, or numDocs if there are no
@@ -133,7 +133,7 @@ where
 
 impl<IRC> SegmentCacheable for BooleanWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     type LeafReader = IRCLeafReader<IRC>;
@@ -159,7 +159,7 @@ where
 
 impl<IRC> Weight for BooleanWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     type Matches = MatchWithNoTerms;
@@ -368,7 +368,7 @@ where
 }
 pub(crate) struct WeightedBooleanClause<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     pub(crate) clause: BooleanClause,
@@ -377,7 +377,7 @@ where
 
 impl<IRC> WeightedBooleanClause<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     pub(crate) fn new(clause: BooleanClause, weight: QueryWeight<IRC>) -> Self {

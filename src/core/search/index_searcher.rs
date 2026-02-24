@@ -99,7 +99,7 @@ pub type DefaultIndexSearcher<IRC> = IndexSearcher<IRC>;
 
 impl<IRC> DefaultIndexSearcher<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
 {
     // TODO IMPORTANT 这里没有加入Executor的rust版本 所以暂时不添加这个参数
     pub fn new(context: IRC) -> Result<Self> {
@@ -163,7 +163,7 @@ where
 
 impl<IRC> IndexSearcher<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
 {
     pub fn stored_fields(&self) -> Result<<IRC::IndexReader as IndexReader>::StoredFields> {
         self.reader_context.reader().stored_fields()

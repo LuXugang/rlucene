@@ -24,7 +24,7 @@ use std::marker::PhantomData;
 pub struct DummySegmentCacheable<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     _leaf_reader: PhantomData<LR>,
     _irc: PhantomData<IRC>,
@@ -33,7 +33,7 @@ where
 impl<LR, IRC> Default for DummySegmentCacheable<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     fn default() -> Self {
         Self::new()
@@ -43,7 +43,7 @@ where
 impl<LR, IRC> DummySegmentCacheable<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     pub fn new() -> Self {
         Self {
@@ -56,7 +56,7 @@ where
 impl<LR, IRC> SegmentCacheable for DummySegmentCacheable<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type LeafReader = LR;
     type IRC = IRC;

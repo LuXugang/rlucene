@@ -96,7 +96,7 @@ impl QueryBase for BoostQuery {
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -110,7 +110,7 @@ impl QueryBase for BoostQuery {
 
     fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
     {
         let query_id = self.query.identity().clone();

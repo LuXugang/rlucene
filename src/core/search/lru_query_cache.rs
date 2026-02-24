@@ -723,7 +723,7 @@ where
 impl<P, IRC> SegmentCacheable for CachingWrapperWeight<P, IRC>
 where
     P: Predicate<TopParentMeta>,
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
 {
     type LeafReader = IRCLeafReader<IRC>;
     type IRC = IRC;

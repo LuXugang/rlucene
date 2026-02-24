@@ -133,7 +133,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -153,7 +153,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
 
     fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
     {
         if self.lower_value == i64::MIN && self.upper_value == i64::MAX {
@@ -192,7 +192,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
 pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     query: IndexSortSortedNumericDocValuesRangeQuery,
     base: ConstantScoreWeight,
@@ -203,7 +203,7 @@ where
 impl<LR, IRC> IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     pub fn new(
         query: IndexSortSortedNumericDocValuesRangeQuery,
@@ -226,7 +226,7 @@ pub type Disi<LR> = <SortedNumeric<LR> as SortedNumericDocValues>::NumericDocVal
 impl<LR, IRC> SegmentCacheable for IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type LeafReader = LR;
     type IRC = IRC;
@@ -241,7 +241,7 @@ where
 impl<LR, IRC> Weight for IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type Matches = MatchWithNoTerms;
 
@@ -1368,7 +1368,7 @@ mod tests {
         scores: bool,
     ) -> Result<()>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         T1: Into<Query>,
         T2: Into<Query>,
         IRCLeafReader<IRC>: 'static,
@@ -1500,7 +1500,7 @@ mod tests {
         number_of_hits: i32,
     ) -> Result<()>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
         let query = query.into();
@@ -1949,7 +1949,7 @@ mod tests {
     where
         W1: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
         W2: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
     {
         for ctx in searcher.get_leaf_contexts()? {
             let c1 = weight1.count(ctx)?;

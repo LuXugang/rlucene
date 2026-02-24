@@ -104,7 +104,7 @@ impl QueryBase for ConstantScoreQuery {
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -126,7 +126,7 @@ impl QueryBase for ConstantScoreQuery {
 
     fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
     {
         let query_id = self.query.identity().clone();
         let rewritten = self.query.rewrite(searcher)?;
@@ -160,7 +160,7 @@ impl QueryBase for ConstantScoreQuery {
 
 pub struct WeightImpl<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     base: ConstantScoreWeight,
@@ -169,7 +169,7 @@ where
 }
 impl<IRC> WeightImpl<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     pub fn new(boost: f32, inner_weight: QueryWeight<IRC>, score_mode: ScoreMode) -> Self {
@@ -182,7 +182,7 @@ where
 }
 impl<IRC> SegmentCacheable for WeightImpl<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     type LeafReader = IRCLeafReader<IRC>;
@@ -195,7 +195,7 @@ where
 
 impl<IRC> Weight for WeightImpl<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     // TODO IMPORTANT
@@ -450,14 +450,14 @@ where
 }
 pub struct ConstantScoreQueryWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     inner: QueryWeight<IRC>,
 }
 impl<IRC> ConstantScoreQueryWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     pub fn new(inner: QueryWeight<IRC>) -> Self {
@@ -466,7 +466,7 @@ where
 }
 impl<IRC> SegmentCacheable for ConstantScoreQueryWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     type LeafReader = IRCLeafReader<IRC>;
@@ -478,7 +478,7 @@ where
 }
 impl<IRC> Weight for ConstantScoreQueryWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     type Matches = MatchWithNoTerms;

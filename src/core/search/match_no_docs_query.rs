@@ -107,7 +107,7 @@ impl QueryBase for MatchNoDocsQuery {
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRC>>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
@@ -116,7 +116,7 @@ impl QueryBase for MatchNoDocsQuery {
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext,
         Self: Sized,
     {
         Ok(self.into())
@@ -132,7 +132,7 @@ impl QueryBase for MatchNoDocsQuery {
 
 pub struct MatchNoDocsWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
 {
     parent_query: Arc<Query>,
     _leaf_reader: PhantomData<IRC>,
@@ -140,7 +140,7 @@ where
 
 impl<IRC> MatchNoDocsWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
 {
     pub fn new(query: MatchNoDocsQuery) -> Self {
         Self {
@@ -152,7 +152,7 @@ where
 
 impl<IRC> SegmentCacheable for MatchNoDocsWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
 {
     type LeafReader = IRCLeafReader<IRC>;
     type IRC = IRC;
@@ -164,7 +164,7 @@ where
 
 impl<IRC> Weight for MatchNoDocsWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     type Matches = MatchWithNoTerms;
@@ -212,7 +212,7 @@ where
 
 impl<IRC> std::fmt::Debug for MatchNoDocsWeight<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "weight({:?})", self.parent_query)

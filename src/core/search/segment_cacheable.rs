@@ -33,7 +33,7 @@ use std::sync::Arc;
 /// scores, should return `false`.
 pub trait SegmentCacheable {
     type LeafReader: LeafReader;
-    type IRC: IndexReaderContext<LeafReader = Self::LeafReader> + 'static;
+    type IRC: IndexReaderContext<LeafReader = Self::LeafReader>;
     /// Returns `Ok(true)` if the object can be cached against a given leaf.
     fn is_cacheable(&self, ctx: &LeafReaderContext<Self::LeafReader>) -> Result<bool>;
 }

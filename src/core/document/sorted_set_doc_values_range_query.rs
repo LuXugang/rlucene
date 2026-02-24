@@ -166,7 +166,7 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
 pub struct SortedSetDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     query: SortedSetDocValuesRangeQuery,
     base: ConstantScoreWeight,
@@ -178,7 +178,7 @@ where
 impl<LR, IRC> SortedSetDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     pub(crate) fn new(
         query: SortedSetDocValuesRangeQuery,
@@ -201,7 +201,7 @@ where
 impl<LR, IRC> SegmentCacheable for SortedSetDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type LeafReader = LR;
     type IRC = IRC;
@@ -215,7 +215,7 @@ where
 impl<LR, IRC> Weight for SortedSetDocValuesRangeQueryWeight<LR, IRC>
 where
     LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR> + 'static,
+    IRC: IndexReaderContext<LeafReader = LR>,
 {
     type Matches = MatchWithNoTerms;
 
