@@ -480,13 +480,6 @@ where
         self.inner.get_query()
     }
 
-    fn scorer(
-        &self,
-        _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
-        self.inner.scorer(_context)
-    }
-
     type ScorerSupplier = QueryWeightSs<LR>;
 
     fn scorer_supplier(
