@@ -42,7 +42,7 @@ pub struct TermStates {
     total_term_freq: i64,
 }
 impl TermStates {
-    pub fn new<IRC>(term: Option<Arc<Term>>, context: &IRC) -> Result<Self>
+    pub fn with_term<IRC>(term: Option<Arc<Term>>, context: &IRC) -> Result<Self>
     where
         IRC: IndexReaderContext,
     {
@@ -61,16 +61,16 @@ impl TermStates {
         })
     }
 
-    pub fn new_empty<IRC>(context: &IRC) -> Result<Self>
+    pub fn new<IRC>(context: &IRC) -> Result<Self>
     where
         IRC: IndexReaderContext,
     {
-        Self::new(None, context)
+        Self::with_term(None, context)
     }
     pub fn was_built_for(&self, meta: &TopParentMeta) -> bool {
-        self.was_built_for_some(&meta.id)
+        self.was_built_for_id(&meta.id)
     }
-    pub fn was_built_for_some(&self, id: &Identity) -> bool {
+    pub fn was_built_for_id(&self, id: &Identity) -> bool {
         self.top_reader_context_identity.eq(id)
     }
     pub fn with_state_and_stats<IRC>(
@@ -83,7 +83,7 @@ impl TermStates {
     where
         IRC: IndexReaderContext,
     {
-        let mut ts = TermStates::new_empty(context)?;
+        let mut ts = TermStates::new(context)?;
         ts.register_with_stats(state, ord, doc_freq, total_term_freq);
         Ok(ts)
     }
@@ -302,7 +302,7 @@ where
 {
     let term = term.into();
     let context = index_searcher.get_top_reader_context();
-    let mut per_reader_term_state = TermStates::new(
+    let mut per_reader_term_state = TermStates::with_term(
         if needs_stats {
             None
         } else {

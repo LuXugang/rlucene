@@ -25,7 +25,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, NONE};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{PrepareState, TermStates};
+use crate::core::index::term_states::{PrepareState, TermStateEnum, TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::collection_statistics::CollectionStatistics;
@@ -62,19 +62,27 @@ use std::sync::Arc;
 pub struct TermQuery {
     id: Identity,
     term: Arc<Term>,
+    per_reader_term_state: Option<TermStatesMeta>,
 }
 impl TermQuery {
     pub fn new<T>(term: T) -> Self
     where
         T: Into<Arc<Term>>,
     {
-        Self {
-            id: Identity::new(),
-            term: term.into(),
-        }
+        Self::with_term_state(term, None)
     }
     pub fn get_term(&self) -> Arc<Term> {
         self.term.clone()
+    }
+    pub fn with_term_state<T>(term: T, ts: Option<TermStatesMeta>) -> Self
+    where
+        T: Into<Arc<Term>>,
+    {
+        Self {
+            id: Identity::new(),
+            term: term.into(),
+            per_reader_term_state: ts,
+        }
     }
 }
 
@@ -122,29 +130,36 @@ impl QueryBase for TermQuery {
     }
 
     fn create_weight<IRC>(
-        self,
-        _searcher: &IndexSearcher<IRC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
+        mut self,
+        searcher: &IndexSearcher<IRC>,
+        score_mode: &ScoreMode,
+        boost: f32,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        // let context = searcher.get_top_reader_context();
-        // let term_state = match per_reader_term_state {
-        //     Some(states) if states.was_built_for_some(context.base().id()) => states,
-        //     _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
-        // };
-        // Ok(Box::new(TermWeight::<IRC>::new(
-        //     searcher,
-        //     *score_mode,
-        //     boost,
-        //     term_state,
-        //     self,
-        // )?))
-        todo!()
+        let mut term_states = TermStates::new(searcher.get_top_reader_context())?;
+        let ts = match self.per_reader_term_state.take() {
+            Some(states) if { term_states.was_built_for_id(&states.id) } => {
+                term_states.register_with_stats(
+                    states.term_state,
+                    states.ord,
+                    states.doc_freq,
+                    states.total_term_freq,
+                );
+                term_states
+            },
+            _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
+        };
+        Ok(Box::new(TermWeight::<IRC>::new(
+            searcher,
+            *score_mode,
+            boost,
+            ts,
+            self,
+        )?))
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -160,6 +175,31 @@ impl QueryBase for TermQuery {
         QV: QueryVisitor,
     {
         todo!()
+    }
+}
+#[derive(Clone)]
+pub struct TermStatesMeta {
+    ord: usize,
+    doc_freq: i32,
+    total_term_freq: i64,
+    term_state: TermStateEnum,
+    id: Identity,
+}
+impl TermStatesMeta {
+    pub(crate) fn new(
+        ord: usize,
+        doc_freq: i32,
+        total_term_freq: i64,
+        term_state: TermStateEnum,
+        id: Identity,
+    ) -> Self {
+        Self {
+            ord,
+            doc_freq,
+            total_term_freq,
+            term_state,
+            id,
+        }
     }
 }
 pub struct TermWeight<IRC>
@@ -184,6 +224,7 @@ where
         term_states: TermStates,
         query: TermQuery,
     ) -> Result<Self> {
+        debug_assert!(query.per_reader_term_state.is_none());
         let similarity = searcher.get_similarity();
 
         let (collection_stats, term_stats) = if score_mode.needs_scores() {
