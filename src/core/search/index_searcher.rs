@@ -22,7 +22,6 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeoutEnum;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::TermStates;
 use crate::core::index::terms::{Terms, terms_util};
 use crate::core::search::QueryCache;
 use crate::core::search::bulk_scorer::BulkScorer;
@@ -212,7 +211,6 @@ where
         after: Option<ScoreDoc>,
         query: impl Into<Query>,
         num_hits: usize,
-        term_state: Option<TermStates>,
     ) -> Result<TopDocs<ScoreDoc>>
     where
         IRCLeafReader<IRC>: 'static,
@@ -232,13 +230,13 @@ where
         let manager =
             TopScoreDocCollectorManager::with_after(capped_num_hits, after, TOTAL_HITS_THRESHOLD)?;
 
-        self.search_with_collector_manager_with_state(query, &manager, term_state)
+        self.search_with_collector_manager_with_state(query, &manager)
     }
     pub fn search(&self, query: impl Into<Query>, n: usize) -> Result<TopDocs<ScoreDoc>>
     where
         IRCLeafReader<IRC>: 'static,
     {
-        self.search_with_term_state(query, n, None)
+        self.search_after_score(None, query, n)
     }
     /// Search implementation with arbitrary sorting, plus control over whether hit scores and max
     /// score should be computed.
@@ -260,7 +258,7 @@ where
         T: Into<Arc<Sort>>,
         IRCLeafReader<IRC>: 'static,
     {
-        self.search_after_field_with_score(None, query, n, sort, do_doc_scores, None)
+        self.search_after_field_with_score(None, query, n, sort, do_doc_scores)
     }
     /// Search implementation with arbitrary sorting.
     ///
@@ -283,19 +281,9 @@ where
         T: Into<Arc<Sort>>,
         IRCLeafReader<IRC>: 'static,
     {
-        self.search_after_field_with_score(None, query, n, sort, false, None)
+        self.search_after_field_with_score(None, query, n, sort, false)
     }
-    pub fn search_with_term_state(
-        &self,
-        query: impl Into<Query>,
-        n: usize,
-        term_state: Option<TermStates>,
-    ) -> Result<TopDocs<ScoreDoc>>
-    where
-        IRCLeafReader<IRC>: 'static,
-    {
-        self.search_after_score(None, query, n, term_state)
-    }
+
     pub fn get_top_reader_context(&self) -> &IRC {
         &self.reader_context
     }
@@ -319,14 +307,13 @@ where
         num_hits: usize,
         sort: T,
         do_doc_scores: bool,
-        term_state: Option<TermStates>,
     ) -> Result<TopFieldDocs>
     where
         Q: Into<Query>,
         T: Into<Arc<Sort>>,
         IRCLeafReader<IRC>: 'static,
     {
-        self.do_search_after_field(after, query, num_hits, sort, do_doc_scores, term_state)
+        self.do_search_after_field(after, query, num_hits, sort, do_doc_scores)
     }
     pub fn search_after<Q, T>(
         &self,
@@ -340,7 +327,7 @@ where
         T: Into<Arc<Sort>>,
         IRCLeafReader<IRC>: 'static,
     {
-        self.do_search_after_field(after, query, num_hits, sort, false, None)
+        self.do_search_after_field(after, query, num_hits, sort, false)
     }
 
     fn do_search_after_field<Q, T>(
@@ -350,7 +337,6 @@ where
         num_hits: usize,
         sort: T,
         do_doc_scores: bool,
-        term_state: Option<TermStates>,
     ) -> Result<TopFieldDocs>
     where
         Q: Into<Query>,
@@ -380,7 +366,7 @@ where
         )?;
 
         let top_field_docs =
-            self.search_with_collector_manager_with_state(query.into(), &manager, term_state)?;
+            self.search_with_collector_manager_with_state(query.into(), &manager)?;
 
         if do_doc_scores {
             todo!()
@@ -394,13 +380,12 @@ where
         &self,
         query: impl Into<Query>,
         collector_manager: &CM,
-        term_state: Option<TermStates>,
     ) -> Result<CM::T>
     where
         CM: CollectorManager,
         IRCLeafReader<IRC>: 'static,
     {
-        self.search_with_collector_manager_with_state(query, collector_manager, term_state)
+        self.search_with_collector_manager_with_state(query, collector_manager)
     }
     pub fn search_with_collector_manager<CM>(
         &self,
@@ -411,14 +396,13 @@ where
         CM: CollectorManager,
         IRCLeafReader<IRC>: 'static,
     {
-        self.search_with_collector_manager_with_state(query, collector_manager, None)
+        self.search_with_collector_manager_with_state(query, collector_manager)
     }
 
     pub fn search_with_collector_manager_with_state<CM>(
         &self,
         query: impl Into<Query>,
         collector_manager: &CM,
-        term_state: Option<TermStates>,
     ) -> Result<CM::T>
     where
         CM: CollectorManager,
@@ -429,7 +413,7 @@ where
         let needs_scores = first_collector.score_mode().needs_scores();
         query = self.rewrite_with_needs_scores(query, needs_scores)?;
         let score_mode = first_collector.score_mode();
-        let weight = self.create_weight(query, score_mode, 1.0, term_state)?;
+        let weight = self.create_weight(query, score_mode, 1.0)?;
         self.search_with_first_collector(weight.as_ref(), collector_manager, first_collector)
     }
     fn search_with_first_collector<W, CM>(
@@ -586,13 +570,12 @@ where
         query: T,
         score_mode: ScoreMode,
         boost: f32,
-        term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         T: QueryBase,
         IRCLeafReader<IRC>: 'static,
     {
-        let mut weight = query.create_weight(self, &score_mode, boost, term_state)?;
+        let mut weight = query.create_weight(self, &score_mode, boost)?;
         if !score_mode.needs_scores()
             && let Some(query_cache) = self.query_cache.as_ref()
         {

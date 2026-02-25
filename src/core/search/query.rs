@@ -19,7 +19,6 @@ use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDoc
 use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQuery;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::term_states::TermStates;
 use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
@@ -130,7 +129,6 @@ pub trait QueryBase: Debug + HasIdentity {
         _searcher: &IndexSearcher<IRC>,
         _score_mode: &ScoreMode,
         _boost: f32,
-        _per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
@@ -192,19 +190,13 @@ impl QueryBase for Query {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        dispatch_query!(self, |q| q.create_weight(
-            searcher,
-            score_mode,
-            boost,
-            per_reader_term_state
-        ))
+        dispatch_query!(self, |q| q.create_weight(searcher, score_mode, boost,))
     }
 
     fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -257,7 +249,6 @@ where
         _searcher: &IndexSearcher<IRC>,
         _score_mode: &ScoreMode,
         _boost: f32,
-        _per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

@@ -955,10 +955,8 @@ mod test {
 
         let context = &searcher.get_leaf_contexts()?[0];
 
-        let w1 =
-            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
-        let w2 =
-            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
+        let w1 = searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0)?;
+        let w2 = searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0)?;
 
         let scorer1 = w1
             .scorer(context, &searcher)?
@@ -1005,12 +1003,9 @@ mod test {
 
         let context = &searcher.get_leaf_contexts()?[0];
 
-        let w1 =
-            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
-        let w2 =
-            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
-        let wf =
-            searcher.create_weight(searcher.rewrite(filter)?, ScoreMode::TopScores, 1.0, None)?;
+        let w1 = searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0)?;
+        let w2 = searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0)?;
+        let wf = searcher.create_weight(searcher.rewrite(filter)?, ScoreMode::TopScores, 1.0)?;
 
         let scorer1 = w1
             .scorer(context, &searcher)?
@@ -1061,12 +1056,9 @@ mod test {
 
         let context = &searcher.get_leaf_contexts()?[0];
 
-        let w1 =
-            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
-        let w2 =
-            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
-        let wf =
-            searcher.create_weight(searcher.rewrite(filter)?, ScoreMode::TopScores, 1.0, None)?;
+        let w1 = searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0)?;
+        let w2 = searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0)?;
+        let wf = searcher.create_weight(searcher.rewrite(filter)?, ScoreMode::TopScores, 1.0)?;
 
         let scorer1 = w1.scorer(context, &searcher)?.expect("expected scorer1");
         let scorer2 = w2.scorer(context, &searcher)?.expect("expected scorer2");
@@ -1111,10 +1103,8 @@ mod test {
 
         let context = &searcher.get_leaf_contexts()?[0];
 
-        let w1 =
-            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
-        let w2 =
-            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
+        let w1 = searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0)?;
+        let w2 = searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0)?;
 
         let scorer1 = w1.scorer(context, &searcher)?.expect("expected scorer1");
         let scorer2 = w2.scorer(context, &searcher)?.expect("expected scorer2");
@@ -1165,12 +1155,9 @@ mod test {
 
         let context = &searcher.get_leaf_contexts()?[0];
 
-        let w1 =
-            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
-        let w2 =
-            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
-        let w3 =
-            searcher.create_weight(searcher.rewrite(clause3)?, ScoreMode::TopScores, 1.0, None)?;
+        let w1 = searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0)?;
+        let w2 = searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0)?;
+        let w3 = searcher.create_weight(searcher.rewrite(clause3)?, ScoreMode::TopScores, 1.0)?;
 
         let scorer1 = w1.scorer(context, &searcher)?.expect("expected scorer1");
         let scorer2 = w2.scorer(context, &searcher)?.expect("expected scorer2");
@@ -1223,12 +1210,9 @@ mod test {
 
         let context = &searcher.get_leaf_contexts()?[0];
 
-        let w1 =
-            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
-        let w2 =
-            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
-        let w3 =
-            searcher.create_weight(searcher.rewrite(clause3)?, ScoreMode::TopScores, 1.0, None)?;
+        let w1 = searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0)?;
+        let w2 = searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0)?;
+        let w3 = searcher.create_weight(searcher.rewrite(clause3)?, ScoreMode::TopScores, 1.0)?;
 
         let scorer1 = w1.scorer(context, &searcher)?.expect("expected scorer1");
         let scorer2 = w2.scorer(context, &searcher)?.expect("expected scorer2");
@@ -1320,8 +1304,7 @@ mod test {
         let query: Query = builder.build().into();
 
         let searcher = new_searcher_with_reader(reader)?;
-        let weight =
-            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
 
         let live_docs = BitsImpl::new();
 

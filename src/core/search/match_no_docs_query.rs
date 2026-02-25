@@ -17,7 +17,6 @@
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::term_states::TermStates;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
@@ -103,7 +102,6 @@ impl QueryBase for MatchNoDocsQuery {
         _searcher: &IndexSearcher<IRC>,
         _score_mode: &ScoreMode,
         _boost: f32,
-        _per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

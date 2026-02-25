@@ -944,7 +944,7 @@ pub(crate) mod tests {
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::leaf_reader_context::LeafReaderContext;
     use crate::core::index::term::Term;
-    use crate::core::index::term_states::TermStates;
+
     use crate::core::search::boolean_clause::Occur;
     use crate::core::search::boolean_query::{BooleanQuery, Builder};
     use crate::core::search::boolean_weight::BooleanWeight;
@@ -1105,8 +1105,7 @@ pub(crate) mod tests {
             random.random_bool(0.5),
         ));
 
-        let weight =
-            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
         let context = &searcher.get_leaf_contexts()?[0];
 
         let mut ss = weight
@@ -1193,8 +1192,7 @@ pub(crate) mod tests {
             .add(TermQuery::new(Term::from_text("foo", "C")), Occur::Filter)?;
         query = builder.build().into();
 
-        let weight =
-            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
         let mut ss = weight
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
@@ -1254,8 +1252,7 @@ pub(crate) mod tests {
             .add(TermQuery::new(Term::from_text("foo", "C")), Occur::MustNot)?;
         query = builder.build().into();
 
-        let weight =
-            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
         let mut ss = weight
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
@@ -1360,8 +1357,7 @@ pub(crate) mod tests {
             random.random_bool(0.5),
         ));
 
-        let weight =
-            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
         let mut ss = weight
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
@@ -1457,8 +1453,7 @@ pub(crate) mod tests {
             random.random_bool(0.5),
         ));
 
-        let weight =
-            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
         let mut ss = weight
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
@@ -1546,12 +1541,8 @@ pub(crate) mod tests {
             random.random_bool(0.5),
         ));
 
-        let weight = searcher.create_weight(
-            searcher.rewrite(query)?,
-            ScoreMode::CompleteNoScores,
-            1.0,
-            None,
-        )?;
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::CompleteNoScores, 1.0)?;
         let mut scorer = weight
             .scorer(context, &searcher)?
             .expect("expected scorer to be present");
@@ -1640,8 +1631,7 @@ pub(crate) mod tests {
             outer.build().into()
         };
 
-        let weight =
-            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
         let mut ss = weight
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
@@ -1750,8 +1740,7 @@ pub(crate) mod tests {
             outer.build().into()
         };
 
-        let weight =
-            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopDocs, 1.0, None)?;
+        let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopDocs, 1.0)?;
         let mut scorer = weight
             .scorer(context, &searcher)?
             .expect("expected scorer to be present");
@@ -1841,8 +1830,7 @@ pub(crate) mod tests {
             outer.build().into()
         };
 
-        let weight =
-            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
         let mut scorer = weight
             .scorer(context, &searcher)?
             .expect("expected scorer to be present");
@@ -1949,12 +1937,8 @@ pub(crate) mod tests {
             outer.build().into()
         };
 
-        let weight = searcher.create_weight(
-            searcher.rewrite(query)?,
-            ScoreMode::CompleteNoScores,
-            1.0,
-            None,
-        )?;
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::CompleteNoScores, 1.0)?;
         let mut scorer = weight
             .scorer(context, &searcher)?
             .expect("expected scorer to be present");
@@ -2335,16 +2319,13 @@ pub(crate) mod tests {
             searcher: &IndexSearcher<IRC>,
             score_mode: &ScoreMode,
             boost: f32,
-            per_reader_term_state: Option<TermStates>,
         ) -> Result<QueryWeight<IRC>>
         where
             IRC: IndexReaderContext,
             Self: Sized,
             IRCLeafReader<IRC>: 'static,
         {
-            let weight =
-                self.query
-                    .create_weight(searcher, score_mode, boost, per_reader_term_state)?;
+            let weight = self.query.create_weight(searcher, score_mode, boost)?;
             Ok(Box::new(MaxScoreWrapperQueryWeight::new(
                 self.max_range,
                 self.max_score,
@@ -2546,19 +2527,13 @@ pub(crate) mod tests {
             searcher: &IndexSearcher<IRC>,
             score_mode: &ScoreMode,
             boost: f32,
-            per_reader_term_state: Option<TermStates>,
         ) -> Result<QueryWeight<IRC>>
         where
             IRC: IndexReaderContext,
             Self: Sized,
             IRCLeafReader<IRC>: 'static,
         {
-            let w = self.query.clone().raw_weight(
-                searcher,
-                score_mode,
-                boost,
-                per_reader_term_state,
-            )?;
+            let w = self.query.clone().raw_weight(searcher, score_mode, boost)?;
             Ok(Box::new(WANDScorerQueryWeight::new(
                 self.query,
                 self.do_blocks,

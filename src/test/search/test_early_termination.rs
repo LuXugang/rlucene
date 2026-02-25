@@ -57,7 +57,6 @@ fn test_early_termination() -> Result<()> {
         searcher.search_with_collector_manager_states(
             MatchAllDocsQuery::new(),
             &CollectorManagerImpl,
-            None,
         )?;
     }
 

@@ -675,8 +675,7 @@ mod tests {
             b.build().into()
         };
 
-        let weight =
-            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
         let context = &searcher.get_leaf_contexts()?[0];
 
         let mut scorer = weight.scorer(context, &searcher)?.expect("expected scorer");
@@ -1014,12 +1013,12 @@ mod tests {
         let ctx = &searcher.get_leaf_contexts()?[0];
 
         let req_scorer = searcher
-            .create_weight(req_q, ScoreMode::TopScores, 1.0, None)?
+            .create_weight(req_q, ScoreMode::TopScores, 1.0)?
             .scorer(ctx, searcher)?
             .expect("required scorer");
 
         let opt_scorer = searcher
-            .create_weight(opt_q, ScoreMode::TopScores, 1.0, None)?
+            .create_weight(opt_q, ScoreMode::TopScores, 1.0)?
             .scorer(ctx, searcher)?
             .expect("optional scorer");
         let v = match with_block_score {

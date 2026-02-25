@@ -23,7 +23,6 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
-use crate::core::index::term_states::TermStates;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -130,7 +129,6 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
@@ -139,8 +137,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     {
         let query = self.clone();
         let fallback_query = *self.fallback_query;
-        let fallback_query_weight =
-            fallback_query.create_weight(searcher, score_mode, boost, per_reader_term_state)?;
+        let fallback_query_weight = fallback_query.create_weight(searcher, score_mode, boost)?;
         Ok(Box::new(
             IndexSortSortedNumericDocValuesRangeQueryWeight::new(
                 query,
@@ -1687,7 +1684,7 @@ mod tests {
 
         // TODO query rewrite 未实现
         // let rewritten = searcher.rewrite(&query)?;
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
 
         let leaves = searcher.get_leaf_contexts()?;
         let ctx0 = &leaves[0];
@@ -1830,7 +1827,7 @@ mod tests {
         let reader = writer.get_reader()?;
         let searcher = new_searcher_with_reader(reader)?;
         let query = create_query("field", 0, 0);
-        let weight = query.create_weight(&searcher, &ScoreMode::TopScores, 1.0, None)?;
+        let weight = query.create_weight(&searcher, &ScoreMode::TopScores, 1.0)?;
         for ctx in searcher.get_leaf_contexts()? {
             let mut scorer = weight.scorer(ctx, &searcher)?;
             assert!(
@@ -1866,7 +1863,7 @@ mod tests {
             IndexSortSortedNumericDocValuesRangeQuery::new("another", 1, 42, fallback_query),
         );
 
-        let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+        let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
         for ctx in searcher.get_leaf_contexts()? {
             assert_eq!(0, weight.count(ctx)?);
         }
@@ -1952,8 +1949,8 @@ mod tests {
                     Box::new(fallback.into()),
                 );
 
-                let w1 = q1.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-                let w2 = q2.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+                let w1 = q1.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
+                let w2 = q2.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
                 assert_same_count(w1.as_ref(), w2.as_ref(), &searcher)?;
             }
@@ -2026,7 +2023,7 @@ mod tests {
             Box::new(fallback_query.into()),
         );
 
-        let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+        let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
         let mut count = 0;
         for ctx in searcher.get_leaf_contexts()? {
@@ -2125,7 +2122,7 @@ mod tests {
                 9,
                 Box::new(fallback.into()),
             );
-            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx)?);
             }
@@ -2139,7 +2136,7 @@ mod tests {
                 10,
                 Box::new(fallback.into()),
             );
-            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx)?);
             }
@@ -2153,7 +2150,7 @@ mod tests {
                 10,
                 Box::new(fallback.into()),
             );
-            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx)?);
             }
@@ -2167,7 +2164,7 @@ mod tests {
                 9,
                 Box::new(fallback.into()),
             );
-            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx)?);
             }
@@ -2181,7 +2178,7 @@ mod tests {
                 8,
                 Box::new(fallback.into()),
             );
-            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1100, weight.count(ctx)?);
             }
@@ -2195,7 +2192,7 @@ mod tests {
                 8,
                 Box::new(fallback.into()),
             );
-            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1100, weight.count(ctx)?);
             }
@@ -2209,7 +2206,7 @@ mod tests {
                 13,
                 Box::new(fallback.into()),
             );
-            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1500, weight.count(ctx)?);
             }
@@ -2223,7 +2220,7 @@ mod tests {
                 14,
                 Box::new(fallback.into()),
             );
-            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1500, weight.count(ctx)?);
             }
@@ -2237,7 +2234,7 @@ mod tests {
                 14,
                 Box::new(fallback.into()),
             );
-            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(3500, weight.count(ctx)?);
             }
@@ -2251,7 +2248,7 @@ mod tests {
                 3,
                 Box::new(fallback.into()),
             );
-            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(0, weight.count(ctx)?);
             }
@@ -2265,7 +2262,7 @@ mod tests {
                 15,
                 Box::new(fallback.into()),
             );
-            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(0, weight.count(ctx)?);
             }
@@ -2326,10 +2323,10 @@ mod tests {
             );
 
             let index_sort_range_query_weight =
-                index_sort_range_query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+                index_sort_range_query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
             let range_query_weight =
-                range_query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+                range_query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
             for ctx in searcher.get_leaf_contexts()? {
                 let expected = range_query_weight.count(ctx)?;

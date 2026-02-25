@@ -16,7 +16,6 @@
  */
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::term_states::TermStates;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
@@ -69,7 +68,6 @@ impl QueryBase for DummyQuery {
         _searcher: &IndexSearcher<IRC>,
         _score_mode: &ScoreMode,
         _boost: f32,
-        _per_reader_term_state: Option<TermStates>,
     ) -> crate::core::util::error::lucene_error::Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

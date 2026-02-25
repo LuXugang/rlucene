@@ -1477,7 +1477,7 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
         }
 
         let query = IntPoint::new_range_query_n("point", &lower, &upper)?;
-        let weight = searcher.create_weight(query.clone(), CompleteNoScores, 1.0, None)?;
+        let weight = searcher.create_weight(query.clone(), CompleteNoScores, 1.0)?;
         let _scorer = weight
             .scorer(&searcher.get_leaf_contexts()?[0], &searcher)?
             .unwrap();
@@ -1493,7 +1493,7 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
     let mut searcher = IndexSearcher::from_cr(reader)?;
     searcher.set_query_cache(None);
 
-    let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
+    let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
     let _scorer = weight.scorer(&searcher.get_leaf_contexts()?[0], &searcher)?;
 
     w.close()?;
@@ -1553,7 +1553,7 @@ fn test_point_range_weight_count() -> Result<()> {
         #[allow(clippy::needless_range_loop)]
         for i in 0..num_queries {
             let query = IntPoint::new_range_query("point", lower_bound[i], upper_bound[i])?;
-            let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
+            let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
             assert_eq!(expected_count[i], weight.count(leaf)?);
         }
     }
@@ -1905,7 +1905,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
     let searcher = new_searcher_with_wrap(reader, false)?;
 
     let query = IntPoint::new_range_query("field", 0i32, 1i32)?;
-    let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
+    let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
     assert!(
         weight
             .scorer_supplier(&searcher.get_leaf_contexts()?[0], &searcher)?
@@ -1913,7 +1913,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
     );
 
     let query = IntPoint::new_range_query("field", 3i32, 4i32)?;
-    let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
+    let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
     assert!(
         weight
             .scorer_supplier(&searcher.get_leaf_contexts()?[0], &searcher)?
@@ -1921,7 +1921,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
     );
 
     let query = IntPoint::new_range_query_n("field2d", &[0i32, 0i32], &[2i32, 2i32])?;
-    let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
+    let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
     assert!(
         weight
             .scorer_supplier(&searcher.get_leaf_contexts()?[0], &searcher)?
@@ -1929,7 +1929,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
     );
 
     let query = IntPoint::new_range_query_n("field2d", &[2i32, 2i32], &[4i32, 4i32])?;
-    let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
+    let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
     assert!(
         weight
             .scorer_supplier(&searcher.get_leaf_contexts()?[0], &searcher)?

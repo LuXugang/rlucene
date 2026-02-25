@@ -17,7 +17,6 @@
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::term_states::TermStates;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
@@ -100,7 +99,6 @@ impl QueryBase for ConstantScoreQuery {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
@@ -113,8 +111,7 @@ impl QueryBase for ConstantScoreQuery {
             ScoreMode::TopDocs
         };
         let query = *self.query;
-        let inner_weight =
-            query.create_weight(searcher, &inner_score_mode, 1.0, per_reader_term_state)?;
+        let inner_weight = query.create_weight(searcher, &inner_score_mode, 1.0)?;
         let v: QueryWeight<IRC> = if score_mode.needs_scores() {
             Box::new(WeightImpl::new(boost, inner_weight, *score_mode))
         } else {
@@ -669,7 +666,7 @@ mod tests {
         let csq: Query = ConstantScoreQuery::new(pq).into();
 
         let rewritten = searcher.rewrite(csq)?;
-        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
         let scorer = weight.scorer(ctx, &searcher)?.unwrap();

@@ -23,7 +23,6 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::{LRDisis, LRNormNumericDocValues, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::PointValues;
-use crate::core::index::term_states::TermStates;
 use crate::core::index::terms::Terms;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
@@ -111,7 +110,6 @@ impl QueryBase for FieldExistsQuery {
         _searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
@@ -923,7 +921,7 @@ mod test {
         // let searcher2 = new_searcher_with_reader(reader2)?;
         //
         // let test_query: Query = FieldExistsQuery::new("long").into();
-        // let weight2 = searcher2.create_weight(test_query, ScoreMode::Complete, 1.0, None)?;
+        // let weight2 = searcher2.create_weight(test_query, ScoreMode::Complete, 1.0)?;
         //
         // let leaf = &searcher2.get_leaf_contexts()?[0];
         // assert_eq!(weight2.count(leaf)?, -1);
@@ -1247,7 +1245,7 @@ mod test {
         let test_query: Query = FieldExistsQuery::new(field).into();
         assert_eq!(searcher.count(test_query.clone())?, num_matching_docs);
 
-        let weight = searcher.create_weight(test_query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(test_query, ScoreMode::Complete, 1.0)?;
         assert_eq!(
             weight.count(&searcher.get_leaf_contexts()?[0])?,
             num_matching_docs

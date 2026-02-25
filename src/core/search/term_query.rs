@@ -126,7 +126,6 @@ impl QueryBase for TermQuery {
         _searcher: &IndexSearcher<IRC>,
         _score_mode: &ScoreMode,
         _boost: f32,
-        _per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

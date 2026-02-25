@@ -16,7 +16,6 @@
  */
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::term_states::TermStates;
 use crate::core::search::boolean_clause::{BooleanClause, Occur};
 use crate::core::search::boolean_weight::{BooleanWeight, WeightedBooleanClause};
 use crate::core::search::boost_query::BoostQuery;
@@ -181,7 +180,6 @@ impl BooleanQuery {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates>,
     ) -> Result<BooleanWeight<IRC>>
     where
         IRC: IndexReaderContext,
@@ -200,7 +198,7 @@ impl BooleanQuery {
             let weight = c
                 .query
                 .clone()
-                .create_weight(searcher, clause_score_mode, boost, None)?;
+                .create_weight(searcher, clause_score_mode, boost)?;
 
             weighted_clauses.push(WeightedBooleanClause::new(c, weight));
         }
@@ -279,14 +277,13 @@ impl QueryBase for BooleanQuery {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        let weight = self.raw_weight(searcher, score_mode, boost, per_reader_term_state)?;
+        let weight = self.raw_weight(searcher, score_mode, boost)?;
         Ok(Box::new(weight))
     }
 
@@ -1284,7 +1281,7 @@ mod tests {
             let q: Query = bq.build().into();
 
             let rewritten = searcher.rewrite(q.clone())?;
-            let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
             let ctx = &searcher.get_leaf_contexts()?[0];
             let mut scorer = weight.scorer(ctx, &searcher)?.unwrap();
@@ -1302,7 +1299,7 @@ mod tests {
             // Now, randomly next/advance through the list and verify exact match
             for _ in 0..10 {
                 let rewritten = searcher.rewrite(q.clone())?;
-                let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+                let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
                 let mut scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
                 let mut upto: i32 = -1;
@@ -1413,7 +1410,7 @@ mod tests {
         let q: Query = b.build().into();
 
         let rewritten = searcher.rewrite(q)?;
-        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
         let scorer = weight.scorer(ctx, &searcher)?.unwrap();
@@ -1454,7 +1451,7 @@ mod tests {
         let q: Query = b.build().into();
 
         let rewritten = searcher.rewrite(q)?;
-        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
         let scorer = weight.scorer(ctx, &searcher)?.unwrap();
@@ -1497,7 +1494,7 @@ mod tests {
         let q: Query = b.build().into();
 
         let rewritten = searcher.rewrite(q)?;
-        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
         let scorer = weight.scorer(ctx, &searcher)?.unwrap();
@@ -1541,7 +1538,7 @@ mod tests {
         let q: Query = b.build().into();
 
         let rewritten = searcher.rewrite(q)?;
-        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
         let scorer = weight.scorer(ctx, &searcher)?.unwrap();
@@ -1582,7 +1579,7 @@ mod tests {
         let q: Query = b.build().into();
 
         let rewritten = searcher.rewrite(q)?;
-        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+        let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
         let scorer = weight.scorer(ctx, &searcher)?.unwrap();
@@ -1679,7 +1676,7 @@ mod tests {
             .add(LongPoint::new_exact_query("long", 3)?, Occur::Filter)?;
         let query = builder.build();
 
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // Both queries match a single doc, BooleanWeight can't figure out the count of the conjunction
         assert_eq!(-1, weight.count(&searcher.get_leaf_contexts()?[0])?);
 
@@ -1692,7 +1689,7 @@ mod tests {
             .add(LongPoint::new_exact_query("long", 3)?, Occur::Filter)?;
         let query = builder.build();
 
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // One query has a count of 0, the conjunction has a count of 0 too
         assert_eq!(0, weight.count(&searcher.get_leaf_contexts()?[0])?);
 
@@ -1705,7 +1702,7 @@ mod tests {
             .add(LongPoint::new_exact_query("long", 5)?, Occur::Filter)?;
         let query = builder.build();
 
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // One query has a count of 0, the conjunction has a count of 0 too
         assert_eq!(0, weight.count(&searcher.get_leaf_contexts()?[0])?);
 
@@ -1719,7 +1716,7 @@ mod tests {
             .add(LongPoint::new_range_query("long", 0, 10)?, Occur::Filter)?;
         let query = builder.build();
 
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // One query matches all docs, the count of the conjunction is the count of the other query
         assert_eq!(1, weight.count(&searcher.get_leaf_contexts()?[0])?);
 
@@ -1729,7 +1726,7 @@ mod tests {
             .add(LongPoint::new_range_query("long", 1, 5)?, Occur::Filter)?;
         let query = builder.build();
 
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // One query matches all docs, the count of the conjunction is the count of the other query
         assert_eq!(1, weight.count(&searcher.get_leaf_contexts()?[0])?);
 
@@ -1777,7 +1774,7 @@ mod tests {
             .add(LongPoint::new_exact_query("long", 3)?, Occur::Should)?;
         let query = builder.build();
         // Both queries match a single doc, BooleanWeight can't figure out the count of the disjunction
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         assert_eq!(-1, weight.count(leaf)?);
 
         // One query has a count of 0, the disjunction count is the other count
@@ -1790,7 +1787,7 @@ mod tests {
             .add(LongPoint::new_exact_query("long", 3)?, Occur::Should)?;
         let query = builder.build();
         // One query has a count of 0, the disjunction count is the other count
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         assert_eq!(1, weight.count(leaf)?);
 
         let mut builder = Builder::new();
@@ -1802,7 +1799,7 @@ mod tests {
             .add(LongPoint::new_exact_query("long", 5)?, Occur::Should)?;
         let query = builder.build();
         // One query has a count of 0, the disjunction count is the other count
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         assert_eq!(1, weight.count(leaf)?);
 
         // One query matches all docs, the count of the disjunction is the number of docs
@@ -1814,7 +1811,7 @@ mod tests {
             )?
             .add(LongPoint::new_range_query("long", 0, 10)?, Occur::Should)?;
         let query = builder.build();
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // One query matches all docs, the count of the disjunction is the number of docs
 
         assert_eq!(2, weight.count(leaf)?);
@@ -1824,7 +1821,7 @@ mod tests {
             .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Should)?
             .add(LongPoint::new_range_query("long", 1, 5)?, Occur::Should)?;
         let query = builder.build();
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // One query matches all docs, the count of the disjunction is the number of docs
         assert_eq!(2, weight.count(leaf)?);
 
@@ -1834,8 +1831,7 @@ mod tests {
         let unknown_count_query = LongPoint::new_range_query_n("long3dim", &lower, &upper)?;
 
         debug_assert_eq!(1, searcher.get_leaf_contexts()?.len());
-        let w =
-            searcher.create_weight(unknown_count_query.clone(), ScoreMode::Complete, 1.0, None)?;
+        let w = searcher.create_weight(unknown_count_query.clone(), ScoreMode::Complete, 1.0)?;
         assert_eq!(-1, w.count(leaf)?);
 
         // count of the first MUST_NOT clause is unknown, but the second MUST_NOT clause matches all docs
@@ -1848,7 +1844,7 @@ mod tests {
             .add(unknown_count_query.clone(), Occur::MustNot)?
             .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::MustNot)?;
         let query = builder.build();
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // count of the first MUST_NOT clause is unknown, but the second MUST_NOT clause matches all
         // docs
         assert_eq!(0, weight.count(leaf)?);
@@ -1865,7 +1861,7 @@ mod tests {
                 Occur::MustNot,
             )?;
         let query = builder.build();
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // count of the first MUST_NOT clause is unknown, though the second MUST_NOT clause matche one
         // doc, we can't figure out the number of
         // docs
@@ -1877,7 +1873,7 @@ mod tests {
             .add(unknown_count_query.clone(), Occur::Should)?
             .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Should)?;
         let query = builder.build();
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // count of the first SHOULD clause is unknown, but the second SHOULD clause matches all docs
         assert_eq!(2, weight.count(leaf)?);
 
@@ -1888,7 +1884,7 @@ mod tests {
             Occur::Should,
         )?;
         let query = builder.build();
-        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // count of the first SHOULD clause is unknown, though the second SHOULD clause matche one doc,
         // we can't figure out the number of
         // docs
@@ -2007,7 +2003,7 @@ mod test {
         )?;
 
         let rewritten2 = searcher.rewrite(query2.build())?;
-        let weight = searcher.create_weight(rewritten2, ScoreMode::Complete, 1.0, None)?;
+        let weight = searcher.create_weight(rewritten2, ScoreMode::Complete, 1.0)?;
         let leaf = &searcher.get_leaf_contexts()?[0];
         let mut scorer = weight
             .scorer(leaf, &searcher)?

@@ -254,8 +254,8 @@ impl CheckHits {
     {
         query = searcher.rewrite(query)?;
 
-        let w1 = searcher.create_weight(query.clone(), ScoreMode::Complete, 1.0, None)?;
-        let w2 = searcher.create_weight(query, ScoreMode::TopScores, 1.0, None)?;
+        let w1 = searcher.create_weight(query.clone(), ScoreMode::Complete, 1.0)?;
+        let w2 = searcher.create_weight(query, ScoreMode::TopScores, 1.0)?;
 
         // Check boundaries and max scores when iterating all matches
         for ctx in searcher.get_leaf_contexts()? {
