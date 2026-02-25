@@ -473,7 +473,7 @@ where {
 
         type ScorerSupplier = DefaultScorerSupplier<
             ConstantScoreScorer<DocIdSetIteratorImpl, DummyTwoPhaseIterator>,
-            DummyLeafReader,
+            CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>,
         >;
 
         fn scorer_supplier(

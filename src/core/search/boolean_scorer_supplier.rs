@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::block_max_conjunction_bulk_scorer::BlockMaxConjunctionBulkScorer;
 use crate::core::search::block_max_conjunction_scorer::BlockMaxConjunctionScorer;
@@ -49,23 +49,25 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
-pub struct BooleanScorerSupplier<LR>
+pub struct BooleanScorerSupplier<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext,
+    IRCLeafReader<IRC>: 'static,
 {
-    subs: HashMap<Occur, Vec<QueryWeightSs<LR>>>,
+    subs: HashMap<Occur, Vec<QueryWeightSs<IRC>>>,
     score_mode: ScoreMode,
     min_should_match: i32,
     max_doc: i32,
     cost: i64,
     top_level_scoring_clause: bool,
 }
-impl<LR> BooleanScorerSupplier<LR>
+impl<IRC> BooleanScorerSupplier<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext,
+    IRCLeafReader<IRC>: 'static,
 {
     pub(crate) fn new(
-        subs: HashMap<Occur, Vec<QueryWeightSs<LR>>>,
+        subs: HashMap<Occur, Vec<QueryWeightSs<IRC>>>,
         score_mode: ScoreMode,
         min_should_match: i32,
         max_doc: i32,
@@ -122,7 +124,7 @@ where
             top_level_scoring_clause: false,
         })
     }
-    fn compute_cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
+    fn compute_cost(&mut self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
         let mut min_required_cost: Option<i64> = None;
 
         if let Some(v) = self.subs.get_mut(&Occur::Must) {
@@ -174,7 +176,7 @@ where
     fn get_internal(
         &mut self,
         mut lead_cost: i64,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<QueryWeightSsScorer> {
         // three cases: conjunction, disjunction, or mix
         lead_cost = std::cmp::min(lead_cost, self.cost(context)?);
@@ -318,7 +320,7 @@ where
     #[allow(clippy::type_complexity)]
     fn boolean_scorer(
         &mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let num_optional = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
         let num_must = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
@@ -390,7 +392,7 @@ where
     #[allow(clippy::type_complexity)]
     fn optional_bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
 
@@ -430,7 +432,7 @@ where
     }
     fn filtered_optional_bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let must_len = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
         let filter_len = self.subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
@@ -477,7 +479,7 @@ where
     #[allow(clippy::type_complexity)]
     fn required_bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let must_len = {
             self.subs
@@ -672,11 +674,11 @@ where
     /// Create a new scorer for the given required clauses.
     /// Note that requiredScoring is a subset of required containing required clauses that should participate in scoring.
     fn req(
-        required_no_scoring: &mut [QueryWeightSs<LR>],
-        required_scoring: &mut [QueryWeightSs<LR>],
+        required_no_scoring: &mut [QueryWeightSs<IRC>],
+        required_scoring: &mut [QueryWeightSs<IRC>],
         lead_cost: i64,
         top_level_scoring_clause: bool,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
         score_mode: &ScoreMode,
     ) -> Result<QueryWeightSsScorer> {
         if required_no_scoring.len() + required_scoring.len() == 1 {
@@ -736,9 +738,9 @@ where
     }
     fn excl(
         main: QueryWeightSsScorer,
-        prohibited: &mut [QueryWeightSs<LR>],
+        prohibited: &mut [QueryWeightSs<IRC>],
         lead_cost: i64,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<QueryWeightSsScorer> {
         if prohibited.is_empty() {
             Ok(main)
@@ -749,12 +751,12 @@ where
     }
 
     fn opt(
-        optional: &mut [QueryWeightSs<LR>],
+        optional: &mut [QueryWeightSs<IRC>],
         min_should_match: i32,
         score_mode: ScoreMode,
         lead_cost: i64,
         top_level_scoring_clause: bool,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<QueryWeightSsScorer> {
         if optional.len() == 1 {
             return optional[0].get(lead_cost, context);
@@ -792,16 +794,21 @@ where
 pub type FilteredOptionalBulkScorer<S> =
     MaxScoreBulkScorer<S, ScorerEnum2<S, ConjunctionScorer<S>>>;
 
-impl<LR> ScorerSupplier for BooleanScorerSupplier<LR>
+impl<IRC> ScorerSupplier for BooleanScorerSupplier<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext,
+    IRCLeafReader<IRC>: 'static,
 {
     // type Scorer = GetType<SsScorer<LR>>;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type LeafReader = LR;
+    type IRC = IRC;
 
-    fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+    fn get(
+        &mut self,
+        lead_cost: i64,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Self::Scorer> {
         let scorer = self.get_internal(lead_cost, context)?;
 
         if self.score_mode == ScoreMode::TopScores {
@@ -842,7 +849,10 @@ where
         Ok(scorer)
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Option<Self::BulkScorer>> {
         if let Some(bs) = self.boolean_scorer(context)? {
             return Ok(Some(Box::new(bs)));
         }
@@ -854,7 +864,7 @@ where
         }
     }
 
-    fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
+    fn cost(&mut self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
         if self.cost == -1 {
             self.cost = self.compute_cost(context)?;
         }
@@ -1072,6 +1082,8 @@ mod tests {
     use std::any::Any;
     use std::collections::HashMap;
 
+    use crate::core::index::composite_reader_context::CompositeReaderContext;
+    use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
     use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
     use rand::Rng;
     use rand::prelude::IndexedRandom;
@@ -1092,6 +1104,7 @@ mod tests {
 
     #[allow(dead_code)] // for quick search
     struct TestBoolean2ScorerSupplier;
+    type DummyIRC = CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>;
 
     struct FakeScorer {
         it: AllDISI,
@@ -1155,7 +1168,7 @@ mod tests {
     }
     impl FakeScorerSupplier {
         #[allow(clippy::new_ret_no_self)]
-        fn new(cost: i64) -> QueryWeightSs<DummyLeafReader> {
+        fn new(cost: i64) -> QueryWeightSs<DummyIRC> {
             let v = Self {
                 cost,
                 lead_cost: None,
@@ -1163,7 +1176,7 @@ mod tests {
             };
             Box::new(v)
         }
-        fn with_lead_cost(cost: i64, lead_cost: Option<i64>) -> QueryWeightSs<DummyLeafReader> {
+        fn with_lead_cost(cost: i64, lead_cost: Option<i64>) -> QueryWeightSs<DummyIRC> {
             let v = Self {
                 cost,
                 lead_cost,
@@ -1173,7 +1186,7 @@ mod tests {
         }
     }
     impl ScorerSupplier for FakeScorerSupplier {
-        type LeafReader = DummyLeafReader;
+        type IRC = DummyIRC;
         type Scorer = QueryWeightSsScorer;
         type BulkScorer = QueryWeightSsBulkScorer;
 

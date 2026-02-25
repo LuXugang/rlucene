@@ -181,7 +181,7 @@ where
         self.in_.get_query()
     }
 
-    type ScorerSupplier = QueryWeightSs<IRCLeafReader<LR>>;
+    type ScorerSupplier = QueryWeightSs<LR>;
 
     fn scorer_supplier(
         &self,

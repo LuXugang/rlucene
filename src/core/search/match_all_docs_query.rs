@@ -16,7 +16,7 @@
  */
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+use crate::core::index::leaf_reader::LRTermState;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum2};
@@ -184,7 +184,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
+    type ScorerSupplier = QueryWeightSs<IRC>;
 
     fn scorer_supplier(
         &self,
@@ -211,18 +211,18 @@ where
         write!(f, "weight({:?})", MatchAllDocsQuery::new())
     }
 }
-pub struct MatchAllDocsScorerSupplier<LR>
+pub struct MatchAllDocsScorerSupplier<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
 {
     score_mode: ScoreMode,
     weight: ConstantScoreWeight,
     max_doc: i32,
-    _marker: PhantomData<LR>,
+    _marker: PhantomData<IRC>,
 }
-impl<LR> MatchAllDocsScorerSupplier<LR>
+impl<IRC> MatchAllDocsScorerSupplier<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
 {
     pub fn new(score_mode: ScoreMode, weight: ConstantScoreWeight, max_doc: i32) -> Self {
         Self {
@@ -233,21 +233,29 @@ where
         }
     }
 }
-impl<LR> ScorerSupplier for MatchAllDocsScorerSupplier<LR>
+impl<IRC> ScorerSupplier for MatchAllDocsScorerSupplier<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext,
+    IRCLeafReader<IRC>: 'static,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type LeafReader = LR;
+    type IRC = IRC;
 
-    fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Self::Scorer> {
         let score = self.weight.score();
         let v = ConstantScoreScorer::from_disi(score, self.score_mode, AllDISI::new(self.max_doc));
         Ok(Box::new(v))
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Option<Self::BulkScorer>> {
         let v = if !self.score_mode.is_exhaustive() {
             let opt = self.default_bulk_scorer(context)?;
             MatchAllBulkScorerEnum::B(opt)
@@ -262,7 +270,7 @@ where
         Ok(Some(Box::new(v)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
+    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
         Ok(self.max_doc as i64)
     }
 }

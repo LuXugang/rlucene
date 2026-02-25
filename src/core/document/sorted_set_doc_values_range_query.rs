@@ -18,7 +18,7 @@ use crate::core::document::sorted_numeric_doc_values_range_query::DISI;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values::{DocValues, SortedSet};
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
-use crate::core::index::index_reader::Identity;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -238,7 +238,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
+    type ScorerSupplier = QueryWeightSs<IRC>;
 
     fn scorer_supplier(
         &self,
@@ -362,23 +362,23 @@ where
 
     Ok(doc)
 }
-pub struct ScorerSupplierImpl3<LR>
+pub struct ScorerSupplierImpl3<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
 {
     query: SortedSetDocValuesRangeQuery,
-    values: Option<SortedSet<LR>>,
+    values: Option<SortedSet<IRCLeafReader<IRC>>>,
     cost: i64,
     score: f32,
     score_mode: ScoreMode,
 }
-impl<LR> ScorerSupplierImpl3<LR>
+impl<IRC> ScorerSupplierImpl3<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
 {
     pub fn new(
         query: SortedSetDocValuesRangeQuery,
-        values: SortedSet<LR>,
+        values: SortedSet<IRCLeafReader<IRC>>,
         score: f32,
         score_mode: ScoreMode,
     ) -> Result<Self> {
@@ -392,15 +392,20 @@ where
         })
     }
 }
-impl<LR> ScorerSupplier for ScorerSupplierImpl3<LR>
+impl<IRC> ScorerSupplier for ScorerSupplierImpl3<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext,
+    IRCLeafReader<IRC>: 'static,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type LeafReader = LR;
+    type IRC = IRC;
 
-    fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Self::Scorer> {
         let mut skipper_opt = context.reader().get_doc_values_skipper(&self.query.field)?;
         let mut values = match self.values.take() {
             Some(v) => v,
@@ -507,11 +512,14 @@ where
         }
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Option<Self::BulkScorer>> {
         Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
+    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
         Ok(self.cost)
     }
 }

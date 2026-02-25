@@ -765,7 +765,7 @@ where
         self.in_.get_query()
     }
 
-    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
+    type ScorerSupplier = QueryWeightSs<IRC>;
 
     fn scorer_supplier(
         &self,
@@ -832,8 +832,7 @@ where
                     return Ok(None);
                 }
                 let disi = cached.iterator()?;
-                let s: QueryWeightSs<IRCLeafReader<IRC>> =
-                    Box::new(ScorerSupplierImpl2::new(disi)?);
+                let s: QueryWeightSs<IRC> = Box::new(ScorerSupplierImpl2::new(disi)?);
                 Ok(Some(s))
             },
         }
@@ -882,31 +881,31 @@ where
         self.in_.count(context)
     }
 }
-pub struct ScorerSupplierImpl1<C, P, LR>
+pub struct ScorerSupplierImpl1<C, P, IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
     C: CacheHelper,
     P: Predicate<TopParentMeta>,
 {
     cost: i64,
     skip_cache_factor: f32,
-    supplier: QueryWeightSs<LR>,
+    supplier: QueryWeightSs<IRC>,
     max_doc: i32,
     lru_query_cache: Arc<LRUQueryCache<P>>,
     query: Arc<Query>,
     cache_helper: C,
-    _marker: PhantomData<LR>,
+    _marker: PhantomData<IRC>,
 }
-impl<C, P, LR> ScorerSupplierImpl1<C, P, LR>
+impl<C, P, IRC> ScorerSupplierImpl1<C, P, IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
     C: CacheHelper,
     P: Predicate<TopParentMeta>,
 {
     pub(crate) fn new(
         cost: i64,
         skip_cache_factor: f32,
-        supplier: QueryWeightSs<LR>,
+        supplier: QueryWeightSs<IRC>,
         max_doc: i32,
         lru_query_cache: Arc<LRUQueryCache<P>>,
         query: Arc<Query>,
@@ -926,17 +925,22 @@ where
 }
 #[allow(clippy::upper_case_acronyms)]
 pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, CacheAndCountDISI>;
-impl<C, P, LR> ScorerSupplier for ScorerSupplierImpl1<C, P, LR>
+impl<C, P, IRC> ScorerSupplier for ScorerSupplierImpl1<C, P, IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
+    IRCLeafReader<IRC>: LeafReader,
     C: CacheHelper,
     P: Predicate<TopParentMeta>,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type LeafReader = LR;
+    type IRC = IRC;
 
-    fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+    fn get(
+        &mut self,
+        lead_cost: i64,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Self::Scorer> {
         if (self.cost as f32 / self.skip_cache_factor) > lead_cost as f32 {
             let scorer = self.supplier.get(lead_cost, context)?;
             return Ok(scorer);
@@ -957,26 +961,29 @@ where
         )))
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Option<Self::BulkScorer>> {
         Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
+    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
         Ok(self.cost)
     }
 }
 
-pub struct ScorerSupplierImpl2<LR>
+pub struct ScorerSupplierImpl2<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
 {
     disi: CacheAndCountDISI,
     cost: i64,
-    _marker: PhantomData<LR>,
+    _marker: PhantomData<IRC>,
 }
-impl<LR> ScorerSupplierImpl2<LR>
+impl<IRC> ScorerSupplierImpl2<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
 {
     pub(crate) fn new(disi: CacheAndCountDISI) -> Result<Self> {
         let cost = disi.cost()?;
@@ -987,15 +994,20 @@ where
         })
     }
 }
-impl<LR> ScorerSupplier for ScorerSupplierImpl2<LR>
+impl<IRC> ScorerSupplier for ScorerSupplierImpl2<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
+    IRCLeafReader<IRC>: LeafReader,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type LeafReader = LR;
+    type IRC = IRC;
 
-    fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Self::Scorer> {
         Ok(Box::new(ConstantScoreScorer::from_disi(
             0.0,
             ScoreMode::CompleteNoScores,
@@ -1003,11 +1015,14 @@ where
         )))
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Option<Self::BulkScorer>> {
         Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
+    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
         Ok(self.cost)
     }
 }

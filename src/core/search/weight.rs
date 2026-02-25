@@ -144,7 +144,7 @@ pub trait Weight: SegmentCacheable {
         Ok(Some(scorer_supplier.get(i64::MAX, context)?))
     }
 
-    type ScorerSupplier: ScorerSupplier<LeafReader = IRCLeafReader<Self::IRC>>;
+    type ScorerSupplier: ScorerSupplier<IRC = Self::IRC>;
     /// Get a [`ScorerSupplier`], which allows knowing the cost of the `Scorer`
     /// before building it.
     ///
@@ -425,17 +425,17 @@ where
         self.scorer.iterator_mut().cost()
     }
 }
-pub struct DefaultScorerSupplier<S, LR>
+pub struct DefaultScorerSupplier<S, IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
     S: Scorer,
 {
     scorer: Option<S>,
-    _marker: PhantomData<LR>,
+    _marker: PhantomData<IRC>,
 }
-impl<S, LR> DefaultScorerSupplier<S, LR>
+impl<S, IRC> DefaultScorerSupplier<S, IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
     S: Scorer,
 {
     pub fn new(scorer: S) -> Self {
@@ -445,16 +445,21 @@ where
         }
     }
 }
-impl<S, LR> ScorerSupplier for DefaultScorerSupplier<S, LR>
+impl<S, IRC> ScorerSupplier for DefaultScorerSupplier<S, IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
+    IRCLeafReader<IRC>: LeafReader,
     S: Scorer + 'static,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type LeafReader = LR;
+    type IRC = IRC;
 
-    fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Self::Scorer> {
         let v = self
             .scorer
             .take()
@@ -462,11 +467,14 @@ where
         Ok(Box::new(v))
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Option<Self::BulkScorer>> {
         Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
+    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
         match self.scorer {
             Some(ref mut scorer) => scorer.iterator().cost(),
             None => Err(LuceneError::illegal_state(

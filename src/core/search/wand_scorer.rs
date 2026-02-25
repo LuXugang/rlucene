@@ -2435,7 +2435,7 @@ pub(crate) mod tests {
             self.weight.get_query()
         }
 
-        type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
+        type ScorerSupplier = QueryWeightSs<IRC>;
 
         fn scorer_supplier(
             &self,
@@ -2452,19 +2452,19 @@ pub(crate) mod tests {
             }
         }
     }
-    struct ScorerSupplierImpl<LR>
+    struct ScorerSupplierImpl<IRC>
     where
-        LR: LeafReader,
+        IRC: IndexReaderContext,
     {
-        supplier: QueryWeightSs<LR>,
+        supplier: QueryWeightSs<IRC>,
         max_range: i32,
         max_score: f32,
     }
-    impl<LR> ScorerSupplierImpl<LR>
+    impl<IRC> ScorerSupplierImpl<IRC>
     where
-        LR: LeafReader,
+        IRC: IndexReaderContext,
     {
-        fn new(supplier: QueryWeightSs<LR>, max_range: i32, max_score: f32) -> Self {
+        fn new(supplier: QueryWeightSs<IRC>, max_range: i32, max_score: f32) -> Self {
             Self {
                 supplier,
                 max_range,
@@ -2472,15 +2472,20 @@ pub(crate) mod tests {
             }
         }
     }
-    impl<LR> ScorerSupplier for ScorerSupplierImpl<LR>
+    impl<IRC> ScorerSupplier for ScorerSupplierImpl<IRC>
     where
-        LR: LeafReader,
+        IRC: IndexReaderContext,
+        IRCLeafReader<IRC>: LeafReader,
     {
         type Scorer = QueryWeightSsScorer;
         type BulkScorer = QueryWeightSsBulkScorer;
-        type LeafReader = LR;
+        type IRC = IRC;
 
-        fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+        fn get(
+            &mut self,
+            lead_cost: i64,
+            context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        ) -> Result<Self::Scorer> {
             let v = self.supplier.get(lead_cost, context)?;
             let s = MaxScoreWrapperScorer::new(v, self.max_range, self.max_score);
             Ok(Box::new(s))
@@ -2488,12 +2493,12 @@ pub(crate) mod tests {
 
         fn bulk_scorer(
             &mut self,
-            context: &LeafReaderContext<LR>,
+            context: &LeafReaderContext<IRCLeafReader<IRC>>,
         ) -> Result<Option<Self::BulkScorer>> {
             Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
         }
 
-        fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
+        fn cost(&mut self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
             self.supplier.cost(context)
         }
     }
@@ -2646,7 +2651,7 @@ pub(crate) mod tests {
             self.query.clone()
         }
 
-        type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
+        type ScorerSupplier = QueryWeightSs<IRC>;
 
         fn scorer_supplier(
             &self,

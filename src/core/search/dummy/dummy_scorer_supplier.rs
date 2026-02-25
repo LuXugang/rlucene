@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
@@ -22,39 +23,44 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::util::error::lucene_error::Result;
 use std::marker::PhantomData;
 
-pub struct DummyScorerSupplier<LR>(PhantomData<LR>)
+pub struct DummyScorerSupplier<IRC>(PhantomData<IRC>)
 where
-    LR: LeafReader;
+    IRC: IndexReaderContext;
 
-impl<LR> Default for DummyScorerSupplier<LR>
+impl<IRC> Default for DummyScorerSupplier<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
 {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<LR> ScorerSupplier for DummyScorerSupplier<LR>
+impl<IRC> ScorerSupplier for DummyScorerSupplier<IRC>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
+    IRCLeafReader<IRC>: LeafReader,
 {
     type Scorer = DummyScorer;
     type BulkScorer = DummyBulkScorer;
-    type LeafReader = LR;
+    type IRC = IRC;
 
-    fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Self::Scorer> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn bulk_scorer(
         &mut self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<Option<Self::BulkScorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
+    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

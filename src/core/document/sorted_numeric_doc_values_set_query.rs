@@ -200,7 +200,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<IRCLeafReader<Self::IRC>>;
+    type ScorerSupplier = QueryWeightSs<Self::IRC>;
 
     fn scorer_supplier(
         &self,

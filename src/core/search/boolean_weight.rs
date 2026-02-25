@@ -272,7 +272,7 @@ where
         Arc::new(v)
     }
 
-    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
+    type ScorerSupplier = QueryWeightSs<IRC>;
     // type ScorerSupplier = DummyScorerSupplier;
 
     fn scorer_supplier(

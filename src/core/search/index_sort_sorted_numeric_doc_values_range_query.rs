@@ -264,7 +264,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
+    type ScorerSupplier = QueryWeightSs<IRC>;
 
     fn scorer_supplier(
         &self,
@@ -395,9 +395,9 @@ where {
     }
 }
 
-pub struct ScorerSupplierImpl<LR, D>
+pub struct ScorerSupplierImpl<IRC, D>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
     D: DocIdSetIterator,
 {
     disi: Option<IteratorAndCountDisi<D>>,
@@ -407,11 +407,11 @@ where
     upper_value: i64,
     field: String,
     score: f32,
-    _marker: PhantomData<LR>,
+    _marker: PhantomData<IRC>,
 }
-impl<LR, D> ScorerSupplierImpl<LR, D>
+impl<IRC, D> ScorerSupplierImpl<IRC, D>
 where
-    LR: LeafReader,
+    IRC: IndexReaderContext,
     D: DocIdSetIterator,
 {
     pub fn new(
@@ -435,15 +435,20 @@ where
         })
     }
 }
-impl<LR> ScorerSupplier for ScorerSupplierImpl<LR, Disi<LR>>
+impl<IRC> ScorerSupplier for ScorerSupplierImpl<IRC, Disi<IRCLeafReader<IRC>>>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext,
+    IRCLeafReader<IRC>: 'static,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type LeafReader = LR;
+    type IRC = IRC;
 
-    fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Self::Scorer> {
         let disi = match self.disi.take() {
             Some(disi) => disi,
             None => {
@@ -462,11 +467,14 @@ where
         Ok(Box::new(v))
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Option<Self::BulkScorer>> {
         Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
+    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
         Ok(self.cost)
     }
 }

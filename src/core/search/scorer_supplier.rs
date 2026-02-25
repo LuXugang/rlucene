@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::scorer::Scorer;
@@ -22,13 +22,14 @@ use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::error::lucene_error::Result;
 #[cfg(test)]
 use std::any::Any;
+
 /// A supplier of `Scorer`.
 ///
 /// This allows to get an estimate of the cost before building the `Scorer`.
 pub trait ScorerSupplier {
     type Scorer: Scorer;
     type BulkScorer: BulkScorer;
-    type LeafReader: LeafReader;
+    type IRC: IndexReaderContext;
 
     /// Get the `Scorer`.
     /// This must be called at most once.
@@ -44,7 +45,7 @@ pub trait ScorerSupplier {
     fn get(
         &mut self,
         lead_cost: i64,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
     ) -> Result<Self::Scorer>;
 
     /// Optional: Get a bulk scorer that is optimized for bulk-scoring.
@@ -54,11 +55,11 @@ pub trait ScorerSupplier {
     /// approaches for matching all hits.
     fn bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
     ) -> Result<Option<Self::BulkScorer>>;
     fn default_bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
     ) -> Result<DefaultBulkScorer<Self::Scorer>> {
         let scorer = self.get(i64::MAX, context)?;
         Ok(DefaultBulkScorer::new(scorer))
@@ -68,7 +69,7 @@ pub trait ScorerSupplier {
     /// This may be a costly operation, so it should only be called if necessary.
     ///
     /// Corresponds to [`DocIdSetIterator::cost`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost).
-    fn cost(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i64>;
+    fn cost(&mut self, context: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<i64>;
 
     /// Inform this [`ScorerSupplier`] that its returned scorers produce scores that get passed
     /// to the collector, as opposed to partial scores that then need to get combined (e.g. summed up).
@@ -86,109 +87,38 @@ pub trait ScorerSupplier {
     }
 }
 
-#[macro_export]
-macro_rules! either_scorer_supplier {
-    (
-        $vis:vis $name:ident
-        => { bulk: $bulk:ident, scorer: $scorer:ident }
-        { $( $Variant:ident : $T:ident ),+ $(,)? }
-    ) => {
-        $vis enum $name<$( $T ),+> {
-            $( $Variant($T), )+
-        }
-
-        impl<LR, $( $T ),+> ScorerSupplier for $name<$( $T ),+>
-        where
-            LR: LeafReader,
-            $( $T: ScorerSupplier<LeafReader = LR> ),+
-        {
-
-            type Scorer = $scorer<$( <$T as ScorerSupplier>::Scorer ),+>;
-            type BulkScorer = $bulk<$( <$T as ScorerSupplier>::BulkScorer ),+>;
-
-            fn get(
-                &mut self,
-                lead_cost: i64,
-                context: &LeafReaderContext<LR>,
-            ) -> Result<Self::Scorer> {
-                match self {
-                    $(
-                        Self::$Variant(inner) => {
-                            let scorer = inner.get(lead_cost, context)?;
-                            Ok($scorer::$T(scorer))
-                        }
-                    ),+
-                }
-            }
-
-            fn bulk_scorer(
-                &mut self,
-                context: &LeafReaderContext<LR>,
-            ) -> Result<Option<Self::BulkScorer>> {
-                match self {
-                    $(
-                        Self::$Variant(inner) => {
-                            let opt = inner.bulk_scorer(context)?;
-                            Ok(opt.map($bulk::$T))
-                        }
-                    ),+
-                }
-            }
-
-            fn default_bulk_scorer(
-                &mut self,
-                context: &LeafReaderContext<LR>,
-            ) -> Result<DefaultBulkScorer<Self::Scorer>> {
-                match self {
-                    $(
-                        Self::$Variant(inner) => {
-                            let scorer = inner.get(i64::MAX, context)?;
-                            Ok(DefaultBulkScorer::new($scorer::$T(scorer)))
-                        }
-                    )+
-                }
-            }
-
-            fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
-                match self {
-                    $( Self::$Variant(inner) => inner.cost(context), )+
-                }
-            }
-
-            fn set_top_level_scoring_clause(&mut self) -> Result<()> {
-                match self {
-                    $( Self::$Variant(inner) => inner.set_top_level_scoring_clause(), )+
-                }
-            }
-        }
-    };
-}
-
-impl<LR, T> ScorerSupplier for Box<T>
+impl<IRC, T> ScorerSupplier for Box<T>
 where
-    LR: LeafReader,
-    T: ScorerSupplier<LeafReader = LR> + ?Sized,
+    IRC: IndexReaderContext,
+    T: ScorerSupplier<IRC = IRC> + ?Sized,
 {
     type Scorer = T::Scorer;
     type BulkScorer = T::BulkScorer;
-    type LeafReader = T::LeafReader;
+    type IRC = T::IRC;
 
-    fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+    fn get(
+        &mut self,
+        lead_cost: i64,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Self::Scorer> {
         (**self).get(lead_cost, context)
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Option<Self::BulkScorer>> {
         (**self).bulk_scorer(context)
     }
 
     fn default_bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
     ) -> Result<DefaultBulkScorer<Self::Scorer>> {
         (**self).default_bulk_scorer(context)
     }
 
-    fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
+    fn cost(&mut self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
         (**self).cost(context)
     }
 

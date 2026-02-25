@@ -106,7 +106,7 @@ where
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type ScorerSupplier = DummyScorerSupplier<IRCLeafReader<IRC>>;
+    type ScorerSupplier = DummyScorerSupplier<IRC>;
 
     fn scorer_supplier(
         &self,

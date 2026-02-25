@@ -16,7 +16,7 @@
  */
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+use crate::core::index::leaf_reader::LRTermState;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::bulk_scorer::BulkScorer;
@@ -224,7 +224,7 @@ where
         self.inner_weight.get_query()
     }
 
-    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
+    type ScorerSupplier = QueryWeightSs<IRC>;
 
     fn scorer_supplier(
         &self,
@@ -245,19 +245,19 @@ where
         self.inner_weight.count(context)
     }
 }
-pub struct ScorerSupplierImpl<LR>
+pub struct ScorerSupplierImpl<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext,
 {
     score_mode: ScoreMode,
-    inner_scorer_supplier: QueryWeightSs<LR>,
+    inner_scorer_supplier: QueryWeightSs<IRC>,
     score: f32,
 }
-impl<LR> ScorerSupplierImpl<LR>
+impl<IRC> ScorerSupplierImpl<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext,
 {
-    fn new(score_mode: ScoreMode, inner_scorer_supplier: QueryWeightSs<LR>, score: f32) -> Self {
+    fn new(score_mode: ScoreMode, inner_scorer_supplier: QueryWeightSs<IRC>, score: f32) -> Self {
         Self {
             score_mode,
             inner_scorer_supplier,
@@ -265,15 +265,19 @@ where
         }
     }
 }
-impl<LR> ScorerSupplier for ScorerSupplierImpl<LR>
+impl<IRC> ScorerSupplier for ScorerSupplierImpl<IRC>
 where
-    LR: LeafReader + 'static,
+    IRC: IndexReaderContext,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type LeafReader = LR;
+    type IRC = IRC;
 
-    fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+    fn get(
+        &mut self,
+        lead_cost: i64,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Self::Scorer> {
         let inner_scorer = self.inner_scorer_supplier.get(lead_cost, context)?;
         match inner_scorer.has_two_phase_iterator() {
             TwoPhaseState::Yes => {
@@ -291,7 +295,10 @@ where
         }
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Option<Self::BulkScorer>> {
         if !self.score_mode.is_exhaustive() {
             let v = self.default_bulk_scorer(context)?;
             return Ok(Some(Box::new(v)));
@@ -305,7 +312,7 @@ where
         }
     }
 
-    fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
+    fn cost(&mut self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
         self.inner_scorer_supplier.cost(context)
     }
 }
@@ -515,7 +522,7 @@ where
         self.inner.get_query()
     }
 
-    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
+    type ScorerSupplier = QueryWeightSs<IRC>;
 
     fn scorer_supplier(
         &self,
