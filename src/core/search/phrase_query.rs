@@ -17,7 +17,7 @@
 use crate::core::index::BytesRef;
 use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::{OFFSETS, POSITIONS};
@@ -262,7 +262,7 @@ impl QueryBase for PhraseQuery {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

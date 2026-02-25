@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::{Identity, IndexReader};
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::LRTermState;
+use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum2};
@@ -93,7 +92,7 @@ impl QueryBase for MatchAllDocsQuery {
         _searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

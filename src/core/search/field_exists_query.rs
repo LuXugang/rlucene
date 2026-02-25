@@ -19,8 +19,8 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{Identity, IndexReader};
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRDisis, LRNormNumericDocValues, LRTermState, LeafReader};
+use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
+use crate::core::index::leaf_reader::{LRDisis, LRNormNumericDocValues, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::PointValues;
 use crate::core::index::term_states::TermStates;
@@ -111,7 +111,7 @@ impl QueryBase for FieldExistsQuery {
         _searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

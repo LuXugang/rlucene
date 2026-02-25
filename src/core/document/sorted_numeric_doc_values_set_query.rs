@@ -17,8 +17,8 @@
 use crate::core::document::doc_values_long_hash_set::DocValuesLongHashSet;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
@@ -89,7 +89,7 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
         _searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

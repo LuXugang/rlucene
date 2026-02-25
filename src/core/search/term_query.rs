@@ -18,7 +18,7 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{
-    LRImpactsEnum, LRNormNumericDocValues, LRPosting, LRTermState, LRTermsEnum, LeafReader,
+    LRImpactsEnum, LRNormNumericDocValues, LRPosting, LRTermsEnum, LeafReader,
 };
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -126,7 +126,7 @@ impl QueryBase for TermQuery {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
@@ -181,7 +181,7 @@ where
         searcher: &IndexSearcher<IRC>,
         score_mode: ScoreMode,
         boost: f32,
-        term_states: TermStates<LRTermState<IRCLeafReader<IRC>>>,
+        term_states: TermStates<IRCTermState<IRC>>,
         query: TermQuery,
     ) -> Result<Self> {
         let similarity = searcher.get_similarity();

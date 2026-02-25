@@ -938,10 +938,12 @@ pub(crate) mod tests {
     use crate::core::document::string_field::StringField;
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_reader::Identity;
-    use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+    use crate::core::index::index_reader_context::{
+        IRCLeafReader, IRCTermState, IndexReaderContext,
+    };
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::index_writer_config::IndexWriterConfig;
-    use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+    use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::leaf_reader_context::LeafReaderContext;
     use crate::core::index::term::Term;
     use crate::core::index::term_states::TermStates;
@@ -2335,7 +2337,7 @@ pub(crate) mod tests {
             searcher: &IndexSearcher<IRC>,
             score_mode: &ScoreMode,
             boost: f32,
-            per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+            per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
         ) -> Result<QueryWeight<IRC>>
         where
             IRC: IndexReaderContext,
@@ -2546,7 +2548,7 @@ pub(crate) mod tests {
             searcher: &IndexSearcher<IRC>,
             score_mode: &ScoreMode,
             boost: f32,
-            per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+            per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
         ) -> Result<QueryWeight<IRC>>
         where
             IRC: IndexReaderContext,

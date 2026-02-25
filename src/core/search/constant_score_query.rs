@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::LRTermState;
+use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::bulk_scorer::BulkScorer;
@@ -101,7 +100,7 @@ impl QueryBase for ConstantScoreQuery {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
