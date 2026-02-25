@@ -682,12 +682,13 @@ where
         &mut self,
         _lead_cost: i64,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
         let reader = context.reader();
         let v: i32 = self.values.size()?.try_convert()?;
         if self.values.get_doc_count()? == reader.max_doc()?
             && self.values.get_doc_count()? == v
-            && self.cost(context)? > (reader.max_doc()? as i64 / 2)
+            && self.cost(context, searcher)? > (reader.max_doc()? as i64 / 2)
         {
             let max_doc = reader.max_doc()?;
             // If all docs have exactly one value and the cost is greater
@@ -722,11 +723,16 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
+        Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
+    fn cost(
+        &mut self,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
         if self.cost == -1 {
             // Computing the cost may be expensive, so only do it if necessary
             self.cost = self.values.estimate_doc_count(&self.visitor)?;
@@ -770,6 +776,7 @@ where
         &mut self,
         _lead_cost: i64,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
         debug_assert!(context.reader().max_doc()? == self.max_doc);
         Ok(Box::new(ConstantScoreScorer::from_disi(
@@ -782,11 +789,16 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
+        Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
     }
 
-    fn cost(&mut self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
+    fn cost(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
         debug_assert!(context.reader().max_doc()? == self.max_doc);
         Ok(self.max_doc as i64)
     }

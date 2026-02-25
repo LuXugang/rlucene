@@ -19,6 +19,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::util::error::lucene_error::Result;
 use std::marker::PhantomData;
@@ -49,6 +50,7 @@ where
         &mut self,
         _lead_cost: i64,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -56,11 +58,16 @@ where
     fn bulk_scorer(
         &mut self,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
+    fn cost(
+        &mut self,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

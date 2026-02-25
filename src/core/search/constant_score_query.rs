@@ -277,8 +277,11 @@ where
         &mut self,
         lead_cost: i64,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
-        let inner_scorer = self.inner_scorer_supplier.get(lead_cost, context)?;
+        let inner_scorer = self
+            .inner_scorer_supplier
+            .get(lead_cost, context, searcher)?;
         match inner_scorer.has_two_phase_iterator() {
             TwoPhaseState::Yes => {
                 let tpi = inner_scorer
@@ -298,12 +301,13 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
         if !self.score_mode.is_exhaustive() {
-            let v = self.default_bulk_scorer(context)?;
+            let v = self.default_bulk_scorer(context, searcher)?;
             return Ok(Some(Box::new(v)));
         }
-        match self.inner_scorer_supplier.bulk_scorer(context)? {
+        match self.inner_scorer_supplier.bulk_scorer(context, searcher)? {
             Some(v) => {
                 let v = ConstantBulkScorer::new(v, self.score);
                 Ok(Some(Box::new(v)))
@@ -312,8 +316,12 @@ where
         }
     }
 
-    fn cost(&mut self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
-        self.inner_scorer_supplier.cost(context)
+    fn cost(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
+        self.inner_scorer_supplier.cost(context, searcher)
     }
 }
 /// We return this as our BulkScorer so that if the CSQ wraps a query with its own optimized top-level scorer (e.g. BooleanScorer) we can use that top-level scorer.

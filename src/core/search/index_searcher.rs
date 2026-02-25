@@ -521,7 +521,7 @@ where
 
         if let Some(mut scorer_supplier) = weight.scorer_supplier(ctx, self)? {
             scorer_supplier.set_top_level_scoring_clause()?;
-            let mut scorer = match scorer_supplier.bulk_scorer(ctx)? {
+            let mut scorer = match scorer_supplier.bulk_scorer(ctx, self)? {
                 Some(scorer) => scorer,
                 None => return Err(LuceneError::illegal_state("BulkScorer is None")),
             };

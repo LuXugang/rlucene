@@ -690,7 +690,7 @@ mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
         scorer.set_min_competitive_score(FloatPoint::next_down(1.0))?;
 
         if req_occur == Occur::Must {
@@ -707,7 +707,7 @@ mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
         scorer.set_min_competitive_score(FloatPoint::next_up(1.0))?;
 
         if req_occur == Occur::Must {
@@ -720,7 +720,7 @@ mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
         scorer.set_min_competitive_score(FloatPoint::next_up(1.0))?;

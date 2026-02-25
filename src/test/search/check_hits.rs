@@ -263,7 +263,7 @@ impl CheckHits {
             let mut ss2 = w2.scorer_supplier(ctx, searcher)?;
             let mut s2 = if let Some(mut ss2) = ss2.take() {
                 ss2.set_top_level_scoring_clause()?;
-                Some(ss2.get(i64::MAX, ctx)?)
+                Some(ss2.get(i64::MAX, ctx, searcher)?)
             } else {
                 None
             };
@@ -334,7 +334,7 @@ impl CheckHits {
             let mut ss2 = w2.scorer_supplier(ctx, searcher)?;
             let mut s2 = if let Some(mut ss2) = ss2.take() {
                 ss2.set_top_level_scoring_clause()?;
-                Some(ss2.get(i64::MAX, ctx)?)
+                Some(ss2.get(i64::MAX, ctx, searcher)?)
             } else {
                 None
             };

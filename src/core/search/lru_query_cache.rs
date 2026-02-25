@@ -810,7 +810,7 @@ where
                         );
                         return Ok(None);
                     };
-                    let cost = supplier.cost(context)?;
+                    let cost = supplier.cost(context, searcher)?;
                     let max_doc = reader.max_doc()?;
                     debug_assert!(reader.get_core_cache_helper()?.is_some());
                     let ss = ScorerSupplierImpl1::new(
@@ -940,12 +940,13 @@ where
         &mut self,
         lead_cost: i64,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
         if (self.cost as f32 / self.skip_cache_factor) > lead_cost as f32 {
-            let scorer = self.supplier.get(lead_cost, context)?;
+            let scorer = self.supplier.get(lead_cost, context, searcher)?;
             return Ok(scorer);
         };
-        let mut bulk_scorer = match self.supplier.bulk_scorer(context)? {
+        let mut bulk_scorer = match self.supplier.bulk_scorer(context, searcher)? {
             Some(bulk_scorer) => bulk_scorer,
             None => return Err(LuceneError::illegal_state("BulkScorer should not be None")),
         };
@@ -964,11 +965,16 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
+        Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
+    fn cost(
+        &mut self,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
         Ok(self.cost)
     }
 }
@@ -1007,6 +1013,7 @@ where
         &mut self,
         _lead_cost: i64,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
         Ok(Box::new(ConstantScoreScorer::from_disi(
             0.0,
@@ -1018,11 +1025,16 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
+        Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
+    fn cost(
+        &mut self,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
         Ok(self.cost)
     }
 }

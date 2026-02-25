@@ -448,6 +448,7 @@ where
         &mut self,
         _lead_cost: i64,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
         let disi = match self.disi.take() {
             Some(disi) => disi,
@@ -470,11 +471,16 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
+        Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
+    fn cost(
+        &mut self,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
         Ok(self.cost)
     }
 }

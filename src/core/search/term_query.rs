@@ -571,6 +571,7 @@ where
         &mut self,
         _lead_cost: i64,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
         match self.get_terms_enum(context)? {
             Some(_) => {
@@ -624,11 +625,16 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
+        Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
     }
 
-    fn cost(&mut self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
+    fn cost(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
         let result: Result<i32> = (|| match self.get_terms_enum(context)? {
             None => Ok(0),
             Some(_) => Ok(self.terms_enum.as_mut().unwrap().doc_freq()?),

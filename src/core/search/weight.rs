@@ -84,7 +84,7 @@ pub trait Weight: SegmentCacheable {
             Some(s) => s,
         };
 
-        let mut scorer = scorer_supplier.get(1, context)?;
+        let mut scorer = scorer_supplier.get(1, context, searcher)?;
         if let Some(mut two_phase) = scorer.two_phase_iterator_mut() {
             if two_phase.approximation_mut().advance(doc)? != doc || !two_phase.matches()? {
                 return Ok(None);
@@ -141,7 +141,7 @@ pub trait Weight: SegmentCacheable {
             None => return Ok(None),
             Some(s) => s,
         };
-        Ok(Some(scorer_supplier.get(i64::MAX, context)?))
+        Ok(Some(scorer_supplier.get(i64::MAX, context, searcher)?))
     }
 
     type ScorerSupplier: ScorerSupplier<IRC = Self::IRC>;
@@ -191,7 +191,7 @@ pub trait Weight: SegmentCacheable {
         };
 
         scorer_supplier.set_top_level_scoring_clause()?;
-        scorer_supplier.bulk_scorer(context)
+        scorer_supplier.bulk_scorer(context, searcher)
     }
 
     /// Counts the number of live documents that match this weight's parent query
@@ -459,6 +459,7 @@ where
         &mut self,
         _lead_cost: i64,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
         let v = self
             .scorer
@@ -470,11 +471,16 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
+        Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
+    fn cost(
+        &mut self,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
         match self.scorer {
             Some(ref mut scorer) => scorer.iterator().cost(),
             None => Err(LuceneError::illegal_state(

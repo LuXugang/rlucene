@@ -27,6 +27,7 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disjunction_scorer::DisjunctionScorer;
 use crate::core::search::disjunction_sum_scorer::DisjunctionSumScorer;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer;
 use crate::core::search::query::{QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer};
@@ -124,12 +125,16 @@ where
             top_level_scoring_clause: false,
         })
     }
-    fn compute_cost(&mut self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
+    fn compute_cost(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
         let mut min_required_cost: Option<i64> = None;
 
         if let Some(v) = self.subs.get_mut(&Occur::Must) {
             for ss in v.iter_mut() {
-                let c = ss.cost(context)?;
+                let c = ss.cost(context, searcher)?;
                 min_required_cost = Some(match min_required_cost {
                     Some(prev) => prev.min(c),
                     None => c,
@@ -139,7 +144,7 @@ where
 
         if let Some(v) = self.subs.get_mut(&Occur::Filter) {
             for ss in v.iter_mut() {
-                let c = ss.cost(context)?;
+                let c = ss.cost(context, searcher)?;
                 min_required_cost = Some(match min_required_cost {
                     Some(prev) => prev.min(c),
                     None => c,
@@ -156,7 +161,7 @@ where
             Some(v) => {
                 let mut costs = Vec::with_capacity(v.len());
                 for ss in v.iter_mut() {
-                    costs.push(ss.cost(context)?);
+                    costs.push(ss.cost(context, searcher)?);
                 }
 
                 ScorerUtil::cost_with_min_should_match(
@@ -177,9 +182,10 @@ where
         &mut self,
         mut lead_cost: i64,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<QueryWeightSsScorer> {
         // three cases: conjunction, disjunction, or mix
-        lead_cost = std::cmp::min(lead_cost, self.cost(context)?);
+        lead_cost = std::cmp::min(lead_cost, self.cost(context, searcher)?);
         let should_empty = self
             .subs
             .get(&Occur::Should)
@@ -210,6 +216,7 @@ where
                 lead_cost,
                 self.top_level_scoring_clause,
                 context,
+                searcher,
                 &self.score_mode,
             )?;
             let v = Self::excl(
@@ -220,6 +227,7 @@ where
                     .unwrap_or(&mut []),
                 lead_cost,
                 context,
+                searcher,
             )?;
             return Ok(v);
         }
@@ -236,6 +244,7 @@ where
                 lead_cost,
                 self.top_level_scoring_clause,
                 context,
+                searcher,
             )?;
             let v = Self::excl(
                 opt,
@@ -245,6 +254,7 @@ where
                     .unwrap_or(&mut []),
                 lead_cost,
                 context,
+                searcher,
             )?;
             return Ok(Box::new(v));
         }
@@ -271,11 +281,13 @@ where
                     lead_cost,
                     false,
                     context,
+                    searcher,
                     &self.score_mode,
                 )?,
                 must_not_slice,
                 lead_cost,
                 context,
+                searcher,
             )?;
 
             let opt = Self::opt(
@@ -285,6 +297,7 @@ where
                 lead_cost,
                 false,
                 context,
+                searcher,
             )?;
             let v = ConjunctionScorer::new(vec![req, opt], vec![0, 1])?;
             Ok(Box::new(v))
@@ -297,11 +310,13 @@ where
                     lead_cost,
                     false,
                     context,
+                    searcher,
                     &self.score_mode,
                 )?,
                 must_not_slice,
                 lead_cost,
                 context,
+                searcher,
             )?;
 
             let opt = Self::opt(
@@ -311,6 +326,7 @@ where
                 lead_cost,
                 false,
                 context,
+                searcher,
             )?;
 
             let v = ReqOptSumScorer::new(req, opt, self.score_mode)?;
@@ -321,6 +337,7 @@ where
     fn boolean_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let num_optional = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
         let num_must = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
@@ -340,20 +357,20 @@ where
                 (self.max_doc as i64) / 3
             };
 
-            if self.cost(context)? < cost_threshold {
+            if self.cost(context, searcher)? < cost_threshold {
                 return Ok(None);
             }
-            match self.optional_bulk_scorer(context)? {
+            match self.optional_bulk_scorer(context, searcher)? {
                 Some(v) => v,
                 None => return Ok(None),
             }
         } else if num_must == 0 && num_optional > 1 && self.min_should_match >= 1 {
-            match self.filtered_optional_bulk_scorer(context)? {
+            match self.filtered_optional_bulk_scorer(context, searcher)? {
                 Some(v) => v,
                 None => return Ok(None),
             }
         } else if num_required > 0 && num_optional == 0 && self.min_should_match == 0 {
-            match self.required_bulk_scorer(context)? {
+            match self.required_bulk_scorer(context, searcher)? {
                 Some(v) => v,
                 None => return Ok(None),
             }
@@ -374,7 +391,7 @@ where
 
         let mut prohibited = Vec::with_capacity(prohibited_suppliers.len());
         for ss in prohibited_suppliers.iter_mut() {
-            prohibited.push(ss.get(positive_cost, context)?);
+            prohibited.push(ss.get(positive_cost, context, searcher)?);
         }
 
         let prohibited_scorer = if prohibited.len() == 1 {
@@ -393,13 +410,16 @@ where
     fn optional_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
 
         if should_len == 0 {
             return Ok(None);
         } else if should_len == 1 && self.min_should_match <= 1 {
-            return match self.subs.get_mut(&Occur::Should).unwrap()[0].bulk_scorer(context)? {
+            return match self.subs.get_mut(&Occur::Should).unwrap()[0]
+                .bulk_scorer(context, searcher)?
+            {
                 None => Ok(None),
                 Some(bs) => return Ok(Some(bs)),
             };
@@ -408,7 +428,7 @@ where
         if self.score_mode == ScoreMode::TopScores && self.min_should_match <= 1 {
             let mut optional_scorers = Vec::with_capacity(should_len);
             for ss in self.subs.get_mut(&Occur::Should).unwrap().iter_mut() {
-                optional_scorers.push(ss.get(i64::MAX, context)?);
+                optional_scorers.push(ss.get(i64::MAX, context, searcher)?);
             }
             let v = Box::new(MaxScoreBulkScorer::with_no_filter(
                 self.max_doc,
@@ -419,7 +439,7 @@ where
 
         let mut optional = Vec::with_capacity(should_len);
         for ss in self.subs.get_mut(&Occur::Should).unwrap().iter_mut() {
-            optional.push(ss.get(i64::MAX, context)?);
+            optional.push(ss.get(i64::MAX, context, searcher)?);
         }
 
         let msm = std::cmp::max(1, self.min_should_match);
@@ -433,6 +453,7 @@ where
     fn filtered_optional_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let must_len = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
         let filter_len = self.subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
@@ -447,19 +468,19 @@ where
             return Ok(None);
         }
 
-        let cost = self.cost(context)?;
+        let cost = self.cost(context, searcher)?;
 
         let mut optional_scorers = Vec::with_capacity(should_len);
         if let Some(v) = self.subs.get_mut(&Occur::Should) {
             for ss in v.iter_mut() {
-                optional_scorers.push(ss.get(cost, context)?);
+                optional_scorers.push(ss.get(cost, context, searcher)?);
             }
         }
 
         let mut filters = Vec::with_capacity(filter_len);
         if let Some(v) = self.subs.get_mut(&Occur::Filter) {
             for ss in v.iter_mut() {
-                filters.push(ss.get(cost, context)?);
+                filters.push(ss.get(cost, context, searcher)?);
             }
         }
 
@@ -480,6 +501,7 @@ where
     fn required_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let must_len = {
             self.subs
@@ -503,11 +525,11 @@ where
         if required_cnt == 1 {
             return if must_len != 0 {
                 let must = self.subs.get_mut(&Occur::Must).unwrap();
-                must[0].bulk_scorer(context)
+                must[0].bulk_scorer(context, searcher)
             } else {
                 let filter = self.subs.get_mut(&Occur::Filter).unwrap();
                 if self.score_mode.needs_scores() {
-                    match filter[0].bulk_scorer(context)? {
+                    match filter[0].bulk_scorer(context, searcher)? {
                         None => Err(LuceneError::illegal_state("bulk_scorer is None"))?,
                         Some(s) => {
                             let v = disable_scoring(s);
@@ -515,7 +537,7 @@ where
                         },
                     }
                 } else {
-                    filter[0].bulk_scorer(context)
+                    filter[0].bulk_scorer(context, searcher)
                 }
             };
         }
@@ -524,7 +546,7 @@ where
         match self.subs.get_mut(&Occur::Must) {
             Some(v) if !v.is_empty() => {
                 for ss in v.iter_mut() {
-                    lead_cost = lead_cost.min(ss.cost(context)?);
+                    lead_cost = lead_cost.min(ss.cost(context, searcher)?);
                 }
             },
             _ => {},
@@ -532,7 +554,7 @@ where
         match self.subs.get_mut(&Occur::Filter) {
             Some(v) if !v.is_empty() => {
                 for ss in v.iter_mut() {
-                    lead_cost = lead_cost.min(ss.cost(context)?);
+                    lead_cost = lead_cost.min(ss.cost(context, searcher)?);
                 }
             },
             _ => {},
@@ -541,7 +563,7 @@ where
         let mut required_no_scoring = Vec::with_capacity(filter_len);
         if let Some(v) = self.subs.get_mut(&Occur::Filter) {
             for ss in v.iter_mut() {
-                required_no_scoring.push(ss.get(lead_cost, context)?);
+                required_no_scoring.push(ss.get(lead_cost, context, searcher)?);
             }
         }
 
@@ -551,7 +573,7 @@ where
                 if must_len == 1 {
                     ss.set_top_level_scoring_clause()?;
                 }
-                required_scoring.push(ss.get(lead_cost, context)?);
+                required_scoring.push(ss.get(lead_cost, context, searcher)?);
             }
         }
 
@@ -679,13 +701,14 @@ where
         lead_cost: i64,
         top_level_scoring_clause: bool,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
     ) -> Result<QueryWeightSsScorer> {
         if required_no_scoring.len() + required_scoring.len() == 1 {
             let req = if required_no_scoring.is_empty() {
-                required_scoring[0].get(lead_cost, context)?
+                required_scoring[0].get(lead_cost, context, searcher)?
             } else {
-                required_no_scoring[0].get(lead_cost, context)?
+                required_no_scoring[0].get(lead_cost, context, searcher)?
             };
 
             if !score_mode.needs_scores() {
@@ -707,11 +730,11 @@ where
         let mut scoring_scorers = Vec::with_capacity(required_scoring.len());
 
         for s in required_no_scoring.iter_mut() {
-            required_scorers.push(ScorerEnum2::A(s.get(lead_cost, context)?));
+            required_scorers.push(ScorerEnum2::A(s.get(lead_cost, context, searcher)?));
         }
 
         for s in required_scoring.iter_mut() {
-            let scorer = s.get(lead_cost, context)?;
+            let scorer = s.get(lead_cost, context, searcher)?;
             scoring_scorers.push(scorer);
         }
         let scoring_scorers_idx = if *score_mode == ScoreMode::TopScores
@@ -741,11 +764,20 @@ where
         prohibited: &mut [QueryWeightSs<IRC>],
         lead_cost: i64,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<QueryWeightSsScorer> {
         if prohibited.is_empty() {
             Ok(main)
         } else {
-            let opt = Self::opt(prohibited, 1, CompleteNoScores, lead_cost, false, context)?;
+            let opt = Self::opt(
+                prohibited,
+                1,
+                CompleteNoScores,
+                lead_cost,
+                false,
+                context,
+                searcher,
+            )?;
             Ok(Box::new(ReqExclScorer::new(main, opt)?))
         }
     }
@@ -757,14 +789,15 @@ where
         lead_cost: i64,
         top_level_scoring_clause: bool,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<QueryWeightSsScorer> {
         if optional.len() == 1 {
-            return optional[0].get(lead_cost, context);
+            return optional[0].get(lead_cost, context, searcher);
         }
 
         let mut optional_scorers = Vec::with_capacity(optional.len());
         for supplier in optional.iter_mut() {
-            optional_scorers.push(supplier.get(lead_cost, context)?);
+            optional_scorers.push(supplier.get(lead_cost, context, searcher)?);
         }
         // Technically speaking, WANDScorer should be able to handle the following 3 conditions now
         // 1. Any ScoreMode (with scoring or not)
@@ -808,8 +841,9 @@ where
         &mut self,
         lead_cost: i64,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
-        let scorer = self.get_internal(lead_cost, context)?;
+        let scorer = self.get_internal(lead_cost, context, searcher)?;
 
         if self.score_mode == ScoreMode::TopScores {
             let should_empty = self
@@ -852,21 +886,26 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
-        if let Some(bs) = self.boolean_scorer(context)? {
+        if let Some(bs) = self.boolean_scorer(context, searcher)? {
             return Ok(Some(Box::new(bs)));
         }
 
         // use a Scorer-based impl (BS2)
-        match self.default_bulk_scorer(context).map(Some)? {
+        match self.default_bulk_scorer(context, searcher).map(Some)? {
             Some(v) => Ok(Some(Box::new(v))),
             None => Ok(None),
         }
     }
 
-    fn cost(&mut self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
+    fn cost(
+        &mut self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
         if self.cost == -1 {
-            self.cost = self.compute_cost(context)?;
+            self.cost = self.compute_cost(context, searcher)?;
         }
         Ok(self.cost)
     }
@@ -1093,6 +1132,7 @@ mod tests {
     use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
+    use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::search::query::{QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer};
     use crate::core::search::scorable::Scorable;
     use crate::core::search::score_mode::ScoreMode;
@@ -1194,6 +1234,7 @@ mod tests {
             &mut self,
             lead_cost: i64,
             _context: &LeafReaderContext<DummyLeafReader>,
+            _searcher: &IndexSearcher<DummyIRC>,
         ) -> Result<Self::Scorer> {
             if let Some(v) = self.lead_cost
                 && v != lead_cost
@@ -1206,11 +1247,16 @@ mod tests {
         fn bulk_scorer(
             &mut self,
             context: &LeafReaderContext<DummyLeafReader>,
+            searcher: &IndexSearcher<DummyIRC>,
         ) -> Result<Option<Self::BulkScorer>> {
-            Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
+            Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
         }
 
-        fn cost(&mut self, _context: &LeafReaderContext<DummyLeafReader>) -> Result<i64> {
+        fn cost(
+            &mut self,
+            _context: &LeafReaderContext<DummyLeafReader>,
+            _searcher: &IndexSearcher<DummyIRC>,
+        ) -> Result<i64> {
             Ok(self.cost)
         }
 
@@ -1232,6 +1278,7 @@ mod tests {
             subs.insert(occur, Vec::new());
         }
         let dummy_lrc = LeafReaderContext::dummy_lrc();
+        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
         subs = {
             let occur = *[Occur::Filter, Occur::Must].choose(&mut random).unwrap();
             subs.get_mut(&occur)
@@ -1240,7 +1287,7 @@ mod tests {
 
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            assert_eq!(42, supplier.cost(&dummy_lrc)?);
+            assert_eq!(42, supplier.cost(&dummy_lrc, &dummy_searcher)?);
             supplier.subs
         };
 
@@ -1252,7 +1299,7 @@ mod tests {
 
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            assert_eq!(12, supplier.cost(&dummy_lrc)?);
+            assert_eq!(12, supplier.cost(&dummy_lrc, &dummy_searcher)?);
             supplier.subs
         };
 
@@ -1264,7 +1311,7 @@ mod tests {
 
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            assert_eq!(12, supplier.cost(&dummy_lrc)?);
+            assert_eq!(12, supplier.cost(&dummy_lrc, &dummy_searcher)?);
         }
 
         Ok(())
@@ -1279,6 +1326,7 @@ mod tests {
         }
 
         let dummy_lrc = LeafReaderContext::dummy_lrc();
+        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
 
         subs.get_mut(&Occur::Should)
             .unwrap()
@@ -1286,9 +1334,13 @@ mod tests {
         subs = {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            assert_eq!(42, supplier.cost(&dummy_lrc)?);
+            assert_eq!(42, supplier.cost(&dummy_lrc, &dummy_searcher)?);
 
-            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            let scorer = supplier.get(
+                random.random_range(0..100) as i64,
+                &dummy_lrc,
+                &dummy_searcher,
+            )?;
             assert_eq!(42, scorer.iterator().cost()?);
             supplier.subs
         };
@@ -1299,9 +1351,13 @@ mod tests {
         subs = {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            assert_eq!(42 + 12, supplier.cost(&dummy_lrc)?);
+            assert_eq!(42 + 12, supplier.cost(&dummy_lrc, &dummy_searcher)?);
 
-            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            let scorer = supplier.get(
+                random.random_range(0..100) as i64,
+                &dummy_lrc,
+                &dummy_searcher,
+            )?;
             assert_eq!(42 + 12, scorer.iterator().cost()?);
             supplier.subs
         };
@@ -1312,9 +1368,13 @@ mod tests {
         {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            assert_eq!(42 + 12 + 20, supplier.cost(&dummy_lrc)?);
+            assert_eq!(42 + 12 + 20, supplier.cost(&dummy_lrc, &dummy_searcher)?);
 
-            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            let scorer = supplier.get(
+                random.random_range(0..100) as i64,
+                &dummy_lrc,
+                &dummy_searcher,
+            )?;
             assert_eq!(42 + 12 + 20, scorer.iterator().cost()?);
         }
 
@@ -1330,6 +1390,7 @@ mod tests {
         }
 
         let dummy_lrc = LeafReaderContext::dummy_lrc();
+        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
 
         subs.get_mut(&Occur::Should)
             .unwrap()
@@ -1341,9 +1402,13 @@ mod tests {
         subs = {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 1, 100)?;
-            assert_eq!(42 + 12, supplier.cost(&dummy_lrc)?);
+            assert_eq!(42 + 12, supplier.cost(&dummy_lrc, &dummy_searcher)?);
 
-            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            let scorer = supplier.get(
+                random.random_range(0..100) as i64,
+                &dummy_lrc,
+                &dummy_searcher,
+            )?;
             assert_eq!(42 + 12, scorer.iterator().cost()?);
             supplier.subs
         };
@@ -1355,9 +1420,13 @@ mod tests {
         subs = {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 1, 100)?;
-            assert_eq!(42 + 12 + 20, supplier.cost(&dummy_lrc)?);
+            assert_eq!(42 + 12 + 20, supplier.cost(&dummy_lrc, &dummy_searcher)?);
 
-            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            let scorer = supplier.get(
+                random.random_range(0..100) as i64,
+                &dummy_lrc,
+                &dummy_searcher,
+            )?;
             assert_eq!(42 + 12 + 20, scorer.iterator().cost()?);
             supplier.subs
         };
@@ -1365,9 +1434,13 @@ mod tests {
         subs = {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
-            assert_eq!(12 + 20, supplier.cost(&dummy_lrc)?);
+            assert_eq!(12 + 20, supplier.cost(&dummy_lrc, &dummy_searcher)?);
 
-            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            let scorer = supplier.get(
+                random.random_range(0..100) as i64,
+                &dummy_lrc,
+                &dummy_searcher,
+            )?;
             assert_eq!(12 + 20, scorer.iterator().cost()?);
             supplier.subs
         };
@@ -1379,9 +1452,16 @@ mod tests {
         subs = {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 1, 100)?;
-            assert_eq!(42 + 12 + 20 + 30, supplier.cost(&dummy_lrc)?);
+            assert_eq!(
+                42 + 12 + 20 + 30,
+                supplier.cost(&dummy_lrc, &dummy_searcher)?
+            );
 
-            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            let scorer = supplier.get(
+                random.random_range(0..100) as i64,
+                &dummy_lrc,
+                &dummy_searcher,
+            )?;
             assert_eq!(42 + 12 + 20 + 30, scorer.iterator().cost()?);
             supplier.subs
         };
@@ -1389,9 +1469,13 @@ mod tests {
         subs = {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
-            assert_eq!(12 + 20 + 30, supplier.cost(&dummy_lrc)?);
+            assert_eq!(12 + 20 + 30, supplier.cost(&dummy_lrc, &dummy_searcher)?);
 
-            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            let scorer = supplier.get(
+                random.random_range(0..100) as i64,
+                &dummy_lrc,
+                &dummy_searcher,
+            )?;
             assert_eq!(12 + 20 + 30, scorer.iterator().cost()?);
             supplier.subs
         };
@@ -1399,9 +1483,13 @@ mod tests {
         {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 3, 100)?;
-            assert_eq!(12 + 20, supplier.cost(&dummy_lrc)?);
+            assert_eq!(12 + 20, supplier.cost(&dummy_lrc, &dummy_searcher)?);
 
-            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            let scorer = supplier.get(
+                random.random_range(0..100) as i64,
+                &dummy_lrc,
+                &dummy_searcher,
+            )?;
             assert_eq!(12 + 20, scorer.iterator().cost()?);
         }
 
@@ -1413,6 +1501,7 @@ mod tests {
         let iters = at_least(&mut random, 1000);
 
         let dummy_lrc = LeafReaderContext::dummy_lrc();
+        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
 
         for _i in 0..iters {
             let mut subs = HashMap::new();
@@ -1456,8 +1545,8 @@ mod tests {
             let mut supplier =
                 BooleanScorerSupplier::new(subs, score_mode, min_should_match as i32, 100)?;
 
-            let cost1 = supplier.cost(&dummy_lrc)?;
-            let scorer = supplier.get(i64::MAX, &dummy_lrc)?;
+            let cost1 = supplier.cost(&dummy_lrc, &dummy_searcher)?;
+            let scorer = supplier.get(i64::MAX, &dummy_lrc, &dummy_searcher)?;
             let cost2 = scorer.iterator().cost()?;
 
             assert_eq!(cost1, cost2);
@@ -1467,22 +1556,33 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_scorer_supplier() {
+    fn test_fake_scorer_supplier() -> Result<()> {
         let mut random = random();
         let dummy_lrc = LeafReaderContext::dummy_lrc();
+        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
 
         let mut random_access_supplier =
             FakeScorerSupplier::with_lead_cost(random.random_range(0..100), Some(30));
-        assert!(random_access_supplier.get(70, &dummy_lrc).is_err());
+        assert!(
+            random_access_supplier
+                .get(70, &dummy_lrc, &dummy_searcher)
+                .is_err()
+        );
 
         let mut sequential_supplier =
             FakeScorerSupplier::with_lead_cost(random.random_range(0..100), Some(70));
-        assert!(sequential_supplier.get(30, &dummy_lrc).is_err());
+        assert!(
+            sequential_supplier
+                .get(30, &dummy_lrc, &dummy_searcher)
+                .is_err()
+        );
+        Ok(())
     }
     #[test]
     fn test_conjunction_lead_cost() -> Result<()> {
         let mut random = random();
         let dummy_lrc = LeafReaderContext::dummy_lrc();
+        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
@@ -1499,7 +1599,7 @@ mod tests {
         {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            let _ = supplier.get(i64::MAX, &dummy_lrc)?;
+            let _ = supplier.get(i64::MAX, &dummy_lrc, &dummy_searcher)?;
         }
 
         let mut subs = HashMap::new();
@@ -1517,7 +1617,7 @@ mod tests {
         {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            let _ = supplier.get(7, &dummy_lrc)?;
+            let _ = supplier.get(7, &dummy_lrc, &dummy_searcher)?;
         }
 
         Ok(())
@@ -1526,6 +1626,7 @@ mod tests {
     fn test_disjunction_lead_cost() -> Result<()> {
         let mut random = random();
         let dummy_lrc = LeafReaderContext::dummy_lrc();
+        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
@@ -1542,7 +1643,7 @@ mod tests {
         subs = {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            let _ = supplier.get(100, &dummy_lrc)?;
+            let _ = supplier.get(100, &dummy_lrc, &dummy_searcher)?;
             supplier.subs
         };
 
@@ -1557,7 +1658,7 @@ mod tests {
         {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            let _ = supplier.get(20, &dummy_lrc)?;
+            let _ = supplier.get(20, &dummy_lrc, &dummy_searcher)?;
         }
 
         Ok(())
@@ -1566,6 +1667,7 @@ mod tests {
     fn test_disjunction_with_min_should_match_lead_cost() -> Result<()> {
         let mut random = random();
         let dummy_lrc = LeafReaderContext::dummy_lrc();
+        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
@@ -1587,7 +1689,7 @@ mod tests {
         {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
-            let _ = supplier.get(100, &dummy_lrc)?;
+            let _ = supplier.get(100, &dummy_lrc, &dummy_searcher)?;
         }
 
         let mut subs = HashMap::new();
@@ -1609,7 +1711,7 @@ mod tests {
         {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
-            let _ = supplier.get(20, &dummy_lrc)?;
+            let _ = supplier.get(20, &dummy_lrc, &dummy_searcher)?;
         }
 
         let mut subs = HashMap::new();
@@ -1633,7 +1735,7 @@ mod tests {
         {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
-            let _ = supplier.get(100, &dummy_lrc)?;
+            let _ = supplier.get(100, &dummy_lrc, &dummy_searcher)?;
         }
 
         let mut subs = HashMap::new();
@@ -1657,7 +1759,7 @@ mod tests {
         {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 3, 100)?;
-            let _ = supplier.get(100, &dummy_lrc)?;
+            let _ = supplier.get(100, &dummy_lrc, &dummy_searcher)?;
         }
 
         Ok(())
@@ -1666,6 +1768,7 @@ mod tests {
     fn test_prohibited_lead_cost() -> Result<()> {
         let mut random = random();
         let dummy_lrc = LeafReaderContext::dummy_lrc();
+        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
@@ -1682,7 +1785,7 @@ mod tests {
         subs = {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            let _ = supplier.get(100, &dummy_lrc)?;
+            let _ = supplier.get(100, &dummy_lrc, &dummy_searcher)?;
             supplier.subs
         };
 
@@ -1698,7 +1801,7 @@ mod tests {
         subs = {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            let _ = supplier.get(100, &dummy_lrc)?;
+            let _ = supplier.get(100, &dummy_lrc, &dummy_searcher)?;
             supplier.subs
         };
 
@@ -1714,7 +1817,7 @@ mod tests {
         {
             let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
             let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-            let _ = supplier.get(20, &dummy_lrc)?;
+            let _ = supplier.get(20, &dummy_lrc, &dummy_searcher)?;
         }
 
         Ok(())
@@ -1722,6 +1825,7 @@ mod tests {
     #[test]
     fn test_mixed_lead_cost() -> Result<()> {
         let dummy_lrc = LeafReaderContext::dummy_lrc();
+        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in Occur::values() {
@@ -1737,7 +1841,7 @@ mod tests {
 
         subs = {
             let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::Complete, 0, 100)?;
-            let _ = supplier.get(100, &dummy_lrc)?;
+            let _ = supplier.get(100, &dummy_lrc, &dummy_searcher)?;
             supplier.subs
         };
 
@@ -1752,7 +1856,7 @@ mod tests {
 
         subs = {
             let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::Complete, 0, 100)?;
-            let _ = supplier.get(100, &dummy_lrc)?;
+            let _ = supplier.get(100, &dummy_lrc, &dummy_searcher)?;
             supplier.subs
         };
 
@@ -1767,7 +1871,7 @@ mod tests {
 
         {
             let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::Complete, 0, 100)?;
-            let _ = supplier.get(20, &dummy_lrc)?;
+            let _ = supplier.get(20, &dummy_lrc, &dummy_searcher)?;
         }
 
         Ok(())
@@ -1940,6 +2044,7 @@ mod tests {
     #[test]
     fn test_max_score_non_top_level_scoring_clause() -> Result<()> {
         let dummy_lrc = LeafReaderContext::dummy_lrc();
+        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in Occur::values() {
@@ -1952,7 +2057,7 @@ mod tests {
         subs.get_mut(&Occur::Must).unwrap().push(clause2);
 
         let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
-        let mut scorer = supplier.get(10, &dummy_lrc)?;
+        let mut scorer = supplier.get(10, &dummy_lrc, &dummy_searcher)?;
         assert_eq!(2.0, scorer.get_max_score(NO_MORE_DOCS)?,);
 
         let mut subs = HashMap::new();
@@ -1966,7 +2071,7 @@ mod tests {
         subs.get_mut(&Occur::Should).unwrap().push(clause2);
 
         let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
-        let mut scorer = supplier.get(10, &dummy_lrc)?;
+        let mut scorer = supplier.get(10, &dummy_lrc, &dummy_searcher)?;
         assert_eq!(2.0, scorer.get_max_score(NO_MORE_DOCS)?,);
 
         Ok(())

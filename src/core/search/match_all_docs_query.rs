@@ -246,6 +246,7 @@ where
         &mut self,
         _lead_cost: i64,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
         let score = self.weight.score();
         let v = ConstantScoreScorer::from_disi(score, self.score_mode, AllDISI::new(self.max_doc));
@@ -255,9 +256,10 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
         let v = if !self.score_mode.is_exhaustive() {
-            let opt = self.default_bulk_scorer(context)?;
+            let opt = self.default_bulk_scorer(context, searcher)?;
             MatchAllBulkScorerEnum::B(opt)
         } else {
             let score = self.weight.score();
@@ -270,7 +272,11 @@ where
         Ok(Some(Box::new(v)))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
+    fn cost(
+        &mut self,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
         Ok(self.max_doc as i64)
     }
 }

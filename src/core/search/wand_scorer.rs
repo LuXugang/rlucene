@@ -1113,7 +1113,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
         assert_eq!(3.0, scorer.score()?);
@@ -1136,7 +1136,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
         scorer.set_min_competitive_score(4.0)?;
 
         assert_eq!(3, scorer.iterator_mut().next_doc()?);
@@ -1151,7 +1151,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
         assert_eq!(3.0, scorer.score()?);
@@ -1199,7 +1199,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
         assert_eq!(3, scorer.iterator_mut().next_doc()?);
         assert_eq!(3.0, scorer.score()?);
@@ -1213,7 +1213,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
         scorer.set_min_competitive_score(2.0)?;
 
         assert_eq!(3, scorer.iterator_mut().next_doc()?);
@@ -1260,7 +1260,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
         assert_eq!(3.0, scorer.score()?);
@@ -1277,7 +1277,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
         scorer.set_min_competitive_score(3.0)?;
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
@@ -1366,7 +1366,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
         assert_eq!(3.0, scorer.score()?);
@@ -1383,7 +1383,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
         scorer.set_min_competitive_score(4.0)?;
 
         assert_eq!(3, scorer.iterator_mut().next_doc()?);
@@ -1398,7 +1398,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
         assert_eq!(3.0, scorer.score()?);
@@ -1463,7 +1463,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
         let score = scorer.score()?;
@@ -1646,7 +1646,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
         assert_eq!(1, scorer.iterator_mut().next_doc()?);
         assert_eq!(6.0, scorer.score()?); // 2 + 4
@@ -1660,7 +1660,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
         scorer.set_min_competitive_score(7.0)?; // 2 + 1 + 4
 
         assert_eq!(3, scorer.iterator_mut().next_doc()?);
@@ -1859,7 +1859,7 @@ pub(crate) mod tests {
             .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
-        let mut scorer = ss.get(i64::MAX, context)?;
+        let mut scorer = ss.get(i64::MAX, context, &searcher)?;
         scorer.set_min_competitive_score(4.0)?;
 
         assert_eq!(4, scorer.iterator_mut().next_doc()?);
@@ -2485,8 +2485,9 @@ pub(crate) mod tests {
             &mut self,
             lead_cost: i64,
             context: &LeafReaderContext<IRCLeafReader<IRC>>,
+            searcher: &IndexSearcher<IRC>,
         ) -> Result<Self::Scorer> {
-            let v = self.supplier.get(lead_cost, context)?;
+            let v = self.supplier.get(lead_cost, context, searcher)?;
             let s = MaxScoreWrapperScorer::new(v, self.max_range, self.max_score);
             Ok(Box::new(s))
         }
@@ -2494,12 +2495,17 @@ pub(crate) mod tests {
         fn bulk_scorer(
             &mut self,
             context: &LeafReaderContext<IRCLeafReader<IRC>>,
+            searcher: &IndexSearcher<IRC>,
         ) -> Result<Option<Self::BulkScorer>> {
-            Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
+            Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
         }
 
-        fn cost(&mut self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i64> {
-            self.supplier.cost(context)
+        fn cost(
+            &mut self,
+            context: &LeafReaderContext<IRCLeafReader<IRC>>,
+            searcher: &IndexSearcher<IRC>,
+        ) -> Result<i64> {
+            self.supplier.cost(context, searcher)
         }
     }
 
@@ -2663,7 +2669,7 @@ pub(crate) mod tests {
                 let w = &wc.weight;
                 let ss = w.scorer_supplier(context, searcher)?;
                 if let Some(mut ss) = ss {
-                    let scorer = ss.get(i64::MAX, context)?;
+                    let scorer = ss.get(i64::MAX, context, searcher)?;
                     optional_scorers.push(scorer);
                 }
             }
