@@ -202,7 +202,7 @@ where
         } else {
             f.next_ent = -1;
             f.prefix_length = length;
-            f.state.get_block_term_state_mut().term_block_ord = 0;
+            f.state.get_block_term_state_mut()?.term_block_ord = 0;
             f.fp_orig = fp;
             f.fp = fp;
             f.last_sub_fp = -1;
@@ -822,7 +822,7 @@ where
             self.static_frame.state = other_state.clone();
             self.current_frame_idx = self.static_frame_idx;
             self.term.copy_bytes_from_ref(target);
-            self.static_frame.meta_data_upto = self.static_frame.get_term_block_ord();
+            self.static_frame.meta_data_upto = self.static_frame.get_term_block_ord()?;
             debug_assert!(self.static_frame.meta_data_upto > 0);
             self.valid_index_prefix = 0;
         }
@@ -848,7 +848,7 @@ where
             &self.stack[self.current_frame_idx]
         };
 
-        Ok(current_frame.state.get_block_term_state().doc_freq)
+        Ok(current_frame.state.get_block_term_state()?.doc_freq)
     }
 
     fn total_term_freq(&mut self) -> Result<i64> {
@@ -861,7 +861,7 @@ where
             &self.stack[self.current_frame_idx]
         };
 
-        Ok(current_frame.state.get_block_term_state().total_term_freq)
+        Ok(current_frame.state.get_block_term_state()?.total_term_freq)
     }
 
     type PostingsEnum = P::PostingsEnum;
@@ -913,9 +913,9 @@ where
 
         SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;
         let current_frame = if self.current_frame_idx == self.static_frame_idx {
-            &mut self.static_frame
+            &self.static_frame
         } else {
-            &mut self.stack[self.current_frame_idx]
+            &self.stack[self.current_frame_idx]
         };
 
         let cloned_state = current_frame.state.clone();

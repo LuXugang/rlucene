@@ -290,7 +290,7 @@ where
                         f.start_byte_pos,
                         f.suffix,
                         f.last_sub_fp,
-                        f.term_state.get_block_term_state().term_block_ord,
+                        f.term_state.get_block_term_state()?.term_block_ord,
                     )
                 };
 
@@ -345,7 +345,7 @@ where
                             f.suffix = save_suffix;
                             f.suffixes_reader.set_position(save_pos);
                             f.suffix_lengths_reader.set_position(save_len_pos);
-                            f.term_state.get_block_term_state_mut().term_block_ord =
+                            f.term_state.get_block_term_state_mut()?.term_block_ord =
                                 save_term_block_ord;
                         }
 
@@ -647,7 +647,7 @@ where
     fn doc_freq(&mut self) -> Result<i32> {
         IntersectTermsEnumFrame::decode_meta_data(self, self.current_frame)?;
         let current_frame = &self.stack[self.current_frame];
-        Ok(current_frame.term_state.get_block_term_state().doc_freq)
+        Ok(current_frame.term_state.get_block_term_state()?.doc_freq)
     }
 
     fn total_term_freq(&mut self) -> Result<i64> {
@@ -655,7 +655,7 @@ where
         let current_frame = &self.stack[self.current_frame];
         Ok(current_frame
             .term_state
-            .get_block_term_state()
+            .get_block_term_state()?
             .total_term_freq)
     }
 

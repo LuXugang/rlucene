@@ -90,7 +90,7 @@ impl IntersectTermsEnumFrame {
             .postings_reader
             .new_term_state()?;
 
-        term_state.get_block_term_state_mut().total_term_freq = -1;
+        term_state.get_block_term_state_mut()?.total_term_freq = -1;
         let suffix_length_bytes = vec![0u8; 32];
         let suffix_bytes = vec![0u8; 128];
         let stat_bytes = vec![0u8; 64];
@@ -346,7 +346,7 @@ impl IntersectTermsEnumFrame {
         frame.stats_reader.reset_meta(0, num_bytes);
         frame.stats_singleton_run_length = 0;
         frame.meta_data_upto = 0;
-        frame.term_state.get_block_term_state_mut().term_block_ord = 0;
+        frame.term_state.get_block_term_state_mut()?.term_block_ord = 0;
         frame.next_ent = 0;
 
         // metadata
@@ -405,7 +405,7 @@ impl IntersectTermsEnumFrame {
         self.start_byte_pos = self.suffixes_reader.get_position();
         self.suffixes_reader.skip_bytes(self.suffix as i64)?;
         if (code & 1) == 0 {
-            self.term_state.get_block_term_state_mut().term_block_ord += 1;
+            self.term_state.get_block_term_state_mut()?.term_block_ord += 1;
             Ok(false)
         } else {
             let delta = self.suffix_lengths_reader.read_vlong()?;
@@ -413,11 +413,11 @@ impl IntersectTermsEnumFrame {
             Ok(true)
         }
     }
-    pub(crate) fn get_term_block_ord(&self) -> i32 {
+    pub(crate) fn get_term_block_ord(&self) -> Result<i32> {
         if self.is_leaf_block {
-            self.next_ent
+            Ok(self.next_ent)
         } else {
-            self.term_state.get_block_term_state().term_block_ord
+            Ok(self.term_state.get_block_term_state()?.term_block_ord)
         }
     }
     pub(crate) fn decode_meta_data<I, P>(
@@ -430,11 +430,11 @@ impl IntersectTermsEnumFrame {
     {
         let frame = &mut ite.stack[frame_idx];
         // lazily catch up on metadata decode:
-        let limit = frame.get_term_block_ord();
+        let limit = frame.get_term_block_ord()?;
         let mut absolute = frame.meta_data_upto == 0;
         debug_assert!(limit > 0);
         while frame.meta_data_upto < limit {
-            let term_state = frame.term_state.get_block_term_state_mut();
+            let term_state = frame.term_state.get_block_term_state_mut()?;
 
             if frame.stats_singleton_run_length > 0 {
                 term_state.doc_freq = 1;
@@ -476,7 +476,7 @@ impl IntersectTermsEnumFrame {
             absolute = false;
         }
 
-        frame.term_state.get_block_term_state_mut().term_block_ord = frame.meta_data_upto;
+        frame.term_state.get_block_term_state_mut()?.term_block_ord = frame.meta_data_upto;
 
         Ok(())
     }

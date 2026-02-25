@@ -71,23 +71,26 @@ pub enum BlockTermStateEnum {
     Block(BlockTermState),
 }
 impl BlockTermStateEnum {
-    pub fn get_block_term_state_mut(&mut self) -> &mut BlockTermState {
-        match self {
+    pub fn get_block_term_state_mut(&mut self) -> Result<&mut BlockTermState> {
+        Ok(match self {
             BlockTermStateEnum::Int(int) => &mut int.base,
             BlockTermStateEnum::Block(block) => block,
-        }
+        })
     }
-    pub fn get_block_term_state(&self) -> &BlockTermState {
-        match self {
+    pub fn get_block_term_state(&self) -> Result<&BlockTermState> {
+        Ok(match self {
             BlockTermStateEnum::Int(int) => &int.base,
             BlockTermStateEnum::Block(block) => block,
-        }
+        })
     }
 }
 
 impl Display for BlockTermStateEnum {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BlockTermStateEnum::Int(int) => int.fmt(f),
+            BlockTermStateEnum::Block(block) => block.fmt(f),
+        }
     }
 }
 

@@ -180,7 +180,7 @@ where
         }
 
         let mut upper = self.sub.new_term_state()?;
-        let state = upper.get_block_term_state_mut();
+        let state = upper.get_block_term_state_mut()?;
         state.doc_freq = doc_freq;
         state.total_term_freq = if self.options.write_freqs {
             total_term_freq
