@@ -407,7 +407,7 @@ where
     upper_value: i64,
     field: String,
     score: f32,
-    _marker: PhantomData<IRC>,
+    _irc: PhantomData<IRC>,
 }
 impl<IRC, D> ScorerSupplierImpl<IRC, D>
 where
@@ -431,7 +431,7 @@ where
             upper_value,
             field,
             score,
-            _marker: PhantomData,
+            _irc: PhantomData,
         })
     }
 }

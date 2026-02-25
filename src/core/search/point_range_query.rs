@@ -645,7 +645,7 @@ where
     values: PV,
     visitor: IntersectVisitorImpl1,
     cost: i64,
-    _marker: PhantomData<IRC>,
+    _irc: PhantomData<IRC>,
 }
 impl<IRC, PV> ScorerSupplierImpl1<IRC, PV>
 where
@@ -664,7 +664,7 @@ where
             values,
             visitor,
             cost: -1,
-            _marker: PhantomData,
+            _irc: PhantomData,
         }
     }
 }
@@ -748,7 +748,7 @@ where
     score_mode: ScoreMode,
     max_doc: i32,
     score: f32,
-    _marker: PhantomData<IRC>,
+    _irc: PhantomData<IRC>,
 }
 impl<IRC> ScorerSupplierImpl<IRC>
 where
@@ -759,7 +759,7 @@ where
             score,
             score_mode,
             max_doc,
-            _marker: PhantomData,
+            _irc: PhantomData,
         }
     }
 }

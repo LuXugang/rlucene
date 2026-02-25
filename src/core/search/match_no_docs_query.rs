@@ -135,7 +135,7 @@ where
     IRC: IndexReaderContext,
 {
     parent_query: Arc<Query>,
-    _leaf_reader: PhantomData<IRC>,
+    _irc: PhantomData<IRC>,
 }
 
 impl<IRC> MatchNoDocsWeight<IRC>
@@ -145,7 +145,7 @@ where
     pub fn new(query: MatchNoDocsQuery) -> Self {
         Self {
             parent_query: Arc::new(query.into()),
-            _leaf_reader: PhantomData,
+            _irc: PhantomData,
         }
     }
 }

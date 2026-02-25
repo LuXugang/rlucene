@@ -431,7 +431,7 @@ where
     S: Scorer,
 {
     scorer: Option<S>,
-    _marker: PhantomData<IRC>,
+    _irc: PhantomData<IRC>,
 }
 impl<S, IRC> DefaultScorerSupplier<S, IRC>
 where
@@ -441,7 +441,7 @@ where
     pub fn new(scorer: S) -> Self {
         Self {
             scorer: Some(scorer),
-            _marker: PhantomData,
+            _irc: PhantomData,
         }
     }
 }

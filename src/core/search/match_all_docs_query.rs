@@ -126,7 +126,7 @@ where
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     score_mode: ScoreMode,
-    _leaf_reader: PhantomData<IRC>,
+    _irc: PhantomData<IRC>,
 }
 impl<IRC> MatchAllWeight<IRC>
 where
@@ -137,7 +137,7 @@ where
             base: ConstantScoreWeight::new(score),
             parent_query: Arc::new(query.into()),
             score_mode,
-            _leaf_reader: PhantomData,
+            _irc: PhantomData,
         }
     }
 }
@@ -218,7 +218,7 @@ where
     score_mode: ScoreMode,
     weight: ConstantScoreWeight,
     max_doc: i32,
-    _marker: PhantomData<IRC>,
+    _irc: PhantomData<IRC>,
 }
 impl<IRC> MatchAllDocsScorerSupplier<IRC>
 where
@@ -229,7 +229,7 @@ where
             score_mode,
             weight,
             max_doc,
-            _marker: PhantomData,
+            _irc: PhantomData,
         }
     }
 }

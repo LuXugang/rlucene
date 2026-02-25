@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader};
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::{
+    IRCLeafReader, IRCLeafReaderCacheHelper, IndexReaderContext,
+};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::reader_util::ReaderUtil;
@@ -680,7 +682,7 @@ where
     policy: Arc<QueryCachingPolicyEnum>,
     used: AtomicBool,
     lru_cache: Arc<LRUQueryCache<P>>,
-    phantom_data: PhantomData<IRC>,
+    _irc: PhantomData<IRC>,
 }
 impl<P, IRC> CachingWrapperWeight<P, IRC>
 where
@@ -698,7 +700,7 @@ where
             policy,
             used: AtomicBool::new(false),
             lru_cache,
-            phantom_data: PhantomData,
+            _irc: PhantomData,
         }
     }
     fn should_cache(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -738,7 +740,7 @@ where
     P: Predicate<TopParentMeta> + 'static,
     IRC: IndexReaderContext + 'static,
     IRCLeafReader<IRC>: 'static,
-    <IRCLeafReader<IRC> as LeafReader>::CacheHelper: 'static,
+    IRCLeafReaderCacheHelper<IRC>: 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -894,7 +896,7 @@ where
     lru_query_cache: Arc<LRUQueryCache<P>>,
     query: Arc<Query>,
     cache_helper: C,
-    _marker: PhantomData<IRC>,
+    _irc: PhantomData<IRC>,
 }
 impl<C, P, IRC> ScorerSupplierImpl1<C, P, IRC>
 where
@@ -919,7 +921,7 @@ where
             lru_query_cache,
             query,
             cache_helper,
-            _marker: PhantomData,
+            _irc: PhantomData,
         })
     }
 }
@@ -985,7 +987,7 @@ where
 {
     disi: CacheAndCountDISI,
     cost: i64,
-    _marker: PhantomData<IRC>,
+    _irc: PhantomData<IRC>,
 }
 impl<IRC> ScorerSupplierImpl2<IRC>
 where
@@ -996,7 +998,7 @@ where
         Ok(Self {
             disi,
             cost,
-            _marker: PhantomData,
+            _irc: PhantomData,
         })
     }
 }
