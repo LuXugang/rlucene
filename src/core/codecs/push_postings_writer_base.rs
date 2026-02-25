@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_writer_base::PostingsWriterBase;
 use crate::core::index::BytesRef;
@@ -117,7 +117,7 @@ where
         docs_seen: &mut FixedBitSet,
         norms: &Option<N>,
         postings_enum: Option<PE>,
-    ) -> Result<(Option<PE>, Option<BlockTermStateEnum>)> {
+    ) -> Result<(Option<PE>, Option<TermStateEnum>)> {
         let mut norm_values = if self.field_info.as_ref().unwrap().has_norms() {
             Some(
                 norms
@@ -195,7 +195,7 @@ where
         &mut self,
         out: &mut impl DataOutput,
         field_info: &FieldInfo,
-        state: Cow<BlockTermStateEnum>,
+        state: Cow<TermStateEnum>,
         absolute: bool,
     ) -> Result<()> {
         self.sub
@@ -234,7 +234,7 @@ where
 }
 pub trait PushPostingsWriterBaseAbstract {
     /// Return a newly created empty TermState
-    fn new_term_state(&mut self) -> Result<BlockTermStateEnum>;
+    fn new_term_state(&mut self) -> Result<TermStateEnum>;
 
     /// Start a new term.
     /// A matching call to [`finish_term`](Self::finish_term) will be done only
@@ -244,11 +244,8 @@ pub trait PushPostingsWriterBaseAbstract {
     /// Finishes the current term. The provided [`BlockTermState`](crate::core::codecs::block_term_state::BlockTermState) contains
     /// the term's summary statistics and will hold metadata from PBF when
     /// returned.
-    fn finish_term(
-        &mut self,
-        state: &mut BlockTermStateEnum,
-        options: &FieldWriteOptions,
-    ) -> Result<()>;
+    fn finish_term(&mut self, state: &mut TermStateEnum, options: &FieldWriteOptions)
+    -> Result<()>;
 
     /// Adds a new doc in this term. `freq` will be -1 when term
     /// frequencies are omitted for the field.
@@ -280,7 +277,7 @@ pub trait PushPostingsWriterBaseAbstract {
         &mut self,
         out: &mut impl DataOutput,
         field_info: &FieldInfo,
-        state: Cow<BlockTermStateEnum>,
+        state: Cow<TermStateEnum>,
         absolute: bool,
         options: &FieldWriteOptions,
     ) -> Result<()>;

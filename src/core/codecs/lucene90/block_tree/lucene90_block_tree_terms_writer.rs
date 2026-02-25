@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
 
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::{
@@ -460,13 +460,13 @@ trait PendingEntry {
 }
 pub struct PendingTerm {
     pub term_bytes: Rc<Vec<u8>>,
-    pub state: BlockTermStateEnum,
+    pub state: TermStateEnum,
 }
 impl Default for PendingTerm {
     fn default() -> Self {
         Self {
             term_bytes: Rc::new(vec![]),
-            state: BlockTermStateEnum::Int(Default::default()),
+            state: TermStateEnum::Int(Default::default()),
         }
     }
 }
@@ -478,7 +478,7 @@ impl PendingEntry for PendingTerm {
 }
 
 impl PendingTerm {
-    pub fn new(mut term: BytesRef<Vec<u8>>, state: BlockTermStateEnum) -> Self {
+    pub fn new(mut term: BytesRef<Vec<u8>>, state: TermStateEnum) -> Self {
         Self {
             term_bytes: Rc::new(std::mem::take(&mut term.bytes)),
             state,
@@ -946,11 +946,14 @@ where
                 );
 
                 match state {
-                    BlockTermStateEnum::Block(block) => {
+                    TermStateEnum::Block(block) => {
                         stats_writer.add(block.doc_freq, block.total_term_freq)?;
                     },
-                    BlockTermStateEnum::Int(int) => {
+                    TermStateEnum::Int(int) => {
                         stats_writer.add(int.base.doc_freq, int.base.total_term_freq)?;
+                    },
+                    _ => {
+                        return Err(LuceneError::illegal_state("should be Block or Int"));
                     },
                 }
 
@@ -986,11 +989,14 @@ where
                             suffix_len,
                         );
                         match state {
-                            BlockTermStateEnum::Block(block) => {
+                            TermStateEnum::Block(block) => {
                                 stats_writer.add(block.doc_freq, block.total_term_freq)?;
                             },
-                            BlockTermStateEnum::Int(int) => {
+                            TermStateEnum::Int(int) => {
                                 stats_writer.add(int.base.doc_freq, int.base.total_term_freq)?;
+                            },
+                            _ => {
+                                return Err(LuceneError::illegal_state("should be Block or Int"));
                             },
                         }
                         // meta
@@ -1162,13 +1168,16 @@ where
 
         if let Some(state) = &state_opt {
             let (total_term_freq, doc_freq) = match state {
-                BlockTermStateEnum::Block(block) => {
+                TermStateEnum::Block(block) => {
                     debug_assert!(block.doc_freq != 0);
                     (block.total_term_freq, block.doc_freq)
                 },
-                BlockTermStateEnum::Int(int) => {
+                TermStateEnum::Int(int) => {
                     debug_assert!(int.base.doc_freq != 0);
                     (int.base.total_term_freq, int.base.doc_freq)
+                },
+                _ => {
+                    return Err(LuceneError::illegal_state("should be Block or Int"));
                 },
             };
             debug_assert!(

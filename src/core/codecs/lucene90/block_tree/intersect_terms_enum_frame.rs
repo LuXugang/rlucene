@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::core::codecs::block_tree::field_reader::FieldReader;
 use crate::core::codecs::block_tree::intersect_terms_enum::IntersectTermsEnum;
@@ -69,7 +69,7 @@ pub(crate) struct IntersectTermsEnumFrame {
     pub(crate) transition_count: i32,
     pub(crate) arc: usize,
     // arc: FstArcBytesRef,
-    pub(crate) term_state: BlockTermStateEnum,
+    pub(crate) term_state: TermStateEnum,
     /// metadata buffer
     bytes_reader: ByteArrayDataInput<Vec<u8>>,
     pub(crate) output_num: i32,
@@ -80,7 +80,7 @@ impl IntersectTermsEnumFrame {
     pub fn new<I, P>(ord: i32, fr: &FieldReader<I, P>) -> Result<Self>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         // newTermState()
         let mut term_state = fr
@@ -144,7 +144,7 @@ impl IntersectTermsEnumFrame {
     ) -> Result<()>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = &mut ite.stack[frame_idx];
         debug_assert!(
@@ -198,7 +198,7 @@ impl IntersectTermsEnumFrame {
     ) -> Result<()>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = &mut ite.stack[frame_idx];
         frame.floor_data_reader.reset_with_range(
@@ -215,7 +215,7 @@ impl IntersectTermsEnumFrame {
     ) -> Result<()>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = &mut ite.stack[frame_idx];
         ite.output_accumulator.prepare_read();
@@ -231,7 +231,7 @@ impl IntersectTermsEnumFrame {
     ) -> Result<()>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = &mut ite.stack[frame_idx];
         if let Some(block_code) = block_code {
@@ -426,7 +426,7 @@ impl IntersectTermsEnumFrame {
     ) -> Result<()>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = &mut ite.stack[frame_idx];
         // lazily catch up on metadata decode:

@@ -18,7 +18,6 @@ use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::base_terms_enum::BaseTermsEnum;
 use crate::core::index::byte_slice_reader::ByteSliceReader;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
-use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::fields::Fields;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
@@ -447,8 +446,6 @@ impl TermsEnum for FreqProxTermsEnum {
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
         Err(LuceneError::unsupported_operation(""))
     }
-
-    type TermState = DummyTermState;
 }
 
 pub(crate) struct FreqProxDocsEnum {

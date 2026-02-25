@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
@@ -28,7 +29,6 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
-use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::filtered_terms_enum::{
     AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
@@ -1237,9 +1237,7 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type TermState = DummyTermState;
-
-    fn term_state(&mut self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<TermStateEnum> {
         Err(LuceneError::unsupported_operation(""))
     }
 }

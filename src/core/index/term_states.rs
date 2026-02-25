@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::base_terms_enum::TermStateImpl1;
-use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
+pub(crate) use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::term::Term;
-use crate::core::index::term_state::{TermState, TermStateEnum2};
+use crate::core::index::term_state::TermState;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -34,34 +33,15 @@ use std::sync::Arc;
 /// containing a single term. The [`TermStates`] doesn't track if the given [`TermState`]
 /// objects are valid, neither if the [`TermState`] instances refer to the same terms in the
 /// associated readers.
-pub struct TermStates<TS>
-where
-    TS: TermState,
-{
+#[derive(Default)]
+pub struct TermStates {
     top_reader_context_identity: Identity,
-    states: Vec<Option<Arc<TermStateEnum<TS>>>>,
+    states: Vec<Option<Arc<TermStateEnum>>>,
     term: Option<Arc<Term>>,
     doc_freq: i32,
     total_term_freq: i64,
 }
-impl<TS> Default for TermStates<TS>
-where
-    TS: TermState,
-{
-    fn default() -> Self {
-        TermStates {
-            top_reader_context_identity: Identity::new(),
-            states: Vec::new(),
-            term: None,
-            doc_freq: 0,
-            total_term_freq: 0,
-        }
-    }
-}
-impl<TS> TermStates<TS>
-where
-    TS: TermState,
-{
+impl TermStates {
     pub fn new<IRC>(term: Option<Arc<Term>>, context: &IRC) -> Result<Self>
     where
         IRC: IndexReaderContext,
@@ -95,7 +75,7 @@ where
     }
     pub fn with_state_and_stats<IRC>(
         context: &IRC,
-        state: TS,
+        state: TermStateEnum,
         ord: usize,
         doc_freq: i32,
         total_term_freq: i64,
@@ -120,7 +100,7 @@ where
     /// The leaf ordinal should be derived from a IndexReaderContext's leaf ord.
     pub fn register_with_stats(
         &mut self,
-        state: TS,
+        state: TermStateEnum,
         ord: usize,
         doc_freq: i32,
         total_term_freq: i64,
@@ -131,10 +111,10 @@ where
     /// Expert: Registers and associates a [`TermState`] with a leaf ordinal.
     /// The leaf ordinal should be derived from an [`IndexReaderContext`]'s leaf ord.
     /// Unlike [`register`](Self::register_with_stats), this method does **not** update term statistics.
-    pub fn register(&mut self, state: TS, ord: usize) {
+    pub fn register(&mut self, state: TermStateEnum, ord: usize) {
         debug_assert!(ord < self.states.len(), "ord {} out of bounds", ord);
         // wrap with Arc for clone
-        self.states[ord] = Some(Arc::new(TermStateEnum::A(state)));
+        self.states[ord] = Some(Arc::new(state));
     }
     /// Expert: Accumulate term statistics.
     pub fn accumulate_statistics(&mut self, doc_freq: i32, total_term_freq: i64) {
@@ -180,14 +160,14 @@ where
         if self.states[ctx_ord].is_none() {
             let terms_opt = ctx.reader().terms(self.term.as_ref().unwrap().field())?;
             if terms_opt.is_none() {
-                self.states[ctx_ord] = Some(Arc::new(TermStateEnum::B(EmptyTermState)));
+                self.states[ctx_ord] = Some(Arc::new(EmptyTermState.into()));
                 return Ok(None);
             }
 
             let mut te = terms_opt.unwrap().iterator()?;
             let io_boolean_supplier = te.prepare_seek_exact(self.term.as_ref().unwrap().bytes())?;
             if io_boolean_supplier.is_none() {
-                self.states[ctx_ord] = Some(Arc::new(TermStateEnum::B(EmptyTermState)));
+                self.states[ctx_ord] = Some(Arc::new(EmptyTermState.into()));
                 return Ok(None);
             }
             return Ok(Some(PrepareState::Pending(
@@ -197,7 +177,7 @@ where
             )));
         }
         let state = self.states[ctx_ord].as_ref().unwrap();
-        if matches!(state.as_ref(), TermStateEnum::B(_)) {
+        if matches!(state.as_ref(), TermStateEnum::Empty(_)) {
             Ok(None)
         } else {
             Ok(Some(PrepareState::Ready(ctx_ord)))
@@ -206,10 +186,10 @@ where
     pub fn resolve<LR>(
         &mut self,
         state: &mut PrepareState<LR>,
-    ) -> Result<Option<Arc<TermStateEnum<TS>>>>
+    ) -> Result<Option<Arc<TermStateEnum>>>
     where
         LR: LeafReader,
-        <<LR as LeafReader>::Terms as Terms>::TermsEnum: TermsEnum<TermState = TS>,
+        <<LR as LeafReader>::Terms as Terms>::TermsEnum: TermsEnum,
     {
         match state {
             PrepareState::Ready(ord) => Ok(self.states[*ord].clone()),
@@ -218,13 +198,13 @@ where
                 if self.states[*ord].as_ref().is_none() {
                     if te.get_prepare_seek_exact_status(term.bytes())? {
                         let state = te.term_state()?;
-                        self.states[*ord] = Some(Arc::new(TermStateEnum::A(state)))
+                        self.states[*ord] = Some(Arc::new(state))
                     } else {
-                        self.states[*ord] = Some(Arc::new(TermStateEnum::B(EmptyTermState)))
+                        self.states[*ord] = Some(Arc::new(EmptyTermState.into()))
                     }
                 }
                 let state = self.states[*ord].as_ref().unwrap();
-                if matches!(state.as_ref(), TermStateEnum::B(_)) {
+                if matches!(state.as_ref(), TermStateEnum::Empty(_)) {
                     Ok(None)
                 } else {
                     Ok(Some(state.clone()))
@@ -262,10 +242,7 @@ where
         Ok(self.total_term_freq)
     }
 }
-impl<TS> Display for TermStates<TS>
-where
-    TS: TermState,
-{
+impl Display for TermStates {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "TermStates")?;
         for state in self.states.iter() {
@@ -281,8 +258,6 @@ where
         Ok(())
     }
 }
-
-pub type TermStateEnum<TS> = TermStateEnum2<TS, EmptyTermState>;
 
 pub struct EmptyTermState;
 
@@ -316,13 +291,11 @@ where
     ),
 }
 
-pub type TermStateTerm<T> =
-    TermStateEnum2<LRTermState<T>, TermStateEnum2<TermStateImpl1, DummyTermState>>;
 pub fn build<IRC, T>(
     index_searcher: &IndexSearcher<IRC>,
     term: T,
     needs_stats: bool,
-) -> Result<TermStates<IRCTermState<IRC>>>
+) -> Result<TermStates>
 where
     IRC: IndexReaderContext,
     T: Into<Arc<Term>>,

@@ -18,7 +18,7 @@ use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::index_reader::{Identity, IndexReader};
-use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
@@ -130,7 +130,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+        per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

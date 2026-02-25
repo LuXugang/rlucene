@@ -14,20 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
-use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::postings_enum::{FREQS, PostingsEnum, PostingsEnumEnum2};
-use crate::core::index::term_state::{TermState, TermStateEnum2};
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::attribute_source::AttributeSourceEnum2;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 
 /// Iterator to seek [`seek_ceil(BytesRef)`](TermsEnum::seek_ceil),
 /// [`seek_exact(BytesRef)`](TermsEnum::seek_exact) or step through
@@ -116,7 +114,7 @@ pub trait TermsEnum: BytesRefIterator {
     fn seek_exact_with_state(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        _state: &Self::TermState,
+        _state: &TermStateEnum,
     ) -> Result<()> {
         Err(LuceneError::not_implemented(""))
     }
@@ -191,7 +189,6 @@ pub trait TermsEnum: BytesRefIterator {
         Err(LuceneError::not_implemented(""))
     }
 
-    type TermState: TermState;
     /// Expert: Returns the [`TermsEnum`]'s internal state to position the enum
     /// without re-seeking the term dictionary.
     ///
@@ -201,7 +198,7 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// See also: [`TermState`],
     /// [`seek_exact_with_state`](TermsEnum::seek_exact_with_state).
-    fn term_state(&mut self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<TermStateEnum> {
         Err(LuceneError::not_implemented(""))
     }
 }
@@ -285,9 +282,7 @@ impl TermsEnum for EmptyTermsEnum {
         ))
     }
 
-    type TermState = DummyTermState;
-
-    fn term_state(&mut self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<TermStateEnum> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -301,7 +296,6 @@ where
     type AttributeSource = T::AttributeSource;
     type PostingsEnum = T::PostingsEnum;
     type ImpactsEnum = T::ImpactsEnum;
-    type TermState = T::TermState;
 
     #[inline]
     fn attributes(&self) -> Result<Self::AttributeSource> {
@@ -337,7 +331,7 @@ where
     fn seek_exact_with_state(
         &mut self,
         term: &BytesRef<Vec<u8>>,
-        state: &Self::TermState,
+        state: &TermStateEnum,
     ) -> Result<()> {
         (**self).seek_exact_with_state(term, state)
     }
@@ -382,7 +376,7 @@ where
     }
 
     #[inline]
-    fn term_state(&mut self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<TermStateEnum> {
         (**self).term_state()
     }
 }
@@ -458,22 +452,12 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        _term: &BytesRef<Vec<u8>>,
-        _state: &Self::TermState,
+        term: &BytesRef<Vec<u8>>,
+        state: &TermStateEnum,
     ) -> Result<()> {
         match self {
-            TermsEnumEnum2::A(t) => match _state {
-                TermStateEnum2::A(state) => t.seek_exact_with_state(_term, state),
-                _ => Err(LuceneError::illegal_state(
-                    "TermsEnumEnum::A expected TermStateEnum::A",
-                )),
-            },
-            TermsEnumEnum2::B(s) => match _state {
-                TermStateEnum2::B(state) => s.seek_exact_with_state(_term, state),
-                _ => Err(LuceneError::illegal_state(
-                    "TermsEnumEnum::B expected TermStateEnum::B",
-                )),
-            },
+            TermsEnumEnum2::A(t) => t.seek_exact_with_state(term, state),
+            TermsEnumEnum2::B(s) => s.seek_exact_with_state(term, state),
         }
     }
 
@@ -588,18 +572,10 @@ where
         }
     }
 
-    type TermState = TermStateEnum2<A::TermState, B::TermState>;
-
-    fn term_state(&mut self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<TermStateEnum> {
         match self {
-            TermsEnumEnum2::A(t) => {
-                let term_state = t.term_state()?;
-                Ok(TermStateEnum2::A(term_state))
-            },
-            TermsEnumEnum2::B(s) => {
-                let term_state = s.term_state()?;
-                Ok(TermStateEnum2::B(term_state))
-            },
+            TermsEnumEnum2::A(t) => t.term_state(),
+            TermsEnumEnum2::B(s) => s.term_state(),
         }
     }
 }

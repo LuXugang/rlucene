@@ -17,13 +17,13 @@
 use crate::core::index::BytesRef;
 use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::{OFFSETS, POSITIONS};
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{TermStateEnum, TermStates, build};
+use crate::core::index::term_states::{TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
@@ -262,7 +262,7 @@ impl QueryBase for PhraseQuery {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+        _per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
@@ -276,8 +276,7 @@ impl QueryBase for PhraseQuery {
             .clone()
             .ok_or_else(|| LuceneError::illegal_state("field is None"))?;
         let base = PhraseWeightMeta::new(field, *score_mode, similarity, query.into());
-        let sub: PhraseQueryWeightBase<IRCLeafReader<IRC>> =
-            PhraseQueryWeightBase::new(self, boost, base);
+        let sub = PhraseQueryWeightBase::new(self, boost, base);
         let weight: PhraseWeight<_, IRC> = PhraseWeight::new(searcher, sub)?;
         Ok(Box::new(weight))
     }
@@ -436,19 +435,13 @@ where
     Ok(TERM_POSNS_SEEK_OPS_PER_DOC as f32
         + exp_occurrences_in_matching_doc * TERM_OPS_PER_POS as f32)
 }
-pub struct PhraseQueryWeightBase<LR>
-where
-    LR: LeafReader,
-{
+pub struct PhraseQueryWeightBase {
     query: Arc<PhraseQuery>,
-    states: Vec<Mutex<TermStates<LRTermState<LR>>>>,
+    states: Vec<Mutex<TermStates>>,
     boost: f32,
     base: PhraseWeightMeta,
 }
-impl<LR> PhraseQueryWeightBase<LR>
-where
-    LR: LeafReader,
-{
+impl PhraseQueryWeightBase {
     pub(crate) fn new(query: PhraseQuery, boost: f32, base: PhraseWeightMeta) -> Self {
         Self {
             query: Arc::new(query),
@@ -458,12 +451,15 @@ where
         }
     }
     #[cfg(debug_assertions)]
-    fn term_not_in_reader(reader: &LR, term: &Term) -> Result<bool> {
+    fn term_not_in_reader<LR>(reader: &LR, term: &Term) -> Result<bool>
+    where
+        LR: LeafReader,
+    {
         Ok(LeafReader::doc_freq(reader, term)? == 0)
     }
 }
 
-impl<LR> PhraseWeightBase<LR> for PhraseQueryWeightBase<LR>
+impl<LR> PhraseWeightBase<LR> for PhraseQueryWeightBase
 where
     LR: LeafReader,
 {
@@ -571,16 +567,7 @@ where
                 Some(s) => s,
             };
 
-            match state.as_ref() {
-                TermStateEnum::A(s) => {
-                    te.seek_exact_with_state(t.bytes(), s)?;
-                },
-                TermStateEnum::B(_) => {
-                    return Err(LuceneError::illegal_state(
-                        "should never get empty term state here",
-                    ));
-                },
-            }
+            te.seek_exact_with_state(t.bytes(), state.as_ref())?;
 
             let impacts_enum = if self.base.score_mode == ScoreMode::TopScores {
                 let impacts = te.impacts(if expose_offsets {

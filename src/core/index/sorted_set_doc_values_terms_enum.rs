@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::ord_term_state::OrdTermState;
@@ -125,9 +126,9 @@ where
     fn seek_exact_with_state(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        state: &Self::TermState,
+        state: &TermStateEnum,
     ) -> Result<()> {
-        self.seek_exact_with_ord(state.ord)
+        self.seek_exact_with_ord(state.ord()?)
     }
 
     fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
@@ -158,11 +159,9 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type TermState = OrdTermState;
-
-    fn term_state(&mut self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<TermStateEnum> {
         let mut state = OrdTermState::new();
         state.ord = self.current_ord;
-        Ok(state)
+        Ok(state.into())
     }
 }

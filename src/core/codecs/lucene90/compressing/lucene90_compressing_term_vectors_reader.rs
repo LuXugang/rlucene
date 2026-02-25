@@ -30,7 +30,6 @@ use crate::core::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::base_terms_enum::BaseTermsEnum;
-use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
@@ -1448,8 +1447,6 @@ impl TermsEnum for TVTermsEnum {
         let delegate = self.postings_with_flags(None, FREQS as i32)?;
         Ok(SlowImpactsEnum::new(delegate))
     }
-
-    type TermState = DummyTermState;
 }
 
 pub struct TVPostingsEnum {

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::term_states::TermStates;
 use crate::core::search::boolean_clause::{BooleanClause, Occur};
 use crate::core::search::boolean_weight::{BooleanWeight, WeightedBooleanClause};
@@ -181,7 +181,7 @@ impl BooleanQuery {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+        _per_reader_term_state: Option<TermStates>,
     ) -> Result<BooleanWeight<IRC>>
     where
         IRC: IndexReaderContext,
@@ -279,7 +279,7 @@ impl QueryBase for BooleanQuery {
         searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+        per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

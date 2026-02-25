@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::block_tree::field_reader::FieldReader;
 use crate::core::codecs::block_tree::segment_terms_enum::SegmentTermsEnum;
 use crate::core::codecs::lucene90::block_tree::compression_algorithm::CompressionAlgorithm;
@@ -83,7 +83,7 @@ pub struct SegmentTermsEnumFrame {
     // metaData
     pub(crate) meta_data_upto: i32,
 
-    pub(crate) state: BlockTermStateEnum,
+    pub(crate) state: TermStateEnum,
 
     // metadata buffer
     pub(crate) bytes_reader: ByteArrayDataInput<Vec<u8>>,
@@ -97,7 +97,7 @@ impl SegmentTermsEnumFrame {
     pub fn new<I, P>(ord: i32, fr: &FieldReader<I, P>) -> Result<Self>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let mut state = fr
             .parent
@@ -180,7 +180,7 @@ impl SegmentTermsEnumFrame {
     ) -> Result<bool>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = if frame_idx == ste.static_frame_idx {
             &mut ste.static_frame
@@ -205,7 +205,7 @@ impl SegmentTermsEnumFrame {
     ) -> Result<()>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let (next_ent, fp) = {
             let frame = if frame_idx == ste.static_frame_idx {
@@ -244,7 +244,7 @@ impl SegmentTermsEnumFrame {
     ) -> Result<bool>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         // Clone the IndexInput lazily, so that consumers
         // that just pull a TermsEnum to
@@ -370,7 +370,7 @@ impl SegmentTermsEnumFrame {
     pub fn next<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<bool>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = if frame_idx == ste.static_frame_idx {
             &mut ste.static_frame
@@ -387,7 +387,7 @@ impl SegmentTermsEnumFrame {
     pub fn next_leaf<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<()>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         // TODO: 可以判断下是不是static 就可以避免这里的判断
         let frame = if frame_idx == ste.static_frame_idx {
@@ -428,7 +428,7 @@ impl SegmentTermsEnumFrame {
     ) -> Result<bool>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         loop {
             let v = {
@@ -511,7 +511,7 @@ impl SegmentTermsEnumFrame {
     ) -> Result<()>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         Self::scan_to_floor_frame_with_target(frame_idx, &BytesRef::new(), ste, false)
     }
@@ -523,7 +523,7 @@ impl SegmentTermsEnumFrame {
     ) -> Result<()>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = if frame_idx == ste.static_frame_idx {
             &mut ste.static_frame
@@ -578,7 +578,7 @@ impl SegmentTermsEnumFrame {
     pub fn decode_meta_data<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<()>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = if frame_idx == ste.static_frame_idx {
             &mut ste.static_frame
@@ -642,7 +642,7 @@ impl SegmentTermsEnumFrame {
     ) -> bool
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = if frame_idx == ste.static_frame_idx {
             &ste.static_frame
@@ -666,7 +666,7 @@ impl SegmentTermsEnumFrame {
     ) -> Result<()>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = if frame_idx == ste.static_frame_idx {
             &mut ste.static_frame
@@ -711,7 +711,7 @@ impl SegmentTermsEnumFrame {
     ) -> Result<SeekStatus>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = if frame_idx == ste.static_frame_idx {
             &mut ste.static_frame
@@ -738,7 +738,7 @@ impl SegmentTermsEnumFrame {
     ) -> Result<SeekStatus>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         {
             let frame = if frame_idx == ste.static_frame_idx {
@@ -834,7 +834,7 @@ impl SegmentTermsEnumFrame {
     ) -> Result<SeekStatus>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         {
             let frame = if frame_idx == ste.static_frame_idx {
@@ -938,7 +938,7 @@ impl SegmentTermsEnumFrame {
     ) -> Result<SeekStatus>
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         debug_assert!({
             let frame = if frame_idx == ste.static_frame_idx {
@@ -1086,7 +1086,7 @@ impl SegmentTermsEnumFrame {
     pub(crate) fn fill_term<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>)
     where
         I: IndexInput,
-        P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+        P: PostingsReaderBase,
     {
         let frame = if frame_idx == ste.static_frame_idx {
             &mut ste.static_frame

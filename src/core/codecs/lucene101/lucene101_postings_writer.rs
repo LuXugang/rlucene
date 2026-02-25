@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
 use crate::core::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::core::codecs::lucene101::lucene101_postings_format::{
@@ -486,7 +486,7 @@ where
         _docs_seen: &mut FixedBitSet,
         _norms: &Option<N>,
         _postings_enum: Option<PE>,
-    ) -> Result<(Option<PE>, Option<BlockTermStateEnum>)> {
+    ) -> Result<(Option<PE>, Option<TermStateEnum>)> {
         Err(LuceneError::not_implemented(""))
     }
 
@@ -494,7 +494,7 @@ where
         &mut self,
         _out: &mut impl DataOutput,
         _field_info: &FieldInfo,
-        _state: Cow<BlockTermStateEnum>,
+        _state: Cow<TermStateEnum>,
         _absolute: bool,
     ) -> Result<()> {
         Err(LuceneError::unreachable("should not be called"))
@@ -509,8 +509,8 @@ impl<O> PushPostingsWriterBaseAbstract for Lucene101PostingsWriter<O>
 where
     O: IndexOutput,
 {
-    fn new_term_state(&mut self) -> Result<BlockTermStateEnum> {
-        Ok(BlockTermStateEnum::Int(IntBlockTermState::new()))
+    fn new_term_state(&mut self) -> Result<TermStateEnum> {
+        Ok(TermStateEnum::Int(IntBlockTermState::new()))
     }
 
     fn start_term(&mut self, options: &FieldWriteOptions) -> Result<()> {
@@ -539,11 +539,11 @@ where
 
     fn finish_term(
         &mut self,
-        state: &mut BlockTermStateEnum,
+        state: &mut TermStateEnum,
         options: &FieldWriteOptions,
     ) -> Result<()> {
         let state = match state {
-            BlockTermStateEnum::Int(state) => state,
+            TermStateEnum::Int(state) => state,
             _ => {
                 return Err(LuceneError::illegal_state(
                     "not IntBlockTermState".to_string(),
@@ -789,7 +789,7 @@ where
         &mut self,
         out: &mut impl DataOutput,
         _field_info: &FieldInfo,
-        state: Cow<BlockTermStateEnum>,
+        state: Cow<TermStateEnum>,
         absolute: bool,
         options: &FieldWriteOptions,
     ) -> Result<()> {
@@ -798,7 +798,7 @@ where
             Cow::Owned(o) => o,
         };
         let state = match state {
-            BlockTermStateEnum::Int(state) => state,
+            TermStateEnum::Int(state) => state,
             _ => {
                 return Err(LuceneError::illegal_state(
                     "not IntBlockTermState".to_string(),

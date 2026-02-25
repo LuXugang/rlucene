@@ -188,9 +188,6 @@ type LeafPostingsEnum<T> =
 
 // TermsEnum
 pub type LRTermsEnum<LR> = <<LR as LeafReader>::Terms as Terms>::TermsEnum;
-// TermState
-pub type LRTermState<LR> =
-    <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::TermState;
 // NumericDocValues
 pub type LRNumericDocValues<LR> = <LR as LeafReader>::NumericDocValues;
 // BinaryDocValues

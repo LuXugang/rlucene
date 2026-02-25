@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::block_tree::field_reader::FieldReader;
 use crate::core::codecs::block_tree::intersect_terms_enum_frame::IntersectTermsEnumFrame;
 use crate::core::codecs::block_tree::segment_terms_enum::OutputAccumulator;
@@ -48,7 +48,7 @@ use std::rc::Rc;
 pub struct IntersectTermsEnum<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    P: PostingsReaderBase,
 {
     pub(crate) input: Option<I>,
     pub(crate) stack: Vec<IntersectTermsEnumFrame>,
@@ -67,7 +67,7 @@ where
 impl<I, P> IntersectTermsEnum<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    P: PostingsReaderBase,
 {
     pub(crate) fn new(
         fr: FieldReader<I, P>,
@@ -603,7 +603,7 @@ where
 impl<I, P> BytesRefIterator for IntersectTermsEnum<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    P: PostingsReaderBase,
 {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         match self.next_() {
@@ -620,7 +620,7 @@ where
 impl<I, P> TermsEnum for IntersectTermsEnum<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    P: PostingsReaderBase,
 {
     type AttributeSource = DummyAttributeSource;
 
@@ -691,9 +691,7 @@ where
         )
     }
 
-    type TermState = BlockTermStateEnum;
-
-    fn term_state(&mut self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<TermStateEnum> {
         IntersectTermsEnumFrame::decode_meta_data(self, self.current_frame)?;
         let current_frame = &self.stack[self.current_frame];
         Ok(current_frame.term_state.clone())

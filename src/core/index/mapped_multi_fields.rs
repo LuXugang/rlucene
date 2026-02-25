@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::codec_reader::CodecReader;
@@ -276,7 +277,7 @@ where
     fn seek_exact_with_state(
         &mut self,
         term: &BytesRef<Vec<u8>>,
-        state: &Self::TermState,
+        state: &TermStateEnum,
     ) -> Result<()> {
         self.in_.seek_exact_with_state(term, state)
     }
@@ -326,9 +327,7 @@ where
         self.in_.impacts(flags)
     }
 
-    type TermState = <FilterTermsEnum<MultiTermsEnum<TE>> as TermsEnum>::TermState;
-
-    fn term_state(&mut self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<TermStateEnum> {
         self.in_.term_state()
     }
 }

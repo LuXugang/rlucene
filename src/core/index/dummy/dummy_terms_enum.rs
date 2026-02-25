@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
-use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
@@ -49,7 +49,7 @@ impl TermsEnum for DummyTermsEnum {
     fn seek_exact_with_state(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        _state: &Self::TermState,
+        _state: &TermStateEnum,
     ) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -86,9 +86,7 @@ impl TermsEnum for DummyTermsEnum {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type TermState = DummyTermState;
-
-    fn term_state(&mut self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<TermStateEnum> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

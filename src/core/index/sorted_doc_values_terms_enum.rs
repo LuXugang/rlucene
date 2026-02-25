@@ -20,6 +20,7 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::ord_term_state::OrdTermState;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::{BytesRef, BytesRefBuilder};
@@ -128,9 +129,9 @@ where
     fn seek_exact_with_state(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        state: &Self::TermState,
+        state: &TermStateEnum,
     ) -> Result<()> {
-        self.seek_exact_with_ord(state.ord)
+        self.seek_exact_with_ord(state.ord()?)
     }
 
     fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
@@ -161,11 +162,11 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type TermState = OrdTermState;
-
-    fn term_state(&mut self) -> Result<Self::TermState> {
-        Ok(OrdTermState {
+    fn term_state(&mut self) -> Result<TermStateEnum> {
+        let v: TermStateEnum = OrdTermState {
             ord: self.current_ord as i64,
-        })
+        }
+        .into();
+        Ok(v)
     }
 }

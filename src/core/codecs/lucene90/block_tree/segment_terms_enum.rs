@@ -17,7 +17,7 @@
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::{
     NO_OUTPUT, OUTPUT_FLAG_HAS_TERMS, OUTPUT_FLAG_IS_FLOOR, OUTPUT_FLAGS_NUM_BITS,
 };
@@ -42,7 +42,7 @@ use crate::core::util::group_vint_util::GroupVIntUtil;
 pub struct SegmentTermsEnum<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    P: PostingsReaderBase,
 {
     // Lazy init: input stream
     pub(crate) input: Option<I>,
@@ -67,7 +67,7 @@ where
 impl<I, P> SegmentTermsEnum<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    P: PostingsReaderBase,
 {
     pub fn new(fr: FieldReader<I, P>) -> Result<BaseTermsEnum<Self>> {
         // Construct SegmentTerms first
@@ -452,7 +452,7 @@ where
 impl<I, P> BytesRefIterator for SegmentTermsEnum<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    P: PostingsReaderBase,
 {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         let input_none = { self.input.is_none() };
@@ -577,7 +577,7 @@ where
 impl<I, P> TermsEnum for SegmentTermsEnum<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    P: PostingsReaderBase,
 {
     type AttributeSource = DummyAttributeSource;
 
@@ -815,7 +815,7 @@ where
     fn seek_exact_with_state(
         &mut self,
         target: &BytesRef<Vec<u8>>,
-        other_state: &Self::TermState,
+        other_state: &TermStateEnum,
     ) -> Result<()> {
         debug_assert!(self.clear_eof());
         if target.cmp(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists {
@@ -906,9 +906,7 @@ where
         Ok(result)
     }
 
-    type TermState = BlockTermStateEnum;
-
-    fn term_state(&mut self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<TermStateEnum> {
         debug_assert!(!self.eof);
 
         SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;

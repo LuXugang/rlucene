@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::multi_postings_enum::{EnumWithSlice, MultiPostingsEnum};
 use crate::core::index::reader_slice::ReaderSlice;
@@ -454,8 +453,6 @@ where
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
         Ok(SlowImpactsEnum::new(self.postings_with_flags(None, flags)?))
     }
-
-    type TermState = DummyTermState;
 }
 struct TopTermsEnumWithSliceCmp<'a, TE>
 where

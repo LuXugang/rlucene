@@ -17,7 +17,7 @@
 use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeoutEnum;
@@ -212,7 +212,7 @@ where
         after: Option<ScoreDoc>,
         query: impl Into<Query>,
         num_hits: usize,
-        term_state: Option<TermStates<IRCTermState<IRC>>>,
+        term_state: Option<TermStates>,
     ) -> Result<TopDocs<ScoreDoc>>
     where
         IRCLeafReader<IRC>: 'static,
@@ -289,7 +289,7 @@ where
         &self,
         query: impl Into<Query>,
         n: usize,
-        term_state: Option<TermStates<IRCTermState<IRC>>>,
+        term_state: Option<TermStates>,
     ) -> Result<TopDocs<ScoreDoc>>
     where
         IRCLeafReader<IRC>: 'static,
@@ -319,7 +319,7 @@ where
         num_hits: usize,
         sort: T,
         do_doc_scores: bool,
-        term_state: Option<TermStates<IRCTermState<IRC>>>,
+        term_state: Option<TermStates>,
     ) -> Result<TopFieldDocs>
     where
         Q: Into<Query>,
@@ -350,7 +350,7 @@ where
         num_hits: usize,
         sort: T,
         do_doc_scores: bool,
-        term_state: Option<TermStates<IRCTermState<IRC>>>,
+        term_state: Option<TermStates>,
     ) -> Result<TopFieldDocs>
     where
         Q: Into<Query>,
@@ -394,7 +394,7 @@ where
         &self,
         query: impl Into<Query>,
         collector_manager: &CM,
-        term_state: Option<TermStates<IRCTermState<IRC>>>,
+        term_state: Option<TermStates>,
     ) -> Result<CM::T>
     where
         CM: CollectorManager,
@@ -418,7 +418,7 @@ where
         &self,
         query: impl Into<Query>,
         collector_manager: &CM,
-        term_state: Option<TermStates<IRCTermState<IRC>>>,
+        term_state: Option<TermStates>,
     ) -> Result<CM::T>
     where
         CM: CollectorManager,
@@ -586,7 +586,7 @@ where
         query: T,
         score_mode: ScoreMode,
         boost: f32,
-        term_state: Option<TermStates<IRCTermState<IRC>>>,
+        term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         T: QueryBase,

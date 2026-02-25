@@ -14,61 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 
 /// Encapsulates all required internal state to position the associated
 /// [`TermsEnum`](crate::core::index::terms_enum::TermsEnum) without re-seeking.
 pub trait TermState: Display + Clone {
     /// Copies the content of the given `TermState` to this instance.
     fn copy_from(&mut self, other: &Self) -> Result<()>;
-}
-
-// TermState
-pub enum TermStateEnum2<A, B> {
-    A(A),
-    B(B),
-}
-
-impl<A, B> Display for TermStateEnum2<A, B>
-where
-    A: TermState,
-    B: TermState,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TermStateEnum2::A(t) => write!(f, "TermStateEnum::A({t})"),
-            TermStateEnum2::B(s) => write!(f, "TermStateEnum::B({s})"),
-        }
-    }
-}
-
-impl<A, B> Clone for TermStateEnum2<A, B>
-where
-    A: TermState,
-    B: TermState,
-{
-    fn clone(&self) -> Self {
-        match self {
-            TermStateEnum2::A(t) => TermStateEnum2::A(t.clone()),
-            TermStateEnum2::B(s) => TermStateEnum2::B(s.clone()),
-        }
-    }
-}
-
-impl<A, B> TermState for TermStateEnum2<A, B>
-where
-    A: TermState,
-    B: TermState,
-{
-    fn copy_from(&mut self, other: &Self) -> Result<()> {
-        match (self, other) {
-            (TermStateEnum2::A(t), TermStateEnum2::A(o)) => t.copy_from(o),
-            (TermStateEnum2::B(s), TermStateEnum2::B(o)) => s.copy_from(o),
-            _ => Err(LuceneError::illegal_state(
-                "TermState variants must match when copying",
-            )),
-        }
-    }
 }

@@ -19,7 +19,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::doc_values::{DocValues, SortedSet};
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::index_reader::{Identity, IndexReader};
-use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sorted_doc_values::SortedDocValues;
@@ -131,7 +131,7 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
         _searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+        _per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

@@ -67,7 +67,6 @@ impl IndexReaderContextBase {
     }
 }
 pub type IRCTerm<IRC> = <<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms;
-pub type IRCTermState<IRC> = <<IRCTerm<IRC> as Terms>::TermsEnum as TermsEnum>::TermState;
 pub type IRCLeafReader<IRC> = <IRC as IndexReaderContext>::LeafReader;
 pub type IRCLeafReaderCacheHelper<IRC> = <IRCLeafReader<IRC> as LeafReader>::CacheHelper;
 pub type IRCImpactsEnum<IRC> = <<IRCTerm<IRC> as Terms>::TermsEnum as TermsEnum>::ImpactsEnum;

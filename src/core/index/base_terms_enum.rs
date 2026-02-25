@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::block_tree::segment_terms_enum::SegmentTermsEnum;
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_reader::TVTermsEnum;
 use crate::core::codecs::lucene90_doc_values_producer::TermsDict;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::BytesRef;
 use crate::core::index::freq_prox_fields::FreqProxTermsEnum;
-use crate::core::index::term_state::{TermState, TermStateEnum2};
+use crate::core::index::term_state::TermState;
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum};
 use crate::core::store::IndexInput;
 use crate::core::util::attribute_source::AttributeSourceEnum2;
@@ -119,12 +119,9 @@ where
     fn seek_exact_with_state(
         &mut self,
         term: &BytesRef<Vec<u8>>,
-        state: &Self::TermState,
+        state: &TermStateEnum,
     ) -> Result<()> {
-        let result = match state {
-            TermStateEnum2::A(_) => Err(LuceneError::not_implemented("")),
-            TermStateEnum2::B(sub_state) => self.sub.seek_exact_with_state(term, sub_state),
-        };
+        let result = self.sub.seek_exact_with_state(term, state);
         match result {
             Ok(v) => Ok(v),
             Err(e) => match e {
@@ -177,13 +174,12 @@ where
         self.sub.impacts(flags)
     }
 
-    type TermState = TermStateEnum2<TermStateImpl1, S::TermState>;
-
-    fn term_state(&mut self) -> Result<Self::TermState> {
-        match self.sub.term_state() {
-            Ok(v) => Ok(TermStateEnum2::B(v)),
+    fn term_state(&mut self) -> Result<TermStateEnum> {
+        let v = self.sub.term_state();
+        match v {
+            Ok(v) => Ok(v),
             Err(e) => match e {
-                LuceneError::NotImplemented(_) => Ok(TermStateEnum2::A(TermStateImpl1)),
+                LuceneError::NotImplemented(_) => Ok(BaseTermsEnumTermStateImpl.into()),
                 _ => Err(e),
             },
         }
@@ -198,7 +194,7 @@ impl From<FreqProxTermsEnum> for BaseTermsEnum<FreqProxTermsEnum> {
 impl<I, P> From<SegmentTermsEnum<I, P>> for BaseTermsEnum<SegmentTermsEnum<I, P>>
 where
     I: IndexInput,
-    P: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    P: PostingsReaderBase,
 {
     fn from(value: SegmentTermsEnum<I, P>) -> Self {
         BaseTermsEnum::new(value)
@@ -224,13 +220,13 @@ impl From<EmptyTermsEnum> for BaseTermsEnum<EmptyTermsEnum> {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct TermStateImpl1;
-impl Display for TermStateImpl1 {
+pub struct BaseTermsEnumTermStateImpl;
+impl Display for BaseTermsEnumTermStateImpl {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", std::any::type_name::<Self>())
     }
 }
-impl TermState for TermStateImpl1 {
+impl TermState for BaseTermsEnumTermStateImpl {
     fn copy_from(&mut self, _other: &Self) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
     }

@@ -17,7 +17,7 @@
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::index_reader::{Identity, IndexReader};
-use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -107,7 +107,7 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         _searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+        _per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,

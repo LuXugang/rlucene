@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::lucene90::block_tree::field_reader::FieldReader;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
@@ -292,7 +291,7 @@ where
 impl<I, PR> Fields for Lucene90BlockTreeTermsReader<I, PR>
 where
     I: IndexInput,
-    PR: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    PR: PostingsReaderBase,
 {
     type FieldIter<'a>
         = VecIter<'a>
@@ -334,7 +333,7 @@ where
 impl<I, PR> FieldsProducer for Lucene90BlockTreeTermsReader<I, PR>
 where
     I: IndexInput,
-    PR: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    PR: PostingsReaderBase,
 {
     fn check_integrity(&self) -> Result<()> {
         CodecUtil::checksum_entire_file(self.index_in.as_ref())?;

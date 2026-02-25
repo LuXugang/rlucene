@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
@@ -65,7 +65,7 @@ pub trait PostingsWriterBase {
         _docs_seen: &mut FixedBitSet,
         _norms: &Option<N>,
         _postings_enum: Option<PE>,
-    ) -> Result<(Option<PE>, Option<BlockTermStateEnum>)> {
+    ) -> Result<(Option<PE>, Option<TermStateEnum>)> {
         unimplemented!()
     }
 
@@ -78,7 +78,7 @@ pub trait PostingsWriterBase {
         &mut self,
         out: &mut impl DataOutput,
         field_info: &FieldInfo,
-        state: Cow<BlockTermStateEnum>,
+        state: Cow<TermStateEnum>,
         absolute: bool,
     ) -> Result<()>;
 

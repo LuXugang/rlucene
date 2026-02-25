@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
-use crate::core::index::term_state::TermState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput};
 use crate::core::util::error::lucene_error::Result;
@@ -50,9 +50,8 @@ pub trait PostingsReaderBase: Display {
         D1: Directory,
         D2: Directory;
 
-    type TermState: TermState;
     /// Return a newly created empty `TermState`.
-    fn new_term_state(&self) -> Result<Self::TermState>;
+    fn new_term_state(&self) -> Result<TermStateEnum>;
 
     /// Actually decode metadata for next term
     ///
@@ -62,7 +61,7 @@ pub trait PostingsReaderBase: Display {
         &self,
         input: &mut impl DataInput,
         field_info: &Arc<FieldInfo>,
-        state: &mut Self::TermState,
+        state: &mut TermStateEnum,
         absolute: bool,
     ) -> Result<()>;
 
@@ -72,7 +71,7 @@ pub trait PostingsReaderBase: Display {
     fn postings(
         &self,
         field_info: &FieldInfo,
-        state: &Self::TermState,
+        state: &TermStateEnum,
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Option<Self::PostingsEnum>>;
@@ -86,7 +85,7 @@ pub trait PostingsReaderBase: Display {
     fn impacts(
         &self,
         field_info: &FieldInfo,
-        state: &Self::TermState,
+        state: &TermStateEnum,
         flags: i32,
     ) -> Result<Self::ImpactsEnum>;
 

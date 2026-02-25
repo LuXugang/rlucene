@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::codecs::lucene101::lucene101_postings_format::{
@@ -264,21 +264,19 @@ where
         Ok(())
     }
 
-    type TermState = BlockTermStateEnum;
-
-    fn new_term_state(&self) -> Result<Self::TermState> {
-        Ok(BlockTermStateEnum::Int(IntBlockTermState::new()))
+    fn new_term_state(&self) -> Result<TermStateEnum> {
+        Ok(TermStateEnum::Int(IntBlockTermState::new()))
     }
 
     fn decode_term(
         &self,
         input: &mut impl DataInput,
         field_info: &Arc<FieldInfo>,
-        term_state: &mut Self::TermState,
+        term_state: &mut TermStateEnum,
         absolute: bool,
     ) -> Result<()> {
         let term_state = match term_state {
-            BlockTermStateEnum::Int(s) => s,
+            TermStateEnum::Int(s) => s,
             _ => {
                 return Err(LuceneError::illegal_state(
                     "term_state should be IntBlockTermState",
@@ -328,7 +326,7 @@ where
     fn postings(
         &self,
         field_info: &FieldInfo,
-        term_state: &Self::TermState,
+        term_state: &TermStateEnum,
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Option<Self::PostingsEnum>> {
@@ -349,7 +347,7 @@ where
     fn impacts(
         &self,
         field_info: &FieldInfo,
-        term_state: &Self::TermState,
+        term_state: &TermStateEnum,
         flags: i32,
     ) -> Result<Self::ImpactsEnum> {
         let mut block = BlockPostingsEnum::new(field_info, flags, true, self)?;
@@ -665,12 +663,12 @@ where
 
     pub fn reset(
         &mut self,
-        term_state: &BlockTermStateEnum,
+        term_state: &TermStateEnum,
         _flags: i32,
         reader: &Lucene101PostingsReader<I>,
     ) -> Result<&mut Self> {
         let term_state = match term_state {
-            BlockTermStateEnum::Int(s) => s,
+            TermStateEnum::Int(s) => s,
             _ => {
                 return Err(LuceneError::illegal_state(
                     "term_state should be IntBlockTermState",

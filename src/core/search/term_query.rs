@@ -16,7 +16,7 @@
  */
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::{Identity, IndexReader};
-use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::{
     LRImpactsEnum, LRNormNumericDocValues, LRPosting, LRTermsEnum, LeafReader,
 };
@@ -25,7 +25,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, NONE};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{PrepareState, TermStateEnum, TermStates, build};
+use crate::core::index::term_states::{PrepareState, TermStates};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::collection_statistics::CollectionStatistics;
@@ -123,28 +123,29 @@ impl QueryBase for TermQuery {
 
     fn create_weight<IRC>(
         self,
-        searcher: &IndexSearcher<IRC>,
-        score_mode: &ScoreMode,
-        boost: f32,
-        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+        _searcher: &IndexSearcher<IRC>,
+        _score_mode: &ScoreMode,
+        _boost: f32,
+        _per_reader_term_state: Option<TermStates>,
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        let context = searcher.get_top_reader_context();
-        let term_state = match per_reader_term_state {
-            Some(states) if states.was_built_for_some(context.base().id()) => states,
-            _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
-        };
-        Ok(Box::new(TermWeight::<IRC>::new(
-            searcher,
-            *score_mode,
-            boost,
-            term_state,
-            self,
-        )?))
+        // let context = searcher.get_top_reader_context();
+        // let term_state = match per_reader_term_state {
+        //     Some(states) if states.was_built_for_some(context.base().id()) => states,
+        //     _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
+        // };
+        // Ok(Box::new(TermWeight::<IRC>::new(
+        //     searcher,
+        //     *score_mode,
+        //     boost,
+        //     term_state,
+        //     self,
+        // )?))
+        todo!()
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -168,7 +169,7 @@ where
 {
     similarity: Arc<SimilarityEnum>,
     sim_scorer: Option<Arc<TermQuerySimScorer>>,
-    term_states: Arc<Mutex<TermStates<IRCTermState<IRC>>>>,
+    term_states: Arc<Mutex<TermStates>>,
     score_mode: ScoreMode,
     parent_query: Arc<Query>,
     _irc: PhantomData<IRC>,
@@ -181,7 +182,7 @@ where
         searcher: &IndexSearcher<IRC>,
         score_mode: ScoreMode,
         boost: f32,
-        term_states: TermStates<IRCTermState<IRC>>,
+        term_states: TermStates,
         query: TermQuery,
     ) -> Result<Self> {
         let similarity = searcher.get_similarity();
@@ -270,15 +271,8 @@ where
             .as_ref()
             .unwrap()
             .iterator()?;
-        match state.as_ref() {
-            TermStateEnum::A(s) => {
-                terms_enum.seek_exact_with_state(parent_query.term.bytes(), s)?;
-                Ok(Some(terms_enum))
-            },
-            TermStateEnum::B(_) => Err(LuceneError::illegal_state(
-                "should never get empty term state here",
-            )),
-        }
+        terms_enum.seek_exact_with_state(parent_query.term.bytes(), state.as_ref())?;
+        Ok(Some(terms_enum))
     }
     fn term_not_in_reader<LR>(&self, reader: &LR, term: &Term) -> Result<bool>
     where
@@ -493,7 +487,7 @@ where
     IRC: IndexReaderContext,
 {
     top_level_scoring_clause: bool,
-    term_states: Arc<Mutex<TermStates<IRCTermState<IRC>>>>,
+    term_states: Arc<Mutex<TermStates>>,
     prepare_state: PrepareState<IRCLeafReader<IRC>>,
     term: Arc<Term>,
     sim_scorer: Arc<TermQuerySimScorer>,
@@ -507,7 +501,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         top_level_scoring_clause: bool,
-        term_states: Arc<Mutex<TermStates<IRCTermState<IRC>>>>,
+        term_states: Arc<Mutex<TermStates>>,
         prepare_state: PrepareState<IRCLeafReader<IRC>>,
         term: Arc<Term>,
         sim_scorer: Arc<TermQuerySimScorer>,
@@ -533,25 +527,18 @@ where
             let state_opt = self.term_states.lock().resolve(&mut self.prepare_state)?;
             match state_opt {
                 None => return Ok(None),
-                Some(s) => match s.as_ref() {
-                    TermStateEnum::A(s) => {
-                        let mut terms_enum = match context.reader().terms(self.term.field())? {
-                            Some(term) => term.iterator()?,
-                            None => {
-                                return Err(LuceneError::illegal_argument(format!(
-                                    "term should exist here {}",
-                                    self.term
-                                )));
-                            },
-                        };
-                        terms_enum.seek_exact_with_state(self.term.bytes(), s)?;
-                        self.terms_enum = Some(terms_enum);
-                    },
-                    TermStateEnum::B(_) => {
-                        return Err(LuceneError::illegal_state(
-                            "should never get empty term state here",
-                        ));
-                    },
+                Some(s) => {
+                    let mut terms_enum = match context.reader().terms(self.term.field())? {
+                        Some(term) => term.iterator()?,
+                        None => {
+                            return Err(LuceneError::illegal_argument(format!(
+                                "term should exist here {}",
+                                self.term
+                            )));
+                        },
+                    };
+                    terms_enum.seek_exact_with_state(self.term.bytes(), s.as_ref())?;
+                    self.terms_enum = Some(terms_enum);
                 },
             };
         }

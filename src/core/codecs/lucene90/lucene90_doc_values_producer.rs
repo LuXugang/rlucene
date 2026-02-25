@@ -35,7 +35,6 @@ use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
-use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
@@ -3186,8 +3185,6 @@ where
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
         Err(LuceneError::unsupported_operation(""))
     }
-
-    type TermState = DummyTermState;
 }
 
 pub struct DenseSortedNumericDocValues<R>

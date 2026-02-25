@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::BlockTermStateEnum;
 use crate::core::codecs::block_tree::intersect_terms_enum::IntersectTermsEnum;
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::{
     OUTPUT_FLAG_HAS_TERMS, VERSION_MSB_VLONG_OUTPUT,
@@ -174,7 +173,7 @@ where
 impl<I, PR> Terms for FieldReader<I, PR>
 where
     I: IndexInput,
-    PR: PostingsReaderBase<TermState = BlockTermStateEnum>,
+    PR: PostingsReaderBase,
 {
     type TermsEnum = BaseTermsEnum<SegmentTermsEnum<I, PR>>;
 
