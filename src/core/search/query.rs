@@ -57,7 +57,6 @@ use std::sync::Arc;
 pub type QueryWeight<IRC> = Box<
     dyn Weight<
             IRC = IRC,
-            LeafReader = IRCLeafReader<IRC>,
             Matches = MatchWithNoTerms,
             ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>,
         >,

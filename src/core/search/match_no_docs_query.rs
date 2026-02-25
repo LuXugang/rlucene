@@ -154,7 +154,6 @@ impl<IRC> SegmentCacheable for MatchNoDocsWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
-    type LeafReader = IRCLeafReader<IRC>;
     type IRC = IRC;
 
     fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -173,6 +172,7 @@ where
         &self,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _doc: i32,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::Matches>> {
         Ok(None)
     }
@@ -181,6 +181,7 @@ where
         &self,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _doc: i32,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Explanation> {
         let parent_query = if let Query::MatchNoDoc(v) = self.parent_query.as_ref() {
             v
@@ -201,6 +202,7 @@ where
     fn scorer_supplier(
         &self,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         Ok(None)
     }

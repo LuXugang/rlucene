@@ -17,7 +17,7 @@
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
-use crate::core::index::index_reader::Identity;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -189,10 +189,9 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     }
 }
 
-pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
+pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     query: IndexSortSortedNumericDocValuesRangeQuery,
     base: ConstantScoreWeight,
@@ -200,10 +199,9 @@ where
     fallback_query_weight: QueryWeight<IRC>,
     parent_query: Arc<Query>,
 }
-impl<LR, IRC> IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
+impl<IRC> IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     pub fn new(
         query: IndexSortSortedNumericDocValuesRangeQuery,
@@ -223,34 +221,41 @@ where
 }
 pub type Disi<LR> = <SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues;
 
-impl<LR, IRC> SegmentCacheable for IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
+impl<IRC> SegmentCacheable for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    type LeafReader = LR;
     type IRC = IRC;
 
-    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         // Both queries should always return the same values, so we can just check
         // if the fallback query is cacheable.
         self.fallback_query_weight.is_cacheable(ctx)
     }
 }
 
-impl<LR, IRC> Weight for IndexSortSortedNumericDocValuesRangeQueryWeight<LR, IRC>
+impl<IRC> Weight for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     type Matches = MatchWithNoTerms;
 
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
-        self.default_matches(context, doc)
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Option<Self::Matches>> {
+        self.default_matches(context, doc, searcher)
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
-        let scorer = self.scorer(context)?;
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Explanation> {
+        let scorer = self.scorer(context, searcher)?;
         self.base
             .explain(scorer, doc, self.parent_query.as_string(""))
     }
@@ -259,11 +264,12 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<LR>;
+    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         match get_doc_id_set_iterator_or_null(
             context,
@@ -283,17 +289,18 @@ where
                 )?;
                 Ok(Some(Box::new(scorer_supplier)))
             },
-            None => match self.fallback_query_weight.scorer_supplier(context)? {
+            None => match self
+                .fallback_query_weight
+                .scorer_supplier(context, searcher)?
+            {
                 Some(v) => Ok(Some(v)),
                 None => Ok(None),
             },
         }
     }
 
-    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32>
-    where
-        LR: LeafReader,
-    {
+    fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32>
+where {
         let reader = context.reader();
 
         if !reader.has_deletions()? {
@@ -432,9 +439,9 @@ impl<LR> ScorerSupplier for ScorerSupplierImpl<LR, Disi<LR>>
 where
     LR: LeafReader + 'static,
 {
-    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
+    type LeafReader = LR;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let disi = match self.disi.take() {
@@ -1671,7 +1678,7 @@ mod tests {
         let leaves = searcher.get_leaf_contexts()?;
         let ctx0 = &leaves[0];
 
-        let scorer_opt = weight.scorer(ctx0)?;
+        let scorer_opt = weight.scorer(ctx0, &searcher)?;
         assert!(scorer_opt.is_none());
 
         writer.close()?;
@@ -1811,7 +1818,7 @@ mod tests {
         let query = create_query("field", 0, 0);
         let weight = query.create_weight(&searcher, &ScoreMode::TopScores, 1.0, None)?;
         for ctx in searcher.get_leaf_contexts()? {
-            let mut scorer = weight.scorer(ctx)?;
+            let mut scorer = weight.scorer(ctx, &searcher)?;
             assert!(
                 scorer.as_mut().unwrap().has_two_phase_iterator() == TwoPhaseState::Yes
                     || scorer.as_mut().unwrap().two_phase_iterator().is_some()
@@ -1947,8 +1954,8 @@ mod tests {
         searcher: &IndexSearcher<IRC>,
     ) -> Result<()>
     where
-        W1: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
-        W2: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
+        W1: Weight<IRC = IRC> + ?Sized,
+        W2: Weight<IRC = IRC> + ?Sized,
         IRC: IndexReaderContext,
     {
         for ctx in searcher.get_leaf_contexts()? {

@@ -14,54 +14,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::util::error::lucene_error::Result;
 use std::marker::PhantomData;
 
-pub struct DummySegmentCacheable<LR, IRC>
+pub struct DummySegmentCacheable<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    _leaf_reader: PhantomData<LR>,
     _irc: PhantomData<IRC>,
 }
 
-impl<LR, IRC> Default for DummySegmentCacheable<LR, IRC>
+impl<IRC> Default for DummySegmentCacheable<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<LR, IRC> DummySegmentCacheable<LR, IRC>
+impl<IRC> DummySegmentCacheable<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     pub fn new() -> Self {
-        Self {
-            _leaf_reader: PhantomData,
-            _irc: PhantomData,
-        }
+        Self { _irc: PhantomData }
     }
 }
 
-impl<LR, IRC> SegmentCacheable for DummySegmentCacheable<LR, IRC>
+impl<IRC> SegmentCacheable for DummySegmentCacheable<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    type LeafReader = LR;
     type IRC = IRC;
 
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

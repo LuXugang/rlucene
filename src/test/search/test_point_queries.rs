@@ -1478,7 +1478,9 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
 
         let query = IntPoint::new_range_query_n("point", &lower, &upper)?;
         let weight = searcher.create_weight(query.clone(), CompleteNoScores, 1.0, None)?;
-        let _scorer = weight.scorer(&searcher.get_leaf_contexts()?[0])?.unwrap();
+        let _scorer = weight
+            .scorer(&searcher.get_leaf_contexts()?[0], &searcher)?
+            .unwrap();
         query
     };
     // when not all docs have a value, optimization should not apply
@@ -1492,7 +1494,7 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
     searcher.set_query_cache(None);
 
     let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
-    let _scorer = weight.scorer(&searcher.get_leaf_contexts()?[0])?;
+    let _scorer = weight.scorer(&searcher.get_leaf_contexts()?[0], &searcher)?;
 
     w.close()?;
     Ok(())
@@ -1906,7 +1908,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
     let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
     assert!(
         weight
-            .scorer_supplier(&searcher.get_leaf_contexts()?[0])?
+            .scorer_supplier(&searcher.get_leaf_contexts()?[0], &searcher)?
             .is_none()
     );
 
@@ -1914,7 +1916,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
     let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
     assert!(
         weight
-            .scorer_supplier(&searcher.get_leaf_contexts()?[0])?
+            .scorer_supplier(&searcher.get_leaf_contexts()?[0], &searcher)?
             .is_none()
     );
 
@@ -1922,7 +1924,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
     let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
     assert!(
         weight
-            .scorer_supplier(&searcher.get_leaf_contexts()?[0])?
+            .scorer_supplier(&searcher.get_leaf_contexts()?[0], &searcher)?
             .is_none()
     );
 
@@ -1930,7 +1932,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
     let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
     assert!(
         weight
-            .scorer_supplier(&searcher.get_leaf_contexts()?[0])?
+            .scorer_supplier(&searcher.get_leaf_contexts()?[0], &searcher)?
             .is_none()
     );
 

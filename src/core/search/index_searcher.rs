@@ -39,6 +39,7 @@ use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
@@ -439,7 +440,7 @@ where
     ) -> Result<CM::T>
     where
         CM: CollectorManager,
-        W: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
+        W: Weight<IRC = IRC> + ?Sized,
     {
         let leaf_slices = self.get_slices()?;
         if leaf_slices.is_empty() {
@@ -478,7 +479,7 @@ where
     ) -> Result<()>
     where
         C: Collector,
-        W: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
+        W: Weight + SegmentCacheable<IRC = IRC> + ?Sized,
     {
         // we pass `Weight` to `Collector` via parameter in Rust Lucene
         // collector.set_weight(weight)?;
@@ -505,7 +506,7 @@ where
     ) -> Result<()>
     where
         C: Collector,
-        W: Weight<LeafReader = IRCLeafReader<IRC>> + ?Sized,
+        W: Weight + SegmentCacheable<IRC = IRC> + ?Sized,
     {
         let ctx = &self.reader_context.leaves()?[ctx_ord];
         let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight)) {
@@ -518,7 +519,7 @@ where
             Err(e) => return Err(e),
         };
 
-        if let Some(mut scorer_supplier) = weight.scorer_supplier(ctx)? {
+        if let Some(mut scorer_supplier) = weight.scorer_supplier(ctx, self)? {
             scorer_supplier.set_top_level_scoring_clause()?;
             let mut scorer = match scorer_supplier.bulk_scorer(ctx)? {
                 Some(scorer) => scorer,

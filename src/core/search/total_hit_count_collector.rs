@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_stream::DocIdStream;
 
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -47,20 +47,20 @@ impl TotalHitCountCollector {
     }
 }
 impl Collector for TotalHitCountCollector {
-    type LeafCollector<'a, LR>
+    type LeafCollector<'a, IRC>
         = TotalHitCountLeafCollector<'a>
     where
         Self: 'a,
-        LR: LeafReader;
+        IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, LR>(
+    fn get_leaf_collector<'a, W, IRC>(
         &'a mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
         weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, LR>>
+    ) -> Result<Self::LeafCollector<'a, IRC>>
     where
-        LR: LeafReader,
-        W: Weight<LeafReader = LR> + ?Sized,
+        IRC: IndexReaderContext,
+        W: Weight<IRC = IRC> + ?Sized,
     {
         let leaf_count = match weight {
             Some(w) => w.count(context)?,

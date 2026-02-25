@@ -16,6 +16,7 @@
  */
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
+use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
@@ -23,22 +24,25 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
-use std::marker::PhantomData;
 
-#[derive(Clone, Default)]
-pub struct DummyCompositeReader<LR> {
-    _marker: PhantomData<LR>,
+pub struct DummyCompositeReader<LR>
+where
+    LR: LeafReader + Clone,
+{
+    lr: Vec<IndexReaderEnum<LR, DummyCompositeReader<LR>>>,
 }
 
-impl<LR> DummyCompositeReader<LR> {
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
+impl DummyCompositeReader<DummyLeafReader> {
+    pub fn new(lr: DummyLeafReader) -> Self {
+        let v = IndexReaderEnum::Leaf(lr);
+        Self { lr: vec![v] }
     }
 }
 
-impl<LR> IndexReader for DummyCompositeReader<LR> {
+impl<LR> IndexReader for DummyCompositeReader<LR>
+where
+    LR: LeafReader + Clone,
+{
     type TermVectors = DummyTermVectors;
 
     fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -46,7 +50,7 @@ impl<LR> IndexReader for DummyCompositeReader<LR> {
     }
 
     fn max_doc(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        Ok(1)
     }
 
     fn num_docs(&self) -> Result<i32> {
@@ -94,7 +98,10 @@ impl<LR> IndexReader for DummyCompositeReader<LR> {
     }
 }
 
-impl<LR> Display for DummyCompositeReader<LR> {
+impl<LR> Display for DummyCompositeReader<LR>
+where
+    LR: LeafReader + Clone,
+{
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -105,12 +112,13 @@ where
     LR: LeafReader + Clone,
 {
     type LeafReader = LR;
+
     type SubCompositeReader = DummyCompositeReader<LR>;
 
     fn get_sequential_sub_readers(
         &self,
     ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        self.lr.as_slice()
     }
 
     fn to_string(&self) -> String {

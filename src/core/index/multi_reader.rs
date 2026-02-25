@@ -204,6 +204,7 @@ where
     CR: CompositeReader<LeafReader = LR>,
 {
     type LeafReader = LR;
+
     type SubCompositeReader = CR;
 
     fn get_sequential_sub_readers(

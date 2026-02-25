@@ -33,7 +33,7 @@ pub trait SimpleCollector: Collector + LeafCollector {
     ) -> Result<()>
     where
         LR: LeafReader,
-        W: Weight<LeafReader = LR> + ?Sized,
+        W: Weight + ?Sized,
     {
         self.do_set_next_reader(context)
     }

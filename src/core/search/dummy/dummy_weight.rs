@@ -15,85 +15,82 @@
  * limitations under the License.
  */
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
-use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
-pub struct DummyWeight<LR, IRC>
+pub struct DummyWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    leaf_reader: LR,
-    _irc: PhantomData<IRC>,
+    leaf_reader: IRCLeafReader<IRC>,
 }
 
-impl<LR, IRC> DummyWeight<LR, IRC>
+impl<IRC> DummyWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    pub fn new(lr: LR) -> Self {
-        Self {
-            leaf_reader: lr,
-            _irc: PhantomData,
-        }
+    pub fn new(lr: IRCLeafReader<IRC>) -> Self {
+        Self { leaf_reader: lr }
     }
 }
-impl Default for DummyWeight<DummyLeafReader, LeafReaderContext<DummyLeafReader>> {
+impl Default for DummyWeight<LeafReaderContext<DummyLeafReader>> {
     fn default() -> Self {
         Self::new(DummyLeafReader)
     }
 }
 
-impl<LR, IRC> SegmentCacheable for DummyWeight<LR, IRC>
+impl<IRC> SegmentCacheable for DummyWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    type LeafReader = LR;
     type IRC = IRC;
 
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl<LR, IRC> Weight for DummyWeight<LR, IRC>
+impl<IRC> Weight for DummyWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     type Matches = DummyMatches;
 
     fn matches(
         &self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _doc: i32,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::Matches>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn default_matches(
         &self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _doc: i32,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<MatchWithNoTerms>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn explain(&self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
+    fn explain(
+        &self,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _doc: i32,
+        _searcher: &IndexSearcher<IRC>,
+    ) -> Result<Explanation> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -103,32 +100,35 @@ where
 
     fn scorer(
         &self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type ScorerSupplier = DummyScorerSupplier<LR>;
+    type ScorerSupplier = DummyScorerSupplier<IRCLeafReader<IRC>>;
 
     fn scorer_supplier(
         &self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn bulk_scorer(
         &self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn default_count(&self, __context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn default_count(&self, __context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

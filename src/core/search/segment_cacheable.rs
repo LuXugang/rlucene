@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -32,17 +31,15 @@ use std::sync::Arc;
 /// Objects that are not segment-immutable, such as those that rely on global statistics or
 /// scores, should return `false`.
 pub trait SegmentCacheable {
-    type LeafReader: LeafReader;
-    type IRC: IndexReaderContext<LeafReader = Self::LeafReader>;
+    type IRC: IndexReaderContext;
     /// Returns `Ok(true)` if the object can be cached against a given leaf.
-    fn is_cacheable(&self, ctx: &LeafReaderContext<Self::LeafReader>) -> Result<bool>;
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<bool>;
 }
 
 impl<T> SegmentCacheable for Arc<T>
 where
     T: SegmentCacheable,
 {
-    type LeafReader = IRCLeafReader<Self::IRC>;
     type IRC = T::IRC;
 
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<bool> {
@@ -53,7 +50,6 @@ impl<T> SegmentCacheable for Box<T>
 where
     T: SegmentCacheable + ?Sized,
 {
-    type LeafReader = IRCLeafReader<Self::IRC>;
     type IRC = T::IRC;
 
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<bool> {

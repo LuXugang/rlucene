@@ -185,7 +185,6 @@ where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
-    type LeafReader = IRCLeafReader<IRC>;
     type IRC = IRC;
 
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -205,16 +204,18 @@ where
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::Matches>> {
-        self.inner_weight.matches(context, doc)
+        self.inner_weight.matches(context, doc, searcher)
     }
 
     fn explain(
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Explanation> {
-        let scorer = self.scorer(context)?;
+        let scorer = self.scorer(context, searcher)?;
         self.base
             .explain(scorer, doc, self.get_query().as_string(""))
     }
@@ -228,8 +229,9 @@ where
     fn scorer_supplier(
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
-        match self.inner_weight.scorer_supplier(context)? {
+        match self.inner_weight.scorer_supplier(context, searcher)? {
             Some(inner_scorer_supplier) => Ok(Some(Box::new(ScorerSupplierImpl::new(
                 self.score_mode,
                 inner_scorer_supplier,
@@ -267,9 +269,9 @@ impl<LR> ScorerSupplier for ScorerSupplierImpl<LR>
 where
     LR: LeafReader + 'static,
 {
-    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
+    type LeafReader = LR;
 
     fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let inner_scorer = self.inner_scorer_supplier.get(lead_cost, context)?;
@@ -469,7 +471,6 @@ where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
-    type LeafReader = IRCLeafReader<IRC>;
     type IRC = IRC;
 
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -487,24 +488,27 @@ where
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::Matches>> {
-        self.inner.matches(context, doc)
+        self.inner.matches(context, doc, searcher)
     }
 
     fn default_matches(
         &self,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _doc: i32,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<MatchWithNoTerms>> {
-        self.inner.default_matches(_context, _doc)
+        self.inner.default_matches(_context, _doc, searcher)
     }
 
     fn explain(
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Explanation> {
-        self.inner.explain(context, doc)
+        self.inner.explain(context, doc, searcher)
     }
 
     fn get_query(&self) -> Arc<Query> {
@@ -516,15 +520,17 @@ where
     fn scorer_supplier(
         &self,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
-        self.inner.scorer_supplier(_context)
+        self.inner.scorer_supplier(_context, searcher)
     }
 
     fn bulk_scorer(
         &self,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
-        self.inner.bulk_scorer(_context)
+        self.inner.bulk_scorer(_context, searcher)
     }
 
     fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
@@ -652,7 +658,7 @@ mod tests {
         let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
-        let scorer = weight.scorer(ctx)?.unwrap();
+        let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
         assert!(scorer.two_phase_iterator().is_some());
 

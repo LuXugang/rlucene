@@ -796,10 +796,10 @@ impl<LR> ScorerSupplier for BooleanScorerSupplier<LR>
 where
     LR: LeafReader + 'static,
 {
-    type LeafReader = LR;
     // type Scorer = GetType<SsScorer<LR>>;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
+    type LeafReader = LR;
 
     fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let scorer = self.get_internal(lead_cost, context)?;

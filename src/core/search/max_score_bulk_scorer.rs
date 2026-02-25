@@ -960,8 +960,12 @@ mod test {
         let w2 =
             searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
 
-        let scorer1 = w1.scorer(context)?.expect("expected scorer1 to be present");
-        let scorer2 = w2.scorer(context)?.expect("expected scorer2 to be present");
+        let scorer1 = w1
+            .scorer(context, &searcher)?
+            .expect("expected scorer1 to be present");
+        let scorer2 = w2
+            .scorer(context, &searcher)?
+            .expect("expected scorer2 to be present");
 
         let max_doc = context.reader().max_doc()?;
         let mut bulk_scorer = MaxScoreBulkScorer::with_no_filter(max_doc, vec![scorer1, scorer2])?;
@@ -1008,10 +1012,14 @@ mod test {
         let wf =
             searcher.create_weight(searcher.rewrite(filter)?, ScoreMode::TopScores, 1.0, None)?;
 
-        let scorer1 = w1.scorer(context)?.expect("expected scorer1 to be present");
-        let scorer2 = w2.scorer(context)?.expect("expected scorer2 to be present");
+        let scorer1 = w1
+            .scorer(context, &searcher)?
+            .expect("expected scorer1 to be present");
+        let scorer2 = w2
+            .scorer(context, &searcher)?
+            .expect("expected scorer2 to be present");
         let filter_scorer = wf
-            .scorer(context)?
+            .scorer(context, &searcher)?
             .expect("expected filter scorer to be present");
 
         let max_doc = context.reader().max_doc()?;
@@ -1060,9 +1068,11 @@ mod test {
         let wf =
             searcher.create_weight(searcher.rewrite(filter)?, ScoreMode::TopScores, 1.0, None)?;
 
-        let scorer1 = w1.scorer(context)?.expect("expected scorer1");
-        let scorer2 = w2.scorer(context)?.expect("expected scorer2");
-        let filter_scorer = wf.scorer(context)?.expect("expected filter scorer");
+        let scorer1 = w1.scorer(context, &searcher)?.expect("expected scorer1");
+        let scorer2 = w2.scorer(context, &searcher)?.expect("expected scorer2");
+        let filter_scorer = wf
+            .scorer(context, &searcher)?
+            .expect("expected filter scorer");
 
         let max_doc = context.reader().max_doc()?;
         let mut bulk_scorer =
@@ -1106,8 +1116,8 @@ mod test {
         let w2 =
             searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
 
-        let scorer1 = w1.scorer(context)?.expect("expected scorer1");
-        let scorer2 = w2.scorer(context)?.expect("expected scorer2");
+        let scorer1 = w1.scorer(context, &searcher)?.expect("expected scorer1");
+        let scorer2 = w2.scorer(context, &searcher)?.expect("expected scorer2");
 
         let max_doc = context.reader().max_doc()?;
         let mut bulk_scorer = MaxScoreBulkScorer::with_no_filter(max_doc, vec![scorer1, scorer2])?;
@@ -1162,9 +1172,9 @@ mod test {
         let w3 =
             searcher.create_weight(searcher.rewrite(clause3)?, ScoreMode::TopScores, 1.0, None)?;
 
-        let scorer1 = w1.scorer(context)?.expect("expected scorer1");
-        let scorer2 = w2.scorer(context)?.expect("expected scorer2");
-        let scorer3 = w3.scorer(context)?.expect("expected scorer3");
+        let scorer1 = w1.scorer(context, &searcher)?.expect("expected scorer1");
+        let scorer2 = w2.scorer(context, &searcher)?.expect("expected scorer2");
+        let scorer3 = w3.scorer(context, &searcher)?.expect("expected scorer3");
 
         let max_doc = context.reader().max_doc()?;
         let mut bulk_scorer =
@@ -1220,9 +1230,9 @@ mod test {
         let w3 =
             searcher.create_weight(searcher.rewrite(clause3)?, ScoreMode::TopScores, 1.0, None)?;
 
-        let scorer1 = w1.scorer(context)?.expect("expected scorer1");
-        let scorer2 = w2.scorer(context)?.expect("expected scorer2");
-        let scorer3 = w3.scorer(context)?.expect("expected scorer3");
+        let scorer1 = w1.scorer(context, &searcher)?.expect("expected scorer1");
+        let scorer2 = w2.scorer(context, &searcher)?.expect("expected scorer2");
+        let scorer3 = w3.scorer(context, &searcher)?.expect("expected scorer3");
 
         let max_doc = context.reader().max_doc()?;
         let mut bulk_scorer =
@@ -1317,7 +1327,9 @@ mod test {
 
         for &min_competitive_score in &[0.0f32, 1.0, 1.2, 2.0] {
             let context = &searcher.get_leaf_contexts()?[0];
-            let mut bulk_scorer = weight.bulk_scorer(context)?.expect("expected bulk scorer");
+            let mut bulk_scorer = weight
+                .bulk_scorer(context, &searcher)?
+                .expect("expected bulk scorer");
 
             let mut collector = LeafCollectorImpl7::new(min_competitive_score);
 

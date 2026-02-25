@@ -29,6 +29,7 @@ use crate::core::search::doc_id_set_iterator::{
 };
 
 use crate::core::search::explanation::Explanation;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
@@ -725,7 +726,6 @@ where
     P: Predicate<TopParentMeta>,
     IRC: IndexReaderContext,
 {
-    type LeafReader = IRCLeafReader<IRC>;
     type IRC = IRC;
 
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -746,16 +746,18 @@ where
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::Matches>> {
-        self.in_.matches(context, doc)
+        self.in_.matches(context, doc, searcher)
     }
 
     fn explain(
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Explanation> {
-        let scorer = self.scorer(context)?;
+        let scorer = self.scorer(context, searcher)?;
         self.base
             .explain(scorer, doc, self.get_query().as_string(""))
     }
@@ -768,6 +770,7 @@ where
     fn scorer_supplier(
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         if self
             .used
@@ -778,19 +781,19 @@ where
         }
 
         if !self.in_.is_cacheable(context)? {
-            return self.in_.scorer_supplier(context);
+            return self.in_.scorer_supplier(context, searcher);
         }
 
         if !self.should_cache(context)? {
-            return self.in_.scorer_supplier(context);
+            return self.in_.scorer_supplier(context, searcher);
         }
         let reader = context.reader();
         let Some(cache_helper) = reader.get_core_cache_helper_ref()? else {
-            return self.in_.scorer_supplier(context);
+            return self.in_.scorer_supplier(context, searcher);
         };
         let cached = {
             let Some(inner_read) = self.lru_cache.inner.try_read() else {
-                return self.in_.scorer_supplier(context);
+                return self.in_.scorer_supplier(context, searcher);
             };
             self.lru_cache
                 .get(self.get_query().as_ref(), cache_helper, &inner_read)
@@ -799,7 +802,7 @@ where
             None => {
                 let query = self.get_query();
                 if self.policy.should_cache(query.as_ref())? {
-                    let Some(mut supplier) = self.in_.scorer_supplier(context)? else {
+                    let Some(mut supplier) = self.in_.scorer_supplier(context, searcher)? else {
                         self.lru_cache.put_if_absent(
                             query,
                             CacheAndCountEnum::Empty(CacheAndCount::empty()),
@@ -822,7 +825,7 @@ where
                     let s = Box::new(ss);
                     return Ok(Some(s));
                 }
-                self.in_.scorer_supplier(context)
+                self.in_.scorer_supplier(context, searcher)
             },
             Some(cached) => {
                 if matches!(&*cached, CacheAndCountEnum::Empty(_)) {
@@ -929,9 +932,9 @@ where
     C: CacheHelper,
     P: Predicate<TopParentMeta>,
 {
-    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
+    type LeafReader = LR;
 
     fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         if (self.cost as f32 / self.skip_cache_factor) > lead_cost as f32 {
@@ -988,9 +991,9 @@ impl<LR> ScorerSupplier for ScorerSupplierImpl2<LR>
 where
     LR: LeafReader,
 {
-    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
+    type LeafReader = LR;
 
     fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         Ok(Box::new(ConstantScoreScorer::from_disi(

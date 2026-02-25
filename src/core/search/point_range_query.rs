@@ -19,7 +19,7 @@ use crate::core::document::double_point::DoublePointRangeQuery;
 use crate::core::document::float_point::FloatPointRangeQuery;
 use crate::core::document::int_point::IntPointRangeQuery;
 use crate::core::document::long_point::LongPointRangeQuery;
-use crate::core::index::index_reader::Identity;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -222,11 +222,7 @@ impl QueryBase for PointRangeQuery {
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        Ok(Box::new(PointRangeWeight::<IRCLeafReader<IRC>, IRC>::new(
-            boost,
-            self,
-            *score_mode,
-        )))
+        Ok(Box::new(PointRangeWeight::new(boost, self, *score_mode)))
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -245,23 +241,20 @@ impl QueryBase for PointRangeQuery {
     }
 }
 
-pub struct PointRangeWeight<LR, IRC>
+pub struct PointRangeWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     comparator: ByteArrayComparatorEnum,
-    _leaf_reader: PhantomData<LR>,
     _irc: PhantomData<IRC>,
     query: Arc<PointRangeQuery>,
     score_mode: ScoreMode,
 }
-impl<LR, IRC> PointRangeWeight<LR, IRC>
+impl<IRC> PointRangeWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     pub fn new(score: f32, query: PointRangeQuery, score_mode: ScoreMode) -> Self {
         let comparator = ArrayUtil::get_unsigned_comparator(query.bytes_per_dim);
@@ -271,7 +264,6 @@ where
             base: ConstantScoreWeight::new(score),
             parent_query,
             comparator,
-            _leaf_reader: PhantomData,
             _irc: PhantomData,
             query: point_range_query,
             score_mode,
@@ -314,7 +306,7 @@ where
     }
     fn get_intersect_visitor(
         result: DocIdSetBuilder,
-        weight: &'_ PointRangeWeight<LR, IRC>,
+        weight: &'_ PointRangeWeight<IRC>,
     ) -> IntersectVisitorImpl1 {
         IntersectVisitorImpl1::new(result, weight.query.clone(), weight.comparator.clone())
     }
@@ -388,33 +380,39 @@ where
     }
 }
 
-impl<LR, IRC> SegmentCacheable for PointRangeWeight<LR, IRC>
+impl<IRC> SegmentCacheable for PointRangeWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    type LeafReader = LR;
     type IRC = IRC;
 
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<LR, IRC> Weight for PointRangeWeight<LR, IRC>
+impl<IRC> Weight for PointRangeWeight<IRC>
 where
-    LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR>,
-    <LR as LeafReader>::PointValues: 'static,
+    IRC: IndexReaderContext,
 {
     type Matches = MatchWithNoTerms;
 
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
-        self.default_matches(context, doc)
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Option<Self::Matches>> {
+        self.default_matches(context, doc, searcher)
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
-        let scorer = self.scorer(context)?;
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Explanation> {
+        let scorer = self.scorer(context, searcher)?;
         self.base
             .explain(scorer, doc, self.parent_query.as_string(""))
     }
@@ -423,11 +421,12 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<LR>;
+    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         let reader = context.reader();
 
@@ -537,7 +536,7 @@ where
         }
     }
 
-    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         let query = self.point_range_query()?;
         let reader = context.reader();
 
@@ -673,9 +672,9 @@ impl<LR> ScorerSupplier for ScorerSupplierImpl1<LR, LR::PointValues>
 where
     LR: LeafReader,
 {
-    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
+    type LeafReader = LR;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let reader = context.reader();
@@ -753,9 +752,9 @@ impl<LR> ScorerSupplier for ScorerSupplierImpl<LR>
 where
     LR: LeafReader,
 {
-    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
+    type LeafReader = LR;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         debug_assert!(context.reader().max_doc()? == self.max_doc);

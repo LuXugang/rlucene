@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader::{Identity, IndexReader};
+use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{
     LRImpactsEnum, LRNormNumericDocValues, LRPosting, LRTermState, LRTermsEnum, LeafReader,
 };
@@ -138,7 +138,7 @@ impl QueryBase for TermQuery {
             Some(states) if states.was_built_for_some(context.base().id()) => states,
             _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
         };
-        Ok(Box::new(TermWeight::<IRCLeafReader<IRC>, IRC>::new(
+        Ok(Box::new(TermWeight::<IRC>::new(
             searcher,
             *score_mode,
             boost,
@@ -162,28 +162,26 @@ impl QueryBase for TermQuery {
         todo!()
     }
 }
-pub struct TermWeight<LR, IRC>
+pub struct TermWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     similarity: Arc<SimilarityEnum>,
     sim_scorer: Option<Arc<TermQuerySimScorer>>,
-    term_states: Arc<Mutex<TermStates<LRTermState<LR>>>>,
+    term_states: Arc<Mutex<TermStates<IRCTermState<IRC>>>>,
     score_mode: ScoreMode,
     parent_query: Arc<Query>,
     _irc: PhantomData<IRC>,
 }
-impl<LR, IRC> TermWeight<LR, IRC>
+impl<IRC> TermWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     pub fn new(
         searcher: &IndexSearcher<IRC>,
         score_mode: ScoreMode,
         boost: f32,
-        term_states: TermStates<LRTermState<LR>>,
+        term_states: TermStates<LRTermState<IRCLeafReader<IRC>>>,
         query: TermQuery,
     ) -> Result<Self> {
         let similarity = searcher.get_similarity();
@@ -235,7 +233,10 @@ where
         })
     }
     /// Returns a TermsEnum positioned at this weights Term or None if the term does not exist in the given context
-    fn get_terms_enum(&self, context: &LeafReaderContext<LR>) -> Result<Option<LRTermsEnum<LR>>> {
+    fn get_terms_enum(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Option<LRTermsEnum<IRCLeafReader<IRC>>>> {
         debug_assert!(
             {
                 let v = ReaderUtil::get_top_level_context(context);
@@ -279,7 +280,7 @@ where
             )),
         }
     }
-    fn term_not_in_reader(&self, reader: &LR, term: &Term) -> Result<bool>
+    fn term_not_in_reader<LR>(&self, reader: &LR, term: &Term) -> Result<bool>
     where
         LR: LeafReader,
     {
@@ -287,35 +288,38 @@ where
     }
 }
 
-impl<LR, IRC> SegmentCacheable for TermWeight<LR, IRC>
+impl<IRC> SegmentCacheable for TermWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    type LeafReader = LR;
     type IRC = IRC;
 
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<LR, IRC> Weight for TermWeight<LR, IRC>
+impl<IRC> Weight for TermWeight<IRC>
 where
-    LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     type Matches = MatchWithNoTerms;
 
     fn matches(
         &self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _doc: i32,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::Matches>> {
         todo!()
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        _searcher: &IndexSearcher<IRC>,
+    ) -> Result<Explanation> {
         let scorer_opt = self.build_term_scorer(context)?;
         if let Some(mut scorer) = scorer_opt {
             let new_doc = scorer.iterator_mut().advance(doc)?;
@@ -374,11 +378,12 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<LR>;
+    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         debug_assert!(
             {
@@ -412,7 +417,7 @@ where
         }
     }
 
-    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         if !context.reader().has_deletions()? {
             if let Some(mut terms_enum) = self.get_terms_enum(context)? {
                 terms_enum.doc_freq()
@@ -425,15 +430,14 @@ where
     }
 }
 
-impl<LR, IRC> TermWeight<LR, IRC>
+impl<IRC> TermWeight<IRC>
 where
-    LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     fn build_term_scorer(
         &self,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Option<TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>>> {
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<Option<TermScorerEnum<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>>> {
         match self.get_terms_enum(context)? {
             Some(mut terms_enum) => {
                 let norms = if self.score_mode.needs_scores() {
@@ -448,14 +452,15 @@ where
                 };
 
                 if self.score_mode == ScoreMode::TopScores {
-                    let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
-                        TermScorer::from_impacts(
-                            terms_enum.impacts(FREQS as i32)?,
-                            self.sim_scorer.as_ref().unwrap().clone(),
-                            norms,
-                            false,
-                        ),
-                    );
+                    let v =
+                        TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::A(
+                            TermScorer::from_impacts(
+                                terms_enum.impacts(FREQS as i32)?,
+                                self.sim_scorer.as_ref().unwrap().clone(),
+                                norms,
+                                false,
+                            ),
+                        );
                     Ok(Some(v))
                 } else {
                     let flags = if self.score_mode.needs_scores() {
@@ -463,18 +468,19 @@ where
                     } else {
                         NONE
                     };
-                    let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
-                        TermScorer::from_postings(
-                            terms_enum.postings_with_flags(None, flags as i32)?,
-                            self.sim_scorer.as_ref().unwrap().clone(),
-                            norms,
-                        ),
-                    );
+                    let v =
+                        TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::A(
+                            TermScorer::from_postings(
+                                terms_enum.postings_with_flags(None, flags as i32)?,
+                                self.sim_scorer.as_ref().unwrap().clone(),
+                                norms,
+                            ),
+                        );
                     Ok(Some(v))
                 }
             },
             None => {
-                let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
+                let v = TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::B(
                     ConstantScoreScorer::from_disi(0.0, self.score_mode, EmptyDISI::default()),
                 );
                 Ok(Some(v))
@@ -553,9 +559,9 @@ impl<LR> ScorerSupplier for TermScorerSupplier<LR>
 where
     LR: LeafReader + 'static,
 {
-    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
+    type LeafReader = LR;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         match self.get_terms_enum(context)? {

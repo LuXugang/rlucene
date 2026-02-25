@@ -102,7 +102,7 @@ macro_rules! either_scorer_supplier {
             LR: LeafReader,
             $( $T: ScorerSupplier<LeafReader = LR> ),+
         {
-    type LeafReader = LR;
+
             type Scorer = $scorer<$( <$T as ScorerSupplier>::Scorer ),+>;
             type BulkScorer = $bulk<$( <$T as ScorerSupplier>::BulkScorer ),+>;
 
@@ -169,9 +169,9 @@ where
     LR: LeafReader,
     T: ScorerSupplier<LeafReader = LR> + ?Sized,
 {
-    type LeafReader = LR;
     type Scorer = T::Scorer;
     type BulkScorer = T::BulkScorer;
+    type LeafReader = T::LeafReader;
 
     fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         (**self).get(lead_cost, context)

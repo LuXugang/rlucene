@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
@@ -211,20 +211,20 @@ impl TopFieldCollector {
 }
 
 impl Collector for TopFieldCollector {
-    type LeafCollector<'a, LR>
+    type LeafCollector<'a, IRC>
         = DummyLeafCollector
     where
         Self: 'a,
-        LR: LeafReader;
+        IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, LR>(
+    fn get_leaf_collector<'a, W, IRC>(
         &'a mut self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, LR>>
+    ) -> Result<Self::LeafCollector<'a, IRC>>
     where
-        LR: LeafReader,
-        W: Weight<LeafReader = LR> + ?Sized,
+        IRC: IndexReaderContext,
+        W: Weight<IRC = IRC> + ?Sized,
     {
         unreachable!("should call Simple/PagingFieldCollector instead")
     }
@@ -542,20 +542,20 @@ impl SimpleFieldCollector {
 }
 
 impl Collector for SimpleFieldCollector {
-    type LeafCollector<'a, LR>
-        = SimpleLeafCollector<'a, LR>
+    type LeafCollector<'a, IRC>
+        = SimpleLeafCollector<'a, IRCLeafReader<IRC>>
     where
         Self: 'a,
-        LR: LeafReader;
+        IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, LR>(
+    fn get_leaf_collector<'a, W, IRC>(
         &'a mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, LR>>
+    ) -> Result<Self::LeafCollector<'a, IRC>>
     where
-        LR: LeafReader,
-        W: Weight<LeafReader = LR> + ?Sized,
+        IRC: IndexReaderContext,
+        W: Weight<IRC = IRC> + ?Sized,
     {
         self.base.min_competitive_score = 0.0;
         self.base.doc_base = context.doc_base;
@@ -738,20 +738,20 @@ impl PagingFieldCollector {
 }
 
 impl Collector for PagingFieldCollector {
-    type LeafCollector<'a, LR>
-        = PagingLeafCollector<'a, LR>
+    type LeafCollector<'a, IRC>
+        = PagingLeafCollector<'a, IRCLeafReader<IRC>>
     where
         Self: 'a,
-        LR: LeafReader;
+        IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, LR>(
+    fn get_leaf_collector<'a, W, IRC>(
         &'a mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, LR>>
+    ) -> Result<Self::LeafCollector<'a, IRC>>
     where
-        LR: LeafReader,
-        W: Weight<LeafReader = LR> + ?Sized,
+        IRC: IndexReaderContext,
+        W: Weight<IRC = IRC> + ?Sized,
     {
         self.base.min_competitive_score = 0.0;
         self.base.doc_base = context.doc_base;
@@ -1009,20 +1009,20 @@ where
 }
 
 impl Collector for TopFieldCollectorEnum {
-    type LeafCollector<'a, LR>
-        = FieldLeafCollectorEnum<'a, LR>
+    type LeafCollector<'a, IRC>
+        = FieldLeafCollectorEnum<'a, IRCLeafReader<IRC>>
     where
         Self: 'a,
-        LR: LeafReader;
+        IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, LR>(
+    fn get_leaf_collector<'a, W, IRC>(
         &'a mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
         weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, LR>>
+    ) -> Result<Self::LeafCollector<'a, IRC>>
     where
-        LR: LeafReader,
-        W: Weight<LeafReader = LR> + ?Sized,
+        IRC: IndexReaderContext,
+        W: Weight<IRC = IRC> + ?Sized,
     {
         match self {
             Self::Simple(inner) => inner
@@ -1469,7 +1469,7 @@ mod tests {
         writer.close()?;
 
         let dummy_weight =
-            DummyWeight::<_, LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
+            DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
         for total_hits_threshold in 0..20 {
             let after_variants: [Option<FieldDoc>; 2] = [
                 None,
@@ -1558,7 +1558,7 @@ mod tests {
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
         let dummy_weight =
-            DummyWeight::<_, LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
+            DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
 
         let sort = Sort::with_fields(vec![
             SortField::get_field_score()?,
@@ -1633,7 +1633,7 @@ mod tests {
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
         let dummy_weight =
-            DummyWeight::<_, LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
+            DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
         for total_hits_threshold in 0..20 {
             let sort = Sort::with_fields(vec![
                 SortField::get_field_score()?,
@@ -1751,7 +1751,7 @@ mod tests {
 
         let leaves = reader.leaves()?;
         let dummy_weight =
-            DummyWeight::<_, LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
+            DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
 
         let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
         leaf_collector.set_scorer(&mut scorer)?;

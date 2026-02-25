@@ -259,8 +259,8 @@ impl CheckHits {
 
         // Check boundaries and max scores when iterating all matches
         for ctx in searcher.get_leaf_contexts()? {
-            let mut s1 = w1.scorer(ctx)?;
-            let mut ss2 = w2.scorer_supplier(ctx)?;
+            let mut s1 = w1.scorer(ctx, searcher)?;
+            let mut ss2 = w2.scorer_supplier(ctx, searcher)?;
             let mut s2 = if let Some(mut ss2) = ss2.take() {
                 ss2.set_top_level_scoring_clause()?;
                 Some(ss2.get(i64::MAX, ctx)?)
@@ -330,8 +330,8 @@ impl CheckHits {
 
         // Now check advancing
         for ctx in searcher.get_leaf_contexts()? {
-            let mut s1 = w1.scorer(ctx)?;
-            let mut ss2 = w2.scorer_supplier(ctx)?;
+            let mut s1 = w1.scorer(ctx, searcher)?;
+            let mut ss2 = w2.scorer_supplier(ctx, searcher)?;
             let mut s2 = if let Some(mut ss2) = ss2.take() {
                 ss2.set_top_level_scoring_clause()?;
                 Some(ss2.get(i64::MAX, ctx)?)

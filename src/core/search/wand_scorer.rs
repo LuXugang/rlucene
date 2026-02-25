@@ -1110,7 +1110,7 @@ pub(crate) mod tests {
         let context = &searcher.get_leaf_contexts()?[0];
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1133,7 +1133,7 @@ pub(crate) mod tests {
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1148,7 +1148,7 @@ pub(crate) mod tests {
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1196,7 +1196,7 @@ pub(crate) mod tests {
         let weight =
             searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1210,7 +1210,7 @@ pub(crate) mod tests {
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1257,7 +1257,7 @@ pub(crate) mod tests {
         let weight =
             searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1274,7 +1274,7 @@ pub(crate) mod tests {
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1363,7 +1363,7 @@ pub(crate) mod tests {
         let weight =
             searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1380,7 +1380,7 @@ pub(crate) mod tests {
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1395,7 +1395,7 @@ pub(crate) mod tests {
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1460,7 +1460,7 @@ pub(crate) mod tests {
         let weight =
             searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1553,7 +1553,7 @@ pub(crate) mod tests {
             None,
         )?;
         let mut scorer = weight
-            .scorer(context)?
+            .scorer(context, &searcher)?
             .expect("expected scorer to be present");
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
@@ -1643,7 +1643,7 @@ pub(crate) mod tests {
         let weight =
             searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1657,7 +1657,7 @@ pub(crate) mod tests {
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1753,7 +1753,7 @@ pub(crate) mod tests {
         let weight =
             searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopDocs, 1.0, None)?;
         let mut scorer = weight
-            .scorer(context)?
+            .scorer(context, &searcher)?
             .expect("expected scorer to be present");
 
         assert_eq!(1, scorer.iterator_mut().next_doc()?);
@@ -1844,7 +1844,7 @@ pub(crate) mod tests {
         let weight =
             searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
         let mut scorer = weight
-            .scorer(context)?
+            .scorer(context, &searcher)?
             .expect("expected scorer to be present");
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
@@ -1856,7 +1856,7 @@ pub(crate) mod tests {
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1956,7 +1956,7 @@ pub(crate) mod tests {
             None,
         )?;
         let mut scorer = weight
-            .scorer(context)?
+            .scorer(context, &searcher)?
             .expect("expected scorer to be present");
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
@@ -2399,7 +2399,6 @@ pub(crate) mod tests {
         IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
-        type LeafReader = IRCLeafReader<IRC>;
         type IRC = IRC;
 
         fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -2418,16 +2417,18 @@ pub(crate) mod tests {
             &self,
             context: &LeafReaderContext<IRCLeafReader<IRC>>,
             doc: i32,
+            searcher: &IndexSearcher<IRC>,
         ) -> Result<Option<Self::Matches>> {
-            self.weight.matches(context, doc)
+            self.weight.matches(context, doc, searcher)
         }
 
         fn explain(
             &self,
             context: &LeafReaderContext<IRCLeafReader<IRC>>,
             doc: i32,
+            searcher: &IndexSearcher<IRC>,
         ) -> Result<Explanation> {
-            self.weight.explain(context, doc)
+            self.weight.explain(context, doc, searcher)
         }
 
         fn get_query(&self) -> Arc<Query> {
@@ -2439,8 +2440,9 @@ pub(crate) mod tests {
         fn scorer_supplier(
             &self,
             context: &LeafReaderContext<IRCLeafReader<IRC>>,
+            searcher: &IndexSearcher<IRC>,
         ) -> Result<Option<Self::ScorerSupplier>> {
-            match self.weight.scorer_supplier(context)? {
+            match self.weight.scorer_supplier(context, searcher)? {
                 Some(s) => Ok(Some(Box::new(ScorerSupplierImpl::new(
                     s,
                     self.max_range,
@@ -2474,9 +2476,9 @@ pub(crate) mod tests {
     where
         LR: LeafReader,
     {
-        type LeafReader = LR;
         type Scorer = QueryWeightSsScorer;
         type BulkScorer = QueryWeightSsBulkScorer;
+        type LeafReader = LR;
 
         fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
             let v = self.supplier.get(lead_cost, context)?;
@@ -2608,7 +2610,6 @@ pub(crate) mod tests {
         IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
-        type LeafReader = IRCLeafReader<IRC>;
         type IRC = IRC;
 
         fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -2627,6 +2628,7 @@ pub(crate) mod tests {
             &self,
             _context: &LeafReaderContext<IRCLeafReader<IRC>>,
             _doc: i32,
+            _searcher: &IndexSearcher<IRC>,
         ) -> Result<Option<Self::Matches>> {
             unreachable!("")
         }
@@ -2635,6 +2637,7 @@ pub(crate) mod tests {
             &self,
             _context: &LeafReaderContext<IRCLeafReader<IRC>>,
             _doc: i32,
+            _searcher: &IndexSearcher<IRC>,
         ) -> Result<Explanation> {
             unreachable!("")
         }
@@ -2648,11 +2651,12 @@ pub(crate) mod tests {
         fn scorer_supplier(
             &self,
             context: &LeafReaderContext<IRCLeafReader<IRC>>,
+            searcher: &IndexSearcher<IRC>,
         ) -> Result<Option<Self::ScorerSupplier>> {
             let mut optional_scorers = Vec::new();
             for wc in self.weight.weighted_clauses.iter() {
                 let w = &wc.weight;
-                let ss = w.scorer_supplier(context)?;
+                let ss = w.scorer_supplier(context, searcher)?;
                 if let Some(mut ss) = ss {
                     let scorer = ss.get(i64::MAX, context)?;
                     optional_scorers.push(scorer);
@@ -2667,7 +2671,7 @@ pub(crate) mod tests {
                     if self.do_blocks { i64::MAX } else { 0 },
                 )?)
             } else {
-                match self.weight.scorer(context)? {
+                match self.weight.scorer(context, searcher)? {
                     Some(ss) => ScorerEnum2::B(ss),
                     None => return Ok(None),
                 }

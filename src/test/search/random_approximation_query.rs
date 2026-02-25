@@ -146,7 +146,6 @@ where
     LR: IndexReaderContext + 'static,
     IRCLeafReader<LR>: 'static,
 {
-    type LeafReader = IRCLeafReader<LR>;
     type IRC = LR;
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<LR>>) -> Result<bool> {
         self.in_.is_cacheable(ctx)
@@ -164,16 +163,18 @@ where
         &self,
         context: &LeafReaderContext<IRCLeafReader<LR>>,
         doc: i32,
+        searcher: &IndexSearcher<LR>,
     ) -> Result<Option<Self::Matches>> {
-        self.in_.matches(context, doc)
+        self.in_.matches(context, doc, searcher)
     }
 
     fn explain(
         &self,
         context: &LeafReaderContext<IRCLeafReader<LR>>,
         doc: i32,
+        searcher: &IndexSearcher<LR>,
     ) -> Result<Explanation> {
-        self.in_.explain(context, doc)
+        self.in_.explain(context, doc, searcher)
     }
 
     fn get_query(&self) -> Arc<Query> {
@@ -185,6 +186,7 @@ where
     fn scorer_supplier(
         &self,
         _context: &LeafReaderContext<IRCLeafReader<LR>>,
+        _searcher: &IndexSearcher<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         todo!()
     }

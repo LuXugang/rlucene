@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
@@ -90,20 +91,20 @@ impl SimpleCollectorImpl {
 }
 
 impl Collector for SimpleCollectorImpl {
-    type LeafCollector<'a, LR>
+    type LeafCollector<'a, IRC>
         = &'a mut Self
     where
         Self: 'a,
-        LR: LeafReader;
+        IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, LR>(
+    fn get_leaf_collector<'a, W, IRC>(
         &'a mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
         weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, LR>>
+    ) -> Result<Self::LeafCollector<'a, IRC>>
     where
-        LR: LeafReader,
-        W: Weight<LeafReader = LR> + ?Sized,
+        IRC: IndexReaderContext,
+        W: Weight<IRC = IRC> + ?Sized,
     {
         SimpleCollector::get_leaf_collector(self, context, weight)?;
         Ok(self)

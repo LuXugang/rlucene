@@ -679,7 +679,7 @@ mod tests {
             searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
         let context = &searcher.get_leaf_contexts()?[0];
 
-        let mut scorer = weight.scorer(context)?.expect("expected scorer");
+        let mut scorer = weight.scorer(context, &searcher)?.expect("expected scorer");
         assert_eq!(0, scorer.iterator_mut().next_doc()?);
         assert_eq!(1, scorer.iterator_mut().next_doc()?);
         assert_eq!(2, scorer.iterator_mut().next_doc()?);
@@ -687,7 +687,7 @@ mod tests {
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -704,7 +704,7 @@ mod tests {
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -717,7 +717,7 @@ mod tests {
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
 
         let mut ss = weight
-            .scorer_supplier(context)?
+            .scorer_supplier(context, &searcher)?
             .expect("expected scorer supplier");
         ss.set_top_level_scoring_clause()?;
         let mut scorer = ss.get(i64::MAX, context)?;
@@ -1015,12 +1015,12 @@ mod tests {
 
         let req_scorer = searcher
             .create_weight(req_q, ScoreMode::TopScores, 1.0, None)?
-            .scorer(ctx)?
+            .scorer(ctx, searcher)?
             .expect("required scorer");
 
         let opt_scorer = searcher
             .create_weight(opt_q, ScoreMode::TopScores, 1.0, None)?
-            .scorer(ctx)?
+            .scorer(ctx, searcher)?
             .expect("optional scorer");
         let v = match with_block_score {
             true => ReqOptSumScorer::new(req_scorer, opt_scorer, ScoreMode::TopScores)?,

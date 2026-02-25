@@ -1288,7 +1288,7 @@ mod tests {
             let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
 
             let ctx = &searcher.get_leaf_contexts()?[0];
-            let mut scorer = weight.scorer(ctx)?.unwrap();
+            let mut scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
             // First pass: just use next_doc() to gather all hits
             let mut hits = Vec::new();
@@ -1304,7 +1304,7 @@ mod tests {
             for _ in 0..10 {
                 let rewritten = searcher.rewrite(q.clone())?;
                 let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-                let mut scorer = weight.scorer(ctx)?.unwrap();
+                let mut scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
                 let mut upto: i32 = -1;
                 while (upto as usize) < hits.len() {
@@ -1417,7 +1417,7 @@ mod tests {
         let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
-        let scorer = weight.scorer(ctx)?.unwrap();
+        let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
         assert_eq!(scorer.kind(), ScorerKind::ConstantScore);
         assert!(scorer.two_phase_iterator().is_some());
@@ -1458,7 +1458,7 @@ mod tests {
         let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
-        let scorer = weight.scorer(ctx)?.unwrap();
+        let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
         assert_eq!(scorer.kind(), ScorerKind::Disjunction);
         assert!(scorer.two_phase_iterator().is_some());
@@ -1501,7 +1501,7 @@ mod tests {
         let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
-        let scorer = weight.scorer(ctx)?.unwrap();
+        let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
         assert_eq!(scorer.kind(), ScorerKind::Phrase);
         assert!(scorer.two_phase_iterator().is_some());
@@ -1545,7 +1545,7 @@ mod tests {
         let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
-        let scorer = weight.scorer(ctx)?.unwrap();
+        let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
         assert_eq!(scorer.kind(), ScorerKind::ReqExcl);
         assert!(scorer.two_phase_iterator().is_some());
@@ -1586,7 +1586,7 @@ mod tests {
         let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
 
         let ctx = &searcher.get_leaf_contexts()?[0];
-        let scorer = weight.scorer(ctx)?.unwrap();
+        let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
         assert_eq!(scorer.kind(), ScorerKind::ReqOptSum);
         assert!(scorer.two_phase_iterator().is_some());
@@ -2011,7 +2011,7 @@ mod test {
         let weight = searcher.create_weight(rewritten2, ScoreMode::Complete, 1.0, None)?;
         let leaf = &searcher.get_leaf_contexts()?[0];
         let mut scorer = weight
-            .scorer(leaf)?
+            .scorer(leaf, &searcher)?
             .ok_or_else(|| LuceneError::illegal_state("null scorer"))?;
 
         assert_eq!(0, scorer.iterator_mut().next_doc()?);

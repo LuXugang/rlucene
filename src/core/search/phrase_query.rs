@@ -278,7 +278,7 @@ impl QueryBase for PhraseQuery {
         let base = PhraseWeightMeta::new(field, *score_mode, similarity, query.into());
         let sub: PhraseQueryWeightBase<IRCLeafReader<IRC>> =
             PhraseQueryWeightBase::new(self, boost, base);
-        let weight: PhraseWeight<IRCLeafReader<IRC>, _, IRC> = PhraseWeight::new(searcher, sub)?;
+        let weight: PhraseWeight<_, IRC> = PhraseWeight::new(searcher, sub)?;
         Ok(Box::new(weight))
     }
 

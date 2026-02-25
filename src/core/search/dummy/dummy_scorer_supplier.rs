@@ -39,9 +39,9 @@ impl<LR> ScorerSupplier for DummyScorerSupplier<LR>
 where
     LR: LeafReader,
 {
-    type LeafReader = LR;
     type Scorer = DummyScorer;
     type BulkScorer = DummyBulkScorer;
+    type LeafReader = LR;
 
     fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         unreachable!("Dummy implementation: this method should never be called in real usage")

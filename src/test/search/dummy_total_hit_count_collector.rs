@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -48,20 +48,20 @@ impl DummyTotalHitCountCollector {
     }
 }
 impl Collector for DummyTotalHitCountCollector {
-    type LeafCollector<'a, LR>
+    type LeafCollector<'a, IRC>
         = DummyLeafCollectorImpl<'a>
     where
         Self: 'a,
-        LR: LeafReader;
+        IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, LR>(
+    fn get_leaf_collector<'a, W, IRC>(
         &'a mut self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, LR>>
+    ) -> Result<Self::LeafCollector<'a, IRC>>
     where
-        LR: LeafReader,
-        W: Weight<LeafReader = LR> + ?Sized,
+        IRC: IndexReaderContext,
+        W: Weight<IRC = IRC> + ?Sized,
     {
         Ok(DummyLeafCollectorImpl::new(self))
     }

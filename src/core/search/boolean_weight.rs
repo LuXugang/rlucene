@@ -24,6 +24,7 @@ use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::scorable::Scorable;
@@ -136,7 +137,6 @@ where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
-    type LeafReader = IRCLeafReader<IRC>;
     type IRC = IRC;
 
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -168,6 +168,7 @@ where
         &self,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _doc: i32,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::Matches>> {
         todo!()
     }
@@ -176,6 +177,7 @@ where
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Explanation> {
         let min_should_match = self.query.get_minimum_number_should_match();
 
@@ -188,7 +190,7 @@ where
             let clause = &wc.clause;
             let weight = &wc.weight;
 
-            let e = weight.explain(context, doc)?;
+            let e = weight.explain(context, doc, searcher)?;
 
             if e.is_match() {
                 if clause.is_scoring() {
@@ -255,7 +257,7 @@ where
             // use it to compute the score.
 
             let mut scorer = self
-                .scorer(context)?
+                .scorer(context, searcher)?
                 .ok_or_else(|| LuceneError::illegal_state("no scorer available for explanation"))?;
 
             let advanced = scorer.iterator_mut().advance(doc)?;
@@ -276,6 +278,7 @@ where
     fn scorer_supplier(
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         let mut min_should_match = self.query.get_minimum_number_should_match();
 
@@ -285,7 +288,7 @@ where
         let mut must_not = Vec::new();
 
         for wc in &self.weighted_clauses {
-            let sub_supplier = wc.weight.scorer_supplier(context)?;
+            let sub_supplier = wc.weight.scorer_supplier(context, searcher)?;
             match sub_supplier {
                 None => {
                     if wc.clause.is_required() {

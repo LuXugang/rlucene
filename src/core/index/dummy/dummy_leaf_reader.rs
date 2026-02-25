@@ -52,7 +52,7 @@ impl IndexReader for DummyLeafReader {
     }
 
     fn max_doc(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        Ok(1)
     }
 
     fn num_docs(&self) -> Result<i32> {

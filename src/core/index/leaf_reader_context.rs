@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[cfg(test)]
-use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{
     IndexReaderContext, IndexReaderContextBase, IndexReaderContextSealed,
@@ -108,12 +106,5 @@ where
             "LeafReaderContext({} docBase={} ord={})",
             self.reader, self.doc_base, self.ord
         )
-    }
-}
-#[cfg(test)]
-impl LeafReaderContext<DummyLeafReader> {
-    pub(crate) fn dummy_lrc() -> Self {
-        let parent = TopParentMeta::default();
-        Self::new(DummyLeafReader, 0, 0, 0, 0, parent)
     }
 }

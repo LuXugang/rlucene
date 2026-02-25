@@ -138,10 +138,11 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        Ok(Box::new(SortedSetDocValuesRangeQueryWeight::<
-            IRCLeafReader<IRC>,
-            IRC,
-        >::new(self, boost, *score_mode)))
+        Ok(Box::new(SortedSetDocValuesRangeQueryWeight::new(
+            self,
+            boost,
+            *score_mode,
+        )))
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -163,22 +164,19 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
     }
 }
 
-pub struct SortedSetDocValuesRangeQueryWeight<LR, IRC>
+pub struct SortedSetDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     query: SortedSetDocValuesRangeQuery,
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     score_mode: ScoreMode,
-    _leaf_reader: PhantomData<LR>,
     _irc: PhantomData<IRC>,
 }
-impl<LR, IRC> SortedSetDocValuesRangeQueryWeight<LR, IRC>
+impl<IRC> SortedSetDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     pub(crate) fn new(
         query: SortedSetDocValuesRangeQuery,
@@ -192,39 +190,46 @@ where
             base: ConstantScoreWeight::new(score),
             parent_query,
             score_mode,
-            _leaf_reader: PhantomData,
             _irc: PhantomData,
         }
     }
 }
 
-impl<LR, IRC> SegmentCacheable for SortedSetDocValuesRangeQueryWeight<LR, IRC>
+impl<IRC> SegmentCacheable for SortedSetDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    type LeafReader = LR;
     type IRC = IRC;
 
-    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         let field = vec![self.query.field.clone()];
         DocValues::is_cacheable(ctx, field.as_ref())
     }
 }
 
-impl<LR, IRC> Weight for SortedSetDocValuesRangeQueryWeight<LR, IRC>
+impl<IRC> Weight for SortedSetDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRCLeafReader<IRC>: LeafReader + 'static,
+    IRC: IndexReaderContext,
 {
     type Matches = MatchWithNoTerms;
 
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
-        self.default_matches(context, doc)
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Option<Self::Matches>> {
+        self.default_matches(context, doc, searcher)
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
-        let scorer = self.scorer(context)?;
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Explanation> {
+        let scorer = self.scorer(context, searcher)?;
         self.base
             .explain(scorer, doc, self.parent_query.as_string(""))
     }
@@ -233,11 +238,12 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<LR>;
+    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         if context
             .reader()
@@ -390,9 +396,9 @@ impl<LR> ScorerSupplier for ScorerSupplierImpl3<LR>
 where
     LR: LeafReader + 'static,
 {
-    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
+    type LeafReader = LR;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let mut skipper_opt = context.reader().get_doc_values_skipper(&self.query.field)?;

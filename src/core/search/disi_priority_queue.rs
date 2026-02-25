@@ -307,7 +307,10 @@ impl DisiPriorityQueue {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::core::index::composite_reader_context::CompositeReaderContext;
+    use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
     use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
+    use crate::core::index::index_reader_context::IRCLeafReader;
     use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
     use crate::core::search::constant_score_scorer::ConstantScoreScorer;
     use crate::core::search::disi_priority_queue::DisiPriorityQueue;
@@ -316,6 +319,7 @@ pub mod tests {
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
     use crate::core::search::explanation::Explanation;
+    use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::search::matches_utils::MatchWithNoTerms;
     use crate::core::search::query::{Query, QueryWeightSsScorer};
     use crate::core::search::score_mode::ScoreMode;
@@ -323,11 +327,13 @@ pub mod tests {
     use crate::core::search::segment_cacheable::SegmentCacheable;
     use crate::core::search::weight::{DefaultScorerSupplier, Weight};
     use crate::core::util::error::lucene_error::Result;
+    use crate::test::util::dummy_index_searcher;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
     use rand::Rng;
     use std::hash::Hash;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicI32, Ordering};
+
     #[allow(dead_code)] // for quick search
     struct TestDisiPriorityQueue;
 
@@ -392,7 +398,8 @@ where {
         let weight = q.weight();
         let reader = DummyLeafReader;
         let lrc = LeafReaderContext::new(reader, 0, 0, 0, 0, TopParentMeta::default());
-        let s = weight.scorer(&lrc)?.unwrap();
+        let dummy_s = dummy_index_searcher()?;
+        let s = weight.scorer(&lrc, &dummy_s)?.unwrap();
         DisiWrapper::new(s)
     }
     fn random_disi<R: Rng + ?Sized>(random: &mut R) -> DocIdSetIteratorImpl {
@@ -433,9 +440,8 @@ where {
     }
 
     impl SegmentCacheable for DummyQueryImplWeight {
-        type LeafReader = DummyLeafReader;
-        type IRC = LeafReaderContext<DummyLeafReader>;
-        fn is_cacheable(&self, _ctx: &LeafReaderContext<DummyLeafReader>) -> Result<bool> {
+        type IRC = CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>;
+        fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<bool> {
             Ok(true)
         }
     }
@@ -445,16 +451,18 @@ where {
 
         fn matches(
             &self,
-            context: &LeafReaderContext<DummyLeafReader>,
+            context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
             _doc: i32,
+            _searcher: &IndexSearcher<Self::IRC>,
         ) -> Result<Option<Self::Matches>> {
-            self.default_matches(context, _doc)
+            self.default_matches(context, _doc, _searcher)
         }
 
         fn explain(
             &self,
-            _context: &LeafReaderContext<DummyLeafReader>,
+            _context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
             _doc: i32,
+            _searcher: &IndexSearcher<Self::IRC>,
         ) -> Result<Explanation> {
             unreachable!()
         }
@@ -470,7 +478,8 @@ where {
 
         fn scorer_supplier(
             &self,
-            _context: &LeafReaderContext<DummyLeafReader>,
+            _context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+            _searcher: &IndexSearcher<Self::IRC>,
         ) -> Result<Option<Self::ScorerSupplier>> {
             let v =
                 ConstantScoreScorer::from_disi(1.0f32, self.score_mode, self.query.disi.clone());

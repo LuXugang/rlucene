@@ -146,7 +146,6 @@ impl<IRC> SegmentCacheable for MatchAllWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
-    type LeafReader = IRCLeafReader<IRC>;
     type IRC = IRC;
 
     fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -165,16 +164,18 @@ where
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::Matches>> {
-        self.default_matches(context, doc)
+        self.default_matches(context, doc, searcher)
     }
 
     fn explain(
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Explanation> {
-        let scorer = self.scorer(context)?;
+        let scorer = self.scorer(context, searcher)?;
         self.base
             .explain(scorer, doc, self.parent_query.as_string(""))
     }
@@ -188,6 +189,7 @@ where
     fn scorer_supplier(
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         let v = Box::new(MatchAllDocsScorerSupplier::new(
             self.score_mode,
@@ -235,9 +237,9 @@ impl<LR> ScorerSupplier for MatchAllDocsScorerSupplier<LR>
 where
     LR: LeafReader + 'static,
 {
-    type LeafReader = LR;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
+    type LeafReader = LR;
 
     fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let score = self.weight.score();

@@ -216,10 +216,10 @@ mod tests {
     use crate::core::document::text_field::TextField;
     use crate::core::index::composite_reader::{CompositeReader, get_context};
     use crate::core::index::directory_reader::directory_reader_util;
-    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::index_writer_config::IndexWriterConfig;
-    use crate::core::index::leaf_reader::LeafReader;
+
     use crate::core::index::leaf_reader_context::LeafReaderContext;
     use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
     use crate::core::index::term::Term;
@@ -345,20 +345,20 @@ mod tests {
     }
 
     impl Collector for MyTopDocsCollector {
-        type LeafCollector<'a, LR>
+        type LeafCollector<'a, IRC>
             = LeafCollectorImpl<'a>
         where
             Self: 'a,
-            LR: LeafReader;
+            IRC: IndexReaderContext;
 
-        fn get_leaf_collector<'a, W, LR>(
+        fn get_leaf_collector<'a, W, IRC>(
             &'a mut self,
-            context: &LeafReaderContext<LR>,
+            context: &LeafReaderContext<IRCLeafReader<IRC>>,
             _weight: Option<&W>,
-        ) -> Result<Self::LeafCollector<'a, LR>>
+        ) -> Result<Self::LeafCollector<'a, IRC>>
         where
-            LR: LeafReader,
-            W: Weight<LeafReader = LR> + ?Sized,
+            IRC: IndexReaderContext,
+            W: Weight<IRC = IRC> + ?Sized,
         {
             let base = context.doc_base;
             Ok(LeafCollectorImpl::new(self, base, SCORES))
@@ -638,7 +638,7 @@ mod tests {
         let collector_manager = TopScoreDocCollectorManager::new(2, 2)?;
         let mut collector = collector_manager.new_collector()?;
         let mut scorer = Score::new();
-        let dummy_weight = Box::new(DummyWeight::<_, LeafReaderContext<_>>::new(
+        let dummy_weight = Box::new(DummyWeight::<LeafReaderContext<_>>::new(
             v.leaves()?[0].reader().clone(),
         ));
         let mut leaf_collector =
@@ -746,7 +746,7 @@ mod tests {
         assert_eq!(v.leaves()?.len(), 2);
         writer.close()?;
         let dummy_weight =
-            DummyWeight::<_, LeafReaderContext<_>>::new(v.leaves()?[0].reader().clone());
+            DummyWeight::<LeafReaderContext<_>>::new(v.leaves()?[0].reader().clone());
 
         for total_hits_threshold in 0..20 {
             let collector_manager = TopScoreDocCollectorManager::new(2, total_hits_threshold)?;
@@ -869,7 +869,7 @@ mod tests {
         let mut scorer2 = Score::new();
 
         let leaves = reader.leaves()?;
-        let dummy_weight = DummyWeight::<_, LeafReaderContext<_>>::new(leaves[0].reader().clone());
+        let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
         let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
         leaf_collector.set_scorer(&mut scorer)?;

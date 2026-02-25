@@ -16,7 +16,7 @@
  */
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
-use crate::core::index::index_reader::Identity;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -114,10 +114,9 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        Ok(Box::new(SortedNumericDocValuesRangeQueryWeight::<
-            IRCLeafReader<IRC>,
-            IRC,
-        >::new(self, *score_mode, boost)))
+        Ok(Box::new(
+            SortedNumericDocValuesRangeQueryWeight::<IRC>::new(self, *score_mode, boost),
+        ))
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -141,22 +140,19 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         todo!()
     }
 }
-pub struct SortedNumericDocValuesRangeQueryWeight<LR, IRC>
+pub struct SortedNumericDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     query: SortedNumericDocValuesRangeQuery,
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     score_mode: ScoreMode,
-    _leaf_reader: PhantomData<LR>,
     _irc: PhantomData<IRC>,
 }
-impl<LR, IRC> SortedNumericDocValuesRangeQueryWeight<LR, IRC>
+impl<IRC> SortedNumericDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     pub(crate) fn new(
         query: SortedNumericDocValuesRangeQuery,
@@ -170,12 +166,11 @@ where
             base: ConstantScoreWeight::new(boost),
             parent_query,
             score_mode,
-            _leaf_reader: PhantomData,
             _irc: PhantomData,
         }
     }
 
-    fn get_doc_id_set_iterator_or_null_for_primary_sort<NDV, SK>(
+    fn get_doc_id_set_iterator_or_null_for_primary_sort<NDV, SK, LR>(
         &self,
         reader: &LR,
         numeric_doc_values: &mut NDV,
@@ -184,6 +179,7 @@ where
     where
         NDV: NumericDocValues,
         SK: DocValuesSkipper,
+        LR: LeafReader,
     {
         if skipper.doc_count() != reader.max_doc()? {
             return Ok(None);
@@ -272,33 +268,40 @@ where
     }
 }
 
-impl<LR, IRC> SegmentCacheable for SortedNumericDocValuesRangeQueryWeight<LR, IRC>
+impl<IRC> SegmentCacheable for SortedNumericDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    type LeafReader = LR;
     type IRC = IRC;
 
-    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         let field = vec![self.query.field.clone()];
         DocValues::is_cacheable(ctx, field.as_ref())
     }
 }
 
-impl<LR, IRC> Weight for SortedNumericDocValuesRangeQueryWeight<LR, IRC>
+impl<IRC> Weight for SortedNumericDocValuesRangeQueryWeight<IRC>
 where
-    LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     type Matches = MatchWithNoTerms;
 
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
-        self.default_matches(context, doc)
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Option<Self::Matches>> {
+        self.default_matches(context, doc, searcher)
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
-        let scorer = self.scorer(context)?;
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Explanation> {
+        let scorer = self.scorer(context, searcher)?;
         self.base
             .explain(scorer, doc, self.parent_query.as_string(""))
     }
@@ -307,11 +310,12 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<LR>;
+    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         if context
             .reader()

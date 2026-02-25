@@ -118,11 +118,7 @@ impl QueryBase for FieldExistsQuery {
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        Ok(Box::new(FieldExistsWeight::<IRCLeafReader<IRC>, IRC>::new(
-            boost,
-            self,
-            *score_mode,
-        )))
+        Ok(Box::new(FieldExistsWeight::new(boost, self, *score_mode)))
     }
 
     fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -208,23 +204,20 @@ impl QueryBase for FieldExistsQuery {
     }
 }
 
-pub struct FieldExistsWeight<LR, IRC>
+pub struct FieldExistsWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     query: FieldExistsQuery,
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     score_mode: ScoreMode,
-    _leaf_reader: PhantomData<LR>,
     _irc: PhantomData<IRC>,
     score: f32,
 }
-impl<LR, IRC> FieldExistsWeight<LR, IRC>
+impl<IRC> FieldExistsWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     fn new(score: f32, query: FieldExistsQuery, score_mode: ScoreMode) -> Self {
         let query_clone = query.clone();
@@ -234,22 +227,19 @@ where
             query,
             parent_query,
             score_mode,
-            _leaf_reader: PhantomData,
             _irc: PhantomData,
             score,
         }
     }
 }
 
-impl<LR, IRC> SegmentCacheable for FieldExistsWeight<LR, IRC>
+impl<IRC> SegmentCacheable for FieldExistsWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    type LeafReader = LR;
     type IRC = IRC;
 
-    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         let field_infos = ctx.reader().get_field_infos()?;
         let field_info = field_infos.field_info_by_name(&self.query.field);
 
@@ -263,19 +253,28 @@ where
     }
 }
 pub type Disi<LR> = DocIdSetIteratorEnum3<LRNormNumericDocValues<LR>, DummyDISI, LRDisis<LR>>;
-impl<LR, IRC> Weight for FieldExistsWeight<LR, IRC>
+impl<IRC> Weight for FieldExistsWeight<IRC>
 where
-    LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     type Matches = MatchWithNoTerms;
 
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
-        self.default_matches(context, doc)
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Option<Self::Matches>> {
+        self.default_matches(context, doc, searcher)
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
-        let scorer = self.scorer(context)?;
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Explanation> {
+        let scorer = self.scorer(context, searcher)?;
         self.base
             .explain(scorer, doc, self.parent_query.as_string(""))
     }
@@ -284,11 +283,12 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<LR>;
+    type ScorerSupplier = QueryWeightSs<IRCLeafReader<IRC>>;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         let reader = context.reader();
         let field = self.query.get_field();
@@ -300,31 +300,41 @@ where
         };
         let disi_opt = if fi.has_norms() {
             // the field indexes norms
-            reader.get_norm_values(field)?.map(Disi::<LR>::A)
+            reader
+                .get_norm_values(field)?
+                .map(Disi::<IRCLeafReader<IRC>>::A)
         } else if fi.get_vector_dimension() != 0 {
             // TODO IMPORTANT vector未实现
             unimplemented!();
         } else if *fi.get_doc_values_type() != DocValuesType::None {
             match *fi.get_doc_values_type() {
-                DocValuesType::Numeric => reader
-                    .get_numeric_doc_values(field)?
-                    .map(|numeric| Disi::<LR>::C(LRDisis::<LR>::A(numeric))),
+                DocValuesType::Numeric => reader.get_numeric_doc_values(field)?.map(|numeric| {
+                    Disi::<IRCLeafReader<IRC>>::C(LRDisis::<IRCLeafReader<IRC>>::A(numeric))
+                }),
 
-                DocValuesType::Binary => reader
-                    .get_binary_doc_values(field)?
-                    .map(|binary| Disi::<LR>::C(LRDisis::<LR>::B(binary))),
+                DocValuesType::Binary => reader.get_binary_doc_values(field)?.map(|binary| {
+                    Disi::<IRCLeafReader<IRC>>::C(LRDisis::<IRCLeafReader<IRC>>::B(binary))
+                }),
 
-                DocValuesType::Sorted => reader
-                    .get_sorted_doc_values(field)?
-                    .map(|sorted| Disi::<LR>::C(LRDisis::<LR>::C(sorted))),
+                DocValuesType::Sorted => reader.get_sorted_doc_values(field)?.map(|sorted| {
+                    Disi::<IRCLeafReader<IRC>>::C(LRDisis::<IRCLeafReader<IRC>>::C(sorted))
+                }),
 
-                DocValuesType::SortedNumeric => reader
-                    .get_sorted_numeric_doc_values(field)?
-                    .map(|sorted_numeric| Disi::<LR>::C(LRDisis::<LR>::D(sorted_numeric))),
+                DocValuesType::SortedNumeric => {
+                    reader
+                        .get_sorted_numeric_doc_values(field)?
+                        .map(|sorted_numeric| {
+                            Disi::<IRCLeafReader<IRC>>::C(LRDisis::<IRCLeafReader<IRC>>::D(
+                                sorted_numeric,
+                            ))
+                        })
+                },
 
-                DocValuesType::SortedSet => reader
-                    .get_sorted_set_doc_values(field)?
-                    .map(|sorted_set| Disi::<LR>::C(LRDisis::<LR>::E(sorted_set))),
+                DocValuesType::SortedSet => {
+                    reader.get_sorted_set_doc_values(field)?.map(|sorted_set| {
+                        Disi::<IRCLeafReader<IRC>>::C(LRDisis::<IRCLeafReader<IRC>>::E(sorted_set))
+                    })
+                },
                 DocValuesType::None => None,
             }
         } else {
@@ -340,7 +350,7 @@ where
         }
     }
 
-    fn count(&self, ctx: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
         let reader = ctx.reader();
 
         let field_infos = reader.get_field_infos()?;

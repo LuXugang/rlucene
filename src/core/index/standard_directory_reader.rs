@@ -236,6 +236,7 @@ where
     LR: LeafReader + Clone,
 {
     type LeafReader = LR;
+
     type SubCompositeReader = DummyCompositeReader<LR>;
 
     fn get_sequential_sub_readers(

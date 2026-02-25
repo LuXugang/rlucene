@@ -96,10 +96,11 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        Ok(Box::new(SortedNumericDocValuesSetQueryWeight::<
-            IRCLeafReader<IRC>,
-            IRC,
-        >::new(self, *score_mode, boost)))
+        Ok(Box::new(SortedNumericDocValuesSetQueryWeight::<IRC>::new(
+            self,
+            *score_mode,
+            boost,
+        )))
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -126,22 +127,19 @@ impl Accountable for SortedNumericDocValuesSetQuery {
     }
 }
 
-pub struct SortedNumericDocValuesSetQueryWeight<LR, IRC>
+pub struct SortedNumericDocValuesSetQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     query: SortedNumericDocValuesSetQuery,
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     score_mode: ScoreMode,
-    _leaf_reader: PhantomData<LR>,
     _irc: PhantomData<IRC>,
 }
-impl<LR, IRC> SortedNumericDocValuesSetQueryWeight<LR, IRC>
+impl<IRC> SortedNumericDocValuesSetQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
     pub(crate) fn new(
         query: SortedNumericDocValuesSetQuery,
@@ -155,43 +153,45 @@ where
             base: ConstantScoreWeight::new(boost),
             parent_query,
             score_mode,
-            _leaf_reader: PhantomData,
             _irc: PhantomData,
         }
     }
 }
 
-impl<LR, IRC> SegmentCacheable for SortedNumericDocValuesSetQueryWeight<LR, IRC>
+impl<IRC> SegmentCacheable for SortedNumericDocValuesSetQueryWeight<IRC>
 where
-    LR: LeafReader,
-    IRC: IndexReaderContext<LeafReader = LR>,
+    IRC: IndexReaderContext,
 {
-    type LeafReader = LR;
     type IRC = IRC;
 
-    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<bool> {
         let field = vec![self.query.field.clone()];
         DocValues::is_cacheable(ctx, field.as_ref())
     }
 }
 
-impl<LR, IRC> Weight for SortedNumericDocValuesSetQueryWeight<LR, IRC>
+impl<IRC> Weight for SortedNumericDocValuesSetQueryWeight<IRC>
 where
-    LR: LeafReader + 'static,
-    IRC: IndexReaderContext<LeafReader = LR>,
-    <LR as LeafReader>::NumericDocValues: 'static,
-    <LR as LeafReader>::SortedNumericDocValues: 'static,
-    <<LR as LeafReader>::SortedNumericDocValues as SortedNumericDocValues>::NumericDocValues:
-        'static,
+    IRC: IndexReaderContext,
 {
     type Matches = MatchWithNoTerms;
 
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
-        self.default_matches(context, doc)
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Option<Self::Matches>> {
+        self.default_matches(context, doc, searcher)
     }
 
-    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
-        let scorer = self.scorer(context)?;
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<Explanation> {
+        let scorer = self.scorer(context, searcher)?;
         self.base
             .explain(scorer, doc, self.parent_query.as_string(""))
     }
@@ -200,11 +200,12 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<LR>;
+    type ScorerSupplier = QueryWeightSs<IRCLeafReader<Self::IRC>>;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         if context
             .reader()

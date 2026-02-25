@@ -14,9 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::composite_reader::get_context;
 use crate::core::index::composite_reader_context::CompositeReaderContext;
+use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
+use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
+use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
-use crate::core::search::index_searcher::DefaultIndexSearcher;
+use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
 use crate::core::store::directory::DirEnum;
 
 pub(crate) mod automaton;
@@ -33,3 +37,18 @@ mod packed;
 pub mod test_util;
 pub type DefaultIndexSearch =
     DefaultIndexSearcher<CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>>;
+pub(crate) fn dummy_index_searcher() -> crate::core::util::error::lucene_error::Result<
+    DefaultIndexSearcher<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
+> {
+    let dummy_lr = DummyLeafReader;
+    let cr = DummyCompositeReader::new(dummy_lr);
+    let irc = get_context(cr)?;
+    IndexSearcher::new(irc)
+}
+
+impl LeafReaderContext<DummyLeafReader> {
+    pub(crate) fn dummy_lrc() -> Self {
+        let parent = TopParentMeta::default();
+        Self::new(DummyLeafReader, 0, 0, 0, 0, parent)
+    }
+}
