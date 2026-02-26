@@ -263,15 +263,12 @@ impl<CR> IndexReader for SlowCompositeCodecReaderWrapper<CR>
 where
     CR: Clone + CodecReader,
 {
-    type TermVectors = TermVectorsEnum2<
-        <Self as CodecReader>::TermVectorsReader,
-        EmptyTermVectors<<<Self as CodecReader>::TermVectorsReader as RawTermVectors>::IndexInput>,
-    >;
+    type TermVectors = TermVectorsEnum2<<Self as CodecReader>::TermVectorsReader, EmptyTermVectors>;
 
     fn term_vectors(&self) -> Result<Self::TermVectors> {
         match self.get_term_vectors_reader()? {
             Some(tvr) => Ok(TermVectorsEnum2::A(tvr)),
-            None => Ok(TermVectorsEnum2::B(EmptyTermVectors::default())),
+            None => Ok(TermVectorsEnum2::B(EmptyTermVectors)),
         }
     }
 

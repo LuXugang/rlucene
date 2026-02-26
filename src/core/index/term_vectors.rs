@@ -21,7 +21,6 @@ use crate::core::index::terms::{Terms, TermsEnum2};
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::index_input::IndexInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::marker::PhantomData;
 
 pub trait RawTermVectors {
     type IndexInput: IndexInput;
@@ -73,20 +72,11 @@ pub trait TermVectors: RawTermVectors {
     }
 }
 /// Instance that never returns term vectors
-pub struct EmptyTermVectors<I: IndexInput = DummyIndexInput> {
-    _marker: PhantomData<I>,
-}
+#[derive(Default)]
+pub struct EmptyTermVectors;
 
-impl<I: IndexInput> Default for EmptyTermVectors<I> {
-    fn default() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<I: IndexInput> RawTermVectors for EmptyTermVectors<I> {
-    type IndexInput = I;
+impl RawTermVectors for EmptyTermVectors {
+    type IndexInput = DummyIndexInput;
 
     fn raw_term_vectors_mut(&mut self) -> Result<&mut DefaultTermVectorsReader<Self::IndexInput>> {
         Err(LuceneError::illegal_state(
@@ -101,7 +91,7 @@ impl<I: IndexInput> RawTermVectors for EmptyTermVectors<I> {
     }
 }
 
-impl<I: IndexInput> TermVectors for EmptyTermVectors<I> {
+impl TermVectors for EmptyTermVectors {
     type Fields = DummyFields;
 
     fn get(&mut self, _doc: i32) -> Result<Option<Self::Fields>> {

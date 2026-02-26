@@ -92,7 +92,7 @@ pub trait CodecReader: LeafReader {
         let reader = self.get_term_vectors_reader()?;
         match reader {
             Some(r) => Ok(TermVectorsEnum2::B(r)),
-            None => Ok(TermVectorsEnum2::A(EmptyTermVectors::default())),
+            None => Ok(TermVectorsEnum2::A(EmptyTermVectors)),
         }
     }
     fn terms(
@@ -314,8 +314,7 @@ pub type CRStoredFieldsReader<CR> = <CR as CodecReader>::StoredFieldsReader;
 pub type CRBits<CR> = <CR as LeafReader>::Bits;
 
 pub type StoredFieldsType<SF> = StoredFieldsImpl<SF>;
-pub type TermVectorsType<TVR> =
-    TermVectorsEnum2<EmptyTermVectors<<TVR as RawTermVectors>::IndexInput>, TVR>;
+pub type TermVectorsType<TVR> = TermVectorsEnum2<EmptyTermVectors, TVR>;
 
 pub struct StoredFieldsImpl<SF>
 where
