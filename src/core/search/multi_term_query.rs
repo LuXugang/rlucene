@@ -14,13 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::terms::{Terms, TermsPostingEnum};
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::query::QueryBase;
 use crate::core::util::error::lucene_error::Result;
 
-pub trait MultiTermQuery {
+pub trait MultiTermQuery: QueryBase {
     fn get_field(&self) -> &str;
-    type TermsEnum<T>: TermsEnum<PostingsEnum = TermsPostingEnum<T>>
+    type TermsEnum<T>: TermsEnum<PostingsEnum = TermsPosting<T>>
     where
         T: Terms;
     fn get_terms_enum<T>(&self, terms: &T) -> Result<Self::TermsEnum<T>>
@@ -29,4 +32,9 @@ pub trait MultiTermQuery {
     fn get_terms_count(&self) -> i64;
 }
 
-pub trait RewriteMethod {}
+pub trait RewriteMethod {
+    fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Q>
+    where
+        IRC: IndexReaderContext,
+        Q: MultiTermQuery + Sized;
+}

@@ -424,4 +424,7 @@ either_terms!(
     { A:A,B:B}
 );
 pub type TermsTermsEnum<T> = <T as Terms>::TermsEnum;
-pub type TermsPostingEnum<T> = <TermsTermsEnum<T> as TermsEnum>::PostingsEnum;
+pub type TermsIntersect<T> = <T as Terms>::IntersectIter;
+
+pub type TermsPosting<T> = <TermsTermsEnum<T> as TermsEnum>::PostingsEnum;
+pub type TermsIntersectPosting<T> = <TermsIntersect<T> as TermsEnum>::PostingsEnum;

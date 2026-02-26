@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::{NONE, PostingsEnum};
 use crate::core::index::term::Term;
-use crate::core::index::terms::{Terms, TermsPostingEnum};
+use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::{
-    RewritingWeightBase, TermAndState, WeightOrDocIdSetIterator,
+    RewritingWeight, RewritingWeightBase, TermAndState, WeightOrDocIdSetIterator,
 };
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
@@ -34,18 +35,104 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::QueryBase;
+use crate::core::search::multi_term_query::MultiTermQuery;
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
 use crate::core::search::term_query::{TermQuery, TermStatesMeta};
+use crate::core::util::HasIdentity;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use std::fmt::{Debug, Formatter};
 /// This struct implements the logic behind `MultiTermQuery::CONSTANT_SCORE_BLENDED_REWRITE`.
 ///
 /// It behaves similarly to a boolean-query-style rewrite for a limited number of the
 /// highest-cost terms, while rewriting the remaining lower-cost terms into a filter bitset.
-pub(crate) struct MultiTermQueryConstantScoreBlendedWrapper;
+pub(crate) struct MultiTermQueryConstantScoreBlendedWrapper<Q>
+where
+    Q: MultiTermQuery,
+{
+    q: Q,
+    id: Identity,
+}
+impl<Q> MultiTermQueryConstantScoreBlendedWrapper<Q>
+where
+    Q: MultiTermQuery,
+{
+    pub fn new(q: Q) -> Self {
+        Self {
+            q,
+            id: Identity::new(),
+        }
+    }
+}
+
+impl<Q> Debug for MultiTermQueryConstantScoreBlendedWrapper<Q>
+where
+    Q: MultiTermQuery,
+{
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl<Q> HasIdentity for MultiTermQueryConstantScoreBlendedWrapper<Q>
+where
+    Q: MultiTermQuery,
+{
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
+
+impl<Q> QueryBase for MultiTermQueryConstantScoreBlendedWrapper<Q>
+where
+    Q: MultiTermQuery + 'static,
+{
+    fn as_string(&self, field: &str) -> String {
+        self.q.as_string(field)
+    }
+
+    fn create_weight<IRC>(
+        self,
+        _searcher: &IndexSearcher<IRC>,
+        score_mode: &ScoreMode,
+        boost: f32,
+    ) -> Result<QueryWeight<IRC>>
+    where
+        IRC: IndexReaderContext,
+        Self: Sized,
+        IRCLeafReader<IRC>: 'static,
+        <Q as MultiTermQuery>::TermsEnum<
+            <<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms,
+        >: 'static,
+    {
+        let sub = BlendedRewritingWeight;
+        Ok(Box::new(RewritingWeight::new(
+            boost,
+            *score_mode,
+            self.q,
+            sub.into(),
+        )))
+    }
+
+    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+    where
+        IRC: IndexReaderContext,
+        Self: Sized,
+    {
+        todo!()
+    }
+
+    fn visit<QV>(&self, _visitor: &QV)
+    where
+        QV: QueryVisitor,
+    {
+        todo!()
+    }
+}
 
 #[derive(Default, Clone)]
 pub struct BlendedRewritingWeight;
@@ -55,14 +142,14 @@ impl RewritingWeightBase for BlendedRewritingWeight {
         DummyDISI,
         DisjunctionDISIApproximation<
             ConstantScoreScorer<
-                DocIdSetIteratorEnum2<DocIdSetBuilderIterator, TermsPostingEnum<T>>,
+                DocIdSetIteratorEnum2<DocIdSetBuilderIterator, TermsPosting<T>>,
                 DummyTwoPhaseIterator,
             >,
         >,
     >
     where
         T: Terms,
-        TermsPostingEnum<T>: 'static;
+        TermsPosting<T>: 'static;
 
     fn rewrite_inner<T, TE, IRC>(
         &self,
@@ -80,7 +167,7 @@ impl RewritingWeightBase for BlendedRewritingWeight {
         T: Terms,
         TE: TermsEnum<PostingsEnum = <T::TermsEnum as TermsEnum>::PostingsEnum>,
         IRC: IndexReaderContext,
-        TermsPostingEnum<T>: 'static,
+        TermsPosting<T>: 'static,
     {
         let max_doc = context.reader().max_doc()?;
         let mut other_terms = DocIdSetBuilder::from_terms(max_doc, terms)?;

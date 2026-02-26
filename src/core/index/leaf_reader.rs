@@ -28,7 +28,7 @@ use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::term::Term;
-use crate::core::index::terms::{Terms, TermsPostingEnum, terms_util};
+use crate::core::index::terms::{Terms, TermsPosting, terms_util};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum5;
 use crate::core::util::bits::Bits;
@@ -183,7 +183,7 @@ pub trait LeafReader: IndexReader {
 }
 
 // DummyPostingsEnum from  EmptyTerms's EmptyTermsEnum's PostingsEnum
-type LeafPostingsEnum<T> = PostingsEnumEnum2<TermsPostingEnum<T>, DummyPostingsEnum>;
+type LeafPostingsEnum<T> = PostingsEnumEnum2<TermsPosting<T>, DummyPostingsEnum>;
 
 // TermsEnum
 pub type LRTermsEnum<LR> = <<LR as LeafReader>::Terms as Terms>::TermsEnum;

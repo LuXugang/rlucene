@@ -20,7 +20,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStateEnum;
-use crate::core::index::terms::{Terms, TermsPostingEnum};
+use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
@@ -56,6 +56,7 @@ pub(crate) const BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD: usize = 16;
 ///
 /// This is an internal implementation detail and is not intended to be used
 /// or extended by users.
+#[allow(dead_code)]
 pub struct AbstractMultiTermQueryConstantScoreWrapper {}
 
 pub struct RewritingWeight<Q>
@@ -71,6 +72,20 @@ impl<Q> RewritingWeight<Q>
 where
     Q: MultiTermQuery,
 {
+    pub(crate) fn new(
+        score: f32,
+        score_mode: ScoreMode,
+        q: Q,
+        sub: RewritingWeightBaseEnum,
+    ) -> Self {
+        let base = ConstantScoreWeight::new(score);
+        Self {
+            score_mode,
+            q,
+            base,
+            sub,
+        }
+    }
     fn collect_terms<TE>(
         field_doc_count: i32,
         terms_enum: &mut TE,
@@ -262,7 +277,7 @@ pub trait RewritingWeightBase {
     type Iter<T>: DocIdSetIterator
     where
         T: Terms,
-        TermsPostingEnum<T>: 'static;
+        TermsPosting<T>: 'static;
     /// Rewrite the query as either a [`Weight`] or a [`DocIdSetIterator`], wrapped in a
     /// [`WeightOrDocIdSetIterator`].
     ///
@@ -294,14 +309,24 @@ pub trait RewritingWeightBase {
 }
 
 #[derive(Clone)]
-enum RewritingWeightBaseEnum {
+pub(crate) enum RewritingWeightBaseEnum {
     Blended(BlendedRewritingWeight),
     Standard(StandardRewritingWeight),
+}
+impl From<BlendedRewritingWeight> for RewritingWeightBaseEnum {
+    fn from(v: BlendedRewritingWeight) -> Self {
+        RewritingWeightBaseEnum::Blended(v)
+    }
+}
+impl From<StandardRewritingWeight> for RewritingWeightBaseEnum {
+    fn from(v: StandardRewritingWeight) -> Self {
+        RewritingWeightBaseEnum::Standard(v)
+    }
 }
 pub struct ScorerSupplierImpl<IRC, TE>
 where
     IRC: IndexReaderContext,
-    TE: TermsEnum<PostingsEnum = TermsPostingEnum<IRCTerm<IRC>>>,
+    TE: TermsEnum<PostingsEnum = TermsPosting<IRCTerm<IRC>>>,
 {
     cost: i64,
     score_mode: ScoreMode,
@@ -316,7 +341,7 @@ where
 impl<IRC, TE> ScorerSupplierImpl<IRC, TE>
 where
     IRC: IndexReaderContext,
-    TE: TermsEnum<PostingsEnum = TermsPostingEnum<IRCTerm<IRC>>>,
+    TE: TermsEnum<PostingsEnum = TermsPosting<IRCTerm<IRC>>>,
 {
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -347,7 +372,7 @@ where
 impl<IRC, TE> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC, TE>
 where
     IRC: IndexReaderContext,
-    TE: TermsEnum<PostingsEnum = TermsPostingEnum<IRCTerm<IRC>>>,
+    TE: TermsEnum<PostingsEnum = TermsPosting<IRCTerm<IRC>>>,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
