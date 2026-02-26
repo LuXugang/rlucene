@@ -16,7 +16,6 @@
  */
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::{NONE, PostingsEnum};
 use crate::core::index::term::Term;
@@ -35,7 +34,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::multi_term_query::MultiTermQuery;
+use crate::core::search::multi_term_query::MultiTermQueryEnum;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -46,22 +45,19 @@ use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIter
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use std::fmt::{Debug, Formatter};
+use std::hash::Hash;
+
 /// This struct implements the logic behind `MultiTermQuery::CONSTANT_SCORE_BLENDED_REWRITE`.
 ///
 /// It behaves similarly to a boolean-query-style rewrite for a limited number of the
 /// highest-cost terms, while rewriting the remaining lower-cost terms into a filter bitset.
-pub(crate) struct MultiTermQueryConstantScoreBlendedWrapper<Q>
-where
-    Q: MultiTermQuery,
-{
-    q: Q,
+#[derive(Clone)]
+pub struct MultiTermQueryConstantScoreBlendedWrapper {
+    q: MultiTermQueryEnum,
     id: Identity,
 }
-impl<Q> MultiTermQueryConstantScoreBlendedWrapper<Q>
-where
-    Q: MultiTermQuery,
-{
-    pub fn new(q: Q) -> Self {
+impl MultiTermQueryConstantScoreBlendedWrapper {
+    pub fn new(q: MultiTermQueryEnum) -> Self {
         Self {
             q,
             id: Identity::new(),
@@ -69,28 +65,19 @@ where
     }
 }
 
-impl<Q> Debug for MultiTermQueryConstantScoreBlendedWrapper<Q>
-where
-    Q: MultiTermQuery,
-{
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+impl Debug for MultiTermQueryConstantScoreBlendedWrapper {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 
-impl<Q> HasIdentity for MultiTermQueryConstantScoreBlendedWrapper<Q>
-where
-    Q: MultiTermQuery,
-{
+impl HasIdentity for MultiTermQueryConstantScoreBlendedWrapper {
     fn identity(&self) -> &Identity {
         &self.id
     }
 }
 
-impl<Q> QueryBase for MultiTermQueryConstantScoreBlendedWrapper<Q>
-where
-    Q: MultiTermQuery + 'static,
-{
+impl QueryBase for MultiTermQueryConstantScoreBlendedWrapper {
     fn as_string(&self, field: &str) -> String {
         self.q.as_string(field)
     }
@@ -105,17 +92,22 @@ where
         IRC: IndexReaderContext,
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
-        <Q as MultiTermQuery>::TermsEnum<
-            <<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms,
-        >: 'static,
     {
         let sub = BlendedRewritingWeight;
-        Ok(Box::new(RewritingWeight::new(
-            boost,
-            *score_mode,
-            self.q,
-            sub.into(),
-        )))
+        match self.q {
+            MultiTermQueryEnum::Prefix(q) => Ok(Box::new(RewritingWeight::new(
+                boost,
+                *score_mode,
+                q,
+                sub.into(),
+            ))),
+            MultiTermQueryEnum::TermRange(q) => Ok(Box::new(RewritingWeight::new(
+                boost,
+                *score_mode,
+                q,
+                sub.into(),
+            ))),
+        }
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -123,7 +115,7 @@ where
         IRC: IndexReaderContext,
         Self: Sized,
     {
-        todo!()
+        Ok(self.into())
     }
 
     fn visit<QV>(&self, _visitor: &QV)
@@ -133,6 +125,17 @@ where
         todo!()
     }
 }
+impl Hash for MultiTermQueryConstantScoreBlendedWrapper {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.q.hash(state);
+    }
+}
+impl PartialEq for MultiTermQueryConstantScoreBlendedWrapper {
+    fn eq(&self, other: &Self) -> bool {
+        self.q == other.q
+    }
+}
+impl Eq for MultiTermQueryConstantScoreBlendedWrapper {}
 
 #[derive(Default, Clone)]
 pub struct BlendedRewritingWeight;

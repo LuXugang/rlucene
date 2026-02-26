@@ -18,6 +18,7 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
+use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
@@ -71,6 +72,84 @@ impl TermsEnum for DummyTermsEnum {
     }
 
     type PostingsEnum = DummyPostingsEnum;
+
+    fn postings_with_flags(
+        &mut self,
+        _reuse: Option<Self::PostingsEnum>,
+        _flags: i32,
+    ) -> Result<Self::PostingsEnum> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type ImpactsEnum = DummyImpactsEnum;
+
+    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn term_state(&mut self) -> Result<TermStateEnum> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
+pub struct DummyTermsEnum2<T>
+where
+    T: Terms,
+{
+    terms: T,
+}
+impl<T> BytesRefIterator for DummyTermsEnum2<T>
+where
+    T: Terms,
+{
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
+impl<T> TermsEnum for DummyTermsEnum2<T>
+where
+    T: Terms,
+{
+    type AttributeSource = DummyAttributeSource;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn seek_exact_with_state(
+        &mut self,
+        _term: &BytesRef<Vec<u8>>,
+        _state: &TermStateEnum,
+    ) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn ord(&self) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn doc_freq(&mut self) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn total_term_freq(&mut self) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type PostingsEnum = TermsPosting<T>;
 
     fn postings_with_flags(
         &mut self,
