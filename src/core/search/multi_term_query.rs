@@ -29,7 +29,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-pub trait MultiTermQuery: QueryBase {
+pub trait MultiTermQuery: QueryBase + Clone {
     fn get_field(&self) -> &str;
     type TermsEnum<T>: TermsEnum<PostingsEnum = TermsPosting<T>>
     where
@@ -38,6 +38,8 @@ pub trait MultiTermQuery: QueryBase {
     where
         T: Terms + Clone;
     fn get_terms_count(&self) -> i64;
+
+    fn as_query(&self) -> Query;
 }
 
 pub trait RewriteMethod {

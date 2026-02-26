@@ -32,6 +32,7 @@ use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::multi_term_query_constant_score_blended_wrapper::MultiTermQueryConstantScoreBlendedWrapper;
+use crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQueryConstantScoreWrapper;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::query_visitor::QueryVisitor;
@@ -85,6 +86,7 @@ macro_rules! dispatch_query {
             Query::MatchAll($inner) => $body,
             Query::MatchNoDoc($inner) => $body,
             Query::MultiTermQueryConstantScoreBlendedWrapper($inner) => $body,
+            Query::MultiTermQueryConstantScoreWrapper($inner) => $body,
             Query::PointRange($inner) => $body,
             Query::SortedNumericDocValuesRange($inner) => $body,
             Query::SortedNumericDocValuesSet($inner) => $body,
@@ -112,6 +114,7 @@ impl_from_for_query! {
     MatchAllDocsQuery => MatchAll,
     MatchNoDocsQuery => MatchNoDoc,
     MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
+    MultiTermQueryConstantScoreWrapper => MultiTermQueryConstantScoreWrapper,
     PointRangeQuery => PointRange,
     SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
     SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
@@ -155,6 +158,7 @@ pub enum Query {
     MatchAll(MatchAllDocsQuery),
     MatchNoDoc(MatchNoDocsQuery),
     MultiTermQueryConstantScoreBlendedWrapper(MultiTermQueryConstantScoreBlendedWrapper),
+    MultiTermQueryConstantScoreWrapper(MultiTermQueryConstantScoreWrapper),
     PointRange(PointRangeQuery),
     SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
     SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),

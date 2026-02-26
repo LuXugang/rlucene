@@ -98,6 +98,10 @@ impl MultiTermQuery for PrefixQuery {
     fn get_terms_count(&self) -> i64 {
         todo!()
     }
+
+    fn as_query(&self) -> Query {
+        todo!()
+    }
 }
 impl Eq for PrefixQuery {}
 impl PartialEq for PrefixQuery {

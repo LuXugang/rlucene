@@ -68,6 +68,7 @@ where
     q: Q,
     base: ConstantScoreWeight,
     sub: RewritingWeightBaseEnum,
+    query: Arc<Query>,
 }
 impl<Q> RewritingWeight<Q>
 where
@@ -79,12 +80,14 @@ where
         q: Q,
         sub: RewritingWeightBaseEnum,
     ) -> Self {
+        let query = Arc::new(q.as_query());
         let base = ConstantScoreWeight::new(score);
         Self {
             score_mode,
             q,
             base,
             sub,
+            query,
         }
     }
     fn collect_terms<TE>(
@@ -158,15 +161,16 @@ where
 
     fn explain(
         &self,
-        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _doc: i32,
-        _searcher: &IndexSearcher<IRC>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        doc: i32,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Explanation> {
-        todo!()
+        let scorer = self.scorer(context, searcher)?;
+        self.base.explain(scorer, doc, self.query.as_string(""))
     }
 
     fn get_query(&self) -> Arc<Query> {
-        todo!()
+        self.query.clone()
     }
 
     type ScorerSupplier = QueryWeightSs<IRC>;

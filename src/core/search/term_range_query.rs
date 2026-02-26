@@ -98,6 +98,10 @@ impl MultiTermQuery for TermRangeQuery {
     fn get_terms_count(&self) -> i64 {
         todo!()
     }
+
+    fn as_query(&self) -> Query {
+        todo!()
+    }
 }
 impl Hash for TermRangeQuery {
     fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {

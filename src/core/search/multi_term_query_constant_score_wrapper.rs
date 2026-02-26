@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::NONE;
@@ -22,25 +22,114 @@ use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::{
-    RewritingWeightBase, TermAndState, WeightOrDocIdSetIterator,
+    RewritingWeight, RewritingWeightBase, TermAndState, WeightOrDocIdSetIterator,
 };
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::QueryBase;
+use crate::core::search::multi_term_query::MultiTermQueryEnum;
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::{TermQuery, TermStatesMeta};
+use crate::core::util::HasIdentity;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::{Debug, Formatter};
+use std::hash::Hash;
+
 /// This struct implements the logic behind `MultiTermQuery::CONSTANT_SCORE_REWRITE`.
 ///
 /// It attempts to rewrite per-segment into a boolean query that produces a
 /// constant score. If that is not possible, it falls back to accumulating
 /// matches into a bit set and building a `Scorer` on top of that bit set.
-pub struct MultiTermQueryConstantScoreWrapper;
+#[derive(Clone)]
+pub struct MultiTermQueryConstantScoreWrapper {
+    q: MultiTermQueryEnum,
+    id: Identity,
+}
+impl MultiTermQueryConstantScoreWrapper {
+    pub fn new(q: MultiTermQueryEnum) -> Self {
+        Self {
+            q,
+            id: Identity::new(),
+        }
+    }
+}
 
+impl Debug for MultiTermQueryConstantScoreWrapper {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<Self>())
+    }
+}
+
+impl HasIdentity for MultiTermQueryConstantScoreWrapper {
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
+
+impl QueryBase for MultiTermQueryConstantScoreWrapper {
+    fn as_string(&self, field: &str) -> String {
+        self.q.as_string(field)
+    }
+
+    fn create_weight<IRC>(
+        self,
+        _searcher: &IndexSearcher<IRC>,
+        score_mode: &ScoreMode,
+        boost: f32,
+    ) -> Result<QueryWeight<IRC>>
+    where
+        IRC: IndexReaderContext,
+        Self: Sized,
+        IRCLeafReader<IRC>: 'static,
+    {
+        let sub = StandardRewritingWeight;
+        match self.q {
+            MultiTermQueryEnum::Prefix(q) => Ok(Box::new(RewritingWeight::new(
+                boost,
+                *score_mode,
+                q,
+                sub.into(),
+            ))),
+            MultiTermQueryEnum::TermRange(q) => Ok(Box::new(RewritingWeight::new(
+                boost,
+                *score_mode,
+                q,
+                sub.into(),
+            ))),
+        }
+    }
+
+    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+    where
+        IRC: IndexReaderContext,
+        Self: Sized,
+    {
+        Ok(self.into())
+    }
+
+    fn visit<QV>(&self, _visitor: &QV)
+    where
+        QV: QueryVisitor,
+    {
+        todo!()
+    }
+}
+impl Hash for MultiTermQueryConstantScoreWrapper {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.q.hash(state);
+    }
+}
+impl PartialEq for MultiTermQueryConstantScoreWrapper {
+    fn eq(&self, other: &Self) -> bool {
+        self.q == other.q
+    }
+}
+impl Eq for MultiTermQueryConstantScoreWrapper {}
 #[derive(Default, Clone)]
 pub struct StandardRewritingWeight;
 impl RewritingWeightBase for StandardRewritingWeight {
