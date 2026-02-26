@@ -524,7 +524,7 @@ where
             ))))
         } else {
             let result =
-                DocIdSetBuilder::with_point_values(max_doc, &values, self.query.field.as_ref())?;
+                DocIdSetBuilder::from_point_values(max_doc, &values, self.query.field.as_ref())?;
             Ok(Some(Box::new(ScorerSupplierImpl1::<IRC, _>::new(
                 self.base.score(),
                 self.score_mode,

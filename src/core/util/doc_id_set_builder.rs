@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::point_values::PointValues;
+use crate::core::index::terms::Terms;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -50,8 +51,18 @@ impl DocIdSetBuilder {
     pub fn new(max_doc: i32) -> DocIdSetBuilder {
         Self::with_count(max_doc, -1, -1)
     }
+    pub fn from_terms<T>(max_doc: i32, terms: &T) -> Result<DocIdSetBuilder>
+    where
+        T: Terms,
+    {
+        Ok(Self::with_count(
+            max_doc,
+            terms.get_doc_count()?,
+            terms.get_sum_doc_freq()?,
+        ))
+    }
 
-    pub fn with_point_values<PV>(max_doc: i32, values: &PV, _field: &str) -> Result<DocIdSetBuilder>
+    pub fn from_point_values<PV>(max_doc: i32, values: &PV, _field: &str) -> Result<DocIdSetBuilder>
     where
         PV: PointValues,
     {
@@ -240,15 +251,22 @@ impl DocIdSetIterator for DocIdSetBuilderIterator {
 
 #[cfg(test)]
 mod tests {
+    use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
+    use crate::core::index::BytesRef;
+    use crate::core::index::dummy::dummy_point_tree::DummyPointTree;
+    use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
+    use crate::core::index::point_values::{PointTreeEnum, PointValues};
+    use crate::core::index::terms::Terms;
     use crate::core::search::doc_id_set::DocIdSet;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, RangeDISI};
+    use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
     use crate::core::util::bit_doc_id_set::BitDocIdSet;
     use crate::core::util::bit_set::BitSet;
     use crate::core::util::bit_set_iterator::BitSetIterator;
     use crate::core::util::bits::Bits;
     use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderEnum};
-    use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::fixed_bit_set::FixedBitSet;
     use crate::core::util::int_array_doc_id_set::IntArrayDocIdSet;
     use crate::core::util::roaring_doc_id_set::builder::Builder;
@@ -257,6 +275,7 @@ mod tests {
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
+    use std::borrow::Cow;
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetBuilder {}
@@ -322,13 +341,7 @@ mod tests {
             builder.add_disi(&mut iter)?;
         }
         let result = builder.build()?;
-        let enum_type1 = "BitDocIdSet<FixedBitSet>";
-        let enum_type2 = "IntArrayDocIdSet";
-        let doc_id_set_type = match result {
-            DocIdSetBuilderEnum::BitDoc(_) => enum_type1,
-            DocIdSetBuilderEnum::IntArray(_) => enum_type2,
-        };
-        assert_eq!(doc_id_set_type, enum_type2);
+        assert!(matches!(result, DocIdSetBuilderEnum::IntArray(_)));
         let bit_doc_id_set = BitDocIdSet::new(Some(fixed_set_bit))?;
         assert_equals(Some(bit_doc_id_set), Some(result))?;
         Ok(())
@@ -353,13 +366,7 @@ mod tests {
             builder.add_disi(&mut iter)?;
         }
         let result = builder.build()?;
-        let enum_type1 = "BitDocIdSet<FixedBitSet>";
-        let enum_type2 = "IntArrayDocIdSet";
-        let doc_id_set_type = match result {
-            DocIdSetBuilderEnum::BitDoc(_) => enum_type1,
-            DocIdSetBuilderEnum::IntArray(_) => enum_type2,
-        };
-        assert_eq!(doc_id_set_type, enum_type1);
+        assert!(matches!(result, DocIdSetBuilderEnum::BitDoc(_)));
         let bit_doc_id_set = BitDocIdSet::new(Some(fixed_set_bit))?;
         assert_equals(Some(bit_doc_id_set), Some(result))?;
         Ok(())
@@ -463,62 +470,104 @@ mod tests {
     }
     #[test]
     fn test_empty_points() -> Result<()> {
-        // TODO: waiting for the implementation of `PointValues`
+        let values = DummyPointValues::new(0, 0);
+        let builder = DocIdSetBuilder::from_point_values(1, &values, "foo")?;
+        assert_eq!(1.0_f64, builder.num_values_per_doc);
         Ok(())
     }
 
     #[test]
     fn test_leverage_stats() -> Result<()> {
-        // TODO: waiting for the implementation of `PointValues`
-        // TODO: waiting for the implementation of `Terms`
         // single-valued points
-        let mut doc_count = 42;
-        let mut value_count = 42;
-        let mut builder = DocIdSetBuilder::with_count(100, doc_count, value_count);
-        assert_eq!(1f64 - builder.get_num_values_per_doc(), 0f64);
-        assert!(!builder.get_multi_valued());
+        let values = DummyPointValues::new(42, 42);
+        let mut builder = DocIdSetBuilder::from_point_values(100, &values, "foo")?;
+        assert_eq!(1.0_f64, builder.num_values_per_doc);
+        assert!(!builder.multi_valued);
+
+        {
+            builder.grow(2);
+            builder.add_doc(5);
+            builder.add_doc(7);
+        }
+
+        let set = builder.build()?;
+        assert!(matches!(set, DocIdSetBuilderEnum::BitDoc(_)));
+
+        let it = set.iterator()?;
+        assert_eq!(2, it.cost()?);
+
+        // multi-valued points
+        let values = DummyPointValues::new(42, 63);
+        let mut builder = DocIdSetBuilder::from_point_values(100, &values, "foo")?;
+        assert_eq!(1.5_f64, builder.num_values_per_doc);
+        assert!(builder.multi_valued);
+
         builder.grow(2);
         builder.add_doc(5);
         builder.add_doc(7);
-        let mut set = builder.build()?;
-        let enum_type1 = "BitDocIdSet<FixedBitSet>";
-        let enum_type2 = "IntArrayDocIdSet";
-        let doc_id_set_type = match set {
-            DocIdSetBuilderEnum::BitDoc(_) => enum_type1,
-            DocIdSetBuilderEnum::IntArray(_) => enum_type2,
-        };
-        assert_eq!(doc_id_set_type, enum_type1);
-        assert_eq!(set.iterator()?.cost()?, 2);
 
-        // multi-valued
-        doc_count = 42;
-        value_count = 63;
-        builder = DocIdSetBuilder::with_count(100, doc_count, value_count);
-        assert_eq!(builder.get_num_values_per_doc() - 1.5, 0.0);
-        assert!(builder.get_multi_valued());
+        let set = builder.build()?;
+        assert!(matches!(set, DocIdSetBuilderEnum::BitDoc(_)));
+
+        let it = set.iterator()?;
+        // it thinks the same doc was added twice
+        assert_eq!(1, it.cost()?);
+
+        let values = DummyPointValues::new(42, -1);
+        let builder = DocIdSetBuilder::from_point_values(100, &values, "foo");
+        assert!(builder.is_err());
+
+        // incomplete stats: doc_count unknown
+        let values = DummyPointValues::new(-1, 84);
+        let builder = DocIdSetBuilder::from_point_values(100, &values, "foo")?;
+        assert_eq!(1.0_f64, builder.num_values_per_doc);
+        assert!(builder.multi_valued);
+
+        // single-valued terms
+        let terms = DummyTerms::new(42, 42);
+        let mut builder = DocIdSetBuilder::from_terms(100, &terms)?;
+        assert_eq!(1.0_f64, builder.num_values_per_doc);
+        assert!(!builder.multi_valued);
+
         builder.grow(2);
         builder.add_doc(5);
         builder.add_doc(7);
-        set = builder.build()?;
-        let doc_id_set_type = match set {
-            DocIdSetBuilderEnum::BitDoc(_) => enum_type1,
-            DocIdSetBuilderEnum::IntArray(_) => enum_type2,
-        };
-        assert_eq!(doc_id_set_type, enum_type1);
-        assert_eq!(set.iterator()?.cost()?, 1);
 
-        // incomplete stats
-        doc_count = 42;
-        value_count = -1;
-        builder = DocIdSetBuilder::with_count(100, doc_count, value_count);
-        assert_eq!(builder.get_num_values_per_doc() - 1.0, 0.0);
-        assert!(builder.get_multi_valued());
+        let set = builder.build()?;
+        assert!(matches!(set, DocIdSetBuilderEnum::BitDoc(_)));
 
-        doc_count = -1;
-        value_count = 82;
-        builder = DocIdSetBuilder::with_count(100, doc_count, value_count);
-        assert_eq!(builder.get_num_values_per_doc() - 1.0, 0.0);
-        assert!(builder.get_multi_valued());
+        let it = set.iterator()?;
+        assert_eq!(2, it.cost()?);
+
+        // multi-valued terms
+        let terms = DummyTerms::new(42, 63);
+        let mut builder = DocIdSetBuilder::from_terms(100, &terms)?;
+        assert_eq!(1.5_f64, builder.num_values_per_doc);
+        assert!(builder.multi_valued);
+
+        builder.grow(2);
+        builder.add_doc(5);
+        builder.add_doc(7);
+
+        let set = builder.build()?;
+        assert!(matches!(set, DocIdSetBuilderEnum::BitDoc(_)));
+
+        let it = set.iterator()?;
+        // it thinks the same doc was added twice
+        assert_eq!(1, it.cost()?);
+
+        // incomplete stats: num_values unknown
+        let terms = DummyTerms::new(42, -1);
+        let builder = DocIdSetBuilder::from_terms(100, &terms)?;
+        assert_eq!(1.0_f64, builder.num_values_per_doc);
+        assert!(builder.multi_valued);
+
+        // incomplete stats: doc_count unknown
+        let terms = DummyTerms::new(-1, 84);
+        let builder = DocIdSetBuilder::from_terms(100, &terms)?;
+        assert_eq!(1.0_f64, builder.num_values_per_doc);
+        assert!(builder.multi_valued);
+
         Ok(())
     }
 
@@ -530,14 +579,127 @@ mod tests {
             builder.add_disi(&mut RangeDISI::new(i, i + 1)?)?;
         }
         let set = builder.build()?;
-        let enum_type1 = "BitDocIdSet<FixedBitSet>";
-        let enum_type2 = "IntArrayDocIdSet";
-        let doc_id_set_type = match set {
-            DocIdSetBuilderEnum::BitDoc(_) => enum_type1,
-            DocIdSetBuilderEnum::IntArray(_) => enum_type2,
-        };
-        assert_eq!(doc_id_set_type, enum_type1);
+
+        assert!(matches!(set, DocIdSetBuilderEnum::BitDoc(_)));
         assert_eq!(set.iterator()?.cost()?, 1000000 >> 6);
         Ok(())
+    }
+
+    struct DummyPointValues {
+        doc_count: i32,
+        num_points: i32,
+    }
+    impl DummyPointValues {
+        fn new(doc_count: i32, num_points: i32) -> Self {
+            Self {
+                doc_count,
+                num_points,
+            }
+        }
+    }
+
+    impl Clone for DummyPointValues {
+        fn clone(&self) -> Self {
+            unreachable!()
+        }
+    }
+
+    impl PointValues for DummyPointValues {
+        fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn get_num_dimensions(&self) -> Result<usize> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn get_num_index_dimensions(&self) -> Result<usize> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn get_bytes_per_dimension(&self) -> Result<usize> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn size(&self) -> Result<usize> {
+            Ok(self.num_points as usize)
+        }
+
+        fn get_doc_count(&self) -> Result<i32> {
+            Ok(self.doc_count)
+        }
+
+        type PointTree = DummyPointTree;
+        type MutablePointTree = DummyMutablePointTree;
+
+        fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+            unreachable!()
+        }
+    }
+
+    struct DummyTerms {
+        doc_count: i32,
+        num_values: i32,
+    }
+    impl DummyTerms {
+        fn new(doc_count: i32, num_values: i32) -> Self {
+            Self {
+                doc_count,
+                num_values,
+            }
+        }
+    }
+    impl Terms for DummyTerms {
+        type TermsEnum = DummyTermsEnum;
+
+        fn iterator(&self) -> Result<Self::TermsEnum> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        type IntersectIter = DummyTermsEnum;
+
+        fn intersect(
+            &self,
+            _compiled: &mut CompiledAutomaton,
+            _start_term: Option<&BytesRef<Vec<u8>>>,
+        ) -> Result<Self::IntersectIter> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn size(&self) -> Result<i64> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn get_sum_total_term_freq(&self) -> Result<i64> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn get_sum_doc_freq(&self) -> Result<i64> {
+            Ok(self.num_values as i64)
+        }
+
+        fn get_doc_count(&self) -> Result<i32> {
+            Ok(self.doc_count)
+        }
+
+        fn has_freqs(&self) -> bool {
+            unreachable!()
+        }
+
+        fn has_offsets(&self) -> bool {
+            unreachable!()
+        }
+
+        fn has_positions(&self) -> bool {
+            unreachable!()
+        }
+
+        fn has_payloads(&self) -> bool {
+            unreachable!()
+        }
     }
 }
