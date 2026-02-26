@@ -35,11 +35,13 @@ use crate::core::search::multi_term_query_constant_score_blended_wrapper::MultiT
 use crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQueryConstantScoreWrapper;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::point_range_query::PointRangeQuery;
+use crate::core::search::prefix_query::PrefixQuery;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::term_query::TermQuery;
+use crate::core::search::term_range_query::TermRangeQuery;
 #[cfg(test)]
 use crate::core::search::wand_scorer::tests::MaxScoreWrapperQuery;
 #[cfg(test)]
@@ -88,11 +90,13 @@ macro_rules! dispatch_query {
             Query::MultiTermQueryConstantScoreBlendedWrapper($inner) => $body,
             Query::MultiTermQueryConstantScoreWrapper($inner) => $body,
             Query::PointRange($inner) => $body,
+            Query::Prefix($inner) => $body,
             Query::SortedNumericDocValuesRange($inner) => $body,
             Query::SortedNumericDocValuesSet($inner) => $body,
             Query::SortedSetDocValuesRange($inner) => $body,
             Query::Phrase($inner) => $body,
             Query::Term($inner) => $body,
+            Query::TermRange($inner) => $body,
             #[cfg(test)]
             Query::WANDScorer($inner) => $body,
             #[cfg(test)]
@@ -116,10 +120,12 @@ impl_from_for_query! {
     MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
     MultiTermQueryConstantScoreWrapper => MultiTermQueryConstantScoreWrapper,
     PointRangeQuery => PointRange,
+    PrefixQuery => Prefix,
     SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
     SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
     SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
     TermQuery => Term,
+    TermRangeQuery => TermRange,
     PhraseQuery=> Phrase,
 }
 
@@ -164,7 +170,9 @@ pub enum Query {
     SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
     Phrase(PhraseQuery),
+    Prefix(PrefixQuery),
     Term(TermQuery),
+    TermRange(TermRangeQuery),
     #[cfg(test)]
     WANDScorer(WANDScorerQuery),
     #[cfg(test)]
