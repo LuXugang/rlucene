@@ -423,3 +423,5 @@ either_terms!(
     => { te: TermsEnumEnum2, ie: TermsEnumEnum2 }
     { A:A,B:B}
 );
+pub type TermsTermsEnum<T> = <T as Terms>::TermsEnum;
+pub type TermsPostingEnum<T> = <TermsTermsEnum<T> as TermsEnum>::PostingsEnum;

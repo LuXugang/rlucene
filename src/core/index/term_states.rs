@@ -60,13 +60,13 @@ impl TermStates {
             term,
         })
     }
-
     pub fn new<IRC>(context: &IRC) -> Result<Self>
     where
         IRC: IndexReaderContext,
     {
         Self::with_term(None, context)
     }
+
     pub fn was_built_for(&self, meta: &TopParentMeta) -> bool {
         self.was_built_for_id(&meta.id)
     }
