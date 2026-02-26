@@ -55,11 +55,7 @@ use std::sync::Arc;
 pub type QueryWeight<IRC> =
     Box<dyn Weight<IRC = IRC, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<IRC>>>;
 pub type QueryWeightSs<IRC> = Box<
-    dyn ScorerSupplier<
-            IRC = IRC,
-            BulkScorer = QueryWeightSsBulkScorer,
-            Scorer = QueryWeightSsScorer,
-        >,
+    dyn ScorerSupplier<IRC, BulkScorer = QueryWeightSsBulkScorer, Scorer = QueryWeightSsScorer>,
 >;
 pub type QueryWeightSsBulkScorer = Box<dyn BulkScorer>;
 pub type QueryWeightSsScorer = Box<dyn Scorer>;

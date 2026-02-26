@@ -827,7 +827,7 @@ where
 pub type FilteredOptionalBulkScorer<S> =
     MaxScoreBulkScorer<S, ScorerEnum2<S, ConjunctionScorer<S>>>;
 
-impl<IRC> ScorerSupplier for BooleanScorerSupplier<IRC>
+impl<IRC> ScorerSupplier<IRC> for BooleanScorerSupplier<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
@@ -835,7 +835,6 @@ where
     // type Scorer = GetType<SsScorer<LR>>;
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type IRC = IRC;
 
     fn get(
         &mut self,
@@ -1225,8 +1224,7 @@ mod tests {
             Box::new(v)
         }
     }
-    impl ScorerSupplier for FakeScorerSupplier {
-        type IRC = DummyIRC;
+    impl ScorerSupplier<DummyIRC> for FakeScorerSupplier {
         type Scorer = QueryWeightSsScorer;
         type BulkScorer = QueryWeightSsBulkScorer;
 

@@ -37,14 +37,13 @@ where
     }
 }
 
-impl<IRC> ScorerSupplier for DummyScorerSupplier<IRC>
+impl<IRC> ScorerSupplier<IRC> for DummyScorerSupplier<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: LeafReader,
 {
     type Scorer = DummyScorer;
     type BulkScorer = DummyBulkScorer;
-    type IRC = IRC;
 
     fn get(
         &mut self,

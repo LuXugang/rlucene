@@ -27,10 +27,9 @@ use std::any::Any;
 /// A supplier of `Scorer`.
 ///
 /// This allows to get an estimate of the cost before building the `Scorer`.
-pub trait ScorerSupplier {
+pub trait ScorerSupplier<IRC: IndexReaderContext> {
     type Scorer: Scorer;
     type BulkScorer: BulkScorer;
-    type IRC: IndexReaderContext;
 
     /// Get the `Scorer`.
     /// This must be called at most once.
@@ -46,8 +45,8 @@ pub trait ScorerSupplier {
     fn get(
         &mut self,
         lead_cost: i64,
-        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
-        searcher: &IndexSearcher<Self::IRC>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer>;
 
     /// Optional: Get a bulk scorer that is optimized for bulk-scoring.
@@ -57,13 +56,13 @@ pub trait ScorerSupplier {
     /// approaches for matching all hits.
     fn bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
-        searcher: &IndexSearcher<Self::IRC>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>>;
     fn default_bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
-        searcher: &IndexSearcher<Self::IRC>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<DefaultBulkScorer<Self::Scorer>> {
         let scorer = self.get(i64::MAX, context, searcher)?;
         Ok(DefaultBulkScorer::new(scorer))
@@ -75,8 +74,8 @@ pub trait ScorerSupplier {
     /// Corresponds to [`DocIdSetIterator::cost`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost).
     fn cost(
         &mut self,
-        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
-        searcher: &IndexSearcher<Self::IRC>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<i64>;
 
     /// Inform this [`ScorerSupplier`] that its returned scorers produce scores that get passed
@@ -95,14 +94,13 @@ pub trait ScorerSupplier {
     }
 }
 
-impl<IRC, T> ScorerSupplier for Box<T>
+impl<IRC, T> ScorerSupplier<IRC> for Box<T>
 where
     IRC: IndexReaderContext,
-    T: ScorerSupplier<IRC = IRC> + ?Sized,
+    T: ScorerSupplier<IRC> + ?Sized,
 {
     type Scorer = T::Scorer;
     type BulkScorer = T::BulkScorer;
-    type IRC = T::IRC;
 
     fn get(
         &mut self,

@@ -230,14 +230,13 @@ where
         }
     }
 }
-impl<IRC> ScorerSupplier for MatchAllDocsScorerSupplier<IRC>
+impl<IRC> ScorerSupplier<IRC> for MatchAllDocsScorerSupplier<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type IRC = IRC;
 
     fn get(
         &mut self,

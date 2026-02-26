@@ -585,14 +585,13 @@ where
         Ok(Some(()))
     }
 }
-impl<IRC> ScorerSupplier for TermScorerSupplier<IRC>
+impl<IRC> ScorerSupplier<IRC> for TermScorerSupplier<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type IRC = IRC;
 
     fn get(
         &mut self,

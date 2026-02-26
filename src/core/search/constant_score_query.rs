@@ -261,13 +261,12 @@ where
         }
     }
 }
-impl<IRC> ScorerSupplier for ScorerSupplierImpl<IRC>
+impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC>
 where
     IRC: IndexReaderContext,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type IRC = IRC;
 
     fn get(
         &mut self,
@@ -540,7 +539,7 @@ where
         &self,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>> {
         self.inner.bulk_scorer(_context, searcher)
     }
 

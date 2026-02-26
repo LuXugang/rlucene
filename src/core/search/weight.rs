@@ -136,7 +136,7 @@ pub trait Weight: SegmentCacheable {
         &self,
         context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
         searcher: &IndexSearcher<Self::IRC>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<Self::IRC>>::Scorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context, searcher)? {
             None => return Ok(None),
             Some(s) => s,
@@ -144,7 +144,7 @@ pub trait Weight: SegmentCacheable {
         Ok(Some(scorer_supplier.get(i64::MAX, context, searcher)?))
     }
 
-    type ScorerSupplier: ScorerSupplier<IRC = Self::IRC>;
+    type ScorerSupplier: ScorerSupplier<Self::IRC>;
     /// Get a [`ScorerSupplier`], which allows knowing the cost of the `Scorer`
     /// before building it.
     ///
@@ -184,7 +184,7 @@ pub trait Weight: SegmentCacheable {
         &self,
         context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
         searcher: &IndexSearcher<Self::IRC>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<Self::IRC>>::BulkScorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context, searcher)? {
             None => return Ok(None),
             Some(s) => s,
@@ -270,7 +270,7 @@ where
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         searcher: &IndexSearcher<Self::IRC>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<Self::IRC>>::Scorer>> {
         (**self).scorer(context, searcher)
     }
 
@@ -288,7 +288,7 @@ where
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         searcher: &IndexSearcher<Self::IRC>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<Self::IRC>>::BulkScorer>> {
         (**self).bulk_scorer(context, searcher)
     }
 
@@ -333,7 +333,7 @@ where
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         searcher: &IndexSearcher<Self::IRC>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<Self::IRC>>::Scorer>> {
         (**self).scorer(context, searcher)
     }
 
@@ -351,7 +351,7 @@ where
         &self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         searcher: &IndexSearcher<Self::IRC>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<Self::IRC>>::BulkScorer>> {
         (**self).bulk_scorer(context, searcher)
     }
 
@@ -445,7 +445,7 @@ where
         }
     }
 }
-impl<S, IRC> ScorerSupplier for DefaultScorerSupplier<S, IRC>
+impl<S, IRC> ScorerSupplier<IRC> for DefaultScorerSupplier<S, IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: LeafReader,
@@ -453,7 +453,6 @@ where
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type IRC = IRC;
 
     fn get(
         &mut self,

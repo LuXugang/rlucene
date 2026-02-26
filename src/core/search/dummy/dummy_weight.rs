@@ -102,7 +102,7 @@ where
         &self,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::Scorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -120,7 +120,7 @@ where
         &self,
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

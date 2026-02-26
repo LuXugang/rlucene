@@ -390,14 +390,13 @@ where
         })
     }
 }
-impl<IRC> ScorerSupplier for ScorerSupplierImpl3<IRC>
+impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl3<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type IRC = IRC;
 
     fn get(
         &mut self,

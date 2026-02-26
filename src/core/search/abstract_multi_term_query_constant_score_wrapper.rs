@@ -350,20 +350,19 @@ where
     }
 }
 
-impl<IRC, TE> ScorerSupplier for ScorerSupplierImpl<IRC, TE>
+impl<IRC, TE> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC, TE>
 where
     IRC: IndexReaderContext,
     TE: TermsEnum<PostingsEnum = TermsPostingEnum<IRCTerm<IRC>>>,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type IRC = IRC;
 
     fn get(
         &mut self,
         _lead_cost: i64,
-        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
-        searcher: &IndexSearcher<Self::IRC>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Self::Scorer> {
         let s = match self.collect_result {
             true => {
@@ -446,8 +445,8 @@ where
 
     fn bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
-        searcher: &IndexSearcher<Self::IRC>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
         let bs = match self.collect_result {
             true => {
@@ -539,8 +538,8 @@ where
 
     fn cost(
         &mut self,
-        _context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
-        _searcher: &IndexSearcher<Self::IRC>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<i64> {
         Ok(self.cost)
     }

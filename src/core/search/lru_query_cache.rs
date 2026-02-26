@@ -927,7 +927,7 @@ where
 }
 #[allow(clippy::upper_case_acronyms)]
 pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, CacheAndCountDISI>;
-impl<C, P, IRC> ScorerSupplier for ScorerSupplierImpl1<C, P, IRC>
+impl<C, P, IRC> ScorerSupplier<IRC> for ScorerSupplierImpl1<C, P, IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: LeafReader,
@@ -936,7 +936,6 @@ where
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type IRC = IRC;
 
     fn get(
         &mut self,
@@ -1002,14 +1001,13 @@ where
         })
     }
 }
-impl<IRC> ScorerSupplier for ScorerSupplierImpl2<IRC>
+impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl2<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: LeafReader,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
-    type IRC = IRC;
 
     fn get(
         &mut self,
