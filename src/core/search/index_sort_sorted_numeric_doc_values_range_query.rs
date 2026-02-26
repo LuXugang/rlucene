@@ -218,12 +218,10 @@ where
 }
 pub type Disi<LR> = <SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues;
 
-impl<IRC> SegmentCacheable for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         // Both queries should always return the same values, so we can just check
         // if the fallback query is cacheable.
@@ -231,7 +229,7 @@ where
     }
 }
 
-impl<IRC> Weight for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
+impl<IRC> Weight<IRC> for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
@@ -1964,8 +1962,8 @@ mod tests {
         searcher: &IndexSearcher<IRC>,
     ) -> Result<()>
     where
-        W1: Weight<IRC = IRC> + ?Sized,
-        W2: Weight<IRC = IRC> + ?Sized,
+        W1: Weight<IRC> + ?Sized,
+        W2: Weight<IRC> + ?Sized,
         IRC: IndexReaderContext,
     {
         for ctx in searcher.get_leaf_contexts()? {

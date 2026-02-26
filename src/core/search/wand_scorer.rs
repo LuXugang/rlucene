@@ -2375,19 +2375,17 @@ pub(crate) mod tests {
         }
     }
 
-    impl<IRC> SegmentCacheable for MaxScoreWrapperQueryWeight<IRC>
+    impl<IRC> SegmentCacheable<IRC> for MaxScoreWrapperQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
-        type IRC = IRC;
-
         fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
             self.weight.is_cacheable(ctx)
         }
     }
 
-    impl<IRC> Weight for MaxScoreWrapperQueryWeight<IRC>
+    impl<IRC> Weight<IRC> for MaxScoreWrapperQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
@@ -2590,19 +2588,17 @@ pub(crate) mod tests {
         }
     }
 
-    impl<IRC> SegmentCacheable for WANDScorerQueryWeight<IRC>
+    impl<IRC> SegmentCacheable<IRC> for WANDScorerQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,
     {
-        type IRC = IRC;
-
         fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
             Ok(false)
         }
     }
 
-    impl<IRC> Weight for WANDScorerQueryWeight<IRC>
+    impl<IRC> Weight<IRC> for WANDScorerQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
         IRCLeafReader<IRC>: 'static,

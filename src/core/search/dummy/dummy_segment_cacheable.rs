@@ -45,12 +45,10 @@ where
     }
 }
 
-impl<IRC> SegmentCacheable for DummySegmentCacheable<IRC>
+impl<IRC> SegmentCacheable<IRC> for DummySegmentCacheable<IRC>
 where
     IRC: IndexReaderContext,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

@@ -322,18 +322,16 @@ where
     }
 }
 
-impl<IRC> SegmentCacheable for TermWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for TermWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<IRC> Weight for TermWeight<IRC>
+impl<IRC> Weight<IRC> for TermWeight<IRC>
 where
     IRC: IndexReaderContext,
 {

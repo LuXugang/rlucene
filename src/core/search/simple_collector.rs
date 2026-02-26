@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
@@ -26,14 +27,15 @@ pub trait SimpleCollector: Collector + LeafCollector {
     where
         LR: LeafReader;
 
-    fn get_leaf_collector<W, LR>(
+    fn get_leaf_collector<W, LR, IRC>(
         &mut self,
         context: &LeafReaderContext<LR>,
         _weight: Option<&W>,
     ) -> Result<()>
     where
         LR: LeafReader,
-        W: Weight + ?Sized,
+        IRC: IndexReaderContext,
+        W: Weight<IRC> + ?Sized,
     {
         self.do_set_next_reader(context)
     }

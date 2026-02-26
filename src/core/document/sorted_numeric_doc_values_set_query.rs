@@ -156,19 +156,17 @@ where
     }
 }
 
-impl<IRC> SegmentCacheable for SortedNumericDocValuesSetQueryWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for SortedNumericDocValuesSetQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
-    type IRC = IRC;
-
-    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<bool> {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         let field = vec![self.query.field.clone()];
         DocValues::is_cacheable(ctx, field.as_ref())
     }
 }
 
-impl<IRC> Weight for SortedNumericDocValuesSetQueryWeight<IRC>
+impl<IRC> Weight<IRC> for SortedNumericDocValuesSetQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
@@ -176,7 +174,7 @@ where
 
     fn matches(
         &self,
-        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
         searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::Matches>> {
@@ -185,7 +183,7 @@ where
 
     fn explain(
         &self,
-        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
         doc: i32,
         searcher: &IndexSearcher<IRC>,
     ) -> Result<Explanation> {
@@ -198,11 +196,11 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = QueryWeightSs<Self::IRC>;
+    type ScorerSupplier = QueryWeightSs<IRC>;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         if context

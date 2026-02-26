@@ -132,13 +132,11 @@ where
     }
 }
 
-impl<IRC> SegmentCacheable for BooleanWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for BooleanWeight<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         // Disallow caching large boolean queries to not encourage users
         // to build large boolean queries as a workaround to the fact that
@@ -157,7 +155,7 @@ where
     }
 }
 
-impl<IRC> Weight for BooleanWeight<IRC>
+impl<IRC> Weight<IRC> for BooleanWeight<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,

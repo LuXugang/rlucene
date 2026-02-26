@@ -723,19 +723,17 @@ where
     }
 }
 
-impl<P, IRC> SegmentCacheable for CachingWrapperWeight<P, IRC>
+impl<P, IRC> SegmentCacheable<IRC> for CachingWrapperWeight<P, IRC>
 where
     P: Predicate<TopParentMeta>,
     IRC: IndexReaderContext,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         self.in_.is_cacheable(ctx)
     }
 }
 
-impl<P, IRC> Weight for CachingWrapperWeight<P, IRC>
+impl<P, IRC> Weight<IRC> for CachingWrapperWeight<P, IRC>
 where
     P: Predicate<TopParentMeta> + 'static,
     IRC: IndexReaderContext + 'static,

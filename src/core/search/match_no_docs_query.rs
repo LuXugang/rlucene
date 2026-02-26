@@ -147,18 +147,16 @@ where
     }
 }
 
-impl<IRC> SegmentCacheable for MatchNoDocsWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for MatchNoDocsWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<IRC> Weight for MatchNoDocsWeight<IRC>
+impl<IRC> Weight<IRC> for MatchNoDocsWeight<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,

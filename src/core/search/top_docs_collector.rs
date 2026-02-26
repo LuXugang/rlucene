@@ -358,7 +358,7 @@ mod tests {
         ) -> Result<Self::LeafCollector<'a, IRC>>
         where
             IRC: IndexReaderContext,
-            W: Weight<IRC = IRC> + ?Sized,
+            W: Weight<IRC> + ?Sized,
         {
             let base = context.doc_base;
             Ok(LeafCollectorImpl::new(self, base, SCORES))

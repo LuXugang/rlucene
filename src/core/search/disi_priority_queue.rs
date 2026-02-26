@@ -439,30 +439,46 @@ where {
         }
     }
 
-    impl SegmentCacheable for DummyQueryImplWeight {
-        type IRC = CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>;
-        fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<bool> {
+    impl SegmentCacheable<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>
+        for DummyQueryImplWeight
+    {
+        fn is_cacheable(
+            &self,
+            _ctx: &LeafReaderContext<
+                IRCLeafReader<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
+            >,
+        ) -> Result<bool> {
             Ok(true)
         }
     }
 
-    impl Weight for DummyQueryImplWeight {
+    impl Weight<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>
+        for DummyQueryImplWeight
+    {
         type Matches = MatchWithNoTerms;
 
         fn matches(
             &self,
-            context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+            context: &LeafReaderContext<
+                IRCLeafReader<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
+            >,
             _doc: i32,
-            _searcher: &IndexSearcher<Self::IRC>,
+            _searcher: &IndexSearcher<
+                CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>,
+            >,
         ) -> Result<Option<Self::Matches>> {
             self.default_matches(context, _doc, _searcher)
         }
 
         fn explain(
             &self,
-            _context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+            _context: &LeafReaderContext<
+                IRCLeafReader<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
+            >,
             _doc: i32,
-            _searcher: &IndexSearcher<Self::IRC>,
+            _searcher: &IndexSearcher<
+                CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>,
+            >,
         ) -> Result<Explanation> {
             unreachable!()
         }
@@ -478,8 +494,12 @@ where {
 
         fn scorer_supplier(
             &self,
-            _context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
-            _searcher: &IndexSearcher<Self::IRC>,
+            _context: &LeafReaderContext<
+                IRCLeafReader<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
+            >,
+            _searcher: &IndexSearcher<
+                CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>,
+            >,
         ) -> Result<Option<Self::ScorerSupplier>> {
             let v =
                 ConstantScoreScorer::from_disi(1.0f32, self.score_mode, self.query.disi.clone());

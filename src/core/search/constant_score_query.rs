@@ -176,19 +176,17 @@ where
         }
     }
 }
-impl<IRC> SegmentCacheable for WeightImpl<IRC>
+impl<IRC> SegmentCacheable<IRC> for WeightImpl<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         self.inner_weight.is_cacheable(ctx)
     }
 }
 
-impl<IRC> Weight for WeightImpl<IRC>
+impl<IRC> Weight<IRC> for WeightImpl<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
@@ -476,18 +474,16 @@ where
         Self { inner }
     }
 }
-impl<IRC> SegmentCacheable for ConstantScoreQueryWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for ConstantScoreQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         self.inner.is_cacheable(ctx)
     }
 }
-impl<IRC> Weight for ConstantScoreQueryWeight<IRC>
+impl<IRC> Weight<IRC> for ConstantScoreQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,

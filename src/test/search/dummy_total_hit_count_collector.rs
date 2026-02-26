@@ -61,7 +61,7 @@ impl Collector for DummyTotalHitCountCollector {
     ) -> Result<Self::LeafCollector<'a, IRC>>
     where
         IRC: IndexReaderContext,
-        W: Weight<IRC = IRC> + ?Sized,
+        W: Weight<IRC> + ?Sized,
     {
         Ok(DummyLeafCollectorImpl::new(self))
     }

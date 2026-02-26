@@ -112,19 +112,17 @@ where
     }
 }
 
-impl<IRC, Q> SegmentCacheable for RewritingWeight<IRC, Q>
+impl<IRC, Q> SegmentCacheable<IRC> for RewritingWeight<IRC, Q>
 where
     IRC: IndexReaderContext,
     Q: MultiTermQuery,
 {
-    type IRC = IRC;
-
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<bool> {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<IRC, Q> Weight for RewritingWeight<IRC, Q>
+impl<IRC, Q> Weight<IRC> for RewritingWeight<IRC, Q>
 where
     IRC: IndexReaderContext,
     Q: MultiTermQuery,
@@ -136,18 +134,18 @@ where
 
     fn matches(
         &self,
-        _context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _doc: i32,
-        _searcher: &IndexSearcher<Self::IRC>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::Matches>> {
         todo!()
     }
 
     fn explain(
         &self,
-        _context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _doc: i32,
-        _searcher: &IndexSearcher<Self::IRC>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Explanation> {
         todo!()
     }
@@ -160,8 +158,8 @@ where
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
-        _searcher: &IndexSearcher<Self::IRC>,
+        context: &LeafReaderContext<IRCLeafReader<IRC>>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         let terms = match context.reader().terms(self.q.get_field())? {
             Some(t) => t,

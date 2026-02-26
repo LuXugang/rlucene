@@ -50,18 +50,16 @@ impl Default for DummyWeight<LeafReaderContext<DummyLeafReader>> {
     }
 }
 
-impl<IRC> SegmentCacheable for DummyWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for DummyWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl<IRC> Weight for DummyWeight<IRC>
+impl<IRC> Weight<IRC> for DummyWeight<IRC>
 where
     IRC: IndexReaderContext,
 {

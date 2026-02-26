@@ -53,7 +53,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 pub type QueryWeight<IRC> =
-    Box<dyn Weight<IRC = IRC, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<IRC>>>;
+    Box<dyn Weight<IRC, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<IRC>>>;
 pub type QueryWeightSs<IRC> = Box<
     dyn ScorerSupplier<IRC, BulkScorer = QueryWeightSsBulkScorer, Scorer = QueryWeightSsScorer>,
 >;

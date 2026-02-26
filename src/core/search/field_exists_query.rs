@@ -231,12 +231,10 @@ where
     }
 }
 
-impl<IRC> SegmentCacheable for FieldExistsWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for FieldExistsWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         let field_infos = ctx.reader().get_field_infos()?;
         let field_info = field_infos.field_info_by_name(&self.query.field);
@@ -251,7 +249,7 @@ where
     }
 }
 pub type Disi<LR> = DocIdSetIteratorEnum3<LRNormNumericDocValues<LR>, DummyDISI, LRDisis<LR>>;
-impl<IRC> Weight for FieldExistsWeight<IRC>
+impl<IRC> Weight<IRC> for FieldExistsWeight<IRC>
 where
     IRC: IndexReaderContext,
 {

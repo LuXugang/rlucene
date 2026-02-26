@@ -30,29 +30,26 @@ use std::sync::Arc;
 ///
 /// Objects that are not segment-immutable, such as those that rely on global statistics or
 /// scores, should return `false`.
-pub trait SegmentCacheable {
-    type IRC: IndexReaderContext;
+pub trait SegmentCacheable<IRC: IndexReaderContext> {
     /// Returns `Ok(true)` if the object can be cached against a given leaf.
-    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<bool>;
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool>;
 }
 
-impl<T> SegmentCacheable for Arc<T>
+impl<IRC, T> SegmentCacheable<IRC> for Arc<T>
 where
-    T: SegmentCacheable,
+    IRC: IndexReaderContext,
+    T: SegmentCacheable<IRC>,
 {
-    type IRC = T::IRC;
-
-    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<bool> {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         self.as_ref().is_cacheable(ctx)
     }
 }
-impl<T> SegmentCacheable for Box<T>
+impl<IRC, T> SegmentCacheable<IRC> for Box<T>
 where
-    T: SegmentCacheable + ?Sized,
+    IRC: IndexReaderContext,
+    T: SegmentCacheable<IRC> + ?Sized,
 {
-    type IRC = T::IRC;
-
-    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<Self::IRC>>) -> Result<bool> {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         self.as_ref().is_cacheable(ctx)
     }
 }

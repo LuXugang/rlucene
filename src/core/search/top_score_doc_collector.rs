@@ -82,7 +82,7 @@ impl Collector for TopScoreDocCollector {
     ) -> Result<Self::LeafCollector<'a, IRC>>
     where
         IRC: IndexReaderContext,
-        W: Weight<IRC = IRC> + ?Sized,
+        W: Weight<IRC> + ?Sized,
     {
         let doc_base = context.doc_base;
         let after_score: f32;

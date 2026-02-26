@@ -59,19 +59,17 @@ where
         })
     }
 }
-impl<S, IRC> SegmentCacheable for PhraseWeight<S, IRC>
+impl<S, IRC> SegmentCacheable<IRC> for PhraseWeight<S, IRC>
 where
     S: PhraseWeightBase<IRCLeafReader<IRC>>,
     IRC: IndexReaderContext,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         Ok(true)
     }
 }
 
-impl<S, IRC> Weight for PhraseWeight<S, IRC>
+impl<S, IRC> Weight<IRC> for PhraseWeight<S, IRC>
 where
     S: PhraseWeightBase<IRCLeafReader<IRC>>,
     IRC: IndexReaderContext,

@@ -193,19 +193,17 @@ where
     }
 }
 
-impl<IRC> SegmentCacheable for SortedSetDocValuesRangeQueryWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for SortedSetDocValuesRangeQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
-    type IRC = IRC;
-
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         let field = vec![self.query.field.clone()];
         DocValues::is_cacheable(ctx, field.as_ref())
     }
 }
 
-impl<IRC> Weight for SortedSetDocValuesRangeQueryWeight<IRC>
+impl<IRC> Weight<IRC> for SortedSetDocValuesRangeQueryWeight<IRC>
 where
     IRCLeafReader<IRC>: LeafReader + 'static,
     IRC: IndexReaderContext,
