@@ -208,7 +208,7 @@ where
     let rewritten = searcher.rewrite(query)?;
     let weight = rewritten.create_weight(searcher, score_mode, score)?;
 
-    Ok(WeightOrDocIdSetIterator::new_weight(weight))
+    Ok(WeightOrDocIdSetIterator::from_weight(weight))
 }
 /// Estimate the cost. If the MTQ can provide its term count, we can do a better job
 /// estimating.
@@ -374,14 +374,14 @@ where
     IRC: IndexReaderContext,
     D: DocIdSetIterator,
 {
-    pub(crate) fn new_weight(weight: QueryWeight<IRC>) -> Self {
+    pub(crate) fn from_weight(weight: QueryWeight<IRC>) -> Self {
         Self {
             weight: Some(weight),
             iterator: None,
         }
     }
 
-    pub(crate) fn new_iterator(iterator: D) -> Self {
+    pub(crate) fn from_iterator(iterator: D) -> Self {
         Self {
             weight: None,
             iterator: Some(iterator),

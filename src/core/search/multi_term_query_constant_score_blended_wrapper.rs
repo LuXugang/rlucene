@@ -123,7 +123,7 @@ impl RewritingWeightBase for RewritingWeightBaseImpl1 {
 
                 let rewritten = searcher.rewrite(q)?;
                 let weight = rewritten.create_weight(searcher, score_mode, score)?;
-                let v = WeightOrDocIdSetIterator::new_weight(weight);
+                let v = WeightOrDocIdSetIterator::from_weight(weight);
                 return Ok(v);
             }
 
@@ -172,7 +172,7 @@ impl RewritingWeightBase for RewritingWeightBaseImpl1 {
         let scorer =
             wrap_with_dummy_scorer(DocIdSetIteratorEnum2::A(other_terms.build()?.iterator()?));
         all_scorers.push(DisiWrapper::new(scorer)?);
-        let v = WeightOrDocIdSetIterator::new_iterator(DocIdSetIteratorEnum2::B(
+        let v = WeightOrDocIdSetIterator::from_iterator(DocIdSetIteratorEnum2::B(
             DisjunctionDISIApproximation::new(subs, all_scorers),
         ));
         Ok(v)
