@@ -32,7 +32,7 @@ pub trait Terms {
     /// not return None.
     fn iterator(&self) -> Result<Self::TermsEnum>;
 
-    type IntersectIter: TermsEnum;
+    type IntersectIter: TermsEnum<PostingsEnum = <Self::TermsEnum as TermsEnum>::PostingsEnum>;
     /// Returns a [`TermsEnum`] that iterates over all terms and documents
     /// accepted by the given [`CompiledAutomaton`].
     ///

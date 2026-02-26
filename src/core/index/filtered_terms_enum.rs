@@ -16,7 +16,6 @@
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
-use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::util::ToInt;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -197,16 +196,14 @@ where
         self.tenum.total_term_freq()
     }
 
-    type PostingsEnum = DummyPostingsEnum;
+    type PostingsEnum = T::PostingsEnum;
 
     fn postings_with_flags(
         &mut self,
-        _reuse: Option<Self::PostingsEnum>,
-        _flags: i32,
+        reuse: Option<Self::PostingsEnum>,
+        flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        Err(LuceneError::unsupported_operation(
-            "FilteredTermsEnum::postings_with_flags",
-        ))
+        self.tenum.postings_with_flags(reuse, flags)
     }
 
     type ImpactsEnum = T::ImpactsEnum;
