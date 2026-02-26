@@ -276,7 +276,7 @@ impl QueryBase for PhraseQuery {
             .ok_or_else(|| LuceneError::illegal_state("field is None"))?;
         let base = PhraseWeightMeta::new(field, *score_mode, similarity, query.into());
         let sub = PhraseQueryWeightBase::new(self, boost, base);
-        let weight: PhraseWeight<_, IRC> = PhraseWeight::new(searcher, sub)?;
+        let weight = PhraseWeight::new(searcher, sub)?;
         Ok(Box::new(weight))
     }
 
@@ -458,15 +458,12 @@ impl PhraseQueryWeightBase {
     }
 }
 
-impl<LR> PhraseWeightBase<LR> for PhraseQueryWeightBase
-where
-    LR: LeafReader,
-{
+impl PhraseWeightBase for PhraseQueryWeightBase {
     type SimScorer = Arc<SimScorerType>;
 
     fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
     where
-        IRC: IndexReaderContext<LeafReader = LR>,
+        IRC: IndexReaderContext,
     {
         let positions = &self.query.positions;
 
@@ -519,12 +516,15 @@ where
         Ok(Arc::new(v))
     }
 
-    fn get_phrase_matcher(
+    fn get_phrase_matcher<LR>(
         &self,
         context: &LeafReaderContext<LR>,
         scorer: Self::SimScorer,
         expose_offsets: bool,
-    ) -> Result<Option<DefaultPhraseMatcherEnum<LR, Self::SimScorer>>> {
+    ) -> Result<Option<DefaultPhraseMatcherEnum<LR, Self::SimScorer>>>
+    where
+        LR: LeafReader,
+    {
         debug_assert!(!self.query.terms.is_empty());
         let reader = context.reader();
 

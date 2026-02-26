@@ -22,22 +22,10 @@ use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::util::error::lucene_error::Result;
-use std::marker::PhantomData;
 
-pub struct DummyScorerSupplier<IRC>(PhantomData<IRC>)
-where
-    IRC: IndexReaderContext;
+pub struct DummyScorerSupplier;
 
-impl<IRC> Default for DummyScorerSupplier<IRC>
-where
-    IRC: IndexReaderContext,
-{
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<IRC> ScorerSupplier<IRC> for DummyScorerSupplier<IRC>
+impl<IRC> ScorerSupplier<IRC> for DummyScorerSupplier
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: LeafReader,

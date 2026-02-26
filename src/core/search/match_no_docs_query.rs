@@ -28,7 +28,6 @@ use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A query that matches no documents.
@@ -127,27 +126,19 @@ impl QueryBase for MatchNoDocsQuery {
     }
 }
 
-pub struct MatchNoDocsWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+pub struct MatchNoDocsWeight {
     parent_query: Arc<Query>,
-    _irc: PhantomData<IRC>,
 }
 
-impl<IRC> MatchNoDocsWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl MatchNoDocsWeight {
     pub fn new(query: MatchNoDocsQuery) -> Self {
         Self {
             parent_query: Arc::new(query.into()),
-            _irc: PhantomData,
         }
     }
 }
 
-impl<IRC> SegmentCacheable<IRC> for MatchNoDocsWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for MatchNoDocsWeight
 where
     IRC: IndexReaderContext,
 {
@@ -156,7 +147,7 @@ where
     }
 }
 
-impl<IRC> Weight<IRC> for MatchNoDocsWeight<IRC>
+impl<IRC> Weight<IRC> for MatchNoDocsWeight
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
@@ -207,10 +198,7 @@ where
     }
 }
 
-impl<IRC> std::fmt::Debug for MatchNoDocsWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl std::fmt::Debug for MatchNoDocsWeight {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "weight({:?})", self.parent_query)
     }

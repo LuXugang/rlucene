@@ -40,7 +40,6 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A query that matches all documents.
@@ -116,30 +115,22 @@ impl QueryBase for MatchAllDocsQuery {
     }
 }
 
-pub struct MatchAllWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+pub struct MatchAllWeight {
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     score_mode: ScoreMode,
-    _irc: PhantomData<IRC>,
 }
-impl<IRC> MatchAllWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl MatchAllWeight {
     pub fn new(score: f32, query: MatchAllDocsQuery, score_mode: ScoreMode) -> Self {
         Self {
             base: ConstantScoreWeight::new(score),
             parent_query: Arc::new(query.into()),
             score_mode,
-            _irc: PhantomData,
         }
     }
 }
 
-impl<IRC> SegmentCacheable<IRC> for MatchAllWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for MatchAllWeight
 where
     IRC: IndexReaderContext,
 {
@@ -148,7 +139,7 @@ where
     }
 }
 
-impl<IRC> Weight<IRC> for MatchAllWeight<IRC>
+impl<IRC> Weight<IRC> for MatchAllWeight
 where
     IRC: IndexReaderContext,
     <IRC as IndexReaderContext>::LeafReader: 'static,
@@ -198,37 +189,26 @@ where
         context.reader().num_docs()
     }
 }
-impl<IRC> Debug for MatchAllWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl Debug for MatchAllWeight {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "weight({:?})", MatchAllDocsQuery::new())
     }
 }
-pub struct MatchAllDocsScorerSupplier<IRC>
-where
-    IRC: IndexReaderContext,
-{
+pub struct MatchAllDocsScorerSupplier {
     score_mode: ScoreMode,
     weight: ConstantScoreWeight,
     max_doc: i32,
-    _irc: PhantomData<IRC>,
 }
-impl<IRC> MatchAllDocsScorerSupplier<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl MatchAllDocsScorerSupplier {
     pub fn new(score_mode: ScoreMode, weight: ConstantScoreWeight, max_doc: i32) -> Self {
         Self {
             score_mode,
             weight,
             max_doc,
-            _irc: PhantomData,
         }
     }
 }
-impl<IRC> ScorerSupplier<IRC> for MatchAllDocsScorerSupplier<IRC>
+impl<IRC> ScorerSupplier<IRC> for MatchAllDocsScorerSupplier
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,

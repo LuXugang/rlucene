@@ -54,7 +54,6 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -390,9 +389,8 @@ where {
     }
 }
 
-pub struct ScorerSupplierImpl<IRC, D>
+pub struct ScorerSupplierImpl<D>
 where
-    IRC: IndexReaderContext,
     D: DocIdSetIterator,
 {
     disi: Option<IteratorAndCountDisi<D>>,
@@ -402,11 +400,9 @@ where
     upper_value: i64,
     field: String,
     score: f32,
-    _irc: PhantomData<IRC>,
 }
-impl<IRC, D> ScorerSupplierImpl<IRC, D>
+impl<D> ScorerSupplierImpl<D>
 where
-    IRC: IndexReaderContext,
     D: DocIdSetIterator,
 {
     pub fn new(
@@ -426,11 +422,10 @@ where
             upper_value,
             field,
             score,
-            _irc: PhantomData,
         })
     }
 }
-impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC, Disi<IRCLeafReader<IRC>>>
+impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<Disi<IRCLeafReader<IRC>>>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,

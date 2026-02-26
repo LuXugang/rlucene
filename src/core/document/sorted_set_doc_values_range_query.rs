@@ -45,7 +45,6 @@ use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -162,20 +161,13 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
     }
 }
 
-pub struct SortedSetDocValuesRangeQueryWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+pub struct SortedSetDocValuesRangeQueryWeight {
     query: SortedSetDocValuesRangeQuery,
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     score_mode: ScoreMode,
-    _irc: PhantomData<IRC>,
 }
-impl<IRC> SortedSetDocValuesRangeQueryWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl SortedSetDocValuesRangeQueryWeight {
     pub(crate) fn new(
         query: SortedSetDocValuesRangeQuery,
         score: f32,
@@ -188,12 +180,11 @@ where
             base: ConstantScoreWeight::new(score),
             parent_query,
             score_mode,
-            _irc: PhantomData,
         }
     }
 }
 
-impl<IRC> SegmentCacheable<IRC> for SortedSetDocValuesRangeQueryWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for SortedSetDocValuesRangeQueryWeight
 where
     IRC: IndexReaderContext,
 {
@@ -203,7 +194,7 @@ where
     }
 }
 
-impl<IRC> Weight<IRC> for SortedSetDocValuesRangeQueryWeight<IRC>
+impl<IRC> Weight<IRC> for SortedSetDocValuesRangeQueryWeight
 where
     IRCLeafReader<IRC>: LeafReader + 'static,
     IRC: IndexReaderContext,

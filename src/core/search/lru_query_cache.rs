@@ -60,7 +60,6 @@ use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::fmt::{Display, Formatter};
-use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 
@@ -682,7 +681,6 @@ where
     policy: Arc<QueryCachingPolicyEnum>,
     used: AtomicBool,
     lru_cache: Arc<LRUQueryCache<P>>,
-    _irc: PhantomData<IRC>,
 }
 impl<P, IRC> CachingWrapperWeight<P, IRC>
 where
@@ -700,7 +698,6 @@ where
             policy,
             used: AtomicBool::new(false),
             lru_cache,
-            _irc: PhantomData,
         }
     }
     fn should_cache(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -894,7 +891,6 @@ where
     lru_query_cache: Arc<LRUQueryCache<P>>,
     query: Arc<Query>,
     cache_helper: C,
-    _irc: PhantomData<IRC>,
 }
 impl<C, P, IRC> ScorerSupplierImpl1<C, P, IRC>
 where
@@ -919,7 +915,6 @@ where
             lru_query_cache,
             query,
             cache_helper,
-            _irc: PhantomData,
         })
     }
 }
@@ -978,28 +973,17 @@ where
     }
 }
 
-pub struct ScorerSupplierImpl2<IRC>
-where
-    IRC: IndexReaderContext,
-{
+pub struct ScorerSupplierImpl2 {
     disi: CacheAndCountDISI,
     cost: i64,
-    _irc: PhantomData<IRC>,
 }
-impl<IRC> ScorerSupplierImpl2<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl ScorerSupplierImpl2 {
     pub(crate) fn new(disi: CacheAndCountDISI) -> Result<Self> {
         let cost = disi.cost()?;
-        Ok(Self {
-            disi,
-            cost,
-            _irc: PhantomData,
-        })
+        Ok(Self { disi, cost })
     }
 }
-impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl2<IRC>
+impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl2
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: LeafReader,

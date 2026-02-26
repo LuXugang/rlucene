@@ -33,7 +33,6 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Expert: Calculate query weights and build query scorers.
@@ -425,27 +424,23 @@ where
         self.scorer.iterator_mut().cost()
     }
 }
-pub struct DefaultScorerSupplier<S, IRC>
+pub struct DefaultScorerSupplier<S>
 where
-    IRC: IndexReaderContext,
     S: Scorer,
 {
     scorer: Option<S>,
-    _irc: PhantomData<IRC>,
 }
-impl<S, IRC> DefaultScorerSupplier<S, IRC>
+impl<S> DefaultScorerSupplier<S>
 where
-    IRC: IndexReaderContext,
     S: Scorer,
 {
     pub fn new(scorer: S) -> Self {
         Self {
             scorer: Some(scorer),
-            _irc: PhantomData,
         }
     }
 }
-impl<S, IRC> ScorerSupplier<IRC> for DefaultScorerSupplier<S, IRC>
+impl<S, IRC> ScorerSupplier<IRC> for DefaultScorerSupplier<S>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: LeafReader,

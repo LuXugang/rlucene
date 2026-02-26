@@ -47,7 +47,6 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::term_query::{TermQuery, TermStatesMeta};
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 pub(crate) const BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD: usize = 16;
@@ -59,20 +58,17 @@ pub(crate) const BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD: usize = 16;
 /// or extended by users.
 pub struct AbstractMultiTermQueryConstantScoreWrapper {}
 
-pub struct RewritingWeight<IRC, Q>
+pub struct RewritingWeight<Q>
 where
-    IRC: IndexReaderContext,
     Q: MultiTermQuery,
 {
     score_mode: ScoreMode,
     q: Q,
     base: ConstantScoreWeight,
-    _irc: PhantomData<IRC>,
     sub: RewritingWeightBaseEnum,
 }
-impl<IRC, Q> RewritingWeight<IRC, Q>
+impl<Q> RewritingWeight<Q>
 where
-    IRC: IndexReaderContext,
     Q: MultiTermQuery,
 {
     fn collect_terms<TE>(
@@ -112,7 +108,7 @@ where
     }
 }
 
-impl<IRC, Q> SegmentCacheable<IRC> for RewritingWeight<IRC, Q>
+impl<IRC, Q> SegmentCacheable<IRC> for RewritingWeight<Q>
 where
     IRC: IndexReaderContext,
     Q: MultiTermQuery,
@@ -122,7 +118,7 @@ where
     }
 }
 
-impl<IRC, Q> Weight<IRC> for RewritingWeight<IRC, Q>
+impl<IRC, Q> Weight<IRC> for RewritingWeight<Q>
 where
     IRC: IndexReaderContext,
     Q: MultiTermQuery,

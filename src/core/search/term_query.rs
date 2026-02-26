@@ -54,7 +54,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A Query that matches documents containing a term. This may be combined with other terms with a [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery).
@@ -153,7 +152,7 @@ impl QueryBase for TermQuery {
             },
             _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
         };
-        Ok(Box::new(TermWeight::<IRC>::new(
+        Ok(Box::new(TermWeight::new(
             searcher,
             *score_mode,
             boost,
@@ -202,28 +201,24 @@ impl TermStatesMeta {
         }
     }
 }
-pub struct TermWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+pub struct TermWeight {
     similarity: Arc<SimilarityEnum>,
     sim_scorer: Option<Arc<TermQuerySimScorer>>,
     term_states: Arc<Mutex<TermStates>>,
     score_mode: ScoreMode,
     parent_query: Arc<Query>,
-    _irc: PhantomData<IRC>,
 }
-impl<IRC> TermWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
-    pub fn new(
+impl TermWeight {
+    pub fn new<IRC>(
         searcher: &IndexSearcher<IRC>,
         score_mode: ScoreMode,
         boost: f32,
         term_states: TermStates,
         query: TermQuery,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        IRC: IndexReaderContext,
+    {
         debug_assert!(query.per_reader_term_state.is_none());
         let similarity = searcher.get_similarity();
 
@@ -270,14 +265,13 @@ where
             term_states: Arc::new(Mutex::new(term_states)),
             score_mode,
             parent_query: Arc::new(query.into()),
-            _irc: PhantomData,
         })
     }
     /// Returns a TermsEnum positioned at this weights Term or None if the term does not exist in the given context
-    fn get_terms_enum(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    ) -> Result<Option<LRTermsEnum<IRCLeafReader<IRC>>>> {
+    fn get_terms_enum<LR>(&self, context: &LeafReaderContext<LR>) -> Result<Option<LRTermsEnum<LR>>>
+    where
+        LR: LeafReader,
+    {
         debug_assert!(
             {
                 let v = ReaderUtil::get_top_level_context(context);
@@ -322,7 +316,7 @@ where
     }
 }
 
-impl<IRC> SegmentCacheable<IRC> for TermWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for TermWeight
 where
     IRC: IndexReaderContext,
 {
@@ -331,7 +325,7 @@ where
     }
 }
 
-impl<IRC> Weight<IRC> for TermWeight<IRC>
+impl<IRC> Weight<IRC> for TermWeight
 where
     IRC: IndexReaderContext,
 {
@@ -392,7 +386,7 @@ where
                     score_explanation.value,
                     format!(
                         "weight({:?} in {}) [{}], result of:",
-                        self.get_query(),
+                        <Self as Weight<IRC>>::get_query(self),
                         doc,
                         self.similarity,
                     ),
@@ -457,19 +451,19 @@ where
                 Ok(0)
             }
         } else {
-            self.default_count(context)
+            <Self as Weight<IRC>>::default_count(self, context)
         }
     }
 }
 
-impl<IRC> TermWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
-    fn build_term_scorer(
+impl TermWeight {
+    fn build_term_scorer<LR>(
         &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    ) -> Result<Option<TermScorerEnum<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>>> {
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>>>
+    where
+        LR: LeafReader,
+    {
         match self.get_terms_enum(context)? {
             Some(mut terms_enum) => {
                 let norms = if self.score_mode.needs_scores() {
@@ -484,15 +478,14 @@ where
                 };
 
                 if self.score_mode == ScoreMode::TopScores {
-                    let v =
-                        TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::A(
-                            TermScorer::from_impacts(
-                                terms_enum.impacts(FREQS as i32)?,
-                                self.sim_scorer.as_ref().unwrap().clone(),
-                                norms,
-                                false,
-                            ),
-                        );
+                    let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
+                        TermScorer::from_impacts(
+                            terms_enum.impacts(FREQS as i32)?,
+                            self.sim_scorer.as_ref().unwrap().clone(),
+                            norms,
+                            false,
+                        ),
+                    );
                     Ok(Some(v))
                 } else {
                     let flags = if self.score_mode.needs_scores() {
@@ -500,19 +493,18 @@ where
                     } else {
                         NONE
                     };
-                    let v =
-                        TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::A(
-                            TermScorer::from_postings(
-                                terms_enum.postings_with_flags(None, flags as i32)?,
-                                self.sim_scorer.as_ref().unwrap().clone(),
-                                norms,
-                            ),
-                        );
+                    let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
+                        TermScorer::from_postings(
+                            terms_enum.postings_with_flags(None, flags as i32)?,
+                            self.sim_scorer.as_ref().unwrap().clone(),
+                            norms,
+                        ),
+                    );
                     Ok(Some(v))
                 }
             },
             None => {
-                let v = TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::B(
+                let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
                     ConstantScoreScorer::from_disi(0.0, self.score_mode, EmptyDISI::default()),
                 );
                 Ok(Some(v))

@@ -52,7 +52,6 @@ use crate::core::util::ints_ref::IntsRef;
 use crate::test::search::test_point_queries::PointRangeQueryBaseImpl;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Struct for range queries over single- or multi-dimensional point fields,
@@ -239,21 +238,14 @@ impl QueryBase for PointRangeQuery {
     }
 }
 
-pub struct PointRangeWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+pub struct PointRangeWeight {
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     comparator: ByteArrayComparatorEnum,
-    _irc: PhantomData<IRC>,
     query: Arc<PointRangeQuery>,
     score_mode: ScoreMode,
 }
-impl<IRC> PointRangeWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl PointRangeWeight {
     pub fn new(score: f32, query: PointRangeQuery, score_mode: ScoreMode) -> Self {
         let comparator = ArrayUtil::get_unsigned_comparator(query.bytes_per_dim);
         let point_range_query = Arc::new(query.clone());
@@ -262,7 +254,6 @@ where
             base: ConstantScoreWeight::new(score),
             parent_query,
             comparator,
-            _irc: PhantomData,
             query: point_range_query,
             score_mode,
         }
@@ -304,7 +295,7 @@ where
     }
     fn get_intersect_visitor(
         result: DocIdSetBuilder,
-        weight: &'_ PointRangeWeight<IRC>,
+        weight: &'_ PointRangeWeight,
     ) -> IntersectVisitorImpl1 {
         IntersectVisitorImpl1::new(result, weight.query.clone(), weight.comparator.clone())
     }
@@ -378,7 +369,7 @@ where
     }
 }
 
-impl<IRC> SegmentCacheable<IRC> for PointRangeWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for PointRangeWeight
 where
     IRC: IndexReaderContext,
 {
@@ -387,7 +378,7 @@ where
     }
 }
 
-impl<IRC> Weight<IRC> for PointRangeWeight<IRC>
+impl<IRC> Weight<IRC> for PointRangeWeight
 where
     IRC: IndexReaderContext,
 {
@@ -515,7 +506,7 @@ where
         }
         let max_doc = reader.max_doc()?;
         if all_docs_match {
-            Ok(Some(Box::new(ScorerSupplierImpl::<IRC>::new(
+            Ok(Some(Box::new(ScorerSupplierImpl::new(
                 self.base.score(),
                 self.score_mode,
                 max_doc,
@@ -523,7 +514,7 @@ where
         } else {
             let result =
                 DocIdSetBuilder::from_point_values(max_doc, &values, self.query.field.as_ref())?;
-            Ok(Some(Box::new(ScorerSupplierImpl1::<IRC, _>::new(
+            Ok(Some(Box::new(ScorerSupplierImpl1::new(
                 self.base.score(),
                 self.score_mode,
                 values,
@@ -565,7 +556,7 @@ where
                 return Ok(self.point_count(&mut tree)? as i32);
             }
         }
-        self.default_count(context)
+        <Self as Weight<IRC>>::default_count(self, context)
     }
 }
 pub(crate) fn matches(
@@ -631,9 +622,8 @@ pub(crate) fn relate(
         Ok(Relation::CellInsideQuery)
     }
 }
-pub struct ScorerSupplierImpl1<IRC, PV>
+pub struct ScorerSupplierImpl1<PV>
 where
-    IRC: IndexReaderContext,
     PV: PointValues,
 {
     score: f32,
@@ -641,11 +631,9 @@ where
     values: PV,
     visitor: IntersectVisitorImpl1,
     cost: i64,
-    _irc: PhantomData<IRC>,
 }
-impl<IRC, PV> ScorerSupplierImpl1<IRC, PV>
+impl<PV> ScorerSupplierImpl1<PV>
 where
-    IRC: IndexReaderContext,
     PV: PointValues,
 {
     pub fn new(
@@ -660,12 +648,11 @@ where
             values,
             visitor,
             cost: -1,
-            _irc: PhantomData,
         }
     }
 }
 impl<IRC> ScorerSupplier<IRC>
-    for ScorerSupplierImpl1<IRC, <IRCLeafReader<IRC> as LeafReader>::PointValues>
+    for ScorerSupplierImpl1<<IRCLeafReader<IRC> as LeafReader>::PointValues>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: LeafReader,
@@ -736,29 +723,21 @@ where
         Ok(self.cost)
     }
 }
-pub struct ScorerSupplierImpl<IRC>
-where
-    IRC: IndexReaderContext,
-{
+pub struct ScorerSupplierImpl {
     score_mode: ScoreMode,
     max_doc: i32,
     score: f32,
-    _irc: PhantomData<IRC>,
 }
-impl<IRC> ScorerSupplierImpl<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl ScorerSupplierImpl {
     pub fn new(score: f32, score_mode: ScoreMode, max_doc: i32) -> Self {
         Self {
             score,
             score_mode,
             max_doc,
-            _irc: PhantomData,
         }
     }
 }
-impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC>
+impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: LeafReader,

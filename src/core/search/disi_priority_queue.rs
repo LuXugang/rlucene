@@ -487,10 +487,8 @@ where {
             unreachable!()
         }
 
-        type ScorerSupplier = DefaultScorerSupplier<
-            ConstantScoreScorer<DocIdSetIteratorImpl, DummyTwoPhaseIterator>,
-            CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>,
-        >;
+        type ScorerSupplier =
+            DefaultScorerSupplier<ConstantScoreScorer<DocIdSetIteratorImpl, DummyTwoPhaseIterator>>;
 
         fn scorer_supplier(
             &self,

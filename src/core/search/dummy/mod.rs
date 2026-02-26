@@ -26,7 +26,6 @@ pub mod dummy_scorable;
 pub mod dummy_score_doc_like;
 pub mod dummy_scorer;
 pub mod dummy_scorer_supplier;
-pub mod dummy_segment_cacheable;
 pub mod dummy_sim_scorer;
 pub mod dummy_similarity;
 pub mod dummy_two_phase_iterator;

@@ -41,7 +41,6 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A `Query` that matches documents that contain either a `KnnFloatVectorField`,
@@ -202,21 +201,14 @@ impl QueryBase for FieldExistsQuery {
     }
 }
 
-pub struct FieldExistsWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+pub struct FieldExistsWeight {
     query: FieldExistsQuery,
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     score_mode: ScoreMode,
-    _irc: PhantomData<IRC>,
     score: f32,
 }
-impl<IRC> FieldExistsWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl FieldExistsWeight {
     fn new(score: f32, query: FieldExistsQuery, score_mode: ScoreMode) -> Self {
         let query_clone = query.clone();
         let parent_query = Arc::new(query_clone.into());
@@ -225,13 +217,12 @@ where
             query,
             parent_query,
             score_mode,
-            _irc: PhantomData,
             score,
         }
     }
 }
 
-impl<IRC> SegmentCacheable<IRC> for FieldExistsWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for FieldExistsWeight
 where
     IRC: IndexReaderContext,
 {
@@ -249,7 +240,7 @@ where
     }
 }
 pub type Disi<LR> = DocIdSetIteratorEnum3<LRNormNumericDocValues<LR>, DummyDISI, LRDisis<LR>>;
-impl<IRC> Weight<IRC> for FieldExistsWeight<IRC>
+impl<IRC> Weight<IRC> for FieldExistsWeight
 where
     IRC: IndexReaderContext,
 {
@@ -363,7 +354,7 @@ where
             if doc_count == reader.max_doc()? {
                 return reader.num_docs();
             }
-            return self.default_count(ctx);
+            return <Self as Weight<IRC>>::default_count(self, ctx);
         }
 
         if fi.has_vector_values() {
@@ -371,7 +362,7 @@ where
             if !reader.has_deletions()? {
                 return Ok(self.query.get_vector_values_size(fi.as_ref(), reader));
             }
-            return self.default_count(ctx);
+            return <Self as Weight<IRC>>::default_count(self, ctx);
         }
 
         if *fi.get_doc_values_type() != DocValuesType::None {
@@ -394,7 +385,7 @@ where
                 }
             }
 
-            return self.default_count(ctx);
+            return <Self as Weight<IRC>>::default_count(self, ctx);
         }
 
         Err(LuceneError::illegal_argument(

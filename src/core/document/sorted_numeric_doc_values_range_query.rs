@@ -43,7 +43,6 @@ use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -112,9 +111,11 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         Self: Sized,
         IRCLeafReader<IRC>: 'static,
     {
-        Ok(Box::new(
-            SortedNumericDocValuesRangeQueryWeight::<IRC>::new(self, *score_mode, boost),
-        ))
+        Ok(Box::new(SortedNumericDocValuesRangeQueryWeight::new(
+            self,
+            *score_mode,
+            boost,
+        )))
     }
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -138,20 +139,13 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         todo!()
     }
 }
-pub struct SortedNumericDocValuesRangeQueryWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+pub struct SortedNumericDocValuesRangeQueryWeight {
     query: SortedNumericDocValuesRangeQuery,
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
     score_mode: ScoreMode,
-    _irc: PhantomData<IRC>,
 }
-impl<IRC> SortedNumericDocValuesRangeQueryWeight<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl SortedNumericDocValuesRangeQueryWeight {
     pub(crate) fn new(
         query: SortedNumericDocValuesRangeQuery,
         score_mode: ScoreMode,
@@ -164,7 +158,6 @@ where
             base: ConstantScoreWeight::new(boost),
             parent_query,
             score_mode,
-            _irc: PhantomData,
         }
     }
 
@@ -266,7 +259,7 @@ where
     }
 }
 
-impl<IRC> SegmentCacheable<IRC> for SortedNumericDocValuesRangeQueryWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for SortedNumericDocValuesRangeQueryWeight
 where
     IRC: IndexReaderContext,
 {
@@ -276,7 +269,7 @@ where
     }
 }
 
-impl<IRC> Weight<IRC> for SortedNumericDocValuesRangeQueryWeight<IRC>
+impl<IRC> Weight<IRC> for SortedNumericDocValuesRangeQueryWeight
 where
     IRC: IndexReaderContext,
 {
