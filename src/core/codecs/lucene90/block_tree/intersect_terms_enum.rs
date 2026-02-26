@@ -45,10 +45,10 @@ use std::rc::Rc;
 /// root block and scans forward until it reaches the initial term. Likewise,
 /// on each call to `next()`, it scans forward until it finds a term that
 /// matches the current automaton transition.
-pub struct IntersectTermsEnum<I, P>
+pub struct IntersectTermsEnum<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     pub(crate) input: Option<I>,
     pub(crate) stack: Vec<IntersectTermsEnumFrame>,
@@ -60,17 +60,17 @@ where
     current_transition: usize,
     term: BytesRef<Vec<u8>>,
     fst_reader: Option<ReverseRandomAccessReader<I::RandomAccessSlice>>,
-    pub(crate) fr: FieldReader<I, P>,
+    pub(crate) fr: FieldReader<I, PR>,
     saved_start_term: Option<BytesRef<Vec<u8>>>,
     pub(crate) output_accumulator: OutputAccumulator,
 }
-impl<I, P> IntersectTermsEnum<I, P>
+impl<I, PR> IntersectTermsEnum<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     pub(crate) fn new(
-        fr: FieldReader<I, P>,
+        fr: FieldReader<I, PR>,
         automaton: TransitionAccessorEnum,
         run_automation: ByteRunnableEnum,
         common_suffix: Option<Rc<BytesRef<Vec<u8>>>>,
@@ -600,10 +600,10 @@ where
     }
 }
 
-impl<I, P> BytesRefIterator for IntersectTermsEnum<I, P>
+impl<I, PR> BytesRefIterator for IntersectTermsEnum<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         match self.next_() {
@@ -617,10 +617,10 @@ where
     }
 }
 
-impl<I, P> TermsEnum for IntersectTermsEnum<I, P>
+impl<I, PR> TermsEnum for IntersectTermsEnum<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     type AttributeSource = DummyAttributeSource;
 
@@ -659,7 +659,7 @@ where
             .total_term_freq)
     }
 
-    type PostingsEnum = P::PostingsEnum;
+    type PostingsEnum = PR::PostingsEnum;
 
     fn postings_with_flags(
         &mut self,
@@ -679,7 +679,7 @@ where
         Ok(v)
     }
 
-    type ImpactsEnum = P::ImpactsEnum;
+    type ImpactsEnum = PR::ImpactsEnum;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
         IntersectTermsEnumFrame::decode_meta_data(self, self.current_frame)?;

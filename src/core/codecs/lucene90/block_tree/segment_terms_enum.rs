@@ -39,10 +39,10 @@ use crate::core::util::fst_impl::reverse_random_access_reader::ReverseRandomAcce
 use crate::core::util::group_vint_util::GroupVIntUtil;
 
 /// Iterates through terms in this field.
-pub struct SegmentTermsEnum<I, P>
+pub struct SegmentTermsEnum<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     // Lazy init: input stream
     pub(crate) input: Option<I>,
@@ -53,7 +53,7 @@ where
     pub(crate) current_frame_idx: usize,
     pub(crate) static_frame_idx: usize,
     pub(crate) term_exists: bool,
-    pub(crate) fr: FieldReader<I, P>,
+    pub(crate) fr: FieldReader<I, PR>,
     target_before_current_length: i32,
     output_accumulator: OutputAccumulator,
     valid_index_prefix: usize,
@@ -64,12 +64,12 @@ where
     prepare_seek_status: PrepareSeekStatus,
 }
 
-impl<I, P> SegmentTermsEnum<I, P>
+impl<I, PR> SegmentTermsEnum<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
-    pub fn new(fr: FieldReader<I, P>) -> Result<BaseTermsEnum<Self>> {
+    pub fn new(fr: FieldReader<I, PR>) -> Result<BaseTermsEnum<Self>> {
         // Construct SegmentTerms first
         let fst_reader = match &fr.index {
             Some(index) => Some(index.get_bytes_reader()?),
@@ -449,10 +449,10 @@ where
     }
 }
 
-impl<I, P> BytesRefIterator for SegmentTermsEnum<I, P>
+impl<I, PR> BytesRefIterator for SegmentTermsEnum<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         let input_none = { self.input.is_none() };
@@ -574,10 +574,10 @@ where
     }
 }
 
-impl<I, P> TermsEnum for SegmentTermsEnum<I, P>
+impl<I, PR> TermsEnum for SegmentTermsEnum<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     type AttributeSource = DummyAttributeSource;
 
@@ -864,7 +864,7 @@ where
         Ok(current_frame.state.get_block_term_state()?.total_term_freq)
     }
 
-    type PostingsEnum = P::PostingsEnum;
+    type PostingsEnum = PR::PostingsEnum;
 
     fn postings_with_flags(
         &mut self,
@@ -889,7 +889,7 @@ where
         Ok(v)
     }
 
-    type ImpactsEnum = P::ImpactsEnum;
+    type ImpactsEnum = PR::ImpactsEnum;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
         debug_assert!(!self.eof);
