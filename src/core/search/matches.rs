@@ -14,10 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::matches_iterator::{
-    MatchesIterator, MatchesIteratorEnum2, MatchesIteratorEnum3, MatchesIteratorEnum4,
-    MatchesIteratorEnum5, MatchesIteratorEnum6,
-};
+use crate::core::search::matches_iterator::MatchesIterator;
 use crate::core::util::error::lucene_error::Result;
 
 /// Reports the positions and optionally offsets of all matching terms
@@ -41,80 +38,3 @@ pub trait Matches {
 
     fn field(&self) -> &[String];
 }
-macro_rules! either_matches {
-    (
-        $vis:vis $name:ident
-        => { mi: $mi:ident }
-        { $( $Variant:ident : $T:ident ),+ $(,)? }
-    ) => {
-        $vis enum $name<$( $T ),+> {
-            $( $Variant($T), )+
-        }
-
-        impl<$( $T ),+> Matches for $name<$( $T ),+>
-        where
-            $( $T: Matches ),+
-        {
-            type MatchesIterator = $mi<$( < $T as Matches >::MatchesIterator ),+>;
-
-            fn get_matches(
-                &self,
-                field: &str,
-            ) -> Result<Option<Self::MatchesIterator>> {
-                match self {
-                    $(
-                        Self::$Variant(inner) => {
-                            let opt = inner.get_matches(field)?;
-                            Ok(opt.map($mi::$Variant))
-                        }
-                    ),+
-                }
-            }
-
-            type Matches = $name<$( < $T as Matches >::Matches ),+>;
-
-            fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
-                match self {
-                    $(
-                        Self::$Variant(inner) => inner
-                            .get_sub_matches()
-                            .into_iter()
-                            .map(Self::Matches::$Variant)
-                            .collect(),
-                    )+
-                }
-            }
-
-            fn field(&self) -> &[String] {
-                match self {
-                    $( Self::$Variant(inner) => inner.field(), )+
-                }
-            }
-        }
-    };
-}
-either_matches!(
-    pub MatchesEnum2
-    => { mi: MatchesIteratorEnum2 }
-    { A: A, B: B }
-);
-either_matches!(
-    pub MatchesEnum3
-    => { mi: MatchesIteratorEnum3 }
-    { A: A, B: B,C:C }
-);
-either_matches!(
-    pub MatchesEnum4
-    => { mi: MatchesIteratorEnum4 }
-    { A: A, B: B,C:C,D:D }
-);
-either_matches!(
-    pub MatchesEnum5
-    => { mi: MatchesIteratorEnum5 }
-    { A: A, B: B, C: C, D: D, E: E }
-);
-either_matches!(
-    pub MatchesEnum6
-    => { mi: MatchesIteratorEnum6 }
-    { A: A, B: B, C: C, D: D, E: E, F: F }
-);

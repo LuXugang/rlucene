@@ -98,15 +98,6 @@ macro_rules! either_bulk_scorer {
 either_bulk_scorer!(pub BulkScorerEnum2 { A: A1, B: B1});
 either_bulk_scorer!(pub BulkScorerEnum3 { A: A1, B: B1, C: C1});
 either_bulk_scorer!(pub BulkScorerEnum4 { A: A1, B: B1, C: C1, D: D1});
-either_bulk_scorer!(pub BulkScorerEnum5 { A: A1, B: B1, C: C1, D: D1, E: E1});
-either_bulk_scorer!(pub BulkScorerEnum6 {
-    A: A1,
-    B: B1,
-    C: C1,
-    D: D1,
-    E: E1,
-    F: F1
-});
 impl<T> BulkScorer for Box<T>
 where
     T: BulkScorer + ?Sized,
