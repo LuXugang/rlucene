@@ -26,9 +26,9 @@ pub trait MultiTermQuery: QueryBase {
     type TermsEnum<T>: TermsEnum<PostingsEnum = TermsPosting<T>>
     where
         T: Terms;
-    fn get_terms_enum<T>(&self, terms: &T) -> Result<Self::TermsEnum<T>>
+    fn get_terms_enum<T>(&self, terms: T) -> Result<Self::TermsEnum<T>>
     where
-        T: Terms;
+        T: Terms + Clone;
     fn get_terms_count(&self) -> i64;
 }
 

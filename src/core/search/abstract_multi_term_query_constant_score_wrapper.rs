@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::index::index_reader_context::{IRCLeafReader, IRCTerm, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
@@ -47,6 +47,7 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::term_query::{TermQuery, TermStatesMeta};
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::rc::Rc;
 use std::sync::Arc;
 
 pub(crate) const BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD: usize = 16;
@@ -140,6 +141,9 @@ where
     <Q as MultiTermQuery>::TermsEnum<
         <<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms,
     >: 'static,
+    <Q as MultiTermQuery>::TermsEnum<
+        Rc<<<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms>,
+    >: 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -176,9 +180,9 @@ where
             Some(t) => t,
             None => return Ok(None),
         };
-
+        let terms = Rc::new(terms);
         let field_doc_count = terms.get_doc_count()?;
-        let mut terms_enum = self.q.get_terms_enum(&terms)?;
+        let mut terms_enum = self.q.get_terms_enum(terms.clone())?;
         let mut collected_terms = Vec::new();
 
         let collect_result =
@@ -323,14 +327,14 @@ impl From<StandardRewritingWeight> for RewritingWeightBaseEnum {
         RewritingWeightBaseEnum::Standard(v)
     }
 }
-pub struct ScorerSupplierImpl<IRC, TE>
+pub struct ScorerSupplierImpl<T, TE>
 where
-    IRC: IndexReaderContext,
-    TE: TermsEnum<PostingsEnum = TermsPosting<IRCTerm<IRC>>>,
+    T: Terms,
+    TE: TermsEnum<PostingsEnum = TermsPosting<T>>,
 {
     cost: i64,
     score_mode: ScoreMode,
-    terms: IRCTerm<IRC>,
+    terms: T,
     collected_terms: Vec<TermAndState>,
     terms_enum: TE,
     score: f32,
@@ -338,16 +342,16 @@ where
     field: String,
     sub: RewritingWeightBaseEnum,
 }
-impl<IRC, TE> ScorerSupplierImpl<IRC, TE>
+impl<T, TE> ScorerSupplierImpl<T, TE>
 where
-    IRC: IndexReaderContext,
-    TE: TermsEnum<PostingsEnum = TermsPosting<IRCTerm<IRC>>>,
+    T: Terms,
+    TE: TermsEnum<PostingsEnum = TermsPosting<T>>,
 {
     #[allow(clippy::too_many_arguments)]
     fn new(
         cost: i64,
         score_mode: ScoreMode,
-        terms: IRCTerm<IRC>,
+        terms: T,
         collected_terms: Vec<TermAndState>,
         terms_enum: TE,
         score: f32,
@@ -369,10 +373,12 @@ where
     }
 }
 
-impl<IRC, TE> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC, TE>
+impl<IRC, T, TE> ScorerSupplier<IRC> for ScorerSupplierImpl<T, TE>
 where
     IRC: IndexReaderContext,
-    TE: TermsEnum<PostingsEnum = TermsPosting<IRCTerm<IRC>>>,
+    T: Terms,
+    TE: TermsEnum<PostingsEnum = TermsPosting<T>>,
+    TermsPosting<T>: 'static,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
@@ -466,7 +472,10 @@ where
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::BulkScorer>> {
+    ) -> Result<Option<Self::BulkScorer>>
+    where
+        <<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum: 'static,
+    {
         let bs = match self.collect_result {
             true => {
                 let v = rewrite_as_boolean_query(
