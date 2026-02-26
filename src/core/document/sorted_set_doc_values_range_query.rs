@@ -349,23 +349,23 @@ where
 
     Ok(doc)
 }
-pub struct ScorerSupplierImpl3<IRC>
+pub struct ScorerSupplierImpl3<LR>
 where
-    IRC: IndexReaderContext,
+    LR: LeafReader,
 {
     query: SortedSetDocValuesRangeQuery,
-    values: Option<SortedSet<IRCLeafReader<IRC>>>,
+    values: Option<SortedSet<LR>>,
     cost: i64,
     score: f32,
     score_mode: ScoreMode,
 }
-impl<IRC> ScorerSupplierImpl3<IRC>
+impl<LR> ScorerSupplierImpl3<LR>
 where
-    IRC: IndexReaderContext,
+    LR: LeafReader,
 {
     pub fn new(
         query: SortedSetDocValuesRangeQuery,
-        values: SortedSet<IRCLeafReader<IRC>>,
+        values: SortedSet<LR>,
         score: f32,
         score_mode: ScoreMode,
     ) -> Result<Self> {
@@ -379,7 +379,7 @@ where
         })
     }
 }
-impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl3<IRC>
+impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl3<IRCLeafReader<IRC>>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
