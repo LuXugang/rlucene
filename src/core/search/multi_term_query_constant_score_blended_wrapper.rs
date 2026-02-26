@@ -47,8 +47,9 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 /// highest-cost terms, while rewriting the remaining lower-cost terms into a filter bitset.
 pub(crate) struct MultiTermQueryConstantScoreBlendedWrapper;
 
-pub struct RewritingWeightBaseImpl1 {}
-impl RewritingWeightBase for RewritingWeightBaseImpl1 {
+#[derive(Default, Clone)]
+pub struct BlendedRewritingWeight;
+impl RewritingWeightBase for BlendedRewritingWeight {
     type Iter<T>
         = DocIdSetIteratorEnum2<
         DummyDISI,
@@ -61,7 +62,7 @@ impl RewritingWeightBase for RewritingWeightBaseImpl1 {
     >
     where
         T: Terms,
-        <<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum: 'static;
+        TermsPostingEnum<T>: 'static;
 
     fn rewrite_inner<T, TE, IRC>(
         &self,
@@ -79,7 +80,7 @@ impl RewritingWeightBase for RewritingWeightBaseImpl1 {
         T: Terms,
         TE: TermsEnum<PostingsEnum = <T::TermsEnum as TermsEnum>::PostingsEnum>,
         IRC: IndexReaderContext,
-        <<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum: 'static,
+        TermsPostingEnum<T>: 'static,
     {
         let max_doc = context.reader().max_doc()?;
         let mut other_terms = DocIdSetBuilder::from_terms(max_doc, terms)?;
@@ -157,17 +158,16 @@ impl RewritingWeightBase for RewritingWeightBaseImpl1 {
         let mut subs = DisiPriorityQueue::new(size);
 
         let mut all_scorers = Vec::with_capacity(size);
-        let mut idx = 0;
-        for pe in high_frequency_terms
+        for (idx, pe) in high_frequency_terms
             .compare
             .postings_enum
             .into_iter()
             .flatten()
+            .enumerate()
         {
             let scorer = wrap_with_dummy_scorer(DocIdSetIteratorEnum2::B(pe));
             all_scorers.push(DisiWrapper::new(scorer)?);
             subs.add(idx, all_scorers.as_slice());
-            idx += 1;
         }
         let scorer =
             wrap_with_dummy_scorer(DocIdSetIteratorEnum2::A(other_terms.build()?.iterator()?));

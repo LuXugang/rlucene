@@ -14,14 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::terms::Terms;
+use crate::core::index::terms::{Terms, TermsPostingEnum};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::util::error::lucene_error::Result;
 
 pub trait MultiTermQuery {
     fn get_field(&self) -> &str;
-    type TermsEnum: TermsEnum;
-    fn get_terms_enum<T>(&self, terms: &T) -> Result<Self::TermsEnum>
+    type TermsEnum<T>: TermsEnum<PostingsEnum = TermsPostingEnum<T>>
+    where
+        T: Terms;
+    fn get_terms_enum<T>(&self, terms: &T) -> Result<Self::TermsEnum<T>>
     where
         T: Terms;
     fn get_terms_count(&self) -> i64;

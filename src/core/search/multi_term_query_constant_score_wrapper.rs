@@ -19,7 +19,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::NONE;
 use crate::core::index::term::Term;
-use crate::core::index::terms::Terms;
+use crate::core::index::terms::{Terms, TermsPostingEnum};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::{
     RewritingWeightBase, TermAndState, WeightOrDocIdSetIterator,
@@ -41,13 +41,14 @@ use crate::core::util::error::lucene_error::Result;
 /// matches into a bit set and building a `Scorer` on top of that bit set.
 pub struct MultiTermQueryConstantScoreWrapper;
 
-pub struct RewritingWeightBaseImpl2 {}
-impl RewritingWeightBase for RewritingWeightBaseImpl2 {
+#[derive(Default, Clone)]
+pub struct StandardRewritingWeight;
+impl RewritingWeightBase for StandardRewritingWeight {
     type Iter<T>
         = DocIdSetIteratorEnum2<DummyDISI, DocIdSetBuilderIterator>
     where
         T: Terms,
-        <<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum: 'static;
+        TermsPostingEnum<T>: 'static;
 
     fn rewrite_inner<T, TE, IRC>(
         &self,
@@ -65,7 +66,7 @@ impl RewritingWeightBase for RewritingWeightBaseImpl2 {
         T: Terms,
         TE: TermsEnum<PostingsEnum = <T::TermsEnum as TermsEnum>::PostingsEnum>,
         IRC: IndexReaderContext,
-        <<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum: 'static,
+        TermsPostingEnum<T>: 'static,
     {
         let max_doc = context.reader().max_doc()?;
         let mut builder = DocIdSetBuilder::from_terms(max_doc, terms)?;

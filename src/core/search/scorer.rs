@@ -462,3 +462,11 @@ either_scorer!(
         A: A, B: B,C: C,
     }
 );
+either_scorer!(
+    pub ScorerEnum4 {
+        iter = DocIdSetIteratorEnum3,
+        two_phase = TwoPhaseIteratorEnum3,
+        scorable = ScorableEnum3;
+        A: A, B: B,C: C, D:D,
+    }
+);

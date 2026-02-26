@@ -20,31 +20,43 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStateEnum;
-use crate::core::index::terms::Terms;
+use crate::core::index::terms::{Terms, TermsPostingEnum};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
+use crate::core::search::bulk_scorer::BulkScorerEnum4;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
+use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::multi_term_query::MultiTermQuery;
+use crate::core::search::multi_term_query_constant_score_blended_wrapper::BlendedRewritingWeight;
+use crate::core::search::multi_term_query_constant_score_wrapper::StandardRewritingWeight;
 use crate::core::search::query::{
     Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::ScorerEnum4;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::term_query::{TermQuery, TermStatesMeta};
-use crate::core::search::weight::Weight;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 pub(crate) const BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD: usize = 16;
+/// Contains functionality shared by both
+/// [`MultiTermQueryConstantScoreBlendedWrapper`](crate::core::search::multi_term_query_constant_score_blended_wrapper::MultiTermQueryConstantScoreBlendedWrapper) and
+/// [`MultiTermQueryConstantScoreWrapper`](crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQueryConstantScoreWrapper).
+///
+/// This is an internal implementation detail and is not intended to be used
+/// or extended by users.
 pub struct AbstractMultiTermQueryConstantScoreWrapper {}
 
 pub struct RewritingWeight<IRC, Q>
@@ -56,6 +68,7 @@ where
     q: Q,
     base: ConstantScoreWeight,
     _irc: PhantomData<IRC>,
+    sub: RewritingWeightBaseEnum,
 }
 impl<IRC, Q> RewritingWeight<IRC, Q>
 where
@@ -115,6 +128,9 @@ impl<IRC, Q> Weight for RewritingWeight<IRC, Q>
 where
     IRC: IndexReaderContext,
     Q: MultiTermQuery,
+    <Q as MultiTermQuery>::TermsEnum<
+        <<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms,
+    >: 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -159,7 +175,7 @@ where
         let collect_result =
             Self::collect_terms(field_doc_count, &mut terms_enum, &mut collected_terms)?;
 
-        let _cost = if collect_result {
+        let cost = if collect_result {
             if collected_terms.is_empty() {
                 return Ok(None);
             }
@@ -172,7 +188,18 @@ where
         } else {
             estimate_cost(&terms, self.q.get_terms_count())?
         };
-        todo!()
+        let v = ScorerSupplierImpl::new(
+            cost,
+            self.score_mode,
+            terms,
+            collected_terms,
+            terms_enum,
+            self.base.score(),
+            collect_result,
+            self.q.get_field().to_string(),
+            self.sub.clone(),
+        );
+        Ok(Some(Box::new(v)))
     }
 }
 fn rewrite_as_boolean_query<IRC>(
@@ -218,31 +245,42 @@ where
 /// 2. If we know how many query terms there are...
 ///    2a. Assume every query term matches at least one document (queryTermsCount).
 ///    2b. Determine the total number of docs beyond the first one for each term.
-///        That count provides a ceiling on the number of extra docs that could match beyond
-///        that first one. (We omit the first since it's already been counted in 2a).
-/// See: LUCENE-10207
+///    That count provides a ceiling on the number of extra docs that could match beyond
+///    that first one. (We omit the first since it's already been counted in 2a).
+///    See: LUCENE-10207
 pub(crate) fn estimate_cost<T>(terms: &T, query_terms_count: i64) -> Result<i64>
 where
     T: Terms,
 {
-    let cost: i64;
-    if query_terms_count == -1 {
-        cost = terms.get_sum_doc_freq()?;
+    let cost = if query_terms_count == -1 {
+        terms.get_sum_doc_freq()?
     } else {
         let mut potential_extra_cost = terms.get_sum_doc_freq()?;
         let indexed_term_count = terms.size()?;
         if indexed_term_count != -1 {
             potential_extra_cost -= indexed_term_count;
         }
-        cost = query_terms_count + potential_extra_cost;
-    }
+        query_terms_count + potential_extra_cost
+    };
     Ok(cost)
 }
 pub trait RewritingWeightBase {
     type Iter<T>: DocIdSetIterator
     where
         T: Terms,
-        <<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum: 'static;
+        TermsPostingEnum<T>: 'static;
+    /// Rewrite the query as either a [`Weight`] or a [`DocIdSetIterator`], wrapped in a
+    /// [`WeightOrDocIdSetIterator`].
+    ///
+    /// Before this is called, the weight attempts to collect found terms up to a
+    /// threshold. If fewer terms than the threshold are found, the query is rewritten
+    /// into a [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery) and this method is not called. This is only called if it
+    /// is determined that there are more found terms.
+    ///
+    /// When this method is invoked, `terms_enum` is positioned on the next
+    /// "uncollected" term. Terms that were already collected are provided in
+    /// `collected_terms`.
+    #[allow(clippy::too_many_arguments)]
     fn rewrite_inner<T, TE, IRC>(
         &self,
         field_doc_count: i32,
@@ -260,10 +298,16 @@ pub trait RewritingWeightBase {
         TE: TermsEnum<PostingsEnum = <T::TermsEnum as TermsEnum>::PostingsEnum>,
         IRC: IndexReaderContext;
 }
+
+#[derive(Clone)]
+enum RewritingWeightBaseEnum {
+    Blended(BlendedRewritingWeight),
+    Standard(StandardRewritingWeight),
+}
 pub struct ScorerSupplierImpl<IRC, TE>
 where
     IRC: IndexReaderContext,
-    TE: TermsEnum,
+    TE: TermsEnum<PostingsEnum = TermsPostingEnum<IRCTerm<IRC>>>,
 {
     cost: i64,
     score_mode: ScoreMode,
@@ -273,11 +317,43 @@ where
     score: f32,
     collect_result: bool,
     field: String,
+    sub: RewritingWeightBaseEnum,
 }
+impl<IRC, TE> ScorerSupplierImpl<IRC, TE>
+where
+    IRC: IndexReaderContext,
+    TE: TermsEnum<PostingsEnum = TermsPostingEnum<IRCTerm<IRC>>>,
+{
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        cost: i64,
+        score_mode: ScoreMode,
+        terms: IRCTerm<IRC>,
+        collected_terms: Vec<TermAndState>,
+        terms_enum: TE,
+        score: f32,
+        collect_result: bool,
+        field: String,
+        sub: RewritingWeightBaseEnum,
+    ) -> Self {
+        Self {
+            cost,
+            score_mode,
+            terms,
+            collected_terms,
+            terms_enum,
+            score,
+            collect_result,
+            field,
+            sub,
+        }
+    }
+}
+
 impl<IRC, TE> ScorerSupplier for ScorerSupplierImpl<IRC, TE>
 where
     IRC: IndexReaderContext,
-    TE: TermsEnum,
+    TE: TermsEnum<PostingsEnum = TermsPostingEnum<IRCTerm<IRC>>>,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
@@ -289,9 +365,9 @@ where
         context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
         searcher: &IndexSearcher<Self::IRC>,
     ) -> Result<Self::Scorer> {
-        match self.collect_result {
+        let s = match self.collect_result {
             true => {
-                let _v = rewrite_as_boolean_query(
+                let v = rewrite_as_boolean_query(
                     context,
                     self.collected_terms.as_slice(),
                     searcher,
@@ -299,35 +375,166 @@ where
                     self.score,
                     &self.field,
                 )?;
-                // let scorer = match v.weight {
-                //     Some(weight) => match weight.scorer(context, searcher)? {
-                //         Some(scorer) => ScorerEnum3::A(scorer),
-                //         None => {
-                //             let s = ConstantScoreScorer::from_disi(
-                //                 self.score,
-                //                 self.score_mode,
-                //                 EmptyDISI::default(),
-                //             );
-                //             ScorerEnum3::C(s)
-                //         },
-                //     },
-                //     None => return Err(LuceneError::illegal_state("weight is None")),
-                // };
-                todo!()
+                match v.weight {
+                    Some(weight) => match weight.scorer(context, searcher)? {
+                        Some(scorer) => ScorerEnum4::B(scorer),
+                        None => {
+                            let s = empty_scorer(self.score_mode, self.score);
+                            ScorerEnum4::A(s)
+                        },
+                    },
+                    None => return Err(LuceneError::illegal_state("weight is None")),
+                }
             },
-            false => {
-                todo!()
+            false => match self.sub {
+                RewritingWeightBaseEnum::Blended(ref b) => {
+                    let v = b.rewrite_inner(
+                        self.terms.get_doc_count()?,
+                        &mut self.terms,
+                        &mut self.terms_enum,
+                        self.collected_terms.as_slice(),
+                        context,
+                        searcher,
+                        &self.field,
+                        &self.score_mode,
+                        self.score,
+                    )?;
+                    match (v.weight, v.iterator) {
+                        (Some(weight), None) => match weight.scorer(context, searcher)? {
+                            Some(scorer) => ScorerEnum4::B(scorer),
+                            None => {
+                                let s = empty_scorer(self.score_mode, self.score);
+                                ScorerEnum4::A(s)
+                            },
+                        },
+                        (None, Some(iter)) => {
+                            ScorerEnum4::C(scorer_for_iterator(iter, self.score_mode, self.score))
+                        },
+                        _ => return Err(LuceneError::illegal_state("")),
+                    }
+                },
+                RewritingWeightBaseEnum::Standard(ref s) => {
+                    let v = s.rewrite_inner(
+                        self.terms.get_doc_count()?,
+                        &mut self.terms,
+                        &mut self.terms_enum,
+                        self.collected_terms.as_slice(),
+                        context,
+                        searcher,
+                        &self.field,
+                        &self.score_mode,
+                        self.score,
+                    )?;
+                    match (v.weight, v.iterator) {
+                        (Some(weight), None) => match weight.scorer(context, searcher)? {
+                            Some(scorer) => ScorerEnum4::B(scorer),
+                            None => {
+                                let s = empty_scorer(self.score_mode, self.score);
+                                ScorerEnum4::A(s)
+                            },
+                        },
+                        (None, Some(iter)) => {
+                            ScorerEnum4::D(scorer_for_iterator(iter, self.score_mode, self.score))
+                        },
+                        _ => return Err(LuceneError::illegal_state("")),
+                    }
+                },
             },
-        }
-        todo!()
+        };
+        Ok(Box::new(s))
     }
 
     fn bulk_scorer(
         &mut self,
-        _context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
-        _searcher: &IndexSearcher<Self::IRC>,
+        context: &LeafReaderContext<IRCLeafReader<Self::IRC>>,
+        searcher: &IndexSearcher<Self::IRC>,
     ) -> Result<Option<Self::BulkScorer>> {
-        todo!()
+        let bs = match self.collect_result {
+            true => {
+                let v = rewrite_as_boolean_query(
+                    context,
+                    self.collected_terms.as_slice(),
+                    searcher,
+                    &self.score_mode,
+                    self.score,
+                    &self.field,
+                )?;
+                match v.weight {
+                    Some(weight) => match weight.bulk_scorer(context, searcher)? {
+                        Some(scorer) => BulkScorerEnum4::B(scorer),
+                        None => {
+                            let s = empty_scorer(self.score_mode, self.score);
+                            let v = DefaultBulkScorer::new(s);
+                            BulkScorerEnum4::A(v)
+                        },
+                    },
+                    None => return Err(LuceneError::illegal_state("weight is None")),
+                }
+            },
+            false => match self.sub {
+                RewritingWeightBaseEnum::Blended(ref b) => {
+                    let v = b.rewrite_inner(
+                        self.terms.get_doc_count()?,
+                        &mut self.terms,
+                        &mut self.terms_enum,
+                        self.collected_terms.as_slice(),
+                        context,
+                        searcher,
+                        &self.field,
+                        &self.score_mode,
+                        self.score,
+                    )?;
+                    match (v.weight, v.iterator) {
+                        (Some(weight), None) => match weight.bulk_scorer(context, searcher)? {
+                            Some(scorer) => BulkScorerEnum4::B(scorer),
+                            None => {
+                                let s = empty_scorer(self.score_mode, self.score);
+                                let v = DefaultBulkScorer::new(s);
+                                BulkScorerEnum4::A(v)
+                            },
+                        },
+                        (None, Some(iter)) => {
+                            let s =
+                                ConstantScoreScorer::from_disi(self.score, self.score_mode, iter);
+                            let v = DefaultBulkScorer::new(s);
+                            BulkScorerEnum4::C(v)
+                        },
+                        _ => return Err(LuceneError::illegal_state("")),
+                    }
+                },
+                RewritingWeightBaseEnum::Standard(ref s) => {
+                    let v = s.rewrite_inner(
+                        self.terms.get_doc_count()?,
+                        &mut self.terms,
+                        &mut self.terms_enum,
+                        self.collected_terms.as_slice(),
+                        context,
+                        searcher,
+                        &self.field,
+                        &self.score_mode,
+                        self.score,
+                    )?;
+                    match (v.weight, v.iterator) {
+                        (Some(weight), None) => match weight.bulk_scorer(context, searcher)? {
+                            Some(scorer) => BulkScorerEnum4::B(scorer),
+                            None => {
+                                let s = empty_scorer(self.score_mode, self.score);
+                                let v = DefaultBulkScorer::new(s);
+                                BulkScorerEnum4::A(v)
+                            },
+                        },
+                        (None, Some(iter)) => {
+                            let s =
+                                ConstantScoreScorer::from_disi(self.score, self.score_mode, iter);
+                            let v = DefaultBulkScorer::new(s);
+                            BulkScorerEnum4::D(v)
+                        },
+                        _ => return Err(LuceneError::illegal_state("")),
+                    }
+                },
+            },
+        };
+        Ok(Some(Box::new(bs)))
     }
 
     fn cost(
@@ -337,6 +544,22 @@ where
     ) -> Result<i64> {
         Ok(self.cost)
     }
+}
+fn empty_scorer(
+    score_mode: ScoreMode,
+    score: f32,
+) -> ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator> {
+    ConstantScoreScorer::from_disi(score, score_mode, EmptyDISI::default())
+}
+fn scorer_for_iterator<D>(
+    iterator: D,
+    score_mode: ScoreMode,
+    score: f32,
+) -> ConstantScoreScorer<D, DummyTwoPhaseIterator>
+where
+    D: DocIdSetIterator,
+{
+    ConstantScoreScorer::from_disi(score, score_mode, iterator)
 }
 pub(crate) struct TermAndState {
     pub(crate) term: BytesRef<Vec<u8>>,
