@@ -24,10 +24,10 @@ pub struct DisiPriorityQueue {
     pub(crate) heap: Vec<Option<usize>>,
 }
 impl DisiPriorityQueue {
-    pub fn new(max_size: i32) -> Self {
+    pub fn new(max_size: usize) -> Self {
         Self {
             size: 0,
-            heap: vec![None; max_size as usize],
+            heap: vec![None; max_size],
         }
     }
 

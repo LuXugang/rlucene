@@ -290,7 +290,7 @@ where
             all_scorers.push(DisiWrapper::new(scorer)?);
         }
 
-        let head = DisiPriorityQueue::new(num_scorers as i32);
+        let head = DisiPriorityQueue::new(num_scorers);
         let tail = vec![0usize; num_scorers];
 
         let mut this = Self {

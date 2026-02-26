@@ -95,7 +95,7 @@ where
             all_scorers_idx.push(i);
         }
         let scratch = vec![0usize; all_scorers_idx.len()];
-        let essential_queue = DisiPriorityQueue::new(all_scorers_idx.len() as i32);
+        let essential_queue = DisiPriorityQueue::new(all_scorers_idx.len());
         let max_score_sums = vec![0f64; all_scorers_idx.len()];
         let window_matches = vec![0u64; FixedBitSet::bits2words(INNER_WINDOW_SIZE as usize)];
         let window_scores = vec![0f64; INNER_WINDOW_SIZE as usize];

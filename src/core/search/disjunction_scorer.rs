@@ -26,7 +26,6 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, as_doc_id_set_iterator,
 };
-use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
@@ -57,7 +56,7 @@ where
                 "There must be at least 2 subScorers",
             ));
         }
-        let mut dpq = DisiPriorityQueue::new(sub_scorers_len.try_convert()?);
+        let mut dpq = DisiPriorityQueue::new(sub_scorers_len);
         let mut all_scorers = Vec::with_capacity(sub_scorers_len);
         for (i, scorer) in sub_scorers.into_iter().enumerate() {
             let w = DisiWrapper::new(scorer)?;
