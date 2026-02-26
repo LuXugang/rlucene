@@ -512,27 +512,27 @@ impl TermWeight {
         }
     }
 }
-pub struct TermScorerSupplier<IRC>
+pub struct TermScorerSupplier<LR>
 where
-    IRC: IndexReaderContext,
+    LR: LeafReader,
 {
     top_level_scoring_clause: bool,
     term_states: Arc<Mutex<TermStates>>,
-    prepare_state: PrepareState<IRCLeafReader<IRC>>,
+    prepare_state: PrepareState<LR>,
     term: Arc<Term>,
     sim_scorer: Arc<TermQuerySimScorer>,
     score_mode: ScoreMode,
-    terms_enum: Option<LRTermsEnum<IRCLeafReader<IRC>>>,
+    terms_enum: Option<LRTermsEnum<LR>>,
 }
-impl<IRC> TermScorerSupplier<IRC>
+impl<LR> TermScorerSupplier<LR>
 where
-    IRC: IndexReaderContext,
+    LR: LeafReader,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         top_level_scoring_clause: bool,
         term_states: Arc<Mutex<TermStates>>,
-        prepare_state: PrepareState<IRCLeafReader<IRC>>,
+        prepare_state: PrepareState<LR>,
         term: Arc<Term>,
         sim_scorer: Arc<TermQuerySimScorer>,
         score_mode: ScoreMode,
@@ -548,10 +548,7 @@ where
         }
     }
 
-    pub(crate) fn get_terms_enum(
-        &mut self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    ) -> Result<Option<()>> {
+    pub(crate) fn get_terms_enum(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<()>> {
         if self.terms_enum.is_none() {
             // TODO IMPORTANT 如果state_opt为None 那么terms_enum仍然为None 如果执行cost会再次尝试resolve 是不是可以增加一个flag避免重复resolve
             let state_opt = self.term_states.lock().resolve(&mut self.prepare_state)?;
@@ -575,7 +572,7 @@ where
         Ok(Some(()))
     }
 }
-impl<IRC> ScorerSupplier<IRC> for TermScorerSupplier<IRC>
+impl<IRC> ScorerSupplier<IRC> for TermScorerSupplier<IRCLeafReader<IRC>>
 where
     IRC: IndexReaderContext,
     IRCLeafReader<IRC>: 'static,
