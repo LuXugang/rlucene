@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::core::index::single_terms_enum::SingleTermsEnum;
+use crate::core::index::terms::{Terms, TermsIntersect, TermsTE};
+use crate::core::index::terms_enum::{EmptyTermsEnumTermsWrapper, TermsEnumEnum4};
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::StringHelper;
 use crate::core::util::automation::automaton::Automaton;
@@ -26,7 +30,7 @@ use crate::core::util::automation::transition_accessor::{
     TransitionAccessor, TransitionAccessorEnum,
 };
 use crate::core::util::automation::utf32_to_utf8::UTF32ToUTF8;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::unicode_util::UnicodeUtil;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
@@ -296,6 +300,28 @@ impl CompiledAutomaton {
             idx += 1;
         }
     }
+    pub fn get_terms_enum<T>(&mut self, terms: T) -> Result<CompiledAutomatonTE<T>>
+    where
+        T: Terms,
+    {
+        let v = match self.type_ {
+            AutomatonType::None => TermsEnumEnum4::A(EmptyTermsEnumTermsWrapper::new(terms)),
+            AutomatonType::All => TermsEnumEnum4::B(terms.iterator()?),
+            AutomatonType::Single => {
+                let term = self
+                    .term
+                    .as_ref()
+                    .ok_or_else(|| {
+                        LuceneError::illegal_state("term must exist for AutomatonType::Single")
+                    })?
+                    .clone();
+                TermsEnumEnum4::C(SingleTermsEnum::new(terms.iterator()?, term))
+            },
+            AutomatonType::Normal => TermsEnumEnum4::D(terms.intersect(self, None)?),
+        };
+        Ok(v)
+    }
+
     /// Finds the largest term accepted by this [`Automaton`] that is `<=` the
     /// provided input term.
     ///
@@ -402,6 +428,12 @@ impl CompiledAutomaton {
         }
     }
 }
+pub type CompiledAutomatonTE<T> = TermsEnumEnum4<
+    EmptyTermsEnumTermsWrapper<T>,
+    TermsTE<T>,
+    FilteredTermsEnum<TermsTE<T>, SingleTermsEnum>,
+    TermsIntersect<T>,
+>;
 impl Hash for CompiledAutomaton {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.type_.hash(state);

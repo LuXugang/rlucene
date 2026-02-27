@@ -22,6 +22,7 @@ use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2, ImpactsEnu
 use crate::core::index::postings_enum::{
     FREQS, PostingsEnum, PostingsEnumEnum2, PostingsEnumEnum4,
 };
+use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::util::attribute_source::AttributeSourceEnum2;
 use crate::core::util::attribute_source::{AttributeSource, AttributeSourceEnum4};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -222,7 +223,6 @@ pub enum PrepareSeekStatus {
 }
 #[derive(Default)]
 pub struct EmptyTermsEnum;
-
 impl BytesRefIterator for EmptyTermsEnum {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         Ok(None)
@@ -265,6 +265,94 @@ impl TermsEnum for EmptyTermsEnum {
     }
 
     type PostingsEnum = DummyPostingsEnum;
+
+    fn postings_with_flags(
+        &mut self,
+        _reuse: Option<Self::PostingsEnum>,
+        _flags: i32,
+    ) -> Result<Self::PostingsEnum> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    type ImpactsEnum = DummyImpactsEnum;
+
+    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    fn term_state(&mut self) -> Result<TermStateEnum> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+}
+pub struct EmptyTermsEnumTermsWrapper<T>
+where
+    T: Terms,
+{
+    in_: T,
+}
+impl<T> EmptyTermsEnumTermsWrapper<T>
+where
+    T: Terms,
+{
+    pub fn new(in_: T) -> EmptyTermsEnumTermsWrapper<T> {
+        Self { in_ }
+    }
+}
+
+impl<T> BytesRefIterator for EmptyTermsEnumTermsWrapper<T>
+where
+    T: Terms,
+{
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        Ok(None)
+    }
+}
+
+impl<T> TermsEnum for EmptyTermsEnumTermsWrapper<T>
+where
+    T: Terms,
+{
+    type AttributeSource = DummyAttributeSource;
+
+    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+        Ok(SeekStatus::End)
+    }
+
+    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
+        Ok(())
+    }
+
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    fn ord(&self) -> Result<i64> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    fn doc_freq(&mut self) -> Result<i32> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    fn total_term_freq(&mut self) -> Result<i64> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    type PostingsEnum = TermsPosting<T>;
 
     fn postings_with_flags(
         &mut self,
