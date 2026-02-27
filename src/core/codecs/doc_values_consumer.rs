@@ -347,6 +347,10 @@ impl FilteredTermsEnumBase for BitsFilteredTermsEnum {
             Ok(AcceptStatus::No)
         }
     }
+
+    fn need_ord(&self) -> bool {
+        true
+    }
 }
 
 // 1. NumericDocValues

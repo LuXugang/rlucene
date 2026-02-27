@@ -324,7 +324,7 @@ impl CompiledAutomaton {
                         LuceneError::illegal_state("term must exist for AutomatonType::Single")
                     })?
                     .clone();
-                CompiledAutomatonTE::Filtered(SingleTermsEnum::new(terms.iterator()?, term))
+                CompiledAutomatonTE::Single(SingleTermsEnum::new(terms.iterator()?, term))
             },
             AutomatonType::Normal => CompiledAutomatonTE::Intersect(terms.intersect(self, None)?),
         };
@@ -505,7 +505,7 @@ where
 {
     Empty(EmptyTermsEnumTermsWrapper<T>),
     TE(TermsTE<T>),
-    Filtered(FilteredTermsEnum<TermsTE<T>, SingleTermsEnum>),
+    Single(FilteredTermsEnum<TermsTE<T>, SingleTermsEnum>),
     Intersect(TermsIntersect<T>),
 }
 
@@ -518,7 +518,7 @@ where
         match self {
             Self::Empty(t) => t.next(),
             Self::TE(t) => t.next(),
-            Self::Filtered(t) => t.next(),
+            Self::Single(t) => t.next(),
             Self::Intersect(t) => t.next(),
         }
     }
@@ -527,7 +527,7 @@ where
         match self {
             Self::Empty(t) => t.set_next(),
             Self::TE(t) => t.set_next(),
-            Self::Filtered(t) => t.set_next(),
+            Self::Single(t) => t.set_next(),
             Self::Intersect(t) => t.set_next(),
         }
     }
@@ -549,7 +549,7 @@ where
         match self {
             Self::Empty(t) => Ok(AttributeSourceEnum4::A(t.attributes()?)),
             Self::TE(t) => Ok(AttributeSourceEnum4::B(t.attributes()?)),
-            Self::Filtered(t) => Ok(AttributeSourceEnum4::C(t.attributes()?)),
+            Self::Single(t) => Ok(AttributeSourceEnum4::C(t.attributes()?)),
             Self::Intersect(t) => Ok(AttributeSourceEnum4::D(t.attributes()?)),
         }
     }
@@ -558,7 +558,7 @@ where
         match self {
             Self::Empty(t) => t.seek_exact(term),
             Self::TE(t) => t.seek_exact(term),
-            Self::Filtered(t) => t.seek_exact(term),
+            Self::Single(t) => t.seek_exact(term),
             Self::Intersect(t) => t.seek_exact(term),
         }
     }
@@ -567,7 +567,7 @@ where
         match self {
             Self::Empty(t) => t.prepare_seek_exact(text),
             Self::TE(t) => t.prepare_seek_exact(text),
-            Self::Filtered(t) => t.prepare_seek_exact(text),
+            Self::Single(t) => t.prepare_seek_exact(text),
             Self::Intersect(t) => t.prepare_seek_exact(text),
         }
     }
@@ -576,7 +576,7 @@ where
         match self {
             Self::Empty(t) => t.get_prepare_seek_exact_status(target),
             Self::TE(t) => t.get_prepare_seek_exact_status(target),
-            Self::Filtered(t) => t.get_prepare_seek_exact_status(target),
+            Self::Single(t) => t.get_prepare_seek_exact_status(target),
             Self::Intersect(t) => t.get_prepare_seek_exact_status(target),
         }
     }
@@ -585,7 +585,7 @@ where
         match self {
             Self::Empty(t) => t.seek_ceil(term),
             Self::TE(t) => t.seek_ceil(term),
-            Self::Filtered(t) => t.seek_ceil(term),
+            Self::Single(t) => t.seek_ceil(term),
             Self::Intersect(t) => t.seek_ceil(term),
         }
     }
@@ -594,7 +594,7 @@ where
         match self {
             Self::Empty(t) => t.seek_exact_with_ord(ord),
             Self::TE(t) => t.seek_exact_with_ord(ord),
-            Self::Filtered(t) => t.seek_exact_with_ord(ord),
+            Self::Single(t) => t.seek_exact_with_ord(ord),
             Self::Intersect(t) => t.seek_exact_with_ord(ord),
         }
     }
@@ -607,7 +607,7 @@ where
         match self {
             Self::Empty(t) => t.seek_exact_with_state(term, state),
             Self::TE(t) => t.seek_exact_with_state(term, state),
-            Self::Filtered(t) => t.seek_exact_with_state(term, state),
+            Self::Single(t) => t.seek_exact_with_state(term, state),
             Self::Intersect(t) => t.seek_exact_with_state(term, state),
         }
     }
@@ -616,7 +616,7 @@ where
         match self {
             Self::Empty(t) => t.term(),
             Self::TE(t) => t.term(),
-            Self::Filtered(t) => t.term(),
+            Self::Single(t) => t.term(),
             Self::Intersect(t) => t.term(),
         }
     }
@@ -625,7 +625,7 @@ where
         match self {
             Self::Empty(t) => t.ord(),
             Self::TE(t) => t.ord(),
-            Self::Filtered(t) => t.ord(),
+            Self::Single(t) => t.ord(),
             Self::Intersect(t) => t.ord(),
         }
     }
@@ -634,7 +634,7 @@ where
         match self {
             Self::Empty(t) => t.doc_freq(),
             Self::TE(t) => t.doc_freq(),
-            Self::Filtered(t) => t.doc_freq(),
+            Self::Single(t) => t.doc_freq(),
             Self::Intersect(t) => t.doc_freq(),
         }
     }
@@ -643,7 +643,7 @@ where
         match self {
             Self::Empty(t) => t.total_term_freq(),
             Self::TE(t) => t.total_term_freq(),
-            Self::Filtered(t) => t.total_term_freq(),
+            Self::Single(t) => t.total_term_freq(),
             Self::Intersect(t) => t.total_term_freq(),
         }
     }
@@ -654,7 +654,7 @@ where
         match self {
             Self::Empty(t) => t.postings(reuse),
             Self::TE(t) => t.postings(reuse),
-            Self::Filtered(t) => t.postings(reuse),
+            Self::Single(t) => t.postings(reuse),
             Self::Intersect(t) => t.postings(reuse),
         }
     }
@@ -667,7 +667,7 @@ where
         match self {
             Self::Empty(t) => t.postings_with_flags(reuse, flags),
             Self::TE(t) => t.postings_with_flags(reuse, flags),
-            Self::Filtered(t) => t.postings_with_flags(reuse, flags),
+            Self::Single(t) => t.postings_with_flags(reuse, flags),
             Self::Intersect(t) => t.postings_with_flags(reuse, flags),
         }
     }
@@ -683,7 +683,7 @@ where
         match self {
             Self::Empty(t) => Ok(ImpactsEnumEnum4::A(t.impacts(flags)?)),
             Self::TE(t) => Ok(ImpactsEnumEnum4::B(t.impacts(flags)?)),
-            Self::Filtered(t) => Ok(ImpactsEnumEnum4::C(t.impacts(flags)?)),
+            Self::Single(t) => Ok(ImpactsEnumEnum4::C(t.impacts(flags)?)),
             Self::Intersect(t) => Ok(ImpactsEnumEnum4::D(t.impacts(flags)?)),
         }
     }
@@ -692,7 +692,7 @@ where
         match self {
             Self::Empty(t) => t.term_state(),
             Self::TE(t) => t.term_state(),
-            Self::Filtered(t) => t.term_state(),
+            Self::Single(t) => t.term_state(),
             Self::Intersect(t) => t.term_state(),
         }
     }

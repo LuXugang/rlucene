@@ -28,6 +28,7 @@ use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
+use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
@@ -559,10 +560,15 @@ where
     pub(crate) fn rewrite_with_needs_scores(
         &self,
         original: Query,
-        _needs_scores: bool,
+        needs_scores: bool,
     ) -> Result<Query> {
-        // TODO
-        Ok(original)
+        if needs_scores {
+            self.rewrite(original)
+        } else {
+            // Take advantage of the few extra rewrite rules of ConstantScoreQuery.
+            let v = ConstantScoreQuery::new(original);
+            self.rewrite(v)
+        }
     }
     #[allow(clippy::type_complexity)]
     pub(crate) fn create_weight<T>(

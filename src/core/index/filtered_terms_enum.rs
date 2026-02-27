@@ -120,10 +120,12 @@ where
                 };
             }
             // check if term is accepted
-            match self
-                .sub
-                .accept(self.actual_term.as_ref().unwrap(), self.ord()?)?
-            {
+            let ord = match self.sub.need_ord() {
+                true => self.ord()?,
+                // padding value
+                false => 0,
+            };
+            match self.sub.accept(self.actual_term.as_ref().unwrap(), ord)? {
                 AcceptStatus::YesAndSeek => {
                     self.do_seek = true;
                     return Ok(Some(Cow::Borrowed(self.actual_term.as_ref().unwrap())));
@@ -248,5 +250,8 @@ pub trait FilteredTermsEnumBase {
         _current: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Option<BytesRef<Vec<u8>>>> {
         Err(LuceneError::not_implemented(""))
+    }
+    fn need_ord(&self) -> bool {
+        false
     }
 }
