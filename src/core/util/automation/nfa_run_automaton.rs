@@ -426,22 +426,20 @@ impl TransitionAccessor for NFARunAutomaton {
 
     fn get_next_transition(&self, t: &mut Transition) {
         debug_assert!(t.transition_upto >= -1 && t.transition_upto < self.points.len() as i32 - 1);
-        let transitions = &self.dstates.lock()[t.source as usize].transitions;
-        loop {
-            // this shouldn't throw AIOOBE as long as this function is only called
-            // numTransitions times
-            t.transition_upto += 1;
-            let idx = t.transition_upto as usize;
-            if transitions[idx] != Self::MISSING {
-                break;
+        {
+            let transitions = &self.dstates.lock()[t.source as usize].transitions;
+            loop {
+                // this shouldn't throw AIOOBE as long as this function is only called
+                // numTransitions times
+                t.transition_upto += 1;
+                let idx = t.transition_upto as usize;
+                if transitions[idx] != Self::MISSING {
+                    break;
+                }
             }
+
+            debug_assert!(transitions[t.transition_upto as usize] != Self::NOT_COMPUTED);
         }
-
-        debug_assert!(
-            self.dstates.lock()[t.source as usize].transitions[t.transition_upto as usize]
-                != Self::NOT_COMPUTED
-        );
-
         self.set_transition_accordingly(t);
     }
 
@@ -452,22 +450,24 @@ impl TransitionAccessor for NFARunAutomaton {
 
     fn get_transition(&self, state: i32, index: i32, t: &mut Transition) {
         self.determinize(state as usize);
+        {
+            let transitions = &self.dstates.lock()[state as usize].transitions;
 
-        let transitions = &self.dstates.lock()[state as usize].transitions;
+            let mut outgoing_transitions = -1;
+            t.transition_upto = -1;
+            t.source = state;
 
-        let mut outgoing_transitions = -1;
-        t.transition_upto = -1;
-        t.source = state;
-
-        while outgoing_transitions < index && (t.transition_upto) < self.points.len() as i32 - 1 {
-            t.transition_upto += 1;
-            let idx = t.transition_upto as usize;
-            if transitions[idx] != Self::MISSING {
-                outgoing_transitions += 1;
+            while outgoing_transitions < index && (t.transition_upto) < self.points.len() as i32 - 1
+            {
+                t.transition_upto += 1;
+                let idx = t.transition_upto as usize;
+                if transitions[idx] != Self::MISSING {
+                    outgoing_transitions += 1;
+                }
             }
-        }
 
-        debug_assert_eq!(outgoing_transitions, index);
+            debug_assert_eq!(outgoing_transitions, index);
+        }
         self.set_transition_accordingly(t);
     }
 }
