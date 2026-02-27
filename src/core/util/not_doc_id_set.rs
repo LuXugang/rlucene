@@ -79,7 +79,7 @@ where
 #[derive(Clone)]
 pub struct NotDocIdBits<B>
 where
-    B: Bits + Clone,
+    B: Bits,
 {
     in_bit: B,
     id: Identity,
@@ -87,7 +87,7 @@ where
 
 impl<B> NotDocIdBits<B>
 where
-    B: Bits + Clone,
+    B: Bits,
 {
     pub fn new(in_bits: B) -> NotDocIdBits<B> {
         NotDocIdBits {
@@ -99,7 +99,7 @@ where
 
 impl<B> HasIdentity for NotDocIdBits<B>
 where
-    B: Bits + Clone,
+    B: Bits,
 {
     fn identity(&self) -> &Identity {
         &self.id
@@ -108,7 +108,7 @@ where
 
 impl<B> Bits for NotDocIdBits<B>
 where
-    B: Bits + Clone,
+    B: Bits,
 {
     fn get(&self, index: usize) -> Result<bool> {
         Ok(!self.in_bit.get(index)?)
