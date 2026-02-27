@@ -148,7 +148,7 @@ impl PointValuesWriter {
 }
 struct PointsReaderImpl<DM>
 where
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     values: RefCell<
         MutablePointTreeEnum2<
@@ -160,7 +160,7 @@ where
 }
 impl<DM> PointsReaderImpl<DM>
 where
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     pub(crate) fn new(
         values: MutablePointTreeEnum2<
@@ -178,7 +178,7 @@ where
 
 impl<DM> PointsReader for PointsReaderImpl<DM>
 where
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     fn check_integrity(&self) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
@@ -197,7 +197,7 @@ where
 
 struct PointValuesImpl<DM>
 where
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     values: RefCell<
         MutablePointTreeEnum2<
@@ -209,7 +209,7 @@ where
 }
 impl<DM> Clone for PointValuesImpl<DM>
 where
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     fn clone(&self) -> Self {
         unreachable!("PointValuesImpl does not support clone");
@@ -223,7 +223,7 @@ impl<DM> Default
         MutableSortingPointValues<MutablePointTreeImpl, DM>,
     >
 where
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     fn default() -> Self {
         MutablePointTreeEnum2::A(MutablePointTreeImpl::default())
@@ -232,7 +232,7 @@ where
 
 impl<DM> PointValuesImpl<DM>
 where
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     pub(crate) fn new(
         values: MutablePointTreeEnum2<
@@ -248,7 +248,7 @@ where
 }
 impl<DM> PointValues for PointValuesImpl<DM>
 where
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
         Err(LuceneError::unsupported_operation(""))
@@ -299,17 +299,17 @@ where
 pub(crate) struct MutableSortingPointValues<M, DM>
 where
     M: MutablePointTree,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     input: M,
-    doc_map: Arc<DM>,
+    doc_map: DM,
 }
 impl<M, DM> MutableSortingPointValues<M, DM>
 where
     M: MutablePointTree,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
-    pub(crate) fn new(input: M, doc_map: Arc<DM>) -> Self {
+    pub(crate) fn new(input: M, doc_map: DM) -> Self {
         Self { input, doc_map }
     }
 }
@@ -317,7 +317,7 @@ where
 impl<M, DM> MutablePointTree for MutableSortingPointValues<M, DM>
 where
     M: MutablePointTree,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
         self.input.get_value(i, packed_value)
@@ -349,7 +349,7 @@ where
 impl<M, DM> TryClone for MutableSortingPointValues<M, DM>
 where
     M: MutablePointTree,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     fn try_clone(&self) -> Result<Self>
     where
@@ -365,7 +365,7 @@ where
 impl<M, DM> PointTree for MutableSortingPointValues<M, DM>
 where
     M: MutablePointTree,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     fn size(&self) -> Result<usize> {
         self.input.size()
@@ -386,14 +386,14 @@ where
     DM: DocMap,
 {
     visitor: &'a mut IV,
-    doc_map: Arc<DM>,
+    doc_map: DM,
 }
 impl<'a, IV, DM> IntersectVisitorImpl<'a, IV, DM>
 where
     IV: IntersectVisitor,
     DM: DocMap,
 {
-    pub(crate) fn new(visitor: &'a mut IV, doc_map: Arc<DM>) -> Self {
+    pub(crate) fn new(visitor: &'a mut IV, doc_map: DM) -> Self {
         Self { visitor, doc_map }
     }
 }
