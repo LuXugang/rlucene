@@ -25,6 +25,7 @@ use crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQuery
 use crate::core::search::prefix_query::PrefixQuery;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
+use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::search::wildcard_query::WildcardQuery;
@@ -145,6 +146,7 @@ pub enum MultiTermQueryEnum {
     TermRange(TermRangeQuery),
     Automaton(AutomatonQuery),
     Wildcard(WildcardQuery),
+    Regexp(RegexpQuery),
 }
 
 impl QueryBase for MultiTermQueryEnum {
@@ -154,6 +156,7 @@ impl QueryBase for MultiTermQueryEnum {
             MultiTermQueryEnum::TermRange(q) => q.as_string(field),
             MultiTermQueryEnum::Automaton(q) => q.as_string(field),
             MultiTermQueryEnum::Wildcard(q) => q.as_string(field),
+            MultiTermQueryEnum::Regexp(q) => q.as_string(field),
         }
     }
 
@@ -188,6 +191,7 @@ impl QueryBase for MultiTermQueryEnum {
             MultiTermQueryEnum::TermRange(q) => q.visit(visitor),
             MultiTermQueryEnum::Automaton(q) => q.visit(visitor),
             MultiTermQueryEnum::Wildcard(q) => q.visit(visitor),
+            MultiTermQueryEnum::Regexp(q) => q.visit(visitor),
         }
     }
 }
@@ -199,6 +203,7 @@ impl Debug for MultiTermQueryEnum {
             MultiTermQueryEnum::TermRange(q) => write!(f, "TermRange({:?})", q),
             MultiTermQueryEnum::Automaton(q) => write!(f, "Automaton({:?})", q),
             MultiTermQueryEnum::Wildcard(q) => write!(f, "Wildcard({:?})", q),
+            MultiTermQueryEnum::Regexp(q) => write!(f, "Regexp({:?})", q),
         }
     }
 }
@@ -210,6 +215,7 @@ impl HasIdentity for MultiTermQueryEnum {
             MultiTermQueryEnum::TermRange(q) => q.identity(),
             MultiTermQueryEnum::Automaton(q) => q.identity(),
             MultiTermQueryEnum::Wildcard(q) => q.identity(),
+            MultiTermQueryEnum::Regexp(q) => q.identity(),
         }
     }
 }
@@ -220,6 +226,7 @@ impl_from_for_enum!(
     TermRangeQuery => TermRange,
     AutomatonQuery => Automaton,
     WildcardQuery => Wildcard,
+    RegexpQuery => Regexp,
 );
 impl Hash for MultiTermQueryEnum {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -228,6 +235,7 @@ impl Hash for MultiTermQueryEnum {
             MultiTermQueryEnum::TermRange(q) => q.hash(state),
             MultiTermQueryEnum::Automaton(q) => q.hash(state),
             MultiTermQueryEnum::Wildcard(q) => q.hash(state),
+            MultiTermQueryEnum::Regexp(q) => q.hash(state),
         }
     }
 }
@@ -240,6 +248,7 @@ impl PartialEq for MultiTermQueryEnum {
             (MultiTermQueryEnum::TermRange(q1), MultiTermQueryEnum::TermRange(q2)) => q1 == q2,
             (MultiTermQueryEnum::Automaton(q1), MultiTermQueryEnum::Automaton(q2)) => q1 == q2,
             (MultiTermQueryEnum::Wildcard(q1), MultiTermQueryEnum::Wildcard(q2)) => q1 == q2,
+            (MultiTermQueryEnum::Regexp(q1), MultiTermQueryEnum::Regexp(q2)) => q1 == q2,
             _ => false,
         }
     }

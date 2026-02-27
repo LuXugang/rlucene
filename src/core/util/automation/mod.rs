@@ -16,7 +16,7 @@
  */
 pub mod automata;
 pub mod automaton;
-mod automaton_provider;
+pub mod automaton_provider;
 pub mod byte_run_automaton;
 pub mod byte_runnable;
 mod character_run_automaton;
@@ -25,7 +25,7 @@ mod finite_strings_iterator;
 mod frozen_int_set;
 mod int_set;
 mod limited_finite_strings_iterator;
-mod nfa_run_automaton;
+pub mod nfa_run_automaton;
 pub mod operations;
 pub mod reg_exp;
 pub mod run_automaton;

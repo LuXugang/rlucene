@@ -298,7 +298,7 @@ impl RegExp {
     /// Errors:
     /// - Returns an error if this regular expression uses a named identifier
     ///   that does not exist in the automaton map.
-    pub fn to_automaton_with_map(
+    pub fn to_automaton_from_map(
         &self,
         automata: &HashMap<String, Automaton>,
     ) -> Result<Automaton> {
@@ -312,7 +312,7 @@ impl RegExp {
     /// Errors:
     /// - Returns an error if this regular expression uses a named identifier
     ///   that is not available from the automaton provider.
-    pub fn to_automaton_with_provider(
+    pub fn to_automaton_from_provider(
         &self,
         provider: &impl AutomatonProvider,
     ) -> Result<Automaton> {
@@ -2394,7 +2394,7 @@ mod tests {
             HashSet::from(["myletter".to_string()])
         );
 
-        let actual = re.to_automaton_with_provider(&MyProvider)?;
+        let actual = re.to_automaton_from_provider(&MyProvider)?;
         assert!(actual.is_deterministic());
 
         let expected = Automata::make_char('z' as i32)?;
@@ -2411,7 +2411,7 @@ mod tests {
             HashSet::from(["myletter".to_string()])
         );
 
-        let actual = re.to_automaton_with_map(&HashMap::from([(
+        let actual = re.to_automaton_from_map(&HashMap::from([(
             "myletter".to_string(),
             Automata::make_char('z' as i32)?,
         )]))?;
@@ -2440,7 +2440,7 @@ mod tests {
             HashSet::from(["myletter".to_string()])
         );
 
-        let err = re.to_automaton_with_provider(&MyProvider);
+        let err = re.to_automaton_from_provider(&MyProvider);
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
@@ -2450,7 +2450,7 @@ mod tests {
         assert_eq!("<bogus>", re.to_string());
         assert_eq!("Automaton\n", re.to_string_tree());
 
-        let err = re.to_automaton_with_map(&HashMap::from([(
+        let err = re.to_automaton_from_map(&HashMap::from([(
             "myletter".to_string(),
             Automata::make_char('z' as i32).unwrap(),
         )]));

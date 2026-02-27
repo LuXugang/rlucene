@@ -122,6 +122,7 @@ pub(crate) mod phrase_scorer;
 mod phrase_weight;
 pub mod point_range_query;
 pub mod prefix_query;
+pub mod regexp_query;
 pub(crate) mod req_excl_bulk_scorer;
 pub(crate) mod req_excl_scorer;
 pub(crate) mod req_opt_sum_scorer;

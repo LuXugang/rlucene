@@ -38,6 +38,7 @@ use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::prefix_query::PrefixQuery;
 use crate::core::search::query_visitor::QueryVisitor;
+use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -94,6 +95,7 @@ macro_rules! dispatch_query {
             Query::MultiTermQueryConstantScoreWrapper($inner) => $body,
             Query::PointRange($inner) => $body,
             Query::Prefix($inner) => $body,
+            Query::Regexp($inner) => $body,
             Query::SortedNumericDocValuesRange($inner) => $body,
             Query::SortedNumericDocValuesSet($inner) => $body,
             Query::SortedSetDocValuesRange($inner) => $body,
@@ -126,6 +128,7 @@ impl_from_for_query! {
     MultiTermQueryConstantScoreWrapper => MultiTermQueryConstantScoreWrapper,
     PointRangeQuery => PointRange,
     PrefixQuery => Prefix,
+    RegexpQuery => Regexp,
     SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
     SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
     SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
@@ -173,6 +176,7 @@ pub enum Query {
     MultiTermQueryConstantScoreBlendedWrapper(MultiTermQueryConstantScoreBlendedWrapper),
     MultiTermQueryConstantScoreWrapper(MultiTermQueryConstantScoreWrapper),
     PointRange(PointRangeQuery),
+    Regexp(RegexpQuery),
     SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
     SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
