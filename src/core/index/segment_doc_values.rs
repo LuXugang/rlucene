@@ -58,7 +58,7 @@ where
     pub(crate) fn new_doc_values_producer<D1>(
         &self,
         si: &SegmentCommitInfo<D>,
-        dir: &Option<D1>,
+        dir: Option<&D1>,
         r#gen: i64,
         infos: Arc<FieldInfos>,
     ) -> Result<RefCount<Arc<DefaultDocValuesProducer<D1::IndexInput>>>>
@@ -93,7 +93,7 @@ where
         &self,
         r#gen: i64,
         si: &SegmentCommitInfo<D>,
-        dir: &Option<D1>,
+        dir: Option<&D1>,
         infos: Arc<FieldInfos>,
     ) -> Result<Arc<DefaultDocValuesProducer<D1::IndexInput>>>
     where

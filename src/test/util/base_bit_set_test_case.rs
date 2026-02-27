@@ -71,7 +71,7 @@ pub trait BaseBitSetTestCase {
         set1: &RustUtilBitSet,
         set2: &impl BitSet,
         max_doc: usize,
-        sfbs: &Option<SparseFixedBitSet>,
+        sfbs: Option<&SparseFixedBitSet>,
     );
     fn test_cardinality<R: Rng + ?Sized>(&mut self, random: &mut R) {
         let num_bits = 1 + random.random_range(0..100000);
@@ -137,7 +137,7 @@ pub trait BaseBitSetTestCase {
             set1.set(index);
             set2.set(index);
         }
-        self.assert_equals(&set1, &set2, num_bits, &sfbs);
+        self.assert_equals(&set1, &set2, num_bits, sfbs.as_ref());
     }
     fn test_get_and_set<R: Rng + ?Sized>(&self, random: &mut R) {
         let num_bits = 1 + random.random_range(0..100000);
@@ -151,7 +151,7 @@ pub trait BaseBitSetTestCase {
             let v2 = set2.get_and_set(index);
             assert_eq!(v1, v2);
         }
-        self.assert_equals(&set1, &set2, num_bits, &sfbs);
+        self.assert_equals(&set1, &set2, num_bits, sfbs.as_ref());
     }
     fn test_clear<R: Rng + ?Sized>(&mut self, random: &mut R) {
         let num_bits = 1 + random.random_range(0..100000);
@@ -180,7 +180,7 @@ pub trait BaseBitSetTestCase {
                 let to = random.random_range(0..(num_bits + 1));
                 set1.clear_range(from, to);
                 set2.clear_range(from, to);
-                self.assert_equals(&set1, &set2, num_bits, &sfbs);
+                self.assert_equals(&set1, &set2, num_bits, sfbs.as_ref());
             }
         }
     }
@@ -194,7 +194,7 @@ pub trait BaseBitSetTestCase {
             for _i in 0..iters {
                 set1.clear();
                 set2.clear();
-                self.assert_equals(&set1, &set2, num_bits, &sfbs);
+                self.assert_equals(&set1, &set2, num_bits, sfbs.as_ref());
             }
         }
     }
@@ -230,7 +230,7 @@ pub trait BaseBitSetTestCaseSupperImpl {
         set1: &RustUtilBitSet,
         set2: &T,
         max_doc: usize,
-        _sfbs: &Option<SparseFixedBitSet>,
+        _sfbs: Option<&SparseFixedBitSet>,
     ) {
         for i in 0..max_doc {
             assert_eq!(

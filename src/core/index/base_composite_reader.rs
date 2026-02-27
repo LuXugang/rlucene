@@ -75,10 +75,7 @@ where
     LR: LeafReader,
     CR: CompositeReader,
 {
-    pub fn with_leaf_readers<C>(
-        sub_readers: Vec<LR>,
-        sub_reader_sorter: &Option<Arc<C>>,
-    ) -> Result<Self>
+    pub fn with_leaf_readers<C>(sub_readers: Vec<LR>, sub_reader_sorter: Option<&C>) -> Result<Self>
     where
         C: Comparator<LR>,
     {
@@ -87,7 +84,7 @@ where
 
     pub fn with_composite_readers<C>(
         sub_readers: Vec<CR>,
-        sub_reader_sorter: &Option<Arc<C>>,
+        sub_reader_sorter: Option<&C>,
     ) -> Result<Self>
     where
         C: Comparator<CR>,
@@ -108,7 +105,7 @@ where
     ///   If not `None`, this comparator is used to sort sub-readers before resolving doc IDs.
     fn build_from_sub_readers<IR, C, F>(
         mut sub_readers: Vec<IR>,
-        sub_reader_sorter: &Option<Arc<C>>,
+        sub_reader_sorter: Option<&C>,
         to_index_reader_enum: F,
     ) -> Result<Self>
     where

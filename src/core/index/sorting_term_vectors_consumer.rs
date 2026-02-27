@@ -71,19 +71,21 @@ where
 
     fn write_term_vectors<TVW, F>(
         writer: &mut TVW,
-        vectors: &Option<F>,
+        vectors: Option<&F>,
         field_infos: &Arc<FieldInfos>,
     ) -> Result<()>
     where
         TVW: TermVectorsWriter,
         F: Fields,
     {
-        if vectors.is_none() {
-            writer.start_document(0)?;
-            writer.finish_document()?;
-            return Ok(());
-        }
-        let vectors = vectors.as_ref().unwrap();
+        let vectors = match vectors {
+            Some(v) => v,
+            None => {
+                writer.start_document(0)?;
+                writer.finish_document()?;
+                return Ok(());
+            },
+        };
 
         let mut num_fields = vectors.size()?;
         if num_fields == -1 {
@@ -244,7 +246,7 @@ where
                     None => doc_id,
                 };
                 let vectors = reader.get(read_id)?;
-                Self::write_term_vectors(&mut writer, &vectors, &state.field_infos)?;
+                Self::write_term_vectors(&mut writer, vectors.as_ref(), &state.field_infos)?;
             }
             writer.finish(max_doc, state.directory)?;
             let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;

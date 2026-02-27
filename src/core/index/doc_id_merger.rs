@@ -506,12 +506,7 @@ pub mod tests {
         live_docs: Option<Rc<FixedBitSet>>,
     }
     impl DocMapMock2 {
-        fn new(doc_map: Vec<i32>, live_docs: &Option<Rc<FixedBitSet>>) -> Self {
-            let live_docs = if live_docs.is_none() {
-                None
-            } else {
-                Some(live_docs.as_ref().unwrap().clone())
-            };
+        fn new(doc_map: Vec<i32>, live_docs: Option<Rc<FixedBitSet>>) -> Self {
             Self { doc_map, live_docs }
         }
     }
@@ -576,7 +571,7 @@ pub mod tests {
 
         for (i, doc_map) in completed_subs.iter().enumerate() {
             let len = doc_map.len();
-            let doc_map_enum = Rc::new(DocMapMock2::new(doc_map.clone(), &live_docs));
+            let doc_map_enum = Rc::new(DocMapMock2::new(doc_map.clone(), live_docs.clone()));
 
             let sub = Sub::new(TestSubSorted::new(doc_map_enum, len as i32, i as i32));
 

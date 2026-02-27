@@ -135,7 +135,11 @@ where
                 &segment_reader.core,
             )?;
 
-            debug_assert!(Self::assert_live_docs(is_nrt, &hard_live_docs, &live_docs)?);
+            debug_assert!(Self::assert_live_docs(
+                is_nrt,
+                hard_live_docs.as_ref(),
+                live_docs.as_ref()
+            )?);
 
             Ok((hard_live_docs, live_docs, field_infos, doc_values_producer))
         })();
@@ -185,7 +189,11 @@ where
         let core = sr.core.clone();
         let seg_doc_values = sr.seg_doc_values.clone();
         core.inc_ref()?;
-        debug_assert!(Self::assert_live_docs(is_nrt, &hard_live_docs, &live_docs)?);
+        debug_assert!(Self::assert_live_docs(
+            is_nrt,
+            hard_live_docs.as_ref(),
+            live_docs.as_ref()
+        )?);
         let info_id = si.info.get_id_str();
         let mut segment_reader = Self {
             si,
@@ -223,8 +231,8 @@ where
     }
     fn assert_live_docs(
         is_nrt: bool,
-        hard_live_docs: &Option<DocBits>,
-        live_docs: &Option<DocBits>,
+        hard_live_docs: Option<&DocBits>,
+        live_docs: Option<&DocBits>,
     ) -> Result<bool> {
         match is_nrt {
             true => debug_assert!(
@@ -271,7 +279,7 @@ where
         let producer = match si.has_field_updates() {
             true => DocValuesProducerEnum2::A(SegmentDocValuesProducer::new(
                 si,
-                dir,
+                dir.as_ref(),
                 Arc::clone(&core.core_field_infos),
                 &field_infos,
                 seg_doc_values,
@@ -280,7 +288,7 @@ where
             false => DocValuesProducerEnum2::B(seg_doc_values.get_doc_values_producer(
                 -1,
                 si,
-                dir,
+                dir.as_ref(),
                 field_infos,
             )?),
         };

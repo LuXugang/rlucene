@@ -17,6 +17,8 @@
 use crate::core::index::BytesRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{BytesRefComparator, ToInt};
+use std::rc::Rc;
+use std::sync::Arc;
 
 pub trait Comparator<T> {
     /// A static string that identifies the type of comparator.
@@ -29,6 +31,27 @@ pub trait Comparator<T> {
     /// For most simple comparators (e.g., numerical or lexical), this
     /// will always return `Ok(result)`.
     fn compare(&self, a: &T, b: &T) -> Result<i32>;
+}
+
+impl<T, C> Comparator<T> for Arc<C>
+where
+    C: Comparator<T>,
+{
+    const TYPE: &'static str = C::TYPE;
+
+    fn compare(&self, a: &T, b: &T) -> Result<i32> {
+        (**self).compare(a, b)
+    }
+}
+impl<T, C> Comparator<T> for Rc<C>
+where
+    C: Comparator<T>,
+{
+    const TYPE: &'static str = C::TYPE;
+
+    fn compare(&self, a: &T, b: &T) -> Result<i32> {
+        (**self).compare(a, b)
+    }
 }
 
 pub struct NaturalOrder;

@@ -60,7 +60,7 @@ where
     write_all_deletes: bool,
     // if Some, this reader owns the SegmentInfos, else from IndexWriter
     pub(crate) segment_infos: Option<SegmentInfos<D>>,
-    sub_reader_sorter: Option<Arc<C>>,
+    sub_reader_sorter: Option<C>,
     index_base: IndexReaderBase,
     closed: Option<Arc<AtomicBool>>,
     cache_helper: CacheHelperImpl,
@@ -75,13 +75,13 @@ where
         directory: Arc<D>,
         readers: Vec<LR>,
         segment_infos: SegmentInfos<D>,
-        leaf_sorter: Option<Arc<C>>,
+        leaf_sorter: Option<C>,
         apply_all_deletes: bool,
         write_all_deletes: bool,
         closed: Option<Arc<AtomicBool>>,
     ) -> Result<Self> {
         let base_composite_reader_base =
-            BaseCompositeReaderBase::with_leaf_readers(readers, &leaf_sorter)?;
+            BaseCompositeReaderBase::with_leaf_readers(readers, leaf_sorter.as_ref())?;
         let directory_reader_base = DirectoryReaderBase::new(directory);
         Ok(StandardDirectoryReader {
             base_composite_reader_base,
@@ -99,7 +99,7 @@ where
     pub(crate) fn open<IC>(
         directory: Arc<D>,
         commit: Option<&IC>,
-        leaf_sorter: Option<Arc<C>>,
+        leaf_sorter: Option<C>,
     ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
     where
         D: Directory,
@@ -113,14 +113,14 @@ where
         directory: Arc<D>,
         min_supported_major_version: i32,
         commit: Option<&IC>,
-        leaf_sorter: Option<Arc<C>>,
+        leaf_sorter: Option<C>,
     ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
     where
         D: Directory,
         C: Comparator<Arc<SegmentReader<D>>>,
         IC: IndexCommit<Directory = D>,
     {
-        let finder =
+        let mut finder =
             FindSegmentsFileImpl1::new(min_supported_major_version, directory.clone(), leaf_sorter);
         match commit {
             Some(c) => finder.run_with_commit(c),
@@ -204,7 +204,7 @@ where
             readers,
             segment_infos,
             // TODO IMPORTANT 这里不对 要从LiveIndexWriterConfig中获取
-            None::<Arc<DummyComparator>>,
+            None,
             apply_all_deletes,
             write_all_deletes,
             Some(writer.closed.clone()),
@@ -431,7 +431,7 @@ where
 {
     min_supported_major_version: i32,
     directory: Arc<D>,
-    leaf_sorter: Option<Arc<C>>,
+    leaf_sorter: Option<C>,
     _marker: std::marker::PhantomData<LR>,
 }
 impl<D, LR, C> FindSegmentsFileImpl1<D, LR, C>
@@ -443,7 +443,7 @@ where
     pub fn new(
         min_supported_major_version: i32,
         directory: Arc<D>,
-        leaf_sorter: Option<Arc<C>>,
+        leaf_sorter: Option<C>,
     ) -> Self {
         FindSegmentsFileImpl1 {
             min_supported_major_version,
@@ -465,7 +465,7 @@ where
         self.directory.clone()
     }
 
-    fn do_body(&self, segment_file_name: &str) -> Result<Self::V> {
+    fn do_body(&mut self, segment_file_name: &str) -> Result<Self::V> {
         if self.min_supported_major_version > LATEST.major || self.min_supported_major_version < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "minSupportedMajorVersion must be positive and <= {} but was: {}",
@@ -497,7 +497,7 @@ where
             self.directory.clone(),
             readers,
             sis,
-            self.leaf_sorter.clone(),
+            self.leaf_sorter.take(),
             false,
             false,
             None,
@@ -532,7 +532,7 @@ where
         self.directory.clone()
     }
 
-    fn do_body(&self, segment_file_name: &str) -> Result<Self::V> {
+    fn do_body(&mut self, segment_file_name: &str) -> Result<Self::V> {
         let _infos = SegmentInfos::read_commit(self.directory.clone(), segment_file_name)?;
         todo!()
     }

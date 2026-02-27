@@ -654,7 +654,7 @@ mod tests {
             set1: &RustUtilBitSet,
             set2: &impl BitSet,
             max_doc: usize,
-            sfbs: &Option<SparseFixedBitSet>,
+            sfbs: Option<&SparseFixedBitSet>,
         ) {
             // check invariants of the sparse set
             let mut non_zero_long_count = 0;

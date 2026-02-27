@@ -210,22 +210,6 @@ where
     pub fn set_has_blocks(&mut self) {
         self.has_blocks = true;
     }
-    // /// Can only be called once to set the codec
-    // pub fn set_codec(&mut self, codec: Lucene101Codec) -> Result<()> {
-    //     if self.codec.is_some() {
-    //         return Err(LuceneError::illegal_argument(
-    //             "Codec was already set",
-    //         ));
-    //     }
-    //     self.codec = Some(codec);
-    //     Ok(())
-    // }
-    //
-    // /// Returns the Codec that wrote this segment
-    // pub fn get_codec(&self) -> &Option<Lucene101Codec> {
-    //     &self.codec
-    // }
-
     /// Returns the number of documents in this segment (deletions are not taken
     /// into account)
     pub fn max_doc(&self) -> Result<i32> {

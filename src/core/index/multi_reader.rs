@@ -66,7 +66,7 @@ where
 {
     pub fn with_leaf_reader(sub_readers: Vec<LR>) -> Result<Self> {
         let base_composite_reader_base =
-            BaseCompositeReaderBase::with_leaf_readers::<DummyComparator>(sub_readers, &None)?;
+            BaseCompositeReaderBase::with_leaf_readers::<DummyComparator>(sub_readers, None)?;
         Self::new(base_composite_reader_base, IndexReaderBase::new(), true)
     }
 }
@@ -78,7 +78,7 @@ where
 {
     pub fn with_composite_reader(sub_readers: Vec<CR>) -> Result<Self> {
         let base_composite_reader_base =
-            BaseCompositeReaderBase::with_composite_readers::<DummyComparator>(sub_readers, &None)?;
+            BaseCompositeReaderBase::with_composite_readers::<DummyComparator>(sub_readers, None)?;
         Self::new(base_composite_reader_base, IndexReaderBase::new(), true)
     }
     fn new(

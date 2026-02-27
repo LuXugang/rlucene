@@ -184,7 +184,7 @@ pub mod directory_reader_util {
     /// Returns an error if there is a low-level I/O error.
     pub fn open_with_sorter<D, C>(
         directory: Arc<D>,
-        leaf_sorter: Option<Arc<C>>,
+        leaf_sorter: Option<C>,
     ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
     where
         D: Directory,
@@ -320,7 +320,7 @@ pub mod directory_reader_util {
     pub fn open_with_commit_version_sorter<D, C, IC>(
         commit: &IC,
         min_supported_major_version: i32,
-        leaf_sorter: Option<Arc<C>>,
+        leaf_sorter: Option<C>,
     ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
     where
         D: Directory,

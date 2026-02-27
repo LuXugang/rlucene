@@ -759,7 +759,7 @@ mod tests {
             set1: &RustUtilBitSet,
             set2: &impl BitSet,
             max_doc: usize,
-            sfbs: &Option<SparseFixedBitSet>,
+            sfbs: Option<&SparseFixedBitSet>,
         ) {
             BaseBitSetTestCaseSupperImpl::assert_equals(self, set1, set2, max_doc, sfbs);
         }

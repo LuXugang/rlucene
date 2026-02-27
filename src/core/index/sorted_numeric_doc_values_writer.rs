@@ -162,7 +162,7 @@ impl SortedNumericDocValuesWriter {
 
     pub(crate) fn get_values(
         values: &PackedLongValues,
-        value_counts: &Option<PackedLongValues>,
+        value_counts: Option<&PackedLongValues>,
         docs_with_field: &DocsWithFieldSet,
     ) -> Result<
         SortedNumericDocValuesEnum2<
@@ -236,7 +236,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
         let sorted = if let Some(sort_map) = sort_map {
             let mut v = SortedNumericDocValuesWriter::get_values(
                 &values,
-                &value_counts,
+                value_counts.as_ref(),
                 &self.docs_with_field,
             )?;
             Some(LongValues::new(
@@ -272,7 +272,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
         }
         SortedNumericDocValuesWriter::get_values(
             self.final_values.as_ref().unwrap(),
-            &self.final_values_count,
+            self.final_values_count.as_ref(),
             &self.docs_with_field,
         )
     }
@@ -373,7 +373,7 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
         }
         let buf = SortedNumericDocValuesWriter::get_values(
             &self.values,
-            &self.value_counts,
+            self.value_counts.as_ref(),
             &self.docs_with_field,
         )?;
         match &self.sorted {

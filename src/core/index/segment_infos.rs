@@ -567,7 +567,7 @@ where
         directory: Arc<D>,
         min_supported_major_version: i32,
     ) -> Result<SegmentInfos<D>> {
-        let find_segments_file = FindSegmentsFileImpl {
+        let mut find_segments_file = FindSegmentsFileImpl {
             dir: directory.clone(),
             min_supported_major_version,
         };
@@ -1194,7 +1194,10 @@ pub trait FindSegmentsFile {
     type D: Directory;
     fn get_directory_point(&self) -> Arc<Self::D>;
     /// Run doBody on the provided commit.
-    fn run_with_commit(&self, commit: &impl IndexCommit<Directory = Self::D>) -> Result<Self::V> {
+    fn run_with_commit(
+        &mut self,
+        commit: &impl IndexCommit<Directory = Self::D>,
+    ) -> Result<Self::V> {
         if !Arc::ptr_eq(&self.get_directory_point(), &commit.get_directory()) {
             return Err(LuceneError::illegal_state(
                 "The specified commit does not match the specified Directory",
@@ -1203,7 +1206,7 @@ pub trait FindSegmentsFile {
         self.do_body(commit.get_segments_file_name())
     }
     /// Locate the most recent segments file and run doBody on it.
-    fn run(&self) -> Result<Self::V> {
+    fn run(&mut self) -> Result<Self::V> {
         let mut last_gen: i64;
         let mut r#gen: i64 = -1;
         let mut exc: Option<LuceneError> = None;
@@ -1274,7 +1277,7 @@ pub trait FindSegmentsFile {
     }
     /// Sub struct must implement this.
     /// The assumption is an error will be thrown if something goes wrong during the processing that could have been caused by a writer committing.
-    fn do_body(&self, segment_file_name: &str) -> Result<Self::V>;
+    fn do_body(&mut self, segment_file_name: &str) -> Result<Self::V>;
 }
 
 pub struct FindSegmentsFileImpl<D>
@@ -1295,7 +1298,7 @@ where
         self.dir.clone()
     }
 
-    fn do_body(&self, segment_file_name: &str) -> Result<Self::V> {
+    fn do_body(&mut self, segment_file_name: &str) -> Result<Self::V> {
         SegmentInfos::read_commit_with_file_min_version(
             self.dir.clone(),
             segment_file_name,

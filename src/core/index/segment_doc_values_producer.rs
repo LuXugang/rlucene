@@ -45,7 +45,7 @@ where
 {
     pub(crate) fn new<D1>(
         si: &SegmentCommitInfo<D>,
-        dir: &Option<D1>,
+        dir: Option<&D1>,
         core_infos: Arc<FieldInfos>,
         all_infos: &FieldInfos,
         seg_doc_values: &SegmentDocValues<D>,
