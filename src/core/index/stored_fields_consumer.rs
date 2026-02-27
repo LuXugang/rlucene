@@ -183,7 +183,7 @@ where
     pub(crate) fn flush<DM, D1>(
         &mut self,
         state: &mut SegmentWriteState<D>,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         info: &mut SegmentInfo<D1>,
         dir: &D,
     ) -> Result<()>
@@ -227,7 +227,7 @@ pub(crate) trait StoredFieldsConsumerBase {
     fn flush<DM, D1>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         info: &mut SegmentInfo<D1>,
     ) -> Result<()>
     where

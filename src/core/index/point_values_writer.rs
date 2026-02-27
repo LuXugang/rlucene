@@ -118,14 +118,14 @@ impl PointValuesWriter {
     pub(crate) fn flush<D1, D2, DM, PW>(
         &mut self,
         state: &D1,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         writer: &mut PW,
         segment_info: &SegmentInfo<D2>,
     ) -> Result<()>
     where
         D1: Directory,
         D2: Directory,
-        DM: DocMap,
+        DM: DocMap + Clone,
         PW: PointsWriter,
     {
         let bytes_reader = self.bytes_out.paged_bytes.freeze(false)?;
@@ -137,7 +137,7 @@ impl PointValuesWriter {
         );
         let values = match sort_map {
             Some(doc_map) => {
-                MutablePointTreeEnum2::B(MutableSortingPointValues::new(points, doc_map))
+                MutablePointTreeEnum2::B(MutableSortingPointValues::new(points, doc_map.clone()))
             },
             None => MutablePointTreeEnum2::A(points),
         };

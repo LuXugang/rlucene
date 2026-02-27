@@ -212,12 +212,12 @@ where
     fn flush<DM, D1>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
-        sort_map: &Option<DM>,
+        sort_map: Option<&DM>,
         codec: &impl Codec,
         segment_info: &SegmentInfo<D1>,
     ) -> Result<()>
     where
-        DM: DocMap + Clone,
+        DM: DocMap,
         D1: Directory,
     {
         {

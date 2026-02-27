@@ -310,7 +310,7 @@ where
 
         // write norms
         let t0 = Instant::now();
-        self.write_norms(state, sort_map.clone(), segment_info, index_writer_config)?;
+        self.write_norms(state, sort_map.as_ref(), segment_info, index_writer_config)?;
         if self.info_stream.enabled("IW") {
             self.info_stream.message(
                 "IW",
@@ -320,7 +320,7 @@ where
 
         // write doc-values
         let t0 = Instant::now();
-        self.write_doc_values(state, sort_map.clone(), segment_info, index_writer_config)?;
+        self.write_doc_values(state, sort_map.as_ref(), segment_info, index_writer_config)?;
         if self.info_stream.enabled("IW") {
             self.info_stream.message(
                 "IW",
@@ -330,7 +330,7 @@ where
 
         // write points
         let t0 = Instant::now();
-        self.write_points(state, sort_map.clone(), index_writer_config, segment_info)?;
+        self.write_points(state, sort_map.as_ref(), index_writer_config, segment_info)?;
         if self.info_stream.enabled("IW") {
             self.info_stream.message(
                 "IW",
@@ -340,7 +340,7 @@ where
 
         // write vectors
         // let t0 = Instant::now();
-        // self.vector_values_consumer.flush(state, sort_map.clone(),segment_info)?;
+        // self.vector_values_consumer.flush(state, sort_map.as_ref(),segment_info)?;
         // if self.info_stream.enabled("IW") {
         //     self.info_stream.message("IW", &format!("{} ms to write vectors", t0.elapsed().as_millis()));
         // }
@@ -350,7 +350,7 @@ where
         self.stored_fields_consumer.finish(max_doc, segment_info)?;
         self.stored_fields_consumer.flush(
             state,
-            sort_map.clone(),
+            sort_map.as_ref(),
             segment_info,
             state.directory,
         )?;
@@ -408,7 +408,7 @@ where
         self.terms_hash.flush(
             fields_to_flush,
             state,
-            sort_map.clone(),
+            sort_map.as_ref(),
             norms_merge_instance,
             index_writer_config.get_codec(),
             segment_info,
@@ -450,12 +450,12 @@ where
     pub fn write_points<DM, D1>(
         &mut self,
         state: &SegmentWriteState<D>,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         index_writer_config: &impl LiveIndexWriterConfig,
         info: &SegmentInfo<D1>,
     ) -> Result<()>
     where
-        DM: DocMap,
+        DM: DocMap + Clone,
         D1: Directory,
     {
         let mut points_writer = None;
@@ -476,7 +476,7 @@ where
                         }
                         point_values_writer.flush(
                             state.directory,
-                            sort_map.clone(),
+                            sort_map,
                             points_writer.as_mut().unwrap(),
                             info,
                         )?;
@@ -514,7 +514,7 @@ where
     fn write_doc_values<DM, D1>(
         &mut self,
         state: &SegmentWriteState<D>,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         segment_info: &SegmentInfo<D1>,
         index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
@@ -545,11 +545,7 @@ where
                         dv_consumer = Some(fmt.fields_consumer(state, segment_info)?);
                     }
                     // Since it’s only ever called once globally, we didn’t implement the DocValuesWriter trait for DocValuesWriterEnum.
-                    writer.flush(
-                        sort_map.clone(),
-                        dv_consumer.as_mut().unwrap(),
-                        segment_info,
-                    )?;
+                    writer.flush(sort_map, dv_consumer.as_mut().unwrap(), segment_info)?;
                 } else if let Some(field_info) = &per_field.field_info
                     && field_info.get_doc_values_type() != &DocValuesType::None
                 {
@@ -579,7 +575,7 @@ where
     fn write_norms<DM, D1>(
         &mut self,
         state: &SegmentWriteState<D>,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         segment_info: &SegmentInfo<D1>,
         index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
@@ -606,7 +602,7 @@ where
                 let per_field = &mut self.per_fields[per_field_index.unwrap()];
                 let norms = per_field.norms.as_mut().unwrap();
                 norms.finish(max_doc);
-                norms.flush(sort_map.clone(), &mut norms_consumer, segment_info)?;
+                norms.flush(sort_map, &mut norms_consumer, segment_info)?;
             }
         }
         Ok(())

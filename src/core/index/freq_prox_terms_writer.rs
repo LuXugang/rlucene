@@ -136,7 +136,7 @@ where
         &mut self,
         fields_to_flush: HashMap<String, FreqProxTermsWriterPerField>,
         state: &mut SegmentWriteState<D>,
-        sort_map: Option<DM>,
+        sort_map: Option<&DM>,
         norms: Option<N>,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
@@ -149,7 +149,7 @@ where
         DM: DocMap + Clone,
         D1: Directory,
     {
-        self.next_terms_hash.flush(state, &sort_map, codec, info)?;
+        self.next_terms_hash.flush(state, sort_map, codec, info)?;
         if !state.field_infos.has_postings() {
             return Ok(());
         }
@@ -170,7 +170,7 @@ where
         let mut consumer = get_default_code()
             .postings_format()
             .fields_consumer(state, info)?;
-        if let Some(doc_map) = &sort_map {
+        if let Some(doc_map) = sort_map {
             let mut filter_fields =
                 FilterFieldsImpl::new(fields, state.field_infos.clone(), doc_map.clone());
             consumer.write(&mut filter_fields, &norms)?;

@@ -112,7 +112,7 @@ impl Display for NumericDocValuesWriter {
 impl DocValuesWriter for NumericDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         dv_consumer: &mut DC,
         _segment_info: &SegmentInfo<D>,
     ) -> Result<()>
@@ -405,7 +405,7 @@ pub(crate) fn get_doc_values_producer<DM>(
     writer_field_info: Arc<FieldInfo>,
     values: &PackedLongValues,
     docs_with_field: DocsWithFieldSet,
-    sort_map: Option<Arc<DM>>,
+    sort_map: Option<&DM>,
 ) -> Result<DocValuesProducerImpl>
 where
     DM: DocMap,
@@ -414,7 +414,7 @@ where
         let dense = sort_map.size() == docs_with_field.cardinality();
         let iter = docs_with_field.iterator()?;
         let mut old_values = BufferedNumericDocValues::new(values, iter);
-        let sorted = sort_doc_values(sort_map.size(), sort_map.as_ref(), &mut old_values, dense)?;
+        let sorted = sort_doc_values(sort_map.size(), sort_map, &mut old_values, dense)?;
         Some(sorted)
     } else {
         None

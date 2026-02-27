@@ -185,7 +185,7 @@ impl Display for SortedDocValuesWriter {
 impl DocValuesWriter for SortedDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         dv_consumer: &mut DC,
         _segment_info: &SegmentInfo<D>,
     ) -> Result<()>
@@ -523,7 +523,7 @@ pub(crate) fn get_doc_values_producer<DM>(
     ords: PackedLongValues,
     ord_map: Arc<Vec<i32>>,
     docs_with_field: DocsWithFieldSet,
-    sort_map: Option<Arc<DM>>,
+    sort_map: Option<&DM>,
 ) -> Result<DocValuesProducerImpl>
 where
     DM: DocMap,
@@ -539,7 +539,7 @@ where
         );
         Some(Arc::new(SortedDocValuesWriter::sort_doc_values(
             sort_map.size() as usize,
-            sort_map.as_ref(),
+            sort_map,
             &mut old_values,
         )?))
     } else {

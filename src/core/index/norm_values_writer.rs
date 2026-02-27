@@ -91,7 +91,7 @@ impl NormValuesWriter {
 
     pub(crate) fn flush<D, DM, N>(
         &mut self,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         norms_consumer: &mut N,
         segment_info: &SegmentInfo<D>,
     ) -> Result<()>
@@ -107,12 +107,8 @@ impl NormValuesWriter {
                 let dense = sort_map.size() == self.docs_with_field.cardinality();
                 let iter = self.docs_with_field.iterator()?;
                 let mut buffer_norms = BufferedNorms::new(&values, iter);
-                let sorted = sort_doc_values(
-                    segment_info.max_doc()?,
-                    sort_map.as_ref(),
-                    &mut buffer_norms,
-                    dense,
-                )?;
+                let sorted =
+                    sort_doc_values(segment_info.max_doc()?, sort_map, &mut buffer_norms, dense)?;
                 Some(sorted)
             },
             None => None,

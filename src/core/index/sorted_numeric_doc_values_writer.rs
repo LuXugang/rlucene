@@ -196,7 +196,7 @@ impl Display for SortedNumericDocValuesWriter {
 impl DocValuesWriter for SortedNumericDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         dv_consumer: &mut DC,
         segment_info: &SegmentInfo<D>,
     ) -> Result<()>
@@ -241,7 +241,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
             )?;
             Some(LongValues::new(
                 segment_info.max_doc()? as usize,
-                sort_map.as_ref(),
+                sort_map,
                 &mut v,
                 PackedInts::FASTEST,
             )?)

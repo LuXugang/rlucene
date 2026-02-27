@@ -253,7 +253,7 @@ impl Display for SortedSetDocValuesWriter {
 impl DocValuesWriter for SortedSetDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         dv_consumer: &mut DC,
         segment_info: &SegmentInfo<D>,
     ) -> Result<()>
@@ -286,7 +286,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         let doc_ords = if let Some(map) = sort_map {
             Some(DocOrds::new(
                 segment_info.max_doc()?,
-                map.as_ref(),
+                map,
                 &mut SortedSetDocValuesWriter::get_values(
                     ord_map.clone(),
                     self.hash_rc.clone().unwrap(),

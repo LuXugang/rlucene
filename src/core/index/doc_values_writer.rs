@@ -48,7 +48,7 @@ use std::sync::Arc;
 pub(crate) trait DocValuesWriter: Display {
     fn flush<D, DM, DC>(
         &mut self,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         dv_consumer: &mut DC,
         segment_info: &SegmentInfo<D>,
     ) -> Result<()>
@@ -83,7 +83,7 @@ impl Display for DocValuesWriterEnum {
 impl DocValuesWriter for DocValuesWriterEnum {
     fn flush<D, DM, DC>(
         &mut self,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<&DM>,
         dv_consumer: &mut DC,
         segment_info: &SegmentInfo<D>,
     ) -> Result<()>
