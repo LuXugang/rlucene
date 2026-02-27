@@ -46,7 +46,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone)]
 pub struct AutomatonQuery {
     pub(crate) compiled: CompiledAutomaton,
-    term: Term,
+    pub(crate) term: Term,
     #[allow(dead_code)]
     automaton_is_binary: bool,
     ram_bytes_used: i64,
