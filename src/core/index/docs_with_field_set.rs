@@ -19,7 +19,7 @@ use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIteratorEnum2};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
-use crate::core::util::bits::MatchNoBits;
+use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use std::sync::Arc;
@@ -115,9 +115,9 @@ impl DocIdSet for DocsWithFieldSet {
         }
     }
 
-    type BitType = MatchNoBits;
+    type Bits = DummyBits;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Self::Bits> {
         None
     }
 

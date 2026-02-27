@@ -57,6 +57,7 @@ pub trait Bits: HasIdentity {
 }
 
 /// Bits impl of the specified length with all bits set.
+#[derive(Clone)]
 pub struct MatchAllBits {
     len: usize,
     id: Identity,

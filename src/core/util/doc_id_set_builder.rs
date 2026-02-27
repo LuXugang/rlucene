@@ -27,7 +27,6 @@ use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterator};
-use std::sync::Arc;
 
 /// A builder of [`DocIdSet`]s. Initially, it uses a sparse structure to gather
 /// documents, and then upgrades to a non-sparse bit set once enough hits match.
@@ -206,9 +205,9 @@ impl DocIdSet for DocIdSetBuilderEnum {
         }
     }
 
-    type BitType = FixedBitSet;
+    type Bits = FixedBitSet;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Self::Bits> {
         match self {
             DocIdSetBuilderEnum::BitDoc(bit_doc_id_set) => bit_doc_id_set.bits(),
             DocIdSetBuilderEnum::IntArray(_) => None,
@@ -216,7 +215,7 @@ impl DocIdSet for DocIdSetBuilderEnum {
     }
 }
 pub enum DocIdSetBuilderIterator {
-    BitSet(BitSetIterator<Arc<FixedBitSet>>),
+    BitSet(BitSetIterator<FixedBitSet>),
     IntArray(IntArrayDocIdSetIterator),
 }
 impl DocIdSetIterator for DocIdSetBuilderIterator {

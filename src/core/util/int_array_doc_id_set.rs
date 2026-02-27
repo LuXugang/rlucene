@@ -18,10 +18,9 @@ use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::bits::MatchNoBits;
+use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
-use std::sync::Arc;
 // TODO
 
 const BASE_RAM_BYTES_USED: i64 = 0;
@@ -77,9 +76,9 @@ impl DocIdSet for IntArrayDocIdSet {
         ))
     }
 
-    type BitType = MatchNoBits;
+    type Bits = DummyBits;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Self::Bits> {
         None
     }
 }

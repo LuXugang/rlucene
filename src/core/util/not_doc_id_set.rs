@@ -22,7 +22,6 @@ use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
-use std::sync::Arc;
 
 const BASE_RAM_BYTES_USED: i64 = 0;
 /// This [`DocIdSet`] encodes the negation of another
@@ -70,22 +69,27 @@ where
         ))
     }
 
-    type BitType = NotDocIdBits<T::BitType>;
+    type Bits = NotDocIdBits<T::Bits>;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
-        self.set
-            .bits()
-            .map(|in_bit_rc| Arc::new(NotDocIdBits::new(in_bit_rc)))
+    fn bits(&self) -> Option<Self::Bits> {
+        self.set.bits().map(NotDocIdBits::new)
     }
 }
 
-pub struct NotDocIdBits<B: Bits> {
-    in_bit: Arc<B>,
+#[derive(Clone)]
+pub struct NotDocIdBits<B>
+where
+    B: Bits + Clone,
+{
+    in_bit: B,
     id: Identity,
 }
 
-impl<B: Bits> NotDocIdBits<B> {
-    pub fn new(in_bits: Arc<B>) -> NotDocIdBits<B> {
+impl<B> NotDocIdBits<B>
+where
+    B: Bits + Clone,
+{
+    pub fn new(in_bits: B) -> NotDocIdBits<B> {
         NotDocIdBits {
             in_bit: in_bits,
             id: Identity::new(),
@@ -93,13 +97,19 @@ impl<B: Bits> NotDocIdBits<B> {
     }
 }
 
-impl<B: Bits> HasIdentity for NotDocIdBits<B> {
+impl<B> HasIdentity for NotDocIdBits<B>
+where
+    B: Bits + Clone,
+{
     fn identity(&self) -> &Identity {
         &self.id
     }
 }
 
-impl<B: Bits> Bits for NotDocIdBits<B> {
+impl<B> Bits for NotDocIdBits<B>
+where
+    B: Bits + Clone,
+{
     fn get(&self, index: usize) -> Result<bool> {
         Ok(!self.in_bit.get(index)?)
     }

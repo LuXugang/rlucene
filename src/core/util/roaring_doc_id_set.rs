@@ -20,7 +20,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
-use crate::core::util::bits::MatchNoBits;
+use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
@@ -79,9 +79,9 @@ impl DocIdSet for RoaringDocIdSet {
         ))
     }
 
-    type BitType = MatchNoBits;
+    type Bits = DummyBits;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Self::Bits> {
         None
     }
 }
@@ -278,9 +278,9 @@ impl DocIdSet for ShortArrayDocIdSet {
         Ok(ShortArrayDISI::new(self.doc_ids.clone()))
     }
 
-    type BitType = MatchNoBits;
+    type Bits = DummyBits;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Self::Bits> {
         None
     }
 }
@@ -447,16 +447,16 @@ impl DocIdSet for DocIdSetEnum {
         }
     }
 
-    type BitType = MatchNoBits;
+    type Bits = DummyBits;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Self::Bits> {
         None
     }
 }
 either_docidsetiterator_named!(pub DocIdSetIteratorEnum{ Sparse: A, Medium: B,Dense:C,Empty:D});
 pub type Disi = DocIdSetIteratorEnum<
     ShortArrayDISI,
-    BitSetIterator<Arc<FixedBitSet>>,
+    BitSetIterator<FixedBitSet>,
     NotDocDocIdSetIterator<ShortArrayDISI>,
     EmptyDISI,
 >;
