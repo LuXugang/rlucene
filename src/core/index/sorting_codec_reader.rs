@@ -462,7 +462,7 @@ where
 pub struct NormsProducerImpl<NP, DM>
 where
     NP: NormsProducer,
-    DM: DocMap + Clone,
+    DM: DocMap,
 {
     delegate: NP,
     inner: Arc<Mutex<Inner>>,
@@ -472,7 +472,7 @@ where
 impl<NP, DM> NormsProducerImpl<NP, DM>
 where
     NP: NormsProducer,
-    DM: DocMap + Clone,
+    DM: DocMap,
 {
     fn new(delegate: NP, inner: Arc<Mutex<Inner>>, max_doc: i32, doc_map: DM) -> Self {
         Self {
@@ -487,7 +487,7 @@ where
 impl<NP, DM> NormsProducer for NormsProducerImpl<NP, DM>
 where
     NP: NormsProducer,
-    DM: DocMap + Clone,
+    DM: DocMap,
 {
     type NumericDocValues = SortingNumericDocValues<FixedBitSet>;
 
@@ -764,7 +764,7 @@ fn get_numeric_doc_values<N, DM>(
 ) -> Result<NumericDVs<FixedBitSet>>
 where
     N: NumericDocValues,
-    DM: DocMap + Clone,
+    DM: DocMap,
 {
     let mut docs_with_field = FixedBitSet::new(max_doc);
     let mut values = vec![0i64; max_doc];
