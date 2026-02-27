@@ -18,10 +18,12 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
-use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
-use crate::core::index::postings_enum::{FREQS, PostingsEnum, PostingsEnumEnum2};
-use crate::core::util::attribute_source::AttributeSource;
+use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2, ImpactsEnumEnum4};
+use crate::core::index::postings_enum::{
+    FREQS, PostingsEnum, PostingsEnumEnum2, PostingsEnumEnum4,
+};
 use crate::core::util::attribute_source::AttributeSourceEnum2;
+use crate::core::util::attribute_source::{AttributeSource, AttributeSourceEnum4};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -381,204 +383,183 @@ where
     }
 }
 
-// TermsEnum
-pub enum TermsEnumEnum2<A, B> {
-    A(A),
-    B(B),
+macro_rules! define_terms_enum_enum {
+    (
+        $enum_name:ident,
+        $attr_enum:ident,
+        $postings_enum:ident,
+        $impacts_enum:ident,
+        [$($V:ident),+ $(,)?]
+    ) => {
+        pub enum $enum_name<$($V),+> {
+            $($V($V)),+
+        }
+
+        impl<$($V),+> BytesRefIterator for $enum_name<$($V),+>
+        where
+            $($V: TermsEnum,)+
+        {
+            fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+                match self {
+                    $(Self::$V(t) => t.next(),)+
+                }
+            }
+
+            fn set_next(&mut self) -> Result<bool> {
+                match self {
+                    $(Self::$V(t) => t.set_next(),)+
+                }
+            }
+        }
+
+        impl<$($V),+> TermsEnum for $enum_name<$($V),+>
+        where
+            $($V: TermsEnum,)+
+        {
+            type AttributeSource = $attr_enum<$($V::AttributeSource),+>;
+
+            fn attributes(&self) -> Result<Self::AttributeSource> {
+                match self {
+                    $(Self::$V(t) => Ok($attr_enum::$V(t.attributes()?)),)+
+                }
+            }
+
+            fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+                match self {
+                    $(Self::$V(t) => t.seek_exact(term),)+
+                }
+            }
+
+            fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+                match self {
+                    $(Self::$V(t) => t.prepare_seek_exact(text),)+
+                }
+            }
+
+            fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+                match self {
+                    $(Self::$V(t) => t.get_prepare_seek_exact_status(target),)+
+                }
+            }
+
+            fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+                match self {
+                    $(Self::$V(t) => t.seek_ceil(term),)+
+                }
+            }
+
+            fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.seek_exact_with_ord(ord),)+
+                }
+            }
+
+            fn seek_exact_with_state(
+                &mut self,
+                term: &BytesRef<Vec<u8>>,
+                state: &TermStateEnum,
+            ) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.seek_exact_with_state(term, state),)+
+                }
+            }
+
+            fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+                match self {
+                    $(Self::$V(t) => t.term(),)+
+                }
+            }
+
+            fn ord(&self) -> Result<i64> {
+                match self {
+                    $(Self::$V(t) => t.ord(),)+
+                }
+            }
+
+            fn doc_freq(&mut self) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.doc_freq(),)+
+                }
+            }
+
+            fn total_term_freq(&mut self) -> Result<i64> {
+                match self {
+                    $(Self::$V(t) => t.total_term_freq(),)+
+                }
+            }
+
+            type PostingsEnum = $postings_enum<$($V::PostingsEnum),+>;
+
+            fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+                match self {
+                    $(
+                        Self::$V(t) => match reuse {
+                            Some($postings_enum::$V(v)) => Ok($postings_enum::$V(t.postings(Some(v))?)),
+                            None => Ok($postings_enum::$V(t.postings(None)?)),
+                            _ => Err(LuceneError::illegal_state(concat!(
+                                stringify!($enum_name),
+                                " expected reuse variant ",
+                                stringify!($postings_enum),
+                                "::",
+                                stringify!($V)
+                            ))),
+                        },
+                    )+
+                }
+            }
+
+            fn postings_with_flags(
+                &mut self,
+                reuse: Option<Self::PostingsEnum>,
+                flags: i32,
+            ) -> Result<Self::PostingsEnum> {
+                match self {
+                    $(
+                        Self::$V(t) => match reuse {
+                            Some($postings_enum::$V(v)) => Ok($postings_enum::$V(t.postings_with_flags(Some(v), flags)?)),
+                            None => Ok($postings_enum::$V(t.postings_with_flags(None, flags)?)),
+                            _ => Err(LuceneError::illegal_state(concat!(
+                                stringify!($enum_name),
+                                " expected reuse variant ",
+                                stringify!($postings_enum),
+                                "::",
+                                stringify!($V)
+                            ))),
+                        },
+                    )+
+                }
+            }
+
+            type ImpactsEnum = $impacts_enum<$($V::ImpactsEnum),+>;
+
+            fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+                match self {
+                    $(Self::$V(t) => Ok($impacts_enum::$V(t.impacts(flags)?)),)+
+                }
+            }
+
+            fn term_state(&mut self) -> Result<TermStateEnum> {
+                match self {
+                    $(Self::$V(t) => t.term_state(),)+
+                }
+            }
+        }
+    };
 }
-
-impl<A, B> BytesRefIterator for TermsEnumEnum2<A, B>
-where
-    A: TermsEnum,
-    B: TermsEnum,
-{
-    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        match self {
-            TermsEnumEnum2::A(t) => t.next(),
-            TermsEnumEnum2::B(s) => s.next(),
-        }
-    }
-
-    fn set_next(&mut self) -> Result<bool> {
-        match self {
-            TermsEnumEnum2::A(t) => t.set_next(),
-            TermsEnumEnum2::B(s) => s.set_next(),
-        }
-    }
-}
-
-pub type TermsEnumPostingsEnumType<A, B> = PostingsEnumEnum2<A, B>;
-impl<A, B> TermsEnum for TermsEnumEnum2<A, B>
-where
-    A: TermsEnum,
-    B: TermsEnum,
-{
-    type AttributeSource = AttributeSourceEnum2<A::AttributeSource, B::AttributeSource>;
-
-    fn attributes(&self) -> Result<Self::AttributeSource> {
-        match self {
-            TermsEnumEnum2::A(t) => Ok(AttributeSourceEnum2::A(t.attributes()?)),
-            TermsEnumEnum2::B(s) => Ok(AttributeSourceEnum2::B(s.attributes()?)),
-        }
-    }
-
-    fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
-        match self {
-            TermsEnumEnum2::A(t) => t.seek_exact(_term),
-            TermsEnumEnum2::B(s) => s.seek_exact(_term),
-        }
-    }
-
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-        match self {
-            TermsEnumEnum2::A(t) => t.prepare_seek_exact(_text),
-            TermsEnumEnum2::B(s) => s.prepare_seek_exact(_text),
-        }
-    }
-
-    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        match self {
-            TermsEnumEnum2::A(t) => t.seek_ceil(_term),
-            TermsEnumEnum2::B(s) => s.seek_ceil(_term),
-        }
-    }
-
-    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
-        match self {
-            TermsEnumEnum2::A(t) => t.seek_exact_with_ord(_ord),
-            TermsEnumEnum2::B(s) => s.seek_exact_with_ord(_ord),
-        }
-    }
-
-    fn seek_exact_with_state(
-        &mut self,
-        term: &BytesRef<Vec<u8>>,
-        state: &TermStateEnum,
-    ) -> Result<()> {
-        match self {
-            TermsEnumEnum2::A(t) => t.seek_exact_with_state(term, state),
-            TermsEnumEnum2::B(s) => s.seek_exact_with_state(term, state),
-        }
-    }
-
-    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        match self {
-            TermsEnumEnum2::A(t) => t.term(),
-            TermsEnumEnum2::B(s) => s.term(),
-        }
-    }
-
-    fn ord(&self) -> Result<i64> {
-        match self {
-            TermsEnumEnum2::A(t) => t.ord(),
-            TermsEnumEnum2::B(s) => s.ord(),
-        }
-    }
-
-    fn doc_freq(&mut self) -> Result<i32> {
-        match self {
-            TermsEnumEnum2::A(t) => t.doc_freq(),
-            TermsEnumEnum2::B(s) => s.doc_freq(),
-        }
-    }
-
-    fn total_term_freq(&mut self) -> Result<i64> {
-        match self {
-            TermsEnumEnum2::A(t) => t.total_term_freq(),
-            TermsEnumEnum2::B(s) => s.total_term_freq(),
-        }
-    }
-
-    type PostingsEnum = TermsEnumPostingsEnumType<A::PostingsEnum, B::PostingsEnum>;
-
-    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
-        match self {
-            TermsEnumEnum2::A(t) => match reuse {
-                Some(PostingsEnumEnum2::A(v)) => {
-                    let postings_enum = t.postings(Some(v))?;
-                    Ok(PostingsEnumEnum2::A(postings_enum))
-                },
-                None => {
-                    let postings_enum = t.postings(None)?;
-                    Ok(PostingsEnumEnum2::A(postings_enum))
-                },
-                _ => Err(LuceneError::illegal_state(
-                    "TermsEnumEnum::F expected PostingsEnumEnum::F for reuse",
-                )),
-            },
-            TermsEnumEnum2::B(s) => match reuse {
-                Some(PostingsEnumEnum2::B(v)) => {
-                    let postings_enum = s.postings(Some(v))?;
-                    Ok(PostingsEnumEnum2::B(postings_enum))
-                },
-                None => {
-                    let postings_enum = s.postings(None)?;
-                    Ok(PostingsEnumEnum2::B(postings_enum))
-                },
-                _ => Err(LuceneError::illegal_state(
-                    "TermsEnumEnum::S expected PostingsEnumEnum::S for reuse",
-                )),
-            },
-        }
-    }
-
-    fn postings_with_flags(
-        &mut self,
-        reuse: Option<Self::PostingsEnum>,
-        flags: i32,
-    ) -> Result<Self::PostingsEnum> {
-        match self {
-            TermsEnumEnum2::A(t) => match reuse {
-                Some(PostingsEnumEnum2::A(v)) => {
-                    let postings_enum = t.postings_with_flags(Some(v), flags)?;
-                    Ok(PostingsEnumEnum2::A(postings_enum))
-                },
-                None => {
-                    let postings_enum = t.postings_with_flags(None, flags)?;
-                    Ok(PostingsEnumEnum2::A(postings_enum))
-                },
-                _ => Err(LuceneError::illegal_state(
-                    "TermsEnumEnum::F expected PostingsEnumEnum::F for reuse",
-                )),
-            },
-            TermsEnumEnum2::B(s) => match reuse {
-                Some(PostingsEnumEnum2::B(v)) => {
-                    let postings_enum = s.postings_with_flags(Some(v), flags)?;
-                    Ok(PostingsEnumEnum2::B(postings_enum))
-                },
-                None => {
-                    let postings_enum = s.postings_with_flags(None, flags)?;
-                    Ok(PostingsEnumEnum2::B(postings_enum))
-                },
-                _ => Err(LuceneError::illegal_state(
-                    "TermsEnumEnum::S expected PostingsEnumEnum::S for reuse",
-                )),
-            },
-        }
-    }
-
-    type ImpactsEnum = ImpactsEnumEnum2<A::ImpactsEnum, B::ImpactsEnum>;
-
-    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
-        match self {
-            TermsEnumEnum2::A(t) => {
-                let impacts_enum = t.impacts(flags)?;
-                Ok(ImpactsEnumEnum2::A(impacts_enum))
-            },
-            TermsEnumEnum2::B(s) => {
-                let impacts_enum = s.impacts(flags)?;
-                Ok(ImpactsEnumEnum2::B(impacts_enum))
-            },
-        }
-    }
-
-    fn term_state(&mut self) -> Result<TermStateEnum> {
-        match self {
-            TermsEnumEnum2::A(t) => t.term_state(),
-            TermsEnumEnum2::B(s) => s.term_state(),
-        }
-    }
-}
+define_terms_enum_enum!(
+    TermsEnumEnum2,
+    AttributeSourceEnum2,
+    PostingsEnumEnum2,
+    ImpactsEnumEnum2,
+    [A, B]
+);
+define_terms_enum_enum!(
+    TermsEnumEnum4,
+    AttributeSourceEnum4,
+    PostingsEnumEnum4,
+    ImpactsEnumEnum4,
+    [A, B, C, D]
+);
 #[cfg(test)]
 mod tests {
     use crate::core::document::document::Document;

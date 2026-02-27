@@ -15,142 +15,125 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::index::impacts::ImpactsEnum2;
+use crate::core::index::impacts::{ImpactsEnum2, ImpactsEnum4};
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::util::error::lucene_error;
+use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
 /// Extension of `PostingsEnum` which also provides information about upcoming
 /// impacts.
 pub trait ImpactsEnum: PostingsEnum + ImpactsSource {}
+macro_rules! define_impacts_enum_enum {
+    (
+        $enum_name:ident,
+        $impacts_wrapper:ident, // ImpactsEnum2 / ImpactsEnum3 / ...
+        [$($V:ident),+ $(,)?]
+    ) => {
+        pub enum $enum_name<$($V),+>
+        where
+            $($V: ImpactsEnum,)+
+        {
+            $($V($V)),+
+        }
 
-pub enum ImpactsEnumEnum2<A, B>
-where
-    A: ImpactsEnum,
-    B: ImpactsEnum,
-{
-    A(A),
-    B(B),
+        impl<$($V),+> PostingsEnum for $enum_name<$($V),+>
+        where
+            $($V: ImpactsEnum,)+
+        {
+            fn freq(&mut self) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.freq(),)+
+                }
+            }
+
+            fn next_position(&mut self) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.next_position(),)+
+                }
+            }
+
+            fn start_offset(&self) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.start_offset(),)+
+                }
+            }
+
+            fn end_offset(&self) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.end_offset(),)+
+                }
+            }
+
+            fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+                match self {
+                    $(Self::$V(t) => t.get_payload(),)+
+                }
+            }
+        }
+
+        impl<$($V),+> DocIdSetIterator for $enum_name<$($V),+>
+        where
+            $($V: ImpactsEnum,)+
+        {
+            fn doc_id(&self) -> i32 {
+                match self {
+                    $(Self::$V(t) => t.doc_id(),)+
+                }
+            }
+
+            fn next_doc(&mut self) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.next_doc(),)+
+                }
+            }
+
+            fn advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.advance(target),)+
+                }
+            }
+
+            fn slow_advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.slow_advance(target),)+
+                }
+            }
+
+            fn cost(&self) -> Result<i64> {
+                match self {
+                    $(Self::$V(t) => t.cost(),)+
+                }
+            }
+        }
+
+        impl<$($V),+> ImpactsSource for $enum_name<$($V),+>
+        where
+            $($V: ImpactsEnum,)+
+        {
+            fn advance_shallow(&mut self, target: i32) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.advance_shallow(target),)+
+                }
+            }
+
+            type Impacts<'a> = $impacts_wrapper<$($V::Impacts<'a>),+>
+            where
+                Self: 'a;
+
+            fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
+                match self {
+                    $(Self::$V(t) => Ok($impacts_wrapper::$V(t.get_impacts()?)),)+
+                }
+            }
+        }
+
+        impl<$($V),+> ImpactsEnum for $enum_name<$($V),+>
+        where
+            $($V: ImpactsEnum,)+
+        {}
+    };
 }
-
-impl<A, B> PostingsEnum for ImpactsEnumEnum2<A, B>
-where
-    A: ImpactsEnum,
-    B: ImpactsEnum,
-{
-    fn freq(&mut self) -> lucene_error::Result<i32> {
-        match self {
-            ImpactsEnumEnum2::A(t) => t.freq(),
-            ImpactsEnumEnum2::B(s) => s.freq(),
-        }
-    }
-
-    fn next_position(&mut self) -> lucene_error::Result<i32> {
-        match self {
-            ImpactsEnumEnum2::A(t) => t.next_position(),
-            ImpactsEnumEnum2::B(s) => s.next_position(),
-        }
-    }
-
-    fn start_offset(&self) -> lucene_error::Result<i32> {
-        match self {
-            ImpactsEnumEnum2::A(t) => t.start_offset(),
-            ImpactsEnumEnum2::B(s) => s.start_offset(),
-        }
-    }
-
-    fn end_offset(&self) -> lucene_error::Result<i32> {
-        match self {
-            ImpactsEnumEnum2::A(t) => t.end_offset(),
-            ImpactsEnumEnum2::B(s) => s.end_offset(),
-        }
-    }
-
-    fn get_payload(&self) -> lucene_error::Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        match self {
-            ImpactsEnumEnum2::A(t) => t.get_payload(),
-            ImpactsEnumEnum2::B(s) => s.get_payload(),
-        }
-    }
-}
-
-impl<A, B> DocIdSetIterator for ImpactsEnumEnum2<A, B>
-where
-    A: ImpactsEnum,
-    B: ImpactsEnum,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            ImpactsEnumEnum2::A(t) => t.doc_id(),
-            ImpactsEnumEnum2::B(s) => s.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> lucene_error::Result<i32> {
-        match self {
-            ImpactsEnumEnum2::A(t) => t.next_doc(),
-            ImpactsEnumEnum2::B(s) => s.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> lucene_error::Result<i32> {
-        match self {
-            ImpactsEnumEnum2::A(t) => t.advance(target),
-            ImpactsEnumEnum2::B(s) => s.advance(target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> lucene_error::Result<i32> {
-        match self {
-            ImpactsEnumEnum2::A(t) => t.slow_advance(target),
-            ImpactsEnumEnum2::B(s) => s.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> lucene_error::Result<i64> {
-        match self {
-            ImpactsEnumEnum2::A(t) => t.cost(),
-            ImpactsEnumEnum2::B(s) => s.cost(),
-        }
-    }
-}
-
-impl<A, B> ImpactsSource for ImpactsEnumEnum2<A, B>
-where
-    B: ImpactsEnum,
-    A: ImpactsEnum,
-{
-    fn advance_shallow(&mut self, target: i32) -> lucene_error::Result<()> {
-        match self {
-            ImpactsEnumEnum2::A(t) => t.advance_shallow(target),
-            ImpactsEnumEnum2::B(s) => s.advance_shallow(target),
-        }
-    }
-
-    type Impacts<'a>
-        = ImpactsEnum2<A::Impacts<'a>, B::Impacts<'a>>
-    where
-        Self: 'a;
-
-    fn get_impacts(&self) -> lucene_error::Result<Self::Impacts<'_>> {
-        match self {
-            ImpactsEnumEnum2::A(t) => {
-                let impacts = t.get_impacts()?;
-                Ok(ImpactsEnum2::A(impacts))
-            },
-            ImpactsEnumEnum2::B(s) => {
-                let impacts = s.get_impacts()?;
-                Ok(ImpactsEnum2::B(impacts))
-            },
-        }
-    }
-}
-
-impl<A, B> ImpactsEnum for ImpactsEnumEnum2<A, B>
-where
-    A: ImpactsEnum,
-    B: ImpactsEnum,
-{
-}
+define_impacts_enum_enum!(ImpactsEnumEnum2, ImpactsEnum2, [A, B]);
+define_impacts_enum_enum!(ImpactsEnumEnum4, ImpactsEnum4, [A, B, C, D]);

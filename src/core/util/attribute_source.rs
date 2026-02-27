@@ -381,84 +381,80 @@ impl AttributeSource for EmptyAttributeSource {
     fn clear_attributes(&mut self) {}
 }
 
-// AttributeSource
-pub enum AttributeSourceEnum2<A, B> {
-    A(A),
-    B(B),
+macro_rules! define_attribute_source_enum {
+    (
+        $enum_name:ident,
+        [$($V:ident),+ $(,)?]
+    ) => {
+        pub enum $enum_name<$($V),+> {
+            $($V($V)),+
+        }
+
+        impl<$($V),+> AttributeSource for $enum_name<$($V),+>
+        where
+            $($V: AttributeSource,)+
+        {
+            fn start_offset(&self) -> Option<i32> {
+                match self {
+                    $(Self::$V(t) => t.start_offset(),)+
+                }
+            }
+
+            fn end_offset(&self) -> Option<i32> {
+                match self {
+                    $(Self::$V(t) => t.end_offset(),)+
+                }
+            }
+
+            fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.set_bytes_ref(bytes),)+
+                }
+            }
+
+            fn get_position_increment(&self) -> Option<i32> {
+                match self {
+                    $(Self::$V(t) => t.get_position_increment(),)+
+                }
+            }
+
+            fn set_position_increment(&mut self, position_increment: i32) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.set_position_increment(position_increment),)+
+                }
+            }
+
+            fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
+                match self {
+                    $(Self::$V(t) => t.get_payload(),)+
+                }
+            }
+
+            fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+                match self {
+                    $(Self::$V(t) => t.get_bytes_ref(),)+
+                }
+            }
+
+            fn get_term_frequency(&self) -> Option<i32> {
+                match self {
+                    $(Self::$V(t) => t.get_term_frequency(),)+
+                }
+            }
+
+            fn end_attributes(&mut self) {
+                match self {
+                    $(Self::$V(t) => t.end_attributes(),)+
+                }
+            }
+
+            fn clear_attributes(&mut self) {
+                match self {
+                    $(Self::$V(t) => t.clear_attributes(),)+
+                }
+            }
+        }
+    };
 }
-
-impl<A, B> AttributeSource for AttributeSourceEnum2<A, B>
-where
-    A: AttributeSource,
-    B: AttributeSource,
-{
-    fn start_offset(&self) -> Option<i32> {
-        match self {
-            AttributeSourceEnum2::A(t) => t.start_offset(),
-            AttributeSourceEnum2::B(s) => s.start_offset(),
-        }
-    }
-
-    fn end_offset(&self) -> Option<i32> {
-        match self {
-            AttributeSourceEnum2::A(t) => t.end_offset(),
-            AttributeSourceEnum2::B(s) => s.end_offset(),
-        }
-    }
-
-    fn set_bytes_ref(&mut self, _bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
-        match self {
-            AttributeSourceEnum2::A(t) => t.set_bytes_ref(_bytes),
-            AttributeSourceEnum2::B(s) => s.set_bytes_ref(_bytes),
-        }
-    }
-
-    fn get_position_increment(&self) -> Option<i32> {
-        match self {
-            AttributeSourceEnum2::A(t) => t.get_position_increment(),
-            AttributeSourceEnum2::B(s) => s.get_position_increment(),
-        }
-    }
-
-    fn set_position_increment(&mut self, _position_increment: i32) -> Result<()> {
-        match self {
-            AttributeSourceEnum2::A(t) => t.set_position_increment(_position_increment),
-            AttributeSourceEnum2::B(s) => s.set_position_increment(_position_increment),
-        }
-    }
-
-    fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
-        match self {
-            AttributeSourceEnum2::A(t) => t.get_payload(),
-            AttributeSourceEnum2::B(s) => s.get_payload(),
-        }
-    }
-
-    fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
-        match self {
-            AttributeSourceEnum2::A(t) => t.get_bytes_ref(),
-            AttributeSourceEnum2::B(s) => s.get_bytes_ref(),
-        }
-    }
-
-    fn get_term_frequency(&self) -> Option<i32> {
-        match self {
-            AttributeSourceEnum2::A(t) => t.get_term_frequency(),
-            AttributeSourceEnum2::B(s) => s.get_term_frequency(),
-        }
-    }
-
-    fn end_attributes(&mut self) {
-        match self {
-            AttributeSourceEnum2::A(t) => t.end_attributes(),
-            AttributeSourceEnum2::B(s) => s.end_attributes(),
-        }
-    }
-
-    fn clear_attributes(&mut self) {
-        match self {
-            AttributeSourceEnum2::A(t) => t.clear_attributes(),
-            AttributeSourceEnum2::B(s) => s.clear_attributes(),
-        }
-    }
-}
+define_attribute_source_enum!(AttributeSourceEnum2, [A, B]);
+define_attribute_source_enum!(AttributeSourceEnum4, [A, B, C, D]);

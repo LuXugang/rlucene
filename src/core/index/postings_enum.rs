@@ -52,94 +52,6 @@ pub trait PostingsEnum: DocIdSetIterator {
     fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
 }
 
-// PostingsEnum
-pub enum PostingsEnumEnum2<A, B> {
-    A(A),
-    B(B),
-}
-
-impl<A, B> DocIdSetIterator for PostingsEnumEnum2<A, B>
-where
-    A: PostingsEnum,
-    B: PostingsEnum,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            PostingsEnumEnum2::A(t) => t.doc_id(),
-            PostingsEnumEnum2::B(s) => s.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            PostingsEnumEnum2::A(t) => t.next_doc(),
-            PostingsEnumEnum2::B(s) => s.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            PostingsEnumEnum2::A(t) => t.advance(target),
-            PostingsEnumEnum2::B(s) => s.advance(target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            PostingsEnumEnum2::A(t) => t.slow_advance(target),
-            PostingsEnumEnum2::B(s) => s.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            PostingsEnumEnum2::A(t) => t.cost(),
-            PostingsEnumEnum2::B(s) => s.cost(),
-        }
-    }
-}
-
-impl<A, B> PostingsEnum for PostingsEnumEnum2<A, B>
-where
-    A: PostingsEnum,
-    B: PostingsEnum,
-{
-    fn freq(&mut self) -> Result<i32> {
-        match self {
-            PostingsEnumEnum2::A(t) => t.freq(),
-            PostingsEnumEnum2::B(s) => s.freq(),
-        }
-    }
-
-    fn next_position(&mut self) -> Result<i32> {
-        match self {
-            PostingsEnumEnum2::A(t) => t.next_position(),
-            PostingsEnumEnum2::B(s) => s.next_position(),
-        }
-    }
-
-    fn start_offset(&self) -> Result<i32> {
-        match self {
-            PostingsEnumEnum2::A(t) => t.start_offset(),
-            PostingsEnumEnum2::B(s) => s.start_offset(),
-        }
-    }
-
-    fn end_offset(&self) -> Result<i32> {
-        match self {
-            PostingsEnumEnum2::A(t) => t.end_offset(),
-            PostingsEnumEnum2::B(s) => s.end_offset(),
-        }
-    }
-
-    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        match self {
-            PostingsEnumEnum2::A(t) => t.get_payload(),
-            PostingsEnumEnum2::B(s) => s.get_payload(),
-        }
-    }
-}
-
 pub const NONE: i16 = 0;
 pub const FREQS: i16 = 1 << 3;
 pub const POSITIONS: i16 = FREQS | 1 << 4;
@@ -151,3 +63,85 @@ pub const ALL: i16 = OFFSETS | PAYLOADS;
 pub fn feature_requested(flags: i32, feature: i16) -> bool {
     (flags & (feature as i32)) == (feature as i32)
 }
+macro_rules! define_postings_enum_enum {
+    (
+        $enum_name:ident,
+        [$($V:ident),+ $(,)?]
+    ) => {
+        pub enum $enum_name<$($V),+> {
+            $($V($V)),+
+        }
+
+        impl<$($V),+> DocIdSetIterator for $enum_name<$($V),+>
+        where
+            $($V: PostingsEnum,)+
+        {
+            fn doc_id(&self) -> i32 {
+                match self {
+                    $(Self::$V(t) => t.doc_id(),)+
+                }
+            }
+
+            fn next_doc(&mut self) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.next_doc(),)+
+                }
+            }
+
+            fn advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.advance(target),)+
+                }
+            }
+
+            fn slow_advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.slow_advance(target),)+
+                }
+            }
+
+            fn cost(&self) -> Result<i64> {
+                match self {
+                    $(Self::$V(t) => t.cost(),)+
+                }
+            }
+        }
+
+        impl<$($V),+> PostingsEnum for $enum_name<$($V),+>
+        where
+            $($V: PostingsEnum,)+
+        {
+            fn freq(&mut self) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.freq(),)+
+                }
+            }
+
+            fn next_position(&mut self) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.next_position(),)+
+                }
+            }
+
+            fn start_offset(&self) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.start_offset(),)+
+                }
+            }
+
+            fn end_offset(&self) -> Result<i32> {
+                match self {
+                    $(Self::$V(t) => t.end_offset(),)+
+                }
+            }
+
+            fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+                match self {
+                    $(Self::$V(t) => t.get_payload(),)+
+                }
+            }
+        }
+    };
+}
+define_postings_enum_enum!(PostingsEnumEnum2, [A, B]);
+define_postings_enum_enum!(PostingsEnumEnum4, [A, B, C, D]);

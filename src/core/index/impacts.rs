@@ -46,40 +46,41 @@ pub trait Impacts {
     /// equal to the impacts that actually appear in postings.
     fn get_impacts(&self, level: i32) -> Result<Vec<Impact>>;
 }
+macro_rules! define_impacts_enum {
+    (
+        $enum_name:ident,
+        [$($V:ident),+ $(,)?]
+    ) => {
+        pub enum $enum_name<$($V),+>
+        where
+            $($V: Impacts,)+
+        {
+            $($V($V)),+
+        }
 
-// Impacts
-pub enum ImpactsEnum2<A, B>
-where
-    A: Impacts,
-    B: Impacts,
-{
-    A(A),
-    B(B),
+        impl<$($V),+> Impacts for $enum_name<$($V),+>
+        where
+            $($V: Impacts,)+
+        {
+            fn num_levels(&self) -> i32 {
+                match self {
+                    $(Self::$V(t) => t.num_levels(),)+
+                }
+            }
+
+            fn get_doc_id_upto(&self, level: i32) -> i32 {
+                match self {
+                    $(Self::$V(t) => t.get_doc_id_upto(level),)+
+                }
+            }
+
+            fn get_impacts(&self, level: i32) -> Result<Vec<Impact>> {
+                match self {
+                    $(Self::$V(t) => t.get_impacts(level),)+
+                }
+            }
+        }
+    };
 }
-
-impl<A, B> Impacts for ImpactsEnum2<A, B>
-where
-    A: Impacts,
-    B: Impacts,
-{
-    fn num_levels(&self) -> i32 {
-        match self {
-            ImpactsEnum2::A(t) => t.num_levels(),
-            ImpactsEnum2::B(s) => s.num_levels(),
-        }
-    }
-
-    fn get_doc_id_upto(&self, level: i32) -> i32 {
-        match self {
-            ImpactsEnum2::A(t) => t.get_doc_id_upto(level),
-            ImpactsEnum2::B(s) => s.get_doc_id_upto(level),
-        }
-    }
-
-    fn get_impacts(&self, level: i32) -> Result<Vec<Impact>> {
-        match self {
-            ImpactsEnum2::A(t) => t.get_impacts(level),
-            ImpactsEnum2::B(s) => s.get_impacts(level),
-        }
-    }
-}
+define_impacts_enum!(ImpactsEnum2, [A, B]);
+define_impacts_enum!(ImpactsEnum4, [A, B, C, D]);
