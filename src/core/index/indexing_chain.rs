@@ -409,7 +409,7 @@ where
             fields_to_flush,
             state,
             sort_map.as_ref(),
-            norms_merge_instance,
+            norms_merge_instance.as_ref(),
             index_writer_config.get_codec(),
             segment_info,
             seg_updates,

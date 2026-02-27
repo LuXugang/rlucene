@@ -137,7 +137,7 @@ where
         fields_to_flush: HashMap<String, FreqProxTermsWriterPerField>,
         state: &mut SegmentWriteState<D>,
         sort_map: Option<&DM>,
-        norms: Option<N>,
+        norms: Option<&N>,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
         seg_updates: Option<&mut BufferedUpdates>,
@@ -173,9 +173,9 @@ where
         if let Some(doc_map) = sort_map {
             let mut filter_fields =
                 FilterFieldsImpl::new(fields, state.field_infos.clone(), doc_map.clone());
-            consumer.write(&mut filter_fields, &norms)?;
+            consumer.write(&mut filter_fields, norms)?;
         } else {
-            consumer.write(&mut fields, &norms)?;
+            consumer.write(&mut fields, norms)?;
         }
         Ok(())
     }

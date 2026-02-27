@@ -359,7 +359,7 @@ where
     O: IndexOutput,
     PW: PostingsWriterBase,
 {
-    fn write<F, N>(&mut self, fields: &mut F, norms: &Option<N>) -> Result<()>
+    fn write<F, N>(&mut self, fields: &mut F, norms: Option<&N>) -> Result<()>
     where
         F: Fields,
         PW: PostingsWriterBase,
@@ -1155,7 +1155,7 @@ where
         &mut self,
         text: BytesRef<Vec<u8>>,
         terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
-        norms: &Option<N>,
+        norms: Option<&N>,
         postings_enum: Option<PE>,
     ) -> Result<Option<PE>> {
         let (reuse, state_opt) = self.postings_writer.write_term(

@@ -192,7 +192,7 @@ where
                 .postings_format()
                 .fields_consumer(segment_write_state, self.merge_state.segment_info)?;
 
-            consumer.merge(&self.merge_state, &norms_merge_instance)?;
+            consumer.merge(&self.merge_state, norms_merge_instance.as_ref())?;
         }
 
         Ok(())

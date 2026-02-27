@@ -63,7 +63,7 @@ pub trait PostingsWriterBase {
         _term: &BytesRef<Vec<u8>>,
         _terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
         _docs_seen: &mut FixedBitSet,
-        _norms: &Option<N>,
+        _norms: Option<&N>,
         _postings_enum: Option<PE>,
     ) -> Result<(Option<PE>, Option<TermStateEnum>)> {
         unimplemented!()

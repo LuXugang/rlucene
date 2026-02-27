@@ -115,7 +115,7 @@ where
         _term: &BytesRef<Vec<u8>>,
         terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
         docs_seen: &mut FixedBitSet,
-        norms: &Option<N>,
+        norms: Option<&N>,
         postings_enum: Option<PE>,
     ) -> Result<(Option<PE>, Option<TermStateEnum>)> {
         let mut norm_values = if self.field_info.as_ref().unwrap().has_norms() {
