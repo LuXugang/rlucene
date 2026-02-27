@@ -818,7 +818,7 @@ mod tests {
                 Automata::make_string_union(v.as_ref())?
             };
 
-            let mut c = CompiledAutomaton::with_binary(automaton, true, false, false)?;
+            let c = CompiledAutomaton::with_binary(automaton, true, false, false)?;
 
             let mut accept_terms_array: Vec<BytesRef<Vec<u8>>> =
                 Vec::with_capacity(accept_terms.len());
@@ -849,7 +849,7 @@ mod tests {
                     }
                 }
 
-                let mut te = get_terms(&r, "f")?.unwrap().intersect(&mut c, start_term)?;
+                let mut te = get_terms(&r, "f")?.unwrap().intersect(&c, start_term)?;
                 let mut loc = if let Some(st) = start_term {
                     match terms_array.binary_search(st) {
                         Ok(p) => p + 1,
@@ -1289,9 +1289,9 @@ mod tests {
         let terms = sub.terms("field")?.expect("terms must exist");
 
         let automaton = RegExp::from_str_with_flags(".*", RegExp::NONE)?.to_automaton()?;
-        let mut ca = CompiledAutomaton::new(automaton, false, false)?;
+        let ca = CompiledAutomaton::new(automaton, false, false)?;
 
-        let mut te = terms.intersect(&mut ca, None)?;
+        let mut te = terms.intersect(&ca, None)?;
         assert_eq!("aaa", te.next()?.unwrap().utf8_to_string()?);
         assert_eq!(0, te.postings_with_flags(None, NONE.into())?.next_doc()?);
         assert_eq!("bbb", te.next()?.unwrap().utf8_to_string()?);
@@ -1300,14 +1300,14 @@ mod tests {
         assert_eq!(2, te.postings_with_flags(None, NONE.into())?.next_doc()?);
         assert!(te.next()?.is_none());
 
-        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("abc")))?;
+        let mut te = terms.intersect(&ca, Some(&BytesRef::from_string("abc")))?;
         assert_eq!("bbb", te.next()?.unwrap().utf8_to_string()?);
         assert_eq!(1, te.postings_with_flags(None, NONE.into())?.next_doc()?);
         assert_eq!("ccc", te.next()?.unwrap().utf8_to_string()?);
         assert_eq!(2, te.postings_with_flags(None, NONE.into())?.next_doc()?);
         assert!(te.next()?.is_none());
 
-        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("aaa")))?;
+        let mut te = terms.intersect(&ca, Some(&BytesRef::from_string("aaa")))?;
         assert_eq!("bbb", te.next()?.unwrap().utf8_to_string()?);
         assert_eq!(1, te.postings_with_flags(None, NONE.into())?.next_doc()?);
         assert_eq!("ccc", te.next()?.unwrap().utf8_to_string()?);
@@ -1360,10 +1360,10 @@ mod tests {
             Cow::Owned(v) => v,
         };
 
-        let mut ca = CompiledAutomaton::new(v, false, false)?;
+        let ca = CompiledAutomaton::new(v, false, false)?;
 
         // should seek to startTerm
-        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("aad")))?;
+        let mut te = terms.intersect(&ca, Some(&BytesRef::from_string("aad")))?;
         assert_eq!("abd", te.next()?.unwrap().utf8_to_string()?);
         assert_eq!(1, te.postings_with_flags(None, NONE.into())?.next_doc()?);
         assert_eq!("acd", te.next()?.unwrap().utf8_to_string()?);
@@ -1373,16 +1373,16 @@ mod tests {
         assert!(te.next()?.is_none());
 
         // should fail to find ceil label on second arc, rewind
-        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("add")))?;
+        let mut te = terms.intersect(&ca, Some(&BytesRef::from_string("add")))?;
         assert_eq!("bcd", te.next()?.unwrap().utf8_to_string()?);
         assert_eq!(3, te.postings_with_flags(None, NONE.into())?.next_doc()?);
         assert!(te.next()?.is_none());
 
         // should reach end
-        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("bcd")))?;
+        let mut te = terms.intersect(&ca, Some(&BytesRef::from_string("bcd")))?;
         assert!(te.next()?.is_none());
 
-        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("ddd")))?;
+        let mut te = terms.intersect(&ca, Some(&BytesRef::from_string("ddd")))?;
         assert!(te.next()?.is_none());
 
         Ok(())
@@ -1418,9 +1418,9 @@ mod tests {
         let terms = sub.terms("field")?.expect("terms must exist");
 
         let automaton = RegExp::from_str_with_flags(".*", RegExp::NONE)?.to_automaton()?;
-        let mut ca = CompiledAutomaton::new(automaton, false, false)?;
+        let ca = CompiledAutomaton::new(automaton, false, false)?;
 
-        let mut te = terms.intersect(&mut ca, None)?;
+        let mut te = terms.intersect(&ca, None)?;
         let mut de;
 
         assert_eq!("", te.next()?.unwrap().utf8_to_string()?);
@@ -1436,7 +1436,7 @@ mod tests {
         assert!(te.next()?.is_none());
 
         // pass empty string as start term
-        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("")))?;
+        let mut te = terms.intersect(&ca, Some(&BytesRef::from_string("")))?;
         assert_eq!("abc", te.next()?.unwrap().utf8_to_string()?);
         de = te.postings_with_flags(None, NONE.into())?;
         assert_eq!(0, de.next_doc()?);
@@ -1471,9 +1471,9 @@ mod tests {
         let terms = get_terms(&reader, "field")?.expect("terms must exist");
 
         let automaton = RegExp::from_string("do_not_match_anything")?.to_automaton()?;
-        let mut ca = CompiledAutomaton::from_automaton(automaton)?;
+        let ca = CompiledAutomaton::from_automaton(automaton)?;
 
-        let err = terms.intersect(&mut ca, None);
+        let err = terms.intersect(&ca, None);
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
         if let Err(LuceneError::IllegalArgument(msg)) = err {
             assert_eq!(
@@ -1487,9 +1487,9 @@ mod tests {
     #[test]
     fn test_invalid_automaton_terms_enum() -> Result<()> {
         let automaton = Automata::make_string("foo")?;
-        let mut ca = CompiledAutomaton::from_automaton(automaton)?;
+        let ca = CompiledAutomaton::from_automaton(automaton)?;
 
-        let err = AutomatonTermsEnum::new(EmptyTermsEnum, &mut ca);
+        let err = AutomatonTermsEnum::new(EmptyTermsEnum, &ca);
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -1661,11 +1661,9 @@ mod tests2 {
                 Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
                     .into_owned();
 
-            let mut ca = CompiledAutomaton::new(automaton.clone(), false, false)?;
+            let ca = CompiledAutomaton::new(automaton.clone(), false, false)?;
 
-            let mut te = get_terms(&reader, "field")?
-                .unwrap()
-                .intersect(&mut ca, None)?;
+            let mut te = get_terms(&reader, "field")?.unwrap().intersect(&ca, None)?;
             let v = Operations::intersection(&terms_automaton, &automaton)?.into_owned();
             let expected =
                 match Operations::determinize(&v, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)? {

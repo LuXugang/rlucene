@@ -663,7 +663,7 @@ mod tests {
 
         fn intersect(
             &self,
-            _compiled: &mut CompiledAutomaton,
+            _compiled: &CompiledAutomaton,
             _start_term: Option<&BytesRef<Vec<u8>>>,
         ) -> Result<Self::IntersectIter> {
             Err(LuceneError::unsupported_operation(""))

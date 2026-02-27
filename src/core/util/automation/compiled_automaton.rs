@@ -300,7 +300,7 @@ impl CompiledAutomaton {
             idx += 1;
         }
     }
-    pub fn get_terms_enum<T>(&mut self, terms: T) -> Result<CompiledAutomatonTE<T>>
+    pub fn get_terms_enum<T>(&self, terms: T) -> Result<CompiledAutomatonTE<T>>
     where
         T: Terms,
     {
@@ -406,7 +406,7 @@ impl CompiledAutomaton {
     /// Returns a [`ByteRunnable`] instance, which differs depending on whether
     /// an NFA or DFA is passed in. This method does not guarantee returning
     /// a non-null object.
-    pub fn get_byte_runnable(&mut self) -> ByteRunnableEnum {
+    pub fn get_byte_runnable(&self) -> ByteRunnableEnum {
         debug_assert!(self.nfa_run_automaton.is_none() || self.run_automaton.is_none());
 
         if let Some(nfa) = self.nfa_run_automaton.as_ref() {
@@ -418,7 +418,7 @@ impl CompiledAutomaton {
     /// Returns a [`TransitionAccessor`] instance, which varies depending on
     /// whether an NFA or DFA is passed in. This method does not guarantee
     /// returning a non-null object.
-    pub fn get_transition_accessor(&mut self) -> TransitionAccessorEnum {
+    pub fn get_transition_accessor(&self) -> TransitionAccessorEnum {
         debug_assert!(self.nfa_run_automaton.is_none() || self.run_automaton.is_some());
 
         if let Some(nfa) = self.nfa_run_automaton.as_ref() {

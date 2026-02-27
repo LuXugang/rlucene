@@ -309,7 +309,7 @@ where
 
     fn intersect(
         &self,
-        compiled: &mut CompiledAutomaton,
+        compiled: &CompiledAutomaton,
         start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
         let v = self.in_.intersect(compiled, start_term)?;

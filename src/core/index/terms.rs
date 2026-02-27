@@ -50,13 +50,13 @@ pub trait Terms {
     /// **Note**: The returned `TermsEnum` does **not** support seeking.
     fn intersect(
         &self,
-        compiled: &mut CompiledAutomaton,
+        compiled: &CompiledAutomaton,
         start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter>;
 
     fn default_intersect(
         &self,
-        compiled: &mut CompiledAutomaton,
+        compiled: &CompiledAutomaton,
         start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>>
     where
@@ -198,7 +198,7 @@ where
 
     fn intersect(
         &self,
-        compiled: &mut CompiledAutomaton,
+        compiled: &CompiledAutomaton,
         start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
         (**self).intersect(compiled, start_term)
@@ -206,7 +206,7 @@ where
 
     fn default_intersect(
         &self,
-        compiled: &mut CompiledAutomaton,
+        compiled: &CompiledAutomaton,
         start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>>
     where
@@ -304,7 +304,7 @@ impl Terms for EmptyTerms {
 
     fn intersect(
         &self,
-        compiled: &mut CompiledAutomaton,
+        compiled: &CompiledAutomaton,
         start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
         self.default_intersect(compiled, start_term)
@@ -369,7 +369,7 @@ macro_rules! either_terms {
             }
             fn intersect(
                 &self,
-                ca: &mut CompiledAutomaton,
+                ca: &CompiledAutomaton,
                 start: Option<&BytesRef<Vec<u8>>>
             ) -> Result<Self::IntersectIter> {
                 match self {

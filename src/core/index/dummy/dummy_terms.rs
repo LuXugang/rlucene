@@ -35,7 +35,7 @@ impl Terms for DummyTerms {
 
     fn intersect(
         &self,
-        _compiled: &mut CompiledAutomaton,
+        _compiled: &CompiledAutomaton,
         _start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -43,7 +43,7 @@ impl Terms for DummyTerms {
 
     fn default_intersect(
         &self,
-        _compiled: &mut CompiledAutomaton,
+        _compiled: &CompiledAutomaton,
         _start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>>
     where

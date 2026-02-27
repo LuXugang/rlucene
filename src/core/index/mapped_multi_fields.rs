@@ -155,7 +155,7 @@ where
 
     fn intersect(
         &self,
-        compiled: &mut CompiledAutomaton,
+        compiled: &CompiledAutomaton,
         start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
         self.default_intersect(compiled, start_term)

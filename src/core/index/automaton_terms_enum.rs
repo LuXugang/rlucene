@@ -70,10 +70,7 @@ pub struct AutomatonTermsEnum {
     start_term: Option<BytesRef<Vec<u8>>>,
 }
 impl AutomatonTermsEnum {
-    pub fn new<TE>(
-        tenum: TE,
-        compiled: &mut CompiledAutomaton,
-    ) -> Result<FilteredTermsEnum<TE, Self>>
+    pub fn new<TE>(tenum: TE, compiled: &CompiledAutomaton) -> Result<FilteredTermsEnum<TE, Self>>
     where
         TE: TermsEnum,
     {
@@ -81,7 +78,7 @@ impl AutomatonTermsEnum {
     }
     pub fn with_start_term<TE>(
         tenum: TE,
-        compiled: &mut CompiledAutomaton,
+        compiled: &CompiledAutomaton,
         start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<FilteredTermsEnum<TE, Self>>
     where
