@@ -228,9 +228,9 @@ impl Automata {
     /// However, in the special case where `min == max`, and both are inclusive,
     /// the automaton will be finite and accept exactly one term.
     pub fn make_binary_interval(
-        mut min: Option<BytesRef<Vec<u8>>>,
+        min: Option<&BytesRef<Vec<u8>>>,
         mut min_inclusive: bool,
-        max: Option<BytesRef<Vec<u8>>>,
+        max: Option<&BytesRef<Vec<u8>>>,
         max_inclusive: bool,
     ) -> Result<Automaton> {
         if min.is_none() && !min_inclusive {
@@ -244,13 +244,17 @@ impl Automata {
                 "maxInclusive must be true when max is None",
             ));
         }
+        let empty_min = BytesRef::new();
 
-        if min.is_none() {
-            min = Some(BytesRef::new());
-            min_inclusive = true;
-        }
-        let min = min.as_ref().unwrap();
-        let cmp = if let Some(max_ref) = &max {
+        let min = match min {
+            Some(m) => m,
+            None => {
+                min_inclusive = true;
+                &empty_min
+            },
+        };
+
+        let cmp: i32 = if let Some(max_ref) = max {
             min.cmp(max_ref).to_int()
         } else {
             if min.length == 0 {

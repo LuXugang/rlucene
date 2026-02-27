@@ -2437,7 +2437,12 @@ mod tests {
         max_term: Option<BytesRef<Vec<u8>>>,
         max_inclusive: bool,
     ) -> Result<Automaton> {
-        let a = Automata::make_binary_interval(min_term, min_inclusive, max_term, max_inclusive)?;
+        let a = Automata::make_binary_interval(
+            min_term.as_ref(),
+            min_inclusive,
+            max_term.as_ref(),
+            max_inclusive,
+        )?;
         let min_a = MinimizationOperations::minimize(&a, i32::MAX as usize)?;
 
         if min_a.get_num_states() != a.get_num_states() {
@@ -2697,9 +2702,9 @@ mod tests {
         let mut random = random();
 
         let a = Automata::make_binary_interval(
-            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            Some(&new_bytes_ref_from_string(&mut random, "bar")?),
             true,
-            Some(new_bytes_ref_from_string(&mut random, "foo")?),
+            Some(&new_bytes_ref_from_string(&mut random, "foo")?),
             true,
         )?;
         assert!(Operations::run_ints_ref(&a, &ints_ref("bar", &mut random)?));
@@ -2725,9 +2730,9 @@ mod tests {
         let mut random = random();
 
         let a = Automata::make_binary_interval(
-            Some(new_bytes_ref_from_string(&mut random, "")?),
+            Some(&new_bytes_ref_from_string(&mut random, "")?),
             true,
-            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            Some(&new_bytes_ref_from_string(&mut random, "bar")?),
             true,
         )?;
         assert!(Operations::run_ints_ref(&a, &ints_ref("", &mut random)?));
@@ -2743,9 +2748,9 @@ mod tests {
         ));
 
         let a = Automata::make_binary_interval(
-            Some(new_bytes_ref_from_string(&mut random, "")?),
+            Some(&new_bytes_ref_from_string(&mut random, "")?),
             false,
-            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            Some(&new_bytes_ref_from_string(&mut random, "bar")?),
             true,
         )?;
         assert!(!Operations::run_ints_ref(&a, &ints_ref("", &mut random)?));
@@ -2767,9 +2772,9 @@ mod tests {
         let mut random = random();
 
         let a = Automata::make_binary_interval(
-            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            Some(&new_bytes_ref_from_string(&mut random, "bar")?),
             true,
-            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            Some(&new_bytes_ref_from_string(&mut random, "bar")?),
             true,
         )?;
         assert!(Operations::run_ints_ref(&a, &ints_ref("bar", &mut random)?));
@@ -2784,9 +2789,9 @@ mod tests {
         let mut random = random();
 
         let a = Automata::make_binary_interval(
-            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            Some(&new_bytes_ref_from_string(&mut random, "bar")?),
             true,
-            Some(new_bytes_ref_from_string(&mut random, "barfoo")?),
+            Some(&new_bytes_ref_from_string(&mut random, "barfoo")?),
             true,
         )?;
         assert!(!Operations::run_ints_ref(
@@ -2842,7 +2847,7 @@ mod tests {
         let mut random = random();
 
         let a = Automata::make_binary_interval(
-            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            Some(&new_bytes_ref_from_string(&mut random, "bar")?),
             true,
             None,
             true,
@@ -2890,7 +2895,7 @@ mod tests {
         let mut random = random();
 
         let a = Automata::make_binary_interval(
-            Some(new_bytes_ref_from_string(&mut random, "")?),
+            Some(&new_bytes_ref_from_string(&mut random, "")?),
             true,
             None,
             true,
@@ -2904,7 +2909,7 @@ mod tests {
         ));
 
         let a = Automata::make_binary_interval(
-            Some(new_bytes_ref_from_string(&mut random, "")?),
+            Some(&new_bytes_ref_from_string(&mut random, "")?),
             false,
             None,
             true,
@@ -2926,7 +2931,7 @@ mod tests {
         let a = Automata::make_binary_interval(
             None,
             true,
-            Some(new_bytes_ref_from_string(&mut random, "foo")?),
+            Some(&new_bytes_ref_from_string(&mut random, "foo")?),
             true,
         )?;
 
@@ -2967,7 +2972,7 @@ mod tests {
         let mut random = random();
 
         let a = Automata::make_binary_interval(
-            Some(new_bytes_ref_from_string(&mut random, "")?),
+            Some(&new_bytes_ref_from_string(&mut random, "")?),
             true,
             None,
             true,
