@@ -851,7 +851,7 @@ mod tests {
         let case = TestHighLZ4;
         case.test_incompressible_random(&mut random)
     }
-    // TODO 这个测试太慢了
+    // TODO IMPORTANT 这个测试太慢了
     #[test]
     fn test_compressible_random_high() -> Result<()> {
         let mut random = random();
@@ -1156,7 +1156,7 @@ mod tests {
         }
 
         fn test_compressible_random<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-            let len = random.random_range(1..1 << 18);
+            let len = TestUtil::next_usize(random, 1, 1 << 18);
             let mut b = vec![0u8; len];
             let base = random.random_range(0..256);
             let max_delta = 1 + random.random_range(0..8);
