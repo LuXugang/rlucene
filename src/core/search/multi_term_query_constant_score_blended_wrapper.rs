@@ -116,6 +116,12 @@ impl QueryBase for MultiTermQueryConstantScoreBlendedWrapper {
                 q,
                 sub.into(),
             ))),
+            MultiTermQueryEnum::Wildcard(q) => Ok(Box::new(RewritingWeight::new(
+                boost,
+                *score_mode,
+                q,
+                sub.into(),
+            ))),
         }
     }
 

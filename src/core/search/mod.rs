@@ -144,3 +144,4 @@ mod vector_scorer;
 mod vector_similarity_collector;
 pub(crate) mod wand_scorer;
 pub mod weight;
+pub mod wildcard_query;

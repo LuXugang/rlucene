@@ -48,6 +48,7 @@ use crate::core::search::wand_scorer::tests::MaxScoreWrapperQuery;
 #[cfg(test)]
 use crate::core::search::wand_scorer::tests::WANDScorerQuery;
 use crate::core::search::weight::Weight;
+use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
@@ -99,6 +100,7 @@ macro_rules! dispatch_query {
             Query::Phrase($inner) => $body,
             Query::Term($inner) => $body,
             Query::TermRange($inner) => $body,
+            Query::Wildcard($inner) => $body,
             #[cfg(test)]
             Query::WANDScorer($inner) => $body,
             #[cfg(test)]
@@ -130,6 +132,7 @@ impl_from_for_query! {
     TermQuery => Term,
     TermRangeQuery => TermRange,
     PhraseQuery=> Phrase,
+    WildcardQuery => Wildcard,
 }
 
 pub trait QueryBase: Debug + HasIdentity {
@@ -177,6 +180,7 @@ pub enum Query {
     Prefix(PrefixQuery),
     Term(TermQuery),
     TermRange(TermRangeQuery),
+    Wildcard(WildcardQuery),
     #[cfg(test)]
     WANDScorer(WANDScorerQuery),
     #[cfg(test)]
