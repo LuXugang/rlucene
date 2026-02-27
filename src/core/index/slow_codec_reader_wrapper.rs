@@ -42,7 +42,7 @@ pub struct SlowCodecReaderWrapper;
 impl SlowCodecReaderWrapper {
     pub(crate) fn wrap_leaf_reader<LR>(reader: LR) -> CodecReaderImpl<LR>
     where
-        LR: LeafReader + Clone,
+        LR: LeafReader,
     {
         CodecReaderImpl::new(reader)
     }
@@ -50,14 +50,14 @@ impl SlowCodecReaderWrapper {
 
 pub struct CodecReaderImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     reader: LR,
     index_base: IndexReaderBase,
 }
 impl<LR> CodecReaderImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     pub(crate) fn new(reader: LR) -> Self {
         Self {
@@ -221,7 +221,7 @@ where
 
 impl<LR> Display for CodecReaderImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "SlowCodecReaderWrapper({})", self.reader)
@@ -271,20 +271,20 @@ where
 
 fn point_values_to_reader<LR>(reader: LR) -> PointsReaderImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     PointsReaderImpl::new(reader)
 }
 
 pub struct PointsReaderImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     reader: LR,
 }
 impl<LR> PointsReaderImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     fn new(reader: LR) -> Self {
         Self { reader }
@@ -292,7 +292,7 @@ where
 }
 impl<LR> PointsReader for PointsReaderImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     fn check_integrity(&self) -> Result<()> {
         self.reader.check_integrity()
@@ -307,21 +307,21 @@ where
 
 fn reader_to_norms_producer<LR>(reader: LR) -> NormsProducerImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     NormsProducerImpl::new(reader)
 }
 
 pub struct NormsProducerImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     reader: LR,
 }
 
 impl<LR> NormsProducerImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     fn new(reader: LR) -> Self {
         Self { reader }
@@ -330,7 +330,7 @@ where
 
 impl<LR> NormsProducer for NormsProducerImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     type NumericDocValues = LR::NormNumericDocValues;
 
@@ -347,21 +347,21 @@ where
 
 fn reader_to_doc_values_producer<LR>(reader: LR) -> DocValuesProducerImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     DocValuesProducerImpl::new(reader)
 }
 
 pub struct DocValuesProducerImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     reader: LR,
 }
 
 impl<LR> DocValuesProducerImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     fn new(reader: LR) -> Self {
         Self { reader }
@@ -370,7 +370,7 @@ where
 
 impl<LR> DocValuesProducer for DocValuesProducerImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     type NumericDocValues = LR::NumericDocValues;
     fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -511,7 +511,7 @@ where
 
 pub struct TermVectorsReaderImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     reader: LR,
     term_vectors: LR::TermVectors,
@@ -519,7 +519,7 @@ where
 
 impl<LR> TermVectorsReaderImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     fn new(reader: LR, term_vectors: LR::TermVectors) -> Self {
         Self {
@@ -531,7 +531,7 @@ where
 
 impl<LR> TermVectors for TermVectorsReaderImpl<LR>
 where
-    LR: Clone + LeafReader,
+    LR: LeafReader,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
         self.term_vectors.prefetch(doc_id)
@@ -556,7 +556,7 @@ where
 
 impl<LR> RawTermVectors for TermVectorsReaderImpl<LR>
 where
-    LR: Clone + LeafReader,
+    LR: LeafReader,
 {
     type IndexInput = <LR::TermVectors as RawTermVectors>::IndexInput;
 
@@ -571,7 +571,7 @@ where
 
 impl<LR> Clone for TermVectorsReaderImpl<LR>
 where
-    LR: Clone + LeafReader,
+    LR: LeafReader + Clone,
 {
     fn clone(&self) -> Self {
         reader_to_term_vectors_reader(self.reader.clone())
@@ -589,7 +589,7 @@ where
 
 fn reader_to_fields_producer<LR>(reader: LR) -> Result<FieldsProducerImpl<LR>>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     let mut indexed_fields = Vec::new();
 
@@ -606,7 +606,7 @@ where
 
 pub struct FieldsProducerImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     reader: LR,
     indexed_fields: Vec<String>,
@@ -614,7 +614,7 @@ where
 
 impl<LR> FieldsProducerImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     fn new(reader: LR, indexed_fields: Vec<String>) -> Self {
         Self {
@@ -626,7 +626,7 @@ where
 
 impl<LR> Fields for FieldsProducerImpl<LR>
 where
-    LR: Clone + LeafReader,
+    LR: LeafReader,
 {
     type FieldIter<'a>
         = VecIter<'a>
@@ -650,7 +650,7 @@ where
 
 impl<LR> FieldsProducer for FieldsProducerImpl<LR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
 {
     fn check_integrity(&self) -> Result<()> {
         Ok(())

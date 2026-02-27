@@ -293,7 +293,7 @@ pub type BCRStoredFieldsImpl<IR, CR> = StoredFieldsImpl<IR, CR>;
 
 pub struct TermVectorsImpl<LR, CR>
 where
-    LR: LeafReader ,
+    LR: LeafReader,
     CR: CompositeReader,
 {
     sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
@@ -303,7 +303,7 @@ where
 }
 impl<LR, CR> TermVectorsImpl<LR, CR>
 where
-    LR: LeafReader ,
+    LR: LeafReader,
     CR: CompositeReader,
 {
     pub fn new(
@@ -325,7 +325,7 @@ where
 }
 impl<LR, CR> TermVectors for TermVectorsImpl<LR, CR>
 where
-    LR: LeafReader ,
+    LR: LeafReader,
     CR: CompositeReader,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
