@@ -45,13 +45,13 @@ use std::hash::{Hash, Hasher};
 /// @lucene.experimental
 #[derive(Clone)]
 pub struct AutomatonQuery {
-    compiled: CompiledAutomaton,
+    pub(crate) compiled: CompiledAutomaton,
     term: Term,
     #[allow(dead_code)]
     automaton_is_binary: bool,
     ram_bytes_used: i64,
     id: Identity,
-    rewrite_method: RewriteMethodEnum,
+    pub(crate) rewrite_method: RewriteMethodEnum,
 }
 impl AutomatonQuery {
     /// Create a new `AutomatonQuery` from an [`Automaton`].
