@@ -369,7 +369,7 @@ where
 pub struct SortingTermsEnum<T, DM>
 where
     T: TermsEnum,
-    DM: DocMap + Clone,
+    DM: DocMap,
 {
     in_: T,
     index_options: IndexOptions,
@@ -378,7 +378,7 @@ where
 impl<T, DM> SortingTermsEnum<T, DM>
 where
     T: TermsEnum,
-    DM: DocMap + Clone,
+    DM: DocMap,
 {
     pub(crate) fn new(in_: T, index_options: IndexOptions, doc_map: DM) -> Self {
         Self {
@@ -391,7 +391,7 @@ where
 
 impl<T, DM> BytesRefIterator for SortingTermsEnum<T, DM>
 where
-    DM: DocMap + Clone,
+    DM: DocMap,
     T: TermsEnum,
 {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
@@ -402,7 +402,7 @@ where
 impl<T, DM> TermsEnum for SortingTermsEnum<T, DM>
 where
     T: TermsEnum,
-    DM: DocMap + Clone,
+    DM: DocMap,
 {
     type AttributeSource = <FilterTermsEnum<T> as TermsEnum>::AttributeSource;
 
@@ -747,7 +747,7 @@ where
         store_offsets: bool,
     ) -> Result<()>
     where
-        DM: DocMap + Clone,
+        DM: DocMap,
     {
         self.store_positions = store_positions;
         self.store_offsets = store_offsets;
