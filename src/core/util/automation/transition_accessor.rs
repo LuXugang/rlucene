@@ -17,7 +17,7 @@
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::automation::nfa_run_automaton::NFARunAutomaton;
 use crate::core::util::automation::transition::Transition;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Interface accessing the transitions of an automaton.
 pub trait TransitionAccessor {
@@ -37,8 +37,8 @@ pub trait TransitionAccessor {
     fn get_transition(&self, state: i32, index: i32, t: &mut Transition);
 }
 pub enum TransitionAccessorEnum {
-    Byte(Rc<ByteRunAutomaton>),
-    Nfa(Rc<NFARunAutomaton>),
+    Byte(Arc<ByteRunAutomaton>),
+    Nfa(Arc<NFARunAutomaton>),
 }
 impl TransitionAccessor for TransitionAccessorEnum {
     fn init_transition(&self, state: i32, t: &mut Transition) -> i32 {

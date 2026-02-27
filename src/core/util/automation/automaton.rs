@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::BTreeSet;
-use std::fmt;
-
 use bit_set::BitSet;
 use num_traits::ToPrimitive;
+use std::collections::BTreeSet;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
@@ -67,6 +67,11 @@ pub struct Automaton {
     transitions: Vec<i32>,
     /// True if no state has two transitions leaving with the same label.
     deterministic: bool,
+}
+impl Display for Automaton {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", std::any::type_name::<Self>())
+    }
 }
 
 impl Default for Automaton {

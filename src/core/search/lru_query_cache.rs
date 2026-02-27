@@ -491,6 +491,7 @@ where
         self.get_cache_count() - self.get_cache_size()
     }
     #[cfg(test)]
+    #[allow(clippy::mutable_key_type)] // TODO IMPORTANT 需要修复这类告警
     pub(crate) fn assert_consistent(&self) -> Result<()> {
         use std::collections::HashSet;
         let inner = self.inner.write();

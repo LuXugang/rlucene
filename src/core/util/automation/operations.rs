@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use bit_set::BitSet;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-
-use bit_set::BitSet;
+use std::sync::Arc;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::internal::hppc::bit_mixer::BitMixer;
@@ -550,7 +550,7 @@ impl Operations {
         let mut b = Builder::new();
 
         let mut initialset =
-            FrozenIntSet::new(Rc::new(vec![0]), BitMixer::mix_i32(0) as i64 + 1, 0);
+            FrozenIntSet::new(Arc::new(vec![0]), BitMixer::mix_i32(0) as i64 + 1, 0);
 
         b.create_state();
 

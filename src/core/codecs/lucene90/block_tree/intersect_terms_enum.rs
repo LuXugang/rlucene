@@ -34,7 +34,6 @@ use crate::core::util::fst_impl::fst::Arc;
 use crate::core::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
 use crate::core::util::{StringHelper, ToInt, TryIntoInt};
 use std::borrow::Cow;
-use std::rc::Rc;
 /// Used to implement efficient [`Terms::intersect`] for the block-tree.
 ///
 /// Note that this enum cannot seek, except for the initial term during
@@ -55,7 +54,7 @@ where
     arcs: Vec<Arc<BytesRef<std::sync::Arc<Vec<u8>>>>>,
     pub(crate) run_automation: ByteRunnableEnum,
     pub(crate) automaton: TransitionAccessorEnum,
-    common_suffix: Option<Rc<BytesRef<Vec<u8>>>>,
+    common_suffix: Option<std::sync::Arc<BytesRef<Vec<u8>>>>,
     current_frame: usize,
     current_transition: usize,
     term: BytesRef<Vec<u8>>,
@@ -73,7 +72,7 @@ where
         fr: FieldReader<I, PR>,
         automaton: TransitionAccessorEnum,
         run_automation: ByteRunnableEnum,
-        common_suffix: Option<Rc<BytesRef<Vec<u8>>>>,
+        common_suffix: Option<std::sync::Arc<BytesRef<Vec<u8>>>>,
         start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self> {
         let input = Some(fr.parent.as_ref().unwrap().terms_in.try_clone()?);

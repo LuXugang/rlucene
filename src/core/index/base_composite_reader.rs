@@ -113,7 +113,7 @@ where
         C: Comparator<IR>,
         F: FnMut(IR) -> IndexReaderEnum<LR, CR>,
     {
-        if let Some(sorter) = &sub_reader_sorter {
+        if let Some(sorter) = sub_reader_sorter {
             let mut err: Option<LuceneError> = None;
             sub_readers.sort_by(|a, b| match sorter.compare(a, b) {
                 Ok(v) => v.cmp(&0),

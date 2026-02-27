@@ -26,6 +26,7 @@ use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 
+use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
@@ -79,6 +80,7 @@ macro_rules! impl_from_for_query {
 macro_rules! dispatch_query {
     ($self:expr, |$inner:ident| $body:expr) => {{
         match $self {
+            Query::Automaton($inner) => $body,
             Query::Boolean($inner) => $body,
             Query::Boost($inner) => $body,
             Query::ConstantScore($inner) => $body,
@@ -109,6 +111,7 @@ macro_rules! dispatch_query {
 
 // Implement From<T> for Query for all query types
 impl_from_for_query! {
+    AutomatonQuery=> Automaton,
     BooleanQuery => Boolean,
     BoostQuery => Boost,
     ConstantScoreQuery => ConstantScore,
@@ -155,6 +158,7 @@ pub trait QueryBase: Debug + HasIdentity {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Query {
+    Automaton(AutomatonQuery),
     Boolean(BooleanQuery),
     Boost(BoostQuery),
     ConstantScore(ConstantScoreQuery),

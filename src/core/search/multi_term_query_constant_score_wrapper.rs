@@ -40,7 +40,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 
-/// This struct implements the logic behind `MultiTermQuery::CONSTANT_SCORE_REWRITE`.
+/// This struct implements the logic behind `MultiTermQuery::ConstantScoreRewrite`.
 ///
 /// It attempts to rewrite per-segment into a boolean query that produces a
 /// constant score. If that is not possible, it falls back to accumulating
@@ -61,7 +61,7 @@ impl MultiTermQueryConstantScoreWrapper {
 
 impl Debug for MultiTermQueryConstantScoreWrapper {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
+        write!(f, "{}", self.as_string(""))
     }
 }
 
@@ -96,6 +96,12 @@ impl QueryBase for MultiTermQueryConstantScoreWrapper {
                 sub.into(),
             ))),
             MultiTermQueryEnum::TermRange(q) => Ok(Box::new(RewritingWeight::new(
+                boost,
+                *score_mode,
+                q,
+                sub.into(),
+            ))),
+            MultiTermQueryEnum::Automaton(q) => Ok(Box::new(RewritingWeight::new(
                 boost,
                 *score_mode,
                 q,

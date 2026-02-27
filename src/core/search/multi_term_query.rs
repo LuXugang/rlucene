@@ -18,7 +18,10 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::multi_term_query_constant_score_blended_wrapper::MultiTermQueryConstantScoreBlendedWrapper;
+use crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQueryConstantScoreWrapper;
 use crate::core::search::prefix_query::PrefixQuery;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
@@ -37,21 +40,109 @@ pub trait MultiTermQuery: QueryBase + Clone {
     fn get_terms_enum<T>(&self, terms: T) -> Result<Self::TermsEnum<T>>
     where
         T: Terms + Clone;
-    fn get_terms_count(&self) -> i64;
+    fn get_terms_count(&self) -> i64 {
+        -1
+    }
 
     fn as_query(&self) -> Query;
 }
-
+macro_rules! impl_from_for_enum {
+    ($enum_ty:ident, $( $src_ty:ty => $variant:ident ),+ $(,)?) => {
+        $(
+            impl From<$src_ty> for $enum_ty {
+                fn from(v: $src_ty) -> Self {
+                    $enum_ty::$variant(v)
+                }
+            }
+        )+
+    };
+}
 pub trait RewriteMethod {
-    fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Q>
+    fn rewrite<IRC>(
+        self,
+        index_searcher: &IndexSearcher<IRC>,
+        query: MultiTermQueryEnum,
+    ) -> Result<Query>
+    where
+        IRC: IndexReaderContext;
+}
+/// A rewrite method where documents are assigned a constant score equal to the query's boost.
+/// Maintains a boolean query-like implementation over the most costly terms while pre-processing
+/// the less costly terms into a filter bitset. Enforces an upper-limit on the number of terms
+/// allowed in the boolean query-like implementation.
+///
+/// This method aims to balance the benefits of both [`ConstantScoreRewrite`] and
+/// [`ConstantScoreRewrite`] by enabling skipping and early termination over costly terms
+/// while limiting the overhead of a BooleanQuery with many terms. It also ensures you cannot hit
+/// `IndexSearcher.TooManyClauses`. For some use-cases with all low
+/// cost terms, [`ConstantScoreRewrite`] may be more performant. While for some use-cases
+/// with all high cost terms, [`ConstantScoreBooleanRewrite`] may be better.
+#[derive(Default, Clone)]
+pub struct ConstantScoreBlendedRewrite;
+impl RewriteMethod for ConstantScoreBlendedRewrite {
+    fn rewrite<IRC>(
+        self,
+        _index_searcher: &IndexSearcher<IRC>,
+        query: MultiTermQueryEnum,
+    ) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        Q: MultiTermQuery + Sized;
+    {
+        Ok(MultiTermQueryConstantScoreBlendedWrapper::new(query).into())
+    }
 }
+/// A rewrite method that first creates a private Filter, by visiting each term in sequence and
+/// marking all docs for that term. Matching documents are assigned a constant score equal to the
+/// query's boost.
+///
+/// This method is faster than the BooleanQuery rewrite methods when the number of matched terms
+/// or matched documents is non-trivial. Also, it will never hit an errant `IndexSearcher.TooManyClauses`
+/// exception.
+#[derive(Default, Clone)]
+pub struct ConstantScoreRewrite;
+impl RewriteMethod for ConstantScoreRewrite {
+    fn rewrite<IRC>(
+        self,
+        _index_searcher: &IndexSearcher<IRC>,
+        query: MultiTermQueryEnum,
+    ) -> Result<Query>
+    where
+        IRC: IndexReaderContext,
+    {
+        Ok(MultiTermQueryConstantScoreWrapper::new(query).into())
+    }
+}
+#[derive(Clone)]
+pub enum RewriteMethodEnum {
+    Standard(ConstantScoreRewrite),
+    Blended(ConstantScoreBlendedRewrite),
+}
+impl RewriteMethod for RewriteMethodEnum {
+    fn rewrite<IRC>(
+        self,
+        index_searcher: &IndexSearcher<IRC>,
+        query: MultiTermQueryEnum,
+    ) -> Result<Query>
+    where
+        IRC: IndexReaderContext,
+    {
+        match self {
+            RewriteMethodEnum::Standard(r) => r.rewrite(index_searcher, query),
+            RewriteMethodEnum::Blended(r) => r.rewrite(index_searcher, query),
+        }
+    }
+}
+impl_from_for_enum!(
+    RewriteMethodEnum,
+    ConstantScoreRewrite => Standard,
+    ConstantScoreBlendedRewrite => Blended,
+);
+
 #[derive(Clone)]
 pub enum MultiTermQueryEnum {
     Prefix(PrefixQuery),
     TermRange(TermRangeQuery),
+    Automaton(AutomatonQuery),
 }
 
 impl QueryBase for MultiTermQueryEnum {
@@ -59,6 +150,7 @@ impl QueryBase for MultiTermQueryEnum {
         match self {
             MultiTermQueryEnum::Prefix(q) => q.as_string(field),
             MultiTermQueryEnum::TermRange(q) => q.as_string(field),
+            MultiTermQueryEnum::Automaton(q) => q.as_string(field),
         }
     }
 
@@ -91,6 +183,7 @@ impl QueryBase for MultiTermQueryEnum {
         match self {
             MultiTermQueryEnum::Prefix(q) => q.visit(visitor),
             MultiTermQueryEnum::TermRange(q) => q.visit(visitor),
+            MultiTermQueryEnum::Automaton(q) => q.visit(visitor),
         }
     }
 }
@@ -100,6 +193,7 @@ impl Debug for MultiTermQueryEnum {
         match self {
             MultiTermQueryEnum::Prefix(q) => write!(f, "Prefix({:?})", q),
             MultiTermQueryEnum::TermRange(q) => write!(f, "TermRange({:?})", q),
+            MultiTermQueryEnum::Automaton(q) => write!(f, "Automaton({:?})", q),
         }
     }
 }
@@ -109,25 +203,23 @@ impl HasIdentity for MultiTermQueryEnum {
         match self {
             MultiTermQueryEnum::Prefix(q) => q.identity(),
             MultiTermQueryEnum::TermRange(q) => q.identity(),
+            MultiTermQueryEnum::Automaton(q) => q.identity(),
         }
     }
 }
 
-impl From<PrefixQuery> for MultiTermQueryEnum {
-    fn from(v: PrefixQuery) -> Self {
-        MultiTermQueryEnum::Prefix(v)
-    }
-}
-impl From<TermRangeQuery> for MultiTermQueryEnum {
-    fn from(v: TermRangeQuery) -> Self {
-        MultiTermQueryEnum::TermRange(v)
-    }
-}
+impl_from_for_enum!(
+    MultiTermQueryEnum,
+    PrefixQuery => Prefix,
+    TermRangeQuery => TermRange,
+    AutomatonQuery => Automaton,
+);
 impl Hash for MultiTermQueryEnum {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             MultiTermQueryEnum::Prefix(q) => q.hash(state),
             MultiTermQueryEnum::TermRange(q) => q.hash(state),
+            MultiTermQueryEnum::Automaton(q) => q.hash(state),
         }
     }
 }
@@ -138,6 +230,7 @@ impl PartialEq for MultiTermQueryEnum {
         match (self, other) {
             (MultiTermQueryEnum::Prefix(q1), MultiTermQueryEnum::Prefix(q2)) => q1 == q2,
             (MultiTermQueryEnum::TermRange(q1), MultiTermQueryEnum::TermRange(q2)) => q1 == q2,
+            (MultiTermQueryEnum::Automaton(q1), MultiTermQueryEnum::Automaton(q2)) => q1 == q2,
             _ => false,
         }
     }

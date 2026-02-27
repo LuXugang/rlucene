@@ -47,7 +47,7 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 
-/// This struct implements the logic behind `MultiTermQuery::CONSTANT_SCORE_BLENDED_REWRITE`.
+/// This struct implements the logic behind `MultiTermQuery::ConstantScoreBlendedRewrite`.
 ///
 /// It behaves similarly to a boolean-query-style rewrite for a limited number of the
 /// highest-cost terms, while rewriting the remaining lower-cost terms into a filter bitset.
@@ -67,7 +67,7 @@ impl MultiTermQueryConstantScoreBlendedWrapper {
 
 impl Debug for MultiTermQueryConstantScoreBlendedWrapper {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
+        write!(f, "{}", self.as_string(""))
     }
 }
 
@@ -102,6 +102,12 @@ impl QueryBase for MultiTermQueryConstantScoreBlendedWrapper {
                 sub.into(),
             ))),
             MultiTermQueryEnum::TermRange(q) => Ok(Box::new(RewritingWeight::new(
+                boost,
+                *score_mode,
+                q,
+                sub.into(),
+            ))),
+            MultiTermQueryEnum::Automaton(q) => Ok(Box::new(RewritingWeight::new(
                 boost,
                 *score_mode,
                 q,

@@ -67,8 +67,8 @@ impl QueryBase for PrefixQuery {
 }
 
 impl Debug for PrefixQuery {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_string(""))
     }
 }
 

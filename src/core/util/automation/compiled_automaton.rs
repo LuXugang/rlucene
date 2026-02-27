@@ -14,12 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::core::index::impacts_enum::ImpactsEnumEnum4;
 use crate::core::index::single_terms_enum::SingleTermsEnum;
-use crate::core::index::terms::{Terms, TermsIntersect, TermsTE};
-use crate::core::index::terms_enum::{EmptyTermsEnumTermsWrapper, TermsEnumEnum4};
+use crate::core::index::terms::{Terms, TermsIntersect, TermsPosting, TermsTE};
+use crate::core::index::terms_enum::{EmptyTermsEnumTermsWrapper, SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::StringHelper;
+use crate::core::util::attribute_source::AttributeSourceEnum4;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::automation::byte_runnable::{ByteRunnable, ByteRunnableEnum};
@@ -30,14 +33,16 @@ use crate::core::util::automation::transition_accessor::{
     TransitionAccessor, TransitionAccessorEnum,
 };
 use crate::core::util::automation::utf32_to_utf8::UTF32ToUTF8;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::unicode_util::UnicodeUtil;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Automata are compiled into different internal forms for the most efficient
 /// execution depending upon the language they accept.
+#[derive(Clone)]
 pub struct CompiledAutomaton {
     /// If `simplify` is true this will be the "simplified" type; else, this is
     /// NORMAL
@@ -48,7 +53,7 @@ pub struct CompiledAutomaton {
 
     /// Matcher for quickly determining if a byte[] is accepted. Only valid for
     /// [`AutomatonType::Normal`].
-    pub run_automaton: Option<Rc<ByteRunAutomaton>>,
+    pub run_automaton: Option<Arc<ByteRunAutomaton>>,
 
     /// Matcher directly run on a NFA, it will determinize the state on need and
     /// caches it, note that this field and
@@ -56,13 +61,13 @@ pub struct CompiledAutomaton {
     /// time.
     ///
     /// TODO: merge this with run_automaton
-    nfa_run_automaton: Option<Rc<NFARunAutomaton>>,
+    nfa_run_automaton: Option<Arc<NFARunAutomaton>>,
 
     /// Shared common suffix accepted by the automaton. Only valid for
     /// [`AutomatonType::Normal`], and only when the automaton accepts an
     /// infinite language. This will be `None` if the common prefix is
     /// length 0.
-    pub common_suffix_ref: Option<Rc<BytesRef<Vec<u8>>>>,
+    pub common_suffix_ref: Option<Arc<BytesRef<Vec<u8>>>>,
 
     /// Indicates if the automaton accepts a finite set of strings.
     /// Only valid for [`AutomatonType::Normal`].
@@ -212,7 +217,7 @@ impl CompiledAutomaton {
                 if suffix.length == 0 {
                     None
                 } else {
-                    Some(Rc::new(suffix))
+                    Some(Arc::new(suffix))
                 }
             };
 
@@ -222,7 +227,9 @@ impl CompiledAutomaton {
                 term,
                 run_automaton: None,
 
-                nfa_run_automaton: Some(Rc::new(NFARunAutomaton::with_alphabet_size(binary, 0xff))),
+                nfa_run_automaton: Some(Arc::new(NFARunAutomaton::with_alphabet_size(
+                    binary, 0xff,
+                ))),
                 common_suffix_ref,
                 finite,
                 sink_state: -1,
@@ -241,7 +248,7 @@ impl CompiledAutomaton {
             Ok(Self {
                 type_: automaton_type,
                 term,
-                run_automaton: Some(Rc::new(run_automaton)),
+                run_automaton: Some(Arc::new(run_automaton)),
                 nfa_run_automaton: None,
                 common_suffix_ref,
                 finite,
@@ -305,8 +312,10 @@ impl CompiledAutomaton {
         T: Terms,
     {
         let v = match self.type_ {
-            AutomatonType::None => TermsEnumEnum4::A(EmptyTermsEnumTermsWrapper::new(terms)),
-            AutomatonType::All => TermsEnumEnum4::B(terms.iterator()?),
+            AutomatonType::None => {
+                CompiledAutomatonTE::Empty(EmptyTermsEnumTermsWrapper::new(terms))
+            },
+            AutomatonType::All => CompiledAutomatonTE::TE(terms.iterator()?),
             AutomatonType::Single => {
                 let term = self
                     .term
@@ -315,9 +324,9 @@ impl CompiledAutomaton {
                         LuceneError::illegal_state("term must exist for AutomatonType::Single")
                     })?
                     .clone();
-                TermsEnumEnum4::C(SingleTermsEnum::new(terms.iterator()?, term))
+                CompiledAutomatonTE::Filtered(SingleTermsEnum::new(terms.iterator()?, term))
             },
-            AutomatonType::Normal => TermsEnumEnum4::D(terms.intersect(self, None)?),
+            AutomatonType::Normal => CompiledAutomatonTE::Intersect(terms.intersect(self, None)?),
         };
         Ok(v)
     }
@@ -428,12 +437,6 @@ impl CompiledAutomaton {
         }
     }
 }
-pub type CompiledAutomatonTE<T> = TermsEnumEnum4<
-    EmptyTermsEnumTermsWrapper<T>,
-    TermsTE<T>,
-    FilteredTermsEnum<TermsTE<T>, SingleTermsEnum>,
-    TermsIntersect<T>,
->;
 impl Hash for CompiledAutomaton {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.type_.hash(state);
@@ -449,11 +452,11 @@ impl Hash for CompiledAutomaton {
         }
     }
 }
-fn hash_opt_rc_identity<T, H: Hasher>(v: &Option<Rc<T>>, state: &mut H) {
+fn hash_opt_rc_identity<T, H: Hasher>(v: &Option<Arc<T>>, state: &mut H) {
     match v.as_ref() {
         None => 0usize.hash(state),
         Some(rc) => {
-            (Rc::as_ptr(rc) as usize).hash(state);
+            (Arc::as_ptr(rc) as usize).hash(state);
         },
     }
 }
@@ -472,7 +475,7 @@ impl PartialEq for CompiledAutomaton {
                         other.nfa_run_automaton.as_ref(),
                     ) {
                         (None, None) => true,
-                        (Some(a), Some(b)) => Rc::ptr_eq(a, b),
+                        (Some(a), Some(b)) => Arc::ptr_eq(a, b),
                         _ => false,
                     }
             },
@@ -494,6 +497,205 @@ pub enum AutomatonType {
     Single,
     /// Catch-all for any other automata.
     Normal,
+}
+
+pub enum CompiledAutomatonTE<T>
+where
+    T: Terms,
+{
+    Empty(EmptyTermsEnumTermsWrapper<T>),
+    TE(TermsTE<T>),
+    Filtered(FilteredTermsEnum<TermsTE<T>, SingleTermsEnum>),
+    Intersect(TermsIntersect<T>),
+}
+
+impl<T> BytesRefIterator for CompiledAutomatonTE<T>
+where
+    T: Terms,
+    TermsIntersect<T>: TermsEnum<PostingsEnum = TermsPosting<T>>,
+{
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        match self {
+            Self::Empty(t) => t.next(),
+            Self::TE(t) => t.next(),
+            Self::Filtered(t) => t.next(),
+            Self::Intersect(t) => t.next(),
+        }
+    }
+
+    fn set_next(&mut self) -> Result<bool> {
+        match self {
+            Self::Empty(t) => t.set_next(),
+            Self::TE(t) => t.set_next(),
+            Self::Filtered(t) => t.set_next(),
+            Self::Intersect(t) => t.set_next(),
+        }
+    }
+}
+
+impl<T> TermsEnum for CompiledAutomatonTE<T>
+where
+    T: Terms,
+    TermsIntersect<T>: TermsEnum<PostingsEnum = TermsPosting<T>>,
+{
+    type AttributeSource = AttributeSourceEnum4<
+        <EmptyTermsEnumTermsWrapper<T> as TermsEnum>::AttributeSource,
+        <TermsTE<T> as TermsEnum>::AttributeSource,
+        <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::AttributeSource,
+        <TermsIntersect<T> as TermsEnum>::AttributeSource,
+    >;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
+        match self {
+            Self::Empty(t) => Ok(AttributeSourceEnum4::A(t.attributes()?)),
+            Self::TE(t) => Ok(AttributeSourceEnum4::B(t.attributes()?)),
+            Self::Filtered(t) => Ok(AttributeSourceEnum4::C(t.attributes()?)),
+            Self::Intersect(t) => Ok(AttributeSourceEnum4::D(t.attributes()?)),
+        }
+    }
+
+    fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+        match self {
+            Self::Empty(t) => t.seek_exact(term),
+            Self::TE(t) => t.seek_exact(term),
+            Self::Filtered(t) => t.seek_exact(term),
+            Self::Intersect(t) => t.seek_exact(term),
+        }
+    }
+
+    fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+        match self {
+            Self::Empty(t) => t.prepare_seek_exact(text),
+            Self::TE(t) => t.prepare_seek_exact(text),
+            Self::Filtered(t) => t.prepare_seek_exact(text),
+            Self::Intersect(t) => t.prepare_seek_exact(text),
+        }
+    }
+
+    fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+        match self {
+            Self::Empty(t) => t.get_prepare_seek_exact_status(target),
+            Self::TE(t) => t.get_prepare_seek_exact_status(target),
+            Self::Filtered(t) => t.get_prepare_seek_exact_status(target),
+            Self::Intersect(t) => t.get_prepare_seek_exact_status(target),
+        }
+    }
+
+    fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+        match self {
+            Self::Empty(t) => t.seek_ceil(term),
+            Self::TE(t) => t.seek_ceil(term),
+            Self::Filtered(t) => t.seek_ceil(term),
+            Self::Intersect(t) => t.seek_ceil(term),
+        }
+    }
+
+    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+        match self {
+            Self::Empty(t) => t.seek_exact_with_ord(ord),
+            Self::TE(t) => t.seek_exact_with_ord(ord),
+            Self::Filtered(t) => t.seek_exact_with_ord(ord),
+            Self::Intersect(t) => t.seek_exact_with_ord(ord),
+        }
+    }
+
+    fn seek_exact_with_state(
+        &mut self,
+        term: &BytesRef<Vec<u8>>,
+        state: &TermStateEnum,
+    ) -> Result<()> {
+        match self {
+            Self::Empty(t) => t.seek_exact_with_state(term, state),
+            Self::TE(t) => t.seek_exact_with_state(term, state),
+            Self::Filtered(t) => t.seek_exact_with_state(term, state),
+            Self::Intersect(t) => t.seek_exact_with_state(term, state),
+        }
+    }
+
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+        match self {
+            Self::Empty(t) => t.term(),
+            Self::TE(t) => t.term(),
+            Self::Filtered(t) => t.term(),
+            Self::Intersect(t) => t.term(),
+        }
+    }
+
+    fn ord(&self) -> Result<i64> {
+        match self {
+            Self::Empty(t) => t.ord(),
+            Self::TE(t) => t.ord(),
+            Self::Filtered(t) => t.ord(),
+            Self::Intersect(t) => t.ord(),
+        }
+    }
+
+    fn doc_freq(&mut self) -> Result<i32> {
+        match self {
+            Self::Empty(t) => t.doc_freq(),
+            Self::TE(t) => t.doc_freq(),
+            Self::Filtered(t) => t.doc_freq(),
+            Self::Intersect(t) => t.doc_freq(),
+        }
+    }
+
+    fn total_term_freq(&mut self) -> Result<i64> {
+        match self {
+            Self::Empty(t) => t.total_term_freq(),
+            Self::TE(t) => t.total_term_freq(),
+            Self::Filtered(t) => t.total_term_freq(),
+            Self::Intersect(t) => t.total_term_freq(),
+        }
+    }
+
+    type PostingsEnum = TermsPosting<T>;
+
+    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+        match self {
+            Self::Empty(t) => t.postings(reuse),
+            Self::TE(t) => t.postings(reuse),
+            Self::Filtered(t) => t.postings(reuse),
+            Self::Intersect(t) => t.postings(reuse),
+        }
+    }
+
+    fn postings_with_flags(
+        &mut self,
+        reuse: Option<Self::PostingsEnum>,
+        flags: i32,
+    ) -> Result<Self::PostingsEnum> {
+        match self {
+            Self::Empty(t) => t.postings_with_flags(reuse, flags),
+            Self::TE(t) => t.postings_with_flags(reuse, flags),
+            Self::Filtered(t) => t.postings_with_flags(reuse, flags),
+            Self::Intersect(t) => t.postings_with_flags(reuse, flags),
+        }
+    }
+
+    type ImpactsEnum = ImpactsEnumEnum4<
+        <EmptyTermsEnumTermsWrapper<T> as TermsEnum>::ImpactsEnum,
+        <TermsTE<T> as TermsEnum>::ImpactsEnum,
+        <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::ImpactsEnum,
+        <TermsIntersect<T> as TermsEnum>::ImpactsEnum,
+    >;
+
+    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+        match self {
+            Self::Empty(t) => Ok(ImpactsEnumEnum4::A(t.impacts(flags)?)),
+            Self::TE(t) => Ok(ImpactsEnumEnum4::B(t.impacts(flags)?)),
+            Self::Filtered(t) => Ok(ImpactsEnumEnum4::C(t.impacts(flags)?)),
+            Self::Intersect(t) => Ok(ImpactsEnumEnum4::D(t.impacts(flags)?)),
+        }
+    }
+
+    fn term_state(&mut self) -> Result<TermStateEnum> {
+        match self {
+            Self::Empty(t) => t.term_state(),
+            Self::TE(t) => t.term_state(),
+            Self::Filtered(t) => t.term_state(),
+            Self::Intersect(t) => t.term_state(),
+        }
+    }
 }
 
 #[cfg(test)]

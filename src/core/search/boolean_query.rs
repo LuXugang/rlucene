@@ -165,6 +165,7 @@ impl BooleanQuery {
 
         Ok(new_query.build().into())
     }
+    #[allow(clippy::mutable_key_type)]
     fn as_counts_map(&self) -> HashMap<(Occur, &Query), usize> {
         let mut m = HashMap::new();
         for (&occur, indices) in &self.clause_sets {
@@ -286,7 +287,7 @@ impl QueryBase for BooleanQuery {
         let weight = self.raw_weight(searcher, score_mode, boost)?;
         Ok(Box::new(weight))
     }
-
+    #[allow(clippy::mutable_key_type)]
     fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
         IRC: IndexReaderContext,

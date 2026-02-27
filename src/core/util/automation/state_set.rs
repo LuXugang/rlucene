@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
-use std::rc::Rc;
-
 use crate::core::internal::hppc::bit_mixer::BitMixer;
 use crate::core::util::automation::frozen_int_set::FrozenIntSet;
 use crate::core::util::automation::int_set::IntSet;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 /// A thin wrapper mapping states to reference counts.
 /// When a state's count drops to zero, it is removed.
@@ -29,7 +28,7 @@ pub(crate) struct StateSet {
     hash_code: i64,
     hash_updated: bool,
     array_updated: bool,
-    array_cache: Rc<Vec<i32>>,
+    array_cache: Arc<Vec<i32>>,
 }
 
 impl StateSet {
@@ -39,7 +38,7 @@ impl StateSet {
             hash_code: 0,
             hash_updated: true,
             array_updated: true,
-            array_cache: Rc::new(Vec::new()),
+            array_cache: Arc::new(Vec::new()),
         }
     }
 
@@ -78,7 +77,7 @@ impl StateSet {
 }
 
 impl IntSet for StateSet {
-    fn get_array(&mut self) -> &Rc<Vec<i32>> {
+    fn get_array(&mut self) -> &Arc<Vec<i32>> {
         if self.array_updated {
             return &self.array_cache;
         }
@@ -86,7 +85,7 @@ impl IntSet for StateSet {
         let mut array: Vec<i32> = self.inner.keys().copied().collect();
         array.sort();
 
-        self.array_cache = Rc::new(array);
+        self.array_cache = Arc::new(array);
         self.array_updated = true;
         &self.array_cache
     }
@@ -113,10 +112,10 @@ impl IntSet for StateSet {
 #[derive(Eq)]
 pub(crate) struct StateSetHashKey {
     long_hash_code: i64,
-    value: Rc<Vec<i32>>,
+    value: Arc<Vec<i32>>,
 }
 impl StateSetHashKey {
-    pub(crate) fn new(long_hash_code: i64, value: Rc<Vec<i32>>) -> Self {
+    pub(crate) fn new(long_hash_code: i64, value: Arc<Vec<i32>>) -> Self {
         StateSetHashKey {
             long_hash_code,
             value,

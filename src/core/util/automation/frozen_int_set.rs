@@ -14,21 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::automation::int_set::IntSet;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
-
-use crate::core::util::automation::int_set::IntSet;
+use std::sync::Arc;
 
 #[derive(Eq)]
 pub(crate) struct FrozenIntSet {
-    pub(crate) values: Rc<Vec<i32>>,
+    pub(crate) values: Arc<Vec<i32>>,
     pub(crate) state: i32,
     pub(crate) hash_code: i64,
 }
 
 impl FrozenIntSet {
-    pub(crate) fn new(values: Rc<Vec<i32>>, hash_code: i64, state: i32) -> Self {
+    pub(crate) fn new(values: Arc<Vec<i32>>, hash_code: i64, state: i32) -> Self {
         FrozenIntSet {
             values,
             hash_code,
@@ -43,7 +42,7 @@ impl PartialEq for FrozenIntSet {
     }
 }
 impl IntSet for FrozenIntSet {
-    fn get_array(&mut self) -> &Rc<Vec<i32>> {
+    fn get_array(&mut self) -> &Arc<Vec<i32>> {
         &self.values
     }
 

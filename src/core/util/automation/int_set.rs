@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub(crate) trait IntSet {
     /// Returns a slice (`&[i32]`) representation of this int set's values.
@@ -25,7 +25,7 @@ pub(crate) trait IntSet {
     /// Returns:
     /// - A slice containing the values for this set, guaranteed to have at
     ///   least [`size()`](Self::size) elements.
-    fn get_array(&mut self) -> &Rc<Vec<i32>>;
+    fn get_array(&mut self) -> &Arc<Vec<i32>>;
 
     /// Returns the number of values in this set.
     /// Guaranteed to be less than or equal to the length of the slice returned
