@@ -21,9 +21,7 @@ use std::fmt;
 
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::Automaton;
-use crate::core::util::automation::automaton_provider::{
-    AutomatonProvider, EmptyAutomatonProvider,
-};
+use crate::core::util::automation::automaton_provider::{AutomatonProvider, DefaultProvider};
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -289,7 +287,7 @@ impl RegExp {
     /// Constructs a new [`Automaton`] from this [`RegExp`].
     /// Same as calling `to_automaton_with_map` (with an empty automaton map).
     pub fn to_automaton(&self) -> Result<Automaton> {
-        self.to_automaton_impl(&HashMap::new(), &EmptyAutomatonProvider)
+        self.to_automaton_impl(&HashMap::new(), &DefaultProvider)
     }
     /// Constructs a new [`Automaton`] from this [`RegExp`].
     ///
@@ -304,7 +302,7 @@ impl RegExp {
         &self,
         automata: &HashMap<String, Automaton>,
     ) -> Result<Automaton> {
-        self.to_automaton_impl(automata, &EmptyAutomatonProvider)
+        self.to_automaton_impl(automata, &DefaultProvider)
     }
     /// Constructs a new [`Automaton`] from this [`RegExp`].
     ///
@@ -468,10 +466,17 @@ impl RegExp {
 
             Automaton => {
                 if let Some(a) = automata.get(&self.s) {
-                    // TODO: Data Copy here, but currently only used in Test,
                     a.clone()
                 } else {
-                    provider.get_automaton(&self.s)?
+                    match provider.get_automaton(&self.s)? {
+                        Some(a) => a,
+                        None => {
+                            return Err(LuceneError::illegal_argument(format!(
+                                "'{}' not found ",
+                                self.s
+                            )));
+                        },
+                    }
                 }
             },
 
@@ -2375,9 +2380,9 @@ mod tests {
     fn test_automaton() -> Result<()> {
         struct MyProvider;
         impl AutomatonProvider for MyProvider {
-            fn get_automaton(&self, name: &str) -> Result<Automaton> {
+            fn get_automaton(&self, name: &str) -> Result<Option<Automaton>> {
                 assert_eq!(name, "myletter");
-                Automata::make_char('z' as i32)
+                Ok(Some(Automata::make_char('z' as i32)?))
             }
         }
 
@@ -2422,7 +2427,7 @@ mod tests {
     fn test_automaton_io_exception() {
         struct MyProvider;
         impl AutomatonProvider for MyProvider {
-            fn get_automaton(&self, _name: &str) -> Result<Automaton> {
+            fn get_automaton(&self, _name: &str) -> Result<Option<Automaton>> {
                 Err(LuceneError::illegal_argument("fake error"))
             }
         }

@@ -34,7 +34,16 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
-
+/// Implements the wildcard search query. Supported wildcards are `*`, which matches any
+/// character sequence (including the empty one), and `?`, which matches any single
+/// character. '\' is the escape character.
+///
+/// Note this query can be slow, as it needs to iterate over many terms. In order to prevent
+/// extremely slow WildcardQueries, a Wildcard term should not start with the wildcard `*`
+///
+/// This query uses the [`ConstantScoreBlendedRewrite`] rewrite method.
+///
+/// See [`AutomatonQuery`].
 #[derive(Clone)]
 pub struct WildcardQuery {
     determinize_work_limit: i32,
