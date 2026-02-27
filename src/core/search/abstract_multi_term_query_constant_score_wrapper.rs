@@ -166,7 +166,7 @@ where
         searcher: &IndexSearcher<IRC>,
     ) -> Result<Explanation> {
         let scorer = self.scorer(context, searcher)?;
-        self.base.explain(scorer, doc, self.query.as_string(""))
+        self.base.explain(scorer, doc, self.query.as_string("")?)
     }
 
     fn get_query(&self) -> Arc<Query> {

@@ -104,7 +104,7 @@ impl HasIdentity for SortedSetDocValuesRangeQuery {
     }
 }
 impl QueryBase for SortedSetDocValuesRangeQuery {
-    fn as_string(&self, field: &str) -> String {
+    fn as_string(&self, field: &str) -> Result<String> {
         let mut b = String::new();
         if self.field.as_str() != field {
             b.push_str(self.field.as_str());
@@ -121,7 +121,7 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
             Some(v) => b.push_str(&format!("{}", v)),
         }
         b.push(if self.upper_inclusive { ']' } else { '}' });
-        b
+        Ok(b)
     }
 
     fn create_weight<IRC>(
@@ -218,7 +218,7 @@ where
     ) -> Result<Explanation> {
         let scorer = self.scorer(context, searcher)?;
         self.base
-            .explain(scorer, doc, self.parent_query.as_string(""))
+            .explain(scorer, doc, self.parent_query.as_string("")?)
     }
 
     fn get_query(&self) -> Arc<Query> {

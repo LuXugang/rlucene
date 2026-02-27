@@ -21,6 +21,7 @@ use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::core_helper::HasIdentity;
+use crate::core::util::error::lucene_error::Result;
 
 #[derive(Debug, Clone)]
 pub struct DummyQuery {
@@ -59,7 +60,7 @@ impl HasIdentity for DummyQuery {
     }
 }
 impl QueryBase for DummyQuery {
-    fn as_string(&self, _field: &str) -> String {
+    fn as_string(&self, _field: &str) -> Result<String> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

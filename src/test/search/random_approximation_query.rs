@@ -80,7 +80,7 @@ impl HasIdentity for RandomApproximationQuery {
 }
 
 impl QueryBase for RandomApproximationQuery {
-    fn as_string(&self, field: &str) -> String {
+    fn as_string(&self, field: &str) -> Result<String> {
         self.query.as_string(field)
     }
 

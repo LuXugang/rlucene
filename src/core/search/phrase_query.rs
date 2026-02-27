@@ -205,7 +205,7 @@ impl HasIdentity for PhraseQuery {
 }
 
 impl QueryBase for PhraseQuery {
-    fn as_string(&self, f: &str) -> String {
+    fn as_string(&self, f: &str) -> Result<String> {
         let mut buffer = String::new();
 
         if let Some(field) = &self.field
@@ -254,7 +254,7 @@ impl QueryBase for PhraseQuery {
             buffer.push_str(&self.slop.to_string());
         }
 
-        buffer
+        Ok(buffer)
     }
 
     fn create_weight<IRC>(
@@ -537,7 +537,7 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
             return Err(LuceneError::illegal_state(format!(
                 "field \"{}\" was indexed without position data; cannot run PhraseQuery (phrase={})",
                 self.base.field,
-                self.query.as_string(&self.base.field)
+                self.query.as_string(&self.base.field)?
             )));
         }
 
@@ -1152,20 +1152,20 @@ mod tests {
     #[test]
     fn test_to_string() -> Result<()> {
         let q = PhraseQuery::from_terms(0, "field", &[])?;
-        assert_eq!("\"\"", q.as_string(""));
+        assert_eq!("\"\"", q.as_string("")?);
 
         // single term at position 1
         let mut builder = crate::core::search::phrase_query::Builder::new();
         builder.add(Term::from_text("field", "hi"), 1)?;
         let q = builder.build()?;
-        assert_eq!("field:\"? hi\"", q.as_string(""));
+        assert_eq!("field:\"? hi\"", q.as_string("")?);
 
         // two terms with gap
         let mut builder = crate::core::search::phrase_query::Builder::new();
         builder.add(Term::from_text("field", "hi"), 1)?;
         builder.add(Term::from_text("field", "test"), 5)?;
         let q = builder.build()?;
-        assert_eq!("field:\"? hi ? ? ? test\"", q.as_string(""));
+        assert_eq!("field:\"? hi ? ? ? test\"", q.as_string("")?);
 
         // multi-term at same position
         let mut builder = crate::core::search::phrase_query::Builder::new();
@@ -1173,7 +1173,7 @@ mod tests {
         builder.add(Term::from_text("field", "hello"), 1)?;
         builder.add(Term::from_text("field", "test"), 5)?;
         let q = builder.build()?;
-        assert_eq!("field:\"? hi|hello ? ? ? test\"", q.as_string(""));
+        assert_eq!("field:\"? hi|hello ? ? ? test\"", q.as_string("")?);
 
         // with slop
         let mut builder = crate::core::search::phrase_query::Builder::new();
@@ -1182,7 +1182,7 @@ mod tests {
         builder.add(Term::from_text("field", "test"), 5)?;
         builder.set_slop(5);
         let q = builder.build()?;
-        assert_eq!("field:\"? hi|hello ? ? ? test\"~5", q.as_string(""));
+        assert_eq!("field:\"? hi|hello ? ? ? test\"~5", q.as_string("")?);
 
         Ok(())
     }
@@ -1451,7 +1451,7 @@ mod tests {
                     searcher.search_with_collector_manager(query.clone(), &collector_manager)?;
                 let hits2 = top_docs2.score_docs();
 
-                assert!(!hits1.is_empty(), "{}", query.as_string(""));
+                assert!(!hits1.is_empty(), "{}", query.as_string("")?);
                 CheckHits::check_equal(&query, hits1, hits2)?;
             }
         }

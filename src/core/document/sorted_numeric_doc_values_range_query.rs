@@ -85,7 +85,7 @@ impl HasIdentity for SortedNumericDocValuesRangeQuery {
     }
 }
 impl QueryBase for SortedNumericDocValuesRangeQuery {
-    fn as_string(&self, field: &str) -> String {
+    fn as_string(&self, field: &str) -> Result<String> {
         let mut out = String::new();
 
         if self.field != field {
@@ -97,7 +97,7 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         out.push_str(" TO ");
         out.push_str(&self.upper_value.to_string());
         out.push(']');
-        out
+        Ok(out)
     }
 
     fn create_weight<IRC>(
@@ -292,7 +292,7 @@ where
     ) -> Result<Explanation> {
         let scorer = self.scorer(context, searcher)?;
         self.base
-            .explain(scorer, doc, self.parent_query.as_string(""))
+            .explain(scorer, doc, self.parent_query.as_string("")?)
     }
 
     fn get_query(&self) -> Arc<Query> {

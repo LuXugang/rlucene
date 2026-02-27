@@ -134,7 +134,7 @@ where
             score_explanation.value,
             format!(
                 "weight({} in {}) [{}], result of:",
-                self.sub.base().query.as_string(&self.sub.base().field),
+                self.sub.base().query.as_string(&self.sub.base().field)?,
                 doc,
                 self.sub.base().similarity
             ),

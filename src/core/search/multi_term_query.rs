@@ -146,7 +146,7 @@ pub enum MultiTermQueryEnum {
 }
 
 impl QueryBase for MultiTermQueryEnum {
-    fn as_string(&self, field: &str) -> String {
+    fn as_string(&self, field: &str) -> Result<String> {
         match self {
             MultiTermQueryEnum::Prefix(q) => q.as_string(field),
             MultiTermQueryEnum::TermRange(q) => q.as_string(field),

@@ -115,7 +115,7 @@ impl AutomatonQuery {
 }
 
 impl QueryBase for AutomatonQuery {
-    fn as_string(&self, field: &str) -> String {
+    fn as_string(&self, field: &str) -> Result<String> {
         let mut buffer = String::new();
 
         if self.term.field() != field {
@@ -128,7 +128,7 @@ impl QueryBase for AutomatonQuery {
         buffer.push('\n');
         buffer.push('}');
 
-        buffer
+        Ok(buffer)
     }
 
     fn create_weight<IRC>(
@@ -164,7 +164,10 @@ impl QueryBase for AutomatonQuery {
 
 impl Debug for AutomatonQuery {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_string(""))
+        match self.as_string("") {
+            Ok(s) => write!(f, "{}", s),
+            Err(_) => Err(std::fmt::Error),
+        }
     }
 }
 

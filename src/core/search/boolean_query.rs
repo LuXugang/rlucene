@@ -243,7 +243,7 @@ impl HasIdentity for BooleanQuery {
     }
 }
 impl QueryBase for BooleanQuery {
-    fn as_string(&self, field: &str) -> String {
+    fn as_string(&self, field: &str) -> Result<String> {
         let mut buffer = String::new();
         let need_parens = self.minimum_number_should_match > 0;
 
@@ -254,7 +254,7 @@ impl QueryBase for BooleanQuery {
         for (i, clause) in self.clauses.iter().enumerate() {
             buffer.push_str(&clause.occur.to_string());
 
-            buffer.push_str(&clause.query.as_string(field));
+            buffer.push_str(&clause.query.as_string(field)?);
 
             if i != self.clauses.len() - 1 {
                 buffer.push(' ');
@@ -270,7 +270,7 @@ impl QueryBase for BooleanQuery {
             buffer.push_str(&self.minimum_number_should_match.to_string());
         }
 
-        buffer
+        Ok(buffer)
     }
 
     fn create_weight<IRC>(

@@ -32,7 +32,7 @@ use std::hash::Hash;
 pub struct TermRangeQuery;
 
 impl QueryBase for TermRangeQuery {
-    fn as_string(&self, _field: &str) -> String {
+    fn as_string(&self, _field: &str) -> Result<String> {
         todo!()
     }
 
@@ -68,7 +68,10 @@ impl QueryBase for TermRangeQuery {
 
 impl Debug for TermRangeQuery {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_string(""))
+        match self.as_string("") {
+            Ok(s) => write!(f, "{}", s),
+            Err(_) => Err(std::fmt::Error),
+        }
     }
 }
 

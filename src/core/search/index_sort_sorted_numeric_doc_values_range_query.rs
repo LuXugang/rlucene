@@ -107,7 +107,7 @@ impl HasIdentity for IndexSortSortedNumericDocValuesRangeQuery {
 }
 
 impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
-    fn as_string(&self, field: &str) -> String {
+    fn as_string(&self, field: &str) -> Result<String> {
         let mut s = String::new();
 
         if self.field != field {
@@ -120,7 +120,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         s.push_str(" TO ");
         s.push_str(&self.upper_value.to_string());
         s.push(']');
-        s
+        Ok(s)
     }
 
     fn create_weight<IRC>(
@@ -251,7 +251,7 @@ where
     ) -> Result<Explanation> {
         let scorer = self.scorer(context, searcher)?;
         self.base
-            .explain(scorer, doc, self.parent_query.as_string(""))
+            .explain(scorer, doc, self.parent_query.as_string("")?)
     }
 
     fn get_query(&self) -> Arc<Query> {
@@ -1426,9 +1426,9 @@ mod tests {
     fn test_to_string() -> Result<()> {
         let q1 = create_query("foo", 3, 5);
 
-        assert_eq!("foo:[3 TO 5]", q1.as_string(""));
-        assert_eq!("[3 TO 5]", q1.as_string("foo"));
-        assert_eq!("foo:[3 TO 5]", q1.as_string("bar"));
+        assert_eq!("foo:[3 TO 5]", q1.as_string("")?);
+        assert_eq!("[3 TO 5]", q1.as_string("foo")?);
+        assert_eq!("foo:[3 TO 5]", q1.as_string("bar")?);
 
         Ok(())
     }

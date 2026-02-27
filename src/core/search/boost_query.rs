@@ -75,15 +75,15 @@ impl PartialEq for BoostQuery {
 }
 impl Eq for BoostQuery {}
 impl QueryBase for BoostQuery {
-    fn as_string(&self, field: &str) -> String {
-        let inner = self.query.as_string(field);
+    fn as_string(&self, field: &str) -> Result<String> {
+        let inner = self.query.as_string(field)?;
         let mut s = String::new();
         s.push('(');
         s.push_str(&inner);
         s.push(')');
         s.push('^');
         s.push_str(&self.boost.to_string());
-        s
+        Ok(s)
     }
 
     fn create_weight<IRC>(

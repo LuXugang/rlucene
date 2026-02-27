@@ -81,8 +81,8 @@ impl HasIdentity for MatchAllDocsQuery {
 }
 
 impl QueryBase for MatchAllDocsQuery {
-    fn as_string(&self, _field: &str) -> String {
-        "*:*".to_string()
+    fn as_string(&self, _field: &str) -> Result<String> {
+        Ok("*:*".to_string())
     }
 
     fn create_weight<IRC>(
@@ -163,7 +163,7 @@ where
     ) -> Result<Explanation> {
         let scorer = self.scorer(context, searcher)?;
         self.base
-            .explain(scorer, doc, self.parent_query.as_string(""))
+            .explain(scorer, doc, self.parent_query.as_string("")?)
     }
 
     fn get_query(&self) -> Arc<Query> {

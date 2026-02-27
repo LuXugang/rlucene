@@ -2310,8 +2310,8 @@ pub(crate) mod tests {
     }
 
     impl QueryBase for MaxScoreWrapperQuery {
-        fn as_string(&self, _field: &str) -> String {
-            "MaxScoreWrapperQuery".to_string()
+        fn as_string(&self, _field: &str) -> Result<String> {
+            Ok("MaxScoreWrapperQuery".to_string())
         }
 
         fn create_weight<IRC>(
@@ -2515,8 +2515,8 @@ pub(crate) mod tests {
     }
 
     impl QueryBase for WANDScorerQuery {
-        fn as_string(&self, _field: &str) -> String {
-            "WANDScorerQuery".to_string()
+        fn as_string(&self, _field: &str) -> Result<String> {
+            Ok("WANDScorerQuery".to_string())
         }
 
         fn create_weight<IRC>(

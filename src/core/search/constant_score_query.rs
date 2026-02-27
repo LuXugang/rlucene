@@ -89,9 +89,9 @@ impl HasIdentity for ConstantScoreQuery {
     }
 }
 impl QueryBase for ConstantScoreQuery {
-    fn as_string(&self, field: &str) -> String {
-        let inner = self.query.as_string(field);
-        format!("ConstantScore({})", inner)
+    fn as_string(&self, field: &str) -> Result<String> {
+        let inner = self.query.as_string(field)?;
+        Ok(format!("ConstantScore({})", inner))
     }
 
     fn create_weight<IRC>(
@@ -211,7 +211,7 @@ where
     ) -> Result<Explanation> {
         let scorer = self.scorer(context, searcher)?;
         self.base
-            .explain(scorer, doc, self.get_query().as_string(""))
+            .explain(scorer, doc, self.get_query().as_string("")?)
     }
 
     fn get_query(&self) -> Arc<Query> {

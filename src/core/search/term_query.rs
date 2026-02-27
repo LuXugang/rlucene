@@ -100,7 +100,10 @@ impl Eq for TermQuery {}
 
 impl Debug for TermQuery {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_string(""))
+        match self.as_string("") {
+            Ok(s) => write!(f, "{}", s),
+            Err(_) => Err(std::fmt::Error),
+        }
     }
 }
 
@@ -111,7 +114,7 @@ impl HasIdentity for TermQuery {
 }
 
 impl QueryBase for TermQuery {
-    fn as_string(&self, field: &str) -> String {
+    fn as_string(&self, field: &str) -> Result<String> {
         let mut buffer = String::new();
         if self.term.field != field {
             buffer.push_str(&self.term.field);
@@ -125,7 +128,7 @@ impl QueryBase for TermQuery {
                 buffer.push_str("<?>");
             },
         }
-        buffer
+        Ok(buffer)
     }
 
     fn create_weight<IRC>(

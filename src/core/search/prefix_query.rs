@@ -32,7 +32,7 @@ use std::hash::{Hash, Hasher};
 pub struct PrefixQuery;
 
 impl QueryBase for PrefixQuery {
-    fn as_string(&self, _field: &str) -> String {
+    fn as_string(&self, _field: &str) -> Result<String> {
         todo!()
     }
 
@@ -68,7 +68,10 @@ impl QueryBase for PrefixQuery {
 
 impl Debug for PrefixQuery {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_string(""))
+        match self.as_string("") {
+            Ok(s) => write!(f, "{}", s),
+            Err(_) => Err(std::fmt::Error),
+        }
     }
 }
 
