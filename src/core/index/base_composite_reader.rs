@@ -62,7 +62,7 @@ use std::sync::atomic::{AtomicI32, Ordering};
 pub trait BaseCompositeReader: CompositeReader {}
 pub struct BaseCompositeReaderBase<LR, CR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
     CR: CompositeReader,
 {
     pub(crate) sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
@@ -72,7 +72,7 @@ where
 }
 impl<LR, CR> BaseCompositeReaderBase<LR, CR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
     CR: CompositeReader,
 {
     pub fn with_leaf_readers<C>(
@@ -293,7 +293,7 @@ pub type BCRStoredFieldsImpl<IR, CR> = StoredFieldsImpl<IR, CR>;
 
 pub struct TermVectorsImpl<LR, CR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader ,
     CR: CompositeReader,
 {
     sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
@@ -303,7 +303,7 @@ where
 }
 impl<LR, CR> TermVectorsImpl<LR, CR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader ,
     CR: CompositeReader,
 {
     pub fn new(
@@ -325,7 +325,7 @@ where
 }
 impl<LR, CR> TermVectors for TermVectorsImpl<LR, CR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader ,
     CR: CompositeReader,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
@@ -367,7 +367,7 @@ where
 
 impl<LR, CR> RawTermVectors for TermVectorsImpl<LR, CR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
     CR: CompositeReader,
 {
     type IndexInput = <IRTermVectors<LR, CR> as RawTermVectors>::IndexInput;
@@ -386,7 +386,7 @@ where
 }
 pub struct StoredFieldsImpl<LR, CR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
     CR: CompositeReader,
 {
     sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
@@ -397,7 +397,7 @@ where
 
 impl<LR, CR> StoredFieldsImpl<LR, CR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
     CR: CompositeReader,
 {
     pub fn new(
@@ -420,7 +420,7 @@ where
 
 impl<LR, CR> StoredFields for StoredFieldsImpl<LR, CR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
     CR: CompositeReader,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
@@ -458,7 +458,7 @@ where
 
 impl<LR, CR> RawStoredFieldsReader for StoredFieldsImpl<LR, CR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader,
     CR: CompositeReader,
     IRStoredFields<LR, CR>: RawStoredFieldsReader,
 {
