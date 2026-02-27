@@ -189,7 +189,7 @@ where
         compiled: &mut CompiledAutomaton,
         start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
-        if compiled.automaton_type != AutomatonType::Normal {
+        if compiled.type_ != AutomatonType::Normal {
             return Err(LuceneError::illegal_argument(
                 "please use CompiledAutomaton.getTermsEnum instead",
             ));

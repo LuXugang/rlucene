@@ -196,6 +196,9 @@ use std::cmp::PartialEq;
 
 impl PartialEq for RunAutomaton {
     fn eq(&self, other: &Self) -> bool {
+        if std::ptr::eq(self, other) {
+            return true;
+        }
         self.alphabet_size == other.alphabet_size
             && self.size == other.size
             && self.points == other.points

@@ -87,7 +87,7 @@ impl AutomatonTermsEnum {
     where
         TE: TermsEnum,
     {
-        if compiled.automaton_type != AutomatonType::Normal {
+        if compiled.type_ != AutomatonType::Normal {
             return Err(LuceneError::illegal_argument(
                 "please use CompiledAutomaton.get_terms_enum instead",
             ));

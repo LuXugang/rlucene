@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::run_automaton::RunAutomaton;
 use crate::core::util::automation::utf32_to_utf8::UTF32ToUTF8;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
+use std::hash::{Hash, Hasher};
 
 pub struct ByteRunAutomaton {
     pub base: RunAutomaton,
@@ -80,5 +80,17 @@ impl ByteRunnable for ByteRunAutomaton {
 
     fn get_size(&self) -> i32 {
         self.base.size()
+    }
+}
+
+impl PartialEq for ByteRunAutomaton {
+    fn eq(&self, other: &Self) -> bool {
+        self.base.eq(&other.base)
+    }
+}
+impl Eq for ByteRunAutomaton {}
+impl Hash for ByteRunAutomaton {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.base.hash(state)
     }
 }

@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::char::decode_utf16;
-
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::run_automaton::RunAutomaton;
 use crate::core::util::error::lucene_error::Result;
+use std::char::decode_utf16;
+use std::hash::{Hash, Hasher};
 
 /// Automaton representation for matching char[].
 pub struct CharacterRunAutomaton {
@@ -59,5 +59,16 @@ impl CharacterRunAutomaton {
         }
 
         self.base.is_accept(state)
+    }
+}
+impl PartialEq for CharacterRunAutomaton {
+    fn eq(&self, other: &Self) -> bool {
+        self.base.eq(&other.base)
+    }
+}
+impl Eq for CharacterRunAutomaton {}
+impl Hash for CharacterRunAutomaton {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.base.hash(state)
     }
 }

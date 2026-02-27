@@ -29,6 +29,7 @@ use crate::core::util::automation::utf32_to_utf8::UTF32ToUTF8;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::unicode_util::UnicodeUtil;
 use std::borrow::Cow;
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 /// Automata are compiled into different internal forms for the most efficient
@@ -36,7 +37,7 @@ use std::rc::Rc;
 pub struct CompiledAutomaton {
     /// If `simplify` is true this will be the "simplified" type; else, this is
     /// NORMAL
-    pub automaton_type: AutomatonType,
+    pub type_: AutomatonType,
 
     /// For [`AutomatonType::Single`] this is the singleton term.
     pub term: Option<BytesRef<Vec<u8>>>,
@@ -121,7 +122,7 @@ impl CompiledAutomaton {
             // large automaton these tests could be costly:
             if Operations::is_empty(&automaton) {
                 return Ok(Self {
-                    automaton_type: AutomatonType::None,
+                    type_: AutomatonType::None,
                     term: None,
                     run_automaton: None,
 
@@ -142,7 +143,7 @@ impl CompiledAutomaton {
             if is_total {
                 // matches all possible strings
                 return Ok(Self {
-                    automaton_type: AutomatonType::All,
+                    type_: AutomatonType::All,
                     term: None,
                     run_automaton: None,
 
@@ -166,7 +167,7 @@ impl CompiledAutomaton {
                 };
 
                 return Ok(Self {
-                    automaton_type: AutomatonType::Single,
+                    type_: AutomatonType::Single,
                     term,
                     run_automaton: None,
 
@@ -213,7 +214,7 @@ impl CompiledAutomaton {
 
         if !automaton_is_deterministic && !binary.is_deterministic() {
             Ok(Self {
-                automaton_type,
+                type_: automaton_type,
                 term,
                 run_automaton: None,
 
@@ -234,7 +235,7 @@ impl CompiledAutomaton {
             let sink_state = Self::find_sink_state(&run_automaton.base.automaton);
 
             Ok(Self {
-                automaton_type,
+                type_: automaton_type,
                 term,
                 run_automaton: Some(Rc::new(run_automaton)),
                 nfa_run_automaton: None,
@@ -401,10 +402,57 @@ impl CompiledAutomaton {
         }
     }
 }
+impl Hash for CompiledAutomaton {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.type_.hash(state);
+        match self.type_ {
+            AutomatonType::Single => {
+                self.term.hash(state);
+            },
+            AutomatonType::Normal => {
+                self.run_automaton.hash(state);
+                hash_opt_rc_identity(&self.nfa_run_automaton, state);
+            },
+            AutomatonType::All | AutomatonType::None => {},
+        }
+    }
+}
+fn hash_opt_rc_identity<T, H: Hasher>(v: &Option<Rc<T>>, state: &mut H) {
+    match v.as_ref() {
+        None => 0usize.hash(state),
+        Some(rc) => {
+            (Rc::as_ptr(rc) as usize).hash(state);
+        },
+    }
+}
+impl PartialEq for CompiledAutomaton {
+    fn eq(&self, other: &Self) -> bool {
+        if self.type_ != other.type_ {
+            return false;
+        }
 
+        match self.type_ {
+            AutomatonType::Single => self.term == other.term,
+            AutomatonType::Normal => {
+                self.run_automaton == other.run_automaton
+                    && match (
+                        self.nfa_run_automaton.as_ref(),
+                        other.nfa_run_automaton.as_ref(),
+                    ) {
+                        (None, None) => true,
+                        (Some(a), Some(b)) => Rc::ptr_eq(a, b),
+                        _ => false,
+                    }
+            },
+            AutomatonType::All | AutomatonType::None => true,
+        }
+    }
+}
+
+impl Eq for CompiledAutomaton {}
 /// Automata are compiled into different internal forms for the most efficient
 /// execution depending upon the language they accept.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AutomatonType {
     /// Automaton that accepts no strings.
     None,
@@ -565,7 +613,7 @@ mod tests {
 
         let ca = CompiledAutomaton::with_binary(a, false, true, true)?;
 
-        assert_eq!(ca.automaton_type, AutomatonType::All);
+        assert_eq!(ca.type_, AutomatonType::All);
         Ok(())
     }
     // LUCENE-6367
@@ -578,7 +626,7 @@ mod tests {
         a.finish_state()?;
 
         let ca = CompiledAutomaton::with_binary(a, false, true, false)?;
-        assert_eq!(ca.automaton_type, AutomatonType::All);
+        assert_eq!(ca.type_, AutomatonType::All);
 
         Ok(())
     }
@@ -587,7 +635,7 @@ mod tests {
     fn test_binary_singleton() -> Result<()> {
         let a = Automata::make_string("foobar")?;
         let ca = CompiledAutomaton::with_binary(a, true, true, true)?;
-        assert_eq!(ca.automaton_type, AutomatonType::Single);
+        assert_eq!(ca.type_, AutomatonType::Single);
         Ok(())
     }
     // LUCENE-6367
@@ -597,7 +645,7 @@ mod tests {
         let s = TestUtil::random_realistic_unicode_string(&mut random);
         let a = Automata::make_string(&s)?;
         let ca = CompiledAutomaton::with_binary(a, true, true, false)?;
-        assert_eq!(ca.automaton_type, AutomatonType::Single);
+        assert_eq!(ca.type_, AutomatonType::Single);
         Ok(())
     }
 }
