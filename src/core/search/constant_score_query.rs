@@ -562,6 +562,7 @@ mod tests {
     use crate::core::search::query::{Query, QueryBase};
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::term_query::TermQuery;
+    use crate::core::search::term_range_query::TermRangeQuery;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
@@ -569,9 +570,35 @@ mod tests {
     };
     use std::collections::HashMap;
 
+    use crate::test::search::query_utils::QueryUtils;
+
+    #[allow(dead_code)] // for quick search
+    struct TestConstantScoreQuery;
+
     #[test]
     fn test_csq() -> Result<()> {
-        // TODO TermRangeQuery未实现
+        let q1: Query =
+            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("a", "b")).into()))
+                .into();
+        let q2: Query =
+            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("a", "c")).into()))
+                .into();
+        let q3: Query = ConstantScoreQuery::new(Box::new(
+            TermRangeQuery::new_string_range("a", Some("b"), Some("c"), true, true)?.into(),
+        ))
+        .into();
+
+        // TODO IMPORTANT QueryUtils::check未实现
+        // QueryUtils::check(q1.clone())?;
+        // QueryUtils::check(q2.clone())?;
+        QueryUtils::check_equal(&q1, &q1);
+        QueryUtils::check_equal(&q2, &q2);
+        QueryUtils::check_equal(&q3, &q3);
+        QueryUtils::check_unequal(&q1, &q2);
+        QueryUtils::check_unequal(&q2, &q3);
+        QueryUtils::check_unequal(&q1, &q3);
+        QueryUtils::check_unequal(&q1, &TermQuery::new(Term::from_text("a", "b")).into());
+
         Ok(())
     }
     #[test]

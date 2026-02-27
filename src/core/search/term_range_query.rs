@@ -145,8 +145,8 @@ impl TermRangeQuery {
     /// Uses `ConstantScoreBlendedRewrite` as the default rewrite method.
     pub fn new_string_range<F>(
         field: F,
-        lower_term: Option<String>,
-        upper_term: Option<String>,
+        lower_term: Option<impl AsRef<str>>,
+        upper_term: Option<impl AsRef<str>>,
         include_lower: bool,
         include_upper: bool,
     ) -> Result<Self>
@@ -167,8 +167,8 @@ impl TermRangeQuery {
     /// for term text.
     pub fn new_string_range_with_rewrite<F, R>(
         field: F,
-        lower_term: Option<String>,
-        upper_term: Option<String>,
+        lower_term: Option<impl AsRef<str>>,
+        upper_term: Option<impl AsRef<str>>,
         include_lower: bool,
         include_upper: bool,
         rewrite_method: R,
@@ -177,8 +177,8 @@ impl TermRangeQuery {
         F: Into<String>,
         R: Into<RewriteMethodEnum>,
     {
-        let lower = lower_term.map(|s| BytesRef::from_string(&s));
-        let upper = upper_term.map(|s| BytesRef::from_string(&s));
+        let lower = lower_term.map(|s| BytesRef::from_string(s.as_ref()));
+        let upper = upper_term.map(|s| BytesRef::from_string(s.as_ref()));
 
         Self::with_rewrite(
             field,
@@ -357,4 +357,401 @@ pub fn to_automaton(
     }
 
     Automata::make_binary_interval(lower_term, include_lower, upper_term, include_upper)
+}
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::field_type::FieldType;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+    use crate::core::index::index_writer_config::OpenMode;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::search::query::Query;
+    use crate::core::search::term_range_query::TermRangeQuery;
+    use crate::core::store::directory::Directory;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_string_field,
+        new_text_field, random,
+    };
+    use rand::Rng;
+    use std::collections::{HashMap, HashSet};
+    use std::sync::Arc;
+    #[allow(dead_code)] // for quick search
+    struct TestTermRangeQuery;
+    #[test]
+    fn test_exclusive() -> Result<()> {
+        let mut random = random();
+        let query =
+            TermRangeQuery::new_string_range("content", Some("A"), Some("C"), false, false)?;
+        let mut doc_count = 0;
+        let dir = new_directory_shared(&mut random)?;
+        let mut field_types = HashMap::new();
+        initialize_index(
+            &mut random,
+            dir.clone(),
+            &["A", "B", "C", "D"],
+            &mut field_types,
+        )?;
+        let reader = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let hits = searcher.search(query.clone(), 1000)?.score_docs;
+        assert_eq!(1, hits.len(), "A,B,C,D, only B in range");
+
+        initialize_index(&mut random, dir.clone(), &["A", "B", "D"], &mut field_types)?;
+        let reader = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let hits = searcher.search(query.clone(), 1000)?.score_docs;
+        assert_eq!(1, hits.len(), "A,B,D, only B in range");
+
+        add_doc(
+            &mut random,
+            dir.clone(),
+            "C",
+            &mut doc_count,
+            &mut field_types,
+        )?;
+        let reader = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let hits = searcher.search(query.clone(), 1000)?.score_docs;
+        assert_eq!(1, hits.len(), "C added, still only B in range");
+
+        Ok(())
+    }
+    #[test]
+    fn test_inclusive() -> Result<()> {
+        let mut random = random();
+        let query = TermRangeQuery::new_string_range("content", Some("A"), Some("C"), true, true)?;
+        let mut doc_count = 0;
+        let dir = new_directory_shared(&mut random)?;
+        let mut field_types = HashMap::new();
+
+        initialize_index(
+            &mut random,
+            dir.clone(),
+            &["A", "B", "C", "D"],
+            &mut field_types,
+        )?;
+        let reader = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let hits = searcher.search(query.clone(), 1000)?.score_docs;
+        assert_eq!(3, hits.len(), "A,B,C,D - A,B,C in range");
+
+        initialize_index(&mut random, dir.clone(), &["A", "B", "D"], &mut field_types)?;
+        let reader = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let hits = searcher.search(query.clone(), 1000)?.score_docs;
+        assert_eq!(2, hits.len(), "A,B,D - A and B in range");
+
+        add_doc(
+            &mut random,
+            dir.clone(),
+            "C",
+            &mut doc_count,
+            &mut field_types,
+        )?;
+        let reader = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let hits = searcher.search(query.clone(), 1000)?.score_docs;
+        assert_eq!(3, hits.len(), "C added - A, B, C in range");
+
+        Ok(())
+    }
+    #[test]
+    fn test_all_docs() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let mut field_types = HashMap::new();
+
+        initialize_index(
+            &mut random,
+            dir.clone(),
+            &["A", "B", "C", "D"],
+            &mut field_types,
+        )?;
+        let reader = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(Arc::new(reader))?;
+
+        let query = TermRangeQuery::new("content", None, None, true, true)?;
+        assert_eq!(4, searcher.search(query.clone(), 1000)?.score_docs.len());
+
+        let query =
+            TermRangeQuery::new_string_range("content", Some(""), None::<String>, true, true)?;
+        assert_eq!(4, searcher.search(query.clone(), 1000)?.score_docs.len());
+
+        let query =
+            TermRangeQuery::new_string_range("content", Some(""), None::<String>, true, false)?;
+        assert_eq!(4, searcher.search(query.clone(), 1000)?.score_docs.len());
+
+        // and now another one
+        let query =
+            TermRangeQuery::new_string_range("content", Some("B"), None::<String>, true, true)?;
+        assert_eq!(3, searcher.search(query.clone(), 1000)?.score_docs.len());
+
+        Ok(())
+    }
+    /// This test should not be here, but it tests the fuzzy query rewrite mode
+    /// (TOP_TERMS_SCORING_BOOLEAN_REWRITE) with constant score and checks, that only the lower end of
+    /// terms is put into the range
+    #[test]
+    fn test_top_terms_rewrite() -> Result<()> {
+        // TODO IMPORTANT
+        // let mut random = random();
+        // let dir = new_directory_shared(&mut random)?;
+        // let mut field_types = HashMap::new();
+        //
+        // initialize_index(
+        //     &mut random,
+        //     dir.clone(),
+        //     &["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"],
+        //     &mut field_types,
+        // )?;
+        //
+        // let reader = directory_reader_util::open(dir.clone())?;
+        // let searcher = new_searcher_with_reader(reader)?;
+        //
+        // let rewrite_method = TopTermsScoringBooleanQueryRewrite::new(50);
+        // let query = TermRangeQuery::new_string_range_with_rewrite(
+        //     "content",
+        //     Some("B"),
+        //     Some("J"),
+        //     true,
+        //     true,
+        //     rewrite_method,
+        // )?;
+        //
+        // check_boolean_terms(&searcher, query.clone(), &["B", "C", "D", "E", "F", "G", "H", "I", "J"])?;
+        //
+        // let saved_clause_count = get_max_clause_count();
+        // set_max_clause_count(3);
+        // check_boolean_terms(&searcher, query.clone(), &["B", "C", "D"])?;
+        // set_max_clause_count(saved_clause_count);
+        Ok(())
+    }
+
+    fn check_boolean_terms<IRC>(
+        searcher: &IndexSearcher<IRC>,
+        query: TermRangeQuery,
+        terms: &[&str],
+    ) -> Result<()>
+    where
+        IRC: IndexReaderContext,
+    {
+        let rewritten = searcher.rewrite(query)?;
+
+        let bq = match rewritten {
+            Query::Boolean(q) => q,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "expected rewritten query to be a BooleanQuery",
+                ));
+            },
+        };
+
+        let mut allowed_terms: HashSet<String> = terms.iter().map(|s| (*s).to_string()).collect();
+        assert_eq!(allowed_terms.len(), bq.clauses().len());
+
+        for c in bq.clauses() {
+            let tq = match &c.query {
+                Query::Term(q) => q,
+                _ => {
+                    return Err(LuceneError::illegal_state(
+                        "expected clause query to be a TermQuery",
+                    ));
+                },
+            };
+
+            let term = tq.term.text()?.to_string();
+            assert!(allowed_terms.contains(&term), "invalid term: {}", term);
+            allowed_terms.remove(&term);
+        }
+
+        assert_eq!(0, allowed_terms.len());
+        Ok(())
+    }
+    #[test]
+    fn test_equals_hashcode() -> Result<()> {
+        let mut query =
+            TermRangeQuery::new_string_range("content", Some("A"), Some("C"), true, true)?;
+
+        let mut other =
+            TermRangeQuery::new_string_range("content", Some("A"), Some("C"), true, true)?;
+
+        assert_eq!(query, query, "query equals itself is true");
+        assert_eq!(query, other, "equivalent queries are equal");
+
+        {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+
+            let mut h1 = DefaultHasher::new();
+            query.hash(&mut h1);
+            let qh = h1.finish();
+
+            let mut h2 = DefaultHasher::new();
+            other.hash(&mut h2);
+            let oh = h2.finish();
+
+            assert_eq!(
+                qh, oh,
+                "hashcode must return same value when equals is true"
+            );
+        }
+
+        other = TermRangeQuery::new_string_range("notcontent", Some("A"), Some("C"), true, true)?;
+        assert_ne!(query, other, "Different fields are not equal");
+
+        other = TermRangeQuery::new_string_range("content", Some("X"), Some("C"), true, true)?;
+        assert_ne!(query, other, "Different lower terms are not equal");
+
+        other = TermRangeQuery::new_string_range("content", Some("A"), Some("Z"), true, true)?;
+        assert_ne!(query, other, "Different upper terms are not equal");
+
+        query = TermRangeQuery::new_string_range("content", None::<String>, Some("C"), true, true)?;
+        other = TermRangeQuery::new_string_range("content", None::<String>, Some("C"), true, true)?;
+        assert_eq!(
+            query, other,
+            "equivalent queries with null lowerterms are equal()"
+        );
+
+        {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+
+            let mut h1 = DefaultHasher::new();
+            query.hash(&mut h1);
+            let qh = h1.finish();
+
+            let mut h2 = DefaultHasher::new();
+            other.hash(&mut h2);
+            let oh = h2.finish();
+
+            assert_eq!(
+                qh, oh,
+                "hashcode must return same value when equals is true"
+            );
+        }
+
+        query = TermRangeQuery::new_string_range("content", Some("C"), None::<String>, true, true)?;
+        other = TermRangeQuery::new_string_range("content", Some("C"), None::<String>, true, true)?;
+        assert_eq!(
+            query, other,
+            "equivalent queries with null upperterms are equal()"
+        );
+
+        {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+
+            let mut h1 = DefaultHasher::new();
+            query.hash(&mut h1);
+            let qh = h1.finish();
+
+            let mut h2 = DefaultHasher::new();
+            other.hash(&mut h2);
+            let oh = h2.finish();
+
+            assert_eq!(qh, oh, "hashcode returns same value");
+        }
+
+        query = TermRangeQuery::new_string_range("content", None::<String>, Some("C"), true, true)?;
+        other = TermRangeQuery::new_string_range("content", Some("C"), None::<String>, true, true)?;
+        assert_ne!(
+            query, other,
+            "queries with different upper and lower terms are not equal"
+        );
+
+        query = TermRangeQuery::new_string_range("content", Some("A"), Some("C"), false, false)?;
+        other = TermRangeQuery::new_string_range("content", Some("A"), Some("C"), true, true)?;
+        assert_ne!(
+            query, other,
+            "queries with different inclusive are not equal"
+        );
+
+        Ok(())
+    }
+    fn initialize_index<D, R: Rng + ?Sized>(
+        random: &mut R,
+        dir: Arc<D>,
+        values: &[&str],
+        field_to_type: &mut HashMap<String, FieldType>,
+    ) -> Result<()>
+    where
+        D: Directory,
+    {
+        // TODO IMPORTANT 这里没有指定分词器
+        let mut config = new_index_writer_config(random);
+        config.set_open_mode(OpenMode::Create);
+
+        let mut writer = IndexWriter::new(dir, config)?;
+        let mut doc_count: i32 = 0;
+
+        for v in values {
+            insert_doc(&mut writer, &mut doc_count, v, field_to_type)?;
+        }
+
+        writer.close()?;
+        Ok(())
+    }
+    fn add_doc<D, R: Rng + ?Sized>(
+        random: &mut R,
+        dir: Arc<D>,
+        content: &str,
+        doc_count: &mut i32,
+        field_to_type: &mut HashMap<String, FieldType>,
+    ) -> Result<()>
+    where
+        D: Directory,
+    {
+        let mut config = new_index_writer_config(random);
+        config.set_open_mode(OpenMode::Append);
+
+        let mut writer = IndexWriter::new(dir, config)?;
+        insert_doc(&mut writer, doc_count, content, field_to_type)?;
+        writer.close()?;
+        Ok(())
+    }
+    fn insert_doc<D, L, B>(
+        writer: &mut IndexWriter<D, L, B>,
+        doc_count: &mut i32,
+        content: &str,
+        field_to_type: &mut HashMap<String, FieldType>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        let mut doc = Document::new();
+
+        doc.add(new_string_field(
+            "id",
+            format!("id{}", *doc_count),
+            Store::Yes,
+            field_to_type,
+        )?);
+        doc.add(new_text_field(
+            "content",
+            content,
+            Store::No,
+            field_to_type,
+        )?);
+
+        writer.add_document(doc)?;
+        *doc_count += 1;
+        Ok(())
+    }
+    #[test]
+    fn test_exclusive_lower_null() -> Result<()> {
+        // TODO IMPORTANT SingleCharTokenizer未实现
+        Ok(())
+    }
+    #[test]
+    fn test_inclusive_lower_null() -> Result<()> {
+        // TODO IMPORTANT SingleCharTokenizer未实现
+        Ok(())
+    }
 }

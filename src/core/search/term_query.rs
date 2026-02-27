@@ -60,7 +60,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct TermQuery {
     id: Identity,
-    term: Arc<Term>,
+    pub(crate) term: Arc<Term>,
     per_reader_term_state: Option<TermStatesMeta>,
 }
 impl TermQuery {
