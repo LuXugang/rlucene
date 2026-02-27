@@ -61,7 +61,7 @@ pub struct CompiledAutomaton {
     /// time.
     ///
     /// TODO: merge this with run_automaton
-    nfa_run_automaton: Option<Arc<NFARunAutomaton>>,
+    pub(crate) nfa_run_automaton: Option<Arc<NFARunAutomaton>>,
 
     /// Shared common suffix accepted by the automaton. Only valid for
     /// [`AutomatonType::Normal`], and only when the automaton accepts an

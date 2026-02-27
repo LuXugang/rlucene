@@ -558,10 +558,13 @@ impl Hash for DStateKey {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
-    use rand::Rng;
-
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::index::term::Term;
+    use crate::core::search::automaton_query::AutomatonQuery;
+    use crate::core::util::automation::automata::Automata;
     use crate::core::util::automation::automaton::Automaton;
     use crate::core::util::automation::nfa_run_automaton::NFARunAutomaton;
     use crate::core::util::automation::operations::Operations;
@@ -570,10 +573,17 @@ mod tests {
     use crate::core::util::automation::transition_accessor::TransitionAccessor;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::ints_ref::IntsRef;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::automaton::automaton_test_util::{
         AutomatonTestUtil, RandomAcceptedStrings,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, new_searcher_with_reader, new_text_field, random,
+    };
+    use crate::test::util::test_util::TestUtil;
+    use rand::Rng;
+
+    const FIELD: &str = "field";
     #[allow(dead_code)] // for quick search
     struct TestNFARunAutomaton;
     #[test]
@@ -675,9 +685,108 @@ mod tests {
         Ok(())
     }
 
-    #[test]
+    // TODO IMPORTANT  这个测试不稳定
     fn test_random_automaton_query() -> Result<()> {
-        // TODO: IndexWriter not Implement
+        let mut random = random();
+
+        let doc_num: usize = 50;
+        let automaton_num: usize = 50;
+
+        let directory = new_directory_shared(&mut random)?;
+        let writer = RandomIndexWriter::new(&mut random, directory);
+
+        let mut vocab: HashSet<String> = HashSet::new();
+        let mut per_doc_vocab: HashSet<String> = HashSet::new();
+        let mut field_to_type = HashMap::new();
+        for _ in 0..doc_num {
+            per_doc_vocab.clear();
+
+            let term_num: usize = random.random_range(0..20) + 30;
+            while per_doc_vocab.len() < term_num {
+                let mut s = TestUtil::random_unicode_string(&mut random);
+                while s.is_empty() {
+                    s = TestUtil::random_unicode_string(&mut random);
+                }
+                per_doc_vocab.insert(s.clone());
+                vocab.insert(s);
+            }
+
+            let mut text = String::new();
+            for t in per_doc_vocab.iter() {
+                if !text.is_empty() {
+                    text.push(' ');
+                }
+                text.push_str(t);
+            }
+
+            let mut doc = Document::new();
+            doc.add(new_text_field(FIELD, &text, Store::No, &mut field_to_type)?);
+            writer.add_document(doc)?;
+        }
+
+        writer.commit()?;
+
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let mut foreign_vocab = HashSet::new();
+        while foreign_vocab.len() < vocab.len() {
+            let mut s = TestUtil::random_unicode_string(&mut random);
+            while s.is_empty() {
+                s = TestUtil::random_unicode_string(&mut random);
+            }
+            foreign_vocab.insert(s);
+        }
+
+        let vocab_list: Vec<String> = vocab.into_iter().collect();
+        let foreign_vocab_list: Vec<String> = foreign_vocab.into_iter().collect();
+
+        let mut per_query_vocab = HashSet::new();
+
+        let mut i = 0;
+        while i < automaton_num {
+            per_query_vocab.clear();
+
+            let term_num: usize = random.random_range(0..40) + 30;
+            while per_query_vocab.len() < term_num {
+                if random.random_bool(0.5) {
+                    let idx = random.random_range(0..vocab_list.len());
+                    per_query_vocab.insert(vocab_list[idx].clone());
+                } else {
+                    let idx = random.random_range(0..foreign_vocab_list.len());
+                    per_query_vocab.insert(foreign_vocab_list[idx].clone());
+                }
+            }
+
+            let mut a = None;
+            for term in per_query_vocab.iter() {
+                let s = Automata::make_string(term)?;
+                a = match a {
+                    None => Some(s),
+                    Some(prev) => Some(Operations::union(&prev, &s)?),
+                };
+            }
+            let a = a.unwrap();
+
+            if a.is_deterministic() {
+                i -= 1;
+                continue;
+            }
+
+            let dfa = Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+                .into_owned();
+
+            let dfa_query = AutomatonQuery::from_automaton(Term::from_empty(FIELD), dfa)?;
+            let nfa_query = AutomatonQuery::from_automaton(Term::from_empty(FIELD), a)?;
+
+            assert!(nfa_query.get_compiled().nfa_run_automaton.is_some());
+
+            assert_eq!(searcher.count(dfa_query)?, searcher.count(nfa_query)?);
+
+            i += 1;
+        }
+
+        writer.close()?;
         Ok(())
     }
 
