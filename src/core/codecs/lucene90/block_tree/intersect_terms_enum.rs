@@ -183,13 +183,14 @@ where
             let current = &self.stack[self.current_frame];
             (current.last_sub_fp, current.prefix, current.suffix)
         };
-        let prefix = {
+
+        let f_prefix = {
             let f = &mut self.stack[new_ord];
             f.fp = last_sub_fp;
             f.fp_orig = last_sub_fp;
             f.prefix = prefix + suffix;
             IntersectTermsEnumFrame::set_state(&self.automaton, f, state)?;
-            self.stack[new_ord].prefix
+            f.prefix
         };
         // Walk the arc through the index -- we only
         // "bother" with this so we can get the floor data
@@ -204,7 +205,7 @@ where
 
         let init_output_count = self.output_accumulator.output_count();
 
-        while idx < prefix {
+        while idx < f_prefix {
             let target = self.term.bytes[idx] as i32;
             let next_idx = self.get_arc(idx + 1);
             let fr_index = self.fr.index.as_ref().unwrap();
@@ -239,9 +240,6 @@ where
         let frame = &self.stack[new_ord];
         self.output_accumulator
             .pop(&self.arcs[frame.arc].next_final_output());
-
-        self.current_frame = new_ord;
-
         Ok(new_ord)
     }
     fn get_state(&self) -> i32 {
@@ -249,7 +247,7 @@ where
         let mut state = frame.state;
 
         for idx in 0..frame.suffix {
-            let b = frame.suffixes_reader.bytes[frame.start_byte_pos + idx] as i32 & 0xff;
+            let b = frame.suffixes_reader.bytes[frame.start_byte_pos + idx] as i32;
             state = self.run_automation.step(state, b);
             debug_assert!(state != -1);
         }
@@ -374,12 +372,14 @@ where
     }
 
     pub(crate) fn pop_push_next(&mut self) -> Result<bool> {
+        // Pop finished frames
         loop {
             let frame_idx = self.current_frame;
             if self.stack[frame_idx].next_ent != self.stack[frame_idx].ent_count {
                 break;
             }
             if !self.stack[frame_idx].is_last_in_floor {
+                // Advance to next floor block
                 IntersectTermsEnumFrame::load_next_floor_block(self, frame_idx)?;
                 break;
             } else {
@@ -421,9 +421,11 @@ where
                     let frame = &self.stack[self.current_frame];
                     let suffix_bytes = &frame.suffixes_reader.bytes;
                     // This is the first byte of the suffix of the term we are now on:
-                    let label = suffix_bytes[frame.start_byte_pos] as i32 & 0xff;
+                    let label = suffix_bytes[frame.start_byte_pos] as i32;
 
                     if label < self.stack[self.current_transition].transition.min {
+                        // Common case: we are scanning terms in this block to "catch up" to
+                        // current transition in the automaton:
                         let min_trans = self.stack[self.current_transition].transition.min;
                         while self.stack[self.current_frame].next_ent
                             < self.stack[self.current_frame].ent_count
@@ -431,22 +433,24 @@ where
                             is_sub_block = self.stack[self.current_frame].next()?;
                             let b = self.stack[self.current_frame].suffixes_reader.bytes
                                 [self.stack[self.current_frame].start_byte_pos]
-                                as i32
-                                & 0xff;
+                                as i32;
                             if b >= min_trans {
                                 continue 'next_term;
                             }
                         }
-
+                        // End of frame:
                         is_sub_block = self.pop_push_next()?;
                         continue 'next_term;
                     }
                     label
                 };
                 let mut transition_max = { self.stack[self.current_transition].transition.max };
+                // Advance where we are in the automaton to match this label:
                 while label > transition_max {
                     let frame = &mut self.stack[self.current_frame];
                     if frame.transition_index >= frame.transition_count - 1 {
+                        // Pop this frame: no further matches are possible because
+                        // we've moved beyond what the max transition will allow
                         if frame.ord == 0 {
                             return Ok(None);
                         }
@@ -471,15 +475,14 @@ where
                             is_sub_block = self.stack[self.current_frame].next()?;
                             let b = self.stack[self.current_frame].suffixes_reader.bytes
                                 [self.stack[self.current_frame].start_byte_pos]
-                                as i32
-                                & 0xff;
+                                as i32;
                             if b >= min_trans {
                                 continue 'next_term;
                             }
                             let current_frame = &self.stack[self.current_frame];
                             c = current_frame.next_ent < current_frame.ent_count
                         }
-
+                        // End of frame:
                         is_sub_block = self.pop_push_next()?;
                         continue 'next_term;
                     }
@@ -497,7 +500,6 @@ where
 
                         let mut suffix_bytes_pos: usize;
                         let mut common_suffix_bytes_pos: usize = 0;
-
                         if common_suffix.length > frame.suffix {
                             // A prefix of the common suffix overlaps with
                             // the suffix of the block prefix so we first
@@ -545,7 +547,7 @@ where
                     last_state = state;
                     state = self.run_automation.step(
                         state,
-                        self.stack[self.current_frame].suffixes_reader.bytes[idx] as i32 & 0xff,
+                        self.stack[self.current_frame].suffixes_reader.bytes[idx] as i32,
                     );
                     if state == -1 {
                         is_sub_block = self.pop_push_next()?;

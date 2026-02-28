@@ -96,7 +96,8 @@ where
     );
     Ok(())
 }
-// TODO IMPORTANT 测试未完成
+
+#[test]
 fn test_regexps() -> Result<()> {
     let mut random = random();
     let searcher = set_up(&mut random)?;

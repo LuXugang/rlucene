@@ -86,7 +86,7 @@ impl IntersectTermsEnumFrame {
         let mut term_state = fr
             .parent
             .as_ref()
-            .unwrap()
+            .ok_or_else(|| LuceneError::number_format("parent not initialized yey"))?
             .postings_reader
             .new_term_state()?;
 
@@ -158,12 +158,15 @@ impl IntersectTermsEnumFrame {
             frame.fp = frame.fp_orig + delta;
             frame.num_follow_floor_blocks -= 1;
             if frame.num_follow_floor_blocks != 0 {
-                frame.next_floor_label = (frame.floor_data_reader.read_byte()?) as i32;
+                frame.next_floor_label = frame.floor_data_reader.read_byte()? as i32;
             } else {
                 frame.next_floor_label = 256;
             }
 
-            if frame.num_follow_floor_blocks == 0 || frame.next_floor_label > frame.transition.min {
+            if frame.num_follow_floor_blocks != 0 && frame.next_floor_label <= frame.transition.min
+            {
+                continue;
+            } else {
                 break;
             }
         }
@@ -268,19 +271,19 @@ impl IntersectTermsEnumFrame {
                 }
             }
         }
-        let input = ite
+        let in_ = ite
             .input
             .as_mut()
             .ok_or_else(|| LuceneError::number_format("input not initialized yey"))?;
-        input.seek(frame.fp as usize)?;
+        in_.seek(frame.fp as usize)?;
 
-        let code = input.read_vint()?;
+        let code = in_.read_vint()?;
         frame.ent_count = (code as u32 >> 1).try_convert()?;
         debug_assert!(frame.ent_count > 0);
         frame.is_last_in_floor = (code & 1) != 0;
 
         // term suffixed
-        let code_l = input.read_vlong()?;
+        let code_l = in_.read_vlong()?;
 
         frame.is_leaf_block = (code_l & 0x04) != 0;
         let num_suffix_bytes = (code_l as u64 >> 3) as usize;
@@ -301,14 +304,14 @@ impl IntersectTermsEnumFrame {
         };
 
         compression_alg.read(
-            input,
+            in_,
             &mut frame.suffixes_reader.bytes,
             num_suffix_bytes.try_convert()?,
         )?;
 
         frame.suffixes_reader.reset_meta(0, num_suffix_bytes);
 
-        let mut num_suffix_len_bytes = input.read_vint()?;
+        let mut num_suffix_len_bytes = in_.read_vint()?;
         let all_equal = (num_suffix_len_bytes & 1) != 0;
         debug_assert!(num_suffix_len_bytes >= 0);
         num_suffix_len_bytes >>= 1;
@@ -321,10 +324,10 @@ impl IntersectTermsEnumFrame {
         }
 
         if all_equal {
-            let b = input.read_byte()?;
+            let b = in_.read_byte()?;
             frame.suffix_lengths_reader.bytes[..num_suffix_len_bytes].fill(b);
         } else {
-            input.read_bytes(
+            in_.read_bytes(
                 &mut frame.suffix_lengths_reader.bytes,
                 0,
                 num_suffix_len_bytes,
@@ -336,12 +339,12 @@ impl IntersectTermsEnumFrame {
             .reset_meta(0, num_suffix_len_bytes);
 
         // stats
-        let num_bytes = input.read_vint()? as usize;
+        let num_bytes = in_.read_vint()?.try_convert()?;
         if frame.stats_reader.bytes.len() < num_bytes {
             let new_len = ArrayUtil::oversize(num_bytes, 1);
             frame.stats_reader.bytes = vec![0u8; new_len];
         }
-        input.read_bytes(&mut frame.stats_reader.bytes, 0, num_bytes)?;
+        in_.read_bytes(&mut frame.stats_reader.bytes, 0, num_bytes)?;
 
         frame.stats_reader.reset_meta(0, num_bytes);
         frame.stats_singleton_run_length = 0;
@@ -350,20 +353,19 @@ impl IntersectTermsEnumFrame {
         frame.next_ent = 0;
 
         // metadata
-        let num_bytes = input.read_vint()? as usize;
+        let num_bytes = in_.read_vint()?.try_convert()?;
         if frame.bytes_reader.bytes.len() < num_bytes {
             let new_len = ArrayUtil::oversize(num_bytes, 1);
             frame.bytes_reader.bytes = vec![0u8; new_len];
         }
-        input.read_bytes(&mut frame.bytes_reader.bytes, 0, num_bytes)?;
-
+        in_.read_bytes(&mut frame.bytes_reader.bytes, 0, num_bytes)?;
         frame.bytes_reader.reset_meta(0, num_bytes);
 
         if !frame.is_last_in_floor {
             // Sub-blocks of a single floor block are always
             // written one after another -- tail recurse:
             // tail recursion boundary for floor blocks
-            frame.fp_end = input.get_file_pointer()? as i64;
+            frame.fp_end = in_.get_file_pointer()? as i64;
         }
 
         Ok(())
@@ -463,7 +465,7 @@ impl IntersectTermsEnumFrame {
             ite.fr
                 .parent
                 .as_ref()
-                .unwrap()
+                .ok_or_else(|| LuceneError::number_format("parent not initialized yey"))?
                 .postings_reader
                 .decode_term(
                     &mut frame.bytes_reader,
