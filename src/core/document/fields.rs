@@ -47,6 +47,7 @@ use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexing_chain::ReservedField;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
+use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test::index::test_doc_values_indexing::FieldImpl;
 use std::borrow::Cow;
@@ -81,148 +82,34 @@ pub enum Fields {
     FieldImpl(FieldImpl),
 }
 
-impl From<Field> for Fields {
-    fn from(f: Field) -> Self {
-        Fields::Field(f)
-    }
-}
-
-impl From<TextField> for Fields {
-    fn from(t: TextField) -> Self {
-        Fields::Text(t)
-    }
-}
-
-impl From<StringField> for Fields {
-    fn from(s: StringField) -> Self {
-        Fields::String(s)
-    }
-}
-
-impl From<StoredField> for Fields {
-    fn from(s: StoredField) -> Self {
-        Fields::Stored(s)
-    }
-}
-
-impl From<NumericDocValuesField> for Fields {
-    fn from(n: NumericDocValuesField) -> Self {
-        Fields::NumericDocValues(n)
-    }
-}
-
-impl From<FloatDocValuesField> for Fields {
-    fn from(n: FloatDocValuesField) -> Self {
-        Fields::FloatDocValues(n)
-    }
-}
-
-impl From<DoubleDocValuesField> for Fields {
-    fn from(n: DoubleDocValuesField) -> Self {
-        Fields::DoubleDocValues(n)
-    }
-}
-
-impl From<ReservedField<NumericDocValuesField>> for Fields {
-    fn from(r: ReservedField<NumericDocValuesField>) -> Self {
-        Fields::Reverse(r)
-    }
-}
-
-impl From<FloatPoint> for Fields {
-    fn from(f: FloatPoint) -> Self {
-        Fields::FloatPoint(f)
-    }
-}
-
-impl From<LongPoint> for Fields {
-    fn from(l: LongPoint) -> Self {
-        Fields::LongPoint(l)
-    }
-}
-
-impl From<IntPoint> for Fields {
-    fn from(l: IntPoint) -> Self {
-        Fields::IntPoint(l)
-    }
-}
-
-impl From<DoublePoint> for Fields {
-    fn from(d: DoublePoint) -> Self {
-        Fields::DoublePoint(d)
-    }
-}
-
-impl From<LongField> for Fields {
-    fn from(l: LongField) -> Self {
-        Fields::LongField(l)
-    }
-}
-
-impl From<IntField> for Fields {
-    fn from(i: IntField) -> Self {
-        Fields::IntField(i)
-    }
-}
-
-impl From<DoubleField> for Fields {
-    fn from(d: DoubleField) -> Self {
-        Fields::DoubleField(d)
-    }
-}
-
-impl From<FloatField> for Fields {
-    fn from(f: FloatField) -> Self {
-        Fields::FloatField(f)
-    }
-}
-
-impl From<BinaryDocValuesField> for Fields {
-    fn from(b: BinaryDocValuesField) -> Self {
-        Fields::BinaryDocValues(b)
-    }
-}
-
-impl From<SortedDocValuesField> for Fields {
-    fn from(s: SortedDocValuesField) -> Self {
-        Fields::SortedDocValues(s)
-    }
-}
-
-impl From<SortedSetDocValuesField> for Fields {
-    fn from(s: SortedSetDocValuesField) -> Self {
-        Fields::SortedSetDocValues(s)
-    }
-}
-
-impl From<SortedNumericDocValuesField> for Fields {
-    fn from(s: SortedNumericDocValuesField) -> Self {
-        Fields::SortedNumericDocValues(s)
-    }
-}
-
-impl From<KeywordField> for Fields {
-    fn from(k: KeywordField) -> Self {
-        Fields::Keyword(k)
-    }
-}
-
-impl From<IntRange> for Fields {
-    fn from(r: IntRange) -> Self {
-        Fields::Int(r)
-    }
-}
-impl From<BinaryPoint> for Fields {
-    fn from(b: BinaryPoint) -> Self {
-        Fields::Binary(b)
-    }
-}
+impl_from_for_enum!(
+    Fields,
+    Field => Field,
+    TextField => Text,
+    StringField => String,
+    StoredField => Stored,
+    NumericDocValuesField => NumericDocValues,
+    FloatDocValuesField => FloatDocValues,
+    DoubleDocValuesField => DoubleDocValues,
+    ReservedField<NumericDocValuesField> => Reverse,
+    FloatPoint => FloatPoint,
+    LongPoint => LongPoint,
+    IntPoint => IntPoint,
+    DoublePoint => DoublePoint,
+    LongField => LongField,
+    IntField => IntField,
+    DoubleField => DoubleField,
+    FloatField => FloatField,
+    BinaryDocValuesField => BinaryDocValues,
+    SortedDocValuesField => SortedDocValues,
+    SortedSetDocValuesField => SortedSetDocValues,
+    SortedNumericDocValuesField => SortedNumericDocValues,
+    KeywordField => Keyword,
+    IntRange => Int,
+    BinaryPoint => Binary,
+);
 #[cfg(test)]
-impl From<FieldImpl> for Fields {
-    fn from(f: FieldImpl) -> Self {
-        Fields::FieldImpl(f)
-    }
-}
+impl_from_for_enum!(Fields, FieldImpl => FieldImpl);
 
 impl Display for Fields {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

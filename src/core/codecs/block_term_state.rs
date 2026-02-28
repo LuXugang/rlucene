@@ -23,6 +23,7 @@ use crate::core::index::term_state::TermState;
 use crate::core::index::term_states::EmptyTermState;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::impl_from_for_enum;
 
 /// Holds all state required for
 /// [`PostingsReaderBase`](crate::core::codecs::postings_reader_base::PostingsReaderBase)
@@ -75,20 +76,8 @@ pub enum TermStateEnum {
     Ord(OrdTermState),
     BaseTermsEnum(BaseTermsEnumTermStateImpl),
 }
-macro_rules! impl_from_variants {
-    ($enum_ty:ident : $( $ty:ty => $variant:ident ),+ $(,)?) => {
-        $(
-            impl From<$ty> for $enum_ty {
-                #[inline]
-                fn from(value: $ty) -> Self {
-                    $enum_ty::$variant(value)
-                }
-            }
-        )+
-    };
-}
-
-impl_from_variants!(TermStateEnum:
+impl_from_for_enum!(
+    TermStateEnum,
     IntBlockTermState => Int,
     BlockTermState => Block,
     EmptyTermState => Empty,

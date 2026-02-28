@@ -31,6 +31,7 @@ use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::impl_from_for_enum;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
@@ -47,17 +48,6 @@ pub trait MultiTermQuery: QueryBase + Clone {
     }
 
     fn as_query(&self) -> Query;
-}
-macro_rules! impl_from_for_enum {
-    ($enum_ty:ident, $( $src_ty:ty => $variant:ident ),+ $(,)?) => {
-        $(
-            impl From<$src_ty> for $enum_ty {
-                fn from(v: $src_ty) -> Self {
-                    $enum_ty::$variant(v)
-                }
-            }
-        )+
-    };
 }
 pub trait RewriteMethod {
     fn rewrite<IRC>(

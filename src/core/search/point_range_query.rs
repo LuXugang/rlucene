@@ -48,6 +48,7 @@ use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ints_ref::IntsRef;
+use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test::search::test_point_queries::PointRangeQueryBaseImpl;
 use std::fmt::Debug;
@@ -984,37 +985,16 @@ pub enum PointRangeBaseEnum {
     #[cfg(test)]
     Test(PointRangeQueryBaseImpl),
 }
-impl From<IntPointRangeQuery> for PointRangeBaseEnum {
-    fn from(v: IntPointRangeQuery) -> Self {
-        PointRangeBaseEnum::Int(v)
-    }
-}
-impl From<LongPointRangeQuery> for PointRangeBaseEnum {
-    fn from(v: LongPointRangeQuery) -> Self {
-        PointRangeBaseEnum::Long(v)
-    }
-}
-impl From<FloatPointRangeQuery> for PointRangeBaseEnum {
-    fn from(v: FloatPointRangeQuery) -> Self {
-        PointRangeBaseEnum::Float(v)
-    }
-}
-impl From<DoublePointRangeQuery> for PointRangeBaseEnum {
-    fn from(v: DoublePointRangeQuery) -> Self {
-        PointRangeBaseEnum::Double(v)
-    }
-}
-impl From<BinaryPointRangeQuery> for PointRangeBaseEnum {
-    fn from(v: BinaryPointRangeQuery) -> Self {
-        PointRangeBaseEnum::Binary(v)
-    }
-}
+impl_from_for_enum!(
+    PointRangeBaseEnum,
+    IntPointRangeQuery => Int,
+    LongPointRangeQuery => Long,
+    FloatPointRangeQuery => Float,
+    DoublePointRangeQuery => Double,
+    BinaryPointRangeQuery => Binary,
+);
 #[cfg(test)]
-impl From<PointRangeQueryBaseImpl> for PointRangeBaseEnum {
-    fn from(v: PointRangeQueryBaseImpl) -> Self {
-        PointRangeBaseEnum::Test(v)
-    }
-}
+impl_from_for_enum!(PointRangeBaseEnum, PointRangeQueryBaseImpl => Test);
 impl PointRangeBase for PointRangeBaseEnum {
     fn to_string(&self, dimension: usize, value: &[u8]) -> String {
         match self {

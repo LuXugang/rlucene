@@ -44,6 +44,7 @@ use crate::core::search::sorted_numeric_sort_field::NumericProvider;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
+use crate::impl_from_for_enum;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -829,29 +830,13 @@ pub enum MissingValueEnum {
     Float(f32),
     Double(f64),
 }
-impl From<i32> for MissingValueEnum {
-    fn from(v: i32) -> Self {
-        MissingValueEnum::Int(v)
-    }
-}
-
-impl From<i64> for MissingValueEnum {
-    fn from(v: i64) -> Self {
-        MissingValueEnum::Long(v)
-    }
-}
-
-impl From<f32> for MissingValueEnum {
-    fn from(v: f32) -> Self {
-        MissingValueEnum::Float(v)
-    }
-}
-
-impl From<f64> for MissingValueEnum {
-    fn from(v: f64) -> Self {
-        MissingValueEnum::Double(v)
-    }
-}
+impl_from_for_enum!(
+    MissingValueEnum,
+    i32 => Int,
+    i64 => Long,
+    f32 => Float,
+    f64 => Double,
+);
 
 impl MissingValueEnum {
     pub fn as_i32(&self) -> i32 {

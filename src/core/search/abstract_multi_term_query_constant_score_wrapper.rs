@@ -47,6 +47,7 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::term_query::{TermQuery, TermStatesMeta};
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::impl_from_for_enum;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -321,16 +322,11 @@ pub(crate) enum RewritingWeightBaseEnum {
     Blended(BlendedRewritingWeight),
     Standard(StandardRewritingWeight),
 }
-impl From<BlendedRewritingWeight> for RewritingWeightBaseEnum {
-    fn from(v: BlendedRewritingWeight) -> Self {
-        RewritingWeightBaseEnum::Blended(v)
-    }
-}
-impl From<StandardRewritingWeight> for RewritingWeightBaseEnum {
-    fn from(v: StandardRewritingWeight) -> Self {
-        RewritingWeightBaseEnum::Standard(v)
-    }
-}
+impl_from_for_enum!(
+    RewritingWeightBaseEnum,
+    BlendedRewritingWeight => Blended,
+    StandardRewritingWeight => Standard,
+);
 pub struct ScorerSupplierImpl<T, TE>
 where
     T: Terms,

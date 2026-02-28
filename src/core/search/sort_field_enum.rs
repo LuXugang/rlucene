@@ -34,6 +34,7 @@ use crate::core::search::sorted_set_selector::SortedDocValuesWrap;
 use crate::core::search::sorted_set_sort_field::{SProviderImpl1, SortedSetSortField};
 use crate::core::store::DataOutput;
 use crate::core::util::error::lucene_error::Result;
+use crate::impl_from_for_enum;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -158,21 +159,12 @@ impl Hash for SortFieldEnum {
     }
 }
 
-impl From<SortField> for SortFieldEnum {
-    fn from(sort_field: SortField) -> Self {
-        SortFieldEnum::Sorter(sort_field)
-    }
-}
-impl From<SortedNumericSortField> for SortFieldEnum {
-    fn from(sort_field: SortedNumericSortField) -> Self {
-        SortFieldEnum::SortedNumeric(sort_field)
-    }
-}
-impl From<SortedSetSortField> for SortFieldEnum {
-    fn from(sort_field: SortedSetSortField) -> Self {
-        SortFieldEnum::SortedSet(sort_field)
-    }
-}
+impl_from_for_enum!(
+    SortFieldEnum,
+    SortField => Sorter,
+    SortedNumericSortField => SortedNumeric,
+    SortedSetSortField => SortedSet,
+);
 pub type CPType<LR> = ComparableProviderEnum3<
     CPEnumType2<NPImpl2, LR>,
     StringComparableProvider<SortedDocValuesWrap<SortedSet<LR>>>,

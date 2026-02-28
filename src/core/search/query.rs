@@ -52,6 +52,7 @@ use crate::core::search::weight::Weight;
 use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test::search::random_approximation_query::RandomApproximationQuery;
 use std::cmp::PartialEq;
@@ -67,18 +68,6 @@ pub type QueryWeightSs<IRC> = Box<
 pub type QueryWeightSsBulkScorer = Box<dyn BulkScorer>;
 pub type QueryWeightSsScorer = Box<dyn Scorer>;
 
-macro_rules! impl_from_for_query {
-    ( $( $ty:ty => $variant:ident ),+ $(,)? ) => {
-        $(
-            impl From<$ty> for Query {
-                #[inline]
-                fn from(value: $ty) -> Self {
-                    Query::$variant(value)
-                }
-            }
-        )+
-    };
-}
 macro_rules! dispatch_query {
     ($self:expr, |$inner:ident| $body:expr) => {{
         match $self {
@@ -112,9 +101,8 @@ macro_rules! dispatch_query {
         }
     }};
 }
-
-// Implement From<T> for Query for all query types
-impl_from_for_query! {
+impl_from_for_enum!(
+    Query,
     AutomatonQuery=> Automaton,
     BooleanQuery => Boolean,
     BoostQuery => Boost,
@@ -136,7 +124,7 @@ impl_from_for_query! {
     TermRangeQuery => TermRange,
     PhraseQuery=> Phrase,
     WildcardQuery => Wildcard,
-}
+);
 
 pub trait QueryBase: Debug + HasIdentity {
     fn as_string(&self, field: &str) -> Result<String>;

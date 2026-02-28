@@ -24,6 +24,7 @@ use crate::core::search::similarities_impl::tf_idf_similarity::{TFIDFScorer, TFI
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::small_float::SmallFloat;
+use crate::impl_from_for_enum;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -172,23 +173,12 @@ impl SimilarityEnum {
     }
 }
 
-macro_rules! impl_from_for_similarity_enum {
-    ( $( $ty:ty => $variant:ident ),+ $(,)? ) => {
-        $(
-            impl From<$ty> for SimilarityEnum {
-                #[inline]
-                fn from(value: $ty) -> Self {
-                    SimilarityEnum::$variant(value)
-                }
-            }
-        )+
-    };
-}
-impl_from_for_similarity_enum! {
+impl_from_for_enum!(
+    SimilarityEnum,
     BM25Similarity => BM25,
     RawTFSimilarity => RawTF,
     TFIDFSimilarity => TFIDF,
-}
+);
 
 impl Display for SimilarityEnum {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -27,6 +27,7 @@ use crate::core::search::sort_field::SortFiledBase;
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, CompareEnum2, PriorityQueue};
+use crate::impl_from_for_enum;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -369,19 +370,9 @@ impl ScoreDocLike for TopFieldScoreDoc {
         }
     }
 }
-impl From<Entry> for TopFieldScoreDoc {
-    fn from(entry: Entry) -> Self {
-        TopFieldScoreDoc::Entry(entry)
-    }
-}
-
-impl From<FieldDoc> for TopFieldScoreDoc {
-    fn from(field_doc: FieldDoc) -> Self {
-        TopFieldScoreDoc::Field(field_doc)
-    }
-}
-impl From<ScoreDoc> for TopFieldScoreDoc {
-    fn from(score_doc: ScoreDoc) -> Self {
-        TopFieldScoreDoc::Score(score_doc)
-    }
-}
+impl_from_for_enum!(
+    TopFieldScoreDoc,
+    Entry => Entry,
+    FieldDoc => Field,
+    ScoreDoc => Score
+);

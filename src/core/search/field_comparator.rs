@@ -38,6 +38,7 @@ use crate::core::search::sorted_numeric_sort_field::{
 use crate::core::search::sorted_set_sort_field::SortedDocValuesTermOrdValComparator;
 use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::Result;
+use crate::impl_from_for_enum;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 
@@ -327,35 +328,14 @@ pub enum FieldComparatorValue {
     Long(i64),
     TermVal(BytesRef<Vec<u8>>),
 }
-impl From<i32> for FieldComparatorValue {
-    fn from(v: i32) -> Self {
-        FieldComparatorValue::Int(v)
-    }
-}
-
-impl From<i64> for FieldComparatorValue {
-    fn from(v: i64) -> Self {
-        FieldComparatorValue::Long(v)
-    }
-}
-
-impl From<f32> for FieldComparatorValue {
-    fn from(v: f32) -> Self {
-        FieldComparatorValue::Float(v)
-    }
-}
-
-impl From<f64> for FieldComparatorValue {
-    fn from(v: f64) -> Self {
-        FieldComparatorValue::Double(v)
-    }
-}
-
-impl From<BytesRef<Vec<u8>>> for FieldComparatorValue {
-    fn from(v: BytesRef<Vec<u8>>) -> Self {
-        FieldComparatorValue::TermVal(v)
-    }
-}
+impl_from_for_enum!(
+    FieldComparatorValue,
+    i32 => Int,
+    i64 => Long,
+    f32 => Float,
+    f64 => Double,
+    BytesRef<Vec<u8>> => TermVal,
+);
 impl FieldComparatorValue {
     pub fn missing() -> Self {
         FieldComparatorValue::Missing
@@ -472,85 +452,23 @@ impl Default for FieldComparatorEnum {
         FieldComparatorEnum::Dummy(DummyFieldComparator)
     }
 }
-impl From<RelevanceComparator> for FieldComparatorEnum {
-    fn from(comparator: RelevanceComparator) -> Self {
-        FieldComparatorEnum::Relevance(comparator)
-    }
-}
-impl From<DocComparator> for FieldComparatorEnum {
-    fn from(comparator: DocComparator) -> Self {
-        FieldComparatorEnum::Doc(comparator)
-    }
-}
-
-impl From<DoubleComparator> for FieldComparatorEnum {
-    fn from(comparator: DoubleComparator) -> Self {
-        FieldComparatorEnum::Double(comparator)
-    }
-}
-
-impl From<FloatComparator> for FieldComparatorEnum {
-    fn from(comparator: FloatComparator) -> Self {
-        FieldComparatorEnum::Float(comparator)
-    }
-}
-
-impl From<IntComparator> for FieldComparatorEnum {
-    fn from(comparator: IntComparator) -> Self {
-        FieldComparatorEnum::Int(comparator)
-    }
-}
-
-impl From<LongComparator> for FieldComparatorEnum {
-    fn from(comparator: LongComparator) -> Self {
-        FieldComparatorEnum::Long(comparator)
-    }
-}
-
-impl From<TermValComparator> for FieldComparatorEnum {
-    fn from(comparator: TermValComparator) -> Self {
-        FieldComparatorEnum::TermVal(comparator)
-    }
-}
-impl From<TermOrdValComparator> for FieldComparatorEnum {
-    fn from(comparator: TermOrdValComparator) -> Self {
-        FieldComparatorEnum::TermOrdValue(comparator)
-    }
-}
-
-impl From<SortedNumericIntComparator> for FieldComparatorEnum {
-    fn from(comparator: SortedNumericIntComparator) -> Self {
-        FieldComparatorEnum::SortedNumericInt(comparator)
-    }
-}
-
-impl From<SortedNumericLongComparator> for FieldComparatorEnum {
-    fn from(comparator: SortedNumericLongComparator) -> Self {
-        FieldComparatorEnum::SortedNumericLong(comparator)
-    }
-}
-
-impl From<SortedNumericFloatComparator> for FieldComparatorEnum {
-    fn from(comparator: SortedNumericFloatComparator) -> Self {
-        FieldComparatorEnum::SortedNumericFloat(comparator)
-    }
-}
-
-impl From<SortedNumericDoubleComparator> for FieldComparatorEnum {
-    fn from(comparator: SortedNumericDoubleComparator) -> Self {
-        FieldComparatorEnum::SortedNumericDouble(comparator)
-    }
-}
-impl From<SortedDocValuesTermOrdValComparator> for FieldComparatorEnum {
-    fn from(comparator: SortedDocValuesTermOrdValComparator) -> Self {
-        FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator)
-    }
-}
-impl From<DummyFieldComparator> for FieldComparatorEnum {
-    fn from(comparator: DummyFieldComparator) -> Self {
-        FieldComparatorEnum::Dummy(comparator)
-    }
-}
+impl_from_for_enum!(
+    FieldComparatorEnum,
+    RelevanceComparator => Relevance,
+    DocComparator => Doc,
+    DoubleComparator => Double,
+    FloatComparator => Float,
+    IntComparator => Int,
+    LongComparator => Long,
+    TermValComparator => TermVal,
+    TermOrdValComparator => TermOrdValue,
+    SortedNumericIntComparator => SortedNumericInt,
+    SortedNumericLongComparator => SortedNumericLong,
+    SortedNumericFloatComparator => SortedNumericFloat,
+    SortedNumericDoubleComparator => SortedNumericDouble,
+    SortedDocValuesTermOrdValComparator => SortedDocValuesTermOrdVal,
+    DummyFieldComparator => Dummy,
+);
 
 impl FieldComparator for FieldComparatorEnum {
     type V = FieldComparatorValue;

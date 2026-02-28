@@ -280,3 +280,15 @@ where
         (**self).identity()
     }
 }
+#[macro_export]
+macro_rules! impl_from_for_enum {
+    ($enum_ty:ident, $( $src_ty:ty => $variant:ident ),+ $(,)?) => {
+        $(
+            impl From<$src_ty> for $enum_ty {
+                fn from(v: $src_ty) -> Self {
+                    $enum_ty::$variant(v)
+                }
+            }
+        )+
+    };
+}

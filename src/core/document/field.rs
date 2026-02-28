@@ -34,6 +34,7 @@ use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
+use crate::impl_from_for_enum;
 use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -815,30 +816,17 @@ impl From<f64> for FieldDataEnum {
         FieldDataEnum::Number(Number::F64(v))
     }
 }
-impl From<BytesRef<Vec<u8>>> for FieldDataEnum {
-    fn from(b: BytesRef<Vec<u8>>) -> Self {
-        FieldDataEnum::Binary(b)
-    }
-}
-impl From<String> for FieldDataEnum {
-    fn from(s: String) -> Self {
-        FieldDataEnum::String(s)
-    }
-}
+impl_from_for_enum!(
+    FieldDataEnum,
+    BytesRef<Vec<u8>> => Binary,
+    String => String,
+    ReaderEnum => Reader,
+    TokenStreamEnum => TokenStream,
+);
 
 impl From<&str> for FieldDataEnum {
     fn from(s: &str) -> Self {
         FieldDataEnum::String(s.to_string())
-    }
-}
-impl From<ReaderEnum> for FieldDataEnum {
-    fn from(s: ReaderEnum) -> Self {
-        FieldDataEnum::Reader(s)
-    }
-}
-impl From<TokenStreamEnum> for FieldDataEnum {
-    fn from(s: TokenStreamEnum) -> Self {
-        FieldDataEnum::TokenStream(s)
     }
 }
 

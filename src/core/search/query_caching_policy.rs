@@ -17,6 +17,7 @@
 use crate::core::search::query::Query;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::util::error::lucene_error::Result;
+use crate::impl_from_for_enum;
 use std::sync::Arc;
 
 /// A policy defining which filters should be cached.
@@ -80,11 +81,7 @@ impl QueryCachingPolicyEnum {
         Self::Custom(Box::new(p))
     }
 }
-impl From<UsageTrackingQueryCachingPolicy> for QueryCachingPolicyEnum {
-    fn from(v: UsageTrackingQueryCachingPolicy) -> Self {
-        QueryCachingPolicyEnum::UsageTracking(v)
-    }
-}
+impl_from_for_enum!(QueryCachingPolicyEnum, UsageTrackingQueryCachingPolicy => UsageTracking);
 impl QueryCachingPolicy for QueryCachingPolicyEnum {
     fn on_use(&self, query: &Query) {
         match self {

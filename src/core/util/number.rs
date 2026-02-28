@@ -17,7 +17,9 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
+use crate::impl_from_for_enum;
 use num_traits::ToPrimitive;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Number {
     U8(u8),
@@ -130,38 +132,12 @@ impl Hash for Number {
         }
     }
 }
-impl From<u8> for Number {
-    fn from(v: u8) -> Self {
-        Number::U8(v)
-    }
-}
-
-impl From<i16> for Number {
-    fn from(v: i16) -> Self {
-        Number::I16(v)
-    }
-}
-
-impl From<i32> for Number {
-    fn from(v: i32) -> Self {
-        Number::I32(v)
-    }
-}
-
-impl From<i64> for Number {
-    fn from(v: i64) -> Self {
-        Number::I64(v)
-    }
-}
-
-impl From<f32> for Number {
-    fn from(v: f32) -> Self {
-        Number::F32(v)
-    }
-}
-
-impl From<f64> for Number {
-    fn from(v: f64) -> Self {
-        Number::F64(v)
-    }
-}
+impl_from_for_enum!(
+    Number,
+    u8 => U8,
+    i16 => I16,
+    i32 => I32,
+    i64 => I64,
+    f32 => F32,
+    f64 => F64,
+);

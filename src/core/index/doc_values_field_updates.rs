@@ -45,6 +45,7 @@ use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::core::util::{Sorter, ToInt, TryIntoInt};
+use crate::impl_from_for_enum;
 
 /// Holds updates for a single DocValues field, for a set of documents within
 /// one segment.
@@ -373,23 +374,12 @@ impl DocValuesFieldUpdatesBaseEnum {
         }
     }
 }
-impl From<NumericDocValuesFieldUpdates> for DocValuesFieldUpdatesBaseEnum {
-    fn from(v: NumericDocValuesFieldUpdates) -> Self {
-        DocValuesFieldUpdatesBaseEnum::Numeric(v)
-    }
-}
-
-impl From<BinaryDocValuesFieldUpdates> for DocValuesFieldUpdatesBaseEnum {
-    fn from(v: BinaryDocValuesFieldUpdates) -> Self {
-        DocValuesFieldUpdatesBaseEnum::Binary(v)
-    }
-}
-
-impl From<SingleValueDocValuesFieldUpdates> for DocValuesFieldUpdatesBaseEnum {
-    fn from(v: SingleValueDocValuesFieldUpdates) -> Self {
-        DocValuesFieldUpdatesBaseEnum::SingleValue(v)
-    }
-}
+impl_from_for_enum!(
+    DocValuesFieldUpdatesBaseEnum,
+    NumericDocValuesFieldUpdates => Numeric,
+    BinaryDocValuesFieldUpdates => Binary,
+    SingleValueDocValuesFieldUpdates => SingleValue,
+);
 impl Accountable for DocValuesFieldUpdatesBaseEnum {
     fn ram_bytes_used(&self) -> Result<i64> {
         match self {
