@@ -733,7 +733,7 @@ mod tests {
         c.run_automaton.as_ref().unwrap().is_accept(state)
     }
 
-    // TODO IMPORTANT 测试未通过
+    #[test]
     fn test_intersect_random() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
@@ -1648,7 +1648,7 @@ mod tests2 {
 
         Ok(())
     }
-    // TODO IMPORTANT 测试未通过
+    #[test]
     fn test_intersect() -> Result<()> {
         let mut random = random();
         let (num_iterations, _dir, _terms, terms_automaton, reader, _searcher) =

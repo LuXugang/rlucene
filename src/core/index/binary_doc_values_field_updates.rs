@@ -474,7 +474,8 @@ mod tests {
 
         Ok(())
     }
-    // TODO 未测试成功
+
+    #[test]
     fn test_multiple_doc_values_types() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
