@@ -169,7 +169,7 @@ where
         _doc: i32,
         _searcher: &IndexSearcher<IRC>,
     ) -> Result<Explanation> {
-        let parent_query = if let Query::MatchNoDoc(v) = self.parent_query.as_ref() {
+        let parent_query = if let Query::MatchNoDocs(v) = self.parent_query.as_ref() {
             v
         } else {
             return Err(LuceneError::illegal_state(""));

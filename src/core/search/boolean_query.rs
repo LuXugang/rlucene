@@ -302,7 +302,7 @@ impl QueryBase for BooleanQuery {
             .map(|v| v.len())
             .unwrap_or(0);
         if self.clauses.len() == must_not_len {
-            return Ok(Query::MatchNoDoc(MatchNoDocsQuery::with_message(
+            return Ok(Query::MatchNoDocs(MatchNoDocsQuery::with_message(
                 "pure negative BooleanQuery",
             )));
         }
@@ -339,7 +339,7 @@ impl QueryBase for BooleanQuery {
                 let query = clause.query.clone();
                 let occur = clause.occur;
                 let query_id = query.identity().clone();
-                let is_match_no_doc = matches!(query, Query::MatchNoDoc(_));
+                let is_match_no_doc = matches!(query, Query::MatchNoDocs(_));
                 let rewritten = match occur {
                     Occur::Filter | Occur::MustNot => {
                         // Clauses that are not involved in scoring can get some extra simplifications
@@ -358,7 +358,7 @@ impl QueryBase for BooleanQuery {
                     // rewrite clause
                     actually_rewritten = true;
 
-                    if matches!(rewritten, Query::MatchNoDoc(_)) {
+                    if matches!(rewritten, Query::MatchNoDocs(_)) {
                         match occur {
                             Occur::Should | Occur::MustNot => {
                                 // the clause can be safely ignored
@@ -2875,7 +2875,7 @@ mod test {
         let mut query = Builder::new();
         query
             .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::Should)?;
+            .add(Query::MatchNoDocs(MatchNoDocsQuery::new()), Occur::Should)?;
         let query = query.build();
 
         assert_eq!(
@@ -2892,7 +2892,7 @@ mod test {
         let mut query = Builder::new();
         query
             .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::MustNot)?;
+            .add(Query::MatchNoDocs(MatchNoDocsQuery::new()), Occur::MustNot)?;
         let query = query.build();
 
         assert_eq!(
@@ -2910,7 +2910,7 @@ mod test {
         let mut query = Builder::new();
         query
             .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::Must)?;
+            .add(Query::MatchNoDocs(MatchNoDocsQuery::new()), Occur::Must)?;
         let query = query.build();
 
         assert_eq!(
@@ -2928,7 +2928,7 @@ mod test {
         let mut query = Builder::new();
         query
             .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::Filter)?;
+            .add(Query::MatchNoDocs(MatchNoDocsQuery::new()), Occur::Filter)?;
         let query = query.build();
 
         assert_eq!(
@@ -3068,7 +3068,7 @@ mod test {
         b.set_minimum_number_should_match(1);
         let query: Query = b.build().into();
         assert_eq!(
-            Query::MatchNoDoc(MatchNoDocsQuery::new()),
+            Query::MatchNoDocs(MatchNoDocsQuery::new()),
             searcher.rewrite(query)?
         );
 
@@ -3077,7 +3077,7 @@ mod test {
         b.set_minimum_number_should_match(0);
         let query: Query = b.build().into();
         assert_eq!(
-            Query::MatchNoDoc(MatchNoDocsQuery::new()),
+            Query::MatchNoDocs(MatchNoDocsQuery::new()),
             searcher.rewrite(query)?
         );
 
@@ -3088,7 +3088,7 @@ mod test {
         b.set_minimum_number_should_match(2);
         let query: Query = b.build().into();
         assert_eq!(
-            Query::MatchNoDoc(MatchNoDocsQuery::new()),
+            Query::MatchNoDocs(MatchNoDocsQuery::new()),
             searcher.rewrite(query)?
         );
 
@@ -3136,7 +3136,7 @@ mod test {
         b.set_minimum_number_should_match(2);
         let query: Query = b.build().into();
         assert_eq!(
-            Query::MatchNoDoc(MatchNoDocsQuery::new()),
+            Query::MatchNoDocs(MatchNoDocsQuery::new()),
             searcher.rewrite(query)?
         );
 

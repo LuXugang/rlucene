@@ -134,7 +134,7 @@ impl QueryBase for ConstantScoreQuery {
             q => q,
         };
 
-        if let Query::MatchNoDoc(v) = rewritten {
+        if let Query::MatchNoDocs(v) = rewritten {
             return Ok(v.into());
         }
 
@@ -704,7 +704,7 @@ mod tests {
         let query: Query = MatchNoDocsQuery::new().into();
         let query = ConstantScoreQuery::new(query);
         let rewritten = searcher.rewrite(query)?;
-        assert_eq!(rewritten, Query::MatchNoDoc(MatchNoDocsQuery::new()));
+        assert_eq!(rewritten, Query::MatchNoDocs(MatchNoDocsQuery::new()));
         Ok(())
     }
 }

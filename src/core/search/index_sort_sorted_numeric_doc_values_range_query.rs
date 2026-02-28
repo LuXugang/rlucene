@@ -1736,7 +1736,7 @@ mod tests {
             _ => unreachable!(),
         };
 
-        matches!(*range_query.fallback_query, Query::MatchNoDoc(_));
+        matches!(*range_query.fallback_query, Query::MatchNoDocs(_));
         writer.close()?;
         Ok(())
     }
@@ -1850,7 +1850,7 @@ mod tests {
 
         let searcher = new_searcher_with_reader(reader)?;
 
-        let fallback_query = Query::MatchNoDoc(MatchNoDocsQuery::new());
+        let fallback_query = Query::MatchNoDocs(MatchNoDocsQuery::new());
         let query = Query::IndexSortSortedNumericDocValuesRange(
             IndexSortSortedNumericDocValuesRangeQuery::new("another", 1, 42, fallback_query),
         );

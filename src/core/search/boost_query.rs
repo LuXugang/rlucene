@@ -118,7 +118,7 @@ impl QueryBase for BoostQuery {
             Query::Boost(in_boost) => {
                 return Ok(BoostQuery::new(in_boost.query, self.boost * in_boost.boost)?.into());
             },
-            Query::MatchNoDoc(_) => {
+            Query::MatchNoDocs(_) => {
                 return Ok(rewritten);
             },
             other => other,
