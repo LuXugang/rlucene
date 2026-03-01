@@ -169,7 +169,7 @@ impl DocIdSetBuilder {
     }
     fn no_dups(&self) -> bool {
         for i in 1..self.buffer.len() {
-            debug_assert_eq!(self.buffer[i], self.buffer[i - 1]);
+            debug_assert!(self.buffer[i] > self.buffer[i - 1])
         }
         true
     }
