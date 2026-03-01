@@ -866,7 +866,7 @@ mod tests {
         Ok(())
     }
 
-    // TODO: 这个测试未通过
+    #[test]
     fn test_update_different_docs_in_different_gens() -> Result<()> {
         // update same document multiple times across generations
         let mut random = random();
@@ -974,7 +974,7 @@ mod tests {
         Ok(())
     }
 
-    // TODO: tests.seed=17251040228904313710 测试未通过
+    #[test]
     fn test_tons_of_updates() -> Result<()> {
         // LUCENE-5248: ensure we don't consume too much RAM when many updates occur
         let mut random = random();

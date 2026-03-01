@@ -837,7 +837,7 @@ where
                     } else {
                         let mut addresses_data = self
                             .data
-                            .random_access_slice(entry.data_offset, entry.data_length)?;
+                            .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
                         // Prefetch the first page of data. Following pages are
                         // expected to get prefetched through
                         // read-ahead.
