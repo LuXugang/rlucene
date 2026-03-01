@@ -1374,6 +1374,27 @@ impl MakeRegexGroup for ConcatGroup {
     }
 }
 
+impl Drop for RegExp {
+    fn drop(&mut self) {
+        let mut stack = Vec::new();
+        if let Some(exp1) = self.exp1.take() {
+            stack.push(*exp1);
+        }
+        if let Some(exp2) = self.exp2.take() {
+            stack.push(*exp2);
+        }
+
+        while let Some(mut node) = stack.pop() {
+            if let Some(exp1) = node.exp1.take() {
+                stack.push(*exp1);
+            }
+            if let Some(exp2) = node.exp2.take() {
+                stack.push(*exp2);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::{HashMap, HashSet};
@@ -1664,11 +1685,9 @@ mod tests {
 
     #[test]
     fn test_regexp_no_stack_overflow() -> Result<()> {
-        // TODO IMPORTANT: 测试没通过, 如果要支持这么长的string
-        // 那么我们需要将代码中生成RegExp相关代码改成Box<RegExp>放到堆上
-        // 不过目前我们暂时不改 let mut pattern = "(a)|".repeat(50_000);
-        // pattern.push_str("(a)");
-        // let _ = RegExp::from_str(&pattern)?;
+        let mut pattern = "(a)|".repeat(50_000);
+        pattern.push_str("(a)");
+        let _ = RegExp::from_string(&pattern)?;
         Ok(())
     }
     /// Tests the deprecated complement flag.  

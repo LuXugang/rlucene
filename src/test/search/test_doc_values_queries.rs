@@ -399,7 +399,6 @@ fn test_duel_point_range_sorted_range_query() -> Result<()> {
 fn test_duel_point_range_sorted_range_skipper_query() -> Result<()> {
     do_test_duel_point_range_sorted_range_query(false, 1, true)
 }
-// TODO IMPORTANT 16254381666954123292 测试未通过
 #[test]
 fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
     let mut random = random();
