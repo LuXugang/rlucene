@@ -97,7 +97,7 @@ impl BufferedUpdates {
             debug_assert!(binary_update.is_some());
             buffer.add_update_with_bytes_ref(
                 &update.term,
-                &binary_update.unwrap().get_value(),
+                binary_update.unwrap().get_value(),
                 doc_id_upto,
             )?;
         } else {

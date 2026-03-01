@@ -110,7 +110,6 @@ pub trait DocValuesUpdateBase {
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum;
 }
 /// An in-place update to a binary DocValues field.
-#[derive(Clone)]
 pub struct BinaryDocValuesUpdate {
     value: Option<BytesRef<Vec<u8>>>,
 }
@@ -119,9 +118,9 @@ impl BinaryDocValuesUpdate {
     pub fn new(value: Option<BytesRef<Vec<u8>>>) -> Self {
         BinaryDocValuesUpdate { value }
     }
-    pub fn get_value(&self) -> BytesRef<Vec<u8>> {
+    pub fn get_value(&self) -> &BytesRef<Vec<u8>> {
         debug_assert!(self.value.is_some());
-        self.value.as_ref().unwrap().clone()
+        self.value.as_ref().unwrap()
     }
 }
 impl DocValuesUpdateBase for BinaryDocValuesUpdate {

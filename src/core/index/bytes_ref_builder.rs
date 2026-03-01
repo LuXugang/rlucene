@@ -57,9 +57,6 @@ where
     /// Set the length.
     pub fn set_length(&mut self, length: usize) {
         self.bytes_ref.length = length;
-        self.bytes_ref.bytes.access_mut(|bytes| {
-            bytes.truncate(length);
-        })
     }
 
     /// Return the byte at the given offset.
@@ -84,8 +81,10 @@ where
 
     /// Append a single byte to this builder.
     pub fn append_byte(&mut self, b: u8) {
+        self.grow(self.bytes_ref.length + 1);
+        let idx = self.bytes_ref.length;
         self.bytes_ref.bytes.access_mut(|bytes| {
-            bytes.push(b);
+            bytes[idx] = b;
         });
         self.bytes_ref.length += 1;
     }

@@ -131,6 +131,7 @@ impl ArrayUtil {
     /// # Returns
     /// The new capacity after resizing. If the result exceeds `i32::MAX`,
     /// `i32::MAX` is returned.
+    // TODO IMPORTANT 这里 oversize 逻辑不准确
     pub fn oversize(min_target_size: usize, _bytes_per_element: usize) -> usize {
         // TODO: current we limit maxsize to i32::MAX to keep consistency with
         // Java Lucene

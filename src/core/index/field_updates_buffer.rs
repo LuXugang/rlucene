@@ -152,12 +152,12 @@ impl FieldUpdatesBuffer {
         let value = if has_values {
             binary.get_value()
         } else {
-            BytesRef::default()
+            &BytesRef::default()
         };
         let mut buffer = Self::new(bytes_used, initial_value, doc_upto, false)?;
         if has_values {
             debug_assert!(buffer.byte_values.is_some());
-            buffer.byte_values.as_mut().unwrap().append(&value)?;
+            buffer.byte_values.as_mut().unwrap().append(value)?;
         }
         Ok(buffer)
     }
@@ -871,7 +871,7 @@ mod tests {
             if random_update.has_value {
                 buffer.add_update_with_bytes_ref(
                     &random_update.term,
-                    &random_update.sub_update.get_binary().unwrap().get_value(),
+                    random_update.sub_update.get_binary().unwrap().get_value(),
                     doc_id_upto,
                 )?;
             } else {
@@ -897,7 +897,7 @@ mod tests {
             if random_update.has_value {
                 assert_eq!(
                     random_update.sub_update.get_binary().unwrap().get_value(),
-                    value.binary_value.unwrap()
+                    &value.binary_value.unwrap()
                 );
             } else {
                 assert!(value.binary_value.is_none());
