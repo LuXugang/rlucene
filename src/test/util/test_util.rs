@@ -18,8 +18,8 @@
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
 use once_cell::sync::Lazy;
+use rand::Rng;
 use rand::prelude::IndexedRandom;
-use rand::{Rng, random_range};
 
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::CompositeReader;
@@ -325,64 +325,36 @@ impl TestUtil {
             return "".to_string();
         }
 
-        let mut buffer: Vec<u16> = Vec::with_capacity(end);
-        Self::random_fixed_length_unicode_string(random, &mut buffer, end);
+        let mut buffer: Vec<u16> = vec![0u16; end];
+        Self::random_fixed_length_unicode_string(random, &mut buffer, 0, end);
         String::from_utf16_lossy(&buffer)
     }
     pub fn random_fixed_length_unicode_string<R: Rng + ?Sized>(
-        random: &mut R,
-        buffer: &mut Vec<u16>,
-        length: usize,
-    ) {
-        for _ in 0..length {
-            let t = random.random_range(0..5);
-            match t {
-                0 => {
-                    // Generate a surrogate pair (high and low surrogate)
-                    buffer.push(random.random_range(0xD800..=0xDBFF) as u16);
-                    buffer.push(random.random_range(0xDC00..=0xDFFF) as u16);
-                },
-                1 => {
-                    buffer.push(random.random_range(0x00..=0x7F) as u16);
-                },
-                2 => {
-                    buffer.push(random.random_range(0x80..=0x7FF) as u16);
-                },
-                3 => {
-                    buffer.push(random.random_range(0x800..=0xD7FF) as u16);
-                },
-                4 => {
-                    buffer.push(random.random_range(0xE000..=0xFFFF) as u16);
-                },
-                _ => unreachable!(),
-            }
-        }
-    }
-    pub fn random_fixed_length_unicode_string_with_chars<R: Rng + ?Sized>(
         random: &mut R,
         chars: &mut [u16],
         offset: usize,
         length: usize,
     ) {
+        assert_eq!(offset, 0);
         let mut i = offset;
         let end = offset + length;
         while i < end {
             let t = random.random_range(0..5);
-            if t == 0 && i < end - 1 {
-                chars[i] = random_range(0xd800..0xdbff);
-                chars[i + 1] = random_range(0xdc00..0xdfff);
+            if t == 0 && i < length - 1 {
+                chars[i] = random.random_range(0xd800..=0xdbff);
+                chars[i + 1] = random.random_range(0xdc00..=0xdfff);
                 i += 2;
             } else if t <= 1 {
                 chars[i] = random.random_range(0x00..=0x7f);
                 i += 1;
             } else if t == 2 {
-                chars[i] = random_range(0x80..0x7ff);
+                chars[i] = random.random_range(0x80..=0x7ff);
                 i += 1;
             } else if t == 3 {
-                chars[i] = random_range(0x800..0xd7ff);
+                chars[i] = random.random_range(0x800..=0xd7ff);
                 i += 1;
             } else if t == 4 {
-                chars[i] = random_range(0xe000..0xffff);
+                chars[i] = random.random_range(0xe000..=0xffff);
                 i += 1;
             }
         }

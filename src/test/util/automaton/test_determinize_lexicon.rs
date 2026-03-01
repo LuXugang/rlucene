@@ -34,7 +34,6 @@ mod tests {
         at_least, is_night_mode, random,
     };
     use crate::test::util::test_util::TestUtil;
-    // TODO IMPORTANT 比Java单元测试的速度慢
     #[test]
     fn test_determinize_lexicon() -> Result<()> {
         let mut random = random();
@@ -51,22 +50,22 @@ mod tests {
                 terms.push(s);
             }
 
-            assert_lexicon(&mut random, &terms, &mut automata)?;
+            assert_lexicon(&mut random, terms, automata)?;
         }
         Ok(())
     }
 
     fn assert_lexicon<R: Rng + ?Sized>(
         random: &mut R,
-        terms: &[String],
-        automata: &mut [Automaton],
+        terms: Vec<String>,
+        mut automata: Vec<Automaton>,
     ) -> Result<()> {
         automata.shuffle(random);
         let lex = Operations::union_list(&automata.iter().collect::<Vec<_>>())?;
         let lex = Operations::determinize(&lex, 1_000_000)?;
         assert!(AutomatonTestUtil::is_finite(&lex)?);
 
-        for s in terms {
+        for s in terms.iter() {
             assert!(Operations::run_str(&lex, s));
         }
         if is_night_mode() {

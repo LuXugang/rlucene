@@ -366,19 +366,9 @@ pub(crate) mod tests {
         let mut chars = vec![0u16; 50000];
         let mut random = random();
         let chars_len = chars.len();
-        TestUtil::random_fixed_length_unicode_string_with_chars(
-            &mut random,
-            &mut chars,
-            0,
-            chars_len,
-        );
+        TestUtil::random_fixed_length_unicode_string(&mut random, &mut chars, 0, chars_len);
         let big_string1 = String::from_utf16(&chars).unwrap();
-        TestUtil::random_fixed_length_unicode_string_with_chars(
-            &mut random,
-            &mut chars,
-            0,
-            chars_len,
-        );
+        TestUtil::random_fixed_length_unicode_string(&mut random, &mut chars, 0, chars_len);
         let big_string2 = String::from_utf16(&chars).unwrap();
 
         let a = Operations::union(
