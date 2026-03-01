@@ -21,7 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 #[allow(dead_code)] // for quick search
 struct TestTopFieldCollectorEarlyTermination;
 
-// TODO 还有其他测试未实现
+// TODO 还有其他测试未实现  forceMerge 未实现
 #[test]
 fn test_can_early_terminate_on_doc_id() -> Result<()> {
     assert!(can_early_terminate(

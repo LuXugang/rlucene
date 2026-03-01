@@ -1664,7 +1664,7 @@ mod tests {
 
     #[test]
     fn test_regexp_no_stack_overflow() -> Result<()> {
-        // TODO: 测试没通过, 如果要支持这么长的string
+        // TODO IMPORTANT: 测试没通过, 如果要支持这么长的string
         // 那么我们需要将代码中生成RegExp相关代码改成Box<RegExp>放到堆上
         // 不过目前我们暂时不改 let mut pattern = "(a)|".repeat(50_000);
         // pattern.push_str("(a)");
