@@ -901,7 +901,7 @@ where
             let length = posting_input.read_vint()? as usize;
             self.payload.length = length;
 
-            if self.payload.bytes.len() < length {
+            if self.payload.length < self.payload.bytes.len() {
                 let new_length = ArrayUtil::oversize(length, 1);
                 self.payload.bytes = vec![0; new_length];
             }

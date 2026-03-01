@@ -260,7 +260,7 @@ where
     fn seek_to_start_term(&mut self, target: &BytesRef<Vec<u8>>) -> Result<()> {
         debug_assert!(self.stack[self.current_frame].ord == 0);
 
-        if self.term.bytes.len() < target.length {
+        if self.term.length < target.length {
             ArrayUtil::grow_with_len(&mut self.term.bytes, target.length);
         }
 

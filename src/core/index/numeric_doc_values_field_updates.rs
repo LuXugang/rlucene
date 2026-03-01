@@ -327,7 +327,7 @@ mod tests {
         writer.close()?;
         Ok(())
     }
-    // TODO: 测试未通过
+    #[test]
     fn test_biased_mix_of_random_updates() -> Result<()> {
         // 3 types of operations: add, updated, updateDV.
         // rather then randomizing equally, we'll pick (random) cutoffs so each test run is biased,

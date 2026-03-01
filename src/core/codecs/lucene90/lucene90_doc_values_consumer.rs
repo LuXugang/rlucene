@@ -519,6 +519,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                 upto += 1;
 
                 if upto == Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize {
+                    ArrayUtil::grow_with_len(&mut offsets, offsets_index + 1);
                     offsets.push(self.data.get_file_pointer() as i64);
                     offsets_index += 1;
                     self.write_block(&buffer, gcd, &mut encode_buffer)?;

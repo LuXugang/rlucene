@@ -1352,7 +1352,7 @@ impl BytesRefIterator for TVTermsEnum {
         self.term.offset = 0;
         self.term.length = total_len;
 
-        if self.term.bytes.len() < self.term.length {
+        if self.term.length < self.term.bytes.len() {
             ArrayUtil::grow_with_len(&mut self.term.bytes, self.term.length);
         }
 
