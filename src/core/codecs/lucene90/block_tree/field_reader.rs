@@ -196,8 +196,8 @@ where
         }
         IntersectTermsEnum::new(
             self.clone(),
-            compiled.get_transition_accessor(),
-            compiled.get_byte_runnable(),
+            compiled.get_transition_accessor()?,
+            compiled.get_byte_runnable()?,
             compiled.common_suffix_ref.clone(),
             start_term,
         )

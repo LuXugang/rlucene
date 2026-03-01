@@ -415,25 +415,31 @@ impl CompiledAutomaton {
     /// Returns a [`ByteRunnable`] instance, which differs depending on whether
     /// an NFA or DFA is passed in. This method does not guarantee returning
     /// a non-null object.
-    pub fn get_byte_runnable(&self) -> ByteRunnableEnum {
-        debug_assert!(self.nfa_run_automaton.is_none() || self.run_automaton.is_none());
-
-        if let Some(nfa) = self.nfa_run_automaton.as_ref() {
-            ByteRunnableEnum::NFA(nfa.clone())
-        } else {
-            ByteRunnableEnum::Byte(self.run_automaton.as_ref().unwrap().clone())
+    pub fn get_byte_runnable(&self) -> Result<ByteRunnableEnum> {
+        match (self.run_automaton.as_ref(), self.nfa_run_automaton.as_ref()) {
+            (Some(_), Some(_)) => Err(LuceneError::illegal_state(
+                "Both run_automaton and nfa_run_automaton are non-null",
+            )),
+            (Some(run), None) => Ok(ByteRunnableEnum::Byte(run.clone())),
+            (None, Some(nfa)) => Ok(ByteRunnableEnum::NFA(nfa.clone())),
+            (None, None) => Err(LuceneError::illegal_state(
+                "Both run_automaton and nfa_run_automaton are None, should not be called",
+            )),
         }
     }
     /// Returns a [`TransitionAccessor`] instance, which varies depending on
     /// whether an NFA or DFA is passed in. This method does not guarantee
     /// returning a non-null object.
-    pub fn get_transition_accessor(&self) -> TransitionAccessorEnum {
-        debug_assert!(self.nfa_run_automaton.is_none() || self.run_automaton.is_some());
-
-        if let Some(nfa) = self.nfa_run_automaton.as_ref() {
-            TransitionAccessorEnum::Nfa(nfa.clone())
-        } else {
-            TransitionAccessorEnum::Byte(self.run_automaton.as_ref().unwrap().clone())
+    pub fn get_transition_accessor(&self) -> Result<TransitionAccessorEnum> {
+        match (self.run_automaton.as_ref(), self.nfa_run_automaton.as_ref()) {
+            (Some(_), Some(_)) => Err(LuceneError::illegal_state(
+                "Both run_automaton and nfa_run_automaton are non-null",
+            )),
+            (Some(run), None) => Ok(TransitionAccessorEnum::Byte(run.clone())),
+            (None, Some(nfa)) => Ok(TransitionAccessorEnum::Nfa(nfa.clone())),
+            (None, None) => Err(LuceneError::illegal_state(
+                "Both run_automaton and nfa_run_automaton are None,, should not be called",
+            )),
         }
     }
 }

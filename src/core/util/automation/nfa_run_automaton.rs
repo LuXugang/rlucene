@@ -684,8 +684,7 @@ mod tests {
 
         Ok(())
     }
-
-    // TODO IMPORTANT  这个测试不稳定
+    #[test]
     fn test_random_automaton_query() -> Result<()> {
         let mut random = random();
 

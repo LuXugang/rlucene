@@ -90,7 +90,7 @@ impl AutomatonTermsEnum {
             ));
         }
 
-        let byte_runnable = compiled.get_byte_runnable();
+        let byte_runnable = compiled.get_byte_runnable()?;
         let visited = if compiled.finite {
             Vec::new()
         } else {
@@ -99,7 +99,7 @@ impl AutomatonTermsEnum {
         let sub = Self {
             // FilteredTermsEnum parent initialization — you'd handle this separately
             byte_runnable,
-            transition_accessor: compiled.get_transition_accessor(),
+            transition_accessor: compiled.get_transition_accessor()?,
             common_suffix_ref: compiled.common_suffix_ref.clone(),
             finite: compiled.finite,
             visited,

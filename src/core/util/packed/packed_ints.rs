@@ -1318,7 +1318,6 @@ mod tests {
                         format, version, value_count, bpv
                     );
 
-                    // 测试迭代器
                     input.seek(0)?;
                     {
                         let mut iterator = PackedInts::get_reader_iterator_no_header(
