@@ -57,6 +57,7 @@ where
 {
     pub(crate) si: SegmentCommitInfo<D>,
     pub(crate) original_si_id: String,
+    pub(crate) original_si_dir: Arc<D>,
     meta_data: LeafMetaData,
     live_docs: Option<DocBits>,
     hard_live_docs: Option<DocBits>,
@@ -96,9 +97,11 @@ where
         let seg_doc_values = Arc::new(SegmentDocValues::new());
         let num_docs = si.info.max_doc()? - si.get_del_count();
         let info_id = si.info.get_id_str();
+        let dir = si.info.dir.clone();
         let mut segment_reader = Self {
             si,
             original_si_id: info_id,
+            original_si_dir: dir,
             meta_data,
             is_nrt,
             core,
@@ -195,9 +198,11 @@ where
             live_docs.as_ref()
         )?);
         let info_id = si.info.get_id_str();
+        let dir = si.info.dir.clone();
         let mut segment_reader = Self {
             si,
             original_si_id: info_id,
+            original_si_dir: dir,
             meta_data,
             is_nrt,
             core: core.clone(),
@@ -331,6 +336,9 @@ where
     }
     pub fn get_original_segment_info_id(&self) -> &str {
         &self.original_si_id
+    }
+    pub fn get_original_dir(&self) -> Arc<D> {
+        self.original_si_dir.clone()
     }
 }
 pub type DocValuesProducers<D> = DocValuesProducerEnum2<

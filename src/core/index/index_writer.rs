@@ -3566,16 +3566,11 @@ where
                 for mr in mrs {
                     let sr = &mr.reader;
                     if uses_pooled_readers {
-                        let info = inner
-                            .segment_infos
-                            .info(sr.get_original_segment_info_id())
-                            .ok_or_else(|| {
-                                LuceneError::illegal_state(format!(
-                                    "segment info with id={} not found",
-                                    sr.get_original_segment_info_id()
-                                ))
-                            })?;
-                        match self.get_pooled_instance(info.into(), false, None)? {
+                        let info_meta = SegmentCommitInfoMeta::new(
+                            sr.get_original_dir(),
+                            sr.get_original_segment_info_id().to_string(),
+                        );
+                        match self.get_pooled_instance(info_meta, false, None)? {
                             Some(rld) => {
                                 if drop {
                                     rld.drop_changes();
@@ -3589,10 +3584,9 @@ where
                                 }
                             },
                             None => {
-                                return Err(LuceneError::illegal_state(format!(
-                                    "segment info with id={} not found in reader pool",
-                                    info.info.get_id_str()
-                                )));
+                                return Err(LuceneError::illegal_state(
+                                    "merging reader could not found in reader pool",
+                                ));
                             },
                         }
                     }
