@@ -1464,7 +1464,7 @@ mod tests {
         writer.flush()?;
 
         let reader = directory_reader_util::open_with_writer(&writer)?;
-        let reader = crate::core::index::composite_reader::get_context(reader)?;
+        let reader = get_context(reader)?;
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
 

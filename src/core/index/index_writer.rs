@@ -1516,7 +1516,7 @@ where
             Ok(0)
         })();
         if !success {
-            self.close_merge_readers(merge, true, false)?;
+            self.close_merge_readers(merge, true, false, None)?;
         }
         res?;
         Ok(max_doc)
@@ -1755,7 +1755,6 @@ where
         _trigger: MergeTrigger,
         _max_num_segments: i32,
     ) -> Result<()> {
-        // TODO merge过程还未调试完成
         // self.do_ensure_open(false)?;
         // if self.update_pending_merges(merge_policy, trigger, max_num_segments, None)? {
         //     self.execute_merge(trigger)?;
@@ -3249,7 +3248,7 @@ where
             // Must close before checkpoint, otherwise IFD won't be
             // able to delete the held-open files from the merge
             // readers:
-            self.close_merge_readers(merge, false, drop_segment)?;
+            self.close_merge_readers(merge, false, drop_segment, Some(&mut inner))?;
         }
 
         if self.info_stream.enabled("IW") {
@@ -3287,7 +3286,7 @@ where
                 // Readers are already closed in commitMerge if we didn't hit
                 // an exc:
                 if !success {
-                    self.close_merge_readers(&merge, true, false)?;
+                    self.close_merge_readers(&mut merge, true, false, Some(&mut inner))?;
                 }
                 self.merge_finish(&mut merge, Some(&mut inner));
 
@@ -3472,7 +3471,7 @@ where
             &mut inner.segment_infos,
             &self.global_field_number_map.lock(),
         )? {
-            self.checkpoint(&mut self.inner.lock())?;
+            self.checkpoint(&mut inner)?;
         }
 
         let mut has_blocks = false;
@@ -3546,11 +3545,68 @@ where
 
     fn close_merge_readers(
         &self,
-        _merge: &OneMergeSR<D>,
-        _suppress_error: bool,
-        _dropper_segment: bool,
+        merge: &mut OneMergeSR<D>,
+        suppress_error: bool,
+        dropper_segment: bool,
+        inner: Option<&mut Inner<D>>,
     ) -> Result<()> {
-        todo!()
+        if !merge.has_finished() {
+            let drop = !suppress_error;
+            let uses_pooled_readers = merge.uses_pooled_readers;
+            let c = |mrs: &[MergeReaderSR<D>]| {
+                let inner = match inner {
+                    Some(i) => i,
+                    None => &mut *self.inner.lock(),
+                };
+                for mr in mrs {
+                    let sr = &mr.reader;
+                    if uses_pooled_readers {
+                        let info = inner
+                            .segment_infos
+                            .info(sr.get_original_segment_info_id())
+                            .ok_or_else(|| {
+                                LuceneError::illegal_state(format!(
+                                    "segment info with id={} not found",
+                                    sr.get_original_segment_info_id()
+                                ))
+                            })?;
+                        match self.get_pooled_instance(info, false, None)? {
+                            Some(rld) => {
+                                if drop {
+                                    rld.drop_changes();
+                                } else {
+                                    rld.drop_merging_updates(None);
+                                }
+                                rld.release(sr.as_ref(), None)?;
+                                self.release(rld.as_ref(), inner)?;
+                                if drop {
+                                    self.reader_pool.drop(&rld.info_id)?;
+                                }
+                            },
+                            None => {
+                                return Err(LuceneError::illegal_state(format!(
+                                    "segment info with id={} not found in reader pool",
+                                    info.info.get_id_str()
+                                )));
+                            },
+                        }
+                    }
+                    inner.deleter.dec_ref(&sr.get_segment_info().files()?)?;
+                }
+                Ok(())
+            };
+            merge.close(!suppress_error, dropper_segment, c)?;
+        } else {
+            debug_assert!(
+                merge.get_merge_reader().is_empty(),
+                "we are done but still have readers"
+            );
+            debug_assert!(
+                suppress_error,
+                "can't be done and not suppressing exceptions"
+            )
+        }
+        Ok(())
     }
 
     /// Returns a string description of all segments, for debugging.
@@ -4750,7 +4806,7 @@ where
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
 {
-    fn accept_owner(&mut self, input: HashSet<String>) -> Result<()> {
+    fn accept(&mut self, input: HashSet<String>) -> Result<()> {
         self.index_writer.delete_new_files(input.iter())
     }
 }
@@ -5433,7 +5489,7 @@ where
     })();
     let filename = std::mem::take(&mut directory.get_created_files().lock().created_filenames);
     if write_result.is_err() {
-        delete_files.accept_owner(filename)?;
+        delete_files.accept(filename)?;
         return write_result;
     }
     // Replace all previous files with the CFS/CFE files:

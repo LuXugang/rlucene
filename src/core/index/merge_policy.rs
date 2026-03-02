@@ -36,9 +36,9 @@ use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
 
@@ -770,6 +770,7 @@ where
     error: Mutex<Option<LuceneError>>,
     pub(crate) stat: MergeStat,
     pub(crate) info: Option<SegmentCommitInfo<D>>,
+    pub(crate) merge_completed: OnceLock<bool>,
 }
 #[derive(Clone)]
 pub struct MergeStat {
@@ -834,6 +835,7 @@ where
                 merge_gen: 0,
             },
             info: None,
+            merge_completed: OnceLock::new(),
         })
     }
     /// Constructor for wrapping.
@@ -851,6 +853,7 @@ where
             error: Mutex::new(None),
             stat: one_merge.stat,
             info: one_merge.info,
+            merge_completed: OnceLock::new(),
         };
         one_merge.stat.max_num_segments = -1;
         one_merge.stat.info_id = None;
@@ -889,6 +892,7 @@ where
                 merge_gen: 0,
             },
             info: None,
+            merge_completed: OnceLock::new(),
         })
     }
     /// Called by IndexWriter after the merge started and from the thread that will be executing the merge.
@@ -967,6 +971,35 @@ where
     }
     pub fn get_merge_reader(&self) -> &[MergeReader<CR, CR::Bits>] {
         &self.merge_readers
+    }
+
+    pub(crate) fn has_finished(&self) -> bool {
+        self.merge_completed.get().copied().unwrap_or(false)
+    }
+}
+impl<D> OneMerge<D, Arc<SegmentReader<D>>>
+where
+    D: Directory,
+{
+    pub(crate) fn close<F>(
+        &mut self,
+        success: bool,
+        segment_dropped: bool,
+        reader_consumer: F,
+    ) -> Result<()>
+    where
+        F: FnOnce(&[MergeReaderSR<D>]) -> Result<()>,
+    {
+        if self.merge_completed.set(true).is_err() {
+            return Err(LuceneError::illegal_state("merge has already finished"));
+        }
+        let result = (|| -> Result<()> {
+            self.merge_finished(success, segment_dropped)?;
+            Ok(())
+        })();
+        let merge_readers = std::mem::take(&mut self.merge_readers);
+        reader_consumer(merge_readers.as_ref())?;
+        result
     }
 }
 impl<D> OneMergeBase<D, Arc<SegmentReader<D>>> for OneMerge<D, Arc<SegmentReader<D>>>

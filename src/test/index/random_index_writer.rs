@@ -77,4 +77,7 @@ where
     pub fn commit(&self) -> Result<i64> {
         self.w.commit()
     }
+    pub fn force_merge(&self, max_num_segments: i32) -> Result<()> {
+        self.w.force_merge(max_num_segments)
+    }
 }

@@ -18,7 +18,7 @@ use crate::core::util::error::lucene_error::Result;
 /// An IO operation with a single input that may throw an Error.
 pub trait IOConsumer<T> {
     /// Performs this operation on the given argument.
-    fn accept_owner(&mut self, _input: T) -> Result<()> {
+    fn accept(&mut self, _input: T) -> Result<()> {
         unimplemented!("")
     }
     fn accept_ref(&mut self, _input: &T) -> Result<()> {
