@@ -23,6 +23,8 @@ use crate::core::document::text_field::{TextField, text_field_type};
 use crate::core::index::index_writer::{IndexWriter, read_field_infos};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
@@ -35,12 +37,14 @@ struct TestConsistentFieldNumbers;
 #[test]
 fn test_same_field_numbers_across_segments() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现 MockAnalyzer NoMergePolicy
+    // TODO: 未实现 MockAnalyzer
     for i in 0..2 {
         let dir = new_directory_shared(&mut random)?;
 
         let writer_opt = {
-            let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+            let mut conf = new_index_writer_config(&mut random);
+            conf.set_merge_policy(NoMergePolicy::default());
+            let writer = IndexWriter::new(dir.clone(), conf)?;
 
             let mut d1 = Document::new();
             d1.add(TextField::from_string("f1", "first field", Store::Yes)?);
@@ -57,7 +61,11 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
         };
         let writer = match writer_opt {
             Some(writer) => writer,
-            None => IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?,
+            None => {
+                let mut conf = new_index_writer_config(&mut random);
+                conf.set_merge_policy(NoMergePolicy::default());
+                IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?
+            },
         };
 
         let mut d2 = Document::new();
@@ -115,9 +123,11 @@ fn test_field_number_gaps() -> Result<()> {
     for _ in 0..num_iters {
         let dir = new_directory_shared(&mut random)?;
         {
+            let mut conf = new_index_writer_config(&mut random);
+            conf.set_merge_policy(NoMergePolicy::default());
             let writer = IndexWriter::new(
                 dir.clone(),
-                new_index_writer_config(&mut random), // TODO: MockAnalyzer & NoMergePolicy
+                conf, // TODO: MockAnalyzer & NoMergePolicy
             )?;
 
             let mut d = Document::new();

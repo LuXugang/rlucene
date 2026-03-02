@@ -31,6 +31,11 @@ use std::fmt::{Display, Formatter};
 pub struct NoMergePolicy {
     base: MergePolicyBase,
 }
+impl Default for NoMergePolicy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl NoMergePolicy {
     fn new() -> NoMergePolicy {
         Self {

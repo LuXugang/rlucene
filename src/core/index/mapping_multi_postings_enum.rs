@@ -83,10 +83,11 @@ where
 
         let subs = self.doc_id_merger.get_subs_vec();
         debug_assert!(subs.is_empty());
-        for i in 0..count {
-            let doc_map = self.all_subs[i].doc_map.clone();
+        for (i, _) in self.idxs.iter_mut() {
+            let doc_map = self.all_subs[*i].doc_map.clone();
             let padding = MappingPostingsSub::new(doc_map);
-            let v = std::mem::replace(&mut self.all_subs[i], padding);
+            let v = std::mem::replace(&mut self.all_subs[*i], padding);
+            *i = subs.len();
             subs.push(Sub::new(v));
         }
         self.multi_docs_and_positions_enum = Some(postings_enum);
@@ -99,8 +100,8 @@ where
         debug_assert!(self.idxs.len() == postings_enum.get_num_subs() as usize);
 
         let subs = self.doc_id_merger.get_subs_mut();
-        for (reader_index, enum_with_slice_postings_enum_idx) in &self.idxs {
-            let v = subs[*reader_index].sub.postings.take();
+        for (idx, enum_with_slice_postings_enum_idx) in &self.idxs {
+            let v = subs[*idx].sub.postings.take();
             postings_enum.postings_enums_mut()[*enum_with_slice_postings_enum_idx] = v;
         }
 

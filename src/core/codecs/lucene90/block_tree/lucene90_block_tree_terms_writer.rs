@@ -381,22 +381,16 @@ where
                         });
                     }
 
-                    let field_info = self.field_infos.field_info_by_name(field);
-                    if field_info.is_none() {
-                        return Err(LuceneError::illegal_state(format!(
-                            "Missing fields:{field}"
-                        )));
-                    }
-                    let terms_opt = fields.terms(field)?;
-                    if terms_opt.is_none() {
+                    let Some(terms) = fields.terms(field)? else {
                         continue;
-                    }
-                    let terms = terms_opt.unwrap();
+                    };
                     let mut terms_enum = terms.iterator()?;
-                    //
-
+                    let field_info =
+                        self.field_infos.field_info_by_name(field).ok_or_else(|| {
+                            LuceneError::illegal_state(format!("Missing fields:{field}"))
+                        })?;
                     let mut terms_writer = TermsWriter::new(
-                        field_info.as_ref().unwrap().clone(),
+                        field_info.clone(),
                         self.max_doc,
                         &mut self.postings_writer,
                         self.min_items_in_block,
@@ -405,18 +399,13 @@ where
                         &mut self.terms_out,
                     )?;
                     let mut reuse = None;
-                    loop {
-                        let text = terms_enum.next()?;
-                        if text.is_none() {
-                            break;
-                        }
-                        let byte_ref = text.as_ref().unwrap();
-                        // clone here is Ok, then we do not clone while init PendingTerm;
-                        let text = BytesRef::from_bytes(
+                    while let Some(byte_ref) = terms_enum.next()? {
+                        // due to borrow check, we have to clone here early for init PendingTerm
+                        let term = BytesRef::from_bytes(
                             byte_ref.bytes[byte_ref.offset..byte_ref.offset + byte_ref.length]
                                 .to_vec(),
                         );
-                        reuse = terms_writer.write(text, &mut terms_enum, norms, reuse)?;
+                        reuse = terms_writer.write(term, &mut terms_enum, norms, reuse)?;
                     }
                     terms_writer.finish(&mut self.fields, &mut self.index_out)?;
                 },
@@ -479,6 +468,8 @@ impl PendingEntry for PendingTerm {
 
 impl PendingTerm {
     pub fn new(mut term: BytesRef<Vec<u8>>, state: TermStateEnum) -> Self {
+        debug_assert!(term.offset == 0);
+        debug_assert!(term.length == term.bytes.len());
         Self {
             term_bytes: Rc::new(std::mem::take(&mut term.bytes)),
             state,

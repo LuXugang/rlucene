@@ -247,6 +247,7 @@ mod tests {
     use rand::seq::IndexedRandom;
     use std::collections::HashSet;
 
+    use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::util::TryIntoInt;
     use std::vec;
 
@@ -486,9 +487,10 @@ mod tests {
     fn test_update_few_segments() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer / NoMergePolicy
+        // TODO: 未实现 MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(2); // generate few segments
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         let num_docs = 10;
@@ -551,9 +553,10 @@ mod tests {
         // update and delete different documents in the same commit session
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer / NoMergePolicy
+        // TODO: 未实现 MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(10);
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         writer.add_document(doc(0)?)?;
@@ -811,8 +814,9 @@ mod tests {
     fn test_update_segment_with_no_doc_values() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer 与 NoMergePolicy
-        let config = new_index_writer_config(&mut random);
+        // TODO: 未实现 MockAnalyzer
+        let mut config = new_index_writer_config(&mut random);
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         // first segment with NDV
@@ -866,8 +870,9 @@ mod tests {
     fn test_update_segment_with_posting_but_no_doc_values() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer / NoMergePolicy
-        let config = new_index_writer_config(&mut random);
+        // TODO: 未实现 MockAnalyzer
+        let mut config = new_index_writer_config(&mut random);
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         // first segment with ndv and ndv2 fields

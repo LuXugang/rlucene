@@ -842,6 +842,8 @@ mod tests {
     use rand::Rng;
     use std::collections::HashMap;
 
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::util::TryIntoInt;
     use std::vec;
 
@@ -1528,8 +1530,8 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         let mut random = random();
         // TODO ByteBuffersDirectory未实现
         let dir = new_directory_shared(&mut random)?;
-        // TODO NoMergePolicy未实现
-        let iwc = IndexWriterConfig::new();
+        let mut iwc = IndexWriterConfig::new();
+        iwc.set_merge_policy(NoMergePolicy::default());
 
         let w = IndexWriter::new(dir.clone(), iwc)?;
 

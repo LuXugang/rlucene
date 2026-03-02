@@ -215,6 +215,7 @@ mod tests {
     use crate::core::index::index_writer_config::{DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH};
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::index::numeric_doc_values::NumericDocValues;
     use crate::core::index::sorted_doc_values::SortedDocValues;
     use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
@@ -369,8 +370,7 @@ mod tests {
 
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(2); // generate few segments
-        // TODO: 未实现 NoMergePolicy
-        // config.set_merge_policy(NoMergePolicy::INSTANCE);
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         let num_docs = 10;
@@ -436,10 +436,10 @@ mod tests {
         // update and delete different documents in the same commit session
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 未实现 MockAnalyzer / NoMergePolicy
+        // TODO: 未实现 MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(10); // control segment flushing
-        // config.set_merge_policy(NoMergePolicy::INSTANCE);
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         writer.add_document(doc(0)?)?;
@@ -719,8 +719,9 @@ mod tests {
     fn test_update_segment_with_no_doc_values() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer NoMergePolicy
-        let config = new_index_writer_config(&mut random);
+        // TODO: 未实现 MockAnalyzer
+        let mut config = new_index_writer_config(&mut random);
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         // First segment with BDV
@@ -769,8 +770,9 @@ mod tests {
     fn test_update_segment_with_posting_but_no_doc_values() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer NoMergePolicy
-        let config = new_index_writer_config(&mut random);
+        // TODO: 未实现 MockAnalyzer
+        let mut config = new_index_writer_config(&mut random);
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         // First segment with BDV
@@ -827,7 +829,7 @@ mod tests {
         // this used to fail because FieldInfos.Builder neglected to update globalFieldMaps.docValuesTypes map
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer NoMergePolicy
+        // TODO: 未实现 MockAnalyzer
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
 

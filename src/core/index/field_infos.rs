@@ -937,6 +937,8 @@ mod tests {
     use crate::core::document::string_field::StringField;
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_writer::{IndexWriter, read_field_infos};
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::index::segment_infos::SegmentInfos;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, random,
@@ -951,9 +953,8 @@ mod tests {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现MockAnalyzer
-        let config = new_index_writer_config(&mut random);
-        // TODO: 未定义NoMergePolicy
-        // config.set_merge_policy(NoMergePolicy::INSTANCE);
+        let mut config = new_index_writer_config(&mut random);
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         let mut d1 = Document::new();
@@ -1022,8 +1023,9 @@ mod tests {
     fn test_field_attributes() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer / NoMergePolicy
-        let config = new_index_writer_config(&mut random);
+        // TODO: 未实现 MockAnalyzer
+        let mut config = new_index_writer_config(&mut random);
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         let mut type1 = FieldType::new();
@@ -1077,8 +1079,9 @@ mod tests {
     fn test_field_attributes_single_segment() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer / NoMergePolicy
-        let config = new_index_writer_config(&mut random);
+        // TODO: 未实现 MockAnalyzer
+        let mut config = new_index_writer_config(&mut random);
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         let mut d1 = Document::new();

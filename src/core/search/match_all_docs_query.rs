@@ -306,6 +306,7 @@ mod tests {
     use crate::core::document::document::Document;
     use crate::core::document::field::Store;
     use crate::core::document::field_type::FieldType;
+    use crate::core::document::text_field::TextField;
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -316,7 +317,7 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, new_searcher_with_reader,
-        new_searcher_with_threads, new_text_field, random,
+        new_searcher_with_threads, random,
     };
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -338,7 +339,7 @@ mod tests {
     fn add_doc<D, L, B>(
         text: &str,
         iw: &IndexWriter<D, L, B>,
-        field_to_type: &mut HashMap<String, FieldType>,
+        _field_to_type: &mut HashMap<String, FieldType>,
     ) -> Result<()>
     where
         D: Directory,
@@ -346,7 +347,7 @@ mod tests {
         B: IndexWriterBase,
     {
         let mut doc = Document::new();
-        let field = new_text_field("key", text, Store::Yes, field_to_type)?;
+        let field = TextField::from_string("key", text, Store::Yes)?;
         doc.add(field);
         iw.add_document(doc)?;
         Ok(())
@@ -355,7 +356,7 @@ mod tests {
     fn test_early_termination() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer / NoMergePolicy
+        // TODO: 未实现 MockAnalyzer / MergePolicy
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(2);
         let iw = IndexWriter::new(dir.clone(), config)?;

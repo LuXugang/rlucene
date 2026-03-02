@@ -32,6 +32,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
+use crate::impl_from_for_enum;
 use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -430,7 +431,11 @@ pub enum MergePolicyEnum {
     No(NoMergePolicy),
     Tiered(TieredMergePolicy),
 }
-
+impl_from_for_enum!(
+    MergePolicyEnum,
+    NoMergePolicy => No,
+    TieredMergePolicy => Tiered
+);
 impl Display for MergePolicyEnum {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {

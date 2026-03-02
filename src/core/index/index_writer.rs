@@ -1424,7 +1424,7 @@ where
                     }
                     // Safe: these files must exist
                     let files = sci.files()?;
-                    self.delete_new_files(files.iter())?;
+                    self.delete_new_files(files.iter(), None)?;
                 }
                 if let Err(e) = cfs_res {
                     let inner = self.inner.lock();
@@ -1450,10 +1450,10 @@ where
                 // we close the per-segment readers in the final clause below:
                 success = false;
                 {
-                    let _inner = self.inner.lock();
+                    let inner = self.inner.lock();
                     // delete new non cfs files directly: they were never
                     // registered with IFD
-                    self.delete_new_files(files_to_remove.iter())?;
+                    self.delete_new_files(files_to_remove.iter(), Some(&inner))?;
                     if merge.is_aborted() {
                         if self.info_stream.enabled("IW") {
                             self.info_stream
@@ -1461,7 +1461,7 @@ where
                         }
                         // Safe: these files must exist
                         let files = merge.info.as_ref().unwrap().files()?;
-                        self.delete_new_files(files.iter())?;
+                        self.delete_new_files(files.iter(), None)?;
                         return Ok(0);
                     }
                 }
@@ -1501,7 +1501,7 @@ where
                 if !success2 {
                     // Safe: these files must exist
                     let files = sci.files()?;
-                    self.delete_new_files(files.iter())?;
+                    self.delete_new_files(files.iter(), None)?;
                 }
                 write_res?;
             }
@@ -3149,7 +3149,7 @@ where
             if let Some(ref info) = merge.info {
                 self.reader_pool.drop(&info.info.get_id_str())?;
                 // Safe: these files must exist
-                self.delete_new_files(info.files()?.iter())?;
+                self.delete_new_files(info.files()?.iter(), Some(&inner))?;
             } else {
                 return Err(LuceneError::illegal_state("merge info is none"));
             }
@@ -3244,7 +3244,7 @@ where
             debug_assert!(!inner.segment_infos.contains(&merge_sci.info.get_id_str()));
             self.reader_pool.drop(&merge_sci.info.get_id_str())?;
             // Safe: these files must exist
-            self.delete_new_files(merge_sci.files()?.iter())?;
+            self.delete_new_files(merge_sci.files()?.iter(), Some(&inner))?;
         }
 
         // TODO IMPORTANT close_merge_readers
@@ -3933,11 +3933,14 @@ where
         Ok(is_current)
     }
 
-    fn delete_new_files<'a, I>(&self, files: I) -> Result<()>
+    fn delete_new_files<'a, I>(&self, files: I, inner: Option<&Inner<D>>) -> Result<()>
     where
         I: IntoIterator<Item = &'a String>,
     {
-        let inner = self.inner.lock();
+        let inner = match inner {
+            Some(i) => i,
+            None => &*self.inner.lock(),
+        };
         inner.deleter.delete_new_files(files)
     }
 
@@ -4806,7 +4809,7 @@ where
     B: IndexWriterBase,
 {
     fn accept(&mut self, input: HashSet<String>) -> Result<()> {
-        self.index_writer.delete_new_files(input.iter())
+        self.index_writer.delete_new_files(input.iter(), None)
     }
 }
 
@@ -5668,7 +5671,7 @@ where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        writer.delete_new_files(self.files.iter())
+        writer.delete_new_files(self.files.iter(), None)
     }
 }
 

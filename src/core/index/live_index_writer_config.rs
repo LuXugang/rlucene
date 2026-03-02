@@ -149,8 +149,12 @@ pub trait LiveIndexWriterConfig: Display {
         Ok(self)
     }
 
-    fn set_merge_policy(&mut self, merge_policy: MergePolicyEnum) -> &mut Self {
-        self.get_base_mut().merge_policy = merge_policy;
+    fn set_merge_policy<T>(&mut self, merge_policy: T) -> &mut Self
+    where
+        T: Into<MergePolicyEnum>,
+    {
+        let v = merge_policy.into();
+        self.get_base_mut().merge_policy = v;
         self
     }
 }
