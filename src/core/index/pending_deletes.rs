@@ -25,7 +25,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::readers_and_updates::IOSupplierImpl;
-use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
@@ -65,15 +65,15 @@ impl PendingDeletes {
         v.pending_delete_count = reader.num_deleted_docs()? - info.get_del_count();
         Ok(v)
     }
-    pub(crate) fn new<D>(info: &SegmentCommitInfo<D>) -> Result<Self>
+    pub(crate) fn new<D>(info_meta: &SegmentCommitInfoMeta<D>) -> Result<Self>
     where
         D: Directory,
     {
         Ok(PendingDeletes::with(
-            info.info.get_id_str(),
+            info_meta.id.clone(),
             None,
-            !info.has_deletions(),
-            info.info.max_doc()?,
+            !info_meta.has_deletions()?,
+            info_meta.max_doc()?,
         ))
         // if we don't have deletions we can mark it as initialized since we might receive deletes on a
         // segment
@@ -692,7 +692,7 @@ mod tests {
     use crate::core::index::pending_deletes::{
         PendingDeletes, PendingDeletesBase, PendingDeletesEnum2,
     };
-    use crate::core::index::segment_commit_info::SegmentCommitInfo;
+    use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
     use crate::core::index::segment_info::SegmentInfo;
 
     use crate::core::store::IOContext;
@@ -715,7 +715,7 @@ mod tests {
     struct TestPendingDeletes;
 
     fn new_pending_deletes<D>(
-        commit_info: &SegmentCommitInfo<D>,
+        commit_info: &SegmentCommitInfoMeta<D>,
     ) -> Result<PendingDeletesEnum2<PendingDeletes, PendingSoftDeletes>>
     where
         D: Directory,
@@ -742,8 +742,8 @@ mod tests {
         )?;
         let commit_info =
             SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
-
-        let mut deletes = new_pending_deletes(&commit_info)?;
+        let meta = (&commit_info).into();
+        let mut deletes = new_pending_deletes(&meta)?;
         assert!(deletes.get_live_docs().is_none());
 
         let doc_to_delete = random.random_range(0..=7);
@@ -793,7 +793,8 @@ mod tests {
         let mut commit_info =
             SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
 
-        let mut deletes = new_pending_deletes(&commit_info)?;
+        let meta = (&commit_info).into();
+        let mut deletes = new_pending_deletes(&meta)?;
         assert!(!deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
         // contain "writer_lock"
         assert_eq!(dir.list_all()?.len(), 1);
@@ -893,14 +894,14 @@ mod tests {
             &field_infos,
             &IOContext::default_io_context()?,
         )?;
-
-        let mut deletes = new_pending_deletes(&commit_info)?;
+        let meta = (&commit_info).into();
+        let mut deletes = new_pending_deletes(&meta)?;
         let lock = dir.obtain_lock("write_lock")?;
         let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
         let rld = ReadersAndUpdates::new(
             0,
             commit_info.info.get_id_str(),
-            new_pending_deletes(&commit_info)?,
+            new_pending_deletes(&meta)?,
         );
         for i in 0..3 {
             assert!(deletes.delete(i, &commit_info)?);

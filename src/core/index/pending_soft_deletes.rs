@@ -22,7 +22,7 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::pending_deletes::{DocBits, PendingDeletes, PendingDeletesBase};
 use crate::core::index::readers_and_updates::IOSupplierImpl;
-use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
@@ -37,7 +37,7 @@ pub(crate) struct PendingSoftDeletes {
     pub(crate) base: PendingDeletes,
 }
 impl PendingSoftDeletes {
-    pub(crate) fn new<D>(field: &str, info: &SegmentCommitInfo<D>) -> Result<Self>
+    pub(crate) fn new<D>(field: &str, info: &SegmentCommitInfoMeta<D>) -> Result<Self>
     where
         D: Directory,
     {

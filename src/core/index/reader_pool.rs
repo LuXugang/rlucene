@@ -20,16 +20,16 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesEnum};
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
-use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::directory::Directory;
-use crate::core::util::Comparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::long_supplier::LongSupplier;
+use crate::core::util::{Comparator, HasIdentity};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -110,7 +110,8 @@ where
         }
     }
     /// Asserts this info still exists in IW's segment infos
-    pub(crate) fn assert_info_is_live(&self, _info: &SegmentCommitInfo<D>) -> bool {
+    pub(crate) fn assert_info_is_live(&self, _info: &SegmentCommitInfoMeta<D>) -> bool {
+        // TODO IMPORTANT
         true
     }
     /// Drops reader for the given SegmentCommitInfo if it's pooled
@@ -303,7 +304,7 @@ where
                     ids
                 ))
             })?;
-            if let Some(rld) = self.get(info, false, None)? {
+            if let Some(rld) = self.get((&*info).into(), false, None)? {
                 any |= rld.write_field_updates(
                     &self.directory,
                     global_field_number,
@@ -396,7 +397,7 @@ where
 
                 if changed {
                     // Make sure we only write del docs for a live segment:
-                    debug_assert!(self.assert_info_is_live(info));
+                    debug_assert!(self.assert_info_is_live(&(&*info).into()));
 
                     // Must checkpoint because we just
                     // created new _X_N.del and field updates files;
@@ -426,15 +427,15 @@ where
     /// If `create` is `true`, you must later call [`release(ReadersAndUpdates, bool)`](Self::release).
     pub(crate) fn get(
         &self,
-        info: &SegmentCommitInfo<D>,
+        info: SegmentCommitInfoMeta<D>,
         create: bool,
         sort_map: Option<Arc<DocMapImpl>>,
     ) -> Result<Option<Arc<ReadersAndUpdates<D>>>> {
         let mut inner = self.inner.lock();
         debug_assert!(
-            Arc::ptr_eq(&info.info.dir, &self.original_directory),
+            info.dir.identity() == self.original_directory.identity(),
             "info.dir={} vs {}",
-            info.info.dir,
+            info.dir,
             self.original_directory
         );
 
@@ -447,15 +448,15 @@ where
             return Err(LuceneError::already_closed("ReaderPool is already closed"));
         }
 
-        let rld = if let Some(rld) = inner.reader_map.get(&info.info.get_id_str()) {
+        let rld = if let Some(rld) = inner.reader_map.get(&info.id) {
             // TODO
             debug_assert!(
-                rld.info_id == info.info.get_id_str(),
+                rld.info_id == info.id,
                 "rld.info={} info={} isLive?={} ",
                 rld.info_id,
                 info,
                 // self.assert_info_is_live(&rld.get_info_id(None)),
-                self.assert_info_is_live(info),
+                self.assert_info_is_live(&info),
             );
             rld.clone()
         } else {
@@ -464,14 +465,12 @@ where
             }
             let mut v = ReadersAndUpdates::new(
                 self.index_created_version_major,
-                info.info.get_id_str(),
-                self.new_pending_deletes(info)?,
+                info.id.clone(),
+                self.new_pending_deletes(&info)?,
             );
             v.sort_map = sort_map;
             let rld = Arc::new(v);
-            inner
-                .reader_map
-                .insert(info.info.get_id_str(), Arc::clone(&rld));
+            inner.reader_map.insert(info.id.clone(), Arc::clone(&rld));
             rld
         };
 
@@ -483,7 +482,7 @@ where
 
         Ok(Some(rld))
     }
-    fn new_pending_deletes(&self, info: &SegmentCommitInfo<D>) -> Result<PendingDeletesEnum> {
+    fn new_pending_deletes(&self, info: &SegmentCommitInfoMeta<D>) -> Result<PendingDeletesEnum> {
         match &self.soft_deletes_field {
             Some(field) => Ok(PendingDeletesEnum::B(PendingSoftDeletes::new(field, info)?)),
             None => Ok(PendingDeletesEnum::A(PendingDeletes::new(info)?)),
@@ -515,6 +514,7 @@ where
         true
     }
 }
+
 impl<D, F> Drop for ReaderPool<D, F>
 where
     D: Directory,
@@ -597,16 +597,16 @@ mod tests {
         let idx = random.random_range(0..segment_infos.segments_idx.len());
         let commit_info = segment_infos.info_idx_mut(idx).unwrap();
 
-        let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
+        let readers_and_updates = pool.get((&*commit_info).into(), true, None)?.unwrap();
 
-        let same = pool.get(commit_info, false, None)?.unwrap();
+        let same = pool.get((&*commit_info).into(), false, None)?.unwrap();
         assert!(Arc::ptr_eq(&readers_and_updates, &same));
         assert!(pool.drop(&commit_info.info.get_id_str())?);
 
         if random.random_bool(0.5) {
             assert!(!pool.drop(&commit_info.info.get_id_str())?);
         }
-        assert!(pool.get(commit_info, false, None)?.is_none());
+        assert!(pool.get((&*commit_info).into(), false, None)?.is_none());
         pool.release(
             &readers_and_updates,
             random.random_bool(0.5),
@@ -645,7 +645,7 @@ mod tests {
 
         assert!(!pool.is_reader_pooling_enabled());
 
-        let rau = pool.get(commit_info, true, None)?.unwrap();
+        let rau = pool.get((&*commit_info).into(), true, None)?.unwrap();
         pool.release(
             &rau,
             random.random_bool(0.5),
@@ -653,12 +653,12 @@ mod tests {
             &field_numbers.lock(),
         )?;
 
-        assert!(pool.get(commit_info, false, None)?.is_none());
+        assert!(pool.get((&*commit_info).into(), false, None)?.is_none());
         // now start pooling
         pool.enable_reader_pooling();
         assert!(pool.is_reader_pooling_enabled());
 
-        let rau = pool.get(commit_info, true, None)?.unwrap();
+        let rau = pool.get((&*commit_info).into(), true, None)?.unwrap();
         pool.release(
             &rau,
             random.random_bool(0.5),
@@ -666,8 +666,8 @@ mod tests {
             &field_numbers.lock(),
         )?;
 
-        let pooled = pool.get(commit_info, false, None)?.unwrap();
-        let pooled_again = pool.get(commit_info, false, None)?.unwrap();
+        let pooled = pool.get((&*commit_info).into(), false, None)?.unwrap();
+        let pooled_again = pool.get((&*commit_info).into(), false, None)?.unwrap();
         assert!(Arc::ptr_eq(&pooled, &pooled_again));
 
         pool.drop(&commit_info.info.get_id_str())?;
@@ -679,7 +679,7 @@ mod tests {
         for idx in 0..segment_infos.segments_idx.len() {
             let info = segment_infos.info_idx_mut(idx).unwrap();
 
-            let rau = pool.get(info, true, None)?.unwrap();
+            let rau = pool.get((&*info).into(), true, None)?.unwrap();
             pool.release(
                 &rau,
                 random.random_bool(0.5),
@@ -697,8 +697,8 @@ mod tests {
 
             // ram_bytes_used = pool.ram_bytes_used();
 
-            let a = pool.get(info, false, None)?.unwrap();
-            let b = pool.get(info, false, None)?.unwrap();
+            let a = pool.get((&*info).into(), false, None)?.unwrap();
+            let b = pool.get((&*info).into(), false, None)?.unwrap();
             assert!(Arc::ptr_eq(&a, &b));
         }
         // TODO: memory calculation not implement
@@ -708,7 +708,7 @@ mod tests {
 
         for idx in 0..segment_infos.segments_idx.len() {
             let info = segment_infos.info_idx(idx).unwrap();
-            assert!(pool.get(info, false, None)?.is_none());
+            assert!(pool.get(info.into(), false, None)?.is_none());
         }
 
         // TODO: memory calculation not implement
@@ -751,7 +751,7 @@ mod tests {
         for (idx, seg_id) in segment_infos.segments_idx.clone().iter().enumerate() {
             let (read_only_clone, max_doc, readers_and_updates, mut postings) = {
                 let commit_info = segment_infos.info_idx_mut(idx).unwrap();
-                let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
+                let readers_and_updates = pool.get((&*commit_info).into(), true, None)?.unwrap();
                 let read_only_clone = readers_and_updates
                     .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
                     .unwrap();
@@ -848,7 +848,7 @@ mod tests {
 
             let commit_info = segment_infos.info_idx_mut(idx).unwrap();
             if expect_update {
-                let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
+                let readers_and_updates = pool.get((&*commit_info).into(), true, None)?.unwrap();
                 let updated_reader = readers_and_updates
                     .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
                     .unwrap();
@@ -908,7 +908,7 @@ mod tests {
         for idx in 0..segment_infos.segments_idx.len() {
             let (read_only_clone, _max_doc, readers_and_updates, mut postings) = {
                 let commit_info = segment_infos.info_idx_mut(idx).unwrap();
-                let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
+                let readers_and_updates = pool.get((&*commit_info).into(), true, None)?.unwrap();
                 let read_only_clone = readers_and_updates
                     .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
                     .unwrap();
@@ -963,7 +963,8 @@ mod tests {
 
             let mut commit_info = segment_infos.info_idx_mut(idx).unwrap().clone();
             if expect_update {
-                let readers_and_updates = pool.get(&commit_info, true, None)?.unwrap();
+                let v = (&commit_info).into();
+                let readers_and_updates = pool.get(v, true, None)?.unwrap();
                 let updated_reader = readers_and_updates
                     .get_read_only_clone(&IOContext::default_io_context()?, &commit_info)?
                     .unwrap();

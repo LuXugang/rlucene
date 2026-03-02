@@ -1208,7 +1208,7 @@ where
                             sci_id
                         ))
                     })?;
-                    let rld_opt = self.get_pooled_instance(sci, true, None)?;
+                    let rld_opt = self.get_pooled_instance(sci.into(), true, None)?;
                     match rld_opt {
                         Some(v) => v,
                         None => {
@@ -2026,7 +2026,7 @@ where
             self.checkpoint(&mut *inner)?;
             let new_segment = inner.segment_infos.info(&new_segment_id).unwrap();
             if packet_any {
-                let _ = self.get_pooled_instance(new_segment, true, sort_map)?;
+                let _ = self.get_pooled_instance(new_segment.into(), true, sort_map)?;
             }
             // this is a corner case where documents delete them-self with soft deletes. This is used to
             // build delete tombstones etc. in this case we haven't seen any updates to the DV in this
@@ -2052,7 +2052,7 @@ where
             // accurate numbers
             // for the soft delete right after we flushed to disk.
             if has_initial_soft_deleted || is_fully_hard_deleted {
-                let rld = self.get_pooled_instance(new_segment, true, None)?;
+                let rld = self.get_pooled_instance(new_segment.into(), true, None)?;
                 let result: Result<()> = (|| {
                     match rld {
                         None => {
@@ -2363,7 +2363,7 @@ where
         let mut to_drop = Vec::new();
 
         for info in inner.segment_infos.segments.values() {
-            if let Some(rld) = self.reader_pool.get(info, false, None)?
+            if let Some(rld) = self.reader_pool.get(info.into(), false, None)?
                 && rld.is_fully_deleted(info)?
             {
                 to_drop.push(info.info.get_id_str());
@@ -2466,7 +2466,11 @@ where
                                     "could not find segment info from IndexWriter#segment_infos",
                                 ))?,
                             };
-                            if self.reader_pool.get(info, false, None)?.is_none() {
+                            if self
+                                .reader_pool
+                                .get((&*info).into(), false, None)?
+                                .is_none()
+                            {
                                 continue;
                             }
 
@@ -2507,7 +2511,7 @@ where
     pub fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
         self.do_ensure_open(false)?;
         self.validate(info)?;
-        if let Some(rld) = self.get_pooled_instance(info, false, None)? {
+        if let Some(rld) = self.get_pooled_instance(info.into(), false, None)? {
             Ok(rld.get_del_count(info)) // get the full count from here since SCI might change concurrently
         } else {
             let del_count = info.get_del_count_with_soft_deletes(self.soft_deletes_enabled);
@@ -2905,8 +2909,9 @@ where
 
         let sci = merge.info.as_ref().unwrap();
         // Lazy init (only when we find a delete or update to carry over):
-        let merged_deletes_and_updates =
-            self.get_pooled_instance(sci, true, None)?.ok_or_else(|| {
+        let merged_deletes_and_updates = self
+            .get_pooled_instance(sci.into(), true, None)?
+            .ok_or_else(|| {
                 LuceneError::illegal_state("failed to get pooled instance for a merged segment")
             })?;
 
@@ -2926,7 +2931,7 @@ where
             let max_doc = info.info.max_doc()?;
 
             let rld = self
-                .get_pooled_instance(info, false, None)?
+                .get_pooled_instance(info.into(), false, None)?
                 .ok_or_else(|| {
                     LuceneError::illegal_state(format!(
                         "seg={} not found in reader pool",
@@ -3570,7 +3575,7 @@ where
                                     sr.get_original_segment_info_id()
                                 ))
                             })?;
-                        match self.get_pooled_instance(info, false, None)? {
+                        match self.get_pooled_instance(info.into(), false, None)? {
                             Some(rld) => {
                                 if drop {
                                     rld.drop_changes();
@@ -4187,7 +4192,7 @@ where
 
     pub(crate) fn get_pooled_instance(
         &self,
-        info: &SegmentCommitInfo<D>,
+        info: SegmentCommitInfoMeta<D>,
         create: bool,
         sort_map: Option<Arc<DocMapImpl>>,
     ) -> Result<Option<Arc<ReadersAndUpdates<D>>>> {
@@ -4588,7 +4593,7 @@ where
                 let info = inner.segment_infos.info(info_id).unwrap();
                 if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(info_id) {
                     let rld = self
-                        .get_pooled_instance(info, true, None)?
+                        .get_pooled_instance(info.into(), true, None)?
                         .ok_or_else(|| LuceneError::illegal_state("should not None"))?;
                     let seg_state = SegmentState::new(rld, info)?;
                     seg_states.push(seg_state);
@@ -4924,7 +4929,7 @@ where
 
         let merge_policy = self.config.get_merge_policy();
 
-        let num_deletes_to_merge = match self.get_pooled_instance(info, false, None)? {
+        let num_deletes_to_merge = match self.get_pooled_instance(info.into(), false, None)? {
             Some(rld) => rld.num_deletes_to_merge(merge_policy, info)?,
             None => {
                 // If we don't have a pooled instance, just return hard deletes; this is safe.
@@ -4949,7 +4954,7 @@ where
         self.do_ensure_open(false).unwrap();
         self.validate(info).unwrap();
 
-        if let Some(rld) = self.get_pooled_instance(info, false, None).unwrap() {
+        if let Some(rld) = self.get_pooled_instance(info.into(), false, None).unwrap() {
             // get the full count from here since SCI might change concurrently
             rld.get_del_count(info)
         } else {
@@ -5110,7 +5115,7 @@ where
     B: IndexWriterBase,
 {
     fn apply(&mut self, sci: &SegmentCommitInfo<D>) -> Result<Arc<SegmentReader<D>>> {
-        let rld = self.writer.get_pooled_instance(sci, true, None)?;
+        let rld = self.writer.get_pooled_instance(sci.into(), true, None)?;
         match rld {
             Some(r) => match r.get_read_only_clone(&IOContext::default_io_context()?, sci)? {
                 Some(segment_reader) => {
@@ -5301,7 +5306,7 @@ use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::numeric_doc_values_field_updates::NumericDocValuesFieldUpdates;
 use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
-use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_merger::SegmentMerger;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::slow_composite_codec_reader_wrapper::wrap;

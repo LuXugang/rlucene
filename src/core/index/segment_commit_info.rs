@@ -14,10 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicI64, Ordering};
-
 use crate::core::codecs::LATEST_CODEC;
 use crate::core::codecs::codec::Codec;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
@@ -25,6 +21,10 @@ use crate::core::index::segment_info::{SegmentInfo, named_for_this_segment};
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{StringHelper, TryIntoInt};
+use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 pub struct SegmentCommitInfo<D>
 where
@@ -416,7 +416,75 @@ where
         }
     }
 }
+pub struct SegmentCommitInfoMeta<D>
+where
+    D: Directory,
+{
+    pub(crate) dir: Arc<D>,
+    max_doc: Option<i32>,
+    pub(crate) id: String,
+    has_deletions: Option<bool>,
+}
+impl<D> SegmentCommitInfoMeta<D>
+where
+    D: Directory,
+{
+    pub(crate) fn with_deletions(
+        dir: Arc<D>,
+        max_doc: i32,
+        id: String,
+        has_deletions: bool,
+    ) -> Self {
+        Self {
+            dir,
+            max_doc: Some(max_doc),
+            id,
+            has_deletions: Some(has_deletions),
+        }
+    }
+    pub(crate) fn new(dir: Arc<D>, id: String) -> Self {
+        Self {
+            dir,
+            max_doc: None,
+            id,
+            has_deletions: None,
+        }
+    }
+    pub(crate) fn has_deletions(&self) -> Result<bool> {
+        self.has_deletions
+            .ok_or_else(|| LuceneError::illegal_argument("deletions not init, could not be used"))
+    }
+    pub(crate) fn max_doc(&self) -> Result<i32> {
+        self.max_doc
+            .ok_or_else(|| LuceneError::illegal_argument("maxDoc not init, could not be used"))
+    }
+}
 
+impl<D> Display for SegmentCommitInfoMeta<D>
+where
+    D: Directory,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "SegmentCommitInfoMeta(dir={}, maxDoc={:?}, id={}, hasDeletions={:?})",
+            self.dir, self.max_doc, self.id, self.has_deletions
+        )
+    }
+}
+impl<D> From<&SegmentCommitInfo<D>> for SegmentCommitInfoMeta<D>
+where
+    D: Directory,
+{
+    fn from(s: &SegmentCommitInfo<D>) -> Self {
+        SegmentCommitInfoMeta::with_deletions(
+            s.info.dir.clone(),
+            s.info.max_doc().expect("should not fail"),
+            s.info.get_id_str(),
+            s.del_gen != -1,
+        )
+    }
+}
 /// Implement `Display` for `SegmentCommitInfo`.
 impl<D> std::fmt::Display for SegmentCommitInfo<D>
 where
