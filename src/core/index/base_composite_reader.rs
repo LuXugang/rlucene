@@ -344,10 +344,13 @@ where
         let i = reader_index(doc_id, self.max_doc, self.starts.as_ref())?;
 
         if self.sub_term_vectors[i].is_none() {
-            let tv = self.sub_reader[i].term_vectors()?;
-            self.sub_term_vectors[i] = Some(tv);
+            self.sub_term_vectors[i] = Some(self.sub_reader[i].term_vectors()?);
         }
-        let tv = self.sub_term_vectors[i].as_mut().unwrap();
+
+        let tv = match self.sub_term_vectors[i].as_mut() {
+            Some(tv) => tv,
+            None => return Err(LuceneError::illegal_state("not initialized")),
+        };
         tv.get(doc_id - self.starts[i] as i32)
     }
 

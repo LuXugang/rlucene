@@ -839,19 +839,21 @@ where
         D: Directory,
         CR: CodecReader,
     {
-        let reader_wrap = merge_state.term_vectors_readers[reader_index]
-            .as_ref()
-            .ok_or_else(|| LuceneError::illegal_state("TermVectorsReader is None"))?;
-        let reader = reader_wrap.raw_term_vectors()?;
-        let v = *BULK_MERGE_ENABLED
-            && matching_readers.matching_readers[reader_index]
-            && *reader.get_compression_mode() == self.compression_mode
-            && reader.get_chunk_size() == self.chunk_size
-            && reader.get_version() == VERSION_CURRENT
-            && reader.get_packed_ints_version() == PackedInts::VERSION_CURRENT
-            && merge_state.live_docs[reader_index].is_none()
-            && !self.too_dirty(reader)?;
-        Ok(v)
+        match merge_state.term_vectors_readers[reader_index] {
+            Some(ref reader) => {
+                let reader = reader.raw_term_vectors()?;
+                let v = *BULK_MERGE_ENABLED
+                    && matching_readers.matching_readers[reader_index]
+                    && *reader.get_compression_mode() == self.compression_mode
+                    && reader.get_chunk_size() == self.chunk_size
+                    && reader.get_version() == VERSION_CURRENT
+                    && reader.get_packed_ints_version() == PackedInts::VERSION_CURRENT
+                    && merge_state.live_docs[reader_index].is_none()
+                    && !self.too_dirty(reader)?;
+                Ok(v)
+            },
+            None => Ok(false),
+        }
     }
 }
 
