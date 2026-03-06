@@ -40,7 +40,8 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::store::IndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::long_values::LongValuesEnum5;
+use crate::core::util::long_values::LongValuesEnum6;
+use crate::core::util::packed::direct_reader::DirectPackedEnum;
 use std::borrow::Cow;
 
 pub enum BaseSortedDocValuesEnum<I>
@@ -268,12 +269,13 @@ where
         }
     }
 }
-pub type LongValuesEnums<R> = LongValuesEnum5<
+pub type LongValuesEnums<R> = LongValuesEnum6<
     LongValuesImpl,
     LongValuesImpl1<R>,
     LongValuesImpl2<R>,
     LongValuesImpl3<R>,
     LongValuesImpl4<R>,
+    DirectPackedEnum<R>,
 >;
 
 pub enum SparseNumericDocValuesSubEnum<R>

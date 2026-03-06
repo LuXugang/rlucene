@@ -1155,10 +1155,11 @@ where
     TE: TermsEnum,
 {
     fn new(ordinal_map: Rc<OrdinalMap>, subs: Vec<TE>) -> Self {
+        let value_count = ordinal_map.get_value_count();
         Self {
             subs,
             ordinal_map,
-            value_count: 0,
+            value_count,
             ord: -1,
             term: BytesRef::new(),
         }

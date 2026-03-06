@@ -1477,16 +1477,13 @@ mod tests {
             iw.add_document(doc.clone())?;
 
             if random.random_range(0..17) == 0 {
-                // TODO 由于没有实现force_merge 所以 我们只生成一个段
-                // iw.commit()?;
+                iw.commit()?;
             }
         }
-        // TODO 由于没有实现force_merge 所以 我们只生成一个段
         iw.commit()?;
 
         let ir = iw.get_reader()?;
-        // TODO force_merge未实现
-        // iw.force_merge(1)?;
+        iw.force_merge(1)?;
         let ir2 = iw.get_reader()?;
         let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
@@ -1547,18 +1544,15 @@ mod tests {
             iw.add_document(doc.clone())?;
 
             if random.random_range(0..17) == 0 {
-                // TODO 由于没有实现 force_merge 所以仅生成一个段
-                // iw.commit()?;
+                iw.commit()?;
             }
         }
 
-        // TODO 由于没有实现 force_merge，所以最终仍然只有一个段
         iw.commit()?;
 
         let ir = iw.get_reader()?;
 
-        // TODO force_merge 未实现
-        // iw.force_merge(1)?;
+        iw.force_merge(1)?;
         let ir2 = iw.get_reader()?;
         let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
@@ -1627,17 +1621,14 @@ mod tests {
             iw.add_document(doc.clone())?;
 
             if random.random_range(0..17) == 0 {
-                // TODO 由于没有实现force_merge 所以 我们只生成一个段
-                // iw.commit()?;
+                iw.commit()?;
             }
         }
 
-        // TODO 由于没有实现force_merge 所以 我们只生成一个段
         iw.commit()?;
 
         let ir = iw.get_reader()?;
-        // TODO force_merge未实现
-        // iw.force_merge(1)?;
+        iw.force_merge(1)?;
         let ir2 = iw.get_reader()?;
         let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
@@ -1713,17 +1704,14 @@ mod tests {
             iw.add_document(doc.clone())?;
 
             if random.random_range(0..17) == 0 {
-                // TODO 由于没有实现force_merge 所以 我们只生成一个段
-                // iw.commit()?;
+                iw.commit()?;
             }
         }
 
-        // TODO 由于没有实现force_merge 所以 我们只生成一个段
         iw.commit()?;
 
         let ir = iw.get_reader()?;
-        // TODO force_merge未实现
-        // iw.force_merge(1)?;
+        iw.force_merge(1)?;
         let ir2 = iw.get_reader()?;
         let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
@@ -1799,17 +1787,14 @@ mod tests {
             iw.add_document(doc)?;
 
             if random.random_range(0..17) == 0 {
-                // TODO 由于没有实现force_merge 所以 我们只生成一个段
-                // iw.commit()?;
+                iw.commit()?;
             }
         }
 
-        // TODO 由于没有实现force_merge 所以 我们只生成一个段
         iw.commit()?;
 
         let ir = iw.get_reader()?;
-        // TODO force_merge未实现
-        // iw.force_merge(1)?;
+        iw.force_merge(1)?;
         let ir2 = iw.get_reader()?;
         let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
@@ -1897,17 +1882,14 @@ mod tests {
             iw.add_document(doc)?;
 
             if random.random_range(0..17) == 0 {
-                // TODO 由于没有实现force_merge 所以 我们只生成一个段
-                // iw.commit()?;
+                iw.commit()?;
             }
         }
 
-        // TODO 由于没有实现force_merge 所以 我们只生成一个段
         iw.commit()?;
 
         let ir = iw.get_reader()?;
-        // TODO force_merge未实现
-        // iw.force_merge(1)?;
+        iw.force_merge(1)?;
         let ir2 = iw.get_reader()?;
         let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
@@ -1998,18 +1980,14 @@ mod tests {
             iw.add_document(doc)?;
 
             if random.random_range(0..17) == 0 {
-                // TODO 没有实现 force_merge，因此只生成单段
-                // iw.commit()?;
+                iw.commit()?;
             }
         }
 
-        // TODO 由于没有 force_merge，仍然只有一个段
         iw.commit()?;
 
         let ir = iw.get_reader()?;
-
-        // TODO force_merge 未实现
-        // iw.force_merge(1)?;
+        iw.force_merge(1)?;
         let ir2 = iw.get_reader()?;
         let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;

@@ -666,17 +666,19 @@ where
                         values,
                     }),
                     None => {
-                        if entry.gcd == 1 && entry.min_value == 0 {
+                        if entry.gcd != 1 {
                             LongValuesEnums::D(LongValuesImpl3 {
                                 values,
                                 gcd: entry.gcd,
                                 min_value: entry.min_value,
                             })
-                        } else {
+                        } else if entry.min_value != 0 {
                             LongValuesEnums::E(LongValuesImpl4 {
                                 values,
                                 min_value: entry.min_value,
                             })
+                        } else {
+                            LongValuesEnums::F(values)
                         }
                     },
                 }
@@ -3248,7 +3250,7 @@ where
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        if self.doc >= self.max_doc {
+        if target >= self.max_doc {
             self.doc = NO_MORE_DOCS;
             return Ok(NO_MORE_DOCS);
         }
