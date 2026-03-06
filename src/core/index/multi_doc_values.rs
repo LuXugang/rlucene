@@ -1431,6 +1431,7 @@ mod tests {
     use crate::core::index::doc_values_iterator::DocValuesIterator;
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::multi_doc_values::MultiDocValues;
     use crate::core::index::numeric_doc_values::NumericDocValues;
     use crate::core::index::sorted_doc_values::SortedDocValues;
@@ -1442,7 +1443,7 @@ mod tests {
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, get_only_leaf_reader, is_night_mode, new_directory_shared,
-        new_index_writer_config, random,
+        new_index_writer_config, new_log_merge_policy, random,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
@@ -1460,8 +1461,8 @@ mod tests {
         let mut field = NumericDocValuesField::new("numbers", 0i64);
         doc.add(field.clone());
         // TODO 这里需要使用带分词器的构造方法
-        // TODO 合并策略未实现
-        let iwc = new_index_writer_config(&mut random);
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -1525,8 +1526,8 @@ mod tests {
         doc.add(field.clone());
 
         // TODO 这里需要使用带分词器的构造方法
-        // TODO 合并策略未实现
-        let iwc = new_index_writer_config(&mut random);
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -1599,8 +1600,8 @@ mod tests {
         doc.add(field.clone());
 
         // TODO 这里需要使用带分词器的构造方法
-        // TODO 合并策略未实现
-        let iwc = new_index_writer_config(&mut random);
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
         let num_docs = if is_night_mode() {
@@ -1687,8 +1688,8 @@ mod tests {
         doc.add(field.clone());
 
         // TODO 这里需要使用带分词器的构造方法
-        // TODO 合并策略未实现
-        let iwc = new_index_writer_config(&mut random);
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
         let num_docs = if is_night_mode() {
@@ -1765,8 +1766,8 @@ mod tests {
         let dir = new_directory_shared(&mut random)?;
 
         // TODO 这里需要使用带分词器的构造方法
-        // TODO 合并策略未实现
-        let iwc = new_index_writer_config(&mut random);
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
         let num_docs = if is_night_mode() {
@@ -1859,8 +1860,8 @@ mod tests {
         let dir = new_directory_shared(&mut random)?;
 
         // TODO 这里需要使用带分词器的构造方法
-        // TODO 合并策略未实现
-        let iwc = new_index_writer_config(&mut random);
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
         let num_docs = if is_night_mode() {
@@ -1957,8 +1958,8 @@ mod tests {
         let dir = new_directory_shared(&mut random)?;
 
         // TODO 这里需要使用带分词器的构造方法
-        // TODO 合并策略未实现
-        let iwc = new_index_writer_config(&mut random);
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
