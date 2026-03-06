@@ -288,45 +288,11 @@ pub trait MergePolicy: Display {
     fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
     where
         D: Directory,
-        MC: MergeContext<D>,
-    {
-        let byte_size = info.size_in_bytes()?;
-        let del_count = merge_context.num_deletes_to_merge(info)?;
-        debug_assert!(self.assert_del_count(del_count, info)?);
-        let max_doc = info.info.max_doc()?;
-        let del_ratio = if max_doc <= 0 {
-            0.0
-        } else {
-            del_count as f64 / max_doc as f64
-        };
-
-        debug_assert!(del_ratio <= 1.0);
-
-        if max_doc <= 0 {
-            Ok(byte_size)
-        } else {
-            Ok((byte_size as f64 * (1.0 - del_ratio)) as i64)
-        }
-    }
+        MC: MergeContext<D>;
     /// Return the maximum size of segments to be included in full-flush merges
     /// by the default implementation of `find_full_flush_merges`.
     fn max_full_flush_merge_size(&self) -> i64 {
         0
-    }
-
-    /// Asserts that the `delCount` for this [`SegmentCommitInfo`] is valid.
-    fn assert_del_count<D>(&self, del_count: i32, info: &SegmentCommitInfo<D>) -> Result<bool>
-    where
-        D: Directory,
-    {
-        debug_assert!(del_count >= 0, "delCount must be positive: {}", del_count);
-        debug_assert!(
-            del_count <= info.info.max_doc()?,
-            "delCount: {} must be ≤ maxDoc: {}",
-            del_count,
-            info.info.max_doc()?
-        );
-        Ok(true)
     }
 
     /// Returns `true` if this single info is already fully merged (has no pending
@@ -343,7 +309,7 @@ pub trait MergePolicy: Display {
         MC: MergeContext<D>,
     {
         let del_count = merge_context.num_deletes_to_merge(info)?;
-        debug_assert!(self.assert_del_count(del_count, info)?);
+        debug_assert!(assert_del_count(del_count, info)?);
 
         Ok(del_count == 0
             && self.use_compound_file(infos, info, merge_context)?
@@ -426,6 +392,43 @@ pub trait MergePolicy: Display {
         D: Directory,
     {
         merge_context.get_info_stream().enabled("MP")
+    }
+}
+/// Asserts that the `delCount` for this [`SegmentCommitInfo`] is valid.
+pub(crate) fn assert_del_count<D>(del_count: i32, info: &SegmentCommitInfo<D>) -> Result<bool>
+where
+    D: Directory,
+{
+    debug_assert!(del_count >= 0, "delCount must be positive: {}", del_count);
+    debug_assert!(
+        del_count <= info.info.max_doc()?,
+        "delCount: {} must be ≤ maxDoc: {}",
+        del_count,
+        info.info.max_doc()?
+    );
+    Ok(true)
+}
+pub(crate) fn size<D, MC>(info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+where
+    D: Directory,
+    MC: MergeContext<D>,
+{
+    let byte_size = info.size_in_bytes()?;
+    let del_count = merge_context.num_deletes_to_merge(info)?;
+    debug_assert!(assert_del_count(del_count, info)?);
+    let max_doc = info.info.max_doc()?;
+    let del_ratio = if max_doc <= 0 {
+        0.0
+    } else {
+        del_count as f64 / max_doc as f64
+    };
+
+    debug_assert!(del_ratio <= 1.0);
+
+    if max_doc <= 0 {
+        Ok(byte_size)
+    } else {
+        Ok((byte_size as f64 * (1.0 - del_ratio)) as i64)
     }
 }
 
@@ -585,16 +588,6 @@ impl MergePolicy for MergePolicyEnum {
         match self {
             MergePolicyEnum::No(mp) => mp.max_full_flush_merge_size(),
             MergePolicyEnum::Tiered(mp) => mp.max_full_flush_merge_size(),
-        }
-    }
-
-    fn assert_del_count<D>(&self, del_count: i32, info: &SegmentCommitInfo<D>) -> Result<bool>
-    where
-        D: Directory,
-    {
-        match self {
-            MergePolicyEnum::No(mp) => mp.assert_del_count(del_count, info),
-            MergePolicyEnum::Tiered(mp) => mp.assert_del_count(del_count, info),
         }
     }
 

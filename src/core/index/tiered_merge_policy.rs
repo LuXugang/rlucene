@@ -17,16 +17,16 @@
 use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
     DEFAULT_MAX_CFS_SEGMENT_SIZE, MergeContext, MergePolicy, MergePolicyBase, MergeSpecification,
-    MergeSpecificationNoReader, OneMerge,
+    MergeSpecificationNoReader, OneMerge, assert_del_count, size,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::store::directory::Directory;
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use crate::core::util::TryIntoInt;
 
 /// Default noCFSRatio. If a merge's size is >= 10% of the index, then we disable compound file for it.
 pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
@@ -911,7 +911,7 @@ impl MergePolicy for TieredMergePolicy {
 
         let mut spec: Option<MergeSpecificationNoReader<D>> = None;
 
-        let mut index:i32 = (starting_segment_count - 1).try_convert()?;
+        let mut index: i32 = (starting_segment_count - 1).try_convert()?;
         let mut resulting_segments = starting_segment_count;
 
         loop {
@@ -982,7 +982,7 @@ impl MergePolicy for TieredMergePolicy {
 
         for info in infos.iter() {
             let del_count = merge_context.num_deletes_to_merge(info)?;
-            debug_assert!(self.assert_del_count(del_count, info)?);
+            debug_assert!(assert_del_count(del_count, info)?);
             total_del_count += del_count;
 
             let pct_deletes = 100.0 * (del_count as f64) / (info.info.max_doc()? as f64);
@@ -1018,6 +1018,14 @@ impl MergePolicy for TieredMergePolicy {
             merge_context,
             false,
         )
+    }
+
+    fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+    where
+        D: Directory,
+        MC: MergeContext<D>,
+    {
+        size(info, merge_context)
     }
 }
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

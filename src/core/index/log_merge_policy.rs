@@ -17,17 +17,19 @@
 use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
     DEFAULT_MAX_CFS_SEGMENT_SIZE, DEFAULT_NO_CFS_RATIO, MergeContext, MergePolicy, MergePolicyBase,
-    MergeSpecification, MergeSpecificationNoReader, OneMerge,
+    MergeSpecification, MergeSpecificationNoReader, OneMerge, assert_del_count, size,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::store::directory::Directory;
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+
 /// This struct implements a [`MergePolicy`] that tries to merge segments into levels of
 /// exponentially increasing size, where each level has fewer segments than the value of the merge
 /// factor. Whenever extra segments (beyond the merge factor upper bound) are encountered, all
@@ -41,7 +43,10 @@ use std::fmt::{Display, Formatter};
 ///
 /// **NOTE**: This policy returns natural merges whose size is below the [`LogMergePolicy::min_merge_size`]
 /// minimum merge size for [`LogMergePolicy::find_full_flush_merges`] full-flush merges.
-pub struct LogMergePolicy {
+pub struct LogMergePolicy<T>
+where
+    T: LogMergePolicyBase,
+{
     /// How many segments to merge at a time.
     pub(crate) merge_factor: usize,
     /// Any segments whose size is smaller than this value will be candidates for full-flush merges and
@@ -62,9 +67,13 @@ pub struct LogMergePolicy {
     /// `maxDoc / targetSearchConcurrency` documents.
     pub(crate) target_search_concurrency: i32,
     pub(crate) base: MergePolicyBase,
+    sub: T,
 }
 
-impl LogMergePolicy {
+impl<T> LogMergePolicy<T>
+where
+    T: LogMergePolicyBase,
+{
     /// Defines the allowed range of log(size) for each level. A level is computed by taking the max
     /// segment log size, minus LEVEL_LOG_SPAN, and finding all segments falling within that range.
     pub const LEVEL_LOG_SPAN: f64 = 0.75;
@@ -79,7 +88,7 @@ impl LogMergePolicy {
     /// @see MergePolicy#setNoCFSRatio
     pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
     /// Sole constructor. (For invocation by subclass constructors, typically implicit.)
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(sub: T) -> Self {
         let base = MergePolicyBase::new(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE);
         Self {
             merge_factor: Self::DEFAULT_MERGE_FACTOR,
@@ -90,6 +99,7 @@ impl LogMergePolicy {
             calibrate_size_by_deletes: true,
             target_search_concurrency: 1,
             base,
+            sub,
         }
     }
     /// Returns the number of segments that are merged at once and also controls the total number of
@@ -157,30 +167,13 @@ impl LogMergePolicy {
     {
         if self.calibrate_size_by_deletes {
             let del_count = merge_context.num_deletes_to_merge(info)?;
-            debug_assert!(self.assert_del_count(del_count, info)?);
+            debug_assert!(assert_del_count(del_count, info)?);
             Ok((info.info.max_doc()? - del_count) as i64)
         } else {
             Ok(info.info.max_doc()? as i64)
         }
     }
-    /// Return the byte size of the provided [`SegmentCommitInfo`], pro-rated by percentage of
-    /// non-deleted documents if [`LogMergePolicy::set_calibrate_size_by_deletes`]
-    /// is set.
-    pub(crate) fn size_bytes<D, MC>(
-        &self,
-        info: &SegmentCommitInfo<D>,
-        merge_context: &MC,
-    ) -> Result<i64>
-    where
-        D: Directory,
-        MC: MergeContext<D>,
-    {
-        if self.calibrate_size_by_deletes {
-            self.size(info, merge_context)
-        } else {
-            Ok(info.size_in_bytes()?)
-        }
-    }
+
     /// Returns true if the number of segments eligible for merging is less than or equal to the
     /// specified `maxNumSegments`.
     pub(crate) fn is_merged<D, MC>(
@@ -232,19 +225,20 @@ impl LogMergePolicy {
     pub(crate) fn find_forced_merges_size_limit<D, MC>(
         &self,
         infos: &SegmentInfos<D>,
-        mut last: usize,
+        mut last: i32,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
         MC: MergeContext<D>,
     {
+        debug_assert!(last > 0);
         let mut spec = MergeSpecification::new();
         let segments = infos.iter();
 
         let mut start = last - 1;
         while start >= 0 {
-            let start_idx = start;
+            let start_idx = start as usize;
             let info = infos
                 .info_idx(start_idx)
                 .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
@@ -263,13 +257,13 @@ impl LogMergePolicy {
                 {
                     // there is more than 1 segment to the right of
                     // this one, or a mergeable single segment.
-                    let meta = Self::get_meta(start_idx + 1, last, segments)?;
+                    let meta = Self::get_meta(start_idx + 1, last as usize, segments)?;
                     spec.add(OneMerge::new(meta)?);
                 }
                 last = start;
-            } else if last - start == self.merge_factor {
+            } else if last - start == self.merge_factor as i32 {
                 // mergeFactor eligible segments were found, add them as a merge.
-                let meta = Self::get_meta(start_idx, last, segments)?;
+                let meta = Self::get_meta(start_idx, last as usize, segments)?;
                 spec.add(OneMerge::new(meta)?);
                 last = start;
             }
@@ -282,12 +276,12 @@ impl LogMergePolicy {
         if last > 0
             && (start + 1 < last || {
                 let info = infos
-                    .info_idx(start)
+                    .info_idx(start as usize)
                     .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
                 !self.has_merged(infos, info, merge_context)?
             })
         {
-            let meta = Self::get_meta(start, last, segments)?;
+            let meta = Self::get_meta(start as usize, last as usize, segments)?;
             spec.add(OneMerge::new(meta)?);
         }
 
@@ -433,13 +427,30 @@ impl LogMergePolicy {
         Ok(meta)
     }
 }
-impl Default for LogMergePolicy {
-    fn default() -> Self {
-        Self::new()
+
+/// Return the byte size of the provided [`SegmentCommitInfo`], pro-rated by percentage of
+/// non-deleted documents if [`LogMergePolicy::set_calibrate_size_by_deletes`]
+/// is set.
+pub(crate) fn size_bytes<D, MC>(
+    info: &SegmentCommitInfo<D>,
+    merge_context: &MC,
+    calibrate_size_by_deletes: bool,
+) -> Result<i64>
+where
+    D: Directory,
+    MC: MergeContext<D>,
+{
+    if calibrate_size_by_deletes {
+        size(info, merge_context)
+    } else {
+        Ok(info.size_in_bytes()?)
     }
 }
 
-impl Display for LogMergePolicy {
+impl<T> Display for LogMergePolicy<T>
+where
+    T: LogMergePolicyBase,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -460,7 +471,22 @@ impl Display for LogMergePolicy {
     }
 }
 
-impl MergePolicy for LogMergePolicy {
+pub trait LogMergePolicyBase {
+    fn size<D, MC>(
+        &self,
+        info: &SegmentCommitInfo<D>,
+        merge_context: &MC,
+        calibrate_size_by_deletes: bool,
+    ) -> Result<i64>
+    where
+        D: Directory,
+        MC: MergeContext<D>;
+}
+
+impl<T> MergePolicy for LogMergePolicy<T>
+where
+    T: LogMergePolicyBase,
+{
     fn get_base(&self) -> &MergePolicyBase {
         &self.base
     }
@@ -622,8 +648,8 @@ impl MergePolicy for LogMergePolicy {
                     let spec = spec.get_or_insert_with(MergeSpecification::new);
 
                     let mut meta = Vec::new();
-                    for i in start..end {
-                        let idx = &levels[i].info_id;
+                    for level in levels.iter().take(end).skip(start) {
+                        let idx = &level.info_id;
                         let info = infos
                             .info(idx)
                             .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
@@ -720,7 +746,7 @@ impl MergePolicy for LogMergePolicy {
         }
 
         if any_too_large {
-            self.find_forced_merges_size_limit(segment_infos, last, merge_context)
+            self.find_forced_merges_size_limit(segment_infos, last.try_convert()?, merge_context)
         } else {
             self.find_forced_merges_max_num_segments(
                 segment_infos,
@@ -756,7 +782,7 @@ impl MergePolicy for LogMergePolicy {
                 .info_idx(i)
                 .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
             let del_count = merge_context.num_deletes_to_merge(info)?;
-            debug_assert!(self.assert_del_count(del_count, info)?);
+            debug_assert!(assert_del_count(del_count, info)?);
 
             if del_count > 0 {
                 match first_segment_with_deletions {
@@ -790,6 +816,15 @@ impl MergePolicy for LogMergePolicy {
         }
 
         Ok(Some(spec))
+    }
+
+    fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+    where
+        D: Directory,
+        MC: MergeContext<D>,
+    {
+        self.sub
+            .size(info, merge_context, self.calibrate_size_by_deletes)
     }
 
     fn max_full_flush_merge_size(&self) -> i64 {
