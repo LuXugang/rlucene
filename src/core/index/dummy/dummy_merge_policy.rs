@@ -62,7 +62,7 @@ impl MergePolicy for DummyMergePolicy {
     fn find_forced_merges<D, MC>(
         &self,
         _segment_infos: &SegmentInfos<D>,
-        _max_segment_count: i32,
+        _max_segment_count: usize,
         _segments_to_merge: &HashMap<String, Option<bool>>,
         _inner: Option<&Inner<D>>,
         _merge_context: &MC,

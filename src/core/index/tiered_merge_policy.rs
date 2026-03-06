@@ -23,10 +23,10 @@ use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::store::directory::Directory;
-use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+use crate::core::util::TryIntoInt;
 
 /// Default noCFSRatio. If a merge's size is >= 10% of the index, then we disable compound file for it.
 pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
@@ -771,7 +771,7 @@ impl MergePolicy for TieredMergePolicy {
     fn find_forced_merges<D, MC>(
         &self,
         infos: &SegmentInfos<D>,
-        max_segment_count: i32,
+        max_segment_count: usize,
         segments_to_merge: &HashMap<String, Option<bool>>,
         inner: Option<&Inner<D>>,
         merge_context: &MC,
@@ -808,7 +808,7 @@ impl MergePolicy for TieredMergePolicy {
         // Set the maximum segment size based on how many segments have been specified.
         if max_segment_count == 1 {
             max_merge_bytes = i64::MAX;
-        } else if max_segment_count != i32::MAX {
+        } else if max_segment_count != i32::MAX as usize {
             max_merge_bytes = std::cmp::max(
                 ((total_merge_bytes as f64) / (max_segment_count as f64)) as i64,
                 self.max_merged_segment_bytes,
@@ -837,12 +837,12 @@ impl MergePolicy for TieredMergePolicy {
             }
 
             // Let the scoring handle whether to merge large segments.
-            if max_segment_count == i32::MAX && matches!(is_original, Some(Some(false))) {
+            if max_segment_count == i32::MAX as usize && matches!(is_original, Some(Some(false))) {
                 return false;
             }
 
             // Don't try to merge a segment with no deleted docs that's over the max size.
-            if max_segment_count != i32::MAX && seg.size_in_bytes >= max_merge_bytes {
+            if max_segment_count != i32::MAX as usize && seg.size_in_bytes >= max_merge_bytes {
                 return false;
             }
 
@@ -853,12 +853,12 @@ impl MergePolicy for TieredMergePolicy {
         if sorted_size_and_docs.is_empty() {
             return Ok(None);
         }
-        let sorted_size_and_docs_len: i32 = sorted_size_and_docs.len().try_convert()?;
+        let sorted_size_and_docs_len = sorted_size_and_docs.len();
         // We only bail if there are no deletions
         if !found_deletes {
             let info_zero = &sorted_size_and_docs[0].seg_info;
 
-            let already = if max_segment_count != i32::MAX
+            let already = if max_segment_count != i32::MAX as usize
                 && max_segment_count > 1
                 && sorted_size_and_docs_len <= max_segment_count
             {
@@ -881,7 +881,7 @@ impl MergePolicy for TieredMergePolicy {
             }
         }
 
-        let starting_segment_count = sorted_size_and_docs.len() as i32;
+        let starting_segment_count = sorted_size_and_docs.len();
         if force_merge_running {
             // hmm this is a little dangerous -- if a user kicks off a forceMerge, it is taking forever,
             // lots of
@@ -911,8 +911,8 @@ impl MergePolicy for TieredMergePolicy {
 
         let mut spec: Option<MergeSpecificationNoReader<D>> = None;
 
-        let mut index: i32 = starting_segment_count - 1;
-        let mut resulting_segments: i32 = starting_segment_count;
+        let mut index:i32 = (starting_segment_count - 1).try_convert()?;
+        let mut resulting_segments = starting_segment_count;
 
         loop {
             let mut candidate = Vec::new();

@@ -1808,7 +1808,7 @@ where
 
             spec_opt = merge_policy.find_forced_merges(
                 &inner.segment_infos,
-                max_num_segments,
+                max_num_segments.try_convert()?,
                 &inner.segments_to_merge,
                 Some(inner),
                 &caching_merge_context,
@@ -5329,7 +5329,7 @@ use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::{
-    BYTE_BLOCK_SIZE, CoreHelper, HasIdentity, LATEST, SerialCounter, StringHelper,
+    BYTE_BLOCK_SIZE, CoreHelper, HasIdentity, LATEST, SerialCounter, StringHelper, TryIntoInt,
 };
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;

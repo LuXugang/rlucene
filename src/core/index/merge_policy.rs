@@ -129,7 +129,7 @@ pub trait MergePolicy: Display {
     fn find_forced_merges<D, MC>(
         &self,
         segment_infos: &SegmentInfos<D>,
-        max_segment_count: i32,
+        max_segment_count: usize,
         segments_to_merge: &HashMap<String, Option<bool>>,
         inner: Option<&Inner<D>>,
         merge_context: &MC,
@@ -486,7 +486,7 @@ impl MergePolicy for MergePolicyEnum {
     fn find_forced_merges<D, MC>(
         &self,
         segment_infos: &SegmentInfos<D>,
-        max_segment_count: i32,
+        max_segment_count: usize,
         segments_to_merge: &HashMap<String, Option<bool>>,
         inner: Option<&Inner<D>>,
         merge_context: &MC,
