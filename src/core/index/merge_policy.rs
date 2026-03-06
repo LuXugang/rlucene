@@ -25,7 +25,9 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::sorter::DocMap;
-use crate::core::index::tiered_merge_policy::{SegmentCommitInfoMeta, TieredMergePolicy};
+use crate::core::index::tiered_merge_policy::{
+    SegmentCommitInfoMeta, SegmentDocAndID, TieredMergePolicy,
+};
 use crate::core::store::directory::Directory;
 use crate::core::store::merge_info::MergeInfo;
 use crate::core::util::bits::Bits;
@@ -807,7 +809,7 @@ where
     D: Directory,
     CR: CodecReader,
 {
-    pub fn new(segments: &[SegmentCommitInfoMeta]) -> Result<Self> {
+    pub fn new(segments: Vec<SegmentDocAndID>) -> Result<Self> {
         if segments.is_empty() {
             return Err(LuceneError::illegal_state(
                 "segments must include at least one segment",
@@ -815,8 +817,8 @@ where
         }
         let mut v = Vec::with_capacity(segments.len());
         let mut total_max_doc = 0;
-        for s in segments.iter() {
-            v.push(s.seg_id.clone());
+        for s in segments.into_iter() {
+            v.push(s.seg_id);
             total_max_doc += s.max_doc
         }
 
@@ -842,6 +844,13 @@ where
             info: None,
             merge_completed: OnceLock::new(),
         })
+    }
+    pub fn from_meta(segments: &[SegmentCommitInfoMeta]) -> Result<Self> {
+        let mut segments_meta = Vec::with_capacity(segments.len());
+        for v in segments {
+            segments_meta.push(SegmentDocAndID::new(v.seg_id.clone(), v.max_doc))
+        }
+        Self::new(segments_meta)
     }
     /// Constructor for wrapping.
     pub(crate) fn from_other(one_merge: OneMerge<D, CR>) -> Self {

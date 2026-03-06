@@ -501,7 +501,7 @@ impl TieredMergePolicy {
                 have_one_large_merge |= best_too_large;
 
                 let spec_ref = spec.get_or_insert_with(MergeSpecification::new);
-                let merge = OneMerge::new(best.as_ref())?;
+                let merge = OneMerge::from_meta(best.as_ref())?;
                 spec_ref.add(merge);
             }
             // whether we're going to return this list in the spec of not, we need to remove it from
@@ -598,6 +598,15 @@ impl SegmentCommitInfoMeta {
             max_doc,
             name,
         }
+    }
+}
+pub struct SegmentDocAndID {
+    pub(crate) seg_id: String,
+    pub(crate) max_doc: i32,
+}
+impl SegmentDocAndID {
+    pub(crate) fn new(seg_id: String, max_doc: i32) -> Self {
+        Self { seg_id, max_doc }
     }
 }
 
@@ -896,7 +905,7 @@ impl MergePolicy for TieredMergePolicy {
                     )
                 })
                 .collect();
-            spec.add(OneMerge::new(all_of_them.as_ref())?);
+            spec.add(OneMerge::from_meta(all_of_them.as_ref())?);
             return Ok(Some(spec));
         }
 
@@ -946,7 +955,7 @@ impl MergePolicy for TieredMergePolicy {
                 && (!force_merge_running
                     || (current_candidate_bytes as f64) > 0.7 * (max_merge_bytes as f64))
             {
-                let merge = OneMerge::new(candidate.as_ref())?;
+                let merge = OneMerge::from_meta(candidate.as_ref())?;
 
                 let spec_ref = spec.get_or_insert_with(MergeSpecificationNoReader::new);
                 spec_ref.add(merge);
