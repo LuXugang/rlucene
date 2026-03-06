@@ -97,6 +97,7 @@ pub mod leaf_reader_context;
 pub mod live_index_writer_config;
 pub(crate) mod lockable_concurrent_approximate_priority_queue;
 pub mod log_byte_size_merge_policy;
+pub mod log_doc_merge_policy;
 pub mod log_merge_policy;
 pub(crate) mod mapped_multi_fields;
 pub(crate) mod mapping_multi_postings_enum;

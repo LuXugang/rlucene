@@ -16,8 +16,8 @@
  */
 use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
-    DEFAULT_MAX_CFS_SEGMENT_SIZE, DEFAULT_NO_CFS_RATIO, MergeContext, MergePolicy, MergePolicyBase,
-    MergeSpecification, MergeSpecificationNoReader, OneMerge, assert_del_count, size,
+    MergeContext, MergePolicy, MergePolicyBase, MergeSpecification, MergeSpecificationNoReader,
+    OneMerge, assert_del_count, size,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -67,7 +67,7 @@ where
     /// `maxDoc / targetSearchConcurrency` documents.
     pub(crate) target_search_concurrency: i32,
     pub(crate) base: MergePolicyBase,
-    sub: T,
+    pub(crate) sub: T,
 }
 
 impl<T> LogMergePolicy<T>
@@ -87,21 +87,6 @@ where
     ///
     /// @see MergePolicy#setNoCFSRatio
     pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
-    /// Sole constructor. (For invocation by subclass constructors, typically implicit.)
-    pub(crate) fn new(sub: T) -> Self {
-        let base = MergePolicyBase::new(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE);
-        Self {
-            merge_factor: Self::DEFAULT_MERGE_FACTOR,
-            min_merge_size: 0,
-            max_merge_size: 0,
-            max_merge_size_for_forced_merge: i64::MAX,
-            max_merge_docs: Self::DEFAULT_MAX_MERGE_DOCS,
-            calibrate_size_by_deletes: true,
-            target_search_concurrency: 1,
-            base,
-            sub,
-        }
-    }
     /// Returns the number of segments that are merged at once and also controls the total number of
     /// segments allowed to accumulate in the index.
     pub fn get_merge_factor(&self) -> usize {
@@ -152,26 +137,6 @@ where
     /// Returns the target search concurrency.
     pub fn get_target_search_concurrency(&self) -> i32 {
         self.target_search_concurrency
-    }
-    /// Return the number of documents in the provided [`SegmentCommitInfo`], pro-rated by
-    /// percentage of non-deleted documents if [`LogMergePolicy::set_calibrate_size_by_deletes`]
-    /// is set.
-    pub(crate) fn size_docs<D, MC>(
-        &self,
-        info: &SegmentCommitInfo<D>,
-        merge_context: &MC,
-    ) -> Result<i64>
-    where
-        D: Directory,
-        MC: MergeContext<D>,
-    {
-        if self.calibrate_size_by_deletes {
-            let del_count = merge_context.num_deletes_to_merge(info)?;
-            debug_assert!(assert_del_count(del_count, info)?);
-            Ok((info.info.max_doc()? - del_count) as i64)
-        } else {
-            Ok(info.info.max_doc()? as i64)
-        }
     }
 
     /// Returns true if the number of segments eligible for merging is less than or equal to the
@@ -243,7 +208,8 @@ where
                 .info_idx(start_idx)
                 .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
             if self.size(info, merge_context)? > self.max_merge_size_for_forced_merge
-                || self.size_docs(info, merge_context)? > self.max_merge_docs as i64
+                || size_docs(info, merge_context, self.calibrate_size_by_deletes)?
+                    > self.max_merge_docs as i64
             {
                 // need to skip that segment + add a merge for the 'right' segments,
                 // unless there is only 1 which is merged.
@@ -427,7 +393,26 @@ where
         Ok(meta)
     }
 }
-
+/// Return the number of documents in the provided [`SegmentCommitInfo`], pro-rated by
+/// percentage of non-deleted documents if [`LogMergePolicy::set_calibrate_size_by_deletes`]
+/// is set.
+pub(crate) fn size_docs<D, MC>(
+    info: &SegmentCommitInfo<D>,
+    merge_context: &MC,
+    calibrate_size_by_deletes: bool,
+) -> Result<i64>
+where
+    D: Directory,
+    MC: MergeContext<D>,
+{
+    if calibrate_size_by_deletes {
+        let del_count = merge_context.num_deletes_to_merge(info)?;
+        debug_assert!(assert_del_count(del_count, info)?);
+        Ok((info.info.max_doc()? - del_count) as i64)
+    } else {
+        Ok(info.info.max_doc()? as i64)
+    }
+}
 /// Return the byte size of the provided [`SegmentCommitInfo`], pro-rated by percentage of
 /// non-deleted documents if [`LogMergePolicy::set_calibrate_size_by_deletes`]
 /// is set.
@@ -526,7 +511,7 @@ where
                 .info_idx(i)
                 .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
 
-            total_doc_count += self.size_docs(info, merge_context)?;
+            total_doc_count += size_docs(info, merge_context, self.calibrate_size_by_deletes)?;
             let mut size = self.size(info, merge_context)?;
 
             // Floor tiny segments
@@ -619,7 +604,8 @@ where
                     }
 
                     let segment_size = self.size(info, merge_context)?;
-                    let segment_docs = self.size_docs(info, merge_context)?;
+                    let segment_docs =
+                        size_docs(info, merge_context, self.calibrate_size_by_deletes)?;
 
                     if merge_size + segment_size > self.max_merge_size
                         || merge_docs + segment_docs > max_merge_docs
@@ -737,7 +723,8 @@ where
                 .info_idx(i)
                 .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
             if self.size(info, merge_context)? > self.max_merge_size_for_forced_merge
-                || self.size_docs(info, merge_context)? > self.max_merge_docs as i64
+                || size_docs(info, merge_context, self.calibrate_size_by_deletes)?
+                    > self.max_merge_docs as i64
             {
                 any_too_large = true;
                 break;

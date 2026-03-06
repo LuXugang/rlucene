@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::core::index::log_merge_policy::{LogMergePolicy, LogMergePolicyBase, size_bytes};
-use crate::core::index::merge_policy::MergeContext;
+use crate::core::index::merge_policy::{
+    DEFAULT_MAX_CFS_SEGMENT_SIZE, DEFAULT_NO_CFS_RATIO, MergeContext, MergePolicyBase,
+};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
@@ -48,6 +50,29 @@ impl LogMergePolicyBase for LogByteSizeMergePolicy {
     }
 }
 impl LogMergePolicy<LogByteSizeMergePolicy> {
+    pub fn log_bytes_size() -> Self {
+        let base = MergePolicyBase::new(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE);
+        let mut mp = LogMergePolicy {
+            merge_factor: Self::DEFAULT_MERGE_FACTOR,
+            min_merge_size: 0,
+            max_merge_size: 0,
+            max_merge_size_for_forced_merge: i64::MAX,
+            max_merge_docs: Self::DEFAULT_MAX_MERGE_DOCS,
+            calibrate_size_by_deletes: true,
+            target_search_concurrency: 1,
+            base,
+            sub: LogByteSizeMergePolicy,
+        };
+
+        mp.min_merge_size = (LogByteSizeMergePolicy::DEFAULT_MIN_MERGE_MB * 1024.0 * 1024.0) as i64;
+        mp.max_merge_size = (LogByteSizeMergePolicy::DEFAULT_MAX_MERGE_MB * 1024.0 * 1024.0) as i64;
+
+        mp.max_merge_size_for_forced_merge =
+            (LogByteSizeMergePolicy::DEFAULT_MAX_MERGE_MB_FOR_FORCED_MERGE * 1024.0 * 1024.0)
+                as i64;
+
+        mp
+    }
     /// Determines the largest segment (measured by total byte size of the segment's files, in MB) that
     /// may be merged with other segments. Small values (e.g., less than 50 MB) are best for
     /// interactive indexing, as this limits the length of pauses while indexing to a few seconds.
