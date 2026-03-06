@@ -29,7 +29,7 @@ pub struct RandomIndexWriter<D>
 where
     D: Directory,
 {
-    w: DefaultIndexWriterType<D>,
+    pub(crate) w: DefaultIndexWriterType<D>,
 }
 
 impl<D> RandomIndexWriter<D>

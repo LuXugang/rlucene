@@ -440,7 +440,7 @@ where
 #[cfg(test)]
 mod test {
     use crate::core::document::document::Document;
-    use crate::core::document::field::Store;
+    use crate::core::document::field::{Field, Store};
     use std::cmp::Ordering;
 
     use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
@@ -467,16 +467,22 @@ mod test {
 
     use crate::core::document::binary_point::BinaryPoint;
     use crate::core::document::double_doc_values_field::DoubleDocValuesField;
+    use crate::core::document::field_type::FieldType;
     use crate::core::document::long_point::LongPoint;
     use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
     use crate::core::document::text_field::TextField;
     use crate::core::index::BytesRef;
+    use crate::core::index::composite_reader::get_context;
+    use crate::core::index::index_options::IndexOptions;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::search::boolean_clause::Occur;
     use crate::core::search::boolean_query::Builder;
     use crate::core::search::boost_query::BoostQuery;
     use crate::core::search::constant_score_query::ConstantScoreQuery;
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::util::TryIntoInt;
+    use crate::test::util::test_util::TestUtil;
     use rand::Rng;
     use std::sync::Arc;
     use std::vec;
@@ -867,7 +873,7 @@ mod test {
         let dir = new_directory_shared(&mut random)?;
 
         let config = new_index_writer_config(&mut random);
-        let w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
+        let mut w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
         let random_num_docs = random.random_range(11..=100);
         let mut num_matching_docs = 0i32;
@@ -890,8 +896,7 @@ mod test {
             }
             w.add_document(doc)?;
         }
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
 
         let reader = w.get_reader()?;
         let searcher = new_searcher_with_reader(reader)?;
@@ -902,7 +907,8 @@ mod test {
 
         // Test that we can't count in O(1) when there are deleted documents
         // TODO: NoMergePolicy 未实现/未接入到 RandomIndexWriter config
-        // w.w.get_config().set_merge_policy(NoMergePolicy::instance());
+        w.w.get_config_mut()
+            .set_merge_policy(NoMergePolicy::default());
         // TODO: delete-by-query not implement yet
         // let v :Vec<Query>= vec![LongPoint::new_range_query("long", 0i64, 9i64)?.into()];
         // w.delete_documents_with_query(v)?;
@@ -1144,8 +1150,93 @@ mod test {
 
         Ok(())
     }
+    #[test]
     fn test_norms_query_matches_count() -> Result<()> {
-        // TODO force_merge 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let mut w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let random_num_docs = TestUtil::next_int(&mut random, 10, 100);
+
+        let mut no_norms_field_type = FieldType::default();
+        no_norms_field_type.set_omit_norms(true)?;
+        no_norms_field_type.set_index_options(IndexOptions::Docs)?;
+
+        let mut doc = Document::new();
+        doc.add(TextField::from_string("text", "always here", Store::No)?);
+        doc.add(TextField::from_string("text_s", "", Store::No)?);
+        doc.add(Field::new(
+            "text_n",
+            "always here",
+            no_norms_field_type.clone(),
+        ));
+        w.add_document(doc)?;
+
+        for _i in 1..random_num_docs {
+            let mut doc = Document::new();
+            doc.add(TextField::from_string("text", "some text", Store::No)?);
+            doc.add(TextField::from_string("text_s", "some text", Store::No)?);
+            doc.add(Field::new(
+                "text_n",
+                "some here",
+                no_norms_field_type.clone(),
+            ));
+            w.add_document(doc)?;
+        }
+        w.force_merge(1)?;
+
+        let reader = w.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        assert_norms_count_with_shortcut(&searcher, "text", random_num_docs)?;
+        assert_norms_count_with_shortcut(&searcher, "doesNotExist", 0)?;
+
+        let q = FieldExistsQuery::new("text_n");
+        assert!(searcher.count(q).is_err());
+        // docs that have a text field that analyzes to an empty token
+        // stream still have a recorded norm value but don't show up in
+        // Reader.getDocCount(field), so we can't use the shortcut for
+        // these fields
+        assert_norms_count_without_shortcut(&searcher, "text_s", random_num_docs)?;
+
+        // We can still shortcut with deleted docs
+        w.w.get_config_mut()
+            .set_merge_policy(NoMergePolicy::default());
+        w.delete_documents_with_terms(vec![Term::from_text("text", "text")])?; // deletes all but the first doc
+
+        let reader2 = Arc::new(w.get_reader()?);
+        let searcher2 = new_searcher_with_reader(reader2.clone())?;
+        assert_norms_count_with_shortcut(&searcher2, "text", 1)?;
+
+        Ok(())
+    }
+    fn assert_norms_count_without_shortcut<IRC: IndexReaderContext>(
+        searcher: &IndexSearcher<IRC>,
+        field: &str,
+        expected_count: i32,
+    ) -> Result<()> {
+        let q = FieldExistsQuery::new(field);
+        let weight = searcher.create_weight(q.clone(), ScoreMode::Complete, 1.0)?;
+
+        let ctxs = searcher.get_leaf_contexts()?;
+        assert_eq!(-1, weight.count(&ctxs[0])?);
+
+        assert_eq!(expected_count, searcher.count(q)?);
+        Ok(())
+    }
+
+    fn assert_norms_count_with_shortcut<IRC: IndexReaderContext>(
+        searcher: &IndexSearcher<IRC>,
+        field: &str,
+        num_matching_docs: i32,
+    ) -> Result<()> {
+        let q = FieldExistsQuery::new(field);
+
+        assert_eq!(num_matching_docs, searcher.count(q.clone())?);
+
+        let weight = searcher.create_weight(q, ScoreMode::Complete, 1.0)?;
+        let ctxs = searcher.get_leaf_contexts()?;
+        assert_eq!(num_matching_docs, weight.count(&ctxs[0])?);
         Ok(())
     }
     fn test_knn_vector_random() -> Result<()> {
@@ -1174,15 +1265,79 @@ mod test {
     }
     #[test]
     fn test_delete_all_point_docs() -> Result<()> {
-        // TODO force_merge 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("id", "0", Store::No)?);
+        doc.add(LongPoint::new("long", vec![17])?);
+        doc.add(NumericDocValuesField::new("long", 17));
+        iw.add_document(doc)?;
+
+        // add another document before the flush, otherwise the segment only has the document that
+        // we are going to delete and the merge simply ignores the segment without carrying over its
+        // field infos
+        iw.add_document(Document::new())?;
+
+        // make sure there are two segments or force merge will be a no-op
+        iw.flush()?;
+        iw.add_document(Document::new())?;
+        iw.commit()?;
+
+        iw.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+        iw.force_merge(1)?;
+
+        let reader = iw.get_reader()?;
+        assert!(!reader.has_deletions()?);
+        let r = get_context(&reader)?;
+        assert_eq!(1, r.leaves()?.len());
+
+        let searcher = new_searcher_with_reader(reader)?;
+        let q = FieldExistsQuery::new("long");
+        assert_eq!(0, searcher.count(q)?);
+
         Ok(())
     }
     #[test]
     fn test_delete_all_term_docs() -> Result<()> {
-        // TODO force_merge 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("id", "0", Store::No)?);
+        doc.add(StringField::from_string("str", "foo", Store::No)?);
+        doc.add(SortedDocValuesField::new(
+            "str",
+            BytesRef::from_bytes(b"foo".to_vec()),
+        ));
+        iw.add_document(doc)?;
+
+        // add another document before the flush, otherwise the segment only has the document that
+        // we are going to delete and the merge simply ignores the segment without carrying over its
+        // field infos
+        iw.add_document(Document::new())?;
+
+        // make sure there are two segments or force merge will be a no-op
+        iw.flush()?;
+        iw.add_document(Document::new())?;
+        iw.commit()?;
+
+        iw.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+        iw.force_merge(1)?;
+
+        let reader = iw.get_reader()?;
+        assert!(!reader.has_deletions()?);
+        let r = get_context(&reader)?;
+        assert_eq!(1, r.leaves()?.len());
+
+        let searcher = new_searcher_with_reader(reader)?;
+        let q = FieldExistsQuery::new("str");
+        assert_eq!(0, searcher.count(q)?);
+
         Ok(())
     }
-
     fn assert_same_matches<IRC, T1, T2>(
         searcher: &IndexSearcher<IRC>,
         q1: T1,

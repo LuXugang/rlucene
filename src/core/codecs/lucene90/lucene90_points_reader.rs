@@ -186,13 +186,7 @@ where
                         field_name
                     )));
                 }
-                match self.readers.get(&field_info.number) {
-                    Some(reader) => Ok(Some(reader.clone())),
-                    None => Err(LuceneError::illegal_state(format!(
-                        "No BKDReader found for field: {}",
-                        field_name
-                    ))),
-                }
+                Ok(self.readers.get(&field_info.number).cloned())
             },
             None => Err(LuceneError::illegal_state(format!(
                 "field=: {} is unrecognized",
