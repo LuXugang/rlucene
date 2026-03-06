@@ -935,8 +935,11 @@ mod tests {
     use crate::core::document::field::{Field, Store};
     use crate::core::document::field_type::FieldType;
     use crate::core::document::string_field::StringField;
+    use crate::core::index::composite_reader::get_context;
     use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::index_writer::{IndexWriter, read_field_infos};
+    use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::index::segment_infos::SegmentInfos;
@@ -1048,8 +1051,7 @@ mod tests {
         d2.add(Field::new("f2", "v2", type2.clone()));
         writer.add_document(d2)?;
         writer.commit()?;
-        // TODO force_merge未实现
-        // writer.force_merge(1)?;
+        writer.force_merge(1)?;
 
         let reader = directory_reader_util::open_with_writer(&writer)?;
         let fis = get_merged_field_infos(reader)?;
@@ -1141,7 +1143,35 @@ mod tests {
     }
     #[test]
     fn test_merged_field_infos_single_leaf() -> Result<()> {
-        // TODO force_merge未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO: 未实现MockAnalyzer
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        let mut d1 = Document::new();
+        d1.add(StringField::from_string("f1", "v1", Store::Yes)?);
+        writer.add_document(d1)?;
+        writer.commit()?;
+
+        let mut d2 = Document::new();
+        d2.add(StringField::from_string("f2", "v2", Store::Yes)?);
+        writer.add_document(d2)?;
+        writer.commit()?;
+
+        writer.force_merge(1)?;
+
+        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let actual = get_merged_field_infos(&reader)?;
+        let reader = get_context(reader)?;
+        let leaves = reader.leaves()?;
+        let expected = leaves[0].reader().get_field_infos()?;
+
+        assert_eq!(1, leaves.len());
+        assert!(std::ptr::eq(expected.as_ref(), actual.as_ref()));
+
+        writer.close()?;
+        drop(dir);
         Ok(())
     }
 

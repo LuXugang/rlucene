@@ -1062,8 +1062,7 @@ pub(crate) mod tests {
             w.add_document(doc)?;
         }
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
         w.close()?;
 
         let reader = directory_reader_util::open(dir)?;
@@ -1310,8 +1309,7 @@ pub(crate) mod tests {
             w.add_document(doc)?;
         }
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
         w.close()?;
 
         let reader = directory_reader_util::open(dir)?;
@@ -1433,8 +1431,7 @@ pub(crate) mod tests {
             w.add_document(doc)?;
         }
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
         w.close()?;
 
         let reader = directory_reader_util::open(dir)?;
@@ -1494,8 +1491,7 @@ pub(crate) mod tests {
             w.add_document(doc)?;
         }
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
         w.close()?;
 
         let reader = directory_reader_util::open(dir)?;
@@ -1579,8 +1575,7 @@ pub(crate) mod tests {
             w.add_document(doc)?;
         }
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
         w.close()?;
 
         let reader = directory_reader_util::open(dir)?;
@@ -1687,8 +1682,7 @@ pub(crate) mod tests {
             w.add_document(doc)?;
         }
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
         w.close()?;
 
         let reader = directory_reader_util::open(dir)?;
@@ -1777,8 +1771,7 @@ pub(crate) mod tests {
             w.add_document(doc)?;
         }
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
         w.close()?;
 
         let reader = directory_reader_util::open(dir)?;
@@ -1884,8 +1877,7 @@ pub(crate) mod tests {
             w.add_document(doc)?;
         }
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
         w.close()?;
 
         let reader = directory_reader_util::open(dir)?;

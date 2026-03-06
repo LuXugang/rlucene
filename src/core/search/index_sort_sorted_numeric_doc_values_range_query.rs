@@ -2101,7 +2101,7 @@ mod tests {
         add_doc_with_bkd(&writer, field_name, 9, 900)?;
 
         writer.flush()?;
-        // writer.force_merge(1)?; // TODO force_merge未实现
+        writer.force_merge(1)?;
 
         let reader = writer.get_reader()?;
         let searcher = new_searcher_with_reader(reader)?;

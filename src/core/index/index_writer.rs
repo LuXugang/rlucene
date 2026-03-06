@@ -1751,14 +1751,14 @@ where
 
     fn maybe_merge_with_max_num_segments(
         &self,
-        _merge_policy: &L::MergePolicy,
-        _trigger: MergeTrigger,
-        _max_num_segments: i32,
+        merge_policy: &L::MergePolicy,
+        trigger: MergeTrigger,
+        max_num_segments: i32,
     ) -> Result<()> {
-        // self.do_ensure_open(false)?;
-        // if self.update_pending_merges(merge_policy, trigger, max_num_segments, None)? {
-        //     self.execute_merge(trigger)?;
-        // }
+        self.do_ensure_open(false)?;
+        if self.update_pending_merges(merge_policy, trigger, max_num_segments, None)? {
+            self.execute_merge(trigger)?;
+        }
         Ok(())
     }
 
