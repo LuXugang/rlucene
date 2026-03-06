@@ -444,7 +444,9 @@ pub enum MergePolicyEnum {
 impl_from_for_enum!(
     MergePolicyEnum,
     NoMergePolicy => No,
-    TieredMergePolicy => Tiered
+    TieredMergePolicy => Tiered,
+    LogMergePolicy<LogDocMergePolicy> => LogDoc,
+    LogMergePolicy<LogByteSizeMergePolicy> => LogBytesSize
 );
 impl Display for MergePolicyEnum {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -58,6 +58,8 @@ pub mod lucene_test_case_util {
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::indexable_field_type::IndexableFieldType;
 
+    use crate::core::index::log_merge_policy::{LogMergePolicy, LogMergePolicyBase};
+    use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
     use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
     use crate::core::store::directory::{DirEnum, Directory};
     use crate::core::store::flush_info::FlushInfo;
@@ -128,6 +130,65 @@ pub mod lucene_test_case_util {
     pub(crate) fn new_index_writer_config<R: Rng + ?Sized>(_random: &mut R) -> IndexWriterConfig {
         // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
         IndexWriterConfig::new()
+    }
+
+    pub fn new_log_merge_policy<R>(r: &mut R) -> Result<MergePolicyEnum>
+    where
+        R: Rng + ?Sized,
+    {
+        let logmp = if r.random_bool(0.5) {
+            let mut v = LogMergePolicy::log_doc();
+            set_meta(r, &mut v)?;
+            v.into()
+        } else {
+            let mut v = LogMergePolicy::log_bytes_size();
+            set_meta(r, &mut v)?;
+            v.into()
+        };
+
+        Ok(logmp)
+    }
+    fn set_meta<R>(r: &mut R, mp: &mut LogMergePolicy<impl LogMergePolicyBase>) -> Result<()>
+    where
+        R: Rng + ?Sized,
+    {
+        mp.set_calibrate_size_by_deletes(r.random_bool(0.5));
+        mp.set_target_search_concurrency(TestUtil::next_int(r, 1, 16))?;
+
+        if rarely(r) {
+            mp.set_merge_factor(TestUtil::next_usize(r, 2, 9))?;
+        } else {
+            mp.set_merge_factor(TestUtil::next_usize(r, 10, 50))?;
+        }
+
+        configure_random(r, mp)
+    }
+    fn configure_random<R, MP>(r: &mut R, merge_policy: &mut MP) -> Result<()>
+    where
+        R: Rng + ?Sized,
+        MP: MergePolicy,
+    {
+        if r.random_bool(0.5) {
+            merge_policy
+                .get_base_mut()
+                .set_no_cfs_ratio(0.1 + r.random::<f64>() * 0.8)?;
+        } else {
+            merge_policy
+                .get_base_mut()
+                .set_no_cfs_ratio(if r.random_bool(0.5) { 1.0 } else { 0.0 })?;
+        }
+
+        if rarely(r) {
+            merge_policy
+                .get_base_mut()
+                .set_max_cfs_segment_size_mb(0.2 + r.random::<f64>() * 2.0)?;
+        } else {
+            merge_policy
+                .get_base_mut()
+                .set_max_cfs_segment_size_mb(f64::INFINITY)?;
+        }
+
+        Ok(())
     }
 
     // TODO: When we have implemented multiple directories, we need to select one
