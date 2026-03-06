@@ -180,7 +180,7 @@ where
                     infos_upto += 1;
                 } else {
                     reader.dec_ref()?;
-                    segment_infos.remove_at(infos_upto);
+                    segment_infos.remove(infos_upto);
                 }
             }
             Ok(segment_infos)

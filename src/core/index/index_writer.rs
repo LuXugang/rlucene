@@ -809,7 +809,7 @@ where
 
         // it's possible that we invoke this method more than once for the same SCI
         // we must only remove the docs once!
-        let (mut drop_pending_docs, max_doc) = match inner.segment_infos.remove(seg_id) {
+        let (mut drop_pending_docs, max_doc) = match inner.segment_infos.remove_with_id(seg_id) {
             Some(sci) => {
                 let max_doc = sci.info.max_doc()?;
                 (true, max_doc)
@@ -2353,7 +2353,7 @@ where
         } else {
             // only write the docValues
             if self.reader_pool.write_all_doc_values_updates(
-                &mut inner.segment_infos.segments,
+                &mut inner.segment_infos,
                 &self.global_field_number_map.lock(),
             )? {
                 self.checkpoint(inner)?;
@@ -2362,7 +2362,7 @@ where
         // now do some best effort to check if a segment is fully deleted
         let mut to_drop = Vec::new();
 
-        for info in inner.segment_infos.segments.values() {
+        for info in inner.segment_infos.iter() {
             if let Some(rld) = self.reader_pool.get(info.into(), false, None)?
                 && rld.is_fully_deleted(info)?
             {
@@ -4021,7 +4021,7 @@ where
                 &format!(
                     "incRefDeleter for NRT reader version={} segments={}",
                     segment_infos.get_version(),
-                    self.seg_string_from_infos(segment_infos.segments.values())?
+                    self.seg_string_from_infos(segment_infos.segments.iter())?
                 ),
             );
         }
@@ -4046,7 +4046,7 @@ where
                 &format!(
                     "decRefDeleter for NRT reader version={} segments={}",
                     segment_infos.get_version(),
-                    self.seg_string_from_infos(segment_infos.segments.values())?
+                    self.seg_string_from_infos(segment_infos.segments.iter())?
                 ),
             );
         }
@@ -4251,9 +4251,9 @@ where
                 let keys = match &v {
                     InfoFrom::None => break,
                     InfoFrom::Updates => {
-                        vec![updates.private_segment.as_ref().unwrap()]
+                        vec![updates.private_segment.clone().unwrap()]
                     },
-                    InfoFrom::All => inner.segment_infos.segments_idx.iter().collect::<Vec<_>>(),
+                    InfoFrom::All => inner.segment_infos.seg_ids(),
                 };
                 for id in &keys {
                     let info = inner.segment_infos.info(id).ok_or_else(|| {
@@ -4266,7 +4266,7 @@ where
                 }
                 let v = match v {
                     InfoFrom::None => return Err(LuceneError::unreachable("should not be here")),
-                    InfoFrom::Updates => Some(updates.private_segment.as_ref().unwrap()),
+                    InfoFrom::Updates => Some(updates.private_segment.clone().unwrap()),
                     // all segments
                     InfoFrom::All => None,
                 };
@@ -4307,8 +4307,7 @@ where
                 let result: Result<()> = (|| {
                     // don't hold IW monitor lock here so threads are free concurrently resolve
                     // deletes/updates:
-                    del_count =
-                        updates.apply(&seg_states, &self.inner.lock().segment_infos.segments)?;
+                    del_count = updates.apply(&seg_states, &self.inner.lock().segment_infos)?;
                     success = true;
                     Ok(())
                 })();
@@ -4573,7 +4572,7 @@ where
     /// Opens SegmentReader and inits SegmentState for each segment.
     pub(crate) fn open_segment_states(
         &self,
-        info_from: Option<&String>,
+        info_from: Option<String>,
         already_seen: &mut HashSet<String>,
         del_gen: i64,
         inner: &mut Inner<D>, // we hold lock
@@ -4583,18 +4582,18 @@ where
         let result: Result<()> = (|| {
             let infos = match info_from {
                 // all segments, `segments_idx`'s values are sorted by segment name
-                None => inner.segment_infos.segments_idx.iter().collect::<Vec<_>>(),
+                None => inner.segment_infos.seg_ids(),
                 Some(it) => vec![it],
             };
             for info_id in infos {
-                let info = inner.segment_infos.info(info_id).unwrap();
-                if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(info_id) {
+                let info = inner.segment_infos.info(&info_id).unwrap();
+                if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(&info_id) {
                     let rld = self
                         .get_pooled_instance(info.into(), true, None)?
                         .ok_or_else(|| LuceneError::illegal_state("should not None"))?;
                     let seg_state = SegmentState::new(rld, info)?;
                     seg_states.push(seg_state);
-                    already_seen.insert(info_id.clone());
+                    already_seen.insert(info_id);
                 }
             }
             Ok(())

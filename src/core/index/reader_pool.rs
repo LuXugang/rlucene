@@ -263,7 +263,7 @@ where
     /// Writes all doc values updates to disk if there are any.
     pub(crate) fn write_all_doc_values_updates(
         &self,
-        infos: &mut HashMap<String, SegmentCommitInfo<D>>,
+        infos: &mut SegmentInfos<D>,
         global_field_number: &FieldNumbers,
     ) -> Result<bool> {
         let copy: Vec<Arc<ReadersAndUpdates<D>>> = {
@@ -275,7 +275,7 @@ where
 
         let mut any = false;
         for rld in copy {
-            let info = match infos.get_mut(&rld.info_id) {
+            let info = match infos.info_mut(&rld.info_id) {
                 Some(info) => info,
                 None => return Err(LuceneError::illegal_state("SegmentCommitInfo missing")),
             };
@@ -382,7 +382,7 @@ where
         let inner = self.inner.lock();
         let mut at_least_one_change = false;
 
-        for info in infos.segments.values_mut() {
+        for info in infos.segments.iter_mut() {
             if let Some(rld) = inner.reader_map.get(&info.info.get_id_str()) {
                 debug_assert_eq!(rld.info_id, info.info.get_id_str());
 
@@ -594,7 +594,7 @@ mod tests {
             None,
             index_created_version_major,
         );
-        let idx = random.random_range(0..segment_infos.segments_idx.len());
+        let idx = random.random_range(0..segment_infos.segments.len());
         let commit_info = segment_infos.info_idx_mut(idx).unwrap();
 
         let readers_and_updates = pool.get((&*commit_info).into(), true, None)?.unwrap();
@@ -640,7 +640,7 @@ mod tests {
             index_created_version_major,
         );
 
-        let idx = random.random_range(0..segment_infos.segments_idx.len());
+        let idx = random.random_range(0..segment_infos.segments.len());
         let commit_info = segment_infos.info_idx_mut(idx).unwrap();
 
         assert!(!pool.is_reader_pooling_enabled());
@@ -676,7 +676,7 @@ mod tests {
         // TODO: memory calculation not implement
         // assert_eq!(0, pool.ram_bytes_used());
 
-        for idx in 0..segment_infos.segments_idx.len() {
+        for idx in 0..segment_infos.segments.len() {
             let info = segment_infos.info_idx_mut(idx).unwrap();
 
             let rau = pool.get((&*info).into(), true, None)?.unwrap();
@@ -706,7 +706,7 @@ mod tests {
 
         pool.drop_all()?;
 
-        for idx in 0..segment_infos.segments_idx.len() {
+        for idx in 0..segment_infos.segments.len() {
             let info = segment_infos.info_idx(idx).unwrap();
             assert!(pool.get(info.into(), false, None)?.is_none());
         }
@@ -748,7 +748,7 @@ mod tests {
             pool.enable_reader_pooling();
         }
 
-        for (idx, seg_id) in segment_infos.segments_idx.clone().iter().enumerate() {
+        for (idx, seg_id) in segment_infos.seg_ids().clone().iter().enumerate() {
             let (read_only_clone, max_doc, readers_and_updates, mut postings) = {
                 let commit_info = segment_infos.info_idx_mut(idx).unwrap();
                 let readers_and_updates = pool.get((&*commit_info).into(), true, None)?.unwrap();
@@ -797,10 +797,8 @@ mod tests {
             let written_to_disk: bool;
             if pool.is_reader_pooling_enabled() {
                 if random.random_bool(0.5) {
-                    written_to_disk = pool.write_all_doc_values_updates(
-                        &mut segment_infos.segments,
-                        &field_numbers.lock(),
-                    )?;
+                    written_to_disk =
+                        pool.write_all_doc_values_updates(segment_infos, &field_numbers.lock())?;
                     assert!(!readers_and_updates.is_merging());
                 } else if random.random_bool(0.5) {
                     written_to_disk = pool.commit(segment_infos, &field_numbers.lock())?;
@@ -905,7 +903,7 @@ mod tests {
             pool.enable_reader_pooling();
         }
 
-        for idx in 0..segment_infos.segments_idx.len() {
+        for idx in 0..segment_infos.segments.len() {
             let (read_only_clone, _max_doc, readers_and_updates, mut postings) = {
                 let commit_info = segment_infos.info_idx_mut(idx).unwrap();
                 let readers_and_updates = pool.get((&*commit_info).into(), true, None)?.unwrap();

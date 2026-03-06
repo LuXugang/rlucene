@@ -134,9 +134,7 @@ where
     /// `IndexWriter.commit`.
     pub user_data: HashMap<String, String>,
     /// List of `SegmentCommitInfo` objects.
-    pub(crate) segments: HashMap<String, SegmentCommitInfo<D>>,
-    // map segment name to SegmentCommitInfo
-    pub(crate) segments_idx: Vec<String>,
+    pub(crate) segments: Vec<SegmentCommitInfo<D>>,
     /// ID for this commit; only written starting with Lucene 5.0.
     id: Option<[u8; StringHelper::ID_LENGTH]>,
     /// Which Lucene version wrote this commit?
@@ -178,36 +176,31 @@ where
             generation: 0,
             last_generation: 0,
             user_data: HashMap::new(),
-            segments: HashMap::new(),
+            segments: Vec::new(),
             id: None,
             lucene_version: None,
             min_segment_lucene_version: None,
             index_created_version_major,
             pending_commit: false,
-            segments_idx: Vec::new(),
         })
     }
     /// Returns [`SegmentCommitInfo`] at the provided index.
-    pub fn info(&self, i: &str) -> Option<&SegmentCommitInfo<D>> {
-        self.segments.get(i)
+    pub fn info(&self, seg_id: &str) -> Option<&SegmentCommitInfo<D>> {
+        self.segments
+            .iter()
+            .find(|sci| sci.info.get_id_str() == seg_id)
     }
     pub fn info_idx(&self, i: usize) -> Option<&SegmentCommitInfo<D>> {
-        let str = self.segments_idx.get(i);
-        match str {
-            Some(s) => self.segments.get(s),
-            None => None,
-        }
+        self.segments.get(i)
     }
     #[cfg(test)]
     pub fn info_idx_mut(&mut self, i: usize) -> Option<&mut SegmentCommitInfo<D>> {
-        let str = self.segments_idx.get(i);
-        match str {
-            Some(s) => self.segments.get_mut(s),
-            None => None,
-        }
-    }
-    pub fn info_mut(&mut self, i: &str) -> Option<&mut SegmentCommitInfo<D>> {
         self.segments.get_mut(i)
+    }
+    pub fn info_mut(&mut self, seg_id: &str) -> Option<&mut SegmentCommitInfo<D>> {
+        self.segments
+            .iter_mut()
+            .find(|sci| sci.info.get_id_str() == seg_id)
     }
 
     /// Get the segments_N filename in use by this segment infos.
@@ -647,8 +640,7 @@ where
             // We do a separate loop up front so we can write the
             // minSegmentVersion before any SegmentInfo; this makes
             // it cleaner to throw IndexFormatTooOldExc at read time:
-            for si_per_commit_id in &self.segments_idx {
-                let si_per_commit = self.segments.get(si_per_commit_id).unwrap();
+            for si_per_commit in self.segments.iter() {
                 let segment_version = si_per_commit.info.version.clone();
                 debug_assert!(segment_version.is_some());
                 if min_segment_version.is_none()
@@ -666,8 +658,7 @@ where
             out.write_vint(min_version.minor)?;
             out.write_vint(min_version.bug_fix)?;
         }
-        for si_per_commit_id in &self.segments_idx {
-            let si_per_commit = self.segments.get(si_per_commit_id).unwrap();
+        for si_per_commit in self.segments.iter() {
             let si = &si_per_commit.info;
             if self.index_created_version_major >= 7 && si.min_version.is_none() {
                 return Err(LuceneError::illegal_state(format!(
@@ -748,17 +739,15 @@ where
             generation: self.generation,
             last_generation: self.last_generation,
             user_data: self.user_data.clone(),
-            segments: HashMap::new(),
+            segments: Vec::new(),
             id: self.id,
             lucene_version: self.lucene_version.clone(),
             min_segment_lucene_version: self.min_segment_lucene_version.clone(),
             index_created_version_major: self.index_created_version_major,
             pending_commit: false,
-            segments_idx: Vec::new(),
         };
 
-        for segment_commit_info_id in &self.segments_idx {
-            let segment_commit_info = self.segments.get(segment_commit_info_id).unwrap();
+        for segment_commit_info in self.segments.iter() {
             // debug_assert!(segment_commit_info.info.codec.is_some());
             cloned.add(segment_commit_info.clone())?;
         }
@@ -857,8 +846,11 @@ where
         if include_segments_file && let Some(segment_file_name) = self.get_segments_file_name() {
             files.insert(segment_file_name);
         }
-        for segment_commit_info_id in &self.segments_idx {
-            let segment_commit_info = self.segments.get(segment_commit_info_id).unwrap();
+        let size = self.size();
+        for i in 0..size {
+            let segment_commit_info = self
+                .info_idx(i)
+                .ok_or_else(|| LuceneError::illegal_state("segment was None"))?;
             files.extend(segment_commit_info.files()?);
         }
         Ok(files)
@@ -943,7 +935,7 @@ where
     /// Replaces all segments in this instance, but keeps generation, version,
     /// counter so that future commits remain write-once.
     pub fn replace(&mut self, other: Self) {
-        self.rollback_segment_infos(other.segments.into_values().collect());
+        self.rollback_segment_infos(other.segments);
         self.last_generation = other.last_generation;
         self.user_data = other.user_data.clone();
     }
@@ -952,7 +944,7 @@ where
     /// include deletions.
     pub fn total_max_doc(&self) -> Result<i32> {
         let mut count = 0;
-        for segment_commit_info in self.segments.values() {
+        for segment_commit_info in self.segments.iter() {
             count += segment_commit_info.info.max_doc()?;
         }
 
@@ -994,93 +986,54 @@ where
                 "All segments must record the minVersion for indices created on or after Lucene 7",
             ));
         }
-
         let merged_away: HashSet<String> = merge.stat.segments.iter().cloned().collect();
 
         let mut inserted = false;
-        let mut new_seg_idx = 0usize;
+        let mut new_segments: Vec<SegmentCommitInfo<D>> = Vec::with_capacity(self.segments.len());
 
-        let merge_info_id = merge.info.as_mut().unwrap().info.get_id_str();
-
-        let cnt = self.segments_idx.len();
-        for seg_idx in 0..cnt {
-            debug_assert!(seg_idx >= new_seg_idx);
-            let info_id = self.segments_idx[seg_idx].clone();
-            let info = self.segments.remove(&info_id).unwrap();
+        for info in self.segments.drain(..) {
+            let info_id = info.info.get_id_str();
             if merged_away.contains(&info_id) {
                 if !inserted && !drop_segment {
-                    self.segments_idx[seg_idx] = merge_info_id.clone();
-                    self.segments
-                        .insert(merge_info_id.clone(), merge.info.take().unwrap());
+                    new_segments.push(merge.info.take().unwrap());
                     inserted = true;
-                    new_seg_idx += 1;
                 }
             } else {
-                self.segments_idx[new_seg_idx] = info_id.clone();
-                self.segments.insert(info_id.clone(), info);
-                new_seg_idx += 1;
+                new_segments.push(info);
             }
         }
 
-        // truncate duplicates at the end (do not touch the map, only the list)
-        self.segments_idx.truncate(new_seg_idx);
-
-        debug_assert!(self.segments_idx.len() == self.segments.len());
-        // truncate duplicates at the end (do not touch the map, only the list)
-
-        // Either we found place to insert segment, or, we did
-        // not, but only because all segments we merged becamee
-        // deleted while we are merging, in which case it should
-        // be the case that the new segment is also all deleted,
-        // we insert it at the beginning if it should not be dropped:
         if !inserted && !drop_segment {
-            let mut new_segments_idx = Vec::with_capacity(self.segments_idx.len() + 1);
-            let mut new_segments = HashMap::with_capacity(self.segments.len() + 1);
-            new_segments_idx.push(merge_info_id.clone());
-            new_segments.insert(merge_info_id, merge.info.take().unwrap());
-            for idx in self.segments_idx.iter() {
-                let v = self.segments.remove(idx).unwrap();
-                new_segments.insert(idx.clone(), v);
-                new_segments_idx.push(idx.clone());
-            }
-            self.segments = new_segments;
-            self.segments_idx = new_segments_idx;
+            new_segments.insert(0, merge.info.take().unwrap());
         }
+
+        self.segments = new_segments;
 
         Ok(())
     }
 
     pub fn create_backup_segment_infos(&self) -> Result<Vec<SegmentCommitInfo<D>>> {
-        let mut backup_list = Vec::with_capacity(self.segments.len());
-        for segment_commit_info_id in &self.segments_idx {
-            let segment_commit_info = self.segments.get(segment_commit_info_id).unwrap();
-            backup_list.push(segment_commit_info.clone());
+        let mut list = Vec::with_capacity(self.segments.len());
+        for segment_commit_info in self.segments.iter() {
+            list.push(segment_commit_info.clone());
         }
-        Ok(backup_list)
+        Ok(list)
     }
 
     pub fn rollback_segment_infos(&mut self, infos: Vec<SegmentCommitInfo<D>>) {
         self.clear();
-        let v: HashMap<String, SegmentCommitInfo<D>> = infos
-            .into_iter()
-            .map(|sci| (sci.info.get_id_str(), sci))
-            .collect();
-        self.segments.extend(v);
+        debug_assert!(self.segments.is_empty());
+        self.segments.extend(infos);
     }
-    /// ⚠️ Note: The order of SegmentCommitInfo array is not the insertion order.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SegmentCommitInfo<D>> {
-        self.segments.values_mut()
-    }
-    /// ⚠️ Note: The order of SegmentCommitInfo array is not the insertion order.
-    pub fn iter(&self) -> impl Iterator<Item = &SegmentCommitInfo<D>> {
-        self.segments.values()
+    pub fn iter_mut(&mut self) -> &mut [SegmentCommitInfo<D>] {
+        self.segments.as_mut_slice()
     }
     /// Returns all contained segments as a non-mutable reference to the
     /// internal vector.
-    /// ⚠️ Note: The order of SegmentCommitInfo array is not the insertion order.
-    pub fn as_list(&self) -> impl Iterator<Item = &SegmentCommitInfo<D>> {
-        self.segments.values()
+    pub fn iter(&self) -> &[SegmentCommitInfo<D>] {
+        self.segments.as_slice()
     }
+
     /// Returns the number of `SegmentCommitInfo`s.
     pub fn size(&self) -> usize {
         self.segments.len()
@@ -1093,19 +1046,9 @@ where
                 "All segments must record the minVersion for indices created on or after Lucene 7, but minVersion is missing for segment: {si}"
             )));
         }
-        let id = si.info.get_id_str();
-        self.do_add(id, si)?;
+        let _id = si.info.get_id_str();
+        self.segments.push(si);
         Ok(())
-    }
-
-    pub fn do_add(&mut self, id: String, si: SegmentCommitInfo<D>) -> Result<()> {
-        self.segments_idx.push(id.clone());
-        match self.segments.insert(id, si) {
-            Some(_) => Err(LuceneError::illegal_state(
-                "SegmentCommitInfo with the same id already exists",
-            )),
-            None => Ok(()),
-        }
     }
 
     /// Appends the provided [`SegmentCommitInfo`]s.
@@ -1119,33 +1062,28 @@ where
     /// Clears all `SegmentCommitInfo`s.
     pub fn clear(&mut self) {
         self.segments.clear();
-        self.segments_idx.clear();
     }
 
     /// Removes the provided `SegmentCommitInfo`.
-    pub fn remove(&mut self, si_id: &str) -> Option<SegmentCommitInfo<D>> {
-        if let Some(pos) = self.segments_idx.iter().position(|x| x == si_id) {
-            self.segments_idx.remove(pos);
-        }
-
-        self.segments.remove(si_id)
+    pub fn remove_with_id(&mut self, si_id: &str) -> Option<SegmentCommitInfo<D>> {
+        let idx = self
+            .segments
+            .iter()
+            .position(|sci| sci.info.get_id_str() == si_id)?;
+        Some(self.segments.remove(idx))
     }
 
     /// Removes the `SegmentCommitInfo` at the provided index.
-    pub fn remove_at(&mut self, index: usize) {
-        let str = &self.segments_idx[index];
-        let _ = self.segments.remove(str);
-        self.segments_idx.remove(index);
+    pub fn remove(&mut self, index: usize) -> Option<SegmentCommitInfo<D>> {
+        if index >= self.segments.len() {
+            return None;
+        }
+        Some(self.segments.remove(index))
     }
 
     /// Returns true if the provided `SegmentCommitInfo` is contained.
     pub fn contains(&self, si_id: &str) -> bool {
-        self.segments.contains_key(si_id)
-    }
-
-    /// Returns the index of the provided `SegmentCommitInfo`.
-    pub fn index_of(&self, si: &SegmentCommitInfo<D>) -> bool {
-        self.segments.contains_key(&si.info.get_id_str())
+        self.info(si_id).is_some()
     }
 
     /// Returns the `Version` of the Lucene commit.
@@ -1165,6 +1103,13 @@ where
     pub fn get_index_created_version_major(&self) -> i32 {
         self.index_created_version_major
     }
+
+    pub fn seg_ids(&self) -> Vec<String> {
+        self.segments
+            .iter()
+            .map(|s| s.info.get_id_str().clone())
+            .collect()
+    }
 }
 
 impl<D> fmt::Display for SegmentInfos<D>
@@ -1174,8 +1119,7 @@ where
     /// Returns a readable description of this segment.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: ", self.get_segments_file_name().unwrap_or_default())?;
-        for (i, segment_commit_info_id) in self.segments_idx.iter().enumerate() {
-            let segment_commit_info = self.segments.get(segment_commit_info_id).unwrap();
+        for (i, segment_commit_info) in self.segments.iter().enumerate() {
             if i > 0 {
                 write!(f, " ")?;
             }

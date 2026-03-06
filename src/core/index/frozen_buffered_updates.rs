@@ -32,7 +32,7 @@ use crate::core::index::numeric_doc_values_field_updates::{
 };
 use crate::core::index::postings_enum::NONE;
 use crate::core::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
-use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
@@ -186,7 +186,7 @@ impl FrozenBufferedUpdates {
     pub(crate) fn apply<D>(
         &self,
         seg_states: &[SegmentState<D>],
-        infos: &HashMap<String, SegmentCommitInfo<D>>,
+        infos: &SegmentInfos<D>,
     ) -> Result<i64>
     where
         D: Directory,
@@ -438,7 +438,7 @@ impl FrozenBufferedUpdates {
     fn apply_term_deletes<D>(
         &self,
         seg_states: &[SegmentState<D>],
-        infos: &HashMap<String, SegmentCommitInfo<D>>,
+        infos: &SegmentInfos<D>,
     ) -> Result<i64>
     where
         D: Directory,
@@ -482,12 +482,10 @@ impl FrozenBufferedUpdates {
                             if doc_id == NO_MORE_DOCS {
                                 break;
                             }
-                            let info = infos.get(&seg_state.rld.info_id);
-                            debug_assert!(info.is_some());
-                            if seg_state
-                                .rld
-                                .delete(doc_id, info.unwrap(), Some(&mut inner))?
-                            {
+                            let info = infos.info(&seg_state.rld.info_id).ok_or_else(|| {
+                                LuceneError::illegal_state("not find in IndexWriter's SegmentInfos")
+                            })?;
+                            if seg_state.rld.delete(doc_id, info, Some(&mut inner))? {
                                 del_count += 1;
                             }
                         }
