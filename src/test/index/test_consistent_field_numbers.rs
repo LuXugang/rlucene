@@ -41,64 +41,65 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
     for i in 0..2 {
         let dir = new_directory_shared(&mut random)?;
 
-        let writer_opt = {
-            let mut conf = new_index_writer_config(&mut random);
-            conf.set_merge_policy(NoMergePolicy::default());
-            let writer = IndexWriter::new(dir.clone(), conf)?;
-
-            let mut d1 = Document::new();
-            d1.add(TextField::from_string("f1", "first field", Store::Yes)?);
-            d1.add(TextField::from_string("f2", "second field", Store::Yes)?);
-            writer.add_document(d1)?;
-
-            if i == 1 {
-                writer.close()?;
-                None
-            } else {
-                writer.commit()?;
-                Some(writer)
-            }
-        };
-        let writer = match writer_opt {
-            Some(writer) => writer,
-            None => {
+        {
+            let writer_opt = {
                 let mut conf = new_index_writer_config(&mut random);
                 conf.set_merge_policy(NoMergePolicy::default());
-                IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?
-            },
-        };
+                let writer = IndexWriter::new(dir.clone(), conf)?;
 
-        let mut d2 = Document::new();
-        d2.add(TextField::from_string("f2", "second field", Store::No)?);
-        d2.add(TextField::from_string("f1", "first field", Store::Yes)?);
-        d2.add(TextField::from_string("f3", "third field", Store::No)?);
-        d2.add(TextField::from_string("f4", "fourth field", Store::No)?);
-        writer.add_document(d2)?;
+                let mut d1 = Document::new();
+                d1.add(TextField::from_string("f1", "first field", Store::Yes)?);
+                d1.add(TextField::from_string("f2", "second field", Store::Yes)?);
+                writer.add_document(d1)?;
 
-        writer.close()?;
+                if i == 1 {
+                    writer.close()?;
+                    None
+                } else {
+                    writer.commit()?;
+                    Some(writer)
+                }
+            };
+            let writer = match writer_opt {
+                Some(writer) => writer,
+                None => {
+                    let mut conf = new_index_writer_config(&mut random);
+                    conf.set_merge_policy(NoMergePolicy::default());
+                    IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?
+                },
+            };
 
-        let sis = SegmentInfos::read_latest_commit(dir.clone())?;
-        assert_eq!(2, sis.size());
+            let mut d2 = Document::new();
+            d2.add(TextField::from_string("f2", "second field", Store::No)?);
+            d2.add(TextField::from_string("f1", "first field", Store::Yes)?);
+            d2.add(TextField::from_string("f3", "third field", Store::No)?);
+            d2.add(TextField::from_string("f4", "fourth field", Store::No)?);
+            writer.add_document(d2)?;
 
-        let fis1 = read_field_infos(sis.info_idx(0).unwrap())?;
-        let fis2 = read_field_infos(sis.info_idx(1).unwrap())?;
+            writer.close()?;
 
-        assert_eq!("f1", fis1.field_info_by_number(0)?.unwrap().name);
-        assert_eq!("f2", fis1.field_info_by_number(1)?.unwrap().name);
-        assert_eq!("f1", fis2.field_info_by_number(0)?.unwrap().name);
-        assert_eq!("f2", fis2.field_info_by_number(1)?.unwrap().name);
-        assert_eq!("f3", fis2.field_info_by_number(2)?.unwrap().name);
-        assert_eq!("f4", fis2.field_info_by_number(3)?.unwrap().name);
+            let sis = SegmentInfos::read_latest_commit(dir.clone())?;
+            assert_eq!(2, sis.size());
 
-        // let mut writer = IndexWriter::new(
+            let fis1 = read_field_infos(sis.info_idx(0).unwrap())?;
+            let fis2 = read_field_infos(sis.info_idx(1).unwrap())?;
+
+            assert_eq!("f1", fis1.field_info_by_number(0)?.unwrap().name);
+            assert_eq!("f2", fis1.field_info_by_number(1)?.unwrap().name);
+            assert_eq!("f1", fis2.field_info_by_number(0)?.unwrap().name);
+            assert_eq!("f2", fis2.field_info_by_number(1)?.unwrap().name);
+            assert_eq!("f3", fis2.field_info_by_number(2)?.unwrap().name);
+            assert_eq!("f4", fis2.field_info_by_number(3)?.unwrap().name);
+        }
+
+        // let writer = IndexWriter::new(
         //     dir.clone(),
         //     new_index_writer_config(&mut random),
         // )?;
-        // TODO force_merge未实现
         // writer.force_merge(1)?;
         // writer.close()?;
         //
-        // sis = SegmentInfos::read_latest_commit(dir.clone())?;
+        // let sis = SegmentInfos::read_latest_commit(dir.clone())?;
         // assert_eq!(1, sis.size());
         //
         // let fis3 = read_field_infos(sis.info_idx(0).unwrap())?;
@@ -244,8 +245,7 @@ fn test_many_fields() -> Result<()> {
         writer.add_document(d)?;
     }
 
-    // TODO: force_merge(1) 未实现
-    // writer.force_merge(1)?;
+    writer.force_merge(1)?;
     writer.close()?;
 
     let sis = SegmentInfos::read_latest_commit(dir.clone())?;

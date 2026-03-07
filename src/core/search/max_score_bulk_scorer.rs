@@ -924,8 +924,7 @@ mod test {
                 writer.add_document(Document::new())?;
             }
         }
-        // TODO force_merge 未实现
-        // writer.force_merge(1)?;
+        writer.force_merge(1)?;
         writer.close()?;
         Ok(())
     }
@@ -1257,8 +1256,7 @@ mod test {
         w.add_document(doc2)?;
         w.add_document(doc3)?;
 
-        // TODO force_merge 未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
 
         let reader = directory_reader_util::open_with_writer(&w)?;
         w.close()?;

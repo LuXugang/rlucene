@@ -55,8 +55,7 @@ fn test_simple() -> Result<()> {
         let ir = iw.get_reader()?;
         verify_count(&ir, &mut random)?;
     }
-    // TODO force_merge未实现
-    // iw.force_merge(1)?;
+    iw.force_merge(1)?;
 
     {
         let ir = iw.get_reader()?;

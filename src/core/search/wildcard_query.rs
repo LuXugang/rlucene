@@ -722,8 +722,7 @@ mod tests {
         }
 
         writer.flush()?;
-        // TODO force_merge未实现
-        // writer.force_merge(1)?;
+        writer.force_merge(1)?;
         writer.close()?;
 
         let reader = directory_reader_util::open(dir.clone())?;

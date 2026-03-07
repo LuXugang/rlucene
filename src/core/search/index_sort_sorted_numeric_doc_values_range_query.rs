@@ -2294,8 +2294,7 @@ mod tests {
         }
 
         writer.flush()?;
-        // TODO force_merge未实现
-        // writer.force_merge(1)?;
+        writer.force_merge(1)?;
         let reader = writer.get_reader()?;
         let searcher = new_searcher_with_reader(reader)?;
 

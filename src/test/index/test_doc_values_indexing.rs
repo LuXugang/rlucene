@@ -20,16 +20,18 @@ use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
-use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
+use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::string_field::{StringField, string_field_type};
+use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::index::field_infos::get_merged_field_infos;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode::Create;
@@ -37,15 +39,17 @@ use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::stored_fields::StoredFields;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     get_only_leaf_reader, new_bytes_ref_from_bytes, new_bytes_ref_from_string,
-    new_directory_shared, new_index_writer_config, random,
+    new_directory_shared, new_index_writer_config, new_log_merge_policy, random,
 };
 use rand::RngCore;
 use std::borrow::Cow;
@@ -229,7 +233,40 @@ fn test_length_prefix_across_two_pages() -> Result<()> {
 }
 #[test]
 fn test_doc_values_unstored() -> Result<()> {
-    // TODO FieldInfos.get_merged_field_infos 未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    // TODO: 未实现MockAnalyzer
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    for i in 0..50 {
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("dv", i as i64));
+        doc.add(TextField::from_string("docId", &i.to_string(), Store::Yes)?);
+        writer.add_document(doc)?;
+    }
+
+    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let fi = get_merged_field_infos(&reader)?;
+    let dv_info = fi
+        .field_info_by_name("dv")
+        .ok_or_else(|| LuceneError::illegal_state("missing field dv"))?;
+    assert_ne!(*dv_info.get_doc_values_type(), DocValuesType::None);
+
+    let mut dv = MultiDocValues::get_numeric_values(&reader, "dv")?.unwrap();
+    let mut stored_fields = reader.stored_fields()?;
+
+    for i in 0..50 {
+        assert_eq!(i, dv.next_doc()?);
+        assert_eq!(i as i64, dv.long_value()?);
+
+        let d = stored_fields.document(i)?;
+        // cannot use d.get("dv") due to another bug!
+        assert!(d.get_field("dv").is_none());
+        assert_eq!(&i.to_string(), d.get("docId")?.unwrap().as_ref());
+    }
+    writer.close()?;
     Ok(())
 }
 #[test]
@@ -302,8 +339,8 @@ fn test_add_sorted_twice() -> Result<()> {
     // TODO: 未实现MockAnalyzer
     let directory = new_directory_shared(&mut random)?;
 
-    let iwc = new_index_writer_config(&mut random);
-    // TODO: newLogMergePolicy 未实现
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -337,8 +374,8 @@ fn test_add_binary_twice() -> Result<()> {
     // TODO: 未实现MockAnalyzer
     let directory = new_directory_shared(&mut random)?;
 
-    let iwc = new_index_writer_config(&mut random);
-    // TODO: newLogMergePolicy 未实现
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -373,8 +410,8 @@ fn test_add_numeric_twice() -> Result<()> {
 
     let directory = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
-    let iwc = new_index_writer_config(&mut random);
-    // TODO: newLogMergePolicy 未实现
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -403,8 +440,8 @@ fn test_too_large_sorted_bytes() -> Result<()> {
 
     let directory = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
-    // TODO: newLogMergePolicy 未实现
-    let iwc = new_index_writer_config(&mut random);
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -438,8 +475,8 @@ fn test_too_large_term_sorted_set_bytes() -> Result<()> {
 
     let directory = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
-    // TODO: newLogMergePolicy 未实现
-    let iwc = new_index_writer_config(&mut random);
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
     // Initial OK doc

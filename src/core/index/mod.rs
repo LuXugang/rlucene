@@ -106,7 +106,7 @@ pub mod merge_scheduler;
 pub mod merge_state;
 pub mod merge_trigger;
 pub mod multi_bits;
-mod multi_doc_values;
+pub mod multi_doc_values;
 pub(crate) mod multi_fields;
 pub mod multi_postings_enum;
 pub mod multi_reader;

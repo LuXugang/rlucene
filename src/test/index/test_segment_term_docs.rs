@@ -152,8 +152,7 @@ fn test_skip_to() -> Result<()> {
     for _ in 0..50 {
         add_doc(&mut writer, "ccc ccc ccc ccc", &mut field_types)?;
     }
-    // TODO force merge 未实现
-    // writer.force_merge(1)?;
+    writer.force_merge(1)?;
     writer.close()?;
 
     let reader = Arc::new(directory_reader_util::open(dir.clone())?);

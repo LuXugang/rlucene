@@ -581,6 +581,7 @@ mod tests {
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
     use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::term::Term;
     use crate::core::search::boolean_clause::Occur;
     use crate::core::search::boolean_query::Builder;
@@ -599,7 +600,8 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
+        at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
+        new_searcher_with_reader, random,
     };
     use rand::Rng;
 
@@ -620,8 +622,10 @@ mod tests {
     fn do_test_basics<R: Rng + ?Sized>(random: &mut R, req_occur: Occur) -> Result<()> {
         let dir = new_directory_shared(random)?;
 
-        // TODO RandomIndexWriter / newLogMergePolicy 未实现：用当前 IndexWriter 路径代替
-        let w = IndexWriter::new(dir.clone(), new_index_writer_config(random))?;
+        // TODO RandomIndexWriter 未实现：用当前 IndexWriter 路径代替
+        let mut iwc = new_index_writer_config(random);
+        iwc.set_merge_policy(new_log_merge_policy(random)?);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
 
         {
             let mut doc = Document::new();
@@ -651,8 +655,7 @@ mod tests {
             w.add_document(doc)?;
         }
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
 
         let reader = directory_reader_util::open_with_writer(&w)?;
         w.close()?;
@@ -767,8 +770,7 @@ mod tests {
             w.add_document(doc)?;
         }
 
-        // TODO force_merge
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
         w.close()?;
 
         let reader = directory_reader_util::open(dir)?;

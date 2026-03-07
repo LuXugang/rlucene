@@ -1389,7 +1389,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         w.close()?;
         Ok(())
     }
-    // TODO force_merge未实现 测试未通过
+    #[test]
     fn test_delete_all_point_docs() -> Result<()> {
         let mut random = random();
 
@@ -1408,8 +1408,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
 
         w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
         let reader = directory_reader_util::open_with_writer(&w)?;
 
         let ctx = get_context(reader)?;
@@ -1442,8 +1441,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         doc2.add(IntPoint::new("int1", vec![17])?);
         w.add_document(doc2)?;
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
 
         w.close()?;
         Ok(())
@@ -1562,7 +1560,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
 
         Ok(())
     }
-    // TODO force_merge未实现 测试未通过
+    #[test]
     fn test_merged_stats_all_points_deleted() -> Result<()> {
         let mut random = random();
 
@@ -1587,15 +1585,13 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
             w.add_document(doc)?;
         }
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
 
         w.delete_documents_with_terms(vec![Term::from_text("delete", "yes")])?;
 
         w.add_document(Document::new())?;
 
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
 
         let reader = directory_reader_util::open_with_writer(&w)?;
 
@@ -1606,16 +1602,13 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
 
         Ok(())
     }
-    // TODO force_merge未实现 测试未通过
+    #[test]
     fn test_merged_stats() -> Result<()> {
         let mut random = random();
-
         let iters = at_least(&mut random, 3);
-
         for _ in 0..iters {
             do_test_merged_stats(&mut random)?;
         }
-
         Ok(())
     }
 
@@ -1661,8 +1654,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         }
 
         let reader1 = directory_reader_util::open_with_writer(&w)?;
-        // TODO force_merge未实现
-        // w.force_merge(1)?;
+        w.force_merge(1)?;
 
         let reader2 = directory_reader_util::open_with_writer(&w)?;
         let leaf = get_only_leaf_reader(&reader2)?;

@@ -254,8 +254,7 @@ mod tests {
         for _ in 0..4 {
             writer.add_document(create_doc()?)?;
         }
-        // TODO force_merge未实现
-        // writer.force_merge(1)?;
+        writer.force_merge(1)?;
         writer.close()?;
 
         verify_index(target.clone())?;

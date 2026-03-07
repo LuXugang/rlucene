@@ -20,6 +20,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
@@ -29,7 +30,8 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::DefaultIndexSearch;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
+    new_directory_shared, new_index_writer_config, new_log_merge_policy, new_searcher_with_reader,
+    random,
 };
 use rand::Rng;
 
@@ -42,7 +44,8 @@ const F2: &str = "body";
 fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
     let dir = new_directory_shared(random)?;
     // TODO: 未实现MockAnalyzer/newLogMergePolicy
-    let config = new_index_writer_config(random);
+    let mut config = new_index_writer_config(random);
+    config.set_merge_policy(new_log_merge_policy(random)?);
     let w = IndexWriter::new(dir.clone(), config)?;
 
     w.add_document(doc(

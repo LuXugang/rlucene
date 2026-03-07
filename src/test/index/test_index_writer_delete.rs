@@ -64,8 +64,7 @@ fn test_simple_case() -> Result<()> {
         modifier.add_document(doc)?;
     }
 
-    // TODO: force_merge 未实现
-    // writer.force_merge(1)?;
+    modifier.force_merge(1)?;
     modifier.commit()?;
 
     let term = Term::from_text("city", "Amsterdam");

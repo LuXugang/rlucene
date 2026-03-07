@@ -82,8 +82,7 @@ fn test_sum_doc_freq() -> Result<()> {
         let id_val = random.random_range(0..num_docs);
         writer.delete_documents_with_terms(vec![Term::from_text("id", id_val.to_string())])?;
     }
-    // TODO force_merge未实现
-    // writer.force_merge(1)?;
+    writer.force_merge(1)?;
     writer.close()?;
 
     {

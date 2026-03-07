@@ -1233,8 +1233,7 @@ mod tests {
 
         writer.commit()?;
         writer.delete_documents_with_terms(vec![Term::from_text("field", "one")])?;
-        // TODO force_merge未实现
-        // writer.force_merge(1)?;
+        writer.force_merge(1)?;
 
         let reader = writer.get_reader()?;
         writer.close()?;
@@ -1279,8 +1278,7 @@ mod tests {
         doc.add(new_text_field("field", "ccc", No, &mut field_to_type)?);
         writer.add_document(doc)?;
 
-        // TODO: force_merge
-        // writer.force_merge(1)?;
+        writer.force_merge(1)?;
 
         let reader = writer.get_reader()?;
         writer.close()?;
@@ -1342,8 +1340,7 @@ mod tests {
         doc.add(new_string_field("field", "bcd", No, &mut field_to_type)?);
         writer.add_document(doc)?;
 
-        // TODO: force_merge
-        // writer.force_merge(1)?;
+        writer.force_merge(1)?;
 
         let reader = writer.get_reader()?;
         writer.close()?;
@@ -1408,8 +1405,7 @@ mod tests {
         doc.add(new_string_field("field", "", No, &mut field_to_type)?);
         writer.add_document(doc)?;
 
-        // TODO: force_merge
-        // writer.force_merge(1)?;
+        writer.force_merge(1)?;
 
         let reader = writer.get_reader()?;
         writer.close()?;

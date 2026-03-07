@@ -17,12 +17,15 @@
 use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::document::Document;
 use crate::core::document::double_point::DoublePoint;
+use crate::core::document::field::Store::No;
 use crate::core::document::float_point::FloatPoint;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+use crate::core::document::string_field::StringField;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::term::Term;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::search::query::Query;
@@ -1037,49 +1040,48 @@ fn test_wrong_num_dims() -> Result<()> {
 
 #[test]
 fn test_all_point_docs_were_deleted_and_then_merged_again() -> Result<()> {
-    // TODO force_merge not implement
-    // let mut random = random();
-    // let dir = new_directory_shared(&mut random)?;
-    //
-    // let iwc = new_index_writer_config(&mut random);
-    // let mut w = IndexWriter::new(dir.clone(), iwc)?;
-    //
-    // {
-    //     let mut doc = Document::new();
-    //     doc.add(StringField::with_string("id", "0", No));
-    //     doc.add(LongPoint::new("value", [0i64])?);
-    //     w.add_document(doc)?;
-    // }
-    //
-    // // Add document that won't be deleted to avoid IW dropping
-    // // segment below since it's 100% deleted:
-    // w.add_document(Document::new())?;
-    // w.commit()?;
-    //
-    // // Need another segment so we invoke BKDWriter.merge
-    // {
-    //     let mut doc = Document::new();
-    //     doc.add(StringField::with_string("id", "0", No)?);
-    //     doc.add(LongPoint::new("value", [0i64])?);
-    //     w.add_document(doc)?;
-    // }
-    // w.add_document(Document::new())?;
-    //
-    // w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
-    // w.force_merge(1)?;
-    //
-    // {
-    //     let mut doc = Document::new();
-    //     doc.add(StringField::with_string("id", "0", No)?);
-    //     doc.add(LongPoint::new("value", [0i64])?);
-    //     w.add_document(doc)?;
-    // }
-    // w.add_document(Document::new())?;
-    //
-    // w.delete_documents_with_terms(vec![Term::new("id", "0")])?;
-    // w.force_merge(1)?;
-    //
-    // w.close()?;
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let iwc = new_index_writer_config(&mut random);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
+
+    {
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("id", "0", No)?);
+        doc.add(LongPoint::new("value", [0i64])?);
+        w.add_document(doc)?;
+    }
+
+    // Add document that won't be deleted to avoid IW dropping
+    // segment below since it's 100% deleted:
+    w.add_document(Document::new())?;
+    w.commit()?;
+
+    // Need another segment so we invoke BKDWriter.merge
+    {
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("id", "0", No)?);
+        doc.add(LongPoint::new("value", [0i64])?);
+        w.add_document(doc)?;
+    }
+    w.add_document(Document::new())?;
+
+    w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+    w.force_merge(1)?;
+
+    {
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("id", "0", No)?);
+        doc.add(LongPoint::new("value", [0i64])?);
+        w.add_document(doc)?;
+    }
+    w.add_document(Document::new())?;
+
+    w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+    w.force_merge(1)?;
+
+    w.close()?;
     Ok(())
 }
 #[test]
@@ -1485,8 +1487,7 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
     };
     // when not all docs have a value, optimization should not apply
     w.add_document(Document::new())?;
-    // TODO force_merge not implement
-    // w.force_merge(1)?;
+    w.force_merge(1)?;
     w.commit()?;
 
     let reader = w.get_reader()?;
@@ -1541,8 +1542,7 @@ fn test_point_range_weight_count() -> Result<()> {
     }
 
     w.commit()?;
-    // TODO: force_merge not implement
-    // w.force_merge(1)?;
+    w.force_merge(1)?;
 
     let reader = w.get_reader()?;
     let searcher = IndexSearcher::from_cr(reader)?;
@@ -1843,8 +1843,7 @@ fn test_inverse_point_range() -> Result<()> {
         w.add_document(doc)?;
     }
 
-    // TODO force_merge未实现
-    // w.force_merge(1)?;
+    w.force_merge(1)?;
 
     let reader = directory_reader_util::open_with_writer(&w)?;
     w.close()?;
