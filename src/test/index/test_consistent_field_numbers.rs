@@ -195,7 +195,6 @@ fn test_field_number_gaps() -> Result<()> {
             //     dir.clone(),
             //     new_index_writer_config(&mut random), // TODO: LogByteSizeMergePolicy & FailOnNonBulkMergesInfoStream
             // )?;
-            // TODO: force_merge 实现
             // writer.force_merge(1)?;
             // writer.close()?;
             // let sis = SegmentInfos::read_latest_commit(dir.clone())?;

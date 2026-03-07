@@ -117,7 +117,7 @@ fn test_commit_on_close_disk_usage() -> Result<()> {
 }
 #[test]
 fn test_commit_on_close_force_merge() -> Result<()> {
-    // TODO: force_merge未实现
+    // TODO: roll_back未实现
     Ok(())
 }
 #[test]

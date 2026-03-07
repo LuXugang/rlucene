@@ -200,7 +200,7 @@ fn test_length_prefix_across_two_pages() -> Result<()> {
     doc = Document::new();
     doc.add(SortedDocValuesField::new("field", b.clone()));
     w.add_document(doc)?;
-    // TODO force_merge未实现
+    w.force_merge(1)?;
     let r = directory_reader_util::open_from_writer(&w)?;
 
     let leaf = get_only_leaf_reader(r)?;
@@ -668,7 +668,7 @@ fn test_mixed_types_after_reopen_append2() -> Result<()> {
         res
     );
 
-    // TODO force_merge未实现
+    w2.force_merge(1)?;
     w2.close()?;
 
     Ok(())
@@ -711,7 +711,7 @@ fn test_mixed_types_after_reopen_append3() -> Result<()> {
 
     // Also add another document to ensure a segment is written
     w2.add_document(Document::new())?;
-    // TODO force_merge未实现
+    w2.force_merge(1)?;
     w2.close()?;
 
     Ok(())

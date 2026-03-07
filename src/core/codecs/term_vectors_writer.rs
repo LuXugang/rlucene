@@ -816,8 +816,7 @@ mod tests {
             document.add(term_vector_field);
 
             writer.add_document(document)?;
-            // TODO force_merge未实现
-            // writer.force_merge(1)?;
+            writer.force_merge(1)?;
             writer.close()?;
 
             let reader = directory_reader_util::open(dir.clone())?;
@@ -888,8 +887,7 @@ mod tests {
         for _ in 0..6 {
             writer.add_document(document.clone())?;
         }
-        // TODO force_merge未实现
-        // writer.force_merge(1)?;
+        writer.force_merge(1)?;
         writer.close()?;
 
         let reader = directory_reader_util::open(dir.clone())?;
@@ -956,15 +954,62 @@ mod tests {
 
         iw.commit()?;
 
-        // TODO force_merge未实现
-        // iw.force_merge(1)?;
+        iw.force_merge(1)?;
         iw.close()?;
 
         Ok(())
     }
     #[test]
     fn test_no_term_vector_after_term_vector_merge() -> Result<()> {
-        // TODO force_merge未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO: 未实现MockAnalyzer
+        let iwc = new_index_writer_config(&mut random);
+        let iw = IndexWriter::new(dir.clone(), iwc)?;
+        let mut field_types = HashMap::new();
+        let mut document = Document::new();
+        let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+        custom_type.set_store_term_vectors(true)?;
+        document.add(new_field(
+            &mut random,
+            "tvtest",
+            "a b c",
+            &custom_type,
+            &mut field_types,
+        )?);
+        iw.add_document(document)?;
+        iw.commit()?;
+
+        let mut document = Document::new();
+        document.add(new_text_field(
+            &mut random,
+            "tvtest",
+            "x y z",
+            Store::No,
+            &mut field_types,
+        )?);
+        iw.add_document(document)?;
+        // Make first segment
+        iw.commit()?;
+
+        iw.force_merge(1)?;
+
+        let mut custom_type2 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+        custom_type2.set_store_term_vectors(true)?;
+
+        let mut document = Document::new();
+        document.add(new_field(
+            &mut random,
+            "tvtest",
+            "a b c",
+            &custom_type2,
+            &mut field_types,
+        )?);
+        iw.add_document(document)?;
+        // Make 2nd segment
+        iw.commit()?;
+        iw.force_merge(1)?;
+        iw.close()?;
         Ok(())
     }
     #[test]

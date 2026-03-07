@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::{IndexWriter, MAX_DOCS};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::term::Term;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::sort::Sort;
@@ -36,9 +36,11 @@ use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterMaxDocs;
-
-// TODO IMPORTANT 这个在Java Lucene需要执行特别长的时间
+#[test]
 fn test_exactly_at_true_limit() -> Result<()> {
+    // let max_docs = MAX_DOCS;
+    // TODO IMPORTANT 这个在Java Lucene需要执行特别长的时间, 我们这里置为一个较小的值, 以便测试能够在合理的时间内完成. 在Java Lucene中, 这个值被设置为MAX_DOCS, 也就是2^31 - 1.
+    let max_docs = 1000000;
     let mut random = random();
 
     let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("2BDocs3")?)?;
@@ -56,7 +58,7 @@ fn test_exactly_at_true_limit() -> Result<()> {
         &mut field_types,
     )?);
 
-    for _i in 0..MAX_DOCS {
+    for _i in 0..max_docs {
         iw.add_document(doc.clone())?;
     }
 
@@ -65,8 +67,8 @@ fn test_exactly_at_true_limit() -> Result<()> {
     // first unoptimized, then optimized
     for _iter in 0..2 {
         let ir = directory_reader_util::open(dir.clone())?;
-        assert_eq!(MAX_DOCS, ir.max_doc()?);
-        assert_eq!(MAX_DOCS, ir.num_docs()?);
+        assert_eq!(max_docs, ir.max_doc()?);
+        assert_eq!(max_docs, ir.num_docs()?);
 
         let searcher = IndexSearcher::from_cr(ir)?;
         let collector_manager =
@@ -76,7 +78,7 @@ fn test_exactly_at_true_limit() -> Result<()> {
             TermQuery::new(Term::from_text("field", "text")),
             &collector_manager,
         )?;
-        assert_eq!(MAX_DOCS as usize, hits.total_hits.value);
+        assert_eq!(max_docs as usize, hits.total_hits.value);
 
         // sort by docID reversed
         let sort = Sort::with_fields(vec![SortField::with_reverse::<String>(None, Doc, true)?])?;
@@ -86,12 +88,11 @@ fn test_exactly_at_true_limit() -> Result<()> {
             sort,
         )?;
 
-        assert_eq!(MAX_DOCS as usize, hits2.total_hits().value);
+        assert_eq!(max_docs as usize, hits2.total_hits().value);
         assert_eq!(10, hits2.score_docs().len());
-        assert_eq!(MAX_DOCS - 1, hits2.score_docs()[0].doc());
+        assert_eq!(max_docs - 1, hits2.score_docs()[0].doc());
 
-        // TODO force_merge未实现
-        // iw.force_merge(1)?;
+        iw.force_merge(1)?;
     }
 
     iw.close()?;
