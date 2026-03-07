@@ -475,9 +475,9 @@ where
     const TYPE: &'static str = "TopTermsEnumWithSliceCmp";
 
     fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
-        self.terms_enums[*a]
-            .base
-            .compare_term_to(&self.terms_enums[*b].base)
+        let va = self.terms_enums[*a].base.sub_index;
+        let vb = self.terms_enums[*b].base.sub_index;
+        Ok(va.cmp(&vb).to_int())
     }
 }
 

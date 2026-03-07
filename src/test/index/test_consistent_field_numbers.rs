@@ -92,22 +92,19 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
             assert_eq!("f4", fis2.field_info_by_number(3)?.unwrap().name);
         }
 
-        // let writer = IndexWriter::new(
-        //     dir.clone(),
-        //     new_index_writer_config(&mut random),
-        // )?;
-        // writer.force_merge(1)?;
-        // writer.close()?;
-        //
-        // let sis = SegmentInfos::read_latest_commit(dir.clone())?;
-        // assert_eq!(1, sis.size());
-        //
-        // let fis3 = read_field_infos(sis.info_idx(0).unwrap())?;
-        //
-        // assert_eq!("f1", fis3.field_info_by_number(0)?.unwrap().name);
-        // assert_eq!("f2", fis3.field_info_by_number(1)?.unwrap().name);
-        // assert_eq!("f3", fis3.field_info_by_number(2)?.unwrap().name);
-        // assert_eq!("f4", fis3.field_info_by_number(3)?.unwrap().name);
+        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        writer.force_merge(1)?;
+        writer.close()?;
+
+        let sis = SegmentInfos::read_latest_commit(dir.clone())?;
+        assert_eq!(1, sis.size());
+
+        let fis3 = read_field_infos(sis.info_idx(0).unwrap())?;
+
+        assert_eq!("f1", fis3.field_info_by_number(0)?.unwrap().name);
+        assert_eq!("f2", fis3.field_info_by_number(1)?.unwrap().name);
+        assert_eq!("f3", fis3.field_info_by_number(2)?.unwrap().name);
+        assert_eq!("f4", fis3.field_info_by_number(3)?.unwrap().name);
     }
 
     Ok(())
