@@ -140,9 +140,7 @@ where
     where
         L: LiveIndexWriterConfig,
     {
-        self.apply_delete_or_update(config, |upd| {
-            upd.add_delete_query(queries.into_iter().map(Arc::new).collect())
-        })
+        self.apply_delete_or_update(config, |upd| upd.add_delete_query(queries))
     }
 
     pub(crate) fn delete_terms<L>(&self, config: &L, terms: Vec<Term>) -> Result<i64>

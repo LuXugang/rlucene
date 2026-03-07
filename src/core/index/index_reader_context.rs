@@ -17,13 +17,11 @@
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::TermsEnum;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 /// A struct like class that represents a hierarchical relationship between IndexReader instances.
-#[allow(private_bounds)]
-pub trait IndexReaderContext: IndexReaderContextSealed {
+pub trait IndexReaderContext {
     type IndexReader: IndexReader;
     /// Returns the [`IndexReader`], this context represents.
     fn reader(&self) -> &Self::IndexReader;
@@ -66,10 +64,26 @@ impl IndexReaderContextBase {
         &self.identity
     }
 }
-pub type IRCTerm<IRC> = <<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms;
 pub type IRCLeafReader<IRC> = <IRC as IndexReaderContext>::LeafReader;
 pub type IRCLeafReaderCacheHelper<IRC> = <IRCLeafReader<IRC> as LeafReader>::CacheHelper;
-pub type IRCImpactsEnum<IRC> = <<IRCTerm<IRC> as Terms>::TermsEnum as TermsEnum>::ImpactsEnum;
-pub type IRCPostingsEnum<IRC> = <<IRCTerm<IRC> as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
-// Similar to Java's sealed trait pattern
-pub(crate) trait IndexReaderContextSealed {}
+
+impl<IRC> IndexReaderContext for Arc<IRC>
+where
+    IRC: IndexReaderContext,
+{
+    type IndexReader = IRC::IndexReader;
+
+    fn reader(&self) -> &Self::IndexReader {
+        (**self).reader()
+    }
+
+    type LeafReader = IRC::LeafReader;
+
+    fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
+        (**self).leaves()
+    }
+
+    fn base(&self) -> &IndexReaderContextBase {
+        (**self).base()
+    }
+}

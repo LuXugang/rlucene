@@ -26,7 +26,7 @@ use crate::core::index::field_term_iterator::FieldTermIterator;
 use crate::core::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::{Identity, IndexReader};
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader::{LeafReader, get_context};
 use crate::core::index::numeric_doc_values_field_updates::{
     NumericDocValuesFieldUpdates, SingleValueNumericDocValuesFieldUpdates,
 };
@@ -38,7 +38,9 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::Query;
+use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
 use crate::core::store::directory::Directory;
 use crate::core::util::ToInt;
 use crate::core::util::accountable::Accountable;
@@ -76,7 +78,7 @@ pub(crate) struct FrozenBufferedUpdates {
     // Terms, in sorted order:
     pub delete_terms: PrefixCodedTerms,
     // Parallel array of deleted query, and the docIDUpto for each
-    pub delete_queries: Vec<Arc<Query>>,
+    pub delete_queries: Vec<Query>,
     delete_query_limits: Vec<i32>,
     // Counts down once all deletes/updates have been applied
     pub(crate) applied: AtomicBool,
@@ -221,7 +223,7 @@ impl FrozenBufferedUpdates {
         }
 
         let mut count = self.apply_term_deletes(seg_states, infos)?;
-        // totalDelCount += applyQueryDeletes(segStates);
+        // count += self.apply_query_deletes(seg_states, infos)?;
         count += self.apply_doc_values_updates_all(seg_states)?;
         self.total_del_count.store(count, Ordering::Relaxed);
         Ok(count)
@@ -434,6 +436,96 @@ impl FrozenBufferedUpdates {
         }
 
         Ok(update_count)
+    }
+    fn apply_query_deletes<D>(
+        &self,
+        seg_states: &[SegmentState<D>],
+        infos: &SegmentInfos<D>,
+    ) -> Result<i64>
+    where
+        D: Directory + 'static,
+    {
+        if self.delete_queries.is_empty() {
+            return Ok(0);
+        }
+
+        let mut del_count: i64 = 0;
+        for seg_state in seg_states.iter() {
+            if self.del_gen < seg_state.del_gen {
+                // segment is newer than this deletes packet
+                continue;
+            }
+
+            if seg_state.rld.ref_count() == 1 {
+                // This means we are the only remaining reference to this segment, meaning
+                // it was merged away while we were running, so we can safely skip running
+                // because we will run on the newly merged segment next:
+                continue;
+            }
+
+            let reader = {
+                let inner = seg_state.rld.inner.lock();
+
+                inner
+                    .reader
+                    .as_ref()
+                    .ok_or_else(|| LuceneError::illegal_state("reader is missing"))?
+                    .clone()
+            };
+            let reader_context = Arc::new(get_context(reader)?);
+
+            for (i, query0) in self.delete_queries.iter().cloned().enumerate() {
+                let limit = if self.del_gen == seg_state.del_gen {
+                    debug_assert!(self.private_segment.is_some());
+                    self.delete_query_limits[i]
+                } else {
+                    i32::MAX
+                };
+
+                let mut searcher = IndexSearcher::new(reader_context.clone())?;
+                searcher.set_query_cache(None);
+                let query = searcher.rewrite(query0)?;
+                let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
+                let scorer = weight.scorer(&reader_context, &searcher)?;
+
+                if let Some(scorer) = scorer {
+                    let mut it = scorer.iterator();
+                    let info = infos
+                        .info(&seg_state.rld.info_id)
+                        .ok_or_else(|| LuceneError::illegal_state("segment is missing"))?;
+                    if let (Some(sort_map), true) =
+                        (seg_state.rld.sort_map.as_ref(), limit != i32::MAX)
+                    {
+                        debug_assert!(self.private_segment.is_some());
+
+                        loop {
+                            let doc_id = it.next_doc()?;
+                            if doc_id == NO_MORE_DOCS {
+                                break;
+                            }
+                            if sort_map.new_to_old(doc_id)? < limit
+                                && seg_state.rld.delete(doc_id, info, None)?
+                            {
+                                del_count += 1;
+                            }
+                        }
+                    } else {
+                        let mut doc_id;
+                        loop {
+                            doc_id = it.next_doc()?;
+                            if doc_id >= limit {
+                                break;
+                            }
+                            if seg_state.rld.delete(doc_id, info, None)? {
+                                del_count += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(del_count)
     }
     fn apply_term_deletes<D>(
         &self,

@@ -50,7 +50,7 @@ use std::sync::atomic::AtomicI32;
 pub(crate) struct BufferedUpdates {
     pub(crate) num_field_updates: AtomicI32,
     pub delete_terms: DeletedTerms,
-    pub(crate) delete_queries: HashMap<Arc<Query>, i32>,
+    pub(crate) delete_queries: HashMap<Query, i32>,
     pub(crate) field_updates: HashMap<String, FieldUpdatesBuffer>,
     bytes_used: SharedCounter,
     field_updates_bytes_used: SharedCounter,
@@ -157,12 +157,8 @@ impl BufferedUpdates {
         }
         self.delete_terms.put(term, doc_id_upto)
     }
-    pub(crate) fn add_query(&mut self, query: Arc<Query>, doc_id_upto: i32) {
-        if self
-            .delete_queries
-            .insert(query.clone(), doc_id_upto)
-            .is_none()
-        {
+    pub(crate) fn add_query(&mut self, query: Query, doc_id_upto: i32) {
+        if self.delete_queries.insert(query, doc_id_upto).is_none() {
             self.bytes_used.add_and_get(BYTES_PER_DEL_QUERY as i64);
         }
     }
@@ -451,7 +447,6 @@ pub const MAX_INT: i32 = i32::MAX;
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::sync::Arc;
 
     use rand::{Rng, RngExt};
 
@@ -485,7 +480,7 @@ mod tests {
             };
             let value = format!("{}", random.random_range(0..100));
             let term = Term::new("id", BytesRef::from_string(&value));
-            bu.add_query(Arc::new(TermQuery::new(term.clone()).into()), doc_id_upto);
+            bu.add_query(TermQuery::new(term.clone()).into(), doc_id_upto);
         }
 
         let terms = at_least(&mut random, 1);

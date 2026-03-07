@@ -21,6 +21,7 @@ use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::{CacheHelper, IndexReader};
 use crate::core::index::leaf_metadata::LeafMetaData;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::PointValues;
 use crate::core::index::postings_enum::{FREQS, PostingsEnumEnum2};
@@ -180,6 +181,12 @@ pub trait LeafReader: IndexReader {
     }
 
     fn get_metadata(&self) -> Result<&LeafMetaData>;
+}
+pub(crate) fn get_context<LR>(leaf_reader: LR) -> Result<LeafReaderContext<LR>>
+where
+    LR: LeafReader,
+{
+    Ok(LeafReaderContext::from_top_lr(leaf_reader))
 }
 
 // DummyPostingsEnum from  EmptyTerms's EmptyTermsEnum's PostingsEnum

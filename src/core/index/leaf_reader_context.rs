@@ -15,11 +15,9 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{
-    IndexReaderContext, IndexReaderContextBase, IndexReaderContextSealed,
-};
+use crate::core::index::index_reader_context::{IndexReaderContext, IndexReaderContextBase};
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::fmt;
 
 /// [`IndexReaderContext`] for [`LeafReader`] instances.
@@ -57,13 +55,14 @@ where
             ord: leaf_ord,
             doc_base: leaf_doc_base,
             reader,
-            base: IndexReaderContextBase::new(false, ord, doc_base),
+            base: IndexReaderContextBase::new(true, ord, doc_base),
             top_parent: parent,
         }
     }
+    pub(crate) fn from_top_lr(reader: LR) -> Self {
+        Self::new(reader, 0, 0, 0, 0, TopParentMeta::default())
+    }
 }
-
-impl<LR> IndexReaderContextSealed for LeafReaderContext<LR> where LR: LeafReader {}
 
 impl<LR> IndexReaderContext for LeafReaderContext<LR>
 where
@@ -78,9 +77,7 @@ where
     type LeafReader = LR;
 
     fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
-        Err(LuceneError::unsupported_operation(
-            "This is a leaf reader context",
-        ))
+        Ok(std::slice::from_ref(self))
     }
 
     fn base(&self) -> &IndexReaderContextBase {

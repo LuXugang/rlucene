@@ -16,14 +16,11 @@
  */
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::index_reader::IndexReaderEnum;
-use crate::core::index::index_reader_context::{
-    IndexReaderContext, IndexReaderContextBase, IndexReaderContextSealed,
-};
+use crate::core::index::index_reader_context::{IndexReaderContext, IndexReaderContextBase};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::sync::Arc;
 
 /// [`IndexReaderContext`] for CompositeReader instance.
 pub struct CompositeReaderContext<CR>
@@ -75,8 +72,6 @@ where
     });
     Ok(ctx)
 }
-
-impl<CR> IndexReaderContextSealed for CompositeReaderContext<CR> where CR: CompositeReader {}
 
 impl<CR> IndexReaderContext for CompositeReaderContext<CR>
 where
@@ -160,28 +155,5 @@ where
             },
         }
         Ok(())
-    }
-}
-
-impl<CR> IndexReaderContextSealed for Arc<CompositeReaderContext<CR>> where CR: CompositeReader {}
-
-impl<CR> IndexReaderContext for Arc<CompositeReaderContext<CR>>
-where
-    CR: CompositeReader,
-{
-    type IndexReader = CR;
-
-    fn reader(&self) -> &Self::IndexReader {
-        &self.reader
-    }
-
-    type LeafReader = CR::LeafReader;
-
-    fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
-        Ok(self.leaves.as_ref())
-    }
-
-    fn base(&self) -> &IndexReaderContextBase {
-        &self.base
     }
 }

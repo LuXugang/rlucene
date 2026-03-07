@@ -148,7 +148,7 @@ impl DocumentsWriterDeleteQueue {
             max_seq_no: AtomicI64::new(i64::MAX),
         }
     }
-    pub(crate) fn add_delete_query(&self, queries: Vec<Arc<Query>>) -> Result<i64> {
+    pub(crate) fn add_delete_query(&self, queries: Vec<Query>) -> Result<i64> {
         let query_array_node = Node::new(NodeEnum::QueryNodeArray(QueryNodeArray::new(queries)));
         let seq_no = self.add_node(Arc::new(query_array_node))?;
         self.try_apply_global_slice()?;
@@ -173,7 +173,7 @@ impl DocumentsWriterDeleteQueue {
     }
 
     pub(crate) fn new_node_with_query(query: Query) -> Node {
-        Node::new(NodeEnum::QueryNode(QueryNode::new(Arc::new(query))))
+        Node::new(NodeEnum::QueryNode(Box::new(QueryNode::new(query))))
     }
 
     pub(crate) fn new_node_with_doc_values(updates: Vec<DocValuesUpdate>) -> Node {
@@ -651,10 +651,10 @@ impl Display for TermNode {
 }
 // query node
 pub(crate) struct QueryNode {
-    item: Arc<Query>,
+    item: Query,
 }
 impl QueryNode {
-    pub(crate) fn new(query: Arc<Query>) -> Self {
+    pub(crate) fn new(query: Query) -> Self {
         Self { item: query }
     }
 }
@@ -674,10 +674,10 @@ impl Display for QueryNode {
 }
 // query node array
 pub(crate) struct QueryNodeArray {
-    item: Vec<Arc<Query>>,
+    item: Vec<Query>,
 }
 impl QueryNodeArray {
-    pub(crate) fn new(nodes: Vec<Arc<Query>>) -> Self {
+    pub(crate) fn new(nodes: Vec<Query>) -> Self {
         Self { item: nodes }
     }
 }
@@ -777,7 +777,7 @@ impl Display for DocValuesUpdatesNode {
 pub(crate) enum NodeEnum {
     EmptyNode(EmptyNode),
     TermNode(TermNode),
-    QueryNode(QueryNode),
+    QueryNode(Box<QueryNode>),
     QueryNodeArray(QueryNodeArray),
     TermNodeArray(TermNodeArray),
     DocValuesUpdatesNode(DocValuesUpdatesNode),
@@ -954,8 +954,7 @@ mod tests {
         for i in 0..size {
             let term = Term::from_text("id", i.to_string());
             if random.random_range(0..10) == 0 {
-                queue
-                    .add_delete_query(Vec::from([Arc::new(TermQuery::new(term.clone()).into())]))?;
+                queue.add_delete_query(Vec::from([TermQuery::new(term.clone()).into()]))?;
             } else {
                 queue.add_delete_term(vec![term.clone()])?;
             }
@@ -981,7 +980,7 @@ mod tests {
         for i in 0..size {
             let term = Term::from_text("id", i.to_string());
             if random.random_range(0..10) == 0 {
-                queue.add_delete_query(vec![Arc::new(TermQuery::new(term.clone()).into())])?;
+                queue.add_delete_query(vec![TermQuery::new(term.clone()).into()])?;
                 queries_since_freeze += 1;
             } else {
                 queue.add_delete_term(vec![term.clone()])?;
@@ -1104,9 +1103,8 @@ mod tests {
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
             let result = queue.freeze_global_buffer(&mut None);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
-            let result = queue.add_delete_query(vec![Arc::new(
-                TermQuery::new(Term::from_text("foo", "bar")).into(),
-            )]);
+            let result =
+                queue.add_delete_query(vec![TermQuery::new(Term::from_text("foo", "bar")).into()]);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
 
             let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Option::from(
