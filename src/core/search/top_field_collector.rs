@@ -1280,6 +1280,7 @@ mod tests {
     use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
     use crate::core::search::total_hits::TotalHits;
 
+    use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::check_hits::CheckHits;
@@ -1444,9 +1445,9 @@ mod tests {
             Some("foo"),
             SortFieldType::Long,
         )?])?);
-        // TODO 没有定义 合并策略
         let mut config = IndexWriterConfig::new();
         config
+            .set_merge_policy(NoMergePolicy::default())
             .set_index_sort(sort.clone())?
             .set_max_buffered_docs(7)
             .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
@@ -1540,8 +1541,8 @@ mod tests {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
 
-        let config = IndexWriterConfig::new();
-        // TODO: 未设置合并策略
+        let mut config = IndexWriterConfig::new();
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         for _ in 0..4 {
@@ -1615,8 +1616,8 @@ mod tests {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 未设置合并策略
-        let config = IndexWriterConfig::new();
+        let mut config = IndexWriterConfig::new();
+        config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         for _ in 0..4 {
@@ -1712,9 +1713,9 @@ mod tests {
     fn test_concurrent_min_score() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-
-        // TODO 未实现合并策略
-        let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+        let mut config = IndexWriterConfig::new();
+        config.set_merge_policy(NoMergePolicy::default());
+        let w = IndexWriter::new(dir.clone(), config)?;
         let doc = Document::new();
         w.add_documents(vec![doc.clone(); 5])?;
         w.flush()?;
@@ -1867,8 +1868,9 @@ mod tests {
         ])?);
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO 未实现合并策略
-        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+        let mut config = IndexWriterConfig::new();
+        config.set_merge_policy(NoMergePolicy::default());
+        let writer = IndexWriter::new(dir.clone(), config)?;
 
         let mut doc = Document::new();
         doc.add(TextField::from_string("f", "foo bar", Store::No)?);

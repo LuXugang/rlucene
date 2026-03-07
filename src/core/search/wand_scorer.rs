@@ -945,6 +945,7 @@ pub(crate) mod tests {
     use crate::core::index::leaf_reader_context::LeafReaderContext;
     use crate::core::index::term::Term;
 
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::search::boolean_clause::Occur;
     use crate::core::search::boolean_query::{BooleanQuery, Builder};
     use crate::core::search::boolean_weight::BooleanWeight;
@@ -974,8 +975,8 @@ pub(crate) mod tests {
     use crate::core::util::{HasIdentity, ToInt};
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
-        new_searcher_with_threads, random,
+        at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
+        new_searcher_with_reader, new_searcher_with_threads, random,
     };
     use rand::Rng;
     use std::fmt::Debug;
@@ -1041,8 +1042,8 @@ pub(crate) mod tests {
     fn test_basics() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO newLogMergePolicy 未实现
-        let conf = IndexWriterConfig::new();
+        let mut conf = IndexWriterConfig::new();
+        conf.set_merge_policy(new_log_merge_policy(&mut random)?);
         let w = IndexWriter::new(dir.clone(), conf)?;
 
         let docs: &[&[&str]] = &[
@@ -1288,8 +1289,8 @@ pub(crate) mod tests {
     fn test_basics_with_disjunction_and_min_should_match() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO newLogMergePolicy 未实现
-        let conf = IndexWriterConfig::new();
+        let mut conf = IndexWriterConfig::new();
+        conf.set_merge_policy(new_log_merge_policy(&mut random)?);
         let w = IndexWriter::new(dir.clone(), conf)?;
 
         let docs: &[&[&str]] = &[
@@ -1408,8 +1409,8 @@ pub(crate) mod tests {
     fn test_basics_with_disjunction_and_min_should_match_and_tail_size_condition() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO newLogMergePolicy 未实现
-        let conf = IndexWriterConfig::new();
+        let mut conf = IndexWriterConfig::new();
+        conf.set_merge_policy(new_log_merge_policy(&mut random)?);
         let w = IndexWriter::new(dir.clone(), conf)?;
 
         let docs: &[&[&str]] = &[
@@ -1470,8 +1471,8 @@ pub(crate) mod tests {
     fn test_basics_with_disjunction_and_min_should_match_and_non_scoring_mode() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO newLogMergePolicy 未实现
-        let conf = IndexWriterConfig::new();
+        let mut conf = IndexWriterConfig::new();
+        conf.set_merge_policy(new_log_merge_policy(&mut random)?);
         let w = IndexWriter::new(dir.clone(), conf)?;
 
         let docs: &[&[&str]] = &[
@@ -1554,8 +1555,8 @@ pub(crate) mod tests {
     fn test_basics_with_filtered_disjunction_and_min_should_match() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO newLogMergePolicy 未实现
-        let conf = IndexWriterConfig::new();
+        let mut conf = IndexWriterConfig::new();
+        conf.set_merge_policy(new_log_merge_policy(&mut random)?);
         let w = IndexWriter::new(dir.clone(), conf)?;
 
         let docs: &[&[&str]] = &[
@@ -1661,8 +1662,8 @@ pub(crate) mod tests {
     -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO newLogMergePolicy 未实现
-        let conf = IndexWriterConfig::new();
+        let mut conf = IndexWriterConfig::new();
+        conf.set_merge_policy(new_log_merge_policy(&mut random)?);
         let w = IndexWriter::new(dir.clone(), conf)?;
 
         let docs: &[&[&str]] = &[
@@ -1750,7 +1751,6 @@ pub(crate) mod tests {
     fn test_basics_with_filtered_disjunction_and_must_not_and_min_should_match() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO newLogMergePolicy 未实现
         let conf = IndexWriterConfig::new();
         let w = IndexWriter::new(dir.clone(), conf)?;
 
@@ -1856,8 +1856,8 @@ pub(crate) mod tests {
     -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO newLogMergePolicy 未实现
-        let conf = IndexWriterConfig::new();
+        let mut conf = IndexWriterConfig::new();
+        conf.set_merge_policy(new_log_merge_policy(&mut random)?);
         let w = IndexWriter::new(dir.clone(), conf)?;
 
         let docs: &[&[&str]] = &[

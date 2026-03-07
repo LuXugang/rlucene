@@ -23,6 +23,7 @@ use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LRPosting, LeafReader};
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::postings_enum::{ALL, PostingsEnum, PostingsEnumEnum2};
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
@@ -34,7 +35,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared, new_field,
-    new_index_writer_config, new_text_field, random,
+    new_index_writer_config, new_log_merge_policy, new_text_field, random,
 };
 use rand::Rng;
 use std::collections::HashMap;
@@ -158,8 +159,8 @@ fn test_random_positions() -> Result<()> {
     let mut random = random();
     let directory = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
-    // TODO: newLogMergePolicy未实现
-    let config = new_index_writer_config(&mut random);
+    let mut config = new_index_writer_config(&mut random);
+    config.set_merge_policy(new_log_merge_policy(&mut random)?);
     let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
     let field_name = field_name(&mut random);

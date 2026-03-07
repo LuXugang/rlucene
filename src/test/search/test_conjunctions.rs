@@ -43,7 +43,7 @@ const F2: &str = "body";
 
 fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
     let dir = new_directory_shared(random)?;
-    // TODO: 未实现MockAnalyzer/newLogMergePolicy
+    // TODO: 未实现MockAnalyzer
     let mut config = new_index_writer_config(random);
     config.set_merge_policy(new_log_merge_policy(random)?);
     let w = IndexWriter::new(dir.clone(), config)?;

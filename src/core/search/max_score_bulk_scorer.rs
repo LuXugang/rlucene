@@ -881,26 +881,27 @@ mod test {
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
     use crate::core::search::term_query::TermQuery;
 
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::store::directory::Directory;
     use crate::core::util::HasIdentity;
     use crate::core::util::bits::Bits;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_searcher_with_reader, random,
+        new_directory_shared, new_log_merge_policy, new_searcher_with_reader, random,
     };
+    use rand::Rng;
     use rand::prelude::SliceRandom;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestMaxScoreBulkScorer;
 
-    fn write_documents<D>(dir: Arc<D>) -> Result<()>
+    fn write_documents<R: Rng + ?Sized, D>(random: &mut R, dir: Arc<D>) -> Result<()>
     where
         D: Directory,
     {
-        let iwc = IndexWriterConfig::new();
-        // TODO newLogMergePolicy 未实现
-        // iwc.set_merge_policy(new_log_merge_policy());
+        let mut iwc = IndexWriterConfig::new();
+        iwc.set_merge_policy(new_log_merge_policy(random)?);
 
         let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -933,7 +934,7 @@ mod test {
     fn test_basics_with_two_disjunction_clauses() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        write_documents(dir.clone())?;
+        write_documents(&mut random, dir.clone())?;
 
         let reader = directory_reader_util::open(dir)?;
         let searcher = new_searcher_with_reader(reader)?;
@@ -978,7 +979,7 @@ mod test {
     fn test_filtered_disjunction() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        write_documents(dir.clone())?;
+        write_documents(&mut random, dir.clone())?;
 
         let reader = directory_reader_util::open(dir)?;
         let searcher = new_searcher_with_reader(reader)?;
@@ -1031,7 +1032,7 @@ mod test {
     fn test_filtered_disjunction_with_skipping() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        write_documents(dir.clone())?;
+        write_documents(&mut random, dir.clone())?;
 
         let reader = directory_reader_util::open(dir)?;
         let searcher = new_searcher_with_reader(reader)?;
@@ -1080,7 +1081,7 @@ mod test {
     fn test_basics_with_two_disjunction_clauses_and_skipping() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        write_documents(dir.clone())?;
+        write_documents(&mut random, dir.clone())?;
 
         let reader = directory_reader_util::open(dir)?;
         let searcher = new_searcher_with_reader(reader)?;
@@ -1121,7 +1122,7 @@ mod test {
     fn test_basics_with_three_disjunction_clauses() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        write_documents(dir.clone())?;
+        write_documents(&mut random, dir.clone())?;
 
         let reader = directory_reader_util::open(dir)?;
         let searcher = new_searcher_with_reader(reader)?;
@@ -1176,7 +1177,7 @@ mod test {
     fn test_basics_with_three_disjunction_clauses_and_skipping() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        write_documents(dir.clone())?;
+        write_documents(&mut random, dir.clone())?;
 
         let reader = directory_reader_util::open(dir)?;
         let searcher = new_searcher_with_reader(reader)?;
@@ -1232,8 +1233,8 @@ mod test {
     fn test_deletes() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: newLogMergePolicy 未实现
-        let iwc = IndexWriterConfig::new();
+        let mut iwc = IndexWriterConfig::new();
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut doc1 = Document::new();

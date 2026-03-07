@@ -218,7 +218,6 @@ mod tests {
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
     use crate::core::index::index_writer::IndexWriter;
-    use crate::core::index::index_writer_config::IndexWriterConfig;
 
     use crate::core::index::leaf_reader_context::LeafReaderContext;
     use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
@@ -226,6 +225,8 @@ mod tests {
     use crate::core::search::collector::Collector;
     use crate::core::search::collector_manager::CollectorManager;
 
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::search::dummy::dummy_weight::DummyWeight;
     use crate::core::search::hit_queue::{HitQueue, HitQueueComparator};
     use crate::core::search::index_searcher::IndexSearcher;
@@ -617,8 +618,9 @@ mod tests {
     fn test_set_min_competitive_score() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里没有定义合并策略
-        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(NoMergePolicy::default());
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
 
         writer.add_documents(vec![
             Document::new(),
@@ -689,8 +691,9 @@ mod tests {
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里没有定义合并策略
-        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(NoMergePolicy::default());
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
 
         writer.add_documents(vec![
             Document::new(),
@@ -721,8 +724,9 @@ mod tests {
     fn test_total_hits() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里没有定义合并策略
-        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(NoMergePolicy::default());
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
 
         writer.add_documents(vec![
             Document::new(),
@@ -793,8 +797,9 @@ mod tests {
     fn test_relation_vs_top_docs_count() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO : 这里没有定义合并策略
-        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(NoMergePolicy::default());
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut doc = Document::new();
         doc.add(TextField::from_string("f", "foo bar", Store::No)?);
@@ -833,9 +838,9 @@ mod tests {
     fn test_concurrent_min_score() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-
-        // TODO 未实现合并策略
-        let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(NoMergePolicy::default());
+        let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let doc = Document::new();
 

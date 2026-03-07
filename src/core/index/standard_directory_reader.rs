@@ -173,7 +173,7 @@ where
                 };
                 debug_assert!(Arc::ptr_eq(&info.info.dir, &dir));
                 let reader = reader_function.apply(info)?;
-                // TODO: IMPROTANT 这里合并规则没有判断
+                // TODO IMPORTANT 这里合并规则没有判断
                 if reader.num_docs()? > 0 {
                     // Steal the ref
                     readers.push(reader);

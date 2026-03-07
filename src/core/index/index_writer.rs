@@ -1896,7 +1896,7 @@ where
     /// It is guaranteed that any merges started prior to calling this method
     /// will have completed once this method returns.
     pub(crate) fn wait_for_merges(&self) -> Result<()> {
-        // TODO: 合并逻辑还未实现
+        // TODO IMPORTANT: 合并逻辑还未实现
         // self.merge_scheduler
         //     .merge(&self.merge_source, MergeTrigger::Closing)?;
         let inner = self.inner.lock();
@@ -2263,7 +2263,7 @@ where
                         .inc_ref_files(to_commit.as_ref().unwrap().files(false)?);
 
                     if max_commit_merge_wait_millis > 0 {
-                        // TODO: 合并为实现
+                        // TODO IMPORTANT: 合并为实现
                     }
                 }
                 Ok(())
@@ -5753,7 +5753,7 @@ where
                 match writer.on_tragic_event(&e, "applyUpdatesPacket") {
                     Ok(_) => Err(e),
                     Err(err) => {
-                        // TODO 这里没有将e跟err 合并成一个合理的Error
+                        // TODO IMPORTANT 这里没有将e跟err 合并成一个合理的Error
                         Err(LuceneError::illegal_state(format!(
                             "{err} + supper error:{{e}}"
                         )))

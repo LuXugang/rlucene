@@ -725,6 +725,7 @@ mod tests {
     use crate::core::index::impacts::Impacts;
     use crate::core::index::impacts_enum::ImpactsEnum;
     use crate::core::index::impacts_source::ImpactsSource;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::postings_enum::PostingsEnum;
     use crate::core::index::term::Term;
     use crate::core::search::boolean_clause::Occur;
@@ -743,7 +744,8 @@ mod tests {
     use crate::test::search::query_utils::QueryUtils;
     use crate::test::util::DefaultIndexSearch;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_searcher_with_reader, new_text_field, random,
+        new_directory_shared, new_index_writer_config, new_log_merge_policy,
+        new_searcher_with_reader, new_text_field, random,
     };
     use rand::Rng;
     use rand::prelude::SliceRandom;
@@ -1093,8 +1095,9 @@ mod tests {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO newLogMergePolicy 未实现
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
         let mut field_to_type = HashMap::new();
 
