@@ -72,11 +72,10 @@ pub mod lucene_test_case_util {
     use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
     use crate::test::util::test_util::TestUtil;
     use rand::prelude::StdRng;
-    use rand::{Rng, RngExt, SeedableRng, TryRng};
-    use std::cell::RefCell;
+    use rand::{Rng, RngExt, SeedableRng};
+
     use std::collections::HashMap;
-    use std::convert::Infallible;
-    use std::rc::Rc;
+
     use std::sync::Arc;
     use tempfile::TempDir;
 
@@ -667,38 +666,6 @@ pub mod lucene_test_case_util {
         Ok(it)
     }
 
-    thread_local! {
-        static THREAD_LOCAL_RANDOM: RefCell<Option<Rc<RefCell<StdRng>>>> =
-            const { RefCell::new(None) };
-    }
-
-    #[derive(Clone)]
-    pub(crate) struct TestRng {
-        inner: Rc<RefCell<StdRng>>,
-    }
-
-    impl TestRng {
-        fn new(inner: Rc<RefCell<StdRng>>) -> Self {
-            Self { inner }
-        }
-    }
-
-    impl TryRng for TestRng {
-        type Error = Infallible;
-
-        fn try_next_u32(&mut self) -> std::result::Result<u32, Self::Error> {
-            self.inner.borrow_mut().try_next_u32()
-        }
-
-        fn try_next_u64(&mut self) -> std::result::Result<u64, Self::Error> {
-            self.inner.borrow_mut().try_next_u64()
-        }
-
-        fn try_fill_bytes(&mut self, dst: &mut [u8]) -> std::result::Result<(), Self::Error> {
-            self.inner.borrow_mut().try_fill_bytes(dst)
-        }
-    }
-
     /// Retrieves the seed from the environment variable "tests.seed".
     /// If the environment variable is not set or cannot be parsed as a `u64`,
     /// it generates a random seed and logs the result.
@@ -720,16 +687,8 @@ pub mod lucene_test_case_util {
         seed
     }
 
-    pub(crate) fn random() -> TestRng {
-        let shared = THREAD_LOCAL_RANDOM.with(|cell| {
-            let mut slot = cell.borrow_mut();
-            slot.get_or_insert_with(|| {
-                Rc::new(RefCell::new(StdRng::seed_from_u64(get_seed_from_env())))
-            })
-            .clone()
-        });
-
-        TestRng::new(shared)
+    pub(crate) fn random() -> StdRng {
+        StdRng::seed_from_u64(get_seed_from_env())
     }
 
     pub(crate) fn random_from_seed(seed: u64) -> StdRng {
