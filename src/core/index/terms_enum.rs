@@ -659,6 +659,8 @@ mod tests {
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::log_merge_policy::LogMergePolicy;
     use crate::core::index::multi_doc_values::MultiDocValues;
     use crate::core::index::multi_terms::get_terms;
     use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -1264,8 +1266,9 @@ mod tests {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 未实现MockAnalyzer/LogDocMergePolicy
-        let iwc = IndexWriterConfig::new();
+        // TODO: 未实现MockAnalyzer
+        let mut iwc = IndexWriterConfig::new();
+        iwc.set_merge_policy(LogMergePolicy::log_doc());
         let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
         let mut field_to_type = HashMap::new();
@@ -1339,8 +1342,9 @@ mod tests {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 未实现 MockAnalyzer / LogDocMergePolicy
-        let iwc = IndexWriterConfig::new();
+        // TODO: 未实现 MockAnalyzer
+        let mut iwc = IndexWriterConfig::new();
+        iwc.set_merge_policy(LogMergePolicy::log_doc());
         let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
         let mut field_to_type = HashMap::new();
@@ -1434,8 +1438,9 @@ mod tests {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 未实现 MockAnalyzer / LogDocMergePolicy
-        let iwc = IndexWriterConfig::new();
+        // TODO: 未实现 MockAnalyzer
+        let mut iwc = IndexWriterConfig::new();
+        iwc.set_merge_policy(LogMergePolicy::log_doc());
         let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
         let mut field_to_type = HashMap::new();
@@ -1573,6 +1578,7 @@ mod tests2 {
     use crate::core::index::BytesRef;
     use crate::core::index::composite_reader_context::CompositeReaderContext;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::log_merge_policy::LogMergePolicy;
     use crate::core::index::multi_terms::get_terms;
     use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
     use crate::core::index::terms::Terms;
@@ -1618,8 +1624,9 @@ mod tests2 {
 
         let dir = new_directory_shared(random)?;
 
-        // TODO: 未实现 MockAnalyzer / LogDocMergePolicy
+        // TODO: 未实现 MockAnalyzer
         let mut iwc = new_index_writer_config(random);
+        iwc.set_merge_policy(LogMergePolicy::log_doc());
         iwc.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
         let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 

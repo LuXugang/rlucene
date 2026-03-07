@@ -906,7 +906,6 @@ mod test {
         assert_same_count(&searcher, "doesNotExist", 0)?;
 
         // Test that we can't count in O(1) when there are deleted documents
-        // TODO: NoMergePolicy 未实现/未接入到 RandomIndexWriter config
         w.w.get_config_mut()
             .set_merge_policy(NoMergePolicy::default());
         // TODO: delete-by-query not implement yet

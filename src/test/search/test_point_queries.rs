@@ -72,7 +72,7 @@ fn test_basic_ints() -> Result<()> {
         w.add_document(doc)?;
     }
 
-    let r = directory_reader_util::open_with_writer(&w)?;
+    let r = directory_reader_util::open_from_writer(&w)?;
     let searcher = IndexSearcher::from_cr(r)?;
 
     assert_eq!(
@@ -116,7 +116,7 @@ fn test_basic_floats() -> Result<()> {
         w.add_document(doc)?;
     }
 
-    let r = directory_reader_util::open_with_writer(&w)?;
+    let r = directory_reader_util::open_from_writer(&w)?;
     let searcher = IndexSearcher::from_cr(r)?;
 
     assert_eq!(
@@ -167,7 +167,7 @@ fn test_basic_longs() -> Result<()> {
         w.add_document(doc)?;
     }
 
-    let r = directory_reader_util::open_with_writer(&w)?;
+    let r = directory_reader_util::open_from_writer(&w)?;
     let searcher = IndexSearcher::from_cr(r)?;
 
     assert_eq!(
@@ -218,7 +218,7 @@ fn test_basic_doubles() -> Result<()> {
         w.add_document(doc)?;
     }
 
-    let r = directory_reader_util::open_with_writer(&w)?;
+    let r = directory_reader_util::open_from_writer(&w)?;
     let searcher = IndexSearcher::from_cr(r)?;
 
     assert_eq!(
@@ -293,7 +293,7 @@ fn test_crazy_doubles() -> Result<()> {
         w.add_document(doc)?;
     }
 
-    let r = directory_reader_util::open_with_writer(&w)?;
+    let r = directory_reader_util::open_from_writer(&w)?;
     let searcher = IndexSearcher::from_cr(r)?;
 
     // exact queries
@@ -445,7 +445,7 @@ fn test_crazy_floats() -> Result<()> {
         w.add_document(doc)?;
     }
 
-    let r = directory_reader_util::open_with_writer(&w)?;
+    let r = directory_reader_util::open_from_writer(&w)?;
     let searcher = IndexSearcher::from_cr(r)?;
 
     // exact queries
@@ -1117,7 +1117,7 @@ fn test_exact_points() -> Result<()> {
         w.add_document(doc)?;
     }
 
-    let r = directory_reader_util::open_with_writer(&w)?;
+    let r = directory_reader_util::open_from_writer(&w)?;
     let searcher = new_searcher_with_wrap(r, false)?;
 
     assert_eq!(1, searcher.count(IntPoint::new_exact_query("int", 42i32)?)?);
@@ -1316,7 +1316,7 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
         w.add_document(doc)?;
     }
 
-    let r = directory_reader_util::open_with_writer(&w)?;
+    let r = directory_reader_util::open_from_writer(&w)?;
     let searcher = new_searcher_with_wrap(r, false)?;
 
     assert_eq!(
@@ -1846,7 +1846,7 @@ fn test_inverse_point_range() -> Result<()> {
 
     w.force_merge(1)?;
 
-    let reader = directory_reader_util::open_with_writer(&w)?;
+    let reader = directory_reader_util::open_from_writer(&w)?;
     w.close()?;
 
     let searcher = new_searcher_with_reader(reader)?;
@@ -1901,7 +1901,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
         w.add_document(doc)?;
     }
 
-    let reader = directory_reader_util::open_with_writer(&w)?;
+    let reader = directory_reader_util::open_from_writer(&w)?;
     let searcher = new_searcher_with_wrap(reader, false)?;
 
     let query = IntPoint::new_range_query("field", 0i32, 1i32)?;

@@ -598,6 +598,7 @@ mod tests {
     use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
     use crate::core::search::two_phase_iterator::TwoPhaseIterator;
     use crate::core::util::error::lucene_error::Result;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
@@ -623,10 +624,9 @@ mod tests {
     fn do_test_basics<R: Rng + ?Sized>(random: &mut R, req_occur: Occur) -> Result<()> {
         let dir = new_directory_shared(random)?;
 
-        // TODO RandomIndexWriter 未实现：用当前 IndexWriter 路径代替
         let mut iwc = new_index_writer_config(random);
         iwc.set_merge_policy(new_log_merge_policy(random)?);
-        let w = IndexWriter::new(dir.clone(), iwc)?;
+        let w = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
         {
             let mut doc = Document::new();
@@ -658,7 +658,7 @@ mod tests {
 
         w.force_merge(1)?;
 
-        let reader = directory_reader_util::open_with_writer(&w)?;
+        let reader = w.get_reader()?;
         w.close()?;
 
         let searcher = new_searcher_with_reader(reader)?;
@@ -855,8 +855,8 @@ mod tests {
     {
         // TODO RandomApproximationQuery未实现
         let dir = new_directory_shared(random)?;
-        // TODO RandomIndexWriter 未实现：用当前 IndexWriter 路径代替
-        let w = IndexWriter::new(dir.clone(), new_index_writer_config(random))?;
+        let config = new_index_writer_config(random);
+        let w = RandomIndexWriter::with_config(random, dir.clone(), config);
         let num_docs = at_least(random, 1000);
 
         for _ in 0..num_docs {
@@ -884,7 +884,7 @@ mod tests {
             w.add_document(doc)?;
         }
 
-        let reader = directory_reader_util::open_with_writer(&w)?;
+        let reader = w.get_reader()?;
         w.close()?;
         let searcher = new_searcher_with_reader(reader)?;
 

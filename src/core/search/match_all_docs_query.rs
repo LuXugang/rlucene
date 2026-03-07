@@ -306,27 +306,103 @@ mod tests {
     use crate::core::document::document::Document;
     use crate::core::document::field::Store;
     use crate::core::document::field_type::FieldType;
-    use crate::core::document::text_field::TextField;
+
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::stored_fields::StoredFields;
+    use crate::core::index::term::Term;
+    use crate::core::search::boolean_clause::Occur;
+    use crate::core::search::boolean_query::Builder;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::term_query::TermQuery;
     use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
     use crate::core::search::total_hits::Relation;
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config, new_searcher_with_reader,
-        new_searcher_with_threads, random,
+        new_directory_shared, new_index_writer_config, new_log_merge_policy,
+        new_searcher_with_reader, new_searcher_with_threads, new_text_field, random,
     };
+    use rand_chacha::rand_core::Rng;
     use std::collections::HashMap;
     use std::sync::Arc;
+    use std::vec;
 
     #[allow(dead_code)] // for quick search
     struct TestMatchAllDocsQuery;
     #[test]
     fn test_query() -> Result<()> {
-        // TODO BooleanQuery未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_max_buffered_docs(2);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+
+        let iw = IndexWriter::new(dir.clone(), iwc)?;
+        let mut field_types = HashMap::new();
+
+        add_doc(&mut random, "one", &iw, &mut field_types)?;
+        add_doc(&mut random, "two", &iw, &mut field_types)?;
+        add_doc(&mut random, "three four", &iw, &mut field_types)?;
+
+        let ir = directory_reader_util::open_from_writer(&iw)?;
+        let mut searcher = new_searcher_with_reader(ir)?;
+
+        let mut hits = searcher.search(MatchAllDocsQuery::new(), 1000)?.score_docs;
+        assert_eq!(3, hits.len());
+        assert_eq!(
+            "one",
+            searcher
+                .stored_fields()?
+                .document(hits[0].doc)?
+                .get("key")?
+                .unwrap()
+                .as_ref()
+        );
+        assert_eq!(
+            "two",
+            searcher
+                .stored_fields()?
+                .document(hits[1].doc)?
+                .get("key")?
+                .unwrap()
+                .as_ref()
+        );
+        assert_eq!(
+            "three four",
+            searcher
+                .stored_fields()?
+                .document(hits[2].doc)?
+                .get("key")?
+                .unwrap()
+                .as_ref()
+        );
+
+        // some artificial queries to trigger the use of skipTo():
+
+        let mut bq = Builder::new();
+        bq.add(MatchAllDocsQuery::new(), Occur::Must)?;
+        bq.add(MatchAllDocsQuery::new(), Occur::Must)?;
+        hits = searcher.search(bq.build(), 1000)?.score_docs;
+        assert_eq!(3, hits.len());
+
+        let mut bq = Builder::new();
+        bq.add(MatchAllDocsQuery::new(), Occur::Must)?;
+        bq.add(TermQuery::new(Term::from_text("key", "three")), Occur::Must)?;
+        hits = searcher.search(bq.build(), 1000)?.score_docs;
+        assert_eq!(1, hits.len());
+
+        iw.delete_documents_with_terms(vec![Term::from_text("key", "one")])?;
+
+        let reader = directory_reader_util::open_from_writer(&iw)?;
+        searcher = new_searcher_with_reader(reader)?;
+
+        hits = searcher.search(MatchAllDocsQuery::new(), 1000)?.score_docs;
+        assert_eq!(2, hits.len());
+
+        iw.close()?;
         Ok(())
     }
     #[test]
@@ -336,18 +412,20 @@ mod tests {
         assert_eq!(q1, q2);
         Ok(())
     }
-    fn add_doc<D, L, B>(
+    fn add_doc<D, L, B, R>(
+        random: &mut R,
         text: &str,
         iw: &IndexWriter<D, L, B>,
-        _field_to_type: &mut HashMap<String, FieldType>,
+        field_to_type: &mut HashMap<String, FieldType>,
     ) -> Result<()>
     where
         D: Directory,
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
+        R: Rng + ?Sized,
     {
         let mut doc = Document::new();
-        let field = TextField::from_string("key", text, Store::Yes)?;
+        let field = new_text_field(random, "key", text, Store::Yes, field_to_type)?;
         doc.add(field);
         iw.add_document(doc)?;
         Ok(())
@@ -356,18 +434,19 @@ mod tests {
     fn test_early_termination() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer / MergePolicy
+        // TODO: 未实现 MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(2);
+        config.set_merge_policy(new_log_merge_policy(&mut random)?);
         let iw = IndexWriter::new(dir.clone(), config)?;
         let mut field_types = HashMap::new();
         let num_docs = 500;
         for i in 0..num_docs {
             let text = format!("doc{}", i);
-            add_doc(&text, &iw, &mut field_types)?;
+            add_doc(&mut random, &text, &iw, &mut field_types)?;
         }
 
-        let ir = directory_reader_util::open_with_writer(&iw)?;
+        let ir = directory_reader_util::open_from_writer(&iw)?;
         let ir_arc = Arc::new(ir);
 
         let single_threaded_searcher =

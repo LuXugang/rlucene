@@ -1358,7 +1358,7 @@ mod tests {
         )?);
         writer.add_document(doc)?;
 
-        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader = directory_reader_util::open_from_writer(&writer)?;
         let searcher = new_searcher_with_reader(reader)?;
 
         let mut bq = Builder::new();
@@ -1677,7 +1677,7 @@ mod tests {
         doc.add(long_point);
         writer.add_document(doc)?;
 
-        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader = directory_reader_util::open_from_writer(&writer)?;
 
         let searcher = IndexSearcher::from_cr(reader)?;
 
@@ -1773,7 +1773,7 @@ mod tests {
         doc.add(long_point_3dim);
         writer.add_document(doc)?;
 
-        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader = directory_reader_util::open_from_writer(&writer)?;
         let searcher = IndexSearcher::from_cr(reader)?;
 
         let leaf = &searcher.get_leaf_contexts()?[0];
@@ -2000,7 +2000,7 @@ mod test {
         writer.add_document(doc)?;
         writer.commit()?;
 
-        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader = directory_reader_util::open_from_writer(&writer)?;
         let searcher = IndexSearcher::from_cr(reader)?;
 
         let mut query1 = Builder::new();

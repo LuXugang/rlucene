@@ -1464,7 +1464,7 @@ mod tests {
         }
         writer.flush()?;
 
-        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader = directory_reader_util::open_from_writer(&writer)?;
         let reader = get_context(reader)?;
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
@@ -1554,7 +1554,7 @@ mod tests {
         }
         writer.flush()?;
 
-        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader = directory_reader_util::open_from_writer(&writer)?;
         let reader = get_context(reader)?;
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
@@ -1629,7 +1629,7 @@ mod tests {
         }
         writer.flush()?;
 
-        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader = directory_reader_util::open_from_writer(&writer)?;
         let reader = get_context(reader)?;
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
@@ -1724,7 +1724,7 @@ mod tests {
         w.add_documents(vec![doc; 2])?;
         w.flush()?;
 
-        let reader = directory_reader_util::open_with_writer(&w)?;
+        let reader = directory_reader_util::open_from_writer(&w)?;
         let reader = get_context(reader)?;
         assert_eq!(3, reader.leaves()?.len());
         w.close()?;

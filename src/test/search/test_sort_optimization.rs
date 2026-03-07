@@ -73,7 +73,7 @@ fn test_long_sort_optimization() -> Result<()> {
         }
     }
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     writer.close()?;
     let searcher = new_searcher_with_threads(reader, true, true, false)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
@@ -208,7 +208,7 @@ fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> 
         writer.add_document(doc)?;
     }
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     writer.close()?;
 
     // single-threaded so totalHits is deterministic
@@ -261,7 +261,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
         }
     }
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     writer.close()?;
     let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 3;
@@ -418,7 +418,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
         writer.add_document(doc)?;
     }
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     writer.close()?;
     let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 3;
@@ -511,7 +511,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
         }
     }
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     writer.close()?;
 
     let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
@@ -612,7 +612,7 @@ fn test_float_sort_optimization() -> Result<()> {
         writer.add_document(doc)?;
     }
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     writer.close()?;
 
     let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
@@ -750,7 +750,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
         }
     }
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     writer.close()?;
     let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 10;
@@ -890,7 +890,7 @@ fn test_doc_sort_optimization_with_after_collects_all_docs() -> Result<()> {
     }
     writer.flush()?;
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     let searcher = new_searcher_with_reader(reader)?;
     writer.close()?;
 
@@ -948,7 +948,7 @@ fn test_doc_sort_optimization() -> Result<()> {
         }
     }
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     writer.close()?;
     let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
 
@@ -1095,7 +1095,7 @@ fn test_max_doc_visited() -> Result<()> {
         }
     }
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     writer.close()?;
     let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
 
@@ -1138,7 +1138,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
         writer.add_document(doc)?;
     }
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     writer.close()?;
     let searcher = new_searcher_with_threads(reader, true, true, false)?;
 

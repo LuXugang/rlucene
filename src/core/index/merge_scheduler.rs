@@ -22,6 +22,8 @@ use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::store::directory::{Directory, DirectoryEnum2};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
+use crate::impl_from_for_enum;
+
 pub trait MergeScheduler: Closeable {
     fn merge<MS, D, L, B>(
         &self,
@@ -96,6 +98,11 @@ pub enum MergeSchedulerEnum {
     Serial(SerialMergeScheduler),
     No(NoMergeScheduler),
 }
+impl_from_for_enum!(
+    MergeSchedulerEnum,
+    SerialMergeScheduler => Serial,
+    NoMergeScheduler => No,
+);
 impl Default for MergeSchedulerEnum {
     fn default() -> Self {
         Self::Serial(SerialMergeScheduler)

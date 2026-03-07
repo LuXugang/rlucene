@@ -1259,7 +1259,7 @@ mod test {
 
         w.force_merge(1)?;
 
-        let reader = directory_reader_util::open_with_writer(&w)?;
+        let reader = directory_reader_util::open_from_writer(&w)?;
         w.close()?;
 
         let mut builder = Builder::new();

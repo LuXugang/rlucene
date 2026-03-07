@@ -1964,7 +1964,7 @@ pub(crate) mod tests {
             w.add_document(doc)?;
         }
 
-        let reader = directory_reader_util::open_with_writer(&w)?;
+        let reader = directory_reader_util::open_from_writer(&w)?;
         w.close()?;
 
         // turn off concurrent search to avoid Random object used across threads resulting into
@@ -2030,7 +2030,7 @@ pub(crate) mod tests {
             w.add_document(doc)?;
         }
 
-        let reader = directory_reader_util::open_with_writer(&w)?;
+        let reader = directory_reader_util::open_from_writer(&w)?;
         w.close()?;
 
         // turn off concurrent search to avoid Random object used across threads resulting into
@@ -2110,7 +2110,7 @@ pub(crate) mod tests {
             w.add_document(doc)?;
         }
 
-        let reader = directory_reader_util::open_with_writer(&w)?;
+        let reader = directory_reader_util::open_from_writer(&w)?;
         w.close()?;
 
         // turn off concurrent search to avoid Random object used across threads resulting into

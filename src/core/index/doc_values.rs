@@ -492,7 +492,7 @@ mod tests {
         let doc = Document::new();
         writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let dr = directory_reader_util::open_from_writer(&writer)?;
         let r = get_only_leaf_reader(dr)?;
 
         let mut v = DocValues::get_binary(r.as_ref(), "bogus")?;
@@ -521,7 +521,7 @@ mod tests {
         doc.add(StringField::from_string("foo", "bar", Store::No)?);
         writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let dr = directory_reader_util::open_from_writer(&writer)?;
         let r = get_only_leaf_reader(dr)?;
 
         // errors
@@ -561,7 +561,7 @@ mod tests {
         doc.add(NumericDocValuesField::new("foo", 3));
         writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let dr = directory_reader_util::open_from_writer(&writer)?;
         let r = get_only_leaf_reader(dr)?;
 
         // ok
@@ -603,7 +603,7 @@ mod tests {
         ));
         writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let dr = directory_reader_util::open_from_writer(&writer)?;
         let r = get_only_leaf_reader(dr)?;
 
         // ok
@@ -646,7 +646,7 @@ mod tests {
         ));
         writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let dr = directory_reader_util::open_from_writer(&writer)?;
         let r = get_only_leaf_reader(dr)?;
 
         // ok
@@ -688,7 +688,7 @@ mod tests {
         ));
         writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let dr = directory_reader_util::open_from_writer(&writer)?;
         let r = get_only_leaf_reader(&dr)?;
 
         // ok
@@ -728,7 +728,7 @@ mod tests {
         doc.add(SortedNumericDocValuesField::new("foo", 3));
         writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let dr = directory_reader_util::open_from_writer(&writer)?;
         let r = get_only_leaf_reader(dr)?;
 
         // ok

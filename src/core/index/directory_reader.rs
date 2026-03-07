@@ -206,7 +206,7 @@ pub mod directory_reader_util {
     ///
     /// * [`CorruptIndex`](crate::core::util::error::lucene_error::LuceneError::corrupt_index) – If the index is corrupt.
     /// * [`Io`](crate::core::util::error::lucene_error::LuceneError::io) – If a low-level I/O error occurs.
-    pub fn open_with_writer<D, L, B>(
+    pub fn open_from_writer<D, L, B>(
         writer: &IndexWriter<D, L, B>,
     ) -> Result<StandardDirectoryReaderType<D>>
     where
@@ -232,7 +232,7 @@ pub mod directory_reader_util {
     ///
     /// # See also
     ///
-    /// [`open`](open_with_writer)
+    /// [`open`](open_from_writer)
     ///
     /// # Lucene
     ///
@@ -259,7 +259,7 @@ pub mod directory_reader_util {
     /// # Errors
     ///
     /// Returns an error if there is a low-level I/O error.
-    pub fn open_with_commit<D, C, IC>(
+    pub fn open_from_commit<D, C, IC>(
         commit: &IC,
     ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
     where

@@ -68,7 +68,7 @@ fn test_doc_count() -> Result<()> {
     writer.add_document(doc)?;
 
     writer.commit()?;
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
 
     let index_searcher = IndexSearcher::from_cr(reader)?;
     let term_query = TermQuery::new(Term::from_text("content1", "aaa"));
@@ -352,7 +352,7 @@ fn test_delete_same_term_across_fields() -> Result<()> {
         Term::from_text("b", "foo"),
     ])?;
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     writer.close()?;
     assert_eq!(1, reader.num_docs()?);
 
@@ -435,7 +435,7 @@ fn test_segment_info_is_snapshot() -> Result<()> {
     d.add(StringField::from_string("id", "doc-1", Store::Yes)?);
     writer.add_document(d)?;
 
-    let reader = directory_reader_util::open_with_writer(&writer)?;
+    let reader = directory_reader_util::open_from_writer(&writer)?;
     let context = get_context(reader)?;
     let r = context.leaves()?;
     let segment_reader = r.first().unwrap().reader();

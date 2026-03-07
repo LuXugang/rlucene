@@ -296,7 +296,7 @@ mod tests {
             writer.commit()?;
             directory_reader_util::open(dir.clone())?
         } else {
-            directory_reader_util::open_with_writer(&writer)?
+            directory_reader_util::open_from_writer(&writer)?
         };
         let reader = get_context(reader)?;
         let searcher = IndexSearcher::new(reader)?;
@@ -466,7 +466,7 @@ mod tests {
             writer.close()?;
             directory_reader_util::open(dir.clone())?
         } else {
-            let r = directory_reader_util::open_with_writer(&writer)?;
+            let r = directory_reader_util::open_from_writer(&writer)?;
             writer.close()?;
             r
         };
@@ -519,7 +519,7 @@ mod tests {
             writer.close()?;
             directory_reader_util::open(dir.clone())?
         } else {
-            let r = directory_reader_util::open_with_writer(&writer)?;
+            let r = directory_reader_util::open_from_writer(&writer)?;
             writer.close()?;
             r
         };
@@ -573,7 +573,7 @@ mod tests {
             writer.close()?;
             directory_reader_util::open(dir.clone())?
         } else {
-            let r = directory_reader_util::open_with_writer(&writer)?;
+            let r = directory_reader_util::open_from_writer(&writer)?;
             writer.close()?;
             r
         };
@@ -992,7 +992,7 @@ mod tests {
                 ],
             )?;
 
-            let reader = directory_reader_util::open_with_writer(&writer)?;
+            let reader = directory_reader_util::open_from_writer(&writer)?;
             let reader = get_context(reader)?;
             for ctx in reader.leaves()? {
                 let r = ctx.reader();

@@ -597,7 +597,7 @@ mod tests {
 
         iw.commit()?;
 
-        let r = directory_reader_util::open_with_writer(&iw)?;
+        let r = directory_reader_util::open_from_writer(&iw)?;
 
         let sdv = MultiDocValues::get_sorted_values(r, "sdv")?;
         assert!(sdv.is_some());

@@ -61,7 +61,7 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
         "nutch is an internet search engine with web crawler and is using lucene and hadoop",
     )?)?;
 
-    let reader = directory_reader_util::open_with_writer(&w)?;
+    let reader = directory_reader_util::open_from_writer(&w)?;
     w.close()?;
 
     let mut searcher = new_searcher_with_reader(reader)?;

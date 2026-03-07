@@ -225,8 +225,11 @@ mod tests {
     use crate::core::search::collector::Collector;
     use crate::core::search::collector_manager::CollectorManager;
 
+    use crate::core::document::string_field::StringField;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::no_merge_policy::NoMergePolicy;
+    use crate::core::search::boolean_clause::Occur;
+    use crate::core::search::boolean_query::Builder;
     use crate::core::search::dummy::dummy_weight::DummyWeight;
     use crate::core::search::hit_queue::{HitQueue, HitQueueComparator};
     use crate::core::search::index_searcher::IndexSearcher;
@@ -252,10 +255,10 @@ mod tests {
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config, new_searcher_with_reader,
+        at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
         new_searcher_with_threads, random,
     };
-    use rand::Rng;
+    use rand::{Rng, RngExt};
     use std::fmt::{Display, Formatter};
     use std::sync::Arc;
     use std::sync::atomic::Ordering;
@@ -632,7 +635,7 @@ mod tests {
         writer.add_documents(vec![Document::new(), Document::new()])?;
         writer.flush()?;
 
-        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader = directory_reader_util::open_from_writer(&writer)?;
         let v = get_context(reader)?;
         assert_eq!(v.leaves()?.len(), 2);
         writer.close()?;
@@ -705,8 +708,8 @@ mod tests {
         writer.add_documents(vec![Document::new(), Document::new()])?;
         writer.flush()?;
 
-        let reader = directory_reader_util::open_with_writer(&writer)?;
-        let reader2 = directory_reader_util::open_with_writer(&writer)?;
+        let reader = directory_reader_util::open_from_writer(&writer)?;
+        let reader2 = directory_reader_util::open_from_writer(&writer)?;
         let v = get_context(&reader)?;
         assert_eq!(v.leaves()?.len(), 2);
         writer.close()?;
@@ -745,7 +748,7 @@ mod tests {
         ])?;
         writer.flush()?;
 
-        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader = directory_reader_util::open_from_writer(&writer)?;
         let v = get_context(reader)?;
         assert_eq!(v.leaves()?.len(), 2);
         writer.close()?;
@@ -851,7 +854,7 @@ mod tests {
         w.add_documents(vec![doc.clone(); 2])?;
         w.flush()?;
 
-        let reader = directory_reader_util::open_with_writer(&w)?;
+        let reader = directory_reader_util::open_from_writer(&w)?;
         let reader = get_context(reader)?;
         assert_eq!(3, reader.leaves()?.len());
         w.close()?;
@@ -979,12 +982,69 @@ mod tests {
         Ok(())
     }
 
+    #[test]
     fn test_random_min_competitive_score() -> Result<()> {
-        // TODO BooleanQuery未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let num_docs = at_least(&mut random, 1000);
+        for _ in 0..num_docs {
+            let num_as = 1 + random.random_range(0..5);
+            let num_bs = if random.random::<f32>() < 0.5 {
+                0
+            } else {
+                1 + random.random_range(0..5)
+            };
+            let num_cs = if random.random::<f32>() < 0.1 {
+                0
+            } else {
+                1 + random.random_range(0..5)
+            };
+
+            let mut doc = Document::new();
+            for _ in 0..num_as {
+                doc.add(StringField::from_string("f", "A", Store::No)?);
+            }
+            for _ in 0..num_bs {
+                doc.add(StringField::from_string("f", "B", Store::No)?);
+            }
+            for _ in 0..num_cs {
+                doc.add(StringField::from_string("f", "C", Store::No)?);
+            }
+            w.add_document(doc)?;
+        }
+
+        let index_reader = Arc::new(w.get_reader()?);
+        w.close()?;
+
+        let queries: Vec<Query> = vec![
+            TermQuery::new(Term::from_text("f", "A")).into(),
+            TermQuery::new(Term::from_text("f", "B")).into(),
+            TermQuery::new(Term::from_text("f", "C")).into(),
+            {
+                let mut b = Builder::new();
+                b.add(TermQuery::new(Term::from_text("f", "A")), Occur::Must)?;
+                b.add(TermQuery::new(Term::from_text("f", "B")), Occur::Should)?;
+                b.build().into()
+            },
+        ];
+
+        for query in queries {
+            let tdc =
+                do_concurrent_search_with_threshold(5, 0, query.clone(), index_reader.clone())?;
+            let tdc2 = do_search_with_threshold(5, 0, query.clone(), index_reader.clone())?;
+
+            assert!(tdc.total_hits.value() > 0);
+            assert!(tdc2.total_hits.value() > 0);
+            CheckHits::check_equal(&query, &tdc.score_docs, &tdc2.score_docs)?;
+        }
+
         Ok(())
     }
+    #[test]
     fn test_realistic_concurrent_minimum_score() -> Result<()> {
-        // TODO
+        // TODO LineFileDocs未实现
         Ok(())
     }
 }

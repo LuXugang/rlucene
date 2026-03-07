@@ -157,6 +157,14 @@ pub trait LiveIndexWriterConfig: Display {
         self.get_base_mut().merge_policy = v;
         self
     }
+    fn set_merge_scheduler<T>(&mut self, merge_scheduler: T) -> &mut Self
+    where
+        T: Into<MergeSchedulerEnum>,
+    {
+        let v = merge_scheduler.into();
+        self.get_base_mut().merge_scheduler = v;
+        self
+    }
 }
 
 pub struct LiveIndexWriterConfigBase {

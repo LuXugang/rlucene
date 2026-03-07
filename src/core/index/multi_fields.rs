@@ -155,7 +155,7 @@ mod tests {
         iw.commit()?;
         iw.add_document(doc)?;
 
-        let reader = directory_reader_util::open_with_writer(&iw)?;
+        let reader = directory_reader_util::open_from_writer(&iw)?;
         iw.close()?;
 
         let mut d1 = TestUtil::docs_with_reader(
@@ -203,7 +203,7 @@ mod tests {
         iw.commit()?;
         iw.add_document(doc)?;
 
-        let reader = directory_reader_util::open_with_writer(&iw)?;
+        let reader = directory_reader_util::open_from_writer(&iw)?;
         iw.close()?;
 
         let mut de =

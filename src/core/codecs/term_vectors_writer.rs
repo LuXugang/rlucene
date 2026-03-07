@@ -270,7 +270,9 @@ mod tests {
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::log_merge_policy::LogMergePolicy;
     use crate::core::index::postings_enum::{ALL, PostingsEnum};
+    use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
     use crate::core::index::stored_fields::StoredFields;
     use crate::core::index::term_vectors::TermVectors;
     use crate::core::index::terms::Terms;
@@ -770,10 +772,12 @@ mod tests {
         let mut field_types = HashMap::new();
 
         for _ in 0..2 {
-            // TODO: MockAnalyzer, SerialMergeScheduler, LogDocMergePolicy未实现
+            // TODO: MockAnalyzer未实现
             let mut iwc = new_index_writer_config(&mut random);
             iwc.set_max_buffered_docs(2);
             iwc.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+            iwc.set_merge_scheduler(SerialMergeScheduler);
+            iwc.set_merge_policy(LogMergePolicy::log_doc());
 
             let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -831,10 +835,12 @@ mod tests {
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: MockAnalyzer, SerialMergeScheduler, LogDocMergePolicy未实现
+        // TODO: MockAnalyzer未实现
         let mut iwc1 = new_index_writer_config(&mut random);
         iwc1.set_max_buffered_docs(2);
         iwc1.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+        iwc1.set_merge_scheduler(SerialMergeScheduler);
+        iwc1.set_merge_policy(LogMergePolicy::log_doc());
         let mut document = Document::new();
         let mut field_types = HashMap::new();
         {
@@ -870,10 +876,12 @@ mod tests {
             writer.close()?;
         }
 
-        // TODO: MockAnalyzer, SerialMergeScheduler, LogDocMergePolicy未实现
+        // TODO: MockAnalyzer未实现
         let mut iwc2 = new_index_writer_config(&mut random);
         iwc2.set_max_buffered_docs(2);
         iwc2.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+        iwc2.set_merge_scheduler(SerialMergeScheduler);
+        iwc2.set_merge_policy(LogMergePolicy::log_doc());
 
         let writer = IndexWriter::new(dir.clone(), iwc2)?;
 
@@ -1073,7 +1081,7 @@ mod tests {
             _ => unreachable!("unexpected error: {:?}", err),
         }
 
-        let reader = directory_reader_util::open_with_writer(&iw)?;
+        let reader = directory_reader_util::open_from_writer(&iw)?;
         // Make sure the exc didn't lose our first document:
         assert_eq!(1, reader.num_docs()?);
 
