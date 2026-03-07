@@ -386,19 +386,21 @@ impl FrozenBufferedUpdates {
                         binary_value,
                         is_numeric,
                     );
-                    #[allow(clippy::unnecessary_unwrap)]
-                    if seg_state.rld.sort_map.is_some() && segment_private_deletes {
-                        // This segment was sorted on flush; we must apply seg-private deletes carefully in this
-                        // case:
-                        let sort_map = seg_state.rld.sort_map.as_ref().unwrap();
+                    if let Some(sort_map) = seg_state.rld.sort_map.as_ref()
+                        && segment_private_deletes
+                    {
+                        // This segment was sorted on flush; we must apply seg-private deletes carefully in this case:
                         loop {
                             let doc = doc_id_set_iterator.next_doc()?;
                             if doc == NO_MORE_DOCS {
                                 break;
                             }
-                            if accept_docs.is_none()
-                                || accept_docs.as_ref().unwrap().get(doc as usize)?
-                            {
+
+                            let live = match accept_docs.as_ref() {
+                                None => true,
+                                Some(bits) => bits.get(doc as usize)?,
+                            };
+                            if live {
                                 // The limit is in the pre-sorted doc space:
                                 if sort_map.new_to_old(doc)? < limit {
                                     doc_id_consumer.accept(doc)?;
@@ -415,9 +417,12 @@ impl FrozenBufferedUpdates {
                             if doc >= limit {
                                 break; // no more docs that can be updated for this term
                             }
-                            if accept_docs.is_none()
-                                || accept_docs.as_ref().unwrap().get(doc as usize)?
-                            {
+
+                            let live = match accept_docs.as_ref() {
+                                None => true,
+                                Some(bits) => bits.get(doc as usize)?,
+                            };
+                            if live {
                                 doc_id_consumer.accept(doc)?;
                                 update_count += 1;
                             }
