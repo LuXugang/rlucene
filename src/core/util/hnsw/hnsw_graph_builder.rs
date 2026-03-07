@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use rand_chacha::ChaCha20Rng;
-use rand_chacha::rand_core::RngCore;
+use rand_chacha::rand_core::Rng;
 
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_score_doc_like::DummyScoreDocLike;
