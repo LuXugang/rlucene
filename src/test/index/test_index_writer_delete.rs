@@ -428,13 +428,88 @@ fn test_nrt_is_current_after_delete() -> Result<()> {
 
 #[test]
 fn test_only_deletes_triggers_merge_on_close() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    // TODO: 未实现MockAnalyzer
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_max_buffered_docs(2);
+
+    let mut mp = LogMergePolicy::log_doc();
+    mp.set_min_merge_docs(1);
+    iwc.set_merge_policy(mp);
+
+    iwc.set_merge_scheduler(SerialMergeScheduler::new());
+
+    let w = IndexWriter::new(dir.clone(), iwc)?;
+    let mut field_types = HashMap::new();
+
+    for i in 0..38 {
+        let mut doc = Document::new();
+        doc.add(new_string_field(
+            &mut random,
+            "id",
+            i.to_string(),
+            Store::No,
+            &mut field_types,
+        )?);
+        w.add_document(doc)?;
+    }
+    w.commit()?;
+
+    for i in 0..18 {
+        w.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
+    }
+
+    w.close()?;
+
+    let r = directory_reader_util::open(dir.clone())?;
+    let reader = get_context(r)?;
+    assert_eq!(1, reader.leaves()?.len());
     Ok(())
 }
 
 #[test]
 fn test_only_deletes_triggers_merge_on_get_reader() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    // TODO: 未实现MockAnalyzer
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_max_buffered_docs(2);
+
+    let mut mp = LogMergePolicy::log_doc();
+    mp.set_min_merge_docs(1);
+    iwc.set_merge_policy(mp);
+
+    iwc.set_merge_scheduler(SerialMergeScheduler::new());
+
+    let w = IndexWriter::new(dir.clone(), iwc)?;
+    let mut field_types = HashMap::new();
+
+    for i in 0..38 {
+        let mut doc = Document::new();
+        doc.add(new_string_field(
+            &mut random,
+            "id",
+            i.to_string(),
+            Store::No,
+            &mut field_types,
+        )?);
+        w.add_document(doc)?;
+    }
+    w.commit()?;
+
+    for i in 0..18 {
+        w.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
+    }
+
+    // First one triggers, but does not reflect, the merge:
+    let _ = directory_reader_util::open_from_writer(&w)?;
+
+    let r = directory_reader_util::open_from_writer(&w)?;
+    let reader = get_context(r)?;
+    assert_eq!(1, reader.leaves()?.len());
+
+    w.close()?;
     Ok(())
 }
 
