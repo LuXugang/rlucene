@@ -143,7 +143,13 @@ mod tests {
 
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
         let mut doc = Document::new();
-        doc.add(new_string_field("f", "j", No, &mut field_to_type)?);
+        doc.add(new_string_field(
+            &mut random,
+            "f",
+            "j",
+            No,
+            &mut field_to_type,
+        )?);
 
         iw.add_document(doc.clone())?;
         iw.commit()?;
@@ -186,7 +192,13 @@ mod tests {
         let iw = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
         let mut doc = Document::new();
-        doc.add(new_string_field("f", "j", No, &mut field_to_type)?);
+        doc.add(new_string_field(
+            &mut random,
+            "f",
+            "j",
+            No,
+            &mut field_to_type,
+        )?);
         iw.add_document(doc.clone())?;
         iw.commit()?;
         iw.add_document(doc)?;

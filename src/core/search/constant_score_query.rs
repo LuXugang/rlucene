@@ -616,6 +616,7 @@ mod tests {
         let mut field_to_type = HashMap::new();
         let mut doc = Document::new();
         doc.add(new_string_field(
+            &mut random,
             "field",
             "a",
             Store::No,
@@ -625,6 +626,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_string_field(
+            &mut random,
             "field",
             "b",
             Store::No,
@@ -672,6 +674,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_text_field(
+            &mut random,
             "field",
             "a b",
             Store::No,

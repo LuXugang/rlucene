@@ -764,18 +764,21 @@ mod tests {
         let mut field_to_type = HashMap::new();
         let mut doc = Document::new();
         doc.add(new_text_field(
+            random,
             "field",
             "one two three four five",
             Store::Yes,
             &mut field_to_type,
         )?);
         doc.add(new_text_field(
+            random,
             "repeated",
             "this is a repeated field - first part",
             Store::Yes,
             &mut field_to_type,
         )?);
         let repeated_field = new_text_field(
+            random,
             "repeated",
             "second part of a repeated field",
             Store::Yes,
@@ -783,6 +786,7 @@ mod tests {
         )?;
         doc.add(repeated_field);
         doc.add(new_text_field(
+            random,
             "palindrome",
             "one two three two one",
             Store::Yes,
@@ -792,6 +796,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_text_field(
+            random,
             "nonexist",
             "phrase exist notexist exist found",
             Store::Yes,
@@ -801,6 +806,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_text_field(
+            random,
             "nonexist",
             "phrase exist notexist exist found",
             Store::Yes,
@@ -944,6 +950,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_text_field(
+            &mut random,
             "field",
             "the stop words are here",
             Store::Yes,
@@ -977,6 +984,7 @@ mod tests {
 
             let mut doc = Document::new();
             doc.add(new_text_field(
+                &mut random,
                 "source",
                 "marketing info",
                 Store::Yes,
@@ -986,12 +994,14 @@ mod tests {
 
             let mut doc = Document::new();
             doc.add(new_text_field(
+                &mut random,
                 "contents",
                 "foobar",
                 Store::Yes,
                 &mut field_to_type,
             )?);
             doc.add(new_text_field(
+                &mut random,
                 "source",
                 "marketing info",
                 Store::Yes,
@@ -1028,6 +1038,7 @@ mod tests {
 
             let mut doc = Document::new();
             doc.add(new_text_field(
+                &mut random,
                 "contents",
                 "map entry woo",
                 Store::Yes,
@@ -1037,6 +1048,7 @@ mod tests {
 
             let mut doc = Document::new();
             doc.add(new_text_field(
+                &mut random,
                 "contents",
                 "woo map entry",
                 Store::Yes,
@@ -1046,6 +1058,7 @@ mod tests {
 
             let mut doc = Document::new();
             doc.add(new_text_field(
+                &mut random,
                 "contents",
                 "map foobarword entry woo",
                 Store::Yes,
@@ -1103,6 +1116,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_text_field(
+            &mut random,
             "field",
             "foo firstname lastname foo",
             Store::Yes,
@@ -1112,6 +1126,7 @@ mod tests {
 
         let mut doc2 = Document::new();
         doc2.add(new_text_field(
+            &mut random,
             "field",
             "foo firstname zzz lastname foo",
             Store::Yes,
@@ -1121,6 +1136,7 @@ mod tests {
 
         let mut doc3 = Document::new();
         doc3.add(new_text_field(
+            &mut random,
             "field",
             "foo firstname zzz yyy lastname foo",
             Store::Yes,
@@ -1427,7 +1443,13 @@ mod tests {
 
         for value in docs {
             let mut doc = Document::new();
-            doc.add(new_text_field("f", value, Store::No, &mut field_to_type)?);
+            doc.add(new_text_field(
+                &mut random,
+                "f",
+                value,
+                Store::No,
+                &mut field_to_type,
+            )?);
             writer.add_document(doc)?;
         }
 

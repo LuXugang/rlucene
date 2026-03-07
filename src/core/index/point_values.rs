@@ -864,7 +864,13 @@ mod tests {
 
             let mut field_types = HashMap::new();
             let mut doc = Document::new();
-            doc.add(new_string_field("dim", "foo", Store::No, &mut field_types)?);
+            doc.add(new_string_field(
+                &mut random,
+                "dim",
+                "foo",
+                Store::No,
+                &mut field_types,
+            )?);
             w.add_document(doc)?;
             w.close()?;
         }
@@ -1400,7 +1406,13 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
 
         let mut field_types = HashMap::new();
         let mut doc = Document::new();
-        doc.add(new_string_field("id", "0", Store::No, &mut field_types)?);
+        doc.add(new_string_field(
+            &mut random,
+            "id",
+            "0",
+            Store::No,
+            &mut field_types,
+        )?);
         doc.add(IntPoint::new("int", vec![17])?);
         w.add_document(doc)?;
 
@@ -1433,7 +1445,13 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
 
         let mut field_types = HashMap::new();
         let mut doc = Document::new();
-        doc.add(new_string_field("id", "0", Store::No, &mut field_types)?);
+        doc.add(new_string_field(
+            &mut random,
+            "id",
+            "0",
+            Store::No,
+            &mut field_types,
+        )?);
         doc.add(IntPoint::new("int0", vec![0])?);
         w.add_document(doc)?;
         w.commit()?;
@@ -1578,6 +1596,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
             let mut doc = Document::new();
             doc.add(IntPoint::new("field", vec![i32::MIN])?);
             doc.add(new_string_field(
+                &mut random,
                 "delete",
                 "yes",
                 Store::No,

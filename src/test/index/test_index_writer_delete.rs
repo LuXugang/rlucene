@@ -98,7 +98,7 @@ fn test_non_ram_delete() -> Result<()> {
 
     for _ in 0..7 {
         id += 1;
-        add_doc(&mut modifier, id, value, &mut field_types)?;
+        add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
     }
 
     modifier.commit()?;
@@ -149,20 +149,20 @@ fn test_both_deletes() -> Result<()> {
     // First 5 docs, value=100
     for _ in 0..5 {
         id += 1;
-        add_doc(&mut writer, id, value, &mut field_types)?;
+        add_doc(&mut random, &mut writer, id, value, &mut field_types)?;
     }
 
     value = 200;
     for _ in 0..5 {
         id += 1;
-        add_doc(&mut writer, id, value, &mut field_types)?;
+        add_doc(&mut random, &mut writer, id, value, &mut field_types)?;
     }
 
     writer.commit()?;
 
     for _ in 0..5 {
         id += 1;
-        add_doc(&mut writer, id, value, &mut field_types)?;
+        add_doc(&mut random, &mut writer, id, value, &mut field_types)?;
     }
 
     writer.delete_documents_with_terms(vec![Term::from_text("value", value.to_string())])?;
@@ -194,7 +194,7 @@ fn test_batch_deletes() -> Result<()> {
 
     for _ in 0..7 {
         id += 1;
-        add_doc(&mut modifier, id, value, &mut field_types)?;
+        add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
     }
 
     modifier.commit()?;
@@ -260,7 +260,8 @@ fn test_delete_all_repeated() -> Result<()> {
     // TODO delete_all未实现
     Ok(())
 }
-fn update_doc<D, L, B>(
+fn update_doc<D, L, B, R>(
+    random: &mut R,
     modifier: &mut IndexWriter<D, L, B>,
     id: i32,
     value: i32,
@@ -270,17 +271,26 @@ where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
+    R: rand::Rng + ?Sized,
 {
     let mut doc = Document::new();
 
-    doc.add(new_text_field("content", "aaa", Store::No, field_types)?);
+    doc.add(new_text_field(
+        random,
+        "content",
+        "aaa",
+        Store::No,
+        field_types,
+    )?);
     doc.add(new_string_field(
+        random,
         "id",
         id.to_string(),
         Store::Yes,
         field_types,
     )?);
     doc.add(new_string_field(
+        random,
         "value",
         value.to_string(),
         Store::No,
@@ -292,7 +302,8 @@ where
     Ok(())
 }
 
-fn add_doc<D, L, B>(
+fn add_doc<D, L, B, R>(
+    random: &mut R,
     modifier: &mut IndexWriter<D, L, B>,
     id: i32,
     value: i32,
@@ -302,17 +313,26 @@ where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
+    R: rand::Rng + ?Sized,
 {
     let mut doc = Document::new();
 
-    doc.add(new_text_field("content", "aaa", Store::No, field_types)?);
+    doc.add(new_text_field(
+        random,
+        "content",
+        "aaa",
+        Store::No,
+        field_types,
+    )?);
     doc.add(new_string_field(
+        random,
         "id",
         id.to_string(),
         Store::Yes,
         field_types,
     )?);
     doc.add(new_string_field(
+        random,
         "value",
         value.to_string(),
         Store::No,

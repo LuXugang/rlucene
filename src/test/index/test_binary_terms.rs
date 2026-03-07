@@ -50,12 +50,14 @@ fn test_binary() -> Result<()> {
         let mut custom_type = FieldType::default();
         custom_type.set_stored(true)?;
         doc.add(new_field(
+            &mut random,
             "id",
             i.to_string(),
             &custom_type,
             &mut field_types,
         )?);
         doc.add(new_string_field_binary(
+            &mut random,
             "bytes",
             bytes.clone(),
             No,

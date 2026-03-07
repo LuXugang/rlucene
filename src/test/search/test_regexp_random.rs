@@ -51,7 +51,7 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
     custom_type.set_omit_norms(true)?;
 
     for i in 0..1000 {
-        let mut field = new_field("field", "", &custom_type, &mut field_to_type)?;
+        let mut field = new_field(random, "field", "", &custom_type, &mut field_to_type)?;
         let s = format!("{:03}", i);
         field.set_string_value(s)?;
         doc.add(field);

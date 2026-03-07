@@ -140,17 +140,32 @@ fn test_skip_to() -> Result<()> {
 
     let ta = Term::from_text("content", "aaa");
     for _ in 0..10 {
-        add_doc(&mut writer, "aaa aaa aaa aaa", &mut field_types)?;
+        add_doc(
+            &mut random,
+            &mut writer,
+            "aaa aaa aaa aaa",
+            &mut field_types,
+        )?;
     }
 
     let tb = Term::from_text("content", "bbb");
     for _ in 0..16 {
-        add_doc(&mut writer, "bbb bbb bbb bbb", &mut field_types)?;
+        add_doc(
+            &mut random,
+            &mut writer,
+            "bbb bbb bbb bbb",
+            &mut field_types,
+        )?;
     }
 
     let tc = Term::from_text("content", "ccc");
     for _ in 0..50 {
-        add_doc(&mut writer, "ccc ccc ccc ccc", &mut field_types)?;
+        add_doc(
+            &mut random,
+            &mut writer,
+            "ccc ccc ccc ccc",
+            &mut field_types,
+        )?;
     }
     writer.force_merge(1)?;
     writer.close()?;
@@ -332,7 +347,8 @@ fn test_skip_to() -> Result<()> {
     reader.close()?;
     Ok(())
 }
-fn add_doc<D, L, B>(
+fn add_doc<D, L, B, R>(
+    random: &mut R,
     writer: &mut IndexWriter<D, L, B>,
     value: &str,
     field_types: &mut HashMap<String, FieldType>,
@@ -341,9 +357,10 @@ where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
+    R: Rng + ?Sized,
 {
     let mut doc = Document::new();
-    doc.add(new_text_field("content", value, No, field_types)?);
+    doc.add(new_text_field(random, "content", value, No, field_types)?);
     writer.add_document(doc)?;
     Ok(())
 }

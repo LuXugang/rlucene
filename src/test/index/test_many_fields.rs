@@ -51,36 +51,42 @@ fn test_many_fields() -> Result<()> {
         let mut doc = Document::new();
 
         doc.add(new_field(
+            &mut random,
             format!("a{}", j),
             format!("aaa{}", j),
             &stored_text_type,
             &mut field_types,
         )?);
         doc.add(new_field(
+            &mut random,
             format!("b{}", j),
             format!("aaa{}", j),
             &stored_text_type,
             &mut field_types,
         )?);
         doc.add(new_field(
+            &mut random,
             format!("c{}", j),
             format!("aaa{}", j),
             &stored_text_type,
             &mut field_types,
         )?);
         doc.add(new_field(
+            &mut random,
             format!("d{}", j),
             "aaa",
             &stored_text_type,
             &mut field_types,
         )?);
         doc.add(new_field(
+            &mut random,
             format!("e{}", j),
             "aaa",
             &stored_text_type,
             &mut field_types,
         )?);
         doc.add(new_field(
+            &mut random,
             format!("f{}", j),
             "aaa",
             &stored_text_type,
@@ -145,9 +151,11 @@ fn test_diverse_docs() -> Result<()> {
             // Posting instances)
             let mut doc = Document::new();
             for _k in 0..100 {
+                let v = random.random::<i32>().to_string();
                 doc.add(new_field(
+                    &mut random,
                     "field",
-                    random.random::<i32>().to_string(),
+                    v,
                     &stored_text_type,
                     &mut field_types,
                 )?);
@@ -159,6 +167,7 @@ fn test_diverse_docs() -> Result<()> {
         for _j in 0..100 {
             let mut doc = Document::new();
             doc.add(new_field(
+                &mut random,
                 "field",
                 "aaa aaa aaa aaa aaa aaa aaa aaa aaa aaa",
                 &stored_text_type,
@@ -174,6 +183,7 @@ fn test_diverse_docs() -> Result<()> {
             let long_term = x.repeat(1000);
             let mut doc = Document::new();
             doc.add(new_field(
+                &mut random,
                 "field",
                 long_term,
                 &stored_text_type,
@@ -221,7 +231,13 @@ fn test_rotating_field_names() -> Result<()> {
             for _ in 0..10 {
                 let field_name = format!("field{}", upto);
                 upto += 1;
-                doc.add(new_field(field_name, "content", &ft, &mut field_types)?);
+                doc.add(new_field(
+                    &mut random,
+                    field_name,
+                    "content",
+                    &ft,
+                    &mut field_types,
+                )?);
             }
 
             writer.add_document(doc)?;

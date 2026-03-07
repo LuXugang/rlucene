@@ -648,7 +648,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "bar")?,
         ));
-        doc1.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -656,7 +662,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
         ));
-        doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let reader = writer.get_reader()?;
@@ -699,7 +711,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "bar")?,
         ));
-        doc1.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -707,7 +725,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
         ));
-        doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let reader = writer.get_reader()?;
@@ -742,7 +766,13 @@ mod tests {
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
         let mut doc1 = Document::new();
-        doc1.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -754,7 +784,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "bar")?,
         ));
-        doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let mut doc3 = Document::new();
@@ -762,7 +798,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
         ));
-        doc3.add(new_string_field("id", "3", Store::Yes, &mut field_to_type)?);
+        doc3.add(new_string_field(
+            &mut random,
+            "id",
+            "3",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc3)?;
 
         let reader = writer.get_reader()?;
@@ -804,7 +846,13 @@ mod tests {
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
         let mut doc1 = Document::new();
-        doc1.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -816,7 +864,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "bar")?,
         ));
-        doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let mut doc3 = Document::new();
@@ -824,7 +878,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
         ));
-        doc3.add(new_string_field("id", "3", Store::Yes, &mut field_to_type)?);
+        doc3.add(new_string_field(
+            &mut random,
+            "id",
+            "3",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc3)?;
 
         let reader = writer.get_reader()?;
@@ -869,7 +929,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
         ));
-        doc1.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -877,7 +943,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "bar")?,
         ));
-        doc2.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let reader = writer.get_reader()?;
@@ -917,7 +989,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "c")?,
         ));
-        doc1.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -927,7 +1005,13 @@ mod tests {
                 new_bytes_ref_from_string(&mut random, v)?,
             ));
         }
-        doc2.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let reader = writer.get_reader()?;
@@ -969,7 +1053,13 @@ mod tests {
                 new_bytes_ref_from_string(&mut random, v)?,
             ));
         }
-        doc1.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -977,7 +1067,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "c")?,
         ));
-        doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let reader = writer.get_reader()?;
@@ -1013,7 +1109,13 @@ mod tests {
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
         let mut doc1 = Document::new();
-        doc1.add(new_string_field("id", "3", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "3",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -1021,7 +1123,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "c")?,
         ));
-        doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let mut doc3 = Document::new();
@@ -1031,7 +1139,13 @@ mod tests {
                 new_bytes_ref_from_string(&mut random, v)?,
             ));
         }
-        doc3.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc3.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc3)?;
 
         let reader = writer.get_reader()?;
@@ -1072,7 +1186,13 @@ mod tests {
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
         let mut doc1 = Document::new();
-        doc1.add(new_string_field("id", "3", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "3",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -1080,7 +1200,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "c")?,
         ));
-        doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let mut doc3 = Document::new();
@@ -1090,7 +1216,13 @@ mod tests {
                 new_bytes_ref_from_string(&mut random, v)?,
             ));
         }
-        doc3.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc3.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc3)?;
 
         let reader = writer.get_reader()?;
@@ -1139,7 +1271,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
         ));
-        doc1.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -1147,7 +1285,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "bar")?,
         ));
-        doc2.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let reader = writer.get_reader()?;
@@ -1189,7 +1333,13 @@ mod tests {
                 new_bytes_ref_from_string(&mut random, v)?,
             ));
         }
-        doc1.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -1197,7 +1347,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "b")?,
         ));
-        doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let reader = writer.get_reader()?;
@@ -1236,7 +1392,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "b")?,
         ));
-        d1.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        d1.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(d1)?;
 
         let mut d2 = Document::new();
@@ -1246,7 +1408,13 @@ mod tests {
                 new_bytes_ref_from_string(&mut random, v)?,
             ));
         }
-        d2.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        d2.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(d2)?;
 
         let reader = writer.get_reader()?;
@@ -1289,7 +1457,13 @@ mod tests {
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
         let mut doc1 = Document::new();
-        doc1.add(new_string_field("id", "3", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "3",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -1299,7 +1473,13 @@ mod tests {
                 new_bytes_ref_from_string(&mut random, v)?,
             ));
         }
-        doc2.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let mut doc3 = Document::new();
@@ -1307,7 +1487,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "b")?,
         ));
-        doc3.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc3.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc3)?;
 
         let reader = writer.get_reader()?;
@@ -1349,7 +1535,13 @@ mod tests {
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
         let mut doc1 = Document::new();
-        doc1.add(new_string_field("id", "3", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "3",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let mut doc2 = Document::new();
@@ -1359,7 +1551,13 @@ mod tests {
                 new_bytes_ref_from_string(&mut random, v)?,
             ));
         }
-        doc2.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let mut doc3 = Document::new();
@@ -1367,7 +1565,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "b")?,
         ));
-        doc3.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc3.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc3)?;
 
         let reader = writer.get_reader()?;
@@ -1412,7 +1616,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
         ));
-        doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        doc2.add(new_string_field(
+            &mut random,
+            "id",
+            "2",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc2)?;
 
         let mut doc1 = Document::new();
@@ -1420,7 +1630,13 @@ mod tests {
             "value",
             new_bytes_ref_from_string(&mut random, "bar")?,
         ));
-        doc1.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        doc1.add(new_string_field(
+            &mut random,
+            "id",
+            "1",
+            Store::Yes,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc1)?;
 
         let reader = writer.get_reader()?;

@@ -690,7 +690,7 @@ mod tests {
         let mut doc_count: i32 = 0;
 
         for v in values {
-            insert_doc(&mut writer, &mut doc_count, v, field_to_type)?;
+            insert_doc(random, &mut writer, &mut doc_count, v, field_to_type)?;
         }
 
         writer.close()?;
@@ -710,11 +710,12 @@ mod tests {
         config.set_open_mode(OpenMode::Append);
 
         let mut writer = IndexWriter::new(dir, config)?;
-        insert_doc(&mut writer, doc_count, content, field_to_type)?;
+        insert_doc(random, &mut writer, doc_count, content, field_to_type)?;
         writer.close()?;
         Ok(())
     }
-    fn insert_doc<D, L, B>(
+    fn insert_doc<D, L, B, R>(
+        random: &mut R,
         writer: &mut IndexWriter<D, L, B>,
         doc_count: &mut i32,
         content: &str,
@@ -724,16 +725,19 @@ mod tests {
         D: Directory,
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
+        R: Rng + ?Sized,
     {
         let mut doc = Document::new();
 
         doc.add(new_string_field(
+            random,
             "id",
             format!("id{}", *doc_count),
             Store::Yes,
             field_to_type,
         )?);
         doc.add(new_text_field(
+            random,
             "content",
             content,
             Store::No,

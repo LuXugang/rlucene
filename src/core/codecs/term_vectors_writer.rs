@@ -307,11 +307,11 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd", &custom_type, &mut field_types)?;
+        let f = new_field(&mut random, "field", "abcd", &custom_type, &mut field_types)?;
         doc.add(f.clone());
         doc.add(f.clone());
 
-        let f2 = new_field("field", "", &custom_type, &mut field_types)?;
+        let f2 = new_field(&mut random, "field", "", &custom_type, &mut field_types)?;
         doc.add(f2);
 
         doc.add(f);
@@ -386,7 +386,7 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd", &custom_type, &mut field_types)?;
+        let f = new_field(&mut random, "field", "abcd", &custom_type, &mut field_types)?;
         doc.add(f.clone());
         doc.add(f);
 
@@ -441,7 +441,13 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd   ", &custom_type, &mut field_types)?;
+        let f = new_field(
+            &mut random,
+            "field",
+            "abcd   ",
+            &custom_type,
+            &mut field_types,
+        )?;
         doc.add(f.clone());
         doc.add(f);
 
@@ -500,7 +506,13 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd the", &custom_type, &mut field_types)?;
+        let f = new_field(
+            &mut random,
+            "field",
+            "abcd the",
+            &custom_type,
+            &mut field_types,
+        )?;
         doc.add(f.clone());
         doc.add(f);
 
@@ -554,8 +566,20 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd the  ", &custom_type, &mut field_types)?;
-        let f2 = new_field("field", "crunch man", &custom_type, &mut field_types)?;
+        let f = new_field(
+            &mut random,
+            "field",
+            "abcd the  ",
+            &custom_type,
+            &mut field_types,
+        )?;
+        let f2 = new_field(
+            &mut random,
+            "field",
+            "crunch man",
+            &custom_type,
+            &mut field_types,
+        )?;
         doc.add(f);
         doc.add(f2);
 
@@ -614,8 +638,14 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "", &custom_type, &mut field_types)?;
-        let f2 = new_field("field", "crunch man", &custom_type, &mut field_types)?;
+        let f = new_field(&mut random, "field", "", &custom_type, &mut field_types)?;
+        let f2 = new_field(
+            &mut random,
+            "field",
+            "crunch man",
+            &custom_type,
+            &mut field_types,
+        )?;
         doc.add(f);
         doc.add(f2);
 
@@ -670,12 +700,24 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd", &custom_type, &mut field_types)?;
+        let f = new_field(&mut random, "field", "abcd", &custom_type, &mut field_types)?;
         doc.add(f);
 
-        doc.add(new_field("field", "", &custom_type, &mut field_types)?);
+        doc.add(new_field(
+            &mut random,
+            "field",
+            "",
+            &custom_type,
+            &mut field_types,
+        )?);
 
-        let f2 = new_field("field", "crunch", &custom_type, &mut field_types)?;
+        let f2 = new_field(
+            &mut random,
+            "field",
+            "crunch",
+            &custom_type,
+            &mut field_types,
+        )?;
         doc.add(f2);
 
         w.add_document(doc)?;
@@ -740,7 +782,13 @@ mod tests {
             let mut custom_type = FieldType::new();
             custom_type.set_stored(true)?;
 
-            let stored_field = new_field("stored", "stored", &custom_type, &mut field_types)?;
+            let stored_field = new_field(
+                &mut random,
+                "stored",
+                "stored",
+                &custom_type,
+                &mut field_types,
+            )?;
             document.add(stored_field.clone());
 
             writer.add_document(document.clone())?;
@@ -754,8 +802,13 @@ mod tests {
             custom_type2.set_store_term_vector_positions(true)?;
             custom_type2.set_store_term_vector_offsets(true)?;
 
-            let term_vector_field =
-                new_field("termVector", "termVector", &custom_type2, &mut field_types)?;
+            let term_vector_field = new_field(
+                &mut random,
+                "termVector",
+                "termVector",
+                &custom_type2,
+                &mut field_types,
+            )?;
             document.add(term_vector_field);
 
             writer.add_document(document)?;
@@ -789,15 +842,26 @@ mod tests {
 
             let mut custom_type = FieldType::new();
             custom_type.set_stored(true)?;
-            let stored_field = new_field("stored", "stored", &custom_type, &mut field_types)?;
+            let stored_field = new_field(
+                &mut random,
+                "stored",
+                "stored",
+                &custom_type,
+                &mut field_types,
+            )?;
             document.add(stored_field.clone());
 
             let mut custom_type2 = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
             custom_type2.set_store_term_vectors(true)?;
             custom_type2.set_store_term_vector_positions(true)?;
             custom_type2.set_store_term_vector_offsets(true)?;
-            let term_vector_field =
-                new_field("termVector", "termVector", &custom_type2, &mut field_types)?;
+            let term_vector_field = new_field(
+                &mut random,
+                "termVector",
+                "termVector",
+                &custom_type2,
+                &mut field_types,
+            )?;
             document.add(term_vector_field.clone());
 
             for _ in 0..10 {
@@ -849,6 +913,7 @@ mod tests {
 
         let mut document = Document::new();
         document.add(new_field(
+            &mut random,
             "tvtest",
             "a b c",
             &custom_type2,
@@ -858,6 +923,7 @@ mod tests {
 
         let mut document = Document::new();
         document.add(new_text_field(
+            &mut random,
             "tvtest",
             "x y z",
             Store::No,
@@ -872,6 +938,7 @@ mod tests {
 
         let mut document = Document::new();
         document.add(new_field(
+            &mut random,
             "tvtest",
             "a b c",
             &custom_type,
@@ -954,6 +1021,7 @@ mod tests {
         for i in 0..3 {
             let mut doc = Document::new();
             doc.add(new_string_field(
+                random,
                 "id",
                 i.to_string(),
                 Store::No,

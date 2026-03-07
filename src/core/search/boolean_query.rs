@@ -1251,6 +1251,7 @@ mod tests {
 
             let mut doc = Document::new();
             doc.add(new_text_field(
+                &mut random,
                 "field",
                 &contents,
                 Store::No,
@@ -1348,7 +1349,13 @@ mod tests {
         let writer = IndexWriter::new(dir.clone(), iwc)?;
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
         let mut doc = Document::new();
-        doc.add(new_text_field("field", "a b c d", No, &mut field_to_type)?);
+        doc.add(new_text_field(
+            &mut random,
+            "field",
+            "a b c d",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
 
         let reader = directory_reader_util::open_with_writer(&writer)?;
@@ -1388,6 +1395,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_text_field(
+            &mut random,
             "field",
             "a b c",
             Store::No,
@@ -1431,6 +1439,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_text_field(
+            &mut random,
             "field",
             "a b c",
             Store::No,
@@ -1472,6 +1481,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_text_field(
+            &mut random,
             "field",
             "a b c",
             Store::No,
@@ -1515,6 +1525,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_text_field(
+            &mut random,
             "field",
             "a b c",
             Store::No,
@@ -1559,6 +1570,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_text_field(
+            &mut random,
             "field",
             "a b c",
             Store::No,
@@ -1607,6 +1619,7 @@ mod tests {
             if random.random_bool(0.5) {
                 let text = format!("a b c {}", random.random::<i32>());
                 doc.add(new_text_field(
+                    &mut random,
                     "field",
                     &text,
                     Store::No,
@@ -1616,6 +1629,7 @@ mod tests {
             } else {
                 let text = random.random::<i32>().to_string();
                 doc.add(new_text_field(
+                    &mut random,
                     "field",
                     &text,
                     Store::No,
@@ -1976,7 +1990,13 @@ mod test {
 
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
         let mut doc = Document::new();
-        doc.add(new_text_field("field", "a", No, &mut field_to_type)?);
+        doc.add(new_text_field(
+            &mut random,
+            "field",
+            "a",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
         writer.commit()?;
 

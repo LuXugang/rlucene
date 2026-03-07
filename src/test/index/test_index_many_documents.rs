@@ -52,8 +52,10 @@ fn test_threaded_indexing() -> Result<()> {
     let mut threads = Vec::new();
 
     // TODO IMPORTANT 这里使用多线程的测试未通过
+    let random = Arc::new(Mutex::new(random));
     let shared_field_types = Arc::new(Mutex::new(HashMap::new()));
     for _ in 0..1 {
+        let r = random.clone();
         let writer = writer.clone();
         let counter_cloned = counter.clone();
         let field_types = shared_field_types.clone();
@@ -66,7 +68,10 @@ fn test_threaded_indexing() -> Result<()> {
                 }
 
                 let mut doc = Document::new();
-                doc.add(new_text_field("field", "text", No, &mut field_types.lock()).unwrap());
+                doc.add(
+                    new_text_field(&mut r.lock(), "field", "text", No, &mut field_types.lock())
+                        .unwrap(),
+                );
 
                 if let Err(e) = writer.add_document(doc) {
                     panic!("thread indexing failed: {:?}", e);

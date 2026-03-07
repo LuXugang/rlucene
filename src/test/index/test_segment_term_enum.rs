@@ -32,6 +32,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     get_only_leaf_reader, new_directory_shared, new_index_writer_config, new_text_field, random,
 };
+use rand::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -50,8 +51,8 @@ fn test_term_enum() -> Result<()> {
         // ADD 100 documents with terms: aaa bbb
         // => term "aaa" docFreq = 200, term "bbb" docFreq = 100
         for _ in 0..100 {
-            add_doc(&mut writer, "aaa", &mut field_types)?;
-            add_doc(&mut writer, "aaa bbb", &mut field_types)?;
+            add_doc(&mut random, &mut writer, "aaa", &mut field_types)?;
+            add_doc(&mut random, &mut writer, "aaa bbb", &mut field_types)?;
         }
 
         writer.close()?;
@@ -70,7 +71,7 @@ fn test_prev_term_at_end() -> Result<()> {
 
     // TODO: 未实现MockAnalyzer
     let mut writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
-    add_doc(&mut writer, "aaa bbb", &mut field_types)?;
+    add_doc(&mut random, &mut writer, "aaa bbb", &mut field_types)?;
     writer.close()?;
 
     let reader = get_only_leaf_reader(directory_reader_util::open(dir.clone())?)?;
@@ -129,7 +130,8 @@ fn verify_doc_freq(dir: Arc<DirEnum>) -> Result<()> {
     Ok(())
 }
 
-fn add_doc<D, L, B>(
+fn add_doc<D, L, B, R>(
+    random: &mut R,
     writer: &mut IndexWriter<D, L, B>,
     value: &str,
     field_types: &mut HashMap<String, FieldType>,
@@ -138,9 +140,10 @@ where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
+    R: Rng + ?Sized,
 {
     let mut doc = Document::new();
-    doc.add(new_text_field("content", value, No, field_types)?);
+    doc.add(new_text_field(random, "content", value, No, field_types)?);
     writer.add_document(doc)?;
     Ok(())
 }

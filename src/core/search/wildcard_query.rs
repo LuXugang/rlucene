@@ -508,6 +508,7 @@ mod tests {
         for content in contents {
             let mut doc = Document::new();
             doc.add(new_text_field(
+                random,
                 field,
                 *content,
                 Store::Yes,
@@ -616,7 +617,13 @@ mod tests {
 
         for d in docs {
             let mut doc = Document::new();
-            doc.add(new_text_field(field, d, Store::No, &mut field_to_type)?);
+            doc.add(new_text_field(
+                &mut random,
+                field,
+                d,
+                Store::No,
+                &mut field_to_type,
+            )?);
             iw.add_document(doc)?;
         }
         iw.close()?;
@@ -669,6 +676,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_string_field(
+            &mut random,
             "body",
             big,
             Store::Yes,
@@ -695,6 +703,7 @@ mod tests {
         for i in 0..1000 {
             let mut doc = Document::new();
             doc.add(new_string_field(
+                &mut random,
                 "body",
                 "foo bar",
                 Store::No,
@@ -704,6 +713,7 @@ mod tests {
 
             let mut doc = Document::new();
             doc.add(new_string_field(
+                &mut random,
                 "body",
                 "foo wuzzle",
                 Store::No,
@@ -713,6 +723,7 @@ mod tests {
 
             let mut doc = Document::new();
             doc.add(new_string_field(
+                &mut random,
                 "body",
                 format!("bar {}", i),
                 Store::No,

@@ -106,14 +106,22 @@ mod tests {
             let mut document2 = Document::new();
             let mut document3 = Document::new();
 
-            document1.add(new_text_field("test", "one", Store::Yes, &mut field_types)?);
+            document1.add(new_text_field(
+                random,
+                "test",
+                "one",
+                Store::Yes,
+                &mut field_types,
+            )?);
             document2.add(new_text_field(
+                random,
                 "test",
                 "two two",
                 Store::Yes,
                 &mut field_types,
             )?);
             document3.add(new_text_field(
+                random,
                 "test",
                 "three three three",
                 Store::Yes,

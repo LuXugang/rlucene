@@ -720,7 +720,13 @@ mod tests {
             }
 
             let mut doc = Document::new();
-            doc.add(new_text_field(FIELD, &text, Store::No, &mut field_to_type)?);
+            doc.add(new_text_field(
+                &mut random,
+                FIELD,
+                &text,
+                Store::No,
+                &mut field_to_type,
+            )?);
             writer.add_document(doc)?;
         }
 

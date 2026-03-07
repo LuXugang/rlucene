@@ -392,6 +392,7 @@ mod tests {
         let mut doc = Document::new();
         let mut field_to_type = HashMap::new();
         doc.add(new_text_field(
+            random,
             FN,
             "the quick brown fox jumps over the lazy ??? dog 493432 49344 [foo] 12.3 \\",
             Store::No,

@@ -254,14 +254,17 @@ mod tests {
         let writer = RandomIndexWriter::new(random, directory);
 
         let mut doc = Document::new();
-        let title_field = new_text_field("title", "some title", Store::No, &mut field_to_type)?;
+        let title_field =
+            new_text_field(random, "title", "some title", Store::No, &mut field_to_type)?;
         let mut field = new_text_field(
+            random,
             FN,
             "this is document one 2345",
             Store::No,
             &mut field_to_type,
         )?;
-        let footer_field = new_text_field("footer", "a footer", Store::No, &mut field_to_type)?;
+        let footer_field =
+            new_text_field(random, "footer", "a footer", Store::No, &mut field_to_type)?;
 
         doc.add(title_field.clone());
         doc.add(field.clone());

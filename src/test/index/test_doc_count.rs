@@ -80,6 +80,7 @@ fn doc<R: Rng + ?Sized>(
             .to_string();
 
         doc.add(new_string_field(
+            random,
             &field_name,
             &field_value,
             No,

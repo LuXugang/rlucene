@@ -45,7 +45,7 @@ fn test_commit_on_close() -> Result<()> {
         let writer = IndexWriter::new(dir.clone(), iwc1)?;
 
         for _ in 0..14 {
-            add_doc(&writer, &mut field_types)?;
+            add_doc(&mut random, &writer, &mut field_types)?;
         }
 
         writer.close()?;
@@ -67,7 +67,7 @@ fn test_commit_on_close() -> Result<()> {
 
     for _ in 0..3 {
         for _ in 0..11 {
-            add_doc(&writer, &mut field_types)?;
+            add_doc(&mut random, &writer, &mut field_types)?;
         }
 
         let r = directory_reader_util::open(dir.clone())?;

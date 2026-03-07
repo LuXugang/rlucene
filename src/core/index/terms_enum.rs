@@ -714,7 +714,7 @@ mod tests {
         doc.add(NumericDocValuesField::new("id", id as i64));
 
         for s in terms.iter() {
-            doc.add(new_string_field("f", s, No, field_to_type)?);
+            doc.add(new_string_field(random, "f", s, No, field_to_type)?);
             term_to_id.insert(new_bytes_ref_from_string(random, s.as_ref())?, id);
         }
 
@@ -916,7 +916,7 @@ mod tests {
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
         for term in terms {
             let mut doc = Document::new();
-            let field = new_string_field(FIELD, term, No, &mut field_to_type)?;
+            let field = new_string_field(random, FIELD, term, No, &mut field_to_type)?;
             doc.add(field);
             writer.add_document(doc)?;
         }
@@ -1216,6 +1216,7 @@ mod tests {
         let mut doc = Document::new();
         let mut field_to_type = HashMap::new();
         doc.add(new_text_field(
+            &mut random,
             "field",
             "one two three",
             No,
@@ -1225,6 +1226,7 @@ mod tests {
         // doc with "field2"
         let mut doc = Document::new();
         doc.add(new_text_field(
+            &mut random,
             "field2",
             "one two three",
             No,
@@ -1268,15 +1270,33 @@ mod tests {
 
         let mut field_to_type = HashMap::new();
         let mut doc = Document::new();
-        doc.add(new_text_field("field", "aaa", No, &mut field_to_type)?);
+        doc.add(new_text_field(
+            &mut random,
+            "field",
+            "aaa",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(new_text_field("field", "bbb", No, &mut field_to_type)?);
+        doc.add(new_text_field(
+            &mut random,
+            "field",
+            "bbb",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(new_text_field("field", "ccc", No, &mut field_to_type)?);
+        doc.add(new_text_field(
+            &mut random,
+            "field",
+            "ccc",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
 
         writer.force_merge(1)?;
@@ -1326,19 +1346,43 @@ mod tests {
         let mut field_to_type = HashMap::new();
 
         let mut doc = Document::new();
-        doc.add(new_string_field("field", "abc", No, &mut field_to_type)?);
+        doc.add(new_string_field(
+            &mut random,
+            "field",
+            "abc",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(new_string_field("field", "abd", No, &mut field_to_type)?);
+        doc.add(new_string_field(
+            &mut random,
+            "field",
+            "abd",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(new_string_field("field", "acd", No, &mut field_to_type)?);
+        doc.add(new_string_field(
+            &mut random,
+            "field",
+            "acd",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(new_string_field("field", "bcd", No, &mut field_to_type)?);
+        doc.add(new_string_field(
+            &mut random,
+            "field",
+            "bcd",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
 
         writer.force_merge(1)?;
@@ -1397,13 +1441,37 @@ mod tests {
         let mut field_to_type = HashMap::new();
 
         let mut doc = Document::new();
-        doc.add(new_string_field("field", "", No, &mut field_to_type)?);
-        doc.add(new_string_field("field", "abc", No, &mut field_to_type)?);
+        doc.add(new_string_field(
+            &mut random,
+            "field",
+            "",
+            No,
+            &mut field_to_type,
+        )?);
+        doc.add(new_string_field(
+            &mut random,
+            "field",
+            "abc",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(new_string_field("field", "abc", No, &mut field_to_type)?);
-        doc.add(new_string_field("field", "", No, &mut field_to_type)?);
+        doc.add(new_string_field(
+            &mut random,
+            "field",
+            "abc",
+            No,
+            &mut field_to_type,
+        )?);
+        doc.add(new_string_field(
+            &mut random,
+            "field",
+            "",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
 
         writer.force_merge(1)?;
@@ -1461,7 +1529,13 @@ mod tests {
 
         let mut field_to_type = HashMap::new();
         let mut doc = Document::new();
-        doc.add(new_string_field("field", "foobar", No, &mut field_to_type)?);
+        doc.add(new_string_field(
+            &mut random,
+            "field",
+            "foobar",
+            No,
+            &mut field_to_type,
+        )?);
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;
@@ -1550,7 +1624,7 @@ mod tests2 {
         let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
         let mut doc = Document::new();
-        let mut field = new_string_field("field", "", Yes, &mut HashMap::new())?;
+        let mut field = new_string_field(random, "field", "", Yes, &mut HashMap::new())?;
         doc.add(field.clone());
 
         let mut terms: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();

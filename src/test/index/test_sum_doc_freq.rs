@@ -46,9 +46,9 @@ fn test_sum_doc_freq() -> Result<()> {
     let writer = RandomIndexWriter::new(&mut random, dir.clone());
     let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
     let mut doc = Document::new();
-    let mut id = new_string_field("id", "", No, &mut field_to_type)?;
-    let mut field1 = new_text_field("foo", "", No, &mut field_to_type)?;
-    let mut field2 = new_text_field("bar", "", No, &mut field_to_type)?;
+    let mut id = new_string_field(&mut random, "id", "", No, &mut field_to_type)?;
+    let mut field1 = new_text_field(&mut random, "foo", "", No, &mut field_to_type)?;
+    let mut field2 = new_text_field(&mut random, "bar", "", No, &mut field_to_type)?;
 
     doc.add(id.clone());
     doc.add(field1.clone());

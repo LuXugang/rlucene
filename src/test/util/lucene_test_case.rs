@@ -212,7 +212,8 @@ pub mod lucene_test_case_util {
         Ok(Arc::new(FSDirectory::new(temp_dir.keep(), sub_directory)?))
     }
 
-    pub(crate) fn new_string_field<S1, S2>(
+    pub(crate) fn new_string_field<S1, S2, R: Rng + ?Sized>(
+        random: &mut R,
         name: S1,
         value: S2,
         stored: Store,
@@ -222,14 +223,13 @@ pub mod lucene_test_case_util {
         S1: Into<String>,
         S2: Into<String>,
     {
-        let mut rng = random();
         let field_type = match stored {
             Store::Yes => string_field_type::TYPE_STORED.clone(),
             Store::No => string_field_type::TYPE_NOT_STORED.clone(),
         };
 
         new_field_with_random(
-            &mut rng,
+            random,
             name.into(),
             FieldDataEnum::String(value.into()),
             &field_type,
@@ -237,7 +237,8 @@ pub mod lucene_test_case_util {
         )
     }
 
-    pub(crate) fn new_string_field_binary<S>(
+    pub(crate) fn new_string_field_binary<S, R: Rng + ?Sized>(
+        random: &mut R,
         name: S,
         value: BytesRef<Vec<u8>>,
         stored: Store,
@@ -246,21 +247,21 @@ pub mod lucene_test_case_util {
     where
         S: Into<String>,
     {
-        let mut rng = random();
         let field_type = match stored {
             Store::Yes => string_field_type::TYPE_STORED.clone(),
             Store::No => string_field_type::TYPE_NOT_STORED.clone(),
         };
 
         new_field_with_random(
-            &mut rng,
+            random,
             name.into(),
             value.into(),
             &field_type,
             field_to_type,
         )
     }
-    pub(crate) fn new_text_field<S1, S2>(
+    pub(crate) fn new_text_field<S1, S2, R: Rng + ?Sized>(
+        random: &mut R,
         name: S1,
         value: S2,
         stored: Store,
@@ -270,14 +271,13 @@ pub mod lucene_test_case_util {
         S1: Into<String>,
         S2: Into<String>,
     {
-        let mut random = random();
         let field_type = match stored {
             Store::Yes => text_field_type::TYPE_STORED.clone(),
             Store::No => text_field_type::TYPE_NOT_STORED.clone(),
         };
 
         new_field_with_random(
-            &mut random,
+            random,
             name,
             FieldDataEnum::String(value.into()),
             &field_type,
@@ -331,30 +331,8 @@ pub mod lucene_test_case_util {
         )
     }
 
-    pub(crate) fn new_text_field_with_random<S1, S2, R: Rng + ?Sized>(
+    pub(crate) fn new_field<S, V, R: Rng + ?Sized>(
         random: &mut R,
-        name: S1,
-        value: S2,
-        stored: Store,
-        field_to_type: &mut HashMap<String, FieldType>,
-    ) -> Result<Field>
-    where
-        S1: Into<String>,
-        S2: Into<String>,
-    {
-        let field_type = match stored {
-            Store::Yes => text_field_type::TYPE_STORED.clone(),
-            Store::No => text_field_type::TYPE_NOT_STORED.clone(),
-        };
-        new_field_with_random(
-            random,
-            name,
-            FieldDataEnum::String(value.into()),
-            &field_type,
-            field_to_type,
-        )
-    }
-    pub(crate) fn new_field<S, V>(
         name: S,
         value: V,
         field_type: &FieldType,
@@ -364,8 +342,7 @@ pub mod lucene_test_case_util {
         S: Into<String>,
         V: Into<FieldDataEnum>,
     {
-        let mut random = random();
-        new_field_with_random(&mut random, name, value.into(), field_type, field_to_type)
+        new_field_with_random(random, name, value.into(), field_type, field_to_type)
     }
     // TODO: if we can pull out the "make term vector options
     // consistent across all instances of the same field name"
@@ -673,18 +650,22 @@ pub mod lucene_test_case_util {
     /// # Returns
     /// A valid `u64` seed.
     pub(crate) fn get_seed_from_env() -> u64 {
-        if let Ok(seed_str) = std::env::var(TestSeed.to_string()) {
-            if let Ok(seed) = seed_str.parse::<u64>() {
-                println!("Using Global Seed from environment: '{}'", seed);
-                return seed;
-            } else {
+        static GLOBAL_SEED: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+
+        *GLOBAL_SEED.get_or_init(|| {
+            if let Ok(seed_str) = std::env::var(TestSeed.to_string()) {
+                if let Ok(seed) = seed_str.parse::<u64>() {
+                    println!("Using Global Seed from environment: '{}'", seed);
+                    return seed;
+                }
+
                 println!("Environment variable tests.seed is invalid: '{}'", seed_str);
             }
-        }
 
-        let seed = rand::rng().random_range(0..u64::MAX);
-        println!("Generated random seed : {}", seed);
-        seed
+            let seed = rand::rng().random_range(0..u64::MAX);
+            println!("Generated random seed : {}", seed);
+            seed
+        })
     }
 
     pub(crate) fn random() -> StdRng {

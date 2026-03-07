@@ -208,6 +208,7 @@ mod tests {
         for cat in categories {
             let mut doc = Document::new();
             doc.add(new_string_field(
+                &mut random,
                 "category",
                 cat,
                 Store::Yes,
@@ -248,6 +249,7 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(new_string_field(
+            &mut random,
             "field",
             "field",
             Store::Yes,
@@ -290,6 +292,7 @@ mod tests {
         for term in &terms_list {
             let mut doc = Document::new();
             doc.add(new_string_field_binary(
+                &mut random,
                 "field",
                 term.clone(),
                 Store::No,

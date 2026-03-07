@@ -72,6 +72,7 @@ fn test_positions_simple() -> Result<()> {
         );
 
         doc.add(new_field(
+            &mut random,
             &field_name,
             text,
             &custom_type,
@@ -197,6 +198,7 @@ fn test_random_positions() -> Result<()> {
         }
 
         doc.add(new_field(
+            &mut random,
             &field_name,
             builder,
             &custom_type,
@@ -317,6 +319,7 @@ fn test_large_number_of_positions() -> Result<()> {
         }
 
         doc.add(new_field(
+            &mut random,
             &field_name,
             builder,
             &custom_type,
@@ -386,7 +389,13 @@ fn test_docs_and_positions_enum_start() -> Result<()> {
 
     let mut doc = Document::new();
     let mut field_types = HashMap::new();
-    doc.add(new_text_field("foo", "bar", No, &mut field_types)?);
+    doc.add(new_text_field(
+        &mut random,
+        "foo",
+        "bar",
+        No,
+        &mut field_types,
+    )?);
     writer.add_document(doc)?;
 
     let reader = writer.get_reader()?;

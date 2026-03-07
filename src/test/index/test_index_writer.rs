@@ -36,6 +36,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
 };
 use once_cell::sync::Lazy;
 use rand::RngExt;
+use rand_xoshiro::rand_core::Rng;
 use std::clone::Clone;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicBool;
@@ -96,7 +97,13 @@ fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
     custom_type.set_store_term_vector_positions(true)?;
     custom_type.set_store_term_vector_offsets(true)?;
 
-    doc.add(new_field("field", "aaa", &custom_type, &mut field_types)?);
+    doc.add(new_field(
+        &mut random,
+        "field",
+        "aaa",
+        &custom_type,
+        &mut field_types,
+    )?);
     writer.add_document(doc)?;
     writer.commit()?;
     if cfg!(feature = "test_log_verbose") {
@@ -121,7 +128,13 @@ fn test_bad_segment() -> Result<()> {
     let mut doc = Document::new();
     let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
     custom_type.set_store_term_vectors(true)?;
-    doc.add(new_field("tvtest", "", &custom_type, &mut field_types)?);
+    doc.add(new_field(
+        &mut random,
+        "tvtest",
+        "",
+        &custom_type,
+        &mut field_types,
+    )?);
 
     writer.add_document(doc)?;
     writer.close()?;
@@ -147,7 +160,13 @@ fn test_unlimited_max_field_length() -> Result<()> {
     let mut field_types = HashMap::new();
     let mut doc = Document::new();
     let text = " a".repeat(10_000) + " x";
-    doc.add(new_text_field("field", &text, Store::No, &mut field_types)?);
+    doc.add(new_text_field(
+        &mut random,
+        "field",
+        &text,
+        Store::No,
+        &mut field_types,
+    )?);
     writer.add_document(doc)?;
     writer.close()?;
 
@@ -165,7 +184,13 @@ fn test_empty_field_name() -> Result<()> {
 
     let mut field_types = HashMap::new();
     let mut doc = Document::new();
-    doc.add(new_text_field("", "a b c", Store::No, &mut field_types)?);
+    doc.add(new_text_field(
+        &mut random,
+        "",
+        "a b c",
+        Store::No,
+        &mut field_types,
+    )?);
     writer.add_document(doc)?;
     writer.close()?;
 
@@ -220,6 +245,7 @@ fn test_do_before_after_flush() -> Result<()> {
     let mut doc = Document::new();
     let custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
     doc.add(new_field(
+        &mut random,
         "field",
         "a field",
         &custom_type,
@@ -467,12 +493,12 @@ fn test_get_field_names() -> Result<()> {
 
         assert_eq!(HashSet::<String>::new(), writer.get_field_names());
 
-        add_doc_with_field(&mut writer, "f1", &mut field_types)?;
+        add_doc_with_field(&mut random, &mut writer, "f1", &mut field_types)?;
         assert_eq!(HashSet::from(["f1".to_string()]), writer.get_field_names());
 
         let field_set = writer.get_field_names();
 
-        add_doc_with_field(&mut writer, "f2", &mut field_types)?;
+        add_doc_with_field(&mut random, &mut writer, "f2", &mut field_types)?;
         assert_eq!(
             HashSet::from(["f1".to_string(), "f2".to_string()]),
             writer.get_field_names()
@@ -511,7 +537,8 @@ fn test_get_field_names() -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn add_doc<D, L, B>(
+pub(crate) fn add_doc<D, L, B, R>(
+    random: &mut R,
     writer: &IndexWriter<D, L, B>,
     field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
@@ -519,13 +546,21 @@ where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
+    R: Rng + ?Sized,
 {
     let mut doc = Document::new();
-    doc.add(new_text_field("content", "aaa", Store::No, field_types)?);
+    doc.add(new_text_field(
+        random,
+        "content",
+        "aaa",
+        Store::No,
+        field_types,
+    )?);
     let _ = writer.add_document(doc)?;
     Ok(())
 }
-pub(crate) fn add_doc_with_index<D, L, B>(
+pub(crate) fn add_doc_with_index<D, L, B, R>(
+    random: &mut R,
     writer: &IndexWriter<D, L, B>,
     index: i32,
     field_types: &mut HashMap<String, FieldType>,
@@ -534,22 +569,25 @@ where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
+    R: Rng + ?Sized,
 {
     let mut doc = Document::new();
     doc.add(new_field(
+        random,
         "content",
         format!("aaa {}", index),
         &STORED_TEXT_TYPE,
         field_types,
     )?);
-    // doc.add(new_field("id", index.to_string(), &STORED_TEXT_TYPE)?);
+    // doc.add(new_field(&mut random, "id", index.to_string(), &STORED_TEXT_TYPE)?);
 
     match writer.add_document(doc) {
         Ok(_) => Ok(()),
         Err(e) => Err(e),
     }
 }
-fn add_doc_with_field<D, L, B>(
+fn add_doc_with_field<D, L, B, R>(
+    random: &mut R,
     writer: &mut IndexWriter<D, L, B>,
     field: &str,
     field_types: &mut HashMap<String, FieldType>,
@@ -558,10 +596,17 @@ where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
+    R: Rng + ?Sized,
 {
     let mut doc = Document::new();
     let stored_text_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
-    doc.add(new_field(field, "value", &stored_text_type, field_types)?);
+    doc.add(new_field(
+        random,
+        field,
+        "value",
+        &stored_text_type,
+        field_types,
+    )?);
     let _ = writer.add_document(doc)?;
     Ok(())
 }

@@ -48,7 +48,13 @@ fn test_exactly_at_true_limit() -> Result<()> {
 
     let mut field_types = HashMap::new();
     let mut doc = Document::new();
-    doc.add(new_string_field("field", "text", No, &mut field_types)?);
+    doc.add(new_string_field(
+        &mut random,
+        "field",
+        "text",
+        No,
+        &mut field_types,
+    )?);
 
     for _i in 0..MAX_DOCS {
         iw.add_document(doc.clone())?;
