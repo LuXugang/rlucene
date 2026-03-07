@@ -709,6 +709,7 @@ mod tests {
     use std::collections::HashSet;
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::{BytesRef, BytesRefBuilder};
     use crate::core::util::automation::automata::Automata;

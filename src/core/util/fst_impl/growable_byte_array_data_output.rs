@@ -104,7 +104,7 @@ impl Accountable for GrowableByteArrayDataOutput {
 }
 #[cfg(test)]
 mod tests {
-    use rand::{Rng, RngCore};
+    use rand::{Rng, RngExt};
 
     use crate::core::store::directory::Directory;
     use crate::core::store::output_stream_data_output::OutputStreamDataOutput;

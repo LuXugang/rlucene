@@ -560,6 +560,7 @@ mod tests {
     };
 
     use rand::Rng;
+    use rand::RngExt;
     use std::sync::Arc;
 
     #[allow(dead_code)]

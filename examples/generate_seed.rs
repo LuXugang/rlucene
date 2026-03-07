@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rand::Rng;
+use rand::RngExt;
 
 fn main() {
     let seed: u64 = rand::rng().random_range(0..u64::MAX);

@@ -29,6 +29,7 @@ use crate::test::util::id_set_common;
 use crate::test::util::id_set_common::clear_range;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 use rand::Rng;
+use rand::RngExt;
 
 pub fn random_set<R: Rng + ?Sized>(
     random: &mut R,

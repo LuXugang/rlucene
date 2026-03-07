@@ -978,7 +978,7 @@ pub(crate) mod tests {
         at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
         new_searcher_with_reader, new_searcher_with_threads, random,
     };
-    use rand::Rng;
+    use rand::RngExt;
     use std::fmt::Debug;
     use std::hash::{Hash, Hasher};
     use std::rc::Rc;

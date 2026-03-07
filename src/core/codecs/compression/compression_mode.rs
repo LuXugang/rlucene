@@ -450,6 +450,7 @@ mod tests {
     use std::io::Cursor;
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::codecs::compression::compression_mode::{
         CompressionMode, CompressionModeBase, CompressionModeEnum,

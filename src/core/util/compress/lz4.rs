@@ -735,6 +735,7 @@ impl HashTable for HashTableEnum {
 mod tests {
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataOutput};
     use crate::core::util::SliceCopyOps;

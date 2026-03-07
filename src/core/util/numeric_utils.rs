@@ -300,7 +300,7 @@ mod tests {
 
     use num_bigint::{BigInt, Sign};
     use num_traits::{Float, FromPrimitive};
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::BytesRef;
     use crate::core::util::SliceCopyOps;

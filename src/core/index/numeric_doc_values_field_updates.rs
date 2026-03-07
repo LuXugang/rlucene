@@ -243,7 +243,7 @@ mod tests {
         new_index_writer_config, random,
     };
     use crate::test::util::test_util::TestUtil;
-    use rand::Rng;
+    use rand::RngExt;
     use rand::seq::IndexedRandom;
     use std::collections::HashSet;
 

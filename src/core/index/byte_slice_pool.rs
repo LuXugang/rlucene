@@ -160,6 +160,7 @@ impl ByteSlicePool {
 mod tests {
 
     use rand::Rng;
+    use rand::RngExt;
     use std::sync::Arc;
 
     use crate::core::index::byte_slice_pool::ByteSlicePool;

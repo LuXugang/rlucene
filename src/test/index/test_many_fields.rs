@@ -28,7 +28,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, create_temp_dir, new_directory_shared, new_field, new_fs_directory,
     new_index_writer_config, new_searcher_with_reader, random,
 };
-use rand::Rng;
+use rand::RngExt;
 use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search

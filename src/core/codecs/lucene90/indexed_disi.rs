@@ -1223,6 +1223,7 @@ mod tests {
 
     use crate::core::util::TryIntoInt;
     use rand::Rng;
+    use rand::RngExt;
 
     #[allow(dead_code)] // for quick search
     struct TestIndexedDISI;

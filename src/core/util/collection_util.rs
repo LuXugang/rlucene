@@ -214,6 +214,7 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use rand::Rng;
+    use rand::RngExt;
 
     fn create_random_list<R: Rng + ?Sized>(random: &mut R, max_size: usize) -> Vec<i32> {
         let len = random.random_range(1..=max_size);

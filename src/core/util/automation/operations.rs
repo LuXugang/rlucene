@@ -1478,6 +1478,7 @@ pub(crate) mod tests {
     use std::ptr;
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::BytesRef;
     use crate::core::util::automation::automata::Automata;

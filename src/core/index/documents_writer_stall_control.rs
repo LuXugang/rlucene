@@ -135,7 +135,8 @@ mod tests {
         at_least, at_least_usize, is_night_mode, random,
     };
     use parking_lot::{Condvar, Mutex};
-    use rand::{Rng, rng};
+    use rand::RngExt;
+    use rand::rng;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::thread;

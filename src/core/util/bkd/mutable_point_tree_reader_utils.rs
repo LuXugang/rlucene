@@ -413,6 +413,7 @@ pub(crate) mod tests {
     use std::rc::Rc;
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::codecs::mutable_point_tree::MutablePointTree;
     use crate::core::index::BytesRef;

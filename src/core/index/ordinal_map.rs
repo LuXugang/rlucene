@@ -545,7 +545,7 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, random,
     };
-    use rand::Rng;
+    use rand::RngExt;
 
     #[allow(dead_code)] // for quick search
     struct TestOrdinalMap;

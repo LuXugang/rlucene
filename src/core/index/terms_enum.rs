@@ -685,6 +685,7 @@ mod tests {
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
+    use rand::RngExt;
     use std::borrow::Cow;
     use std::collections::{BTreeSet, HashMap, HashSet};
 
@@ -1519,6 +1520,7 @@ mod tests2 {
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
+    use rand::RngExt;
     use rand::prelude::SliceRandom;
     use std::borrow::Cow;
     use std::collections::{BTreeSet, HashMap};

@@ -662,7 +662,7 @@ impl ForDeltaUtil {
 }
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::codecs::lucene101::for_delta_util::ForDeltaUtil;
     use crate::core::codecs::lucene101::for_util::ForUtil;

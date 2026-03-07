@@ -379,6 +379,7 @@ mod tests {
         new_directory_shared, new_searcher_with_reader, new_text_field, random,
     };
     use rand::Rng;
+    use rand::RngExt;
     use std::collections::HashMap;
 
     #[allow(dead_code)] // for quick search

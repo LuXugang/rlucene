@@ -171,6 +171,7 @@ impl LowercaseAsciiCompression {
 mod tests {
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::store::ByteBuffersDataOutput;
     use crate::core::util::compress::lowercase_ascii_compression::LowercaseAsciiCompression;

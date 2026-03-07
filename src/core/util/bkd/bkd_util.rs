@@ -135,7 +135,7 @@ impl ByteArrayPredicate for ByteArrayPredicateEnum {
 }
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::SliceCopyOps;
     use crate::core::util::bit_util::BitUtil;

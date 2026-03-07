@@ -376,6 +376,7 @@ mod tests {
     use std::string::FromUtf16Error;
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::automation::automata::Automata;
     use crate::core::util::automation::automaton::Automaton;

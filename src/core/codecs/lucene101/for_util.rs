@@ -721,7 +721,7 @@ impl ForUtil {
 }
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::codecs::lucene101::for_util::ForUtil;
     use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;

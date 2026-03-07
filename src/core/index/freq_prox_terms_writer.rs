@@ -935,6 +935,7 @@ mod tests {
     use std::collections::HashMap;
 
     use rand::Rng;
+    use rand::RngExt;
     use rand::prelude::SliceRandom;
 
     use crate::core::index::freq_prox_terms_writer::DocOffsetSorter;

@@ -1029,6 +1029,7 @@ mod tests {
         use std::cmp::Ordering::{Greater, Less};
 
         use rand::Rng;
+        use rand::RngExt;
 
         use crate::core::store::directory::Directory;
 
@@ -1800,6 +1801,7 @@ mod tests {
     mod test_bkd_radix_sort {
 
         use rand::Rng;
+        use rand::RngExt;
 
         use crate::core::store::IndexOutput;
         use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;

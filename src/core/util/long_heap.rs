@@ -190,6 +190,7 @@ impl LongHeap {
 mod tests {
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::long_heap::LongHeap;

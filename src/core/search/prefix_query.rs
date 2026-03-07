@@ -191,7 +191,9 @@ mod tests {
         new_string_field_binary, random,
     };
     use crate::test::util::test_util::TestUtil;
+    use rand::Rng;
     use std::collections::HashMap;
+
     #[allow(dead_code)] // for quick search
     struct TestPrefixQuery;
     #[test]
@@ -265,7 +267,6 @@ mod tests {
     }
     #[test]
     fn test_random_binary_prefix() -> Result<()> {
-        use rand::RngCore;
         use rand::seq::SliceRandom;
         use std::collections::HashSet;
 

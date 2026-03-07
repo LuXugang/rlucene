@@ -526,6 +526,7 @@ mod tests {
 
     use bit_set::BitSet;
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::long_bit_set::LongBitSet;

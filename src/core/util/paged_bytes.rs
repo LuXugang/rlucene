@@ -478,7 +478,7 @@ pub fn get_data_output(paged_bytes: PagedBytes) -> Result<PagedBytesDataOutput> 
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::BytesRef;
     use crate::core::store::directory::Directory;

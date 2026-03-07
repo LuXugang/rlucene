@@ -231,7 +231,7 @@ pub(crate) mod tests {
     use std::borrow::Cow;
     use std::collections::HashSet;
 
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::BytesRef;
     use crate::core::util::automation::automata::Automata;

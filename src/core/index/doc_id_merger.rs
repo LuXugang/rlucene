@@ -371,7 +371,7 @@ pub(crate) fn of<S: SubBase>(
 pub mod tests {
     use std::rc::Rc;
 
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::doc_id_merger::{DocIDMerger, Sub, SubBase};
     use crate::core::index::merge_state::DocMap;

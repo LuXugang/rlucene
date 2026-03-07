@@ -46,7 +46,8 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, at_least_usize, is_night_mode, new_directory_shared, new_searcher,
     new_searcher_with_reader, new_searcher_with_threads, random,
 };
-use rand::{Rng, random_bool};
+use rand::RngExt;
+use rand::random_bool;
 use std::sync::Arc;
 
 #[allow(dead_code)]

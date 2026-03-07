@@ -19,7 +19,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::SystemTime;
 
 use once_cell::sync::Lazy;
-use rand::Rng;
+use rand::RngExt;
 
 use crate::core::index::BytesRef;
 use crate::core::util::CoreHelper;

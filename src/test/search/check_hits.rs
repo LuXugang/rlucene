@@ -27,6 +27,7 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use once_cell::sync::Lazy;
 use rand::Rng;
+use rand::RngExt;
 use regex::Regex;
 
 pub struct CheckHits;

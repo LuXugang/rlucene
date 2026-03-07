@@ -18,6 +18,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use rand::Rng;
+use rand::RngExt;
 
 use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;

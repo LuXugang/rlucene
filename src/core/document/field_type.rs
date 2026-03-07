@@ -550,6 +550,7 @@ mod tests {
     use std::hash::{DefaultHasher, Hash, Hasher};
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::document::field_type::FieldType;
     use crate::core::index::doc_values_type::DocValuesType;

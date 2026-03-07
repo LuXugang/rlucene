@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use rand::Rng;
+use rand::RngExt;
 
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;

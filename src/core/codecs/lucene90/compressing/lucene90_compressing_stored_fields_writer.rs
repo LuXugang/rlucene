@@ -938,7 +938,7 @@ mod tests {
     use crate::core::store::{ByteArrayDataInput, ByteArrayDataOutput};
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
-    use rand::Rng;
+    use rand::RngExt;
     #[allow(dead_code)] // for quick search
     struct TestCompressingStoredFieldsFormat;
     #[test]

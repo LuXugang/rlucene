@@ -439,7 +439,7 @@ impl TermState for IntBlockTermState {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
     use crate::core::codecs::lucene101::lucene101_postings_reader::{

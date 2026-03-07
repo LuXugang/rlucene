@@ -960,6 +960,7 @@ pub trait SortedDocValuesProvider {
 #[cfg(test)]
 mod tests {
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::{BytesRef, BytesRefBuilder};
     use crate::core::util::bytes_ref_comparator::{BytesRefComparator, Natural};

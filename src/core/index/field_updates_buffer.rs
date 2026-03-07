@@ -602,6 +602,7 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
 
     use rand::Rng;
+    use rand::RngExt;
 
     #[allow(dead_code)] // for quick search
     pub struct TestFieldUpdatesBuffer;

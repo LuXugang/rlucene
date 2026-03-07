@@ -1265,7 +1265,7 @@ fn get_numeric_doc_values<T: DocValuesFieldIterator>(iterator: T) {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
     use rand::prelude::SliceRandom;
 
     use crate::core::index::doc_values_field_updates::merged_iterator;

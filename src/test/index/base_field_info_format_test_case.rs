@@ -18,6 +18,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use rand::Rng;
+use rand::RngExt;
 use strum::EnumCount;
 
 use crate::core::codecs::field_infos_format::FieldInfosFormat;

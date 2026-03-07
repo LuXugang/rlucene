@@ -273,7 +273,7 @@ mod tests {
         is_night_mode, random, rarely,
     };
     use crate::test::util::test_util::TestUtil;
-    use rand::Rng;
+    use rand::RngExt;
     use std::borrow::Cow;
 
     #[allow(dead_code)] // for quick search

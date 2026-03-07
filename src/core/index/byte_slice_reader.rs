@@ -192,6 +192,7 @@ impl<P> Display for ByteSliceReader<P> {
 #[cfg(test)]
 mod tests {
     use rand::Rng;
+    use rand::RngExt;
     use std::rc::Rc;
 
     use crate::core::index::byte_slice_pool::ByteSlicePool;

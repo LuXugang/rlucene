@@ -334,7 +334,7 @@ fn get_package_implementation_version() {
 mod tests {
     use std::hash::{DefaultHasher, Hash, Hasher};
 
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::{

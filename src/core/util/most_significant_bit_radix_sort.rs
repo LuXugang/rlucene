@@ -477,6 +477,7 @@ mod tests {
     use std::collections::{BTreeSet, HashSet};
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::{BytesRef, BytesRefBuilder};
     use crate::core::util::error::lucene_error::Result;

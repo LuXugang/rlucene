@@ -730,6 +730,7 @@ mod tests {
     use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
     use rand::Rng;
+    use rand::RngExt;
     use std::hash::{DefaultHasher, Hash, Hasher};
     use std::rc::Rc;
 

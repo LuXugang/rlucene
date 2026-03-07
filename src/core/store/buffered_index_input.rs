@@ -788,7 +788,7 @@ mod tests {
     use std::io::Cursor;
 
     use byteorder::WriteBytesExt;
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::store::index_input::IndexInput;
     use crate::core::store::random_access_input::RandomAccessInput;

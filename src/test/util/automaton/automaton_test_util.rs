@@ -21,6 +21,7 @@ use std::rc::Rc;
 
 use bit_set::BitSet;
 use rand::Rng;
+use rand::RngExt;
 use rand::prelude::IndexedRandom;
 
 use crate::core::util::automation::automaton::{Automaton, Builder};

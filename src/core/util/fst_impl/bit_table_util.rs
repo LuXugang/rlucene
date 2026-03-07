@@ -213,6 +213,7 @@ mod tests {
     use std::fmt::{Display, Formatter};
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::store::DataInput;
 

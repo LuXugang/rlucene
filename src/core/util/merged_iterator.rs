@@ -232,6 +232,7 @@ mod tests {
     use crate::core::util::merged_iterator::MergedIterator;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use rand::Rng;
+    use rand::RngExt;
 
     #[allow(dead_code)] // for quick search
     struct TestMergedIterator;

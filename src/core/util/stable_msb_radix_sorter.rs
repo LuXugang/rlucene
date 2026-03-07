@@ -266,7 +266,7 @@ where
 mod tests {
     use std::collections::HashSet;
 
-    use rand::Rng;
+    use rand::{Rng, RngExt};
 
     use crate::core::index::{BytesRef, BytesRefBuilder};
     use crate::core::util::error::lucene_error::Result;

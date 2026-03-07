@@ -51,7 +51,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     get_only_leaf_reader, new_bytes_ref_from_bytes, new_bytes_ref_from_string,
     new_directory_shared, new_index_writer_config, new_log_merge_policy, random,
 };
-use rand::RngCore;
+use rand::Rng;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 

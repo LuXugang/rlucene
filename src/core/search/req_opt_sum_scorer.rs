@@ -604,6 +604,7 @@ mod tests {
         new_searcher_with_reader, random,
     };
     use rand::Rng;
+    use rand::RngExt;
 
     #[allow(dead_code)]
     struct TestReqOptSumScorer;

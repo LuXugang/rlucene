@@ -1400,6 +1400,7 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use rand::Rng;
+    use rand::RngExt;
     use regex::Regex;
 
     use crate::core::index::BytesRef;

@@ -25,6 +25,7 @@ use crate::test::search::check_hits::CheckHits;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, rarely};
 use crate::test::util::test_util::TestUtil;
 use rand::Rng;
+use rand::RngExt;
 
 pub(crate) const MAXDOC_FORTESTING: i64 = 1 << 48;
 // must be at least MAXDOC_FORTESTING + i32::MAX

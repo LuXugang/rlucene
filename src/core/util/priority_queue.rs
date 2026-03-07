@@ -517,7 +517,7 @@ either_compare!(pub CompareEnum2 { A: A, B: B });
 mod tests {
     use std::fmt::Debug;
 
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::TryIntoInt;
     use crate::core::util::error::lucene_error::Result;

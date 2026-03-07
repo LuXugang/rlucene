@@ -1364,7 +1364,7 @@ mod tests {
 
     use std::sync::Arc;
 
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::codecs::segment_info_format::SegmentInfoFormat;
     use crate::core::codecs::{Codec, CodecUtil, get_default_code};

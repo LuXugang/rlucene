@@ -533,7 +533,7 @@ pub(crate) mod tests {
         new_bytes_ref_from_string, random,
     };
 
-    use rand::Rng;
+    use rand::RngExt;
     use rand::distr::Alphanumeric;
     use rand::prelude::SliceRandom;
 

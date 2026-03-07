@@ -1289,7 +1289,7 @@ mod tests {
         at_least, new_directory_shared, new_searcher_with_reader, random,
     };
     use crate::test::util::test_util::TestUtil;
-    use rand::Rng;
+    use rand::RngExt;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search

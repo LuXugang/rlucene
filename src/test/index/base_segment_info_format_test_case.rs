@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 use num_bigint::BigInt;
 use rand::Rng;
+use rand::RngExt;
 
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
 use crate::core::codecs::{Codec, LATEST_CODEC};

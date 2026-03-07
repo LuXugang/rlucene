@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use rand::Rng;
+use rand::RngExt;
 use rand_xoshiro::Xoroshiro128Plus;
 use rand_xoshiro::rand_core::SeedableRng;
 

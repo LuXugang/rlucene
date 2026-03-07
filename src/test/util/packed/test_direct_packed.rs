@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use rand::Rng;
+use rand::RngExt;
 
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::directory::Directory;

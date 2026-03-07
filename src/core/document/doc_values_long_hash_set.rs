@@ -169,6 +169,7 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use rand::Rng;
+    use rand::RngExt;
     use std::collections::HashSet;
 
     fn assert_eq_set<R: Rng + ?Sized>(

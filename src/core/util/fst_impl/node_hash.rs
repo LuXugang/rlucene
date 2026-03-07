@@ -681,7 +681,7 @@ where
 #[cfg(test)]
 mod tests {
 
-    use rand::Rng;
+    use rand::RngExt;
     use std::sync::Arc;
 
     use crate::core::util::error::lucene_error::Result;

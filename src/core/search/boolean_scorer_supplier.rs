@@ -1123,7 +1123,7 @@ mod tests {
     use crate::core::index::composite_reader_context::CompositeReaderContext;
     use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
     use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
-    use rand::Rng;
+    use rand::RngExt;
     use rand::prelude::IndexedRandom;
 
     use crate::core::index::leaf_reader_context::LeafReaderContext;

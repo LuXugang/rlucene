@@ -380,7 +380,7 @@ mod tests {
 
     use std::sync::Arc;
 
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::{BytesRef, BytesRefBuilder};
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;

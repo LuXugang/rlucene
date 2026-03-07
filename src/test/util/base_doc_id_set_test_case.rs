@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use rand::Rng;
+use rand::RngExt;
 
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;

@@ -38,6 +38,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_index_writer_config, new_log_merge_policy, new_text_field, random,
 };
 use rand::Rng;
+use rand::RngExt;
 use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search

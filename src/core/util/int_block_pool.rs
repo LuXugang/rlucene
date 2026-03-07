@@ -200,7 +200,7 @@ pub(crate) const INT_BLOCK_MASK: i32 = INT_BLOCK_SIZE - 1;
 #[cfg(test)]
 mod tests {
 
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::int_block_pool::{

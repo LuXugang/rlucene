@@ -840,6 +840,7 @@ mod tests {
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
+    use rand::RngExt;
     use std::collections::HashMap;
 
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;

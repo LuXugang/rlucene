@@ -145,6 +145,7 @@ mod tests {
     use num_integer::Integer;
     use num_traits::{FromPrimitive, ToPrimitive};
     use rand::Rng;
+    use rand::RngExt;
     use rand::prelude::IndexedRandom;
 
     use crate::core::util::math_util::MathUtil;

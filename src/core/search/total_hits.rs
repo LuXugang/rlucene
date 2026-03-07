@@ -79,6 +79,7 @@ mod tests {
     use crate::core::util::CoreHelper;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use rand::Rng;
+    use rand::RngExt;
     use rand::prelude::IndexedRandom;
     #[allow(dead_code)] // for quick search
     struct TestTotalHits;

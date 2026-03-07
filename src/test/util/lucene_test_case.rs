@@ -72,9 +72,10 @@ pub mod lucene_test_case_util {
     use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
     use crate::test::util::test_util::TestUtil;
     use rand::prelude::StdRng;
-    use rand::{Rng, RngCore, SeedableRng};
+    use rand::{Rng, RngExt, SeedableRng, TryRng};
     use std::cell::RefCell;
     use std::collections::HashMap;
+    use std::convert::Infallible;
     use std::rc::Rc;
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -682,17 +683,19 @@ pub mod lucene_test_case_util {
         }
     }
 
-    impl RngCore for TestRng {
-        fn next_u32(&mut self) -> u32 {
-            self.inner.borrow_mut().next_u32()
+    impl TryRng for TestRng {
+        type Error = Infallible;
+
+        fn try_next_u32(&mut self) -> std::result::Result<u32, Self::Error> {
+            self.inner.borrow_mut().try_next_u32()
         }
 
-        fn next_u64(&mut self) -> u64 {
-            self.inner.borrow_mut().next_u64()
+        fn try_next_u64(&mut self) -> std::result::Result<u64, Self::Error> {
+            self.inner.borrow_mut().try_next_u64()
         }
 
-        fn fill_bytes(&mut self, dest: &mut [u8]) {
-            self.inner.borrow_mut().fill_bytes(dest);
+        fn try_fill_bytes(&mut self, dst: &mut [u8]) -> std::result::Result<(), Self::Error> {
+            self.inner.borrow_mut().try_fill_bytes(dst)
         }
     }
 

@@ -615,7 +615,7 @@ impl BitSet for SparseFixedBitSet {
 #[cfg(test)]
 mod tests {
 
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::util::bit_set::BitSet;

@@ -204,7 +204,7 @@ impl Accountable for IntBag {
 mod tests {
     use super::*;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
-    use rand::Rng;
+    use rand::RngExt;
     use std::collections::HashMap;
 
     fn assert_buffer(

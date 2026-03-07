@@ -453,7 +453,7 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use rand::{Rng, RngCore};
+    use rand::{Rng, RngExt};
 
     use crate::core::index::BytesRef;
     use crate::core::index::buffered_updates::{BufferedUpdates, DeletedTerms};

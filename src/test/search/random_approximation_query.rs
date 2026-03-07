@@ -34,6 +34,7 @@ use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::util::lucene_test_case::lucene_test_case_util::random_from_seed;
 use rand::Rng;
+use rand::RngExt;
 use rand::prelude::StdRng;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};

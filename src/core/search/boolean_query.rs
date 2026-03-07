@@ -974,7 +974,7 @@ mod tests {
     use crate::core::document::string_field::StringField;
 
     use crate::core::index::directory_reader::directory_reader_util;
-    use rand::Rng;
+    use rand::RngExt;
     use rand::prelude::SliceRandom;
     use std::collections::HashMap;
 
@@ -1929,7 +1929,7 @@ mod test {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory_shared, new_searcher_with_reader, new_text_field, random,
     };
-    use rand::Rng;
+    use rand::RngExt;
     use std::collections::HashMap;
 
     #[allow(dead_code)]

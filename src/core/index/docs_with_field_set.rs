@@ -135,7 +135,7 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::docs_with_field_set::DocsWithFieldSet;
     use crate::core::search::doc_id_set::DocIdSet;

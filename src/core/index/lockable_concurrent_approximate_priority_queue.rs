@@ -101,7 +101,7 @@ mod tests {
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
 
-    use rand::Rng;
+    use rand::RngExt;
 
     use parking_lot::{Condvar, Mutex};
     use std::sync::{Arc, Barrier};

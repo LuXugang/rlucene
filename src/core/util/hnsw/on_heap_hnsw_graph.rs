@@ -387,7 +387,7 @@ impl EntryNode {
 }
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};

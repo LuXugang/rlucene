@@ -330,6 +330,7 @@ pub mod tests {
     use crate::test::util::dummy_index_searcher;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
     use rand::Rng;
+    use rand::RngExt;
     use std::hash::Hash;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicI32, Ordering};

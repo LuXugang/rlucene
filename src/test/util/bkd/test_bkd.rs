@@ -45,7 +45,7 @@ use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use parking_lot::Mutex;
 use rand::prelude::StdRng;
-use rand::{Rng, RngCore};
+use rand::{Rng, RngExt};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;

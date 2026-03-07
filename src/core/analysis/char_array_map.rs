@@ -172,6 +172,7 @@ mod tests {
     use crate::core::analysis::char_array_map::CharArrayMap;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{random, random_multiplier};
     use rand::Rng;
+    use rand::RngExt;
     use std::collections::HashMap;
     #[allow(dead_code)]
     struct TestCharArrayMap;

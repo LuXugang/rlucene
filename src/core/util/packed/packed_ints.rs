@@ -1063,7 +1063,7 @@ impl Mutable for DummyMutable {}
 #[cfg(test)]
 mod tests {
 
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::store::directory::Directory;
     use crate::core::store::{

@@ -483,7 +483,7 @@ mod test {
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::util::TryIntoInt;
     use crate::test::util::test_util::TestUtil;
-    use rand::Rng;
+    use rand::RngExt;
     use std::sync::Arc;
     use std::vec;
 

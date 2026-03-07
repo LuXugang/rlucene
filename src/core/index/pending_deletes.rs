@@ -707,7 +707,7 @@ mod tests {
     use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
     use crate::core::index::readers_and_updates::{IOSupplierImpl, ReadersAndUpdates};
     use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
-    use rand::Rng;
+    use rand::RngExt;
     use std::collections::HashMap;
     use std::sync::Arc;
 

@@ -500,7 +500,7 @@ fn write_long_string(_byte_len: usize, _s: String) {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::store::data_output::DataOutput;
     use crate::core::store::{ByteArrayDataInput, ByteBuffersDataOutput};

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rand::Rng;
+use rand::RngExt;
 use rand::rngs::ThreadRng;
 
 use crate::core::util::TryIntoInt;
@@ -308,7 +308,7 @@ pub trait IntroSelectorBaseDefault {
 #[cfg(test)]
 mod tests {
 
-    use rand::Rng;
+    use rand::{Rng, RngExt};
 
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::selector::Selector;

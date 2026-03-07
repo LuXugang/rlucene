@@ -48,7 +48,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_searcher_with_reader, new_searcher_with_wrap, random,
 };
 use crate::test::util::test_util::TestUtil;
-use rand::Rng;
+use rand::RngExt;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search

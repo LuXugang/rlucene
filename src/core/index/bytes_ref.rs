@@ -265,7 +265,7 @@ impl From<&str> for BytesRef<Vec<u8>> {
 mod tests {
     use std::ptr;
 
-    use rand::Rng;
+    use rand::RngExt;
     use rand::distr::Alphanumeric;
 
     use crate::core::index::BytesRef;

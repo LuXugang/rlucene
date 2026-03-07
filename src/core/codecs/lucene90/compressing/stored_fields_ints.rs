@@ -247,6 +247,7 @@ impl StoredFieldsInts {
 mod tests {
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::codecs::compressing::stored_fields_ints::StoredFieldsInts;
     use crate::core::store::directory::Directory;

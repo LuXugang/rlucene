@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rand::Rng;
+use rand::RngExt;
 
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::{IndexOutput, OutputStreamIndexOutput, align_offset};

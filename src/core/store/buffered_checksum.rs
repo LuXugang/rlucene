@@ -89,7 +89,7 @@ impl<T: Checksum> Checksum for BufferedChecksum<T> {
 #[cfg(test)]
 mod tests {
     use crc32fast::Hasher;
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::store::{BufferedChecksum, Checksum, HasherChecksum};
 

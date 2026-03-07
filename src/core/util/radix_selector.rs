@@ -388,6 +388,7 @@ mod tests {
     use std::cmp::{Ordering, min};
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::BytesRef;
     use crate::core::util::error::lucene_error::Result;

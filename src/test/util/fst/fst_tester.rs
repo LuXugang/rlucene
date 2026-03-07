@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use rand::Rng;
+use rand::RngExt;
 
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;

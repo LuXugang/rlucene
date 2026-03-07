@@ -346,6 +346,7 @@ mod tests {
     use crate::test::search::similarities::base_similarity_test_case::BaseSimilarityTestCase;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use rand::Rng;
+    use rand::RngExt;
 
     struct TestBM25Similarity;
     impl BaseSimilarityTestCase for TestBM25Similarity {

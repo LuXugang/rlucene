@@ -41,6 +41,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
 };
 use crate::test::util::test_util::TestUtil;
 use rand::Rng;
+use rand::RngExt;
 use std::vec;
 
 #[allow(dead_code)] // for quick search

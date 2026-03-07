@@ -17,6 +17,7 @@
 use std::collections::HashMap;
 
 use rand::Rng;
+use rand::RngExt;
 
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::{Codec, LATEST_CODEC};

@@ -35,7 +35,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_directory_shared, new_field, new_index_writer_config, new_text_field, random,
 };
 use once_cell::sync::Lazy;
-use rand::Rng;
+use rand::RngExt;
 use std::clone::Clone;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicBool;

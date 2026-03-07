@@ -215,7 +215,7 @@ impl Compare<SizedFile> for SizedFileQueueCmp {
 #[cfg(test)]
 mod tests {
 
-    use rand::Rng;
+    use rand::RngExt;
     use rand::prelude::SliceRandom;
 
     use crate::core::codecs::{

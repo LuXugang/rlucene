@@ -128,6 +128,7 @@ const HISTOGRAM_SIZE: usize = 256;
 #[cfg(test)]
 mod tests {
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::lsb_radix_sorter::LSBRadixSorter;

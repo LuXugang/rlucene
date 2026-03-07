@@ -17,6 +17,7 @@
 use std::cmp::Ordering;
 
 use rand::Rng;
+use rand::RngExt;
 
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{COMPARATOR_TYPE, Comparator, Sorter, ToInt};

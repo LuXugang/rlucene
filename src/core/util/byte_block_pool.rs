@@ -389,7 +389,7 @@ pub(crate) const BYTE_BLOCK_MASK: i32 = BYTE_BLOCK_SIZE - 1;
 mod tests {
 
     use rand::distr::Alphanumeric;
-    use rand::{Rng, RngCore};
+    use rand::{Rng, RngExt};
     use std::sync::Arc;
 
     use crate::core::index::{BytesRef, BytesRefBuilder};

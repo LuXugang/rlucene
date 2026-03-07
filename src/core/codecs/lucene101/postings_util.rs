@@ -79,6 +79,7 @@ impl PostingsUtil {
 mod tests {
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::codecs::lucene101::for_util::ForUtil;
     use crate::core::codecs::lucene101::postings_util::PostingsUtil;

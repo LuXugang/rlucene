@@ -134,7 +134,7 @@ impl Hash for StateSetHashKey {
 }
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::automation::int_set::IntSet;
     use crate::core::util::automation::state_set::StateSet;

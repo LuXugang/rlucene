@@ -186,7 +186,8 @@ mod tests {
     use std::time::Duration;
 
     use parking_lot::Mutex;
-    use rand::{Rng, rng};
+    use rand::RngExt;
+    use rand::rng;
 
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::hnsw::blocking_float_heap::BlockingFloatHeap;

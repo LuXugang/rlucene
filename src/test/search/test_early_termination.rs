@@ -31,7 +31,7 @@ use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_searcher_with_reader, random, rarely,
 };
-use rand::Rng;
+use rand::RngExt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 

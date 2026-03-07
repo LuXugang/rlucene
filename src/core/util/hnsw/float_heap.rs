@@ -160,7 +160,7 @@ impl FloatHeap {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::hnsw::float_heap::FloatHeap;

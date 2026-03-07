@@ -839,7 +839,7 @@ mod tests {
     use std::{thread, vec};
 
     use parking_lot::Mutex;
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::index::buffered_updates::{BufferedUpdates, BufferedUpdatesLock, MAX_INT};
     use crate::core::index::doc_values_type::DocValuesType;

@@ -553,6 +553,7 @@ mod tests {
     use std::fmt::Display;
 
     use rand::Rng;
+    use rand::RngExt;
 
     use crate::core::util::array_util::{
         ArrayUtil, ByteArrayComparator, U32byteArrayComparator, U64byteArrayComparator,
