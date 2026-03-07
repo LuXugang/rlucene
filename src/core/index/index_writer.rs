@@ -4674,7 +4674,7 @@ where
 
         let mut reader_factory = IOFunctionImpl::new(self, &mut opened_read_only_clones);
         let _opening_segment_infos: Option<SegmentInfos<D>> = None;
-        let result1 = (|| {
+        let result1: Result<StandardDirectoryReaderType<D>> = (|| {
             /*
             This is the essential part of the getReader method. We need to take care of the following things:
              - flush all currently in-memory DWPTs to disk
@@ -4694,9 +4694,9 @@ where
             */
 
             let mut success = false;
-            {
+            let res = {
                 let _full_flush_lock = self.full_flush_lock.lock();
-                let result2 = (|| {
+                let result2: Result<StandardDirectoryReaderType<D>> = (|| {
                     any_changes = self.doc_writer.flush_all_threads(self, &self.config)? < 0;
                     if !any_changes {
                         self.flush_count.fetch_add(1, Ordering::AcqRel);
@@ -4751,9 +4751,24 @@ where
                         .message("IW", "hit exception during NRT reader");
                 }
                 result2
+            };
+            match res {
+                Ok(r) => {
+                    any_changes |= self.maybe_merge.swap(false, Ordering::AcqRel);
+                    if any_changes {
+                        self.maybe_merge_with_max_num_segments(
+                            self.config.get_merge_policy(),
+                            MergeTrigger::FullFlush,
+                            UNBOUNDED_MAX_MERGE_SEGMENTS,
+                        )?;
+                    }
+                    Ok(r)
+                },
+                Err(e) => Err(e),
             }
         })();
-        // TODO: 返回之前需要关闭一些 但是rust Lucene不需要？
+        // TODO IMPORTANT : 返回之前需要关闭一些 但是rust Lucene不需要？并且还有一些实现未完成 不过不影响使用
+
         match result1 {
             Ok(v) => Ok(v),
             Err(e) => {

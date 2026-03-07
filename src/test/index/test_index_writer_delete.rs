@@ -20,10 +20,14 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
+use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::log_merge_policy::LogMergePolicy;
+use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
@@ -350,4 +354,174 @@ fn get_hit_count<D: Directory + 'static>(dir: Arc<D>, term: Term) -> Result<i64>
     let top_docs = searcher.search(TermQuery::new(term.clone()), 1000)?;
     Ok(top_docs.total_hits.value() as i64)
 }
-// TODO 还有很多tests 未完成
+#[test]
+fn test_deletes_on_disk_full() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_updates_on_disk_full() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_error_after_apply_deletes() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_error_in_docs_writer_add() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_delete_null_query() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_delete_all_slowly() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_indexing_then_deleting() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_flush_pushed_deletes_by_ram() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_apply_deletes_on_flush() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_deletes_check_index_output() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_try_delete_document() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_nrt_is_current_after_delete() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_only_deletes_triggers_merge_on_close() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_only_deletes_triggers_merge_on_get_reader() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_only_deletes_triggers_merge_on_flush() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    // TODO: 未实现MockAnalyzer
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_max_buffered_docs(2);
+    let mut mp = LogMergePolicy::log_doc();
+    mp.set_min_merge_docs(1);
+    iwc.set_merge_policy(mp);
+    iwc.set_merge_scheduler(SerialMergeScheduler::new());
+
+    let w = IndexWriter::new(dir.clone(), iwc)?;
+    let mut field_types = HashMap::new();
+
+    for i in 0..38 {
+        let mut doc = Document::new();
+        doc.add(new_string_field(
+            &mut random,
+            "id",
+            i.to_string(),
+            Store::No,
+            &mut field_types,
+        )?);
+        w.add_document(doc)?;
+    }
+    w.commit()?;
+
+    // Deleting 18 out of the 20 docs in the first segment make it the same "level" as the other 9
+    // which should cause a merge to kick off:
+    for i in 0..18 {
+        w.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
+    }
+
+    let _ = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = get_context(reader)?;
+    assert_eq!(1, reader.leaves()?.len());
+    w.close()?;
+    Ok(())
+}
+
+#[test]
+fn test_only_deletes_delete_all_docs() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    // TODO: 未实现MockAnalyzer
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_max_buffered_docs(2);
+
+    let mut mp = LogMergePolicy::log_doc();
+    mp.set_min_merge_docs(1);
+    iwc.set_merge_policy(mp);
+
+    iwc.set_merge_scheduler(SerialMergeScheduler::new());
+
+    let w = IndexWriter::new(dir.clone(), iwc)?;
+    let mut field_types = HashMap::new();
+    for i in 0..38 {
+        let mut doc = Document::new();
+        doc.add(new_string_field(
+            &mut random,
+            "id",
+            i.to_string(),
+            Store::No,
+            &mut field_types,
+        )?);
+        w.add_document(doc)?;
+    }
+    w.commit()?;
+
+    for i in 0..38 {
+        w.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
+    }
+
+    let r = directory_reader_util::open_from_writer(&w)?;
+    assert_eq!(0, r.max_doc()?);
+    let reader = get_context(r)?;
+    assert_eq!(0, reader.leaves()?.len());
+    w.close()?;
+    Ok(())
+}
+#[test]
+fn test_merging_after_delete_all() -> Result<()> {
+    // TODO
+    Ok(())
+}

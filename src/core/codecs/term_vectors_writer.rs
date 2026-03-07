@@ -221,18 +221,18 @@ pub trait TermVectorsWriter: Accountable {
                 self.start_term(terms_enum.term()?.as_ref(), freq)?;
 
                 if has_positions || has_offsets {
-                    let mut postings =
+                    let mut docs_and_positions_enum =
                         terms_enum.postings_with_flags(None, (OFFSETS | PAYLOADS) as i32)?;
 
-                    let doc_id = postings.next_doc()?;
+                    let doc_id = docs_and_positions_enum.next_doc()?;
                     debug_assert!(doc_id != NO_MORE_DOCS);
-                    debug_assert!(postings.freq()? == freq);
+                    debug_assert!(docs_and_positions_enum.freq()? == freq);
 
                     for _ in 0..freq {
-                        let pos = postings.next_position()?;
-                        let start_offset = postings.start_offset()?;
-                        let end_offset = postings.end_offset()?;
-                        let payload = postings.get_payload()?;
+                        let pos = docs_and_positions_enum.next_position()?;
+                        let start_offset = docs_and_positions_enum.start_offset()?;
+                        let end_offset = docs_and_positions_enum.end_offset()?;
+                        let payload = docs_and_positions_enum.get_payload()?;
 
                         debug_assert!(!has_positions || pos >= 0);
                         self.add_position(pos, start_offset, end_offset, payload.as_deref())?;

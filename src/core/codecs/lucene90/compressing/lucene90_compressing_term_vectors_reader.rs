@@ -1568,7 +1568,7 @@ impl DocIdSetIterator for TVPostingsEnum {
 impl PostingsEnum for TVPostingsEnum {
     fn freq(&mut self) -> Result<i32> {
         self.check_doc()?;
-        Ok(self.doc)
+        self.term_freq.try_convert()
     }
 
     fn next_position(&mut self) -> Result<i32> {

@@ -243,7 +243,7 @@ fn test_doc_values_unstored() -> Result<()> {
     for i in 0..50 {
         let mut doc = Document::new();
         doc.add(NumericDocValuesField::new("dv", i as i64));
-        doc.add(TextField::from_string("docId", &i.to_string(), Store::Yes)?);
+        doc.add(TextField::from_string("docId", i.to_string(), Store::Yes)?);
         writer.add_document(doc)?;
     }
 

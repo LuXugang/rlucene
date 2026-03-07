@@ -99,9 +99,10 @@ impl TextField {
     /// - `name`: Field name.
     /// - `value`: String value.
     /// - `store`: `Store::Yes` if the content should also be stored.
-    pub fn from_string<T>(name: T, value: T, store: Store) -> Result<Self>
+    pub fn from_string<T1, T2>(name: T1, value: T2, store: Store) -> Result<Self>
     where
-        T: Into<String>,
+        T1: Into<String>,
+        T2: Into<String>,
     {
         let store = store.into();
         let (field_type, has_stored_value) = if store {
