@@ -502,7 +502,7 @@ where
     IRC: IndexReaderContext,
     T1: Into<Query>,
     T2: Into<Query>,
-    IRCLeafReader<IRC>: 'static,
+
 {
     let irc = searcher.get_top_reader_context();
     let max_doc = irc.reader().max_doc()?;

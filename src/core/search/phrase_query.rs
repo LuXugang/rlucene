@@ -266,7 +266,6 @@ impl QueryBase for PhraseQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         let similarity = searcher.get_similarity();
         let query = self.clone();

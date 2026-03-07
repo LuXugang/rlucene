@@ -94,7 +94,6 @@ impl QueryBase for MultiTermQueryConstantScoreBlendedWrapper {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         let sub = BlendedRewritingWeight;
         match self.q {

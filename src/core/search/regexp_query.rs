@@ -257,7 +257,6 @@ impl QueryBase for RegexpQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         Err(LuceneError::unsupported_operation(""))
     }

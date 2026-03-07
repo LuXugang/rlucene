@@ -112,7 +112,6 @@ impl QueryBase for WildcardQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         Err(LuceneError::unsupported_operation(""))
     }

@@ -103,7 +103,6 @@ impl QueryBase for ConstantScoreQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         let inner_score_mode = if score_mode.is_exhaustive() {
             ScoreMode::CompleteNoScores
@@ -157,7 +156,7 @@ impl QueryBase for ConstantScoreQuery {
 pub struct WeightImpl<IRC>
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
+
 {
     base: ConstantScoreWeight,
     inner_weight: QueryWeight<IRC>,
@@ -166,7 +165,7 @@ where
 impl<IRC> WeightImpl<IRC>
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
+
 {
     pub fn new(boost: f32, inner_weight: QueryWeight<IRC>, score_mode: ScoreMode) -> Self {
         Self {
@@ -179,7 +178,7 @@ where
 impl<IRC> SegmentCacheable<IRC> for WeightImpl<IRC>
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
+
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         self.inner_weight.is_cacheable(ctx)
@@ -189,7 +188,6 @@ where
 impl<IRC> Weight<IRC> for WeightImpl<IRC>
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
 {
     // TODO IMPORTANT
     type Matches = MatchWithNoTerms;
@@ -461,14 +459,14 @@ where
 pub struct ConstantScoreQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
+
 {
     inner: QueryWeight<IRC>,
 }
 impl<IRC> ConstantScoreQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
+
 {
     pub fn new(inner: QueryWeight<IRC>) -> Self {
         Self { inner }
@@ -477,7 +475,7 @@ where
 impl<IRC> SegmentCacheable<IRC> for ConstantScoreQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
+
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         self.inner.is_cacheable(ctx)
@@ -486,7 +484,6 @@ where
 impl<IRC> Weight<IRC> for ConstantScoreQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
 {
     type Matches = MatchWithNoTerms;
 

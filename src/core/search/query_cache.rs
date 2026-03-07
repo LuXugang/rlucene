@@ -41,7 +41,7 @@ where
 pub type BoxQueryCache<IRC> = Box<dyn QueryCache<IRC> + Send + Sync>;
 pub enum QueryCacheEnum<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext ,
 {
     Lru(Arc<LRUQueryCache<MinSegmentSizePredicate>>),
     Custom(BoxQueryCache<IRC>),
@@ -67,7 +67,7 @@ where
         policy: Arc<QueryCachingPolicyEnum>,
     ) -> QueryWeight<IRC>
     where
-        IRC: IndexReaderContext + 'static,
+        IRC: IndexReaderContext ,
     {
         match self {
             QueryCacheEnum::Lru(cache) => cache.do_cache(weight, policy),

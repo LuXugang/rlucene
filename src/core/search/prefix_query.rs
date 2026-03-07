@@ -85,7 +85,6 @@ impl QueryBase for PrefixQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         Err(LuceneError::unsupported_operation(""))
     }

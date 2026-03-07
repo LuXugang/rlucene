@@ -137,8 +137,7 @@ pub trait QueryBase: Debug + HasIdentity {
     ) -> Result<QueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
-        Self: Sized,
-        IRCLeafReader<IRC>: 'static;
+        Self: Sized;
 
     fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
@@ -206,7 +205,6 @@ impl QueryBase for Query {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         dispatch_query!(self, |q| q.create_weight(searcher, score_mode, boost,))
     }
@@ -265,7 +263,6 @@ where
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         Err(LuceneError::unsupported_operation(format!(
             "Arc<QueryBase> cannot be used to create_weight directly: {}",

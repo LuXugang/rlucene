@@ -140,7 +140,6 @@ impl QueryBase for TermQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         let mut term_states = TermStates::new(searcher.get_top_reader_context())?;
         let ts = match self.per_reader_term_state.take() {
@@ -578,7 +577,7 @@ where
 impl<IRC> ScorerSupplier<IRC> for TermScorerSupplier<IRCLeafReader<IRC>>
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
+    
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;

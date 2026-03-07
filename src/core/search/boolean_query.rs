@@ -185,7 +185,6 @@ impl BooleanQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         let similarity = searcher.get_similarity();
 
@@ -282,7 +281,6 @@ impl QueryBase for BooleanQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         let weight = self.raw_weight(searcher, score_mode, boost)?;
         Ok(Box::new(weight))

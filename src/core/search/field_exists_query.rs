@@ -113,7 +113,6 @@ impl QueryBase for FieldExistsQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         Ok(Box::new(FieldExistsWeight::new(boost, self, *score_mode)))
     }
@@ -1347,7 +1346,7 @@ mod test {
         IRC: IndexReaderContext,
         T1: Into<Query>,
         T2: Into<Query>,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         let irc = searcher.get_top_reader_context();
         let max_doc = irc.reader().max_doc()?;
@@ -1383,7 +1382,7 @@ mod test {
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         let test_query: Query = FieldExistsQuery::new(field).into();
         assert_eq!(searcher.count(test_query.clone())?, num_matching_docs);

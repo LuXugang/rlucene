@@ -88,7 +88,6 @@ impl QueryBase for MultiTermQueryConstantScoreWrapper {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         let sub = StandardRewritingWeight;
         match self.q {

@@ -1009,7 +1009,7 @@ mod tests {
     where
         Q: Into<Query>,
         IRC: IndexReaderContext,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         let req_q = req_q.into();
         let opt_q = opt_q.into();

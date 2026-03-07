@@ -140,7 +140,6 @@ impl QueryBase for AutomatonQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         Err(LuceneError::unsupported_operation(""))
     }

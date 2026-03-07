@@ -207,7 +207,7 @@ impl CheckHits {
     where
         IRC: IndexReaderContext,
         R: Rng + ?Sized,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         // Check it computed the top hits correctly
         Self::do_check_top_scores(query, searcher, 1)?;
@@ -226,7 +226,7 @@ impl CheckHits {
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         let complete = TopScoreDocCollectorManager::with_after(num_hits, None, i32::MAX as usize)?;
         let top_scores = TopScoreDocCollectorManager::with_after(num_hits, None, 1)?;
@@ -251,7 +251,7 @@ impl CheckHits {
     where
         IRC: IndexReaderContext,
         R: Rng + ?Sized,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         query = searcher.rewrite(query)?;
 

@@ -105,7 +105,6 @@ impl QueryBase for MatchNoDocsQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         Ok(Box::new(MatchNoDocsWeight::new(self)))
     }
@@ -150,7 +149,6 @@ where
 impl<IRC> Weight<IRC> for MatchNoDocsWeight
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
 {
     type Matches = MatchWithNoTerms;
 

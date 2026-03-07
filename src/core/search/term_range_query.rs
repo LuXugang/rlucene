@@ -255,7 +255,6 @@ impl QueryBase for TermRangeQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         Err(LuceneError::unsupported_operation(""))
     }

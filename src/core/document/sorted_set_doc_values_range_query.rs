@@ -133,7 +133,6 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         Ok(Box::new(SortedSetDocValuesRangeQueryWeight::new(
             self,
@@ -196,7 +195,6 @@ where
 
 impl<IRC> Weight<IRC> for SortedSetDocValuesRangeQueryWeight
 where
-    IRCLeafReader<IRC>: LeafReader + 'static,
     IRC: IndexReaderContext,
 {
     type Matches = MatchWithNoTerms;
@@ -382,7 +380,6 @@ where
 impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl3<IRCLeafReader<IRC>>
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;

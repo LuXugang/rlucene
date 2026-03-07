@@ -94,7 +94,6 @@ impl QueryBase for MatchAllDocsQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         Ok(Box::new(MatchAllWeight::new(boost, self, *score_mode)))
     }
@@ -142,7 +141,6 @@ where
 impl<IRC> Weight<IRC> for MatchAllWeight
 where
     IRC: IndexReaderContext,
-    <IRC as IndexReaderContext>::LeafReader: 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -211,7 +209,7 @@ impl MatchAllDocsScorerSupplier {
 impl<IRC> ScorerSupplier<IRC> for MatchAllDocsScorerSupplier
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: 'static,
+    
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;

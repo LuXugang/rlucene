@@ -109,7 +109,6 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
     where
         IRC: IndexReaderContext,
         Self: Sized,
-        IRCLeafReader<IRC>: 'static,
     {
         Ok(Box::new(SortedNumericDocValuesRangeQueryWeight::new(
             self,

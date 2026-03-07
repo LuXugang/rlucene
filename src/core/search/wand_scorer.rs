@@ -2315,7 +2315,6 @@ pub(crate) mod tests {
         where
             IRC: IndexReaderContext,
             Self: Sized,
-            IRCLeafReader<IRC>: 'static,
         {
             let weight = self.query.create_weight(searcher, score_mode, boost)?;
             Ok(Box::new(MaxScoreWrapperQueryWeight::new(
@@ -2347,7 +2346,7 @@ pub(crate) mod tests {
     struct MaxScoreWrapperQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         max_range: i32,
         max_score: f32,
@@ -2356,7 +2355,7 @@ pub(crate) mod tests {
     impl<IRC> MaxScoreWrapperQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         fn new(max_range: i32, max_score: f32, weight: QueryWeight<IRC>) -> Self {
             Self {
@@ -2370,7 +2369,7 @@ pub(crate) mod tests {
     impl<IRC> SegmentCacheable<IRC> for MaxScoreWrapperQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
             self.weight.is_cacheable(ctx)
@@ -2380,7 +2379,6 @@ pub(crate) mod tests {
     impl<IRC> Weight<IRC> for MaxScoreWrapperQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        IRCLeafReader<IRC>: 'static,
     {
         type Matches = MatchWithNoTerms;
 
@@ -2520,7 +2518,6 @@ pub(crate) mod tests {
         where
             IRC: IndexReaderContext,
             Self: Sized,
-            IRCLeafReader<IRC>: 'static,
         {
             let w = self.query.clone().raw_weight(searcher, score_mode, boost)?;
             Ok(Box::new(WANDScorerQueryWeight::new(
@@ -2549,7 +2546,7 @@ pub(crate) mod tests {
     struct WANDScorerQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         minimum_number_should_match: i32,
         query: Arc<Query>,
@@ -2560,7 +2557,7 @@ pub(crate) mod tests {
     impl<IRC> WANDScorerQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         fn new(
             query: BooleanQuery,
@@ -2583,7 +2580,7 @@ pub(crate) mod tests {
     impl<IRC> SegmentCacheable<IRC> for WANDScorerQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        IRCLeafReader<IRC>: 'static,
+        
     {
         fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
             Ok(false)
@@ -2593,7 +2590,6 @@ pub(crate) mod tests {
     impl<IRC> Weight<IRC> for WANDScorerQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        IRCLeafReader<IRC>: 'static,
     {
         type Matches = MatchWithNoTerms;
 
