@@ -179,6 +179,10 @@ where
     fn is_fs_directory(&self) -> bool {
         self.in_.is_fs_directory()
     }
+
+    fn ensure_open(&self) -> Result<()> {
+        self.in_.ensure_open()
+    }
 }
 
 #[cfg(test)]
