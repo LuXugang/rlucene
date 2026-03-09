@@ -511,7 +511,7 @@ where
     }
 
     fn matches(&mut self) -> Result<bool> {
-        if let Some(mut req_tpi) = self.disi.req_scorer.two_phase_iterator()
+        if let Some(mut req_tpi) = self.disi.req_scorer.two_phase_iterator_mut()
             && !req_tpi.matches()?
         {
             return Ok(false);

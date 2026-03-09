@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// A priority queue maintains a partial ordering of its elements such that the
@@ -375,7 +374,9 @@ where
         if self.size == 0 {
             return Vec::new();
         }
+        let len = self.heap.len();
         let mut heap = std::mem::take(&mut self.heap);
+        self.heap.resize_with(len, || None);
         let taken = heap
             .drain(1..=self.size)
             .map(|opt| opt.expect("all heap elements must be Some"))

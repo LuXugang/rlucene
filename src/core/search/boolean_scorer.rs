@@ -246,7 +246,7 @@ where
             }
 
             if candidate.doc < window_max {
-                leads[max_freq] = candidate;
+                leads.push(candidate);
                 max_freq += 1;
             } else {
                 self.head.add(candidate)?;
@@ -256,7 +256,7 @@ where
         if max_freq >= self.min_should_match {
             // There might be matches in other scorers from the tail too
             for x in self.tail.get().into_iter() {
-                leads[max_freq] = x;
+                leads.push(x);
                 max_freq += 1;
             }
             self.tail.clear();
@@ -334,7 +334,7 @@ where
         let window_base = top_doc & !(MASK as i32);
         let window_min = std::cmp::max(min, window_base);
         let window_max = std::cmp::min(max, window_base + SIZE as i32);
-        let mut leads: Vec<DisiWrapper<S>> = Vec::new();
+        let mut leads = Vec::new();
         let head_top = self
             .head
             .pop()?

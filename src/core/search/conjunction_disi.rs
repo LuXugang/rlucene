@@ -79,12 +79,13 @@ where
         }
         let lead1 = iters.remove(0);
         let lead2 = iters.remove(0);
-        Ok(Self {
+        let v = Self {
             lead1,
             lead2,
             others: iters,
             all_disi: iterators,
-        })
+        };
+        Ok(v)
     }
     fn do_next(&mut self, mut doc: i32) -> Result<i32> {
         'advance_head: loop {
@@ -110,7 +111,7 @@ where
 
                     if next > doc {
                         // iterator beyond the current doc - advance lead and continue to the new highest doc.
-                        doc = self.all_disi[self.lead1].next_doc()?;
+                        doc = self.all_disi[self.lead1].advance(next)?;
                         continue 'advance_head;
                     }
                 }

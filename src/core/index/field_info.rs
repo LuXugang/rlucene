@@ -50,7 +50,6 @@ pub struct FieldInfo {
     ///  If both of these are positive it means this field indexed points (see
     /// [`PointsFormat`](crate::core::codecs::points_format::PointsFormat)).
     point_dimension_count: usize,
-    // TODO IMPORTANT 这里改成usize
     point_index_dimension_count: usize,
     point_num_bytes: usize,
     // if it is a positive value, it means this field indexes vectors

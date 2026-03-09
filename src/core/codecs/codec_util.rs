@@ -361,8 +361,7 @@ impl CodecUtil {
     /// - `CorruptIndexError`: If the file does not appear to be a valid index
     ///   file.
     pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>> {
-        // TODO IMPORTANT 跟Java版本确认下 要不要seek(0)
-        // data_input.seek(0)?;
+        data_input.seek(0)?;
         let actual_header = Self::read_be_int(data_input)?;
         if actual_header != CodecUtil::CODEC_MAGIC {
             return Err(LuceneError::corrupt_index(format!(

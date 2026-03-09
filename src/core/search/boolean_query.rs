@@ -972,17 +972,19 @@ mod tests {
     use crate::core::document::string_field::StringField;
 
     use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::term::Term;
     use rand::RngExt;
     use rand::prelude::SliceRandom;
     use std::collections::HashMap;
 
-    use crate::core::index::index_writer::IndexWriter;
-    use crate::core::index::index_writer_config::IndexWriterConfig;
-    use crate::core::index::term::Term;
-
     use crate::core::search::boolean_clause::{BooleanClause, Occur};
     use crate::core::search::boolean_query::Builder;
     use crate::core::search::boost_query::BoostQuery;
+    use crate::core::search::constant_score_query::ConstantScoreQuery;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
@@ -992,13 +994,14 @@ mod tests {
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::scorer::ScorerKind;
     use crate::core::search::term_query::TermQuery;
+    use crate::core::search::top_docs::TopDocsLike;
     use crate::core::util::CoreHelper;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::query_utils::QueryUtils;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
-        new_text_field, random, random_multiplier,
+        at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
+        new_searcher_with_reader, new_text_field, random, random_multiplier,
     };
     use crate::test::util::test_util::TestUtil;
     #[allow(dead_code)]
@@ -1909,8 +1912,306 @@ mod tests {
         // TODO IndexSearch
         Ok(())
     }
+    #[test]
+    fn test_disjunction_two_clauses_matches_count_and_score() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
 
-    // TODO IMPORTANT 还有好几个未完成的测试
+        let doc_content: Vec<Vec<&str>> = vec![
+            vec!["A", "B"],      // 0
+            vec!["A"],           // 1
+            vec![],              // 2
+            vec!["A", "B", "C"], // 3
+            vec!["B"],           // 4
+            vec!["B", "C"],      // 5
+        ];
+
+        // result sorted by score
+        let match_doc_score: Vec<(i32, f32)> = vec![
+            (0, (2 + 1) as f32),
+            (3, (2 + 1) as f32),
+            (1, 2f32),
+            (4, 1f32),
+            (5, 1f32),
+        ];
+
+        {
+            let mut iwc = new_index_writer_config(&mut random);
+            iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+            let w = IndexWriter::new(dir.clone(), iwc)?;
+
+            for values in doc_content {
+                let mut doc = Document::new();
+                for v in values {
+                    doc.add(StringField::from_string("foo", v, Store::No)?);
+                }
+                w.add_document(doc)?;
+            }
+            w.force_merge(1)?;
+            w.close()?;
+        }
+
+        let reader = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let q_a: Query = TermQuery::new(Term::from_text("foo", "A")).into();
+        let q_b: Query = TermQuery::new(Term::from_text("foo", "B")).into();
+
+        let boosted_a = BoostQuery::new(Box::new(ConstantScoreQuery::new(q_a).into()), 2.0)?;
+        let cs_b = ConstantScoreQuery::new(q_b);
+
+        let mut builder = Builder::new();
+        builder.add(boosted_a, Occur::Should)?;
+        builder.add(cs_b, Occur::Should)?;
+        let query: Query = builder.build().into();
+
+        let top_docs = searcher.search(query, 10)?;
+        let hits = top_docs.score_docs();
+
+        for (i, (exp_doc, exp_score)) in match_doc_score.iter().enumerate() {
+            let sd = &hits[i];
+            assert_eq!(*exp_doc, sd.doc);
+            assert!((sd.score - *exp_score).abs() < 0.0001);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_disjunction_random_clauses_matches_count() -> Result<()> {
+        let mut random = random();
+
+        let num_field_value: i32 = random.random_range(1..=10);
+        let mut num_docs_per_field_value = Vec::with_capacity(num_field_value as usize);
+        let mut all_docs_count: i32 = 0;
+
+        for _ in 0..num_field_value {
+            let num_docs: i32 = random.random_range(10..=50);
+            num_docs_per_field_value.push(num_docs);
+            all_docs_count += num_docs;
+        }
+
+        let dir = new_directory_shared(&mut random)?;
+        {
+            let mut iwc = new_index_writer_config(&mut random);
+            iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+            let w = IndexWriter::new(dir.clone(), iwc)?;
+
+            for i in 0..num_field_value {
+                for _ in 0..num_docs_per_field_value[i as usize] {
+                    let mut doc = Document::new();
+                    doc.add(StringField::from_string("field", i.to_string(), No)?);
+                    w.add_document(doc)?;
+                }
+            }
+
+            w.force_merge(1)?;
+            w.close()?;
+        }
+
+        let mut matched_docs_count: i32 = 0;
+        let reader = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let mut builder = Builder::new();
+
+        for i in 0..num_field_value {
+            if random.random_bool(0.5) {
+                matched_docs_count += num_docs_per_field_value[i as usize];
+                let q = TermQuery::new(Term::from_text("field", i.to_string()));
+                builder.add(q, Occur::Should)?;
+            }
+        }
+
+        let query = builder.build();
+        let top_docs = searcher.search(query, all_docs_count as usize)?;
+        assert_eq!(matched_docs_count as usize, top_docs.score_docs().len());
+
+        Ok(())
+    }
+    #[test]
+    fn test_prohibited_matches_count() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+        let mut doc = Document::new();
+        doc.add(LongPoint::new("long", vec![3])?);
+        doc.add(StringField::from_string("string", "abc", No)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(LongPoint::new("long", vec![10])?);
+        doc.add(StringField::from_string("string", "xyz", No)?);
+        writer.add_document(doc)?;
+
+        let reader = directory_reader_util::open_from_writer(&writer)?;
+        writer.close()?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let leaves = searcher.get_top_reader_context().leaves()?;
+
+        // MUST abc, MUST_NOT long==3 => BooleanWeight can't figure out count => -1
+        {
+            let mut b = Builder::new();
+            b.add(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::Must,
+            )?;
+            b.add(LongPoint::new_exact_query("long", 3)?, Occur::MustNot)?;
+            let query = b.build();
+            let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
+            assert_eq!(-1, weight.count(&leaves[0])?);
+        }
+
+        // MUST missing, MUST_NOT long==3 => 0
+        {
+            let mut b = Builder::new();
+            b.add(
+                TermQuery::new(Term::from_text("string", "missing")),
+                Occur::Must,
+            )?;
+            b.add(LongPoint::new_exact_query("long", 3)?, Occur::MustNot)?;
+            let query = b.build();
+            let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
+            assert_eq!(0, weight.count(&leaves[0])?);
+        }
+
+        // MUST abc, MUST_NOT long==5 => 1
+        {
+            let mut b = Builder::new();
+            b.add(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::Must,
+            )?;
+            b.add(LongPoint::new_exact_query("long", 5)?, Occur::MustNot)?;
+            let query = b.build();
+            let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
+            assert_eq!(1, weight.count(&leaves[0])?);
+        }
+
+        // MUST abc, MUST_NOT long in [0,10] => 0
+        {
+            let mut b = Builder::new();
+            b.add(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::Must,
+            )?;
+            b.add(LongPoint::new_range_query("long", 0, 10)?, Occur::MustNot)?;
+            let query = b.build();
+            let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
+            assert_eq!(0, weight.count(&leaves[0])?);
+        }
+
+        // MUST long in [0,10], MUST_NOT abc => 1
+        {
+            let mut b = Builder::new();
+            b.add(LongPoint::new_range_query("long", 0, 10)?, Occur::Must)?;
+            b.add(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::MustNot,
+            )?;
+            let query = b.build();
+            let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
+            assert_eq!(1, weight.count(&leaves[0])?);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test() -> Result<()> {
+        for _i in 0..300 {
+            test_random_boolean_query_matches_count()?;
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_random_boolean_query_matches_count() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+        let mut doc = Document::new();
+        doc.add(LongPoint::new("long", [3])?);
+        doc.add(StringField::from_string("string", "abc", No)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(LongPoint::new("long", [10])?);
+        doc.add(StringField::from_string("string", "xyz", No)?);
+        writer.add_document(doc)?;
+
+        let reader = directory_reader_util::open_from_writer(&writer)?;
+        writer.close()?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        for _ in 0..1000 {
+            let num_clauses = TestUtil::next_int(&mut random, 2, 5);
+            let mut builder = Builder::new();
+            let mut num_should_clauses: i32 = 0;
+            for _ in 0..num_clauses {
+                let query: Query = match random.random_range(0..6) {
+                    0 => TermQuery::new(Term::from_text("string", "abc")).into(),
+                    1 => LongPoint::new_exact_query("long", 3)?.into(),
+                    2 => TermQuery::new(Term::from_text("string", "missing")).into(),
+                    3 => LongPoint::new_exact_query("long", 5)?.into(),
+                    4 => MatchAllDocsQuery::new().into(),
+                    _ => LongPoint::new_range_query("long", 0, 10)?.into(),
+                };
+
+                let occur = match random.random_range(0..4) {
+                    0 => Occur::Must,
+                    1 => Occur::Filter,
+                    2 => Occur::Should,
+                    _ => Occur::MustNot,
+                };
+
+                if occur == Occur::Should {
+                    num_should_clauses += 1;
+                }
+                builder.add(query, occur)?;
+            }
+
+            builder.set_minimum_number_should_match(TestUtil::next_int(
+                &mut random,
+                0,
+                num_should_clauses,
+            ));
+
+            let boolean_query: Query = builder.build().into();
+
+            let total_hits = searcher
+                .search(boolean_query.clone(), 1)?
+                .total_hits()
+                .value;
+            assert_eq!(total_hits, searcher.count(boolean_query)? as usize);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_to_string() -> Result<()> {
+        let mut bq = Builder::new();
+        bq.add(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?;
+        bq.add(TermQuery::new(Term::from_text("field", "b")), Occur::Must)?;
+        bq.add(
+            TermQuery::new(Term::from_text("field", "c")),
+            Occur::MustNot,
+        )?;
+        bq.add(TermQuery::new(Term::from_text("field", "d")), Occur::Filter)?;
+
+        let q = bq.build();
+        assert_eq!("a +b -c #d", q.as_string("field")?);
+        Ok(())
+    }
+    #[test]
+    fn test_query_visitor() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_clause_sets_immutability() -> Result<()> {
+        // this test is not required in Rust Lucene
+        Ok(())
+    }
 }
 
 #[cfg(test)]
