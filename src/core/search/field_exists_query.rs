@@ -448,7 +448,7 @@ mod test {
     use crate::core::document::string_field::StringField;
 
     use crate::core::index::index_reader::IndexReader;
-    use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+    use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::term::Term;
 
     use crate::core::search::field_exists_query::FieldExistsQuery;
@@ -1346,7 +1346,6 @@ mod test {
         IRC: IndexReaderContext,
         T1: Into<Query>,
         T2: Into<Query>,
-        
     {
         let irc = searcher.get_top_reader_context();
         let max_doc = irc.reader().max_doc()?;
@@ -1382,7 +1381,6 @@ mod test {
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        
     {
         let test_query: Query = FieldExistsQuery::new(field).into();
         assert_eq!(searcher.count(test_query.clone())?, num_matching_docs);

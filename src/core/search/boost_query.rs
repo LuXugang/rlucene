@@ -23,7 +23,7 @@ use crate::core::index::index_reader::Identity;
 ///
 ///
 /// More complex boosts can be applied by using `FunctionScoreQuery` in the
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};

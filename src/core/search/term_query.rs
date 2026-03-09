@@ -577,7 +577,6 @@ where
 impl<IRC> ScorerSupplier<IRC> for TermScorerSupplier<IRCLeafReader<IRC>>
 where
     IRC: IndexReaderContext,
-    
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;

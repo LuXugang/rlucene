@@ -17,7 +17,7 @@
 use crate::core::index::BytesRef;
 use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::{OFFSETS, POSITIONS};

@@ -2346,7 +2346,6 @@ pub(crate) mod tests {
     struct MaxScoreWrapperQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        
     {
         max_range: i32,
         max_score: f32,
@@ -2355,7 +2354,6 @@ pub(crate) mod tests {
     impl<IRC> MaxScoreWrapperQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        
     {
         fn new(max_range: i32, max_score: f32, weight: QueryWeight<IRC>) -> Self {
             Self {
@@ -2369,7 +2367,6 @@ pub(crate) mod tests {
     impl<IRC> SegmentCacheable<IRC> for MaxScoreWrapperQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        
     {
         fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
             self.weight.is_cacheable(ctx)
@@ -2546,7 +2543,6 @@ pub(crate) mod tests {
     struct WANDScorerQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        
     {
         minimum_number_should_match: i32,
         query: Arc<Query>,
@@ -2557,7 +2553,6 @@ pub(crate) mod tests {
     impl<IRC> WANDScorerQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        
     {
         fn new(
             query: BooleanQuery,
@@ -2580,7 +2575,6 @@ pub(crate) mod tests {
     impl<IRC> SegmentCacheable<IRC> for WANDScorerQueryWeight<IRC>
     where
         IRC: IndexReaderContext,
-        
     {
         fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
             Ok(false)

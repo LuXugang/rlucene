@@ -209,7 +209,6 @@ impl MatchAllDocsScorerSupplier {
 impl<IRC> ScorerSupplier<IRC> for MatchAllDocsScorerSupplier
 where
     IRC: IndexReaderContext,
-    
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;

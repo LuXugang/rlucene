@@ -53,7 +53,6 @@ use std::fmt::{Display, Formatter};
 pub struct BooleanScorerSupplier<IRC>
 where
     IRC: IndexReaderContext,
-    
 {
     subs: HashMap<Occur, Vec<QueryWeightSs<IRC>>>,
     score_mode: ScoreMode,
@@ -65,7 +64,6 @@ where
 impl<IRC> BooleanScorerSupplier<IRC>
 where
     IRC: IndexReaderContext,
-    
 {
     pub(crate) fn new(
         subs: HashMap<Occur, Vec<QueryWeightSs<IRC>>>,
@@ -830,7 +828,6 @@ pub type FilteredOptionalBulkScorer<S> =
 impl<IRC> ScorerSupplier<IRC> for BooleanScorerSupplier<IRC>
 where
     IRC: IndexReaderContext,
-    
 {
     // type Scorer = GetType<SsScorer<LR>>;
     type Scorer = QueryWeightSsScorer;

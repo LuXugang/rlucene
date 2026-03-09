@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::search::automaton_query::AutomatonQuery;

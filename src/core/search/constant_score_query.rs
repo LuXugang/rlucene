@@ -156,7 +156,6 @@ impl QueryBase for ConstantScoreQuery {
 pub struct WeightImpl<IRC>
 where
     IRC: IndexReaderContext,
-
 {
     base: ConstantScoreWeight,
     inner_weight: QueryWeight<IRC>,
@@ -165,7 +164,6 @@ where
 impl<IRC> WeightImpl<IRC>
 where
     IRC: IndexReaderContext,
-
 {
     pub fn new(boost: f32, inner_weight: QueryWeight<IRC>, score_mode: ScoreMode) -> Self {
         Self {
@@ -178,7 +176,6 @@ where
 impl<IRC> SegmentCacheable<IRC> for WeightImpl<IRC>
 where
     IRC: IndexReaderContext,
-
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         self.inner_weight.is_cacheable(ctx)
@@ -459,14 +456,12 @@ where
 pub struct ConstantScoreQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
-
 {
     inner: QueryWeight<IRC>,
 }
 impl<IRC> ConstantScoreQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
-
 {
     pub fn new(inner: QueryWeight<IRC>) -> Self {
         Self { inner }
@@ -475,7 +470,6 @@ where
 impl<IRC> SegmentCacheable<IRC> for ConstantScoreQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
-
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
         self.inner.is_cacheable(ctx)

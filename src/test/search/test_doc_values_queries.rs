@@ -29,7 +29,7 @@ use crate::core::document::sorted_set_doc_values_field::{
     SortedSetDocValuesField, sorted_set_doc_values_field_util,
 };
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -502,7 +502,6 @@ where
     IRC: IndexReaderContext,
     T1: Into<Query>,
     T2: Into<Query>,
-
 {
     let irc = searcher.get_top_reader_context();
     let max_doc = irc.reader().max_doc()?;

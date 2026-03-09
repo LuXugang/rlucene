@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader};
-use crate::core::index::index_reader_context::{
-    IRCLeafReader, IRCLeafReaderCacheHelper, IndexReaderContext,
-};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::reader_util::ReaderUtil;
@@ -584,7 +582,7 @@ where
 impl<P, IRC> QueryCache<IRC> for Arc<LRUQueryCache<P>>
 where
     P: Predicate<TopParentMeta> + 'static,
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
 {
     fn do_cache(
         &self,
@@ -593,7 +591,6 @@ where
     ) -> QueryWeight<IRC>
     where
         IRC: IndexReaderContext + 'static,
-        IRCLeafReader<IRC>: 'static,
     {
         Box::new(CachingWrapperWeight::new(weight, policy, self.clone()))
     }
@@ -675,7 +672,7 @@ impl Accountable for LeafCache {
 pub struct CachingWrapperWeight<P, IRC>
 where
     P: Predicate<TopParentMeta>,
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
 {
     in_: QueryWeight<IRC>,
     base: ConstantScoreWeight,
@@ -686,7 +683,7 @@ where
 impl<P, IRC> CachingWrapperWeight<P, IRC>
 where
     P: Predicate<TopParentMeta>,
-    IRC: IndexReaderContext + 'static,
+    IRC: IndexReaderContext,
 {
     pub(crate) fn new(
         in_: QueryWeight<IRC>,
@@ -734,9 +731,7 @@ where
 impl<P, IRC> Weight<IRC> for CachingWrapperWeight<P, IRC>
 where
     P: Predicate<TopParentMeta> + 'static,
-    IRC: IndexReaderContext + 'static,
-    IRCLeafReader<IRC>: 'static,
-    IRCLeafReaderCacheHelper<IRC>: 'static,
+    IRC: IndexReaderContext,
 {
     type Matches = MatchWithNoTerms;
 
@@ -924,7 +919,6 @@ pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, CacheAndCountDISI>;
 impl<C, P, IRC> ScorerSupplier<IRC> for ScorerSupplierImpl1<C, P, IRC>
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: LeafReader,
     C: CacheHelper,
     P: Predicate<TopParentMeta>,
 {
@@ -987,7 +981,6 @@ impl ScorerSupplierImpl2 {
 impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl2
 where
     IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: LeafReader,
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;

@@ -17,7 +17,7 @@
 use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeoutEnum;
@@ -212,8 +212,7 @@ where
         after: Option<ScoreDoc>,
         query: impl Into<Query>,
         num_hits: usize,
-    ) -> Result<TopDocs<ScoreDoc>>
-    {
+    ) -> Result<TopDocs<ScoreDoc>> {
         let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?).try_convert()?;
 
         if let Some(ref a) = after
@@ -231,8 +230,7 @@ where
 
         self.search_with_collector_manager_with_state(query, &manager)
     }
-    pub fn search(&self, query: impl Into<Query>, n: usize) -> Result<TopDocs<ScoreDoc>>
-    {
+    pub fn search(&self, query: impl Into<Query>, n: usize) -> Result<TopDocs<ScoreDoc>> {
         self.search_after_score(None, query, n)
     }
     /// Search implementation with arbitrary sorting, plus control over whether hit scores and max
@@ -286,8 +284,7 @@ where
         self.similarity.clone()
     }
 
-    pub fn count(&self, query: impl Into<Query>) -> Result<i32>
-    {
+    pub fn count(&self, query: impl Into<Query>) -> Result<i32> {
         // TODO IMPORTANT 简单实现 BooleanQuery未实现
         let v = TotalHitCountCollectorManager::new(self.get_slices()?.as_slice());
         self.search_with_collector_manager(query, &v)

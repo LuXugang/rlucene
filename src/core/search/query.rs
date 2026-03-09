@@ -18,7 +18,7 @@ use crate::core::document::sorted_numeric_doc_values_range_query::SortedNumericD
 use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQuery;
 use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQuery;
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;

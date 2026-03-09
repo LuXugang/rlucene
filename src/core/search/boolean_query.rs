@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::boolean_clause::{BooleanClause, Occur};
 use crate::core::search::boolean_weight::{BooleanWeight, WeightedBooleanClause};
 use crate::core::search::boost_query::BoostQuery;

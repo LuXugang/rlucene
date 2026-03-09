@@ -427,7 +427,6 @@ where
 impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<Disi<IRCLeafReader<IRC>>>
 where
     IRC: IndexReaderContext,
-    
 {
     type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
@@ -1260,7 +1259,7 @@ mod tests {
     };
     use crate::core::document::string_field::StringField;
     use crate::core::index::index_reader::IndexReader;
-    use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+    use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 
@@ -1380,7 +1379,6 @@ mod tests {
         IRC: IndexReaderContext,
         T1: Into<Query>,
         T2: Into<Query>,
-        
     {
         let irc = searcher.get_top_reader_context();
         let max_doc = irc.reader().max_doc()?;
@@ -1510,7 +1508,6 @@ mod tests {
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        
     {
         let query = query.into();
 
