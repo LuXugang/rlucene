@@ -20,6 +20,7 @@ pub mod query_utils;
 pub mod random_approximation_query;
 pub mod similarities;
 mod test_boolean_or;
+pub mod test_boolean_rewrites;
 mod test_conjunctions;
 mod test_doc_values_queries;
 mod test_early_termination;

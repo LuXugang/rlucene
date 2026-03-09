@@ -94,7 +94,7 @@ pub(crate) mod conjunction_bulk_scorer;
 pub(crate) mod conjunction_disi;
 pub(crate) mod conjunction_scorer;
 pub mod conjunction_utils;
-mod constant_score_query;
+pub mod constant_score_query;
 pub mod disi_priority_queue;
 pub mod disi_wrapper;
 pub mod disjunction_disi_approximation;

@@ -55,6 +55,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test::search::random_approximation_query::RandomApproximationQuery;
+#[cfg(test)]
+use crate::test::search::test_boolean_rewrites::TestRewriteQuery;
 use std::cmp::PartialEq;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -98,6 +100,8 @@ macro_rules! dispatch_query {
             Query::MaxScoreWrapper($inner) => $body,
             #[cfg(test)]
             Query::RandomApproximation($inner) => $body,
+            #[cfg(test)]
+            Query::TestRewrite($inner) => $body,
         }
     }};
 }
@@ -178,6 +182,8 @@ pub enum Query {
     MaxScoreWrapper(MaxScoreWrapperQuery),
     #[cfg(test)]
     RandomApproximation(RandomApproximationQuery),
+    #[cfg(test)]
+    TestRewrite(TestRewriteQuery),
 }
 
 impl Default for Query {
