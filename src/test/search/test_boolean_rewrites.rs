@@ -148,9 +148,9 @@ fn test_single_must_match_all() -> Result<()> {
     let bq = bq.build();
 
     assert_eq!(
-        Query::ConstantScore(ConstantScoreQuery::new(Box::new(
-            TermQuery::new(Term::from_text("foo", "bar")).into()
-        ))),
+        Query::ConstantScore(ConstantScoreQuery::new(TermQuery::new(Term::from_text(
+            "foo", "bar"
+        )))),
         searcher.rewrite(bq)?
     );
 
@@ -163,9 +163,9 @@ fn test_single_must_match_all() -> Result<()> {
     let bq = bq.build();
 
     let v: Query = BoostQuery::new(
-        Query::ConstantScore(ConstantScoreQuery::new(Box::new(
-            TermQuery::new(Term::from_text("foo", "bar")).into(),
-        ))),
+        Query::ConstantScore(ConstantScoreQuery::new(TermQuery::new(Term::from_text(
+            "foo", "bar",
+        )))),
         42.0,
     )?
     .into();
@@ -222,7 +222,7 @@ fn test_single_must_match_all() -> Result<()> {
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
         .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
     let expected = expected.build();
-    let v: Query = ConstantScoreQuery::new(Box::new(expected.into())).into();
+    let v: Query = ConstantScoreQuery::new(expected).into();
     assert_eq!(v, searcher.rewrite(bq)?);
 
     let mut bq = Builder::new();
@@ -242,7 +242,7 @@ fn test_single_must_match_all() -> Result<()> {
             Occur::MustNot,
         )?;
     let expected = expected.build();
-    let v: Query = ConstantScoreQuery::new(Box::new(expected.into())).into();
+    let v: Query = ConstantScoreQuery::new(expected).into();
     assert_eq!(v, searcher.rewrite(bq)?);
 
     let mut bq = Builder::new();
@@ -271,9 +271,7 @@ fn test_single_must_match_all_with_should_clauses() -> Result<()> {
     let mut expected = Builder::new();
     expected
         .add(
-            ConstantScoreQuery::new(Box::new(
-                TermQuery::new(Term::from_text("foo", "bar")).into(),
-            )),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "bar"))),
             Occur::Must,
         )?
         .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
@@ -459,11 +457,8 @@ fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
         b.build()
     };
 
-    let expected_query: Query = BoostQuery::new(
-        Box::new(ConstantScoreQuery::new(Box::new(expected_query_builder.build().into())).into()),
-        0.0,
-    )?
-    .into();
+    let expected_query: Query =
+        BoostQuery::new(ConstantScoreQuery::new(expected_query_builder.build()), 0.0)?.into();
 
     let rewritten = searcher.rewrite(bq)?;
     assert_eq!(expected_query, rewritten);
@@ -517,11 +512,8 @@ fn test_deeply_nested_boolean_rewrite() -> Result<()> {
         b.build()
     };
 
-    let expected_query: Query = BoostQuery::new(
-        Box::new(ConstantScoreQuery::new(Box::new(expected_query_builder.build().into())).into()),
-        0.0,
-    )?
-    .into();
+    let expected_query: Query =
+        BoostQuery::new(ConstantScoreQuery::new(expected_query_builder.build()), 0.0)?.into();
 
     let rewritten = searcher.rewrite(bq)?;
     assert_eq!(expected_query, rewritten);
@@ -565,9 +557,9 @@ fn test_remove_match_all_filter() -> Result<()> {
     let bq = bq.build();
 
     let expected: Query = BoostQuery::new(
-        Query::ConstantScore(ConstantScoreQuery::new(Box::new(
-            TermQuery::new(Term::from_text("foo", "bar")).into(),
-        ))),
+        Query::ConstantScore(ConstantScoreQuery::new(TermQuery::new(Term::from_text(
+            "foo", "bar",
+        )))),
         0.0,
     )?
     .into();
@@ -580,9 +572,9 @@ fn test_remove_match_all_filter() -> Result<()> {
     let bq = bq.build();
 
     let expected: Query = BoostQuery::new(
-        Query::ConstantScore(ConstantScoreQuery::new(Box::new(Query::MatchAll(
+        Query::ConstantScore(ConstantScoreQuery::new(Query::MatchAll(
             MatchAllDocsQuery::new(),
-        )))),
+        ))),
         0.0,
     )?
     .into();
@@ -606,21 +598,15 @@ fn test_deduplicate_should_clauses() -> Result<()> {
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
     let query: Query = query.build().into();
 
-    let expected: Query = BoostQuery::new(
-        Box::new(TermQuery::new(Term::from_text("foo", "bar")).into()),
-        2.0,
-    )?
-    .into();
+    let expected: Query =
+        BoostQuery::new(TermQuery::new(Term::from_text("foo", "bar")), 2.0)?.into();
     assert_eq!(expected, searcher.rewrite(query.clone())?);
 
     let mut query = Builder::new();
     query
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
         .add(
-            BoostQuery::new(
-                Box::new(TermQuery::new(Term::from_text("foo", "bar")).into()),
-                2.0,
-            )?,
+            BoostQuery::new(TermQuery::new(Term::from_text("foo", "bar")), 2.0)?,
             Occur::Should,
         )?
         .add(
@@ -632,10 +618,7 @@ fn test_deduplicate_should_clauses() -> Result<()> {
     let mut expected = Builder::new();
     expected
         .add(
-            BoostQuery::new(
-                Box::new(TermQuery::new(Term::from_text("foo", "bar")).into()),
-                3.0,
-            )?,
+            BoostQuery::new(TermQuery::new(Term::from_text("foo", "bar")), 3.0)?,
             Occur::Should,
         )?
         .add(
@@ -673,21 +656,15 @@ fn test_deduplicate_must_clauses() -> Result<()> {
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?;
     let query: Query = query.build().into();
 
-    let expected: Query = BoostQuery::new(
-        Box::new(TermQuery::new(Term::from_text("foo", "bar")).into()),
-        2.0,
-    )?
-    .into();
+    let expected: Query =
+        BoostQuery::new(TermQuery::new(Term::from_text("foo", "bar")), 2.0)?.into();
     assert_eq!(expected, searcher.rewrite(query.clone())?);
 
     let mut query = Builder::new();
     query
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
         .add(
-            BoostQuery::new(
-                Box::new(TermQuery::new(Term::from_text("foo", "bar")).into()),
-                2.0,
-            )?,
+            BoostQuery::new(TermQuery::new(Term::from_text("foo", "bar")), 2.0)?,
             Occur::Must,
         )?
         .add(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?;
@@ -696,10 +673,7 @@ fn test_deduplicate_must_clauses() -> Result<()> {
     let mut expected = Builder::new();
     expected
         .add(
-            BoostQuery::new(
-                Box::new(TermQuery::new(Term::from_text("foo", "bar")).into()),
-                3.0,
-            )?,
+            BoostQuery::new(TermQuery::new(Term::from_text("foo", "bar")), 3.0)?,
             Occur::Must,
         )?
         .add(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?;
@@ -1034,11 +1008,9 @@ fn test_discard_should_clauses() -> Result<()> {
         .add(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?;
     let inner = inner.build();
 
-    let query1: Query = ConstantScoreQuery::new(Box::new(inner.into())).into();
-    let rewritten1: Query = ConstantScoreQuery::new(Box::new(
-        TermQuery::new(Term::from_text("field", "a")).into(),
-    ))
-    .into();
+    let query1: Query = ConstantScoreQuery::new(inner).into();
+    let rewritten1: Query =
+        ConstantScoreQuery::new(TermQuery::new(Term::from_text("field", "a"))).into();
     assert_eq!(rewritten1, searcher.rewrite(query1)?);
 
     let mut inner = Builder::new();
@@ -1048,14 +1020,14 @@ fn test_discard_should_clauses() -> Result<()> {
         .add(TermQuery::new(Term::from_text("field", "c")), Occur::Filter)?;
     let inner = inner.build();
 
-    let query2: Query = ConstantScoreQuery::new(Box::new(inner.into())).into();
+    let query2: Query = ConstantScoreQuery::new(inner).into();
 
     let mut rewritten2_inner = Builder::new();
     rewritten2_inner
         .add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?
         .add(TermQuery::new(Term::from_text("field", "c")), Occur::Filter)?;
     let rewritten2_inner = rewritten2_inner.build();
-    let rewritten2: Query = ConstantScoreQuery::new(Box::new(rewritten2_inner.into())).into();
+    let rewritten2: Query = ConstantScoreQuery::new(rewritten2_inner).into();
 
     assert_eq!(rewritten2, searcher.rewrite(query2)?);
 
@@ -1065,7 +1037,7 @@ fn test_discard_should_clauses() -> Result<()> {
         .add(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?;
     let inner = inner.build();
 
-    let query3: Query = ConstantScoreQuery::new(Box::new(inner.into())).into();
+    let query3: Query = ConstantScoreQuery::new(inner).into();
     let query3_id = query3.identity().clone();
     let v = searcher.rewrite(query3)?;
     assert_eq!(query3_id, v.identity().clone());
@@ -1079,7 +1051,7 @@ fn test_discard_should_clauses() -> Result<()> {
         )?;
     let inner = inner.build();
 
-    let query4: Query = ConstantScoreQuery::new(Box::new(inner.into())).into();
+    let query4: Query = ConstantScoreQuery::new(inner).into();
     let query4_id = query4.identity().clone();
     let v = searcher.rewrite(query4)?;
     assert_eq!(query4_id, v.identity().clone());
@@ -1092,7 +1064,7 @@ fn test_discard_should_clauses() -> Result<()> {
         .add(TermQuery::new(Term::from_text("field", "c")), Occur::Filter)?;
     let inner = inner.build();
 
-    let query5: Query = ConstantScoreQuery::new(Box::new(inner.into())).into();
+    let query5: Query = ConstantScoreQuery::new(inner).into();
     let query5_id = query5.identity().clone();
     let v = searcher.rewrite(query5)?;
     assert_eq!(query5_id, v.identity().clone());
@@ -1193,9 +1165,7 @@ fn test_simplify_filter_clauses() -> Result<()> {
     query1
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
         .add(
-            ConstantScoreQuery::new(Box::new(
-                TermQuery::new(Term::from_text("foo", "baz")).into(),
-            )),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "baz"))),
             Occur::Filter,
         )?;
     let query1 = query1.build();
@@ -1212,16 +1182,14 @@ fn test_simplify_filter_clauses() -> Result<()> {
     query2
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
         .add(
-            ConstantScoreQuery::new(Box::new(
-                TermQuery::new(Term::from_text("foo", "bar")).into(),
-            )),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "bar"))),
             Occur::Filter,
         )?;
     let query2 = query2.build();
 
     let expected2: Query = BoostQuery::new(
-        Box::new(Query::ConstantScore(ConstantScoreQuery::new(Box::new(
-            TermQuery::new(Term::from_text("foo", "bar")).into(),
+        Query::ConstantScore(ConstantScoreQuery::new(TermQuery::new(Term::from_text(
+            "foo", "bar",
         )))),
         0.0,
     )?
@@ -1239,9 +1207,7 @@ fn test_simplify_must_not_clauses() -> Result<()> {
     query
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
         .add(
-            ConstantScoreQuery::new(Box::new(
-                TermQuery::new(Term::from_text("foo", "baz")).into(),
-            )),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "baz"))),
             Occur::MustNot,
         )?;
     let query = query.build();
@@ -1268,14 +1234,12 @@ fn test_simplify_non_scoring_should_clauses() -> Result<()> {
     inner
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
         .add(
-            ConstantScoreQuery::new(Box::new(
-                TermQuery::new(Term::from_text("foo", "baz")).into(),
-            )),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "baz"))),
             Occur::Should,
         )?;
     let inner = inner.build();
 
-    let query: Query = ConstantScoreQuery::new(Box::new(inner.into())).into();
+    let query: Query = ConstantScoreQuery::new(inner).into();
 
     let mut expected_inner = Builder::new();
     expected_inner
@@ -1283,7 +1247,7 @@ fn test_simplify_non_scoring_should_clauses() -> Result<()> {
         .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
     let expected_inner = expected_inner.build();
 
-    let expected: Query = ConstantScoreQuery::new(Box::new(expected_inner.into())).into();
+    let expected: Query = ConstantScoreQuery::new(expected_inner).into();
 
     assert_eq!(expected, searcher.rewrite(query)?);
 

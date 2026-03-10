@@ -1072,30 +1072,18 @@ pub(crate) mod tests {
         builder
             .add(
                 BoostQuery::new(
-                    Box::new(
-                        ConstantScoreQuery::new(Box::new(
-                            TermQuery::new(Term::from_text("foo", "A")).into(),
-                        ))
-                        .into(),
-                    ),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
                     2.0,
                 )?,
                 Occur::Should,
             )?
             .add(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("foo", "B")).into(),
-                )),
+                ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))),
                 Occur::Should,
             )?
             .add(
                 BoostQuery::new(
-                    Box::new(
-                        ConstantScoreQuery::new(Box::new(
-                            TermQuery::new(Term::from_text("foo", "C")).into(),
-                        ))
-                        .into(),
-                    ),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "C"))),
                     3.0,
                 )?,
                 Occur::Should,
@@ -1167,20 +1155,15 @@ pub(crate) mod tests {
                         let mut v = Builder::new();
                         v.add(
                             BoostQuery::new(
-                                Box::new(
-                                    ConstantScoreQuery::new(Box::new(
-                                        TermQuery::new(Term::from_text("foo", "A")).into(),
-                                    ))
-                                    .into(),
-                                ),
+                                ConstantScoreQuery::new(TermQuery::new(Term::from_text(
+                                    "foo", "A",
+                                ))),
                                 2.0,
                             )?,
                             Occur::Should,
                         )?
                         .add(
-                            ConstantScoreQuery::new(Box::new(
-                                TermQuery::new(Term::from_text("foo", "B")).into(),
-                            )),
+                            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))),
                             Occur::Should,
                         )?;
                         v.build()
@@ -1227,20 +1210,15 @@ pub(crate) mod tests {
                         let mut v = Builder::new();
                         v.add(
                             BoostQuery::new(
-                                Box::new(
-                                    ConstantScoreQuery::new(Box::new(
-                                        TermQuery::new(Term::from_text("foo", "A")).into(),
-                                    ))
-                                    .into(),
-                                ),
+                                ConstantScoreQuery::new(TermQuery::new(Term::from_text(
+                                    "foo", "A",
+                                ))),
                                 2.0,
                             )?,
                             Occur::Should,
                         )?
                         .add(
-                            ConstantScoreQuery::new(Box::new(
-                                TermQuery::new(Term::from_text("foo", "B")).into(),
-                            )),
+                            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))),
                             Occur::Should,
                         )?;
                         v.build()
@@ -1321,30 +1299,18 @@ pub(crate) mod tests {
         builder
             .add(
                 BoostQuery::new(
-                    Box::new(
-                        ConstantScoreQuery::new(Box::new(
-                            TermQuery::new(Term::from_text("foo", "A")).into(),
-                        ))
-                        .into(),
-                    ),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
                     2.0,
                 )?,
                 Occur::Should,
             )?
             .add(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("foo", "B")).into(),
-                )),
+                ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))),
                 Occur::Should,
             )?
             .add(
                 BoostQuery::new(
-                    Box::new(
-                        ConstantScoreQuery::new(Box::new(
-                            TermQuery::new(Term::from_text("foo", "C")).into(),
-                        ))
-                        .into(),
-                    ),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "C"))),
                     3.0,
                 )?,
                 Occur::Should,
@@ -1503,30 +1469,18 @@ pub(crate) mod tests {
         builder
             .add(
                 BoostQuery::new(
-                    Box::new(
-                        ConstantScoreQuery::new(Box::new(
-                            TermQuery::new(Term::from_text("foo", "A")).into(),
-                        ))
-                        .into(),
-                    ),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
                     2.0,
                 )?,
                 Occur::Should,
             )?
             .add(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("foo", "B")).into(),
-                )),
+                ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))),
                 Occur::Should,
             )?
             .add(
                 BoostQuery::new(
-                    Box::new(
-                        ConstantScoreQuery::new(Box::new(
-                            TermQuery::new(Term::from_text("foo", "C")).into(),
-                        ))
-                        .into(),
-                    ),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "C"))),
                     3.0,
                 )?,
                 Occur::Should,
@@ -1588,30 +1542,18 @@ pub(crate) mod tests {
             inner
                 .add(
                     BoostQuery::new(
-                        Box::new(
-                            ConstantScoreQuery::new(Box::new(
-                                TermQuery::new(Term::from_text("foo", "A")).into(),
-                            ))
-                            .into(),
-                        ),
+                        ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
                         2.0,
                     )?,
                     Occur::Should,
                 )?
                 .add(
-                    ConstantScoreQuery::new(Box::new(
-                        TermQuery::new(Term::from_text("foo", "B")).into(),
-                    )),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))),
                     Occur::Should,
                 )?
                 .add(
                     BoostQuery::new(
-                        Box::new(
-                            ConstantScoreQuery::new(Box::new(
-                                TermQuery::new(Term::from_text("foo", "D")).into(),
-                            ))
-                            .into(),
-                        ),
+                        ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "D"))),
                         4.0,
                     )?,
                     Occur::Should,
@@ -1695,30 +1637,18 @@ pub(crate) mod tests {
             inner
                 .add(
                     BoostQuery::new(
-                        Box::new(
-                            ConstantScoreQuery::new(Box::new(
-                                TermQuery::new(Term::from_text("foo", "A")).into(),
-                            ))
-                            .into(),
-                        ),
+                        ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
                         2.0,
                     )?,
                     Occur::Should,
                 )?
                 .add(
-                    ConstantScoreQuery::new(Box::new(
-                        TermQuery::new(Term::from_text("foo", "B")).into(),
-                    )),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))),
                     Occur::Should,
                 )?
                 .add(
                     BoostQuery::new(
-                        Box::new(
-                            ConstantScoreQuery::new(Box::new(
-                                TermQuery::new(Term::from_text("foo", "D")).into(),
-                            ))
-                            .into(),
-                        ),
+                        ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "D"))),
                         4.0,
                     )?,
                     Occur::Should,
@@ -1783,30 +1713,18 @@ pub(crate) mod tests {
             inner
                 .add(
                     BoostQuery::new(
-                        Box::new(
-                            ConstantScoreQuery::new(Box::new(
-                                TermQuery::new(Term::from_text("foo", "A")).into(),
-                            ))
-                            .into(),
-                        ),
+                        ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
                         2.0,
                     )?,
                     Occur::Should,
                 )?
                 .add(
-                    ConstantScoreQuery::new(Box::new(
-                        TermQuery::new(Term::from_text("foo", "B")).into(),
-                    )),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))),
                     Occur::Should,
                 )?
                 .add(
                     BoostQuery::new(
-                        Box::new(
-                            ConstantScoreQuery::new(Box::new(
-                                TermQuery::new(Term::from_text("foo", "D")).into(),
-                            ))
-                            .into(),
-                        ),
+                        ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "D"))),
                         4.0,
                     )?,
                     Occur::Should,
@@ -1889,30 +1807,18 @@ pub(crate) mod tests {
             inner
                 .add(
                     BoostQuery::new(
-                        Box::new(
-                            ConstantScoreQuery::new(Box::new(
-                                TermQuery::new(Term::from_text("foo", "A")).into(),
-                            ))
-                            .into(),
-                        ),
+                        ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
                         2.0,
                     )?,
                     Occur::Should,
                 )?
                 .add(
-                    ConstantScoreQuery::new(Box::new(
-                        TermQuery::new(Term::from_text("foo", "B")).into(),
-                    )),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))),
                     Occur::Should,
                 )?
                 .add(
                     BoostQuery::new(
-                        Box::new(
-                            ConstantScoreQuery::new(Box::new(
-                                TermQuery::new(Term::from_text("foo", "D")).into(),
-                            ))
-                            .into(),
-                        ),
+                        ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "D"))),
                         4.0,
                     )?,
                     Occur::Should,
@@ -2046,11 +1952,7 @@ pub(crate) mod tests {
             let mut builder = Builder::new();
             for i in 0..num_clauses {
                 let tq = TermQuery::new(Term::from_text("foo", (start + i).to_string()));
-                let q: Query = BoostQuery::new(
-                    Box::new(ConstantScoreQuery::new(Box::new(tq.into())).into()),
-                    0.0,
-                )?
-                .into();
+                let q: Query = BoostQuery::new(ConstantScoreQuery::new(tq), 0.0)?.into();
                 // TODO IMPORTANT 这里没有调用maybeWrap方法
                 builder.add(q, Occur::Should)?;
             }

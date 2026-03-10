@@ -2187,7 +2187,7 @@ mod tests {
         let q_a: Query = TermQuery::new(Term::from_text("foo", "A")).into();
         let q_b: Query = TermQuery::new(Term::from_text("foo", "B")).into();
 
-        let boosted_a = BoostQuery::new(Box::new(ConstantScoreQuery::new(q_a).into()), 2.0)?;
+        let boosted_a = BoostQuery::new(ConstantScoreQuery::new(q_a), 2.0)?;
         let cs_b = ConstantScoreQuery::new(q_b);
 
         let mut builder = Builder::new();

@@ -69,7 +69,17 @@ pub type QueryWeightSs<IRC> = Box<
 >;
 pub type QueryWeightSsBulkScorer = Box<dyn BulkScorer>;
 pub type QueryWeightSsScorer = Box<dyn Scorer>;
-
+macro_rules! impl_into_box_query {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl IntoBoxQuery for $ty {
+                fn into_box_query(self) -> Box<Query> {
+                    Box::new(self.into())
+                }
+            }
+        )*
+    };
+}
 macro_rules! dispatch_query {
     ($self:expr, |$inner:ident| $body:expr) => {{
         match $self {
@@ -128,6 +138,29 @@ impl_from_for_enum!(
     TermRangeQuery => TermRange,
     PhraseQuery=> Phrase,
     WildcardQuery => Wildcard,
+);
+impl_into_box_query!(
+    AutomatonQuery,
+    BooleanQuery,
+    BoostQuery,
+    ConstantScoreQuery,
+    DummyQuery,
+    FieldExistsQuery,
+    IndexSortSortedNumericDocValuesRangeQuery,
+    MatchAllDocsQuery,
+    MatchNoDocsQuery,
+    MultiTermQueryConstantScoreBlendedWrapper,
+    MultiTermQueryConstantScoreWrapper,
+    PointRangeQuery,
+    RegexpQuery,
+    SortedNumericDocValuesRangeQuery,
+    SortedNumericDocValuesSetQuery,
+    SortedSetDocValuesRangeQuery,
+    PhraseQuery,
+    PrefixQuery,
+    TermQuery,
+    TermRangeQuery,
+    WildcardQuery,
 );
 
 pub trait QueryBase: Debug + HasIdentity {
@@ -291,5 +324,19 @@ where
         QV: QueryVisitor,
     {
         (**self).visit(visitor)
+    }
+}
+pub trait IntoBoxQuery {
+    fn into_box_query(self) -> Box<Query>;
+}
+impl IntoBoxQuery for Query {
+    fn into_box_query(self) -> Box<Query> {
+        Box::new(self)
+    }
+}
+
+impl IntoBoxQuery for Box<Query> {
+    fn into_box_query(self) -> Box<Query> {
+        self
     }
 }

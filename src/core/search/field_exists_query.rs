@@ -783,22 +783,15 @@ mod test {
             let boost = random.random::<f32>() * 10.0;
 
             let ref_query: Query = BoostQuery::new(
-                Box::new(
-                    ConstantScoreQuery::new(Box::new(
-                        TermQuery::new(Term::from_text("has_value", "yes")).into(),
-                    ))
-                    .into(),
-                ),
+                ConstantScoreQuery::new(TermQuery::new(Term::from_text("has_value", "yes"))),
                 boost,
             )?
             .into();
 
-            let q1: Query =
-                BoostQuery::new(Box::new(FieldExistsQuery::new("dv1").into()), boost)?.into();
+            let q1: Query = BoostQuery::new(FieldExistsQuery::new("dv1"), boost)?.into();
             assert_same_matches(&searcher, ref_query.clone(), q1, true)?;
 
-            let q2: Query =
-                BoostQuery::new(Box::new(FieldExistsQuery::new("dv2").into()), boost)?.into();
+            let q2: Query = BoostQuery::new(FieldExistsQuery::new("dv2"), boost)?.into();
             assert_same_matches(&searcher, ref_query, q2, true)?;
         }
 
@@ -1068,18 +1061,12 @@ mod test {
             let boost = random.random::<f32>() * 10.0;
 
             let ref_query: Query = BoostQuery::new(
-                Box::new(
-                    ConstantScoreQuery::new(Box::new(
-                        TermQuery::new(Term::from_text("has_value", "yes")).into(),
-                    ))
-                    .into(),
-                ),
+                ConstantScoreQuery::new(TermQuery::new(Term::from_text("has_value", "yes"))),
                 boost,
             )?
             .into();
 
-            let q1: Query =
-                BoostQuery::new(Box::new(FieldExistsQuery::new("text1").into()), boost)?.into();
+            let q1: Query = BoostQuery::new(FieldExistsQuery::new("text1"), boost)?.into();
 
             assert_same_matches(&searcher, ref_query, q1, true)?;
         }

@@ -28,7 +28,8 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
-    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+    IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer,
+    QueryWeightSsScorer,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -55,9 +56,9 @@ impl ConstantScoreQuery {
     /// Strips off scores from the passed in Query. The hits will get a constant score of 1.
     pub fn new<T>(query: T) -> Self
     where
-        T: Into<Box<Query>>,
+        T: IntoBoxQuery,
     {
-        let query = query.into();
+        let query = query.into_box_query();
         Self {
             id: Identity::new(),
             query,
@@ -568,15 +569,15 @@ mod tests {
 
     #[test]
     fn test_csq() -> Result<()> {
-        let q1: Query =
-            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("a", "b")).into()))
-                .into();
-        let q2: Query =
-            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("a", "c")).into()))
-                .into();
-        let q3: Query = ConstantScoreQuery::new(Box::new(
-            TermRangeQuery::new_string_range("a", Some("b"), Some("c"), true, true)?.into(),
-        ))
+        let q1: Query = ConstantScoreQuery::new(TermQuery::new(Term::from_text("a", "b"))).into();
+        let q2: Query = ConstantScoreQuery::new(TermQuery::new(Term::from_text("a", "c"))).into();
+        let q3: Query = ConstantScoreQuery::new(TermRangeQuery::new_string_range(
+            "a",
+            Some("b"),
+            Some("c"),
+            true,
+            true,
+        )?)
         .into();
 
         // TODO IMPORTANT QueryUtils::check未实现

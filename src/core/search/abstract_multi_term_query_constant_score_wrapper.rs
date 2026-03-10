@@ -247,7 +247,7 @@ where
     }
 
     let bq = builder.build();
-    let query = ConstantScoreQuery::new(Box::new(bq.into()));
+    let query = ConstantScoreQuery::new(bq);
 
     let rewritten = searcher.rewrite(query)?;
     let weight = rewritten.create_weight(searcher, score_mode, score)?;

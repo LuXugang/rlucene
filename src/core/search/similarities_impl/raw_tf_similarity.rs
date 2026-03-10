@@ -186,7 +186,7 @@ mod tests {
         let query = TermQuery::new(Term::from_text("test", "three"));
         let boost = 14.0f32;
 
-        let top_docs = index_searcher.search(BoostQuery::new(Box::new(query.into()), boost)?, 1)?;
+        let top_docs = index_searcher.search(BoostQuery::new(query, boost)?, 1)?;
 
         assert_eq!(1, top_docs.total_hits.value());
         assert_eq!(1, top_docs.score_docs.len());

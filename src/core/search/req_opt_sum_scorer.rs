@@ -665,15 +665,11 @@ mod tests {
         let query: Query = {
             let mut b = Builder::new();
             b.add(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("f", "foo")).into(),
-                )),
+                ConstantScoreQuery::new(TermQuery::new(Term::from_text("f", "foo"))),
                 req_occur,
             )?
             .add(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("f", "bar")).into(),
-                )),
+                ConstantScoreQuery::new(TermQuery::new(Term::from_text("f", "bar"))),
                 Occur::Should,
             )?;
             b.build().into()
@@ -778,10 +774,8 @@ mod tests {
         let searcher = new_searcher_with_reader(reader)?;
         let _ctx = &searcher.get_leaf_contexts()?[0];
 
-        let req_q =
-            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "A")).into()));
-        let opt_q =
-            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "B")).into()));
+        let req_q = ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A")));
+        let opt_q = ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B")));
 
         let mut scorer = req_opt_scorer(&searcher, req_q.clone(), opt_q.clone(), false)?;
 

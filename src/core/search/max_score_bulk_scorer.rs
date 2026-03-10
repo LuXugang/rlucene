@@ -940,18 +940,12 @@ mod test {
         let searcher = new_searcher_with_reader(reader)?;
 
         let clause1: Query = BoostQuery::new(
-            Box::new(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("foo", "A")).into(),
-                ))
-                .into(),
-            ),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
             2.0,
         )?
         .into();
         let clause2: Query =
-            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "B")).into()))
-                .into();
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))).into();
 
         let context = &searcher.get_leaf_contexts()?[0];
 
@@ -985,19 +979,13 @@ mod test {
         let searcher = new_searcher_with_reader(reader)?;
 
         let clause1: Query = BoostQuery::new(
-            Box::new(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("foo", "A")).into(),
-                ))
-                .into(),
-            ),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
             2.0,
         )?
         .into();
 
         let clause2: Query =
-            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "C")).into()))
-                .into();
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "C"))).into();
 
         let filter: Query = TermQuery::new(Term::from_text("foo", "B")).into();
 
@@ -1038,19 +1026,13 @@ mod test {
         let searcher = new_searcher_with_reader(reader)?;
 
         let clause1: Query = BoostQuery::new(
-            Box::new(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("foo", "A")).into(),
-                ))
-                .into(),
-            ),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
             2.0,
         )?
         .into();
 
         let clause2: Query =
-            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "C")).into()))
-                .into();
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "C"))).into();
 
         let filter: Query = TermQuery::new(Term::from_text("foo", "B")).into();
 
@@ -1087,19 +1069,13 @@ mod test {
         let searcher = new_searcher_with_reader(reader)?;
 
         let clause1: Query = BoostQuery::new(
-            Box::new(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("foo", "A")).into(),
-                ))
-                .into(),
-            ),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
             2.0,
         )?
         .into();
 
         let clause2: Query =
-            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "B")).into()))
-                .into();
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))).into();
 
         let context = &searcher.get_leaf_contexts()?[0];
 
@@ -1128,27 +1104,16 @@ mod test {
         let searcher = new_searcher_with_reader(reader)?;
 
         let clause1: Query = BoostQuery::new(
-            Box::new(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("foo", "A")).into(),
-                ))
-                .into(),
-            ),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
             2.0,
         )?
         .into();
 
         let clause2: Query =
-            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "B")).into()))
-                .into();
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))).into();
 
         let clause3: Query = BoostQuery::new(
-            Box::new(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("foo", "C")).into(),
-                ))
-                .into(),
-            ),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "C"))),
             3.0,
         )?
         .into();
@@ -1183,27 +1148,16 @@ mod test {
         let searcher = new_searcher_with_reader(reader)?;
 
         let clause1: Query = BoostQuery::new(
-            Box::new(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("foo", "A")).into(),
-                ))
-                .into(),
-            ),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "A"))),
             2.0,
         )?
         .into();
 
         let clause2: Query =
-            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "B")).into()))
-                .into();
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "B"))).into();
 
         let clause3: Query = BoostQuery::new(
-            Box::new(
-                ConstantScoreQuery::new(Box::new(
-                    TermQuery::new(Term::from_text("foo", "C")).into(),
-                ))
-                .into(),
-            ),
+            ConstantScoreQuery::new(TermQuery::new(Term::from_text("foo", "C"))),
             3.0,
         )?
         .into();
@@ -1266,36 +1220,21 @@ mod test {
         builder
             .add(
                 BoostQuery::new(
-                    Box::new(
-                        ConstantScoreQuery::new(Box::new(
-                            TermQuery::new(Term::from_text("field", "foo")).into(),
-                        ))
-                        .into(),
-                    ),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("field", "foo"))),
                     1.0,
                 )?,
                 Occur::Should,
             )?
             .add(
                 BoostQuery::new(
-                    Box::new(
-                        ConstantScoreQuery::new(Box::new(
-                            TermQuery::new(Term::from_text("field", "bar")).into(),
-                        ))
-                        .into(),
-                    ),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("field", "bar"))),
                     1.5,
                 )?,
                 Occur::Should,
             )?
             .add(
                 BoostQuery::new(
-                    Box::new(
-                        ConstantScoreQuery::new(Box::new(
-                            TermQuery::new(Term::from_text("field", "quux")).into(),
-                        ))
-                        .into(),
-                    ),
+                    ConstantScoreQuery::new(TermQuery::new(Term::from_text("field", "quux"))),
                     0.1,
                 )?,
                 Occur::Should,

@@ -26,7 +26,7 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::core_helper::HasIdentity;
@@ -42,9 +42,9 @@ pub struct BoostQuery {
 impl BoostQuery {
     pub fn new<T>(query: T, boost: f32) -> Result<Self>
     where
-        T: Into<Box<Query>>,
+        T: IntoBoxQuery,
     {
-        let query = query.into();
+        let query = query.into_box_query();
         if !boost.is_finite() || boost < 0.0 {
             return Err(LuceneError::illegal_argument(format!(
                 "boost must be a positive float, got {}",
@@ -124,13 +124,11 @@ impl QueryBase for BoostQuery {
         };
 
         if self.boost == 0.0 && !matches!(rewritten, Query::ConstantScore(_)) {
-            return Ok(
-                BoostQuery::new(Box::new(ConstantScoreQuery::new(rewritten).into()), 0.0)?.into(),
-            );
+            return Ok(BoostQuery::new(ConstantScoreQuery::new(rewritten), 0.0)?.into());
         }
 
         if &query_id != rewritten.identity() {
-            return Ok(BoostQuery::new(Box::new(rewritten), self.boost)?.into());
+            return Ok(BoostQuery::new(rewritten, self.boost)?.into());
         }
         self.query = Box::new(rewritten);
         Ok(self.into())

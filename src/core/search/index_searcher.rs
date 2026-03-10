@@ -296,7 +296,7 @@ where
         self.count_invocations.fetch_add(1, Ordering::Relaxed);
 
         let query = query.into();
-        let mut query = self.rewrite(ConstantScoreQuery::new(Box::new(query)))?;
+        let mut query = self.rewrite(ConstantScoreQuery::new(query))?;
         if let Query::ConstantScore(csq) = query {
             query = csq.into_inner()
         }

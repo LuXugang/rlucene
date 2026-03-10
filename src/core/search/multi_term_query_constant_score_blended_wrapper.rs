@@ -231,7 +231,7 @@ impl RewritingWeightBase for BlendedRewritingWeight {
 
                 let term = Term::new(field, terms_enum.term()?.into_owned());
                 let tq = TermQuery::with_term_state(term, Some(term_states));
-                let q = ConstantScoreQuery::new(Box::new(tq.into()));
+                let q = ConstantScoreQuery::new(tq);
 
                 let rewritten = searcher.rewrite(q)?;
                 let weight = rewritten.create_weight(searcher, score_mode, score)?;
