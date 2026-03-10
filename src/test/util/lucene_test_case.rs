@@ -144,7 +144,28 @@ pub mod lucene_test_case_util {
         // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
         IndexWriterConfig::with_analyzer(analyzer)
     }
-
+    pub fn new_log_merge_policy_with_merge_factor<R>(
+        r: &mut R,
+        merge_factor: i32,
+    ) -> Result<MergePolicyEnum>
+    where
+        R: Rng + ?Sized,
+    {
+        let lomp = new_log_merge_policy(r)?;
+        match lomp {
+            MergePolicyEnum::LogDoc(mut log_doc) => {
+                log_doc.set_merge_factor(merge_factor as usize)?;
+                Ok(log_doc.into())
+            },
+            MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
+                log_bytes_size.set_merge_factor(merge_factor as usize)?;
+                Ok(log_bytes_size.into())
+            },
+            _ => Err(LuceneError::illegal_argument(
+                "Expected a LogMergePolicyEnum variant",
+            )),
+        }
+    }
     pub fn new_log_merge_policy<R>(r: &mut R) -> Result<MergePolicyEnum>
     where
         R: Rng + ?Sized,
