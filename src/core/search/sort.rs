@@ -134,11 +134,23 @@ mod tests {
     use crate::core::document::field::Store;
     use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
     use crate::core::document::string_field::StringField;
+    use std::collections::HashMap;
 
     use crate::core::document::double_doc_values_field::DoubleDocValuesField;
+    use crate::core::document::double_point::DoublePoint;
     use crate::core::document::float_doc_values_field::FloatDocValuesField;
+    use crate::core::document::float_point::FloatPoint;
+    use crate::core::document::int_point::IntPoint;
+    use crate::core::document::long_point::LongPoint;
     use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+    use crate::core::index::BytesRef;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::stored_fields::StoredFields;
+    use crate::core::index::term::Term;
+    use crate::core::search::field_comparator::FieldComparatorValue;
+    use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
     use crate::core::search::sort::Sort;
     use crate::core::search::sort_field::MissingValueEnum::StringFirst;
@@ -147,8 +159,10 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_bytes_ref_from_string, new_directory_shared, new_searcher_with_reader, random,
+        new_bytes_ref_from_string, new_directory_shared, new_searcher_with_reader,
+        new_string_field, random,
     };
+    use rand::Rng;
     use std::hash::DefaultHasher;
     use std::sync::Arc;
     use std::vec;
@@ -1447,58 +1461,317 @@ mod tests {
     }
     #[test]
     fn test_string_ghost() -> Result<()> {
-        do_test_string_ghost(true)?;
-        do_test_string_ghost(false)?;
+        let mut random = random();
+        do_test_string_ghost(&mut random, true)?;
+        do_test_string_ghost(&mut random, false)?;
         Ok(())
     }
 
-    fn do_test_string_ghost(_indexed: bool) -> Result<()> {
-        // TODO merge 未实现
+    fn do_test_string_ghost<R: Rng + ?Sized>(random: &mut R, indexed: bool) -> Result<()> {
+        let dir = new_directory_shared(random)?;
+
+        let iwc = IndexWriterConfig::new();
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut field_types = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(SortedDocValuesField::new(
+            "value",
+            BytesRef::from_string("foo"),
+        ));
+        if indexed {
+            doc.add(new_string_field(
+                random,
+                "value",
+                "foo",
+                Store::Yes,
+                &mut field_types,
+            )?);
+        }
+        doc.add(new_string_field(
+            random,
+            "id",
+            "0",
+            Store::No,
+            &mut field_types,
+        )?);
+        writer.add_document(doc)?;
+
+        writer.add_document(Document::new())?;
+        writer.flush()?;
+        writer.add_document(Document::new())?;
+        writer.flush()?;
+        writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+        writer.force_merge(1)?;
+
+        let ir = directory_reader_util::open_from_writer(&writer)?;
+        writer.close()?;
+
+        let searcher = new_searcher_with_reader(ir)?;
+        let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::String)?])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value());
+
+        match &td.score_docs()[0] {
+            TopFieldScoreDoc::Field(v) => {
+                assert!(matches!(&v.fields[0], FieldComparatorValue::Missing))
+            },
+            _ => unreachable!(),
+        };
+        match &td.score_docs()[1] {
+            TopFieldScoreDoc::Field(v) => {
+                assert!(matches!(&v.fields[0], FieldComparatorValue::Missing))
+            },
+            _ => unreachable!(),
+        };
+
         Ok(())
     }
 
     #[test]
     fn test_int_ghost() -> Result<()> {
-        do_test_string_ghost(true)?;
-        do_test_string_ghost(false)?;
+        let mut random = random();
+        do_test_string_ghost(&mut random, true)?;
+        do_test_string_ghost(&mut random, false)?;
         Ok(())
     }
 
-    fn do_test_int_ghost(_indexed: bool) -> Result<()> {
-        // TODO merge 未实现
+    fn do_test_int_ghost<R: Rng + ?Sized>(random: &mut R, indexed: bool) -> Result<()> {
+        let dir = new_directory_shared(random)?;
+
+        let iwc = IndexWriterConfig::new();
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut field_types = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 3));
+        if indexed {
+            doc.add(IntPoint::new("value", vec![3])?);
+        }
+        doc.add(new_string_field(
+            random,
+            "id",
+            "0",
+            Store::No,
+            &mut field_types,
+        )?);
+        writer.add_document(doc)?;
+
+        writer.add_document(Document::new())?;
+        writer.flush()?;
+        writer.add_document(Document::new())?;
+        writer.flush()?;
+        writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+        writer.force_merge(1)?;
+
+        let ir = directory_reader_util::open_from_writer(&writer)?;
+        writer.close()?;
+
+        let searcher = new_searcher_with_reader(ir)?;
+        let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Int)?])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value());
+
+        match &td.score_docs()[0] {
+            TopFieldScoreDoc::Field(v) => {
+                assert!(matches!(&v.fields[0], FieldComparatorValue::Int(0)))
+            },
+            _ => unreachable!(),
+        };
+        match &td.score_docs()[1] {
+            TopFieldScoreDoc::Field(v) => {
+                assert!(matches!(&v.fields[0], FieldComparatorValue::Int(0)))
+            },
+            _ => unreachable!(),
+        };
+
         Ok(())
     }
     #[test]
     fn test_long_ghost() -> Result<()> {
-        do_test_string_ghost(true)?;
-        do_test_string_ghost(false)?;
+        let mut random = random();
+        do_test_string_ghost(&mut random, true)?;
+        do_test_string_ghost(&mut random, false)?;
         Ok(())
     }
 
-    fn do_test_long_ghost(_indexed: bool) -> Result<()> {
-        // TODO merge 未实现
+    fn do_test_long_ghost<R: Rng + ?Sized>(random: &mut R, indexed: bool) -> Result<()> {
+        let dir = new_directory_shared(random)?;
+
+        let iwc = IndexWriterConfig::new();
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut field_types = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 3_i64));
+        if indexed {
+            doc.add(LongPoint::new("value", vec![3_i64])?);
+        }
+        doc.add(new_string_field(
+            random,
+            "id",
+            "0",
+            Store::No,
+            &mut field_types,
+        )?);
+        writer.add_document(doc)?;
+
+        writer.add_document(Document::new())?;
+        writer.flush()?;
+        writer.add_document(Document::new())?;
+        writer.flush()?;
+        writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+        writer.force_merge(1)?;
+
+        let ir = directory_reader_util::open_from_writer(&writer)?;
+        writer.close()?;
+
+        let searcher = new_searcher_with_reader(ir)?;
+        let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Long)?])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value());
+
+        match &td.score_docs()[0] {
+            TopFieldScoreDoc::Field(v) => {
+                assert!(matches!(&v.fields[0], FieldComparatorValue::Long(0)))
+            },
+            _ => unreachable!(),
+        };
+        match &td.score_docs()[1] {
+            TopFieldScoreDoc::Field(v) => {
+                assert!(matches!(&v.fields[0], FieldComparatorValue::Long(0)))
+            },
+            _ => unreachable!(),
+        };
+
         Ok(())
     }
     #[test]
     fn test_double_ghost() -> Result<()> {
-        do_test_string_ghost(true)?;
-        do_test_string_ghost(false)?;
+        let mut random = random();
+        do_test_string_ghost(&mut random, true)?;
+        do_test_string_ghost(&mut random, false)?;
         Ok(())
     }
 
-    fn do_test_double_ghost(_indexed: bool) -> Result<()> {
-        // TODO merge 未实现
+    fn do_test_double_ghost<R: Rng + ?Sized>(random: &mut R, indexed: bool) -> Result<()> {
+        let dir = new_directory_shared(random)?;
+
+        let iwc = IndexWriterConfig::new();
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut field_types = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 1.25));
+        if indexed {
+            doc.add(DoublePoint::new("value", vec![1.25])?);
+        }
+        doc.add(new_string_field(
+            random,
+            "id",
+            "0",
+            Store::No,
+            &mut field_types,
+        )?);
+        writer.add_document(doc)?;
+
+        writer.add_document(Document::new())?;
+        writer.flush()?;
+        writer.add_document(Document::new())?;
+        writer.flush()?;
+        writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+        writer.force_merge(1)?;
+
+        let ir = directory_reader_util::open_from_writer(&writer)?;
+        writer.close()?;
+
+        let searcher = new_searcher_with_reader(ir)?;
+        let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Double)?])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value());
+
+        match &td.score_docs()[0] {
+            TopFieldScoreDoc::Field(v) => {
+                assert!(matches!(&v.fields[0], FieldComparatorValue::Double(0.0)))
+            },
+            _ => unreachable!(),
+        };
+        match &td.score_docs()[1] {
+            TopFieldScoreDoc::Field(v) => {
+                assert!(matches!(&v.fields[0], FieldComparatorValue::Double(0.0)))
+            },
+            _ => unreachable!(),
+        };
+
         Ok(())
     }
     #[test]
     fn test_float_ghost() -> Result<()> {
-        do_test_string_ghost(true)?;
-        do_test_string_ghost(false)?;
+        let mut random = random();
+        do_test_string_ghost(&mut random, true)?;
+        do_test_string_ghost(&mut random, false)?;
         Ok(())
     }
 
-    fn do_test_float_ghost(_indexed: bool) -> Result<()> {
-        // TODO merge 未实现
+    fn do_test_float_ghost<R: Rng + ?Sized>(random: &mut R, indexed: bool) -> Result<()> {
+        let dir = new_directory_shared(random)?;
+
+        let iwc = IndexWriterConfig::new();
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut field_types = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(FloatDocValuesField::new("value", 1.25_f32));
+        if indexed {
+            doc.add(FloatPoint::new("value", vec![1.25_f32])?);
+        }
+        doc.add(new_string_field(
+            random,
+            "id",
+            "0",
+            Store::No,
+            &mut field_types,
+        )?);
+        writer.add_document(doc)?;
+
+        writer.add_document(Document::new())?;
+        writer.flush()?;
+        writer.add_document(Document::new())?;
+        writer.flush()?;
+        writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+        writer.force_merge(1)?;
+
+        let ir = directory_reader_util::open_from_writer(&writer)?;
+        writer.close()?;
+
+        let searcher = new_searcher_with_reader(ir)?;
+        let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Float)?])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value());
+
+        match &td.score_docs()[0] {
+            TopFieldScoreDoc::Field(v) => {
+                assert!(matches!(&v.fields[0], FieldComparatorValue::Float(0.0)))
+            },
+            _ => unreachable!(),
+        };
+        match &td.score_docs()[1] {
+            TopFieldScoreDoc::Field(v) => {
+                assert!(matches!(&v.fields[0], FieldComparatorValue::Float(0.0)))
+            },
+            _ => unreachable!(),
+        };
+
         Ok(())
     }
 }
