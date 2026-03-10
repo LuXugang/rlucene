@@ -18,6 +18,10 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::BulkScorer;
+#[cfg(test)]
+use crate::core::search::bulk_scorer::BulkScorerKind;
+#[cfg(test)]
+use crate::core::search::bulk_scorer::BulkScorerKind::Default;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
@@ -422,6 +426,11 @@ where
 
     fn cost(&mut self) -> Result<i64> {
         self.scorer.iterator_mut().cost()
+    }
+
+    #[cfg(test)]
+    fn kind(&self) -> BulkScorerKind {
+        Default
     }
 }
 pub struct DefaultScorerSupplier<S>

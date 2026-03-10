@@ -89,7 +89,7 @@ pub trait ScorerSupplier<IRC: IndexReaderContext> {
         Ok(())
     }
     #[cfg(test)]
-    fn as_any(&self) -> &dyn std::any::Any {
+    fn as_any(&mut self) -> &mut dyn std::any::Any {
         unreachable!("")
     }
 }
@@ -139,7 +139,7 @@ where
         (**self).set_top_level_scoring_clause()
     }
     #[cfg(test)]
-    fn as_any(&self) -> &dyn Any {
+    fn as_any(&mut self) -> &mut dyn Any {
         (**self).as_any()
     }
 }

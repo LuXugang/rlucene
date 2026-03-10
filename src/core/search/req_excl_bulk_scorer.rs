@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 use crate::core::search::bulk_scorer::BulkScorer;
+#[cfg(test)]
+use crate::core::search::bulk_scorer::BulkScorerKind;
+#[cfg(test)]
+use crate::core::search::bulk_scorer::BulkScorerKind::ReqExcl;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorer::Scorer;
@@ -83,6 +87,10 @@ where
 
     fn cost(&mut self) -> Result<i64> {
         self.req.cost()
+    }
+    #[cfg(test)]
+    fn kind(&self) -> BulkScorerKind {
+        ReqExcl
     }
 }
 #[cfg(test)]

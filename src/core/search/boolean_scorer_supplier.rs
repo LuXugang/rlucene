@@ -47,6 +47,8 @@ use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+#[cfg(test)]
+use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
@@ -332,7 +334,7 @@ where
         }
     }
     #[allow(clippy::type_complexity)]
-    fn boolean_scorer(
+    pub(crate) fn boolean_scorer(
         &mut self,
         context: &LeafReaderContext<IRCLeafReader<IRC>>,
         searcher: &IndexSearcher<IRC>,
@@ -827,7 +829,7 @@ pub type FilteredOptionalBulkScorer<S> =
 
 impl<IRC> ScorerSupplier<IRC> for BooleanScorerSupplier<IRC>
 where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
 {
     // type Scorer = GetType<SsScorer<LR>>;
     type Scorer = QueryWeightSsScorer;
@@ -926,6 +928,10 @@ where
             }
         }
         Ok(())
+    }
+    #[cfg(test)]
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -1260,7 +1266,7 @@ mod tests {
             Ok(())
         }
 
-        fn as_any(&self) -> &dyn Any {
+        fn as_any(&mut self) -> &mut dyn Any {
             self
         }
     }
@@ -1888,14 +1894,14 @@ mod tests {
         supplier.set_top_level_scoring_clause()?;
 
         assert!(
-            !supplier.subs.get(&Occur::Should).unwrap()[0]
+            !supplier.subs.get_mut(&Occur::Should).unwrap()[0]
                 .as_any()
                 .downcast_ref::<FakeScorerSupplier>()
                 .unwrap()
                 .top_level_scoring_clause
         );
         assert!(
-            !supplier.subs.get(&Occur::Should).unwrap()[1]
+            !supplier.subs.get_mut(&Occur::Should).unwrap()[1]
                 .as_any()
                 .downcast_ref::<FakeScorerSupplier>()
                 .unwrap()
@@ -1923,14 +1929,14 @@ mod tests {
         supplier.set_top_level_scoring_clause()?;
 
         assert!(
-            !supplier.subs.get(&Occur::Must).unwrap()[0]
+            !supplier.subs.get_mut(&Occur::Must).unwrap()[0]
                 .as_any()
                 .downcast_ref::<FakeScorerSupplier>()
                 .unwrap()
                 .top_level_scoring_clause
         );
         assert!(
-            !supplier.subs.get(&Occur::Must).unwrap()[1]
+            !supplier.subs.get_mut(&Occur::Must).unwrap()[1]
                 .as_any()
                 .downcast_ref::<FakeScorerSupplier>()
                 .unwrap()
@@ -1955,14 +1961,14 @@ mod tests {
         let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
         supplier.set_top_level_scoring_clause()?;
         assert!(
-            !supplier.subs.get(&Occur::Filter).unwrap()[0]
+            !supplier.subs.get_mut(&Occur::Filter).unwrap()[0]
                 .as_any()
                 .downcast_ref::<FakeScorerSupplier>()
                 .unwrap()
                 .top_level_scoring_clause
         );
         assert!(
-            !supplier.subs.get(&Occur::Filter).unwrap()[1]
+            !supplier.subs.get_mut(&Occur::Filter).unwrap()[1]
                 .as_any()
                 .downcast_ref::<FakeScorerSupplier>()
                 .unwrap()
@@ -1987,14 +1993,14 @@ mod tests {
         let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
         supplier.set_top_level_scoring_clause()?;
         assert!(
-            supplier.subs.get(&Occur::Must).unwrap()[0]
+            supplier.subs.get_mut(&Occur::Must).unwrap()[0]
                 .as_any()
                 .downcast_ref::<FakeScorerSupplier>()
                 .unwrap()
                 .top_level_scoring_clause
         );
         assert!(
-            !supplier.subs.get(&Occur::Filter).unwrap()[0]
+            !supplier.subs.get_mut(&Occur::Filter).unwrap()[0]
                 .as_any()
                 .downcast_ref::<FakeScorerSupplier>()
                 .unwrap()
@@ -2019,14 +2025,14 @@ mod tests {
         let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
         supplier.set_top_level_scoring_clause()?;
         assert!(
-            supplier.subs.get(&Occur::Should).unwrap()[0]
+            supplier.subs.get_mut(&Occur::Should).unwrap()[0]
                 .as_any()
                 .downcast_ref::<FakeScorerSupplier>()
                 .unwrap()
                 .top_level_scoring_clause
         );
         assert!(
-            !supplier.subs.get(&Occur::MustNot).unwrap()[0]
+            !supplier.subs.get_mut(&Occur::MustNot).unwrap()[0]
                 .as_any()
                 .downcast_ref::<FakeScorerSupplier>()
                 .unwrap()

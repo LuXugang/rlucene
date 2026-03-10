@@ -62,6 +62,16 @@ pub trait BulkScorer {
 
     /// Same as [`DocIdSetIterator::cost`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost) for bulk scorers.
     fn cost(&mut self) -> Result<i64>;
+
+    #[cfg(test)]
+    fn kind(&self) -> BulkScorerKind {
+        unimplemented!("")
+    }
+}
+#[cfg(test)]
+pub enum BulkScorerKind {
+    Default,
+    ReqExcl,
 }
 macro_rules! either_bulk_scorer {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
@@ -91,6 +101,10 @@ macro_rules! either_bulk_scorer {
                 match self {
                     $( Self::$Variant(inner) => inner.cost(), )+
                 }
+            }
+             #[cfg(test)]
+            fn kind(&self) -> BulkScorerKind{
+                match self { $( Self::$Variant(inner) => inner.kind(), )+ }
             }
         }
     };

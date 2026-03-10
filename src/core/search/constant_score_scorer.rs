@@ -21,6 +21,8 @@ use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
+#[cfg(test)]
+use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, TwoPhaseIteratorEnum2,
@@ -240,6 +242,10 @@ where
                 ConstantDISI_::B(ref v) => v.two_phase_iterator.approximation(),
             },
         }
+    }
+    #[cfg(test)]
+    fn kind(&self) -> ScorerKind {
+        ScorerKind::ConstantScore
     }
 }
 

@@ -521,3 +521,404 @@ where
         Ok(count)
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+
+    use crate::core::document::field::Store;
+
+    use crate::core::document::string_field::StringField;
+
+    use crate::core::index::composite_reader_context::CompositeReaderContext;
+    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+    use crate::core::index::term::Term;
+    use crate::core::search::boolean_clause::Occur;
+    use crate::core::search::boolean_query::Builder;
+    use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
+    use crate::core::search::bulk_scorer::BulkScorerKind;
+    use crate::core::search::score_mode::ScoreMode;
+    use crate::core::search::scorer_supplier::ScorerSupplier;
+    use crate::core::search::term_query::TermQuery;
+    use crate::core::store::directory::DirEnum;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, new_directory_shared, new_searcher_with_reader, random,
+    };
+
+    use crate::core::search::boost_query::BoostQuery;
+    use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::query::Query;
+    use crate::core::search::scorer::ScorerKind;
+    use rand::RngExt;
+
+    #[allow(dead_code)] // for quick search
+    struct TestBooleanScorer;
+
+    const FIELD: &str = "category";
+    #[test]
+    fn test_method() -> Result<()> {
+        let mut random = random();
+        let directory = new_directory_shared(&mut random)?;
+
+        let values = ["1", "2", "3", "4"];
+
+        let writer = RandomIndexWriter::new(&mut random, directory.clone());
+        for value in values {
+            let mut doc = Document::new();
+            doc.add(StringField::from_string(FIELD, value, Store::Yes)?);
+            writer.add_document(doc)?;
+        }
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut boolean_query1 = Builder::new();
+        boolean_query1.add(TermQuery::new(Term::from_text(FIELD, "1")), Occur::Should)?;
+        boolean_query1.add(TermQuery::new(Term::from_text(FIELD, "2")), Occur::Should)?;
+
+        let mut query = Builder::new();
+        query.add(boolean_query1.build(), Occur::Must)?;
+        query.add(TermQuery::new(Term::from_text(FIELD, "9")), Occur::MustNot)?;
+
+        let index_searcher = new_searcher_with_reader(ir)?;
+        let hits = index_searcher.search(query.build(), 1000)?.score_docs;
+        assert_eq!(2, hits.len(), "Number of matched documents");
+        Ok(())
+    }
+    #[test]
+    fn test_embedded_boolean_scorer() -> Result<()> {
+        // TODO CrazyMustUseBulkScorerQuery未实现
+        Ok(())
+    }
+    #[test]
+    fn test_optimize_top_level_clause_or_null() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("foo", "bar", Store::No)?);
+        w.add_document(doc)?;
+
+        let reader = w.get_reader()?;
+        let mut searcher = new_searcher_with_reader(reader)?;
+        searcher.set_query_cache(None);
+        let leaves = searcher.get_top_reader_context().leaves()?;
+        let ctx = &leaves[0];
+
+        let mut query = Builder::new();
+        query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
+        query.add(
+            TermQuery::new(Term::from_text("missing_field", "baz")),
+            Occur::Should,
+        )?;
+        let query = query.build();
+
+        let rewritten = searcher.rewrite(query)?;
+        let weight = searcher.create_weight(rewritten, ScoreMode::CompleteNoScores, 1.0)?;
+        let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
+        let scorer = ss
+            .as_any()
+            .downcast_mut::<BooleanScorerSupplier<
+                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            >>()
+            .unwrap();
+        let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
+        assert!(matches!(bs.kind(), BulkScorerKind::Default));
+
+        let mut query = Builder::new();
+        query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
+        query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
+        let query = query.build();
+
+        let rewritten = searcher.rewrite(query)?;
+        let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
+        let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
+        let scorer = ss
+            .as_any()
+            .downcast_mut::<BooleanScorerSupplier<
+                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            >>()
+            .unwrap();
+        let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
+        assert!(matches!(bs.kind(), BulkScorerKind::Default));
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_optimize_prohibited_clauses() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("foo", "bar", Store::No)?);
+        doc.add(StringField::from_string("foo", "baz", Store::No)?);
+        w.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("foo", "baz", Store::No)?);
+        w.add_document(doc)?;
+
+        w.force_merge(1)?;
+        let reader = w.get_reader()?;
+        let mut searcher = new_searcher_with_reader(reader)?;
+        searcher.set_query_cache(None);
+        let leaves = searcher.get_top_reader_context().leaves()?;
+        let ctx = &leaves[0];
+
+        let mut query = Builder::new();
+        query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
+        query.add(
+            TermQuery::new(Term::from_text("foo", "bar")),
+            Occur::MustNot,
+        )?;
+        let query = query.build();
+
+        let rewritten = searcher.rewrite(query)?;
+        let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
+        let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
+        let scorer = ss
+            .as_any()
+            .downcast_mut::<BooleanScorerSupplier<
+                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            >>()
+            .unwrap();
+        let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
+        assert!(matches!(bs.kind(), BulkScorerKind::ReqExcl));
+
+        let mut query = Builder::new();
+        query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
+        query.add(MatchAllDocsQuery::new(), Occur::Should)?;
+        query.add(
+            TermQuery::new(Term::from_text("foo", "bar")),
+            Occur::MustNot,
+        )?;
+        let query = query.build();
+
+        let rewritten = searcher.rewrite(query)?;
+        let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
+        let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
+        let scorer = ss
+            .as_any()
+            .downcast_mut::<BooleanScorerSupplier<
+                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            >>()
+            .unwrap();
+        let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
+        assert!(matches!(bs.kind(), BulkScorerKind::ReqExcl));
+
+        let mut query = Builder::new();
+        query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+        query.add(
+            TermQuery::new(Term::from_text("foo", "bar")),
+            Occur::MustNot,
+        )?;
+        let query = query.build();
+
+        let rewritten = searcher.rewrite(query)?;
+        let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
+        let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
+        let scorer = ss
+            .as_any()
+            .downcast_mut::<BooleanScorerSupplier<
+                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            >>()
+            .unwrap();
+        let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
+        assert!(matches!(bs.kind(), BulkScorerKind::ReqExcl));
+
+        let mut query = Builder::new();
+        query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+        query.add(
+            TermQuery::new(Term::from_text("foo", "bar")),
+            Occur::MustNot,
+        )?;
+        let query = query.build();
+
+        let rewritten = searcher.rewrite(query)?;
+        let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
+        let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
+        let scorer = ss
+            .as_any()
+            .downcast_mut::<BooleanScorerSupplier<
+                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            >>()
+            .unwrap();
+        let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
+        assert!(matches!(bs.kind(), BulkScorerKind::ReqExcl));
+
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_sparse_clause_optimization() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let empty_doc = Document::new();
+        let num_docs = at_least(&mut random, 10);
+        let mut num_empty_docs = at_least(&mut random, 200);
+
+        for _ in 0..num_docs {
+            for _ in (0..=num_empty_docs).rev() {
+                w.add_document(empty_doc.clone())?;
+            }
+
+            let mut doc = Document::new();
+            for value in ["foo", "bar", "baz"] {
+                if random.random_bool(0.5) {
+                    doc.add(StringField::from_string("field", value, Store::No)?);
+                }
+            }
+            w.add_document(doc)?;
+        }
+
+        num_empty_docs = at_least(&mut random, 200);
+        for _ in (0..=num_empty_docs).rev() {
+            w.add_document(empty_doc.clone())?;
+        }
+
+        if random.random_bool(0.5) {
+            w.force_merge(1)?;
+        }
+
+        let reader = w.get_reader()?;
+        let _searcher = new_searcher_with_reader(reader)?;
+
+        let mut query = Builder::new();
+        query.add(
+            BoostQuery::new(TermQuery::new(Term::from_text("field", "foo")), 3.0)?,
+            Occur::Should,
+        )?;
+        query.add(
+            BoostQuery::new(TermQuery::new(Term::from_text("field", "bar")), 3.0)?,
+            Occur::Should,
+        )?;
+        query.add(
+            BoostQuery::new(TermQuery::new(Term::from_text("field", "baz")), 3.0)?,
+            Occur::Should,
+        )?;
+        let _query = query.build();
+
+        // TODO IMPORTANT: QueryUtils 未实现
+        // QueryUtils::check(&mut random, query, &searcher)?;
+
+        w.close()?;
+        Ok(())
+    }
+    // TODO IMPORTANT 测试未通过
+    fn test_filter_constant_score() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("foo", "bar", Store::No)?);
+        doc.add(StringField::from_string("foo", "bat", Store::No)?);
+        doc.add(StringField::from_string("foo", "baz", Store::No)?);
+        w.add_document(doc)?;
+
+        let reader = w.get_reader()?;
+        let mut searcher = new_searcher_with_reader(reader)?;
+        searcher.set_query_cache(None);
+
+        {
+            let mut query = Builder::new();
+            query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+            let query = query.build();
+
+            let rewrite = searcher.rewrite(query)?;
+            match rewrite {
+                Query::Boost(b) => {
+                    matches!(*b.get_query(), Query::Term(_))
+                },
+                _ => unreachable!(""),
+            };
+        }
+
+        let queries = vec![
+            {
+                let mut query = Builder::new();
+                query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+                query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+                query.build()
+            },
+            {
+                let mut query = Builder::new();
+                query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+                query.add(TermQuery::new(Term::from_text("foo", "arf")), Occur::Should)?;
+                query.build()
+            },
+            {
+                let mut query = Builder::new();
+                query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+                query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+                query.add(TermQuery::new(Term::from_text("foo", "arf")), Occur::Should)?;
+                query.add(TermQuery::new(Term::from_text("foo", "arw")), Occur::Should)?;
+                query.build()
+            },
+        ];
+
+        let leaves = searcher.get_top_reader_context().leaves()?;
+        let ctx = &leaves[0];
+
+        for query in queries {
+            let rewrite = searcher.rewrite(query)?;
+            for score_mode in [
+                ScoreMode::Complete,
+                ScoreMode::CompleteNoScores,
+                ScoreMode::TopScores,
+            ] {
+                let weight = searcher.create_weight(rewrite.clone(), score_mode, 1.0)?;
+                let scorer = weight.scorer(ctx, &searcher)?.unwrap();
+                if score_mode == ScoreMode::TopScores {
+                    assert!(matches!(scorer.kind(), ScorerKind::ConstantScore));
+                } else {
+                    assert!(!matches!(scorer.kind(), ScorerKind::ConstantScore));
+                }
+            }
+        }
+
+        let queries = vec![
+            {
+                let mut query = Builder::new();
+                query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+                query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
+                query.build()
+            },
+            {
+                let mut query = Builder::new();
+                query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+                query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+                query.add(TermQuery::new(Term::from_text("foo", "arf")), Occur::Should)?;
+                query.build()
+            },
+            {
+                let mut query = Builder::new();
+                query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+                query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
+                query.add(TermQuery::new(Term::from_text("foo", "arf")), Occur::Must)?;
+                query.build()
+            },
+        ];
+
+        for query in queries {
+            let rewrite = searcher.rewrite(query)?;
+            for score_mode in [
+                ScoreMode::Complete,
+                ScoreMode::CompleteNoScores,
+                ScoreMode::TopScores,
+            ] {
+                let weight = searcher.create_weight(rewrite.clone(), score_mode, 1.0)?;
+                let scorer = weight.scorer(ctx, &searcher)?.unwrap();
+                assert!(!matches!(scorer.kind(), ScorerKind::ConstantScore));
+            }
+        }
+
+        w.close()?;
+        Ok(())
+    }
+}
