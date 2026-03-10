@@ -33,7 +33,7 @@ use std::sync::Arc;
 /// containing a single term. The [`TermStates`] doesn't track if the given [`TermState`]
 /// objects are valid, neither if the [`TermState`] instances refer to the same terms in the
 /// associated readers.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TermStates {
     top_reader_context_identity: Identity,
     states: Vec<Option<Arc<TermStateEnum>>>,

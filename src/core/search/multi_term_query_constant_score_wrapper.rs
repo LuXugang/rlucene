@@ -19,6 +19,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::NONE;
 use crate::core::index::term::Term;
+use crate::core::index::term_states::TermStates;
 use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::{
@@ -33,7 +34,7 @@ use crate::core::search::multi_term_query::MultiTermQueryEnum;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::term_query::{TermQuery, TermStatesMeta};
+use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::Result;
@@ -201,16 +202,16 @@ impl RewritingWeightBase for StandardRewritingWeight {
             let doc_freq = terms_enum.doc_freq()?;
 
             if field_doc_count == doc_freq {
-                let meta = TermStatesMeta::new(
+                let mut term_states = TermStates::new(searcher.get_top_reader_context())?;
+                term_states.register_with_stats(
+                    terms_enum.term_state()?,
                     context.ord,
                     doc_freq,
                     terms_enum.total_term_freq()?,
-                    terms_enum.term_state()?,
-                    searcher.get_top_reader_context().base().identity.clone(),
                 );
 
                 let term = Term::new(field, terms_enum.term()?.into_owned());
-                let tq = TermQuery::with_term_state(term, Some(meta));
+                let tq = TermQuery::with_term_state(term, Some(term_states));
                 let q = ConstantScoreQuery::new(Box::new(tq.into()));
 
                 let rewritten = searcher.rewrite(q)?;

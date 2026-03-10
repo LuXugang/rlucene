@@ -19,7 +19,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::TermStateEnum;
+use crate::core::index::term_states::{TermStateEnum, TermStates};
 use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::boolean_clause::Occur;
@@ -44,7 +44,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum4;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::term_query::{TermQuery, TermStatesMeta};
+use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
@@ -234,16 +234,15 @@ where
     let mut builder = Builder::new();
 
     for t in collected_terms.iter() {
+        let mut term_states = TermStates::new(searcher.get_top_reader_context())?;
         let term = Term::new(field, t.term.clone());
-        let meta = TermStatesMeta::new(
+        term_states.register_with_stats(
+            t.state.clone(),
             context.ord,
             t.doc_freq,
             t.total_term_freq,
-            t.state.clone(),
-            searcher.get_top_reader_context().base().identity.clone(),
         );
-        let tq = TermQuery::with_term_state(term, Some(meta));
-
+        let tq = TermQuery::with_term_state(term, Some(term_states));
         builder.add(tq, Occur::Should)?;
     }
 

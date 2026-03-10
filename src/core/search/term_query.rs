@@ -61,7 +61,7 @@ use std::sync::Arc;
 pub struct TermQuery {
     id: Identity,
     pub(crate) term: Arc<Term>,
-    per_reader_term_state: Option<TermStatesMeta>,
+    per_reader_term_state: Option<TermStates>,
 }
 impl TermQuery {
     pub fn new<T>(term: T) -> Self
@@ -73,7 +73,7 @@ impl TermQuery {
     pub fn get_term(&self) -> Arc<Term> {
         self.term.clone()
     }
-    pub fn with_term_state<T>(term: T, ts: Option<TermStatesMeta>) -> Self
+    pub fn with_term_state<T>(term: T, ts: Option<TermStates>) -> Self
     where
         T: Into<Arc<Term>>,
     {
@@ -141,17 +141,9 @@ impl QueryBase for TermQuery {
         IRC: IndexReaderContext,
         Self: Sized,
     {
-        let mut term_states = TermStates::new(searcher.get_top_reader_context())?;
+        let context = searcher.get_top_reader_context();
         let ts = match self.per_reader_term_state.take() {
-            Some(states) if { term_states.was_built_for_id(&states.id) } => {
-                term_states.register_with_stats(
-                    states.term_state,
-                    states.ord,
-                    states.doc_freq,
-                    states.total_term_freq,
-                );
-                term_states
-            },
+            Some(v) if { v.was_built_for_id(&context.base().identity) } => v,
             _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
         };
         Ok(Box::new(TermWeight::new(
