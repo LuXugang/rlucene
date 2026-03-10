@@ -146,6 +146,7 @@ pub mod segment_read_state;
 pub mod segment_reader;
 pub mod segment_write_state;
 pub mod serial_merge_scheduler;
+pub mod single_leaf_composite_reader;
 pub mod single_terms_enum;
 pub mod singleton_sorted_numeric_doc_values;
 pub mod singleton_sorted_set_doc_values;

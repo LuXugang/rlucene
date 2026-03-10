@@ -16,7 +16,9 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
+use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::get_context;
@@ -24,7 +26,8 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LRPosting, LeafReader};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::postings_enum::{ALL, PostingsEnum, PostingsEnumEnum2};
+use crate::core::index::postings_enum::{ALL, FREQS, NONE, PostingsEnum, PostingsEnumEnum2};
+use crate::core::index::single_leaf_composite_reader::SingleLeafCompositeReader;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
@@ -35,10 +38,11 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared, new_field,
-    new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
-    new_text_field, random,
+    at_least, at_least_usize, get_only_leaf_reader, new_bytes_ref_from_string,
+    new_directory_shared, new_field, new_index_writer_config,
+    new_index_writer_config_with_analyzer, new_log_merge_policy, new_text_field, random,
 };
+use crate::test::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::collections::HashMap;
@@ -286,14 +290,114 @@ fn test_random_positions() -> Result<()> {
 }
 #[test]
 fn test_random_docs() -> Result<()> {
-    // TODO MultiTerm未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let analyzer = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    // TODO IMPORTANT LOG MERGE 有 bug
+    // iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+    let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+    let num_docs = at_least_usize(&mut random, 49);
+    let max = 15678;
+    let term = random.random_range(0..max);
+    let mut freq_in_doc = vec![0i32; num_docs as usize];
+
+    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    custom_type.set_omit_norms(true)?;
+
+    let field_name = field_name(&mut random);
+
+    for freq in freq_in_doc.iter_mut().take(num_docs) {
+        let mut doc = Document::new();
+        let mut builder = String::new();
+        for _ in 0..199 {
+            let next_int = random.random_range(0..max);
+            builder.push_str(&next_int.to_string());
+            builder.push(' ');
+            if next_int == term {
+                *freq += 1;
+            }
+        }
+        doc.add(Field::new(&field_name, builder, custom_type.clone()));
+        writer.add_document(doc)?;
+    }
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let num = at_least(&mut random, 13);
+    for i in 0..num {
+        let bytes = BytesRef::from_string(&term.to_string());
+        let top_reader_context = get_context(&reader)?;
+        for context in top_reader_context.leaves()? {
+            let max_doc = context.reader().max_doc()? as usize;
+            let reader = SingleLeafCompositeReader::new(context.reader().clone());
+            let mut postings_enum = TestUtil::docs_with_reader(
+                &mut random,
+                &reader,
+                &field_name,
+                &bytes,
+                None,
+                FREQS as i32,
+            )?;
+
+            if find_next(&freq_in_doc, context.doc_base, context.doc_base + max_doc)
+                == i32::MAX as usize
+            {
+                assert!(postings_enum.is_none());
+                continue;
+            }
+
+            let postings_enum = postings_enum.as_mut().unwrap();
+            assert_ne!(postings_enum.next_doc()?, NO_MORE_DOCS);
+
+            for j in 0..max_doc {
+                if freq_in_doc[context.doc_base + j] != 0 {
+                    assert_eq!(j, postings_enum.doc_id() as usize);
+                    assert_eq!(postings_enum.freq()?, freq_in_doc[context.doc_base + j]);
+
+                    if i % 2 == 0 && random.random_range(0..10) == 0 {
+                        let next = find_next(
+                            &freq_in_doc,
+                            context.doc_base + j + 1,
+                            context.doc_base + max_doc,
+                        ) - context.doc_base;
+
+                        let advanced_to = postings_enum.advance(next as i32)?;
+                        if next >= max_doc {
+                            assert_eq!(NO_MORE_DOCS, advanced_to);
+                        } else {
+                            assert!(
+                                next >= advanced_to as usize,
+                                "advanced to: {} but should be <= {}",
+                                advanced_to,
+                                next
+                            );
+                        }
+                    } else {
+                        postings_enum.next_doc()?;
+                    }
+                }
+            }
+
+            assert_eq!(
+                NO_MORE_DOCS,
+                postings_enum.doc_id(),
+                "docBase: {} maxDoc: {}",
+                context.doc_base,
+                max_doc
+            );
+        }
+    }
+
     Ok(())
 }
 fn find_next(docs: &[i32], pos: usize, max: usize) -> usize {
     if let Some(i) = docs[pos..max].iter().position(|&x| x != 0) {
         return pos + i;
     }
-    usize::MAX
+    i32::MAX as usize
 }
 /// tests retrieval of positions for terms that have a large number of occurrences to force test of
 //  buffer refill during positions iteration.
@@ -383,8 +487,45 @@ fn test_large_number_of_positions() -> Result<()> {
 
     Ok(())
 }
+#[test]
 fn test_docs_enum_start() -> Result<()> {
-    // TODO MultiTerm未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("foo", "bar", Store::No)?);
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    let r = get_only_leaf_reader(&reader)?;
+    let cr = SingleLeafCompositeReader::new(r.clone());
+    let mut disi = TestUtil::docs_with_reader(
+        &mut random,
+        &cr,
+        "foo",
+        &BytesRef::from_string("bar"),
+        None,
+        NONE as i32,
+    )?
+    .unwrap();
+    let doc_id = disi.doc_id();
+    assert_eq!(-1, doc_id);
+    assert_ne!(disi.next_doc()?, NO_MORE_DOCS);
+    let disi = match disi {
+        PostingsEnumEnum2::A(v) => v,
+        PostingsEnumEnum2::B(_) => unreachable!(),
+    };
+
+    let mut te = r.terms("foo")?.unwrap().iterator()?;
+    assert!(te.seek_exact(&BytesRef::from_string("bar"))?);
+    let mut disi = TestUtil::docs(&mut random, &mut te, Some(disi), NONE as i32)?;
+    let docid = disi.doc_id();
+    assert_eq!(-1, docid);
+    assert_ne!(disi.next_doc()?, NO_MORE_DOCS);
+
+    writer.close()?;
+    r.close()?;
     Ok(())
 }
 #[test]
