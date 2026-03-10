@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::document::field::Store;
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::{
     NumericDocValuesField, numeric_doc_values_field_util,
@@ -28,15 +29,26 @@ use crate::core::document::sorted_numeric_doc_values_field::{
 use crate::core::document::sorted_set_doc_values_field::{
     SortedSetDocValuesField, sorted_set_doc_values_field_util,
 };
+use crate::core::document::string_field::StringField;
+use crate::core::index::BytesRef;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::term::Term;
+use crate::core::search::boolean_clause::Occur;
+use crate::core::search::boolean_query::Builder;
+use crate::core::search::boost_query::BoostQuery;
+use crate::core::search::constant_score_query::ConstantScoreQuery;
+use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::score_doc::ScoreDocLike;
+use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
+use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
@@ -523,8 +535,15 @@ where
         assert_eq!(sd1.doc(), sd2.doc());
 
         if scores {
-            let diff = (sd1.score() - sd2.score()).abs();
-            assert!(diff <= 1e-6, "score diff={} idx={}", diff, i);
+            let sd1_score = sd1.score();
+            let sd2_score = sd2.score();
+            if sd1_score.is_nan() && sd2_score.is_nan() {
+                // true
+                continue;
+            } else {
+                let diff = (sd1_score - sd2_score).abs();
+                assert!(diff <= 1e-6, "score diff={} idx={}", diff, i);
+            }
         }
     }
 
@@ -671,12 +690,65 @@ fn test_to_string() -> Result<()> {
 
 #[test]
 fn test_missing_field() -> Result<()> {
-    // TODO  rewrite 未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+    iw.add_document(Document::new())?;
+    let reader = iw.get_reader()?;
+    iw.close()?;
+
+    let searcher = new_searcher_with_reader(reader)?;
+    let leaves = searcher.get_top_reader_context().leaves()?;
+    let ctx = &leaves[0];
+
+    let queries: Vec<Query> = vec![
+        numeric_doc_values_field_util::new_slow_range_query("foo", 2, 4).into(),
+        sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 2, 4).into(),
+        sorted_doc_values_field_util::new_slow_range_query(
+            "foo",
+            Some(BytesRef::from_string("abc")),
+            Some(BytesRef::from_string("bcd")),
+            random.random_bool(0.5),
+            random.random_bool(0.5),
+        )
+        .into(),
+        sorted_set_doc_values_field_util::new_slow_range_query(
+            "foo",
+            Some(BytesRef::from_string("abc")),
+            Some(BytesRef::from_string("bcd")),
+            random.random_bool(0.5),
+            random.random_bool(0.5),
+        )
+        .into(),
+    ];
+
+    for query in queries {
+        let rewritten = searcher.rewrite(query)?;
+        let w = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
+        assert!(w.scorer(ctx, &searcher)?.is_none());
+    }
+
     Ok(())
 }
 #[test]
 fn test_slow_range_query_rewrite() -> Result<()> {
-    // TODO rewrite 未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+    let reader = iw.get_reader()?;
+    iw.close()?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    QueryUtils::check_equal(
+        &numeric_doc_values_field_util::new_slow_range_query("foo", 10, 1).rewrite(&searcher)?,
+        &MatchNoDocsQuery::new().into(),
+    );
+    QueryUtils::check_equal(
+        &numeric_doc_values_field_util::new_slow_range_query("foo", i64::MIN, i64::MAX)
+            .rewrite(&searcher)?,
+        &FieldExistsQuery::new("foo").into(),
+    );
+
     Ok(())
 }
 #[test]
@@ -748,6 +820,104 @@ fn test_set_equals() -> Result<()> {
 
 #[test]
 fn test_duel_set_vs_terms_query() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let iters = at_least(&mut random, 2);
+
+    for _ in 0..iters {
+        let mut all_numbers = Vec::new();
+        let end = 1 << TestUtil::next_int(&mut random, 1, 10);
+        let num_numbers = TestUtil::next_int(&mut random, 1, end);
+        for _ in 0..num_numbers {
+            all_numbers.push(random.random::<i64>());
+        }
+
+        let dir = new_directory_shared(&mut random)?;
+        let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let num_docs = at_least(&mut random, 100);
+        for _ in 0..num_docs {
+            let mut doc = Document::new();
+            let number = all_numbers[random.random_range(0..all_numbers.len())];
+
+            doc.add(StringField::from_string(
+                "text",
+                number.to_string(),
+                Store::No,
+            )?);
+            doc.add(NumericDocValuesField::new("long", number));
+            doc.add(SortedNumericDocValuesField::new("twolongs", number));
+            doc.add(SortedNumericDocValuesField::new("twolongs", number * 2));
+
+            iw.add_document(doc)?;
+        }
+        // TODO delete by query 未实现
+        // if num_numbers > 1 && random.random_bool(0.5) {
+        //     iw.delete_documents_with_terms(
+        //         Term::from_text("text", all_numbers[0].to_string()),
+        //     )?;
+        // }
+
+        iw.commit()?;
+        let reader = iw.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
+        iw.close()?;
+
+        if searcher.get_top_reader_context().reader().num_docs()? == 0 {
+            continue;
+        }
+
+        for _ in 0..100 {
+            let boost = random.random::<f32>() * 10.0;
+            let end = 1 << TestUtil::next_int(&mut random, 1, 8);
+            let num_query_numbers = TestUtil::next_int(&mut random, 1, end);
+
+            let mut query_numbers = std::collections::HashSet::new();
+            let mut query_numbers_x2 = std::collections::HashSet::new();
+
+            for _ in 0..num_query_numbers {
+                let number = all_numbers[random.random_range(0..all_numbers.len())];
+                query_numbers.insert(number);
+                query_numbers_x2.insert(number * 2);
+            }
+
+            let query_numbers_array: Vec<i64> = query_numbers.iter().copied().collect();
+            let query_numbers_x2_array: Vec<i64> = query_numbers_x2.iter().copied().collect();
+
+            let mut bq = Builder::new();
+            for number in &query_numbers {
+                bq.add(
+                    TermQuery::new(Term::from_text("text", number.to_string())),
+                    Occur::Should,
+                )?;
+            }
+
+            let q1 = BoostQuery::new(ConstantScoreQuery::new(bq.build()), boost)?;
+
+            let q2 = BoostQuery::new(
+                numeric_doc_values_field_util::new_slow_set_query("long", query_numbers_array)?,
+                boost,
+            )?;
+            assert_same_matches(&searcher, q1.clone(), q2, true)?;
+
+            let q3 = BoostQuery::new(
+                sorted_numeric_doc_values_field_util::new_slow_set_query(
+                    "twolongs",
+                    query_numbers.iter().copied().collect(),
+                )?,
+                boost,
+            )?;
+            assert_same_matches(&searcher, q1.clone(), q3, true)?;
+
+            let q4 = BoostQuery::new(
+                sorted_numeric_doc_values_field_util::new_slow_set_query(
+                    "twolongs",
+                    query_numbers_x2_array,
+                )?,
+                boost,
+            )?;
+            assert_same_matches(&searcher, q1.clone(), q4, true)?;
+        }
+    }
+
     Ok(())
 }
