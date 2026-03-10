@@ -34,8 +34,8 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_infos::get_merged_field_infos;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::index_writer_config::OpenMode::Create;
-use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -46,10 +46,12 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     get_only_leaf_reader, new_bytes_ref_from_bytes, new_bytes_ref_from_string,
-    new_directory_shared, new_index_writer_config, new_log_merge_policy, random,
+    new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+    new_log_merge_policy, random,
 };
 use rand::Rng;
 use std::borrow::Cow;
@@ -184,8 +186,8 @@ fn test_length_prefix_across_two_pages() -> Result<()> {
     let mut random = random();
 
     let d = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let config = IndexWriterConfig::new();
+    let mock = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, mock);
     let w = IndexWriter::new(d.clone(), config)?;
 
     let mut doc = Document::new();
@@ -235,8 +237,8 @@ fn test_length_prefix_across_two_pages() -> Result<()> {
 fn test_doc_values_unstored() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
     let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -273,8 +275,8 @@ fn test_doc_values_unstored() -> Result<()> {
 fn test_mixed_types_same_document() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let config = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, mock);
     let w = IndexWriter::new(dir.clone(), config)?;
 
     w.add_document(Document::new())?;
@@ -305,8 +307,8 @@ fn test_mixed_types_different_documents() -> Result<()> {
     let mut random = random();
 
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let config = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, mock);
     let w = IndexWriter::new(dir.clone(), config)?;
 
     let mut doc = Document::new();
@@ -336,10 +338,10 @@ fn test_mixed_types_different_documents() -> Result<()> {
 #[test]
 fn test_add_sorted_twice() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现MockAnalyzer
     let directory = new_directory_shared(&mut random)?;
 
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
@@ -371,10 +373,10 @@ fn test_add_sorted_twice() -> Result<()> {
 #[test]
 fn test_add_binary_twice() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现MockAnalyzer
     let directory = new_directory_shared(&mut random)?;
 
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
@@ -409,8 +411,8 @@ fn test_add_numeric_twice() -> Result<()> {
     let mut random = random();
 
     let directory = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
@@ -439,8 +441,8 @@ fn test_too_large_sorted_bytes() -> Result<()> {
     let mut random = random();
 
     let directory = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
@@ -474,8 +476,8 @@ fn test_too_large_term_sorted_set_bytes() -> Result<()> {
     let mut random = random();
 
     let directory = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
@@ -512,9 +514,9 @@ fn test_too_large_term_sorted_set_bytes() -> Result<()> {
 #[test]
 fn test_mixed_types_different_segments() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现MockAnalyzer
     let dir = new_directory_shared(&mut random)?;
-    let iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -543,28 +545,6 @@ fn test_mixed_types_different_segments() -> Result<()> {
 #[test]
 fn test_mixed_types_after_delete_all() -> Result<()> {
     // TODO writer.delete_all未实现
-    // let mut random = random();
-    //
-    // let dir = new_directory(&mut random)?;
-    // // TODO: 未实现MockAnalyzer
-    // let iwc = new_index_writer_config(&mut random);
-    // let w = IndexWriter::new(dir.clone(), iwc)?;
-    //
-    // let mut doc = Document::new();
-    // doc.add(NumericDocValuesField::new("foo", 0));
-    // w.add_document(doc)?;
-    // w.delete_all()?;
-    //
-    // let mut doc2 = Document::new();
-    // doc2.add(SortedDocValuesField::new(
-    //     "foo",
-    //     new_bytes_ref_from_string(&mut random, "hello")?,
-    // ));
-    //
-    // w.add_document(doc2)?;
-    //
-    // w.close()?;
-
     Ok(())
 }
 #[test]
@@ -572,8 +552,8 @@ fn test_mixed_types_after_reopen_create() -> Result<()> {
     let mut random = random();
 
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let iwc1 = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
     {
         let w = IndexWriter::new(dir.clone(), iwc1)?;
         let mut doc = Document::new();
@@ -599,8 +579,8 @@ fn test_mixed_types_after_reopen_append1() -> Result<()> {
     let mut random = random();
 
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let iwc1 = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
     {
         let w = IndexWriter::new(dir.clone(), iwc1)?;
         let mut doc = Document::new();
@@ -632,10 +612,11 @@ fn test_mixed_types_after_reopen_append1() -> Result<()> {
 #[test]
 fn test_mixed_types_after_reopen_append2() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现MockAnalyzer
+
     let dir = new_directory_shared(&mut random)?;
 
-    let iwc1 = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
     {
         let w = IndexWriter::new(dir.clone(), iwc1)?;
         let mut doc = Document::new();
@@ -678,8 +659,8 @@ fn test_mixed_types_after_reopen_append3() -> Result<()> {
     let mut random = random();
 
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let iwc1 = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
     {
         let w = IndexWriter::new(dir.clone(), iwc1)?;
         let mut doc = Document::new();
@@ -729,9 +710,9 @@ fn test_mixed_types_via_add_indexes() -> Result<()> {
 #[test]
 fn test_illegal_type_change() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现MockAnalyzer
     let dir = new_directory_shared(&mut random)?;
-    let conf = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, mock);
     let writer = IndexWriter::new(dir.clone(), conf)?;
 
     let mut doc = Document::new();
@@ -761,9 +742,10 @@ fn test_illegal_type_change() -> Result<()> {
 #[test]
 fn test_illegal_type_change_across_segments() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现MockAnalyzer
+
     let dir = new_directory_shared(&mut random)?;
-    let conf1 = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let conf1 = new_index_writer_config_with_analyzer(&mut random, mock);
     {
         let writer = IndexWriter::new(dir.clone(), conf1)?;
 
@@ -796,10 +778,10 @@ fn test_illegal_type_change_across_segments() -> Result<()> {
 #[test]
 fn test_type_change_after_close_and_delete_all() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现MockAnalyzer
     let dir = new_directory_shared(&mut random)?;
 
-    let conf1 = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let conf1 = new_index_writer_config_with_analyzer(&mut random, mock);
     {
         let writer = IndexWriter::new(dir.clone(), conf1)?;
         let mut doc = Document::new();
@@ -827,27 +809,6 @@ fn test_type_change_after_close_and_delete_all() -> Result<()> {
 #[test]
 fn test_type_change_after_delete_all() -> Result<()> {
     // TODO writer.delete_all未实现
-    // let mut random = random();
-    //
-    // let dir = new_directory(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    // let conf = new_index_writer_config(&mut random);
-    // let writer = IndexWriter::new(dir.clone(), conf)?;
-    // let mut doc = Document::new();
-    // doc.add(NumericDocValuesField::new("dv", 0));
-    // writer.add_document(doc)?;
-    //
-    // writer.delete_all()?;
-    //
-    // let mut doc2 = Document::new();
-    // doc2.add(SortedDocValuesField::new(
-    //     "dv",
-    //     new_bytes_ref_from_string(&mut random, "foo")?,
-    // ));
-    // writer.add_document(doc2)?;
-    //
-    // writer.close()?;
-
     Ok(())
 }
 #[test]
@@ -860,8 +821,8 @@ fn test_type_change_after_open_create() -> Result<()> {
     let mut random = random();
 
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let conf1 = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let conf1 = new_index_writer_config_with_analyzer(&mut random, mock);
     {
         let writer = IndexWriter::new(dir.clone(), conf1)?;
         let mut doc = Document::new();
@@ -909,9 +870,10 @@ fn test_type_change_via_add_indexes_ir_2() -> Result<()> {
 #[test]
 fn test_same_field_name_for_posting_and_doc_value() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现MockAnalyzer
+
     let dir = new_directory_shared(&mut random)?;
-    let conf = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, mock);
     let writer = IndexWriter::new(dir.clone(), conf)?;
 
     let mut doc = Document::new();
@@ -938,9 +900,10 @@ fn test_same_field_name_for_posting_and_doc_value() -> Result<()> {
 #[test]
 fn test_exc_indexing_doc_before_doc_values() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现MockAnalyzer
+
     let dir = new_directory_shared(&mut random)?;
-    let iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut ft = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;

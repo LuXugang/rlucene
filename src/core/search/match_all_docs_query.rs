@@ -317,9 +317,11 @@ mod tests {
     use crate::core::search::total_hits::Relation;
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::Result;
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config, new_log_merge_policy,
-        new_searcher_with_reader, new_searcher_with_threads, new_text_field, random,
+        new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+        new_log_merge_policy, new_searcher_with_reader, new_searcher_with_threads, new_text_field,
+        random,
     };
     use rand_chacha::rand_core::Rng;
     use std::collections::HashMap;
@@ -431,8 +433,8 @@ mod tests {
     fn test_early_termination() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let mut config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         config.set_max_buffered_docs(2);
         // TODO IMPORTANT new_log_merge_policy未通过测试
         // config.set_merge_policy(new_log_merge_policy(&mut random)?);

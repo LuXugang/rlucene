@@ -281,10 +281,11 @@ mod tests {
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_field, new_index_writer_config, new_string_field, new_text_field,
-        random,
+        new_directory_shared, new_field, new_index_writer_config,
+        new_index_writer_config_with_analyzer, new_string_field, new_text_field, random,
     };
     use rand::Rng;
     use std::collections::HashMap;
@@ -297,8 +298,8 @@ mod tests {
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现MockAnalyzer
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut field_types = HashMap::new();
@@ -376,8 +377,8 @@ mod tests {
     fn test_double_offset_counting2() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现MockAnalyzer
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut field_types = HashMap::new();
@@ -431,8 +432,8 @@ mod tests {
 
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 未实现MockAnalyzer
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut field_types = HashMap::new();
@@ -495,9 +496,8 @@ mod tests {
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-
-        // TODO: MockAnalyzer
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut field_types = HashMap::new();
@@ -555,9 +555,8 @@ mod tests {
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-
-        // TODO: MockAnalyzer 尚未实现
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut field_types = HashMap::new();
@@ -627,9 +626,8 @@ mod tests {
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-
-        // TODO MockAnalyzer 尚未实现
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut field_types = HashMap::new();
@@ -690,8 +688,8 @@ mod tests {
 
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 未实现 MockAnalyzer
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut field_types = HashMap::new();
@@ -772,8 +770,8 @@ mod tests {
         let mut field_types = HashMap::new();
 
         for _ in 0..2 {
-            // TODO: MockAnalyzer未实现
-            let mut iwc = new_index_writer_config(&mut random);
+            let mock = MockAnalyzer::new(&mut random);
+            let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
             iwc.set_max_buffered_docs(2);
             iwc.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
             iwc.set_merge_scheduler(SerialMergeScheduler);
@@ -834,8 +832,8 @@ mod tests {
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: MockAnalyzer未实现
-        let mut iwc1 = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
         iwc1.set_max_buffered_docs(2);
         iwc1.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
         iwc1.set_merge_scheduler(SerialMergeScheduler);
@@ -875,8 +873,8 @@ mod tests {
             writer.close()?;
         }
 
-        // TODO: MockAnalyzer未实现
-        let mut iwc2 = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut iwc2 = new_index_writer_config_with_analyzer(&mut random, mock);
         iwc2.set_max_buffered_docs(2);
         iwc2.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
         iwc2.set_merge_scheduler(SerialMergeScheduler);
@@ -963,8 +961,8 @@ mod tests {
     fn test_no_term_vector_after_term_vector_merge() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现MockAnalyzer
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let iw = IndexWriter::new(dir.clone(), iwc)?;
         let mut field_types = HashMap::new();
         let mut document = Document::new();

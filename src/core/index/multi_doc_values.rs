@@ -1440,6 +1440,7 @@ mod tests {
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::util::error::lucene_error::Result;
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, get_only_leaf_reader, is_night_mode, new_directory_shared,
@@ -1461,7 +1462,7 @@ mod tests {
 
         let mut field = NumericDocValuesField::new("numbers", 0i64);
         doc.add(field.clone());
-        // TODO 这里需要使用带分词器的构造方法
+        let _mock = MockAnalyzer::new(&mut random);
         let mut iwc = new_index_writer_config(&mut random);
         iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
@@ -1526,7 +1527,6 @@ mod tests {
         let mut field = BinaryDocValuesField::new("bytes", BytesRef::new());
         doc.add(field.clone());
 
-        // TODO 这里需要使用带分词器的构造方法
         let mut iwc = new_index_writer_config(&mut random);
         iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
@@ -1600,7 +1600,6 @@ mod tests {
         let mut field = SortedDocValuesField::new("bytes", BytesRef::new());
         doc.add(field.clone());
 
-        // TODO 这里需要使用带分词器的构造方法
         let mut iwc = new_index_writer_config(&mut random);
         iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
@@ -1688,7 +1687,6 @@ mod tests {
         let mut field = SortedDocValuesField::new("bytes", BytesRef::new());
         doc.add(field.clone());
 
-        // TODO 这里需要使用带分词器的构造方法
         let mut iwc = new_index_writer_config(&mut random);
         iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
@@ -1766,7 +1764,6 @@ mod tests {
 
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO 这里需要使用带分词器的构造方法
         let mut iwc = new_index_writer_config(&mut random);
         iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
@@ -1860,7 +1857,6 @@ mod tests {
 
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO 这里需要使用带分词器的构造方法
         let mut iwc = new_index_writer_config(&mut random);
         iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
@@ -1958,7 +1954,7 @@ mod tests {
 
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO 这里需要使用带分词器的构造方法
+        let _mock = MockAnalyzer::new(&mut random);
         let mut iwc = new_index_writer_config(&mut random);
         iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 

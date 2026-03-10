@@ -35,9 +35,11 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::index::doc_helper::{DocHelper, TEXT_FIELD_2_KEY};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config, new_io_context, new_text_field, random,
+    new_directory_shared, new_index_writer_config_with_analyzer, new_io_context, new_text_field,
+    random,
 };
 use crate::test::util::test_util::TestUtil;
 use rand::Rng;
@@ -135,8 +137,9 @@ fn test_skip_to() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
     let mut field_types = HashMap::new();
-    // TODO: 未实现MockAnalyzer
-    let mut writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut writer = IndexWriter::new(dir.clone(), iwc)?;
 
     let ta = Term::from_text("content", "aaa");
     for _ in 0..10 {

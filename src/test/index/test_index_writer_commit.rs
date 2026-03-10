@@ -20,9 +20,10 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::index::test_index_writer::add_doc;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
+    new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader, random,
 };
 use std::collections::HashMap;
 
@@ -40,7 +41,8 @@ fn test_commit_on_close() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     let mut field_types = HashMap::new();
 
-    let iwc1 = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
     {
         let writer = IndexWriter::new(dir.clone(), iwc1)?;
 
@@ -61,8 +63,9 @@ fn test_commit_on_close() -> Result<()> {
     }
 
     let reader = directory_reader_util::open(dir.clone())?;
-    // TODO: 未实现MockAnalyzer
-    let iwc2 = new_index_writer_config(&mut random);
+
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc2 = new_index_writer_config_with_analyzer(&mut random, mock);
     let writer = IndexWriter::new(dir.clone(), iwc2)?;
 
     for _ in 0..3 {
@@ -156,8 +159,8 @@ fn test_prepare_commit_rollback() -> Result<()> {
 fn test_prepare_commit_no_changes() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现 MockAnalyzer
-    let iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
     writer.prepare_commit()?;

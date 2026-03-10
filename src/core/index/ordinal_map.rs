@@ -542,8 +542,9 @@ mod tests {
     use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::long_values::LongValuesEnum2;
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config, random,
+        new_directory_shared, new_index_writer_config_with_analyzer, random,
     };
     use rand::RngExt;
 
@@ -564,9 +565,8 @@ mod tests {
 
         let dir = new_directory_shared(&mut random)?;
 
-        // // TODO 这里需要使用带分词器的构造方法
-        // // TODO NoMergePolicy 未实现/未接入
-        let mut cfg = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut cfg = new_index_writer_config_with_analyzer(&mut random, mock);
         cfg.set_merge_policy(NoMergePolicy::default());
 
         let iw = IndexWriter::new(dir.clone(), cfg)?;

@@ -836,7 +836,8 @@ mod tests {
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, create_temp_dir, get_only_leaf_reader, is_night_mode, new_directory_shared,
-        new_fs_directory, new_index_writer_config, new_string_field, random,
+        new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
+        new_string_field, random,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
@@ -846,6 +847,7 @@ mod tests {
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::util::TryIntoInt;
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use std::vec;
 
     #[allow(dead_code)] // for quick search
@@ -857,8 +859,8 @@ mod tests {
 
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 这里应该使用了带有分词器的构造方法
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         {
             let w = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -875,8 +877,8 @@ mod tests {
             w.close()?;
         }
 
-        // TODO: 这里应该使用了带有分词器的构造方法
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut doc = Document::new();
@@ -891,8 +893,8 @@ mod tests {
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用了带有分词器的构造方法
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut doc = Document::new();
@@ -918,8 +920,8 @@ mod tests {
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用了带有分词器的构造方法
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut doc = Document::new();
@@ -949,9 +951,8 @@ mod tests {
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用了带有分词器的构造方法
-
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         {
@@ -986,8 +987,8 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
         let dir = new_directory_shared(&mut random)?;
 
         {
-            // TODO: 这里应该使用了带有分词器的构造方法
-            let iwc = new_index_writer_config(&mut random);
+            let mock = MockAnalyzer::new(&mut random);
+            let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
             let w = IndexWriter::new(dir.clone(), iwc)?;
 
             let mut doc = Document::new();
@@ -997,9 +998,8 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
         }
 
         {
-            // TODO: 这里应该使用了带有分词器的构造方法
-
-            let iwc = new_index_writer_config(&mut random);
+            let mock = MockAnalyzer::new(&mut random);
+            let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
             let w2 = IndexWriter::new(dir.clone(), iwc)?;
 
             let mut doc2 = Document::new();
@@ -1041,8 +1041,8 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用了带有分词器的构造方法
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut doc = Document::new();
@@ -1070,8 +1070,8 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用了带有分词器的构造方法
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut doc = Document::new();
@@ -1101,9 +1101,8 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用了带有分词器的构造方法
-
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         {
@@ -1139,8 +1138,8 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         let dir = new_directory_shared(&mut random)?;
 
         {
-            let iwc = new_index_writer_config(&mut random);
-            // TODO: 这里应该使用了带有分词器的构造方法
+            let mock = MockAnalyzer::new(&mut random);
+            let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
             let w = IndexWriter::new(dir.clone(), iwc)?;
 
             let mut doc = Document::new();
@@ -1193,9 +1192,8 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用了带有分词器的构造方法
-
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let err = BinaryPoint::new("dim", vec![vec![0u8; MAX_NUM_BYTES + 1]]);
@@ -1217,9 +1215,8 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         let mut random = random();
 
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用了带有分词器的构造方法
-
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(MAX_INDEX_DIMENSIONS + 1);

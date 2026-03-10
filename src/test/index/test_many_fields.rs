@@ -24,9 +24,11 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, create_temp_dir, new_directory_shared, new_field, new_fs_directory,
-    new_index_writer_config, new_searcher_with_reader, random,
+    new_index_writer_config, new_index_writer_config_with_analyzer, new_searcher_with_reader,
+    random,
 };
 use rand::RngExt;
 use std::collections::HashMap;
@@ -38,8 +40,8 @@ fn test_many_fields() -> Result<()> {
     let mut random = random();
 
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现 MockAnalyzer
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_max_buffered_docs(10);
 
     let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -134,7 +136,8 @@ fn test_diverse_docs() -> Result<()> {
     let mut random = random();
 
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
+    let mock = MockAnalyzer::new(&mut random);
+    let _iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     let mut iwc = new_index_writer_config(&mut random);
     iwc.set_ram_buffer_size_mb(0.5);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -205,9 +208,9 @@ fn test_diverse_docs() -> Result<()> {
 // TODO memory calculation not implement
 fn test_rotating_field_names() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现MockAnalyzer
     let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_ram_buffer_size_mb(0.2);
     iwc.set_max_buffered_docs(-1);
 

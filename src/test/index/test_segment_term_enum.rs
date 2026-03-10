@@ -29,8 +29,10 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    get_only_leaf_reader, new_directory_shared, new_index_writer_config, new_text_field, random,
+    get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
+    new_text_field, random,
 };
 use rand::Rng;
 use std::collections::HashMap;
@@ -44,8 +46,9 @@ fn test_term_enum() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     let mut field_types = HashMap::new();
     {
-        // TODO: 未实现MockAnalyzer
-        let mut writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+        let mut writer = IndexWriter::new(dir.clone(), iwc)?;
 
         // ADD 100 documents with term : aaa
         // ADD 100 documents with terms: aaa bbb
@@ -69,8 +72,9 @@ fn test_prev_term_at_end() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     let mut field_types = HashMap::new();
 
-    // TODO: 未实现MockAnalyzer
-    let mut writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut writer = IndexWriter::new(dir.clone(), iwc)?;
     add_doc(&mut random, &mut writer, "aaa bbb", &mut field_types)?;
     writer.close()?;
 

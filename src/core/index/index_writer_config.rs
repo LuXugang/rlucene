@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
+use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
@@ -47,6 +47,14 @@ impl IndexWriterConfig {
             base: LiveIndexWriterConfigBase::new(),
         }
     }
+    pub fn with_analyzer<T>(analyzer: T) -> Self
+    where
+        T: Into<AnalyzerEnum>,
+    {
+        Self {
+            base: LiveIndexWriterConfigBase::with_analyzer(analyzer),
+        }
+    }
 }
 
 impl Display for IndexWriterConfig {
@@ -56,7 +64,7 @@ impl Display for IndexWriterConfig {
 }
 
 impl LiveIndexWriterConfig for IndexWriterConfig {
-    type Analyzer = WhitespaceAnalyzer;
+    type Analyzer = AnalyzerEnum;
 
     fn get_analyzer(&self) -> &Self::Analyzer {
         &self.base.analyzer

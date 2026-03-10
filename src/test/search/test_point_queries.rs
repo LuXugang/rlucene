@@ -34,10 +34,11 @@ use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, SliceCopyOps};
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
-    new_searcher_with_wrap, random,
+    at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+    new_searcher_with_reader, new_searcher_with_wrap, random,
 };
 use crate::test::util::test_util::TestUtil;
 use rand::Rng;
@@ -51,8 +52,9 @@ pub struct TestPointQueries;
 fn test_basic_ints() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
     {
         let mut doc = Document::new();
@@ -95,8 +97,9 @@ fn test_basic_ints() -> Result<()> {
 fn test_basic_floats() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现 MockAnalyzer
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
     {
         let mut doc = Document::new();
@@ -146,8 +149,9 @@ fn test_basic_floats() -> Result<()> {
 fn test_basic_longs() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现 MockAnalyzer
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
     {
         let mut doc = Document::new();
@@ -197,8 +201,9 @@ fn test_basic_longs() -> Result<()> {
 fn test_basic_doubles() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现 MockAnalyzer
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
     {
         let mut doc = Document::new();
@@ -248,8 +253,9 @@ fn test_basic_doubles() -> Result<()> {
 fn test_crazy_doubles() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现 MockAnalyzer
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
     {
         let mut doc = Document::new();
@@ -400,8 +406,9 @@ fn test_crazy_doubles() -> Result<()> {
 fn test_crazy_floats() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现 MockAnalyzer
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
     {
         let mut doc = Document::new();

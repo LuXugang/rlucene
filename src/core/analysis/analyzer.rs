@@ -158,10 +158,25 @@ pub trait Analyzer {
         1
     }
 }
+impl_from_for_enum!(
+    AnalyzerEnum,
+    WhitespaceAnalyzer=> Whitespace,
+);
+#[cfg(test)]
+impl_from_for_enum!(
+    AnalyzerEnum,
+    MockAnalyzer=> Mock,
+);
+
 pub enum AnalyzerEnum {
     Whitespace(WhitespaceAnalyzer),
     #[cfg(test)]
     Mock(MockAnalyzer),
+}
+impl Default for AnalyzerEnum {
+    fn default() -> Self {
+        AnalyzerEnum::Whitespace(WhitespaceAnalyzer::default())
+    }
 }
 impl Analyzer for AnalyzerEnum {
     fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
@@ -272,10 +287,6 @@ impl Analyzer for AnalyzerEnum {
         }
     }
 }
-impl_from_for_enum!(
-    AnalyzerEnum,
-    WhitespaceAnalyzer=> Whitespace,
-);
 
 pub enum ReuseStrategyEnum {
     Global(Box<GlobalReuseStrategy<InnerTokenStreams>>),

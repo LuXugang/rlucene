@@ -76,6 +76,8 @@ pub mod lucene_test_case_util {
 
     use std::collections::HashMap;
 
+    use crate::core::analysis::analyzer::AnalyzerEnum;
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use std::sync::Arc;
     use tempfile::TempDir;
 
@@ -127,9 +129,20 @@ pub mod lucene_test_case_util {
         random.random_range(0..100) >= min
     }
 
-    pub(crate) fn new_index_writer_config<R: Rng + ?Sized>(_random: &mut R) -> IndexWriterConfig {
+    pub(crate) fn new_index_writer_config<R: Rng + ?Sized>(random: &mut R) -> IndexWriterConfig {
         // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
-        IndexWriterConfig::new()
+        let mock = MockAnalyzer::new(random);
+        new_index_writer_config_with_analyzer(random, mock)
+    }
+    pub(crate) fn new_index_writer_config_with_analyzer<T, R: Rng + ?Sized>(
+        _random: &mut R,
+        analyzer: T,
+    ) -> IndexWriterConfig
+    where
+        T: Into<AnalyzerEnum>,
+    {
+        // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
+        IndexWriterConfig::with_analyzer(analyzer)
     }
 
     pub fn new_log_merge_policy<R>(r: &mut R) -> Result<MergePolicyEnum>

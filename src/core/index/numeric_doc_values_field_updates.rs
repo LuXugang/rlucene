@@ -240,7 +240,7 @@ mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, is_night_mode, new_bytes_ref_from_string, new_directory_shared,
-        new_index_writer_config, random,
+        new_index_writer_config, new_index_writer_config_with_analyzer, random,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::RngExt;
@@ -249,6 +249,7 @@ mod tests {
 
     use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::util::TryIntoInt;
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use std::vec;
 
     #[allow(dead_code)]
@@ -272,8 +273,8 @@ mod tests {
     fn test_multiple_updates_same_doc() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现MockAnalyzer
-        let mut config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         config.set_max_buffered_docs(3); // small number of docs
         let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -335,8 +336,8 @@ mod tests {
         // in terms of some ops happen more often then others
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let config = new_index_writer_config_with_analyzer(&mut random, mock);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         let add_cutoff = TestUtil::next_int(&mut random, 1, 98);
@@ -413,8 +414,8 @@ mod tests {
     fn test_updates_are_flushed() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let mut config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         config.set_ram_buffer_size_mb(0.00000001);
         let mut writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -446,8 +447,8 @@ mod tests {
     fn test_simple() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let mut config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         // make sure random config doesn't flush on us
         config.set_max_buffered_docs(10);
         config.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
@@ -487,8 +488,8 @@ mod tests {
     fn test_update_few_segments() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let mut config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         config.set_max_buffered_docs(2); // generate few segments
         config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -553,8 +554,8 @@ mod tests {
         // update and delete different documents in the same commit session
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let mut config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         config.set_max_buffered_docs(10);
         config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -594,8 +595,8 @@ mod tests {
     fn test_multiple_doc_values_types() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let mut config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         config.set_max_buffered_docs(10); // prevent merges
         let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -674,8 +675,8 @@ mod tests {
     fn test_multiple_numeric_doc_values() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let mut config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         config.set_max_buffered_docs(10); // prevent merges
         let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -713,8 +714,8 @@ mod tests {
     fn test_document_with_no_value() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let config = new_index_writer_config_with_analyzer(&mut random, mock);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         for i in 0..2 {
@@ -755,8 +756,8 @@ mod tests {
         // we don't support adding new fields or updating existing non-numeric-dv fields through numeric updates
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let config = new_index_writer_config_with_analyzer(&mut random, mock);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         let mut doc = Document::new();
@@ -814,8 +815,8 @@ mod tests {
     fn test_update_segment_with_no_doc_values() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let mut config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -870,8 +871,8 @@ mod tests {
     fn test_update_segment_with_posting_but_no_doc_values() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let mut config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         config.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -920,8 +921,8 @@ mod tests {
         // this used to fail because FieldInfos::Builder neglected to update globalFieldMaps.docValuesTypes map
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let config = new_index_writer_config_with_analyzer(&mut random, mock);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         // add document with both posting field and NDV field of the same name
@@ -960,8 +961,8 @@ mod tests {
         // update same document multiple times across generations
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let mut config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         config.set_max_buffered_docs(4);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -1049,8 +1050,8 @@ mod tests {
     fn test_delete_unused_updates_files() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let config = new_index_writer_config_with_analyzer(&mut random, mock);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         let mut doc = Document::new();
@@ -1172,8 +1173,8 @@ mod tests {
     fn test_updates_order() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let config = new_index_writer_config_with_analyzer(&mut random, mock);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         // add initial document
@@ -1212,8 +1213,8 @@ mod tests {
     fn test_update_all_deleted_segment() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let config = new_index_writer_config_with_analyzer(&mut random, mock);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         // add and commit documents
@@ -1253,8 +1254,8 @@ mod tests {
     fn test_update_two_nonexisting_terms() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let config = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let config = new_index_writer_config_with_analyzer(&mut random, mock);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         // add a document

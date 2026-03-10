@@ -997,11 +997,13 @@ mod tests {
     use crate::core::search::top_docs::TopDocsLike;
     use crate::core::util::CoreHelper;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::query_utils::QueryUtils;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
-        new_searcher_with_reader, new_text_field, random, random_multiplier,
+        at_least, new_directory_shared, new_index_writer_config,
+        new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
+        new_text_field, random, random_multiplier,
     };
     use crate::test::util::test_util::TestUtil;
     #[allow(dead_code)]
@@ -1345,8 +1347,8 @@ mod tests {
     fn test_min_should_match_leniency() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let writer = IndexWriter::new(dir.clone(), iwc)?;
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
         let mut doc = Document::new();

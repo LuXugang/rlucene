@@ -32,10 +32,12 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared, new_field,
-    new_index_writer_config, new_log_merge_policy, new_text_field, random,
+    new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
+    new_text_field, random,
 };
 use rand::Rng;
 use rand::RngExt;
@@ -53,8 +55,8 @@ fn field_name<R: Rng + ?Sized>(random: &mut R) -> String {
 fn test_positions_simple() -> Result<()> {
     let mut random = random();
     let directory = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let config = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, mock);
     let writer = RandomIndexWriter::with_config(&mut random, directory, config);
     let field_name = field_name(&mut random);
     let mut field_types = HashMap::new();
@@ -160,8 +162,8 @@ where
 fn test_random_positions() -> Result<()> {
     let mut random = random();
     let directory = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let mut config = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
     config.set_merge_policy(new_log_merge_policy(&mut random)?);
     let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
@@ -300,8 +302,8 @@ fn test_large_number_of_positions() -> Result<()> {
     let mut random = random();
     let directory = new_directory_shared(&mut random)?;
 
-    // TODO: 未实现 MockAnalyzer
-    let config = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, mock);
     let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
     let field_name = field_name(&mut random);

@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
-use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerEnum};
 use crate::core::codecs::Codec;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
@@ -168,7 +167,7 @@ pub trait LiveIndexWriterConfig: Display {
 }
 
 pub struct LiveIndexWriterConfigBase {
-    pub analyzer: WhitespaceAnalyzer,
+    pub analyzer: AnalyzerEnum,
     pub ram_buffer_size_mb: f64,
     pub max_buffered_docs: i32,
     pub index_deletion_policy: KeepOnlyLastCommitDeletionPolicy,
@@ -198,9 +197,17 @@ impl Default for LiveIndexWriterConfigBase {
 }
 
 impl LiveIndexWriterConfigBase {
+    pub fn with_analyzer<T>(analyzer: T) -> Self
+    where
+        T: Into<AnalyzerEnum>,
+    {
+        let mut v = Self::new();
+        v.analyzer = analyzer.into();
+        v
+    }
     pub fn new() -> Self {
         Self {
-            analyzer: WhitespaceAnalyzer::new(),
+            analyzer: AnalyzerEnum::default(),
             ram_buffer_size_mb: DEFAULT_RAM_BUFFER_SIZE_MB,
             max_buffered_docs: DEFAULT_MAX_BUFFERED_DOCS,
             index_deletion_policy: KeepOnlyLastCommitDeletionPolicy,

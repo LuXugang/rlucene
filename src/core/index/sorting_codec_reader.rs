@@ -1907,17 +1907,17 @@ mod tests {
     use crate::core::search::sorted_set_selector::SortedSetSelectorType::Min;
     use crate::core::search::sorted_set_sort_field::SortedSetSortField;
     use crate::core::util::error::lucene_error::Result;
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config, random,
+        new_directory_shared, new_index_writer_config_with_analyzer, random,
     };
 
     #[test]
     fn test_sort_on_add_indices_ord() -> Result<()> {
         let mut random = random();
         let tmp_dir = new_directory_shared(&mut random)?;
-        // TODO IMPORTANT MockAnalyzer 未实现
-
-        let iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         let w = IndexWriter::new(tmp_dir.clone(), iwc)?;
 
         let mut doc = Document::new();

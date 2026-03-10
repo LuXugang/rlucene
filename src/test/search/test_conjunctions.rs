@@ -28,10 +28,11 @@ use crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::util::DefaultIndexSearch;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config, new_log_merge_policy, new_searcher_with_reader,
-    random,
+    new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
+    new_searcher_with_reader, random,
 };
 use rand::Rng;
 
@@ -43,8 +44,9 @@ const F2: &str = "body";
 
 fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
     let dir = new_directory_shared(random)?;
-    // TODO: 未实现MockAnalyzer
-    let mut config = new_index_writer_config(random);
+    let mock = MockAnalyzer::new(random);
+    let mut config = new_index_writer_config_with_analyzer(random, mock);
+
     config.set_merge_policy(new_log_merge_policy(random)?);
     let w = IndexWriter::new(dir.clone(), config)?;
 

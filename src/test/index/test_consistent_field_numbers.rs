@@ -27,8 +27,10 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory_shared, new_index_writer_config, random,
+    at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+    random,
 };
 use rand::RngExt;
 
@@ -37,13 +39,13 @@ struct TestConsistentFieldNumbers;
 #[test]
 fn test_same_field_numbers_across_segments() -> Result<()> {
     let mut random = random();
-    // TODO: 未实现 MockAnalyzer
     for i in 0..2 {
         let dir = new_directory_shared(&mut random)?;
 
         {
             let writer_opt = {
-                let mut conf = new_index_writer_config(&mut random);
+                let mock = MockAnalyzer::new(&mut random);
+                let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
                 conf.set_merge_policy(NoMergePolicy::default());
                 let writer = IndexWriter::new(dir.clone(), conf)?;
 

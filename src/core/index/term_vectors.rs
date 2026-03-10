@@ -189,8 +189,10 @@ mod tests {
     use crate::core::index::term_vectors::TermVectors;
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::Result;
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config, random,
+        new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+        random,
     };
     use rand::Rng;
     use std::sync::Arc;
@@ -202,8 +204,8 @@ mod tests {
     where
         D: Directory,
     {
-        // TODO: 未实现MockAnalyzer
-        let mut config = new_index_writer_config(random);
+        let mock = MockAnalyzer::new(random);
+        let mut config = new_index_writer_config_with_analyzer(random, mock);
         config.set_max_buffered_docs(2);
         let writer = IndexWriter::new(dir.clone(), config)?;
         writer.add_document(create_doc()?)?;

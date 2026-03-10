@@ -32,9 +32,10 @@ use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_string_field,
-    new_text_field, random,
+    new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+    new_searcher_with_reader, new_string_field, new_text_field, random,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -430,8 +431,8 @@ fn test_nrt_is_current_after_delete() -> Result<()> {
 fn test_only_deletes_triggers_merge_on_close() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_max_buffered_docs(2);
 
     let mut mp = LogMergePolicy::log_doc();
@@ -472,8 +473,8 @@ fn test_only_deletes_triggers_merge_on_close() -> Result<()> {
 fn test_only_deletes_triggers_merge_on_get_reader() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_max_buffered_docs(2);
 
     let mut mp = LogMergePolicy::log_doc();
@@ -517,8 +518,8 @@ fn test_only_deletes_triggers_merge_on_get_reader() -> Result<()> {
 fn test_only_deletes_triggers_merge_on_flush() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_max_buffered_docs(2);
     let mut mp = LogMergePolicy::log_doc();
     mp.set_min_merge_docs(1);
@@ -559,8 +560,8 @@ fn test_only_deletes_triggers_merge_on_flush() -> Result<()> {
 fn test_only_deletes_delete_all_docs() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let mut iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_max_buffered_docs(2);
 
     let mut mp = LogMergePolicy::log_doc();

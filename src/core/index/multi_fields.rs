@@ -119,8 +119,9 @@ mod tests {
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::util::error::lucene_error::Result;
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config, new_string_field, random,
+        new_directory_shared, new_index_writer_config_with_analyzer, new_string_field, random,
     };
     use crate::test::util::test_util::TestUtil;
     use std::collections::HashMap;
@@ -137,9 +138,10 @@ mod tests {
     #[test]
     fn test_separate_enums() -> Result<()> {
         let mut random = random();
-        // TODO: 未实现 MockAnalyzer
         let dir = new_directory_shared(&mut random)?;
-        let iw = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+        let iw = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
         let mut doc = Document::new();
@@ -188,8 +190,9 @@ mod tests {
     fn test_term_docs_enum() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 未实现 MockAnalyzer
-        let iw = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let mock = MockAnalyzer::new(&mut random);
+        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+        let iw = IndexWriter::new(dir.clone(), iwc)?;
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
         let mut doc = Document::new();
         doc.add(new_string_field(

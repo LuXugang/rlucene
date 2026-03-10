@@ -30,9 +30,11 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_field, new_index_writer_config, new_text_field, random,
+    new_directory_shared, new_field, new_index_writer_config,
+    new_index_writer_config_with_analyzer, new_text_field, random,
 };
 use once_cell::sync::Lazy;
 use rand::RngExt;
@@ -86,8 +88,9 @@ fn test_doc_count() -> Result<()> {
 fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), config)?;
 
     let mut field_types = HashMap::new();
     let mut doc = Document::new();
@@ -121,8 +124,9 @@ fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
 fn test_bad_segment() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), config)?;
 
     let mut field_types = HashMap::new();
     let mut doc = Document::new();
@@ -154,8 +158,9 @@ fn test_variable_schema() -> Result<()> {
 fn test_unlimited_max_field_length() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), config)?;
 
     let mut field_types = HashMap::new();
     let mut doc = Document::new();
@@ -179,8 +184,9 @@ fn test_unlimited_max_field_length() -> Result<()> {
 fn test_empty_field_name() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现MockAnalyzer
-    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), config)?;
 
     let mut field_types = HashMap::new();
     let mut doc = Document::new();
@@ -312,8 +318,9 @@ fn test_index_store_combos() -> Result<()> {
 fn test_no_docs_index() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    // TODO: 未实现 MockAnalyzer
-    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
     writer.add_document(Document::new())?;
     writer.close()?;
 
@@ -339,8 +346,8 @@ fn test_delete_same_term_across_fields() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
 
-    // TODO: 未实现 MockAnalyzer
-    let iwc = new_index_writer_config(&mut random);
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -523,8 +530,9 @@ fn test_get_field_names() -> Result<()> {
     }
 
     // reopen writer — should detect committed fields
-    // TODO: 未实现MockAnalyzer
-    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mock = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), config)?;
     assert_eq!(
         HashSet::from(["f1".to_string(), "f2".to_string()]),
         writer.get_field_names()

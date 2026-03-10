@@ -657,7 +657,7 @@ mod tests {
     use crate::core::index::BytesRef;
     use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
     use crate::core::index::index_reader::IndexReader;
-    use crate::core::index::index_writer_config::IndexWriterConfig;
+
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::log_merge_policy::LogMergePolicy;
@@ -680,10 +680,11 @@ mod tests {
     use crate::core::util::automation::reg_exp::RegExp;
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
-        new_index_writer_config, new_string_field, new_text_field, random,
+        new_index_writer_config_with_analyzer, new_string_field, new_text_field, random,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
@@ -911,8 +912,8 @@ mod tests {
         terms: &[String],
     ) -> Result<StandardDirectoryReaderType<DirEnum>> {
         let dir = new_directory_shared(random)?;
-        // TODO: 未实现MockAnalyzer
-        let iwc = new_index_writer_config(random);
+        let mock = MockAnalyzer::new(random);
+        let iwc = new_index_writer_config_with_analyzer(random, mock);
 
         let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -1266,8 +1267,8 @@ mod tests {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 未实现MockAnalyzer
-        let mut iwc = IndexWriterConfig::new();
+        let mock = MockAnalyzer::new(&mut random);
+        let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         iwc.set_merge_policy(LogMergePolicy::log_doc());
         let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -1342,8 +1343,8 @@ mod tests {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 未实现 MockAnalyzer
-        let mut iwc = IndexWriterConfig::new();
+        let mock = MockAnalyzer::new(&mut random);
+        let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         iwc.set_merge_policy(LogMergePolicy::log_doc());
         let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -1438,8 +1439,8 @@ mod tests {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 未实现 MockAnalyzer
-        let mut iwc = IndexWriterConfig::new();
+        let mock = MockAnalyzer::new(&mut random);
+        let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         iwc.set_merge_policy(LogMergePolicy::log_doc());
         let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -1592,11 +1593,12 @@ mod tests2 {
     use crate::core::util::automation::reg_exp::RegExp;
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::Result;
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
-        new_string_field, random,
+        at_least, new_directory_shared, new_index_writer_config_with_analyzer,
+        new_searcher_with_reader, new_string_field, random,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
@@ -1624,8 +1626,8 @@ mod tests2 {
 
         let dir = new_directory_shared(random)?;
 
-        // TODO: 未实现 MockAnalyzer
-        let mut iwc = new_index_writer_config(random);
+        let mock = MockAnalyzer::new(random);
+        let mut iwc = new_index_writer_config_with_analyzer(random, mock);
         iwc.set_merge_policy(LogMergePolicy::log_doc());
         iwc.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
         let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
