@@ -432,7 +432,7 @@ where
         if opt_scorer_doc < cur_doc {
             opt_scorer_doc = ScorerUtil::advance(&mut self.opt_scorer, cur_doc)?;
             let should_skip = {
-                if let Some(mut opt_tpi) = self.opt_scorer.two_phase_iterator() {
+                if let Some(mut opt_tpi) = self.opt_scorer.two_phase_iterator_mut() {
                     opt_scorer_doc == cur_doc && !opt_tpi.matches()?
                 } else {
                     false

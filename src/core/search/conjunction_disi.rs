@@ -357,11 +357,13 @@ where
             for (idx, x) in approximation.all_disi.iter_mut().enumerate() {
                 if let Some(tpi) = x.two_phase_iterator_mut() {
                     two_phase_iterator_idx.push(idx);
-                    tpis.push(tpi);
+                    tpis.push(Some(tpi));
+                } else {
+                    tpis.push(None);
                 }
             }
             let mut total_match_cost = 0.0;
-            for x in tpis.iter_mut() {
+            for x in tpis.iter_mut().flatten() {
                 total_match_cost += x.match_cost();
             }
             let cmp = TwoPhaseIteratorCmp::new(tpis.as_mut());
@@ -410,13 +412,13 @@ struct TwoPhaseIteratorCmp<'a, T>
 where
     T: TwoPhaseIterator,
 {
-    tpis: &'a [T],
+    tpis: &'a [Option<T>],
 }
 impl<'a, T> TwoPhaseIteratorCmp<'a, T>
 where
     T: TwoPhaseIterator,
 {
-    fn new(tpis: &'a [T]) -> Self {
+    fn new(tpis: &'a [Option<T>]) -> Self {
         TwoPhaseIteratorCmp { tpis }
     }
 }
@@ -427,11 +429,17 @@ where
     const TYPE: &'static str = "TwoPhaseIteratorCmp";
 
     fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
-        Ok(self.tpis[*a]
+        let l = self.tpis[*a]
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("tpi is None"))?;
+        let r = self.tpis[*b]
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("tpi is None"))?;
+        let ord = l
             .match_cost()
-            .partial_cmp(&self.tpis[*b].match_cost())
-            .unwrap()
-            .to_int())
+            .partial_cmp(&r.match_cost())
+            .ok_or_else(|| LuceneError::illegal_state("can compare float?, match_cost is NaN"))?;
+        Ok(ord.to_int())
     }
 }
 

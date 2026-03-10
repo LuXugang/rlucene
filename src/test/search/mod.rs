@@ -19,6 +19,8 @@ pub mod dummy_total_hit_count_collector;
 pub mod query_utils;
 pub mod random_approximation_query;
 pub mod similarities;
+pub(crate) mod test_boolean2;
+pub(crate) mod test_boolean_min_should_match;
 mod test_boolean_or;
 pub mod test_boolean_rewrites;
 mod test_conjunctions;

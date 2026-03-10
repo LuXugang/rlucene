@@ -916,7 +916,7 @@ impl QueryBase for BooleanQuery {
 /// A builder for boolean queries
 pub struct Builder {
     minimum_number_should_match: i32,
-    clauses: Vec<BooleanClause>,
+    pub(crate) clauses: Vec<BooleanClause>,
 }
 impl Default for Builder {
     fn default() -> Self {
