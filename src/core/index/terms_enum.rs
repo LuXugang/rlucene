@@ -1582,8 +1582,10 @@ mod tests2 {
     use crate::core::index::log_merge_policy::LogMergePolicy;
     use crate::core::index::multi_terms::get_terms;
     use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+    use crate::core::index::term::Term;
     use crate::core::index::terms::Terms;
     use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+    use crate::core::search::automaton_query::AutomatonQuery;
     use crate::core::search::index_searcher::DefaultIndexSearcher;
     use crate::core::store::directory::DirEnum;
     use crate::core::util::automation::automata::Automata;
@@ -1595,6 +1597,7 @@ mod tests2 {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::search::check_hits::CheckHits;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory_shared, new_index_writer_config_with_analyzer,
@@ -1665,7 +1668,36 @@ mod tests2 {
     }
     #[test]
     fn test_finite_versus_infinite() -> Result<()> {
-        // TODO AutomatonQuery未实现
+        let mut random = random();
+        let (num_iterations, _dir, terms, _terms_automaton, _reader, searcher) =
+            set_up(&mut random)?;
+
+        for _ in 0..num_iterations {
+            let reg = AutomatonTestUtil::random_regexp(&mut random)?;
+            let at = RegExp::from_str_with_flags(&reg, RegExp::NONE)?.to_automaton()?;
+            let automaton =
+                Operations::determinize(&at, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+
+            let mut matched_terms = Vec::new();
+            for t in &terms {
+                if Operations::run_str(&automaton, &t.utf8_to_string()?) {
+                    matched_terms.push(t.clone());
+                }
+            }
+            let v = match automaton {
+                Cow::Borrowed(_) => at,
+                Cow::Owned(a) => a,
+            };
+
+            let alternate = Automata::make_string_union(&matched_terms)?;
+            let a1 = AutomatonQuery::from_automaton(Term::from_text("field", ""), v)?;
+            let a2 = AutomatonQuery::from_automaton(Term::from_text("field", ""), alternate)?;
+
+            let orig_hits = searcher.search(a1.clone(), 25)?.score_docs;
+            let new_hits = searcher.search(a2.clone(), 25)?.score_docs;
+            CheckHits::check_equal(&a1.into(), &orig_hits, &new_hits)?;
+        }
+
         Ok(())
     }
     #[test]

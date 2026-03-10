@@ -16,6 +16,7 @@
  */
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::term_states::build;
 use crate::core::search::boolean_clause::{BooleanClause, Occur};
 use crate::core::search::boolean_weight::{BooleanWeight, WeightedBooleanClause};
 use crate::core::search::boost_query::BoostQuery;
@@ -25,6 +26,7 @@ use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::term_query::TermQuery;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
@@ -209,7 +211,46 @@ impl BooleanQuery {
             score_mode: *score_mode,
         })
     }
+    /// Rewrite a single two clause disjunction query with terms to two term queries and a conjunction query using the inclusion–exclusion principle.
+    pub(crate) fn rewrite_two_clause_disjunction_with_terms_for_count<IRC>(
+        &self,
+        index_searcher: &IndexSearcher<IRC>,
+    ) -> Result<[Query; 3]>
+    where
+        IRC: IndexReaderContext,
+    {
+        let mut new_query = Builder::new();
+        let mut queries: [Option<Query>; 3] = [None, None, None];
+
+        for (clause, slot) in self.clauses.iter().zip(queries.iter_mut()) {
+            let term_query = match &clause.query {
+                Query::Term(q) => q.clone(),
+                _ => {
+                    return Err(LuceneError::unsupported_operation("expected TermQuery"));
+                },
+            };
+
+            let term_query = if term_query.get_term_state().is_none() {
+                let term_states = build(index_searcher, term_query.get_term(), false)?;
+                TermQuery::with_term_state(term_query.get_term().clone(), Some(term_states))
+            } else {
+                term_query
+            };
+
+            new_query.add(term_query.clone(), Occur::Must)?;
+            *slot = Some(term_query.into());
+        }
+
+        queries[2] = Some(new_query.build().into());
+
+        Ok([
+            queries[0].take().unwrap(),
+            queries[1].take().unwrap(),
+            queries[2].take().unwrap(),
+        ])
+    }
 }
+
 impl Hash for BooleanQuery {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.minimum_number_should_match.hash(state);
@@ -995,6 +1036,8 @@ mod tests {
     use crate::core::search::scorer::ScorerKind;
     use crate::core::search::term_query::TermQuery;
     use crate::core::search::top_docs::TopDocsLike;
+    use std::sync::atomic::Ordering;
+
     use crate::core::util::CoreHelper;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::analysis::mock_analyzer::MockAnalyzer;
@@ -1003,7 +1046,7 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory_shared, new_index_writer_config,
         new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
-        new_text_field, random, random_multiplier,
+        new_string_field, new_text_field, random, random_multiplier,
     };
     use crate::test::util::test_util::TestUtil;
     #[allow(dead_code)]
@@ -1909,9 +1952,194 @@ mod tests {
 
         Ok(())
     }
+    struct CountingIndexSearcher<IRC>
+    where
+        IRC: IndexReaderContext + 'static,
+    {
+        in_: IndexSearcher<IRC>,
+        count_invocations: usize,
+    }
+    impl<IRC> CountingIndexSearcher<IRC>
+    where
+        IRC: IndexReaderContext + 'static,
+    {
+        pub fn new(in_: IndexSearcher<IRC>) -> Self {
+            Self {
+                in_,
+                count_invocations: 0,
+            }
+        }
+        pub fn count(&mut self, query: impl Into<Query>) -> Result<i32> {
+            self.count_invocations += 1;
+            self.in_.count(query)
+        }
+    }
     #[test]
     fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
-        // TODO IndexSearch
+        let mut random = random();
+        let larger_term_count = random.random_range(11..=100);
+        let smaller_term_count = random.random_range(1..=(larger_term_count - 1) / 10);
+
+        let mut doc_content = Vec::with_capacity((larger_term_count + smaller_term_count) as usize);
+
+        for _ in 0..larger_term_count {
+            doc_content.push(vec!["large".to_string()]);
+        }
+
+        for _ in 0..smaller_term_count {
+            doc_content.push(vec!["small".to_string(), "also small".to_string()]);
+        }
+
+        let dir = new_directory_shared(&mut random)?;
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut field_types = HashMap::new();
+        for values in doc_content {
+            let mut doc = Document::new();
+            for value in values {
+                doc.add(new_string_field(
+                    &mut random,
+                    "foo",
+                    &value,
+                    Store::No,
+                    &mut field_types,
+                )?);
+            }
+            writer.add_document(doc)?;
+        }
+        writer.force_merge(1)?;
+        writer.close()?;
+
+        let reader = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        {
+            searcher.count_invocations.store(0, Ordering::SeqCst);
+
+            let mut builder = Builder::new();
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "no match")),
+                Occur::Should,
+            )?;
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "also no match")),
+                Occur::Should,
+            )?;
+            let query = builder.build();
+
+            assert_eq!(0, searcher.count(query)?);
+            assert_eq!(3, searcher.count_invocations.load(Ordering::Relaxed));
+        }
+
+        {
+            searcher.count_invocations.store(0, Ordering::SeqCst);
+
+            let mut builder = Builder::new();
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "no match")),
+                Occur::Should,
+            )?;
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "small")),
+                Occur::Should,
+            )?;
+            let query = builder.build();
+
+            assert_eq!(smaller_term_count, searcher.count(query)?);
+            assert_eq!(3, searcher.count_invocations.load(Ordering::Relaxed));
+        }
+
+        {
+            searcher.count_invocations.store(0, Ordering::SeqCst);
+
+            let mut builder = Builder::new();
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "small")),
+                Occur::Should,
+            )?;
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "no match")),
+                Occur::Should,
+            )?;
+            let query = builder.build();
+
+            assert_eq!(smaller_term_count, searcher.count(query)?);
+            assert_eq!(3, searcher.count_invocations.load(Ordering::SeqCst));
+        }
+
+        {
+            searcher.count_invocations.store(0, Ordering::SeqCst);
+
+            let mut builder = Builder::new();
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "small")),
+                Occur::Should,
+            )?;
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "large")),
+                Occur::Should,
+            )?;
+            let query = builder.build();
+
+            let count = searcher.count(query.clone())?;
+
+            assert_eq!(larger_term_count + smaller_term_count, count);
+            assert_eq!(4, searcher.count_invocations.load(Ordering::SeqCst));
+
+            assert!(query.is_two_clause_pure_disjunction_with_terms());
+            let queries = query.rewrite_two_clause_disjunction_with_terms_for_count(&searcher)?;
+            assert_eq!(3, queries.len());
+            assert_eq!(smaller_term_count, searcher.count(queries[0].clone())?);
+            assert_eq!(larger_term_count, searcher.count(queries[1].clone())?);
+        }
+
+        {
+            searcher.count_invocations.store(0, Ordering::SeqCst);
+
+            let mut builder = Builder::new();
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "large")),
+                Occur::Should,
+            )?;
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "small")),
+                Occur::Should,
+            )?;
+            let query = builder.build();
+
+            let count = searcher.count(query.clone())?;
+
+            assert_eq!(larger_term_count + smaller_term_count, count);
+            assert_eq!(4, searcher.count_invocations.load(Ordering::SeqCst));
+
+            assert!(query.is_two_clause_pure_disjunction_with_terms());
+            let queries = query.rewrite_two_clause_disjunction_with_terms_for_count(&searcher)?;
+            assert_eq!(3, queries.len());
+            assert_eq!(larger_term_count, searcher.count(queries[0].clone())?);
+            assert_eq!(smaller_term_count, searcher.count(queries[1].clone())?);
+        }
+
+        {
+            searcher.count_invocations.store(0, Ordering::SeqCst);
+
+            let mut builder = Builder::new();
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "small")),
+                Occur::Should,
+            )?;
+            builder.add(
+                TermQuery::new(Term::from_text("foo", "also small")),
+                Occur::Should,
+            )?;
+            let query = builder.build();
+
+            let count = searcher.count(query)?;
+
+            assert_eq!(smaller_term_count, count);
+            assert_eq!(3, searcher.count_invocations.load(Ordering::SeqCst));
+        }
         Ok(())
     }
     #[test]

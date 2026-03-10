@@ -83,6 +83,9 @@ impl TermQuery {
             per_reader_term_state: ts,
         }
     }
+    pub fn get_term_state(&self) -> Option<&TermStates> {
+        self.per_reader_term_state.as_ref()
+    }
 }
 
 impl PartialEq for TermQuery {

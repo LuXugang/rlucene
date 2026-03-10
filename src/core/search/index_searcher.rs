@@ -92,6 +92,8 @@ where
     // that guarantees that writes become visible on the main thread, but making the variable volatile
     // shouldn't hurt either.
     partial_result: AtomicBool,
+    #[cfg(test)]
+    pub(crate) count_invocations: AtomicUsize,
 }
 pub(crate) struct Inner {
     leaf_slices: Option<Arc<Vec<LeafSlice>>>,
@@ -143,6 +145,8 @@ where
             query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?.into()),
             query_cache: Some(lru_query_cache.into()),
             partial_result: AtomicBool::new(false),
+            #[cfg(test)]
+            count_invocations: AtomicUsize::new(0),
         })
     }
 }
@@ -284,8 +288,37 @@ where
         self.similarity.clone()
     }
 
+    /// Count how many documents match the given query.
+    /// May be faster than counting number of hits by collecting all matches,
+    /// as the number of hits is retrieved from the index statistics when possible.
     pub fn count(&self, query: impl Into<Query>) -> Result<i32> {
-        // TODO IMPORTANT 简单实现 BooleanQuery未实现
+        #[cfg(test)]
+        self.count_invocations.fetch_add(1, Ordering::Relaxed);
+
+        let query = query.into();
+        let mut query = self.rewrite(ConstantScoreQuery::new(Box::new(query)))?;
+        if let Query::ConstantScore(csq) = query {
+            query = csq.into_inner()
+        }
+
+        if let Query::Boolean(boolean_query) = &query {
+            let has_deletions = self.reader_context.reader().has_deletions()?;
+            if !has_deletions && boolean_query.is_two_clause_pure_disjunction_with_terms() {
+                let [query0, query1, query2] =
+                    boolean_query.rewrite_two_clause_disjunction_with_terms_for_count(self)?;
+                let count_term1 = self.count(query0)?;
+                let count_term2 = self.count(query1)?;
+
+                if count_term1 == 0 || count_term2 == 0 {
+                    return Ok(count_term1.max(count_term2));
+                } else if (count_term1.min(count_term2) as f64)
+                    / (count_term1.max(count_term2) as f64)
+                    < 0.1
+                {
+                    return Ok(count_term1 + count_term2 - self.count(query2)?);
+                }
+            }
+        }
         let v = TotalHitCountCollectorManager::new(self.get_slices()?.as_slice());
         self.search_with_collector_manager(query, &v)
     }
