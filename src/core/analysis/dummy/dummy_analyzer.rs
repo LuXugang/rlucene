@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{Analyzer, ReuseStrategyEnum, TokenStreamComponents};
-use crate::core::analysis::token_stream::InnerTokenStreams;
+use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
+use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream};
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyAnalyzer;
@@ -25,6 +26,25 @@ impl Analyzer for DummyAnalyzer {
     }
 
     fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type TokenStream<TS>
+        = DummyTokenStream
+    where
+        TS: TokenStream;
+
+    fn normalize_from_ts<TS>(&self, _field_name: &str, _in_: TS) -> Result<Self::TokenStream<TS>>
+    where
+        TS: TokenStream,
+    {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn default_normalize_from_ts<TS>(&self, _field_name: &str, _in_: TS) -> Result<TS>
+    where
+        TS: TokenStream,
+    {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -14,17 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
 use crate::core::analysis::reader::{Reader, ReaderEnum};
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream};
+use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream, TokenStreams};
 use crate::core::index::BytesRef;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::impl_from_for_enum;
+#[cfg(test)]
+use crate::test::analysis::mock_analyzer::MockAnalyzer;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+
 thread_local! {
     pub static REUSE_STRATEGY: RefCell<Option<ReuseStrategyEnum>> = const { RefCell::new(None) };
 }
@@ -35,12 +40,19 @@ pub trait Analyzer {
     fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
         ReuseStrategyEnum::Global(Box::default())
     }
-    fn normalize_with_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<impl TokenStream>
+    type TokenStream<TS>: TokenStream
+    where
+        TS: TokenStream;
+    fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
+    where
+        TS: TokenStream + Into<TokenStreams>;
+    fn default_normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<TS>
     where
         TS: TokenStream,
     {
         Ok(in_)
     }
+
     fn ensure_reuse_strategy<'a>(
         &'a self,
         slot: &'a mut Option<ReuseStrategyEnum>,
@@ -96,7 +108,7 @@ pub trait Analyzer {
 
         let att = self.attribute_factory(field_name);
         debug_assert!(text.len() <= i32::MAX as usize);
-        let mut ts = self.normalize_with_ts(
+        let mut ts = self.normalize_from_ts(
             field_name,
             StringTokenStream::new(att, &filtered, text.len() as i32),
         )?;
@@ -146,6 +158,125 @@ pub trait Analyzer {
         1
     }
 }
+pub enum AnalyzerEnum {
+    Whitespace(WhitespaceAnalyzer),
+    #[cfg(test)]
+    Mock(MockAnalyzer),
+}
+impl Analyzer for AnalyzerEnum {
+    fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
+        match self {
+            AnalyzerEnum::Whitespace(v) => v.create_components(field),
+            #[cfg(test)]
+            AnalyzerEnum::Mock(v) => v.create_components(field),
+        }
+    }
+
+    fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
+        match self {
+            AnalyzerEnum::Whitespace(v) => v.init_reuse_strategy(),
+            #[cfg(test)]
+            AnalyzerEnum::Mock(v) => v.init_reuse_strategy(),
+        }
+    }
+
+    type TokenStream<TS>
+        = TokenStreams
+    where
+        TS: TokenStream;
+
+    fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
+    where
+        TS: TokenStream + Into<TokenStreams>,
+    {
+        match self {
+            AnalyzerEnum::Whitespace(v) => {
+                let v = v.normalize_from_ts(field_name, in_)?;
+                Ok(v.into())
+            },
+            #[cfg(test)]
+            AnalyzerEnum::Mock(v) => {
+                let v = v.normalize_from_ts(field_name, in_)?;
+                Ok(v.into())
+            },
+        }
+    }
+
+    fn ensure_reuse_strategy<'a>(
+        &'a self,
+        slot: &'a mut Option<ReuseStrategyEnum>,
+    ) -> &'a mut ReuseStrategyEnum {
+        match self {
+            AnalyzerEnum::Whitespace(v) => v.ensure_reuse_strategy(slot),
+            #[cfg(test)]
+            AnalyzerEnum::Mock(v) => v.ensure_reuse_strategy(slot),
+        }
+    }
+
+    fn token_stream<R>(&self, field_name: &str, input: R) -> Result<()>
+    where
+        R: Into<ReaderEnum>,
+    {
+        match self {
+            AnalyzerEnum::Whitespace(v) => v.token_stream(field_name, input),
+            #[cfg(test)]
+            AnalyzerEnum::Mock(v) => v.token_stream(field_name, input),
+        }
+    }
+
+    fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
+        match self {
+            AnalyzerEnum::Whitespace(v) => v.normalize(field_name, text),
+            #[cfg(test)]
+            AnalyzerEnum::Mock(v) => v.normalize(field_name, text),
+        }
+    }
+
+    fn init_reader(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
+        match self {
+            AnalyzerEnum::Whitespace(v) => v.init_reader(_filed_name, reader),
+            #[cfg(test)]
+            AnalyzerEnum::Mock(v) => v.init_reader(_filed_name, reader),
+        }
+    }
+
+    fn init_reader_for_normalization(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
+        match self {
+            AnalyzerEnum::Whitespace(v) => v.init_reader_for_normalization(_filed_name, reader),
+            #[cfg(test)]
+            AnalyzerEnum::Mock(v) => v.init_reader_for_normalization(_filed_name, reader),
+        }
+    }
+
+    fn attribute_factory(&self, field_name: &str) -> Attributes {
+        match self {
+            AnalyzerEnum::Whitespace(v) => v.attribute_factory(field_name),
+            #[cfg(test)]
+            AnalyzerEnum::Mock(v) => v.attribute_factory(field_name),
+        }
+    }
+
+    fn get_position_increment_gap(&self, field_name: &str) -> i32 {
+        match self {
+            AnalyzerEnum::Whitespace(v) => v.get_position_increment_gap(field_name),
+            #[cfg(test)]
+            AnalyzerEnum::Mock(v) => v.get_position_increment_gap(field_name),
+        }
+    }
+
+    fn get_offset_gap(&self, field_name: &str) -> i32 {
+        match self {
+            AnalyzerEnum::Whitespace(v) => v.get_offset_gap(field_name),
+            #[cfg(test)]
+            AnalyzerEnum::Mock(v) => v.get_offset_gap(field_name),
+        }
+    }
+}
+impl_from_for_enum!(
+    AnalyzerEnum,
+    WhitespaceAnalyzer=> Whitespace,
+);
+
 pub enum ReuseStrategyEnum {
     Global(Box<GlobalReuseStrategy<InnerTokenStreams>>),
     PerField(PerFieldReuseStrategy<InnerTokenStreams>),
@@ -332,7 +463,7 @@ where
     }
 }
 
-struct StringTokenStream {
+pub struct StringTokenStream {
     value: String,
     length: i32,
     used: bool,

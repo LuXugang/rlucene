@@ -14,9 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analysis;
-pub mod codecs;
-pub mod index;
-pub mod search;
-pub mod store;
-pub mod util;
+pub mod mock_analyzer;

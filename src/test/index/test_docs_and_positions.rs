@@ -287,6 +287,12 @@ fn test_random_docs() -> Result<()> {
     // TODO MultiTerm未实现
     Ok(())
 }
+fn find_next(docs: &[i32], pos: usize, max: usize) -> usize {
+    if let Some(i) = docs[pos..max].iter().position(|&x| x != 0) {
+        return pos + i;
+    }
+    usize::MAX
+}
 /// tests retrieval of positions for terms that have a large number of occurrences to force test of
 //  buffer refill during positions iteration.
 #[test]
