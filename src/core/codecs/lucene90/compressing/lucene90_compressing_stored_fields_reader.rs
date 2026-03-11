@@ -38,12 +38,12 @@ use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::store::{
-    ByteArrayDataInput, DataInput, DataInputEnum2, IOContext, IndexInput, ReadAdvice,
+    ByteArrayDataInput, DataInput, DataInputEnum3, IOContext, IndexInput, ReadAdvice,
 };
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{CoreHelper, SliceCopyOps, TryIntoInt};
+use crate::core::util::{SliceCopyOps, TryIntoInt};
 use std::clone::Clone;
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
@@ -253,9 +253,9 @@ where
                 reader.compression_mode.new_decompressor(),
                 reader.chunk_size,
             ),
-            num_chunks: 0,
-            num_dirty_chunks: 0,
-            num_dirty_docs: 0,
+            num_chunks: reader.num_dirty_chunks,
+            num_dirty_chunks: reader.num_dirty_docs,
+            num_dirty_docs: reader.num_dirty_docs,
             prefetched_block_id_cache: [-1i64; PREFETCH_CACHE_SIZE],
             prefetched_block_id_cache_index: 0,
             closed: false,
@@ -567,8 +567,9 @@ where
     offsets: Vec<i64>,
     num_stored_fields: Vec<i64>,
     start_pointer: usize,
-    spare: Option<BytesRef<Vec<u8>>>,
-    bytes: Option<BytesRef<Vec<u8>>>,
+    spare: BytesRef<Vec<u8>>,
+    spare2: BytesRef<Vec<u8>>,
+    bytes: BytesRef<Arc<Vec<u8>>>,
     merging: bool,
     fields_stream: I,
     decompressor: DecompressorEnum,
@@ -585,12 +586,6 @@ where
         decompressor: DecompressorEnum,
         chunk_size: i32,
     ) -> Self {
-        let (spare, bytes) = if merging {
-            (Some(BytesRef::new()), Some(BytesRef::new()))
-        } else {
-            (None, None)
-        };
-
         BlockState {
             doc_base: 0,
             chunk_docs: 0,
@@ -598,8 +593,9 @@ where
             offsets: Vec::new(),
             num_stored_fields: Vec::new(),
             start_pointer: 0,
-            spare,
-            bytes,
+            spare: BytesRef::new(),
+            spare2: BytesRef::new(),
+            bytes: BytesRef::new(),
             merging,
             fields_stream,
             decompressor,
@@ -689,45 +685,46 @@ where
             let total_length = self.offsets[self.chunk_docs as usize].try_convert()?;
             // decompress eagerly
             if self.sliced {
-                if let (Some(spare), Some(bytes)) = (&mut self.spare, &mut self.bytes) {
-                    bytes.offset = 0;
-                    bytes.length = 0;
+                self.spare2.offset = 0;
+                self.spare2.length = 0;
+                let mut decompressed = 0;
+                while decompressed < total_length {
+                    let to_decompress = min(total_length - decompressed, self.chunk_size);
+                    self.decompressor.decompress(
+                        &mut self.fields_stream,
+                        to_decompress,
+                        0,
+                        to_decompress,
+                        &mut self.spare,
+                    )?;
 
-                    let mut decompressed = 0;
-                    while decompressed < total_length {
-                        let to_decompress = min(total_length - decompressed, self.chunk_size);
-                        self.decompressor.decompress(
-                            &mut self.fields_stream,
-                            to_decompress,
-                            0,
-                            to_decompress,
-                            spare,
-                        )?;
-
-                        let new_len = bytes.length + spare.length;
-                        ArrayUtil::grow_with_len(&mut bytes.bytes, new_len);
-                        bytes.bytes.copy_from(
-                            &spare.bytes[spare.offset..(spare.offset + spare.length)],
-                            bytes.length,
-                        );
-                        bytes.length = new_len;
-                        decompressed += to_decompress;
-                    }
+                    let new_len = self.spare2.length + self.spare.length;
+                    ArrayUtil::grow_with_len(&mut self.spare2.bytes, new_len);
+                    self.spare2.bytes.copy_from(
+                        &self.spare.bytes
+                            [self.spare.offset..(self.spare.offset + self.spare.length)],
+                        self.spare2.length,
+                    );
+                    self.spare2.length = new_len;
+                    decompressed += to_decompress;
                 }
-            } else if let Some(bytes) = &mut self.bytes {
+            } else {
                 self.decompressor.decompress(
                     &mut self.fields_stream,
                     total_length,
                     0,
                     total_length,
-                    bytes,
+                    &mut self.spare2,
                 )?;
-                if bytes.length != total_length as usize {
-                    return Err(LuceneError::corrupt_index(format!(
-                        "Corrupted: expected chunk size = {}, got {} (resource={})",
-                        total_length, bytes.length, self.fields_stream
-                    )));
-                }
+            }
+            let bytes = std::mem::take(&mut self.spare2.bytes);
+            self.bytes =
+                BytesRef::from_slice(Arc::new(bytes), self.spare2.offset, self.spare2.length);
+            if self.bytes.length != total_length as usize {
+                return Err(LuceneError::corrupt_index(format!(
+                    "Corrupted: expected chunk size = {}, got {} (resource={})",
+                    total_length, self.bytes.length, self.fields_stream
+                )));
             }
         }
         Ok(())
@@ -745,31 +742,16 @@ where
         let total_length = self.offsets[self.chunk_docs as usize].try_convert()?;
         let num_stored_fields = self.num_stored_fields[index].try_convert()?;
 
-        let mut bytes = if self.merging {
-            match self.bytes {
-                Some(ref mut bytes) => CoreHelper::take_and_reset(bytes, |bytes| {
-                    let vec = vec![0; bytes.bytes.len()];
-                    BytesRef::from_slice(vec, 0, 0)
-                }),
-                None => {
-                    return Err(LuceneError::illegal_state(
-                        "bytes is None, but merging is true",
-                    ));
-                },
-            }
-        } else {
-            BytesRef::new()
-        };
-
         let document_input = if length == 0 {
-            DataInputEnum2::A(ByteArrayDataInput::new())
+            DataInputEnum3::A(ByteArrayDataInput::new())
         } else if self.merging {
-            DataInputEnum2::A(ByteArrayDataInput::with_range(
-                std::mem::take(&mut bytes.bytes),
-                bytes.offset + offset as usize,
+            DataInputEnum3::C(ByteArrayDataInput::with_range(
+                self.bytes.bytes.clone(),
+                self.bytes.offset + offset as usize,
                 length,
             ))
         } else {
+            let mut bytes = BytesRef::new();
             self.fields_stream.seek(self.start_pointer)?;
 
             if self.sliced {
@@ -780,7 +762,7 @@ where
                     min(length as i32, self.chunk_size - offset),
                     &mut bytes,
                 )?;
-                DataInputEnum2::B(DataInputImpl::new(
+                DataInputEnum3::B(DataInputImpl::new(
                     &mut self.decompressor,
                     self.chunk_size,
                     &mut self.fields_stream,
@@ -796,7 +778,7 @@ where
                     &mut bytes,
                 )?;
                 debug_assert_eq!(bytes.length, length);
-                DataInputEnum2::A(ByteArrayDataInput::with_range(
+                DataInputEnum3::A(ByteArrayDataInput::with_range(
                     std::mem::take(&mut bytes.bytes),
                     bytes.offset,
                     bytes.length,
@@ -812,7 +794,11 @@ where
     }
 }
 
-type DataInputs<'a, I> = DataInputEnum2<ByteArrayDataInput<Vec<u8>>, DataInputImpl<'a, I>>;
+type DataInputs<'a, I> = DataInputEnum3<
+    ByteArrayDataInput<Vec<u8>>,
+    DataInputImpl<'a, I>,
+    ByteArrayDataInput<Arc<Vec<u8>>>,
+>;
 /// A serialized document. You need to decode its input to get an actual
 /// `Document`.
 pub struct SerializedDocument<'a, I>

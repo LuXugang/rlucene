@@ -629,3 +629,10 @@ define_data_input_enum!(
         B => B
     >
 );
+define_data_input_enum!(
+    pub enum DataInputEnum3<
+        A => A,
+        B => B,
+        C => C,
+    >
+);

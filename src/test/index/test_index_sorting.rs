@@ -2108,7 +2108,7 @@ fn test_multi_valued_random1() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_from_writer(&writer)?);
     let searcher = new_searcher_with_reader(reader.clone())?;
-    let _stored_fields = reader.stored_fields()?;
+    let mut stored_fields = reader.stored_fields()?;
 
     for i in 0..num_docs {
         let term_query = TermQuery::new(Term::from_text("id", i.to_string()));
@@ -2125,10 +2125,8 @@ fn test_multi_valued_random1() -> Result<()> {
                 values.advance(top_docs.score_docs[0].doc)?
             );
             assert_eq!(i as i64, values.long_value()?);
-
-            // TODO IMPORTANT stored_fields合并有bug
-            // let document = _stored_fields.document(top_docs.score_docs[0].doc)?;
-            // assert_eq!(&i.to_string(), document.get("id")?.unwrap().as_ref());
+            let document = stored_fields.document(top_docs.score_docs[0].doc)?;
+            assert_eq!(&i.to_string(), document.get("id")?.unwrap().as_ref());
         }
     }
 
@@ -2288,7 +2286,7 @@ fn test_random3() -> Result<()> {
     // TODO
     Ok(())
 }
-
+#[test]
 fn test_tie_break() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
