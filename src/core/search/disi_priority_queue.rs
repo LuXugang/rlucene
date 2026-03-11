@@ -155,7 +155,7 @@ impl DisiPriorityQueue {
         }
         // Fail early if we're going to over-fill:
         if self.size + len > self.heap.len() {
-            panic!(
+            unreachable!(
                 "Cannot add {} elements to a queue with remaining capacity {}",
                 len,
                 self.heap.len() - self.size

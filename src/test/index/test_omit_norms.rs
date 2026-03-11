@@ -86,7 +86,7 @@ fn test_mixed_merge_throws_error() -> Result<()> {
                 msg.to_string()
             );
         },
-        _ => panic!("expected IllegalArgument error"),
+        _ => unreachable!("expected IllegalArgument error"),
     }
 
     writer.force_merge(1)?;

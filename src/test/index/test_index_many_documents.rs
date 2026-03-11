@@ -74,7 +74,7 @@ fn test_threaded_indexing() -> Result<()> {
                 );
 
                 if let Err(e) = writer.add_document(doc) {
-                    panic!("thread indexing failed: {:?}", e);
+                    unreachable!("thread indexing failed: {:?}", e);
                 }
             }
         }));

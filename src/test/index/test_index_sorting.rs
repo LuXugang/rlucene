@@ -2034,12 +2034,12 @@ fn test_random1() -> Result<()> {
                     previous = value;
                 }
             },
-            _ => panic!("unexpected segment source"),
+            _ => unreachable!("unexpected segment source"),
         }
     }
 
     let searcher = new_searcher_with_reader(reader.clone())?;
-    let _stored_fields = reader.stored_fields()?;
+    let mut stored_fields = reader.stored_fields()?;
 
     for i in 0..num_docs {
         let term_query = TermQuery::new(Term::from_text("id", i.to_string()));
@@ -2056,9 +2056,8 @@ fn test_random1() -> Result<()> {
                 values.advance(top_docs.score_docs[0].doc)?
             );
             assert_eq!(i as i64, values.long_value()?);
-            // TODO IMPORTANT stored_fields合并有bug
-            // let document = stored_fields.document(top_docs.score_docs[0].doc)?;
-            // assert_eq!(&i.to_string(), document.get("id")?.unwrap().as_ref());
+            let document = stored_fields.document(top_docs.score_docs[0].doc)?;
+            assert_eq!(&i.to_string(), document.get("id")?.unwrap().as_ref());
         }
     }
 
@@ -2173,7 +2172,7 @@ fn test_bad_dv_update() -> Result<()> {
                 msg.to_string()
             );
         },
-        _ => panic!("expected IllegalArgument"),
+        _ => unreachable!("expected IllegalArgument"),
     }
 
     let err = writer
@@ -2186,7 +2185,7 @@ fn test_bad_dv_update() -> Result<()> {
                 msg.to_string()
             );
         },
-        _ => panic!("expected IllegalArgument"),
+        _ => unreachable!("expected IllegalArgument"),
     }
 
     writer.close()?;
@@ -2236,7 +2235,7 @@ fn test_bad_sort() -> Result<()> {
         LuceneError::IllegalArgument(msg) => {
             assert_eq!("Cannot sort index with sort field <score>", msg.to_string());
         },
-        _ => panic!("expected IllegalArgument"),
+        _ => unreachable!("expected IllegalArgument"),
     }
 
     Ok(())
@@ -2271,7 +2270,7 @@ fn test_illegal_change_sort() -> Result<()> {
             assert!(message.contains("cannot change previous indexSort=<long: \"foo\">"));
             assert!(message.contains("to new indexSort=<long: \"bar\">"));
         },
-        _ => panic!("expected IllegalArgument"),
+        _ => unreachable!("expected IllegalArgument"),
     }
 
     Ok(())
