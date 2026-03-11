@@ -372,40 +372,50 @@ impl SortFiledBase for SortField {
     type IndexSort = IndexSorterEnumSorter;
 
     fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
-        debug_assert!(self.field.is_some());
-        let field = self.field.as_ref().unwrap();
-        let get_value = NPImpl1::new(field.to_string());
-        let v1 = SProviderImpl2::new(field.to_string());
+        let make_get_value = || -> Result<NPImpl1> {
+            let field = self
+                .field
+                .as_ref()
+                .ok_or_else(|| LuceneError::illegal_state("field is None"))?;
+            Ok(NPImpl1::new(field.to_string()))
+        };
         match self.type_ {
-            SortFieldType::String => Ok(Some(IndexSorterEnumSorter::String(StringSorter::new(
-                NumericProvider::NAME.to_string(),
-                self.missing_value.clone(),
-                self.reverse,
-                v1,
-            )))),
+            SortFieldType::String => {
+                let field = self
+                    .field
+                    .as_ref()
+                    .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+                let v = SProviderImpl2::new(field.to_string());
+                Ok(Some(IndexSorterEnumSorter::String(StringSorter::new(
+                    NumericProvider::NAME.to_string(),
+                    self.missing_value.clone(),
+                    self.reverse,
+                    v,
+                ))))
+            },
             SortFieldType::Int => Ok(Some(IndexSorterEnumSorter::Int(IntSorter::new(
                 NumericProvider::NAME.to_string(),
                 self.missing_value.clone(),
                 self.reverse,
-                get_value,
+                make_get_value()?,
             )?))),
             SortFieldType::Long => Ok(Some(IndexSorterEnumSorter::Long(LongSorter::new(
                 NumericProvider::NAME.to_string(),
                 self.missing_value.clone(),
                 self.reverse,
-                get_value,
+                make_get_value()?,
             )?))),
             SortFieldType::Double => Ok(Some(IndexSorterEnumSorter::Double(DoubleSorter::new(
                 NumericProvider::NAME.to_string(),
                 self.missing_value.clone(),
                 self.reverse,
-                get_value,
+                make_get_value()?,
             )?))),
             SortFieldType::Float => Ok(Some(IndexSorterEnumSorter::Float(FloatSorter::new(
                 NumericProvider::NAME.to_string(),
                 self.missing_value.clone(),
                 self.reverse,
-                get_value,
+                make_get_value()?,
             )?))),
             _ => Ok(None),
         }

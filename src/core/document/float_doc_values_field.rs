@@ -35,7 +35,7 @@ impl FloatDocValuesField {
     where
         T: Into<String>,
     {
-        let int_value = value.to_bits() as i64;
+        let int_value = value.to_bits() as i32 as i64;
         let parent_field = NumericDocValuesField::new(name, int_value);
         FloatDocValuesField { parent_field }
     }
@@ -128,7 +128,7 @@ impl FieldBase for FloatDocValuesField {
     }
 
     fn set_float_value(&mut self, value: f32) -> Result<()> {
-        let value = value.to_bits() as i64;
+        let value = value.to_bits() as i32 as i64;
         self.parent_field.parent_field.set_long_value(value)
     }
 }

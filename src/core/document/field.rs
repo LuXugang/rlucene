@@ -2216,8 +2216,8 @@ mod tests {
     #[test]
     fn test_binary_string_field() -> Result<()> {
         let fields = vec![
-            StringField::with_bytes_ref("foo", "bar".into(), Store::No)?,
-            StringField::with_bytes_ref("foo", "bar".into(), Store::Yes)?,
+            StringField::from_bytes_ref("foo", "bar".into(), Store::No)?,
+            StringField::from_bytes_ref("foo", "bar".into(), Store::Yes)?,
         ];
 
         for mut field in fields {
@@ -2682,7 +2682,7 @@ mod tests {
 
         let mut doc = Document::new();
         let br = new_bytes_ref_from_bytes(&mut random, &[0u8; 5])?;
-        let field = StringField::with_bytes_ref("binary", br.clone(), Store::Yes)?;
+        let field = StringField::from_bytes_ref("binary", br.clone(), Store::Yes)?;
         assert_eq!(field.binary_value()?.as_ref().unwrap().as_ref(), &br);
 
         doc.add(field);

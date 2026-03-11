@@ -51,7 +51,7 @@ impl MaxScoreAccumulator {
 
     pub(crate) fn accumulate(&self, doc_id: i32, score: f32) {
         debug_assert!(doc_id >= 0 && score >= 0.0);
-        let encode: i64 = ((score.to_bits() as i64) << 32) | (doc_id as i64 & 0xffffffff);
+        let encode: i64 = ((score.to_bits() as i32 as i64) << 32) | (doc_id as i64 & 0xffffffff);
         let mut prev = self.acc.load(Ordering::Relaxed);
         loop {
             let next = Self::max_encode(prev, encode);

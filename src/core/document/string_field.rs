@@ -109,7 +109,7 @@ impl StringField {
     ///   must not be modified until the document(s) holding it have been
     ///   indexed.
     /// - `stored`: `Store::Yes` if the content should also be stored.
-    pub fn with_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>, store: Store) -> Result<Self>
+    pub fn from_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>, store: Store) -> Result<Self>
     where
         T: Into<String>,
     {
