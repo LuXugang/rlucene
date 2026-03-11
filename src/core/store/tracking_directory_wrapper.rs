@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::Identity;
-use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::filter_directory::FilterDirectory;
+use crate::core::store::{IOContext, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
@@ -124,7 +124,10 @@ where
         suffix: &str,
         context: &IOContext,
     ) -> Result<Self::IndexOutput> {
-        self.in_.create_temp_output(prefix, suffix, context)
+        let temp = self.in_.create_temp_output(prefix, suffix, context)?;
+        let name = temp.get_name().to_string();
+        self.inner.lock().created_filenames.insert(name);
+        Ok(temp)
     }
 
     fn sync(&self, names: &[String]) -> Result<()> {

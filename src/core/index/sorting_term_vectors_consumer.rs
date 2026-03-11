@@ -53,20 +53,27 @@ where
             <TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput,
         >,
     >,
-    tmp_directory: TrackingTmpOutputDirectoryWrapper<Arc<D>>,
-    stored_fields_format: Option<Lucene90CompressingTermVectorsFormat>,
+    tmp_directory: Option<TrackingTmpOutputDirectoryWrapper<Arc<D>>>,
+    tmp_term_vectors_format: Lucene90CompressingTermVectorsFormat,
 }
 impl<D> SortingTermVectorsConsumer<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(directory: Arc<D>) -> Self {
-        let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(directory);
-        Self {
+    pub(crate) fn new() -> Result<Self> {
+        let tmp_term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
+            "TempTermVectors",
+            "",
+            CompressionModeEnum::Impl(NoCompression),
+            8 * 1024,
+            128,
+            10,
+        )?;
+        Ok(Self {
             writer: None,
-            tmp_directory,
-            stored_fields_format: None,
-        }
+            tmp_directory: None,
+            tmp_term_vectors_format,
+        })
     }
 
     fn write_term_vectors<TVW, F>(
@@ -222,9 +229,9 @@ where
         DM: DocMap,
         D1: Directory,
     {
-        {
-            let mut reader = self.stored_fields_format.as_mut().unwrap().vectors_reader(
-                &self.tmp_directory,
+        if let Some(ref tmp_directory) = self.tmp_directory {
+            let mut reader = self.tmp_term_vectors_format.vectors_reader(
+                tmp_directory,
                 segment_info,
                 state.field_infos.clone(),
                 &IOContext::default_io_context()?,
@@ -237,20 +244,23 @@ where
                 segment_info,
                 &state.context.clone(),
             )?;
-
-            reader.check_integrity()?;
-            let max_doc = segment_info.max_doc()?;
-            for doc_id in 0..max_doc {
-                let read_id = match sort_map {
-                    Some(sm) => sm.new_to_old(doc_id)?,
-                    None => doc_id,
-                };
-                let vectors = reader.get(read_id)?;
-                Self::write_term_vectors(&mut writer, vectors.as_ref(), &state.field_infos)?;
-            }
-            writer.finish(max_doc, state.directory)?;
-            let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
-            IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
+            let result: Result<()> = (|| {
+                reader.check_integrity()?;
+                let max_doc = segment_info.max_doc()?;
+                for doc_id in 0..max_doc {
+                    let read_id = match sort_map {
+                        Some(sm) => sm.new_to_old(doc_id)?,
+                        None => doc_id,
+                    };
+                    let vectors = reader.get(read_id)?;
+                    Self::write_term_vectors(&mut writer, vectors.as_ref(), &state.field_infos)?;
+                }
+                writer.finish(max_doc, state.directory)?;
+                Ok(())
+            })();
+            let file_names = &tmp_directory.get_temporary_files().borrow().file_names;
+            IOUtils::delete_files(tmp_directory, file_names.values())?;
+            result?
         }
         Ok(())
     }
@@ -260,30 +270,27 @@ where
         last_doc_id: i32,
         info: &SegmentInfo<D1>,
         bytes_used: i64,
+        dir: Arc<D>,
     ) -> Result<()>
     where
         D1: Directory,
     {
         let context = IOContext::with_flush(FlushInfo::new(last_doc_id, bytes_used))?;
-        let term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
-            "TempTermVectors",
-            "",
-            CompressionModeEnum::Impl(NoCompression),
-            8 * 1024,
-            128,
-            10,
-        )?;
-        self.writer = Option::from(term_vectors_format.vectors_writer(
-            &self.tmp_directory,
+        let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(dir);
+        self.writer = Option::from(self.tmp_term_vectors_format.vectors_writer(
+            &tmp_directory,
             info,
             &context,
         )?);
+        self.tmp_directory = Some(tmp_directory);
         Ok(())
     }
 
     fn abort(&mut self) -> Result<()> {
-        let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
-        IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
+        if let Some(ref tmp_directory) = self.tmp_directory {
+            let file_names = &tmp_directory.get_temporary_files().borrow().file_names;
+            IOUtils::delete_files(&tmp_directory, file_names.values())?;
+        }
         Ok(())
     }
 }

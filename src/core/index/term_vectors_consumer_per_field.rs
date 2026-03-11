@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
+use crate::core::index::BytesRef;
 use crate::core::index::byte_slice_reader::ByteSliceReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_invert_state::FieldInvertState;
@@ -93,10 +94,7 @@ impl TermVectorsConsumerPerField {
         let num_postings = self.base.get_num_terms();
         debug_assert!(num_postings >= 0);
 
-        let tv = term_vectors_consumer
-            .writer
-            .as_mut()
-            .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
+        let tv = term_vectors_consumer.get_writer()?;
 
         self.base.sort_terms(byte_pool)?;
         let term_ids = self.base.get_sorted_term_ids();
@@ -108,7 +106,7 @@ impl TermVectorsConsumerPerField {
             self.do_vector_offsets,
             self.has_payloads,
         )?;
-
+        let mut flush_term = BytesRef::new();
         let postings_array_enum = self
             .base
             .bytes_hash
@@ -125,12 +123,12 @@ impl TermVectorsConsumerPerField {
                     let term_id = term_ids[i as usize];
                     let freq = postings.freqs[term_id as usize];
                     self.term_byte_pool.fill_bytes_ref(
-                        &mut term_vectors_consumer.flush_term,
+                        &mut flush_term,
                         postings.parent.text_starts[term_id as usize],
                         byte_pool,
                     );
 
-                    tv.start_term(&term_vectors_consumer.flush_term, freq)?;
+                    tv.start_term(&flush_term, freq)?;
 
                     if self.do_vector_positions || self.do_vector_offsets {
                         if self.do_vector_positions {
@@ -147,7 +145,7 @@ impl TermVectorsConsumerPerField {
                     tv.finish_term()?;
                 }
             },
-            _ => unreachable!("Expected TermVectors postings"),
+            _ => return Err(LuceneError::illegal_state("Expected TermVectors postings")),
         }
 
         tv.finish_field()?;
@@ -362,7 +360,7 @@ impl TermVectorsConsumerPerField {
                     last_position = Some(field_state.position);
                 }
             },
-            _ => unreachable!("should not be here"),
+            _ => return Err(LuceneError::illegal_state("Expected TermVectors postings")),
         }
         let postings = self
             .base
@@ -381,7 +379,7 @@ impl TermVectorsConsumerPerField {
                     postings.last_positions[term_id] = pos;
                 }
             },
-            _ => unreachable!("should not be here"),
+            _ => return Err(LuceneError::illegal_state("Expected TermVectors postings")),
         }
 
         Ok(())
@@ -450,7 +448,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
 
             self.write_prox(term_id, field_state, attribute_source, int_pool, byte_pool)?;
         } else {
-            unreachable!("Expected TermVectors postings");
+            return Err(LuceneError::illegal_state("Expected TermVectors postings"));
         }
         Ok(())
     }
@@ -479,7 +477,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
             postings.freqs[term_id] += freq;
             self.write_prox(term_id, state, attribute_source, int_pool, byte_pool)?;
         } else {
-            unreachable!("Expected TermVectors postings");
+            return Err(LuceneError::illegal_state("Expected TermVectors postings"));
         }
 
         Ok(())

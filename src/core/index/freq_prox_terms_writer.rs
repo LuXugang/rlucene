@@ -854,7 +854,7 @@ where
         let posting_input = self.posting_input.as_mut().unwrap();
         posting_input.seek(offset as usize)?;
 
-        posting_input.read_vint()?;
+        self.curr_freq = posting_input.read_vint()?;
 
         self.pos = 0;
         self.end_offset = 0;

@@ -753,11 +753,10 @@ impl PostingsEnum for FreqProxPostingsEnum {
     }
 
     fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        if !self.has_payload {
-            return Err(LuceneError::unsupported_operation(
-                "Payloads not indexed".to_string(),
-            ));
+        if self.has_payload {
+            Ok(Some(Cow::Borrowed(&self.payload.bytes_ref)))
+        } else {
+            Ok(None)
         }
-        Ok(Some(Cow::Borrowed(&self.payload.bytes_ref)))
     }
 }

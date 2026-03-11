@@ -240,7 +240,7 @@ where
             &segment_info,
             directory_wrapped.clone(),
             index_writer_config,
-        );
+        )?;
 
         // TODO: 应该在updateDocuments期间调用
         // let parent_field = index_writer_config
@@ -368,7 +368,7 @@ where
                             && self.index_major_version_created >= LUCENE_10_0_0.major
                         {
                             return Err(LuceneError::illegal_argument(
-                                "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#set_parent_field",
+                                "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#setParentField",
                             ));
                         } else {
                             self.reserve_one_doc()?;

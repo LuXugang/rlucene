@@ -17,7 +17,6 @@
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::codecs::term_vectors_writer::{DefaultTermVectorsWriter, TermVectorsWriter};
 use crate::core::codecs::{Codec, get_default_code};
-use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::indexing_chain::PerField;
 use crate::core::index::segment_info::SegmentInfo;
@@ -44,8 +43,6 @@ where
 {
     directory: Arc<D>,
     pub(crate) writer: Option<DefaultTermVectorsWriter<D::IndexOutput>>,
-    // Scratch term used by TermVectorsConsumerPerField.finishDocument.
-    pub(crate) flush_term: BytesRef<Vec<u8>>,
     has_vectors: bool,
     num_vector_fields: i32,
     pub(crate) last_doc_id: i32,
@@ -104,7 +101,6 @@ where
         TermVectorsConsumer {
             directory,
             writer: None,
-            flush_term: BytesRef::default(),
             has_vectors: false,
             num_vector_fields: 0,
             last_doc_id: 0,
@@ -276,6 +272,7 @@ where
                         self.last_doc_id,
                         info,
                         self.base.bytes_used.get(),
+                        self.directory.clone(),
                     )?;
                     self.last_doc_id = 0;
                 }
@@ -304,6 +301,15 @@ where
         }
         Ok(())
     }
+
+    pub(crate) fn get_writer(&mut self) -> Result<&mut DefaultTermVectorsWriter<D::IndexOutput>> {
+        let v = match self.sub {
+            Some(ref mut v) => &mut v.writer,
+            None => &mut self.writer,
+        };
+        v.as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))
+    }
 }
 
 pub(crate) trait TermVectorsConsumerBase {
@@ -323,6 +329,7 @@ pub(crate) trait TermVectorsConsumerBase {
         last_doc_id: i32,
         info: &SegmentInfo<D1>,
         bytes_used: i64,
+        dir: Arc<Self::Directory>,
     ) -> Result<()>
     where
         D1: Directory;

@@ -163,27 +163,26 @@ where
         segment_info: &SegmentInfo<D1>,
         directory: Arc<D>,
         index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Self
+    ) -> Result<Self>
     where
         D1: Directory,
     {
         let bytes_used = Arc::new(AtomicCounter::new());
-        let (stored_fields_consumer, term_vectors_writer) = if segment_info
-            .get_index_sort()
-            .is_none()
-        {
-            (
-                StoredFieldsConsumer::new(Arc::clone(&directory), None),
-                TermVectorsConsumer::new(Arc::clone(&directory), None),
-            )
-        } else {
-            let stored_fields_consumer_sub = SortingStoredFieldsConsumer::new(directory.clone());
-            let term_vector_consumer_sub = SortingTermVectorsConsumer::new(directory.clone());
-            (
-                StoredFieldsConsumer::new(Arc::clone(&directory), Some(stored_fields_consumer_sub)),
-                TermVectorsConsumer::new(Arc::clone(&directory), Some(term_vector_consumer_sub)),
-            )
-        };
+        let (stored_fields_consumer, term_vectors_writer) =
+            if segment_info.get_index_sort().is_none() {
+                (
+                    StoredFieldsConsumer::new(directory.clone(), None),
+                    TermVectorsConsumer::new(directory.clone(), None),
+                )
+            } else {
+                let stored_fields_consumer_sub =
+                    SortingStoredFieldsConsumer::new(directory.clone());
+                let term_vector_consumer_sub = SortingTermVectorsConsumer::new()?;
+                (
+                    StoredFieldsConsumer::new(directory.clone(), Some(stored_fields_consumer_sub)),
+                    TermVectorsConsumer::new(directory.clone(), Some(term_vector_consumer_sub)),
+                )
+            };
 
         let terms_hash = FreqProxTermsWriter::new(bytes_used.clone(), term_vectors_writer);
         let doc_values_byte_pool = ByteBlockPool::new(DirectTrackingAllocatorByte::allocator_enum(
@@ -201,7 +200,7 @@ where
             freq_prox_term_int_pool,
             byte_pool,
         };
-        IndexingChain {
+        Ok(IndexingChain {
             bytes_used,
             terms_hash,
             doc_values_byte_pool,
@@ -217,7 +216,7 @@ where
             index_created_version_major,
             has_hit_aborting_exception: false,
             context,
-        }
+        })
     }
     pub(crate) fn maybe_sort_segment<D1>(
         &mut self,

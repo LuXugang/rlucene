@@ -117,7 +117,7 @@ where
 
         // create file_deleter
         let file_deleter = FileDeleter::new(
-            Arc::clone(&directory),
+            directory.clone(),
             Some(MessengerImpl::new(info_stream.clone(), false)),
         );
 
