@@ -853,3 +853,170 @@ where
     }
     Ok(())
 }
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::field_type::FieldType;
+    use rand::Rng;
+    use std::collections::HashMap;
+
+    use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::store::directory::Directory;
+    use crate::core::store::{DataInput, DataOutput, IndexInput};
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_io_context, new_string_field, new_text_field,
+    };
+    #[allow(dead_code)] // for quick search
+    struct TestIndexFileDeleter;
+
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_delete_left_over_files() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    fn diff_files(files1: &[String], files2: &[String]) -> HashSet<String> {
+        let set1: HashSet<String> = files1.iter().cloned().collect();
+        let set2: HashSet<String> = files2.iter().cloned().collect();
+        let mut extra = HashSet::new();
+
+        for item in &set1 {
+            if !set2.contains(item) {
+                extra.insert(item.clone());
+            }
+        }
+        for item in &set2 {
+            if !set1.contains(item) {
+                extra.insert(item.clone());
+            }
+        }
+
+        extra
+    }
+
+    fn as_string(list: &[String]) -> String {
+        let mut s = String::new();
+        for (i, item) in list.iter().enumerate() {
+            if i > 0 {
+                s.push_str("\n    ");
+            }
+            s.push_str(item);
+        }
+        s
+    }
+    fn copy_file<D: Directory, R: Rng + ?Sized>(
+        random: &mut R,
+        dir: &D,
+        src: &str,
+        dest: &str,
+    ) -> Result<()> {
+        let mut input = dir.open_input(src, &new_io_context(random)?)?;
+        let mut output = dir.create_output(dest, &new_io_context(random)?)?;
+        let mut buffer = [0u8; 1024];
+        let mut remainder = input.length() as i64;
+
+        while remainder > 0 {
+            let len = usize::min(buffer.len(), remainder as usize);
+            input.read_bytes(&mut buffer, 0, len)?;
+            output.write_bytes_with_len(&buffer, len)?;
+            remainder -= len as i64;
+        }
+
+        Ok(())
+    }
+    fn add_doc<D, L, B, R: Rng + ?Sized>(
+        random: &mut R,
+        writer: &mut IndexWriter<D, L, B>,
+        id: i32,
+        field_types: &mut HashMap<String, FieldType>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        let mut doc = Document::new();
+
+        doc.add(new_text_field(
+            random,
+            "content",
+            "aaa",
+            Store::No,
+            field_types,
+        )?);
+
+        doc.add(new_string_field(
+            random,
+            "id",
+            id.to_string(),
+            Store::No,
+            field_types,
+        )?);
+        writer.add_document(doc)?;
+        Ok(())
+    }
+    #[test]
+    fn test_virus_scanner_doesnt_corrupt_index() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_segments_dot_gen_inflation() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_segments_inflation() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_segment_name_inflation() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_generation_inflation() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_trashy_file() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_trashy_gen_file() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_exc_in_dec_ref() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_exc_in_delete_file() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_throw_exception_while_delete_commits() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+}
