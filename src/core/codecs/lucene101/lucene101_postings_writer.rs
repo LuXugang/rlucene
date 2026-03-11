@@ -398,8 +398,7 @@ where
             debug_assert!((self.scratch_output.size() + BitUtil::SHORT_BYTES) <= i16::MAX as usize);
             self.doc_out
                 .write_short((self.scratch_output.size() + BitUtil::SHORT_BYTES) as i16)?;
-            self.doc_out
-                .write_short(self.scratch_output.size() as i16)?;
+            self.doc_out.write_short(num_impact_bytes as i16)?;
             self.scratch_output.copy_to(&mut self.doc_out)?;
             self.scratch_output.reset();
         } else {

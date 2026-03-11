@@ -192,7 +192,7 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
     writer.close()?;
     Ok(searcher)
 }
-// TODO 测试未通过
+#[test]
 fn test_boolean_scorer_max() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
