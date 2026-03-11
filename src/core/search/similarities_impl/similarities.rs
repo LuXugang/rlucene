@@ -173,6 +173,8 @@ impl SimilarityEnum {
     }
 }
 
+pub type SimilarityEnumSimScorer = <SimilarityEnum as Similarity>::SimScorer;
+
 impl_from_for_enum!(
     SimilarityEnum,
     BM25Similarity => BM25,
@@ -210,7 +212,7 @@ impl Similarity for SimilarityEnum {
         }
     }
 
-    type SimScorer = SimScorerEnum4<BM25Scorer, RawTFSimScorer, TFIDFScorer, BoxSimScorer>;
+    type SimScorer = SimScorerEnum;
 
     fn scorer(
         &self,
@@ -221,23 +223,64 @@ impl Similarity for SimilarityEnum {
         match self {
             Self::BM25(inner) => {
                 let scorer = inner.scorer(boost, collection_stats, term_stats)?;
-                Ok(SimScorerEnum4::A(scorer))
+                Ok(SimScorerEnum::BM25(Box::new(scorer)))
             },
             Self::RawTF(inner) => {
                 let scorer = inner.scorer(boost, collection_stats, term_stats)?;
-                Ok(SimScorerEnum4::B(scorer))
+                Ok(SimScorerEnum::RawTFSim(scorer))
             },
             Self::TFIDF(inner) => {
                 let scorer = inner.scorer(boost, collection_stats, term_stats)?;
-                Ok(SimScorerEnum4::C(scorer))
+                Ok(SimScorerEnum::TFIDF(scorer))
             },
             Self::Custom(inner) => {
                 let scorer = inner.scorer(boost, collection_stats, term_stats)?;
-                Ok(SimScorerEnum4::D(scorer))
+                Ok(SimScorerEnum::Custom(scorer))
             },
         }
     }
 }
+
+pub enum SimScorerEnum {
+    BM25(Box<BM25Scorer>),
+    RawTFSim(RawTFSimScorer),
+    TFIDF(TFIDFScorer),
+    Custom(BoxSimScorer),
+}
+impl SimScorerEnum {
+    pub fn custom<S>(sim: S) -> Self
+    where
+        S: SimScorer + Send + Sync + 'static,
+    {
+        Self::Custom(Box::new(sim))
+    }
+}
+impl_from_for_enum!(
+    SimScorerEnum,
+    Box<BM25Scorer> => BM25,
+    RawTFSimScorer => RawTFSim,
+    TFIDFScorer => TFIDF,
+);
+impl SimScorer for SimScorerEnum {
+    fn score(&self, freq: f32, norm: i64) -> f32 {
+        match self {
+            Self::BM25(inner) => inner.score(freq, norm),
+            Self::RawTFSim(inner) => inner.score(freq, norm),
+            Self::TFIDF(inner) => inner.score(freq, norm),
+            Self::Custom(inner) => inner.score(freq, norm),
+        }
+    }
+
+    fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
+        match self {
+            Self::BM25(inner) => inner.explain(freq, norm),
+            Self::RawTFSim(inner) => inner.explain(freq, norm),
+            Self::TFIDF(inner) => inner.explain(freq, norm),
+            Self::Custom(inner) => inner.explain(freq, norm),
+        }
+    }
+}
+
 impl<T: ?Sized + Similarity> Similarity for Box<T> {
     fn get_discount_overlaps(&self) -> bool {
         (**self).get_discount_overlaps()

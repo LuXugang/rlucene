@@ -230,7 +230,7 @@ impl BooleanQuery {
                 },
             };
 
-            let term_query = if term_query.get_term_state().is_none() {
+            let term_query = if term_query.get_term_states().is_none() {
                 let term_states = build(index_searcher, term_query.get_term(), false)?;
                 TermQuery::with_term_state(term_query.get_term().clone(), Some(term_states))
             } else {
