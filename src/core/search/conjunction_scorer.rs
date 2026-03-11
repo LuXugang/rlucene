@@ -239,6 +239,6 @@ where
 
     #[cfg(test)]
     fn kind(&self) -> ScorerKind {
-        ScorerKind::ConstantScore
+        ScorerKind::Conjunction
     }
 }

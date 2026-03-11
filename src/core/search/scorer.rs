@@ -17,6 +17,8 @@
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::scorable::{ChildScorable, Scorable};
+#[cfg(test)]
+use crate::core::search::scorer::ScorerKind::Other;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 
@@ -140,7 +142,7 @@ pub trait Scorer: Scorable {
 
     #[cfg(test)]
     fn kind(&self) -> ScorerKind {
-        unimplemented!("")
+        Other
     }
 }
 #[cfg(test)]
@@ -153,6 +155,7 @@ pub enum ScorerKind {
     Boolean,
     ConstantScore,
     Phrase,
+    Other,
 }
 
 impl<T> Scorable for Box<T>

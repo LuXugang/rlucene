@@ -809,7 +809,7 @@ mod tests {
         w.close()?;
         Ok(())
     }
-    // TODO IMPORTANT 测试未通过
+    #[test]
     fn test_filter_constant_score() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
@@ -867,14 +867,10 @@ mod tests {
 
         for query in queries {
             let rewrite = searcher.rewrite(query)?;
-            for score_mode in [
-                ScoreMode::Complete,
-                ScoreMode::CompleteNoScores,
-                ScoreMode::TopScores,
-            ] {
-                let weight = searcher.create_weight(rewrite.clone(), score_mode, 1.0)?;
+            for score_mode in ScoreMode::values() {
+                let weight = searcher.create_weight(rewrite.clone(), *score_mode, 1.0)?;
                 let scorer = weight.scorer(ctx, &searcher)?.unwrap();
-                if score_mode == ScoreMode::TopScores {
+                if *score_mode == ScoreMode::TopScores {
                     assert!(matches!(scorer.kind(), ScorerKind::ConstantScore));
                 } else {
                     assert!(!matches!(scorer.kind(), ScorerKind::ConstantScore));
@@ -907,14 +903,14 @@ mod tests {
 
         for query in queries {
             let rewrite = searcher.rewrite(query)?;
-            for score_mode in [
-                ScoreMode::Complete,
-                ScoreMode::CompleteNoScores,
-                ScoreMode::TopScores,
-            ] {
-                let weight = searcher.create_weight(rewrite.clone(), score_mode, 1.0)?;
-                let scorer = weight.scorer(ctx, &searcher)?.unwrap();
-                assert!(!matches!(scorer.kind(), ScorerKind::ConstantScore));
+            for score_mode in ScoreMode::values() {
+                let weight = searcher.create_weight(rewrite.clone(), *score_mode, 1.0)?;
+                match weight.scorer(ctx, &searcher)? {
+                    None => continue,
+                    Some(scorer) => {
+                        assert!(!matches!(scorer.kind(), ScorerKind::ConstantScore));
+                    },
+                }
             }
         }
 
