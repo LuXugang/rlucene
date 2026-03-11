@@ -28,5 +28,6 @@ mod test_doc_values_queries;
 mod test_early_termination;
 pub(crate) mod test_point_queries;
 mod test_regexp_random;
+pub(crate) mod test_scorer_perf;
 mod test_sort_optimization;
 mod test_top_field_collector_early_termination;
