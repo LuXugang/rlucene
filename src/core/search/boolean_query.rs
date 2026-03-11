@@ -1469,7 +1469,7 @@ mod tests {
         let ctx = &searcher.get_leaf_contexts()?[0];
         let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
-        assert_eq!(scorer.kind(), ScorerKind::ConstantScore);
+        assert_eq!(scorer.kind(), ScorerKind::Conjunction);
         assert!(scorer.two_phase_iterator().is_some());
 
         Ok(())
