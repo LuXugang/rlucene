@@ -18,7 +18,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, TryIntoInt};
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 
 /// Base trait for performing read operations on Lucene's low-level data types.
 ///
@@ -329,182 +329,6 @@ pub trait DataInput: Display {
     }
 }
 
-pub enum DataInputEnum2<A, B> {
-    A(A),
-    B(B),
-}
-
-impl<A, B> Display for DataInputEnum2<A, B>
-where
-    A: DataInput,
-    B: DataInput,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DataInputEnum2::A(t) => t.fmt(f),
-            DataInputEnum2::B(s) => s.fmt(f),
-        }
-    }
-}
-
-impl<A, B> DataInput for DataInputEnum2<A, B>
-where
-    A: DataInput,
-    B: DataInput,
-{
-    fn read_byte(&mut self) -> Result<u8> {
-        match self {
-            DataInputEnum2::A(f) => f.read_byte(),
-            DataInputEnum2::B(s) => s.read_byte(),
-        }
-    }
-
-    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
-        match self {
-            DataInputEnum2::A(f) => f.read_bytes(b, offset, len),
-            DataInputEnum2::B(s) => s.read_bytes(b, offset, len),
-        }
-    }
-
-    fn read_bytes_with_buffer(
-        &mut self,
-        b: &mut [u8],
-        offset: usize,
-        len: usize,
-        _use_buffer: bool,
-    ) -> Result<()> {
-        match self {
-            DataInputEnum2::A(f) => f.read_bytes_with_buffer(b, offset, len, _use_buffer),
-            DataInputEnum2::B(s) => s.read_bytes_with_buffer(b, offset, len, _use_buffer),
-        }
-    }
-
-    fn read_short(&mut self) -> Result<i16> {
-        match self {
-            DataInputEnum2::A(f) => f.read_short(),
-            DataInputEnum2::B(s) => s.read_short(),
-        }
-    }
-
-    fn read_int(&mut self) -> Result<i32> {
-        match self {
-            DataInputEnum2::A(f) => f.read_int(),
-            DataInputEnum2::B(s) => s.read_int(),
-        }
-    }
-
-    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-        match self {
-            DataInputEnum2::A(f) => f.read_group_vint(dst, offset),
-            DataInputEnum2::B(s) => s.read_group_vint(dst, offset),
-        }
-    }
-
-    fn read_vint(&mut self) -> Result<i32> {
-        match self {
-            DataInputEnum2::A(f) => f.read_vint(),
-            DataInputEnum2::B(s) => s.read_vint(),
-        }
-    }
-
-    fn read_zint(&mut self) -> Result<i32> {
-        match self {
-            DataInputEnum2::A(f) => f.read_zint(),
-            DataInputEnum2::B(s) => s.read_zint(),
-        }
-    }
-
-    fn read_long(&mut self) -> Result<i64> {
-        match self {
-            DataInputEnum2::A(f) => f.read_long(),
-            DataInputEnum2::B(s) => s.read_long(),
-        }
-    }
-
-    fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
-        match self {
-            DataInputEnum2::A(f) => f.read_longs(dst, offset, len),
-            DataInputEnum2::B(s) => s.read_longs(dst, offset, len),
-        }
-    }
-
-    fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
-        match self {
-            DataInputEnum2::A(f) => f.read_ints(dst, offset, len),
-            DataInputEnum2::B(s) => s.read_ints(dst, offset, len),
-        }
-    }
-
-    fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
-        match self {
-            DataInputEnum2::A(f) => f.read_floats(dst, offset, len),
-            DataInputEnum2::B(s) => s.read_floats(dst, offset, len),
-        }
-    }
-
-    fn read_vlong(&mut self) -> Result<i64> {
-        match self {
-            DataInputEnum2::A(f) => f.read_vlong(),
-            DataInputEnum2::B(s) => s.read_vlong(),
-        }
-    }
-
-    fn read_zlong(&mut self) -> Result<i64> {
-        match self {
-            DataInputEnum2::A(f) => f.read_zlong(),
-            DataInputEnum2::B(s) => s.read_zlong(),
-        }
-    }
-
-    fn read_string(&mut self) -> Result<String> {
-        match self {
-            DataInputEnum2::A(f) => f.read_string(),
-            DataInputEnum2::B(s) => s.read_string(),
-        }
-    }
-
-    fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
-        match self {
-            DataInputEnum2::A(f) => f.read_map_of_strings(),
-            DataInputEnum2::B(s) => s.read_map_of_strings(),
-        }
-    }
-
-    fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
-        match self {
-            DataInputEnum2::A(f) => f.read_set_of_strings(),
-            DataInputEnum2::B(s) => s.read_set_of_strings(),
-        }
-    }
-
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-        match self {
-            DataInputEnum2::A(f) => f.skip_bytes(num_bytes),
-            DataInputEnum2::B(s) => s.skip_bytes(num_bytes),
-        }
-    }
-
-    fn is_index_input(&self) -> bool {
-        match self {
-            DataInputEnum2::A(f) => f.is_index_input(),
-            DataInputEnum2::B(s) => s.is_index_input(),
-        }
-    }
-
-    fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
-        match self {
-            DataInputEnum2::A(f) => f.seek_in_data_input(_pos),
-            DataInputEnum2::B(s) => s.seek_in_data_input(_pos),
-        }
-    }
-
-    fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-        match self {
-            DataInputEnum2::A(f) => f.get_file_pointer_in_data_input(),
-            DataInputEnum2::B(s) => s.get_file_pointer_in_data_input(),
-        }
-    }
-}
 impl<T: ?Sized + DataInput> DataInput for Box<T> {
     fn read_byte(&mut self) -> Result<u8> {
         (**self).read_byte()
@@ -596,3 +420,212 @@ impl<T: ?Sized + DataInput> DataInput for Box<T> {
         (**self).get_file_pointer_in_data_input()
     }
 }
+macro_rules! define_data_input_enum {
+    (
+        $vis:vis enum $name:ident < $( $T:ident => $V:ident ),+ $(,)? >
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $(
+                $V($T),
+            )+
+        }
+
+        impl<$( $T ),+> std::fmt::Display for $name<$( $T ),+>
+        where
+            $( $T: DataInput ),+
+        {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.fmt(f),
+                    )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> DataInput for $name<$( $T ),+>
+        where
+            $( $T: DataInput ),+
+        {
+            fn read_byte(&mut self) -> Result<u8> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_byte(),
+                    )+
+                }
+            }
+
+            fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_bytes(b, offset, len),
+                    )+
+                }
+            }
+
+            fn read_bytes_with_buffer(
+                &mut self,
+                b: &mut [u8],
+                offset: usize,
+                len: usize,
+                use_buffer: bool,
+            ) -> Result<()> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_bytes_with_buffer(b, offset, len, use_buffer),
+                    )+
+                }
+            }
+
+            fn read_short(&mut self) -> Result<i16> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_short(),
+                    )+
+                }
+            }
+
+            fn read_int(&mut self) -> Result<i32> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_int(),
+                    )+
+                }
+            }
+
+            fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_group_vint(dst, offset),
+                    )+
+                }
+            }
+
+            fn read_vint(&mut self) -> Result<i32> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_vint(),
+                    )+
+                }
+            }
+
+            fn read_zint(&mut self) -> Result<i32> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_zint(),
+                    )+
+                }
+            }
+
+            fn read_long(&mut self) -> Result<i64> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_long(),
+                    )+
+                }
+            }
+
+            fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_longs(dst, offset, len),
+                    )+
+                }
+            }
+
+            fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_ints(dst, offset, len),
+                    )+
+                }
+            }
+
+            fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_floats(dst, offset, len),
+                    )+
+                }
+            }
+
+            fn read_vlong(&mut self) -> Result<i64> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_vlong(),
+                    )+
+                }
+            }
+
+            fn read_zlong(&mut self) -> Result<i64> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_zlong(),
+                    )+
+                }
+            }
+
+            fn read_string(&mut self) -> Result<String> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_string(),
+                    )+
+                }
+            }
+
+            fn read_map_of_strings(&mut self) -> Result<std::collections::HashMap<String, String>> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_map_of_strings(),
+                    )+
+                }
+            }
+
+            fn read_set_of_strings(&mut self) -> Result<std::collections::HashSet<String>> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.read_set_of_strings(),
+                    )+
+                }
+            }
+
+            fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.skip_bytes(num_bytes),
+                    )+
+                }
+            }
+
+            fn is_index_input(&self) -> bool {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.is_index_input(),
+                    )+
+                }
+            }
+
+            fn seek_in_data_input(&mut self, pos: usize) -> Result<()> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.seek_in_data_input(pos),
+                    )+
+                }
+            }
+
+            fn get_file_pointer_in_data_input(&self) -> Result<usize> {
+                match self {
+                    $(
+                        Self::$V(inner) => inner.get_file_pointer_in_data_input(),
+                    )+
+                }
+            }
+        }
+    };
+}
+define_data_input_enum!(
+    pub enum DataInputEnum2<
+        A => A,
+        B => B
+    >
+);
