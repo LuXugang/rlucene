@@ -129,9 +129,7 @@ where
         I: 'a;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        Err(LuceneError::unsupported_operation(
-            "Bug! should not be here",
-        ))
+        Err(LuceneError::unsupported_operation(""))
     }
 }
 
@@ -219,9 +217,7 @@ where
         I: 'a;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        Err(LuceneError::unsupported_operation(
-            "Bug! should not be here",
-        ))
+        Err(LuceneError::unsupported_operation(""))
     }
 
     type SortedDocValues = DummySortedDocValues;

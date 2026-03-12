@@ -455,7 +455,7 @@ where
                 let v = &mut self.doc_id_merger.get_subs_mut()[*current];
                 v.sub.values.long_value()
             },
-            None => Err(LuceneError::unreachable("should not be here")),
+            None => Err(LuceneError::unreachable("")),
         }
     }
 }
@@ -616,7 +616,7 @@ where
                 let v = &mut self.doc_id_merger.get_subs_mut()[*current].sub;
                 v.values.binary_value()
             },
-            None => Err(LuceneError::unreachable("should not be here")),
+            None => Err(LuceneError::unreachable("")),
         }
     }
 }
@@ -788,7 +788,7 @@ where
                 let v = &mut self.doc_id_merger.get_subs_mut()[*current].sub;
                 v.values.next_value()
             },
-            None => Err(LuceneError::unreachable("should not be here")),
+            None => Err(LuceneError::unreachable("")),
         }
     }
 
@@ -798,7 +798,7 @@ where
                 let v = &mut self.doc_id_merger.get_subs_mut()[*current];
                 v.sub.values.doc_value_count()
             },
-            None => Err(LuceneError::unreachable("should not be here")),
+            None => Err(LuceneError::unreachable("")),
         }
     }
 

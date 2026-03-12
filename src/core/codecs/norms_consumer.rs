@@ -228,7 +228,7 @@ where
                 let v = &mut self.doc_id_merger.get_subs_mut()[*current].sub;
                 v.values.long_value()
             },
-            None => Err(LuceneError::unreachable("should not be here")),
+            None => Err(LuceneError::unreachable("")),
         }
     }
 }

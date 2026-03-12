@@ -539,7 +539,7 @@ impl IndexableField for Field {
                 match ts {
                     TokenStreamEnum2::B(v) => v.set_value(string_value),
                     TokenStreamEnum2::A(_) => {
-                        return Err(LuceneError::illegal_argument("should not be here"));
+                        return Err(LuceneError::illegal_argument(""));
                     },
                 }
                 return Ok(Some(TokenStreamEnum2::B(ts)));
@@ -561,7 +561,7 @@ impl IndexableField for Field {
                 match ts {
                     TokenStreamEnum2::A(v) => v.set_value(binary_value),
                     TokenStreamEnum2::B(_) => {
-                        return Err(LuceneError::illegal_argument("should not be here"));
+                        return Err(LuceneError::illegal_argument(""));
                     },
                 }
                 return Ok(Some(TokenStreamEnum2::B(ts)));

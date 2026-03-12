@@ -4265,7 +4265,7 @@ where
                     del_files.extend(info.files()?);
                 }
                 let v = match v {
-                    InfoFrom::None => return Err(LuceneError::unreachable("should not be here")),
+                    InfoFrom::None => return Err(LuceneError::unreachable("")),
                     InfoFrom::Updates => Some(updates.private_segment.clone().unwrap()),
                     // all segments
                     InfoFrom::All => None,

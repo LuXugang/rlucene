@@ -1099,7 +1099,7 @@ where
     let mut rank = 0;
     match &disi.dense_rank_table {
         None => {
-            Err::<(), LuceneError>(LuceneError::unreachable("should not be here"))?;
+            Err::<(), LuceneError>(LuceneError::unreachable(""))?;
         },
         Some(rank_table) => {
             let high = rank_table[byte_index] as u16;
