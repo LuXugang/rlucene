@@ -34,6 +34,15 @@ impl Default for TopDocs<TopFieldScoreDoc> {
         }
     }
 }
+#[cfg(test)]
+impl Clone for TopFieldDocs {
+    fn clone(&self) -> Self {
+        Self {
+            base: self.base.clone(),
+            fields: self.fields.clone(),
+        }
+    }
+}
 impl TopFieldDocs {
     /// Creates one of these objects.
     ///

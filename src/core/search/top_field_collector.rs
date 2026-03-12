@@ -42,6 +42,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::Scorer;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortField;
 use crate::core::search::sort_field_enum::SortFieldEnum;
@@ -236,7 +237,8 @@ where
     T: Into<Query>,
     S: ScoreDocLike,
 {
-    top_docs.sort_by_key(|sd| sd.doc());
+    let mut top_docs_idxs: Vec<usize> = (0..top_docs.len()).collect();
+    top_docs_idxs.sort_by_key(|idx| top_docs[*idx].doc());
 
     let rewritten = searcher.rewrite(query)?;
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
@@ -245,7 +247,8 @@ where
     let mut current_context_idx: Option<usize> = None;
     let mut current_scorer = None;
 
-    for score_doc in top_docs {
+    for idx in top_docs_idxs {
+        let score_doc = &mut top_docs[idx];
         let doc = score_doc.doc();
         if current_context_idx.is_none()
             || doc as usize
@@ -282,7 +285,7 @@ where
             .ok_or_else(|| LuceneError::illegal_argument("leaf_doc < 0"))?
             .try_convert()?;
 
-        let advanced = scorer.iterator().advance(leaf_doc)?;
+        let advanced = scorer.iterator_mut().advance(leaf_doc)?;
         if leaf_doc != advanced {
             return Err(LuceneError::illegal_argument(format!(
                 "Doc id {} doesn't match the query",
@@ -1351,10 +1354,10 @@ mod tests {
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
     use crate::core::search::max_score_accumulator::{DEFAULT_INTERVAL, MaxScoreAccumulator};
     use crate::core::search::scorable::Scorable;
-    use crate::core::search::score_doc::ScoreDocLike;
+    use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
     use crate::core::search::sort_field::{SortField, SortFieldType};
 
-    use crate::core::document::field::Store;
+    use crate::core::document::field::{FieldBase, Store};
     use crate::core::document::text_field::TextField;
     use crate::core::index::term::Term;
     use crate::core::search::index_searcher::IndexSearcher;
@@ -1366,12 +1369,13 @@ mod tests {
     use crate::core::search::total_hits::TotalHits;
 
     use crate::core::index::no_merge_policy::NoMergePolicy;
+    use crate::core::search::top_field_collector::populate_scores;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::DefaultIndexSearch;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory_shared, new_searcher_with_threads, random,
+        at_least, new_directory_shared, new_searcher_with_reader, new_searcher_with_threads, random,
     };
     use std::sync::Arc;
 
@@ -1791,7 +1795,86 @@ mod tests {
     }
     #[test]
     fn test_populate_scores() -> Result<()> {
-        // TODO TopFieldCollector.populateScores未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        let mut field = TextField::from_string("f", "foo bar", Store::No)?;
+        doc.add(field.clone());
+        let mut sort_field = NumericDocValuesField::new("sort", 0);
+        doc.add(sort_field.clone());
+        w.add_document(doc.clone())?;
+
+        field.set_string_value("")?;
+        sort_field.set_long_value(3)?;
+        let mut doc = Document::new();
+        doc.add(field.clone());
+        doc.add(sort_field.clone());
+        w.add_document(doc)?;
+
+        field.set_string_value("foo foo bar")?;
+        sort_field.set_long_value(2)?;
+        let mut doc = Document::new();
+        doc.add(field.clone());
+        doc.add(sort_field.clone());
+        w.add_document(doc)?;
+
+        w.flush()?;
+
+        field.set_string_value("foo")?;
+        sort_field.set_long_value(2)?;
+        let mut doc = Document::new();
+        doc.add(field.clone());
+        doc.add(sort_field.clone());
+        w.add_document(doc)?;
+
+        field.set_string_value("bar bar bar")?;
+        sort_field.set_long_value(0)?;
+        let mut doc = Document::new();
+        doc.add(field);
+        doc.add(sort_field);
+        w.add_document(doc)?;
+
+        let reader = w.get_reader()?;
+        w.close()?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        for query_text in ["foo", "bar"] {
+            let query = TermQuery::new(Term::from_text("f", query_text));
+
+            for reverse in [false, true] {
+                let mut sorted_by_doc = searcher.search(query.clone(), 10)?.score_docs;
+                sorted_by_doc.sort_by_key(|sd: &ScoreDoc| sd.doc());
+
+                let sort = Sort::with_fields(vec![SortField::with_reverse(
+                    Some("sort"),
+                    SortFieldType::Long,
+                    reverse,
+                )?])?;
+                let r = searcher.search_with_sort(query.clone(), 10, sort)?;
+                let sorted_by_field = r.score_docs();
+                let mut sorted_by_field_clone = sorted_by_field.to_vec();
+                populate_scores(sorted_by_field_clone.as_mut(), &searcher, query.clone())?;
+
+                for i in 0..sorted_by_field_clone.len() {
+                    assert_eq!(sorted_by_field_clone[i].doc(), sorted_by_field[i].doc());
+
+                    let _cloned_field_doc = sorted_by_field_clone[i].fields()?;
+                    let _field_doc = sorted_by_field[i].fields()?;
+                    // assert!(std::ptr::eq(cloned_field_doc[i], field_doc[i]));
+
+                    let pos = sorted_by_doc
+                        .binary_search_by_key(&sorted_by_field_clone[i].doc(), |sd: &ScoreDoc| {
+                            sd.doc()
+                        })
+                        .unwrap();
+
+                    assert_eq!(sorted_by_field_clone[i].score(), sorted_by_doc[pos].score());
+                }
+            }
+        }
+
         Ok(())
     }
     #[test]
