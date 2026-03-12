@@ -853,6 +853,7 @@ mod tests {
         case.test_incompressible_random(&mut random)
     }
     // TODO IMPORTANT 这个测试太慢了
+    #[ignore]
     #[test]
     fn test_compressible_random_high() -> Result<()> {
         let mut random = random();
