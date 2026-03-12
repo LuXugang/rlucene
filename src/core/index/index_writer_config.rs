@@ -55,6 +55,13 @@ impl IndexWriterConfig {
             base: LiveIndexWriterConfigBase::with_analyzer(analyzer),
         }
     }
+
+    pub fn set_similarity<T>(&mut self, similarity: T)
+    where
+        T: Into<SimilarityEnum>,
+    {
+        self.base.similarity = Arc::new(similarity.into());
+    }
 }
 
 impl Display for IndexWriterConfig {

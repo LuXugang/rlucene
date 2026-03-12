@@ -77,6 +77,7 @@ pub mod lucene_test_case_util {
     use std::collections::HashMap;
 
     use crate::core::analysis::analyzer::AnalyzerEnum;
+    use crate::core::index::tiered_merge_policy::TieredMergePolicy;
     use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -144,6 +145,22 @@ pub mod lucene_test_case_util {
         // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
         IndexWriterConfig::with_analyzer(analyzer)
     }
+
+    pub fn new_merge_policy<R>(r: &mut R, _include_mock_mp: bool) -> Result<MergePolicyEnum>
+    where
+        R: Rng + ?Sized,
+    {
+        // TODO
+        Ok(new_tiered_merge_policy(r).into())
+    }
+    pub fn new_tiered_merge_policy<R>(_r: &mut R) -> TieredMergePolicy
+    where
+        R: Rng + ?Sized,
+    {
+        // TODO
+        TieredMergePolicy::new()
+    }
+
     pub fn new_log_merge_policy_with_merge_factor<R>(
         r: &mut R,
         merge_factor: i32,

@@ -19,6 +19,8 @@
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+#[cfg(test)]
+use crate::core::search::similarities_impl::similarities::tests::SimpleSimilarity;
 use crate::core::search::similarities_impl::similarities::{SimScorer, Similarity};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -468,11 +470,15 @@ impl SimScorer for TFIDFScorer {
 #[derive(Clone)]
 pub enum TFIDFSubEnum {
     Classic(ClassicSimilarity),
+    #[cfg(test)]
+    Simple(SimpleSimilarity),
 }
 impl TFIDFSimilarityBase for TFIDFSubEnum {
     fn tf(&self, freq: f32) -> f32 {
         match self {
             TFIDFSubEnum::Classic(classic) => classic.tf(freq),
+            #[cfg(test)]
+            TFIDFSubEnum::Simple(simple) => simple.tf(freq),
         }
     }
 
@@ -483,6 +489,8 @@ impl TFIDFSimilarityBase for TFIDFSubEnum {
     ) -> Explanation {
         match self {
             TFIDFSubEnum::Classic(classic) => classic.idf_explain(collection_stats, term_stats),
+            #[cfg(test)]
+            TFIDFSubEnum::Simple(simple) => simple.idf_explain(collection_stats, term_stats),
         }
     }
 
@@ -495,18 +503,26 @@ impl TFIDFSimilarityBase for TFIDFSubEnum {
             TFIDFSubEnum::Classic(classic) => {
                 classic.idf_explain_from_multi_ts(collection_stats, term_stats)
             },
+            #[cfg(test)]
+            TFIDFSubEnum::Simple(simple) => {
+                simple.idf_explain_from_multi_ts(collection_stats, term_stats)
+            },
         }
     }
 
     fn idf(&self, doc_freq: i64, doc_count: i64) -> f32 {
         match self {
             TFIDFSubEnum::Classic(classic) => classic.idf(doc_freq, doc_count),
+            #[cfg(test)]
+            TFIDFSubEnum::Simple(simple) => simple.idf(doc_freq, doc_count),
         }
     }
 
     fn length_norm(&self, length: i32) -> f32 {
         match self {
             TFIDFSubEnum::Classic(classic) => classic.length_norm(length),
+            #[cfg(test)]
+            TFIDFSubEnum::Simple(simple) => simple.length_norm(length),
         }
     }
 }

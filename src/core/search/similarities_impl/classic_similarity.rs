@@ -22,7 +22,7 @@ use crate::core::search::similarities_impl::tf_idf_similarity::{
 use crate::core::search::term_statistics::TermStatistics;
 /// Expert: Historical scoring implementation. You might want to consider using
 /// [`BM25Similarity`](crate::core::search::similarities_impl::bm25_similarity::BM25Similarity) instead, which is generally considered superior to TF-IDF.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct ClassicSimilarity;
 impl ClassicSimilarity {
     #[allow(clippy::new_ret_no_self)]
@@ -46,26 +46,7 @@ impl TFIDFSimilarityBase for ClassicSimilarity {
         collection_stats: &CollectionStatistics,
         term_stats: &TermStatistics,
     ) -> Explanation {
-        let df = term_stats.get_doc_freq();
-        let doc_count = collection_stats.get_doc_count();
-        let idf = self.idf(df, doc_count);
-
-        Explanation::match_(
-            idf,
-            "idf, computed as log((docCount+1)/(docFreq+1)) + 1 from:".to_string(),
-            vec![
-                Explanation::match_(
-                    df,
-                    "docFreq, number of documents containing term".to_string(),
-                    vec![],
-                ),
-                Explanation::match_(
-                    doc_count,
-                    "docCount, total number of documents with field".to_string(),
-                    vec![],
-                ),
-            ],
-        )
+        idf_explain(self, collection_stats, term_stats)
     }
 
     fn idf(&self, doc_freq: i64, doc_count: i64) -> f32 {
@@ -76,7 +57,35 @@ impl TFIDFSimilarityBase for ClassicSimilarity {
         (1.0f64 / (num_terms as f64).sqrt()) as f32
     }
 }
+pub fn idf_explain<T>(
+    s: &T,
+    collection_stats: &CollectionStatistics,
+    term_stats: &TermStatistics,
+) -> Explanation
+where
+    T: TFIDFSimilarityBase,
+{
+    let df = term_stats.get_doc_freq();
+    let doc_count = collection_stats.get_doc_count();
+    let idf = s.idf(df, doc_count);
 
+    Explanation::match_(
+        idf,
+        "idf, computed as log((docCount+1)/(docFreq+1)) + 1 from:".to_string(),
+        vec![
+            Explanation::match_(
+                df,
+                "docFreq, number of documents containing term".to_string(),
+                vec![],
+            ),
+            Explanation::match_(
+                doc_count,
+                "docCount, total number of documents with field".to_string(),
+                vec![],
+            ),
+        ],
+    )
+}
 #[cfg(test)]
 mod tests {
     use crate::core::document::document::Document;
