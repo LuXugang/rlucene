@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait TwoPhaseIterator {
@@ -42,6 +42,25 @@ pub trait TwoPhaseIterator {
     /// `approximation()`. Returns an expected cost in number of simple
     /// operations (add, multiply, compare, array index). Must be positive.
     fn match_cost(&self) -> f32;
+}
+#[derive(Default)]
+pub struct EmptyTPI;
+impl TwoPhaseIterator for EmptyTPI {
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(EmptyDISI::new())
+    }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(EmptyDISI::new())
+    }
+
+    fn matches(&mut self) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn match_cost(&self) -> f32 {
+        0f32
+    }
 }
 
 impl<T> TwoPhaseIterator for &mut T
