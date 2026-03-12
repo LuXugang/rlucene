@@ -53,14 +53,14 @@ where
             <TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput,
         >,
     >,
-    pub(crate) tmp_directory: Option<TrackingTmpOutputDirectoryWrapper<Arc<D>>>,
+    pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<Arc<D>>,
     tmp_term_vectors_format: Lucene90CompressingTermVectorsFormat,
 }
 impl<D> SortingTermVectorsConsumer<D>
 where
     D: Directory,
 {
-    pub(crate) fn new() -> Result<Self> {
+    pub(crate) fn new(dir: Arc<D>) -> Result<Self> {
         let tmp_term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
             "TempTermVectors",
             "",
@@ -69,9 +69,10 @@ where
             128,
             10,
         )?;
+        let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(dir);
         Ok(Self {
             writer: None,
-            tmp_directory: None,
+            tmp_directory,
             tmp_term_vectors_format,
         })
     }
@@ -229,40 +230,37 @@ where
         DM: DocMap,
         D1: Directory,
     {
-        if let Some(ref tmp_directory) = self.tmp_directory {
-            let mut reader = self.tmp_term_vectors_format.vectors_reader(
-                tmp_directory,
-                segment_info,
-                state.field_infos.clone(),
-                &IOContext::default_io_context()?,
-            )?;
-            // Don't pull a merge instance, since merge instances optimize for
-            // sequential access while term vectors will likely be accessed in random
-            // order here.
-            let mut writer = codec.term_vectors_format().vectors_writer(
-                state.directory,
-                segment_info,
-                &state.context.clone(),
-            )?;
-            let result: Result<()> = (|| {
-                reader.check_integrity()?;
-                let max_doc = segment_info.max_doc()?;
-                for doc_id in 0..max_doc {
-                    let read_id = match sort_map {
-                        Some(sm) => sm.new_to_old(doc_id)?,
-                        None => doc_id,
-                    };
-                    let vectors = reader.get(read_id)?;
-                    Self::write_term_vectors(&mut writer, vectors.as_ref(), &state.field_infos)?;
-                }
-                writer.finish(max_doc, state.directory)?;
-                Ok(())
-            })();
-            let file_names = &tmp_directory.get_temporary_files().borrow().file_names;
-            IOUtils::delete_files(tmp_directory, file_names.values())?;
-            result?
-        }
-        Ok(())
+        let mut reader = self.tmp_term_vectors_format.vectors_reader(
+            &self.tmp_directory,
+            segment_info,
+            state.field_infos.clone(),
+            &IOContext::default_io_context()?,
+        )?;
+        // Don't pull a merge instance, since merge instances optimize for
+        // sequential access while term vectors will likely be accessed in random
+        // order here.
+        let mut writer = codec.term_vectors_format().vectors_writer(
+            state.directory,
+            segment_info,
+            &state.context.clone(),
+        )?;
+        let result: Result<()> = (|| {
+            reader.check_integrity()?;
+            let max_doc = segment_info.max_doc()?;
+            for doc_id in 0..max_doc {
+                let read_id = match sort_map {
+                    Some(sm) => sm.new_to_old(doc_id)?,
+                    None => doc_id,
+                };
+                let vectors = reader.get(read_id)?;
+                Self::write_term_vectors(&mut writer, vectors.as_ref(), &state.field_infos)?;
+            }
+            writer.finish(max_doc, state.directory)?;
+            Ok(())
+        })();
+        let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+        IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
+        result
     }
 
     fn init_term_vectors_writer<D1>(
@@ -270,29 +268,24 @@ where
         last_doc_id: i32,
         info: &SegmentInfo<D1>,
         bytes_used: i64,
-        dir: Arc<D>,
     ) -> Result<()>
     where
         D1: Directory,
     {
         if self.writer.is_none() {
             let context = IOContext::with_flush(FlushInfo::new(last_doc_id, bytes_used))?;
-            let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(dir);
             self.writer = Option::from(self.tmp_term_vectors_format.vectors_writer(
-                &tmp_directory,
+                &self.tmp_directory,
                 info,
                 &context,
             )?);
-            self.tmp_directory = Some(tmp_directory);
         }
         Ok(())
     }
 
     fn abort(&mut self) -> Result<()> {
-        if let Some(ref tmp_directory) = self.tmp_directory {
-            let file_names = &tmp_directory.get_temporary_files().borrow().file_names;
-            IOUtils::delete_files(&tmp_directory, file_names.values())?;
-        }
+        let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+        IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
         Ok(())
     }
 }

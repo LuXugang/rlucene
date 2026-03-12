@@ -238,12 +238,10 @@ where
             self.fill(num_docs)?;
             match self.sub {
                 Some(ref mut sub) => {
-                    sub.writer.as_mut().unwrap().finish(
-                        num_docs,
-                        sub.tmp_directory.as_ref().ok_or_else(|| {
-                            LuceneError::illegal_state("tmp_directory not initialized")
-                        })?,
-                    )?;
+                    sub.writer
+                        .as_mut()
+                        .unwrap()
+                        .finish(num_docs, &sub.tmp_directory)?;
                     let _ = sub.writer.take();
                 },
                 None => {
@@ -274,7 +272,6 @@ where
                         self.last_doc_id,
                         info,
                         self.base.bytes_used.get(),
-                        self.directory.clone(),
                     )?;
                     self.last_doc_id = 0;
                 }
@@ -331,7 +328,6 @@ pub(crate) trait TermVectorsConsumerBase {
         last_doc_id: i32,
         info: &SegmentInfo<D1>,
         bytes_used: i64,
-        dir: Arc<Self::Directory>,
     ) -> Result<()>
     where
         D1: Directory;

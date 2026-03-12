@@ -175,8 +175,9 @@ where
                     TermVectorsConsumer::new(directory.clone(), None),
                 )
             } else {
-                let stored_fields_consumer_sub = SortingStoredFieldsConsumer::new()?;
-                let term_vector_consumer_sub = SortingTermVectorsConsumer::new()?;
+                let stored_fields_consumer_sub =
+                    SortingStoredFieldsConsumer::new(directory.clone())?;
+                let term_vector_consumer_sub = SortingTermVectorsConsumer::new(directory.clone())?;
                 (
                     StoredFieldsConsumer::new(directory.clone(), Some(stored_fields_consumer_sub)),
                     TermVectorsConsumer::new(directory.clone(), Some(term_vector_consumer_sub)),

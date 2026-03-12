@@ -40,7 +40,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, DataOutput, IOContext};
 use crate::core::util::IOUtils;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -53,14 +53,14 @@ where
             <TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput,
         >,
     >,
-    pub(crate) tmp_directory: Option<TrackingTmpOutputDirectoryWrapper<Arc<D>>>,
+    pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<Arc<D>>,
     stored_fields_format: Lucene90CompressingStoredFieldsFormat,
 }
 impl<D> SortingStoredFieldsConsumer<D>
 where
     D: Directory,
 {
-    pub(crate) fn new() -> Result<Self> {
+    pub(crate) fn new(dir: Arc<D>) -> Result<Self> {
         let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
             "TempStoredFields",
             CompressionModeEnum::Impl(NoCompression),
@@ -68,9 +68,10 @@ where
             1,
             10,
         )?;
+        let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(dir);
         Ok(Self {
             writer: None,
-            tmp_directory: None,
+            tmp_directory,
             stored_fields_format,
         })
     }
@@ -82,22 +83,16 @@ where
 {
     type Directory = D;
 
-    fn init_stored_fields_writer<D1>(
-        &mut self,
-        info: &mut SegmentInfo<D1>,
-        dir: Arc<D>,
-    ) -> Result<()>
+    fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
     where
         D1: Directory,
     {
         if self.writer.is_none() {
-            let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(dir);
             self.writer = Some(self.stored_fields_format.fields_writer(
-                &tmp_directory,
+                &self.tmp_directory,
                 info,
                 &IOContext::default_io_context()?,
             )?);
-            self.tmp_directory = Some(tmp_directory);
         }
 
         Ok(())
@@ -113,11 +108,8 @@ where
         DM: DocMap,
         D1: Directory,
     {
-        let Some(tmp_directory) = self.tmp_directory.as_ref() else {
-            return Err(LuceneError::illegal_state("tmp_directory not initialized"));
-        };
         let mut reader = self.stored_fields_format.fields_reader(
-            tmp_directory,
+            &self.tmp_directory,
             info,
             state.field_infos.clone(),
             &IOContext::default_io_context()?,
@@ -153,18 +145,15 @@ where
             Ok(())
         })();
 
-        let names = &tmp_directory.get_temporary_files().borrow().file_names;
-        IOUtils::delete_files(tmp_directory, names.values())?;
+        let names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+        IOUtils::delete_files(&self.tmp_directory, names.values())?;
         result?;
         Ok(())
     }
 
     fn abort(&mut self) -> Result<()> {
-        if let Some(ref tmp_directory) = self.tmp_directory {
-            let file_names = &tmp_directory.get_temporary_files().borrow().file_names;
-            IOUtils::delete_files(tmp_directory, file_names.values())?;
-        }
-
+        let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+        IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
         Ok(())
     }
 }
