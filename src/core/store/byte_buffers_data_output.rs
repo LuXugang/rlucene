@@ -274,9 +274,25 @@ impl ByteBuffersDataOutput {
         (self.size(), data)
     }
     /// Moves the blocks out of the current object, transferring ownership.
-    pub fn get_buffer_list_owner(&mut self) -> (usize, Vec<Cursor<Vec<u8>>>) {
+    /// # Parameters
+    /// - `init_blocks`: If init_blocks is true, then after taking ownership of blocks, we pre-allocate the space so it can be reused.
+    pub fn get_buffer_list_owner(&mut self, init_blocks: bool) -> (usize, Vec<Cursor<Vec<u8>>>) {
         let size = self.size();
-        let old_blocks = std::mem::take(&mut self.blocks);
+
+        let old_blocks = {
+            if init_blocks {
+                let cap = self.blocks.capacity();
+                let len = self.blocks.len();
+
+                let mut new_blocks = VecDeque::with_capacity(cap);
+                for _ in 0..len {
+                    new_blocks.push_back(Cursor::new(vec![0u8; 1 << self.block_bits]));
+                }
+                std::mem::replace(&mut self.blocks, new_blocks)
+            } else {
+                std::mem::take(&mut self.blocks)
+            }
+        };
 
         let data = old_blocks
             .into_iter()
@@ -351,8 +367,10 @@ impl ByteBuffersDataOutput {
     /// outlive `self`.
     ///
     /// Use this when the data needs to be retained or passed independently.
-    pub fn get_data_input_owner(&mut self) -> Result<ByteBuffersDataInputOwned> {
-        let (length, data) = self.get_buffer_list_owner();
+    /// # Parameters
+    /// - `init_blocks`: If init_blocks is true, then after taking ownership of blocks, we pre-allocate the space so it can be reused.
+    pub fn get_data_input_owner(&mut self, init_blocks: bool) -> Result<ByteBuffersDataInputOwned> {
+        let (length, data) = self.get_buffer_list_owner(init_blocks);
         ByteBuffersDataInput::new(data, length)
     }
 

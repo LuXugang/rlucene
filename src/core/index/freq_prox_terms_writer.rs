@@ -785,7 +785,7 @@ where
             DocOffsetSorter::new(&mut self.docs, &mut self.offsets, num_temp_slots as usize);
         sorter.sort(0, self.upto)?;
 
-        self.posting_input = Some(self.buffer.get_data_input_owner()?);
+        self.posting_input = Some(self.buffer.get_data_input_owner(true)?);
 
         Ok(())
     }

@@ -2722,6 +2722,8 @@ fn test_sort_docs_and_freqs() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
 fn test_sort_docs_and_freqs_and_positions() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
@@ -2819,6 +2821,8 @@ fn test_sort_docs_and_freqs_and_positions() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
 fn test_sort_docs_and_freqs_and_positions_and_offsets() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;

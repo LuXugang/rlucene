@@ -543,7 +543,7 @@ where
                         writer.add(field_flags.get_mut(field_num_off)?)?;
                     }
                     writer.finish()?;
-                    DirectReader::get_instance(out.get_data_input_owner()?, *FLAGS_BITS)?
+                    DirectReader::get_instance(out.get_data_input_owner(false)?, *FLAGS_BITS)?
                 },
                 1 => {
                     DirectReader::get_instance(Self::slice(&mut self.vectors_stream)?, *FLAGS_BITS)?
