@@ -2351,7 +2351,7 @@ fn test_tie_break() -> Result<()> {
     Ok(())
 }
 
-// TODO IMPORTANT 测试未通过
+#[test]
 fn test_index_sort_with_sparse_field() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;

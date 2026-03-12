@@ -53,7 +53,7 @@ where
             <TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput,
         >,
     >,
-    tmp_directory: Option<TrackingTmpOutputDirectoryWrapper<Arc<D>>>,
+    pub(crate) tmp_directory: Option<TrackingTmpOutputDirectoryWrapper<Arc<D>>>,
     tmp_term_vectors_format: Lucene90CompressingTermVectorsFormat,
 }
 impl<D> SortingTermVectorsConsumer<D>
@@ -275,14 +275,16 @@ where
     where
         D1: Directory,
     {
-        let context = IOContext::with_flush(FlushInfo::new(last_doc_id, bytes_used))?;
-        let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(dir);
-        self.writer = Option::from(self.tmp_term_vectors_format.vectors_writer(
-            &tmp_directory,
-            info,
-            &context,
-        )?);
-        self.tmp_directory = Some(tmp_directory);
+        if self.writer.is_none() {
+            let context = IOContext::with_flush(FlushInfo::new(last_doc_id, bytes_used))?;
+            let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(dir);
+            self.writer = Option::from(self.tmp_term_vectors_format.vectors_writer(
+                &tmp_directory,
+                info,
+                &context,
+            )?);
+            self.tmp_directory = Some(tmp_directory);
+        }
         Ok(())
     }
 

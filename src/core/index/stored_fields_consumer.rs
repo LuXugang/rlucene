@@ -57,7 +57,7 @@ where
         match self.sub {
             Some(ref mut sub) => {
                 if sub.writer.is_none() {
-                    sub.init_stored_fields_writer(info)?;
+                    sub.init_stored_fields_writer(info, self.directory.clone())?;
                 }
             },
             None => {
@@ -194,10 +194,12 @@ where
         match self.sub {
             // TODO: 如果writer这里实现了closeable 我们需要使用result封装 即使发生错误也要调用
             Some(ref mut sub) => {
-                sub.writer
-                    .as_mut()
-                    .unwrap()
-                    .finish(info.max_doc()?, &sub.tmp_directory)?;
+                sub.writer.as_mut().unwrap().finish(
+                    info.max_doc()?,
+                    &sub.tmp_directory.as_ref().ok_or_else(|| {
+                        LuceneError::illegal_state("tmp_directory not initialized")
+                    })?,
+                )?;
                 {
                     let _ = sub.writer.take();
                 }
@@ -221,7 +223,11 @@ where
 
 pub(crate) trait StoredFieldsConsumerBase {
     type Directory: Directory;
-    fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
+    fn init_stored_fields_writer<D1>(
+        &mut self,
+        info: &mut SegmentInfo<D1>,
+        dir: Arc<Self::Directory>,
+    ) -> Result<()>
     where
         D1: Directory;
     fn flush<DM, D1>(

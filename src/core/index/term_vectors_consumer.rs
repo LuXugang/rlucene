@@ -238,10 +238,12 @@ where
             self.fill(num_docs)?;
             match self.sub {
                 Some(ref mut sub) => {
-                    sub.writer
-                        .as_mut()
-                        .unwrap()
-                        .finish(num_docs, state.directory)?;
+                    sub.writer.as_mut().unwrap().finish(
+                        num_docs,
+                        sub.tmp_directory.as_ref().ok_or_else(|| {
+                            LuceneError::illegal_state("tmp_directory not initialized")
+                        })?,
+                    )?;
                     let _ = sub.writer.take();
                 },
                 None => {
