@@ -54,10 +54,7 @@ fn test_early_termination() -> Result<()> {
     let iter = at_least(&mut random, 5);
     for _ in 0..iter {
         let searcher = new_searcher_with_reader(reader.clone())?;
-        searcher.search_with_collector_manager_states(
-            MatchAllDocsQuery::new(),
-            &CollectorManagerImpl,
-        )?;
+        searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &CollectorManagerImpl)?;
     }
 
     writer.close()?;

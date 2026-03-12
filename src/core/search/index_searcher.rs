@@ -232,7 +232,7 @@ where
         let manager =
             TopScoreDocCollectorManager::with_after(capped_num_hits, after, TOTAL_HITS_THRESHOLD)?;
 
-        self.search_with_collector_manager_with_state(query, &manager)
+        self.search_with_collector_manager(query, &manager)
     }
     pub fn search(&self, query: impl Into<Query>, n: usize) -> Result<TopDocs<ScoreDoc>> {
         self.search_after_score(None, query, n)
@@ -385,8 +385,7 @@ where
             TOTAL_HITS_THRESHOLD,
         )?;
 
-        let top_field_docs =
-            self.search_with_collector_manager_with_state(query.into(), &manager)?;
+        let top_field_docs = self.search_with_collector_manager(query.into(), &manager)?;
 
         if do_doc_scores {
             todo!()
@@ -396,28 +395,8 @@ where
 
         Ok(top_field_docs)
     }
-    pub fn search_with_collector_manager_states<CM>(
-        &self,
-        query: impl Into<Query>,
-        collector_manager: &CM,
-    ) -> Result<CM::T>
-    where
-        CM: CollectorManager,
-    {
-        self.search_with_collector_manager_with_state(query, collector_manager)
-    }
-    pub fn search_with_collector_manager<CM>(
-        &self,
-        query: impl Into<Query>,
-        collector_manager: &CM,
-    ) -> Result<CM::T>
-    where
-        CM: CollectorManager,
-    {
-        self.search_with_collector_manager_with_state(query, collector_manager)
-    }
 
-    pub fn search_with_collector_manager_with_state<CM>(
+    pub fn search_with_collector_manager<CM>(
         &self,
         query: impl Into<Query>,
         collector_manager: &CM,
