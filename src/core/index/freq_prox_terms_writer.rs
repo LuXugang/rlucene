@@ -851,7 +851,9 @@ where
         }
 
         let offset = self.offsets[self.doc_it as usize];
-        let posting_input = self.posting_input.as_mut().unwrap();
+        let Some(posting_input) = self.posting_input.as_mut() else {
+            return Err(LuceneError::illegal_state("posting_input not initialized"));
+        };
         posting_input.seek(offset as usize)?;
 
         self.curr_freq = posting_input.read_vint()?;
@@ -886,7 +888,9 @@ where
             return Ok(-1);
         }
 
-        let posting_input = self.posting_input.as_mut().unwrap();
+        let Some(posting_input) = self.posting_input.as_mut() else {
+            return Err(LuceneError::illegal_state("posting_input not initialized"));
+        };
 
         let token = posting_input.read_vint()?;
         self.pos += ((token as u32) >> 1) as i32;

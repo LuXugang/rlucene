@@ -29,7 +29,6 @@ use crate::core::util::group_vint_util::GroupVIntUtil;
 /// An adapter struct to use [`ByteBuffersDataOutput`] as a
 /// [`FSTReader`](FstReader). It allows the FST to be readable immediately after
 /// writing
-#[derive(Default)]
 pub struct ReadWriteDataOutput {
     pub data_output: ByteBuffersDataOutput,
     pub block_bits: i32,
@@ -40,6 +39,22 @@ pub struct ReadWriteDataOutput {
     pub frozen: bool,
     /// Indicates whether the byte_buffer/byte_buffers have been initialized.
     pub finish: bool,
+}
+/// # Warning
+/// Padding Implement for std::mem::replace
+impl Default for ReadWriteDataOutput {
+    fn default() -> Self {
+        Self {
+            data_output: ByteBuffersDataOutput::new(),
+            block_bits: 0,
+            block_size: 0,
+            block_mask: 0,
+            byte_buffers: None,
+            byte_buffer: None,
+            frozen: true,
+            finish: true,
+        }
+    }
 }
 
 impl ReadWriteDataOutput {

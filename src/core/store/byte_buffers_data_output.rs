@@ -41,30 +41,10 @@ pub struct ByteBuffersDataOutput {
     current_block_index: usize,
     reuse: bool,
 }
-#[cfg(test)]
-impl Clone for ByteBuffersDataOutput {
-    fn clone(&self) -> Self {
-        Self {
-            blocks: self.blocks.clone(),
-            max_bits_per_block: self.max_bits_per_block,
-            block_bits: self.block_bits,
-            ram_bytes_used: self.ram_bytes_used,
-            current_block_index: self.current_block_index,
-            reuse: self.reuse,
-        }
-    }
-}
+
 impl Default for ByteBuffersDataOutput {
-    // It is used for padding
     fn default() -> Self {
-        Self {
-            max_bits_per_block: Self::DEFAULT_MAX_BITS_PER_BLOCK,
-            block_bits: Self::DEFAULT_MIN_BITS_PER_BLOCK,
-            blocks: VecDeque::new(),
-            ram_bytes_used: 0,
-            current_block_index: 0,
-            reuse: false,
-        }
+        Self::new()
     }
 }
 

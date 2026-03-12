@@ -26,13 +26,13 @@ use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValu
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_options::IndexOptions::DocsAndFreqs;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, SOURCE, SOURCE_FLUSH, SOURCE_MERGE};
@@ -2641,7 +2641,7 @@ fn test_sort_docs() -> Result<()> {
     Ok(())
 }
 
-// 测试未通过
+#[test]
 fn test_sort_docs_and_freqs() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
@@ -2651,9 +2651,9 @@ fn test_sort_docs_and_freqs() -> Result<()> {
     iwc.set_index_sort(index_sort)?;
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
-    ft.set_store_term_vectors(true)?;
-    ft.set_store_term_vector_positions(true)?;
+    let mut ft = FieldType::new();
+    ft.set_index_options(DocsAndFreqs)?;
+    ft.set_tokenized(false)?;
     ft.freeze();
 
     let mut doc = Document::new();
