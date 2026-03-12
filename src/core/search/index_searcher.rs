@@ -45,7 +45,8 @@ use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::time_limiting_bulk_scorer::TimeLimitingBulkScorer;
-use crate::core::search::top_docs::TopDocs;
+use crate::core::search::top_docs::{TopDocs, TopDocsLike};
+use crate::core::search::top_field_collector::populate_scores;
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
@@ -384,13 +385,11 @@ where
             after,
             TOTAL_HITS_THRESHOLD,
         )?;
-
-        let top_field_docs = self.search_with_collector_manager(query.into(), &manager)?;
+        let query = query.into();
+        let mut top_field_docs = self.search_with_collector_manager(query.clone(), &manager)?;
 
         if do_doc_scores {
-            todo!()
-            // TODO IMPORTANT 这里没有实现 populate_scores 方法
-            // TopFieldCollector::populate_scores(&mut top_field_docs.score_docs, self, &query)?;
+            populate_scores(top_field_docs.score_docs_mut(), self, query.clone())?;
         }
 
         Ok(top_field_docs)

@@ -41,6 +41,7 @@ use crate::core::search::sort_field::MissingValueEnum::{StringFirst, StringLast}
 use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::{TopDocs, TopDocsLike};
+use crate::core::search::top_field_collector::populate_scores;
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
@@ -251,7 +252,7 @@ fn assert_query<IRC: IndexReaderContext>(
 
     let do_scores;
 
-    let all = match sort {
+    let mut all = match sort {
         None => {
             let all_manager =
                 TopScoreDocCollectorManager::with_after(max_doc, None, i32::MAX as usize)?;
@@ -277,15 +278,21 @@ fn assert_query<IRC: IndexReaderContext>(
     };
 
     if do_scores {
-        // TODO IMPORTANT populate_scores未实现
-        // TopFieldCollector::populate_scores(&all.score_docs, searcher, query.clone())?;
+        match all {
+            TopDocEnum::Field(ref mut v) => {
+                populate_scores(v.score_docs_mut(), searcher, query.clone())?;
+            },
+            TopDocEnum::Score(ref mut v) => {
+                populate_scores(v.score_docs_mut(), searcher, query.clone())?;
+            },
+        }
     }
 
     let mut page_start = 0usize;
     let mut last_bottom: Option<ScoreDocEnum> = None;
 
     while page_start < all.total_hits().value() {
-        let paged = match sort.clone() {
+        let mut paged = match sort.clone() {
             None => {
                 let after = match last_bottom.take() {
                     Some(ScoreDocEnum::Score(v)) => Some(v),
@@ -315,8 +322,14 @@ fn assert_query<IRC: IndexReaderContext>(
         };
 
         if do_scores {
-            // TODO IMPORTANT populate_scores未实现
-            // TopFieldCollector::populate_scores(&paged.score_docs, searcher, query.clone())?;
+            match paged {
+                TopDocEnum::Field(ref mut v) => {
+                    populate_scores(v.score_docs_mut(), searcher, query.clone())?;
+                },
+                TopDocEnum::Score(ref mut v) => {
+                    populate_scores(v.score_docs_mut(), searcher, query.clone())?;
+                },
+            }
         }
 
         if paged.score_docs().is_empty() {
@@ -389,7 +402,7 @@ impl TopDocEnum {
                 let mut r = Vec::new();
 
                 for v in field_docs.base.score_docs.iter() {
-                    r.push(v.base().clone());
+                    r.push(v.score_doc().clone());
                 }
                 r
             },

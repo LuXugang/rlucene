@@ -685,7 +685,7 @@ mod tests {
             "sortednumeric",
             SortFieldType::Long,
         )?])?;
-        let td = empty.search_with_sort(query.clone(), 10, sort)?;
+        let td = empty.search_with_sort_score(query.clone(), 10, sort, true)?;
         assert_eq!(0, td.total_hits().value());
 
         // for an empty index, any selector should work
@@ -696,8 +696,8 @@ mod tests {
                 false,
                 *v,
             )?])?;
-
-            let td = empty.search_with_sort(query.clone(), 10, sort)?;
+            // TODO IMPORTANT populate_scores未实现
+            let td = empty.search_with_sort_score(query.clone(), 10, sort, true)?;
             assert_eq!(0, td.total_hits().value());
         }
 

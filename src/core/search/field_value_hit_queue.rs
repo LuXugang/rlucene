@@ -120,6 +120,10 @@ impl ScoreDocLike for Entry {
     fn set_shard_index(&mut self, shard_index: i32) {
         self.base.shard_index = shard_index
     }
+
+    fn set_score(&mut self, score: f32) {
+        self.base.score = score
+    }
 }
 impl fmt::Display for Entry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -312,14 +316,14 @@ impl TopFieldScoreDoc {
             TopFieldScoreDoc::Score(sd) => sd.doc(),
         }
     }
-    pub fn base_mut(&mut self) -> &mut ScoreDoc {
+    pub fn score_doc_mut(&mut self) -> &mut ScoreDoc {
         match self {
             TopFieldScoreDoc::Entry(e) => &mut e.base,
             TopFieldScoreDoc::Field(fd) => &mut fd.base,
             TopFieldScoreDoc::Score(sd) => sd,
         }
     }
-    pub fn base(&self) -> &ScoreDoc {
+    pub fn score_doc(&self) -> &ScoreDoc {
         match self {
             TopFieldScoreDoc::Entry(e) => &e.base,
             TopFieldScoreDoc::Field(fd) => &fd.base,
@@ -374,6 +378,14 @@ impl ScoreDocLike for TopFieldScoreDoc {
             TopFieldScoreDoc::Entry(e) => e.set_shard_index(shard_index),
             TopFieldScoreDoc::Field(fd) => fd.set_shard_index(shard_index),
             TopFieldScoreDoc::Score(sd) => sd.set_shard_index(shard_index),
+        }
+    }
+
+    fn set_score(&mut self, score: f32) {
+        match self {
+            TopFieldScoreDoc::Entry(e) => e.set_score(score),
+            TopFieldScoreDoc::Field(fd) => fd.set_score(score),
+            TopFieldScoreDoc::Score(sd) => sd.set_score(score),
         }
     }
 }

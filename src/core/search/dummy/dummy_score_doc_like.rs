@@ -42,4 +42,8 @@ impl ScoreDocLike for DummyScoreDocLike {
     fn set_shard_index(&mut self, _shard_index: i32) {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
+
+    fn set_score(&mut self, _score: f32) {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
 }

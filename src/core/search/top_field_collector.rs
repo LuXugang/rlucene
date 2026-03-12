@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::reader_util::ReaderUtil;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::doc_id_stream::DocIdStream;
@@ -28,15 +30,17 @@ use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::field_value_hit_queue::{
     Entry, FieldValueHitQueueComparator, TopFieldScoreDoc,
 };
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::{LeafCollector, LeafCollectorEnum2};
 use crate::core::search::leaf_field_comparator::{
     LeafFieldComparator, LeafFieldComparatorDocIdSetIteratorRef, LeafFieldComparatorEnum,
 };
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
+use crate::core::search::query::Query;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
-use crate::core::search::score_doc::ScoreDoc;
+use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortField;
@@ -47,6 +51,7 @@ use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
+use crate::core::util::{CoreHelper, TryIntoInt};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::vec;
@@ -189,7 +194,7 @@ impl TopFieldCollector {
     pub(crate) fn update_bottom(&mut self, doc: i32) -> Result<()> {
         let global_doc = doc + self.doc_base as i32;
         let bottom = self.bottom_mut()?;
-        bottom.base_mut().doc = global_doc;
+        bottom.score_doc_mut().doc = global_doc;
         let pq = self.pq_mut();
         pq.update_top()?;
         Ok(())
@@ -208,6 +213,86 @@ impl TopFieldCollector {
             .top_mut()
             .ok_or_else(|| LuceneError::illegal_state("priority queue bottom missing"))
     }
+}
+/// Populate [`ScoreDoc::score`] scores of the given `topDocs`.
+///
+/// # Parameters
+///
+/// - `top_docs`: the top docs to populate
+/// - `searcher`: the index searcher that has been used to compute `topDocs`
+/// - `query`: the query that has been used to compute `topDocs`
+///
+/// # Errors
+///
+/// Returns `IllegalArgumentException` if there is evidence that `topDocs` have been computed
+/// against a different searcher or a different query.
+pub fn populate_scores<IRC, T, S>(
+    top_docs: &mut [S],
+    searcher: &IndexSearcher<IRC>,
+    query: T,
+) -> Result<()>
+where
+    IRC: IndexReaderContext,
+    T: Into<Query>,
+    S: ScoreDocLike,
+{
+    top_docs.sort_by_key(|sd| sd.doc());
+
+    let rewritten = searcher.rewrite(query)?;
+    let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
+
+    let contexts = searcher.get_leaf_contexts()?;
+    let mut current_context_idx: Option<usize> = None;
+    let mut current_scorer = None;
+
+    for score_doc in top_docs {
+        let doc = score_doc.doc();
+        if current_context_idx.is_none()
+            || doc as usize
+                >= contexts[current_context_idx.unwrap()].doc_base
+                    + contexts[current_context_idx.unwrap()].reader().max_doc()? as usize
+        {
+            let max_doc = searcher.get_index_reader().max_doc()?;
+            CoreHelper::check_index(score_doc.doc() as usize, max_doc as usize)?;
+            if doc < 0 || doc >= searcher.get_index_reader().max_doc()? {
+                return Err(LuceneError::illegal_argument(format!(
+                    "Doc id {} doesn't match the query",
+                    doc
+                )));
+            }
+
+            let new_context_index = ReaderUtil::sub_index_with_leaves(doc, contexts);
+            current_context_idx = Some(new_context_index);
+            let ctx = &contexts[new_context_index];
+            let scorer_supplier = weight.scorer_supplier(ctx, searcher)?;
+            let mut scorer_supplier = scorer_supplier.ok_or_else(|| {
+                LuceneError::illegal_argument(format!("Doc id {} doesn't match the query", doc))
+            })?;
+
+            current_scorer = Some(scorer_supplier.get(1, ctx, searcher)?);
+        }
+
+        let ctx = &contexts[current_context_idx.unwrap()];
+        let scorer = current_scorer
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_argument("scorer not initialized"))?;
+
+        let leaf_doc = (doc as usize).checked_sub(ctx.doc_base);
+        let leaf_doc: i32 = leaf_doc
+            .ok_or_else(|| LuceneError::illegal_argument("leaf_doc < 0"))?
+            .try_convert()?;
+
+        let advanced = scorer.iterator().advance(leaf_doc)?;
+        if leaf_doc != advanced {
+            return Err(LuceneError::illegal_argument(format!(
+                "Doc id {} doesn't match the query",
+                doc
+            )));
+        }
+
+        score_doc.set_score(scorer.score()?);
+    }
+    Ok(())
 }
 
 impl Collector for TopFieldCollector {
