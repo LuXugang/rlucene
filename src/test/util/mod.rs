@@ -29,12 +29,14 @@ pub(crate) mod base_doc_id_set_test_case;
 pub(crate) mod base_sort_test_case;
 pub(crate) mod bkd;
 pub(crate) mod common_method;
+pub mod english;
 pub(crate) mod fst;
 pub(crate) mod id_set_common;
 pub(crate) mod index_package_access;
 pub(crate) mod lucene_test_case;
 mod packed;
 pub mod test_util;
+
 pub type DefaultIndexSearch =
     DefaultIndexSearcher<CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>>;
 pub(crate) fn dummy_index_searcher() -> crate::core::util::error::lucene_error::Result<

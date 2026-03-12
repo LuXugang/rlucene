@@ -312,10 +312,17 @@ impl TopFieldScoreDoc {
             TopFieldScoreDoc::Score(sd) => sd.doc(),
         }
     }
-    pub fn base(&mut self) -> &mut ScoreDoc {
+    pub fn base_mut(&mut self) -> &mut ScoreDoc {
         match self {
             TopFieldScoreDoc::Entry(e) => &mut e.base,
             TopFieldScoreDoc::Field(fd) => &mut fd.base,
+            TopFieldScoreDoc::Score(sd) => sd,
+        }
+    }
+    pub fn base(&self) -> &ScoreDoc {
+        match self {
+            TopFieldScoreDoc::Entry(e) => &e.base,
+            TopFieldScoreDoc::Field(fd) => &fd.base,
             TopFieldScoreDoc::Score(sd) => sd,
         }
     }

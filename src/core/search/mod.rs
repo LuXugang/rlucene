@@ -132,7 +132,7 @@ pub mod sort;
 pub mod term_range_query;
 pub mod top_field_collector;
 pub mod top_field_collector_manager;
-mod top_field_docs;
+pub mod top_field_docs;
 pub mod top_knn_collector;
 mod top_score_doc_collector;
 pub mod top_score_doc_collector_manager;

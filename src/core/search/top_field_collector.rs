@@ -189,7 +189,7 @@ impl TopFieldCollector {
     pub(crate) fn update_bottom(&mut self, doc: i32) -> Result<()> {
         let global_doc = doc + self.doc_base as i32;
         let bottom = self.bottom_mut()?;
-        bottom.base().doc = global_doc;
+        bottom.base_mut().doc = global_doc;
         let pq = self.pq_mut();
         pq.update_top()?;
         Ok(())
