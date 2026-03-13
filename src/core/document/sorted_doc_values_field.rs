@@ -20,6 +20,7 @@ use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQuery;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -29,6 +30,7 @@ use crate::core::util::number::Number;
 use once_cell::sync::Lazy;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
+
 /// Field that stores a per-document [`BytesRef`] value, indexed for sorting.
 /// If you also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 /// This value can be at most **32766 bytes** long.
@@ -74,6 +76,34 @@ impl SortedDocValuesField {
     {
         let parent_field = Field::new(name, bytes, field_type);
         Self { parent_field }
+    }
+
+    pub fn new_slow_range_query<T>(
+        field: T,
+        lower_value: Option<BytesRef<Vec<u8>>>,
+        upper_value: Option<BytesRef<Vec<u8>>>,
+        lower_inclusive: bool,
+        upper_inclusive: bool,
+    ) -> SortedSetDocValuesRangeQuery
+    where
+        T: Into<String>,
+    {
+        SortedSetDocValuesRangeQuery::new(
+            field.into(),
+            lower_value,
+            upper_value,
+            lower_inclusive,
+            upper_inclusive,
+        )
+    }
+    pub fn new_slow_exact_query<T>(
+        field: T,
+        value: Option<BytesRef<Vec<u8>>>,
+    ) -> SortedSetDocValuesRangeQuery
+    where
+        T: Into<String>,
+    {
+        SortedSetDocValuesRangeQuery::new(field.into(), value.clone(), value, true, true)
     }
 }
 
@@ -158,37 +188,5 @@ impl Clone for SortedDocValuesField {
         Self {
             parent_field: self.parent_field.clone(),
         }
-    }
-}
-pub mod sorted_doc_values_field_util {
-    use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQuery;
-    use crate::core::index::BytesRef;
-
-    pub fn new_slow_range_query<T>(
-        field: T,
-        lower_value: Option<BytesRef<Vec<u8>>>,
-        upper_value: Option<BytesRef<Vec<u8>>>,
-        lower_inclusive: bool,
-        upper_inclusive: bool,
-    ) -> SortedSetDocValuesRangeQuery
-    where
-        T: Into<String>,
-    {
-        SortedSetDocValuesRangeQuery::new(
-            field.into(),
-            lower_value,
-            upper_value,
-            lower_inclusive,
-            upper_inclusive,
-        )
-    }
-    pub fn new_slow_exact_query<T>(
-        field: T,
-        value: Option<BytesRef<Vec<u8>>>,
-    ) -> SortedSetDocValuesRangeQuery
-    where
-        T: Into<String>,
-    {
-        SortedSetDocValuesRangeQuery::new(field.into(), value.clone(), value, true, true)
     }
 }

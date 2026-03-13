@@ -21,7 +21,8 @@ use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::invertable_field::InvertableType;
-use crate::core::document::sorted_numeric_doc_values_field::sorted_numeric_doc_values_field_util;
+
+use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
@@ -99,7 +100,7 @@ impl IntField {
     ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
         let fallback_query = IndexOrDocValuesQuery::new(
             IntPoint::new_range_query(field, lower_value, upper_value)?,
-            sorted_numeric_doc_values_field_util::new_slow_range_query(
+            SortedNumericDocValuesField::new_slow_range_query(
                 field,
                 lower_value as i64,
                 upper_value as i64,

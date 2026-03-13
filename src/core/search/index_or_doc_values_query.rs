@@ -344,12 +344,8 @@ mod tests {
     use crate::core::document::field::Store;
     use crate::core::document::long_field::LongField;
     use crate::core::document::long_point::LongPoint;
-    use crate::core::document::numeric_doc_values_field::{
-        NumericDocValuesField, numeric_doc_values_field_util,
-    };
-    use crate::core::document::sorted_numeric_doc_values_field::{
-        SortedNumericDocValuesField, sorted_numeric_doc_values_field_util,
-    };
+    use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+    use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
     use crate::core::document::string_field::StringField;
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_writer::IndexWriter;
@@ -409,7 +405,7 @@ mod tests {
         q1.add(
             IndexOrDocValuesQuery::new(
                 LongPoint::new_exact_query("f2", 2i64)?,
-                numeric_doc_values_field_util::new_slow_range_query("f2", 2i64, 2i64),
+                NumericDocValuesField::new_slow_range_query("f2", 2i64, 2i64),
             ),
             Occur::Must,
         )?;
@@ -429,7 +425,7 @@ mod tests {
         q2.add(
             IndexOrDocValuesQuery::new(
                 LongPoint::new_exact_query("f2", 42i64)?,
-                numeric_doc_values_field_util::new_slow_range_query("f2", 42i64, 42i64),
+                NumericDocValuesField::new_slow_range_query("f2", 42i64, 42i64),
             ),
             Occur::Must,
         )?;
@@ -486,7 +482,7 @@ mod tests {
         q1.add(
             IndexOrDocValuesQuery::new(
                 LongPoint::new_exact_query("f2", 2i64)?,
-                sorted_numeric_doc_values_field_util::new_slow_range_query("f2", 2i64, 2i64),
+                SortedNumericDocValuesField::new_slow_range_query("f2", 2i64, 2i64),
             ),
             Occur::Must,
         )?;
@@ -506,7 +502,7 @@ mod tests {
         q2.add(
             IndexOrDocValuesQuery::new(
                 LongPoint::new_exact_query("f2", 42i64)?,
-                sorted_numeric_doc_values_field_util::new_slow_range_query("f2", 42i64, 42i64),
+                SortedNumericDocValuesField::new_slow_range_query("f2", 42i64, 42i64),
             ),
             Occur::Must,
         )?;
@@ -525,7 +521,7 @@ mod tests {
         q3.add(
             IndexOrDocValuesQuery::new(
                 LongPoint::new_exact_query("f2", 42i64)?,
-                sorted_numeric_doc_values_field_util::new_slow_range_query("f2", 42i64, 42i64),
+                SortedNumericDocValuesField::new_slow_range_query("f2", 42i64, 42i64),
             ),
             Occur::Must,
         )?;
@@ -563,7 +559,7 @@ mod tests {
 
         let query = IndexOrDocValuesQuery::new(
             LongPoint::new_exact_query("f2", 42i64)?,
-            sorted_numeric_doc_values_field_util::new_slow_range_query("f2", 42i64, 42i64),
+            SortedNumericDocValuesField::new_slow_range_query("f2", 42i64, 42i64),
         );
 
         QueryUtils::check_from_searcher(&mut random, query.clone(), &searcher)?;

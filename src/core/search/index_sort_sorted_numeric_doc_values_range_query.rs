@@ -1255,9 +1255,7 @@ mod tests {
     use crate::core::document::document::Document;
     use crate::core::document::field::Store;
     use crate::core::document::long_point::LongPoint;
-    use crate::core::document::sorted_numeric_doc_values_field::{
-        SortedNumericDocValuesField, sorted_numeric_doc_values_field_util,
-    };
+    use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
     use crate::core::document::string_field::StringField;
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::index_reader_context::IndexReaderContext;
@@ -2054,7 +2052,7 @@ mod tests {
     ) -> IndexSortSortedNumericDocValuesRangeQuery {
         let field_str = field.into();
 
-        let fallback_query = sorted_numeric_doc_values_field_util::new_slow_range_query(
+        let fallback_query = SortedNumericDocValuesField::new_slow_range_query(
             field_str.clone(),
             lower_value,
             upper_value,

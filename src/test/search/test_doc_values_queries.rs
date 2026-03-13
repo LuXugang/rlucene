@@ -17,18 +17,10 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::long_point::LongPoint;
-use crate::core::document::numeric_doc_values_field::{
-    NumericDocValuesField, numeric_doc_values_field_util,
-};
-use crate::core::document::sorted_doc_values_field::{
-    SortedDocValuesField, sorted_doc_values_field_util,
-};
-use crate::core::document::sorted_numeric_doc_values_field::{
-    SortedNumericDocValuesField, sorted_numeric_doc_values_field_util,
-};
-use crate::core::document::sorted_set_doc_values_field::{
-    SortedSetDocValuesField, sorted_set_doc_values_field_util,
-};
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
+use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::index_reader::IndexReader;
@@ -137,7 +129,7 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
         };
 
         let q1 = LongPoint::new_range_query("idx", min, max)?;
-        let q2 = numeric_doc_values_field_util::new_slow_range_query("dv", min, max);
+        let q2 = NumericDocValuesField::new_slow_range_query("dv", min, max);
 
         assert_same_matches(&searcher, q1, q2, false)?;
     }
@@ -221,9 +213,9 @@ fn do_test_duel_point_range_numeric_range_query(
             let q1 = LongPoint::new_range_query("idx", min, max)?;
 
             let q2 = if sorted_numeric {
-                sorted_numeric_doc_values_field_util::new_slow_range_query("dv", min, max)
+                SortedNumericDocValuesField::new_slow_range_query("dv", min, max)
             } else {
-                numeric_doc_values_field_util::new_slow_range_query("dv", min, max)
+                NumericDocValuesField::new_slow_range_query("dv", min, max)
             };
 
             assert_same_matches(&searcher, q1, q2, false)?;
@@ -342,7 +334,7 @@ fn do_test_duel_point_range_sorted_range_query(
             let q1 = LongPoint::new_range_query("idx", min, max)?;
 
             let q2 = if sorted_set {
-                sorted_set_doc_values_field_util::new_slow_range_query(
+                SortedSetDocValuesField::new_slow_range_query(
                     "dv",
                     if min == i64::MIN && random.random_bool(0.5) {
                         None
@@ -358,7 +350,7 @@ fn do_test_duel_point_range_sorted_range_query(
                     include_max,
                 )
             } else {
-                sorted_doc_values_field_util::new_slow_range_query(
+                SortedDocValuesField::new_slow_range_query(
                     "dv",
                     if min == i64::MIN && random.random_bool(0.5) {
                         None
@@ -482,7 +474,7 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
 
         let q1 = LongPoint::new_range_query("idx", min, max)?;
 
-        let q2 = sorted_doc_values_field_util::new_slow_range_query(
+        let q2 = SortedDocValuesField::new_slow_range_query(
             "dv",
             if min == i64::MIN && random.random_bool(0.5) {
                 None
@@ -553,29 +545,29 @@ where
 #[test]
 fn test_equals() -> Result<()> {
     let mut random = random();
-    let q1 = sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 3, 5);
+    let q1 = SortedNumericDocValuesField::new_slow_range_query("foo", 3, 5);
 
     QueryUtils::check_equal(
         &q1,
-        &sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 3, 5),
+        &SortedNumericDocValuesField::new_slow_range_query("foo", 3, 5),
     );
 
     QueryUtils::check_unequal(
         &q1,
-        &sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 3, 6),
+        &SortedNumericDocValuesField::new_slow_range_query("foo", 3, 6),
     );
 
     QueryUtils::check_unequal(
         &q1,
-        &sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 4, 5),
+        &SortedNumericDocValuesField::new_slow_range_query("foo", 4, 5),
     );
 
     QueryUtils::check_unequal(
         &q1,
-        &sorted_numeric_doc_values_field_util::new_slow_range_query("bar", 3, 5),
+        &SortedNumericDocValuesField::new_slow_range_query("bar", 3, 5),
     );
 
-    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+    let q2 = SortedSetDocValuesField::new_slow_range_query(
         "foo",
         Some(new_bytes_ref_from_string(&mut random, "bar")?),
         Some(new_bytes_ref_from_string(&mut random, "baz")?),
@@ -585,7 +577,7 @@ fn test_equals() -> Result<()> {
 
     QueryUtils::check_equal(
         &q2,
-        &sorted_set_doc_values_field_util::new_slow_range_query(
+        &SortedSetDocValuesField::new_slow_range_query(
             "foo",
             Some(new_bytes_ref_from_string(&mut random, "bar")?),
             Some(new_bytes_ref_from_string(&mut random, "baz")?),
@@ -596,7 +588,7 @@ fn test_equals() -> Result<()> {
 
     QueryUtils::check_unequal(
         &q2,
-        &sorted_set_doc_values_field_util::new_slow_range_query(
+        &SortedSetDocValuesField::new_slow_range_query(
             "foo",
             Some(new_bytes_ref_from_string(&mut random, "baz")?),
             Some(new_bytes_ref_from_string(&mut random, "baz")?),
@@ -607,7 +599,7 @@ fn test_equals() -> Result<()> {
 
     QueryUtils::check_unequal(
         &q2,
-        &sorted_set_doc_values_field_util::new_slow_range_query(
+        &SortedSetDocValuesField::new_slow_range_query(
             "foo",
             Some(new_bytes_ref_from_string(&mut random, "bar")?),
             Some(new_bytes_ref_from_string(&mut random, "bar")?),
@@ -618,7 +610,7 @@ fn test_equals() -> Result<()> {
 
     QueryUtils::check_unequal(
         &q2,
-        &sorted_set_doc_values_field_util::new_slow_range_query(
+        &SortedSetDocValuesField::new_slow_range_query(
             "quux",
             Some(new_bytes_ref_from_string(&mut random, "bar")?),
             Some(new_bytes_ref_from_string(&mut random, "baz")?),
@@ -632,13 +624,13 @@ fn test_equals() -> Result<()> {
 #[test]
 fn test_to_string() -> Result<()> {
     let mut random = random();
-    let q1 = sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 3, 5);
+    let q1 = SortedNumericDocValuesField::new_slow_range_query("foo", 3, 5);
 
     assert_eq!("foo:[3 TO 5]", q1.as_string("")?);
     assert_eq!("[3 TO 5]", q1.as_string("foo")?);
     assert_eq!("foo:[3 TO 5]", q1.as_string("bar")?);
 
-    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+    let q2 = SortedSetDocValuesField::new_slow_range_query(
         "foo",
         Some(new_bytes_ref_from_string(&mut random, "bar")?),
         Some(new_bytes_ref_from_string(&mut random, "baz")?),
@@ -647,7 +639,7 @@ fn test_to_string() -> Result<()> {
     );
     assert_eq!("foo:[[62 61 72] TO [62 61 7a]]", q2.as_string("")?);
 
-    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+    let q2 = SortedSetDocValuesField::new_slow_range_query(
         "foo",
         Some(new_bytes_ref_from_string(&mut random, "bar")?),
         Some(new_bytes_ref_from_string(&mut random, "baz")?),
@@ -656,7 +648,7 @@ fn test_to_string() -> Result<()> {
     );
     assert_eq!("foo:{[62 61 72] TO [62 61 7a]]", q2.as_string("")?);
 
-    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+    let q2 = SortedSetDocValuesField::new_slow_range_query(
         "foo",
         Some(new_bytes_ref_from_string(&mut random, "bar")?),
         Some(new_bytes_ref_from_string(&mut random, "baz")?),
@@ -665,7 +657,7 @@ fn test_to_string() -> Result<()> {
     );
     assert_eq!("foo:{[62 61 72] TO [62 61 7a]}", q2.as_string("")?);
 
-    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+    let q2 = SortedSetDocValuesField::new_slow_range_query(
         "foo",
         Some(new_bytes_ref_from_string(&mut random, "bar")?),
         None,
@@ -674,7 +666,7 @@ fn test_to_string() -> Result<()> {
     );
     assert_eq!("foo:[[62 61 72] TO *}", q2.as_string("")?);
 
-    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+    let q2 = SortedSetDocValuesField::new_slow_range_query(
         "foo",
         None,
         Some(new_bytes_ref_from_string(&mut random, "baz")?),
@@ -702,9 +694,9 @@ fn test_missing_field() -> Result<()> {
     let ctx = &leaves[0];
 
     let queries: Vec<Query> = vec![
-        numeric_doc_values_field_util::new_slow_range_query("foo", 2, 4).into(),
-        sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 2, 4).into(),
-        sorted_doc_values_field_util::new_slow_range_query(
+        NumericDocValuesField::new_slow_range_query("foo", 2, 4).into(),
+        SortedNumericDocValuesField::new_slow_range_query("foo", 2, 4).into(),
+        SortedDocValuesField::new_slow_range_query(
             "foo",
             Some(BytesRef::from_string("abc")),
             Some(BytesRef::from_string("bcd")),
@@ -712,7 +704,7 @@ fn test_missing_field() -> Result<()> {
             random.random_bool(0.5),
         )
         .into(),
-        sorted_set_doc_values_field_util::new_slow_range_query(
+        SortedSetDocValuesField::new_slow_range_query(
             "foo",
             Some(BytesRef::from_string("abc")),
             Some(BytesRef::from_string("bcd")),
@@ -740,11 +732,11 @@ fn test_slow_range_query_rewrite() -> Result<()> {
     let searcher = new_searcher_with_reader(reader)?;
 
     QueryUtils::check_equal(
-        &numeric_doc_values_field_util::new_slow_range_query("foo", 10, 1).rewrite(&searcher)?,
+        &NumericDocValuesField::new_slow_range_query("foo", 10, 1).rewrite(&searcher)?,
         &MatchNoDocsQuery::new().into(),
     );
     QueryUtils::check_equal(
-        &numeric_doc_values_field_util::new_slow_range_query("foo", i64::MIN, i64::MAX)
+        &NumericDocValuesField::new_slow_range_query("foo", i64::MIN, i64::MAX)
             .rewrite(&searcher)?,
         &FieldExistsQuery::new("foo").into(),
     );
@@ -785,10 +777,10 @@ fn test_sorted_numeric_npe() -> Result<()> {
     let hi = NumericUtils::double_to_sortable_long(2.0801416404385346E-41_f64);
 
     let max_doc = searcher.get_index_reader().max_doc()?;
-    let q1 = sorted_numeric_doc_values_field_util::new_slow_range_query("dv", lo, hi);
+    let q1 = SortedNumericDocValuesField::new_slow_range_query("dv", lo, hi);
     searcher.search_with_sort(q1, max_doc.try_convert()?, Sort::get_index_order()?)?;
 
-    let q2 = sorted_numeric_doc_values_field_util::new_slow_range_query("dv", hi, lo);
+    let q2 = SortedNumericDocValuesField::new_slow_range_query("dv", hi, lo);
     searcher.search_with_sort(q2, max_doc.try_convert()?, Sort::get_index_order()?)?;
 
     Ok(())
@@ -796,23 +788,23 @@ fn test_sorted_numeric_npe() -> Result<()> {
 #[test]
 fn test_set_equals() -> Result<()> {
     assert_eq!(
-        numeric_doc_values_field_util::new_slow_set_query("field", vec![17, 42])?,
-        numeric_doc_values_field_util::new_slow_set_query("field", vec![17, 42])?
+        NumericDocValuesField::new_slow_set_query("field", vec![17, 42])?,
+        NumericDocValuesField::new_slow_set_query("field", vec![17, 42])?
     );
 
     assert_eq!(
-        numeric_doc_values_field_util::new_slow_set_query("field", vec![17, 42, 32416190071])?,
-        numeric_doc_values_field_util::new_slow_set_query("field", vec![17, 32416190071, 42])?
+        NumericDocValuesField::new_slow_set_query("field", vec![17, 42, 32416190071])?,
+        NumericDocValuesField::new_slow_set_query("field", vec![17, 32416190071, 42])?
     );
 
     assert_ne!(
-        numeric_doc_values_field_util::new_slow_set_query("field", vec![42])?,
-        numeric_doc_values_field_util::new_slow_set_query("field2", vec![42])?
+        NumericDocValuesField::new_slow_set_query("field", vec![42])?,
+        NumericDocValuesField::new_slow_set_query("field2", vec![42])?
     );
 
     assert_ne!(
-        numeric_doc_values_field_util::new_slow_set_query("field", vec![17, 42])?,
-        numeric_doc_values_field_util::new_slow_set_query("field", vec![17, 32416190071])?
+        NumericDocValuesField::new_slow_set_query("field", vec![17, 42])?,
+        NumericDocValuesField::new_slow_set_query("field", vec![17, 32416190071])?
     );
 
     Ok(())
@@ -894,13 +886,13 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
             let q1 = BoostQuery::new(ConstantScoreQuery::new(bq.build()), boost)?;
 
             let q2 = BoostQuery::new(
-                numeric_doc_values_field_util::new_slow_set_query("long", query_numbers_array)?,
+                NumericDocValuesField::new_slow_set_query("long", query_numbers_array)?,
                 boost,
             )?;
             assert_same_matches(&searcher, q1.clone(), q2, true)?;
 
             let q3 = BoostQuery::new(
-                sorted_numeric_doc_values_field_util::new_slow_set_query(
+                SortedNumericDocValuesField::new_slow_set_query(
                     "twolongs",
                     query_numbers.iter().copied().collect(),
                 )?,
@@ -909,7 +901,7 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
             assert_same_matches(&searcher, q1.clone(), q3, true)?;
 
             let q4 = BoostQuery::new(
-                sorted_numeric_doc_values_field_util::new_slow_set_query(
+                SortedNumericDocValuesField::new_slow_set_query(
                     "twolongs",
                     query_numbers_x2_array,
                 )?,

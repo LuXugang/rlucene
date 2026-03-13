@@ -20,6 +20,8 @@ use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::document::sorted_numeric_doc_values_range_query::SortedNumericDocValuesRangeQuery;
+use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQuery;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -78,6 +80,28 @@ impl NumericDocValuesField {
     {
         let parent_field = Field::new(name, value, file_type);
         Self { parent_field }
+    }
+    pub fn new_slow_range_query<T>(
+        field: T,
+        lower_value: i64,
+        upper_value: i64,
+    ) -> SortedNumericDocValuesRangeQuery
+    where
+        T: Into<String>,
+    {
+        let field = field.into();
+        SortedNumericDocValuesRangeQuery::new(field, lower_value, upper_value)
+    }
+
+    pub fn new_slow_set_query<T>(
+        field: T,
+        values: Vec<i64>,
+    ) -> Result<SortedNumericDocValuesSetQuery>
+    where
+        T: Into<String>,
+    {
+        let field = field.into();
+        SortedNumericDocValuesSetQuery::new(field, values)
     }
 }
 
@@ -154,34 +178,5 @@ impl IndexableField for NumericDocValuesField {
         A: Analyzer,
     {
         self.parent_field.init_token_stream(analyzer)
-    }
-}
-pub mod numeric_doc_values_field_util {
-    use crate::core::document::sorted_numeric_doc_values_range_query::SortedNumericDocValuesRangeQuery;
-    use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQuery;
-
-    use crate::core::util::error::lucene_error::Result;
-
-    pub fn new_slow_range_query<T>(
-        field: T,
-        lower_value: i64,
-        upper_value: i64,
-    ) -> SortedNumericDocValuesRangeQuery
-    where
-        T: Into<String>,
-    {
-        let field = field.into();
-        SortedNumericDocValuesRangeQuery::new(field, lower_value, upper_value)
-    }
-
-    pub fn new_slow_set_query<T>(
-        field: T,
-        values: Vec<i64>,
-    ) -> Result<SortedNumericDocValuesSetQuery>
-    where
-        T: Into<String>,
-    {
-        let field = field.into();
-        SortedNumericDocValuesSetQuery::new(field, values)
     }
 }
