@@ -109,6 +109,7 @@ pub mod field_exists_query;
 pub mod filter_doc_id_set_iterator;
 pub mod filter_scorable;
 pub mod filter_scorer;
+pub mod index_or_doc_values_query;
 pub mod index_sort_sorted_numeric_doc_values_range_query;
 mod max_score_bulk_scorer;
 pub mod multi_term_query;
