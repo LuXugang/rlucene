@@ -235,6 +235,18 @@ where
 
         self.search_with_collector_manager(query, &manager)
     }
+    /// Get the configured [`QueryTimeout`] for all searches that run through this [`IndexSearcher`],
+    /// or `None` if not set.
+    pub fn get_timeout<T>(&self) -> Option<&QueryTimeoutEnum> {
+        self.query_timeout.as_ref()
+    }
+    /// Set a [`QueryTimeout`] for all searches that run through this [`IndexSearcher`].
+    pub fn set_timeout<T>(&mut self, query_timeout: T)
+    where
+        T: Into<QueryTimeoutEnum>,
+    {
+        self.query_timeout = Some(query_timeout.into())
+    }
     pub fn search(&self, query: impl Into<Query>, n: usize) -> Result<TopDocs<ScoreDoc>> {
         self.search_after_score(None, query, n)
     }
@@ -410,6 +422,10 @@ where
         let score_mode = first_collector.score_mode();
         let weight = self.create_weight(query, score_mode, 1.0)?;
         self.search_with_first_collector(weight.as_ref(), collector_manager, first_collector)
+    }
+    /// Returns true if any search hit the timeout.
+    pub fn timeout(&self) -> bool {
+        self.partial_result.load(Ordering::Relaxed)
     }
     fn search_with_first_collector<W, CM>(
         &self,
