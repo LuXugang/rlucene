@@ -154,6 +154,8 @@ mod tests {
     use crate::core::index::approximate_priority_queue::{ApproximatePriorityQueue, IdentityId};
     use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 
+    #[allow(dead_code)] // for quick search
+    struct TestApproximatePriorityQueue;
     impl Lock for i64 {
         fn lock(&self) {
             unreachable!()
