@@ -37,8 +37,8 @@ pub(crate) mod lucene_test_case;
 mod packed;
 pub mod test_util;
 
-pub type DefaultIndexSearch =
-    DefaultIndexSearcher<CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>>;
+pub type DefaultCRReader = StandardDirectoryReaderType<DirEnum>;
+pub type DefaultIndexSearch = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReader>>;
 pub(crate) fn dummy_index_searcher() -> crate::core::util::error::lucene_error::Result<
     DefaultIndexSearcher<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
 > {

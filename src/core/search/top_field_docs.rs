@@ -74,4 +74,8 @@ impl TopDocsLike for TopFieldDocs {
     fn score_docs_mut(&mut self) -> &mut [Self::ScoreDocLike] {
         &mut self.base.score_docs
     }
+
+    fn take_score_docs(&mut self) -> Vec<Self::ScoreDocLike> {
+        std::mem::take(&mut self.base.score_docs)
+    }
 }

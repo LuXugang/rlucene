@@ -295,6 +295,46 @@ pub enum TopFieldScoreDoc {
     Score(ScoreDoc),
 }
 impl TopFieldScoreDoc {
+    pub fn as_entry(&self) -> Option<&Entry> {
+        match self {
+            TopFieldScoreDoc::Entry(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn as_field(&self) -> Option<&FieldDoc> {
+        match self {
+            TopFieldScoreDoc::Field(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn as_score(&self) -> Option<&ScoreDoc> {
+        match self {
+            TopFieldScoreDoc::Score(v) => Some(v),
+            _ => None,
+        }
+    }
+    pub fn into_entry(self) -> Option<Entry> {
+        match self {
+            TopFieldScoreDoc::Entry(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn into_field(self) -> Option<FieldDoc> {
+        match self {
+            TopFieldScoreDoc::Field(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn into_score(self) -> Option<ScoreDoc> {
+        match self {
+            TopFieldScoreDoc::Score(v) => Some(v),
+            _ => None,
+        }
+    }
     pub fn fields(&self) -> Result<&[FieldsValue]> {
         match self {
             TopFieldScoreDoc::Field(fd) => Ok(fd.fields.as_slice()),

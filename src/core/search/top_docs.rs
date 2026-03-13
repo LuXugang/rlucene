@@ -483,6 +483,10 @@ where
     fn score_docs_mut(&mut self) -> &mut [Self::ScoreDocLike] {
         &mut self.score_docs
     }
+
+    fn take_score_docs(&mut self) -> Vec<Self::ScoreDocLike> {
+        std::mem::take(&mut self.score_docs)
+    }
 }
 
 pub trait TopDocsLike {
@@ -490,4 +494,5 @@ pub trait TopDocsLike {
     type ScoreDocLike: ScoreDocLike;
     fn score_docs(&self) -> &[Self::ScoreDocLike];
     fn score_docs_mut(&mut self) -> &mut [Self::ScoreDocLike];
+    fn take_score_docs(&mut self) -> Vec<Self::ScoreDocLike>;
 }
