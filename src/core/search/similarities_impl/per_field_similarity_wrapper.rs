@@ -14,4 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub struct PerFieldSimilarityWrapper;
+use crate::core::index::field_invert_state::FieldInvertState;
+use crate::core::search::collection_statistics::CollectionStatistics;
+use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::term_statistics::TermStatistics;
+use crate::core::util::error::lucene_error::Result;
+/// Provides the ability to use a different [`Similarity`] for different fields.
+///
+/// Subclasses should implement [`Self::get`] to return an appropriate [`Similarity`] for the field
+/// (for example, using field-specific parameter values) for the field.
+pub trait PerFieldSimilarityWrapper: Similarity {
+    fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
+        self.get(state.get_name()).compute_norm(state)
+    }
+
+    fn scorer(
+        &self,
+        boost: f32,
+        collection_stats: &CollectionStatistics,
+        term_stats: &[TermStatistics],
+    ) -> Result<Self::SimScorer> {
+        self.get(collection_stats.get_field())
+            .scorer(boost, collection_stats, term_stats)
+    }
+    type Similarity: Similarity<SimScorer = Self::SimScorer>;
+    /// Returns a Similarity for scoring a field.
+    fn get(&self, name: &str) -> Self::Similarity;
+}
