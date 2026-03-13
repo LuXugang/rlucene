@@ -22,7 +22,7 @@ mod base_postings_format_test_case;
 pub(crate) mod base_segment_info_format_test_case;
 pub mod doc_helper;
 pub mod random_index_writer;
-mod test_all_files_have_codec_header;
+mod test_all_file_have_codec_header;
 mod test_binary_terms;
 mod test_consistent_field_numbers;
 mod test_doc_count;
