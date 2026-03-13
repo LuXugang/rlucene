@@ -27,7 +27,7 @@ use std::fmt;
 /// BM25 Similarity. Introduced in Stephen E. Robertson, Steve Walker, Susan Jones, Micheline
 /// Hancock-Beaulieu, and Mike Gatford. Okapi at TREC-3. In Proceedings of the Third
 /// **T**ext **RE**trieval **C**onference (TREC 1994). Gaithersburg, USA, November 1994.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BM25Similarity {
     k1: f32,
     b: f32,

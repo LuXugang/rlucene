@@ -325,8 +325,9 @@ static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
 ///       contribute more to the score.
 /// </ol>
 ///
-/// @see org.apache.lucene.index.IndexWriterConfig#setSimilarity(Similarity)
+/// @see IndexWriterConfig#setSimilarity(Similarity)
 /// @see IndexSearcher#setSimilarity(Similarity)
+#[derive(Clone)]
 pub struct TFIDFSimilarity {
     sub: TFIDFSubEnum,
     discount_overlaps: bool,

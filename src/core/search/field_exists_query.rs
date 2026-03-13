@@ -44,7 +44,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 /// A `Query` that matches documents that contain either a `KnnFloatVectorField`,
-/// `org.apache.lucene.document.KnnByteVectorField`, or a field that indexes norms
+/// `KnnByteVectorField`, or a field that indexes norms
 /// or doc values.
 #[derive(Debug, Clone)]
 pub struct FieldExistsQuery {

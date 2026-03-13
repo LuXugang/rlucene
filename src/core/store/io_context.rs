@@ -28,7 +28,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///
 /// # Note
 /// It will use [`ReadAdvice::Random`] by default, unless set by the system
-/// property `org.apache.lucene.store.defaultReadAdvice`.
+/// property `defaultReadAdvice`.
 pub static IO_CONTEXT_DEFAULT: Lazy<IOContext> =
     Lazy::new(|| IOContext::default_io_context().unwrap());
 /// A default context for reads with [`ReadAdvice::Sequential`].
