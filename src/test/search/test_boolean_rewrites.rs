@@ -143,7 +143,7 @@ fn test_single_must_match_all() -> Result<()> {
     let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
 
     let mut bq = Builder::new();
-    bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+    bq.add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Must)?
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
     let bq = bq.build();
 
@@ -156,7 +156,7 @@ fn test_single_must_match_all() -> Result<()> {
 
     let mut bq = Builder::new();
     bq.add(
-        BoostQuery::new(Query::MatchAll(MatchAllDocsQuery::new()), 42.0)?,
+        BoostQuery::new(Query::MatchAllDocs(MatchAllDocsQuery::new()), 42.0)?,
         Occur::Must,
     )?
     .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
@@ -172,27 +172,27 @@ fn test_single_must_match_all() -> Result<()> {
     assert_eq!(v, searcher.rewrite(bq)?);
 
     let mut bq = Builder::new();
-    bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
-        .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+    bq.add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Must)?
+        .add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Filter)?;
     let bq = bq.build();
 
     assert_eq!(
-        Query::MatchAll(MatchAllDocsQuery::new()),
+        Query::MatchAllDocs(MatchAllDocsQuery::new()),
         searcher.rewrite(bq)?
     );
 
     let mut bq = Builder::new();
     bq.add(
-        BoostQuery::new(Query::MatchAll(MatchAllDocsQuery::new()), 42.0)?,
+        BoostQuery::new(Query::MatchAllDocs(MatchAllDocsQuery::new()), 42.0)?,
         Occur::Must,
     )?
-    .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+    .add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Filter)?;
     let bq = bq.build();
-    let v: Query = BoostQuery::new(Query::MatchAll(MatchAllDocsQuery::new()), 42.0)?.into();
+    let v: Query = BoostQuery::new(Query::MatchAllDocs(MatchAllDocsQuery::new()), 42.0)?.into();
     assert_eq!(v, searcher.rewrite(bq)?);
 
     let mut bq = Builder::new();
-    bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+    bq.add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Must)?
         .add(
             TermQuery::new(Term::from_text("foo", "bar")),
             Occur::MustNot,
@@ -202,17 +202,17 @@ fn test_single_must_match_all() -> Result<()> {
     assert_eq!(v, searcher.rewrite(bq)?);
 
     let mut bq = Builder::new();
-    bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
-        .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+    bq.add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Must)?
+        .add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Filter)?;
     let bq = bq.build();
 
     assert_eq!(
-        Query::MatchAll(MatchAllDocsQuery::new()),
+        Query::MatchAllDocs(MatchAllDocsQuery::new()),
         searcher.rewrite(bq)?
     );
 
     let mut bq = Builder::new();
-    bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+    bq.add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Must)?
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
         .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
     let bq = bq.build();
@@ -226,7 +226,7 @@ fn test_single_must_match_all() -> Result<()> {
     assert_eq!(v, searcher.rewrite(bq)?);
 
     let mut bq = Builder::new();
-    bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+    bq.add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Must)?
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
         .add(
             TermQuery::new(Term::from_text("foo", "baz")),
@@ -246,7 +246,7 @@ fn test_single_must_match_all() -> Result<()> {
     assert_eq!(v, searcher.rewrite(bq)?);
 
     let mut bq = Builder::new();
-    bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+    bq.add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Must)?
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
     let bq: Query = bq.build().into();
 
@@ -259,7 +259,7 @@ fn test_single_must_match_all_with_should_clauses() -> Result<()> {
     let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
 
     let mut bq = Builder::new();
-    bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+    bq.add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Must)?
         .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
         .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
         .add(
@@ -389,7 +389,10 @@ fn test_match_all_must_not() -> Result<()> {
     bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
         .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?
         .add(TermQuery::new(Term::from_text("foo", "bad")), Occur::Should)?
-        .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::MustNot)?;
+        .add(
+            Query::MatchAllDocs(MatchAllDocsQuery::new()),
+            Occur::MustNot,
+        )?;
     let bq = bq.build();
 
     assert_eq!(Query::from(MatchNoDocsQuery::new()), searcher.rewrite(bq)?);
@@ -402,7 +405,10 @@ fn test_match_all_must_not() -> Result<()> {
             TermQuery::new(Term::from_text("foo", "bor")),
             Occur::MustNot,
         )?
-        .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::MustNot)?;
+        .add(
+            Query::MatchAllDocs(MatchAllDocsQuery::new()),
+            Occur::MustNot,
+        )?;
     let bq2 = bq2.build();
 
     assert_eq!(Query::from(MatchNoDocsQuery::new()), searcher.rewrite(bq2)?);
@@ -529,7 +535,7 @@ fn test_remove_match_all_filter() -> Result<()> {
 
     let mut bq = Builder::new();
     bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-        .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+        .add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Filter)?;
     let bq = bq.build();
 
     assert_eq!(
@@ -540,7 +546,7 @@ fn test_remove_match_all_filter() -> Result<()> {
     let mut bq = Builder::new();
     bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
         .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?
-        .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+        .add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Filter)?;
     let bq = bq.build();
 
     let mut expected = Builder::new();
@@ -553,7 +559,7 @@ fn test_remove_match_all_filter() -> Result<()> {
 
     let mut bq = Builder::new();
     bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-        .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+        .add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Filter)?;
     let bq = bq.build();
 
     let expected: Query = BoostQuery::new(
@@ -567,12 +573,12 @@ fn test_remove_match_all_filter() -> Result<()> {
     assert_eq!(expected, searcher.rewrite(bq)?);
 
     let mut bq = Builder::new();
-    bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?
-        .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+    bq.add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Filter)?
+        .add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Filter)?;
     let bq = bq.build();
 
     let expected: Query = BoostQuery::new(
-        Query::ConstantScore(ConstantScoreQuery::new(Query::MatchAll(
+        Query::ConstantScore(ConstantScoreQuery::new(Query::MatchAllDocs(
             MatchAllDocsQuery::new(),
         ))),
         0.0,

@@ -159,7 +159,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         let fallback_id = self.fallback_query.identity().clone();
         let rewritten_fallback = self.fallback_query.clone().rewrite(searcher)?;
 
-        if matches!(rewritten_fallback, Query::MatchAll(_)) {
+        if matches!(rewritten_fallback, Query::MatchAllDocs(_)) {
             return Ok(MatchAllDocsQuery::new().into());
         }
 

@@ -475,7 +475,7 @@ impl QueryBase for BooleanQuery {
 
             if must_not
                 .iter()
-                .any(|&idx| matches!(self.clauses[idx].query, Query::MatchAll(_)))
+                .any(|&idx| matches!(self.clauses[idx].query, Query::MatchAllDocs(_)))
             {
                 return Ok(
                     MatchNoDocsQuery::with_message("MUST_NOT clause is MatchAllDocsQuery").into(),
@@ -504,7 +504,7 @@ impl QueryBase for BooleanQuery {
             if new_filter_ixd.len() > 1 || !must_indices.is_empty() {
                 let before = new_filter_ixd.len();
                 new_filter_ixd
-                    .retain(|&idx| !matches!(self.clauses[idx].query, Query::MatchAll(_)));
+                    .retain(|&idx| !matches!(self.clauses[idx].query, Query::MatchAllDocs(_)));
                 modified |= new_filter_ixd.len() != before;
             }
 
@@ -694,7 +694,7 @@ impl QueryBase for BooleanQuery {
                     must = bq.into_inner();
                 }
 
-                if matches!(must, Query::MatchAll(_)) {
+                if matches!(must, Query::MatchAllDocs(_)) {
                     // our single scoring clause matches everything: rewrite to a CSQ on the filter
                     // ignore SHOULD clause for now
                     let mut builder = Builder::new();
@@ -1204,13 +1204,13 @@ mod tests {
 
         let mut bq1_builder = Builder::new();
         bq1_builder.set_minimum_number_should_match(min_should_match);
-        bq1_builder.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?;
+        bq1_builder.add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Must)?;
         bq1_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
         let bq1 = bq1_builder.build();
 
         let mut bq2_builder = Builder::new();
         bq2_builder.set_minimum_number_should_match(bq1.get_minimum_number_should_match());
-        bq2_builder.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?;
+        bq2_builder.add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Must)?;
         bq2_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
         bq2_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
         let bq2 = bq2_builder.build();
@@ -1782,7 +1782,7 @@ mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+            .add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Must)?
             .add(LongPoint::new_range_query("long", 1, 5)?, Occur::Filter)?;
         let query = builder.build();
 
@@ -1878,7 +1878,7 @@ mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Should)?
+            .add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Should)?
             .add(LongPoint::new_range_query("long", 1, 5)?, Occur::Should)?;
         let query = builder.build();
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
@@ -1902,7 +1902,10 @@ mod tests {
                 Occur::Must,
             )?
             .add(unknown_count_query.clone(), Occur::MustNot)?
-            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::MustNot)?;
+            .add(
+                Query::MatchAllDocs(MatchAllDocsQuery::new()),
+                Occur::MustNot,
+            )?;
         let query = builder.build();
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // count of the first MUST_NOT clause is unknown, but the second MUST_NOT clause matches all
@@ -1931,7 +1934,7 @@ mod tests {
         let mut builder = Builder::new();
         builder
             .add(unknown_count_query.clone(), Occur::Should)?
-            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Should)?;
+            .add(Query::MatchAllDocs(MatchAllDocsQuery::new()), Occur::Should)?;
         let query = builder.build();
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
         // count of the first SHOULD clause is unknown, but the second SHOULD clause matches all docs

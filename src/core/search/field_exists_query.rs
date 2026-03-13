@@ -517,7 +517,7 @@ mod test {
         let query = FieldExistsQuery::new("f");
         let rewritten = query.rewrite(&searcher)?;
 
-        assert!(matches!(rewritten, Query::MatchAll(_)));
+        assert!(matches!(rewritten, Query::MatchAllDocs(_)));
 
         Ok(())
     }
@@ -545,7 +545,7 @@ mod test {
         let query = FieldExistsQuery::new("dim");
         let rewritten = query.rewrite(&searcher)?;
 
-        assert!(matches!(rewritten, Query::MatchAll(_)));
+        assert!(matches!(rewritten, Query::MatchAllDocs(_)));
 
         Ok(())
     }
@@ -583,10 +583,10 @@ mod test {
         let searcher = new_searcher_with_reader(reader)?;
 
         let rewritten_dim = FieldExistsQuery::new("dim").rewrite(&searcher)?;
-        assert!(!matches!(rewritten_dim, Query::MatchAll(_)));
+        assert!(!matches!(rewritten_dim, Query::MatchAllDocs(_)));
 
         let rewritten_f = FieldExistsQuery::new("f").rewrite(&searcher)?;
-        assert!(!matches!(rewritten_f, Query::MatchAll(_)));
+        assert!(!matches!(rewritten_f, Query::MatchAllDocs(_)));
 
         Ok(())
     }
@@ -615,13 +615,13 @@ mod test {
         let searcher = new_searcher_with_reader(reader)?;
 
         let rewritten_dv1 = FieldExistsQuery::new("dv1").rewrite(&searcher)?;
-        assert!(!matches!(rewritten_dv1, Query::MatchAll(_)));
+        assert!(!matches!(rewritten_dv1, Query::MatchAllDocs(_)));
 
         let rewritten_dv2 = FieldExistsQuery::new("dv2").rewrite(&searcher)?;
-        assert!(!matches!(rewritten_dv2, Query::MatchAll(_)));
+        assert!(!matches!(rewritten_dv2, Query::MatchAllDocs(_)));
 
         let rewritten_dv3 = FieldExistsQuery::new("dv3").rewrite(&searcher)?;
-        assert!(!matches!(rewritten_dv3, Query::MatchAll(_)));
+        assert!(!matches!(rewritten_dv3, Query::MatchAllDocs(_)));
 
         Ok(())
     }

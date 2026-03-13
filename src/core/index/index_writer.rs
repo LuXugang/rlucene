@@ -601,7 +601,7 @@ where
 
         // LUCENE-6379: Specialize MatchAllDocsQuery
         for query in &queries {
-            if matches!(query, Query::MatchAll(_)) {
+            if matches!(query, Query::MatchAllDocs(_)) {
                 // TODO
                 // return self.delete_all();
             }
