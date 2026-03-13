@@ -80,4 +80,11 @@ where
     pub fn force_merge(&self, max_num_segments: i32) -> Result<()> {
         self.w.force_merge(max_num_segments)
     }
+    pub fn update_numeric_doc_value<T, F>(&self, term: T, field: F, value: i64) -> Result<i64>
+    where
+        T: Into<Arc<Term>>,
+        F: Into<String>,
+    {
+        self.w.update_numeric_doc_value(term, field, value)
+    }
 }
