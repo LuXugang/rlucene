@@ -392,17 +392,14 @@ impl<LC> LeafCollector for FilterLeafCollectorImpl<LC>
 where
     LC: LeafCollector,
 {
-    fn finish(&mut self) -> Result<()> {
-        self.in_.finish()
-    }
-
     fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
         let mut v = FilterScorableImpl::new(self.the_score, scorer);
         self.in_.set_scorer(&mut v)
     }
 
     fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-        self.in_.collect(doc, scorer)
+        let mut v = FilterScorableImpl::new(self.the_score, scorer);
+        self.in_.collect(doc, &mut v)
     }
 
     fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
@@ -411,6 +408,10 @@ where
 
     fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
         self.in_.competitive_iterator()
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.in_.finish()
     }
 }
 

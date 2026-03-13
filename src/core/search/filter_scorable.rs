@@ -25,7 +25,7 @@ pub struct FilterScorable<'a, S>
 where
     S: Scorable + ?Sized,
 {
-    in_: &'a mut S,
+    pub(crate) in_: &'a mut S,
 }
 impl<'a, S> FilterScorable<'a, S>
 where

@@ -1342,13 +1342,14 @@ pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = DocIdSetIteratorEnum2<
 #[cfg(test)]
 mod tests {
     use crate::core::document::document::Document;
+    use std::fmt::{Display, Formatter};
     use std::rc::Rc;
 
     use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 
     use crate::core::index::composite_reader::get_context;
     use crate::core::index::directory_reader::directory_reader_util;
-    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
     use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -1363,7 +1364,7 @@ mod tests {
     use crate::core::search::leaf_collector::LeafCollector;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
     use crate::core::search::max_score_accumulator::{DEFAULT_INTERVAL, MaxScoreAccumulator};
-    use crate::core::search::scorable::Scorable;
+    use crate::core::search::scorable::{ChildScorable, Scorable};
     use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
     use crate::core::search::sort_field::{SortField, SortFieldType};
 
@@ -1378,8 +1379,18 @@ mod tests {
     use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
     use crate::core::search::total_hits::TotalHits;
 
+    use crate::core::document::string_field::StringField;
     use crate::core::index::no_merge_policy::NoMergePolicy;
-    use crate::core::search::top_field_collector::populate_scores;
+    use crate::core::search::boolean_clause::Occur;
+    use crate::core::search::boolean_query::Builder;
+    use crate::core::search::boost_query::BoostQuery;
+    use crate::core::search::filter_scorable::FilterScorable;
+
+    use crate::core::search::score_mode::ScoreMode;
+    use crate::core::search::top_field_collector::{
+        FieldLeafCollectorEnum, TopFieldCollectorEnum, populate_scores,
+    };
+    use crate::core::search::weight::Weight;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::check_hits::CheckHits;
@@ -1387,6 +1398,7 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory_shared, new_searcher_with_reader, new_searcher_with_threads, random,
     };
+    use crate::test::util::test_util::TestUtil;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
@@ -1800,9 +1812,58 @@ mod tests {
 
     #[test]
     fn test_compute_scores_only_once() -> Result<()> {
-        // TODO  BooleanQuery 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        let text = StringField::from_string("text", "foo", Store::No)?;
+        doc.add(text);
+        let relevance = NumericDocValuesField::new("relevance", 1);
+        doc.add(relevance);
+
+        writer.add_document(doc.clone())?;
+
+        doc.remove_field("text");
+        doc.add(StringField::from_string("text", "bar", Store::No)?);
+        writer.add_document(doc.clone())?;
+
+        doc.remove_field("text");
+        doc.add(StringField::from_string("text", "baz", Store::No)?);
+        writer.add_document(doc.clone())?;
+
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let foo = BoostQuery::new(TermQuery::new(Term::from_text("text", "foo")), 2.0)?;
+        let bar = TermQuery::new(Term::from_text("text", "bar"));
+        let baz = BoostQuery::new(TermQuery::new(Term::from_text("text", "baz")), 3.0)?;
+
+        let mut builder = Builder::new();
+        builder.add(foo, Occur::Should)?;
+        builder.add(bar, Occur::Should)?;
+        builder.add(baz, Occur::Should)?;
+        let query = builder.build();
+
+        let sorts = vec![
+            Sort::with_fields(vec![SortField::get_field_score()?])?,
+            Sort::with_fields(vec![SortField::new(Some("f"), SortFieldType::Score)?])?,
+        ];
+
+        for sort in sorts {
+            let top_field_collector_manager = TopFieldCollectorManager::new(
+                sort,
+                TestUtil::next_usize(&mut random, 1, 2),
+                i32::MAX as usize,
+            )?;
+            let cm = CollectorManagerImpl::new(top_field_collector_manager);
+            searcher.search_with_collector_manager(query.clone(), &cm)?;
+        }
+
+        writer.close()?;
         Ok(())
     }
+
     #[test]
     fn test_populate_scores() -> Result<()> {
         let mut random = random();
@@ -2099,6 +2160,161 @@ mod tests {
 
         fn cost(&self) -> Result<i64> {
             Err(LuceneError::unsupported_operation(""))
+        }
+    }
+
+    struct LeafCollectorImpl<LC>
+    where
+        LC: LeafCollector,
+    {
+        in_: LC,
+        current_doc: i32,
+    }
+    impl<LC> LeafCollectorImpl<LC>
+    where
+        LC: LeafCollector,
+    {
+        fn new(in_: LC) -> Self {
+            Self {
+                in_,
+                current_doc: -1,
+            }
+        }
+    }
+
+    impl<LC> Display for LeafCollectorImpl<LC>
+    where
+        LC: LeafCollector,
+    {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", std::any::type_name::<Self>())
+        }
+    }
+
+    impl<LC> LeafCollector for LeafCollectorImpl<LC>
+    where
+        LC: LeafCollector,
+    {
+        fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+            let mut s = FilterScorableImpl::new(scorer, self.current_doc);
+            self.in_.set_scorer(&mut s)
+        }
+
+        fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+            self.current_doc = doc;
+            let mut s = FilterScorableImpl::new(scorer, self.current_doc);
+            self.in_.collect(doc, &mut s)?;
+            Ok(())
+        }
+    }
+
+    struct CollectorImpl {
+        top_collector: TopFieldCollectorEnum,
+    }
+    impl CollectorImpl {
+        fn new(top_collector: TopFieldCollectorEnum) -> Self {
+            Self { top_collector }
+        }
+    }
+    impl Collector for CollectorImpl {
+        type LeafCollector<'a, IRC>
+            = LeafCollectorImpl<FieldLeafCollectorEnum<'a, IRCLeafReader<IRC>>>
+        where
+            Self: 'a,
+            IRC: IndexReaderContext;
+
+        fn get_leaf_collector<'a, W, IRC>(
+            &'a mut self,
+            context: &LeafReaderContext<IRCLeafReader<IRC>>,
+            weight: Option<&W>,
+        ) -> Result<Self::LeafCollector<'a, IRC>>
+        where
+            IRC: IndexReaderContext,
+            W: Weight<IRC> + ?Sized,
+        {
+            let in_ = self.top_collector.get_leaf_collector(context, weight)?;
+            let v = LeafCollectorImpl::new(in_);
+            Ok(v)
+        }
+
+        fn score_mode(&self) -> ScoreMode {
+            ScoreMode::Complete
+        }
+    }
+
+    struct CollectorManagerImpl {
+        top_field_collector_manager: TopFieldCollectorManager,
+    }
+    impl CollectorManagerImpl {
+        fn new(top_field_collector_manager: TopFieldCollectorManager) -> Self {
+            Self {
+                top_field_collector_manager,
+            }
+        }
+    }
+    impl CollectorManager for CollectorManagerImpl {
+        type C = CollectorImpl;
+        type T = ();
+
+        fn new_collector(&self) -> Result<Self::C> {
+            let top_collector = self.top_field_collector_manager.new_collector()?;
+            Ok(CollectorImpl::new(top_collector))
+        }
+
+        fn reduce(&self, _collectors: Vec<Self::C>) -> Result<Self::T> {
+            Ok(())
+        }
+    }
+    pub struct FilterScorableImpl<'a, S>
+    where
+        S: Scorable + ?Sized,
+    {
+        last_computed_doc: i32,
+        base: FilterScorable<'a, S>,
+        current_doc: i32,
+    }
+    impl<'a, S> FilterScorableImpl<'a, S>
+    where
+        S: Scorable + ?Sized,
+    {
+        pub(crate) fn new(s: &'a mut S, current_doc: i32) -> Self {
+            let base = FilterScorable::new(s);
+            Self {
+                last_computed_doc: -1,
+                base,
+                current_doc,
+            }
+        }
+    }
+    impl<'a, S> Scorable for FilterScorableImpl<'a, S>
+    where
+        S: Scorable + ?Sized,
+    {
+        fn score(&mut self) -> Result<f32> {
+            if self.last_computed_doc == self.current_doc {
+                return Err(LuceneError::illegal_state(format!(
+                    "Score computed twice on {}",
+                    self.current_doc
+                )));
+            }
+            self.last_computed_doc = self.current_doc;
+            self.base.in_.score()
+        }
+
+        fn smoothing_score(&mut self, _doc_id: i32) -> Result<f32> {
+            self.base.in_.score()
+        }
+
+        fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+            self.base.set_min_competitive_score(min_score)
+        }
+
+        fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+            self.base.get_children()
+        }
+
+        fn cost(&self) -> Result<i64> {
+            self.base.cost()
         }
     }
 }
