@@ -19,15 +19,20 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::int_point::IntPoint;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::document::sorted_numeric_doc_values_field::sorted_numeric_doc_values_field_util;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
+use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
+use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
+
 pub mod int_field_type {
     use crate::core::document::field_type::FieldType;
     use crate::core::index::doc_values_type::DocValuesType;
@@ -79,6 +84,34 @@ impl IntField {
             parent_field,
             stored_value,
         })
+    }
+    pub fn new_exact_query(
+        field: &str,
+        value: i32,
+    ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
+        Self::new_range_query(field, value, value)
+    }
+
+    pub fn new_range_query(
+        field: &str,
+        lower_value: i32,
+        upper_value: i32,
+    ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
+        let fallback_query = IndexOrDocValuesQuery::new(
+            IntPoint::new_range_query(field, lower_value, upper_value)?,
+            sorted_numeric_doc_values_field_util::new_slow_range_query(
+                field,
+                lower_value as i64,
+                upper_value as i64,
+            ),
+        );
+
+        Ok(IndexSortSortedNumericDocValuesRangeQuery::new(
+            field,
+            lower_value as i64,
+            upper_value as i64,
+            fallback_query,
+        ))
     }
 }
 

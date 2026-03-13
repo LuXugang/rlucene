@@ -21,8 +21,10 @@ use crate::core::document::double_point::DoublePoint;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::document::sorted_numeric_doc_values_field::sorted_numeric_doc_values_field_util;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
+use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
@@ -97,6 +99,26 @@ impl DoubleField {
                 )),
             },
         }
+    }
+    pub fn new_exact_query(field: &str, value: f64) -> Result<IndexOrDocValuesQuery> {
+        Self::new_range_query(field, value, value)
+    }
+    pub fn new_range_query(
+        field: &str,
+        lower_value: f64,
+        upper_value: f64,
+    ) -> Result<IndexOrDocValuesQuery> {
+        // not required in Rust Lucene
+        // check_args(field, lower_value, upper_value)?;
+
+        Ok(IndexOrDocValuesQuery::new(
+            DoublePoint::new_range_query(field, lower_value, upper_value)?,
+            sorted_numeric_doc_values_field_util::new_slow_range_query(
+                field,
+                NumericUtils::double_to_sortable_long(lower_value),
+                NumericUtils::double_to_sortable_long(upper_value),
+            ),
+        ))
     }
 }
 

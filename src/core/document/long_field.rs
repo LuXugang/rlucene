@@ -21,8 +21,12 @@ use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::long_field::long_field_type::{FIELD_TYPE, FIELD_TYPE_STORED};
+use crate::core::document::long_point::LongPoint;
+use crate::core::document::sorted_numeric_doc_values_field::sorted_numeric_doc_values_field_util;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
+use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
+use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
@@ -94,6 +98,34 @@ impl LongField {
             parent_field,
             stored_value,
         })
+    }
+    pub fn new_exact_query(
+        field: &str,
+        value: i64,
+    ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
+        Self::new_range_query(field, value, value)
+    }
+
+    pub fn new_range_query(
+        field: &str,
+        lower_value: i64,
+        upper_value: i64,
+    ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
+        let fallback_query = IndexOrDocValuesQuery::new(
+            LongPoint::new_range_query(field, lower_value, upper_value)?,
+            sorted_numeric_doc_values_field_util::new_slow_range_query(
+                field,
+                lower_value,
+                upper_value,
+            ),
+        );
+
+        Ok(IndexSortSortedNumericDocValuesRangeQuery::new(
+            field,
+            lower_value,
+            upper_value,
+            fallback_query,
+        ))
     }
 }
 

@@ -21,8 +21,10 @@ use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::float_point::FloatPoint;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::document::sorted_numeric_doc_values_field::sorted_numeric_doc_values_field_util;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
+use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -84,7 +86,24 @@ impl FloatField {
             stored_value,
         })
     }
+    pub fn new_exact_query(field: &str, value: f32) -> Result<IndexOrDocValuesQuery> {
+        Self::new_range_query(field, value, value)
+    }
 
+    pub fn new_range_query(
+        field: &str,
+        lower_value: f32,
+        upper_value: f32,
+    ) -> Result<IndexOrDocValuesQuery> {
+        Ok(IndexOrDocValuesQuery::new(
+            FloatPoint::new_range_query(field, lower_value, upper_value)?,
+            sorted_numeric_doc_values_field_util::new_slow_range_query(
+                field,
+                NumericUtils::float_to_sortable_int(lower_value) as i64,
+                NumericUtils::float_to_sortable_int(upper_value) as i64,
+            ),
+        ))
+    }
     /// Convert the stored sortable int back into a float.
     fn get_value_as_float(&self) -> Result<f32> {
         match self.numeric_value()? {
