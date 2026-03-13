@@ -131,7 +131,7 @@ impl DocumentsWriterStallControl {
 mod tests {
     use crate::core::index::documents_writer_stall_control::DocumentsWriterStallControl;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, at_least_usize, is_night_mode, random,
     };
     use parking_lot::{Condvar, Mutex};

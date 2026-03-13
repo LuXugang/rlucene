@@ -724,11 +724,13 @@ mod tests {
     use crate::core::util::fixed_bit_set::FixedBitSet;
     use crate::core::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
     use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
-    use crate::test::util::base_bit_set_test_case::{
+    use crate::test::core::util::base_bit_set_test_case::{
         BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
     };
-    use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
+    use crate::test::core::util::id_set_common::{
+        clear_range, flip_bit, flip_bit_range, set_range,
+    };
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
     use rand::Rng;
     use rand::RngExt;
     use std::hash::{DefaultHasher, Hash, Hasher};

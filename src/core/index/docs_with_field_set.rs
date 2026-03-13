@@ -142,8 +142,8 @@ mod tests {
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
     struct TestDocsWithFieldSet {}

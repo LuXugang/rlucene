@@ -99,7 +99,7 @@ mod tests {
     use crate::core::index::lockable_concurrent_approximate_priority_queue::{
         Lock, LockableConcurrentApproximatePriorityQueue,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
     use rand::RngExt;
 

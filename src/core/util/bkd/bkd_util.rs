@@ -140,8 +140,8 @@ mod tests {
     use crate::core::util::SliceCopyOps;
     use crate::core::util::bit_util::BitUtil;
     use crate::core::util::bkd::bkd_util::BKDUtil;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
     struct TestBKDUtil;

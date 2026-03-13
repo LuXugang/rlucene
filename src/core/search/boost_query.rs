@@ -169,7 +169,7 @@ mod tests {
     use crate::core::search::query::{Query, QueryBase};
     use crate::core::search::term_query::TermQuery;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_searcher_with_reader, random,
     };
     use rand::RngExt;

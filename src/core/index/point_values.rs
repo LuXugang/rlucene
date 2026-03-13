@@ -833,13 +833,13 @@ mod tests {
     };
     use crate::core::index::term::Term;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, create_temp_dir, get_only_leaf_reader, is_night_mode, new_directory_shared,
         new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
         new_string_field, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     use rand::Rng;
     use rand::RngExt;
     use std::collections::HashMap;
@@ -847,7 +847,7 @@ mod tests {
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::util::TryIntoInt;
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
     use std::vec;
 
     #[allow(dead_code)] // for quick search

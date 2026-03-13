@@ -149,7 +149,7 @@ mod tests {
     use rand::prelude::IndexedRandom;
 
     use crate::core::util::math_util::MathUtil;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
     /// List of prime numbers.
     const PRIMES: [i64; 10] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];

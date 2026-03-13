@@ -738,11 +738,11 @@ mod tests {
     use crate::core::search::top_docs::TopDocsLike;
     use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::search::check_hits::CheckHits;
-    use crate::test::search::query_utils::QueryUtils;
-    use crate::test::util::DefaultIndexSearch;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::search::check_hits::CheckHits;
+    use crate::test::core::search::query_utils::QueryUtils;
+    use crate::test::core::util::DefaultIndexSearch;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, new_log_merge_policy,
         new_searcher_with_reader, new_text_field, random,
     };

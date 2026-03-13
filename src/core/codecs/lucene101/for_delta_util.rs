@@ -671,10 +671,10 @@ mod tests {
     use crate::core::store::{IOContext, IndexInput, IndexOutput};
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::packed::PackedInts;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     #[allow(dead_code)]
     struct TestForDeltaUtil;
     #[test]

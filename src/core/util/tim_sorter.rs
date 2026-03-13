@@ -483,9 +483,9 @@ mod tests {
 
     use crate::core::util::array_tim_sorter::ArrayTimSorter;
     use crate::core::util::{NaturalOrder, Sorter};
-    use crate::test::util::base_sort_test_case::{BaseSortTestCase, Entry};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::base_sort_test_case::{BaseSortTestCase, Entry};
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::test_util::TestUtil;
 
     struct TestTimSorter;
 

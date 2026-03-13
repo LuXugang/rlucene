@@ -859,7 +859,9 @@ mod tests {
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::info_stream::get_default_info_stream;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{random, random_multiplier};
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+        random, random_multiplier,
+    };
 
     #[allow(dead_code)] // for quick search
     struct TestDocumentsWriterDeleteQueue;

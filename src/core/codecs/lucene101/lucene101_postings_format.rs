@@ -454,8 +454,8 @@ mod tests {
         ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext, IndexInput,
     };
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, random,
     };
 

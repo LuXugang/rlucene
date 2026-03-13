@@ -66,7 +66,7 @@ mod tests {
     use crate::core::index::index_options::IndexOptions;
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, random,
     };
 

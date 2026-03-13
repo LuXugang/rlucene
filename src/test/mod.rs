@@ -14,12 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analysis;
-pub mod codecs;
-pub mod index;
-pub mod search;
-pub mod store;
-pub mod util;
+pub mod core;
 
 pub(crate) fn ulp_f64(x: f64) -> f64 {
     if x.is_nan() {

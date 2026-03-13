@@ -886,7 +886,7 @@ mod test {
     use crate::core::util::HasIdentity;
     use crate::core::util::bits::Bits;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_log_merge_policy, new_searcher_with_reader, random,
     };
     use rand::Rng;

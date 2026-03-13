@@ -86,7 +86,7 @@ mod tests {
     use crate::core::store::IOContext;
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, random,
     };
 

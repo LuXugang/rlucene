@@ -221,7 +221,7 @@ mod tests {
     use crate::core::util::fst_impl::bit_table_util::BitTableUtil;
     use crate::core::util::fst_impl::fst::BytesReader;
     use crate::core::util::group_vint_util::GroupVIntUtil;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
     #[test]
     fn test_next_bit_set() -> Result<()> {

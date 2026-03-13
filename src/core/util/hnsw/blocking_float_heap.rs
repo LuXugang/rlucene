@@ -191,7 +191,7 @@ mod tests {
 
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::hnsw::blocking_float_heap::BlockingFloatHeap;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
     #[allow(dead_code)] // for quick search
     struct TestBlockingFloatHeap;

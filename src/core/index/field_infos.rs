@@ -943,8 +943,8 @@ mod tests {
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::index::segment_infos::SegmentInfos;
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
         random,
     };

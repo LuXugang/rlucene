@@ -389,8 +389,10 @@ mod tests {
         AtomicCounter, BytesRefArray, IndexedBytesRefIterator, Natural, NaturalOrder,
         SortableBytesRefArray,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+        at_least_usize, random,
+    };
+    use crate::test::core::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
     struct TestBytesRefArray;

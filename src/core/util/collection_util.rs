@@ -212,7 +212,7 @@ mod tests {
     use crate::core::util::ReverseOrder;
     use crate::core::util::collection_util::CollectionUtil;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use rand::Rng;
     use rand::RngExt;
 

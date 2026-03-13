@@ -559,7 +559,7 @@ mod tests {
     use crate::core::index::vector_encoding::VectorEncoding;
     use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
     #[allow(dead_code)] // for quick search
     struct TestFieldType;

@@ -133,8 +133,8 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::lsb_radix_sorter::LSBRadixSorter;
     use crate::core::util::packed::PackedInts;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
     struct TestLSBRadixSorter;

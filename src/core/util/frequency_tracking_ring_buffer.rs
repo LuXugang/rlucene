@@ -203,7 +203,7 @@ impl Accountable for IntBag {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
     use rand::RngExt;
     use std::collections::HashMap;
 

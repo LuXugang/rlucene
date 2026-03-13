@@ -944,8 +944,8 @@ mod tests {
 
     use crate::core::index::freq_prox_terms_writer::DocOffsetSorter;
     use crate::core::util::Sorter;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
+    use crate::test::core::util::test_util::TestUtil;
 
     fn generate_doc_offset_data<R: Rng + ?Sized>(
         random: &mut R,

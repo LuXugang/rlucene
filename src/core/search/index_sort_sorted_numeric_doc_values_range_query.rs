@@ -1279,15 +1279,15 @@ mod tests {
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::{HasIdentity, TryIntoInt};
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
-    use crate::test::search::query_utils::QueryUtils;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
+    use crate::test::core::search::query_utils::QueryUtils;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory_shared, new_index_writer_config_with_analyzer,
         new_searcher_with_reader, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     use rand::RngExt;
     use std::sync::Arc;
 

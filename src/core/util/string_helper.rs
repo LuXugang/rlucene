@@ -349,7 +349,7 @@ mod tests {
     use crate::core::index::BytesRef;
     use crate::core::util::StringHelper;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_bytes_ref_from_string, random,
     };
 

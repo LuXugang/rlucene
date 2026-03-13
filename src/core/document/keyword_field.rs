@@ -237,7 +237,7 @@ mod tests {
     use crate::core::index::terms::Terms;
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
         new_index_writer_config, random,
     };

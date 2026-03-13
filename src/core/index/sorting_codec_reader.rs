@@ -1907,8 +1907,8 @@ mod tests {
     use crate::core::search::sorted_set_selector::SortedSetSelectorType::Min;
     use crate::core::search::sorted_set_sort_field::SortedSetSortField;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config_with_analyzer, random,
     };
 

@@ -139,7 +139,7 @@ mod tests {
     use crate::core::util::automation::int_set::IntSet;
     use crate::core::util::automation::state_set::StateSet;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
     #[allow(dead_code)] // for quick search
     struct TestIntSet;
     #[test]

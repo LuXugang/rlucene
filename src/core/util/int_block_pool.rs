@@ -206,7 +206,7 @@ mod tests {
     use crate::core::util::int_block_pool::{
         AllocatorIntEnum, DirectAllocatorI32, INT_BLOCK_SIZE, IntBlockPool,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
     #[allow(dead_code)]
     struct TestIntBlockPool;
     #[test]

@@ -55,11 +55,11 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
-use crate::test::search::random_approximation_query::RandomApproximationQuery;
+use crate::test::core::search::random_approximation_query::RandomApproximationQuery;
 #[cfg(test)]
-use crate::test::search::test_boolean_rewrites::TestRewriteQuery;
+use crate::test::core::search::test_boolean_rewrites::TestRewriteQuery;
 #[cfg(test)]
-use crate::test::search::test_scorer_perf::BitSetQuery;
+use crate::test::core::search::test_scorer_perf::BitSetQuery;
 use std::cmp::PartialEq;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};

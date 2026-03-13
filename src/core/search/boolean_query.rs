@@ -1040,15 +1040,15 @@ mod tests {
 
     use crate::core::util::CoreHelper;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::search::query_utils::QueryUtils;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::search::query_utils::QueryUtils;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory_shared, new_index_writer_config,
         new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
         new_string_field, new_text_field, random, random_multiplier,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     #[allow(dead_code)]
     struct TestBooleanQuery;
 

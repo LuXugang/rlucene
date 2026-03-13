@@ -542,8 +542,8 @@ mod tests {
     use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::long_values::LongValuesEnum2;
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config_with_analyzer, random,
     };
     use rand::RngExt;

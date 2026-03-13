@@ -86,8 +86,8 @@ mod tests {
     use rand::Rng;
 
     use crate::core::util::{ArrayIntroSorter, Comparator, NaturalOrder, Sorter};
-    use crate::test::util::base_sort_test_case::{BaseSortTestCase, Entry};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::base_sort_test_case::{BaseSortTestCase, Entry};
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
     const STABLE: bool = false;
 

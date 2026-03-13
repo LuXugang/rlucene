@@ -25,7 +25,7 @@ use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
-use crate::test::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::marker::PhantomData;

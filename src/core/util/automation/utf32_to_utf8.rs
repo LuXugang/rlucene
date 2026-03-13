@@ -391,13 +391,13 @@ mod tests {
     use crate::core::util::fst_impl::util::Util;
     use crate::core::util::ints_ref_builder::IntsRefBuilder;
     use crate::core::util::unicode_util::UnicodeUtil;
-    use crate::test::util::automaton::automaton_test_util::{
+    use crate::test::core::util::automaton::automaton_test_util::{
         AutomatonTestUtil, RandomAcceptedStrings,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, at_least_usize, new_bytes_ref_from_string, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     #[allow(dead_code)] // for quick search
     struct TestUTF32ToUTF8;
     const MAX_UNICODE: i32 = 0x10FFFF;

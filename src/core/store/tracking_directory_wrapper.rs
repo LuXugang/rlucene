@@ -196,8 +196,8 @@ mod tests {
     use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
     use crate::core::store::{BufferedIndexInput, FSDirectory, NativeFSLockFactory};
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::store::base_directory_test_case::BaseDirectoryTestCase;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory, new_io_context, random,
     };
     use std::collections::HashSet;

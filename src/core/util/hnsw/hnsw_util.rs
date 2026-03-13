@@ -316,7 +316,7 @@ mod tests {
     use crate::core::util::fixed_bit_set::FixedBitSet;
     use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
     use crate::core::util::hnsw::hnsw_util::HnswUtil;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
     #[allow(dead_code)] // for quick search
     struct TestHnswUtil;

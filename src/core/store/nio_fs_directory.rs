@@ -82,8 +82,8 @@ mod tests {
     use crate::core::store::nio_fs_index_input::NIOFSIndexInput;
     use crate::core::store::{BufferedIndexInput, FSDirectory, NativeFSLockFactory};
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::store::base_directory_test_case::BaseDirectoryTestCase;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
     #[allow(dead_code)] // for quick search
     struct TestNIOFSDirectory;

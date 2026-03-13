@@ -700,7 +700,7 @@ mod tests {
     use crate::core::util::bits::Bits;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::{LATEST, StringHelper};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, random,
     };
 

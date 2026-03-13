@@ -1440,13 +1440,13 @@ mod tests {
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, get_only_leaf_reader, is_night_mode, new_directory_shared,
         new_index_writer_config, new_log_merge_policy, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     use rand::Rng;
     use rand::RngExt;
 

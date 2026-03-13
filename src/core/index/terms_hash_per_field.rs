@@ -529,7 +529,7 @@ pub(crate) mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::int_block_pool::IntBlockPool;
     use crate::core::util::{AtomicCounter, ByteBlockPool};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_bytes_ref_from_string, random,
     };
 

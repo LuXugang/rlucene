@@ -372,7 +372,7 @@ mod tests {
     use crate::core::search::term_range_query::TermRangeQuery;
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_string_field,
         new_text_field, random,
     };

@@ -230,7 +230,7 @@ mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::iterator::IteratorExt;
     use crate::core::util::merged_iterator::MergedIterator;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
     use rand::Rng;
     use rand::RngExt;
 

@@ -1499,16 +1499,16 @@ mod tests {
     use crate::core::util::fst_impl::util::Util;
     use crate::core::util::ints_ref::IntsRef;
     use crate::core::util::ints_ref_builder::IntsRefBuilder;
-    use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::util::fst::fst_tester::{
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::util::fst::fst_tester::{
         DummyFSTTesterBaseImpl, FSTTester, InputOutput, get_random_string, simple_random_string,
         to_ints_ref_from_string,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, is_night_mode, new_bytes_ref_from_string, new_directory, new_directory_shared,
         random, random_from_seed, random_multiplier,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     use rand::Rng;
     use rand::RngExt;
     use rand::seq::SliceRandom;

@@ -1378,11 +1378,11 @@ mod tests {
     use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::{LATEST, LUCENE_10_0_0, LUCENE_11_0_0, StringHelper};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory, new_directory_shared,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
     pub struct TestSegmentInfos;

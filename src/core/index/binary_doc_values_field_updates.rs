@@ -228,12 +228,12 @@ mod tests {
     use crate::core::util::TryIntoInt;
     use crate::core::util::bits::Bits;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_bytes_ref_from_string, new_bytes_ref_with_length, new_directory_shared,
         new_index_writer_config, new_index_writer_config_with_analyzer, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     use rand::RngExt;
     use rand::seq::IndexedRandom;
     use std::collections::HashSet;

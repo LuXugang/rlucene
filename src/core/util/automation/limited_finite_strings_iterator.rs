@@ -83,9 +83,9 @@ mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::fst_impl::util::Util;
     use crate::core::util::ints_ref_builder::IntsRefBuilder;
-    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::core::util::test_util::TestUtil;
     #[allow(dead_code)] // for quick search
     struct TestLimitedFiniteStringsIterator;
     #[test]

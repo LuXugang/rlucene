@@ -973,8 +973,8 @@ pub(crate) mod tests {
     use crate::core::search::weight::{DefaultScorerSupplier, Weight};
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::{HasIdentity, ToInt};
-    use crate::test::search::check_hits::CheckHits;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::search::check_hits::CheckHits;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
         new_searcher_with_reader, new_searcher_with_threads, random,
     };

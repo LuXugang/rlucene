@@ -176,10 +176,10 @@ mod tests {
     use crate::core::store::ByteBuffersDataOutput;
     use crate::core::util::compress::lowercase_ascii_compression::LowercaseAsciiCompression;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, at_least_usize, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     fn do_test_compress<R: Rng + ?Sized>(random: &mut R, bytes: &[u8]) -> Result<bool> {
         do_test_compress_with_len(random, bytes, bytes.len())
     }

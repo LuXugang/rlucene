@@ -183,9 +183,9 @@ mod tests {
     use crate::core::document::stored_field::stored_field_type;
     use crate::core::document::text_field::text_field_type;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, random,
     };
 

@@ -463,10 +463,10 @@ mod tests {
     use crate::core::store::{ByteArrayDataInput, ByteArrayDataOutput};
     use crate::core::util::array_util::ArrayUtil;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, is_night_mode, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
 
     trait AbstractTestCompressionMode {
         fn get_mode(&self) -> CompressionModeEnum;

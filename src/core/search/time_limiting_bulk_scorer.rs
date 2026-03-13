@@ -162,8 +162,8 @@ mod tests {
     use crate::core::search::time_limiting_bulk_scorer::{BulkScorerImpl, TimeLimitingBulkScorer};
     use crate::core::util::bits::MatchAllBits;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
         new_text_field, random,
     };

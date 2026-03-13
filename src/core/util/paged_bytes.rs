@@ -486,10 +486,10 @@ mod tests {
     use crate::core::util::clone::TryClone;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::paged_bytes::{PagedBytes, get_data_input, get_data_output};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, is_night_mode, new_directory_shared, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
     struct TestPagedBytes;

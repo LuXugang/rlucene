@@ -1142,7 +1142,7 @@ mod tests {
     use crate::core::search::scorer_supplier::ScorerSupplier;
 
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
     #[allow(dead_code)] // for quick search
     struct TestBoolean2ScorerSupplier;
@@ -1279,7 +1279,7 @@ mod tests {
             subs.insert(occur, Vec::new());
         }
         let dummy_lrc = LeafReaderContext::dummy_lrc();
-        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
+        let dummy_searcher = crate::test::core::util::dummy_index_searcher()?;
         subs = {
             let occur = *[Occur::Filter, Occur::Must].choose(&mut random).unwrap();
             subs.get_mut(&occur)
@@ -1327,7 +1327,7 @@ mod tests {
         }
 
         let dummy_lrc = LeafReaderContext::dummy_lrc();
-        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
+        let dummy_searcher = crate::test::core::util::dummy_index_searcher()?;
 
         subs.get_mut(&Occur::Should)
             .unwrap()
@@ -1391,7 +1391,7 @@ mod tests {
         }
 
         let dummy_lrc = LeafReaderContext::dummy_lrc();
-        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
+        let dummy_searcher = crate::test::core::util::dummy_index_searcher()?;
 
         subs.get_mut(&Occur::Should)
             .unwrap()
@@ -1502,7 +1502,7 @@ mod tests {
         let iters = at_least(&mut random, 1000);
 
         let dummy_lrc = LeafReaderContext::dummy_lrc();
-        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
+        let dummy_searcher = crate::test::core::util::dummy_index_searcher()?;
 
         for _i in 0..iters {
             let mut subs = HashMap::new();
@@ -1560,7 +1560,7 @@ mod tests {
     fn test_fake_scorer_supplier() -> Result<()> {
         let mut random = random();
         let dummy_lrc = LeafReaderContext::dummy_lrc();
-        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
+        let dummy_searcher = crate::test::core::util::dummy_index_searcher()?;
 
         let mut random_access_supplier =
             FakeScorerSupplier::with_lead_cost(random.random_range(0..100), Some(30));
@@ -1583,7 +1583,7 @@ mod tests {
     fn test_conjunction_lead_cost() -> Result<()> {
         let mut random = random();
         let dummy_lrc = LeafReaderContext::dummy_lrc();
-        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
+        let dummy_searcher = crate::test::core::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
@@ -1627,7 +1627,7 @@ mod tests {
     fn test_disjunction_lead_cost() -> Result<()> {
         let mut random = random();
         let dummy_lrc = LeafReaderContext::dummy_lrc();
-        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
+        let dummy_searcher = crate::test::core::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
@@ -1668,7 +1668,7 @@ mod tests {
     fn test_disjunction_with_min_should_match_lead_cost() -> Result<()> {
         let mut random = random();
         let dummy_lrc = LeafReaderContext::dummy_lrc();
-        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
+        let dummy_searcher = crate::test::core::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
@@ -1769,7 +1769,7 @@ mod tests {
     fn test_prohibited_lead_cost() -> Result<()> {
         let mut random = random();
         let dummy_lrc = LeafReaderContext::dummy_lrc();
-        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
+        let dummy_searcher = crate::test::core::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
@@ -1826,7 +1826,7 @@ mod tests {
     #[test]
     fn test_mixed_lead_cost() -> Result<()> {
         let dummy_lrc = LeafReaderContext::dummy_lrc();
-        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
+        let dummy_searcher = crate::test::core::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in Occur::values() {
@@ -2045,7 +2045,7 @@ mod tests {
     #[test]
     fn test_max_score_non_top_level_scoring_clause() -> Result<()> {
         let dummy_lrc = LeafReaderContext::dummy_lrc();
-        let dummy_searcher = crate::test::util::dummy_index_searcher()?;
+        let dummy_searcher = crate::test::core::util::dummy_index_searcher()?;
 
         let mut subs = HashMap::new();
         for occur in Occur::values() {

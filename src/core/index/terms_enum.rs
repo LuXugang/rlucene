@@ -680,13 +680,13 @@ mod tests {
     use crate::core::util::automation::reg_exp::RegExp;
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
         new_index_writer_config_with_analyzer, new_string_field, new_text_field, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     use rand::Rng;
     use rand::RngExt;
     use std::borrow::Cow;
@@ -1595,15 +1595,15 @@ mod tests2 {
     use crate::core::util::automation::reg_exp::RegExp;
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::search::check_hits::CheckHits;
-    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::search::check_hits::CheckHits;
+    use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory_shared, new_index_writer_config_with_analyzer,
         new_searcher_with_reader, new_string_field, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     use rand::Rng;
     use rand::RngExt;
     use rand::prelude::SliceRandom;

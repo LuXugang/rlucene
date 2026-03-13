@@ -246,10 +246,10 @@ pub(crate) mod tests {
     use crate::core::util::fst_impl::util::Util;
     use crate::core::util::ints_ref::IntsRef;
     use crate::core::util::ints_ref_builder::IntsRefBuilder;
-    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
-    use crate::test::util::automaton::minimization_operation::MinimizationOperations;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::core::util::automaton::minimization_operation::MinimizationOperations;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::test_util::TestUtil;
     /// Test for FiniteStringsIterator.
     #[allow(dead_code)] // for quick search
     struct TestFiniteStringsIterator;

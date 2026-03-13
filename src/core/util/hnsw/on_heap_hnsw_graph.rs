@@ -392,7 +392,7 @@ mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
     use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
     #[allow(dead_code)] // for quick search
     struct TestOnHeapHnswGraph;

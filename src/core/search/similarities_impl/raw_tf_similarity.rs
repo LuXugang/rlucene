@@ -85,9 +85,9 @@ mod tests {
     use crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity;
     use crate::core::search::term_query::TermQuery;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::search::similarities::base_similarity_test_case::BaseSimilarityTestCase;
-    use crate::test::util::DefaultIndexSearch;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::search::similarities::base_similarity_test_case::BaseSimilarityTestCase;
+    use crate::test::core::util::DefaultIndexSearch;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_text_field,
         random,
     };

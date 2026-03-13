@@ -327,8 +327,8 @@ pub mod tests {
     use crate::core::search::segment_cacheable::SegmentCacheable;
     use crate::core::search::weight::{DefaultScorerSupplier, Weight};
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::dummy_index_searcher;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
+    use crate::test::core::util::dummy_index_searcher;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
     use rand::Rng;
     use rand::RngExt;
     use std::hash::Hash;

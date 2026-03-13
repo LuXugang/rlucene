@@ -866,7 +866,7 @@ mod tests {
     use crate::core::store::directory::Directory;
     use crate::core::store::{DataInput, DataOutput, IndexInput};
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_io_context, new_string_field, new_text_field,
     };
     #[allow(dead_code)] // for quick search

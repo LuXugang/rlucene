@@ -389,12 +389,12 @@ mod tests {
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::fst_impl::util::Util;
-    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
-    use crate::test::util::automaton::minimization_operation::MinimizationOperations;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::core::util::automaton::minimization_operation::MinimizationOperations;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         is_night_mode, new_bytes_ref_from_bytes_ref, new_bytes_ref_from_string, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
     struct TestStringsToAutomaton;

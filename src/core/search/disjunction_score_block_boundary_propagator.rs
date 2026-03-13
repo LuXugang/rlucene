@@ -136,7 +136,7 @@ mod tests {
     use crate::core::search::scorable::Scorable;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
     use rand::prelude::SliceRandom;
 
     #[allow(dead_code)] // for quick search

@@ -194,7 +194,7 @@ mod tests {
 
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::long_heap::LongHeap;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
     #[allow(dead_code)] // for quick search
     struct TestLongHeap;
     /// Checks that the heap property is maintained.

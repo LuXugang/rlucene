@@ -557,13 +557,13 @@ mod tests {
     use crate::core::search::term_query::TermQuery;
     use crate::core::search::term_range_query::TermRangeQuery;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field, random,
     };
     use std::collections::HashMap;
 
-    use crate::test::search::query_utils::QueryUtils;
+    use crate::test::core::search::query_utils::QueryUtils;
 
     #[allow(dead_code)] // for quick search
     struct TestConstantScoreQuery;

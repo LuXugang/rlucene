@@ -334,9 +334,9 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
 mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::{LATEST, Version};
-    use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-    use crate::test::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+    use crate::test::core::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
     pub struct TestLucene99SegmentInfoFormat;
 

@@ -340,7 +340,7 @@ mod tests {
     use crate::core::util::{
         LATEST, LUCENE_10_0_0, LUCENE_10_1_0, LUCENE_11_0_0, LUCENE_CURRENT, Version,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
     #[allow(dead_code)] // for quick search
     struct TestVersion;

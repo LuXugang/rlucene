@@ -49,7 +49,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
 use crate::impl_from_for_enum;
 #[cfg(test)]
-use crate::test::index::test_doc_values_indexing::FieldImpl;
+use crate::test::core::index::test_doc_values_indexing::FieldImpl;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;

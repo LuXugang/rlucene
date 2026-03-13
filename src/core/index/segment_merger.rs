@@ -465,13 +465,13 @@ mod tests {
     use crate::core::util::info_stream::InfoStreamEnum;
     use crate::core::util::long_values::LongValues;
     use crate::core::util::{LATEST, StringHelper};
-    use crate::test::index::doc_helper::{
+    use crate::test::core::index::doc_helper::{
         DATA, DocHelper, FIELD_2_FREQS, FIELD_2_TEXT, TEXT_FIELD_2_KEY,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_io_context, new_io_context_with_default, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     use parking_lot::Mutex;
     use rand::RngExt;
     use std::collections::HashMap;

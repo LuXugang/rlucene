@@ -50,7 +50,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ints_ref::IntsRef;
 use crate::impl_from_for_enum;
 #[cfg(test)]
-use crate::test::search::test_point_queries::PointRangeQueryBaseImpl;
+use crate::test::core::search::test_point_queries::PointRangeQueryBaseImpl;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;

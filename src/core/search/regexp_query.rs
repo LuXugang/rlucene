@@ -372,9 +372,9 @@ mod tests {
     use crate::core::util::automation::operations::Operations;
     use crate::core::util::automation::reg_exp::RegExp;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::util::DefaultIndexSearch;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::util::DefaultIndexSearch;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_searcher_with_reader, new_text_field, random,
     };
     use rand::Rng;

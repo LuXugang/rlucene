@@ -112,10 +112,10 @@ mod tests {
     use crate::core::util::SliceCopyOps;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, is_night_mode, new_directory_shared, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
 
     #[test]
     fn test_random() -> Result<()> {

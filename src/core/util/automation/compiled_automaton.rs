@@ -717,10 +717,10 @@ mod tests {
     use crate::core::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
     use crate::core::util::automation::operations::Operations;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, random, random_multiplier,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     #[allow(dead_code)] // for quick search
     struct TestCompiledAutomaton;
     fn build(_determinize_work_limit: i32, strings: &[&str]) -> Result<CompiledAutomaton> {

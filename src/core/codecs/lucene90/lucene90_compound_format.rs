@@ -225,11 +225,11 @@ mod tests {
     use crate::core::store::directory::Directory;
     use crate::core::store::{DataInput, IO_CONTEXT_DEFAULT};
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::index::base_compound_format_test_case::{
+    use crate::test::core::index::base_compound_format_test_case::{
         BaseCompoundFormatTestCase, create_random_file, new_segment_info,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
     pub struct TestLucene90CompoundFormat;
     impl BaseCompoundFormatTestCase for TestLucene90CompoundFormat {}

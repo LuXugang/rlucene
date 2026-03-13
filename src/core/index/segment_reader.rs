@@ -622,15 +622,15 @@ pub(crate) mod tests {
     use crate::core::util::LATEST;
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::index::doc_helper::NameValue::{Str, String};
-    use crate::test::index::doc_helper::{
+    use crate::test::core::index::doc_helper::NameValue::{Str, String};
+    use crate::test::core::index::doc_helper::{
         DATA, DocHelper, FIELD_2_TEXT, FIELDS, NAME_VALUES, NO_NORMS_KEY, NO_NORMS_TEXT,
         TEXT_FIELD_1_KEY, TEXT_FIELD_2_KEY,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, random,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     use rand::Rng;
     use std::collections::HashSet;
     use std::sync::Arc;

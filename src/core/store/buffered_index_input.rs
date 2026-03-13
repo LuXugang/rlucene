@@ -797,7 +797,7 @@ mod tests {
     use crate::core::util::bit_util::BitUtil;
     use crate::core::util::clone::TryClone as OtherClone;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
     #[allow(dead_code)] // for quick search
     struct TestBufferedIndexInput;

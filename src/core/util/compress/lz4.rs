@@ -745,8 +745,8 @@ mod tests {
     };
     use crate::core::util::compress::lz4::{HashTable, HashTableEnum};
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::test_util::TestUtil;
 
     struct TestFastLZ4;
     impl LZ4TestCase for TestFastLZ4 {

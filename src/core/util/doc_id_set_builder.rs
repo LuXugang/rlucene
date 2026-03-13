@@ -269,10 +269,10 @@ mod tests {
     use crate::core::util::fixed_bit_set::FixedBitSet;
     use crate::core::util::int_array_doc_id_set::IntArrayDocIdSet;
     use crate::core::util::roaring_doc_id_set::builder::Builder;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         is_night_mode, random, rarely,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::core::util::test_util::TestUtil;
     use rand::RngExt;
     use std::borrow::Cow;
 

@@ -112,8 +112,8 @@ mod tests {
     use crate::core::search::two_phase_iterator::TwoPhaseIterator;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::fixed_bit_set::FixedBitSet;
-    use crate::test::search::random_approximation_query::RandomTwoPhaseView;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::core::search::random_approximation_query::RandomTwoPhaseView;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use rand::RngExt;
     use std::fmt::{Display, Formatter};
 

@@ -343,8 +343,8 @@ impl SimScorer for BM25Scorer {
 mod tests {
     use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::search::similarities::base_similarity_test_case::BaseSimilarityTestCase;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::search::similarities::base_similarity_test_case::BaseSimilarityTestCase;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
     use rand::Rng;
     use rand::RngExt;
 

@@ -470,10 +470,10 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::roaring_doc_id_set::RoaringDocIdSet;
     use crate::core::util::roaring_doc_id_set::builder::Builder;
-    use crate::test::util::base_doc_id_set_test_case::{
+    use crate::test::core::util::base_doc_id_set_test_case::{
         BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
     struct TestRoaringDocIdSet;
     #[test]

@@ -457,7 +457,7 @@ mod tests {
     use crate::core::search::term_query::TermQuery;
     use crate::core::util::accountable::Accountable;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
     #[allow(dead_code)] // for quick search
     pub struct TestBufferedUpdates;
