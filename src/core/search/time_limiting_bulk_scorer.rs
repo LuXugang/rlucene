@@ -214,8 +214,9 @@ mod tests {
         let top = searcher.search(query, n)?;
         let hits = top.score_docs;
 
+        let b = searcher.timeout();
         assert!(
-            !hits.is_empty() && hits.len() < n && searcher.timeout(),
+            !hits.is_empty() && hits.len() < n && b,
             "Partial result and is aborted is true"
         );
         Ok(())
@@ -291,7 +292,8 @@ mod tests {
         fn should_exit(&self) -> bool {
             let v = self
                 .counter
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+                + 1;
             v == self.time_allowed
         }
     }
