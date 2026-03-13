@@ -1347,7 +1347,7 @@ mod tests {
 
     use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 
-    use crate::core::index::composite_reader::get_context;
+    use crate::core::index::composite_reader::{CompositeReader, get_context};
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
     use crate::core::index::index_writer::IndexWriter;
@@ -1386,19 +1386,23 @@ mod tests {
     use crate::core::search::boost_query::BoostQuery;
     use crate::core::search::filter_scorable::FilterScorable;
 
+    use crate::core::search::query::Query;
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::top_field_collector::{
         FieldLeafCollectorEnum, TopFieldCollectorEnum, populate_scores,
     };
+    use crate::core::search::top_field_docs::TopFieldDocs;
     use crate::core::search::weight::Weight;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::DefaultIndexSearch;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory_shared, new_searcher_with_reader, new_searcher_with_threads, random,
+        at_least, at_least_usize, new_directory_shared, new_searcher_with_reader,
+        new_searcher_with_threads, random,
     };
     use crate::test::util::test_util::TestUtil;
+    use rand::RngExt;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
@@ -1417,6 +1421,41 @@ mod tests {
         iw.close()?;
         let is = new_searcher_with_threads(ir, true, true, false)?;
         Ok(is)
+    }
+    fn do_search_with_threshold<CR>(
+        num_results: usize,
+        threshold: usize,
+        q: Query,
+        sort: Sort,
+        index_reader: CR,
+    ) -> Result<TopFieldDocs>
+    where
+        CR: CompositeReader + 'static,
+    {
+        let searcher = new_searcher_with_reader(index_reader)?;
+
+        let manager = TopFieldCollectorManager::with_after(sort, num_results, None, threshold)?;
+
+        searcher.search_with_collector_manager(q, &manager)
+    }
+    fn do_concurrent_search_with_threshold<CR>(
+        num_results: usize,
+        threshold: usize,
+        q: Query,
+        sort: Sort,
+        index_reader: CR,
+    ) -> Result<TopFieldDocs>
+    where
+        CR: CompositeReader + 'static,
+    {
+        let searcher = new_searcher_with_threads(index_reader, true, true, true)?;
+
+        let collector_manager =
+            TopFieldCollectorManager::with_after(sort, num_results, None, threshold)?;
+
+        let top_doc = searcher.search_with_collector_manager(q, &collector_manager)?;
+
+        Ok(top_doc)
     }
     #[test]
     fn test_sort_without_fill_fields() -> Result<()> {
@@ -2095,7 +2134,77 @@ mod tests {
     }
     #[test]
     fn test_random_min_competitive_score() -> Result<()> {
-        // TODO BooleanQuery 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let num_docs = at_least_usize(&mut random, 1000);
+
+        for _ in 0..num_docs {
+            let num_as = 1 + random.random_range(0..5);
+            let num_bs = if random.random::<f32>() < 0.5 {
+                0
+            } else {
+                1 + random.random_range(0..5)
+            };
+            let num_cs = if random.random::<f32>() < 0.1 {
+                0
+            } else {
+                1 + random.random_range(0..5)
+            };
+
+            let mut doc = Document::new();
+
+            for _ in 0..num_as {
+                doc.add(StringField::from_string("f", "A", Store::No)?);
+            }
+            for _ in 0..num_bs {
+                doc.add(StringField::from_string("f", "B", Store::No)?);
+            }
+            for _ in 0..num_cs {
+                doc.add(StringField::from_string("f", "C", Store::No)?);
+            }
+
+            w.add_document(doc)?;
+        }
+
+        let index_reader = Arc::new(w.get_reader()?);
+        w.close()?;
+
+        let mut builder = Builder::new();
+        builder.add(TermQuery::new(Term::from_text("f", "A")), Occur::Must)?;
+        builder.add(TermQuery::new(Term::from_text("f", "B")), Occur::Should)?;
+        let boolean_query: Query = builder.build().into();
+
+        let queries: Vec<Query> = vec![
+            TermQuery::new(Term::from_text("f", "A")).into(),
+            TermQuery::new(Term::from_text("f", "B")).into(),
+            TermQuery::new(Term::from_text("f", "C")).into(),
+            boolean_query,
+        ];
+
+        let sort = Sort::with_fields(vec![
+            SortField::get_field_score()?,
+            SortField::get_field_doc()?,
+        ])?;
+
+        for query in queries {
+            let tdc = do_concurrent_search_with_threshold(
+                5,
+                0,
+                query.clone(),
+                sort.clone(),
+                index_reader.clone(),
+            )?;
+            let tdc2 =
+                do_search_with_threshold(5, 0, query.clone(), sort.clone(), index_reader.clone())?;
+
+            assert!(tdc.total_hits().value() > 0);
+            assert!(tdc2.total_hits().value() > 0);
+
+            CheckHits::check_equal(&query, tdc.score_docs(), tdc2.score_docs())?;
+        }
         Ok(())
     }
     #[test]

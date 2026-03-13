@@ -29,14 +29,20 @@ use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
+use crate::core::index::stored_fields::StoredFields;
+use crate::core::index::term::Term;
+use crate::core::search::boolean_clause::Occur;
+use crate::core::search::boolean_query::Builder;
 use crate::core::search::field_comparator::FieldComparatorValue;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::search::query::Query;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType, SortFiledBase};
 use crate::core::search::sorted_numeric_selector::SortedNumericSelectorType;
+use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::{TopDocsLike, top_docs_util};
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::total_hits::Relation;
@@ -47,10 +53,11 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_searcher_with_reader, new_searcher_with_threads, random,
 };
 use rand::RngExt;
+use rand::prelude::SliceRandom;
 use rand::random_bool;
 use std::sync::Arc;
 
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestSortOptimization;
 
 #[test]
@@ -959,7 +966,7 @@ fn test_doc_sort_optimization() -> Result<()> {
     // sort by _doc should skip all non-competitive documents
     {
         let collector_manager =
-            TopFieldCollectorManager::new(sort, num_hits, total_hits_threshold)?;
+            TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
 
@@ -974,12 +981,98 @@ fn test_doc_sort_optimization() -> Result<()> {
         );
         assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, 10)?;
     }
-    // TODO 未实现BooleanQuery
+    // sort by _doc with a bool query should skip all non-competitive documents
+    {
+        let collector_manager =
+            TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
+
+        let lower_range = 40;
+
+        let mut bq = Builder::new();
+        bq.add(
+            LongPoint::new_range_query("lf", lower_range as i64, i64::MAX)?,
+            Occur::Must,
+        )?;
+        bq.add(TermQuery::new(Term::from_text("tf", "seg1")), Occur::Must)?;
+
+        let top_docs = searcher.search_with_collector_manager(bq.build(), &collector_manager)?;
+
+        assert_eq!(num_hits, top_docs.score_docs().len());
+
+        let mut stored_fields = searcher.stored_fields()?;
+
+        for (i, sd) in top_docs.score_docs().iter().enumerate() {
+            let d = stored_fields.document(sd.doc())?;
+            assert_eq!(
+                &(i + lower_range).to_string(),
+                d.get("slf")?.unwrap().as_ref()
+            );
+            assert_eq!("seg1", d.get("tf")?.unwrap().as_ref());
+        }
+
+        assert_eq!(
+            top_docs.total_hits().relation,
+            Relation::GreaterThanOrEqualTo
+        );
+
+        assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, 10)?;
+    }
     Ok(())
 }
+/// Test that sorting on _doc works correctly.
+/// This test goes through DefaultBulkSorter::scoreRange, where scorerIterator is BitSetIterator.
+/// As a conjunction of this BitSetIterator with DocComparator's iterator, we get BitSetConjunctionDISI.
+/// BitSetConjuctionDISI advances based on the DocComparator's iterator, and doesn't consider that its BitSetIterator may have advanced passed a certain doc.
 #[test]
 fn test_doc_sort() -> Result<()> {
-    // TODO 未实现BooleanQuery
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+    let num_docs = 4;
+
+    for i in 0..num_docs {
+        let mut doc = Document::new();
+        doc.add(StringField::from_string(
+            "id",
+            format!("id{}", i),
+            Store::No,
+        )?);
+
+        if i < 2 {
+            doc.add(LongPoint::new("lf", vec![1])?);
+        }
+
+        writer.add_document(doc)?;
+    }
+
+    let reader = directory_reader_util::open_from_writer(&writer)?;
+    writer.close()?;
+
+    let mut searcher = new_searcher_with_threads(
+        reader,
+        random.random_bool(0.5),
+        random.random_bool(0.5),
+        false,
+    )?;
+    searcher.set_query_cache(None);
+
+    let num_hits = 10;
+    let total_hits_threshold = 10;
+    let sort = Sort::with_fields(vec![SortField::get_field_doc()?])?;
+
+    {
+        let collector_manager =
+            TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
+
+        let mut bq = Builder::new();
+        bq.add(LongPoint::new_exact_query("lf", 1)?, Occur::Must)?;
+        bq.add(TermQuery::new(Term::from_text("id", "id3")), Occur::MustNot)?;
+
+        let top_docs = searcher.search_with_collector_manager(bq.build(), &collector_manager)?;
+
+        assert_eq!(2, top_docs.score_docs().len());
+    }
     Ok(())
 }
 
@@ -1119,7 +1212,133 @@ fn test_max_doc_visited() -> Result<()> {
 
 #[test]
 fn test_random_long() -> Result<()> {
-    // TODO LongPoint.newRangeQuery未实现
+    let mut random = random();
+
+    let dir = new_directory_shared(&mut random)?;
+    let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+    let mut seq_nos: Vec<i64> = Vec::new();
+
+    let limit = if is_night_mode() { 10000 } else { 1000 };
+    let iterations = limit + random.random_range(0..limit);
+    let mut seq_no_generator = random.random_range(0..1000) as i64;
+
+    for _ in 0..iterations {
+        let copies = if random.random_range(0..100) <= 5 {
+            1
+        } else {
+            1 + random.random_range(0..5)
+        };
+
+        for _ in 0..copies {
+            seq_nos.push(seq_no_generator);
+        }
+
+        seq_nos.push(seq_no_generator);
+        seq_no_generator += 1;
+
+        if random.random_range(0..100) <= 5 {
+            seq_no_generator += random.random_range(0..10) as i64;
+        }
+    }
+
+    seq_nos.shuffle(&mut random);
+
+    let mut pending_docs = 0;
+
+    for seq_no in &seq_nos {
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("seq_no", *seq_no));
+        doc.add(LongPoint::new("seq_no", vec![*seq_no])?);
+
+        writer.add_document(doc)?;
+        pending_docs += 1;
+
+        if pending_docs > 500 && random.random_range(0..100) <= 5 {
+            pending_docs = 0;
+            writer.flush()?;
+        }
+    }
+
+    let reverse = random.random_bool(0.5);
+
+    writer.flush()?;
+
+    if !reverse {
+        seq_nos.sort();
+    } else {
+        seq_nos.sort_by(|a, b| b.cmp(a));
+    }
+
+    let reader = directory_reader_util::open_from_writer(&writer)?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_threads(
+        reader,
+        random.random_bool(0.5),
+        random.random_bool(0.5),
+        false,
+    )?;
+
+    let sort_field = SortField::with_reverse(Some("seq_no"), SortFieldType::Long, reverse)?;
+    let mut visited_hits = 0usize;
+    let mut after: Option<FieldDoc> = None;
+
+    // test page search
+    while visited_hits < seq_nos.len() {
+        let batch = 1 + random.random_range(0..100);
+
+        let query: Query = if random.random_bool(0.5) {
+            MatchAllDocsQuery::new().into()
+        } else {
+            LongPoint::new_range_query("seq_no", 0, i64::MAX)?.into()
+        };
+
+        let mut top_docs = searcher.search_after(
+            after,
+            query,
+            batch,
+            Sort::with_fields(vec![sort_field.clone()])?,
+        )?;
+
+        let expected_hits = std::cmp::min(seq_nos.len() - visited_hits, batch);
+
+        assert_eq!(expected_hits, top_docs.score_docs().len());
+
+        after = top_docs.score_docs()[expected_hits - 1]
+            .clone()
+            .into_field();
+
+        for sd in top_docs.take_score_docs() {
+            let field_doc = sd.as_field().unwrap();
+            let expected_seq_no = seq_nos[visited_hits];
+
+            assert_eq!(expected_seq_no, *field_doc.fields[0].as_i64().unwrap());
+
+            visited_hits += 1;
+        }
+    }
+
+    // test search
+    let num_hits = 1 + random.random_range(0..100);
+
+    let manager = TopFieldCollectorManager::with_after(
+        Sort::with_fields(vec![sort_field])?,
+        num_hits,
+        None,
+        num_hits,
+    )?;
+
+    let mut top_docs =
+        searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?;
+
+    for (i, sd) in top_docs.take_score_docs().iter().enumerate() {
+        let expected_seq_no = seq_nos[i];
+        let field_doc = sd.as_field().unwrap();
+
+        assert_eq!(expected_seq_no, *field_doc.fields[0].as_i64().unwrap());
+    }
+
     Ok(())
 }
 #[test]
@@ -1227,10 +1446,6 @@ fn test_string_sort_optimization() -> Result<()> {
     Ok(())
 }
 fn test_string_sort_optimization_with_missing_values() -> Result<()> {
-    // TODO
-    Ok(())
-}
-fn do_test_string_sort_optimization() -> Result<()> {
     // TODO
     Ok(())
 }

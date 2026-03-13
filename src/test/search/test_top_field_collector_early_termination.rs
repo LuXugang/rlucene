@@ -217,6 +217,7 @@ fn do_test_early_termination<R: Rng + ?Sized>(random: &mut R, paging: bool) -> R
             assert_ne!(Relation::GreaterThanOrEqualTo, td1.total_hits().relation());
 
             if !paging && max_slice_size > num_hits && matches!(query, Query::MatchAllDocs(_)) {
+                // Make sure that we sometimes early terminate
                 assert_eq!(Relation::GreaterThanOrEqualTo, td2.total_hits().relation());
             }
 

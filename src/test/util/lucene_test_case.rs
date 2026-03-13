@@ -566,6 +566,7 @@ pub mod lucene_test_case_util {
     where
         CR: CompositeReader,
     {
+        // TODO 多线程未实现
         let irc = get_context(composite_reader)?;
         IndexSearcher::new(irc)
     }
