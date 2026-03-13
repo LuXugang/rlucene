@@ -86,7 +86,7 @@ fn add_clause<R: Rng + ?Sized>(
 ) -> Result<Option<FixedBitSet>> {
     let rnd = sets[random.random_range(0..sets.len())].clone();
     let q = BitSetQuery::new(rnd.clone());
-    bq.add(Query::BitSet(q), Occur::Must)?;
+    bq.add(q, Occur::Must)?;
 
     if validate {
         let result = if let Some(mut v) = result {
@@ -344,7 +344,7 @@ impl QueryBase for BitSetQuery {
         IRC: IndexReaderContext,
         Self: Sized,
     {
-        Ok(Query::BitSet(self))
+        Ok(self.into())
     }
 
     fn visit<QV>(&self, _visitor: &QV)
@@ -377,7 +377,7 @@ impl BitSetQueryWeight {
         Self {
             docs,
             score_mode,
-            query: Arc::new(Query::BitSet(query)),
+            query: Arc::new(query.into()),
             base: ConstantScoreWeight::new(score),
         }
     }

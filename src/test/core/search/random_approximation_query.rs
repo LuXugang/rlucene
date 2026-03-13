@@ -129,7 +129,7 @@ where
     IRCLeafReader<LR>: 'static,
 {
     fn new(query: RandomApproximationQuery, random_seed: u64, weight: QueryWeight<LR>) -> Self {
-        let query = Arc::new(Query::RandomApproximation(query));
+        let query = Arc::new(query.into());
         Self {
             query,
             random_seed,

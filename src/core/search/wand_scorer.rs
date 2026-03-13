@@ -1088,10 +1088,8 @@ pub(crate) mod tests {
                 )?,
                 Occur::Should,
             )?;
-        let mut query = Query::WANDScorer(WANDScorerQuery::new(
-            builder.build(),
-            random.random_bool(0.5),
-        ));
+        let mut query: Query =
+            WANDScorerQuery::new(builder.build(), random.random_bool(0.5)).into();
 
         let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
         let context = &searcher.get_leaf_contexts()?[0];
@@ -1150,7 +1148,7 @@ pub(crate) mod tests {
         builder = Builder::new();
         builder
             .add(
-                Query::WANDScorer(WANDScorerQuery::new(
+                WANDScorerQuery::new(
                     {
                         let mut v = Builder::new();
                         v.add(
@@ -1169,7 +1167,7 @@ pub(crate) mod tests {
                         v.build()
                     },
                     random.random_bool(0.5),
-                )),
+                ),
                 Occur::Must,
             )?
             .add(TermQuery::new(Term::from_text("foo", "C")), Occur::Filter)?;
@@ -1205,7 +1203,7 @@ pub(crate) mod tests {
         builder = Builder::new();
         builder
             .add(
-                Query::WANDScorer(WANDScorerQuery::new(
+                WANDScorerQuery::new(
                     {
                         let mut v = Builder::new();
                         v.add(
@@ -1224,7 +1222,7 @@ pub(crate) mod tests {
                         v.build()
                     },
                     random.random_bool(0.5),
-                )),
+                ),
                 Occur::Must,
             )?
             .add(TermQuery::new(Term::from_text("foo", "C")), Occur::MustNot)?;
@@ -1317,10 +1315,7 @@ pub(crate) mod tests {
             )?;
         builder.set_minimum_number_should_match(2);
 
-        let query: Query = Query::WANDScorer(WANDScorerQuery::new(
-            builder.build(),
-            random.random_bool(0.5),
-        ));
+        let query: Query = WANDScorerQuery::new(builder.build(), random.random_bool(0.5)).into();
 
         let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
         let mut ss = weight
@@ -1412,10 +1407,7 @@ pub(crate) mod tests {
             .add(TermQuery::new(Term::from_text("foo", "C")), Occur::Should)?;
         builder.set_minimum_number_should_match(2);
 
-        let query: Query = Query::WANDScorer(WANDScorerQuery::new(
-            builder.build(),
-            random.random_bool(0.5),
-        ));
+        let query: Query = WANDScorerQuery::new(builder.build(), random.random_bool(0.5)).into();
 
         let weight = searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0)?;
         let mut ss = weight
@@ -1487,10 +1479,7 @@ pub(crate) mod tests {
             )?;
         builder.set_minimum_number_should_match(2);
 
-        let query: Query = Query::WANDScorer(WANDScorerQuery::new(
-            builder.build(),
-            random.random_bool(0.5),
-        ));
+        let query: Query = WANDScorerQuery::new(builder.build(), random.random_bool(0.5)).into();
 
         let weight =
             searcher.create_weight(searcher.rewrite(query)?, ScoreMode::CompleteNoScores, 1.0)?;
@@ -1560,7 +1549,7 @@ pub(crate) mod tests {
                 )?;
             inner.set_minimum_number_should_match(2);
             let v = inner.build();
-            let inner_query = Query::WANDScorer(WANDScorerQuery::new(v, random.random_bool(0.5)));
+            let inner_query: Query = WANDScorerQuery::new(v, random.random_bool(0.5)).into();
 
             let mut outer = Builder::new();
             outer
@@ -1655,8 +1644,8 @@ pub(crate) mod tests {
                 )?;
             inner.set_minimum_number_should_match(2);
 
-            let inner_query =
-                Query::WANDScorer(WANDScorerQuery::new(inner.build(), random.random_bool(0.5)));
+            let inner_query: Query =
+                WANDScorerQuery::new(inner.build(), random.random_bool(0.5)).into();
 
             let mut outer = Builder::new();
             outer
@@ -1731,8 +1720,8 @@ pub(crate) mod tests {
                 )?;
             inner.set_minimum_number_should_match(2);
 
-            let inner_query =
-                Query::WANDScorer(WANDScorerQuery::new(inner.build(), random.random_bool(0.5)));
+            let inner_query: Query =
+                WANDScorerQuery::new(inner.build(), random.random_bool(0.5)).into();
 
             let mut outer = Builder::new();
             outer
@@ -1825,8 +1814,8 @@ pub(crate) mod tests {
                 )?;
             inner.set_minimum_number_should_match(2);
 
-            let inner_query =
-                Query::WANDScorer(WANDScorerQuery::new(inner.build(), random.random_bool(0.5)));
+            let inner_query: Query =
+                WANDScorerQuery::new(inner.build(), random.random_bool(0.5)).into();
 
             let mut outer = Builder::new();
             outer
@@ -1890,10 +1879,7 @@ pub(crate) mod tests {
                 builder.add(tq, Occur::Should)?;
             }
 
-            let query = Query::WANDScorer(WANDScorerQuery::new(
-                builder.build(),
-                random.random_bool(0.5),
-            ));
+            let query = WANDScorerQuery::new(builder.build(), random.random_bool(0.5)).into();
 
             CheckHits::check_top_scores(&mut random, &query, &searcher)?;
 
@@ -1957,10 +1943,7 @@ pub(crate) mod tests {
                 builder.add(q, Occur::Should)?;
             }
 
-            let query = Query::WANDScorer(WANDScorerQuery::new(
-                builder.build(),
-                random.random_bool(0.5),
-            ));
+            let query = WANDScorerQuery::new(builder.build(), random.random_bool(0.5)).into();
 
             CheckHits::check_top_scores(&mut random, &query, &searcher)?;
 
@@ -2033,16 +2016,13 @@ pub(crate) mod tests {
                 if random.random_bool(0.5) {
                     let denom = random.random_range(1..=100);
                     let max_range = (num_docs as i32) / denom;
-                    q = Query::MaxScoreWrapper(MaxScoreWrapperQuery::new(q, max_range, max_score));
+                    q = MaxScoreWrapperQuery::new(q, max_range, max_score).into();
                 }
 
                 builder.add(q, Occur::Should)?;
             }
 
-            let query = Query::WANDScorer(WANDScorerQuery::new(
-                builder.build(),
-                random.random_bool(0.5),
-            ));
+            let query = WANDScorerQuery::new(builder.build(), random.random_bool(0.5)).into();
 
             CheckHits::check_top_scores(&mut random, &query, &searcher)?;
 
@@ -2232,11 +2212,7 @@ pub(crate) mod tests {
             Self: Sized,
         {
             let rewritten = self.query.rewrite(searcher)?;
-            Ok(Query::MaxScoreWrapper(MaxScoreWrapperQuery::new(
-                rewritten,
-                self.max_range,
-                self.max_score,
-            )))
+            Ok(MaxScoreWrapperQuery::new(rewritten, self.max_range, self.max_score).into())
         }
 
         fn visit<QV>(&self, _visitor: &QV)
@@ -2432,7 +2408,7 @@ pub(crate) mod tests {
             IRC: IndexReaderContext,
             Self: Sized,
         {
-            Ok(Query::WANDScorer(self))
+            Ok(self.into())
         }
 
         fn visit<QV>(&self, _visitor: &QV)

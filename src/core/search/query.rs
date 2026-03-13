@@ -55,6 +55,8 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
+use crate::test::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
+#[cfg(test)]
 use crate::test::core::search::random_approximation_query::RandomApproximationQuery;
 #[cfg(test)]
 use crate::test::core::search::test_boolean_rewrites::TestRewriteQuery;
@@ -109,7 +111,9 @@ macro_rules! dispatch_query {
             Query::TermRange($inner) => $body,
             Query::Wildcard($inner) => $body,
             #[cfg(test)]
-            Query::WANDScorer($inner) => $body,
+            Query::BitSet($inner) => $body,
+            #[cfg(test)]
+            Query::BlockScoreQueryWrapper($inner) => $body,
             #[cfg(test)]
             Query::MaxScoreWrapper($inner) => $body,
             #[cfg(test)]
@@ -117,7 +121,7 @@ macro_rules! dispatch_query {
             #[cfg(test)]
             Query::TestRewrite($inner) => $body,
             #[cfg(test)]
-            Query::BitSet($inner) => $body,
+            Query::WANDScorer($inner) => $body,
         }
     }};
 }
@@ -145,6 +149,16 @@ impl_from_for_enum!(
     TermRangeQuery => TermRange,
     PhraseQuery=> Phrase,
     WildcardQuery => Wildcard,
+);
+#[cfg(test)]
+impl_from_for_enum!(
+    Query,
+    BitSetQuery => BitSet,
+    BlockScoreQueryWrapper => BlockScoreQueryWrapper,
+    MaxScoreWrapperQuery => MaxScoreWrapper,
+    RandomApproximationQuery => RandomApproximation,
+    TestRewriteQuery => TestRewrite,
+    WANDScorerQuery => WANDScorer
 );
 impl_into_box_query!(
     AutomatonQuery,
@@ -219,7 +233,9 @@ pub enum Query {
     TermRange(TermRangeQuery),
     Wildcard(WildcardQuery),
     #[cfg(test)]
-    WANDScorer(WANDScorerQuery),
+    BitSet(BitSetQuery),
+    #[cfg(test)]
+    BlockScoreQueryWrapper(BlockScoreQueryWrapper),
     #[cfg(test)]
     MaxScoreWrapper(MaxScoreWrapperQuery),
     #[cfg(test)]
@@ -227,7 +243,7 @@ pub enum Query {
     #[cfg(test)]
     TestRewrite(TestRewriteQuery),
     #[cfg(test)]
-    BitSet(BitSetQuery),
+    WANDScorer(WANDScorerQuery),
 }
 
 impl Default for Query {

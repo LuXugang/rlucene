@@ -14,23 +14,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod block_score_query_wrapper;
-pub mod check_hits;
-pub mod dummy_total_hit_count_collector;
-pub mod query_utils;
-pub mod random_approximation_query;
-pub mod similarities;
-pub(crate) mod test_boolean2;
-pub(crate) mod test_boolean_min_should_match;
-mod test_boolean_or;
-pub mod test_boolean_rewrites;
-mod test_conjunctions;
-mod test_doc_values_queries;
-mod test_early_termination;
-pub(crate) mod test_point_queries;
-mod test_regexp_random;
-pub(crate) mod test_scorer_perf;
-mod test_search_after;
-mod test_similarity_provider;
-mod test_sort_optimization;
-mod test_top_field_collector_early_termination;

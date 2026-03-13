@@ -433,11 +433,11 @@ fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
     let rewrite_query = TestRewriteQuery::new(rc_.clone());
 
     let mut expected_query_builder = Builder::new();
-    expected_query_builder.add(Query::TestRewrite(rewrite_query_expected), Occur::Filter)?;
+    expected_query_builder.add(rewrite_query_expected, Occur::Filter)?;
 
     let mut deep_builder = {
         let mut b = Builder::new();
-        b.add(Query::TestRewrite(rewrite_query.clone()), Occur::Should)?;
+        b.add(rewrite_query.clone(), Occur::Should)?;
         b.set_minimum_number_should_match(1);
         b.build()
     };
@@ -453,7 +453,7 @@ fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
 
         expected_query_builder.add(tq, Occur::Filter)?;
         if i == depth {
-            expected_query_builder.add(Query::TestRewrite(rewrite_query.clone()), Occur::Filter)?;
+            expected_query_builder.add(rewrite_query.clone(), Occur::Filter)?;
         }
     }
 
@@ -490,11 +490,11 @@ fn test_deeply_nested_boolean_rewrite() -> Result<()> {
     let rewrite_query = TestRewriteQuery::new(rc_.clone());
 
     let mut expected_query_builder = Builder::new();
-    expected_query_builder.add(Query::TestRewrite(rewrite_query_expected), Occur::Filter)?;
+    expected_query_builder.add(rewrite_query_expected, Occur::Filter)?;
 
     let mut deep_builder = {
         let mut b = Builder::new();
-        b.add(Query::TestRewrite(rewrite_query.clone()), Occur::Must)?;
+        b.add(rewrite_query.clone(), Occur::Must)?;
         b.build()
     };
 
@@ -508,7 +508,7 @@ fn test_deeply_nested_boolean_rewrite() -> Result<()> {
 
         expected_query_builder.add(tq, Occur::Filter)?;
         if i == depth {
-            expected_query_builder.add(Query::TestRewrite(rewrite_query.clone()), Occur::Filter)?;
+            expected_query_builder.add(rewrite_query.clone(), Occur::Filter)?;
         }
     }
 
@@ -1395,7 +1395,7 @@ impl QueryBase for TestRewriteQuery {
         Self: Sized,
     {
         self.num_rewrites.fetch_add(1, Ordering::Relaxed);
-        Ok(Query::TestRewrite(self))
+        Ok(self.into())
     }
 
     fn visit<QV>(&self, _visitor: &QV)
