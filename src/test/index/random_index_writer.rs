@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::fields::Fields;
 use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter};
 use crate::core::index::index_writer_config::IndexWriterConfig;
@@ -22,6 +23,7 @@ use crate::core::index::term::Term;
 use crate::core::search::query::Query;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::util::lucene_test_case::lucene_test_case_util::new_index_writer_config_with_analyzer;
 use rand::Rng;
 use std::sync::Arc;
 
@@ -43,6 +45,14 @@ where
         Self {
             w: IndexWriter::new(dir, IndexWriterConfig::new()).expect("should not fail"),
         }
+    }
+    pub fn with_analyzer<R: Rng + ?Sized, T>(r: &mut R, dir: Arc<D>, analyzer: T) -> Self
+    where
+        D: Directory,
+        T: Into<AnalyzerEnum>,
+    {
+        let config = new_index_writer_config_with_analyzer(r, analyzer);
+        Self::with_config(r, dir, config)
     }
     pub fn with_config<R: Rng + ?Sized>(_r: &mut R, dir: Arc<D>, config: IndexWriterConfig) -> Self
     where

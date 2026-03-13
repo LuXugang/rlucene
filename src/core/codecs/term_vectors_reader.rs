@@ -183,6 +183,7 @@ mod tests {
     use crate::core::document::stored_field::stored_field_type;
     use crate::core::document::text_field::text_field_type;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, random,
@@ -253,8 +254,9 @@ mod tests {
 
         let dir = new_directory_shared(&mut random)?;
 
-        // TODO: 这里应该使用带分词器的构造方法
-        let w = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut a = MockAnalyzer::new(&mut random);
+        a.set_enable_checks(false);
+        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
 
         let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         ft.set_store_term_vectors(false)?;
@@ -311,8 +313,9 @@ mod tests {
     fn test_illegal_vector_payloads_without_vectors() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用带分词器的构造方法
-        let w = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut a = MockAnalyzer::new(&mut random);
+        a.set_enable_checks(false);
+        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
 
         let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         ft.set_store_term_vectors(false)?;
@@ -340,8 +343,9 @@ mod tests {
     fn test_illegal_vectors_without_indexed() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用带分词器的构造方法
-        let w = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut a = MockAnalyzer::new(&mut random);
+        a.set_enable_checks(false);
+        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
 
         let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
         ft.set_store_term_vectors(true)?;
@@ -368,8 +372,9 @@ mod tests {
     fn test_illegal_vector_positions_without_indexed() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用带分词器的构造方法
-        let w = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut a = MockAnalyzer::new(&mut random);
+        a.set_enable_checks(false);
+        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
 
         let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
         ft.set_store_term_vector_positions(true)?;
@@ -396,8 +401,9 @@ mod tests {
     fn test_illegal_vector_offsets_without_indexed() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用带分词器的构造方法
-        let w = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut a = MockAnalyzer::new(&mut random);
+        a.set_enable_checks(false);
+        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
 
         let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
         ft.set_store_term_vector_offsets(true)?;
@@ -424,8 +430,9 @@ mod tests {
     fn test_illegal_vector_payloads_without_indexed() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
-        // TODO: 这里应该使用带分词器的构造方法
-        let w = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut a = MockAnalyzer::new(&mut random);
+        a.set_enable_checks(false);
+        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
 
         let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
         ft.set_store_term_vector_payloads(true)?;

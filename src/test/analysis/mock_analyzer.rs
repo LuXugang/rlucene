@@ -34,6 +34,7 @@ impl MockAnalyzer {
             in_: WhitespaceAnalyzer::new(),
         }
     }
+    pub fn set_enable_checks(&mut self, _enable_checks: bool) {}
 }
 impl Analyzer for MockAnalyzer {
     fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
