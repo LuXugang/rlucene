@@ -696,7 +696,6 @@ mod tests {
                 false,
                 *v,
             )?])?;
-            // TODO IMPORTANT populate_scores未实现
             let td = empty.search_with_sort_score(query.clone(), 10, sort, true)?;
             assert_eq!(0, td.total_hits().value());
         }

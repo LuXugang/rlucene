@@ -215,6 +215,8 @@ mod tests {
     use crate::core::index::index_writer_config::{DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH};
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::multi_bits::get_live_docs;
+    use crate::core::index::multi_doc_values::MultiDocValues;
     use crate::core::index::no_merge_policy::NoMergePolicy;
     use crate::core::index::numeric_doc_values::NumericDocValues;
     use crate::core::index::sorted_doc_values::SortedDocValues;
@@ -424,12 +426,64 @@ mod tests {
     }
     #[test]
     fn test_reopen() -> Result<()> {
-        // TODO
+        // TODO IMPORTANT openIfChange未实现
         Ok(())
     }
     #[test]
     fn test_updates_and_deletes() -> Result<()> {
-        // TODO
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let analyzer = MockAnalyzer::new(&mut random);
+        let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+        conf.set_max_buffered_docs(10);
+        conf.set_merge_policy(NoMergePolicy::default());
+
+        let writer = IndexWriter::new(dir.clone(), conf)?;
+
+        for i in 0..6 {
+            writer.add_document(doc(i)?)?;
+            if i % 2 == 1 {
+                writer.commit()?; // create 2-docs segments
+            }
+        }
+
+        // delete doc-1 and doc-2
+        writer.delete_documents_with_terms(vec![
+            Term::from_text("id", "doc-1"),
+            Term::from_text("id", "doc-2"),
+        ])?;
+
+        // update docs 3 and 5
+        writer.update_binary_doc_value(Term::from_text("id", "doc-3"), "val", to_bytes(17)?)?;
+        writer.update_binary_doc_value(Term::from_text("id", "doc-5"), "val", to_bytes(17)?)?;
+
+        let reader = if random.random_bool(0.5) {
+            writer.close()?;
+            directory_reader_util::open(dir.clone())?
+        } else {
+            let r = directory_reader_util::open_from_writer(&writer)?;
+            writer.close()?;
+            r
+        };
+
+        let live_docs = get_live_docs(&reader)?.unwrap();
+        let expected_live_docs = [true, false, false, true, true, true];
+
+        for (i, expected) in expected_live_docs.iter().enumerate() {
+            assert_eq!(*expected, live_docs.get(i)?);
+        }
+
+        let expected_values = [1, 2, 3, 17, 5, 17];
+        let mut bdv = MultiDocValues::get_binary_values(&reader, "val")?.unwrap();
+
+        for (i, expected) in expected_values.iter().enumerate() {
+            assert_eq!(i as i32, bdv.next_doc()?);
+            assert_eq!(*expected, get_value(&mut bdv)?);
+        }
+
+        reader.close()?;
+
         Ok(())
     }
     #[test]
@@ -688,22 +742,216 @@ mod tests {
     }
     #[test]
     fn test_different_dv_format_per_field() -> Result<()> {
-        // TODO
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let analyzer = MockAnalyzer::new(&mut random);
+        let conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+
+        let writer = IndexWriter::new(dir.clone(), conf)?;
+
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("key", "doc", Store::No)?);
+        doc.add(BinaryDocValuesField::new("bdv", to_bytes(5)?));
+        doc.add(SortedDocValuesField::new(
+            "sorted",
+            BytesRef::from_string("value"),
+        ));
+
+        writer.add_document(doc.clone())?; // flushed document
+        writer.commit()?;
+        writer.add_document(doc)?; // in-memory document
+
+        writer.update_binary_doc_value(Term::from_text("key", "doc"), "bdv", to_bytes(17)?)?;
+
+        writer.close()?;
+
+        let reader = directory_reader_util::open(dir.clone())?;
+
+        let mut bdv = MultiDocValues::get_binary_values(&reader, "bdv")?.unwrap();
+        let mut sdv = MultiDocValues::get_sorted_values(&reader, "sorted")?.unwrap();
+
+        for i in 0..reader.max_doc()? {
+            assert_eq!(i, bdv.next_doc()?);
+            assert_eq!(17, get_value(&mut bdv)?);
+
+            assert_eq!(i, sdv.next_doc()?);
+            let ord_value = sdv.ord_value()?;
+            let term = sdv.lookup_ord(ord_value)?;
+            assert_eq!(&BytesRef::from_string("value"), term.as_ref());
+        }
+
+        reader.close()?;
+
         Ok(())
     }
     #[test]
     fn test_update_same_doc_multiple_times() -> Result<()> {
-        // TODO
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let analyzer = MockAnalyzer::new(&mut random);
+        let conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+
+        let writer = IndexWriter::new(dir.clone(), conf)?;
+
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("key", "doc", Store::No)?);
+        doc.add(BinaryDocValuesField::new("bdv", to_bytes(5)?));
+
+        writer.add_document(doc.clone())?; // flushed document
+        writer.commit()?;
+        writer.add_document(doc)?; // in-memory document
+
+        writer.update_binary_doc_value(Term::from_text("key", "doc"), "bdv", to_bytes(17)?)?; // update existing field
+
+        writer.update_binary_doc_value(Term::from_text("key", "doc"), "bdv", to_bytes(3)?)?; // update existing field 2nd time in this commit
+
+        writer.close()?;
+
+        let reader = directory_reader_util::open(dir.clone())?;
+
+        let mut bdv = MultiDocValues::get_binary_values(&reader, "bdv")?.unwrap();
+
+        for i in 0..reader.max_doc()? {
+            assert_eq!(i, bdv.next_doc()?);
+            assert_eq!(3, get_value(&mut bdv)?);
+        }
+
+        reader.close()?;
+
         Ok(())
     }
     #[test]
     fn test_segment_merges() -> Result<()> {
-        // TODO
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let analyzer = MockAnalyzer::new(&mut random);
+        let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+        let mut writer = IndexWriter::new(dir.clone(), conf)?;
+
+        let mut docid = 0;
+        let num_rounds = at_least(&mut random, 10);
+
+        for rnd in 0..num_rounds {
+            let mut doc = Document::new();
+            doc.add(StringField::from_string("key", "doc", Store::No)?);
+            doc.add(BinaryDocValuesField::new("bdv", to_bytes(-1)?));
+
+            let num_docs = at_least(&mut random, 30);
+            for _ in 0..num_docs {
+                doc.remove_field("id");
+                doc.add(StringField::from_string(
+                    "id",
+                    docid.to_string(),
+                    Store::No,
+                )?);
+                writer.add_document(doc.clone())?;
+                docid += 1;
+            }
+
+            let value = rnd as i64 + 1;
+
+            writer.update_binary_doc_value(
+                Term::from_text("key", "doc"),
+                "bdv",
+                to_bytes(value)?,
+            )?;
+
+            if random.random::<f64>() < 0.2 {
+                writer.delete_documents_with_terms(vec![Term::from_text(
+                    "id",
+                    random.random_range(0..docid).to_string(),
+                )])?;
+            }
+
+            if random.random::<f64>() < 0.4 {
+                writer.commit()?;
+            } else if random.random::<f64>() < 0.1 {
+                writer.close()?;
+                let analyzer = MockAnalyzer::new(&mut random);
+                conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+                drop(writer);
+                writer = IndexWriter::new(dir.clone(), conf)?;
+            }
+
+            let mut doc = Document::new();
+            doc.add(StringField::from_string(
+                "id",
+                docid.to_string(),
+                Store::No,
+            )?);
+            doc.add(StringField::from_string("key", "doc", Store::No)?);
+            doc.add(BinaryDocValuesField::new("bdv", to_bytes(value)?));
+            writer.add_document(doc)?;
+            docid += 1;
+
+            writer.force_merge_with_wait(1, true)?;
+
+            let reader = if random.random_bool(0.5) {
+                writer.commit()?;
+                directory_reader_util::open(dir.clone())?
+            } else {
+                directory_reader_util::open_from_writer(&writer)?
+            };
+            let reader = get_context(reader)?;
+            assert_eq!(1, reader.leaves()?.len());
+
+            let leaf = &reader.leaves()?[0];
+            let r = leaf.reader();
+
+            assert!(
+                r.get_live_docs()?.is_none(),
+                "index should have no deletes after forceMerge"
+            );
+
+            let mut bdv = r.get_binary_doc_values("bdv")?.unwrap();
+
+            for i in 0..r.max_doc()? {
+                assert_eq!(i, bdv.next_doc()?);
+                assert_eq!(value, get_value(&mut bdv)?);
+            }
+        }
+        writer.close()?;
+
         Ok(())
     }
     #[test]
     fn test_update_document_by_multiple_terms() -> Result<()> {
-        // TODO
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let analyzer = MockAnalyzer::new(&mut random);
+        let conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+        let writer = IndexWriter::new(dir.clone(), conf)?;
+
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("k1", "v1", Store::No)?);
+        doc.add(StringField::from_string("k2", "v2", Store::No)?);
+        doc.add(BinaryDocValuesField::new("bdv", to_bytes(5)?));
+
+        writer.add_document(doc.clone())?; // flushed document
+        writer.commit()?;
+        writer.add_document(doc)?; // in-memory document
+
+        writer.update_binary_doc_value(Term::from_text("k1", "v1"), "bdv", to_bytes(17)?)?;
+
+        writer.update_binary_doc_value(Term::from_text("k2", "v2"), "bdv", to_bytes(3)?)?;
+
+        writer.close()?;
+
+        let reader = directory_reader_util::open(dir.clone())?;
+
+        let mut bdv = MultiDocValues::get_binary_values(&reader, "bdv")?.unwrap();
+
+        for i in 0..reader.max_doc()? {
+            assert_eq!(i, bdv.next_doc()?);
+            assert_eq!(3, get_value(&mut bdv)?);
+        }
+
+        reader.close()?;
+
         Ok(())
     }
 
@@ -714,7 +962,7 @@ mod tests {
     }
     #[test]
     fn test_many_reopens_and_fields() -> Result<()> {
-        // TODO
+        // TODO IMPORTANT openIfChange 系列未完成
         Ok(())
     }
     #[test]
@@ -866,7 +1114,7 @@ mod tests {
     }
     #[test]
     fn test_stress_multi_threading() -> Result<()> {
-        // TODO
+        // TODO 多线程未实现
         Ok(())
     }
 
@@ -1188,7 +1436,7 @@ mod tests {
 
     #[test]
     fn test_io_context() -> Result<()> {
-        // TODO
+        // TODO NRTCachingDirectory未实现
         Ok(())
     }
 }
