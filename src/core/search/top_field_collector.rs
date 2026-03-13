@@ -250,14 +250,19 @@ where
     for idx in top_docs_idxs {
         let score_doc = &mut top_docs[idx];
         let doc = score_doc.doc();
-        if current_context_idx.is_none()
-            || doc as usize
-                >= contexts[current_context_idx.unwrap()].doc_base
-                    + contexts[current_context_idx.unwrap()].reader().max_doc()? as usize
-        {
+
+        let need_new_context = match current_context_idx {
+            Some(context_idx) => {
+                let ctx = &contexts[context_idx];
+                doc as usize >= ctx.doc_base + ctx.reader().max_doc()? as usize
+            },
+            None => true,
+        };
+
+        if need_new_context {
             let max_doc = searcher.get_index_reader().max_doc()?;
-            CoreHelper::check_index(score_doc.doc() as usize, max_doc as usize)?;
-            if doc < 0 || doc >= searcher.get_index_reader().max_doc()? {
+            CoreHelper::check_index(doc as usize, max_doc as usize)?;
+            if doc < 0 || doc >= max_doc {
                 return Err(LuceneError::illegal_argument(format!(
                     "Doc id {} doesn't match the query",
                     doc
@@ -266,6 +271,7 @@ where
 
             let new_context_index = ReaderUtil::sub_index_with_leaves(doc, contexts);
             current_context_idx = Some(new_context_index);
+
             let ctx = &contexts[new_context_index];
             let scorer_supplier = weight.scorer_supplier(ctx, searcher)?;
             let mut scorer_supplier = scorer_supplier.ok_or_else(|| {
@@ -275,7 +281,11 @@ where
             current_scorer = Some(scorer_supplier.get(1, ctx, searcher)?);
         }
 
-        let ctx = &contexts[current_context_idx.unwrap()];
+        let context_idx = current_context_idx.ok_or_else(|| {
+            LuceneError::illegal_argument("current_context_idx is not initialized")
+        })?;
+        let ctx = &contexts[context_idx];
+
         let scorer = current_scorer
             .as_mut()
             .ok_or_else(|| LuceneError::illegal_argument("scorer not initialized"))?;
