@@ -344,7 +344,7 @@ where
 
         entry.block_shift = if table_size < -1 { -2 - table_size } else { -1 };
 
-        entry.bits_per_value = meta.read_byte()?;
+        entry.bits_per_value = meta.read_byte()? as i8;
         entry.min_value = meta.read_long()?;
         entry.gcd = meta.read_long()?;
         entry.values_offset = meta.read_long()? as usize;
@@ -1125,7 +1125,7 @@ pub struct DocValuesSkipperEntry {
 pub struct NumericEntry {
     pub table: Option<Arc<Vec<i64>>>,
     pub block_shift: i32,
-    pub bits_per_value: u8,
+    pub bits_per_value: i8,
     pub docs_with_field_offset: i64,
     pub docs_with_field_length: usize,
     pub jump_table_entry_count: i16,
