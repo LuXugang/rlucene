@@ -16,6 +16,7 @@
  */
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::fields::Fields;
+use crate::core::index::BytesRef;
 use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter};
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
@@ -96,5 +97,17 @@ where
         F: Into<String>,
     {
         self.w.update_numeric_doc_value(term, field, value)
+    }
+    pub fn update_binary_doc_value<T, F>(
+        &self,
+        term: T,
+        field: F,
+        value: BytesRef<Vec<u8>>,
+    ) -> Result<i64>
+    where
+        T: Into<Arc<Term>>,
+        F: Into<String>,
+    {
+        self.w.update_binary_doc_value(term, field, value)
     }
 }

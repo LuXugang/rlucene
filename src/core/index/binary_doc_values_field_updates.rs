@@ -221,17 +221,22 @@ mod tests {
     use crate::core::index::numeric_doc_values::NumericDocValues;
     use crate::core::index::sorted_doc_values::SortedDocValues;
     use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
+    use crate::core::index::stored_fields::StoredFields;
     use crate::core::index::term::Term;
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::search::sort::Sort;
+    use crate::core::search::sort_field::{SortField, SortFieldType};
     use crate::core::store::directory::Directory;
     use crate::core::util::TryIntoInt;
     use crate::core::util::bits::Bits;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+    use crate::test::core::index::random_index_writer::RandomIndexWriter;
     use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_bytes_ref_from_string, new_bytes_ref_with_length, new_directory_shared,
-        new_index_writer_config, new_index_writer_config_with_analyzer, random,
+        at_least, is_night_mode, new_bytes_ref_from_string, new_bytes_ref_with_length,
+        new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+        random,
     };
     use crate::test::core::util::test_util::TestUtil;
     use rand::RngExt;
@@ -957,7 +962,120 @@ mod tests {
 
     #[test]
     fn test_sorted_index() -> Result<()> {
-        // TODO
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_index_sort(Sort::with_fields(vec![SortField::new(
+            Some("sort"),
+            SortFieldType::Long,
+        )?])?)?;
+
+        let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        let value_range = TestUtil::next_usize(&mut random, 1, 1000);
+        let sort_value_range = TestUtil::next_usize(&mut random, 1, 1000);
+
+        let refresh_chance = TestUtil::next_usize(&mut random, 5, 200);
+        let delete_chance = TestUtil::next_usize(&mut random, 2, 100);
+
+        let mut deleted_count = 0i32;
+
+        let mut docs = Vec::new();
+        let mut r;
+
+        let num_iters = if is_night_mode() {
+            at_least(&mut random, 1000)
+        } else {
+            at_least(&mut random, 100)
+        };
+
+        for _ in 0..num_iters {
+            let value = to_bytes(random.random_range(0..value_range) as i64)?;
+
+            if docs.is_empty() || random.random_range(0..3) == 1 {
+                let id = docs.len() as i32;
+
+                let mut doc = Document::new();
+                doc.add(StringField::from_string("id", id.to_string(), Store::Yes)?);
+                doc.add(BinaryDocValuesField::new("number", value.clone()));
+                let sort_value = random.random_range(0..sort_value_range) as i64;
+                doc.add(NumericDocValuesField::new("sort", sort_value));
+
+                w.add_document(doc)?;
+                docs.push(OneSortDoc::new(id, value, sort_value));
+            } else {
+                let id_to_update = random.random_range(0..docs.len());
+
+                w.update_binary_doc_value(
+                    Term::from_text("id", id_to_update.to_string()),
+                    "number",
+                    value.clone(),
+                )?;
+
+                docs[id_to_update].value = value;
+            }
+
+            if random.random_range(0..delete_chance) == 0 {
+                let id_to_delete = random.random_range(0..docs.len());
+
+                w.delete_documents_with_terms(vec![Term::from_text(
+                    "id",
+                    id_to_delete.to_string(),
+                )])?;
+
+                if !docs[id_to_delete].deleted {
+                    docs[id_to_delete].deleted = true;
+                    deleted_count += 1;
+                }
+            }
+
+            if random.random_range(0..refresh_chance) == 0 {
+                let r2 = w.get_reader()?;
+                r = r2;
+
+                let mut live_count = 0i32;
+                let reader = get_context(r)?;
+                for ctx in reader.leaves()? {
+                    let leaf_reader = ctx.reader();
+                    let mut values = leaf_reader.get_binary_doc_values("number")?.unwrap();
+                    let mut sort_values = leaf_reader.get_numeric_doc_values("sort")?.unwrap();
+                    let live_docs = leaf_reader.get_live_docs()?;
+                    let mut stored_fields = leaf_reader.stored_fields()?;
+
+                    let mut last_sort_value = i64::MIN;
+
+                    for i in 0..leaf_reader.max_doc()? {
+                        let doc = stored_fields.document(i)?;
+                        let id_str = doc.get("id")?.unwrap();
+                        let sort_doc = &docs[id_str.parse::<usize>()?];
+
+                        assert_eq!(i, values.next_doc()?);
+                        assert_eq!(i, sort_values.next_doc()?);
+
+                        if let Some(live_docs) = live_docs.as_ref()
+                            && !live_docs.get(i as usize)?
+                        {
+                            assert!(sort_doc.deleted);
+                            continue;
+                        }
+
+                        assert!(!sort_doc.deleted);
+                        assert_eq!(&sort_doc.value, values.binary_value()?.as_ref());
+
+                        let sort_value = sort_values.long_value()?;
+                        assert_eq!(sort_doc.sort_value, sort_value);
+
+                        assert!(sort_value >= last_sort_value);
+                        last_sort_value = sort_value;
+                        live_count += 1;
+                    }
+                }
+
+                assert_eq!(docs.len() as i32 - deleted_count, live_count);
+            }
+        }
+        w.close()?;
         Ok(())
     }
     #[test]
@@ -1438,5 +1556,30 @@ mod tests {
     fn test_io_context() -> Result<()> {
         // TODO NRTCachingDirectory未实现
         Ok(())
+    }
+
+    #[derive(Clone, Debug)]
+    struct OneSortDoc {
+        pub value: BytesRef<Vec<u8>>,
+        pub sort_value: i64,
+        pub id: i32,
+        pub deleted: bool,
+    }
+
+    impl OneSortDoc {
+        fn new(id: i32, value: BytesRef<Vec<u8>>, sort_value: i64) -> Self {
+            Self {
+                value,
+                sort_value,
+                id,
+                deleted: false,
+            }
+        }
+    }
+
+    impl PartialEq for OneSortDoc {
+        fn eq(&self, other: &Self) -> bool {
+            self.sort_value == other.sort_value && self.id == other.id
+        }
     }
 }
