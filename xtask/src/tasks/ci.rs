@@ -20,14 +20,7 @@ pub(crate) fn run() {
     super::tidy::run();
     super::check_uncommitted::run();
     log(&colorize("Running Cargo test ", LogColor::Green, true));
-    run_cargo(&[
-        "test",
-        "--verbose",
-        "--features",
-        "test_log_verbose",
-        "--",
-        "--nocapture",
-    ]);
+    run_cargo(&["test", "--verbose", "--features", "test_log_verbose"]);
     log(&colorize(
         "✅ ✅ ✅ Finished Cargo test ",
         LogColor::Green,
