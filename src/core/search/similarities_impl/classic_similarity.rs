@@ -107,7 +107,7 @@ mod tests {
     use crate::core::util::LATEST;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::core::search::similarities::base_similarity_test_case::BaseSimilarityTestCase;
-    use crate::test::core::util::DefaultIndexSearch;
+    use crate::test::core::util::DefaultIndexSearchCR;
     use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
     };
@@ -117,7 +117,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestClassicSimilarity;
 
-    fn test_set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
+    fn test_set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
         let directory = new_directory_shared(random)?;
 
         let index_writer = IndexWriter::new(directory.clone(), new_index_writer_config(random))?;

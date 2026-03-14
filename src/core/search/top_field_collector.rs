@@ -1396,7 +1396,7 @@ mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::core::index::random_index_writer::RandomIndexWriter;
     use crate::test::core::search::check_hits::CheckHits;
-    use crate::test::core::util::DefaultIndexSearch;
+    use crate::test::core::util::DefaultIndexSearchCR;
     use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, at_least_usize, new_directory_shared, new_searcher_with_reader,
         new_searcher_with_threads, random,
@@ -1408,7 +1408,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestTopFieldCollector;
 
-    fn setup() -> Result<DefaultIndexSearch> {
+    fn setup() -> Result<DefaultIndexSearchCR> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
         let iw = RandomIndexWriter::new(&mut random, dir);

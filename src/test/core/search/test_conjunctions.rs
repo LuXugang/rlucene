@@ -29,7 +29,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::DefaultIndexSearch;
+use crate::test::core::util::DefaultIndexSearchCR;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
     new_searcher_with_reader, random,
@@ -42,7 +42,7 @@ pub struct TestConjunctions;
 const F1: &str = "title";
 const F2: &str = "body";
 
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
+fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
     let dir = new_directory_shared(random)?;
     let mock = MockAnalyzer::new(random);
     let mut config = new_index_writer_config_with_analyzer(random, mock);

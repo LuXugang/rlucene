@@ -190,7 +190,7 @@ where
 }
 
 // DummyPostingsEnum from  EmptyTerms's EmptyTermsEnum's PostingsEnum
-type LeafPostingsEnum<T> = PostingsEnumEnum2<TermsPosting<T>, DummyPostingsEnum>;
+pub type LeafPostingsEnum<T> = PostingsEnumEnum2<TermsPosting<T>, DummyPostingsEnum>;
 
 // TermsEnum
 pub type LRTermsEnum<LR> = <<LR as LeafReader>::Terms as Terms>::TermsEnum;
@@ -244,10 +244,63 @@ where
         (**self).get_core_cache_helper()
     }
 
+    fn doc_freq(&self, term: &Term) -> Result<i32>
+    where
+        Self: Sized,
+    {
+        LeafReader::doc_freq(&(**self), term)
+    }
+
+    fn get_total_term_freq(&self, term: &Term) -> Result<i64>
+    where
+        Self: Sized,
+    {
+        (**self).get_total_term_freq(term)
+    }
+
+    fn get_sum_doc_freq(&self, field: &str) -> Result<i64>
+    where
+        Self: Sized,
+    {
+        LeafReader::get_sum_doc_freq(&(**self), field)
+    }
+
+    fn get_doc_count(&self, field: &str) -> Result<i32>
+    where
+        Self: Sized,
+    {
+        LeafReader::get_doc_count(&(**self), field)
+    }
+
+    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64>
+    where
+        Self: Sized,
+    {
+        LeafReader::get_sum_total_term_freq(&(**self), field)
+    }
+
     type Terms = LR::Terms;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         (**self).terms(field)
+    }
+
+    fn postings_with_flag(
+        &self,
+        term: &Term,
+        flags: i32,
+    ) -> Result<Option<LeafPostingsEnum<Self::Terms>>>
+    where
+        Self: Sized,
+    {
+        (**self).postings_with_flag(term, flags)
+    }
+
+    fn postings(&self, term: &Term) -> Result<Option<LeafPostingsEnum<Self::Terms>>>
+    where
+        Self: Sized,
+    {
+        (**self).postings(term)
     }
 
     type NumericDocValues = LR::NumericDocValues;
@@ -309,6 +362,10 @@ where
 
     fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>> {
         (**self).get_point_values(field)
+    }
+
+    fn check_integrity(&self) -> Result<()> {
+        (**self).check_integrity()
     }
 
     fn get_metadata(&self) -> Result<&LeafMetaData> {

@@ -46,7 +46,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterator};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::DefaultIndexSearch;
+use crate::test::core::util::DefaultIndexSearchCR;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_index_writer_config_with_analyzer,
     new_searcher_with_reader, random,
@@ -72,7 +72,7 @@ static QUERYS: Lazy<(TermQuery, TermQuery, TermQuery, TermQuery)> = Lazy::new(||
 });
 fn search<R: Rng + ?Sized>(
     _random: &mut R,
-    searcher: &DefaultIndexSearch,
+    searcher: &DefaultIndexSearchCR,
     q: impl Into<Query>,
 ) -> Result<usize> {
     let q = q.into();
@@ -169,7 +169,7 @@ fn test_parenthesis_should() -> Result<()> {
 
     Ok(())
 }
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
+fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
     let dir = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, dir.clone());
 

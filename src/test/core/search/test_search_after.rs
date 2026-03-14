@@ -48,7 +48,7 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::total_hits::TotalHits;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::DefaultIndexSearch;
+use crate::test::core::util::DefaultIndexSearchCR;
 use crate::test::core::util::english::English;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_searcher_with_reader, new_text_field, random,
@@ -60,7 +60,7 @@ use std::collections::HashMap;
 #[allow(dead_code)] // for quick search
 pub struct TestSearchAfter;
 
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(Vec<SortField>, DefaultIndexSearch)> {
+fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(Vec<SortField>, DefaultIndexSearchCR)> {
     let mut all_sort_fields = vec![
         SortField::with_reverse(Some("int"), SortFieldType::Int, false)?,
         SortField::with_reverse(Some("long"), SortFieldType::Long, false)?,

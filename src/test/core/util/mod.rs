@@ -19,9 +19,11 @@ use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
+use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
 use crate::core::store::directory::DirEnum;
+use std::sync::Arc;
 
 pub(crate) mod automaton;
 pub(crate) mod base_bit_set_test_case;
@@ -38,7 +40,9 @@ mod packed;
 pub mod test_util;
 
 pub type DefaultCRReader = StandardDirectoryReaderType<DirEnum>;
-pub type DefaultIndexSearch = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReader>>;
+pub type DefaultLRReader = Arc<SegmentReader<DirEnum>>;
+pub type DefaultIndexSearchCR = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReader>>;
+pub type DefaultIndexSearchLR = DefaultIndexSearcher<LeafReaderContext<DefaultLRReader>>;
 pub(crate) fn dummy_index_searcher() -> crate::core::util::error::lucene_error::Result<
     DefaultIndexSearcher<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
 > {

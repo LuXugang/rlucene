@@ -29,7 +29,7 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::test_boolean2::rand_bool_query;
-use crate::test::core::util::DefaultIndexSearch;
+use crate::test::core::util::DefaultIndexSearchCR;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field,
     random, random_from_seed,
@@ -40,7 +40,7 @@ use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search
 pub struct TestBooleanMinShouldMatch;
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
+fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
     let data = vec![
         Some("A 1 2 3 4 5 6"),
         Some("Z       4 5 6"),

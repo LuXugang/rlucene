@@ -86,7 +86,7 @@ mod tests {
     use crate::core::search::term_query::TermQuery;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::core::search::similarities::base_similarity_test_case::BaseSimilarityTestCase;
-    use crate::test::core::util::DefaultIndexSearch;
+    use crate::test::core::util::DefaultIndexSearchCR;
     use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_text_field,
         random,
@@ -95,7 +95,7 @@ mod tests {
 
     #[allow(dead_code)]
     struct TestRawTFSimilarity;
-    fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
+    fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
         let directory = new_directory_shared(random)?;
 
         {
@@ -165,7 +165,7 @@ mod tests {
     }
 
     fn impl_test(
-        index_searcher: &DefaultIndexSearch,
+        index_searcher: &DefaultIndexSearchCR,
         text: &str,
         expected_score: f32,
     ) -> Result<()> {

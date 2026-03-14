@@ -60,7 +60,10 @@ where
         }
     }
     pub(crate) fn from_top_lr(reader: LR) -> Self {
-        Self::new(reader, 0, 0, 0, 0, TopParentMeta::default())
+        let mut v = Self::new(reader, 0, 0, 0, 0, TopParentMeta::default());
+        // leaf_reader is top
+        v.top_parent.id = v.base.id().clone();
+        v
     }
 }
 

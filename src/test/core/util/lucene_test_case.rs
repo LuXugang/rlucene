@@ -77,6 +77,8 @@ pub mod lucene_test_case_util {
     use std::collections::HashMap;
 
     use crate::core::analysis::analyzer::AnalyzerEnum;
+    use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::index::leaf_reader_context::LeafReaderContext;
     use crate::core::index::tiered_merge_policy::TieredMergePolicy;
     use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
     use std::sync::Arc;
@@ -571,6 +573,15 @@ pub mod lucene_test_case_util {
         IndexSearcher::new(irc)
     }
 
+    pub fn new_searcher_with_leaf_reader<LR>(
+        lr_reader: LR,
+    ) -> Result<DefaultIndexSearcher<LeafReaderContext<LR>>>
+    where
+        LR: LeafReader,
+    {
+        let irc = crate::core::index::leaf_reader::get_context(lr_reader)?;
+        IndexSearcher::new(irc)
+    }
     pub fn new_searcher_with_reader<CR>(
         composite_reader: CR,
     ) -> Result<DefaultIndexSearcher<CompositeReaderContext<CR>>>

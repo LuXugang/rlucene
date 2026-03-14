@@ -24,7 +24,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::DefaultIndexSearch;
+use crate::test::core::util::DefaultIndexSearchCR;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_field, new_index_writer_config, new_searcher_with_reader,
     random,
@@ -36,7 +36,7 @@ use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search
 pub struct TestRegexpRandom;
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearch> {
+fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
     let dir = new_directory_shared(random)?;
 
     let mut config = new_index_writer_config(random);
