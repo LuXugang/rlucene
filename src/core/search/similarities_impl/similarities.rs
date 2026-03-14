@@ -527,6 +527,25 @@ impl<T: ?Sized + SimScorer> SimScorer for Box<T> {
         (**self).explain(freq, norm)
     }
 }
+
+pub trait IntoSimilarityArc {
+    fn into_similarity_arc(self) -> Arc<SimilarityEnum>;
+}
+
+impl IntoSimilarityArc for Arc<SimilarityEnum> {
+    fn into_similarity_arc(self) -> Arc<SimilarityEnum> {
+        self
+    }
+}
+
+impl<T> IntoSimilarityArc for T
+where
+    T: Similarity + Into<SimilarityEnum>,
+{
+    fn into_similarity_arc(self) -> Arc<SimilarityEnum> {
+        Arc::new(self.into())
+    }
+}
 #[cfg(test)]
 pub mod tests {
     use crate::core::document::document::Document;

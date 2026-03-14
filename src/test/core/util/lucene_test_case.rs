@@ -535,6 +535,17 @@ pub mod lucene_test_case_util {
         let irc = get_context(composite_reader)?;
         IndexSearcher::new(irc)
     }
+    pub fn new_searcher_with_lr<LR>(
+        leaf_reader: LR,
+        _may_be_wrap: bool,
+    ) -> Result<DefaultIndexSearcher<LeafReaderContext<LR>>>
+    where
+        LR: LeafReader,
+    {
+        // TODO 多线程未实现
+        let irc = crate::core::index::leaf_reader::get_context(leaf_reader)?;
+        IndexSearcher::new(irc)
+    }
     pub fn new_searcher_with_wrap<CR>(
         composite_reader: CR,
         may_be_wrap: bool,

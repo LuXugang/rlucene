@@ -65,6 +65,9 @@ pub trait LeafCollector: Display {
     ///
     /// The default implementation calls `stream.for_each(|doc| self.collect(doc))`.
     fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
+        self.default_collect_stream(stream)
+    }
+    fn default_collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
         struct CollectorConsumer<'a, LC>
         where
             LC: LeafCollector + ?Sized,

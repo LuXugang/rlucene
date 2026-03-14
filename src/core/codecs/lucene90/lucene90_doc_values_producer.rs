@@ -1460,11 +1460,12 @@ where
     mul: i64,
     mask: usize,
 
-    block: Option<usize>,
+    block: i32,
     delta: i64,
     offset: usize,
     block_end_offset: usize,
     merging: bool,
+    values: Option<DirectPackedEnum<R>>,
 }
 
 impl<R> VaryingBPVReader<R>
@@ -1504,83 +1505,77 @@ where
             shift,
             mul,
             mask: mask as usize,
-            block: None,
+            block: -1,
             delta: 0,
             offset: 0,
             block_end_offset: 0,
             merging,
+            values: None,
         })
     }
 
     fn get_long_value(&mut self, index: usize) -> Result<i64> {
         let block = index >> self.shift;
 
-        let mut result = 0;
-        let mut current_block = 0;
-        let same_block = match self.block {
-            Some(b) => {
-                current_block = b;
-                b == block
-            },
-            None => false,
-        };
-        if !same_block {
+        if self.block < 0 || self.block as usize != block {
+            let mut bits_per_value;
             loop {
-                let bits_per_value;
                 if let Some(ref mut rank_slice) = self.rank_slice
-                    && block != current_block + 1
+                    && block != (self.block + 1) as usize
                 {
-                    self.block_end_offset = rank_slice.read_long(block * BitUtil::LONG_BYTES)?
-                        as usize
-                        - self.entry.values_offset;
-                    current_block = block - 1;
-                }
-
-                {
-                    self.offset = self.block_end_offset;
-                    bits_per_value = self.slice.read_byte(self.offset)? as i32;
-                    self.offset += 1;
-
-                    self.delta = self.slice.read_long(self.offset)?;
-                    self.offset += BitUtil::LONG_BYTES;
-
-                    if bits_per_value == 0 {
-                        self.block_end_offset = self.offset;
-                    } else {
-                        let length = self.slice.read_int(self.offset)? as usize;
-                        self.offset += BitUtil::INT_BYTES;
-                        self.block_end_offset = self.offset + length;
+                    self.block_end_offset = (rank_slice.read_long(block * BitUtil::LONG_BYTES)?
+                        as usize)
+                        .checked_sub(self.entry.values_offset)
+                        .ok_or_else(|| LuceneError::illegal_state("underflow?"))?;
+                    self.block = match block.checked_sub(1) {
+                        Some(v) => v.try_convert()?,
+                        None => -1,
                     }
                 }
 
-                current_block += 1;
+                self.offset = self.block_end_offset;
+                bits_per_value = self.slice.read_byte(self.offset)? as i32;
+                self.offset += 1;
 
-                if current_block == block {
-                    let num_values = std::cmp::min(
-                        1 << self.shift,
-                        self.entry.num_values - (block << self.shift),
-                    );
+                self.delta = self.slice.read_long(self.offset)?;
+                self.offset += BitUtil::LONG_BYTES;
 
-                    let mut values = if bits_per_value == 0 {
-                        DirectPackedEnum::P(Zeroes)
-                    } else {
-                        get_direct_reader_instance(
-                            self.merging,
-                            None,
-                            bits_per_value,
-                            self.offset,
-                            num_values,
-                        )?
-                    };
-                    result = self.mul
-                        * values.read_from_slice(index & self.mask, Some(&mut self.slice))?
-                        + self.delta;
+                if bits_per_value == 0 {
+                    self.block_end_offset = self.offset;
+                } else {
+                    let length = self.slice.read_int(self.offset)? as usize;
+                    self.offset += BitUtil::INT_BYTES;
+                    self.block_end_offset = self.offset + length;
+                }
+
+                self.block += 1;
+                if self.block as usize == block {
                     break;
                 }
             }
+            let num_values = std::cmp::min(
+                1 << self.shift,
+                self.entry.num_values - (block << self.shift),
+            );
+
+            self.values = if bits_per_value == 0 {
+                Some(DirectPackedEnum::P(Zeroes))
+            } else {
+                Some(get_direct_reader_instance(
+                    self.merging,
+                    None,
+                    bits_per_value,
+                    self.offset,
+                    num_values,
+                )?)
+            };
         }
-        self.block = Some(current_block);
-        Ok(result)
+        match self.values {
+            Some(ref mut v) => Ok(self.mul
+                * v.read_from_slice(index & self.mask, Some(&mut self.slice))?
+                + self.delta),
+            None => Err(LuceneError::illegal_state("values is None"))?,
+        }
     }
 }
 

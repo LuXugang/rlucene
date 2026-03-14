@@ -41,7 +41,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
-use crate::core::search::similarities_impl::similarities::SimilarityEnum;
+use crate::core::search::similarities_impl::similarities::{IntoSimilarityArc, SimilarityEnum};
 use crate::core::search::sort::Sort;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::time_limiting_bulk_scorer::TimeLimitingBulkScorer;
@@ -177,9 +177,9 @@ where
 
     pub fn set_similarity<T>(&mut self, similarity: T)
     where
-        T: Into<SimilarityEnum>,
+        T: IntoSimilarityArc,
     {
-        self.similarity = Arc::new(similarity.into());
+        self.similarity = similarity.into_similarity_arc();
     }
 
     pub fn get_slices(&self) -> Result<Arc<Vec<LeafSlice>>> {
@@ -422,6 +422,20 @@ where
         let score_mode = first_collector.score_mode();
         let weight = self.create_weight(query, score_mode, 1.0)?;
         self.search_with_first_collector(weight.as_ref(), collector_manager, first_collector)
+    }
+    pub fn search_with_collector<C>(&self, query: impl Into<Query>, collector: &mut C) -> Result<()>
+    where
+        C: Collector,
+    {
+        let query = query.into();
+        let needs_scores = collector.score_mode().needs_scores();
+        let query = self.rewrite_with_needs_scores(query, needs_scores)?;
+        let weight = self.create_weight(query, collector.score_mode(), 1.0)?;
+        let leaves = self.get_leaf_contexts()?;
+        for ctx in leaves {
+            self.search_leaf(ctx.ord, 0, NO_MORE_DOCS, &weight, collector)?;
+        }
+        Ok(())
     }
     /// Returns true if any search hit the timeout.
     pub fn timeout(&self) -> bool {
