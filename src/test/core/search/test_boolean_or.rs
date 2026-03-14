@@ -46,6 +46,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterator};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::search::query_utils::QueryUtils;
 use crate::test::core::util::DefaultIndexSearchCR;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_index_writer_config_with_analyzer,
@@ -71,13 +72,12 @@ static QUERYS: Lazy<(TermQuery, TermQuery, TermQuery, TermQuery)> = Lazy::new(||
     (t1, t2, c1, c2)
 });
 fn search<R: Rng + ?Sized>(
-    _random: &mut R,
+    random: &mut R,
     searcher: &DefaultIndexSearchCR,
     q: impl Into<Query>,
 ) -> Result<usize> {
     let q = q.into();
-    // TODO IMPORTANT  QueryUtils未实现
-    // QueryUtils::check(random, q.clone(), searcher)?;
+    QueryUtils::check_from_searcher(random, q.clone(), searcher)?;
     let v = searcher.search(q, 1000)?.total_hits.value();
     Ok(v)
 }

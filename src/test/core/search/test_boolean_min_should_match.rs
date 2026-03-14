@@ -28,6 +28,7 @@ use crate::core::search::top_docs::{TopDocs, TopDocsLike};
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::search::query_utils::QueryUtils;
 use crate::test::core::search::test_boolean2::rand_bool_query;
 use crate::test::core::util::DefaultIndexSearchCR;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
@@ -91,7 +92,7 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
     Ok(searcher)
 }
 fn verify_nr_hits<IRC, R, T>(
-    _random: &mut R,
+    random: &mut R,
     s: &IndexSearcher<IRC>,
     q: T,
     expected: usize,
@@ -100,6 +101,7 @@ where
     IRC: IndexReaderContext,
     R: Rng + ?Sized,
     T: Into<Query>,
+    <IRC as IndexReaderContext>::LeafReader: Clone,
 {
     let q = q.into();
     let h = s.search(q.clone(), 1000)?.score_docs;
@@ -116,9 +118,7 @@ where
         print_hits(&h2, s)?;
     }
     assert_eq!(expected, h2.len(), "result count (bs2)");
-    // TODO IMPORTANT QueryUtils未实现
-    // QueryUtils::check(random, q, &s)
-    Ok(())
+    QueryUtils::check_from_searcher(random, q, s)
 }
 #[test]
 fn test_all_optional() -> Result<()> {
@@ -438,9 +438,8 @@ fn test_random_queries() -> Result<()> {
         let top1 = s.search(q1.clone(), 100)?;
         let top2 = s.search(q2.clone(), 100)?;
         if i < 100 {
-            // TODO IMPORTANT QueryUtils未实现
-            // QueryUtils::check(&mut random, q1.clone(), &s)?;
-            // QueryUtils::check(&mut random, q2.clone(), &s)?;
+            QueryUtils::check_from_searcher(&mut random, q1.clone(), &s)?;
+            QueryUtils::check_from_searcher(&mut random, q2.clone(), &s)?;
         }
         assert_subset_of_same_scores(top1, top2)?;
     }

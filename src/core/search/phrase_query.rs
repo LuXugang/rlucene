@@ -1206,7 +1206,7 @@ mod tests {
     }
     #[test]
     fn test_wrapped_phrase() -> Result<()> {
-        // TODO IMPORTANT 这里before_class中的自定义分词器
+        // TODO IMPORTANT 这里before_class中的自定义分词器 导致这个测试不能成功
         // let mut random = random();
         // let searcher = before_class(&mut random)?;
         //

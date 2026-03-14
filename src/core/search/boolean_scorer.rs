@@ -551,6 +551,7 @@ mod tests {
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
     use crate::core::search::query::Query;
     use crate::core::search::scorer::ScorerKind;
+    use crate::test::core::search::query_utils::QueryUtils;
     use rand::RngExt;
 
     #[allow(dead_code)] // for quick search
@@ -786,7 +787,7 @@ mod tests {
         }
 
         let reader = w.get_reader()?;
-        let _searcher = new_searcher_with_reader(reader)?;
+        let searcher = new_searcher_with_reader(reader)?;
 
         let mut query = Builder::new();
         query.add(
@@ -801,10 +802,9 @@ mod tests {
             BoostQuery::new(TermQuery::new(Term::from_text("field", "baz")), 3.0)?,
             Occur::Should,
         )?;
-        let _query = query.build();
+        let query = query.build();
 
-        // TODO IMPORTANT: QueryUtils 未实现
-        // QueryUtils::check(&mut random, query, &searcher)?;
+        QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
 
         w.close()?;
         Ok(())

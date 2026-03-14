@@ -581,9 +581,8 @@ mod tests {
         )?)
         .into();
 
-        // TODO IMPORTANT QueryUtils::check未实现
-        // QueryUtils::check(q1.clone())?;
-        // QueryUtils::check(q2.clone())?;
+        QueryUtils::check_from_query(&q1);
+        QueryUtils::check_from_query(&q2);
         QueryUtils::check_equal(&q1, &q1);
         QueryUtils::check_equal(&q2, &q2);
         QueryUtils::check_equal(&q3, &q3);
