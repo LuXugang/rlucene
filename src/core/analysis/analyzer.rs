@@ -402,13 +402,12 @@ where
             self.store_value = Some(components);
             return Ok(());
         }
-        match self.store_value {
-            Some(ref mut v) => {
-                *v = components;
-                Ok(())
-            },
-            None => Err(LuceneError::already_closed("this Analyzer is closed")),
-        }
+        let v = self
+            .store_value
+            .as_mut()
+            .ok_or_else(|| LuceneError::already_closed("this Analyzer is closed"))?;
+        *v = components;
+        Ok(())
     }
 }
 #[derive(Default)]

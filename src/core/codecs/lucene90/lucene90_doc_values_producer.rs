@@ -772,7 +772,7 @@ where
         if entry.base.docs_with_field_offset == -1 {
             // dense
             Ok(Lucene90SortedNumericDocValuesEnum::A(
-                DenseSortedNumericDocValues::new(self.max_doc, 0, 0, values, addresses),
+                DenseSortedNumericDocValues::new(self.max_doc, values, addresses),
             ))
         } else {
             // sparse
@@ -799,14 +799,10 @@ where
     type NumericDocValues = Lucene90NumericDocValuesEnum<I>;
 
     fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Lucene90NumericDocValuesEnum<I>> {
-        let entry = self.numerics.get(&field.number);
-        match entry {
-            Some(entry) => self.get_numeric(entry.clone()),
-            None => Err(LuceneError::illegal_state(format!(
-                "Missing numeric entry for field {}",
-                field.number
-            ))),
-        }
+        let entry = self.numerics.get(&field.number).ok_or_else(|| {
+            LuceneError::illegal_state(format!("Missing numeric entry for field {}", field.number))
+        })?;
+        self.get_numeric(entry.clone())
     }
 
     type BinaryDocValues = Lucene90BinaryDocValuesEnum<I>;
@@ -935,27 +931,22 @@ where
     type SortedDocValues = Lucene90SortedDocValuesEnum<I>;
 
     fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-        let entry = self.sorted.get(&field.number);
-        match entry {
-            Some(entry) => Ok(self.get_sorted(entry.clone())?),
-            None => Err(LuceneError::illegal_state(format!(
-                "Missing sorted entry for field {}",
-                field.number
-            ))),
-        }
+        let entry = self.sorted.get(&field.number).ok_or_else(|| {
+            LuceneError::illegal_state(format!("Missing sorted entry for field {}", field.number))
+        })?;
+        self.get_sorted(entry.clone())
     }
 
     type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnum<I>;
 
     fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-        let entry = self.sorted_numerics.get(&field.number);
-        match entry {
-            Some(entry) => self.get_sorted_numeric(&entry.clone()),
-            None => Err(LuceneError::illegal_state(format!(
+        let entry = self.sorted_numerics.get(&field.number).ok_or_else(|| {
+            LuceneError::illegal_state(format!(
                 "Missing sorted numeric entry for field {}",
                 field.number
-            ))),
-        }
+            ))
+        })?;
+        self.get_sorted_numeric(entry.as_ref())
     }
 
     type SortedSetDocValues = Lucene90SortedSetDocValuesEnum<I>;
@@ -1068,26 +1059,23 @@ where
     type DocValuesSkipper = Lucene90Skipper<I::IndexInput>;
 
     fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
-        let entry = self.skippers.get(&field.number);
-        match entry {
-            Some(entry) => {
-                let mut input = self.data.slice(
-                    "doc value skipper",
-                    entry.offset as usize,
-                    entry.length as usize,
-                )?;
-                if input.length() > 0 {
-                    input.prefetch(0, 1)?;
-                }
-                // TODO: should we write to disk the actual max level for this
-                // segment?
-                Ok(Some(DocValuesSkipperImpl::new(input, entry.clone())))
-            },
-            None => Err(LuceneError::illegal_state(format!(
-                "Missing skipper entry for field {}",
-                field.number
-            ))),
+        let entry = self.skippers.get(&field.number).ok_or_else(|| {
+            LuceneError::illegal_state(format!("Missing skipper entry for field {}", field.number))
+        })?;
+
+        let mut input = self.data.slice(
+            "doc value skipper",
+            entry.offset as usize,
+            entry.length as usize,
+        )?;
+
+        if input.length() > 0 {
+            input.prefetch(0, 1)?;
         }
+
+        // TODO: should we write to disk the actual max level for this
+        // segment?
+        Ok(Some(DocValuesSkipperImpl::new(input, entry.clone())))
     }
 
     fn check_integrity(&self) -> Result<()> {
@@ -1570,12 +1558,11 @@ where
                 )?)
             };
         }
-        match self.values {
-            Some(ref mut v) => Ok(self.mul
-                * v.read_from_slice(index & self.mask, Some(&mut self.slice))?
-                + self.delta),
-            None => Err(LuceneError::illegal_state("values is None"))?,
-        }
+        let v = self
+            .values
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("values is None"))?;
+        Ok(self.mul * v.read_from_slice(index & self.mask, Some(&mut self.slice))? + self.delta)
     }
 }
 
@@ -2713,12 +2700,10 @@ where
     }
 
     fn get_value_count(&self) -> Result<i64> {
-        match self.entry.terms_dict_entry {
-            Some(ref entry) => Ok(entry.terms_dict_size),
-            None => Err(LuceneError::illegal_state(
-                "TermsDictEntry's terms_dict_entry is None",
-            )),
-        }
+        let entry = self.entry.terms_dict_entry.as_ref().ok_or_else(|| {
+            LuceneError::illegal_state("TermsDictEntry's terms_dict_entry is None")
+        })?;
+        Ok(entry.terms_dict_size)
     }
 
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
@@ -3188,17 +3173,11 @@ impl<R> DenseSortedNumericDocValues<R>
 where
     R: RandomAccessInput,
 {
-    fn new(
-        max_doc: i32,
-        start: i64,
-        end: i64,
-        values: LongValuesEnums<R>,
-        addresses: DirectMonotonicReader<R>,
-    ) -> Self {
+    fn new(max_doc: i32, values: LongValuesEnums<R>, addresses: DirectMonotonicReader<R>) -> Self {
         Self {
             max_doc,
-            start,
-            end,
+            start: 0,
+            end: 0,
             doc: -1,
             count: 0,
             values,

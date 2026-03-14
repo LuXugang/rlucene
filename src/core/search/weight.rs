@@ -484,12 +484,11 @@ where
         _context: &LeafReaderContext<IRCLeafReader<IRC>>,
         _searcher: &IndexSearcher<IRC>,
     ) -> Result<i64> {
-        match self.scorer {
-            Some(ref mut scorer) => scorer.iterator().cost(),
-            None => Err(LuceneError::illegal_state(
-                "DefaultScorer::get returned None",
-            )),
-        }
+        let scorer = self
+            .scorer
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("DefaultScorer::get returned None"))?;
+        scorer.iterator().cost()
     }
 }
 /// Specialized method to bulk-score all hits;
