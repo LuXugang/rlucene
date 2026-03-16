@@ -245,7 +245,62 @@ pub enum Query {
     #[cfg(test)]
     WANDScorer(WANDScorerQuery),
 }
-
+macro_rules! query_variant_name {
+    (
+        $self:expr;
+        normal: [ $( $variant:ident ),* $(,)? ];
+        test: [ $( $test_variant:ident ),* $(,)? ]
+    ) => {
+        match $self {
+            $(
+                Query::$variant(_) => stringify!($variant),
+            )*
+            $(
+                #[cfg(test)]
+                Query::$test_variant(_) => stringify!($test_variant),
+            )*
+        }
+    };
+}
+impl Query {
+    pub fn name(&self) -> &'static str {
+        query_variant_name!(
+            self;
+            normal: [
+                Automaton,
+                Boolean,
+                Boost,
+                ConstantScore,
+                Dummy,
+                FieldExists,
+                IndexOrDocValues,
+                IndexSortSortedNumericDocValuesRange,
+                MatchAllDocs,
+                MatchNoDocs,
+                MultiTermQueryConstantScoreBlendedWrapper,
+                MultiTermQueryConstantScoreWrapper,
+                PointRange,
+                Regexp,
+                SortedNumericDocValuesRange,
+                SortedNumericDocValuesSet,
+                SortedSetDocValuesRange,
+                Phrase,
+                Prefix,
+                Term,
+                TermRange,
+                Wildcard,
+            ];
+            test: [
+                BitSet,
+                BlockScoreQueryWrapper,
+                MaxScoreWrapper,
+                RandomApproximation,
+                TestRewrite,
+                WANDScorer,
+            ]
+        )
+    }
+}
 impl Default for Query {
     fn default() -> Self {
         Query::Dummy(DummyQuery::default())
