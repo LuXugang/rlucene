@@ -28,6 +28,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 
 use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::bulk_scorer::BulkScorer;
+use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
@@ -93,6 +94,7 @@ macro_rules! dispatch_query {
             Query::Boost($inner) => $body,
             Query::ConstantScore($inner) => $body,
             Query::Dummy($inner) => $body,
+            Query::DisjunctionMax($inner) => $body,
             Query::FieldExists($inner) => $body,
             Query::IndexOrDocValues($inner) => $body,
             Query::IndexSortSortedNumericDocValuesRange($inner) => $body,
@@ -132,6 +134,7 @@ impl_from_for_enum!(
     BoostQuery => Boost,
     ConstantScoreQuery => ConstantScore,
     DummyQuery => Dummy,
+    DisjunctionMaxQuery => DisjunctionMax,
     FieldExistsQuery => FieldExists,
     IndexOrDocValuesQuery => IndexOrDocValues,
     IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
@@ -166,6 +169,7 @@ impl_into_box_query!(
     BoostQuery,
     ConstantScoreQuery,
     DummyQuery,
+    DisjunctionMaxQuery,
     FieldExistsQuery,
     IndexOrDocValuesQuery,
     IndexSortSortedNumericDocValuesRangeQuery,
@@ -215,6 +219,7 @@ pub enum Query {
     Boost(BoostQuery),
     ConstantScore(ConstantScoreQuery),
     Dummy(DummyQuery),
+    DisjunctionMax(DisjunctionMaxQuery),
     FieldExists(FieldExistsQuery),
     IndexOrDocValues(IndexOrDocValuesQuery),
     IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
@@ -272,6 +277,7 @@ impl Query {
                 Boost,
                 ConstantScore,
                 Dummy,
+                DisjunctionMax,
                 FieldExists,
                 IndexOrDocValues,
                 IndexSortSortedNumericDocValuesRange,
