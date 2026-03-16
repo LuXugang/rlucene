@@ -99,6 +99,7 @@ mod tests {
 
     use crate::core::index::field_invert_state::FieldInvertState;
     use crate::core::index::index_options::IndexOptions::DocsAndFreqs;
+    use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
     use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
     use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
     use crate::core::search::similarities_impl::similarities::Similarity;
@@ -235,17 +236,51 @@ mod tests {
 
     #[test]
     fn test_dmq_hit() -> Result<()> {
-        // TODO DisjunctionMaxQuery未实现
+        let mut random = random();
+        let index_searcher = test_set_up(&mut random)?;
+        let query = DisjunctionMaxQuery::new(
+            vec![TermQuery::new(Term::from_text("test", "hit")).into()],
+            0.0,
+        )?;
+        let top_docs = index_searcher.search(query, 1)?;
+        assert_eq!(1, top_docs.total_hits.value());
+        assert_eq!(1, top_docs.score_docs.len());
+        assert_ne!(top_docs.score_docs[0].score, 0.0);
         Ok(())
     }
     #[test]
     fn test_dmq_hit_or_miss() -> Result<()> {
-        // TODO DisjunctionMaxQuery未实现
+        let mut random = random();
+        let index_searcher = test_set_up(&mut random)?;
+        let query = DisjunctionMaxQuery::new(
+            vec![
+                TermQuery::new(Term::from_text("test", "hit")).into(),
+                TermQuery::new(Term::from_text("test", "miss")).into(),
+            ],
+            0.0,
+        )?;
+        let top_docs = index_searcher.search(query, 1)?;
+        assert_eq!(1, top_docs.total_hits.value());
+        assert_eq!(1, top_docs.score_docs.len());
+        assert_ne!(top_docs.score_docs[0].score, 0.0);
         Ok(())
     }
+
     #[test]
     fn test_dmq_hit_or_empty() -> Result<()> {
-        // TODO DisjunctionMaxQuery未实现
+        let mut random = random();
+        let index_searcher = test_set_up(&mut random)?;
+        let query = DisjunctionMaxQuery::new(
+            vec![
+                TermQuery::new(Term::from_text("test", "hit")).into(),
+                TermQuery::new(Term::from_text("empty", "miss")).into(),
+            ],
+            0.0,
+        )?;
+        let top_docs = index_searcher.search(query, 1)?;
+        assert_eq!(1, top_docs.total_hits.value());
+        assert_eq!(1, top_docs.score_docs.len());
+        assert_ne!(top_docs.score_docs[0].score, 0.0);
         Ok(())
     }
     #[test]

@@ -1026,6 +1026,7 @@ mod tests {
     use crate::core::search::boolean_query::Builder;
     use crate::core::search::boost_query::BoostQuery;
     use crate::core::search::constant_score_query::ConstantScoreQuery;
+    use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
@@ -1034,10 +1035,9 @@ mod tests {
     use crate::core::search::score_doc::ScoreDoc;
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::scorer::ScorerKind;
+    use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
     use crate::core::search::term_query::TermQuery;
     use crate::core::search::top_docs::TopDocsLike;
-    use std::sync::atomic::Ordering;
-
     use crate::core::util::CoreHelper;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
@@ -1049,6 +1049,7 @@ mod tests {
         new_string_field, new_text_field, random, random_multiplier,
     };
     use crate::test::core::util::test_util::TestUtil;
+    use std::sync::atomic::Ordering;
     #[allow(dead_code)]
     struct TestBooleanQuery;
 
@@ -1260,7 +1261,48 @@ mod tests {
 
     #[test]
     fn test_null_or_sub_scorer() -> Result<()> {
-        // TODO DisjunctionMaxQuery 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(new_text_field(
+            &mut random,
+            "field",
+            "a b c d",
+            Store::No,
+            &mut field_to_type,
+        )?);
+        w.add_document(doc)?;
+
+        let reader = w.get_reader()?;
+        let mut s = new_searcher_with_reader(reader)?;
+        s.set_similarity(ClassicSimilarity::new());
+
+        let mut q = Builder::new();
+        q.add(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?;
+
+        let pq = PhraseQuery::from_terms_no_slop("field", Vec::<&str>::new().as_slice())?;
+        q.add(pq.clone(), Occur::Should)?;
+        assert_eq!(1, s.search(q.build(), 10)?.total_hits.value());
+
+        let mut q = Builder::new();
+        let pq = PhraseQuery::from_terms_no_slop("field", Vec::<&str>::new().as_slice())?;
+        q.add(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?;
+        q.add(pq.clone(), Occur::Must)?;
+        assert_eq!(0, s.search(q.build(), 10)?.total_hits.value());
+
+        let dmq = DisjunctionMaxQuery::new(
+            vec![
+                TermQuery::new(Term::from_text("field", "a")).into(),
+                pq.into(),
+            ],
+            1.0,
+        )?;
+        assert_eq!(1, s.search(dmq, 10)?.total_hits.value());
+        w.close()?;
         Ok(())
     }
     #[test]
