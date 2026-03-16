@@ -20,6 +20,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
+use crate::core::search::disjunction_max_bulk_scorer::DisjunctionMaxBulkScorer;
 use crate::core::search::disjunction_max_scorer::DisjunctionMaxScorer;
 use crate::core::search::disjunction_scorer::DisjunctionScorer;
 use crate::core::search::explanation::Explanation;
@@ -455,10 +456,9 @@ where
                     scorers.push(scorer);
                 }
             }
-            todo!()
+            return Ok(Some(Box::new(DisjunctionMaxBulkScorer::new(scorers)?)));
         }
-        let _v = self.default_bulk_scorer(context, searcher)?;
-        todo!()
+        Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
     }
 
     fn cost(
