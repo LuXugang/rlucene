@@ -28,6 +28,8 @@ use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::small_float::SmallFloat;
+#[cfg(test)]
+use crate::test::core::index::test_omit_tf::SimpleSimilarity1;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 
@@ -477,6 +479,8 @@ pub enum TFIDFSubEnum {
     Simple(SimpleSimilarity),
     #[cfg(test)]
     Test(TestSimilarity),
+    #[cfg(test)]
+    Simple1(SimpleSimilarity1),
 }
 impl TFIDFSimilarityBase for TFIDFSubEnum {
     fn tf(&self, freq: f32) -> f32 {
@@ -486,6 +490,8 @@ impl TFIDFSimilarityBase for TFIDFSubEnum {
             TFIDFSubEnum::Simple(simple) => simple.tf(freq),
             #[cfg(test)]
             TFIDFSubEnum::Test(test) => test.tf(freq),
+            #[cfg(test)]
+            TFIDFSubEnum::Simple1(test) => test.tf(freq),
         }
     }
 
@@ -500,6 +506,8 @@ impl TFIDFSimilarityBase for TFIDFSubEnum {
             TFIDFSubEnum::Simple(simple) => simple.idf_explain(collection_stats, term_stats),
             #[cfg(test)]
             TFIDFSubEnum::Test(test) => test.idf_explain(collection_stats, term_stats),
+            #[cfg(test)]
+            TFIDFSubEnum::Simple1(test) => test.idf_explain(collection_stats, term_stats),
         }
     }
 
@@ -520,6 +528,10 @@ impl TFIDFSimilarityBase for TFIDFSubEnum {
             TFIDFSubEnum::Test(test) => {
                 test.idf_explain_from_multi_ts(collection_stats, term_stats)
             },
+            #[cfg(test)]
+            TFIDFSubEnum::Simple1(test) => {
+                test.idf_explain_from_multi_ts(collection_stats, term_stats)
+            },
         }
     }
 
@@ -530,6 +542,8 @@ impl TFIDFSimilarityBase for TFIDFSubEnum {
             TFIDFSubEnum::Simple(simple) => simple.idf(doc_freq, doc_count),
             #[cfg(test)]
             TFIDFSubEnum::Test(test) => test.idf(doc_freq, doc_count),
+            #[cfg(test)]
+            TFIDFSubEnum::Simple1(test) => test.idf(doc_freq, doc_count),
         }
     }
 
@@ -540,6 +554,8 @@ impl TFIDFSimilarityBase for TFIDFSubEnum {
             TFIDFSubEnum::Simple(simple) => simple.length_norm(length),
             #[cfg(test)]
             TFIDFSubEnum::Test(test) => test.length_norm(length),
+            #[cfg(test)]
+            TFIDFSubEnum::Simple1(test) => test.length_norm(length),
         }
     }
 }
