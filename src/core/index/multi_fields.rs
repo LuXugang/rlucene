@@ -114,7 +114,7 @@ mod tests {
     use crate::core::index::BytesRef;
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_writer::IndexWriter;
-    use crate::core::index::multi_terms::get_term_postings_enum;
+    use crate::core::index::multi_terms::get_term_postings_enum_with_flag;
     use crate::core::index::postings_enum::{FREQS, NONE};
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -209,9 +209,13 @@ mod tests {
         let reader = directory_reader_util::open_from_writer(&iw)?;
         iw.close()?;
 
-        let mut de =
-            get_term_postings_enum(&reader, "f", &BytesRef::from_string("j"), FREQS as i32)?
-                .unwrap();
+        let mut de = get_term_postings_enum_with_flag(
+            &reader,
+            "f",
+            &BytesRef::from_string("j"),
+            FREQS as i32,
+        )?
+        .unwrap();
 
         assert_eq!(0, de.next_doc()?);
         assert_eq!(1, de.next_doc()?);

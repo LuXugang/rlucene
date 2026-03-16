@@ -264,7 +264,7 @@ where
 /// This returns `None` if the field or term does not exist, or if positions were not indexed.
 ///
 /// See `get_term_postings_enum` with flags.
-pub fn get_term_postings_enum_default<CR>(
+pub fn get_term_postings_enum<CR>(
     reader: CR,
     field: &str,
     term: &BytesRef<Vec<u8>>,
@@ -272,7 +272,7 @@ pub fn get_term_postings_enum_default<CR>(
 where
     CR: CompositeReader,
 {
-    get_term_postings_enum(reader, field, term, ALL as i32)
+    get_term_postings_enum_with_flag(reader, field, term, ALL as i32)
 }
 
 /// Returns `PostingsEnum` for the specified field and term, with control over whether freqs,
@@ -280,7 +280,7 @@ where
 ///
 /// This returns `None` if the field or term does not exist.
 /// See `TermsEnum::postings`.
-pub fn get_term_postings_enum<CR>(
+pub fn get_term_postings_enum_with_flag<CR>(
     reader: CR,
     field: &str,
     term: &BytesRef<Vec<u8>>,

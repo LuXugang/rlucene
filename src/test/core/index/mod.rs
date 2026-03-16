@@ -39,6 +39,7 @@ mod test_many_fields;
 mod test_non_flex;
 mod test_norms;
 mod test_omit_norms;
+mod test_omit_positions;
 mod test_segment_term_docs;
 mod test_segment_term_enum;
 mod test_sum_doc_freq;

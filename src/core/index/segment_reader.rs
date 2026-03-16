@@ -608,7 +608,7 @@ pub(crate) mod tests {
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::multi_doc_values::MultiDocValues;
     use crate::core::index::multi_reader::MultiReader;
-    use crate::core::index::multi_terms::{get_term_postings_enum_default, get_terms};
+    use crate::core::index::multi_terms::{get_term_postings_enum, get_terms};
     use crate::core::index::postings_enum::PostingsEnum;
     use crate::core::index::segment_reader::SegmentReader;
     use crate::core::index::stored_fields::StoredFields;
@@ -788,7 +788,7 @@ pub(crate) mod tests {
         .expect("term_docs should be some");
         assert_ne!(term_docs.next_doc()?, NO_MORE_DOCS);
 
-        let mut positions = get_term_postings_enum_default(
+        let mut positions = get_term_postings_enum(
             &multi_reader,
             TEXT_FIELD_1_KEY,
             &BytesRef::from_string("field"),
