@@ -151,6 +151,18 @@ where
         })
     }
 }
+impl<LR> DefaultIndexSearcher<LeafReaderContext<LR>>
+where
+    LR: LeafReader + Clone,
+{
+    pub fn from_lr(leaf_reader: LR) -> Result<Self>
+    where
+        LR: LeafReader,
+    {
+        let context = crate::core::index::leaf_reader::get_context(leaf_reader)?;
+        Self::new(context)
+    }
+}
 
 pub fn default_similarity() -> SimilarityEnum {
     BM25Similarity::new()

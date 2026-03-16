@@ -537,6 +537,14 @@ pub mod lucene_test_case_util {
     }
     pub fn new_searcher_with_lr<LR>(
         leaf_reader: LR,
+    ) -> Result<DefaultIndexSearcher<LeafReaderContext<LR>>>
+    where
+        LR: LeafReader,
+    {
+        new_searcher_with_lr_wrap(leaf_reader, false)
+    }
+    pub fn new_searcher_with_lr_wrap<LR>(
+        leaf_reader: LR,
         _may_be_wrap: bool,
     ) -> Result<DefaultIndexSearcher<LeafReaderContext<LR>>>
     where
