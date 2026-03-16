@@ -21,6 +21,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeoutEnum;
+use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, terms_util};
 use crate::core::search::QueryCache;
@@ -30,6 +31,7 @@ use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::explanation::Explanation;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
@@ -606,6 +608,50 @@ where
             self.rewrite(v)
         }
     }
+    /// Returns an Explanation that describes how `doc` scored against `query`.
+    ///
+    /// This is intended to be used in developing Similarity implementations, and, for good
+    /// performance, should not be displayed with every hit. Computing an explanation is as expensive
+    /// as executing the query over the entire index.
+    pub fn explain<T>(&self, query: T, doc: i32) -> Result<Explanation>
+    where
+        T: Into<Query>,
+    {
+        let query = self.rewrite(query.into())?;
+        let weight = self.create_weight(query, ScoreMode::Complete, 1.0)?;
+        self.explain_from_weight(&weight, doc)
+    }
+    /// Expert: low-level implementation method Returns an Explanation that describes how `doc`
+    /// scored against `weight`.
+    ///
+    /// This is intended to be used in developing Similarity implementations, and, for good
+    /// performance, should not be displayed with every hit. Computing an explanation is as expensive
+    /// as executing the query over the entire index.
+    ///
+    /// Applications should call [`IndexSearcher::explain`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a query would exceed [`IndexSearcher::get_max_clause_count`] clauses.
+    pub fn explain_from_weight(&self, weight: &QueryWeight<IRC>, doc: i32) -> Result<Explanation> {
+        let leaf_contexts = self.reader_context.leaves()?;
+        let n = ReaderUtil::sub_index_with_leaves(doc, leaf_contexts);
+        let ctx = &leaf_contexts[n];
+        let de_based_doc = doc as usize - ctx.doc_base;
+
+        let live_docs = ctx.reader().get_live_docs()?;
+        if let Some(live_docs) = live_docs
+            && !live_docs.get(de_based_doc)?
+        {
+            return Ok(Explanation::no_match_no_details(format!(
+                "Document {} is deleted",
+                doc
+            )));
+        }
+
+        weight.explain(ctx, de_based_doc as i32, self)
+    }
+
     #[allow(clippy::type_complexity)]
     pub(crate) fn create_weight<T>(
         &self,

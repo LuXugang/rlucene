@@ -914,6 +914,7 @@ impl QueryBase for BooleanQuery {
 }
 
 /// A builder for boolean queries
+#[derive(Clone)]
 pub struct Builder {
     minimum_number_should_match: i32,
     pub(crate) clauses: Vec<BooleanClause>,
@@ -1013,35 +1014,42 @@ mod tests {
     use crate::core::document::string_field::StringField;
 
     use crate::core::index::directory_reader::directory_reader_util;
-    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::index_reader::IndexReader;
+    use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::index_writer_config::IndexWriterConfig;
+    use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::index::leaf_reader_context::LeafReaderContext;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::term::Term;
-    use rand::RngExt;
-    use rand::prelude::SliceRandom;
-    use std::collections::HashMap;
-
     use crate::core::search::boolean_clause::{BooleanClause, Occur};
-    use crate::core::search::boolean_query::Builder;
+    use crate::core::search::boolean_query::{BooleanQuery, Builder};
     use crate::core::search::boost_query::BoostQuery;
+    use crate::core::search::collector::Collector;
+    use crate::core::search::collector_manager::CollectorManager;
     use crate::core::search::constant_score_query::ConstantScoreQuery;
     use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
+    use crate::core::search::leaf_collector::LeafCollector;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
     use crate::core::search::phrase_query::PhraseQuery;
     use crate::core::search::query::{Query, QueryBase};
+    use crate::core::search::scorable::Scorable;
     use crate::core::search::score_doc::ScoreDoc;
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::scorer::ScorerKind;
     use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+    use crate::core::search::simple_collector::SimpleCollector;
     use crate::core::search::term_query::TermQuery;
     use crate::core::search::top_docs::TopDocsLike;
+    use crate::core::search::weight::Weight;
     use crate::core::util::CoreHelper;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::core::util::fixed_bit_set::FixedBitSet;
     use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
     use crate::test::core::index::random_index_writer::RandomIndexWriter;
+    use crate::test::core::search::fixed_bit_set_collector::FixedBitSetCollector;
     use crate::test::core::search::query_utils::QueryUtils;
     use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory_shared, new_index_writer_config,
@@ -1049,7 +1057,13 @@ mod tests {
         new_string_field, new_text_field, random, random_multiplier,
     };
     use crate::test::core::util::test_util::TestUtil;
-    use std::sync::atomic::Ordering;
+    use rand::RngExt;
+    use rand::prelude::SliceRandom;
+    use std::collections::HashMap;
+    use std::fmt::{Display, Formatter};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     #[allow(dead_code)]
     struct TestBooleanQuery;
 
@@ -1462,14 +1476,169 @@ mod tests {
 
         Ok(())
     }
-    #[test]
-    fn test_filter_clause_behaves_like_must() -> Result<()> {
-        // TODO IMPORTANT FixedBitSetCollector未实现
-        Ok(())
+    fn get_matches<IRC, T>(searcher: &IndexSearcher<IRC>, query: T) -> Result<FixedBitSet>
+    where
+        IRC: IndexReaderContext + 'static,
+        T: Into<Query>,
+    {
+        let max_doc = searcher.get_index_reader().max_doc()?;
+        let manager = FixedBitSetCollector::create_manager(max_doc);
+        searcher.search_with_collector_manager(query, &manager)
     }
     #[test]
+    fn test_filter_clause_behaves_like_must() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        let mut f = new_text_field(
+            &mut random,
+            "field",
+            "a b c d",
+            Store::No,
+            &mut field_to_type,
+        )?;
+        doc.add(f.clone());
+        w.add_document(doc.clone())?;
+
+        f.set_string_value("b d")?;
+        let mut doc = Document::new();
+        doc.add(f.clone());
+        w.add_document(doc.clone())?;
+
+        f.set_string_value("d")?;
+        let mut doc = Document::new();
+        doc.add(f);
+        w.add_document(doc)?;
+
+        w.commit()?;
+
+        let reader = w.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let cases: Vec<Vec<&str>> = vec![
+            vec!["a", "d"],
+            vec!["a", "b", "d"],
+            vec!["d"],
+            vec!["e"],
+            vec![],
+        ];
+
+        for required_terms in cases {
+            let mut bq1 = Builder::new();
+            let mut bq2 = Builder::new();
+
+            for term in required_terms {
+                let q = TermQuery::new(Term::from_text("field", term));
+                bq1.add(q.clone(), Occur::Must)?;
+                bq2.add(q, Occur::Filter)?;
+            }
+
+            let matches1 = get_matches(&searcher, bq1.build())?;
+            let matches2 = get_matches(&searcher, bq2.build())?;
+
+            assert_eq!(matches1, matches2);
+        }
+        w.close()?;
+        Ok(())
+    }
+
+    fn assert_same_scores_without_filters<IRC>(
+        searcher: &IndexSearcher<IRC>,
+        bq: BooleanQuery,
+    ) -> Result<()>
+    where
+        IRC: IndexReaderContext + 'static,
+    {
+        let mut bq2_builder = Builder::new();
+        let min_should_match = bq.get_minimum_number_should_match();
+        for c in bq.clone().clauses.into_iter() {
+            if *c.occur() != Occur::Filter {
+                bq2_builder.add_clause(c)?;
+            }
+        }
+        bq2_builder.set_minimum_number_should_match(min_should_match);
+        let bq2 = bq2_builder.build();
+
+        let matched = Arc::new(AtomicBool::new(false));
+        let collector_manager = CollectorManagerImpl::new(searcher, matched.clone(), bq2);
+
+        searcher.search_with_collector_manager(bq, &collector_manager)?;
+
+        assert!(matched.load(Ordering::SeqCst));
+        Ok(())
+    }
+
+    #[test]
     fn test_filter_clause_does_not_impact_score() -> Result<()> {
-        // TODO PhraseQuery 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        let mut f = new_text_field(
+            &mut random,
+            "field",
+            "a b c d",
+            Store::No,
+            &mut field_to_type,
+        )?;
+        doc.add(f.clone());
+        w.add_document(doc.clone())?;
+
+        f.set_string_value("b d")?;
+        let mut doc = Document::new();
+        doc.add(f.clone());
+        w.add_document(doc.clone())?;
+
+        f.set_string_value("a d")?;
+        let mut doc = Document::new();
+        doc.add(f);
+        w.add_document(doc)?;
+
+        w.commit()?;
+
+        let reader = w.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let mut q_builder = Builder::new();
+        q_builder.add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;
+        assert_same_scores_without_filters(&searcher, q_builder.clone().build())?;
+
+        q_builder.add(TermQuery::new(Term::from_text("field", "b")), Occur::Filter)?;
+        let mut q = q_builder.clone().build();
+        assert_same_scores_without_filters(&searcher, q.clone())?;
+
+        q_builder.add(TermQuery::new(Term::from_text("field", "c")), Occur::Should)?;
+        q = q_builder.build();
+        assert_same_scores_without_filters(&searcher, q.clone())?;
+
+        let mut q_builder = Builder::new();
+        q_builder.add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;
+        q_builder.add(TermQuery::new(Term::from_text("field", "e")), Occur::Should)?;
+        q = q_builder.build();
+        assert_same_scores_without_filters(&searcher, q.clone())?;
+
+        let mut q_builder = Builder::new();
+        q_builder.add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;
+        q_builder.add(TermQuery::new(Term::from_text("field", "d")), Occur::Must)?;
+        q = q_builder.build();
+        assert_same_scores_without_filters(&searcher, q.clone())?;
+
+        let mut q_builder = Builder::new();
+        q_builder.add(TermQuery::new(Term::from_text("field", "b")), Occur::Filter)?;
+        q_builder.add(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?;
+        q_builder.add(TermQuery::new(Term::from_text("field", "d")), Occur::Should)?;
+        q_builder.set_minimum_number_should_match(1);
+        q = q_builder.build();
+        assert_same_scores_without_filters(&searcher, q)?;
+
+        w.close()?;
         Ok(())
     }
 
@@ -2479,5 +2648,145 @@ mod tests {
     fn test_clause_sets_immutability() -> Result<()> {
         // this test is not required in Rust Lucene
         Ok(())
+    }
+
+    struct CollectorManagerImpl<'a, IRC>
+    where
+        IRC: IndexReaderContext + 'static,
+    {
+        searcher: &'a IndexSearcher<IRC>,
+        matched: Arc<AtomicBool>,
+        bq2: BooleanQuery,
+    }
+    impl<'a, IRC> CollectorManagerImpl<'a, IRC>
+    where
+        IRC: IndexReaderContext,
+    {
+        fn new(
+            searcher: &'a IndexSearcher<IRC>,
+            matched: Arc<AtomicBool>,
+            bq2: BooleanQuery,
+        ) -> Self {
+            Self {
+                searcher,
+                matched,
+                bq2,
+            }
+        }
+    }
+    impl<'a, IRC> CollectorManager for CollectorManagerImpl<'a, IRC>
+    where
+        IRC: IndexReaderContext,
+    {
+        type C = SimpleCollectorImpl<'a, IRC>;
+        type T = ();
+
+        fn new_collector(&self) -> Result<Self::C> {
+            Ok(SimpleCollectorImpl::new(
+                self.matched.clone(),
+                self.bq2.clone(),
+                self.searcher,
+            ))
+        }
+
+        fn reduce(&self, _collectors: Vec<Self::C>) -> Result<Self::T> {
+            Ok(())
+        }
+    }
+
+    struct SimpleCollectorImpl<'a, IRC>
+    where
+        IRC: IndexReaderContext + 'static,
+    {
+        doc_base: i32,
+        matched: Arc<AtomicBool>,
+        bq2: BooleanQuery,
+        searcher: &'a IndexSearcher<IRC>,
+    }
+    impl<'a, IRC> SimpleCollectorImpl<'a, IRC>
+    where
+        IRC: IndexReaderContext,
+    {
+        fn new(
+            matched: Arc<AtomicBool>,
+            bq2: BooleanQuery,
+            searcher: &'a IndexSearcher<IRC>,
+        ) -> Self {
+            Self {
+                doc_base: 0,
+                matched,
+                bq2,
+                searcher,
+            }
+        }
+    }
+
+    impl<IRC> Collector for SimpleCollectorImpl<'_, IRC>
+    where
+        IRC: IndexReaderContext,
+    {
+        type LeafCollector<'a, IRC1>
+            = &'a mut Self
+        where
+            Self: 'a,
+            IRC1: IndexReaderContext;
+
+        fn get_leaf_collector<'a, W, IRC1>(
+            &'a mut self,
+            context: &LeafReaderContext<IRCLeafReader<IRC1>>,
+            _weight: Option<&W>,
+        ) -> Result<Self::LeafCollector<'a, IRC>>
+        where
+            IRC1: IndexReaderContext,
+            W: Weight<IRC1> + ?Sized,
+        {
+            SimpleCollector::do_set_next_reader(self, context)?;
+            Ok(self)
+        }
+
+        fn score_mode(&self) -> ScoreMode {
+            ScoreMode::Complete
+        }
+    }
+
+    impl<IRC> LeafCollector for SimpleCollectorImpl<'_, IRC>
+    where
+        IRC: IndexReaderContext,
+    {
+        fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+            let actual_score = scorer.score()?;
+            let q = self.bq2.clone();
+            let expected_score = self
+                .searcher
+                .explain(q, self.doc_base + doc)?
+                .value
+                .to_f32()
+                .unwrap();
+            assert_eq!(expected_score, actual_score);
+            self.matched.store(true, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    impl<IRC> Display for SimpleCollectorImpl<'_, IRC>
+    where
+        IRC: IndexReaderContext,
+    {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", std::any::type_name::<Self>())
+        }
+    }
+
+    impl<IRC> SimpleCollector for SimpleCollectorImpl<'_, IRC>
+    where
+        IRC: IndexReaderContext,
+    {
+        fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
+        where
+            LR: LeafReader,
+        {
+            self.doc_base = context.doc_base as i32;
+            Ok(())
+        }
     }
 }
