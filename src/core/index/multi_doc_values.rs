@@ -1463,9 +1463,8 @@ mod tests {
         let mut field = NumericDocValuesField::new("numbers", 0i64);
         doc.add(field.clone());
         let _mock = MockAnalyzer::new(&mut random);
-        let iwc = new_index_writer_config(&mut random);
-        // TODO MERGE log merge bug
-        // iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -1528,9 +1527,8 @@ mod tests {
         let mut field = BinaryDocValuesField::new("bytes", BytesRef::new());
         doc.add(field.clone());
 
-        let iwc = new_index_writer_config(&mut random);
-        // TODO MERGE log merge bug
-        // iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+        let mut iwc = new_index_writer_config(&mut random);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 

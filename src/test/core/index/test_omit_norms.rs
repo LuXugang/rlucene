@@ -22,11 +22,13 @@ use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::MergePolicy;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer, random,
+    get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
+    new_log_merge_policy_with_merge_factor, random,
 };
 use std::sync::Arc;
 
@@ -40,8 +42,7 @@ fn test_mixed_merge_throws_error() -> Result<()> {
     let analyzer = MockAnalyzer::new(&mut random);
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
     iwc.set_max_buffered_docs(3);
-    // TODO IMPORTANT 合并策略LOG MERGE 还有 bug
-    // iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random,2)?);
+    iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
     let writer = IndexWriter::new(ram.clone(), iwc)?;
 
     let mut d = Document::new();
@@ -116,8 +117,7 @@ fn test_mixed_ram() -> Result<()> {
     let analyzer = MockAnalyzer::new(&mut random);
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
     iwc.set_max_buffered_docs(10);
-    // TODO IMPORTANT 合并策略LOG MERGE 还有 bug
-    // iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random,2)?);
+    iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
     let writer = IndexWriter::new(ram.clone(), iwc)?;
 
     let mut d = Document::new();
@@ -177,13 +177,10 @@ fn test_no_nrm_file() -> Result<()> {
     let analyzer = MockAnalyzer::new(&mut random);
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
     iwc.set_max_buffered_docs(3);
-    // TODO IMPORTANT 合并策略LOG MERGE 还有 bug
-    // iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random,2)?);
+    let mut mp = new_log_merge_policy_with_merge_factor(&mut random, 2)?;
+    mp.get_base_mut().set_no_cfs_ratio(0.0)?;
+    iwc.set_merge_policy(mp);
     let writer = IndexWriter::new(ram.clone(), iwc)?;
-
-    // let lmp = writer.get_config().get_merge_policy();
-    // lmp.set_merge_factor(2)?;
-    // lmp.get_base_mut().set_no_cfs_ratio(0.0);
 
     let mut d = Document::new();
 

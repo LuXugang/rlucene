@@ -436,8 +436,7 @@ mod tests {
         let mock = MockAnalyzer::new(&mut random);
         let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
         config.set_max_buffered_docs(2);
-        // TODO IMPORTANT new_log_merge_policy未通过测试
-        // config.set_merge_policy(new_log_merge_policy(&mut random)?);
+        config.set_merge_policy(new_log_merge_policy(&mut random)?);
         let iw = IndexWriter::new(dir.clone(), config)?;
         let mut field_types = HashMap::new();
         let num_docs = 500;

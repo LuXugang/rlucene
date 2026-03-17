@@ -57,10 +57,14 @@ impl MergeScheduler for SerialMergeScheduler {
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        match merge_source.get_next_merge(index_writer)? {
-            Some(merge) => merge_source.merge(merge, index_writer),
-            None => Ok(()),
+        loop {
+            let merge = match merge_source.get_next_merge(index_writer)? {
+                Some(merge) => merge,
+                None => break,
+            };
+            merge_source.merge(merge, index_writer)?;
         }
+        Ok(())
     }
 
     type Directory<D>

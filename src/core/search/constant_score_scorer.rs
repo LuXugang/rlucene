@@ -663,8 +663,7 @@ mod tests {
 
         let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
         iwc.set_max_buffered_docs(2);
-        // TODO IMPORTANT log merge 合并策略有 bug
-        // iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+        iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
         let iw = IndexWriter::new(dir.clone(), iwc)?;
 

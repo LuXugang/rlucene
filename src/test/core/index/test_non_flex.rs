@@ -30,7 +30,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
-    new_text_field, random,
+    new_log_merge_policy, new_text_field, random,
 };
 use std::collections::HashMap;
 
@@ -45,8 +45,7 @@ fn test_non_flex() -> Result<()> {
     let mock = MockAnalyzer::new(&mut random);
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_max_buffered_docs(7);
-    // TODO IMPORTANT Log merge 合并策略有 bug
-    // iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
     let writer = IndexWriter::new(dir.clone(), iwc)?;
     let mut field_to_type = HashMap::new();

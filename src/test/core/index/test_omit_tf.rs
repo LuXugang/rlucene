@@ -26,6 +26,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
@@ -50,7 +51,7 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     get_only_leaf_reader, new_directory_shared, new_field, new_index_writer_config_with_analyzer,
-    new_searcher_with_reader, random,
+    new_log_merge_policy_with_merge_factor, new_searcher_with_reader, random,
 };
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -113,8 +114,9 @@ fn test_mixed_ram() -> Result<()> {
     let analyzer = MockAnalyzer::new(&mut random);
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
     iwc.set_max_buffered_docs(10);
-    // TODO log merge bug
-    // iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+    let mut mp = new_log_merge_policy_with_merge_factor(&mut random, 2)?;
+    mp.get_base_mut().set_no_cfs_ratio(0.0)?;
+    iwc.set_merge_policy(mp);
     let writer = IndexWriter::new(ram.clone(), iwc)?;
 
     let mut d = Document::new();
@@ -192,8 +194,10 @@ fn test_no_prx_file() -> Result<()> {
     let analyzer = MockAnalyzer::new(&mut random);
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
     iwc.set_max_buffered_docs(3);
-    // TODO log merge bug
-    // iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+    iwc.set_max_buffered_docs(10);
+    let mut mp = new_log_merge_policy_with_merge_factor(&mut random, 2)?;
+    mp.get_base_mut().set_no_cfs_ratio(0.0)?;
+    iwc.set_merge_policy(mp);
     let writer = IndexWriter::new(ram.clone(), iwc)?;
 
     let mut d = Document::new();
@@ -227,8 +231,10 @@ fn test_basic() -> Result<()> {
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
     iwc.set_max_buffered_docs(2);
     iwc.set_similarity(SimpleSimilarity1::new());
-    // TODO log merge bug
-    // iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
+    iwc.set_max_buffered_docs(10);
+    let mut mp = new_log_merge_policy_with_merge_factor(&mut random, 2)?;
+    mp.get_base_mut().set_no_cfs_ratio(0.0)?;
+    iwc.set_merge_policy(mp);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut sb = String::with_capacity(265);

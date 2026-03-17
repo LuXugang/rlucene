@@ -293,9 +293,8 @@ fn test_random_docs() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
     let analyzer = MockAnalyzer::new(&mut random);
-    let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
-    // TODO IMPORTANT LOG MERGE 有 bug
-    // iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
     let num_docs = at_least_usize(&mut random, 49);

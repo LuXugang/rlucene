@@ -631,7 +631,7 @@ where
                     // skip: there is an ongoing merge at the current level or the computed merge has a single
                     // segment and this merge policy doesn't do singleton merges
                 } else {
-                    let spec = spec.get_or_insert_with(MergeSpecification::new);
+                    let v = spec.get_or_insert_with(MergeSpecification::new);
 
                     let mut meta = Vec::new();
                     for level in levels.iter().take(end).skip(start) {
@@ -643,7 +643,7 @@ where
                         meta.push(SegmentDocAndID::new(idx.clone(), info.info.max_doc()?));
                     }
 
-                    spec.add(OneMerge::new(meta)?);
+                    v.add(OneMerge::new(meta)?);
                 }
 
                 start = end;

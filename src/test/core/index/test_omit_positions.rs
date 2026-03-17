@@ -23,6 +23,7 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::multi_terms::get_term_postings_enum;
 use crate::core::index::postings_enum::{FREQS, PostingsEnum};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -33,7 +34,7 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     get_only_leaf_reader, new_directory_shared, new_field, new_index_writer_config_with_analyzer,
-    random,
+    new_log_merge_policy_with_merge_factor, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use std::collections::HashMap;
@@ -173,23 +174,9 @@ fn test_no_prx_file() -> Result<()> {
     let analyzer = MockAnalyzer::new(&mut random);
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
     iwc.set_max_buffered_docs(3);
-    // TODO IMPORTANT LOG MERGE bug
-    // let mut log_merge_policy = new_log_merge_policy(&mut random)?;
-    // log_merge_policy.get_base_mut().set_no_cfs_ratio(0.0)?;
-    // match log_merge_policy {
-    //     MergePolicyEnum::LogDoc(ref mut lmp) => {
-    //         lmp.set_merge_factor(2)?;
-    //     },
-    //     MergePolicyEnum::LogBytesSize(ref mut lmp) => {
-    //         lmp.set_merge_factor(2)?;
-    //     },
-    //     _ => {
-    //         return Err(LuceneError::illegal_state(
-    //             "expected log merge policy",
-    //         ));
-    //     }
-    // }
-    // iwc.set_merge_policy(log_merge_policy);
+    let mut log_merge_policy = new_log_merge_policy_with_merge_factor(&mut random, 2)?;
+    log_merge_policy.get_base_mut().set_no_cfs_ratio(0.0)?;
+    iwc.set_merge_policy(log_merge_policy);
 
     let writer = IndexWriter::new(ram.clone(), iwc)?;
 

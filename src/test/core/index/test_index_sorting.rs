@@ -2307,7 +2307,7 @@ fn test_tie_break() -> Result<()> {
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
     let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::String)?])?;
     iwc.set_index_sort(index_sort)?;
-    // iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
