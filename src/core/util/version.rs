@@ -24,6 +24,8 @@ use thiserror::Error;
 use crate::core::util::error::parse::Parse;
 use crate::core::util::error::{IllegalArgumentError, IllegalStateError};
 use crate::core::util::strict_string_tokenizer::StrictStringTokenizer;
+pub static LUCENE_9_0_0: Lazy<Version> =
+    Lazy::new(|| Version::new(9, 0, 0).expect("should not fail"));
 
 pub static LUCENE_10_0_0: Lazy<Version> =
     Lazy::new(|| Version::new(10, 0, 0).expect("should not fail"));
@@ -33,8 +35,8 @@ pub static LUCENE_10_1_0: Lazy<Version> =
     Lazy::new(|| Version::new(10, 1, 0).expect("should not fail"));
 
 /// Match settings and bugs in Lucene's 11.0.0 release.
-pub static LUCENE_11_0_0: Lazy<Version> =
-    Lazy::new(|| Version::new(11, 0, 0).expect("should not fail"));
+pub static LUCENE_10_1_1: Lazy<Version> =
+    Lazy::new(|| Version::new(10, 1, 1).expect("should not fail"));
 
 /// # Warning
 /// If you use this setting, and then upgrade to a newer release of Lucene,
@@ -46,7 +48,7 @@ pub static LUCENE_11_0_0: Lazy<Version> =
 /// Additionally, you may need to **re-test your entire application** to ensure
 /// it behaves as expected, as some defaults may have changed and may break
 /// functionality in your application.
-pub static LATEST: Lazy<Version> = Lazy::new(|| LUCENE_11_0_0.clone());
+pub static LATEST: Lazy<Version> = Lazy::new(|| LUCENE_10_1_1.clone());
 pub static LUCENE_CURRENT: Lazy<Version> = Lazy::new(|| LATEST.clone());
 pub static MIN_SUPPORTED_MAJOR: Lazy<i32> = Lazy::new(|| LATEST.major - 1);
 /// Used by certain classes to match version compatibility across releases of
@@ -338,7 +340,7 @@ mod tests {
 
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::{
-        LATEST, LUCENE_10_0_0, LUCENE_10_1_0, LUCENE_11_0_0, LUCENE_CURRENT, Version,
+        LATEST, LUCENE_9_0_0, LUCENE_10_0_0, LUCENE_10_1_0, LUCENE_10_1_1, LUCENE_CURRENT, Version,
     };
     use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
@@ -347,7 +349,7 @@ mod tests {
 
     #[test]
     fn test_on_or_after() -> Result<()> {
-        let versions = vec![&*LUCENE_10_0_0, &*LUCENE_10_1_0, &*LUCENE_11_0_0];
+        let versions = vec![&*LUCENE_10_0_0, &*LUCENE_10_1_0, &*LUCENE_10_1_1];
 
         for version in versions {
             assert!(
@@ -357,31 +359,30 @@ mod tests {
             );
         }
 
-        assert!(LUCENE_11_0_0.on_or_after(&Version::from_bits(9, 0, 0)?));
-        assert!(LUCENE_11_0_0.on_or_after(&LUCENE_10_0_0));
-        assert!(LUCENE_11_0_0.on_or_after(&LUCENE_10_1_0));
+        assert!(LUCENE_10_1_1.on_or_after(&Version::from_bits(9, 0, 0)?));
+        assert!(LUCENE_10_1_1.on_or_after(&LUCENE_10_0_0));
+        assert!(LUCENE_10_1_1.on_or_after(&LUCENE_10_1_0));
         Ok(())
     }
     #[test]
     fn test_to_string() -> Result<()> {
-        assert_eq!(Version::from_bits(9, 0, 0)?.to_string(), "9.0.0");
+        assert_eq!(LUCENE_9_0_0.to_string(), "9.0.0");
         assert_eq!(LUCENE_10_0_0.to_string(), "10.0.0");
-        assert_eq!(LUCENE_10_1_0.to_string(), "10.1.0");
-        assert_eq!(LUCENE_11_0_0.to_string(), "11.0.0");
         Ok(())
     }
 
     #[test]
     fn test_parse_leniently() -> Result<()> {
-        assert_eq!(Version::parse_leniently("11.0")?, *LUCENE_11_0_0);
-        assert_eq!(Version::parse_leniently("11.0.0")?, *LUCENE_11_0_0);
-        assert_eq!(Version::parse_leniently("LUCENE_11_0")?, *LUCENE_11_0_0);
-        assert_eq!(Version::parse_leniently("LUCENE_11_0_0")?, *LUCENE_11_0_0);
-
         assert_eq!(Version::parse_leniently("10.0")?, *LUCENE_10_0_0);
         assert_eq!(Version::parse_leniently("10.0.0")?, *LUCENE_10_0_0);
         assert_eq!(Version::parse_leniently("LUCENE_10_0")?, *LUCENE_10_0_0);
         assert_eq!(Version::parse_leniently("LUCENE_10_0_0")?, *LUCENE_10_0_0);
+
+        assert_eq!(Version::parse_leniently("9.0")?, *LUCENE_9_0_0);
+        assert_eq!(Version::parse_leniently("9.0.0")?, *LUCENE_9_0_0);
+        assert_eq!(Version::parse_leniently("LUCENE_90")?, *LUCENE_9_0_0);
+        assert_eq!(Version::parse_leniently("LUCENE_9_0")?, *LUCENE_9_0_0);
+        assert_eq!(Version::parse_leniently("LUCENE_9_0_0")?, *LUCENE_9_0_0);
 
         assert_eq!(Version::parse_leniently("LATEST")?, *LATEST);
         assert_eq!(Version::parse_leniently("latest")?, *LATEST);
@@ -436,7 +437,7 @@ mod tests {
         let versions = vec![
             (&*LUCENE_10_0_0, "LUCENE_10_0_0"),
             (&*LUCENE_10_1_0, "LUCENE_10_1_0"),
-            (&*LUCENE_11_0_0, "LUCENE_11_0_0"),
+            (&*LUCENE_10_1_1, "LUCENE_10_1_1"),
             (&*LATEST, "LATEST"),
             (&*LUCENE_CURRENT, "LUCENE_CURRENT"),
         ];
@@ -471,7 +472,7 @@ mod tests {
     #[test]
     fn test_parse() -> Result<()> {
         assert_eq!(Version::parse("10.0.0")?, *LUCENE_10_0_0);
-        assert_eq!(Version::parse("11.0.0")?, *LUCENE_11_0_0);
+        assert_eq!(Version::parse("9.0.0")?, *LUCENE_9_0_0);
 
         assert_eq!(Version::parse("1.0")?.major, 1);
         assert_eq!(Version::parse("7.0.0")?.major, 7);
@@ -480,8 +481,6 @@ mod tests {
 
     #[test]
     fn test_forwards_compatibility() -> Result<()> {
-        assert!(Version::parse("11.10.20")?.on_or_after(&LUCENE_11_0_0));
-        assert!(Version::parse("10.10.20")?.on_or_after(&LUCENE_10_0_0));
         assert!(Version::parse("9.10.20")?.on_or_after(&Version::from_bits(9, 0, 0)?));
         Ok(())
     }

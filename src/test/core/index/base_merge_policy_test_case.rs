@@ -39,7 +39,7 @@ use crate::core::store::dummy::dummy_lock::DummyLock;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
-use crate::core::util::{HasIdentity, LATEST, LUCENE_11_0_0, StringHelper};
+use crate::core::util::{HasIdentity, LATEST, LUCENE_10_1_1, StringHelper};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_index_writer_config_with_analyzer,
@@ -674,8 +674,8 @@ where
         if new_del_count < sci.info.max_doc()? {
             let dummy = SegmentInfo::new(
                 sci.info.dir.clone(),
-                Some((*LUCENE_11_0_0).clone()),
-                Some((*LUCENE_11_0_0).clone()),
+                Some((*LUCENE_10_1_1).clone()),
+                Some((*LUCENE_10_1_1).clone()),
                 "_0",
                 1,
                 false,

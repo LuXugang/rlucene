@@ -1377,7 +1377,7 @@ mod tests {
     use crate::core::store::dummy::dummy_directory::DummyDirectory;
     use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::core::util::{LATEST, LUCENE_10_0_0, LUCENE_11_0_0, StringHelper};
+    use crate::core::util::{LATEST, LUCENE_9_0_0, LUCENE_10_1_1, StringHelper};
     use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         new_directory, new_directory_shared,
@@ -1434,8 +1434,8 @@ mod tests {
         let mut sis = SegmentInfos::new(LATEST.major)?;
         let mut info = SegmentInfo::new(
             directory.clone(),
-            Some((*LUCENE_11_0_0).clone()),
-            Some((*LUCENE_11_0_0).clone()),
+            Some((*LUCENE_10_1_1).clone()),
+            Some((*LUCENE_10_1_1).clone()),
             "_0",
             1,
             false,
@@ -1459,7 +1459,7 @@ mod tests {
         sis = SegmentInfos::read_latest_commit(directory.clone())?;
         assert_eq!(
             *sis.get_min_segment_lucene_version().unwrap(),
-            (*LUCENE_11_0_0).clone()
+            (*LUCENE_10_1_1).clone()
         );
         assert_eq!(*sis.get_commit_lucene_version().unwrap(), (*LATEST).clone());
 
@@ -1477,8 +1477,8 @@ mod tests {
         // First Segment
         let mut info_0 = SegmentInfo::new(
             directory.clone(),
-            Some((*LUCENE_11_0_0).clone()),
-            Some((*LUCENE_11_0_0).clone()),
+            Some((*LUCENE_10_1_1).clone()),
+            Some((*LUCENE_10_1_1).clone()),
             "_0",
             1,
             false,
@@ -1501,8 +1501,8 @@ mod tests {
         // Second Segment
         let mut info_1 = SegmentInfo::new(
             directory.clone(),
-            Some((*LUCENE_11_0_0).clone()),
-            Some((*LUCENE_11_0_0).clone()),
+            Some((*LUCENE_10_1_1).clone()),
+            Some((*LUCENE_10_1_1).clone()),
             "_1",
             1,
             false,
@@ -1532,7 +1532,7 @@ mod tests {
         // Verify results
         assert_eq!(
             *sis.get_min_segment_lucene_version().unwrap(),
-            (*LUCENE_11_0_0).clone()
+            (*LUCENE_10_1_1).clone()
         );
         assert_eq!(*sis.get_commit_lucene_version().unwrap(), (*LATEST).clone());
         let actual1 = sis.info(&id_0).unwrap().get_id();
@@ -1664,8 +1664,8 @@ mod tests {
 
         let info = SegmentInfo::new(
             dir.clone(),
-            Some((*LUCENE_10_0_0).clone()),
-            Some((*LUCENE_10_0_0).clone()),
+            Some((*LUCENE_9_0_0).clone()),
+            Some((*LUCENE_9_0_0).clone()),
             "_0",
             1,
             false,
