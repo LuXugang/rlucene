@@ -29,8 +29,8 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
-    new_log_merge_policy, new_text_field, random,
+  get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_log_merge_policy, new_text_field, random,
 };
 use std::collections::HashMap;
 
@@ -38,106 +38,106 @@ use std::collections::HashMap;
 pub struct TestFlex;
 #[test]
 fn test_non_flex() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
 
-    const DOC_COUNT: i32 = 177;
-    let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    iwc.set_max_buffered_docs(7);
-    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  const DOC_COUNT: i32 = 177;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_max_buffered_docs(7);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
-    let writer = IndexWriter::new(dir.clone(), iwc)?;
-    let mut field_to_type = HashMap::new();
-    for iter in 0..2 {
-        if iter == 0 {
-            let mut doc = Document::new();
-            doc.add(new_text_field(
-                &mut random,
-                "field1",
-                "this is field1",
-                Store::No,
-                &mut field_to_type,
-            )?);
-            doc.add(new_text_field(
-                &mut random,
-                "field2",
-                "this is field2",
-                Store::No,
-                &mut field_to_type,
-            )?);
-            doc.add(new_text_field(
-                &mut random,
-                "field3",
-                "aaa",
-                Store::No,
-                &mut field_to_type,
-            )?);
-            doc.add(new_text_field(
-                &mut random,
-                "field4",
-                "bbb",
-                Store::No,
-                &mut field_to_type,
-            )?);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut field_to_type = HashMap::new();
+  for iter in 0..2 {
+    if iter == 0 {
+      let mut doc = Document::new();
+      doc.add(new_text_field(
+        &mut random,
+        "field1",
+        "this is field1",
+        Store::No,
+        &mut field_to_type,
+      )?);
+      doc.add(new_text_field(
+        &mut random,
+        "field2",
+        "this is field2",
+        Store::No,
+        &mut field_to_type,
+      )?);
+      doc.add(new_text_field(
+        &mut random,
+        "field3",
+        "aaa",
+        Store::No,
+        &mut field_to_type,
+      )?);
+      doc.add(new_text_field(
+        &mut random,
+        "field4",
+        "bbb",
+        Store::No,
+        &mut field_to_type,
+      )?);
 
-            for _ in 0..DOC_COUNT {
-                writer.add_document(doc.clone())?;
-            }
-        } else {
-            writer.force_merge(1)?;
-        }
-
-        let reader = directory_reader_util::open_from_writer(&writer)?;
-        let terms = get_terms(&reader, "field3")?
-            .ok_or_else(|| LuceneError::illegal_state("terms for field3 is None"))?;
-        let mut terms_enum = terms.iterator()?;
-
-        assert_eq!(
-            SeekStatus::End,
-            terms_enum.seek_ceil(&BytesRef::from_string("abc"))?
-        );
+      for _ in 0..DOC_COUNT {
+        writer.add_document(doc.clone())?;
+      }
+    } else {
+      writer.force_merge(1)?;
     }
-    writer.close()?;
-    Ok(())
+
+    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let terms = get_terms(&reader, "field3")?
+      .ok_or_else(|| LuceneError::illegal_state("terms for field3 is None"))?;
+    let mut terms_enum = terms.iterator()?;
+
+    assert_eq!(
+      SeekStatus::End,
+      terms_enum.seek_ceil(&BytesRef::from_string("abc"))?
+    );
+  }
+  writer.close()?;
+  Ok(())
 }
 #[test]
 fn test_term_ord() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
 
-    let mock = MockAnalyzer::new(&mut random);
-    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
 
-    let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-    let mut field_to_type = HashMap::new();
-    let mut doc = Document::new();
-    doc.add(new_text_field(
-        &mut random,
-        "f",
-        "a b c",
-        Store::No,
-        &mut field_to_type,
-    )?);
-    writer.add_document(doc)?;
-    writer.force_merge(1)?;
+  let mut field_to_type = HashMap::new();
+  let mut doc = Document::new();
+  doc.add(new_text_field(
+    &mut random,
+    "f",
+    "a b c",
+    Store::No,
+    &mut field_to_type,
+  )?);
+  writer.add_document(doc)?;
+  writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
-    let leaf = get_only_leaf_reader(&reader)?;
-    let terms = leaf
-        .terms("f")?
-        .ok_or_else(|| LuceneError::illegal_state("terms for field f is None"))?;
-    let mut terms_enum = terms.iterator()?;
+  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let leaf = get_only_leaf_reader(&reader)?;
+  let terms = leaf
+    .terms("f")?
+    .ok_or_else(|| LuceneError::illegal_state("terms for field f is None"))?;
+  let mut terms_enum = terms.iterator()?;
 
-    assert!(terms_enum.next()?.is_some());
+  assert!(terms_enum.next()?.is_some());
 
-    match terms_enum.ord() {
-        Ok(ord) => assert_eq!(0, ord),
-        Err(LuceneError::UnsupportedOperation(_)) => {},
-        Err(err) => return Err(err),
-    }
+  match terms_enum.ord() {
+    Ok(ord) => assert_eq!(0, ord),
+    Err(LuceneError::UnsupportedOperation(_)) => {},
+    Err(err) => return Err(err),
+  }
 
-    writer.close()?;
-    Ok(())
+  writer.close()?;
+  Ok(())
 }

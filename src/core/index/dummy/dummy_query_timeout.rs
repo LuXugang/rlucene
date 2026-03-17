@@ -19,7 +19,7 @@ use crate::core::index::query_timeout::QueryTimeout;
 #[derive(Default)]
 pub struct DummyQueryTimeout;
 impl QueryTimeout for DummyQueryTimeout {
-    fn should_exit(&self) -> bool {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn should_exit(&self) -> bool {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

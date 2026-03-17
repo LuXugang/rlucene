@@ -29,681 +29,679 @@ pub(crate) const HISTOGRAM_SIZE: usize = 257;
 pub(crate) const LENGTH_THRESHOLD: usize = 100;
 pub struct MSBRadixSorter<T>
 where
-    T: MSBRadixSorterBase,
+  T: MSBRadixSorterBase,
 {
-    /// One histogram per recursion level.
-    histograms: Vec<Vec<usize>>,
-    /// End offsets for histograms.
-    end_offsets: Vec<usize>,
-    /// Array to store common prefixes.
-    common_prefix: Vec<i32>,
-    /// Maximum length of strings to sort.
-    max_length: usize,
-    delegate: T,
+  /// One histogram per recursion level.
+  histograms: Vec<Vec<usize>>,
+  /// End offsets for histograms.
+  end_offsets: Vec<usize>,
+  /// Array to store common prefixes.
+  common_prefix: Vec<i32>,
+  /// Maximum length of strings to sort.
+  max_length: usize,
+  delegate: T,
 }
 impl<T> MSBRadixSorter<T>
 where
-    T: MSBRadixSorterBase,
+  T: MSBRadixSorterBase,
 {
-    /// Sole constructor.
-    ///
-    /// # Parameters
-    /// - `max_length`: The maximum length of keys. Pass `i32::MAX` if unknown.
-    pub fn new(max_length: usize, delegate: T) -> Self {
-        let histograms: Vec<Vec<usize>> = (0..LEVEL_THRESHOLD).map(|_| Vec::new()).collect();
-        Self {
-            histograms,
-            end_offsets: vec![0; HISTOGRAM_SIZE],
-            max_length,
-            common_prefix: vec![0; 24.min(max_length)],
-            delegate,
+  /// Sole constructor.
+  ///
+  /// # Parameters
+  /// - `max_length`: The maximum length of keys. Pass `i32::MAX` if unknown.
+  pub fn new(max_length: usize, delegate: T) -> Self {
+    let histograms: Vec<Vec<usize>> = (0..LEVEL_THRESHOLD).map(|_| Vec::new()).collect();
+    Self {
+      histograms,
+      end_offsets: vec![0; HISTOGRAM_SIZE],
+      max_length,
+      common_prefix: vec![0; 24.min(max_length)],
+      delegate,
+    }
+  }
+  pub fn sort_impl(&mut self, from: usize, to: usize, k: usize, l: usize) -> Result<()> {
+    if self.should_fallback(from, to, l) {
+      self.get_fallback_sorter(k).sort(from, to)
+    } else {
+      self.radix_sort(from, to, k, l)
+    }
+  }
+  fn should_fallback(&self, from: usize, to: usize, l: usize) -> bool {
+    self.delegate.should_fallback(from, to, l)
+  }
+  /// Computes the initial common prefix length for the given range.
+  ///
+  /// This method has been split to avoid platform-specific issues.
+  fn compute_initial_common_prefix_length(&mut self, from: usize, k: usize) -> Result<usize> {
+    let common_prefix = &mut self.common_prefix;
+    let mut common_prefix_length = std::cmp::min(common_prefix.len(), self.max_length - k);
+
+    for (j, slot) in common_prefix
+      .iter_mut()
+      .enumerate()
+      .take(common_prefix_length)
+    {
+      let b = self.delegate.byte_at(from, k + j)?;
+      *slot = b;
+      if b == -1 {
+        common_prefix_length = j + 1;
+        break;
+      }
+    }
+    Ok(common_prefix_length)
+  }
+  fn compute_common_prefix_length_and_build_histogram_part2(
+    &mut self,
+    from: usize,
+    to: usize,
+    k: usize,
+    l: usize,
+    common_prefix_length: usize,
+    i: usize,
+  ) -> Result<usize> {
+    if i < to {
+      debug_assert!(common_prefix_length == 0);
+      self.build_histogram(
+        (self.common_prefix[0] + 1).try_convert()?,
+        i - from,
+        i,
+        to,
+        k,
+        l,
+      )?;
+    } else {
+      debug_assert!(common_prefix_length > 0);
+      self.histograms[l][(self.common_prefix[0] + 1).try_convert()?] = to - from;
+    }
+
+    Ok(common_prefix_length)
+  }
+  /// Build a histogram of the k-th characters of values occurring between
+  /// offsets `from` and `to`, using the `get_bucket` method.
+  fn build_histogram(
+    &mut self,
+    prefix_common_bucket: usize,
+    prefix_common_len: usize,
+    from: usize,
+    to: usize,
+    k: usize,
+    l: usize,
+  ) -> Result<()> {
+    self.delegate.build_histogram(
+      prefix_common_bucket,
+      prefix_common_len,
+      from,
+      to,
+      k,
+      &mut self.histograms[l],
+    )
+  }
+  fn compute_common_prefix_length_and_build_histogram_part1(
+    &mut self,
+    from: usize,
+    to: usize,
+    k: usize,
+    l: usize,
+    mut common_prefix_length: usize,
+  ) -> Result<usize> {
+    let mut i = from + 1;
+
+    'outer: for idx in from + 1..to {
+      let mut j = 0;
+      while j < common_prefix_length {
+        let b = self.delegate.byte_at(idx, k + j)?;
+        if b != self.common_prefix[j] {
+          common_prefix_length = j;
+          if common_prefix_length == 0 {
+            break 'outer;
+          }
+          break;
         }
+        j += 1;
+      }
+      i = idx + 1;
     }
-    pub fn sort_impl(&mut self, from: usize, to: usize, k: usize, l: usize) -> Result<()> {
-        if self.should_fallback(from, to, l) {
-            self.get_fallback_sorter(k).sort(from, to)
-        } else {
-            self.radix_sort(from, to, k, l)
+
+    self.compute_common_prefix_length_and_build_histogram_part2(
+      from,
+      to,
+      k,
+      l,
+      common_prefix_length,
+      i,
+    )
+  }
+  pub fn compute_common_prefix_length_and_build_histogram(
+    &mut self,
+    from: usize,
+    to: usize,
+    k: usize,
+    l: usize,
+  ) -> Result<usize> {
+    let common_prefix_length = self.compute_initial_common_prefix_length(from, k)?;
+    self.compute_common_prefix_length_and_build_histogram_part1(
+      from,
+      to,
+      k,
+      l,
+      common_prefix_length,
+    )
+  }
+  fn sum_histogram(histogram: &mut [usize], end_offsets: &mut [usize]) {
+    let mut accum = 0;
+    for (hist, end_offset) in histogram.iter_mut().zip(end_offsets.iter_mut()) {
+      let count = *hist;
+      *hist = accum;
+      accum += count;
+      *end_offset = accum;
+    }
+  }
+  /// Reorder based on start/end offsets for each bucket. When this method
+  /// returns, `start_offsets` and `end_offsets` are equal.
+  ///
+  /// # Parameters
+  /// - `from`: The starting index (inclusive).
+  /// - `to`: The ending index (exclusive).
+  /// - `start_offsets`: Start offsets per bucket.
+  /// - `end_offsets`: End offsets per bucket.
+  /// - `k`: The current position offset.
+  fn reorder(&mut self, from: usize, to: usize, l: usize, k: usize) -> Result<()> {
+    self
+      .delegate
+      .reorder(from, to, &mut self.histograms[l], &mut self.end_offsets, k)
+  }
+  /// Performs radix sort on the specified range and recursion level.
+  ///
+  /// # Parameters
+  /// - `from`: Start index (inclusive).
+  /// - `to`: End index (exclusive).
+  /// - `k`: The character number to compare.
+  /// - `l`: The level of recursion.
+  fn radix_sort(&mut self, from: usize, to: usize, k: usize, l: usize) -> Result<()> {
+    // Access or initialize the histogram for this level
+    if self.histograms[l].is_empty() {
+      self.histograms[l] = vec![0; HISTOGRAM_SIZE];
+    } else {
+      self.histograms[l].fill(0);
+    }
+
+    // Compute the common prefix length and build the histogram
+    let common_prefix_length =
+      self.compute_common_prefix_length_and_build_histogram(from, to, k, l)?;
+
+    if common_prefix_length > 0 {
+      // if there are no more chars to compare or if all entries fell into
+      // the first bucket (which means strings are shorter
+      // than k) then we are done otherwise recurse
+      if k + common_prefix_length < self.max_length && self.histograms[l][0] < (to - from) {
+        self.radix_sort(from, to, k + common_prefix_length, l)?;
+      }
+      return Ok(());
+    }
+
+    // Assert histogram correctness (can be implemented as a debug check)
+    debug_assert!(Self::assert_histogram(
+      common_prefix_length,
+      &self.histograms[l]
+    ));
+
+    // Prepare start and end offsets
+    Self::sum_histogram(&mut self.histograms[l], &mut self.end_offsets);
+
+    // Reorder the range
+    self.reorder(from, to, l, k)?;
+
+    // Update end offsets
+
+    // Recursively sort buckets if more levels are allowed
+    if k + 1 < self.max_length {
+      let mut prev = self.histograms[l][0];
+      for i in 1..HISTOGRAM_SIZE {
+        let h = self.histograms[l][i];
+        let bucket_len = h - prev;
+        if bucket_len > 1 {
+          self.sort_impl(from + prev, from + h, k + 1, l + 1)?;
         }
+        prev = h;
+      }
     }
-    fn should_fallback(&self, from: usize, to: usize, l: usize) -> bool {
-        self.delegate.should_fallback(from, to, l)
+    Ok(())
+  }
+
+  fn get_fallback_sorter(&mut self, k: usize) -> impl Sorter + use<'_, T> {
+    self.delegate.get_fallback_sorter(k, self.max_length)
+  }
+
+  /// Always returns `true` if the assertions pass.
+  fn assert_histogram(common_prefix_length: usize, histogram: &[usize]) -> bool {
+    let number_of_unique_bytes = histogram.iter().filter(|&&freq| freq > 0).count();
+
+    if number_of_unique_bytes == 1 {
+      debug_assert!(common_prefix_length >= 1);
+    } else {
+      debug_assert!(
+        common_prefix_length == 0,
+        "Expected common_prefix_length to be 0, but found {common_prefix_length}"
+      );
     }
-    /// Computes the initial common prefix length for the given range.
-    ///
-    /// This method has been split to avoid platform-specific issues.
-    fn compute_initial_common_prefix_length(&mut self, from: usize, k: usize) -> Result<usize> {
-        let common_prefix = &mut self.common_prefix;
-        let mut common_prefix_length = std::cmp::min(common_prefix.len(), self.max_length - k);
-
-        for (j, slot) in common_prefix
-            .iter_mut()
-            .enumerate()
-            .take(common_prefix_length)
-        {
-            let b = self.delegate.byte_at(from, k + j)?;
-            *slot = b;
-            if b == -1 {
-                common_prefix_length = j + 1;
-                break;
-            }
-        }
-        Ok(common_prefix_length)
-    }
-    fn compute_common_prefix_length_and_build_histogram_part2(
-        &mut self,
-        from: usize,
-        to: usize,
-        k: usize,
-        l: usize,
-        common_prefix_length: usize,
-        i: usize,
-    ) -> Result<usize> {
-        if i < to {
-            debug_assert!(common_prefix_length == 0);
-            self.build_histogram(
-                (self.common_prefix[0] + 1).try_convert()?,
-                i - from,
-                i,
-                to,
-                k,
-                l,
-            )?;
-        } else {
-            debug_assert!(common_prefix_length > 0);
-            self.histograms[l][(self.common_prefix[0] + 1).try_convert()?] = to - from;
-        }
-
-        Ok(common_prefix_length)
-    }
-    /// Build a histogram of the k-th characters of values occurring between
-    /// offsets `from` and `to`, using the `get_bucket` method.
-    fn build_histogram(
-        &mut self,
-        prefix_common_bucket: usize,
-        prefix_common_len: usize,
-        from: usize,
-        to: usize,
-        k: usize,
-        l: usize,
-    ) -> Result<()> {
-        self.delegate.build_histogram(
-            prefix_common_bucket,
-            prefix_common_len,
-            from,
-            to,
-            k,
-            &mut self.histograms[l],
-        )
-    }
-    fn compute_common_prefix_length_and_build_histogram_part1(
-        &mut self,
-        from: usize,
-        to: usize,
-        k: usize,
-        l: usize,
-        mut common_prefix_length: usize,
-    ) -> Result<usize> {
-        let mut i = from + 1;
-
-        'outer: for idx in from + 1..to {
-            let mut j = 0;
-            while j < common_prefix_length {
-                let b = self.delegate.byte_at(idx, k + j)?;
-                if b != self.common_prefix[j] {
-                    common_prefix_length = j;
-                    if common_prefix_length == 0 {
-                        break 'outer;
-                    }
-                    break;
-                }
-                j += 1;
-            }
-            i = idx + 1;
-        }
-
-        self.compute_common_prefix_length_and_build_histogram_part2(
-            from,
-            to,
-            k,
-            l,
-            common_prefix_length,
-            i,
-        )
-    }
-    pub fn compute_common_prefix_length_and_build_histogram(
-        &mut self,
-        from: usize,
-        to: usize,
-        k: usize,
-        l: usize,
-    ) -> Result<usize> {
-        let common_prefix_length = self.compute_initial_common_prefix_length(from, k)?;
-        self.compute_common_prefix_length_and_build_histogram_part1(
-            from,
-            to,
-            k,
-            l,
-            common_prefix_length,
-        )
-    }
-    fn sum_histogram(histogram: &mut [usize], end_offsets: &mut [usize]) {
-        let mut accum = 0;
-        for (hist, end_offset) in histogram.iter_mut().zip(end_offsets.iter_mut()) {
-            let count = *hist;
-            *hist = accum;
-            accum += count;
-            *end_offset = accum;
-        }
-    }
-    /// Reorder based on start/end offsets for each bucket. When this method
-    /// returns, `start_offsets` and `end_offsets` are equal.
-    ///
-    /// # Parameters
-    /// - `from`: The starting index (inclusive).
-    /// - `to`: The ending index (exclusive).
-    /// - `start_offsets`: Start offsets per bucket.
-    /// - `end_offsets`: End offsets per bucket.
-    /// - `k`: The current position offset.
-    fn reorder(&mut self, from: usize, to: usize, l: usize, k: usize) -> Result<()> {
-        self.delegate
-            .reorder(from, to, &mut self.histograms[l], &mut self.end_offsets, k)
-    }
-    /// Performs radix sort on the specified range and recursion level.
-    ///
-    /// # Parameters
-    /// - `from`: Start index (inclusive).
-    /// - `to`: End index (exclusive).
-    /// - `k`: The character number to compare.
-    /// - `l`: The level of recursion.
-    fn radix_sort(&mut self, from: usize, to: usize, k: usize, l: usize) -> Result<()> {
-        // Access or initialize the histogram for this level
-        if self.histograms[l].is_empty() {
-            self.histograms[l] = vec![0; HISTOGRAM_SIZE];
-        } else {
-            self.histograms[l].fill(0);
-        }
-
-        // Compute the common prefix length and build the histogram
-        let common_prefix_length =
-            self.compute_common_prefix_length_and_build_histogram(from, to, k, l)?;
-
-        if common_prefix_length > 0 {
-            // if there are no more chars to compare or if all entries fell into
-            // the first bucket (which means strings are shorter
-            // than k) then we are done otherwise recurse
-            if k + common_prefix_length < self.max_length && self.histograms[l][0] < (to - from) {
-                self.radix_sort(from, to, k + common_prefix_length, l)?;
-            }
-            return Ok(());
-        }
-
-        // Assert histogram correctness (can be implemented as a debug check)
-        debug_assert!(Self::assert_histogram(
-            common_prefix_length,
-            &self.histograms[l]
-        ));
-
-        // Prepare start and end offsets
-        Self::sum_histogram(&mut self.histograms[l], &mut self.end_offsets);
-
-        // Reorder the range
-        self.reorder(from, to, l, k)?;
-
-        // Update end offsets
-
-        // Recursively sort buckets if more levels are allowed
-        if k + 1 < self.max_length {
-            let mut prev = self.histograms[l][0];
-            for i in 1..HISTOGRAM_SIZE {
-                let h = self.histograms[l][i];
-                let bucket_len = h - prev;
-                if bucket_len > 1 {
-                    self.sort_impl(from + prev, from + h, k + 1, l + 1)?;
-                }
-                prev = h;
-            }
-        }
-        Ok(())
-    }
-
-    fn get_fallback_sorter(&mut self, k: usize) -> impl Sorter + use<'_, T> {
-        self.delegate.get_fallback_sorter(k, self.max_length)
-    }
-
-    /// Always returns `true` if the assertions pass.
-    fn assert_histogram(common_prefix_length: usize, histogram: &[usize]) -> bool {
-        let number_of_unique_bytes = histogram.iter().filter(|&&freq| freq > 0).count();
-
-        if number_of_unique_bytes == 1 {
-            debug_assert!(common_prefix_length >= 1);
-        } else {
-            debug_assert!(
-                common_prefix_length == 0,
-                "Expected common_prefix_length to be 0, but found {common_prefix_length}"
-            );
-        }
-        true
-    }
-    #[cfg(debug_assertions)]
-    pub fn get_delegate(&self) -> &T {
-        &self.delegate
-    }
+    true
+  }
+  #[cfg(debug_assertions)]
+  pub fn get_delegate(&self) -> &T {
+    &self.delegate
+  }
 }
 
 impl<T> Sorter for MSBRadixSorter<T>
 where
-    T: MSBRadixSorterBase,
+  T: MSBRadixSorterBase,
 {
-    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-        self.delegate.swap(i, j)
-    }
+  fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+    self.delegate.swap(i, j)
+  }
 
-    fn set_pivot(&mut self, i: usize) -> Result<()> {
-        self.delegate.set_pivot(i)
-    }
+  fn set_pivot(&mut self, i: usize) -> Result<()> {
+    self.delegate.set_pivot(i)
+  }
 
-    fn compare_pivot(&mut self, i: usize) -> Result<i32> {
-        self.delegate.compare_pivot(i)
-    }
+  fn compare_pivot(&mut self, i: usize) -> Result<i32> {
+    self.delegate.compare_pivot(i)
+  }
 
-    fn sort(&mut self, from: usize, to: usize) -> Result<()> {
-        check_range(from, to)?;
-        self.sort_impl(from, to, 0, 0)
-    }
+  fn sort(&mut self, from: usize, to: usize) -> Result<()> {
+    check_range(from, to)?;
+    self.sort_impl(from, to, 0, 0)
+  }
 }
 
 pub struct MSBRadixIntroSorterImpl<'a, T>
 where
-    T: MSBRadixSorterBase,
+  T: MSBRadixSorterBase,
 {
-    pivot: BytesRefBuilder<Vec<u8>>,
-    max_length: usize,
-    k: usize,
-    delegate: &'a mut T,
+  pivot: BytesRefBuilder<Vec<u8>>,
+  max_length: usize,
+  k: usize,
+  delegate: &'a mut T,
 }
 
 impl<T> Sorter for MSBRadixIntroSorterImpl<'_, T>
 where
-    T: MSBRadixSorterBase,
+  T: MSBRadixSorterBase,
 {
-    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
-        for o in self.k..self.max_length {
-            let b1 = self.delegate.byte_at(i, o)?;
-            let b2 = self.delegate.byte_at(j, o)?;
+  fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+    for o in self.k..self.max_length {
+      let b1 = self.delegate.byte_at(i, o)?;
+      let b2 = self.delegate.byte_at(j, o)?;
 
-            if b1 != b2 {
-                return Ok(b1 - b2);
-            } else if b1 == -1 {
-                break;
-            }
-        }
-        Ok(0)
+      if b1 != b2 {
+        return Ok(b1 - b2);
+      } else if b1 == -1 {
+        break;
+      }
+    }
+    Ok(0)
+  }
+
+  fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+    self.delegate.swap(i, j)
+  }
+
+  fn set_pivot(&mut self, i: usize) -> Result<()> {
+    self.pivot.set_length(0);
+
+    for o in self.k..self.max_length {
+      let b = self.delegate.byte_at(i, o)?;
+      if b == -1 {
+        break;
+      }
+      self.pivot.append_byte(b as u8);
+    }
+    Ok(())
+  }
+
+  fn compare_pivot(&mut self, j: usize) -> Result<i32> {
+    for o in 0..self.pivot.length() {
+      let b1 = self.pivot.byte_at(o) as i32;
+      let b2 = self.delegate.byte_at(j, self.k + o)?;
+      if b1 != b2 {
+        return Ok(b1 - b2);
+      }
     }
 
-    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-        self.delegate.swap(i, j)
+    if self.k + self.pivot.length() == self.max_length {
+      Ok(0)
+    } else {
+      Ok(-1 - self.delegate.byte_at(j, self.k + self.pivot.length())?)
     }
+  }
 
-    fn set_pivot(&mut self, i: usize) -> Result<()> {
-        self.pivot.set_length(0);
-
-        for o in self.k..self.max_length {
-            let b = self.delegate.byte_at(i, o)?;
-            if b == -1 {
-                break;
-            }
-            self.pivot.append_byte(b as u8);
-        }
-        Ok(())
-    }
-
-    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
-        for o in 0..self.pivot.length() {
-            let b1 = self.pivot.byte_at(o) as i32;
-            let b2 = self.delegate.byte_at(j, self.k + o)?;
-            if b1 != b2 {
-                return Ok(b1 - b2);
-            }
-        }
-
-        if self.k + self.pivot.length() == self.max_length {
-            Ok(0)
-        } else {
-            Ok(-1 - self.delegate.byte_at(j, self.k + self.pivot.length())?)
-        }
-    }
-
-    fn sort(&mut self, from: usize, to: usize) -> Result<()> {
-        IntroSorter::sort_range(self, from, to)?;
-        Ok(())
-    }
+  fn sort(&mut self, from: usize, to: usize) -> Result<()> {
+    IntroSorter::sort_range(self, from, to)?;
+    Ok(())
+  }
 }
 
 impl<T> IntroSorter for MSBRadixIntroSorterImpl<'_, T> where T: MSBRadixSorterBase {}
 
 pub trait MSBRadixSorterBase: Sorter {
-    /// Returns the k-th byte of the entry at the given index `i`, or `-1` if
-    /// its length is less than or equal to `k`.
-    ///
-    /// # Parameters
-    /// - `i`: The index of the entry, which must be between `0` (inclusive) and
-    ///   `max_length` (exclusive).
-    /// - `k`: The position of the byte to retrieve within the entry.
-    ///
-    /// # Returns
-    /// The k-th byte of the entry at index `i` as an `i32`, or `-1` if the
-    /// entry's length is less than or equal to `k`.
-    ///
-    /// # Note
-    /// In Rust, this method might return a signed integer (`i32`) to
-    /// accommodate the `-1` case, which differs from Java's default integer
-    /// handling.
-    fn byte_at(&mut self, _i: usize, _k: usize) -> Result<i32> {
-        Err(LuceneError::not_implemented(""))
-    }
+  /// Returns the k-th byte of the entry at the given index `i`, or `-1` if
+  /// its length is less than or equal to `k`.
+  ///
+  /// # Parameters
+  /// - `i`: The index of the entry, which must be between `0` (inclusive) and
+  ///   `max_length` (exclusive).
+  /// - `k`: The position of the byte to retrieve within the entry.
+  ///
+  /// # Returns
+  /// The k-th byte of the entry at index `i` as an `i32`, or `-1` if the
+  /// entry's length is less than or equal to `k`.
+  ///
+  /// # Note
+  /// In Rust, this method might return a signed integer (`i32`) to
+  /// accommodate the `-1` case, which differs from Java's default integer
+  /// handling.
+  fn byte_at(&mut self, _i: usize, _k: usize) -> Result<i32> {
+    Err(LuceneError::not_implemented(""))
+  }
 
-    fn get_fallback_sorter(&mut self, k: usize, length: usize) -> impl Sorter
-    where
-        Self: Sized,
-    {
-        MSBRadixIntroSorterImpl {
-            pivot: BytesRefBuilder::new(),
-            max_length: length,
-            k,
-            delegate: self,
-        }
+  fn get_fallback_sorter(&mut self, k: usize, length: usize) -> impl Sorter
+  where
+    Self: Sized,
+  {
+    MSBRadixIntroSorterImpl {
+      pivot: BytesRefBuilder::new(),
+      max_length: length,
+      k,
+      delegate: self,
     }
+  }
 
-    /// Reorder based on start/end offsets for each bucket. When this method
-    /// returns, `start_offsets` and `end_offsets` are equal.
-    ///
-    /// # Parameters
-    /// - `from`: The starting index (inclusive).
-    /// - `to`: The ending index (exclusive).
-    /// - `start_offsets`: Start offsets per bucket.
-    /// - `end_offsets`: End offsets per bucket.
-    /// - `k`: The current position offset.
-    fn reorder(
-        &mut self,
-        from: usize,
-        _to: usize,
-        start_offsets: &mut [usize],
-        end_offsets: &mut [usize],
-        k: usize,
-    ) -> Result<()> {
-        // Reorder in place, similar to the Dutch national flag problem
-        for i in 0..HISTOGRAM_SIZE {
-            let limit = end_offsets[i];
-            while start_offsets[i] < limit {
-                let h1 = start_offsets[i];
-                let b = self.get_bucket(from + h1, k)?;
-                let h2 = start_offsets[b as usize];
-                start_offsets[b as usize] += 1;
-                self.swap(from + h1, from + h2)?;
-            }
-        }
-        Ok(())
+  /// Reorder based on start/end offsets for each bucket. When this method
+  /// returns, `start_offsets` and `end_offsets` are equal.
+  ///
+  /// # Parameters
+  /// - `from`: The starting index (inclusive).
+  /// - `to`: The ending index (exclusive).
+  /// - `start_offsets`: Start offsets per bucket.
+  /// - `end_offsets`: End offsets per bucket.
+  /// - `k`: The current position offset.
+  fn reorder(
+    &mut self,
+    from: usize,
+    _to: usize,
+    start_offsets: &mut [usize],
+    end_offsets: &mut [usize],
+    k: usize,
+  ) -> Result<()> {
+    // Reorder in place, similar to the Dutch national flag problem
+    for i in 0..HISTOGRAM_SIZE {
+      let limit = end_offsets[i];
+      while start_offsets[i] < limit {
+        let h1 = start_offsets[i];
+        let b = self.get_bucket(from + h1, k)?;
+        let h2 = start_offsets[b as usize];
+        start_offsets[b as usize] += 1;
+        self.swap(from + h1, from + h2)?;
+      }
     }
+    Ok(())
+  }
 
-    fn get_bucket(&mut self, i: usize, k: usize) -> Result<i32> {
-        Ok(self.byte_at(i, k)? + 1)
+  fn get_bucket(&mut self, i: usize, k: usize) -> Result<i32> {
+    Ok(self.byte_at(i, k)? + 1)
+  }
+
+  fn build_histogram(
+    &mut self,
+    prefix_common_bucket: usize,
+    prefix_common_len: usize,
+    from: usize,
+    to: usize,
+    k: usize,
+    histogram: &mut [usize],
+  ) -> Result<()> {
+    histogram[prefix_common_bucket] = prefix_common_len;
+
+    for i in from..to {
+      let b = self.get_bucket(i, k)? as usize;
+      histogram[b] += 1;
     }
+    Ok(())
+  }
 
-    fn build_histogram(
-        &mut self,
-        prefix_common_bucket: usize,
-        prefix_common_len: usize,
-        from: usize,
-        to: usize,
-        k: usize,
-        histogram: &mut [usize],
-    ) -> Result<()> {
-        histogram[prefix_common_bucket] = prefix_common_len;
-
-        for i in from..to {
-            let b = self.get_bucket(i, k)? as usize;
-            histogram[b] += 1;
-        }
-        Ok(())
-    }
-
-    fn should_fallback(&self, from: usize, to: usize, l: usize) -> bool {
-        (to - from) <= LENGTH_THRESHOLD || l >= LEVEL_THRESHOLD
-    }
+  fn should_fallback(&self, from: usize, to: usize, l: usize) -> bool {
+    (to - from) <= LENGTH_THRESHOLD || l >= LEVEL_THRESHOLD
+  }
 }
 #[cfg(test)]
 mod tests {
-    use std::collections::{BTreeSet, HashSet};
+  use std::collections::{BTreeSet, HashSet};
 
-    use rand::Rng;
-    use rand::RngExt;
+  use rand::Rng;
+  use rand::RngExt;
 
-    use crate::core::index::{BytesRef, BytesRefBuilder};
-    use crate::core::util::error::lucene_error::Result;
-    use crate::core::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
-    use crate::test::core::util::common_method::assert_vecs_equal;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-        at_least_usize, random,
-    };
-    use crate::test::core::util::test_util::TestUtil;
+  use crate::core::index::{BytesRef, BytesRefBuilder};
+  use crate::core::util::error::lucene_error::Result;
+  use crate::core::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
+  use crate::test::core::util::common_method::assert_vecs_equal;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
+  use crate::test::core::util::test_util::TestUtil;
 
-    #[allow(dead_code)] // for quick search
-    struct TestMSBRadixSorter;
+  #[allow(dead_code)] // for quick search
+  struct TestMSBRadixSorter;
 
-    fn test<R: Rng + ?Sized>(
-        refs: &mut [BytesRef<Vec<u8>>],
-        len: usize,
-        random: &mut R,
-    ) -> Result<()> {
-        let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
-        expected.sort();
+  fn test<R: Rng + ?Sized>(
+    refs: &mut [BytesRef<Vec<u8>>],
+    len: usize,
+    random: &mut R,
+  ) -> Result<()> {
+    let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
+    expected.sort();
 
-        let mut max_length = 0;
-        for ref_item in &refs[..len] {
-            max_length = max_length.max(ref_item.length);
-        }
-
-        match random.random_range(0..3) {
-            0 => max_length += TestUtil::next_usize(random, 1, 5),
-            1 => max_length = i32::MAX as usize,
-            _ => {},
-        }
-
-        let final_max_length = max_length;
-        let delegate = MSBRadixSorterImpl::new(final_max_length, refs[..len].to_vec());
-        let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate);
-        msb_radix_sorter.sort(0, len)?;
-
-        assert_vecs_equal(&expected, &msb_radix_sorter.get_delegate().refs);
-        Ok(())
-    }
-    #[test]
-    fn test_empty() -> Result<()> {
-        let mut random = random();
-        let mut refs: Vec<BytesRef<Vec<u8>>> = vec![BytesRef::default(); random.random_range(0..5)];
-        assert!(test(&mut refs, 0, &mut random).is_ok());
-        test(&mut refs, 0, &mut random)
-    }
-    #[test]
-    fn test_one_value() -> Result<()> {
-        let mut random = random();
-
-        let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
-        let mut refs = vec![bytes];
-        test(&mut refs, 1, &mut random)
-    }
-    #[test]
-    fn test_two_values() -> Result<()> {
-        let mut random = random();
-
-        let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
-        let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
-        let mut refs = vec![bytes1, bytes2];
-
-        test(&mut refs, 2, &mut random)
+    let mut max_length = 0;
+    for ref_item in &refs[..len] {
+      max_length = max_length.max(ref_item.length);
     }
 
-    fn test_random_impl<R: Rng + ?Sized>(
-        common_prefix_len: usize,
-        max_len: i32,
-        random: &mut R,
-    ) -> Result<()> {
-        let mut common_prefix = vec![0u8; common_prefix_len];
-        random.fill_bytes(&mut common_prefix);
-        let len = random.random_range(0..10000);
-        let mut bytes: Vec<BytesRef<Vec<u8>>> =
-            Vec::with_capacity(len + random.random_range(0..50));
-        for _ in 0..len {
-            let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len) as usize];
-            random.fill_bytes(&mut b[common_prefix_len..]);
-
-            b.copy_from(&common_prefix, 0);
-
-            bytes.push(BytesRef::from_bytes(b));
-        }
-        test(&mut bytes, len, random)
-    }
-    #[test]
-    fn test_random() -> Result<()> {
-        let mut random = random();
-        for _ in 0..10 {
-            test_random_impl(0, 10, &mut random)?;
-        }
-        Ok(())
+    match random.random_range(0..3) {
+      0 => max_length += TestUtil::next_usize(random, 1, 5),
+      1 => max_length = i32::MAX as usize,
+      _ => {},
     }
 
-    #[test]
-    fn test_random_with_lots_of_duplicates() -> Result<()> {
-        let mut random = random();
-        for _ in 0..10 {
-            test_random_impl(0, 2, &mut random)?;
-        }
-        Ok(())
+    let final_max_length = max_length;
+    let delegate = MSBRadixSorterImpl::new(final_max_length, refs[..len].to_vec());
+    let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate);
+    msb_radix_sorter.sort(0, len)?;
+
+    assert_vecs_equal(&expected, &msb_radix_sorter.get_delegate().refs);
+    Ok(())
+  }
+  #[test]
+  fn test_empty() -> Result<()> {
+    let mut random = random();
+    let mut refs: Vec<BytesRef<Vec<u8>>> = vec![BytesRef::default(); random.random_range(0..5)];
+    assert!(test(&mut refs, 0, &mut random).is_ok());
+    test(&mut refs, 0, &mut random)
+  }
+  #[test]
+  fn test_one_value() -> Result<()> {
+    let mut random = random();
+
+    let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+    let mut refs = vec![bytes];
+    test(&mut refs, 1, &mut random)
+  }
+  #[test]
+  fn test_two_values() -> Result<()> {
+    let mut random = random();
+
+    let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+    let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+    let mut refs = vec![bytes1, bytes2];
+
+    test(&mut refs, 2, &mut random)
+  }
+
+  fn test_random_impl<R: Rng + ?Sized>(
+    common_prefix_len: usize,
+    max_len: i32,
+    random: &mut R,
+  ) -> Result<()> {
+    let mut common_prefix = vec![0u8; common_prefix_len];
+    random.fill_bytes(&mut common_prefix);
+    let len = random.random_range(0..10000);
+    let mut bytes: Vec<BytesRef<Vec<u8>>> = Vec::with_capacity(len + random.random_range(0..50));
+    for _ in 0..len {
+      let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len) as usize];
+      random.fill_bytes(&mut b[common_prefix_len..]);
+
+      b.copy_from(&common_prefix, 0);
+
+      bytes.push(BytesRef::from_bytes(b));
+    }
+    test(&mut bytes, len, random)
+  }
+  #[test]
+  fn test_random() -> Result<()> {
+    let mut random = random();
+    for _ in 0..10 {
+      test_random_impl(0, 10, &mut random)?;
+    }
+    Ok(())
+  }
+
+  #[test]
+  fn test_random_with_lots_of_duplicates() -> Result<()> {
+    let mut random = random();
+    for _ in 0..10 {
+      test_random_impl(0, 2, &mut random)?;
+    }
+    Ok(())
+  }
+
+  #[test]
+  fn test_random_with_shared_prefix() -> Result<()> {
+    let mut random = random();
+    for _ in 0..10 {
+      let shared_prefix = TestUtil::next_usize(&mut random, 1, 30);
+      test_random_impl(shared_prefix, 10, &mut random)?;
+    }
+    Ok(())
+  }
+
+  #[test]
+  fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<()> {
+    let mut random = random();
+    for _ in 0..10 {
+      let shared_prefix = TestUtil::next_usize(&mut random, 1, 30);
+      test_random_impl(shared_prefix, 2, &mut random)?;
+    }
+    Ok(())
+  }
+
+  #[test]
+  fn test_random2() -> Result<()> {
+    let mut random = random();
+    // How large our alphabet is
+    let letter_count = TestUtil::next_int(&mut random, 2, 10);
+
+    // How many substring fragments to use
+    let substring_count = TestUtil::next_usize(&mut random, 2, 10);
+    let mut substrings_set = HashSet::new();
+
+    // How many strings to make
+    let string_count = at_least_usize(&mut random, 10000);
+    // let string_count = ;
+
+    // Generate unique substrings
+    while substrings_set.len() < substring_count {
+      let length = TestUtil::next_int(&mut random, 2, 10);
+      let bytes: Vec<u8> = (0..length)
+        .map(|_| random.random_range(0..letter_count) as u8)
+        .collect();
+      let br = BytesRef::from_bytes(bytes);
+      substrings_set.insert(br);
     }
 
-    #[test]
-    fn test_random_with_shared_prefix() -> Result<()> {
-        let mut random = random();
-        for _ in 0..10 {
-            let shared_prefix = TestUtil::next_usize(&mut random, 1, 30);
-            test_random_impl(shared_prefix, 10, &mut random)?;
-        }
-        Ok(())
+    let substrings: Vec<BytesRef<Vec<u8>>> = Vec::from_iter(substrings_set);
+    let mut chance = vec![0.0; substrings.len()];
+    let mut sum = 0.0;
+
+    for chance_value in &mut chance {
+      *chance_value = random.random::<f64>();
+      sum += *chance_value;
     }
 
-    #[test]
-    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<()> {
-        let mut random = random();
-        for _ in 0..10 {
-            let shared_prefix = TestUtil::next_usize(&mut random, 1, 30);
-            test_random_impl(shared_prefix, 2, &mut random)?;
-        }
-        Ok(())
+    // give each substring a random chance of occurring:
+    let mut accum = 0.0;
+    for chance_value in chance.iter_mut() {
+      accum += *chance_value / sum;
+      *chance_value = accum;
     }
 
-    #[test]
-    fn test_random2() -> Result<()> {
-        let mut random = random();
-        // How large our alphabet is
-        let letter_count = TestUtil::next_int(&mut random, 2, 10);
-
-        // How many substring fragments to use
-        let substring_count = TestUtil::next_usize(&mut random, 2, 10);
-        let mut substrings_set = HashSet::new();
-
-        // How many strings to make
-        let string_count = at_least_usize(&mut random, 10000);
-        // let string_count = ;
-
-        // Generate unique substrings
-        while substrings_set.len() < substring_count {
-            let length = TestUtil::next_int(&mut random, 2, 10);
-            let bytes: Vec<u8> = (0..length)
-                .map(|_| random.random_range(0..letter_count) as u8)
-                .collect();
-            let br = BytesRef::from_bytes(bytes);
-            substrings_set.insert(br);
-        }
-
-        let substrings: Vec<BytesRef<Vec<u8>>> = Vec::from_iter(substrings_set);
-        let mut chance = vec![0.0; substrings.len()];
-        let mut sum = 0.0;
-
-        for chance_value in &mut chance {
-            *chance_value = random.random::<f64>();
-            sum += *chance_value;
-        }
-
-        // give each substring a random chance of occurring:
+    // Generate unique strings
+    let mut strings_set = BTreeSet::new();
+    let mut iters = 0;
+    while strings_set.len() < string_count && iters < string_count * 5 {
+      let count = random.random_range(1..=5);
+      let mut builder = BytesRefBuilder::new();
+      for _ in 0..count {
+        let v = random.random::<f64>();
         let mut accum = 0.0;
-        for chance_value in chance.iter_mut() {
-            accum += *chance_value / sum;
-            *chance_value = accum;
+        for (j, substring) in substrings.iter().enumerate() {
+          accum += chance[j];
+          if accum >= v {
+            builder.append_ref(substring);
+            break;
+          }
         }
-
-        // Generate unique strings
-        let mut strings_set = BTreeSet::new();
-        let mut iters = 0;
-        while strings_set.len() < string_count && iters < string_count * 5 {
-            let count = random.random_range(1..=5);
-            let mut builder = BytesRefBuilder::new();
-            for _ in 0..count {
-                let v = random.random::<f64>();
-                let mut accum = 0.0;
-                for (j, substring) in substrings.iter().enumerate() {
-                    accum += chance[j];
-                    if accum >= v {
-                        builder.append_ref(substring);
-                        break;
-                    }
-                }
-            }
-            let br = builder.get_bytes_ref_copy();
-            strings_set.insert(br);
-            iters += 1;
-        }
-
-        // Run test with generated strings
-        let strings: Vec<BytesRef<Vec<u8>>> = strings_set.into_iter().collect();
-        test(&mut strings.clone(), strings.len(), &mut random)
+      }
+      let br = builder.get_bytes_ref_copy();
+      strings_set.insert(br);
+      iters += 1;
     }
 
-    pub struct MSBRadixSorterImpl {
-        final_max_length: usize,
-        refs: Vec<BytesRef<Vec<u8>>>,
-    }
+    // Run test with generated strings
+    let strings: Vec<BytesRef<Vec<u8>>> = strings_set.into_iter().collect();
+    test(&mut strings.clone(), strings.len(), &mut random)
+  }
 
-    impl MSBRadixSorterImpl {
-        fn new(final_max_length: usize, refs: Vec<BytesRef<Vec<u8>>>) -> Self {
-            Self {
-                final_max_length,
-                refs,
-            }
-        }
-    }
+  pub struct MSBRadixSorterImpl {
+    final_max_length: usize,
+    refs: Vec<BytesRef<Vec<u8>>>,
+  }
 
-    impl MSBRadixSorterBase for MSBRadixSorterImpl {
-        fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
-            assert!(
-                k < self.final_max_length,
-                "Index out of bounds: k={} exceeds final_max_length={}",
-                k,
-                self.final_max_length
-            );
+  impl MSBRadixSorterImpl {
+    fn new(final_max_length: usize, refs: Vec<BytesRef<Vec<u8>>>) -> Self {
+      Self {
+        final_max_length,
+        refs,
+      }
+    }
+  }
 
-            let ref_item = &self.refs[i];
-            if ref_item.length <= k {
-                Ok(-1)
-            } else {
-                Ok(ref_item.bytes[ref_item.offset + k] as i32)
-            }
-        }
+  impl MSBRadixSorterBase for MSBRadixSorterImpl {
+    fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
+      assert!(
+        k < self.final_max_length,
+        "Index out of bounds: k={} exceeds final_max_length={}",
+        k,
+        self.final_max_length
+      );
+
+      let ref_item = &self.refs[i];
+      if ref_item.length <= k {
+        Ok(-1)
+      } else {
+        Ok(ref_item.bytes[ref_item.offset + k] as i32)
+      }
     }
-    impl Sorter for MSBRadixSorterImpl {
-        fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-            self.refs.swap(i, j);
-            Ok(())
-        }
+  }
+  impl Sorter for MSBRadixSorterImpl {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+      self.refs.swap(i, j);
+      Ok(())
     }
+  }
 }

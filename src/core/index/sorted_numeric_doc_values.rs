@@ -16,31 +16,31 @@
  */
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::numeric_doc_values::{
-    NumericDocValues, NumericDocValuesEnum2, NumericDocValuesEnum4,
+  NumericDocValues, NumericDocValuesEnum2, NumericDocValuesEnum4,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A list of per-document numeric values, sorted according to i64's cmp.
 pub trait SortedNumericDocValues: DocValuesIterator {
-    /// Iterates to the next value in the current document. Do not call this
-    /// more than
-    /// [`doc_value_count`](SortedNumericDocValues::doc_value_count) times for
-    /// the document.
-    fn next_value(&mut self) -> Result<i64>;
+  /// Iterates to the next value in the current document. Do not call this
+  /// more than
+  /// [`doc_value_count`](SortedNumericDocValues::doc_value_count) times for
+  /// the document.
+  fn next_value(&mut self) -> Result<i64>;
 
-    /// Retrieves the number of values for the current document. This must
-    /// always be greater than zero. It is illegal to call this method after
-    /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
-    /// `false`.
-    fn doc_value_count(&mut self) -> Result<i32>;
+  /// Retrieves the number of values for the current document. This must
+  /// always be greater than zero. It is illegal to call this method after
+  /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
+  /// `false`.
+  fn doc_value_count(&mut self) -> Result<i32>;
 
-    fn is_single_valued(&self) -> bool {
-        false
-    }
-    type NumericDocValues: NumericDocValues;
-    fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn is_single_valued(&self) -> bool {
+    false
+  }
+  type NumericDocValues: NumericDocValues;
+  fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }
 
 macro_rules! either_sorted_numeric_docvalues {

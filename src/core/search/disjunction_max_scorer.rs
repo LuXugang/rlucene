@@ -28,140 +28,136 @@ use crate::core::util::math_util::MathUtil;
 /// computed by the subquery scorers that generate that document, plus `tieBreakerMultiplier` times
 /// the sum of the scores for the other subqueries that generate the document.
 pub struct DisjunctionMaxScorer {
-    disjunction_block_propagator: Option<DisjunctionScoreBlockBoundaryPropagator>,
-    tie_breaker_multiplier: f32,
+  disjunction_block_propagator: Option<DisjunctionScoreBlockBoundaryPropagator>,
+  tie_breaker_multiplier: f32,
 }
 impl DisjunctionMaxScorer {
-    /// Creates a new instance of `DisjunctionMaxScorer`.
-    ///
-    /// # Parameters
-    /// - `tieBreakerMultiplier`: Multiplier applied to non-maximum-scoring subqueries for a document
-    ///   as they are summed into the result.
-    /// - `subScorers`: The sub scorers this scorer should iterate on.
-    pub(crate) fn new<S>(
-        tie_breaker_multiplier: f32,
-        sub_scorers: &mut [S],
-        score_mode: ScoreMode,
-    ) -> Result<Self>
-    where
-        S: Scorer,
-    {
-        if !(0.0..=1.0).contains(&tie_breaker_multiplier) {
-            return Err(LuceneError::illegal_argument(
-                "tieBreakerMultiplier must be in [0, 1]",
-            ));
-        }
-
-        let disjunction_block_propagator = if score_mode == ScoreMode::TopScores {
-            Some(DisjunctionScoreBlockBoundaryPropagator::new(sub_scorers)?)
-        } else {
-            None
-        };
-
-        Ok(Self {
-            tie_breaker_multiplier,
-            disjunction_block_propagator,
-        })
+  /// Creates a new instance of `DisjunctionMaxScorer`.
+  ///
+  /// # Parameters
+  /// - `tieBreakerMultiplier`: Multiplier applied to non-maximum-scoring subqueries for a document
+  ///   as they are summed into the result.
+  /// - `subScorers`: The sub scorers this scorer should iterate on.
+  pub(crate) fn new<S>(
+    tie_breaker_multiplier: f32,
+    sub_scorers: &mut [S],
+    score_mode: ScoreMode,
+  ) -> Result<Self>
+  where
+    S: Scorer,
+  {
+    if !(0.0..=1.0).contains(&tie_breaker_multiplier) {
+      return Err(LuceneError::illegal_argument(
+        "tieBreakerMultiplier must be in [0, 1]",
+      ));
     }
+
+    let disjunction_block_propagator = if score_mode == ScoreMode::TopScores {
+      Some(DisjunctionScoreBlockBoundaryPropagator::new(sub_scorers)?)
+    } else {
+      None
+    };
+
+    Ok(Self {
+      tie_breaker_multiplier,
+      disjunction_block_propagator,
+    })
+  }
 }
 impl DisjunctionScorerBase for DisjunctionMaxScorer {
-    fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: Option<usize>) -> Result<f32>
-    where
-        S: Scorer,
-    {
-        let mut score_max: f32 = 0.0;
-        let mut other_score_sum: f64 = 0.0;
-        let mut w = match top_list {
-            Some(idx) => &mut disi_wrapper[idx],
-            None => return Ok(0f32),
-        };
-        loop {
-            let sub_score = w.scorer.score()?;
+  fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: Option<usize>) -> Result<f32>
+  where
+    S: Scorer,
+  {
+    let mut score_max: f32 = 0.0;
+    let mut other_score_sum: f64 = 0.0;
+    let mut w = match top_list {
+      Some(idx) => &mut disi_wrapper[idx],
+      None => return Ok(0f32),
+    };
+    loop {
+      let sub_score = w.scorer.score()?;
 
-            if sub_score >= score_max {
-                other_score_sum += score_max as f64;
-                score_max = sub_score;
-            } else {
-                other_score_sum += sub_score as f64;
-            }
-            match w.next {
-                Some(idx) => {
-                    w = &mut disi_wrapper[idx];
-                },
-                None => break,
-            }
-        }
-
-        Ok((score_max as f64 + other_score_sum * self.tie_breaker_multiplier as f64) as f32)
+      if sub_score >= score_max {
+        other_score_sum += score_max as f64;
+        score_max = sub_score;
+      } else {
+        other_score_sum += sub_score as f64;
+      }
+      match w.next {
+        Some(idx) => {
+          w = &mut disi_wrapper[idx];
+        },
+        None => break,
+      }
     }
 
-    fn advance_shallow<S>(
-        &mut self,
-        target: i32,
-        disi_wrapper: &mut [DisiWrapper<S>],
-    ) -> Result<i32>
-    where
-        S: Scorer,
-    {
-        match self.disjunction_block_propagator {
-            Some(ref mut propagator) => propagator.advance_shallow(target, disi_wrapper),
-            None => Err(LuceneError::not_implemented("")),
-        }
+    Ok((score_max as f64 + other_score_sum * self.tie_breaker_multiplier as f64) as f32)
+  }
+
+  fn advance_shallow<S>(&mut self, target: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<i32>
+  where
+    S: Scorer,
+  {
+    match self.disjunction_block_propagator {
+      Some(ref mut propagator) => propagator.advance_shallow(target, disi_wrapper),
+      None => Err(LuceneError::not_implemented("")),
     }
+  }
 
-    fn get_max_score<S>(&mut self, upto: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<f32>
-    where
-        S: Scorer,
-    {
-        let mut score_max: f32 = 0.0;
-        let mut other_score_sum: f64 = 0.0;
+  fn get_max_score<S>(&mut self, upto: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<f32>
+  where
+    S: Scorer,
+  {
+    let mut score_max: f32 = 0.0;
+    let mut other_score_sum: f64 = 0.0;
 
-        for scorer in disi_wrapper.iter_mut() {
-            if scorer.scorer.doc_id()? <= upto {
-                let sub_score = scorer.scorer.get_max_score(upto)?;
+    for scorer in disi_wrapper.iter_mut() {
+      if scorer.scorer.doc_id()? <= upto {
+        let sub_score = scorer.scorer.get_max_score(upto)?;
 
-                if sub_score >= score_max {
-                    other_score_sum += score_max as f64;
-                    score_max = sub_score;
-                } else {
-                    other_score_sum += sub_score as f64;
-                }
-            }
-        }
-
-        if self.tie_breaker_multiplier == 0.0 {
-            Ok(score_max)
+        if sub_score >= score_max {
+          other_score_sum += score_max as f64;
+          score_max = sub_score;
         } else {
-            // The error of sums depends on the order in which values are summed up. In
-            // order to avoid this issue, we compute an upper bound of the value that
-            // the sum may take. If the max relative error is b, then it means that two
-            // sums are always within 2*b of each other.
-            let bound = 1.0
-                + 2.0 * MathUtil::sum_relative_error_bound((disi_wrapper.len() - 1).try_convert()?);
-
-            other_score_sum *= bound;
-
-            let result = score_max as f64 + other_score_sum * self.tie_breaker_multiplier as f64;
-            Ok(result as f32)
+          other_score_sum += sub_score as f64;
         }
+      }
     }
 
-    fn set_min_competitive_score<S>(
-        &mut self,
-        min_score: f32,
-        disi_wrapper: &mut [DisiWrapper<S>],
-    ) -> Result<()>
-    where
-        S: Scorer,
-    {
-        if let Some(ref mut propagator) = self.disjunction_block_propagator {
-            propagator.set_min_competitive_score(min_score);
-        }
-        if self.tie_breaker_multiplier == 0.0 {
-            for scorer in disi_wrapper.iter_mut() {
-                scorer.scorer.set_min_competitive_score(min_score)?;
-            }
-        }
-        Ok(())
+    if self.tie_breaker_multiplier == 0.0 {
+      Ok(score_max)
+    } else {
+      // The error of sums depends on the order in which values are summed up. In
+      // order to avoid this issue, we compute an upper bound of the value that
+      // the sum may take. If the max relative error is b, then it means that two
+      // sums are always within 2*b of each other.
+      let bound =
+        1.0 + 2.0 * MathUtil::sum_relative_error_bound((disi_wrapper.len() - 1).try_convert()?);
+
+      other_score_sum *= bound;
+
+      let result = score_max as f64 + other_score_sum * self.tie_breaker_multiplier as f64;
+      Ok(result as f32)
     }
+  }
+
+  fn set_min_competitive_score<S>(
+    &mut self,
+    min_score: f32,
+    disi_wrapper: &mut [DisiWrapper<S>],
+  ) -> Result<()>
+  where
+    S: Scorer,
+  {
+    if let Some(ref mut propagator) = self.disjunction_block_propagator {
+      propagator.set_min_competitive_score(min_score);
+    }
+    if self.tie_breaker_multiplier == 0.0 {
+      for scorer in disi_wrapper.iter_mut() {
+        scorer.scorer.set_min_competitive_score(min_score)?;
+      }
+    }
+    Ok(())
+  }
 }

@@ -38,9 +38,9 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    at_least, at_least_usize, get_only_leaf_reader, new_bytes_ref_from_string,
-    new_directory_shared, new_field, new_index_writer_config,
-    new_index_writer_config_with_analyzer, new_log_merge_policy, new_text_field, random,
+  at_least, at_least_usize, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
+  new_field, new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
+  new_text_field, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -51,112 +51,112 @@ use std::collections::HashMap;
 pub struct TestDocsAndPositions;
 
 fn field_name<R: Rng + ?Sized>(random: &mut R) -> String {
-    let v: i32 = random.random();
-    format!("field{}", v)
+  let v: i32 = random.random();
+  format!("field{}", v)
 }
 /// Simple testcase for ``[`PostingsEnum`]
 #[test]
 fn test_positions_simple() -> Result<()> {
-    let mut random = random();
-    let directory = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let config = new_index_writer_config_with_analyzer(&mut random, mock);
-    let writer = RandomIndexWriter::with_config(&mut random, directory, config);
-    let field_name = field_name(&mut random);
-    let mut field_types = HashMap::new();
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = RandomIndexWriter::with_config(&mut random, directory, config);
+  let field_name = field_name(&mut random);
+  let mut field_types = HashMap::new();
 
-    for _ in 0..39 {
-        let mut doc = Document::new();
-        let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-        custom_type.set_omit_norms(true)?;
+  for _ in 0..39 {
+    let mut doc = Document::new();
+    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    custom_type.set_omit_norms(true)?;
 
-        let text = concat!(
-            "1 2 3 4 5 6 7 8 9 10 ",
-            "1 2 3 4 5 6 7 8 9 10 ",
-            "1 2 3 4 5 6 7 8 9 10 ",
-            "1 2 3 4 5 6 7 8 9 10"
+    let text = concat!(
+      "1 2 3 4 5 6 7 8 9 10 ",
+      "1 2 3 4 5 6 7 8 9 10 ",
+      "1 2 3 4 5 6 7 8 9 10 ",
+      "1 2 3 4 5 6 7 8 9 10"
+    );
+
+    doc.add(new_field(
+      &mut random,
+      &field_name,
+      text,
+      &custom_type,
+      &mut field_types,
+    )?);
+    writer.add_document(doc)?;
+  }
+
+  let reader = writer.get_reader()?;
+  writer.close()?;
+
+  let num = at_least(&mut random, 13);
+  for _ in 0..num {
+    let bytes = new_bytes_ref_from_string(&mut random, "1")?;
+    let top_reader_context = get_context(&reader)?;
+
+    for leaf_reader_context in top_reader_context.leaves()? {
+      let leaf_reader = leaf_reader_context.reader();
+
+      let mut docs_and_pos_enum = get_docs_and_positions(leaf_reader, &field_name, &bytes)?
+        .expect("postings enum must exist");
+      let max_doc = leaf_reader.max_doc()?;
+      if max_doc == 0 {
+        continue;
+      }
+
+      let target = random.random_range(0..max_doc);
+      let advance_doc = docs_and_pos_enum.advance(target)?;
+
+      loop {
+        let msg = format!(
+          "Advanced to {} current doc {}",
+          advance_doc,
+          docs_and_pos_enum.doc_id()
         );
 
-        doc.add(new_field(
-            &mut random,
-            &field_name,
-            text,
-            &custom_type,
-            &mut field_types,
-        )?);
-        writer.add_document(doc)?;
-    }
+        assert_eq!(docs_and_pos_enum.freq()?, 4, "{msg}");
+        assert_eq!(docs_and_pos_enum.next_position()?, 0, "{msg}");
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+        assert_eq!(docs_and_pos_enum.freq()?, 4, "{msg}");
+        assert_eq!(docs_and_pos_enum.next_position()?, 10, "{msg}");
 
-    let num = at_least(&mut random, 13);
-    for _ in 0..num {
-        let bytes = new_bytes_ref_from_string(&mut random, "1")?;
-        let top_reader_context = get_context(&reader)?;
+        assert_eq!(docs_and_pos_enum.freq()?, 4, "{msg}");
+        assert_eq!(docs_and_pos_enum.next_position()?, 20, "{msg}");
 
-        for leaf_reader_context in top_reader_context.leaves()? {
-            let leaf_reader = leaf_reader_context.reader();
+        assert_eq!(docs_and_pos_enum.freq()?, 4, "{msg}");
+        assert_eq!(docs_and_pos_enum.next_position()?, 30, "{msg}");
 
-            let mut docs_and_pos_enum = get_docs_and_positions(leaf_reader, &field_name, &bytes)?
-                .expect("postings enum must exist");
-            let max_doc = leaf_reader.max_doc()?;
-            if max_doc == 0 {
-                continue;
-            }
-
-            let target = random.random_range(0..max_doc);
-            let advance_doc = docs_and_pos_enum.advance(target)?;
-
-            loop {
-                let msg = format!(
-                    "Advanced to {} current doc {}",
-                    advance_doc,
-                    docs_and_pos_enum.doc_id()
-                );
-
-                assert_eq!(docs_and_pos_enum.freq()?, 4, "{msg}");
-                assert_eq!(docs_and_pos_enum.next_position()?, 0, "{msg}");
-
-                assert_eq!(docs_and_pos_enum.freq()?, 4, "{msg}");
-                assert_eq!(docs_and_pos_enum.next_position()?, 10, "{msg}");
-
-                assert_eq!(docs_and_pos_enum.freq()?, 4, "{msg}");
-                assert_eq!(docs_and_pos_enum.next_position()?, 20, "{msg}");
-
-                assert_eq!(docs_and_pos_enum.freq()?, 4, "{msg}");
-                assert_eq!(docs_and_pos_enum.next_position()?, 30, "{msg}");
-
-                if docs_and_pos_enum.next_doc()? == NO_MORE_DOCS {
-                    break;
-                }
-            }
+        if docs_and_pos_enum.next_doc()? == NO_MORE_DOCS {
+          break;
         }
+      }
     }
-    Ok(())
+  }
+  Ok(())
 }
 fn get_docs_and_positions<LR>(
-    reader: &LR,
-    field_name: &str,
-    bytes: &BytesRef<Vec<u8>>,
+  reader: &LR,
+  field_name: &str,
+  bytes: &BytesRef<Vec<u8>>,
 ) -> Result<Option<LRPosting<LR>>>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    let terms_opt = reader.terms(field_name)?;
-    let terms = match terms_opt {
-        None => return Ok(None),
-        Some(t) => t,
-    };
+  let terms_opt = reader.terms(field_name)?;
+  let terms = match terms_opt {
+    None => return Ok(None),
+    Some(t) => t,
+  };
 
-    let mut te = terms.iterator()?;
+  let mut te = terms.iterator()?;
 
-    if te.seek_exact(bytes)? {
-        let pe = te.postings_with_flags(None, ALL as i32)?;
-        Ok(Some(pe))
-    } else {
-        Ok(None)
-    }
+  if te.seek_exact(bytes)? {
+    let pe = te.postings_with_flags(None, ALL as i32)?;
+    Ok(Some(pe))
+  } else {
+    Ok(None)
+  }
 }
 
 /// this test indexes random numbers within a range into a field and checks their occurrences by
@@ -164,419 +164,418 @@ where
 /// saved up front and compared to the enums positions.
 #[test]
 fn test_random_positions() -> Result<()> {
-    let mut random = random();
-    let directory = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
-    config.set_merge_policy(new_log_merge_policy(&mut random)?);
-    let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  config.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
-    let field_name = field_name(&mut random);
-    let mut field_types: HashMap<String, FieldType> = HashMap::new();
+  let field_name = field_name(&mut random);
+  let mut field_types: HashMap<String, FieldType> = HashMap::new();
 
-    let num_docs = at_least(&mut random, 47);
-    let max = 1051;
-    let term: i32 = random.random_range(0..max);
+  let num_docs = at_least(&mut random, 47);
+  let max = 1051;
+  let term: i32 = random.random_range(0..max);
 
-    let mut positions_in_doc: Vec<Vec<i32>> = vec![Vec::new(); num_docs as usize];
+  let mut positions_in_doc: Vec<Vec<i32>> = vec![Vec::new(); num_docs as usize];
 
-    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-    custom_type.set_omit_norms(true)?;
+  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  custom_type.set_omit_norms(true)?;
 
-    for i in 0..num_docs {
-        let mut doc = Document::new();
-        let mut positions = Vec::new();
+  for i in 0..num_docs {
+    let mut doc = Document::new();
+    let mut positions = Vec::new();
 
-        let num = at_least(&mut random, 131);
+    let num = at_least(&mut random, 131);
 
-        let mut builder = String::new();
-        for j in 0..num {
-            let next_int: i32 = random.random_range(0..max);
-            builder.push_str(&format!("{} ", next_int));
-            if next_int == term {
-                positions.push(j);
-            }
-        }
-
-        if positions.is_empty() {
-            builder.push_str(&format!("{}", term));
-            positions.push(num as i32);
-        }
-
-        doc.add(new_field(
-            &mut random,
-            &field_name,
-            builder,
-            &custom_type,
-            &mut field_types,
-        )?);
-        positions_in_doc[i as usize] = positions;
-
-        writer.add_document(doc)?;
+    let mut builder = String::new();
+    for j in 0..num {
+      let next_int: i32 = random.random_range(0..max);
+      builder.push_str(&format!("{} ", next_int));
+      if next_int == term {
+        positions.push(j);
+      }
     }
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
-
-    let num_outer = at_least(&mut random, 13);
-
-    for i in 0..num_outer {
-        let bytes = new_bytes_ref_from_string(&mut random, &format!("{}", term))?;
-        let top_reader_context = get_context(&reader)?;
-
-        for leaf_ctx in top_reader_context.leaves()? {
-            let leaf_reader = leaf_ctx.reader();
-            let mut docs_and_pos_enum = get_docs_and_positions(leaf_reader, &field_name, &bytes)?
-                .expect("postings enum must exist");
-
-            let max_doc = leaf_reader.max_doc()?;
-            if max_doc == 0 {
-                continue;
-            }
-            // initially advance or do next doc
-            let init_doc = if random.random_bool(0.5) {
-                docs_and_pos_enum.next_doc()?
-            } else {
-                docs_and_pos_enum.advance(random.random_range(0..max_doc))?
-            };
-            // now run through the scorer and check if all positions are there...
-            loop {
-                let doc_id = docs_and_pos_enum.doc_id();
-                if doc_id == NO_MORE_DOCS {
-                    break;
-                }
-
-                let global_doc = leaf_ctx.doc_base + doc_id.try_convert()?;
-                let pos = &positions_in_doc[global_doc];
-
-                assert_eq!(pos.len() as i32, docs_and_pos_enum.freq()?,);
-
-                let read_all = random.random_range(0..20) != 0;
-                // number of positions read should be random - don't read all of them
-                // allways
-                let how_many = if read_all {
-                    pos.len()
-                } else {
-                    let remain = pos.len();
-                    remain - random.random_range(0..remain)
-                };
-
-                for j in 0..how_many {
-                    let expected = pos[j];
-                    let actual = docs_and_pos_enum.next_position()?;
-                    assert_eq!(
-                        expected, actual,
-                        "iteration {i}, initDoc={init_doc}, doc={doc_id}, base={}, positions={:?}",
-                        leaf_ctx.doc_base, pos
-                    );
-                }
-
-                if random.random_range(0..10) == 0 {
-                    // once is a while advance
-                    let advance_target = doc_id + 1 + random.random_range(0..(max_doc - doc_id));
-                    if docs_and_pos_enum.advance(advance_target)? == NO_MORE_DOCS {
-                        break;
-                    }
-                }
-
-                if docs_and_pos_enum.next_doc()? == NO_MORE_DOCS {
-                    break;
-                }
-            }
-        }
+    if positions.is_empty() {
+      builder.push_str(&format!("{}", term));
+      positions.push(num as i32);
     }
 
-    Ok(())
+    doc.add(new_field(
+      &mut random,
+      &field_name,
+      builder,
+      &custom_type,
+      &mut field_types,
+    )?);
+    positions_in_doc[i as usize] = positions;
+
+    writer.add_document(doc)?;
+  }
+
+  let reader = writer.get_reader()?;
+  writer.close()?;
+
+  let num_outer = at_least(&mut random, 13);
+
+  for i in 0..num_outer {
+    let bytes = new_bytes_ref_from_string(&mut random, &format!("{}", term))?;
+    let top_reader_context = get_context(&reader)?;
+
+    for leaf_ctx in top_reader_context.leaves()? {
+      let leaf_reader = leaf_ctx.reader();
+      let mut docs_and_pos_enum = get_docs_and_positions(leaf_reader, &field_name, &bytes)?
+        .expect("postings enum must exist");
+
+      let max_doc = leaf_reader.max_doc()?;
+      if max_doc == 0 {
+        continue;
+      }
+      // initially advance or do next doc
+      let init_doc = if random.random_bool(0.5) {
+        docs_and_pos_enum.next_doc()?
+      } else {
+        docs_and_pos_enum.advance(random.random_range(0..max_doc))?
+      };
+      // now run through the scorer and check if all positions are there...
+      loop {
+        let doc_id = docs_and_pos_enum.doc_id();
+        if doc_id == NO_MORE_DOCS {
+          break;
+        }
+
+        let global_doc = leaf_ctx.doc_base + doc_id.try_convert()?;
+        let pos = &positions_in_doc[global_doc];
+
+        assert_eq!(pos.len() as i32, docs_and_pos_enum.freq()?,);
+
+        let read_all = random.random_range(0..20) != 0;
+        // number of positions read should be random - don't read all of them
+        // allways
+        let how_many = if read_all {
+          pos.len()
+        } else {
+          let remain = pos.len();
+          remain - random.random_range(0..remain)
+        };
+
+        for j in 0..how_many {
+          let expected = pos[j];
+          let actual = docs_and_pos_enum.next_position()?;
+          assert_eq!(
+            expected, actual,
+            "iteration {i}, initDoc={init_doc}, doc={doc_id}, base={}, positions={:?}",
+            leaf_ctx.doc_base, pos
+          );
+        }
+
+        if random.random_range(0..10) == 0 {
+          // once is a while advance
+          let advance_target = doc_id + 1 + random.random_range(0..(max_doc - doc_id));
+          if docs_and_pos_enum.advance(advance_target)? == NO_MORE_DOCS {
+            break;
+          }
+        }
+
+        if docs_and_pos_enum.next_doc()? == NO_MORE_DOCS {
+          break;
+        }
+      }
+    }
+  }
+
+  Ok(())
 }
 #[test]
 fn test_random_docs() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let analyzer = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
-    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
-    let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-    let num_docs = at_least_usize(&mut random, 49);
-    let max = 15678;
-    let term = random.random_range(0..max);
-    let mut freq_in_doc = vec![0i32; num_docs as usize];
+  let num_docs = at_least_usize(&mut random, 49);
+  let max = 15678;
+  let term = random.random_range(0..max);
+  let mut freq_in_doc = vec![0i32; num_docs as usize];
 
-    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-    custom_type.set_omit_norms(true)?;
+  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  custom_type.set_omit_norms(true)?;
 
-    let field_name = field_name(&mut random);
+  let field_name = field_name(&mut random);
 
-    for freq in freq_in_doc.iter_mut().take(num_docs) {
-        let mut doc = Document::new();
-        let mut builder = String::new();
-        for _ in 0..199 {
-            let next_int = random.random_range(0..max);
-            builder.push_str(&next_int.to_string());
-            builder.push(' ');
-            if next_int == term {
-                *freq += 1;
-            }
-        }
-        doc.add(Field::new(&field_name, builder, custom_type.clone()));
-        writer.add_document(doc)?;
+  for freq in freq_in_doc.iter_mut().take(num_docs) {
+    let mut doc = Document::new();
+    let mut builder = String::new();
+    for _ in 0..199 {
+      let next_int = random.random_range(0..max);
+      builder.push_str(&next_int.to_string());
+      builder.push(' ');
+      if next_int == term {
+        *freq += 1;
+      }
     }
+    doc.add(Field::new(&field_name, builder, custom_type.clone()));
+    writer.add_document(doc)?;
+  }
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+  let reader = writer.get_reader()?;
+  writer.close()?;
 
-    let num = at_least(&mut random, 13);
-    for i in 0..num {
-        let bytes = BytesRef::from_string(&term.to_string());
-        let top_reader_context = get_context(&reader)?;
-        for context in top_reader_context.leaves()? {
-            let max_doc = context.reader().max_doc()? as usize;
-            let reader = SingleLeafCompositeReader::new(context.reader().clone());
-            let mut postings_enum = TestUtil::docs_with_reader(
-                &mut random,
-                &reader,
-                &field_name,
-                &bytes,
-                None,
-                FREQS as i32,
-            )?;
+  let num = at_least(&mut random, 13);
+  for i in 0..num {
+    let bytes = BytesRef::from_string(&term.to_string());
+    let top_reader_context = get_context(&reader)?;
+    for context in top_reader_context.leaves()? {
+      let max_doc = context.reader().max_doc()? as usize;
+      let reader = SingleLeafCompositeReader::new(context.reader().clone());
+      let mut postings_enum = TestUtil::docs_with_reader(
+        &mut random,
+        &reader,
+        &field_name,
+        &bytes,
+        None,
+        FREQS as i32,
+      )?;
 
-            if find_next(&freq_in_doc, context.doc_base, context.doc_base + max_doc)
-                == i32::MAX as usize
-            {
-                assert!(postings_enum.is_none());
-                continue;
+      if find_next(&freq_in_doc, context.doc_base, context.doc_base + max_doc) == i32::MAX as usize
+      {
+        assert!(postings_enum.is_none());
+        continue;
+      }
+
+      let postings_enum = postings_enum.as_mut().unwrap();
+      assert_ne!(postings_enum.next_doc()?, NO_MORE_DOCS);
+
+      for j in 0..max_doc {
+        if freq_in_doc[context.doc_base + j] != 0 {
+          assert_eq!(j, postings_enum.doc_id() as usize);
+          assert_eq!(postings_enum.freq()?, freq_in_doc[context.doc_base + j]);
+
+          if i % 2 == 0 && random.random_range(0..10) == 0 {
+            let next = find_next(
+              &freq_in_doc,
+              context.doc_base + j + 1,
+              context.doc_base + max_doc,
+            ) - context.doc_base;
+
+            let advanced_to = postings_enum.advance(next as i32)?;
+            if next >= max_doc {
+              assert_eq!(NO_MORE_DOCS, advanced_to);
+            } else {
+              assert!(
+                next >= advanced_to as usize,
+                "advanced to: {} but should be <= {}",
+                advanced_to,
+                next
+              );
             }
-
-            let postings_enum = postings_enum.as_mut().unwrap();
-            assert_ne!(postings_enum.next_doc()?, NO_MORE_DOCS);
-
-            for j in 0..max_doc {
-                if freq_in_doc[context.doc_base + j] != 0 {
-                    assert_eq!(j, postings_enum.doc_id() as usize);
-                    assert_eq!(postings_enum.freq()?, freq_in_doc[context.doc_base + j]);
-
-                    if i % 2 == 0 && random.random_range(0..10) == 0 {
-                        let next = find_next(
-                            &freq_in_doc,
-                            context.doc_base + j + 1,
-                            context.doc_base + max_doc,
-                        ) - context.doc_base;
-
-                        let advanced_to = postings_enum.advance(next as i32)?;
-                        if next >= max_doc {
-                            assert_eq!(NO_MORE_DOCS, advanced_to);
-                        } else {
-                            assert!(
-                                next >= advanced_to as usize,
-                                "advanced to: {} but should be <= {}",
-                                advanced_to,
-                                next
-                            );
-                        }
-                    } else {
-                        postings_enum.next_doc()?;
-                    }
-                }
-            }
-
-            assert_eq!(
-                NO_MORE_DOCS,
-                postings_enum.doc_id(),
-                "docBase: {} maxDoc: {}",
-                context.doc_base,
-                max_doc
-            );
+          } else {
+            postings_enum.next_doc()?;
+          }
         }
-    }
+      }
 
-    Ok(())
+      assert_eq!(
+        NO_MORE_DOCS,
+        postings_enum.doc_id(),
+        "docBase: {} maxDoc: {}",
+        context.doc_base,
+        max_doc
+      );
+    }
+  }
+
+  Ok(())
 }
 fn find_next(docs: &[i32], pos: usize, max: usize) -> usize {
-    if let Some(i) = docs[pos..max].iter().position(|&x| x != 0) {
-        return pos + i;
-    }
-    i32::MAX as usize
+  if let Some(i) = docs[pos..max].iter().position(|&x| x != 0) {
+    return pos + i;
+  }
+  i32::MAX as usize
 }
 /// tests retrieval of positions for terms that have a large number of occurrences to force test of
 //  buffer refill during positions iteration.
 #[test]
 fn test_large_number_of_positions() -> Result<()> {
-    let mut random = random();
-    let directory = new_directory_shared(&mut random)?;
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
 
-    let mock = MockAnalyzer::new(&mut random);
-    let config = new_index_writer_config_with_analyzer(&mut random, mock);
-    let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
+  let mock = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
-    let field_name = field_name(&mut random);
-    let mut field_types: HashMap<String, FieldType> = HashMap::new();
+  let field_name = field_name(&mut random);
+  let mut field_types: HashMap<String, FieldType> = HashMap::new();
 
-    let how_many = 1000;
+  let how_many = 1000;
 
-    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-    custom_type.set_omit_norms(true)?;
+  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  custom_type.set_omit_norms(true)?;
 
-    for _i in 0..39 {
-        let mut doc = Document::new();
-        let mut builder = String::new();
+  for _i in 0..39 {
+    let mut doc = Document::new();
+    let mut builder = String::new();
 
-        for j in 0..how_many {
-            if j % 2 == 0 {
-                builder.push_str("even ");
-            } else {
-                builder.push_str("odd ");
-            }
-        }
-
-        doc.add(new_field(
-            &mut random,
-            &field_name,
-            builder,
-            &custom_type,
-            &mut field_types,
-        )?);
-        writer.add_document(doc)?;
-    }
-    // now do searches
-    let reader = writer.get_reader()?;
-    writer.close()?;
-
-    let num_outer = at_least(&mut random, 13);
-
-    for i in 0..num_outer {
-        let bytes = new_bytes_ref_from_string(&mut random, "even")?;
-        let top_reader_context = get_context(&reader)?;
-
-        for leaf_ctx in top_reader_context.leaves()? {
-            let leaf_reader = leaf_ctx.reader();
-
-            let mut docs_and_pos_enum = get_docs_and_positions(leaf_reader, &field_name, &bytes)?
-                .expect("postings enum must exist");
-
-            let max_doc = leaf_reader.max_doc()?;
-            if max_doc == 0 {
-                continue;
-            }
-
-            // initially advance or do next doc
-            let init_doc = if random.random_bool(0.5) {
-                docs_and_pos_enum.next_doc()?
-            } else {
-                docs_and_pos_enum.advance(random.random_range(0..max_doc))?
-            };
-
-            let msg = format!("Iteration: {} initDoc: {}", i, init_doc);
-
-            assert_eq!(how_many / 2, docs_and_pos_enum.freq()?, "{msg}");
-
-            for j in (0..how_many).step_by(2) {
-                let pos = docs_and_pos_enum.next_position()?;
-                assert_eq!(
-                    j,
-                    pos,
-                    "position missmatch index: {} with freq: {} -- {}",
-                    j,
-                    docs_and_pos_enum.freq()?,
-                    msg
-                );
-            }
-        }
+    for j in 0..how_many {
+      if j % 2 == 0 {
+        builder.push_str("even ");
+      } else {
+        builder.push_str("odd ");
+      }
     }
 
-    Ok(())
+    doc.add(new_field(
+      &mut random,
+      &field_name,
+      builder,
+      &custom_type,
+      &mut field_types,
+    )?);
+    writer.add_document(doc)?;
+  }
+  // now do searches
+  let reader = writer.get_reader()?;
+  writer.close()?;
+
+  let num_outer = at_least(&mut random, 13);
+
+  for i in 0..num_outer {
+    let bytes = new_bytes_ref_from_string(&mut random, "even")?;
+    let top_reader_context = get_context(&reader)?;
+
+    for leaf_ctx in top_reader_context.leaves()? {
+      let leaf_reader = leaf_ctx.reader();
+
+      let mut docs_and_pos_enum = get_docs_and_positions(leaf_reader, &field_name, &bytes)?
+        .expect("postings enum must exist");
+
+      let max_doc = leaf_reader.max_doc()?;
+      if max_doc == 0 {
+        continue;
+      }
+
+      // initially advance or do next doc
+      let init_doc = if random.random_bool(0.5) {
+        docs_and_pos_enum.next_doc()?
+      } else {
+        docs_and_pos_enum.advance(random.random_range(0..max_doc))?
+      };
+
+      let msg = format!("Iteration: {} initDoc: {}", i, init_doc);
+
+      assert_eq!(how_many / 2, docs_and_pos_enum.freq()?, "{msg}");
+
+      for j in (0..how_many).step_by(2) {
+        let pos = docs_and_pos_enum.next_position()?;
+        assert_eq!(
+          j,
+          pos,
+          "position missmatch index: {} with freq: {} -- {}",
+          j,
+          docs_and_pos_enum.freq()?,
+          msg
+        );
+      }
+    }
+  }
+
+  Ok(())
 }
 #[test]
 fn test_docs_enum_start() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone());
 
-    let mut doc = Document::new();
-    doc.add(StringField::from_string("foo", "bar", Store::No)?);
-    writer.add_document(doc)?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("foo", "bar", Store::No)?);
+  writer.add_document(doc)?;
 
-    let reader = writer.get_reader()?;
-    let r = get_only_leaf_reader(&reader)?;
-    let cr = SingleLeafCompositeReader::new(r.clone());
-    let mut disi = TestUtil::docs_with_reader(
-        &mut random,
-        &cr,
-        "foo",
-        &BytesRef::from_string("bar"),
-        None,
-        NONE as i32,
-    )?
-    .unwrap();
-    let doc_id = disi.doc_id();
-    assert_eq!(-1, doc_id);
-    assert_ne!(disi.next_doc()?, NO_MORE_DOCS);
-    let disi = match disi {
-        PostingsEnumEnum2::A(v) => v,
-        PostingsEnumEnum2::B(_) => unreachable!(),
-    };
+  let reader = writer.get_reader()?;
+  let r = get_only_leaf_reader(&reader)?;
+  let cr = SingleLeafCompositeReader::new(r.clone());
+  let mut disi = TestUtil::docs_with_reader(
+    &mut random,
+    &cr,
+    "foo",
+    &BytesRef::from_string("bar"),
+    None,
+    NONE as i32,
+  )?
+  .unwrap();
+  let doc_id = disi.doc_id();
+  assert_eq!(-1, doc_id);
+  assert_ne!(disi.next_doc()?, NO_MORE_DOCS);
+  let disi = match disi {
+    PostingsEnumEnum2::A(v) => v,
+    PostingsEnumEnum2::B(_) => unreachable!(),
+  };
 
-    let mut te = r.terms("foo")?.unwrap().iterator()?;
-    assert!(te.seek_exact(&BytesRef::from_string("bar"))?);
-    let mut disi = TestUtil::docs(&mut random, &mut te, Some(disi), NONE as i32)?;
-    let docid = disi.doc_id();
-    assert_eq!(-1, docid);
-    assert_ne!(disi.next_doc()?, NO_MORE_DOCS);
+  let mut te = r.terms("foo")?.unwrap().iterator()?;
+  assert!(te.seek_exact(&BytesRef::from_string("bar"))?);
+  let mut disi = TestUtil::docs(&mut random, &mut te, Some(disi), NONE as i32)?;
+  let docid = disi.doc_id();
+  assert_eq!(-1, docid);
+  assert_ne!(disi.next_doc()?, NO_MORE_DOCS);
 
-    writer.close()?;
-    r.close()?;
-    Ok(())
+  writer.close()?;
+  r.close()?;
+  Ok(())
 }
 #[test]
 fn test_docs_and_positions_enum_start() -> Result<()> {
-    let mut random = random();
-    let directory = new_directory_shared(&mut random)?;
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
 
-    let config = new_index_writer_config(&mut random);
-    let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
+  let config = new_index_writer_config(&mut random);
+  let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
-    let mut doc = Document::new();
-    let mut field_types = HashMap::new();
-    doc.add(new_text_field(
-        &mut random,
-        "foo",
-        "bar",
-        No,
-        &mut field_types,
-    )?);
-    writer.add_document(doc)?;
+  let mut doc = Document::new();
+  let mut field_types = HashMap::new();
+  doc.add(new_text_field(
+    &mut random,
+    "foo",
+    "bar",
+    No,
+    &mut field_types,
+  )?);
+  writer.add_document(doc)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+  let reader = writer.get_reader()?;
+  writer.close()?;
 
-    let r = get_only_leaf_reader(reader)?;
+  let r = get_only_leaf_reader(reader)?;
 
-    let term = Term::from_text("foo", "bar");
-    let mut disi = r.postings_with_flag(&term, ALL as i32)?.unwrap();
-    let docid = disi.doc_id();
-    assert_eq!(-1, docid);
+  let term = Term::from_text("foo", "bar");
+  let mut disi = r.postings_with_flag(&term, ALL as i32)?.unwrap();
+  let docid = disi.doc_id();
+  assert_eq!(-1, docid);
 
-    let next = disi.next_doc()?;
-    assert_ne!(next, NO_MORE_DOCS);
-    // now reuse and check again
-    let terms = r.terms("foo")?.unwrap();
-    let mut te = terms.iterator()?;
+  let next = disi.next_doc()?;
+  assert_ne!(next, NO_MORE_DOCS);
+  // now reuse and check again
+  let terms = r.terms("foo")?.unwrap();
+  let mut te = terms.iterator()?;
 
-    assert!(te.seek_exact(&new_bytes_ref_from_string(&mut random, "bar")?)?);
-    match disi {
-        PostingsEnumEnum2::A(v) => {
-            let mut disi = te.postings_with_flags(Some(v), ALL as i32)?;
+  assert!(te.seek_exact(&new_bytes_ref_from_string(&mut random, "bar")?)?);
+  match disi {
+    PostingsEnumEnum2::A(v) => {
+      let mut disi = te.postings_with_flags(Some(v), ALL as i32)?;
 
-            let docid = disi.doc_id();
-            assert_eq!(-1, docid);
+      let docid = disi.doc_id();
+      assert_eq!(-1, docid);
 
-            let next2 = disi.next_doc()?;
-            assert_ne!(next2, NO_MORE_DOCS);
-        },
-        PostingsEnumEnum2::B(_v) => {
-            unreachable!("should not happen");
-        },
-    }
+      let next2 = disi.next_doc()?;
+      assert_ne!(next2, NO_MORE_DOCS);
+    },
+    PostingsEnumEnum2::B(_v) => {
+      unreachable!("should not happen");
+    },
+  }
 
-    Ok(())
+  Ok(())
 }

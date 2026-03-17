@@ -34,192 +34,189 @@ use std::rc::Rc;
 /// per-`LeafReader`, instead of using this type.
 pub struct MultiFields<F>
 where
-    F: Fields,
+  F: Fields,
 {
-    pub(crate) subs: Vec<F>,
-    sub_slices: Vec<Rc<ReaderSlice>>,
-    terms: RefCell<HashMap<String, Rc<TermsType<F>>>>,
+  pub(crate) subs: Vec<F>,
+  sub_slices: Vec<Rc<ReaderSlice>>,
+  terms: RefCell<HashMap<String, Rc<TermsType<F>>>>,
 }
 pub type TermsType<F> = MultiTerms<<F as Fields>::Terms>;
 impl<F> MultiFields<F>
 where
-    F: Fields,
+  F: Fields,
 {
-    /// Sole constructor.
-    pub fn new(subs: Vec<F>, sub_slices: Vec<Rc<ReaderSlice>>) -> Self {
-        Self {
-            subs,
-            sub_slices,
-            terms: RefCell::new(HashMap::new()),
-        }
+  /// Sole constructor.
+  pub fn new(subs: Vec<F>, sub_slices: Vec<Rc<ReaderSlice>>) -> Self {
+    Self {
+      subs,
+      sub_slices,
+      terms: RefCell::new(HashMap::new()),
     }
+  }
 }
 pub type MultiFieldsTerms<T> = Rc<MultiTerms<T>>;
 impl<F> Fields for MultiFields<F>
 where
-    F: Fields,
+  F: Fields,
 {
-    type FieldIter<'a>
-        = MergedIterator<<F as Fields>::FieldIter<'a>>
-    where
-        Self: 'a;
+  type FieldIter<'a>
+    = MergedIterator<<F as Fields>::FieldIter<'a>>
+  where
+    Self: 'a;
 
-    fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-        let mut sub_iterators = Vec::new();
-        for sub in &self.subs {
-            sub_iterators.push(sub.iterator()?);
-        }
-        MergedIterator::new(sub_iterators)
+  fn iterator(&self) -> Result<Self::FieldIter<'_>> {
+    let mut sub_iterators = Vec::new();
+    for sub in &self.subs {
+      sub_iterators.push(sub.iterator()?);
+    }
+    MergedIterator::new(sub_iterators)
+  }
+
+  type Terms = MultiFieldsTerms<<F as Fields>::Terms>;
+
+  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    if let Some(v) = self.terms.borrow().get(field) {
+      return Ok(Some(v.clone()));
     }
 
-    type Terms = MultiFieldsTerms<<F as Fields>::Terms>;
-
-    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-        if let Some(v) = self.terms.borrow().get(field) {
-            return Ok(Some(v.clone()));
-        }
-
-        // Lazy init: first time this field is requested
-        let mut subs2 = Vec::new();
-        let mut slices2 = Vec::new();
-        // Gather all sub-readers that share this field
-        for i in 0..self.subs.len() {
-            if let Some(terms) = self.subs[i].terms(field)? {
-                subs2.push(terms);
-                slices2.push(self.sub_slices[i].clone());
-            }
-        }
-
-        if !subs2.is_empty() {
-            let result = Rc::new(MultiTerms::new(subs2, slices2)?);
-            self.terms
-                .borrow_mut()
-                .insert(field.to_string(), result.clone());
-            Ok(Some(result))
-        } else {
-            Ok(None)
-        }
+    // Lazy init: first time this field is requested
+    let mut subs2 = Vec::new();
+    let mut slices2 = Vec::new();
+    // Gather all sub-readers that share this field
+    for i in 0..self.subs.len() {
+      if let Some(terms) = self.subs[i].terms(field)? {
+        subs2.push(terms);
+        slices2.push(self.sub_slices[i].clone());
+      }
     }
 
-    fn size(&self) -> Result<i32> {
-        Ok(-1)
+    if !subs2.is_empty() {
+      let result = Rc::new(MultiTerms::new(subs2, slices2)?);
+      self
+        .terms
+        .borrow_mut()
+        .insert(field.to_string(), result.clone());
+      Ok(Some(result))
+    } else {
+      Ok(None)
     }
+  }
+
+  fn size(&self) -> Result<i32> {
+    Ok(-1)
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::core::document::document::Document;
-    use crate::core::document::field::Store::No;
-    use crate::core::document::field_type::FieldType;
-    use crate::core::index::BytesRef;
-    use crate::core::index::directory_reader::directory_reader_util;
-    use crate::core::index::index_writer::IndexWriter;
-    use crate::core::index::multi_terms::get_term_postings_enum_with_flag;
-    use crate::core::index::postings_enum::{FREQS, NONE};
-    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::core::util::error::lucene_error::Result;
-    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config_with_analyzer, new_string_field, random,
-    };
-    use crate::test::core::util::test_util::TestUtil;
-    use std::collections::HashMap;
+  use crate::core::document::document::Document;
+  use crate::core::document::field::Store::No;
+  use crate::core::document::field_type::FieldType;
+  use crate::core::index::BytesRef;
+  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::index_writer::IndexWriter;
+  use crate::core::index::multi_terms::get_term_postings_enum_with_flag;
+  use crate::core::index::postings_enum::{FREQS, NONE};
+  use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    new_directory_shared, new_index_writer_config_with_analyzer, new_string_field, random,
+  };
+  use crate::test::core::util::test_util::TestUtil;
+  use std::collections::HashMap;
 
-    #[allow(dead_code)] // for quick search
-    struct TestMultiFields;
+  #[allow(dead_code)] // for quick search
+  struct TestMultiFields;
 
-    #[test]
-    fn test_random() -> Result<()> {
-        // TODO keepFullyDeletedSegment  未实现
-        Ok(())
-    }
+  #[test]
+  fn test_random() -> Result<()> {
+    // TODO keepFullyDeletedSegment  未实现
+    Ok(())
+  }
 
-    #[test]
-    fn test_separate_enums() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let mock = MockAnalyzer::new(&mut random);
-        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-        let iw = IndexWriter::new(dir.clone(), iwc)?;
+  #[test]
+  fn test_separate_enums() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let iw = IndexWriter::new(dir.clone(), iwc)?;
 
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-        let mut doc = Document::new();
-        doc.add(new_string_field(
-            &mut random,
-            "f",
-            "j",
-            No,
-            &mut field_to_type,
-        )?);
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      &mut random,
+      "f",
+      "j",
+      No,
+      &mut field_to_type,
+    )?);
 
-        iw.add_document(doc.clone())?;
-        iw.commit()?;
-        iw.add_document(doc)?;
+    iw.add_document(doc.clone())?;
+    iw.commit()?;
+    iw.add_document(doc)?;
 
-        let reader = directory_reader_util::open_from_writer(&iw)?;
-        iw.close()?;
+    let reader = directory_reader_util::open_from_writer(&iw)?;
+    iw.close()?;
 
-        let mut d1 = TestUtil::docs_with_reader(
-            &mut random,
-            &reader,
-            "f",
-            &BytesRef::from_string("j"),
-            None,
-            NONE as i32,
-        )?
+    let mut d1 = TestUtil::docs_with_reader(
+      &mut random,
+      &reader,
+      "f",
+      &BytesRef::from_string("j"),
+      None,
+      NONE as i32,
+    )?
+    .unwrap();
+
+    let mut d2 = TestUtil::docs_with_reader(
+      &mut random,
+      &reader,
+      "f",
+      &BytesRef::from_string("j"),
+      None,
+      NONE as i32,
+    )?
+    .unwrap();
+
+    assert_eq!(0, d1.next_doc()?);
+    assert_eq!(0, d2.next_doc()?);
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_term_docs_enum() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let iw = IndexWriter::new(dir.clone(), iwc)?;
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      &mut random,
+      "f",
+      "j",
+      No,
+      &mut field_to_type,
+    )?);
+    iw.add_document(doc.clone())?;
+    iw.commit()?;
+    iw.add_document(doc)?;
+
+    let reader = directory_reader_util::open_from_writer(&iw)?;
+    iw.close()?;
+
+    let mut de =
+      get_term_postings_enum_with_flag(&reader, "f", &BytesRef::from_string("j"), FREQS as i32)?
         .unwrap();
 
-        let mut d2 = TestUtil::docs_with_reader(
-            &mut random,
-            &reader,
-            "f",
-            &BytesRef::from_string("j"),
-            None,
-            NONE as i32,
-        )?
-        .unwrap();
-
-        assert_eq!(0, d1.next_doc()?);
-        assert_eq!(0, d2.next_doc()?);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_term_docs_enum() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let mock = MockAnalyzer::new(&mut random);
-        let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-        let iw = IndexWriter::new(dir.clone(), iwc)?;
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-        let mut doc = Document::new();
-        doc.add(new_string_field(
-            &mut random,
-            "f",
-            "j",
-            No,
-            &mut field_to_type,
-        )?);
-        iw.add_document(doc.clone())?;
-        iw.commit()?;
-        iw.add_document(doc)?;
-
-        let reader = directory_reader_util::open_from_writer(&iw)?;
-        iw.close()?;
-
-        let mut de = get_term_postings_enum_with_flag(
-            &reader,
-            "f",
-            &BytesRef::from_string("j"),
-            FREQS as i32,
-        )?
-        .unwrap();
-
-        assert_eq!(0, de.next_doc()?);
-        assert_eq!(1, de.next_doc()?);
-        assert_eq!(NO_MORE_DOCS, de.next_doc()?);
-        Ok(())
-    }
+    assert_eq!(0, de.next_doc()?);
+    assert_eq!(1, de.next_doc()?);
+    assert_eq!(NO_MORE_DOCS, de.next_doc()?);
+    Ok(())
+  }
 }

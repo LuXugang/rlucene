@@ -35,91 +35,89 @@ pub static SINGLETON: Lazy<PositiveIntOutputs> = Lazy::new(|| PositiveIntOutputs
 pub struct PositiveIntOutputs;
 
 impl PositiveIntOutputs {
-    pub fn get_singleton() -> &'static PositiveIntOutputs {
-        &SINGLETON
-    }
+  pub fn get_singleton() -> &'static PositiveIntOutputs {
+    &SINGLETON
+  }
 
-    fn valid(&self, o: &Arc<i64>) -> bool {
-        debug_assert!(NO_OUTPUT.with(|rc| Arc::ptr_eq(o, rc)) || **o > 0, "o= {o}");
-        true
-    }
+  fn valid(&self, o: &Arc<i64>) -> bool {
+    debug_assert!(NO_OUTPUT.with(|rc| Arc::ptr_eq(o, rc)) || **o > 0, "o= {o}");
+    true
+  }
 }
 
 impl Outputs for PositiveIntOutputs {
-    type V = Arc<i64>;
+  type V = Arc<i64>;
 
-    fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
-        debug_assert!(self.valid(output1));
-        debug_assert!(self.valid(output2));
+  fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
+    debug_assert!(self.valid(output1));
+    debug_assert!(self.valid(output2));
 
-        if Arc::ptr_eq(output1, &self.get_no_output())
-            || Arc::ptr_eq(output2, &self.get_no_output())
-        {
-            self.get_no_output()
-        } else {
-            debug_assert!(**output1 > 0);
-            debug_assert!(**output2 > 0);
-            Arc::new(std::cmp::min(**output1, **output2))
-        }
+    if Arc::ptr_eq(output1, &self.get_no_output()) || Arc::ptr_eq(output2, &self.get_no_output()) {
+      self.get_no_output()
+    } else {
+      debug_assert!(**output1 > 0);
+      debug_assert!(**output2 > 0);
+      Arc::new(std::cmp::min(**output1, **output2))
     }
+  }
 
-    fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
-        debug_assert!(self.valid(output));
-        debug_assert!(self.valid(inc));
-        debug_assert!(**output >= **inc);
+  fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
+    debug_assert!(self.valid(output));
+    debug_assert!(self.valid(inc));
+    debug_assert!(**output >= **inc);
 
-        if Arc::ptr_eq(inc, &self.get_no_output()) {
-            output.clone()
-        } else if **output == **inc {
-            self.get_no_output()
-        } else {
-            Arc::new(**output - **inc)
-        }
+    if Arc::ptr_eq(inc, &self.get_no_output()) {
+      output.clone()
+    } else if **output == **inc {
+      self.get_no_output()
+    } else {
+      Arc::new(**output - **inc)
     }
+  }
 
-    fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
-        debug_assert!(self.valid(prefix));
-        debug_assert!(self.valid(output));
+  fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
+    debug_assert!(self.valid(prefix));
+    debug_assert!(self.valid(output));
 
-        if Arc::ptr_eq(prefix, &self.get_no_output()) {
-            output.clone()
-        } else if Arc::ptr_eq(output, &self.get_no_output()) {
-            prefix.clone()
-        } else {
-            Arc::new(**prefix + **output)
-        }
+    if Arc::ptr_eq(prefix, &self.get_no_output()) {
+      output.clone()
+    } else if Arc::ptr_eq(output, &self.get_no_output()) {
+      prefix.clone()
+    } else {
+      Arc::new(**prefix + **output)
     }
+  }
 
-    fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
-        debug_assert!(self.valid(output));
-        out.write_vlong(**output)
-    }
+  fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
+    debug_assert!(self.valid(output));
+    out.write_vlong(**output)
+  }
 
-    fn read(&self, input: &mut impl DataInput) -> Result<Arc<i64>> {
-        let v = input.read_vlong()?;
-        if v == 0 {
-            Ok(self.get_no_output())
-        } else {
-            Ok(Arc::new(v))
-        }
+  fn read(&self, input: &mut impl DataInput) -> Result<Arc<i64>> {
+    let v = input.read_vlong()?;
+    if v == 0 {
+      Ok(self.get_no_output())
+    } else {
+      Ok(Arc::new(v))
     }
+  }
 
-    fn get_no_output(&self) -> Self::V {
-        NO_OUTPUT.with(|rc| rc.clone())
-    }
+  fn get_no_output(&self) -> Self::V {
+    NO_OUTPUT.with(|rc| rc.clone())
+  }
 
-    fn output_to_string(&self, output: &Self::V) -> String {
-        output.to_string()
-    }
+  fn output_to_string(&self, output: &Self::V) -> String {
+    output.to_string()
+  }
 
-    fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
-        // TODO
-        0
-    }
+  fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
+    // TODO
+    0
+  }
 }
 
 impl Display for PositiveIntOutputs {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }

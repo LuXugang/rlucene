@@ -20,6 +20,6 @@ use crate::core::index::BytesRef;
 /// It can be used as replacement for CharTermAttribute,
 /// if binary terms should be indexed.
 pub trait BytesTermAttribute: TermToBytesRefAttribute {
-    /// Sets the BytesRef of the term
-    fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>);
+  /// Sets the BytesRef of the term
+  fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>);
 }

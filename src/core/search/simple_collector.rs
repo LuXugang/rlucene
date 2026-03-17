@@ -23,23 +23,23 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 
 pub trait SimpleCollector: Collector + LeafCollector {
-    fn do_set_next_reader<LR>(&mut self, _context: &LeafReaderContext<LR>) -> Result<()>
-    where
-        LR: LeafReader,
-    {
-        Ok(())
-    }
+  fn do_set_next_reader<LR>(&mut self, _context: &LeafReaderContext<LR>) -> Result<()>
+  where
+    LR: LeafReader,
+  {
+    Ok(())
+  }
 
-    fn get_leaf_collector<W, LR, IRC>(
-        &mut self,
-        context: &LeafReaderContext<LR>,
-        _weight: Option<&W>,
-    ) -> Result<()>
-    where
-        LR: LeafReader,
-        IRC: IndexReaderContext,
-        W: Weight<IRC> + ?Sized,
-    {
-        self.do_set_next_reader(context)
-    }
+  fn get_leaf_collector<W, LR, IRC>(
+    &mut self,
+    context: &LeafReaderContext<LR>,
+    _weight: Option<&W>,
+  ) -> Result<()>
+  where
+    LR: LeafReader,
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    self.do_set_next_reader(context)
+  }
 }

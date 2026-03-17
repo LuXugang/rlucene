@@ -17,8 +17,8 @@
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_sorter::{
-    CPEnumType2, ComparableProviderEnum4, DocComparatorImpl, DoubleSorter, FloatSorter,
-    IndexSorter, IntSorter, LongSorter, NumericDocValuesProvider,
+  CPEnumType2, ComparableProviderEnum4, DocComparatorImpl, DoubleSorter, FloatSorter, IndexSorter,
+  IntSorter, LongSorter, NumericDocValuesProvider,
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -34,7 +34,7 @@ use crate::core::search::pruning::Pruning;
 use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::sorted_numeric_selector::{
-    SortedNumericSelector, SortedNumericSelectorType, SortedNumericSelectorWrap,
+  SortedNumericSelector, SortedNumericSelectorType, SortedNumericSelectorWrap,
 };
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -56,991 +56,964 @@ use std::hash::{Hash, Hasher};
 /// See also: [`SortedNumericSelector`]
 #[derive(Clone)]
 pub struct SortedNumericSortField {
-    selector: SortedNumericSelectorType,
-    pub(crate) base: SortField,
-    pub(crate) type_: SortFieldType,
+  selector: SortedNumericSelectorType,
+  pub(crate) base: SortField,
+  pub(crate) type_: SortFieldType,
 }
 impl SortedNumericSortField {
-    /// Creates a sort by the minimum value in the set for the document.
-    ///
-    /// # Arguments
-    ///
-    /// * `field` - Name of the field to sort by. Must not be empty.
-    /// * `sort_field_type` - Type of values.
-    pub fn new<T>(field: T, sort_field_type: SortFieldType) -> Result<Self>
-    where
-        T: Into<String>,
-    {
-        Self::with_reverse(field, sort_field_type, false)
-    }
+  /// Creates a sort by the minimum value in the set for the document.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Name of the field to sort by. Must not be empty.
+  /// * `sort_field_type` - Type of values.
+  pub fn new<T>(field: T, sort_field_type: SortFieldType) -> Result<Self>
+  where
+    T: Into<String>,
+  {
+    Self::with_reverse(field, sort_field_type, false)
+  }
 
-    /// Creates a sort, possibly in reverse, by the minimum value in the set for
-    /// the document.
-    ///
-    /// # Arguments
-    ///
-    /// * `field` - Name of the field to sort by. Must not be empty.
-    /// * `sort_field_type` - Type of values.
-    /// * `reverse` - `true` if natural order should be reversed.
-    pub fn with_reverse<T>(field: T, sort_field_type: SortFieldType, reverse: bool) -> Result<Self>
-    where
-        T: Into<String>,
-    {
-        Self::with_selector(
-            field,
-            sort_field_type,
-            reverse,
-            SortedNumericSelectorType::Min,
-        )
-    }
-    /// Creates a sort, possibly in reverse, specifying how the sort value from
-    /// the document's set is selected.
-    ///
-    /// # Arguments
-    ///
-    /// * `field` - Name of the field to sort by.
-    /// * `sort_field_type` - Type of values.
-    /// * `reverse` - `true` if natural order should be reversed.
-    /// * `selector` - Custom selector type for choosing the sort value from the
-    ///   set.
-    pub fn with_selector<T>(
-        field: T,
-        sort_field_type: SortFieldType,
-        reverse: bool,
-        selector: SortedNumericSelectorType,
-    ) -> Result<Self>
-    where
-        T: Into<String>,
-    {
-        let sort_field = SortField::with_reverse(Some(field), SortFieldType::Custom, reverse)?;
-        Ok(SortedNumericSortField {
-            selector,
-            base: sort_field,
-            type_: sort_field_type,
-        })
-    }
-    pub fn read_selector_type(
-        data_input: &mut impl DataInput,
-    ) -> Result<SortedNumericSelectorType> {
-        let selector_type = data_input.read_int()?;
+  /// Creates a sort, possibly in reverse, by the minimum value in the set for
+  /// the document.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Name of the field to sort by. Must not be empty.
+  /// * `sort_field_type` - Type of values.
+  /// * `reverse` - `true` if natural order should be reversed.
+  pub fn with_reverse<T>(field: T, sort_field_type: SortFieldType, reverse: bool) -> Result<Self>
+  where
+    T: Into<String>,
+  {
+    Self::with_selector(
+      field,
+      sort_field_type,
+      reverse,
+      SortedNumericSelectorType::Min,
+    )
+  }
+  /// Creates a sort, possibly in reverse, specifying how the sort value from
+  /// the document's set is selected.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Name of the field to sort by.
+  /// * `sort_field_type` - Type of values.
+  /// * `reverse` - `true` if natural order should be reversed.
+  /// * `selector` - Custom selector type for choosing the sort value from the
+  ///   set.
+  pub fn with_selector<T>(
+    field: T,
+    sort_field_type: SortFieldType,
+    reverse: bool,
+    selector: SortedNumericSelectorType,
+  ) -> Result<Self>
+  where
+    T: Into<String>,
+  {
+    let sort_field = SortField::with_reverse(Some(field), SortFieldType::Custom, reverse)?;
+    Ok(SortedNumericSortField {
+      selector,
+      base: sort_field,
+      type_: sort_field_type,
+    })
+  }
+  pub fn read_selector_type(data_input: &mut impl DataInput) -> Result<SortedNumericSelectorType> {
+    let selector_type = data_input.read_int()?;
 
-        match selector_type {
-            0 => Ok(SortedNumericSelectorType::Min),
-            1 => Ok(SortedNumericSelectorType::Max),
-            _ => Err(LuceneError::illegal_argument(format!(
-                "Cannot deserialize SortedNumericSortField - unknown selector type: {selector_type}"
-            ))),
-        }
+    match selector_type {
+      0 => Ok(SortedNumericSelectorType::Min),
+      1 => Ok(SortedNumericSelectorType::Max),
+      _ => Err(LuceneError::illegal_argument(format!(
+        "Cannot deserialize SortedNumericSortField - unknown selector type: {selector_type}"
+      ))),
     }
+  }
 
-    pub fn get_numeric_type(&self) -> SortFieldType {
-        self.type_
-    }
+  pub fn get_numeric_type(&self) -> SortFieldType {
+    self.type_
+  }
 }
 
 impl SortFiledBase for SortedNumericSortField {
-    fn set_missing_value<T>(&mut self, missing_value: T) -> Result<()>
-    where
-        T: Into<MissingValueEnum>,
-    {
-        self.base.missing_value = Some(missing_value.into());
-        Ok(())
+  fn set_missing_value<T>(&mut self, missing_value: T) -> Result<()>
+  where
+    T: Into<MissingValueEnum>,
+  {
+    self.base.missing_value = Some(missing_value.into());
+    Ok(())
+  }
+
+  fn needs_scores(&self) -> bool {
+    self.base.needs_scores()
+  }
+
+  type IndexSort = IndexSorterNumeric;
+
+  fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
+    debug_assert!(self.base.get_field().is_some());
+    let get_value = NPImpl2::new(
+      self.selector,
+      self.type_,
+      self
+        .base
+        .get_field()
+        .ok_or_else(|| LuceneError::illegal_state("field not available"))?
+        .to_string(),
+    );
+    match self.type_ {
+      SortFieldType::Int => Ok(Some(IndexSorterNumeric::Int(IntSorter::new(
+        NumericProvider::NAME.to_string(),
+        self.base.missing_value.clone(),
+        self.base.reverse,
+        get_value,
+      )?))),
+      SortFieldType::Long => Ok(Some(IndexSorterNumeric::Long(LongSorter::new(
+        NumericProvider::NAME.to_string(),
+        self.base.missing_value.clone(),
+        self.base.reverse,
+        get_value,
+      )?))),
+      SortFieldType::Double => Ok(Some(IndexSorterNumeric::Double(DoubleSorter::new(
+        NumericProvider::NAME.to_string(),
+        self.base.missing_value.clone(),
+        self.base.reverse,
+        get_value,
+      )?))),
+      SortFieldType::Float => Ok(Some(IndexSorterNumeric::Float(FloatSorter::new(
+        NumericProvider::NAME.to_string(),
+        self.base.missing_value.clone(),
+        self.base.reverse,
+        get_value,
+      )?))),
+      _ => Ok(None),
+    }
+  }
+
+  fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
+    debug_assert!(self.base.get_field().is_some());
+    out.write_string(
+      self
+        .base
+        .get_field()
+        .ok_or_else(|| LuceneError::illegal_state("field not available"))?,
+    )?;
+    out.write_string(&self.type_.to_string())?;
+    out.write_int(if self.base.reverse { 1 } else { 0 })?;
+    out.write_int(self.selector as i32)?;
+    if let Some(missing_value) = &self.base.missing_value {
+      out.write_int(1)?;
+      match self.type_ {
+        SortFieldType::Int => {
+          if let MissingValueEnum::Int(value) = missing_value {
+            out.write_int(*value)?;
+          } else {
+            return Err(LuceneError::illegal_state(
+              "Missing value type mismatch for INT.".to_string(),
+            ));
+          }
+        },
+        SortFieldType::Long => {
+          if let MissingValueEnum::Long(value) = missing_value {
+            out.write_long(*value)?;
+          } else {
+            return Err(LuceneError::illegal_state(
+              "Missing value type mismatch for LONG.".to_string(),
+            ));
+          }
+        },
+        SortFieldType::Float => {
+          if let MissingValueEnum::Float(value) = missing_value {
+            out.write_int(NumericUtils::float_to_sortable_int(*value))?;
+          } else {
+            return Err(LuceneError::illegal_state(
+              "Missing value type mismatch for FLOAT.".to_string(),
+            ));
+          }
+        },
+        SortFieldType::Double => {
+          if let MissingValueEnum::Double(value) = missing_value {
+            out.write_long(NumericUtils::double_to_sortable_long(*value))?;
+          } else {
+            return Err(LuceneError::illegal_state(
+              "Missing value type mismatch for DOUBLE.".to_string(),
+            ));
+          }
+        },
+        SortFieldType::Custom
+        | SortFieldType::Doc
+        | SortFieldType::Rewritable
+        | SortFieldType::StringVal
+        | SortFieldType::Score
+        | SortFieldType::String => {
+          return Err(LuceneError::illegal_state(format!(
+            "Cannot serialize field of type {:?}.",
+            self.type_
+          )));
+        },
+      }
+    } else {
+      out.write_int(0)?;
     }
 
-    fn needs_scores(&self) -> bool {
-        self.base.needs_scores()
+    Ok(())
+  }
+
+  type FieldComparator = FieldComparatorEnum;
+
+  fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator> {
+    // we can use sort optimization with points if selector is MIN or MAX,
+    // because we can still build successful iterator over points in this case.
+    let is_min_or_max = matches!(
+      self.selector,
+      SortedNumericSelectorType::Max | SortedNumericSelectorType::Min
+    );
+    let pruning = if is_min_or_max {
+      pruning
+    } else {
+      Pruning::None
+    };
+    let field = self
+      .base
+      .get_field()
+      .ok_or_else(|| LuceneError::illegal_state("field not available"))?
+      .to_string();
+    let reverse = self.base.reverse;
+    let mut field_comparator: FieldComparatorEnum = match self.type_ {
+      SortFieldType::Int => {
+        let missing = self.base.missing_value.as_ref().map(|v| v.as_i32());
+        let base = IntComparator::new(field, num_hits, missing, reverse, pruning);
+        SortedNumericIntComparator::new(base, self.selector, self.type_).into()
+      },
+
+      SortFieldType::Float => {
+        let missing = self.base.missing_value.as_ref().map(|v| v.as_f32());
+        let base = FloatComparator::new(field, num_hits, missing, reverse, pruning);
+        SortedNumericFloatComparator::new(base, self.selector, self.type_).into()
+      },
+
+      SortFieldType::Long => {
+        let missing = self.base.missing_value.as_ref().map(|v| v.as_i64());
+        let base = LongComparator::new(field, num_hits, missing, reverse, pruning);
+        SortedNumericLongComparator::new(base, self.selector, self.type_).into()
+      },
+
+      SortFieldType::Double => {
+        let missing = self.base.missing_value.as_ref().map(|v| v.as_f64());
+        let base = DoubleComparator::new(field, num_hits, missing, reverse, pruning);
+        SortedNumericDoubleComparator::new(base, self.selector, self.type_).into()
+      },
+      _ => {
+        return Err(LuceneError::illegal_state(format!(
+          "Cannot create comparator for type {:?}",
+          self.type_
+        )));
+      },
+    };
+    #[allow(deprecated)]
+    if !self.base.optimize_sort_with_indexed_data {
+      field_comparator.disable_skipping()
     }
-
-    type IndexSort = IndexSorterNumeric;
-
-    fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
-        debug_assert!(self.base.get_field().is_some());
-        let get_value = NPImpl2::new(
-            self.selector,
-            self.type_,
-            self.base
-                .get_field()
-                .ok_or_else(|| LuceneError::illegal_state("field not available"))?
-                .to_string(),
-        );
-        match self.type_ {
-            SortFieldType::Int => Ok(Some(IndexSorterNumeric::Int(IntSorter::new(
-                NumericProvider::NAME.to_string(),
-                self.base.missing_value.clone(),
-                self.base.reverse,
-                get_value,
-            )?))),
-            SortFieldType::Long => Ok(Some(IndexSorterNumeric::Long(LongSorter::new(
-                NumericProvider::NAME.to_string(),
-                self.base.missing_value.clone(),
-                self.base.reverse,
-                get_value,
-            )?))),
-            SortFieldType::Double => Ok(Some(IndexSorterNumeric::Double(DoubleSorter::new(
-                NumericProvider::NAME.to_string(),
-                self.base.missing_value.clone(),
-                self.base.reverse,
-                get_value,
-            )?))),
-            SortFieldType::Float => Ok(Some(IndexSorterNumeric::Float(FloatSorter::new(
-                NumericProvider::NAME.to_string(),
-                self.base.missing_value.clone(),
-                self.base.reverse,
-                get_value,
-            )?))),
-            _ => Ok(None),
-        }
-    }
-
-    fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
-        debug_assert!(self.base.get_field().is_some());
-        out.write_string(
-            self.base
-                .get_field()
-                .ok_or_else(|| LuceneError::illegal_state("field not available"))?,
-        )?;
-        out.write_string(&self.type_.to_string())?;
-        out.write_int(if self.base.reverse { 1 } else { 0 })?;
-        out.write_int(self.selector as i32)?;
-        if let Some(missing_value) = &self.base.missing_value {
-            out.write_int(1)?;
-            match self.type_ {
-                SortFieldType::Int => {
-                    if let MissingValueEnum::Int(value) = missing_value {
-                        out.write_int(*value)?;
-                    } else {
-                        return Err(LuceneError::illegal_state(
-                            "Missing value type mismatch for INT.".to_string(),
-                        ));
-                    }
-                },
-                SortFieldType::Long => {
-                    if let MissingValueEnum::Long(value) = missing_value {
-                        out.write_long(*value)?;
-                    } else {
-                        return Err(LuceneError::illegal_state(
-                            "Missing value type mismatch for LONG.".to_string(),
-                        ));
-                    }
-                },
-                SortFieldType::Float => {
-                    if let MissingValueEnum::Float(value) = missing_value {
-                        out.write_int(NumericUtils::float_to_sortable_int(*value))?;
-                    } else {
-                        return Err(LuceneError::illegal_state(
-                            "Missing value type mismatch for FLOAT.".to_string(),
-                        ));
-                    }
-                },
-                SortFieldType::Double => {
-                    if let MissingValueEnum::Double(value) = missing_value {
-                        out.write_long(NumericUtils::double_to_sortable_long(*value))?;
-                    } else {
-                        return Err(LuceneError::illegal_state(
-                            "Missing value type mismatch for DOUBLE.".to_string(),
-                        ));
-                    }
-                },
-                SortFieldType::Custom
-                | SortFieldType::Doc
-                | SortFieldType::Rewritable
-                | SortFieldType::StringVal
-                | SortFieldType::Score
-                | SortFieldType::String => {
-                    return Err(LuceneError::illegal_state(format!(
-                        "Cannot serialize field of type {:?}.",
-                        self.type_
-                    )));
-                },
-            }
-        } else {
-            out.write_int(0)?;
-        }
-
-        Ok(())
-    }
-
-    type FieldComparator = FieldComparatorEnum;
-
-    fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator> {
-        // we can use sort optimization with points if selector is MIN or MAX,
-        // because we can still build successful iterator over points in this case.
-        let is_min_or_max = matches!(
-            self.selector,
-            SortedNumericSelectorType::Max | SortedNumericSelectorType::Min
-        );
-        let pruning = if is_min_or_max {
-            pruning
-        } else {
-            Pruning::None
-        };
-        let field = self
-            .base
-            .get_field()
-            .ok_or_else(|| LuceneError::illegal_state("field not available"))?
-            .to_string();
-        let reverse = self.base.reverse;
-        let mut field_comparator: FieldComparatorEnum = match self.type_ {
-            SortFieldType::Int => {
-                let missing = self.base.missing_value.as_ref().map(|v| v.as_i32());
-                let base = IntComparator::new(field, num_hits, missing, reverse, pruning);
-                SortedNumericIntComparator::new(base, self.selector, self.type_).into()
-            },
-
-            SortFieldType::Float => {
-                let missing = self.base.missing_value.as_ref().map(|v| v.as_f32());
-                let base = FloatComparator::new(field, num_hits, missing, reverse, pruning);
-                SortedNumericFloatComparator::new(base, self.selector, self.type_).into()
-            },
-
-            SortFieldType::Long => {
-                let missing = self.base.missing_value.as_ref().map(|v| v.as_i64());
-                let base = LongComparator::new(field, num_hits, missing, reverse, pruning);
-                SortedNumericLongComparator::new(base, self.selector, self.type_).into()
-            },
-
-            SortFieldType::Double => {
-                let missing = self.base.missing_value.as_ref().map(|v| v.as_f64());
-                let base = DoubleComparator::new(field, num_hits, missing, reverse, pruning);
-                SortedNumericDoubleComparator::new(base, self.selector, self.type_).into()
-            },
-            _ => {
-                return Err(LuceneError::illegal_state(format!(
-                    "Cannot create comparator for type {:?}",
-                    self.type_
-                )));
-            },
-        };
-        #[allow(deprecated)]
-        if !self.base.optimize_sort_with_indexed_data {
-            field_comparator.disable_skipping()
-        }
-        Ok(field_comparator)
-    }
+    Ok(field_comparator)
+  }
 }
 impl Display for SortedNumericSortField {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut buffer = String::new();
-        let field = match self.base.get_field() {
-            Some(f) => f,
-            None => return Err(std::fmt::Error),
-        };
-        debug_assert!(self.base.get_field().is_some());
-        buffer.push_str(&format!("<sortednumeric: \"{}\">", field));
-        if self.base.reverse {
-            buffer.push('!');
-        }
-        if let Some(missing_value) = &self.base.missing_value {
-            buffer.push_str(&format!(" missingValue={missing_value}"));
-        }
-        buffer.push_str(&format!(" selector={:?}", self.selector));
-        buffer.push_str(&format!(" type={:?}", self.type_));
-        write!(f, "{buffer}")
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut buffer = String::new();
+    let field = match self.base.get_field() {
+      Some(f) => f,
+      None => return Err(std::fmt::Error),
+    };
+    debug_assert!(self.base.get_field().is_some());
+    buffer.push_str(&format!("<sortednumeric: \"{}\">", field));
+    if self.base.reverse {
+      buffer.push('!');
     }
+    if let Some(missing_value) = &self.base.missing_value {
+      buffer.push_str(&format!(" missingValue={missing_value}"));
+    }
+    buffer.push_str(&format!(" selector={:?}", self.selector));
+    buffer.push_str(&format!(" type={:?}", self.type_));
+    write!(f, "{buffer}")
+  }
 }
 impl Hash for SortedNumericSortField {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.type_.hash(state);
-        self.selector.hash(state);
-        self.base.hash(state);
-    }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.type_.hash(state);
+    self.selector.hash(state);
+    self.base.hash(state);
+  }
 }
 
 pub struct NumericProvider;
 impl NumericProvider {
-    /// The name this Provider is registered under.
-    pub const NAME: &'static str = "SortedNumericSortField";
+  /// The name this Provider is registered under.
+  pub const NAME: &'static str = "SortedNumericSortField";
 }
 impl SortFieldProvider for NumericProvider {
-    fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
-        let field_name = data_input.read_string()?;
-        let field_type = SortFieldType::read_type(data_input)?;
-        let reverse = data_input.read_int()? == 1;
-        let selector = SortedNumericSortField::read_selector_type(data_input)?;
-        let mut sorted_numeric_sort_field =
-            SortedNumericSortField::with_selector(field_name, field_type, reverse, selector)?;
-        let value = data_input.read_int()?;
-        if value == 1 {
-            match field_type {
-                SortFieldType::Int => {
-                    let missing_value = data_input.read_int()?;
-                    sorted_numeric_sort_field.set_missing_value(missing_value)?;
-                },
-                SortFieldType::Long => {
-                    let missing_value = data_input.read_long()?;
-                    sorted_numeric_sort_field.set_missing_value(missing_value)?;
-                },
-                SortFieldType::Float => {
-                    let missing_value = NumericUtils::sortable_int_to_float(data_input.read_int()?);
-                    sorted_numeric_sort_field.set_missing_value(missing_value)?;
-                },
-                SortFieldType::Double => {
-                    let missing_value =
-                        NumericUtils::sortable_long_to_double(data_input.read_long()?);
-                    sorted_numeric_sort_field.set_missing_value(missing_value)?;
-                },
-                SortFieldType::Custom
-                | SortFieldType::Doc
-                | SortFieldType::Rewritable
-                | SortFieldType::StringVal
-                | SortFieldType::Score
-                | SortFieldType::String => {
-                    return Err(LuceneError::illegal_state(format!(
-                        "Cannot deserialize sort of type {field_type:?}"
-                    )));
-                },
-            }
-        } else {
-            debug_assert!(value == 0);
-        }
-        Ok(sorted_numeric_sort_field.into())
+  fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
+    let field_name = data_input.read_string()?;
+    let field_type = SortFieldType::read_type(data_input)?;
+    let reverse = data_input.read_int()? == 1;
+    let selector = SortedNumericSortField::read_selector_type(data_input)?;
+    let mut sorted_numeric_sort_field =
+      SortedNumericSortField::with_selector(field_name, field_type, reverse, selector)?;
+    let value = data_input.read_int()?;
+    if value == 1 {
+      match field_type {
+        SortFieldType::Int => {
+          let missing_value = data_input.read_int()?;
+          sorted_numeric_sort_field.set_missing_value(missing_value)?;
+        },
+        SortFieldType::Long => {
+          let missing_value = data_input.read_long()?;
+          sorted_numeric_sort_field.set_missing_value(missing_value)?;
+        },
+        SortFieldType::Float => {
+          let missing_value = NumericUtils::sortable_int_to_float(data_input.read_int()?);
+          sorted_numeric_sort_field.set_missing_value(missing_value)?;
+        },
+        SortFieldType::Double => {
+          let missing_value = NumericUtils::sortable_long_to_double(data_input.read_long()?);
+          sorted_numeric_sort_field.set_missing_value(missing_value)?;
+        },
+        SortFieldType::Custom
+        | SortFieldType::Doc
+        | SortFieldType::Rewritable
+        | SortFieldType::StringVal
+        | SortFieldType::Score
+        | SortFieldType::String => {
+          return Err(LuceneError::illegal_state(format!(
+            "Cannot deserialize sort of type {field_type:?}"
+          )));
+        },
+      }
+    } else {
+      debug_assert!(value == 0);
     }
+    Ok(sorted_numeric_sort_field.into())
+  }
 
-    fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
-        sf.serialize(output)
-    }
+  fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
+    sf.serialize(output)
+  }
 }
 impl PartialEq for SortedNumericSortField {
-    fn eq(&self, other: &Self) -> bool {
-        if self.base != other.base {
-            return false;
-        }
-        self.selector == other.selector && self.type_ == other.type_
+  fn eq(&self, other: &Self) -> bool {
+    if self.base != other.base {
+      return false;
     }
+    self.selector == other.selector && self.type_ == other.type_
+  }
 }
 impl Eq for SortedNumericSortField {}
 
 pub struct NPImpl2 {
+  selector: SortedNumericSelectorType,
+  sort_field_type: SortFieldType,
+  field: String,
+}
+impl NPImpl2 {
+  pub fn new(
     selector: SortedNumericSelectorType,
     sort_field_type: SortFieldType,
     field: String,
-}
-impl NPImpl2 {
-    pub fn new(
-        selector: SortedNumericSelectorType,
-        sort_field_type: SortFieldType,
-        field: String,
-    ) -> Self {
-        Self {
-            selector,
-            sort_field_type,
-            field,
-        }
+  ) -> Self {
+    Self {
+      selector,
+      sort_field_type,
+      field,
     }
+  }
 }
 pub type NPImpl1Type<LR> = SortedNumericSelectorWrap<SortedNumeric<LR>>;
 impl NumericDocValuesProvider for NPImpl2 {
-    type NumericDocValues<LR>
-        = NPImpl1Type<LR>
-    where
-        LR: LeafReader;
+  type NumericDocValues<LR>
+    = NPImpl1Type<LR>
+  where
+    LR: LeafReader;
 
-    fn get<LR>(&self, leaf_reader: &LR) -> Result<Self::NumericDocValues<LR>>
-    where
-        LR: LeafReader,
-    {
-        SortedNumericSelector::wrap(
-            DocValues::get_sorted_numeric(leaf_reader, &self.field)?,
-            self.selector,
-            self.sort_field_type,
-        )
-    }
+  fn get<LR>(&self, leaf_reader: &LR) -> Result<Self::NumericDocValues<LR>>
+  where
+    LR: LeafReader,
+  {
+    SortedNumericSelector::wrap(
+      DocValues::get_sorted_numeric(leaf_reader, &self.field)?,
+      self.selector,
+      self.sort_field_type,
+    )
+  }
 }
 
 pub enum IndexSorterNumeric {
-    Int(IntSorter<NPImpl2>),
-    Long(LongSorter<NPImpl2>),
-    Double(DoubleSorter<NPImpl2>),
-    Float(FloatSorter<NPImpl2>),
+  Int(IntSorter<NPImpl2>),
+  Long(LongSorter<NPImpl2>),
+  Double(DoubleSorter<NPImpl2>),
+  Float(FloatSorter<NPImpl2>),
 }
 impl IndexSorter for IndexSorterNumeric {
-    fn get_provider_name(&self) -> &str {
-        match self {
-            IndexSorterNumeric::Int(i) => i.get_provider_name(),
-            IndexSorterNumeric::Long(l) => l.get_provider_name(),
-            IndexSorterNumeric::Double(d) => d.get_provider_name(),
-            IndexSorterNumeric::Float(f) => f.get_provider_name(),
-        }
+  fn get_provider_name(&self) -> &str {
+    match self {
+      IndexSorterNumeric::Int(i) => i.get_provider_name(),
+      IndexSorterNumeric::Long(l) => l.get_provider_name(),
+      IndexSorterNumeric::Double(d) => d.get_provider_name(),
+      IndexSorterNumeric::Float(f) => f.get_provider_name(),
     }
+  }
 
-    type ComparableProvider<LR>
-        = CPEnumType2<NPImpl2, LR>
-    where
-        LR: LeafReader;
+  type ComparableProvider<LR>
+    = CPEnumType2<NPImpl2, LR>
+  where
+    LR: LeafReader;
 
-    fn get_comparable_providers_per_reader<LR>(
-        &self,
-        reader: &LR,
-        reader_index: usize,
-        formated_missing_value: &MissingValueEnum,
-        _ordinal_map: Option<&OrdinalMap>,
-    ) -> Result<Self::ComparableProvider<LR>>
-    where
-        LR: LeafReader,
-    {
-        match self {
-            IndexSorterNumeric::Int(i) => Ok(ComparableProviderEnum4::Int(
-                i.get_comparable_providers_per_reader(
-                    reader,
-                    reader_index,
-                    formated_missing_value,
-                    None,
-                )?,
-            )),
-            IndexSorterNumeric::Long(l) => Ok(ComparableProviderEnum4::Long(
-                l.get_comparable_providers_per_reader(
-                    reader,
-                    reader_index,
-                    formated_missing_value,
-                    None,
-                )?,
-            )),
-            IndexSorterNumeric::Double(d) => Ok(ComparableProviderEnum4::Double(
-                d.get_comparable_providers_per_reader(
-                    reader,
-                    reader_index,
-                    formated_missing_value,
-                    None,
-                )?,
-            )),
-            IndexSorterNumeric::Float(f) => Ok(ComparableProviderEnum4::Float(
-                f.get_comparable_providers_per_reader(
-                    reader,
-                    reader_index,
-                    formated_missing_value,
-                    None,
-                )?,
-            )),
-        }
+  fn get_comparable_providers_per_reader<LR>(
+    &self,
+    reader: &LR,
+    reader_index: usize,
+    formated_missing_value: &MissingValueEnum,
+    _ordinal_map: Option<&OrdinalMap>,
+  ) -> Result<Self::ComparableProvider<LR>>
+  where
+    LR: LeafReader,
+  {
+    match self {
+      IndexSorterNumeric::Int(i) => Ok(ComparableProviderEnum4::Int(
+        i.get_comparable_providers_per_reader(reader, reader_index, formated_missing_value, None)?,
+      )),
+      IndexSorterNumeric::Long(l) => Ok(ComparableProviderEnum4::Long(
+        l.get_comparable_providers_per_reader(reader, reader_index, formated_missing_value, None)?,
+      )),
+      IndexSorterNumeric::Double(d) => Ok(ComparableProviderEnum4::Double(
+        d.get_comparable_providers_per_reader(reader, reader_index, formated_missing_value, None)?,
+      )),
+      IndexSorterNumeric::Float(f) => Ok(ComparableProviderEnum4::Float(
+        f.get_comparable_providers_per_reader(reader, reader_index, formated_missing_value, None)?,
+      )),
     }
+  }
 
-    fn get_missing_value(&self) -> MissingValueEnum {
-        match self {
-            IndexSorterNumeric::Int(i) => i.get_missing_value(),
-            IndexSorterNumeric::Long(l) => l.get_missing_value(),
-            IndexSorterNumeric::Double(d) => d.get_missing_value(),
-            IndexSorterNumeric::Float(f) => f.get_missing_value(),
-        }
+  fn get_missing_value(&self) -> MissingValueEnum {
+    match self {
+      IndexSorterNumeric::Int(i) => i.get_missing_value(),
+      IndexSorterNumeric::Long(l) => l.get_missing_value(),
+      IndexSorterNumeric::Double(d) => d.get_missing_value(),
+      IndexSorterNumeric::Float(f) => f.get_missing_value(),
     }
+  }
 
-    type DocComparator = DocComparatorImpl;
+  type DocComparator = DocComparatorImpl;
 
-    fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
-    where
-        LR: LeafReader,
-    {
-        match self {
-            IndexSorterNumeric::Int(i) => Ok(DocComparatorImpl::Int(
-                i.get_doc_comparator(leaf_reader, max_doc)?,
-            )),
-            IndexSorterNumeric::Long(l) => Ok(DocComparatorImpl::Long(
-                l.get_doc_comparator(leaf_reader, max_doc)?,
-            )),
-            IndexSorterNumeric::Double(d) => Ok(DocComparatorImpl::Double(
-                d.get_doc_comparator(leaf_reader, max_doc)?,
-            )),
-            IndexSorterNumeric::Float(f) => Ok(DocComparatorImpl::Float(
-                f.get_doc_comparator(leaf_reader, max_doc)?,
-            )),
-        }
+  fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
+  where
+    LR: LeafReader,
+  {
+    match self {
+      IndexSorterNumeric::Int(i) => Ok(DocComparatorImpl::Int(
+        i.get_doc_comparator(leaf_reader, max_doc)?,
+      )),
+      IndexSorterNumeric::Long(l) => Ok(DocComparatorImpl::Long(
+        l.get_doc_comparator(leaf_reader, max_doc)?,
+      )),
+      IndexSorterNumeric::Double(d) => Ok(DocComparatorImpl::Double(
+        d.get_doc_comparator(leaf_reader, max_doc)?,
+      )),
+      IndexSorterNumeric::Float(f) => Ok(DocComparatorImpl::Float(
+        f.get_doc_comparator(leaf_reader, max_doc)?,
+      )),
     }
+  }
 }
 macro_rules! impl_sorted_numeric_comparator {
-    ($name:ident, $base:ty, $leaf:ident) => {
-        pub struct $name {
-            pub(crate) base: $base,
-            selector: SortedNumericSelectorType,
-            type_: SortFieldType,
+  ($name:ident, $base:ty, $leaf:ident) => {
+    pub struct $name {
+      pub(crate) base: $base,
+      selector: SortedNumericSelectorType,
+      type_: SortFieldType,
+    }
+
+    impl $name {
+      pub fn new(base: $base, selector: SortedNumericSelectorType, type_: SortFieldType) -> Self {
+        Self {
+          base,
+          selector,
+          type_,
         }
+      }
+    }
 
-        impl $name {
-            pub fn new(
-                base: $base,
-                selector: SortedNumericSelectorType,
-                type_: SortFieldType,
-            ) -> Self {
-                Self {
-                    base,
-                    selector,
-                    type_,
-                }
-            }
-        }
+    impl FieldComparator for $name {
+      type V = <$base as FieldComparator>::V;
 
-        impl FieldComparator for $name {
-            type V = <$base as FieldComparator>::V;
+      fn compare(&self, slot1: usize, slot2: usize) -> i32 {
+        self.base.compare(slot1, slot2)
+      }
 
-            fn compare(&self, slot1: usize, slot2: usize) -> i32 {
-                self.base.compare(slot1, slot2)
-            }
+      fn set_top_value(&mut self, value: Self::V) {
+        self.base.set_top_value(value);
+      }
 
-            fn set_top_value(&mut self, value: Self::V) {
-                self.base.set_top_value(value);
-            }
+      fn value(&self, slot: usize) -> Option<Self::V> {
+        self.base.value(slot)
+      }
 
-            fn value(&self, slot: usize) -> Option<Self::V> {
-                self.base.value(slot)
-            }
+      type LeafFieldComparator<LR>
+        = <$base as FieldComparator>::LeafFieldComparator<LR>
+      where
+        LR: LeafReader;
 
-            type LeafFieldComparator<LR>
-                = <$base as FieldComparator>::LeafFieldComparator<LR>
-            where
-                LR: LeafReader;
+      fn get_leaf_comparator<LR>(
+        &mut self,
+        context: &LeafReaderContext<LR>,
+      ) -> Result<Self::LeafFieldComparator<LR>>
+      where
+        LR: LeafReader,
+      {
+        let selector_a = NumericLeafComparatorDocValues::<LR>::A(SortedNumericSelector::wrap(
+          DocValues::get_sorted_numeric(context.reader(), &self.base.base.field)?,
+          self.selector,
+          self.type_,
+        )?);
 
-            fn get_leaf_comparator<LR>(
-                &mut self,
-                context: &LeafReaderContext<LR>,
-            ) -> Result<Self::LeafFieldComparator<LR>>
-            where
-                LR: LeafReader,
-            {
-                let selector_a =
-                    NumericLeafComparatorDocValues::<LR>::A(SortedNumericSelector::wrap(
-                        DocValues::get_sorted_numeric(context.reader(), &self.base.base.field)?,
-                        self.selector,
-                        self.type_,
-                    )?);
+        let selector_b = NumericLeafComparatorDocValues::<LR>::A(SortedNumericSelector::wrap(
+          DocValues::get_sorted_numeric(context.reader(), &self.base.base.field)?,
+          self.selector,
+          self.type_,
+        )?);
 
-                let selector_b =
-                    NumericLeafComparatorDocValues::<LR>::A(SortedNumericSelector::wrap(
-                        DocValues::get_sorted_numeric(context.reader(), &self.base.base.field)?,
-                        self.selector,
-                        self.type_,
-                    )?);
+        $leaf::new(&mut self.base, context, Some(selector_a), Some(selector_b))
+      }
 
-                $leaf::new(&mut self.base, context, Some(selector_a), Some(selector_b))
-            }
+      fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+        self.base.compare_values(first, second)
+      }
 
-            fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
-                self.base.compare_values(first, second)
-            }
+      fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
+        self.base.fallback_compare(first, second)
+      }
 
-            fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
-                self.base.fallback_compare(first, second)
-            }
+      fn set_single_sort(&mut self) {
+        self.base.set_single_sort();
+      }
 
-            fn set_single_sort(&mut self) {
-                self.base.set_single_sort();
-            }
-
-            fn disable_skipping(&mut self) {
-                self.base.disable_skipping();
-            }
-        }
-    };
+      fn disable_skipping(&mut self) {
+        self.base.disable_skipping();
+      }
+    }
+  };
 }
 
 impl_sorted_numeric_comparator!(SortedNumericIntComparator, IntComparator, IntLeafComparator);
 impl_sorted_numeric_comparator!(
-    SortedNumericLongComparator,
-    LongComparator,
-    LongLeafComparator
+  SortedNumericLongComparator,
+  LongComparator,
+  LongLeafComparator
 );
 impl_sorted_numeric_comparator!(
-    SortedNumericFloatComparator,
-    FloatComparator,
-    FloatLeafComparator
+  SortedNumericFloatComparator,
+  FloatComparator,
+  FloatLeafComparator
 );
 impl_sorted_numeric_comparator!(
-    SortedNumericDoubleComparator,
-    DoubleComparator,
-    DoubleLeafComparator
+  SortedNumericDoubleComparator,
+  DoubleComparator,
+  DoubleLeafComparator
 );
 
 #[cfg(test)]
 mod tests {
-    use crate::core::document::document::Document;
-    use crate::core::document::double_field::DoubleField;
-    use crate::core::document::field::Store;
-    use crate::core::document::float_field::FloatField;
-    use crate::core::document::int_field::IntField;
-    use crate::core::document::string_field::StringField;
+  use crate::core::document::document::Document;
+  use crate::core::document::double_field::DoubleField;
+  use crate::core::document::field::Store;
+  use crate::core::document::float_field::FloatField;
+  use crate::core::document::int_field::IntField;
+  use crate::core::document::string_field::StringField;
 
-    use crate::core::index::multi_reader::MultiReader;
-    use crate::core::index::stored_fields::StoredFields;
-    use crate::core::index::term::Term;
-    use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-    use crate::core::search::sort::Sort;
-    use crate::core::search::sort_field::{SortFieldType, SortFiledBase};
-    use crate::core::search::sorted_numeric_selector::SortedNumericSelectorType;
-    use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
-    use crate::core::search::term_query::TermQuery;
-    use crate::core::search::top_docs::TopDocsLike;
-    use crate::core::util::CoreHelper;
-    use crate::core::util::error::lucene_error::Result;
-    use crate::test::core::index::random_index_writer::RandomIndexWriter;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_searcher_with_reader, random,
-    };
+  use crate::core::index::multi_reader::MultiReader;
+  use crate::core::index::stored_fields::StoredFields;
+  use crate::core::index::term::Term;
+  use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+  use crate::core::search::sort::Sort;
+  use crate::core::search::sort_field::{SortFieldType, SortFiledBase};
+  use crate::core::search::sorted_numeric_selector::SortedNumericSelectorType;
+  use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
+  use crate::core::search::term_query::TermQuery;
+  use crate::core::search::top_docs::TopDocsLike;
+  use crate::core::util::CoreHelper;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::index::random_index_writer::RandomIndexWriter;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    new_directory_shared, new_searcher_with_reader, random,
+  };
 
-    #[allow(dead_code)] // for quick search
-    struct TestSortedNumericSortField;
-    #[test]
-    fn test_empty_index() -> Result<()> {
-        let reader = MultiReader::empty()?;
-        let empty = new_searcher_with_reader(reader)?;
-        let query = TermQuery::new(Term::from_text("contents", "foo"));
+  #[allow(dead_code)] // for quick search
+  struct TestSortedNumericSortField;
+  #[test]
+  fn test_empty_index() -> Result<()> {
+    let reader = MultiReader::empty()?;
+    let empty = new_searcher_with_reader(reader)?;
+    let query = TermQuery::new(Term::from_text("contents", "foo"));
 
-        let sort = Sort::with_fields(vec![SortedNumericSortField::new(
-            "sortednumeric",
-            SortFieldType::Long,
-        )?])?;
-        let td = empty.search_with_sort_score(query.clone(), 10, sort, true)?;
-        assert_eq!(0, td.total_hits().value());
+    let sort = Sort::with_fields(vec![SortedNumericSortField::new(
+      "sortednumeric",
+      SortFieldType::Long,
+    )?])?;
+    let td = empty.search_with_sort_score(query.clone(), 10, sort, true)?;
+    assert_eq!(0, td.total_hits().value());
 
-        // for an empty index, any selector should work
-        for v in SortedNumericSelectorType::values() {
-            let sort = Sort::with_fields(vec![SortedNumericSortField::with_selector(
-                "sortednumeric",
-                SortFieldType::Long,
-                false,
-                *v,
-            )?])?;
-            let td = empty.search_with_sort_score(query.clone(), 10, sort, true)?;
-            assert_eq!(0, td.total_hits().value());
-        }
-
-        Ok(())
+    // for an empty index, any selector should work
+    for v in SortedNumericSelectorType::values() {
+      let sort = Sort::with_fields(vec![SortedNumericSortField::with_selector(
+        "sortednumeric",
+        SortFieldType::Long,
+        false,
+        *v,
+      )?])?;
+      let td = empty.search_with_sort_score(query.clone(), 10, sort, true)?;
+      assert_eq!(0, td.total_hits().value());
     }
 
-    #[test]
-    fn test_equals() -> Result<()> {
-        let sf = SortedNumericSortField::new("a", SortFieldType::Long)?;
-        assert!(sf == sf);
-
-        let sf2 = SortedNumericSortField::new("a", SortFieldType::Long)?;
-        assert!(sf == sf2);
-        assert_eq!(
-            CoreHelper::calculate_hash(&sf),
-            CoreHelper::calculate_hash(&sf2)
-        );
-
-        assert!(sf != SortedNumericSortField::with_reverse("a", SortFieldType::Long, true)?);
-        assert!(sf != SortedNumericSortField::new("a", SortFieldType::Float)?);
-        assert!(sf != SortedNumericSortField::new("b", SortFieldType::Long)?);
-
-        assert!(
-            sf != SortedNumericSortField::with_selector(
-                "a",
-                SortFieldType::Long,
-                false,
-                SortedNumericSelectorType::Max,
-            )?
-        );
-
-        Ok(())
-    }
-    #[test]
-    fn test_forward() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-
-        let mut doc = Document::new();
-        doc.add(IntField::new("value", 5, Store::No)?);
-        doc.add(StringField::from_string("id", "2", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        // doc2
-        let mut doc = Document::new();
-        doc.add(IntField::new("value", 3, Store::No)?);
-        doc.add(IntField::new("value", 7, Store::No)?);
-        doc.add(StringField::from_string("id", "1", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_reader(reader)?;
-        let sort = Sort::with_fields(vec![SortedNumericSortField::new(
-            "value",
-            SortFieldType::Int,
-        )?])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(2, td.total_hits().value());
-
-        // 3 comes before 5
-        let doc0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!("1", doc0.get("id")?.unwrap().as_ref());
-
-        let doc1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!("2", doc1.get("id")?.unwrap().as_ref());
-
-        Ok(())
-    }
-    #[test]
-    fn test_reverse() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-
-        let mut doc = Document::new();
-        doc.add(IntField::new("value", 3, Store::No)?);
-        doc.add(IntField::new("value", 7, Store::No)?);
-        doc.add(StringField::from_string("id", "1", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let mut doc = Document::new();
-        doc.add(IntField::new("value", 5, Store::No)?);
-        doc.add(StringField::from_string("id", "2", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_reader(reader)?;
-        let sort = Sort::with_fields(vec![SortedNumericSortField::with_reverse(
-            "value",
-            SortFieldType::Int,
-            true,
-        )?])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(2, td.total_hits().value());
-
-        let doc0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!("2", doc0.get("id")?.unwrap().as_ref());
-
-        let doc1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!("1", doc1.get("id")?.unwrap().as_ref());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_missing_first() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-
-        let mut doc = Document::new();
-        doc.add(IntField::new("value", 5, Store::No)?);
-        doc.add(StringField::from_string("id", "2", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let mut doc = Document::new();
-        doc.add(IntField::new("value", 3, Store::No)?);
-        doc.add(IntField::new("value", 7, Store::No)?);
-        doc.add(StringField::from_string("id", "1", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let mut doc = Document::new();
-        doc.add(StringField::from_string("id", "3", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_reader(reader)?;
-
-        let mut sort_field = SortedNumericSortField::new("value", SortFieldType::Int)?;
-        sort_field.set_missing_value(i32::MIN)?;
-        let sort = Sort::with_fields(vec![sort_field])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(3, td.total_hits().value());
-
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!("3", d0.get("id")?.unwrap().as_ref());
-
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!("1", d1.get("id")?.unwrap().as_ref());
-
-        let d2 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[2].doc())?;
-        assert_eq!("2", d2.get("id")?.unwrap().as_ref());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_missing_last() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-
-        let mut doc = Document::new();
-        doc.add(IntField::new("value", 5, Store::No)?);
-        doc.add(StringField::from_string("id", "2", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let mut doc = Document::new();
-        doc.add(IntField::new("value", 3, Store::No)?);
-        doc.add(IntField::new("value", 7, Store::No)?);
-        doc.add(StringField::from_string("id", "1", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let mut doc = Document::new();
-        doc.add(StringField::from_string("id", "3", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_reader(reader)?;
-
-        let mut sort_field = SortedNumericSortField::new("value", SortFieldType::Int)?;
-        sort_field.set_missing_value(i32::MAX)?;
-        let sort = Sort::with_fields(vec![sort_field])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(3, td.total_hits().value());
-
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!("1", d0.get("id")?.unwrap().as_ref());
-
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!("2", d1.get("id")?.unwrap().as_ref());
-
-        let d2 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[2].doc())?;
-        assert_eq!("3", d2.get("id")?.unwrap().as_ref());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_singleton() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-
-        // doc1
-        let mut doc = Document::new();
-        doc.add(IntField::new("value", 5, Store::No)?);
-        doc.add(StringField::from_string("id", "2", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        // doc2
-        let mut doc = Document::new();
-        doc.add(IntField::new("value", 3, Store::No)?);
-        doc.add(StringField::from_string("id", "1", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_reader(reader)?;
-        let sort = Sort::with_fields(vec![SortedNumericSortField::new(
-            "value",
-            SortFieldType::Int,
-        )?])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(2, td.total_hits().value());
-
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!("1", d0.get("id")?.unwrap().as_ref());
-
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!("2", d1.get("id")?.unwrap().as_ref());
-
-        Ok(())
-    }
-    #[test]
-    fn test_float() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-
-        let mut doc = Document::new();
-        doc.add(FloatField::new("value", -3f32, Store::No)?);
-        doc.add(StringField::from_string("id", "2", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let mut doc = Document::new();
-        doc.add(FloatField::new("value", -5f32, Store::No)?);
-        doc.add(FloatField::new("value", 7f32, Store::No)?);
-        doc.add(StringField::from_string("id", "1", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_reader(reader)?;
-        let sort = Sort::with_fields(vec![SortedNumericSortField::new(
-            "value",
-            SortFieldType::Float,
-        )?])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(2, td.total_hits().value());
-
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!("1", d0.get("id")?.unwrap().as_ref());
-
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!("2", d1.get("id")?.unwrap().as_ref());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_double() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-
-        let mut doc = Document::new();
-        doc.add(DoubleField::new("value", -3f64, Store::Yes)?);
-        doc.add(StringField::from_string("id", "2", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let mut doc = Document::new();
-        doc.add(DoubleField::new("value", -5f64, Store::Yes)?);
-        doc.add(DoubleField::new("value", 7f64, Store::Yes)?);
-        doc.add(StringField::from_string("id", "1", Store::Yes)?);
-        writer.add_document(doc)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_reader(reader)?;
-        let sort = Sort::with_fields(vec![SortedNumericSortField::new(
-            "value",
-            SortFieldType::Double,
-        )?])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(2, td.total_hits().value());
-
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!("1", d0.get("id")?.unwrap().as_ref());
-
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!("2", d1.get("id")?.unwrap().as_ref());
-
-        Ok(())
-    }
+    Ok(())
+  }
+
+  #[test]
+  fn test_equals() -> Result<()> {
+    let sf = SortedNumericSortField::new("a", SortFieldType::Long)?;
+    assert!(sf == sf);
+
+    let sf2 = SortedNumericSortField::new("a", SortFieldType::Long)?;
+    assert!(sf == sf2);
+    assert_eq!(
+      CoreHelper::calculate_hash(&sf),
+      CoreHelper::calculate_hash(&sf2)
+    );
+
+    assert!(sf != SortedNumericSortField::with_reverse("a", SortFieldType::Long, true)?);
+    assert!(sf != SortedNumericSortField::new("a", SortFieldType::Float)?);
+    assert!(sf != SortedNumericSortField::new("b", SortFieldType::Long)?);
+
+    assert!(
+      sf != SortedNumericSortField::with_selector(
+        "a",
+        SortFieldType::Long,
+        false,
+        SortedNumericSelectorType::Max,
+      )?
+    );
+
+    Ok(())
+  }
+  #[test]
+  fn test_forward() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+    doc.add(IntField::new("value", 5, Store::No)?);
+    doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    // doc2
+    let mut doc = Document::new();
+    doc.add(IntField::new("value", 3, Store::No)?);
+    doc.add(IntField::new("value", 7, Store::No)?);
+    doc.add(StringField::from_string("id", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_reader(reader)?;
+    let sort = Sort::with_fields(vec![SortedNumericSortField::new(
+      "value",
+      SortFieldType::Int,
+    )?])?;
+
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(2, td.total_hits().value());
+
+    // 3 comes before 5
+    let doc0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!("1", doc0.get("id")?.unwrap().as_ref());
+
+    let doc1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!("2", doc1.get("id")?.unwrap().as_ref());
+
+    Ok(())
+  }
+  #[test]
+  fn test_reverse() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+    doc.add(IntField::new("value", 3, Store::No)?);
+    doc.add(IntField::new("value", 7, Store::No)?);
+    doc.add(StringField::from_string("id", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(IntField::new("value", 5, Store::No)?);
+    doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_reader(reader)?;
+    let sort = Sort::with_fields(vec![SortedNumericSortField::with_reverse(
+      "value",
+      SortFieldType::Int,
+      true,
+    )?])?;
+
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(2, td.total_hits().value());
+
+    let doc0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!("2", doc0.get("id")?.unwrap().as_ref());
+
+    let doc1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!("1", doc1.get("id")?.unwrap().as_ref());
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_missing_first() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+    doc.add(IntField::new("value", 5, Store::No)?);
+    doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(IntField::new("value", 3, Store::No)?);
+    doc.add(IntField::new("value", 7, Store::No)?);
+    doc.add(StringField::from_string("id", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "3", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let mut sort_field = SortedNumericSortField::new("value", SortFieldType::Int)?;
+    sort_field.set_missing_value(i32::MIN)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(3, td.total_hits().value());
+
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!("3", d0.get("id")?.unwrap().as_ref());
+
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!("1", d1.get("id")?.unwrap().as_ref());
+
+    let d2 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[2].doc())?;
+    assert_eq!("2", d2.get("id")?.unwrap().as_ref());
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_missing_last() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+    doc.add(IntField::new("value", 5, Store::No)?);
+    doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(IntField::new("value", 3, Store::No)?);
+    doc.add(IntField::new("value", 7, Store::No)?);
+    doc.add(StringField::from_string("id", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "3", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let mut sort_field = SortedNumericSortField::new("value", SortFieldType::Int)?;
+    sort_field.set_missing_value(i32::MAX)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(3, td.total_hits().value());
+
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!("1", d0.get("id")?.unwrap().as_ref());
+
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!("2", d1.get("id")?.unwrap().as_ref());
+
+    let d2 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[2].doc())?;
+    assert_eq!("3", d2.get("id")?.unwrap().as_ref());
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_singleton() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+    // doc1
+    let mut doc = Document::new();
+    doc.add(IntField::new("value", 5, Store::No)?);
+    doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    // doc2
+    let mut doc = Document::new();
+    doc.add(IntField::new("value", 3, Store::No)?);
+    doc.add(StringField::from_string("id", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_reader(reader)?;
+    let sort = Sort::with_fields(vec![SortedNumericSortField::new(
+      "value",
+      SortFieldType::Int,
+    )?])?;
+
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(2, td.total_hits().value());
+
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!("1", d0.get("id")?.unwrap().as_ref());
+
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!("2", d1.get("id")?.unwrap().as_ref());
+
+    Ok(())
+  }
+  #[test]
+  fn test_float() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+    doc.add(FloatField::new("value", -3f32, Store::No)?);
+    doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(FloatField::new("value", -5f32, Store::No)?);
+    doc.add(FloatField::new("value", 7f32, Store::No)?);
+    doc.add(StringField::from_string("id", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_reader(reader)?;
+    let sort = Sort::with_fields(vec![SortedNumericSortField::new(
+      "value",
+      SortFieldType::Float,
+    )?])?;
+
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(2, td.total_hits().value());
+
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!("1", d0.get("id")?.unwrap().as_ref());
+
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!("2", d1.get("id")?.unwrap().as_ref());
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_double() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+    doc.add(DoubleField::new("value", -3f64, Store::Yes)?);
+    doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(DoubleField::new("value", -5f64, Store::Yes)?);
+    doc.add(DoubleField::new("value", 7f64, Store::Yes)?);
+    doc.add(StringField::from_string("id", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_reader(reader)?;
+    let sort = Sort::with_fields(vec![SortedNumericSortField::new(
+      "value",
+      SortFieldType::Double,
+    )?])?;
+
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(2, td.total_hits().value());
+
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!("1", d0.get("id")?.unwrap().as_ref());
+
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!("2", d1.get("id")?.unwrap().as_ref());
+
+    Ok(())
+  }
 }

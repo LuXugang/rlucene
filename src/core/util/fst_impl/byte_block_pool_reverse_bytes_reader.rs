@@ -24,72 +24,72 @@ use crate::core::util::{ByteBlockPool, TryIntoInt};
 
 /// Reads in reverse from a ByteBlockPool.
 pub struct ByteBlockPoolReverseBytesReader {
-    pub(crate) buf: ByteBlockPool,
-    // the difference between the FST node address and the hash table copied
-    // node address
-    pos_delta: usize,
-    pos: usize,
+  pub(crate) buf: ByteBlockPool,
+  // the difference between the FST node address and the hash table copied
+  // node address
+  pos_delta: usize,
+  pos: usize,
 }
 impl ByteBlockPoolReverseBytesReader {
-    pub fn new(buf: ByteBlockPool) -> Self {
-        Self {
-            buf,
-            pos_delta: 0,
-            pos: 0,
-        }
+  pub fn new(buf: ByteBlockPool) -> Self {
+    Self {
+      buf,
+      pos_delta: 0,
+      pos: 0,
     }
-    pub fn set_pos_delta(&mut self, pos_delta: usize) {
-        self.pos_delta = pos_delta;
-    }
+  }
+  pub fn set_pos_delta(&mut self, pos_delta: usize) {
+    self.pos_delta = pos_delta;
+  }
 }
 
 impl DataInput for ByteBlockPoolReverseBytesReader {
-    fn read_byte(&mut self) -> Result<u8> {
-        let b = self.buf.read_byte(self.pos);
-        if self.pos > 0 {
-            self.pos -= 1;
-        }
-        Ok(b)
+  fn read_byte(&mut self) -> Result<u8> {
+    let b = self.buf.read_byte(self.pos);
+    if self.pos > 0 {
+      self.pos -= 1;
     }
+    Ok(b)
+  }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
-        for i in 0..len {
-            b[offset + i] = self.buf.read_byte(self.pos);
-            if self.pos > 0 {
-                self.pos -= 1;
-            }
-        }
-        Ok(())
+  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    for i in 0..len {
+      b[offset + i] = self.buf.read_byte(self.pos);
+      if self.pos > 0 {
+        self.pos -= 1;
+      }
     }
+    Ok(())
+  }
 
-    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
-    }
+  fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+    GroupVIntUtil::read_group_vint_i32(self, dst, offset)
+  }
 
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-        let num_bytes = num_bytes.try_convert()?;
-        self.pos = self.pos.checked_sub(num_bytes).ok_or_else(|| {
-            LuceneError::illegal_state(format!(
-                "underflow pos {}, num_bytes {}",
-                self.pos, num_bytes
-            ))
-        })?;
-        Ok(())
-    }
+  fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+    let num_bytes = num_bytes.try_convert()?;
+    self.pos = self.pos.checked_sub(num_bytes).ok_or_else(|| {
+      LuceneError::illegal_state(format!(
+        "underflow pos {}, num_bytes {}",
+        self.pos, num_bytes
+      ))
+    })?;
+    Ok(())
+  }
 }
 
 impl Display for ByteBlockPoolReverseBytesReader {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }
 
 impl BytesReader for ByteBlockPoolReverseBytesReader {
-    fn get_position(&self) -> usize {
-        self.pos + self.pos_delta
-    }
+  fn get_position(&self) -> usize {
+    self.pos + self.pos_delta
+  }
 
-    fn set_position(&mut self, pos: usize) {
-        self.pos = pos - self.pos_delta;
-    }
+  fn set_position(&mut self, pos: usize) {
+    self.pos = pos - self.pos_delta;
+  }
 }

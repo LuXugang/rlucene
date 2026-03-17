@@ -42,324 +42,324 @@ use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 /// **updates are not thread-safe**. The search method optionally takes a set of
 /// *accepted nodes*, which can be used to exclude deleted documents.
 pub trait HnswGraph {
-    /// Move the pointer to exactly the given `level`'s `target`.
-    ///
-    /// After this method returns, call [`next_neighbor()`](Self::next_neighbor)
-    /// to return successive (ordered) connected node ordinals.
-    ///
-    /// - `level`: the level of the graph.
-    /// - `target`: the ordinal of a node in the graph; must be `>= 0` and `<
-    ///   [FloatVectorValues::size()]`.
-    fn seek(&mut self, level: usize, target: usize) -> Result<()>;
-    /// Returns the number of nodes in the graph
-    fn size(&self) -> usize;
-    /// Returns max node id, inclusive. Normally this value will be size - 1.
-    fn max_node_id(&self) -> Option<usize> {
-        Some(self.size() - 1)
-    }
-    /// Iterates over the neighbor list.
-    ///
-    /// It is illegal to call this method after it returns `NO_MORE_DOCS`
-    /// without calling [`seek(level, target)`](Self::seek), which resets the
-    /// iterator.
-    ///
-    /// # Returns
-    ///
-    /// A node ordinal in the graph, or `NO_MORE_DOCS` if the iteration is
-    /// complete.
-    fn next_neighbor(&mut self) -> Result<usize>;
-    /// Returns the number of levels of the graph
-    fn num_levels(&self) -> Result<usize>;
-    /// Returns graph's entry point on the top level *
-    fn entry_node(&self) -> Result<Option<usize>>;
-    type NodeIterator: NodesIterator;
-    /// Get all nodes on a given level as node 0th ordinals.
-    ///
-    /// The nodes are **NOT** guaranteed to be presented in any particular
-    /// order.
-    ///
-    /// # Arguments
-    ///
-    /// * `level` - Level for which to get all nodes.
-    ///
-    /// # Returns
-    ///
-    /// An iterator over nodes where `next_int()` returns the next node on the
-    /// level.
-    fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator>;
+  /// Move the pointer to exactly the given `level`'s `target`.
+  ///
+  /// After this method returns, call [`next_neighbor()`](Self::next_neighbor)
+  /// to return successive (ordered) connected node ordinals.
+  ///
+  /// - `level`: the level of the graph.
+  /// - `target`: the ordinal of a node in the graph; must be `>= 0` and `<
+  ///   [FloatVectorValues::size()]`.
+  fn seek(&mut self, level: usize, target: usize) -> Result<()>;
+  /// Returns the number of nodes in the graph
+  fn size(&self) -> usize;
+  /// Returns max node id, inclusive. Normally this value will be size - 1.
+  fn max_node_id(&self) -> Option<usize> {
+    Some(self.size() - 1)
+  }
+  /// Iterates over the neighbor list.
+  ///
+  /// It is illegal to call this method after it returns `NO_MORE_DOCS`
+  /// without calling [`seek(level, target)`](Self::seek), which resets the
+  /// iterator.
+  ///
+  /// # Returns
+  ///
+  /// A node ordinal in the graph, or `NO_MORE_DOCS` if the iteration is
+  /// complete.
+  fn next_neighbor(&mut self) -> Result<usize>;
+  /// Returns the number of levels of the graph
+  fn num_levels(&self) -> Result<usize>;
+  /// Returns graph's entry point on the top level *
+  fn entry_node(&self) -> Result<Option<usize>>;
+  type NodeIterator: NodesIterator;
+  /// Get all nodes on a given level as node 0th ordinals.
+  ///
+  /// The nodes are **NOT** guaranteed to be presented in any particular
+  /// order.
+  ///
+  /// # Arguments
+  ///
+  /// * `level` - Level for which to get all nodes.
+  ///
+  /// # Returns
+  ///
+  /// An iterator over nodes where `next_int()` returns the next node on the
+  /// level.
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator>;
 }
 pub struct EmptyHnswGraph;
 impl HnswGraph for EmptyHnswGraph {
-    fn seek(&mut self, _level: usize, _target: usize) -> Result<()> {
-        Ok(())
-    }
+  fn seek(&mut self, _level: usize, _target: usize) -> Result<()> {
+    Ok(())
+  }
 
-    fn size(&self) -> usize {
-        0
-    }
+  fn size(&self) -> usize {
+    0
+  }
 
-    fn next_neighbor(&mut self) -> Result<usize> {
-        Ok(NO_MORE_DOCS as usize)
-    }
+  fn next_neighbor(&mut self) -> Result<usize> {
+    Ok(NO_MORE_DOCS as usize)
+  }
 
-    fn num_levels(&self) -> Result<usize> {
-        Ok(0)
-    }
+  fn num_levels(&self) -> Result<usize> {
+    Ok(0)
+  }
 
-    fn entry_node(&self) -> Result<Option<usize>> {
-        Ok(Some(0))
-    }
+  fn entry_node(&self) -> Result<Option<usize>> {
+    Ok(Some(0))
+  }
 
-    type NodeIterator = ArrayNodesIterator;
+  type NodeIterator = ArrayNodesIterator;
 
-    fn get_nodes_on_level(&mut self, _level: usize) -> Result<Self::NodeIterator> {
-        Ok(ArrayNodesIterator::empty())
-    }
+  fn get_nodes_on_level(&mut self, _level: usize) -> Result<Self::NodeIterator> {
+    Ok(ArrayNodesIterator::empty())
+  }
 }
 /// Iterator over the graph nodes on a certain level. Iterator also provides the
 /// size – the total number of nodes to be iterated over. The nodes are NOT
 /// guaranteed to be presented in any  particular order.
 pub trait NodesIterator: Iterator<Item = usize> {
-    ///  The number of elements in this iterator
-    fn size(&self) -> usize;
-    /// Consume integers from the iterator and place them into the `dest` array.
-    ///
-    /// # Arguments
-    ///
-    /// * `dest` - Where to put the integers.
-    ///
-    /// # Returns
-    ///
-    /// The number of integers written to `dest`.
-    fn consume(&mut self, dest: &mut [usize]) -> Option<usize>;
+  ///  The number of elements in this iterator
+  fn size(&self) -> usize;
+  /// Consume integers from the iterator and place them into the `dest` array.
+  ///
+  /// # Arguments
+  ///
+  /// * `dest` - Where to put the integers.
+  ///
+  /// # Returns
+  ///
+  /// The number of integers written to `dest`.
+  fn consume(&mut self, dest: &mut [usize]) -> Option<usize>;
 
-    fn get_sorted_nodes<I: NodesIterator>(nodes: &mut I) -> Vec<usize> {
-        let mut sorted = Vec::with_capacity(nodes.size());
-        for v in nodes.by_ref() {
-            sorted.push(v);
-        }
-        sorted.sort_unstable();
-        sorted
+  fn get_sorted_nodes<I: NodesIterator>(nodes: &mut I) -> Vec<usize> {
+    let mut sorted = Vec::with_capacity(nodes.size());
+    for v in nodes.by_ref() {
+      sorted.push(v);
     }
-    fn has_next(&self) -> bool;
+    sorted.sort_unstable();
+    sorted
+  }
+  fn has_next(&self) -> bool;
 }
 /// NodesIterator that accepts nodes as an integer array.
 pub struct ArrayNodesIterator {
-    nodes: Option<Vec<usize>>,
-    cur: usize,
-    size: usize,
+  nodes: Option<Vec<usize>>,
+  cur: usize,
+  size: usize,
 }
 
 impl ArrayNodesIterator {
-    /// Constructor for explicit node list (with partial length).
-    pub fn from_nodes(nodes: Option<Vec<usize>>, size: usize) -> Self {
-        debug_assert!(nodes.is_some());
-        debug_assert!(size <= nodes.as_ref().unwrap().len());
-        Self {
-            nodes,
-            cur: 0,
-            size,
-        }
+  /// Constructor for explicit node list (with partial length).
+  pub fn from_nodes(nodes: Option<Vec<usize>>, size: usize) -> Self {
+    debug_assert!(nodes.is_some());
+    debug_assert!(size <= nodes.as_ref().unwrap().len());
+    Self {
+      nodes,
+      cur: 0,
+      size,
     }
+  }
 
-    /// Constructor for implicit index-based iteration (0..size).
-    pub fn from_size(size: usize) -> Self {
-        Self {
-            nodes: None,
-            cur: 0,
-            size,
-        }
+  /// Constructor for implicit index-based iteration (0..size).
+  pub fn from_size(size: usize) -> Self {
+    Self {
+      nodes: None,
+      cur: 0,
+      size,
     }
+  }
 
-    /// Shared empty singleton.
-    pub fn empty() -> Self {
-        Self::from_size(0)
-    }
+  /// Shared empty singleton.
+  pub fn empty() -> Self {
+    Self::from_size(0)
+  }
 }
 
 impl Iterator for ArrayNodesIterator {
-    type Item = usize;
+  type Item = usize;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if !self.has_next() {
-            None
-        } else {
-            let value = match &self.nodes {
-                Some(vec) => vec[self.cur],
-                None => self.cur,
-            };
-            self.cur += 1;
-            Some(value)
-        }
+  fn next(&mut self) -> Option<Self::Item> {
+    if !self.has_next() {
+      None
+    } else {
+      let value = match &self.nodes {
+        Some(vec) => vec[self.cur],
+        None => self.cur,
+      };
+      self.cur += 1;
+      Some(value)
     }
+  }
 }
 
 impl NodesIterator for ArrayNodesIterator {
-    fn size(&self) -> usize {
-        self.size
-    }
+  fn size(&self) -> usize {
+    self.size
+  }
 
-    fn consume(&mut self, dest: &mut [usize]) -> Option<usize> {
-        if !self.has_next() {
-            return None;
-        }
-        let num_to_copy = std::cmp::min(dest.len(), self.size - self.cur);
-        match &self.nodes {
-            Some(vec) => {
-                dest.copy_from(&vec[self.cur..self.cur + num_to_copy], 0);
-                self.cur += num_to_copy;
-                Some(num_to_copy)
-            },
-            None => {
-                for (i, slot) in dest.iter_mut().enumerate().take(num_to_copy) {
-                    *slot = self.cur + i;
-                }
-                Some(num_to_copy)
-            },
-        }
+  fn consume(&mut self, dest: &mut [usize]) -> Option<usize> {
+    if !self.has_next() {
+      return None;
     }
+    let num_to_copy = std::cmp::min(dest.len(), self.size - self.cur);
+    match &self.nodes {
+      Some(vec) => {
+        dest.copy_from(&vec[self.cur..self.cur + num_to_copy], 0);
+        self.cur += num_to_copy;
+        Some(num_to_copy)
+      },
+      None => {
+        for (i, slot) in dest.iter_mut().enumerate().take(num_to_copy) {
+          *slot = self.cur + i;
+        }
+        Some(num_to_copy)
+      },
+    }
+  }
 
-    fn has_next(&self) -> bool {
-        self.cur < self.size
-    }
+  fn has_next(&self) -> bool {
+    self.cur < self.size
+  }
 }
 
 /// Nodes iterator based on set representation of nodes.
 pub struct CollectionNodesIterator {
-    nodes: Arc<Option<Vec<usize>>>,
-    index: usize,
-    size: usize,
+  nodes: Arc<Option<Vec<usize>>>,
+  index: usize,
+  size: usize,
 }
 
 impl CollectionNodesIterator {
-    /// Constructs a new iterator from a collection of nodes.
-    pub fn new(nodes: Arc<Option<Vec<usize>>>) -> Self {
-        let size = nodes.as_ref().as_ref().map_or(0, |v| v.len());
-        Self {
-            nodes,
-            index: 0,
-            size,
-        }
+  /// Constructs a new iterator from a collection of nodes.
+  pub fn new(nodes: Arc<Option<Vec<usize>>>) -> Self {
+    let size = nodes.as_ref().as_ref().map_or(0, |v| v.len());
+    Self {
+      nodes,
+      index: 0,
+      size,
     }
+  }
 }
 
 impl Iterator for CollectionNodesIterator {
-    type Item = usize;
+  type Item = usize;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.size == 0 {
-            return None;
-        }
-        let vec = self.nodes.as_ref().as_ref()?;
-        if self.index < vec.len() {
-            let val = vec[self.index];
-            self.index += 1;
-            Some(val)
-        } else {
-            None
-        }
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.size == 0 {
+      return None;
     }
+    let vec = self.nodes.as_ref().as_ref()?;
+    if self.index < vec.len() {
+      let val = vec[self.index];
+      self.index += 1;
+      Some(val)
+    } else {
+      None
+    }
+  }
 }
 
 impl NodesIterator for CollectionNodesIterator {
-    fn size(&self) -> usize {
-        self.size
-    }
+  fn size(&self) -> usize {
+    self.size
+  }
 
-    fn consume(&mut self, dest: &mut [usize]) -> Option<usize> {
-        if !self.has_next() {
-            return None;
-        }
-        let mut dest_index = 0;
-        while self.has_next() && dest_index < dest.len() {
-            dest[dest_index] = self.next().unwrap();
-            dest_index += 1;
-        }
-        Some(dest_index)
+  fn consume(&mut self, dest: &mut [usize]) -> Option<usize> {
+    if !self.has_next() {
+      return None;
     }
+    let mut dest_index = 0;
+    while self.has_next() && dest_index < dest.len() {
+      dest[dest_index] = self.next().unwrap();
+      dest_index += 1;
+    }
+    Some(dest_index)
+  }
 
-    fn has_next(&self) -> bool {
-        self.index < self.size
-    }
+  fn has_next(&self) -> bool {
+    self.index < self.size
+  }
 }
 pub enum NodesIteratorEnums {
-    Array(ArrayNodesIterator),
-    Collection(CollectionNodesIterator),
+  Array(ArrayNodesIterator),
+  Collection(CollectionNodesIterator),
 }
 
 impl Iterator for NodesIteratorEnums {
-    type Item = usize;
+  type Item = usize;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            NodesIteratorEnums::Array(iter) => iter.next(),
-            NodesIteratorEnums::Collection(iter) => iter.next(),
-        }
+  fn next(&mut self) -> Option<Self::Item> {
+    match self {
+      NodesIteratorEnums::Array(iter) => iter.next(),
+      NodesIteratorEnums::Collection(iter) => iter.next(),
     }
+  }
 }
 
 impl NodesIterator for NodesIteratorEnums {
-    fn size(&self) -> usize {
-        match self {
-            NodesIteratorEnums::Array(iter) => iter.size(),
-            NodesIteratorEnums::Collection(iter) => iter.size(),
-        }
+  fn size(&self) -> usize {
+    match self {
+      NodesIteratorEnums::Array(iter) => iter.size(),
+      NodesIteratorEnums::Collection(iter) => iter.size(),
     }
+  }
 
-    fn consume(&mut self, dest: &mut [usize]) -> Option<usize> {
-        match self {
-            NodesIteratorEnums::Array(iter) => iter.consume(dest),
-            NodesIteratorEnums::Collection(iter) => iter.consume(dest),
-        }
+  fn consume(&mut self, dest: &mut [usize]) -> Option<usize> {
+    match self {
+      NodesIteratorEnums::Array(iter) => iter.consume(dest),
+      NodesIteratorEnums::Collection(iter) => iter.consume(dest),
     }
+  }
 
-    fn has_next(&self) -> bool {
-        match self {
-            NodesIteratorEnums::Array(iter) => iter.has_next(),
-            NodesIteratorEnums::Collection(iter) => iter.has_next(),
-        }
+  fn has_next(&self) -> bool {
+    match self {
+      NodesIteratorEnums::Array(iter) => iter.has_next(),
+      NodesIteratorEnums::Collection(iter) => iter.has_next(),
     }
+  }
 }
 
 pub enum HnswGraphEnums {
-    OnHeap(OnHeapHnswGraph),
+  OnHeap(OnHeapHnswGraph),
 }
 impl HnswGraph for HnswGraphEnums {
-    fn seek(&mut self, level: usize, target: usize) -> Result<()> {
-        match self {
-            HnswGraphEnums::OnHeap(graph) => graph.seek(level, target),
-        }
+  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+    match self {
+      HnswGraphEnums::OnHeap(graph) => graph.seek(level, target),
     }
+  }
 
-    fn size(&self) -> usize {
-        match self {
-            HnswGraphEnums::OnHeap(graph) => graph.size(),
-        }
+  fn size(&self) -> usize {
+    match self {
+      HnswGraphEnums::OnHeap(graph) => graph.size(),
     }
+  }
 
-    fn next_neighbor(&mut self) -> Result<usize> {
-        match self {
-            HnswGraphEnums::OnHeap(graph) => graph.next_neighbor(),
-        }
+  fn next_neighbor(&mut self) -> Result<usize> {
+    match self {
+      HnswGraphEnums::OnHeap(graph) => graph.next_neighbor(),
     }
+  }
 
-    fn num_levels(&self) -> Result<usize> {
-        match self {
-            HnswGraphEnums::OnHeap(graph) => graph.num_levels(),
-        }
+  fn num_levels(&self) -> Result<usize> {
+    match self {
+      HnswGraphEnums::OnHeap(graph) => graph.num_levels(),
     }
+  }
 
-    fn entry_node(&self) -> Result<Option<usize>> {
-        match self {
-            HnswGraphEnums::OnHeap(graph) => graph.entry_node(),
-        }
+  fn entry_node(&self) -> Result<Option<usize>> {
+    match self {
+      HnswGraphEnums::OnHeap(graph) => graph.entry_node(),
     }
+  }
 
-    type NodeIterator = NodesIteratorEnums;
+  type NodeIterator = NodesIteratorEnums;
 
-    fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
-        match self {
-            HnswGraphEnums::OnHeap(on_heap) => on_heap.get_nodes_on_level(level),
-        }
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+    match self {
+      HnswGraphEnums::OnHeap(on_heap) => on_heap.get_nodes_on_level(level),
     }
+  }
 }

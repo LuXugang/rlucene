@@ -16,29 +16,29 @@
  */
 use crate::core::analysis::char_array_set::CharArraySet;
 use crate::core::analysis::filtering_token_filter::{
-    FilteringTokenFilter, FilteringTokenFilterBase,
+  FilteringTokenFilter, FilteringTokenFilterBase,
 };
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::Attributes;
 
 pub struct StopFilter {
-    stop_words: CharArraySet,
+  stop_words: CharArraySet,
 }
 impl StopFilter {
-    pub fn new<T>(input: T, stop_words: CharArraySet) -> FilteringTokenFilter<T, StopFilter>
-    where
-        T: TokenStream,
-    {
-        let v = StopFilter { stop_words };
-        FilteringTokenFilter::new(input, v)
-    }
+  pub fn new<T>(input: T, stop_words: CharArraySet) -> FilteringTokenFilter<T, StopFilter>
+  where
+    T: TokenStream,
+  {
+    let v = StopFilter { stop_words };
+    FilteringTokenFilter::new(input, v)
+  }
 }
 
 impl FilteringTokenFilterBase for StopFilter {
-    fn accept(&self, att: &Attributes) -> bool {
-        debug_assert!(att.length() <= i32::MAX as usize);
-        let length = att.length() as i32;
-        !self.stop_words.contains_key(att.buffer(), 0, length)
-    }
+  fn accept(&self, att: &Attributes) -> bool {
+    debug_assert!(att.length() <= i32::MAX as usize);
+    let length = att.length() as i32;
+    !self.stop_words.contains_key(att.buffer(), 0, length)
+  }
 }

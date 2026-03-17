@@ -59,42 +59,42 @@ use std::sync::Arc;
 ///   See also: [`TermsEnum::total_term_freq()`](crate::core::index::terms_enum::TermsEnum::total_term_freq)
 #[derive(Getters, Debug)]
 pub struct TermStatistics {
-    term: Arc<Term>,
-    doc_freq: i64,
-    total_term_freq: i64,
+  term: Arc<Term>,
+  doc_freq: i64,
+  total_term_freq: i64,
 }
 
 impl TermStatistics {
-    /// Creates a new `TermStatistics` instance for a term.
-    ///
-    /// # Error
-    ///
-    /// - Error if `doc_freq` is zero or negative.  
-    /// - Error if `total_term_freq` is less than `doc_freq`.  
-    pub fn new<T>(term: T, doc_freq: i64, total_term_freq: i64) -> Result<Self>
-    where
-        T: Into<Arc<Term>>,
-    {
-        let term = term.into();
-        if doc_freq <= 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "doc_freq must be positive, doc_freq: {doc_freq}"
-            )));
-        }
-        if total_term_freq <= 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "total_term_freq must be positive, total_term_freq: {total_term_freq}"
-            )));
-        }
-        if total_term_freq < doc_freq {
-            return Err(LuceneError::illegal_argument(format!(
-                "total_term_freq must be at least doc_freq, total_term_freq: {total_term_freq}, doc_freq: {doc_freq}"
-            )));
-        }
-        Ok(TermStatistics {
-            term,
-            doc_freq,
-            total_term_freq,
-        })
+  /// Creates a new `TermStatistics` instance for a term.
+  ///
+  /// # Error
+  ///
+  /// - Error if `doc_freq` is zero or negative.  
+  /// - Error if `total_term_freq` is less than `doc_freq`.  
+  pub fn new<T>(term: T, doc_freq: i64, total_term_freq: i64) -> Result<Self>
+  where
+    T: Into<Arc<Term>>,
+  {
+    let term = term.into();
+    if doc_freq <= 0 {
+      return Err(LuceneError::illegal_argument(format!(
+        "doc_freq must be positive, doc_freq: {doc_freq}"
+      )));
     }
+    if total_term_freq <= 0 {
+      return Err(LuceneError::illegal_argument(format!(
+        "total_term_freq must be positive, total_term_freq: {total_term_freq}"
+      )));
+    }
+    if total_term_freq < doc_freq {
+      return Err(LuceneError::illegal_argument(format!(
+        "total_term_freq must be at least doc_freq, total_term_freq: {total_term_freq}, doc_freq: {doc_freq}"
+      )));
+    }
+    Ok(TermStatistics {
+      term,
+      doc_freq,
+      total_term_freq,
+    })
+  }
 }

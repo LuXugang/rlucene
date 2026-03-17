@@ -26,27 +26,27 @@ use std::sync::Arc;
 
 /// Controls the format of stored fields.
 pub trait StoredFieldsFormat {
-    type StoredFieldsReader<T: IndexInput>: StoredFieldsReader;
-    /// Returns a [`StoredFieldsReader`] to load stored fields.
-    fn fields_reader<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &SegmentInfo<D2>,
-        field_infos: Arc<FieldInfos>,
-        context: &IOContext,
-    ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
-    where
-        D1: Directory,
-        D2: Directory;
-    type StoredFieldsWriter<T: IndexOutput>: StoredFieldsWriter;
-    /// Returns a [`StoredFieldsWriter`] to write stored fields.
-    fn fields_writer<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &mut SegmentInfo<D2>,
-        context: &IOContext,
-    ) -> Result<Self::StoredFieldsWriter<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory;
+  type StoredFieldsReader<T: IndexInput>: StoredFieldsReader;
+  /// Returns a [`StoredFieldsReader`] to load stored fields.
+  fn fields_reader<D1, D2>(
+    &self,
+    directory: &D1,
+    segment_info: &SegmentInfo<D2>,
+    field_infos: Arc<FieldInfos>,
+    context: &IOContext,
+  ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory;
+  type StoredFieldsWriter<T: IndexOutput>: StoredFieldsWriter;
+  /// Returns a [`StoredFieldsWriter`] to write stored fields.
+  fn fields_writer<D1, D2>(
+    &self,
+    directory: &D1,
+    segment_info: &mut SegmentInfo<D2>,
+    context: &IOContext,
+  ) -> Result<Self::StoredFieldsWriter<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory;
 }

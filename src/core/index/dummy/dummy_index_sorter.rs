@@ -22,39 +22,39 @@ use crate::core::search::sort_field::MissingValueEnum;
 
 pub struct DummyIndexSorter;
 impl IndexSorter for DummyIndexSorter {
-    fn get_provider_name(&self) -> &str {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_provider_name(&self) -> &str {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type ComparableProvider<LR>
-        = DummyComparableProvider
-    where
-        LR: LeafReader;
+  type ComparableProvider<LR>
+    = DummyComparableProvider
+  where
+    LR: LeafReader;
 
-    fn get_comparable_providers<LR>(
-        &self,
-        _readers: &[LR],
-    ) -> crate::core::util::error::lucene_error::Result<Vec<Self::ComparableProvider<LR>>>
-    where
-        LR: LeafReader,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_comparable_providers<LR>(
+    &self,
+    _readers: &[LR],
+  ) -> crate::core::util::error::lucene_error::Result<Vec<Self::ComparableProvider<LR>>>
+  where
+    LR: LeafReader,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_missing_value(&self) -> MissingValueEnum {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_missing_value(&self) -> MissingValueEnum {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type DocComparator = DummyDocComparator;
+  type DocComparator = DummyDocComparator;
 
-    fn get_doc_comparator<LR>(
-        &self,
-        _leaf_reader: &LR,
-        _max_doc: i32,
-    ) -> crate::core::util::error::lucene_error::Result<Self::DocComparator>
-    where
-        LR: LeafReader,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_doc_comparator<LR>(
+    &self,
+    _leaf_reader: &LR,
+    _max_doc: i32,
+  ) -> crate::core::util::error::lucene_error::Result<Self::DocComparator>
+  where
+    LR: LeafReader,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

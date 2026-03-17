@@ -27,257 +27,257 @@ use std::rc::Rc;
 /// Exposes [`PostingsEnum`], merged from [`PostingsEnum`] API of sub-segments.
 pub struct MultiPostingsEnum<PE>
 where
-    PE: PostingsEnum,
+  PE: PostingsEnum,
 {
-    parent: Identity,
-    pub(crate) sub_postings_enums: Vec<Option<PE>>,
-    subs: Vec<EnumWithSlice>,
-    num_subs: i32,
-    upto: i32,
-    current: Option<usize>,
-    current_base: usize,
-    doc: i32,
+  parent: Identity,
+  pub(crate) sub_postings_enums: Vec<Option<PE>>,
+  subs: Vec<EnumWithSlice>,
+  num_subs: i32,
+  upto: i32,
+  current: Option<usize>,
+  current_base: usize,
+  doc: i32,
 }
 impl<PE> MultiPostingsEnum<PE>
 where
-    PE: PostingsEnum,
+  PE: PostingsEnum,
 {
-    pub fn new(parent: Identity, sub_reader_count: usize) -> Self {
-        let mut subs = Vec::with_capacity(sub_reader_count);
-        let mut sub_postings_enums = Vec::with_capacity(sub_reader_count);
-        for _ in 0..sub_reader_count {
-            subs.push(EnumWithSlice::new());
-            sub_postings_enums.push(None);
-        }
-        Self {
-            parent,
-            sub_postings_enums,
-            subs,
-            num_subs: 0,
-            upto: -1,
-            current: None,
-            current_base: 0,
-            doc: -1,
-        }
+  pub fn new(parent: Identity, sub_reader_count: usize) -> Self {
+    let mut subs = Vec::with_capacity(sub_reader_count);
+    let mut sub_postings_enums = Vec::with_capacity(sub_reader_count);
+    for _ in 0..sub_reader_count {
+      subs.push(EnumWithSlice::new());
+      sub_postings_enums.push(None);
     }
-    /// Returns `true` if this instance can be reused by the provided `MultiTermsEnum`.
-    pub fn can_reuse(&self, other: &Identity) -> bool {
-        self.parent == *other
+    Self {
+      parent,
+      sub_postings_enums,
+      subs,
+      num_subs: 0,
+      upto: -1,
+      current: None,
+      current_base: 0,
+      doc: -1,
     }
-    /// Re-use and reset this instance on the provided slices.
-    pub fn reset(&mut self, subs: &[EnumWithSlice], num_subs: i32) {
-        self.num_subs = num_subs;
+  }
+  /// Returns `true` if this instance can be reused by the provided `MultiTermsEnum`.
+  pub fn can_reuse(&self, other: &Identity) -> bool {
+    self.parent == *other
+  }
+  /// Re-use and reset this instance on the provided slices.
+  pub fn reset(&mut self, subs: &[EnumWithSlice], num_subs: i32) {
+    self.num_subs = num_subs;
 
-        for (i, sub) in subs.iter().enumerate().take(num_subs as usize) {
-            self.subs[i].postings_enum_idx = sub.postings_enum_idx;
-            self.subs[i].slice = sub.slice.clone();
-        }
-
-        self.upto = -1;
-        self.doc = -1;
-        self.current = None;
+    for (i, sub) in subs.iter().enumerate().take(num_subs as usize) {
+      self.subs[i].postings_enum_idx = sub.postings_enum_idx;
+      self.subs[i].slice = sub.slice.clone();
     }
 
-    /// How many sub-readers we are merging.
-    pub fn get_num_subs(&self) -> i32 {
-        self.num_subs
-    }
+    self.upto = -1;
+    self.doc = -1;
+    self.current = None;
+  }
 
-    /// Returns sub-readers we are merging.
-    pub fn get_subs(&self) -> &[EnumWithSlice] {
-        &self.subs
+  /// How many sub-readers we are merging.
+  pub fn get_num_subs(&self) -> i32 {
+    self.num_subs
+  }
+
+  /// Returns sub-readers we are merging.
+  pub fn get_subs(&self) -> &[EnumWithSlice] {
+    &self.subs
+  }
+  pub fn take_postings_enums(&mut self) -> Vec<Option<PE>> {
+    let len = self.sub_postings_enums.len();
+    let v = std::mem::take(&mut self.sub_postings_enums);
+    for _ in 0..len {
+      self.sub_postings_enums.push(None)
     }
-    pub fn take_postings_enums(&mut self) -> Vec<Option<PE>> {
-        let len = self.sub_postings_enums.len();
-        let v = std::mem::take(&mut self.sub_postings_enums);
-        for _ in 0..len {
-            self.sub_postings_enums.push(None)
-        }
-        v
-    }
-    pub fn postings_enums_mut(&mut self) -> &mut [Option<PE>] {
-        self.sub_postings_enums.as_mut()
-    }
+    v
+  }
+  pub fn postings_enums_mut(&mut self) -> &mut [Option<PE>] {
+    self.sub_postings_enums.as_mut()
+  }
 }
 
 impl<PE> DocIdSetIterator for MultiPostingsEnum<PE>
 where
-    PE: PostingsEnum,
+  PE: PostingsEnum,
 {
-    fn doc_id(&self) -> i32 {
-        self.doc
-    }
+  fn doc_id(&self) -> i32 {
+    self.doc
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        loop {
-            if self.current.is_none() {
-                if self.upto == self.num_subs - 1 {
-                    self.doc = NO_MORE_DOCS;
-                    return Ok(self.doc);
-                } else {
-                    self.upto += 1;
-                    let idx = self.upto as usize;
-                    self.current = Some(idx);
-                    self.current_base = self.subs[idx].slice.get_start();
-                }
-            }
-
-            let idx = self.subs[self.current.unwrap()].postings_enum_idx;
-            let doc = self.sub_postings_enums[idx].as_mut().unwrap().next_doc()?;
-            if doc != NO_MORE_DOCS {
-                self.doc = self.current_base as i32 + doc;
-                return Ok(self.doc);
-            } else {
-                self.current = None;
-            }
+  fn next_doc(&mut self) -> Result<i32> {
+    loop {
+      if self.current.is_none() {
+        if self.upto == self.num_subs - 1 {
+          self.doc = NO_MORE_DOCS;
+          return Ok(self.doc);
+        } else {
+          self.upto += 1;
+          let idx = self.upto as usize;
+          self.current = Some(idx);
+          self.current_base = self.subs[idx].slice.get_start();
         }
+      }
+
+      let idx = self.subs[self.current.unwrap()].postings_enum_idx;
+      let doc = self.sub_postings_enums[idx].as_mut().unwrap().next_doc()?;
+      if doc != NO_MORE_DOCS {
+        self.doc = self.current_base as i32 + doc;
+        return Ok(self.doc);
+      } else {
+        self.current = None;
+      }
     }
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        debug_assert!(target > self.doc);
-        loop {
-            if let Some(idx) = self.current {
-                let doc = if target < self.current_base as i32 {
-                    // target was in the previous slice but there was no matching doc after it
-                    self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-                        .as_mut()
-                        .unwrap()
-                        .next_doc()?
-                } else {
-                    self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-                        .as_mut()
-                        .unwrap()
-                        .advance(target - self.current_base as i32)?
-                };
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    debug_assert!(target > self.doc);
+    loop {
+      if let Some(idx) = self.current {
+        let doc = if target < self.current_base as i32 {
+          // target was in the previous slice but there was no matching doc after it
+          self.sub_postings_enums[self.subs[idx].postings_enum_idx]
+            .as_mut()
+            .unwrap()
+            .next_doc()?
+        } else {
+          self.sub_postings_enums[self.subs[idx].postings_enum_idx]
+            .as_mut()
+            .unwrap()
+            .advance(target - self.current_base as i32)?
+        };
 
-                if doc == NO_MORE_DOCS {
-                    self.current = None;
-                } else {
-                    self.doc = doc + self.current_base as i32;
-                    return Ok(self.doc);
-                }
-            } else if self.upto == self.num_subs - 1 {
-                self.doc = NO_MORE_DOCS;
-                return Ok(self.doc);
-            } else {
-                self.upto += 1;
-                let idx = self.upto as usize;
-                self.current = Some(idx);
-                self.current_base = self.subs[idx].slice.get_start();
-            }
+        if doc == NO_MORE_DOCS {
+          self.current = None;
+        } else {
+          self.doc = doc + self.current_base as i32;
+          return Ok(self.doc);
         }
+      } else if self.upto == self.num_subs - 1 {
+        self.doc = NO_MORE_DOCS;
+        return Ok(self.doc);
+      } else {
+        self.upto += 1;
+        let idx = self.upto as usize;
+        self.current = Some(idx);
+        self.current_base = self.subs[idx].slice.get_start();
+      }
     }
+  }
 
-    fn cost(&self) -> Result<i64> {
-        let mut cost: i64 = 0;
-        for i in 0..(self.num_subs as usize) {
-            let pe_idx = self.subs[i].postings_enum_idx;
-            cost += self.sub_postings_enums[pe_idx].as_ref().unwrap().cost()?;
-        }
-        Ok(cost)
+  fn cost(&self) -> Result<i64> {
+    let mut cost: i64 = 0;
+    for i in 0..(self.num_subs as usize) {
+      let pe_idx = self.subs[i].postings_enum_idx;
+      cost += self.sub_postings_enums[pe_idx].as_ref().unwrap().cost()?;
     }
+    Ok(cost)
+  }
 }
 
 impl<PE> PostingsEnum for MultiPostingsEnum<PE>
 where
-    PE: PostingsEnum,
+  PE: PostingsEnum,
 {
-    fn freq(&mut self) -> Result<i32> {
-        match self.current {
-            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-                .as_mut()
-                .unwrap()
-                .freq(),
-            None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
-        }
+  fn freq(&mut self) -> Result<i32> {
+    match self.current {
+      Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
+        .as_mut()
+        .unwrap()
+        .freq(),
+      None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
     }
+  }
 
-    fn next_position(&mut self) -> Result<i32> {
-        match self.current {
-            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-                .as_mut()
-                .unwrap()
-                .next_position(),
-            None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
-        }
+  fn next_position(&mut self) -> Result<i32> {
+    match self.current {
+      Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
+        .as_mut()
+        .unwrap()
+        .next_position(),
+      None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
     }
+  }
 
-    fn start_offset(&self) -> Result<i32> {
-        match self.current {
-            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-                .as_ref()
-                .unwrap()
-                .start_offset(),
-            None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
-        }
+  fn start_offset(&self) -> Result<i32> {
+    match self.current {
+      Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
+        .as_ref()
+        .unwrap()
+        .start_offset(),
+      None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
     }
+  }
 
-    fn end_offset(&self) -> Result<i32> {
-        match self.current {
-            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-                .as_ref()
-                .unwrap()
-                .end_offset(),
-            None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
-        }
+  fn end_offset(&self) -> Result<i32> {
+    match self.current {
+      Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
+        .as_ref()
+        .unwrap()
+        .end_offset(),
+      None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
     }
+  }
 
-    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        match self.current {
-            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-                .as_ref()
-                .unwrap()
-                .get_payload(),
-            None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
-        }
+  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self.current {
+      Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
+        .as_ref()
+        .unwrap()
+        .get_payload(),
+      None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
     }
+  }
 }
 impl<PE> Display for MultiPostingsEnum<PE>
 where
-    PE: PostingsEnum,
+  PE: PostingsEnum,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut first = true;
-        for sub in self.get_subs().iter() {
-            if !first {
-                write!(f, ", ")?;
-            }
-            first = false;
-            write!(f, "{}", sub)?;
-        }
-        write!(f, "])")
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    let mut first = true;
+    for sub in self.get_subs().iter() {
+      if !first {
+        write!(f, ", ")?;
+      }
+      first = false;
+      write!(f, "{}", sub)?;
     }
+    write!(f, "])")
+  }
 }
 /// Holds a [`PostingsEnum`] along with the corresponding [`ReaderSlice`].
 #[derive(Clone)]
 pub struct EnumWithSlice {
-    /// [`PostingsEnum`]'s idx for this sub-reader
-    pub(crate) postings_enum_idx: usize,
-    /// [`ReaderSlice`] describing how this sub-reader fits into the composite reader.
-    pub(crate) slice: Rc<ReaderSlice>,
+  /// [`PostingsEnum`]'s idx for this sub-reader
+  pub(crate) postings_enum_idx: usize,
+  /// [`ReaderSlice`] describing how this sub-reader fits into the composite reader.
+  pub(crate) slice: Rc<ReaderSlice>,
 }
 impl EnumWithSlice {
-    /// Creates a new `EnumWithSlice`.
-    pub fn new() -> Self {
-        Self {
-            postings_enum_idx: 0,
-            slice: Rc::new(ReaderSlice::default()),
-        }
+  /// Creates a new `EnumWithSlice`.
+  pub fn new() -> Self {
+    Self {
+      postings_enum_idx: 0,
+      slice: Rc::new(ReaderSlice::default()),
     }
-    pub fn with_slice(slice: Rc<ReaderSlice>) -> Self {
-        Self {
-            postings_enum_idx: 0,
-            slice,
-        }
+  }
+  pub fn with_slice(slice: Rc<ReaderSlice>) -> Self {
+    Self {
+      postings_enum_idx: 0,
+      slice,
     }
+  }
 }
 impl Default for EnumWithSlice {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 impl Display for EnumWithSlice {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.slice)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{:?}", self.slice)
+  }
 }

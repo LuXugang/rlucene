@@ -24,39 +24,39 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub struct DummyTermVectors;
 impl TermVectors for DummyTermVectors {
-    fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type Fields = DummyFields;
+  type Fields = DummyFields;
 
-    fn get(&mut self, _doc: i32) -> Result<Option<Self::Fields>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get(&mut self, _doc: i32) -> Result<Option<Self::Fields>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type Terms = DummyTerms;
+  type Terms = DummyTerms;
 
-    fn get_field_terms(
-        &mut self,
-        _doc: i32,
-        _field: &str,
-    ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_field_terms(
+    &mut self,
+    _doc: i32,
+    _field: &str,
+  ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl RawTermVectors for DummyTermVectors {
-    type IndexInput = DummyIndexInput;
+  type IndexInput = DummyIndexInput;
 
-    fn raw_term_vectors_mut(&mut self) -> Result<&mut DefaultTermVectorsReader<Self::IndexInput>> {
-        Err(LuceneError::illegal_state(
-            "raw term vectors reader is not available".to_string(),
-        ))
-    }
+  fn raw_term_vectors_mut(&mut self) -> Result<&mut DefaultTermVectorsReader<Self::IndexInput>> {
+    Err(LuceneError::illegal_state(
+      "raw term vectors reader is not available".to_string(),
+    ))
+  }
 
-    fn raw_term_vectors(&self) -> Result<&DefaultTermVectorsReader<Self::IndexInput>> {
-        Err(LuceneError::illegal_state(
-            "raw term vectors reader is not available".to_string(),
-        ))
-    }
+  fn raw_term_vectors(&self) -> Result<&DefaultTermVectorsReader<Self::IndexInput>> {
+    Err(LuceneError::illegal_state(
+      "raw term vectors reader is not available".to_string(),
+    ))
+  }
 }

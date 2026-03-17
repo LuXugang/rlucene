@@ -21,48 +21,48 @@ use crate::core::search::field_comparator::FieldComparator;
 
 pub struct DummyFieldComparator;
 impl FieldComparator for DummyFieldComparator {
-    type V = i32;
+  type V = i32;
 
-    fn compare(&self, _slot1: usize, _slot2: usize) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn compare(&self, _slot1: usize, _slot2: usize) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn set_top_value(&mut self, _value: Self::V) {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn set_top_value(&mut self, _value: Self::V) {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn value(&self, _slot: usize) -> Option<Self::V> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn value(&self, _slot: usize) -> Option<Self::V> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type LeafFieldComparator<LR>
-        = DummyLeafFieldComparator
-    where
-        LR: LeafReader;
+  type LeafFieldComparator<LR>
+    = DummyLeafFieldComparator
+  where
+    LR: LeafReader;
 
-    fn get_leaf_comparator<LR>(
-        &mut self,
-        _context: &LeafReaderContext<LR>,
-    ) -> crate::core::util::error::lucene_error::Result<Self::LeafFieldComparator<LR>>
-    where
-        LR: LeafReader,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_leaf_comparator<LR>(
+    &mut self,
+    _context: &LeafReaderContext<LR>,
+  ) -> crate::core::util::error::lucene_error::Result<Self::LeafFieldComparator<LR>>
+  where
+    LR: LeafReader,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn compare_values(&self, _first: Option<&Self::V>, _second: Option<&Self::V>) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn compare_values(&self, _first: Option<&Self::V>, _second: Option<&Self::V>) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn set_single_sort(&mut self) {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn set_single_sort(&mut self) {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn disable_skipping(&mut self) {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn disable_skipping(&mut self) {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat;
 use crate::core::codecs::compression::compression_mode::{
-    CompressionModeEnum, LZ4FastCompressionMode,
+  CompressionModeEnum, LZ4FastCompressionMode,
 };
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 
@@ -105,66 +105,67 @@ use std::sync::Arc;
 ///    -  ChunkIndex → [`FieldsIndexWriter`](crate::core::codecs::lucene90::fields_index_writer::FieldsIndexWriter)
 ///    -  Footer → [`CodecFooter`](crate::core::codecs::codec_util::CodecUtil::write_footer)
 pub struct Lucene90TermVectorsFormat {
-    base: Lucene90CompressingTermVectorsFormat,
+  base: Lucene90CompressingTermVectorsFormat,
 }
 impl Default for Lucene90TermVectorsFormat {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl Lucene90TermVectorsFormat {
-    pub fn new() -> Self {
-        Self {
-            base: Lucene90CompressingTermVectorsFormat::new(
-                "Lucene90TermVectorsData",
-                "",
-                CompressionModeEnum::Fast(LZ4FastCompressionMode),
-                1 << 12,
-                128,
-                10,
-            )
-            .unwrap(),
-        }
+  pub fn new() -> Self {
+    Self {
+      base: Lucene90CompressingTermVectorsFormat::new(
+        "Lucene90TermVectorsData",
+        "",
+        CompressionModeEnum::Fast(LZ4FastCompressionMode),
+        1 << 12,
+        128,
+        10,
+      )
+      .unwrap(),
     }
+  }
 }
 impl TermVectorsFormat for Lucene90TermVectorsFormat {
-    type TermVectorsReader<T: IndexInput> =
-        <Lucene90CompressingTermVectorsFormat as TermVectorsFormat>::TermVectorsReader<T>;
+  type TermVectorsReader<T: IndexInput> =
+    <Lucene90CompressingTermVectorsFormat as TermVectorsFormat>::TermVectorsReader<T>;
 
-    fn vectors_reader<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &SegmentInfo<D2>,
-        field_infos: Arc<FieldInfos>,
-        context: &IOContext,
-    ) -> Result<Self::TermVectorsReader<D1::IndexInput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        self.base
-            .vectors_reader(directory, segment_info, field_infos, context)
-    }
+  fn vectors_reader<D1, D2>(
+    &self,
+    directory: &D1,
+    segment_info: &SegmentInfo<D2>,
+    field_infos: Arc<FieldInfos>,
+    context: &IOContext,
+  ) -> Result<Self::TermVectorsReader<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    self
+      .base
+      .vectors_reader(directory, segment_info, field_infos, context)
+  }
 
-    type TermVectorsWriter<T: IndexOutput> =
-        <Lucene90CompressingTermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<T>;
+  type TermVectorsWriter<T: IndexOutput> =
+    <Lucene90CompressingTermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<T>;
 
-    fn vectors_writer<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &SegmentInfo<D2>,
-        context: &IOContext,
-    ) -> Result<Self::TermVectorsWriter<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        self.base.vectors_writer(directory, segment_info, context)
-    }
+  fn vectors_writer<D1, D2>(
+    &self,
+    directory: &D1,
+    segment_info: &SegmentInfo<D2>,
+    context: &IOContext,
+  ) -> Result<Self::TermVectorsWriter<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    self.base.vectors_writer(directory, segment_info, context)
+  }
 }
 impl Display for Lucene90TermVectorsFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Lucene90TermVectorsFormat<{}>", self.base)
-    }
+  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    write!(f, "Lucene90TermVectorsFormat<{}>", self.base)
+  }
 }

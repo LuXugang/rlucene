@@ -28,7 +28,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory_shared, new_string_field, new_text_field, random,
+  at_least, new_directory_shared, new_string_field, new_text_field, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -39,83 +39,83 @@ use std::vec;
 pub struct TestSumDocFreq;
 #[test]
 fn test_sum_doc_freq() -> Result<()> {
-    let mut random = random();
-    let num_docs = at_least(&mut random, 500);
+  let mut random = random();
+  let num_docs = at_least(&mut random, 500);
 
-    let dir = new_directory_shared(&mut random)?;
-    let writer = RandomIndexWriter::new(&mut random, dir.clone());
-    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-    let mut doc = Document::new();
-    let mut id = new_string_field(&mut random, "id", "", No, &mut field_to_type)?;
-    let mut field1 = new_text_field(&mut random, "foo", "", No, &mut field_to_type)?;
-    let mut field2 = new_text_field(&mut random, "bar", "", No, &mut field_to_type)?;
+  let dir = new_directory_shared(&mut random)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+  let mut doc = Document::new();
+  let mut id = new_string_field(&mut random, "id", "", No, &mut field_to_type)?;
+  let mut field1 = new_text_field(&mut random, "foo", "", No, &mut field_to_type)?;
+  let mut field2 = new_text_field(&mut random, "bar", "", No, &mut field_to_type)?;
 
-    doc.add(id.clone());
-    doc.add(field1.clone());
-    doc.add(field2.clone());
+  doc.add(id.clone());
+  doc.add(field1.clone());
+  doc.add(field2.clone());
 
-    for i in 0..num_docs {
-        id.set_string_value(i.to_string())?;
+  for i in 0..num_docs {
+    id.set_string_value(i.to_string())?;
 
-        let ch1 =
-            char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
-        let ch2 =
-            char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
-        field1.set_string_value(format!("{} {}", ch1, ch2))?;
+    let ch1 =
+      char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
+    let ch2 =
+      char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
+    field1.set_string_value(format!("{} {}", ch1, ch2))?;
 
-        let ch1 =
-            char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
-        let ch2 =
-            char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
-        field2.set_string_value(format!("{} {}", ch1, ch2))?;
+    let ch1 =
+      char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
+    let ch2 =
+      char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
+    field2.set_string_value(format!("{} {}", ch1, ch2))?;
 
-        writer.add_document(doc.clone())?;
-    }
+    writer.add_document(doc.clone())?;
+  }
 
-    {
-        let ir = writer.get_reader()?;
-        assert_sum_doc_freq(ir)?;
-    }
+  {
+    let ir = writer.get_reader()?;
+    assert_sum_doc_freq(ir)?;
+  }
 
-    let num_deletions = at_least(&mut random, 20);
-    for _ in 0..num_deletions {
-        let id_val = random.random_range(0..num_docs);
-        writer.delete_documents_with_terms(vec![Term::from_text("id", id_val.to_string())])?;
-    }
-    writer.force_merge(1)?;
-    writer.close()?;
+  let num_deletions = at_least(&mut random, 20);
+  for _ in 0..num_deletions {
+    let id_val = random.random_range(0..num_docs);
+    writer.delete_documents_with_terms(vec![Term::from_text("id", id_val.to_string())])?;
+  }
+  writer.force_merge(1)?;
+  writer.close()?;
 
-    {
-        let ir = directory_reader_util::open(dir.clone())?;
-        assert_sum_doc_freq(ir)?;
-    }
-    Ok(())
+  {
+    let ir = directory_reader_util::open(dir.clone())?;
+    assert_sum_doc_freq(ir)?;
+  }
+  Ok(())
 }
 
 fn assert_sum_doc_freq<CR>(reader: CR) -> Result<()>
 where
-    CR: CompositeReader,
+  CR: CompositeReader,
 {
-    let fields = get_indexed_fields(&reader)?;
+  let fields = get_indexed_fields(&reader)?;
 
-    for field in fields {
-        let Some(terms) = get_terms(&reader, &field)? else {
-            continue;
-        };
+  for field in fields {
+    let Some(terms) = get_terms(&reader, &field)? else {
+      continue;
+    };
 
-        let sum_doc_freq = terms.get_sum_doc_freq()?;
-        if sum_doc_freq == -1 {
-            continue;
-        }
-
-        let mut computed_sum_doc_freq: i64 = 0;
-        let mut terms_enum = terms.iterator()?;
-        while terms_enum.next()?.is_some() {
-            computed_sum_doc_freq += terms_enum.doc_freq()? as i64;
-        }
-
-        assert_eq!(computed_sum_doc_freq, sum_doc_freq);
+    let sum_doc_freq = terms.get_sum_doc_freq()?;
+    if sum_doc_freq == -1 {
+      continue;
     }
 
-    Ok(())
+    let mut computed_sum_doc_freq: i64 = 0;
+    let mut terms_enum = terms.iterator()?;
+    while terms_enum.next()?.is_some() {
+      computed_sum_doc_freq += terms_enum.doc_freq()? as i64;
+    }
+
+    assert_eq!(computed_sum_doc_freq, sum_doc_freq);
+  }
+
+  Ok(())
 }

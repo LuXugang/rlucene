@@ -36,27 +36,27 @@ use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
 pub trait MultiTermQuery: QueryBase + Clone {
-    fn get_field(&self) -> &str;
-    type TermsEnum<T>: TermsEnum<PostingsEnum = TermsPosting<T>>
-    where
-        T: Terms;
-    fn get_terms_enum<T>(&self, terms: T) -> Result<Self::TermsEnum<T>>
-    where
-        T: Terms + Clone;
-    fn get_terms_count(&self) -> i64 {
-        -1
-    }
+  fn get_field(&self) -> &str;
+  type TermsEnum<T>: TermsEnum<PostingsEnum = TermsPosting<T>>
+  where
+    T: Terms;
+  fn get_terms_enum<T>(&self, terms: T) -> Result<Self::TermsEnum<T>>
+  where
+    T: Terms + Clone;
+  fn get_terms_count(&self) -> i64 {
+    -1
+  }
 
-    fn as_query(&self) -> Query;
+  fn as_query(&self) -> Query;
 }
 pub trait RewriteMethod {
-    fn rewrite<IRC>(
-        self,
-        index_searcher: &IndexSearcher<IRC>,
-        query: MultiTermQueryEnum,
-    ) -> Result<Query>
-    where
-        IRC: IndexReaderContext;
+  fn rewrite<IRC>(
+    self,
+    index_searcher: &IndexSearcher<IRC>,
+    query: MultiTermQueryEnum,
+  ) -> Result<Query>
+  where
+    IRC: IndexReaderContext;
 }
 /// A rewrite method where documents are assigned a constant score equal to the query's boost.
 /// Maintains a boolean query-like implementation over the most costly terms while pre-processing
@@ -72,16 +72,16 @@ pub trait RewriteMethod {
 #[derive(Default, Clone)]
 pub struct ConstantScoreBlendedRewrite;
 impl RewriteMethod for ConstantScoreBlendedRewrite {
-    fn rewrite<IRC>(
-        self,
-        _index_searcher: &IndexSearcher<IRC>,
-        query: MultiTermQueryEnum,
-    ) -> Result<Query>
-    where
-        IRC: IndexReaderContext,
-    {
-        Ok(MultiTermQueryConstantScoreBlendedWrapper::new(query).into())
-    }
+  fn rewrite<IRC>(
+    self,
+    _index_searcher: &IndexSearcher<IRC>,
+    query: MultiTermQueryEnum,
+  ) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+  {
+    Ok(MultiTermQueryConstantScoreBlendedWrapper::new(query).into())
+  }
 }
 /// A rewrite method that first creates a private Filter, by visiting each term in sequence and
 /// marking all docs for that term. Matching documents are assigned a constant score equal to the
@@ -93,36 +93,36 @@ impl RewriteMethod for ConstantScoreBlendedRewrite {
 #[derive(Default, Clone)]
 pub struct ConstantScoreRewrite;
 impl RewriteMethod for ConstantScoreRewrite {
-    fn rewrite<IRC>(
-        self,
-        _index_searcher: &IndexSearcher<IRC>,
-        query: MultiTermQueryEnum,
-    ) -> Result<Query>
-    where
-        IRC: IndexReaderContext,
-    {
-        Ok(MultiTermQueryConstantScoreWrapper::new(query).into())
-    }
+  fn rewrite<IRC>(
+    self,
+    _index_searcher: &IndexSearcher<IRC>,
+    query: MultiTermQueryEnum,
+  ) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+  {
+    Ok(MultiTermQueryConstantScoreWrapper::new(query).into())
+  }
 }
 #[derive(Clone)]
 pub enum RewriteMethodEnum {
-    Standard(ConstantScoreRewrite),
-    Blended(ConstantScoreBlendedRewrite),
+  Standard(ConstantScoreRewrite),
+  Blended(ConstantScoreBlendedRewrite),
 }
 impl RewriteMethod for RewriteMethodEnum {
-    fn rewrite<IRC>(
-        self,
-        index_searcher: &IndexSearcher<IRC>,
-        query: MultiTermQueryEnum,
-    ) -> Result<Query>
-    where
-        IRC: IndexReaderContext,
-    {
-        match self {
-            RewriteMethodEnum::Standard(r) => r.rewrite(index_searcher, query),
-            RewriteMethodEnum::Blended(r) => r.rewrite(index_searcher, query),
-        }
+  fn rewrite<IRC>(
+    self,
+    index_searcher: &IndexSearcher<IRC>,
+    query: MultiTermQueryEnum,
+  ) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+  {
+    match self {
+      RewriteMethodEnum::Standard(r) => r.rewrite(index_searcher, query),
+      RewriteMethodEnum::Blended(r) => r.rewrite(index_searcher, query),
     }
+  }
 }
 impl_from_for_enum!(
     RewriteMethodEnum,
@@ -132,113 +132,113 @@ impl_from_for_enum!(
 
 #[derive(Clone)]
 pub enum MultiTermQueryEnum {
-    Prefix(PrefixQuery),
-    TermRange(TermRangeQuery),
-    Automaton(AutomatonQuery),
-    Wildcard(WildcardQuery),
-    Regexp(RegexpQuery),
+  Prefix(PrefixQuery),
+  TermRange(TermRangeQuery),
+  Automaton(AutomatonQuery),
+  Wildcard(WildcardQuery),
+  Regexp(RegexpQuery),
 }
 #[cfg(debug_assertions)]
 impl From<MultiTermQueryEnum> for Query {
-    fn from(value: MultiTermQueryEnum) -> Self {
-        match value {
-            MultiTermQueryEnum::Prefix(q) => Query::Prefix(q),
-            MultiTermQueryEnum::TermRange(q) => Query::TermRange(q),
-            MultiTermQueryEnum::Automaton(q) => Query::Automaton(q),
-            MultiTermQueryEnum::Wildcard(q) => Query::Wildcard(q),
-            MultiTermQueryEnum::Regexp(q) => Query::Regexp(q),
-        }
+  fn from(value: MultiTermQueryEnum) -> Self {
+    match value {
+      MultiTermQueryEnum::Prefix(q) => Query::Prefix(q),
+      MultiTermQueryEnum::TermRange(q) => Query::TermRange(q),
+      MultiTermQueryEnum::Automaton(q) => Query::Automaton(q),
+      MultiTermQueryEnum::Wildcard(q) => Query::Wildcard(q),
+      MultiTermQueryEnum::Regexp(q) => Query::Regexp(q),
     }
+  }
 }
 
 #[cfg(debug_assertions)]
 impl MultiTermQueryEnum {
-    pub fn from_query(query: &Query) -> Option<Self> {
-        match query {
-            Query::Prefix(q) => Some(Self::Prefix(q.clone())),
-            Query::TermRange(q) => Some(Self::TermRange(q.clone())),
-            Query::Automaton(q) => Some(Self::Automaton(q.clone())),
-            Query::Wildcard(q) => Some(Self::Wildcard(q.clone())),
-            Query::Regexp(q) => Some(Self::Regexp(q.clone())),
-            _ => None,
-        }
+  pub fn from_query(query: &Query) -> Option<Self> {
+    match query {
+      Query::Prefix(q) => Some(Self::Prefix(q.clone())),
+      Query::TermRange(q) => Some(Self::TermRange(q.clone())),
+      Query::Automaton(q) => Some(Self::Automaton(q.clone())),
+      Query::Wildcard(q) => Some(Self::Wildcard(q.clone())),
+      Query::Regexp(q) => Some(Self::Regexp(q.clone())),
+      _ => None,
     }
+  }
 }
 #[cfg(debug_assertions)]
 impl Query {
-    pub fn is_multi_term_query(&self) -> bool {
-        MultiTermQueryEnum::from_query(self).is_some()
-    }
+  pub fn is_multi_term_query(&self) -> bool {
+    MultiTermQueryEnum::from_query(self).is_some()
+  }
 }
 
 impl QueryBase for MultiTermQueryEnum {
-    fn as_string(&self, field: &str) -> Result<String> {
-        match self {
-            MultiTermQueryEnum::Prefix(q) => q.as_string(field),
-            MultiTermQueryEnum::TermRange(q) => q.as_string(field),
-            MultiTermQueryEnum::Automaton(q) => q.as_string(field),
-            MultiTermQueryEnum::Wildcard(q) => q.as_string(field),
-            MultiTermQueryEnum::Regexp(q) => q.as_string(field),
-        }
+  fn as_string(&self, field: &str) -> Result<String> {
+    match self {
+      MultiTermQueryEnum::Prefix(q) => q.as_string(field),
+      MultiTermQueryEnum::TermRange(q) => q.as_string(field),
+      MultiTermQueryEnum::Automaton(q) => q.as_string(field),
+      MultiTermQueryEnum::Wildcard(q) => q.as_string(field),
+      MultiTermQueryEnum::Regexp(q) => q.as_string(field),
     }
+  }
 
-    fn create_weight<IRC>(
-        self,
-        _searcher: &IndexSearcher<IRC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
-    ) -> Result<QueryWeight<IRC>>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn create_weight<IRC>(
+    self,
+    _searcher: &IndexSearcher<IRC>,
+    _score_mode: &ScoreMode,
+    _boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn visit<QV>(&self, visitor: &QV)
-    where
-        QV: QueryVisitor,
-    {
-        match self {
-            MultiTermQueryEnum::Prefix(q) => q.visit(visitor),
-            MultiTermQueryEnum::TermRange(q) => q.visit(visitor),
-            MultiTermQueryEnum::Automaton(q) => q.visit(visitor),
-            MultiTermQueryEnum::Wildcard(q) => q.visit(visitor),
-            MultiTermQueryEnum::Regexp(q) => q.visit(visitor),
-        }
+  fn visit<QV>(&self, visitor: &QV)
+  where
+    QV: QueryVisitor,
+  {
+    match self {
+      MultiTermQueryEnum::Prefix(q) => q.visit(visitor),
+      MultiTermQueryEnum::TermRange(q) => q.visit(visitor),
+      MultiTermQueryEnum::Automaton(q) => q.visit(visitor),
+      MultiTermQueryEnum::Wildcard(q) => q.visit(visitor),
+      MultiTermQueryEnum::Regexp(q) => q.visit(visitor),
     }
+  }
 }
 
 impl Debug for MultiTermQueryEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MultiTermQueryEnum::Prefix(q) => write!(f, "Prefix({:?})", q),
-            MultiTermQueryEnum::TermRange(q) => write!(f, "TermRange({:?})", q),
-            MultiTermQueryEnum::Automaton(q) => write!(f, "Automaton({:?})", q),
-            MultiTermQueryEnum::Wildcard(q) => write!(f, "Wildcard({:?})", q),
-            MultiTermQueryEnum::Regexp(q) => write!(f, "Regexp({:?})", q),
-        }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      MultiTermQueryEnum::Prefix(q) => write!(f, "Prefix({:?})", q),
+      MultiTermQueryEnum::TermRange(q) => write!(f, "TermRange({:?})", q),
+      MultiTermQueryEnum::Automaton(q) => write!(f, "Automaton({:?})", q),
+      MultiTermQueryEnum::Wildcard(q) => write!(f, "Wildcard({:?})", q),
+      MultiTermQueryEnum::Regexp(q) => write!(f, "Regexp({:?})", q),
     }
+  }
 }
 
 impl HasIdentity for MultiTermQueryEnum {
-    fn identity(&self) -> &Identity {
-        match self {
-            MultiTermQueryEnum::Prefix(q) => q.identity(),
-            MultiTermQueryEnum::TermRange(q) => q.identity(),
-            MultiTermQueryEnum::Automaton(q) => q.identity(),
-            MultiTermQueryEnum::Wildcard(q) => q.identity(),
-            MultiTermQueryEnum::Regexp(q) => q.identity(),
-        }
+  fn identity(&self) -> &Identity {
+    match self {
+      MultiTermQueryEnum::Prefix(q) => q.identity(),
+      MultiTermQueryEnum::TermRange(q) => q.identity(),
+      MultiTermQueryEnum::Automaton(q) => q.identity(),
+      MultiTermQueryEnum::Wildcard(q) => q.identity(),
+      MultiTermQueryEnum::Regexp(q) => q.identity(),
     }
+  }
 }
 
 impl_from_for_enum!(
@@ -250,27 +250,27 @@ impl_from_for_enum!(
     RegexpQuery => Regexp,
 );
 impl Hash for MultiTermQueryEnum {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            MultiTermQueryEnum::Prefix(q) => q.hash(state),
-            MultiTermQueryEnum::TermRange(q) => q.hash(state),
-            MultiTermQueryEnum::Automaton(q) => q.hash(state),
-            MultiTermQueryEnum::Wildcard(q) => q.hash(state),
-            MultiTermQueryEnum::Regexp(q) => q.hash(state),
-        }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    match self {
+      MultiTermQueryEnum::Prefix(q) => q.hash(state),
+      MultiTermQueryEnum::TermRange(q) => q.hash(state),
+      MultiTermQueryEnum::Automaton(q) => q.hash(state),
+      MultiTermQueryEnum::Wildcard(q) => q.hash(state),
+      MultiTermQueryEnum::Regexp(q) => q.hash(state),
     }
+  }
 }
 impl Eq for MultiTermQueryEnum {}
 
 impl PartialEq for MultiTermQueryEnum {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (MultiTermQueryEnum::Prefix(q1), MultiTermQueryEnum::Prefix(q2)) => q1 == q2,
-            (MultiTermQueryEnum::TermRange(q1), MultiTermQueryEnum::TermRange(q2)) => q1 == q2,
-            (MultiTermQueryEnum::Automaton(q1), MultiTermQueryEnum::Automaton(q2)) => q1 == q2,
-            (MultiTermQueryEnum::Wildcard(q1), MultiTermQueryEnum::Wildcard(q2)) => q1 == q2,
-            (MultiTermQueryEnum::Regexp(q1), MultiTermQueryEnum::Regexp(q2)) => q1 == q2,
-            _ => false,
-        }
+  fn eq(&self, other: &Self) -> bool {
+    match (self, other) {
+      (MultiTermQueryEnum::Prefix(q1), MultiTermQueryEnum::Prefix(q2)) => q1 == q2,
+      (MultiTermQueryEnum::TermRange(q1), MultiTermQueryEnum::TermRange(q2)) => q1 == q2,
+      (MultiTermQueryEnum::Automaton(q1), MultiTermQueryEnum::Automaton(q2)) => q1 == q2,
+      (MultiTermQueryEnum::Wildcard(q1), MultiTermQueryEnum::Wildcard(q2)) => q1 == q2,
+      (MultiTermQueryEnum::Regexp(q1), MultiTermQueryEnum::Regexp(q2)) => q1 == q2,
+      _ => false,
     }
+  }
 }

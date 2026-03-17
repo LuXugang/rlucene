@@ -24,16 +24,16 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::dummy::dummy_leaf_collector::DummyLeafCollector;
 use crate::core::search::field_comparator::{
-    FieldComparator, FieldComparatorEnum, FieldComparatorValue,
+  FieldComparator, FieldComparatorEnum, FieldComparatorValue,
 };
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::field_value_hit_queue::{
-    Entry, FieldValueHitQueueComparator, TopFieldScoreDoc,
+  Entry, FieldValueHitQueueComparator, TopFieldScoreDoc,
 };
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::{LeafCollector, LeafCollectorEnum2};
 use crate::core::search::leaf_field_comparator::{
-    LeafFieldComparator, LeafFieldComparatorDocIdSetIteratorRef, LeafFieldComparatorEnum,
+  LeafFieldComparator, LeafFieldComparatorDocIdSetIteratorRef, LeafFieldComparatorEnum,
 };
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
@@ -62,158 +62,158 @@ use std::vec;
 /// See the constructor of [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) for instantiating a
 /// [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) with support for concurrency in [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher).
 pub struct TopFieldCollector {
-    base: TopDocsCollectorBase<TopFieldScoreDoc, FieldValueHitQueueComparator>,
-    num_hits: usize,
-    total_hits_threshold: usize,
-    can_set_min_score: bool,
-    search_sort_part_of_index_sort: Option<bool>,
-    min_score_acc: Option<Arc<MaxScoreAccumulator>>,
-    min_competitive_score: f32,
-    num_comparators: i32,
-    queue_full: bool,
-    doc_base: usize,
-    needs_scores: bool,
-    score_mode: ScoreMode,
+  base: TopDocsCollectorBase<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+  num_hits: usize,
+  total_hits_threshold: usize,
+  can_set_min_score: bool,
+  search_sort_part_of_index_sort: Option<bool>,
+  min_score_acc: Option<Arc<MaxScoreAccumulator>>,
+  min_competitive_score: f32,
+  num_comparators: i32,
+  queue_full: bool,
+  doc_base: usize,
+  needs_scores: bool,
+  score_mode: ScoreMode,
 }
 impl TopFieldCollector {
-    pub fn new(
-        pq: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
-        num_hits: usize,
-        total_hits_threshold: usize,
-        needs_scores: bool,
-        min_score_acc: Option<Arc<MaxScoreAccumulator>>,
-    ) -> Result<Self> {
-        let total_hits_threshold = std::cmp::max(total_hits_threshold, num_hits);
-        let num_comparators = pq.get_comparators().len() as i32;
+  pub fn new(
+    pq: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+    num_hits: usize,
+    total_hits_threshold: usize,
+    needs_scores: bool,
+    min_score_acc: Option<Arc<MaxScoreAccumulator>>,
+  ) -> Result<Self> {
+    let total_hits_threshold = std::cmp::max(total_hits_threshold, num_hits);
+    let num_comparators = pq.get_comparators().len() as i32;
 
-        let first_comparator = &pq.get_comparators()[0];
-        let reverse_mul = pq.get_reverse_mul()[0];
+    let first_comparator = &pq.get_comparators()[0];
+    let reverse_mul = pq.get_reverse_mul()[0];
 
-        let (score_mode, can_set_min_score) = if matches!(first_comparator, FieldComparatorEnum::Relevance(_))
+    let (score_mode, can_set_min_score) = if matches!(first_comparator, FieldComparatorEnum::Relevance(_))
                 && reverse_mul == 1// if the natural sort is preserved (sort by descending relevance)
                 && total_hits_threshold != i32::MAX as usize
-        {
-            (ScoreMode::TopScores, true)
+    {
+      (ScoreMode::TopScores, true)
+    } else {
+      let can_set_min_score = false;
+      let score_mode = if total_hits_threshold != i32::MAX as usize {
+        if needs_scores {
+          ScoreMode::TopDocsWithScores
         } else {
-            let can_set_min_score = false;
-            let score_mode = if total_hits_threshold != i32::MAX as usize {
-                if needs_scores {
-                    ScoreMode::TopDocsWithScores
-                } else {
-                    ScoreMode::TopDocs
-                }
-            } else if needs_scores {
-                ScoreMode::Complete
-            } else {
-                ScoreMode::CompleteNoScores
-            };
-            (score_mode, can_set_min_score)
-        };
-
-        let base = TopDocsCollectorBase::new(pq);
-        Ok(Self {
-            base,
-            num_hits,
-            total_hits_threshold,
-            can_set_min_score,
-            search_sort_part_of_index_sort: None,
-            min_score_acc,
-            min_competitive_score: 0.0,
-            num_comparators,
-            queue_full: false,
-            doc_base: 0,
-            needs_scores,
-            score_mode,
-        })
-    }
-    pub(crate) fn update_global_min_competitive_score<S: Scorable + ?Sized>(
-        &mut self,
-        scorer: &mut S,
-    ) -> Result<()> {
-        match &self.min_score_acc {
-            Some(acc) if self.can_set_min_score => {
-                // we can start checking the global maximum score even if the local queue
-                // is not full or the threshold is not reached on the local competitor:
-                // the fact that there is a shared min competitive score implies that one
-                // of the collectors hit its totalHitsThreshold already
-                let max_min_score = acc.get_raw();
-
-                if max_min_score != i64::MIN {
-                    let score = MaxScoreAccumulator::to_score(max_min_score);
-                    if score > self.min_competitive_score {
-                        scorer.set_min_competitive_score(score)?;
-                        self.min_competitive_score = score;
-                        self.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
-                    }
-                }
-                Ok(())
-            },
-            _ => Ok(()),
+          ScoreMode::TopDocs
         }
-    }
+      } else if needs_scores {
+        ScoreMode::Complete
+      } else {
+        ScoreMode::CompleteNoScores
+      };
+      (score_mode, can_set_min_score)
+    };
 
-    pub(crate) fn update_min_competitive_score<S: Scorable + ?Sized>(
-        &mut self,
-        scorer: &mut S,
-    ) -> Result<()> {
-        if self.can_set_min_score
-            && self.queue_full
-            && self.base.total_hits > self.total_hits_threshold
-        {
-            let bottom = self.bottom()?;
+    let base = TopDocsCollectorBase::new(pq);
+    Ok(Self {
+      base,
+      num_hits,
+      total_hits_threshold,
+      can_set_min_score,
+      search_sort_part_of_index_sort: None,
+      min_score_acc,
+      min_competitive_score: 0.0,
+      num_comparators,
+      queue_full: false,
+      doc_base: 0,
+      needs_scores,
+      score_mode,
+    })
+  }
+  pub(crate) fn update_global_min_competitive_score<S: Scorable + ?Sized>(
+    &mut self,
+    scorer: &mut S,
+  ) -> Result<()> {
+    match &self.min_score_acc {
+      Some(acc) if self.can_set_min_score => {
+        // we can start checking the global maximum score even if the local queue
+        // is not full or the threshold is not reached on the local competitor:
+        // the fact that there is a shared min competitive score implies that one
+        // of the collectors hit its totalHitsThreshold already
+        let max_min_score = acc.get_raw();
 
-            let first_comparator = &self.base.pq.get_comparators()[0];
-            let min_score = first_comparator
-                .value(bottom.slot()?)
-                .and_then(FieldComparatorValue::into_f32)
-                .expect("first comparator is not a float");
-
-            if min_score > self.min_competitive_score {
-                scorer.set_min_competitive_score(min_score)?;
-                self.min_competitive_score = min_score;
-                self.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
-
-                if let Some(acc) = &self.min_score_acc {
-                    acc.accumulate(self.doc_base as i32, min_score);
-                }
-            }
+        if max_min_score != i64::MIN {
+          let score = MaxScoreAccumulator::to_score(max_min_score);
+          if score > self.min_competitive_score {
+            scorer.set_min_competitive_score(score)?;
+            self.min_competitive_score = score;
+            self.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+          }
         }
         Ok(())
+      },
+      _ => Ok(()),
     }
-    pub(crate) fn add(&mut self, slot: usize, doc: i32) -> Result<()> {
-        let global_doc = doc + self.doc_base as i32;
-        self.pq_mut().add(Entry::new(slot, global_doc).into())?;
+  }
 
-        // The queue is full either when total_hits == num_hits (in SimpleFieldCollector),
-        // in which case slot = total_hits - 1, or when hits_collected == num_hits (in
-        // PagingFieldCollector this is hits on the current page) and slot = hits_collected - 1.
-        debug_assert!(slot < self.num_hits);
+  pub(crate) fn update_min_competitive_score<S: Scorable + ?Sized>(
+    &mut self,
+    scorer: &mut S,
+  ) -> Result<()> {
+    if self.can_set_min_score && self.queue_full && self.base.total_hits > self.total_hits_threshold
+    {
+      let bottom = self.bottom()?;
 
-        self.queue_full = slot == self.num_hits - 1;
-        Ok(())
+      let first_comparator = &self.base.pq.get_comparators()[0];
+      let min_score = first_comparator
+        .value(bottom.slot()?)
+        .and_then(FieldComparatorValue::into_f32)
+        .expect("first comparator is not a float");
+
+      if min_score > self.min_competitive_score {
+        scorer.set_min_competitive_score(min_score)?;
+        self.min_competitive_score = min_score;
+        self.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+
+        if let Some(acc) = &self.min_score_acc {
+          acc.accumulate(self.doc_base as i32, min_score);
+        }
+      }
     }
-    pub(crate) fn update_bottom(&mut self, doc: i32) -> Result<()> {
-        let global_doc = doc + self.doc_base as i32;
-        let bottom = self.bottom_mut()?;
-        bottom.score_doc_mut().doc = global_doc;
-        let pq = self.pq_mut();
-        pq.update_top()?;
-        Ok(())
-    }
-    #[inline]
-    fn bottom(&self) -> Result<&TopFieldScoreDoc> {
-        self.base
-            .pq
-            .top()
-            .ok_or_else(|| LuceneError::illegal_state("priority queue bottom missing"))
-    }
-    #[inline]
-    fn bottom_mut(&mut self) -> Result<&mut TopFieldScoreDoc> {
-        self.base
-            .pq
-            .top_mut()
-            .ok_or_else(|| LuceneError::illegal_state("priority queue bottom missing"))
-    }
+    Ok(())
+  }
+  pub(crate) fn add(&mut self, slot: usize, doc: i32) -> Result<()> {
+    let global_doc = doc + self.doc_base as i32;
+    self.pq_mut().add(Entry::new(slot, global_doc).into())?;
+
+    // The queue is full either when total_hits == num_hits (in SimpleFieldCollector),
+    // in which case slot = total_hits - 1, or when hits_collected == num_hits (in
+    // PagingFieldCollector this is hits on the current page) and slot = hits_collected - 1.
+    debug_assert!(slot < self.num_hits);
+
+    self.queue_full = slot == self.num_hits - 1;
+    Ok(())
+  }
+  pub(crate) fn update_bottom(&mut self, doc: i32) -> Result<()> {
+    let global_doc = doc + self.doc_base as i32;
+    let bottom = self.bottom_mut()?;
+    bottom.score_doc_mut().doc = global_doc;
+    let pq = self.pq_mut();
+    pq.update_top()?;
+    Ok(())
+  }
+  #[inline]
+  fn bottom(&self) -> Result<&TopFieldScoreDoc> {
+    self
+      .base
+      .pq
+      .top()
+      .ok_or_else(|| LuceneError::illegal_state("priority queue bottom missing"))
+  }
+  #[inline]
+  fn bottom_mut(&mut self) -> Result<&mut TopFieldScoreDoc> {
+    self
+      .base
+      .pq
+      .top_mut()
+      .ok_or_else(|| LuceneError::illegal_state("priority queue bottom missing"))
+  }
 }
 /// Populate [`ScoreDoc::score`] scores of the given `topDocs`.
 ///
@@ -228,2202 +228,2200 @@ impl TopFieldCollector {
 /// Returns `IllegalArgumentException` if there is evidence that `topDocs` have been computed
 /// against a different searcher or a different query.
 pub fn populate_scores<IRC, T, S>(
-    top_docs: &mut [S],
-    searcher: &IndexSearcher<IRC>,
-    query: T,
+  top_docs: &mut [S],
+  searcher: &IndexSearcher<IRC>,
+  query: T,
 ) -> Result<()>
 where
-    IRC: IndexReaderContext,
-    T: Into<Query>,
-    S: ScoreDocLike,
+  IRC: IndexReaderContext,
+  T: Into<Query>,
+  S: ScoreDocLike,
 {
-    let mut top_docs_idxs: Vec<usize> = (0..top_docs.len()).collect();
-    top_docs_idxs.sort_by_key(|idx| top_docs[*idx].doc());
+  let mut top_docs_idxs: Vec<usize> = (0..top_docs.len()).collect();
+  top_docs_idxs.sort_by_key(|idx| top_docs[*idx].doc());
 
-    let rewritten = searcher.rewrite(query)?;
-    let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
+  let rewritten = searcher.rewrite(query)?;
+  let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
 
-    let contexts = searcher.get_leaf_contexts()?;
-    let mut current_context_idx: Option<usize> = None;
-    let mut current_scorer = None;
+  let contexts = searcher.get_leaf_contexts()?;
+  let mut current_context_idx: Option<usize> = None;
+  let mut current_scorer = None;
 
-    for idx in top_docs_idxs {
-        let score_doc = &mut top_docs[idx];
-        let doc = score_doc.doc();
+  for idx in top_docs_idxs {
+    let score_doc = &mut top_docs[idx];
+    let doc = score_doc.doc();
 
-        let need_new_context = match current_context_idx {
-            Some(context_idx) => {
-                let ctx = &contexts[context_idx];
-                doc as usize >= ctx.doc_base + ctx.reader().max_doc()? as usize
-            },
-            None => true,
-        };
-
-        if need_new_context {
-            let max_doc = searcher.get_index_reader().max_doc()?;
-            CoreHelper::check_index(doc as usize, max_doc as usize)?;
-            if doc < 0 || doc >= max_doc {
-                return Err(LuceneError::illegal_argument(format!(
-                    "Doc id {} doesn't match the query",
-                    doc
-                )));
-            }
-
-            let new_context_index = ReaderUtil::sub_index_with_leaves(doc, contexts);
-            current_context_idx = Some(new_context_index);
-
-            let ctx = &contexts[new_context_index];
-            let scorer_supplier = weight.scorer_supplier(ctx, searcher)?;
-            let mut scorer_supplier = scorer_supplier.ok_or_else(|| {
-                LuceneError::illegal_argument(format!("Doc id {} doesn't match the query", doc))
-            })?;
-
-            current_scorer = Some(scorer_supplier.get(1, ctx, searcher)?);
-        }
-
-        let context_idx = current_context_idx.ok_or_else(|| {
-            LuceneError::illegal_argument("current_context_idx is not initialized")
-        })?;
+    let need_new_context = match current_context_idx {
+      Some(context_idx) => {
         let ctx = &contexts[context_idx];
+        doc as usize >= ctx.doc_base + ctx.reader().max_doc()? as usize
+      },
+      None => true,
+    };
 
-        let scorer = current_scorer
-            .as_mut()
-            .ok_or_else(|| LuceneError::illegal_argument("scorer not initialized"))?;
+    if need_new_context {
+      let max_doc = searcher.get_index_reader().max_doc()?;
+      CoreHelper::check_index(doc as usize, max_doc as usize)?;
+      if doc < 0 || doc >= max_doc {
+        return Err(LuceneError::illegal_argument(format!(
+          "Doc id {} doesn't match the query",
+          doc
+        )));
+      }
 
-        let leaf_doc = (doc as usize).checked_sub(ctx.doc_base);
-        let leaf_doc: i32 = leaf_doc
-            .ok_or_else(|| LuceneError::illegal_argument("leaf_doc < 0"))?
-            .try_convert()?;
+      let new_context_index = ReaderUtil::sub_index_with_leaves(doc, contexts);
+      current_context_idx = Some(new_context_index);
 
-        let advanced = scorer.iterator_mut().advance(leaf_doc)?;
-        if leaf_doc != advanced {
-            return Err(LuceneError::illegal_argument(format!(
-                "Doc id {} doesn't match the query",
-                doc
-            )));
-        }
+      let ctx = &contexts[new_context_index];
+      let scorer_supplier = weight.scorer_supplier(ctx, searcher)?;
+      let mut scorer_supplier = scorer_supplier.ok_or_else(|| {
+        LuceneError::illegal_argument(format!("Doc id {} doesn't match the query", doc))
+      })?;
 
-        score_doc.set_score(scorer.score()?);
+      current_scorer = Some(scorer_supplier.get(1, ctx, searcher)?);
     }
-    Ok(())
+
+    let context_idx = current_context_idx
+      .ok_or_else(|| LuceneError::illegal_argument("current_context_idx is not initialized"))?;
+    let ctx = &contexts[context_idx];
+
+    let scorer = current_scorer
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_argument("scorer not initialized"))?;
+
+    let leaf_doc = (doc as usize).checked_sub(ctx.doc_base);
+    let leaf_doc: i32 = leaf_doc
+      .ok_or_else(|| LuceneError::illegal_argument("leaf_doc < 0"))?
+      .try_convert()?;
+
+    let advanced = scorer.iterator_mut().advance(leaf_doc)?;
+    if leaf_doc != advanced {
+      return Err(LuceneError::illegal_argument(format!(
+        "Doc id {} doesn't match the query",
+        doc
+      )));
+    }
+
+    score_doc.set_score(scorer.score()?);
+  }
+  Ok(())
 }
 
 impl Collector for TopFieldCollector {
-    type LeafCollector<'a, IRC>
-        = DummyLeafCollector
-    where
-        Self: 'a,
-        IRC: IndexReaderContext;
+  type LeafCollector<'a, IRC>
+    = DummyLeafCollector
+  where
+    Self: 'a,
+    IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, IRC>(
-        &'a mut self,
-        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, IRC>>
-    where
-        IRC: IndexReaderContext,
-        W: Weight<IRC> + ?Sized,
-    {
-        unreachable!("should call Simple/PagingFieldCollector instead")
-    }
+  fn get_leaf_collector<'a, W, IRC>(
+    &'a mut self,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC>>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    unreachable!("should call Simple/PagingFieldCollector instead")
+  }
 
-    fn score_mode(&self) -> ScoreMode {
-        self.score_mode
-    }
+  fn score_mode(&self) -> ScoreMode {
+    self.score_mode
+  }
 }
 
 impl TopDocsCollector for TopFieldCollector {
-    type Item = TopFieldScoreDoc;
-    type Cmp = FieldValueHitQueueComparator;
-    type TopDocsLike = TopFieldDocs;
+  type Item = TopFieldScoreDoc;
+  type Cmp = FieldValueHitQueueComparator;
+  type TopDocsLike = TopFieldDocs;
 
-    fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
-        &self.base.pq
-    }
+  fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
+    &self.base.pq
+  }
 
-    fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
-        &mut self.base.pq
-    }
+  fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
+    &mut self.base.pq
+  }
 
-    fn total_hits(&self) -> usize {
-        self.base.total_hits
-    }
+  fn total_hits(&self) -> usize {
+    self.base.total_hits
+  }
 
-    fn get_total_hits_relation(&self) -> Relation {
-        self.base.total_hits_relation
-    }
+  fn get_total_hits_relation(&self) -> Relation {
+    self.base.total_hits_relation
+  }
 
-    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
-        let pq = &mut self.base.pq;
-        for i in (0..how_many).rev() {
-            let entry = pq.pop_unchecked()?;
-            results[i] = pq.fill_fields(entry)?;
-        }
-        Ok(())
+  fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+    let pq = &mut self.base.pq;
+    for i in (0..how_many).rev() {
+      let entry = pq.pop_unchecked()?;
+      results[i] = pq.fill_fields(entry)?;
     }
+    Ok(())
+  }
 
-    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> Self::TopDocsLike
-    where
-        Self: Sized,
-    {
-        let result = results.unwrap_or_else(std::vec::Vec::new);
-        // TODO: TopFieldDocs#fields not used in Java Lucene, so far we set it to empty vec
-        TopFieldDocs::new(
-            TotalHits::new(self.total_hits(), self.get_total_hits_relation()),
-            result,
-            vec![],
-        )
-    }
+  fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> Self::TopDocsLike
+  where
+    Self: Sized,
+  {
+    let result = results.unwrap_or_else(std::vec::Vec::new);
+    // TODO: TopFieldDocs#fields not used in Java Lucene, so far we set it to empty vec
+    TopFieldDocs::new(
+      TotalHits::new(self.total_hits(), self.get_total_hits_relation()),
+      result,
+      vec![],
+    )
+  }
 }
 
 pub struct TopFieldLeafCollector<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    base: &'a mut TopFieldCollector,
-    reverse_mul: i32,
-    collected_all_competitive_hits: bool,
-    comparator: TopFieldLeafComparatorEnum<LR>,
+  base: &'a mut TopFieldCollector,
+  reverse_mul: i32,
+  collected_all_competitive_hits: bool,
+  comparator: TopFieldLeafComparatorEnum<LR>,
 }
 impl<'a, LR> TopFieldLeafCollector<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    pub fn new(
-        base: &'a mut TopFieldCollector,
-        sort: &Sort,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Self> {
-        // as all segments are sorted in the same way, enough to check only the 1st segment for
-        // indexSort
-        if base.search_sort_part_of_index_sort.is_none()
-            && let Some(index_sort) = context.reader().get_metadata()?.get_sort()
-        {
-            let can_early_terminate = can_early_terminate(sort, Some(index_sort))?;
-            base.search_sort_part_of_index_sort = Some(can_early_terminate);
-
-            if can_early_terminate {
-                let pq = &mut base.base.pq;
-                let first_comparator = &mut pq.get_comparators_mut()[0];
-                first_comparator.disable_skipping();
-            }
-        }
-
-        let leaf_comparators = base.base.pq.get_leaf_comparator(context)?;
-        let reverse_muls = base.base.pq.get_reverse_mul_shared();
-
-        let (reverse_mul, comparator) = if leaf_comparators.len() == 1 {
-            (
-                reverse_muls[0],
-                TopFieldLeafComparatorEnum::Single(leaf_comparators.into_iter().next().unwrap()),
-            )
-        } else {
-            (
-                1,
-                TopFieldLeafComparatorEnum::Multi(MultiLeafFieldComparator::new(
-                    leaf_comparators,
-                    reverse_muls,
-                )?),
-            )
-        };
-
-        Ok(Self {
-            base,
-            reverse_mul,
-            collected_all_competitive_hits: false,
-            comparator,
-        })
-    }
-    pub(crate) fn count_hit<S: Scorable + ?Sized>(
-        &mut self,
-        scorer: &mut S,
-        _doc: i32,
-    ) -> Result<()> {
-        self.base.base.total_hits += 1;
-        debug_assert!(self.base.base.total_hits <= i32::MAX as usize);
-        let hit_count_so_far = self.base.base.total_hits;
-
-        if let Some(acc) = &self.base.min_score_acc
-            && (hit_count_so_far & acc.mod_interval as usize) == 0
-        {
-            self.base.update_global_min_competitive_score(scorer)?;
-        }
-
-        if !self.base.score_mode.is_exhaustive()
-            && self.base.base.total_hits_relation == Relation::EqualTo
-            && hit_count_so_far > self.base.total_hits_threshold
-        {
-            let comparators = self.base.base.pq.get_comparators_mut();
-            self.comparator.set_hits_threshold_reached(comparators)?;
-            self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
-        }
-
-        Ok(())
-    }
-    pub(crate) fn threshold_check<S>(&mut self, doc: i32, scorer: &mut S) -> Result<bool>
-    where
-        S: Scorable + ?Sized,
+  pub fn new(
+    base: &'a mut TopFieldCollector,
+    sort: &Sort,
+    context: &LeafReaderContext<LR>,
+  ) -> Result<Self> {
+    // as all segments are sorted in the same way, enough to check only the 1st segment for
+    // indexSort
+    if base.search_sort_part_of_index_sort.is_none()
+      && let Some(index_sort) = context.reader().get_metadata()?.get_sort()
     {
-        let cmp_check = if self.collected_all_competitive_hits {
-            true
-        } else {
-            let comparators = self.base.base.pq.get_comparators_mut();
-            let cmp = self.comparator.compare_bottom(doc, scorer, comparators)?;
-            self.reverse_mul * cmp <= 0
-        };
+      let can_early_terminate = can_early_terminate(sort, Some(index_sort))?;
+      base.search_sort_part_of_index_sort = Some(can_early_terminate);
 
-        if cmp_check {
-            // since docs are visited in doc Id order, if compare is 0, it means
-            // this document is larger than anything else in the queue, and
-            // therefore not competitive.
-            if self.base.search_sort_part_of_index_sort.unwrap_or(false) {
-                if self.base.base.total_hits > self.base.total_hits_threshold {
-                    self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
-                    return Err(LuceneError::collection_terminated(
-                        "collection terminated due to early termination threshold",
-                    ));
-                } else {
-                    self.collected_all_competitive_hits = true;
-                }
-            } else if self.base.base.total_hits_relation == Relation::EqualTo {
-                // we can start setting the min competitive score if the
-                // threshold is reached for the first time here.
-                self.base.update_min_competitive_score(scorer)?;
-            }
-            return Ok(true);
-        }
-
-        Ok(false)
+      if can_early_terminate {
+        let pq = &mut base.base.pq;
+        let first_comparator = &mut pq.get_comparators_mut()[0];
+        first_comparator.disable_skipping();
+      }
     }
-    pub(crate) fn collect_competitive_hit<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable + ?Sized,
+
+    let leaf_comparators = base.base.pq.get_leaf_comparator(context)?;
+    let reverse_muls = base.base.pq.get_reverse_mul_shared();
+
+    let (reverse_mul, comparator) = if leaf_comparators.len() == 1 {
+      (
+        reverse_muls[0],
+        TopFieldLeafComparatorEnum::Single(leaf_comparators.into_iter().next().unwrap()),
+      )
+    } else {
+      (
+        1,
+        TopFieldLeafComparatorEnum::Multi(MultiLeafFieldComparator::new(
+          leaf_comparators,
+          reverse_muls,
+        )?),
+      )
+    };
+
+    Ok(Self {
+      base,
+      reverse_mul,
+      collected_all_competitive_hits: false,
+      comparator,
+    })
+  }
+  pub(crate) fn count_hit<S: Scorable + ?Sized>(
+    &mut self,
+    scorer: &mut S,
+    _doc: i32,
+  ) -> Result<()> {
+    self.base.base.total_hits += 1;
+    debug_assert!(self.base.base.total_hits <= i32::MAX as usize);
+    let hit_count_so_far = self.base.base.total_hits;
+
+    if let Some(acc) = &self.base.min_score_acc
+      && (hit_count_so_far & acc.mod_interval as usize) == 0
     {
-        {
-            let bottom = self.bottom()?;
-            self.comparator.copy(
-                bottom.slot()?,
-                doc,
-                scorer,
-                self.base.base.pq.get_comparators_mut(),
-            )?;
+      self.base.update_global_min_competitive_score(scorer)?;
+    }
+
+    if !self.base.score_mode.is_exhaustive()
+      && self.base.base.total_hits_relation == Relation::EqualTo
+      && hit_count_so_far > self.base.total_hits_threshold
+    {
+      let comparators = self.base.base.pq.get_comparators_mut();
+      self.comparator.set_hits_threshold_reached(comparators)?;
+      self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+    }
+
+    Ok(())
+  }
+  pub(crate) fn threshold_check<S>(&mut self, doc: i32, scorer: &mut S) -> Result<bool>
+  where
+    S: Scorable + ?Sized,
+  {
+    let cmp_check = if self.collected_all_competitive_hits {
+      true
+    } else {
+      let comparators = self.base.base.pq.get_comparators_mut();
+      let cmp = self.comparator.compare_bottom(doc, scorer, comparators)?;
+      self.reverse_mul * cmp <= 0
+    };
+
+    if cmp_check {
+      // since docs are visited in doc Id order, if compare is 0, it means
+      // this document is larger than anything else in the queue, and
+      // therefore not competitive.
+      if self.base.search_sort_part_of_index_sort.unwrap_or(false) {
+        if self.base.base.total_hits > self.base.total_hits_threshold {
+          self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+          return Err(LuceneError::collection_terminated(
+            "collection terminated due to early termination threshold",
+          ));
+        } else {
+          self.collected_all_competitive_hits = true;
         }
-        self.base.update_bottom(doc)?;
-        let bottom = self.bottom()?;
-        self.comparator
-            .set_bottom(bottom.slot()?, self.base.base.pq.get_comparators_mut())?;
+      } else if self.base.base.total_hits_relation == Relation::EqualTo {
+        // we can start setting the min competitive score if the
+        // threshold is reached for the first time here.
         self.base.update_min_competitive_score(scorer)?;
+      }
+      return Ok(true);
+    }
 
-        Ok(())
-    }
-    pub(crate) fn collect_any_hit<S>(
-        &mut self,
-        doc: i32,
-        hits_collected: usize,
-        scorer: &mut S,
-    ) -> Result<()>
-    where
-        S: Scorable + ?Sized,
+    Ok(false)
+  }
+  pub(crate) fn collect_competitive_hit<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
     {
-        // Startup transient: queue hasn't gathered numHits yet
-        let slot = hits_collected - 1;
-        // Copy hit into queue
-        self.comparator
-            .copy(slot, doc, scorer, self.base.base.pq.get_comparators_mut())?;
-        self.base.add(slot, doc)?;
-        if self.base.queue_full {
-            let bottom = self.bottom()?;
-            self.comparator
-                .set_bottom(bottom.slot()?, self.base.base.pq.get_comparators_mut())?;
-            self.base.update_min_competitive_score(scorer)?;
-        }
-        Ok(())
+      let bottom = self.bottom()?;
+      self.comparator.copy(
+        bottom.slot()?,
+        doc,
+        scorer,
+        self.base.base.pq.get_comparators_mut(),
+      )?;
     }
-    #[inline]
-    fn bottom(&self) -> Result<&TopFieldScoreDoc> {
-        self.base.bottom()
+    self.base.update_bottom(doc)?;
+    let bottom = self.bottom()?;
+    self
+      .comparator
+      .set_bottom(bottom.slot()?, self.base.base.pq.get_comparators_mut())?;
+    self.base.update_min_competitive_score(scorer)?;
+
+    Ok(())
+  }
+  pub(crate) fn collect_any_hit<S>(
+    &mut self,
+    doc: i32,
+    hits_collected: usize,
+    scorer: &mut S,
+  ) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
+    // Startup transient: queue hasn't gathered numHits yet
+    let slot = hits_collected - 1;
+    // Copy hit into queue
+    self
+      .comparator
+      .copy(slot, doc, scorer, self.base.base.pq.get_comparators_mut())?;
+    self.base.add(slot, doc)?;
+    if self.base.queue_full {
+      let bottom = self.bottom()?;
+      self
+        .comparator
+        .set_bottom(bottom.slot()?, self.base.base.pq.get_comparators_mut())?;
+      self.base.update_min_competitive_score(scorer)?;
     }
-    #[inline]
-    fn bottom_mut(&mut self) -> Result<&mut TopFieldScoreDoc> {
-        self.base.bottom_mut()
-    }
+    Ok(())
+  }
+  #[inline]
+  fn bottom(&self) -> Result<&TopFieldScoreDoc> {
+    self.base.bottom()
+  }
+  #[inline]
+  fn bottom_mut(&mut self) -> Result<&mut TopFieldScoreDoc> {
+    self.base.bottom_mut()
+  }
 }
 
 impl<LR> Display for TopFieldLeafCollector<'_, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<LR>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<LR>())
+  }
 }
 
 impl<'a, LR> LeafCollector for TopFieldLeafCollector<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
-        let comparators = self.base.base.pq.get_comparators_mut();
-        self.comparator.set_scorer(scorer, comparators)?;
+  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+    let comparators = self.base.base.pq.get_comparators_mut();
+    self.comparator.set_scorer(scorer, comparators)?;
 
-        if self.base.min_score_acc.is_none() {
-            self.base.update_min_competitive_score(scorer)?;
-        } else {
-            self.base.update_global_min_competitive_score(scorer)?;
-        }
-
-        Ok(())
+    if self.base.min_score_acc.is_none() {
+      self.base.update_min_competitive_score(scorer)?;
+    } else {
+      self.base.update_global_min_competitive_score(scorer)?;
     }
 
-    fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
-        unreachable!("should not be called")
-    }
-    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
-        let comparators = self.base.base.pq.get_comparators_mut();
-        Ok(self
-            .comparator
-            .competitive_iterator(comparators)?
-            .map(|it| Box::new(it) as Box<dyn DocIdSetIterator>))
-    }
+    Ok(())
+  }
+
+  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+    unreachable!("should not be called")
+  }
+  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+    let comparators = self.base.base.pq.get_comparators_mut();
+    Ok(
+      self
+        .comparator
+        .competitive_iterator(comparators)?
+        .map(|it| Box::new(it) as Box<dyn DocIdSetIterator>),
+    )
+  }
 }
 
 pub(crate) fn can_early_terminate(search_sort: &Sort, index_sort: Option<&Sort>) -> Result<bool> {
-    Ok(can_early_terminate_on_doc_id(search_sort)?
-        || can_early_terminate_on_prefix(search_sort, index_sort)?)
+  Ok(
+    can_early_terminate_on_doc_id(search_sort)?
+      || can_early_terminate_on_prefix(search_sort, index_sort)?,
+  )
 }
 
 fn can_early_terminate_on_doc_id(search_sort: &Sort) -> Result<bool> {
-    let fields = search_sort.get_sort();
-    if let Some(SortFieldEnum::Sorter(field)) = fields.first() {
-        let field_doc = SortField::get_field_doc()?;
-        Ok(*field == field_doc)
-    } else {
-        Ok(false)
-    }
+  let fields = search_sort.get_sort();
+  if let Some(SortFieldEnum::Sorter(field)) = fields.first() {
+    let field_doc = SortField::get_field_doc()?;
+    Ok(*field == field_doc)
+  } else {
+    Ok(false)
+  }
 }
 fn can_early_terminate_on_prefix(search_sort: &Sort, index_sort: Option<&Sort>) -> Result<bool> {
-    if let Some(index_sort) = index_sort {
-        let fields1 = search_sort.get_sort();
-        let fields2 = index_sort.get_sort();
+  if let Some(index_sort) = index_sort {
+    let fields1 = search_sort.get_sort();
+    let fields2 = index_sort.get_sort();
 
-        if fields1.len() > fields2.len() {
-            return Ok(false);
-        }
-
-        Ok(fields1.iter().zip(fields2.iter()).all(|(a, b)| a == b))
-    } else {
-        Ok(false)
+    if fields1.len() > fields2.len() {
+      return Ok(false);
     }
+
+    Ok(fields1.iter().zip(fields2.iter()).all(|(a, b)| a == b))
+  } else {
+    Ok(false)
+  }
 }
 /// Implements a TopFieldCollector over one SortField criteria, with tracking document scores and maxScore
 pub struct SimpleFieldCollector {
-    base: TopFieldCollector,
-    sort: Arc<Sort>,
+  base: TopFieldCollector,
+  sort: Arc<Sort>,
 }
 impl SimpleFieldCollector {
-    pub fn new(
-        sort: Arc<Sort>,
-        queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
-        num_hits: usize,
-        total_hits_threshold: usize,
-        min_score_acc: Option<Arc<MaxScoreAccumulator>>,
-    ) -> Result<Self> {
-        let base = TopFieldCollector::new(
-            queue,
-            num_hits,
-            total_hits_threshold,
-            sort.needs_scores(),
-            min_score_acc,
-        )?;
-        Ok(Self { base, sort })
-    }
+  pub fn new(
+    sort: Arc<Sort>,
+    queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+    num_hits: usize,
+    total_hits_threshold: usize,
+    min_score_acc: Option<Arc<MaxScoreAccumulator>>,
+  ) -> Result<Self> {
+    let base = TopFieldCollector::new(
+      queue,
+      num_hits,
+      total_hits_threshold,
+      sort.needs_scores(),
+      min_score_acc,
+    )?;
+    Ok(Self { base, sort })
+  }
 }
 
 impl Collector for SimpleFieldCollector {
-    type LeafCollector<'a, IRC>
-        = SimpleLeafCollector<'a, IRCLeafReader<IRC>>
-    where
-        Self: 'a,
-        IRC: IndexReaderContext;
+  type LeafCollector<'a, IRC>
+    = SimpleLeafCollector<'a, IRCLeafReader<IRC>>
+  where
+    Self: 'a,
+    IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, IRC>(
-        &'a mut self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, IRC>>
-    where
-        IRC: IndexReaderContext,
-        W: Weight<IRC> + ?Sized,
-    {
-        self.base.min_competitive_score = 0.0;
-        self.base.doc_base = context.doc_base;
-        let needs_scores = self.base.needs_scores;
-        let collector = SimpleFieldLeafCollector::new(&mut self.base, &self.sort, context)?;
-        if needs_scores {
-            Ok(SimpleLeafCollector::B(
-                ScoreCachingWrappingLeafCollector::new(collector),
-            ))
-        } else {
-            Ok(SimpleLeafCollector::A(collector))
-        }
+  fn get_leaf_collector<'a, W, IRC>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC>>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    self.base.min_competitive_score = 0.0;
+    self.base.doc_base = context.doc_base;
+    let needs_scores = self.base.needs_scores;
+    let collector = SimpleFieldLeafCollector::new(&mut self.base, &self.sort, context)?;
+    if needs_scores {
+      Ok(SimpleLeafCollector::B(
+        ScoreCachingWrappingLeafCollector::new(collector),
+      ))
+    } else {
+      Ok(SimpleLeafCollector::A(collector))
     }
+  }
 
-    fn score_mode(&self) -> ScoreMode {
-        self.base.score_mode
-    }
+  fn score_mode(&self) -> ScoreMode {
+    self.base.score_mode
+  }
 }
 
 impl TopDocsCollector for SimpleFieldCollector {
-    type Item = <TopFieldCollector as TopDocsCollector>::Item;
-    type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
-    type TopDocsLike = <TopFieldCollector as TopDocsCollector>::TopDocsLike;
+  type Item = <TopFieldCollector as TopDocsCollector>::Item;
+  type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
+  type TopDocsLike = <TopFieldCollector as TopDocsCollector>::TopDocsLike;
 
-    fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
-        self.base.pq()
-    }
+  fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
+    self.base.pq()
+  }
 
-    fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
-        self.base.pq_mut()
-    }
+  fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
+    self.base.pq_mut()
+  }
 
-    fn total_hits(&self) -> usize {
-        self.base.total_hits()
-    }
+  fn total_hits(&self) -> usize {
+    self.base.total_hits()
+  }
 
-    fn get_total_hits_relation(&self) -> Relation {
-        self.base.get_total_hits_relation()
-    }
+  fn get_total_hits_relation(&self) -> Relation {
+    self.base.get_total_hits_relation()
+  }
 
-    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
-        self.base.populate_results(results, how_many)
-    }
+  fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+    self.base.populate_results(results, how_many)
+  }
 
-    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
-    where
-        Self: Sized,
-    {
-        self.base.new_top_docs(results, start)
-    }
+  fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
+  where
+    Self: Sized,
+  {
+    self.base.new_top_docs(results, start)
+  }
 
-    fn top_docs_size(&self) -> usize {
-        self.base.top_docs_size()
-    }
+  fn top_docs_size(&self) -> usize {
+    self.base.top_docs_size()
+  }
 
-    fn top_docs(&mut self) -> Result<Self::TopDocsLike>
-    where
-        Self: Sized,
-    {
-        self.base.top_docs()
-    }
+  fn top_docs(&mut self) -> Result<Self::TopDocsLike>
+  where
+    Self: Sized,
+  {
+    self.base.top_docs()
+  }
 
-    fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
-    where
-        Self: Sized,
-    {
-        self.base.top_docs_with_start(start)
-    }
+  fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
+  where
+    Self: Sized,
+  {
+    self.base.top_docs_with_start(start)
+  }
 
-    fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
-    where
-        Self: Sized,
-    {
-        self.base.top_docs_with_start_limit(start, how_many)
-    }
+  fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
+  where
+    Self: Sized,
+  {
+    self.base.top_docs_with_start_limit(start, how_many)
+  }
 }
 pub struct SimpleFieldLeafCollector<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    base: TopFieldLeafCollector<'a, LR>,
+  base: TopFieldLeafCollector<'a, LR>,
 }
 impl<'a, LR> SimpleFieldLeafCollector<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    pub fn new(
-        base: &'a mut TopFieldCollector,
-        sort: &Sort,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Self> {
-        let base = TopFieldLeafCollector::new(base, sort, context)?;
-        Ok(Self { base })
-    }
+  pub fn new(
+    base: &'a mut TopFieldCollector,
+    sort: &Sort,
+    context: &LeafReaderContext<LR>,
+  ) -> Result<Self> {
+    let base = TopFieldLeafCollector::new(base, sort, context)?;
+    Ok(Self { base })
+  }
 }
 
 impl<LR> Display for SimpleFieldLeafCollector<'_, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", std::any::type_name::<LR>(), self.base)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{} {}", std::any::type_name::<LR>(), self.base)
+  }
 }
 
 impl<'a, LR> LeafCollector for SimpleFieldLeafCollector<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
-        self.base.set_scorer(scorer)
-    }
+  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+    self.base.set_scorer(scorer)
+  }
 
-    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-        self.base.count_hit(scorer, doc)?;
-        if self.base.base.queue_full {
-            if self.base.threshold_check(doc, scorer)? {
-                return Ok(());
-            }
-            self.base.collect_competitive_hit(doc, scorer)?;
-        } else {
-            let hits_collected = self.base.base.total_hits();
-            self.base.collect_any_hit(doc, hits_collected, scorer)?;
-        }
-        Ok(())
+  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+    self.base.count_hit(scorer, doc)?;
+    if self.base.base.queue_full {
+      if self.base.threshold_check(doc, scorer)? {
+        return Ok(());
+      }
+      self.base.collect_competitive_hit(doc, scorer)?;
+    } else {
+      let hits_collected = self.base.base.total_hits();
+      self.base.collect_any_hit(doc, hits_collected, scorer)?;
     }
+    Ok(())
+  }
 
-    fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
-        self.base.collect_stream(stream)
-    }
-    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
-        self.base.competitive_iterator()
-    }
+  fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
+    self.base.collect_stream(stream)
+  }
+  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+    self.base.competitive_iterator()
+  }
 
-    fn finish(&mut self) -> Result<()> {
-        self.base.finish()
-    }
+  fn finish(&mut self) -> Result<()> {
+    self.base.finish()
+  }
 }
 /// Implements a TopFieldCollector when after is Some.
 pub struct PagingFieldCollector {
-    base: TopFieldCollector,
-    sort: Arc<Sort>,
-    collected_hits: usize,
-    after: ScoreDoc,
+  base: TopFieldCollector,
+  sort: Arc<Sort>,
+  collected_hits: usize,
+  after: ScoreDoc,
 }
 
 impl PagingFieldCollector {
-    pub fn new(
-        sort: Arc<Sort>,
-        queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
-        mut after: FieldDoc,
-        num_hits: usize,
-        total_hits_threshold: usize,
-        min_score_acc: Option<Arc<MaxScoreAccumulator>>,
-    ) -> Result<Self> {
-        let mut base = TopFieldCollector::new(
-            queue,
-            num_hits,
-            total_hits_threshold,
-            sort.needs_scores(),
-            min_score_acc,
-        )?;
+  pub fn new(
+    sort: Arc<Sort>,
+    queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+    mut after: FieldDoc,
+    num_hits: usize,
+    total_hits_threshold: usize,
+    min_score_acc: Option<Arc<MaxScoreAccumulator>>,
+  ) -> Result<Self> {
+    let mut base = TopFieldCollector::new(
+      queue,
+      num_hits,
+      total_hits_threshold,
+      sort.needs_scores(),
+      min_score_acc,
+    )?;
 
-        // set top values for comparators
-        let comparators = base.base.pq.get_comparators_mut();
-        let fields = std::mem::take(&mut after.fields);
-        let score_doc = std::mem::take(&mut after.base);
+    // set top values for comparators
+    let comparators = base.base.pq.get_comparators_mut();
+    let fields = std::mem::take(&mut after.fields);
+    let score_doc = std::mem::take(&mut after.base);
 
-        for (comp, top_value) in comparators.iter_mut().zip(fields.into_iter()) {
-            comp.set_top_value(top_value);
-        }
-
-        Ok(Self {
-            base,
-            sort,
-            collected_hits: 0,
-            after: score_doc,
-        })
+    for (comp, top_value) in comparators.iter_mut().zip(fields.into_iter()) {
+      comp.set_top_value(top_value);
     }
+
+    Ok(Self {
+      base,
+      sort,
+      collected_hits: 0,
+      after: score_doc,
+    })
+  }
 }
 
 impl Collector for PagingFieldCollector {
-    type LeafCollector<'a, IRC>
-        = PagingLeafCollector<'a, IRCLeafReader<IRC>>
-    where
-        Self: 'a,
-        IRC: IndexReaderContext;
+  type LeafCollector<'a, IRC>
+    = PagingLeafCollector<'a, IRCLeafReader<IRC>>
+  where
+    Self: 'a,
+    IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, IRC>(
-        &'a mut self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, IRC>>
-    where
-        IRC: IndexReaderContext,
-        W: Weight<IRC> + ?Sized,
-    {
-        self.base.min_competitive_score = 0.0;
-        self.base.doc_base = context.doc_base;
-        let after_doc = self.after.doc - self.base.doc_base as i32;
+  fn get_leaf_collector<'a, W, IRC>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC>>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    self.base.min_competitive_score = 0.0;
+    self.base.doc_base = context.doc_base;
+    let after_doc = self.after.doc - self.base.doc_base as i32;
 
-        let needs_scores = self.base.needs_scores;
-        let collector = PagingFieldLeafCollector::new(
-            &mut self.base,
-            &self.sort,
-            context,
-            after_doc,
-            &mut self.collected_hits,
-        )?;
+    let needs_scores = self.base.needs_scores;
+    let collector = PagingFieldLeafCollector::new(
+      &mut self.base,
+      &self.sort,
+      context,
+      after_doc,
+      &mut self.collected_hits,
+    )?;
 
-        if needs_scores {
-            Ok(PagingLeafCollector::B(
-                ScoreCachingWrappingLeafCollector::new(collector),
-            ))
-        } else {
-            Ok(PagingLeafCollector::A(collector))
-        }
+    if needs_scores {
+      Ok(PagingLeafCollector::B(
+        ScoreCachingWrappingLeafCollector::new(collector),
+      ))
+    } else {
+      Ok(PagingLeafCollector::A(collector))
     }
+  }
 
-    fn score_mode(&self) -> ScoreMode {
-        self.base.score_mode
-    }
+  fn score_mode(&self) -> ScoreMode {
+    self.base.score_mode
+  }
 }
 
 impl TopDocsCollector for PagingFieldCollector {
-    type Item = <TopFieldCollector as TopDocsCollector>::Item;
-    type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
-    type TopDocsLike = <TopFieldCollector as TopDocsCollector>::TopDocsLike;
+  type Item = <TopFieldCollector as TopDocsCollector>::Item;
+  type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
+  type TopDocsLike = <TopFieldCollector as TopDocsCollector>::TopDocsLike;
 
-    fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
-        self.base.pq()
-    }
+  fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
+    self.base.pq()
+  }
 
-    fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
-        self.base.pq_mut()
-    }
+  fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
+    self.base.pq_mut()
+  }
 
-    fn total_hits(&self) -> usize {
-        self.base.total_hits()
-    }
+  fn total_hits(&self) -> usize {
+    self.base.total_hits()
+  }
 
-    fn get_total_hits_relation(&self) -> Relation {
-        self.base.get_total_hits_relation()
-    }
+  fn get_total_hits_relation(&self) -> Relation {
+    self.base.get_total_hits_relation()
+  }
 
-    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
-        self.base.populate_results(results, how_many)
-    }
+  fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+    self.base.populate_results(results, how_many)
+  }
 
-    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
-    where
-        Self: Sized,
-    {
-        self.base.new_top_docs(results, start)
-    }
+  fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
+  where
+    Self: Sized,
+  {
+    self.base.new_top_docs(results, start)
+  }
 
-    fn top_docs_size(&self) -> usize {
-        self.base.top_docs_size()
-    }
+  fn top_docs_size(&self) -> usize {
+    self.base.top_docs_size()
+  }
 
-    fn top_docs(&mut self) -> Result<Self::TopDocsLike>
-    where
-        Self: Sized,
-    {
-        self.base.top_docs()
-    }
+  fn top_docs(&mut self) -> Result<Self::TopDocsLike>
+  where
+    Self: Sized,
+  {
+    self.base.top_docs()
+  }
 
-    fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
-    where
-        Self: Sized,
-    {
-        self.base.top_docs_with_start(start)
-    }
+  fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
+  where
+    Self: Sized,
+  {
+    self.base.top_docs_with_start(start)
+  }
 
-    fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
-    where
-        Self: Sized,
-    {
-        self.base.top_docs_with_start_limit(start, how_many)
-    }
+  fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
+  where
+    Self: Sized,
+  {
+    self.base.top_docs_with_start_limit(start, how_many)
+  }
 }
 
 /// Leaf collector for paging-based top field collection.
 pub struct PagingFieldLeafCollector<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    base: TopFieldLeafCollector<'a, LR>,
-    after_doc: i32,
-    collected_hits: &'a mut usize,
+  base: TopFieldLeafCollector<'a, LR>,
+  after_doc: i32,
+  collected_hits: &'a mut usize,
 }
 
 impl<'a, LR> PagingFieldLeafCollector<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    pub fn new(
-        base: &'a mut TopFieldCollector,
-        sort: &Sort,
-        context: &LeafReaderContext<LR>,
-        after_doc: i32,
-        collected_hits: &'a mut usize,
-    ) -> Result<Self> {
-        let base = TopFieldLeafCollector::new(base, sort, context)?;
-        Ok(Self {
-            base,
-            after_doc,
-            collected_hits,
-        })
-    }
+  pub fn new(
+    base: &'a mut TopFieldCollector,
+    sort: &Sort,
+    context: &LeafReaderContext<LR>,
+    after_doc: i32,
+    collected_hits: &'a mut usize,
+  ) -> Result<Self> {
+    let base = TopFieldLeafCollector::new(base, sort, context)?;
+    Ok(Self {
+      base,
+      after_doc,
+      collected_hits,
+    })
+  }
 }
 
 impl<LR> Display for PagingFieldLeafCollector<'_, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", std::any::type_name::<LR>(), self.base)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{} {}", std::any::type_name::<LR>(), self.base)
+  }
 }
 
 impl<'a, LR> LeafCollector for PagingFieldLeafCollector<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
-        self.base.set_scorer(scorer)
+  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+    self.base.set_scorer(scorer)
+  }
+
+  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+    self.base.count_hit(scorer, doc)?;
+    if self.base.base.queue_full && self.base.threshold_check(doc, scorer)? {
+      return Ok(());
     }
 
-    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-        self.base.count_hit(scorer, doc)?;
-        if self.base.base.queue_full && self.base.threshold_check(doc, scorer)? {
-            return Ok(());
-        }
+    let top_cmp = {
+      let comparators = self.base.base.base.pq.get_comparators_mut();
+      self.base.comparator.compare_top(doc, scorer, comparators)? * self.base.reverse_mul
+    };
 
-        let top_cmp = {
-            let comparators = self.base.base.base.pq.get_comparators_mut();
-            self.base.comparator.compare_top(doc, scorer, comparators)? * self.base.reverse_mul
-        };
-
-        if top_cmp > 0 || (top_cmp == 0 && doc <= self.after_doc) {
-            // already collected in previous page
-            if self.base.base.base.total_hits_relation == Relation::EqualTo {
-                // check if totalHitsThreshold is reached and we can update competitive score
-                // necessary to account for possible update to global min competitive score
-                self.base.base.update_min_competitive_score(scorer)?;
-            }
-            return Ok(());
-        }
-
-        if self.base.base.queue_full {
-            self.base.collect_competitive_hit(doc, scorer)?;
-        } else {
-            *self.collected_hits += 1;
-            self.base
-                .collect_any_hit(doc, *self.collected_hits, scorer)?;
-        }
-
-        Ok(())
-    }
-    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
-        self.base.competitive_iterator()
+    if top_cmp > 0 || (top_cmp == 0 && doc <= self.after_doc) {
+      // already collected in previous page
+      if self.base.base.base.total_hits_relation == Relation::EqualTo {
+        // check if totalHitsThreshold is reached and we can update competitive score
+        // necessary to account for possible update to global min competitive score
+        self.base.base.update_min_competitive_score(scorer)?;
+      }
+      return Ok(());
     }
 
-    fn finish(&mut self) -> Result<()> {
-        self.base.finish()
+    if self.base.base.queue_full {
+      self.base.collect_competitive_hit(doc, scorer)?;
+    } else {
+      *self.collected_hits += 1;
+      self
+        .base
+        .collect_any_hit(doc, *self.collected_hits, scorer)?;
     }
+
+    Ok(())
+  }
+  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+    self.base.competitive_iterator()
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    self.base.finish()
+  }
 }
 
 type SimpleLeafCollector<'a, LR> = LeafCollectorEnum2<
-    SimpleFieldLeafCollector<'a, LR>,
-    ScoreCachingWrappingLeafCollector<SimpleFieldLeafCollector<'a, LR>>,
+  SimpleFieldLeafCollector<'a, LR>,
+  ScoreCachingWrappingLeafCollector<SimpleFieldLeafCollector<'a, LR>>,
 >;
 
 type PagingLeafCollector<'a, LR> = LeafCollectorEnum2<
-    PagingFieldLeafCollector<'a, LR>,
-    ScoreCachingWrappingLeafCollector<PagingFieldLeafCollector<'a, LR>>,
+  PagingFieldLeafCollector<'a, LR>,
+  ScoreCachingWrappingLeafCollector<PagingFieldLeafCollector<'a, LR>>,
 >;
 
 pub enum TopFieldCollectorEnum {
-    Simple(SimpleFieldCollector),
-    Paging(PagingFieldCollector),
+  Simple(SimpleFieldCollector),
+  Paging(PagingFieldCollector),
 }
 impl TopFieldCollectorEnum {
-    pub fn min_score_acc(&self) -> Option<Arc<MaxScoreAccumulator>> {
-        match self {
-            Self::Simple(inner) => inner.base.min_score_acc.clone(),
-            Self::Paging(inner) => inner.base.min_score_acc.clone(),
-        }
+  pub fn min_score_acc(&self) -> Option<Arc<MaxScoreAccumulator>> {
+    match self {
+      Self::Simple(inner) => inner.base.min_score_acc.clone(),
+      Self::Paging(inner) => inner.base.min_score_acc.clone(),
     }
+  }
 }
 
 pub enum FieldLeafCollectorEnum<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    Simple(SimpleLeafCollector<'a, LR>),
-    Paging(PagingLeafCollector<'a, LR>),
+  Simple(SimpleLeafCollector<'a, LR>),
+  Paging(PagingLeafCollector<'a, LR>),
 }
 
 impl<'a, LR> Display for FieldLeafCollectorEnum<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Simple(inner) => Display::fmt(inner, f),
-            Self::Paging(inner) => Display::fmt(inner, f),
-        }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Simple(inner) => Display::fmt(inner, f),
+      Self::Paging(inner) => Display::fmt(inner, f),
     }
+  }
 }
 
 impl<'a, LR> LeafCollector for FieldLeafCollectorEnum<'a, LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
-        match self {
-            Self::Simple(inner) => inner.set_scorer(scorer),
-            Self::Paging(inner) => inner.set_scorer(scorer),
-        }
+  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+    match self {
+      Self::Simple(inner) => inner.set_scorer(scorer),
+      Self::Paging(inner) => inner.set_scorer(scorer),
     }
+  }
 
-    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-        match self {
-            Self::Simple(inner) => inner.collect(doc, scorer),
-            Self::Paging(inner) => inner.collect(doc, scorer),
-        }
+  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+    match self {
+      Self::Simple(inner) => inner.collect(doc, scorer),
+      Self::Paging(inner) => inner.collect(doc, scorer),
     }
+  }
 
-    fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
-        match self {
-            Self::Simple(inner) => inner.collect_stream(stream),
-            Self::Paging(inner) => inner.collect_stream(stream),
-        }
+  fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
+    match self {
+      Self::Simple(inner) => inner.collect_stream(stream),
+      Self::Paging(inner) => inner.collect_stream(stream),
     }
+  }
 
-    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
-        match self {
-            Self::Simple(inner) => inner.competitive_iterator(),
-            Self::Paging(inner) => inner.competitive_iterator(),
-        }
+  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+    match self {
+      Self::Simple(inner) => inner.competitive_iterator(),
+      Self::Paging(inner) => inner.competitive_iterator(),
     }
+  }
 
-    fn finish(&mut self) -> Result<()> {
-        match self {
-            Self::Simple(inner) => inner.finish(),
-            Self::Paging(inner) => inner.finish(),
-        }
+  fn finish(&mut self) -> Result<()> {
+    match self {
+      Self::Simple(inner) => inner.finish(),
+      Self::Paging(inner) => inner.finish(),
     }
+  }
 }
 
 impl Collector for TopFieldCollectorEnum {
-    type LeafCollector<'a, IRC>
-        = FieldLeafCollectorEnum<'a, IRCLeafReader<IRC>>
-    where
-        Self: 'a,
-        IRC: IndexReaderContext;
+  type LeafCollector<'a, IRC>
+    = FieldLeafCollectorEnum<'a, IRCLeafReader<IRC>>
+  where
+    Self: 'a,
+    IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, IRC>(
-        &'a mut self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, IRC>>
-    where
-        IRC: IndexReaderContext,
-        W: Weight<IRC> + ?Sized,
-    {
-        match self {
-            Self::Simple(inner) => inner
-                .get_leaf_collector(context, weight)
-                .map(FieldLeafCollectorEnum::Simple),
-            Self::Paging(inner) => inner
-                .get_leaf_collector(context, weight)
-                .map(FieldLeafCollectorEnum::Paging),
-        }
+  fn get_leaf_collector<'a, W, IRC>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC>>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    match self {
+      Self::Simple(inner) => inner
+        .get_leaf_collector(context, weight)
+        .map(FieldLeafCollectorEnum::Simple),
+      Self::Paging(inner) => inner
+        .get_leaf_collector(context, weight)
+        .map(FieldLeafCollectorEnum::Paging),
     }
+  }
 
-    fn score_mode(&self) -> ScoreMode {
-        match self {
-            Self::Simple(inner) => inner.score_mode(),
-            Self::Paging(inner) => inner.score_mode(),
-        }
+  fn score_mode(&self) -> ScoreMode {
+    match self {
+      Self::Simple(inner) => inner.score_mode(),
+      Self::Paging(inner) => inner.score_mode(),
     }
+  }
 }
 
 impl TopDocsCollector for TopFieldCollectorEnum {
-    type Item = <TopFieldCollector as TopDocsCollector>::Item;
-    type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
-    type TopDocsLike = <TopFieldCollector as TopDocsCollector>::TopDocsLike;
+  type Item = <TopFieldCollector as TopDocsCollector>::Item;
+  type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
+  type TopDocsLike = <TopFieldCollector as TopDocsCollector>::TopDocsLike;
 
-    fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
-        match self {
-            Self::Simple(inner) => inner.pq(),
-            Self::Paging(inner) => inner.pq(),
-        }
+  fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
+    match self {
+      Self::Simple(inner) => inner.pq(),
+      Self::Paging(inner) => inner.pq(),
     }
+  }
 
-    fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
-        match self {
-            Self::Simple(inner) => inner.pq_mut(),
-            Self::Paging(inner) => inner.pq_mut(),
-        }
+  fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
+    match self {
+      Self::Simple(inner) => inner.pq_mut(),
+      Self::Paging(inner) => inner.pq_mut(),
     }
+  }
 
-    fn total_hits(&self) -> usize {
-        match self {
-            Self::Simple(inner) => inner.total_hits(),
-            Self::Paging(inner) => inner.total_hits(),
-        }
+  fn total_hits(&self) -> usize {
+    match self {
+      Self::Simple(inner) => inner.total_hits(),
+      Self::Paging(inner) => inner.total_hits(),
     }
+  }
 
-    fn get_total_hits_relation(&self) -> Relation {
-        match self {
-            Self::Simple(inner) => inner.get_total_hits_relation(),
-            Self::Paging(inner) => inner.get_total_hits_relation(),
-        }
+  fn get_total_hits_relation(&self) -> Relation {
+    match self {
+      Self::Simple(inner) => inner.get_total_hits_relation(),
+      Self::Paging(inner) => inner.get_total_hits_relation(),
     }
+  }
 
-    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
-        match self {
-            Self::Simple(inner) => inner.populate_results(results, how_many),
-            Self::Paging(inner) => inner.populate_results(results, how_many),
-        }
+  fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+    match self {
+      Self::Simple(inner) => inner.populate_results(results, how_many),
+      Self::Paging(inner) => inner.populate_results(results, how_many),
     }
+  }
 
-    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
-    where
-        Self: Sized,
-    {
-        match self {
-            Self::Simple(inner) => inner.new_top_docs(results, start),
-            Self::Paging(inner) => inner.new_top_docs(results, start),
-        }
+  fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
+  where
+    Self: Sized,
+  {
+    match self {
+      Self::Simple(inner) => inner.new_top_docs(results, start),
+      Self::Paging(inner) => inner.new_top_docs(results, start),
     }
+  }
 
-    fn top_docs_size(&self) -> usize {
-        match self {
-            Self::Simple(inner) => inner.top_docs_size(),
-            Self::Paging(inner) => inner.top_docs_size(),
-        }
+  fn top_docs_size(&self) -> usize {
+    match self {
+      Self::Simple(inner) => inner.top_docs_size(),
+      Self::Paging(inner) => inner.top_docs_size(),
     }
+  }
 
-    fn top_docs(&mut self) -> Result<Self::TopDocsLike>
-    where
-        Self: Sized,
-    {
-        match self {
-            Self::Simple(inner) => inner.top_docs(),
-            Self::Paging(inner) => inner.top_docs(),
-        }
+  fn top_docs(&mut self) -> Result<Self::TopDocsLike>
+  where
+    Self: Sized,
+  {
+    match self {
+      Self::Simple(inner) => inner.top_docs(),
+      Self::Paging(inner) => inner.top_docs(),
     }
+  }
 
-    fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
-    where
-        Self: Sized,
-    {
-        match self {
-            Self::Simple(inner) => inner.top_docs_with_start(start),
-            Self::Paging(inner) => inner.top_docs_with_start(start),
-        }
+  fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
+  where
+    Self: Sized,
+  {
+    match self {
+      Self::Simple(inner) => inner.top_docs_with_start(start),
+      Self::Paging(inner) => inner.top_docs_with_start(start),
     }
+  }
 
-    fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
-    where
-        Self: Sized,
-    {
-        match self {
-            Self::Simple(inner) => inner.top_docs_with_start_limit(start, how_many),
-            Self::Paging(inner) => inner.top_docs_with_start_limit(start, how_many),
-        }
+  fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
+  where
+    Self: Sized,
+  {
+    match self {
+      Self::Simple(inner) => inner.top_docs_with_start_limit(start, how_many),
+      Self::Paging(inner) => inner.top_docs_with_start_limit(start, how_many),
     }
+  }
 }
 
 pub enum TopFieldLeafComparatorEnum<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    Multi(MultiLeafFieldComparator<LR>),
-    Single(LeafFieldComparatorEnum<LR>),
+  Multi(MultiLeafFieldComparator<LR>),
+  Single(LeafFieldComparatorEnum<LR>),
 }
 impl<LR> TopFieldLeafComparatorEnum<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    pub(crate) fn set_bottom(
-        &mut self,
-        slot: usize,
-        comparator: &mut [FieldComparatorEnum],
-    ) -> Result<()> {
-        match self {
-            Self::Multi(inner) => inner.set_bottom(slot, comparator),
-            Self::Single(inner) => inner.set_bottom(slot, &mut comparator[0]),
-        }
+  pub(crate) fn set_bottom(
+    &mut self,
+    slot: usize,
+    comparator: &mut [FieldComparatorEnum],
+  ) -> Result<()> {
+    match self {
+      Self::Multi(inner) => inner.set_bottom(slot, comparator),
+      Self::Single(inner) => inner.set_bottom(slot, &mut comparator[0]),
     }
+  }
 
-    pub(crate) fn compare_bottom<S>(
-        &mut self,
-        doc: i32,
-        scorer: &mut S,
-        comparators: &mut [FieldComparatorEnum],
-    ) -> Result<i32>
-    where
-        S: Scorable + ?Sized,
-    {
-        match self {
-            Self::Multi(inner) => inner.compare_bottom(doc, scorer, comparators),
-            Self::Single(inner) => inner.compare_bottom(doc, scorer, &mut comparators[0]),
-        }
+  pub(crate) fn compare_bottom<S>(
+    &mut self,
+    doc: i32,
+    scorer: &mut S,
+    comparators: &mut [FieldComparatorEnum],
+  ) -> Result<i32>
+  where
+    S: Scorable + ?Sized,
+  {
+    match self {
+      Self::Multi(inner) => inner.compare_bottom(doc, scorer, comparators),
+      Self::Single(inner) => inner.compare_bottom(doc, scorer, &mut comparators[0]),
     }
+  }
 
-    pub(crate) fn compare_top<S>(
-        &mut self,
-        doc: i32,
-        scorer: &mut S,
-        comparators: &mut [FieldComparatorEnum],
-    ) -> Result<i32>
-    where
-        S: Scorable + ?Sized,
-    {
-        match self {
-            Self::Multi(inner) => inner.compare_top(doc, scorer, comparators),
-            Self::Single(inner) => inner.compare_top(doc, scorer, &mut comparators[0]),
-        }
+  pub(crate) fn compare_top<S>(
+    &mut self,
+    doc: i32,
+    scorer: &mut S,
+    comparators: &mut [FieldComparatorEnum],
+  ) -> Result<i32>
+  where
+    S: Scorable + ?Sized,
+  {
+    match self {
+      Self::Multi(inner) => inner.compare_top(doc, scorer, comparators),
+      Self::Single(inner) => inner.compare_top(doc, scorer, &mut comparators[0]),
     }
+  }
 
-    pub(crate) fn copy<S>(
-        &mut self,
-        slot: usize,
-        doc: i32,
-        scorer: &mut S,
-        comparators: &mut [FieldComparatorEnum],
-    ) -> Result<()>
-    where
-        S: Scorable + ?Sized,
-    {
-        match self {
-            Self::Multi(inner) => inner.copy(slot, doc, scorer, comparators),
-            Self::Single(inner) => inner.copy(slot, doc, scorer, &mut comparators[0]),
-        }
+  pub(crate) fn copy<S>(
+    &mut self,
+    slot: usize,
+    doc: i32,
+    scorer: &mut S,
+    comparators: &mut [FieldComparatorEnum],
+  ) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
+    match self {
+      Self::Multi(inner) => inner.copy(slot, doc, scorer, comparators),
+      Self::Single(inner) => inner.copy(slot, doc, scorer, &mut comparators[0]),
     }
+  }
 
-    pub(crate) fn set_scorer<S>(
-        &mut self,
-        scorer: &mut S,
-        comparators: &mut [FieldComparatorEnum],
-    ) -> Result<()>
-    where
-        S: Scorable + ?Sized,
-    {
-        match self {
-            Self::Multi(inner) => inner.set_scorer(scorer, comparators),
-            Self::Single(inner) => inner.set_scorer(scorer, &mut comparators[0]),
-        }
+  pub(crate) fn set_scorer<S>(
+    &mut self,
+    scorer: &mut S,
+    comparators: &mut [FieldComparatorEnum],
+  ) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
+    match self {
+      Self::Multi(inner) => inner.set_scorer(scorer, comparators),
+      Self::Single(inner) => inner.set_scorer(scorer, &mut comparators[0]),
     }
+  }
 
-    pub(crate) fn competitive_iterator(
-        &mut self,
-        comparators: &mut [FieldComparatorEnum],
-    ) -> Result<Option<TopFieldLeafComparatorEnumIterRef<'_, LR>>> {
-        match self {
-            Self::Multi(inner) => inner
-                .competitive_iterator(comparators)
-                .map(|opt| opt.map(DocIdSetIteratorEnum2::A)),
-            Self::Single(inner) => inner
-                .competitive_iterator(&mut comparators[0])
-                .map(|opt| opt.map(DocIdSetIteratorEnum2::B)),
-        }
+  pub(crate) fn competitive_iterator(
+    &mut self,
+    comparators: &mut [FieldComparatorEnum],
+  ) -> Result<Option<TopFieldLeafComparatorEnumIterRef<'_, LR>>> {
+    match self {
+      Self::Multi(inner) => inner
+        .competitive_iterator(comparators)
+        .map(|opt| opt.map(DocIdSetIteratorEnum2::A)),
+      Self::Single(inner) => inner
+        .competitive_iterator(&mut comparators[0])
+        .map(|opt| opt.map(DocIdSetIteratorEnum2::B)),
     }
+  }
 
-    pub(crate) fn set_hits_threshold_reached(
-        &mut self,
-        comparators: &mut [FieldComparatorEnum],
-    ) -> Result<()> {
-        match self {
-            Self::Multi(inner) => inner.set_hits_threshold_reached(comparators),
-            Self::Single(inner) => inner.set_hits_threshold_reached(&mut comparators[0]),
-        }
+  pub(crate) fn set_hits_threshold_reached(
+    &mut self,
+    comparators: &mut [FieldComparatorEnum],
+  ) -> Result<()> {
+    match self {
+      Self::Multi(inner) => inner.set_hits_threshold_reached(comparators),
+      Self::Single(inner) => inner.set_hits_threshold_reached(&mut comparators[0]),
     }
+  }
 }
 pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = DocIdSetIteratorEnum2<
-    LeafFieldComparatorDocIdSetIteratorRef<'a, LR>,
-    <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
+  LeafFieldComparatorDocIdSetIteratorRef<'a, LR>,
+  <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
 >;
 
 #[cfg(test)]
 mod tests {
-    use crate::core::document::document::Document;
-    use std::fmt::{Display, Formatter};
-    use std::rc::Rc;
+  use crate::core::document::document::Document;
+  use std::fmt::{Display, Formatter};
+  use std::rc::Rc;
 
-    use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+  use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 
-    use crate::core::index::composite_reader::{CompositeReader, get_context};
-    use crate::core::index::directory_reader::directory_reader_util;
-    use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-    use crate::core::index::index_writer::IndexWriter;
-    use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
-    use crate::core::index::leaf_reader_context::LeafReaderContext;
-    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-    use crate::core::search::sort::Sort;
+  use crate::core::index::composite_reader::{CompositeReader, get_context};
+  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+  use crate::core::index::index_writer::IndexWriter;
+  use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
+  use crate::core::index::leaf_reader_context::LeafReaderContext;
+  use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+  use crate::core::search::sort::Sort;
 
-    use crate::core::search::collector::Collector;
-    use crate::core::search::collector_manager::CollectorManager;
+  use crate::core::search::collector::Collector;
+  use crate::core::search::collector_manager::CollectorManager;
 
-    use crate::core::search::dummy::dummy_weight::DummyWeight;
-    use crate::core::search::field_doc::FieldDoc;
-    use crate::core::search::leaf_collector::LeafCollector;
-    use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-    use crate::core::search::max_score_accumulator::{DEFAULT_INTERVAL, MaxScoreAccumulator};
-    use crate::core::search::scorable::{ChildScorable, Scorable};
-    use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
-    use crate::core::search::sort_field::{SortField, SortFieldType};
+  use crate::core::search::dummy::dummy_weight::DummyWeight;
+  use crate::core::search::field_doc::FieldDoc;
+  use crate::core::search::leaf_collector::LeafCollector;
+  use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+  use crate::core::search::max_score_accumulator::{DEFAULT_INTERVAL, MaxScoreAccumulator};
+  use crate::core::search::scorable::{ChildScorable, Scorable};
+  use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
+  use crate::core::search::sort_field::{SortField, SortFieldType};
 
-    use crate::core::document::field::{FieldBase, Store};
-    use crate::core::document::text_field::TextField;
-    use crate::core::index::term::Term;
-    use crate::core::search::index_searcher::IndexSearcher;
-    use crate::core::search::term_query::TermQuery;
-    use crate::core::search::top_docs::TopDocsLike;
-    use crate::core::search::top_docs_collector::TopDocsCollector;
-    use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
-    use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
-    use crate::core::search::total_hits::TotalHits;
+  use crate::core::document::field::{FieldBase, Store};
+  use crate::core::document::text_field::TextField;
+  use crate::core::index::term::Term;
+  use crate::core::search::index_searcher::IndexSearcher;
+  use crate::core::search::term_query::TermQuery;
+  use crate::core::search::top_docs::TopDocsLike;
+  use crate::core::search::top_docs_collector::TopDocsCollector;
+  use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
+  use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
+  use crate::core::search::total_hits::TotalHits;
 
-    use crate::core::document::string_field::StringField;
-    use crate::core::index::no_merge_policy::NoMergePolicy;
-    use crate::core::search::boolean_clause::Occur;
-    use crate::core::search::boolean_query::Builder;
-    use crate::core::search::boost_query::BoostQuery;
-    use crate::core::search::filter_scorable::FilterScorable;
+  use crate::core::document::string_field::StringField;
+  use crate::core::index::no_merge_policy::NoMergePolicy;
+  use crate::core::search::boolean_clause::Occur;
+  use crate::core::search::boolean_query::Builder;
+  use crate::core::search::boost_query::BoostQuery;
+  use crate::core::search::filter_scorable::FilterScorable;
 
-    use crate::core::search::query::Query;
-    use crate::core::search::score_mode::ScoreMode;
-    use crate::core::search::top_field_collector::{
-        FieldLeafCollectorEnum, TopFieldCollectorEnum, populate_scores,
-    };
-    use crate::core::search::top_field_docs::TopFieldDocs;
-    use crate::core::search::weight::Weight;
-    use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::core::index::random_index_writer::RandomIndexWriter;
-    use crate::test::core::search::check_hits::CheckHits;
-    use crate::test::core::util::DefaultIndexSearchCR;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-        at_least, at_least_usize, new_directory_shared, new_searcher_with_reader,
-        new_searcher_with_threads, random,
-    };
-    use crate::test::core::util::test_util::TestUtil;
-    use rand::RngExt;
-    use std::sync::Arc;
+  use crate::core::search::query::Query;
+  use crate::core::search::score_mode::ScoreMode;
+  use crate::core::search::top_field_collector::{
+    FieldLeafCollectorEnum, TopFieldCollectorEnum, populate_scores,
+  };
+  use crate::core::search::top_field_docs::TopFieldDocs;
+  use crate::core::search::weight::Weight;
+  use crate::core::util::error::lucene_error::{LuceneError, Result};
+  use crate::test::core::index::random_index_writer::RandomIndexWriter;
+  use crate::test::core::search::check_hits::CheckHits;
+  use crate::test::core::util::DefaultIndexSearchCR;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    at_least, at_least_usize, new_directory_shared, new_searcher_with_reader,
+    new_searcher_with_threads, random,
+  };
+  use crate::test::core::util::test_util::TestUtil;
+  use rand::RngExt;
+  use std::sync::Arc;
 
-    #[allow(dead_code)] // for quick search
-    struct TestTopFieldCollector;
+  #[allow(dead_code)] // for quick search
+  struct TestTopFieldCollector;
 
-    fn setup() -> Result<DefaultIndexSearchCR> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let iw = RandomIndexWriter::new(&mut random, dir);
-        let num_docs = at_least(&mut random, 100);
-        for _ in 0..num_docs {
-            let doc = Document::new();
-            iw.add_document(doc)?;
-        }
-        let ir = iw.get_reader()?;
-        iw.close()?;
-        let is = new_searcher_with_threads(ir, true, true, false)?;
-        Ok(is)
+  fn setup() -> Result<DefaultIndexSearchCR> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let iw = RandomIndexWriter::new(&mut random, dir);
+    let num_docs = at_least(&mut random, 100);
+    for _ in 0..num_docs {
+      let doc = Document::new();
+      iw.add_document(doc)?;
     }
-    fn do_search_with_threshold<CR>(
-        num_results: usize,
-        threshold: usize,
-        q: Query,
-        sort: Sort,
-        index_reader: CR,
-    ) -> Result<TopFieldDocs>
-    where
-        CR: CompositeReader + 'static,
-    {
-        let searcher = new_searcher_with_reader(index_reader)?;
+    let ir = iw.get_reader()?;
+    iw.close()?;
+    let is = new_searcher_with_threads(ir, true, true, false)?;
+    Ok(is)
+  }
+  fn do_search_with_threshold<CR>(
+    num_results: usize,
+    threshold: usize,
+    q: Query,
+    sort: Sort,
+    index_reader: CR,
+  ) -> Result<TopFieldDocs>
+  where
+    CR: CompositeReader + 'static,
+  {
+    let searcher = new_searcher_with_reader(index_reader)?;
 
-        let manager = TopFieldCollectorManager::with_after(sort, num_results, None, threshold)?;
+    let manager = TopFieldCollectorManager::with_after(sort, num_results, None, threshold)?;
 
-        searcher.search_with_collector_manager(q, &manager)
-    }
-    fn do_concurrent_search_with_threshold<CR>(
-        num_results: usize,
-        threshold: usize,
-        q: Query,
-        sort: Sort,
-        index_reader: CR,
-    ) -> Result<TopFieldDocs>
-    where
-        CR: CompositeReader + 'static,
-    {
-        let searcher = new_searcher_with_threads(index_reader, true, true, true)?;
+    searcher.search_with_collector_manager(q, &manager)
+  }
+  fn do_concurrent_search_with_threshold<CR>(
+    num_results: usize,
+    threshold: usize,
+    q: Query,
+    sort: Sort,
+    index_reader: CR,
+  ) -> Result<TopFieldDocs>
+  where
+    CR: CompositeReader + 'static,
+  {
+    let searcher = new_searcher_with_threads(index_reader, true, true, true)?;
 
-        let collector_manager =
-            TopFieldCollectorManager::with_after(sort, num_results, None, threshold)?;
+    let collector_manager =
+      TopFieldCollectorManager::with_after(sort, num_results, None, threshold)?;
 
-        let top_doc = searcher.search_with_collector_manager(q, &collector_manager)?;
+    let top_doc = searcher.search_with_collector_manager(q, &collector_manager)?;
 
-        Ok(top_doc)
-    }
-    #[test]
-    fn test_sort_without_fill_fields() -> Result<()> {
-        let is = setup()?;
-        let sorts = vec![
-            Sort::with_fields(vec![SortField::get_field_doc()?])?,
-            Sort::new()?,
-        ];
-        for sort in sorts {
-            let query = MatchAllDocsQuery::new();
-            let collector_manager = TopFieldCollectorManager::new(sort, 10, i32::MAX as usize)?;
+    Ok(top_doc)
+  }
+  #[test]
+  fn test_sort_without_fill_fields() -> Result<()> {
+    let is = setup()?;
+    let sorts = vec![
+      Sort::with_fields(vec![SortField::get_field_doc()?])?,
+      Sort::new()?,
+    ];
+    for sort in sorts {
+      let query = MatchAllDocsQuery::new();
+      let collector_manager = TopFieldCollectorManager::new(sort, 10, i32::MAX as usize)?;
 
-            let top_docs = is.search_with_collector_manager(query, &collector_manager)?;
-            let sd = top_docs.score_docs();
+      let top_docs = is.search_with_collector_manager(query, &collector_manager)?;
+      let sd = top_docs.score_docs();
 
-            for j in 1..sd.len() {
-                assert_ne!(sd[j].doc(), sd[j - 1].doc());
-            }
-        }
-
-        Ok(())
-    }
-    #[test]
-    fn test_sort() -> Result<()> {
-        let is = setup()?;
-        // Two Sort criteria to instantiate the multi/single comparators.
-        let sorts = [
-            Sort::with_fields(vec![SortField::get_field_doc()?])?,
-            Sort::new()?,
-        ];
-
-        for sort in sorts {
-            let query = MatchAllDocsQuery::new();
-            let tdc = TopFieldCollectorManager::with_after(sort, 10, None, i32::MAX as usize)?;
-            let top_docs = is.search_with_collector_manager(query, &tdc)?;
-            let sd = top_docs.score_docs();
-
-            for doc in sd {
-                assert!(
-                    doc.score().is_nan(),
-                    "expected NaN score but got {}",
-                    doc.score()
-                );
-            }
-        }
-
-        Ok(())
-    }
-    #[test]
-    fn test_shared_hitcount_collector() -> Result<()> {
-        // 对应 newSearcher(ir, true, true, true)
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let iw = RandomIndexWriter::new(&mut random, dir);
-        let num_docs = at_least(&mut random, 100);
-        for _ in 0..num_docs {
-            let doc = Document::new();
-            iw.add_document(doc)?;
-        }
-        let ir = Rc::new(iw.get_reader()?);
-        iw.close()?;
-
-        let concurrent_searcher = new_searcher_with_threads(ir.clone(), true, true, true)?;
-        let single_threaded_searcher = new_searcher_with_threads(ir.clone(), true, true, false)?;
-
-        // Two Sort criteria to instantiate the multi/single comparators.
-        let sorts = [
-            Arc::new(Sort::with_fields(vec![SortField::get_field_doc()?])?),
-            Arc::new(Sort::new()?),
-        ];
-
-        for sort in sorts {
-            let tdc = TopFieldCollectorManager::new(sort.clone(), 10, i32::MAX as usize)?;
-            let td = single_threaded_searcher
-                .search_with_collector_manager(MatchAllDocsQuery::new(), &tdc)?;
-
-            let tsdc = TopFieldCollectorManager::new(sort, 10, i32::MAX as usize)?;
-            let td2 = concurrent_searcher
-                .search_with_collector_manager(MatchAllDocsQuery::new(), &tsdc)?;
-
-            let sd = td.score_docs();
-            for v in sd {
-                assert!(
-                    v.score().is_nan(),
-                    "expected NaN score but got {}",
-                    v.score()
-                );
-            }
-
-            CheckHits::check_equal(
-                &MatchAllDocsQuery::new().into(),
-                td.score_docs(),
-                td2.score_docs(),
-            )?;
-        }
-
-        Ok(())
-    }
-    #[test]
-    fn test_sort_without_total_hit_tracking() -> Result<()> {
-        let is = setup()?;
-        let sort = Arc::new(Sort::with_fields(vec![SortField::get_field_doc()?])?);
-
-        for i in 0..2 {
-            let query = MatchAllDocsQuery::new();
-
-            // check that setting trackTotalHits to false does not throw an error
-            // because the index is not sorted
-            let manager = if i % 2 == 0 {
-                TopFieldCollectorManager::new(sort.clone(), 10, 1)?
-            } else {
-                let field_doc = FieldDoc::with_fields(1, f32::NAN, vec![1.into()]);
-                TopFieldCollectorManager::with_after(sort.clone(), 10, Some(field_doc), 1)?
-            };
-
-            let top_docs = is.search_with_collector_manager(query, &manager)?;
-            let sd = top_docs.score_docs();
-
-            for v in sd {
-                assert!(v.score().is_nan());
-            }
-        }
-
-        Ok(())
+      for j in 1..sd.len() {
+        assert_ne!(sd[j].doc(), sd[j - 1].doc());
+      }
     }
 
-    fn document() -> Document {
-        let mut doc = Document::new();
-        doc.add(NumericDocValuesField::new("foo", 3));
-        doc
-    }
-    #[test]
-    fn test_total_hits() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let sort = Arc::new(Sort::with_fields(vec![SortField::new(
-            Some("foo"),
-            SortFieldType::Long,
-        )?])?);
-        let mut config = IndexWriterConfig::new();
-        config
-            .set_merge_policy(NoMergePolicy::default())
-            .set_index_sort(sort.clone())?
-            .set_max_buffered_docs(7)
-            .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+    Ok(())
+  }
+  #[test]
+  fn test_sort() -> Result<()> {
+    let is = setup()?;
+    // Two Sort criteria to instantiate the multi/single comparators.
+    let sorts = [
+      Sort::with_fields(vec![SortField::get_field_doc()?])?,
+      Sort::new()?,
+    ];
 
-        let writer = IndexWriter::new(dir.clone(), config)?;
-        let mut doc = Document::new();
-        doc.add(NumericDocValuesField::new("foo", 3));
-        for _ in 0..4 {
-            writer.add_document(document())?;
-        }
-        writer.flush()?;
-        for _ in 0..6 {
-            writer.add_document(document())?;
-        }
-        writer.flush()?;
+    for sort in sorts {
+      let query = MatchAllDocsQuery::new();
+      let tdc = TopFieldCollectorManager::with_after(sort, 10, None, i32::MAX as usize)?;
+      let top_docs = is.search_with_collector_manager(query, &tdc)?;
+      let sd = top_docs.score_docs();
 
-        let reader = directory_reader_util::open_from_writer(&writer)?;
-        let reader = get_context(reader)?;
-        assert_eq!(2, reader.leaves()?.len());
-        writer.close()?;
-
-        let dummy_weight =
-            DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
-        for total_hits_threshold in 0..20 {
-            let after_variants: [Option<FieldDoc>; 2] = [
-                None,
-                Some(FieldDoc::with_fields(4, f32::NAN, vec![2_i64.into()])),
-            ];
-            for after in after_variants {
-                let manager = TopFieldCollectorManager::with_after(
-                    sort.clone(),
-                    2,
-                    after.clone(),
-                    total_hits_threshold,
-                )?;
-                let mut collector = manager.new_collector()?;
-                let mut scorer = Score::default();
-
-                let leaves = reader.leaves()?;
-                let mut leaf_collector1 =
-                    collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
-                leaf_collector1.set_scorer(&mut scorer)?;
-
-                scorer.score = 3.0;
-                leaf_collector1.collect(0, &mut scorer)?;
-                scorer.score = 3.0;
-                leaf_collector1.collect(1, &mut scorer)?;
-
-                let mut leaf_collector2 =
-                    collector.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
-                leaf_collector2.set_scorer(&mut scorer)?;
-
-                scorer.score = 3.0;
-                if total_hits_threshold < 3 {
-                    let result = leaf_collector2.collect(1, &mut scorer);
-                    assert!(matches!(result, Err(LuceneError::CollectionTerminated(_))));
-
-                    let top_docs = collector.top_docs()?;
-                    assert_eq!(
-                        *top_docs.total_hits(),
-                        TotalHits::new(3, GreaterThanOrEqualTo)
-                    );
-                    continue;
-                } else {
-                    leaf_collector2.collect(1, &mut scorer)?;
-                }
-
-                scorer.score = 4.0;
-                if total_hits_threshold == 3 {
-                    let result = leaf_collector2.collect(1, &mut scorer);
-                    assert!(matches!(result, Err(LuceneError::CollectionTerminated(_))));
-
-                    let top_docs = collector.top_docs()?;
-                    assert_eq!(
-                        *top_docs.total_hits(),
-                        TotalHits::new(4, GreaterThanOrEqualTo)
-                    );
-                    continue;
-                } else {
-                    leaf_collector2.collect(1, &mut scorer)?;
-                }
-
-                let top_docs = collector.top_docs()?;
-                assert_eq!(*top_docs.total_hits(), TotalHits::new(4, EqualTo));
-            }
-        }
-        Ok(())
-    }
-    #[test]
-    fn test_set_min_competitive_score() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-
-        let mut config = IndexWriterConfig::new();
-        config.set_merge_policy(NoMergePolicy::default());
-        let writer = IndexWriter::new(dir.clone(), config)?;
-
-        for _ in 0..4 {
-            writer.add_document(Document::new())?;
-        }
-        writer.flush()?;
-        for _ in 0..2 {
-            writer.add_document(Document::new())?;
-        }
-        writer.flush()?;
-
-        let reader = directory_reader_util::open_from_writer(&writer)?;
-        let reader = get_context(reader)?;
-        assert_eq!(2, reader.leaves()?.len());
-        writer.close()?;
-        let dummy_weight =
-            DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
-
-        let sort = Sort::with_fields(vec![
-            SortField::get_field_score()?,
-            SortField::new(Some("foo"), SortFieldType::Long)?,
-        ])?;
-
-        let mut collector = TopFieldCollectorManager::new(sort, 2, 2)?.new_collector()?;
-        let mut scorer = Score::default();
-
-        let leaves = reader.leaves()?;
-        let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
-        leaf_collector.set_scorer(&mut scorer)?;
-        assert!(scorer.min_competitive_score.is_none());
-
-        scorer.score = 1.0;
-        leaf_collector.collect(0, &mut scorer)?;
-        assert!(scorer.min_competitive_score.is_none());
-
-        scorer.score = 2.0;
-        leaf_collector.collect(1, &mut scorer)?;
-        assert!(scorer.min_competitive_score.is_none());
-
-        scorer.score = 3.0;
-        leaf_collector.collect(2, &mut scorer)?;
-        assert_eq!(*scorer.min_competitive_score.as_ref().unwrap(), 2.0);
-
-        scorer.score = 0.5;
-        scorer.min_competitive_score = Some(f32::NAN);
-        leaf_collector.collect(3, &mut scorer)?;
-        assert!(scorer.min_competitive_score.as_ref().unwrap().is_nan());
-
-        scorer.score = 4.0;
-        leaf_collector.collect(4, &mut scorer)?;
-        assert_eq!(*scorer.min_competitive_score.as_ref().unwrap(), 3.0);
-
-        // Make sure the min score is set on scorers on new segments
-        let mut scorer = Score::default();
-        let mut leaf_collector = collector.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
-        leaf_collector.set_scorer(&mut scorer)?;
-        assert_eq!(*scorer.min_competitive_score.as_ref().unwrap(), 3.0);
-
-        scorer.score = 1.0;
-        leaf_collector.collect(0, &mut scorer)?;
-        assert_eq!(*scorer.min_competitive_score.as_ref().unwrap(), 3.0);
-
-        scorer.score = 4.0;
-        leaf_collector.collect(1, &mut scorer)?;
-        assert_eq!(*scorer.min_competitive_score.as_ref().unwrap(), 4.0);
-
-        Ok(())
-    }
-    #[test]
-    fn test_total_hits_with_score() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-
-        let mut config = IndexWriterConfig::new();
-        config.set_merge_policy(NoMergePolicy::default());
-        let writer = IndexWriter::new(dir.clone(), config)?;
-
-        for _ in 0..4 {
-            writer.add_document(Document::new())?;
-        }
-        writer.flush()?;
-        for _ in 0..6 {
-            writer.add_document(Document::new())?;
-        }
-        writer.flush()?;
-
-        let reader = directory_reader_util::open_from_writer(&writer)?;
-        let reader = get_context(reader)?;
-        assert_eq!(2, reader.leaves()?.len());
-        writer.close()?;
-        let dummy_weight =
-            DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
-        for total_hits_threshold in 0..20 {
-            let sort = Sort::with_fields(vec![
-                SortField::get_field_score()?,
-                SortField::new(Some("foo"), SortFieldType::Long)?,
-            ])?;
-
-            let mut collector =
-                TopFieldCollectorManager::new(sort, 2, total_hits_threshold)?.new_collector()?;
-            let mut scorer = Score::default();
-
-            // segment 0
-            let leaves = reader.leaves()?;
-            let mut lc0 = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
-            lc0.set_scorer(&mut scorer)?;
-
-            scorer.score = 3.0;
-            lc0.collect(0, &mut scorer)?;
-            scorer.score = 3.0;
-            lc0.collect(1, &mut scorer)?;
-
-            let mut lc1 = collector.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
-            lc1.set_scorer(&mut scorer)?;
-
-            scorer.score = 3.0;
-            lc1.collect(1, &mut scorer)?;
-            scorer.score = 4.0;
-            lc1.collect(1, &mut scorer)?;
-
-            let top_docs = collector.top_docs()?;
-
-            assert_eq!(
-                total_hits_threshold < 4,
-                scorer.min_competitive_score.is_some()
-            );
-
-            let expected = if total_hits_threshold < 4 {
-                TotalHits::new(4, GreaterThanOrEqualTo)
-            } else {
-                TotalHits::new(4, EqualTo)
-            };
-            assert_eq!(*top_docs.total_hits(), expected);
-        }
-
-        Ok(())
-    }
-    #[test]
-    fn test_sort_no_results() -> Result<()> {
-        // Two Sort criteria to instantiate the multi/single comparators.
-        let sorts = [
-            Sort::with_fields(vec![SortField::get_field_doc()?])?,
-            Sort::new()?,
-        ];
-
-        for sort in sorts {
-            let mut collector =
-                TopFieldCollectorManager::new(sort, 10, i32::MAX as usize)?.new_collector()?;
-            let top_docs = collector.top_docs()?;
-
-            assert_eq!(top_docs.total_hits().value(), 0);
-        }
-
-        Ok(())
+      for doc in sd {
+        assert!(
+          doc.score().is_nan(),
+          "expected NaN score but got {}",
+          doc.score()
+        );
+      }
     }
 
-    #[test]
-    fn test_compute_scores_only_once() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    Ok(())
+  }
+  #[test]
+  fn test_shared_hitcount_collector() -> Result<()> {
+    // 对应 newSearcher(ir, true, true, true)
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let iw = RandomIndexWriter::new(&mut random, dir);
+    let num_docs = at_least(&mut random, 100);
+    for _ in 0..num_docs {
+      let doc = Document::new();
+      iw.add_document(doc)?;
+    }
+    let ir = Rc::new(iw.get_reader()?);
+    iw.close()?;
 
-        let mut doc = Document::new();
-        let text = StringField::from_string("text", "foo", Store::No)?;
-        doc.add(text);
-        let relevance = NumericDocValuesField::new("relevance", 1);
-        doc.add(relevance);
+    let concurrent_searcher = new_searcher_with_threads(ir.clone(), true, true, true)?;
+    let single_threaded_searcher = new_searcher_with_threads(ir.clone(), true, true, false)?;
 
-        writer.add_document(doc.clone())?;
+    // Two Sort criteria to instantiate the multi/single comparators.
+    let sorts = [
+      Arc::new(Sort::with_fields(vec![SortField::get_field_doc()?])?),
+      Arc::new(Sort::new()?),
+    ];
 
-        doc.remove_field("text");
-        doc.add(StringField::from_string("text", "bar", Store::No)?);
-        writer.add_document(doc.clone())?;
+    for sort in sorts {
+      let tdc = TopFieldCollectorManager::new(sort.clone(), 10, i32::MAX as usize)?;
+      let td =
+        single_threaded_searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &tdc)?;
 
-        doc.remove_field("text");
-        doc.add(StringField::from_string("text", "baz", Store::No)?);
-        writer.add_document(doc.clone())?;
+      let tsdc = TopFieldCollectorManager::new(sort, 10, i32::MAX as usize)?;
+      let td2 =
+        concurrent_searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &tsdc)?;
 
-        let reader = writer.get_reader()?;
-        let searcher = new_searcher_with_reader(reader)?;
+      let sd = td.score_docs();
+      for v in sd {
+        assert!(
+          v.score().is_nan(),
+          "expected NaN score but got {}",
+          v.score()
+        );
+      }
 
-        let foo = BoostQuery::new(TermQuery::new(Term::from_text("text", "foo")), 2.0)?;
-        let bar = TermQuery::new(Term::from_text("text", "bar"));
-        let baz = BoostQuery::new(TermQuery::new(Term::from_text("text", "baz")), 3.0)?;
-
-        let mut builder = Builder::new();
-        builder.add(foo, Occur::Should)?;
-        builder.add(bar, Occur::Should)?;
-        builder.add(baz, Occur::Should)?;
-        let query = builder.build();
-
-        let sorts = vec![
-            Sort::with_fields(vec![SortField::get_field_score()?])?,
-            Sort::with_fields(vec![SortField::new(Some("f"), SortFieldType::Score)?])?,
-        ];
-
-        for sort in sorts {
-            let top_field_collector_manager = TopFieldCollectorManager::new(
-                sort,
-                TestUtil::next_usize(&mut random, 1, 2),
-                i32::MAX as usize,
-            )?;
-            let cm = CollectorManagerImpl::new(top_field_collector_manager);
-            searcher.search_with_collector_manager(query.clone(), &cm)?;
-        }
-
-        writer.close()?;
-        Ok(())
+      CheckHits::check_equal(
+        &MatchAllDocsQuery::new().into(),
+        td.score_docs(),
+        td2.score_docs(),
+      )?;
     }
 
-    #[test]
-    fn test_populate_scores() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let w = RandomIndexWriter::new(&mut random, dir.clone());
+    Ok(())
+  }
+  #[test]
+  fn test_sort_without_total_hit_tracking() -> Result<()> {
+    let is = setup()?;
+    let sort = Arc::new(Sort::with_fields(vec![SortField::get_field_doc()?])?);
 
-        let mut doc = Document::new();
-        let mut field = TextField::from_string("f", "foo bar", Store::No)?;
-        doc.add(field.clone());
-        let mut sort_field = NumericDocValuesField::new("sort", 0);
-        doc.add(sort_field.clone());
-        w.add_document(doc.clone())?;
+    for i in 0..2 {
+      let query = MatchAllDocsQuery::new();
 
-        field.set_string_value("")?;
-        sort_field.set_long_value(3)?;
-        let mut doc = Document::new();
-        doc.add(field.clone());
-        doc.add(sort_field.clone());
-        w.add_document(doc)?;
+      // check that setting trackTotalHits to false does not throw an error
+      // because the index is not sorted
+      let manager = if i % 2 == 0 {
+        TopFieldCollectorManager::new(sort.clone(), 10, 1)?
+      } else {
+        let field_doc = FieldDoc::with_fields(1, f32::NAN, vec![1.into()]);
+        TopFieldCollectorManager::with_after(sort.clone(), 10, Some(field_doc), 1)?
+      };
 
-        field.set_string_value("foo foo bar")?;
-        sort_field.set_long_value(2)?;
-        let mut doc = Document::new();
-        doc.add(field.clone());
-        doc.add(sort_field.clone());
-        w.add_document(doc)?;
+      let top_docs = is.search_with_collector_manager(query, &manager)?;
+      let sd = top_docs.score_docs();
 
-        w.flush()?;
-
-        field.set_string_value("foo")?;
-        sort_field.set_long_value(2)?;
-        let mut doc = Document::new();
-        doc.add(field.clone());
-        doc.add(sort_field.clone());
-        w.add_document(doc)?;
-
-        field.set_string_value("bar bar bar")?;
-        sort_field.set_long_value(0)?;
-        let mut doc = Document::new();
-        doc.add(field);
-        doc.add(sort_field);
-        w.add_document(doc)?;
-
-        let reader = w.get_reader()?;
-        w.close()?;
-        let searcher = new_searcher_with_reader(reader)?;
-
-        for query_text in ["foo", "bar"] {
-            let query = TermQuery::new(Term::from_text("f", query_text));
-
-            for reverse in [false, true] {
-                let mut sorted_by_doc = searcher.search(query.clone(), 10)?.score_docs;
-                sorted_by_doc.sort_by_key(|sd: &ScoreDoc| sd.doc());
-
-                let sort = Sort::with_fields(vec![SortField::with_reverse(
-                    Some("sort"),
-                    SortFieldType::Long,
-                    reverse,
-                )?])?;
-                let r = searcher.search_with_sort(query.clone(), 10, sort)?;
-                let sorted_by_field = r.score_docs();
-                let mut sorted_by_field_clone = sorted_by_field.to_vec();
-                populate_scores(sorted_by_field_clone.as_mut(), &searcher, query.clone())?;
-
-                for i in 0..sorted_by_field_clone.len() {
-                    assert_eq!(sorted_by_field_clone[i].doc(), sorted_by_field[i].doc());
-
-                    let _cloned_field_doc = sorted_by_field_clone[i].fields()?;
-                    let _field_doc = sorted_by_field[i].fields()?;
-                    // assert!(std::ptr::eq(cloned_field_doc[i], field_doc[i]));
-
-                    let pos = sorted_by_doc
-                        .binary_search_by_key(&sorted_by_field_clone[i].doc(), |sd: &ScoreDoc| {
-                            sd.doc()
-                        })
-                        .unwrap();
-
-                    assert_eq!(sorted_by_field_clone[i].score(), sorted_by_doc[pos].score());
-                }
-            }
-        }
-
-        Ok(())
+      for v in sd {
+        assert!(v.score().is_nan());
+      }
     }
-    #[test]
-    fn test_concurrent_min_score() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let mut config = IndexWriterConfig::new();
-        config.set_merge_policy(NoMergePolicy::default());
-        let w = IndexWriter::new(dir.clone(), config)?;
-        let doc = Document::new();
-        w.add_documents(vec![doc.clone(); 5])?;
-        w.flush()?;
-        w.add_documents(vec![doc.clone(); 6])?;
-        w.flush()?;
-        w.add_documents(vec![doc; 2])?;
-        w.flush()?;
 
-        let reader = directory_reader_util::open_from_writer(&w)?;
-        let reader = get_context(reader)?;
-        assert_eq!(3, reader.leaves()?.len());
-        w.close()?;
+    Ok(())
+  }
 
-        let sort = Sort::with_fields(vec![
-            SortField::get_field_score()?,
-            SortField::get_field_doc()?,
-        ])?;
-        DEFAULT_INTERVAL.store(0, std::sync::atomic::Ordering::Relaxed);
-        let manager = TopFieldCollectorManager::new(sort, 2, 0)?;
+  fn document() -> Document {
+    let mut doc = Document::new();
+    doc.add(NumericDocValuesField::new("foo", 3));
+    doc
+  }
+  #[test]
+  fn test_total_hits() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let sort = Arc::new(Sort::with_fields(vec![SortField::new(
+      Some("foo"),
+      SortFieldType::Long,
+    )?])?);
+    let mut config = IndexWriterConfig::new();
+    config
+      .set_merge_policy(NoMergePolicy::default())
+      .set_index_sort(sort.clone())?
+      .set_max_buffered_docs(7)
+      .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+
+    let writer = IndexWriter::new(dir.clone(), config)?;
+    let mut doc = Document::new();
+    doc.add(NumericDocValuesField::new("foo", 3));
+    for _ in 0..4 {
+      writer.add_document(document())?;
+    }
+    writer.flush()?;
+    for _ in 0..6 {
+      writer.add_document(document())?;
+    }
+    writer.flush()?;
+
+    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = get_context(reader)?;
+    assert_eq!(2, reader.leaves()?.len());
+    writer.close()?;
+
+    let dummy_weight =
+      DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
+    for total_hits_threshold in 0..20 {
+      let after_variants: [Option<FieldDoc>; 2] = [
+        None,
+        Some(FieldDoc::with_fields(4, f32::NAN, vec![2_i64.into()])),
+      ];
+      for after in after_variants {
+        let manager = TopFieldCollectorManager::with_after(
+          sort.clone(),
+          2,
+          after.clone(),
+          total_hits_threshold,
+        )?;
         let mut collector = manager.new_collector()?;
-        let mut collector2 = manager.new_collector()?;
-
-        assert!(Arc::ptr_eq(
-            &collector.min_score_acc().unwrap(),
-            &collector2.min_score_acc().unwrap()
-        ));
-        let min_value_checker = collector.min_score_acc().clone().unwrap();
-        // force checking every round
-        assert_eq!(min_value_checker.mod_interval, 0);
-
-        // simple test scorer that exposes current `score` and tracks minCompetitiveScore
         let mut scorer = Score::default();
-        let mut scorer2 = Score::default();
 
         let leaves = reader.leaves()?;
-        let dummy_weight =
-            DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
-
-        let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
-        leaf_collector.set_scorer(&mut scorer)?;
-        let mut leaf_collector2 = collector2.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
-        leaf_collector2.set_scorer(&mut scorer2)?;
+        let mut leaf_collector1 = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+        leaf_collector1.set_scorer(&mut scorer)?;
 
         scorer.score = 3.0;
-        leaf_collector.collect(0, &mut scorer)?;
-        assert_eq!(i64::MIN, min_value_checker.get_raw());
-        assert!(scorer.min_competitive_score.is_none());
+        leaf_collector1.collect(0, &mut scorer)?;
+        scorer.score = 3.0;
+        leaf_collector1.collect(1, &mut scorer)?;
 
-        scorer2.score = 6.0;
-        leaf_collector2.collect(0, &mut scorer2)?;
-        assert_eq!(i64::MIN, min_value_checker.get_raw());
-        assert!(scorer2.min_competitive_score.is_none());
+        let mut leaf_collector2 = collector.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
+        leaf_collector2.set_scorer(&mut scorer)?;
 
-        scorer.score = 2.0;
-        leaf_collector.collect(1, &mut scorer)?;
-        assert_eq!(i64::MIN, min_value_checker.get_raw());
-        assert!(scorer.min_competitive_score.is_none());
+        scorer.score = 3.0;
+        if total_hits_threshold < 3 {
+          let result = leaf_collector2.collect(1, &mut scorer);
+          assert!(matches!(result, Err(LuceneError::CollectionTerminated(_))));
 
-        scorer2.score = 9.0;
-        leaf_collector2.collect(1, &mut scorer2)?;
-        assert_eq!(i64::MIN, min_value_checker.get_raw());
-        assert!(scorer2.min_competitive_score.is_none());
-
-        scorer2.score = 7.0;
-        leaf_collector2.collect(2, &mut scorer2)?;
-        assert!(
-            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
-        );
-        assert!(scorer.min_competitive_score.is_none());
-        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
-
-        scorer2.score = 1.0;
-        leaf_collector2.collect(3, &mut scorer2)?;
-        assert!(
-            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
-        );
-        assert!(scorer.min_competitive_score.is_none());
-        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
-
-        scorer.score = 10.0;
-        leaf_collector.collect(2, &mut scorer)?;
-        assert!(
-            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
-        );
-        assert!((scorer.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
-        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
-
-        scorer.score = 11.0;
-        leaf_collector.collect(3, &mut scorer)?;
-        assert!(
-            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 10.0).abs()
-                < f32::EPSILON
-        );
-        assert!((scorer.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
-        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
-
-        let mut collector3 = manager.new_collector()?;
-        let mut leaf_collector3 = collector3.get_leaf_collector(&leaves[2], Some(&dummy_weight))?;
-        let mut scorer3 = Score::default();
-        leaf_collector3.set_scorer(&mut scorer3)?;
-        assert!((scorer3.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
-
-        scorer3.score = 1.0;
-        leaf_collector3.collect(0, &mut scorer3)?;
-        assert!(
-            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 10.0).abs()
-                < f32::EPSILON
-        );
-        assert!((scorer3.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
-
-        scorer.score = 11.0;
-        leaf_collector.collect(4, &mut scorer)?;
-        assert!(
-            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 11.0).abs()
-                < f32::EPSILON
-        );
-        assert!((scorer.min_competitive_score.unwrap() - 11.0).abs() < f32::EPSILON);
-        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
-        assert!((scorer3.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
-
-        scorer3.score = 2.0;
-        leaf_collector3.collect(1, &mut scorer3)?;
-        assert!(
-            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 11.0).abs()
-                < f32::EPSILON
-        );
-        assert!((scorer.min_competitive_score.unwrap() - 11.0).abs() < f32::EPSILON);
-        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
-        assert!((scorer3.min_competitive_score.unwrap() - 11.0).abs() < f32::EPSILON);
-
-        let top_docs = manager.reduce(vec![collector, collector2, collector3])?;
-        assert_eq!(11, top_docs.total_hits().value());
-        assert_eq!(
-            TotalHits::new(11, GreaterThanOrEqualTo),
-            *top_docs.total_hits()
-        );
-        Ok(())
-    }
-    #[test]
-    fn test_random_min_competitive_score() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-
-        let w = RandomIndexWriter::new(&mut random, dir.clone());
-
-        let num_docs = at_least_usize(&mut random, 1000);
-
-        for _ in 0..num_docs {
-            let num_as = 1 + random.random_range(0..5);
-            let num_bs = if random.random::<f32>() < 0.5 {
-                0
-            } else {
-                1 + random.random_range(0..5)
-            };
-            let num_cs = if random.random::<f32>() < 0.1 {
-                0
-            } else {
-                1 + random.random_range(0..5)
-            };
-
-            let mut doc = Document::new();
-
-            for _ in 0..num_as {
-                doc.add(StringField::from_string("f", "A", Store::No)?);
-            }
-            for _ in 0..num_bs {
-                doc.add(StringField::from_string("f", "B", Store::No)?);
-            }
-            for _ in 0..num_cs {
-                doc.add(StringField::from_string("f", "C", Store::No)?);
-            }
-
-            w.add_document(doc)?;
+          let top_docs = collector.top_docs()?;
+          assert_eq!(
+            *top_docs.total_hits(),
+            TotalHits::new(3, GreaterThanOrEqualTo)
+          );
+          continue;
+        } else {
+          leaf_collector2.collect(1, &mut scorer)?;
         }
 
-        let index_reader = Arc::new(w.get_reader()?);
-        w.close()?;
+        scorer.score = 4.0;
+        if total_hits_threshold == 3 {
+          let result = leaf_collector2.collect(1, &mut scorer);
+          assert!(matches!(result, Err(LuceneError::CollectionTerminated(_))));
 
-        let mut builder = Builder::new();
-        builder.add(TermQuery::new(Term::from_text("f", "A")), Occur::Must)?;
-        builder.add(TermQuery::new(Term::from_text("f", "B")), Occur::Should)?;
-        let boolean_query: Query = builder.build().into();
-
-        let queries: Vec<Query> = vec![
-            TermQuery::new(Term::from_text("f", "A")).into(),
-            TermQuery::new(Term::from_text("f", "B")).into(),
-            TermQuery::new(Term::from_text("f", "C")).into(),
-            boolean_query,
-        ];
-
-        let sort = Sort::with_fields(vec![
-            SortField::get_field_score()?,
-            SortField::get_field_doc()?,
-        ])?;
-
-        for query in queries {
-            let tdc = do_concurrent_search_with_threshold(
-                5,
-                0,
-                query.clone(),
-                sort.clone(),
-                index_reader.clone(),
-            )?;
-            let tdc2 =
-                do_search_with_threshold(5, 0, query.clone(), sort.clone(), index_reader.clone())?;
-
-            assert!(tdc.total_hits().value() > 0);
-            assert!(tdc2.total_hits().value() > 0);
-
-            CheckHits::check_equal(&query, tdc.score_docs(), tdc2.score_docs())?;
-        }
-        Ok(())
-    }
-    #[test]
-    fn test_relation_vs_top_docs_count() -> Result<()> {
-        let mut random = random();
-        let sort = Arc::new(Sort::with_fields(vec![
-            SortField::get_field_score()?,
-            SortField::get_field_doc()?,
-        ])?);
-
-        let dir = new_directory_shared(&mut random)?;
-        let mut config = IndexWriterConfig::new();
-        config.set_merge_policy(NoMergePolicy::default());
-        let writer = IndexWriter::new(dir.clone(), config)?;
-
-        let mut doc = Document::new();
-        doc.add(TextField::from_string("f", "foo bar", Store::No)?);
-
-        writer.add_documents(vec![doc.clone(); 5])?;
-        writer.flush()?;
-        writer.add_documents(vec![doc.clone(); 5])?;
-        writer.flush()?;
-
-        let reader = writer.get_reader(false, false)?;
-        let searcher = IndexSearcher::new(get_context(reader)?)?;
-
-        let manager = TopFieldCollectorManager::with_after(sort.clone(), 2, None, 10)?;
-        let top_docs = searcher
-            .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
-        assert_eq!(10, top_docs.total_hits().value());
-        assert_eq!(EqualTo, top_docs.total_hits().relation());
-
-        let manager = TopFieldCollectorManager::with_after(sort.clone(), 2, None, 2)?;
-        let top_docs = searcher
-            .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
-        assert!(10 >= top_docs.total_hits().value());
-        assert_eq!(GreaterThanOrEqualTo, top_docs.total_hits().relation());
-
-        let manager = TopFieldCollectorManager::with_after(sort.clone(), 10, None, 2)?;
-        let top_docs = searcher
-            .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
-        assert_eq!(10, top_docs.total_hits().value());
-        assert_eq!(EqualTo, top_docs.total_hits().relation());
-        writer.close()?;
-        Ok(())
-    }
-
-    #[derive(Default)]
-    struct Score {
-        score: f32,
-        min_competitive_score: Option<f32>,
-    }
-    impl Scorable for Score {
-        fn score(&mut self) -> Result<f32> {
-            Ok(self.score)
+          let top_docs = collector.top_docs()?;
+          assert_eq!(
+            *top_docs.total_hits(),
+            TotalHits::new(4, GreaterThanOrEqualTo)
+          );
+          continue;
+        } else {
+          leaf_collector2.collect(1, &mut scorer)?;
         }
 
-        fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
-            self.min_competitive_score = Some(min_score);
-            Ok(())
-        }
+        let top_docs = collector.top_docs()?;
+        assert_eq!(*top_docs.total_hits(), TotalHits::new(4, EqualTo));
+      }
+    }
+    Ok(())
+  }
+  #[test]
+  fn test_set_min_competitive_score() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
 
-        fn cost(&self) -> Result<i64> {
-            Err(LuceneError::unsupported_operation(""))
-        }
+    let mut config = IndexWriterConfig::new();
+    config.set_merge_policy(NoMergePolicy::default());
+    let writer = IndexWriter::new(dir.clone(), config)?;
+
+    for _ in 0..4 {
+      writer.add_document(Document::new())?;
+    }
+    writer.flush()?;
+    for _ in 0..2 {
+      writer.add_document(Document::new())?;
+    }
+    writer.flush()?;
+
+    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = get_context(reader)?;
+    assert_eq!(2, reader.leaves()?.len());
+    writer.close()?;
+    let dummy_weight =
+      DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
+
+    let sort = Sort::with_fields(vec![
+      SortField::get_field_score()?,
+      SortField::new(Some("foo"), SortFieldType::Long)?,
+    ])?;
+
+    let mut collector = TopFieldCollectorManager::new(sort, 2, 2)?.new_collector()?;
+    let mut scorer = Score::default();
+
+    let leaves = reader.leaves()?;
+    let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+    leaf_collector.set_scorer(&mut scorer)?;
+    assert!(scorer.min_competitive_score.is_none());
+
+    scorer.score = 1.0;
+    leaf_collector.collect(0, &mut scorer)?;
+    assert!(scorer.min_competitive_score.is_none());
+
+    scorer.score = 2.0;
+    leaf_collector.collect(1, &mut scorer)?;
+    assert!(scorer.min_competitive_score.is_none());
+
+    scorer.score = 3.0;
+    leaf_collector.collect(2, &mut scorer)?;
+    assert_eq!(*scorer.min_competitive_score.as_ref().unwrap(), 2.0);
+
+    scorer.score = 0.5;
+    scorer.min_competitive_score = Some(f32::NAN);
+    leaf_collector.collect(3, &mut scorer)?;
+    assert!(scorer.min_competitive_score.as_ref().unwrap().is_nan());
+
+    scorer.score = 4.0;
+    leaf_collector.collect(4, &mut scorer)?;
+    assert_eq!(*scorer.min_competitive_score.as_ref().unwrap(), 3.0);
+
+    // Make sure the min score is set on scorers on new segments
+    let mut scorer = Score::default();
+    let mut leaf_collector = collector.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
+    leaf_collector.set_scorer(&mut scorer)?;
+    assert_eq!(*scorer.min_competitive_score.as_ref().unwrap(), 3.0);
+
+    scorer.score = 1.0;
+    leaf_collector.collect(0, &mut scorer)?;
+    assert_eq!(*scorer.min_competitive_score.as_ref().unwrap(), 3.0);
+
+    scorer.score = 4.0;
+    leaf_collector.collect(1, &mut scorer)?;
+    assert_eq!(*scorer.min_competitive_score.as_ref().unwrap(), 4.0);
+
+    Ok(())
+  }
+  #[test]
+  fn test_total_hits_with_score() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let mut config = IndexWriterConfig::new();
+    config.set_merge_policy(NoMergePolicy::default());
+    let writer = IndexWriter::new(dir.clone(), config)?;
+
+    for _ in 0..4 {
+      writer.add_document(Document::new())?;
+    }
+    writer.flush()?;
+    for _ in 0..6 {
+      writer.add_document(Document::new())?;
+    }
+    writer.flush()?;
+
+    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = get_context(reader)?;
+    assert_eq!(2, reader.leaves()?.len());
+    writer.close()?;
+    let dummy_weight =
+      DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
+    for total_hits_threshold in 0..20 {
+      let sort = Sort::with_fields(vec![
+        SortField::get_field_score()?,
+        SortField::new(Some("foo"), SortFieldType::Long)?,
+      ])?;
+
+      let mut collector =
+        TopFieldCollectorManager::new(sort, 2, total_hits_threshold)?.new_collector()?;
+      let mut scorer = Score::default();
+
+      // segment 0
+      let leaves = reader.leaves()?;
+      let mut lc0 = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+      lc0.set_scorer(&mut scorer)?;
+
+      scorer.score = 3.0;
+      lc0.collect(0, &mut scorer)?;
+      scorer.score = 3.0;
+      lc0.collect(1, &mut scorer)?;
+
+      let mut lc1 = collector.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
+      lc1.set_scorer(&mut scorer)?;
+
+      scorer.score = 3.0;
+      lc1.collect(1, &mut scorer)?;
+      scorer.score = 4.0;
+      lc1.collect(1, &mut scorer)?;
+
+      let top_docs = collector.top_docs()?;
+
+      assert_eq!(
+        total_hits_threshold < 4,
+        scorer.min_competitive_score.is_some()
+      );
+
+      let expected = if total_hits_threshold < 4 {
+        TotalHits::new(4, GreaterThanOrEqualTo)
+      } else {
+        TotalHits::new(4, EqualTo)
+      };
+      assert_eq!(*top_docs.total_hits(), expected);
     }
 
-    struct LeafCollectorImpl<LC>
+    Ok(())
+  }
+  #[test]
+  fn test_sort_no_results() -> Result<()> {
+    // Two Sort criteria to instantiate the multi/single comparators.
+    let sorts = [
+      Sort::with_fields(vec![SortField::get_field_doc()?])?,
+      Sort::new()?,
+    ];
+
+    for sort in sorts {
+      let mut collector =
+        TopFieldCollectorManager::new(sort, 10, i32::MAX as usize)?.new_collector()?;
+      let top_docs = collector.top_docs()?;
+
+      assert_eq!(top_docs.total_hits().value(), 0);
+    }
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_compute_scores_only_once() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+    let text = StringField::from_string("text", "foo", Store::No)?;
+    doc.add(text);
+    let relevance = NumericDocValuesField::new("relevance", 1);
+    doc.add(relevance);
+
+    writer.add_document(doc.clone())?;
+
+    doc.remove_field("text");
+    doc.add(StringField::from_string("text", "bar", Store::No)?);
+    writer.add_document(doc.clone())?;
+
+    doc.remove_field("text");
+    doc.add(StringField::from_string("text", "baz", Store::No)?);
+    writer.add_document(doc.clone())?;
+
+    let reader = writer.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let foo = BoostQuery::new(TermQuery::new(Term::from_text("text", "foo")), 2.0)?;
+    let bar = TermQuery::new(Term::from_text("text", "bar"));
+    let baz = BoostQuery::new(TermQuery::new(Term::from_text("text", "baz")), 3.0)?;
+
+    let mut builder = Builder::new();
+    builder.add(foo, Occur::Should)?;
+    builder.add(bar, Occur::Should)?;
+    builder.add(baz, Occur::Should)?;
+    let query = builder.build();
+
+    let sorts = vec![
+      Sort::with_fields(vec![SortField::get_field_score()?])?,
+      Sort::with_fields(vec![SortField::new(Some("f"), SortFieldType::Score)?])?,
+    ];
+
+    for sort in sorts {
+      let top_field_collector_manager = TopFieldCollectorManager::new(
+        sort,
+        TestUtil::next_usize(&mut random, 1, 2),
+        i32::MAX as usize,
+      )?;
+      let cm = CollectorManagerImpl::new(top_field_collector_manager);
+      searcher.search_with_collector_manager(query.clone(), &cm)?;
+    }
+
+    writer.close()?;
+    Ok(())
+  }
+
+  #[test]
+  fn test_populate_scores() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+    let mut field = TextField::from_string("f", "foo bar", Store::No)?;
+    doc.add(field.clone());
+    let mut sort_field = NumericDocValuesField::new("sort", 0);
+    doc.add(sort_field.clone());
+    w.add_document(doc.clone())?;
+
+    field.set_string_value("")?;
+    sort_field.set_long_value(3)?;
+    let mut doc = Document::new();
+    doc.add(field.clone());
+    doc.add(sort_field.clone());
+    w.add_document(doc)?;
+
+    field.set_string_value("foo foo bar")?;
+    sort_field.set_long_value(2)?;
+    let mut doc = Document::new();
+    doc.add(field.clone());
+    doc.add(sort_field.clone());
+    w.add_document(doc)?;
+
+    w.flush()?;
+
+    field.set_string_value("foo")?;
+    sort_field.set_long_value(2)?;
+    let mut doc = Document::new();
+    doc.add(field.clone());
+    doc.add(sort_field.clone());
+    w.add_document(doc)?;
+
+    field.set_string_value("bar bar bar")?;
+    sort_field.set_long_value(0)?;
+    let mut doc = Document::new();
+    doc.add(field);
+    doc.add(sort_field);
+    w.add_document(doc)?;
+
+    let reader = w.get_reader()?;
+    w.close()?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    for query_text in ["foo", "bar"] {
+      let query = TermQuery::new(Term::from_text("f", query_text));
+
+      for reverse in [false, true] {
+        let mut sorted_by_doc = searcher.search(query.clone(), 10)?.score_docs;
+        sorted_by_doc.sort_by_key(|sd: &ScoreDoc| sd.doc());
+
+        let sort = Sort::with_fields(vec![SortField::with_reverse(
+          Some("sort"),
+          SortFieldType::Long,
+          reverse,
+        )?])?;
+        let r = searcher.search_with_sort(query.clone(), 10, sort)?;
+        let sorted_by_field = r.score_docs();
+        let mut sorted_by_field_clone = sorted_by_field.to_vec();
+        populate_scores(sorted_by_field_clone.as_mut(), &searcher, query.clone())?;
+
+        for i in 0..sorted_by_field_clone.len() {
+          assert_eq!(sorted_by_field_clone[i].doc(), sorted_by_field[i].doc());
+
+          let _cloned_field_doc = sorted_by_field_clone[i].fields()?;
+          let _field_doc = sorted_by_field[i].fields()?;
+          // assert!(std::ptr::eq(cloned_field_doc[i], field_doc[i]));
+
+          let pos = sorted_by_doc
+            .binary_search_by_key(&sorted_by_field_clone[i].doc(), |sd: &ScoreDoc| sd.doc())
+            .unwrap();
+
+          assert_eq!(sorted_by_field_clone[i].score(), sorted_by_doc[pos].score());
+        }
+      }
+    }
+
+    Ok(())
+  }
+  #[test]
+  fn test_concurrent_min_score() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut config = IndexWriterConfig::new();
+    config.set_merge_policy(NoMergePolicy::default());
+    let w = IndexWriter::new(dir.clone(), config)?;
+    let doc = Document::new();
+    w.add_documents(vec![doc.clone(); 5])?;
+    w.flush()?;
+    w.add_documents(vec![doc.clone(); 6])?;
+    w.flush()?;
+    w.add_documents(vec![doc; 2])?;
+    w.flush()?;
+
+    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = get_context(reader)?;
+    assert_eq!(3, reader.leaves()?.len());
+    w.close()?;
+
+    let sort = Sort::with_fields(vec![
+      SortField::get_field_score()?,
+      SortField::get_field_doc()?,
+    ])?;
+    DEFAULT_INTERVAL.store(0, std::sync::atomic::Ordering::Relaxed);
+    let manager = TopFieldCollectorManager::new(sort, 2, 0)?;
+    let mut collector = manager.new_collector()?;
+    let mut collector2 = manager.new_collector()?;
+
+    assert!(Arc::ptr_eq(
+      &collector.min_score_acc().unwrap(),
+      &collector2.min_score_acc().unwrap()
+    ));
+    let min_value_checker = collector.min_score_acc().clone().unwrap();
+    // force checking every round
+    assert_eq!(min_value_checker.mod_interval, 0);
+
+    // simple test scorer that exposes current `score` and tracks minCompetitiveScore
+    let mut scorer = Score::default();
+    let mut scorer2 = Score::default();
+
+    let leaves = reader.leaves()?;
+    let dummy_weight =
+      DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
+
+    let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+    leaf_collector.set_scorer(&mut scorer)?;
+    let mut leaf_collector2 = collector2.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
+    leaf_collector2.set_scorer(&mut scorer2)?;
+
+    scorer.score = 3.0;
+    leaf_collector.collect(0, &mut scorer)?;
+    assert_eq!(i64::MIN, min_value_checker.get_raw());
+    assert!(scorer.min_competitive_score.is_none());
+
+    scorer2.score = 6.0;
+    leaf_collector2.collect(0, &mut scorer2)?;
+    assert_eq!(i64::MIN, min_value_checker.get_raw());
+    assert!(scorer2.min_competitive_score.is_none());
+
+    scorer.score = 2.0;
+    leaf_collector.collect(1, &mut scorer)?;
+    assert_eq!(i64::MIN, min_value_checker.get_raw());
+    assert!(scorer.min_competitive_score.is_none());
+
+    scorer2.score = 9.0;
+    leaf_collector2.collect(1, &mut scorer2)?;
+    assert_eq!(i64::MIN, min_value_checker.get_raw());
+    assert!(scorer2.min_competitive_score.is_none());
+
+    scorer2.score = 7.0;
+    leaf_collector2.collect(2, &mut scorer2)?;
+    assert!(
+      (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
+    );
+    assert!(scorer.min_competitive_score.is_none());
+    assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+
+    scorer2.score = 1.0;
+    leaf_collector2.collect(3, &mut scorer2)?;
+    assert!(
+      (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
+    );
+    assert!(scorer.min_competitive_score.is_none());
+    assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+
+    scorer.score = 10.0;
+    leaf_collector.collect(2, &mut scorer)?;
+    assert!(
+      (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
+    );
+    assert!((scorer.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+    assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+
+    scorer.score = 11.0;
+    leaf_collector.collect(3, &mut scorer)?;
+    assert!(
+      (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 10.0).abs() < f32::EPSILON
+    );
+    assert!((scorer.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
+    assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+
+    let mut collector3 = manager.new_collector()?;
+    let mut leaf_collector3 = collector3.get_leaf_collector(&leaves[2], Some(&dummy_weight))?;
+    let mut scorer3 = Score::default();
+    leaf_collector3.set_scorer(&mut scorer3)?;
+    assert!((scorer3.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
+
+    scorer3.score = 1.0;
+    leaf_collector3.collect(0, &mut scorer3)?;
+    assert!(
+      (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 10.0).abs() < f32::EPSILON
+    );
+    assert!((scorer3.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
+
+    scorer.score = 11.0;
+    leaf_collector.collect(4, &mut scorer)?;
+    assert!(
+      (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 11.0).abs() < f32::EPSILON
+    );
+    assert!((scorer.min_competitive_score.unwrap() - 11.0).abs() < f32::EPSILON);
+    assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+    assert!((scorer3.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
+
+    scorer3.score = 2.0;
+    leaf_collector3.collect(1, &mut scorer3)?;
+    assert!(
+      (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 11.0).abs() < f32::EPSILON
+    );
+    assert!((scorer.min_competitive_score.unwrap() - 11.0).abs() < f32::EPSILON);
+    assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+    assert!((scorer3.min_competitive_score.unwrap() - 11.0).abs() < f32::EPSILON);
+
+    let top_docs = manager.reduce(vec![collector, collector2, collector3])?;
+    assert_eq!(11, top_docs.total_hits().value());
+    assert_eq!(
+      TotalHits::new(11, GreaterThanOrEqualTo),
+      *top_docs.total_hits()
+    );
+    Ok(())
+  }
+  #[test]
+  fn test_random_min_competitive_score() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let num_docs = at_least_usize(&mut random, 1000);
+
+    for _ in 0..num_docs {
+      let num_as = 1 + random.random_range(0..5);
+      let num_bs = if random.random::<f32>() < 0.5 {
+        0
+      } else {
+        1 + random.random_range(0..5)
+      };
+      let num_cs = if random.random::<f32>() < 0.1 {
+        0
+      } else {
+        1 + random.random_range(0..5)
+      };
+
+      let mut doc = Document::new();
+
+      for _ in 0..num_as {
+        doc.add(StringField::from_string("f", "A", Store::No)?);
+      }
+      for _ in 0..num_bs {
+        doc.add(StringField::from_string("f", "B", Store::No)?);
+      }
+      for _ in 0..num_cs {
+        doc.add(StringField::from_string("f", "C", Store::No)?);
+      }
+
+      w.add_document(doc)?;
+    }
+
+    let index_reader = Arc::new(w.get_reader()?);
+    w.close()?;
+
+    let mut builder = Builder::new();
+    builder.add(TermQuery::new(Term::from_text("f", "A")), Occur::Must)?;
+    builder.add(TermQuery::new(Term::from_text("f", "B")), Occur::Should)?;
+    let boolean_query: Query = builder.build().into();
+
+    let queries: Vec<Query> = vec![
+      TermQuery::new(Term::from_text("f", "A")).into(),
+      TermQuery::new(Term::from_text("f", "B")).into(),
+      TermQuery::new(Term::from_text("f", "C")).into(),
+      boolean_query,
+    ];
+
+    let sort = Sort::with_fields(vec![
+      SortField::get_field_score()?,
+      SortField::get_field_doc()?,
+    ])?;
+
+    for query in queries {
+      let tdc = do_concurrent_search_with_threshold(
+        5,
+        0,
+        query.clone(),
+        sort.clone(),
+        index_reader.clone(),
+      )?;
+      let tdc2 = do_search_with_threshold(5, 0, query.clone(), sort.clone(), index_reader.clone())?;
+
+      assert!(tdc.total_hits().value() > 0);
+      assert!(tdc2.total_hits().value() > 0);
+
+      CheckHits::check_equal(&query, tdc.score_docs(), tdc2.score_docs())?;
+    }
+    Ok(())
+  }
+  #[test]
+  fn test_relation_vs_top_docs_count() -> Result<()> {
+    let mut random = random();
+    let sort = Arc::new(Sort::with_fields(vec![
+      SortField::get_field_score()?,
+      SortField::get_field_doc()?,
+    ])?);
+
+    let dir = new_directory_shared(&mut random)?;
+    let mut config = IndexWriterConfig::new();
+    config.set_merge_policy(NoMergePolicy::default());
+    let writer = IndexWriter::new(dir.clone(), config)?;
+
+    let mut doc = Document::new();
+    doc.add(TextField::from_string("f", "foo bar", Store::No)?);
+
+    writer.add_documents(vec![doc.clone(); 5])?;
+    writer.flush()?;
+    writer.add_documents(vec![doc.clone(); 5])?;
+    writer.flush()?;
+
+    let reader = writer.get_reader(false, false)?;
+    let searcher = IndexSearcher::new(get_context(reader)?)?;
+
+    let manager = TopFieldCollectorManager::with_after(sort.clone(), 2, None, 10)?;
+    let top_docs = searcher
+      .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
+    assert_eq!(10, top_docs.total_hits().value());
+    assert_eq!(EqualTo, top_docs.total_hits().relation());
+
+    let manager = TopFieldCollectorManager::with_after(sort.clone(), 2, None, 2)?;
+    let top_docs = searcher
+      .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
+    assert!(10 >= top_docs.total_hits().value());
+    assert_eq!(GreaterThanOrEqualTo, top_docs.total_hits().relation());
+
+    let manager = TopFieldCollectorManager::with_after(sort.clone(), 10, None, 2)?;
+    let top_docs = searcher
+      .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
+    assert_eq!(10, top_docs.total_hits().value());
+    assert_eq!(EqualTo, top_docs.total_hits().relation());
+    writer.close()?;
+    Ok(())
+  }
+
+  #[derive(Default)]
+  struct Score {
+    score: f32,
+    min_competitive_score: Option<f32>,
+  }
+  impl Scorable for Score {
+    fn score(&mut self) -> Result<f32> {
+      Ok(self.score)
+    }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+      self.min_competitive_score = Some(min_score);
+      Ok(())
+    }
+
+    fn cost(&self) -> Result<i64> {
+      Err(LuceneError::unsupported_operation(""))
+    }
+  }
+
+  struct LeafCollectorImpl<LC>
+  where
+    LC: LeafCollector,
+  {
+    in_: LC,
+    current_doc: i32,
+  }
+  impl<LC> LeafCollectorImpl<LC>
+  where
+    LC: LeafCollector,
+  {
+    fn new(in_: LC) -> Self {
+      Self {
+        in_,
+        current_doc: -1,
+      }
+    }
+  }
+
+  impl<LC> Display for LeafCollectorImpl<LC>
+  where
+    LC: LeafCollector,
+  {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+      write!(f, "{}", std::any::type_name::<Self>())
+    }
+  }
+
+  impl<LC> LeafCollector for LeafCollectorImpl<LC>
+  where
+    LC: LeafCollector,
+  {
+    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+      let mut s = FilterScorableImpl::new(scorer, self.current_doc);
+      self.in_.set_scorer(&mut s)
+    }
+
+    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+      self.current_doc = doc;
+      let mut s = FilterScorableImpl::new(scorer, self.current_doc);
+      self.in_.collect(doc, &mut s)?;
+      Ok(())
+    }
+  }
+
+  struct CollectorImpl {
+    top_collector: TopFieldCollectorEnum,
+  }
+  impl CollectorImpl {
+    fn new(top_collector: TopFieldCollectorEnum) -> Self {
+      Self { top_collector }
+    }
+  }
+  impl Collector for CollectorImpl {
+    type LeafCollector<'a, IRC>
+      = LeafCollectorImpl<FieldLeafCollectorEnum<'a, IRCLeafReader<IRC>>>
     where
-        LC: LeafCollector,
-    {
-        in_: LC,
-        current_doc: i32,
-    }
-    impl<LC> LeafCollectorImpl<LC>
+      Self: 'a,
+      IRC: IndexReaderContext;
+
+    fn get_leaf_collector<'a, W, IRC>(
+      &'a mut self,
+      context: &LeafReaderContext<IRCLeafReader<IRC>>,
+      weight: Option<&W>,
+    ) -> Result<Self::LeafCollector<'a, IRC>>
     where
-        LC: LeafCollector,
+      IRC: IndexReaderContext,
+      W: Weight<IRC> + ?Sized,
     {
-        fn new(in_: LC) -> Self {
-            Self {
-                in_,
-                current_doc: -1,
-            }
-        }
+      let in_ = self.top_collector.get_leaf_collector(context, weight)?;
+      let v = LeafCollectorImpl::new(in_);
+      Ok(v)
     }
 
-    impl<LC> Display for LeafCollectorImpl<LC>
-    where
-        LC: LeafCollector,
-    {
-        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{}", std::any::type_name::<Self>())
-        }
+    fn score_mode(&self) -> ScoreMode {
+      ScoreMode::Complete
+    }
+  }
+
+  struct CollectorManagerImpl {
+    top_field_collector_manager: TopFieldCollectorManager,
+  }
+  impl CollectorManagerImpl {
+    fn new(top_field_collector_manager: TopFieldCollectorManager) -> Self {
+      Self {
+        top_field_collector_manager,
+      }
+    }
+  }
+  impl CollectorManager for CollectorManagerImpl {
+    type C = CollectorImpl;
+    type T = ();
+
+    fn new_collector(&self) -> Result<Self::C> {
+      let top_collector = self.top_field_collector_manager.new_collector()?;
+      Ok(CollectorImpl::new(top_collector))
     }
 
-    impl<LC> LeafCollector for LeafCollectorImpl<LC>
-    where
-        LC: LeafCollector,
-    {
-        fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
-            let mut s = FilterScorableImpl::new(scorer, self.current_doc);
-            self.in_.set_scorer(&mut s)
-        }
-
-        fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-            self.current_doc = doc;
-            let mut s = FilterScorableImpl::new(scorer, self.current_doc);
-            self.in_.collect(doc, &mut s)?;
-            Ok(())
-        }
+    fn reduce(&self, _collectors: Vec<Self::C>) -> Result<Self::T> {
+      Ok(())
+    }
+  }
+  pub struct FilterScorableImpl<'a, S>
+  where
+    S: Scorable + ?Sized,
+  {
+    last_computed_doc: i32,
+    base: FilterScorable<'a, S>,
+    current_doc: i32,
+  }
+  impl<'a, S> FilterScorableImpl<'a, S>
+  where
+    S: Scorable + ?Sized,
+  {
+    pub(crate) fn new(s: &'a mut S, current_doc: i32) -> Self {
+      let base = FilterScorable::new(s);
+      Self {
+        last_computed_doc: -1,
+        base,
+        current_doc,
+      }
+    }
+  }
+  impl<'a, S> Scorable for FilterScorableImpl<'a, S>
+  where
+    S: Scorable + ?Sized,
+  {
+    fn score(&mut self) -> Result<f32> {
+      if self.last_computed_doc == self.current_doc {
+        return Err(LuceneError::illegal_state(format!(
+          "Score computed twice on {}",
+          self.current_doc
+        )));
+      }
+      self.last_computed_doc = self.current_doc;
+      self.base.in_.score()
     }
 
-    struct CollectorImpl {
-        top_collector: TopFieldCollectorEnum,
-    }
-    impl CollectorImpl {
-        fn new(top_collector: TopFieldCollectorEnum) -> Self {
-            Self { top_collector }
-        }
-    }
-    impl Collector for CollectorImpl {
-        type LeafCollector<'a, IRC>
-            = LeafCollectorImpl<FieldLeafCollectorEnum<'a, IRCLeafReader<IRC>>>
-        where
-            Self: 'a,
-            IRC: IndexReaderContext;
-
-        fn get_leaf_collector<'a, W, IRC>(
-            &'a mut self,
-            context: &LeafReaderContext<IRCLeafReader<IRC>>,
-            weight: Option<&W>,
-        ) -> Result<Self::LeafCollector<'a, IRC>>
-        where
-            IRC: IndexReaderContext,
-            W: Weight<IRC> + ?Sized,
-        {
-            let in_ = self.top_collector.get_leaf_collector(context, weight)?;
-            let v = LeafCollectorImpl::new(in_);
-            Ok(v)
-        }
-
-        fn score_mode(&self) -> ScoreMode {
-            ScoreMode::Complete
-        }
+    fn smoothing_score(&mut self, _doc_id: i32) -> Result<f32> {
+      self.base.in_.score()
     }
 
-    struct CollectorManagerImpl {
-        top_field_collector_manager: TopFieldCollectorManager,
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+      self.base.set_min_competitive_score(min_score)
     }
-    impl CollectorManagerImpl {
-        fn new(top_field_collector_manager: TopFieldCollectorManager) -> Self {
-            Self {
-                top_field_collector_manager,
-            }
-        }
+
+    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+      self.base.get_children()
     }
-    impl CollectorManager for CollectorManagerImpl {
-        type C = CollectorImpl;
-        type T = ();
 
-        fn new_collector(&self) -> Result<Self::C> {
-            let top_collector = self.top_field_collector_manager.new_collector()?;
-            Ok(CollectorImpl::new(top_collector))
-        }
-
-        fn reduce(&self, _collectors: Vec<Self::C>) -> Result<Self::T> {
-            Ok(())
-        }
+    fn cost(&self) -> Result<i64> {
+      self.base.cost()
     }
-    pub struct FilterScorableImpl<'a, S>
-    where
-        S: Scorable + ?Sized,
-    {
-        last_computed_doc: i32,
-        base: FilterScorable<'a, S>,
-        current_doc: i32,
-    }
-    impl<'a, S> FilterScorableImpl<'a, S>
-    where
-        S: Scorable + ?Sized,
-    {
-        pub(crate) fn new(s: &'a mut S, current_doc: i32) -> Self {
-            let base = FilterScorable::new(s);
-            Self {
-                last_computed_doc: -1,
-                base,
-                current_doc,
-            }
-        }
-    }
-    impl<'a, S> Scorable for FilterScorableImpl<'a, S>
-    where
-        S: Scorable + ?Sized,
-    {
-        fn score(&mut self) -> Result<f32> {
-            if self.last_computed_doc == self.current_doc {
-                return Err(LuceneError::illegal_state(format!(
-                    "Score computed twice on {}",
-                    self.current_doc
-                )));
-            }
-            self.last_computed_doc = self.current_doc;
-            self.base.in_.score()
-        }
-
-        fn smoothing_score(&mut self, _doc_id: i32) -> Result<f32> {
-            self.base.in_.score()
-        }
-
-        fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
-            self.base.set_min_competitive_score(min_score)
-        }
-
-        fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
-            self.base.get_children()
-        }
-
-        fn cost(&self) -> Result<i64> {
-            self.base.cost()
-        }
-    }
+  }
 }

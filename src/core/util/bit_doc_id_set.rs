@@ -29,132 +29,132 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 /// This is an internal API.
 pub struct BitDocIdSet<T>
 where
-    T: BitSet,
+  T: BitSet,
 {
-    set: T,
-    pub(crate) cost: i64,
+  set: T,
+  pub(crate) cost: i64,
 }
 /// Wraps the given [`BitSet`] as a [`DocIdSet`].
 /// The provided [`BitSet`] must not be modified afterwards.
 impl<T: BitSet> BitDocIdSet<T> {
-    pub fn with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>> {
-        if cost < 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "cost must be >= 0, got {cost}"
-            )));
-        }
-        match set {
-            None => Err(LuceneError::illegal_argument("set must not be None")),
-            Some(v) => Ok(BitDocIdSet { set: v, cost }),
-        }
+  pub fn with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>> {
+    if cost < 0 {
+      return Err(LuceneError::illegal_argument(format!(
+        "cost must be >= 0, got {cost}"
+      )));
     }
-    /// Same as [`BitDocIdSet`] but uses the set's
-    /// [`BitSet::approximate_cardinality`] as a cost.
-    pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>> {
-        let cost = match set.as_ref() {
-            None => return Err(LuceneError::illegal_argument("set must not be None")),
-            Some(s) => s.approximate_cardinality(),
-        };
-        Self::with_cost(set, cost as i64)
+    match set {
+      None => Err(LuceneError::illegal_argument("set must not be None")),
+      Some(v) => Ok(BitDocIdSet { set: v, cost }),
     }
+  }
+  /// Same as [`BitDocIdSet`] but uses the set's
+  /// [`BitSet::approximate_cardinality`] as a cost.
+  pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>> {
+    let cost = match set.as_ref() {
+      None => return Err(LuceneError::illegal_argument("set must not be None")),
+      Some(s) => s.approximate_cardinality(),
+    };
+    Self::with_cost(set, cost as i64)
+  }
 }
 
 impl<T> Accountable for BitDocIdSet<T>
 where
-    T: BitSet + Clone,
+  T: BitSet + Clone,
 {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        self.set.ram_bytes_used()
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    self.set.ram_bytes_used()
+  }
 }
 
 impl<T> DocIdSet for BitDocIdSet<T>
 where
-    T: BitSet + Clone,
+  T: BitSet + Clone,
 {
-    type DocIdSetIterator = BitSetIterator<T>;
+  type DocIdSetIterator = BitSetIterator<T>;
 
-    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
-        BitSetIterator::new(self.set.clone(), self.cost)
-    }
+  fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+    BitSetIterator::new(self.set.clone(), self.cost)
+  }
 
-    type Bits = T;
+  type Bits = T;
 
-    fn bits(&self) -> Option<Self::Bits> {
-        Some(self.set.clone())
-    }
+  fn bits(&self) -> Option<Self::Bits> {
+    Some(self.set.clone())
+  }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use rand::Rng;
+  use rand::Rng;
 
-    use crate::core::search::doc_id_set::DocIdSet;
-    use crate::core::util::bit_doc_id_set::BitDocIdSet;
-    use crate::core::util::bit_set::BitSet;
-    use crate::core::util::error::lucene_error::Result;
-    use crate::core::util::fixed_bit_set::FixedBitSet;
-    use crate::test::core::util::base_doc_id_set_test_case::{
-        BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
-    };
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use crate::core::search::doc_id_set::DocIdSet;
+  use crate::core::util::bit_doc_id_set::BitDocIdSet;
+  use crate::core::util::bit_set::BitSet;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::core::util::fixed_bit_set::FixedBitSet;
+  use crate::test::core::util::base_doc_id_set_test_case::{
+    BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
+  };
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
-    impl BaseDocIdSetTestCase for TestFixedBitDocIdSet {
-        type DocIdSet = BitDocIdSet<FixedBitSet>;
+  impl BaseDocIdSetTestCase for TestFixedBitDocIdSet {
+    type DocIdSet = BitDocIdSet<FixedBitSet>;
 
-        fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> Result<Self::DocIdSet> {
-            let mut set = FixedBitSet::new(length);
-            let iter = bs.iter();
-            for doc in iter {
-                set.set(doc);
-            }
-            BitDocIdSet::new(Some(set))
-        }
-
-        fn assert_equals<R: Rng + ?Sized>(
-            &self,
-            random: &mut R,
-            num_bits: usize,
-            ds1: &bit_set::BitSet,
-            ds2: impl DocIdSet,
-        ) -> Result<()> {
-            BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
-        }
+    fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> Result<Self::DocIdSet> {
+      let mut set = FixedBitSet::new(length);
+      let iter = bs.iter();
+      for doc in iter {
+        set.set(doc);
+      }
+      BitDocIdSet::new(Some(set))
     }
 
-    pub struct TestFixedBitDocIdSet;
+    fn assert_equals<R: Rng + ?Sized>(
+      &self,
+      random: &mut R,
+      num_bits: usize,
+      ds1: &bit_set::BitSet,
+      ds2: impl DocIdSet,
+    ) -> Result<()> {
+      BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
+    }
+  }
 
-    #[test]
-    fn test_bit_0() -> Result<()> {
-        let test_case = TestFixedBitDocIdSet;
-        let mut random = random();
-        test_case.test_bit_0(&mut random)
-    }
-    #[test]
-    fn test_bit_1() -> Result<()> {
-        let test_case = TestFixedBitDocIdSet;
-        let mut random = random();
-        test_case.test_bit_1(&mut random)
-    }
-    #[test]
-    fn test_bit_2() -> Result<()> {
-        let test_case = TestFixedBitDocIdSet;
-        let mut random = random();
-        test_case.test_bit_2(&mut random)
-    }
-    #[test]
-    fn test_against_bit_set() -> Result<()> {
-        let test_case = TestFixedBitDocIdSet;
-        let mut random = random();
-        test_case.test_against_bit_set(&mut random)
-    }
-    #[test]
-    fn test_ram_bytes_used() {
-        let test_case = TestFixedBitDocIdSet;
-        let mut random = random();
-        test_case.test_ram_bytes_used(&mut random);
-    }
+  pub struct TestFixedBitDocIdSet;
 
-    impl BaseDocIdSetTestCaseSupperImpl for TestFixedBitDocIdSet {}
+  #[test]
+  fn test_bit_0() -> Result<()> {
+    let test_case = TestFixedBitDocIdSet;
+    let mut random = random();
+    test_case.test_bit_0(&mut random)
+  }
+  #[test]
+  fn test_bit_1() -> Result<()> {
+    let test_case = TestFixedBitDocIdSet;
+    let mut random = random();
+    test_case.test_bit_1(&mut random)
+  }
+  #[test]
+  fn test_bit_2() -> Result<()> {
+    let test_case = TestFixedBitDocIdSet;
+    let mut random = random();
+    test_case.test_bit_2(&mut random)
+  }
+  #[test]
+  fn test_against_bit_set() -> Result<()> {
+    let test_case = TestFixedBitDocIdSet;
+    let mut random = random();
+    test_case.test_against_bit_set(&mut random)
+  }
+  #[test]
+  fn test_ram_bytes_used() {
+    let test_case = TestFixedBitDocIdSet;
+    let mut random = random();
+    test_case.test_ram_bytes_used(&mut random);
+  }
+
+  impl BaseDocIdSetTestCaseSupperImpl for TestFixedBitDocIdSet {}
 }

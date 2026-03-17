@@ -24,90 +24,90 @@ use crate::core::util::error::lucene_error::Result;
 /// Implementing types must provide an [`iterator`](DocIdSet::iterator) method
 /// to access the set.
 pub trait DocIdSet: Accountable {
-    type DocIdSetIterator: DocIdSetIterator;
-    fn iterator(&self) -> Result<Self::DocIdSetIterator>;
+  type DocIdSetIterator: DocIdSetIterator;
+  fn iterator(&self) -> Result<Self::DocIdSetIterator>;
 
-    // TODO: somehow this struct should express the cost of
-    // iteration vs the cost of random access Bits; for
-    // expensive Filters (e.g. distance < 1 km) we should use
-    // bits() after all other Query/Filters have matched, but
-    // this is the opposite of what bits() is for now
-    // (down-low filtering using e.g. FixedBitSet)
+  // TODO: somehow this struct should express the cost of
+  // iteration vs the cost of random access Bits; for
+  // expensive Filters (e.g. distance < 1 km) we should use
+  // bits() after all other Query/Filters have matched, but
+  // this is the opposite of what bits() is for now
+  // (down-low filtering using e.g. FixedBitSet)
 
-    /// Optionally provides a [`Bits`] interface for random access to matching
-    /// documents.
-    ///
-    /// # Returns
-    /// * `None` if this `DocIdSet` does not support random access.
-    ///
-    /// Note that, unlike [`iterator`](DocIdSet::iterator), a return value of
-    /// `None` **does not** imply that no documents match the filter!
-    ///
-    /// The default implementation does not provide random access, so you only
-    /// need to implement this method if your [`DocIdSet`] can guarantee
-    /// random access to every document ID in `O(1)` time without external
-    /// disk access (as the [`Bits`] interface cannot throw an `IOError`).
-    /// This is generally true for bit sets like
-    /// [`FixedBitSet`](crate::core::util::fixed_bit_set::FixedBitSet),
-    /// which return themselves if used as a [`DocIdSet`].
-    type Bits: Bits + Clone;
-    fn bits(&self) -> Option<Self::Bits>;
+  /// Optionally provides a [`Bits`] interface for random access to matching
+  /// documents.
+  ///
+  /// # Returns
+  /// * `None` if this `DocIdSet` does not support random access.
+  ///
+  /// Note that, unlike [`iterator`](DocIdSet::iterator), a return value of
+  /// `None` **does not** imply that no documents match the filter!
+  ///
+  /// The default implementation does not provide random access, so you only
+  /// need to implement this method if your [`DocIdSet`] can guarantee
+  /// random access to every document ID in `O(1)` time without external
+  /// disk access (as the [`Bits`] interface cannot throw an `IOError`).
+  /// This is generally true for bit sets like
+  /// [`FixedBitSet`](crate::core::util::fixed_bit_set::FixedBitSet),
+  /// which return themselves if used as a [`DocIdSet`].
+  type Bits: Bits + Clone;
+  fn bits(&self) -> Option<Self::Bits>;
 
-    /// Some implementations require calling the finish method before invoking iterator.
-    /// # See
-    /// [`DocsWithFieldSet`](crate::core::index::docs_with_field_set::DocsWithFieldSet)
-    fn finish(&mut self) {}
+  /// Some implementations require calling the finish method before invoking iterator.
+  /// # See
+  /// [`DocsWithFieldSet`](crate::core::index::docs_with_field_set::DocsWithFieldSet)
+  fn finish(&mut self) {}
 }
 
 /// A [`DocIdSet`] that matches all document IDs up to a specified document
 /// (exclusive).
 struct All {
-    max_doc: i32,
-    bits: Option<MatchAllBits>,
+  max_doc: i32,
+  bits: Option<MatchAllBits>,
 }
 impl All {
-    fn new(max_doc: i32) -> Self {
-        let bits = Some(MatchAllBits::new(max_doc as usize));
-        All { max_doc, bits }
-    }
+  fn new(max_doc: i32) -> Self {
+    let bits = Some(MatchAllBits::new(max_doc as usize));
+    All { max_doc, bits }
+  }
 }
 /// A `DocIdSet` that matches all doc ids up to a specified doc (exclusive).
 impl DocIdSet for All {
-    type DocIdSetIterator = AllDISI;
+  type DocIdSetIterator = AllDISI;
 
-    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
-        Ok(AllDISI::new(self.max_doc))
-    }
+  fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+    Ok(AllDISI::new(self.max_doc))
+  }
 
-    type Bits = MatchAllBits;
+  type Bits = MatchAllBits;
 
-    fn bits(&self) -> Option<Self::Bits> {
-        self.bits.clone()
-    }
+  fn bits(&self) -> Option<Self::Bits> {
+    self.bits.clone()
+  }
 }
 
 impl Accountable for All {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        Ok(0)
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(0)
+  }
 }
 
 pub struct EmptyDocIdSet;
 impl Accountable for EmptyDocIdSet {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        Ok(0)
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(0)
+  }
 }
 impl DocIdSet for EmptyDocIdSet {
-    type DocIdSetIterator = EmptyDISI;
+  type DocIdSetIterator = EmptyDISI;
 
-    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
-        Ok(EmptyDISI::new())
-    }
+  fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+    Ok(EmptyDISI::new())
+  }
 
-    type Bits = DummyBits;
+  type Bits = DummyBits;
 
-    fn bits(&self) -> Option<Self::Bits> {
-        None
-    }
+  fn bits(&self) -> Option<Self::Bits> {
+    None
+  }
 }

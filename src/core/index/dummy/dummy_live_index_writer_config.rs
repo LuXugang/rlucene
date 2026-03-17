@@ -23,7 +23,7 @@ use crate::core::index::dummy::dummy_merge_scheduler::DummyMergeScheduler;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::live_index_writer_config::{
-    LiveIndexWriterConfig, LiveIndexWriterConfigBase,
+  LiveIndexWriterConfig, LiveIndexWriterConfigBase,
 };
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::search::sort::Sort;
@@ -34,159 +34,159 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 pub struct DummyLiveIndexWriterConfig {
-    info_stream: InfoStreamMT,
-    codec: Lucene101Codec,
-    analyzer: DummyAnalyzer,
-    similarity: DummySimilarity,
-    open_mode: OpenMode,
-    policy: KeepOnlyLastCommitDeletionPolicy,
-    flush_policy: DummyFlushPolicy,
-    index_sort: HashSet<String>,
+  info_stream: InfoStreamMT,
+  codec: Lucene101Codec,
+  analyzer: DummyAnalyzer,
+  similarity: DummySimilarity,
+  open_mode: OpenMode,
+  policy: KeepOnlyLastCommitDeletionPolicy,
+  flush_policy: DummyFlushPolicy,
+  index_sort: HashSet<String>,
 }
 impl Default for DummyLiveIndexWriterConfig {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl DummyLiveIndexWriterConfig {
-    pub fn new() -> Self {
-        DummyLiveIndexWriterConfig {
-            info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
-            codec: Lucene101Codec,
-            analyzer: DummyAnalyzer,
-            similarity: DummySimilarity,
-            open_mode: OpenMode::Create,
-            policy: KeepOnlyLastCommitDeletionPolicy,
-            flush_policy: DummyFlushPolicy,
-            index_sort: HashSet::new(),
-        }
+  pub fn new() -> Self {
+    DummyLiveIndexWriterConfig {
+      info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
+      codec: Lucene101Codec,
+      analyzer: DummyAnalyzer,
+      similarity: DummySimilarity,
+      open_mode: OpenMode::Create,
+      policy: KeepOnlyLastCommitDeletionPolicy,
+      flush_policy: DummyFlushPolicy,
+      index_sort: HashSet::new(),
     }
+  }
 }
 
 impl Display for DummyLiveIndexWriterConfig {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
-    type Analyzer = DummyAnalyzer;
+  type Analyzer = DummyAnalyzer;
 
-    fn get_analyzer(&self) -> &Self::Analyzer {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_analyzer(&self) -> &Self::Analyzer {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type Similarity = DummySimilarity;
+  type Similarity = DummySimilarity;
 
-    fn get_similarity(&self) -> &Self::Similarity {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_similarity(&self) -> &Self::Similarity {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type MergeScheduler = DummyMergeScheduler;
+  type MergeScheduler = DummyMergeScheduler;
 
-    fn get_merge_scheduler(&self) -> &Self::MergeScheduler {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_merge_scheduler(&self) -> &Self::MergeScheduler {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type Codec = Lucene101Codec;
+  type Codec = Lucene101Codec;
 
-    fn get_codec(&self) -> &Self::Codec {
-        &self.codec
-    }
+  fn get_codec(&self) -> &Self::Codec {
+    &self.codec
+  }
 
-    fn get_index_sort(&self) -> Option<Arc<Sort>> {
-        None
-    }
+  fn get_index_sort(&self) -> Option<Arc<Sort>> {
+    None
+  }
 
-    fn get_index_sort_fields(&self) -> &HashSet<String> {
-        &self.index_sort
-    }
+  fn get_index_sort_fields(&self) -> &HashSet<String> {
+    &self.index_sort
+  }
 
-    fn get_use_compound_file(&self) -> bool {
-        false
-    }
+  fn get_use_compound_file(&self) -> bool {
+    false
+  }
 
-    fn get_soft_deletes_field(&self) -> Option<&String> {
-        None
-    }
+  fn get_soft_deletes_field(&self) -> Option<&String> {
+    None
+  }
 
-    fn get_info_stream(&self) -> InfoStreamMT {
-        self.info_stream.clone()
-    }
+  fn get_info_stream(&self) -> InfoStreamMT {
+    self.info_stream.clone()
+  }
 
-    fn get_parent_field(&self) -> Option<&String> {
-        None
-    }
+  fn get_parent_field(&self) -> Option<&String> {
+    None
+  }
 
-    type MergePolicy = DummyMergePolicy;
+  type MergePolicy = DummyMergePolicy;
 
-    fn get_merge_policy(&self) -> &Self::MergePolicy {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_merge_policy(&self) -> &Self::MergePolicy {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type FlushPolicy = DummyFlushPolicy;
+  type FlushPolicy = DummyFlushPolicy;
 
-    fn get_flush_policy(&self) -> &Self::FlushPolicy {
-        &self.flush_policy
-    }
+  fn get_flush_policy(&self) -> &Self::FlushPolicy {
+    &self.flush_policy
+  }
 
-    fn get_ram_buffer_size_mb(&self) -> f64 {
-        1000f64
-    }
+  fn get_ram_buffer_size_mb(&self) -> f64 {
+    1000f64
+  }
 
-    fn get_ram_per_thread_hard_limit_mb(&self) -> i32 {
-        1000
-    }
+  fn get_ram_per_thread_hard_limit_mb(&self) -> i32 {
+    1000
+  }
 
-    fn get_max_buffered_docs(&self) -> i32 {
-        1000
-    }
+  fn get_max_buffered_docs(&self) -> i32 {
+    1000
+  }
 
-    fn get_check_pending_flush_on_update(&self) -> bool {
-        true
-    }
+  fn get_check_pending_flush_on_update(&self) -> bool {
+    true
+  }
 
-    type IndexDeletionPolicy = KeepOnlyLastCommitDeletionPolicy;
+  type IndexDeletionPolicy = KeepOnlyLastCommitDeletionPolicy;
 
-    fn get_index_deletion_policy(&self) -> &Self::IndexDeletionPolicy {
-        &self.policy
-    }
+  fn get_index_deletion_policy(&self) -> &Self::IndexDeletionPolicy {
+    &self.policy
+  }
 
-    fn get_max_full_flush_merge_wait_millis(&self) -> i64 {
-        0
-    }
+  fn get_max_full_flush_merge_wait_millis(&self) -> i64 {
+    0
+  }
 
-    fn set_max_full_flush_merge_wait_millis(
-        &mut self,
-        _max_full_flush_merge_wait_millis: i64,
-    ) -> &mut Self {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn set_max_full_flush_merge_wait_millis(
+    &mut self,
+    _max_full_flush_merge_wait_millis: i64,
+  ) -> &mut Self {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_commit_on_close(&self) -> bool {
-        false
-    }
+  fn get_commit_on_close(&self) -> bool {
+    false
+  }
 
-    fn get_open_mode(&self) -> &OpenMode {
-        &self.open_mode
-    }
+  fn get_open_mode(&self) -> &OpenMode {
+    &self.open_mode
+  }
 
-    type IndexCommit = DummyIndexCommit<DummyDirectory>;
+  type IndexCommit = DummyIndexCommit<DummyDirectory>;
 
-    fn get_index_commit(&mut self) -> Option<Self::IndexCommit> {
-        None
-    }
+  fn get_index_commit(&mut self) -> Option<Self::IndexCommit> {
+    None
+  }
 
-    fn get_index_created_version_major(&self) -> i32 {
-        10
-    }
+  fn get_index_created_version_major(&self) -> i32 {
+    10
+  }
 
-    fn get_reader_pooling(&self) -> bool {
-        false
-    }
+  fn get_reader_pooling(&self) -> bool {
+    false
+  }
 
-    fn get_base_mut(&mut self) -> &mut LiveIndexWriterConfigBase {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_base_mut(&mut self) -> &mut LiveIndexWriterConfigBase {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

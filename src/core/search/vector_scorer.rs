@@ -20,16 +20,16 @@ use crate::core::util::error::lucene_error::Result;
 /// Computes the similarity score between a given query vector and different
 /// document vectors. This is used for exact searching and scoring.
 pub trait VectorScorer {
-    /// Compute the score for the current document ID.
-    ///
-    /// # Returns
-    /// The score for the current document ID
-    ///
-    /// # Errors
-    /// Returns an error if an exception occurs during score computation.
-    fn score(&mut self) -> Result<f32>;
+  /// Compute the score for the current document ID.
+  ///
+  /// # Returns
+  /// The score for the current document ID
+  ///
+  /// # Errors
+  /// Returns an error if an exception occurs during score computation.
+  fn score(&mut self) -> Result<f32>;
 
-    type DocIdSetIterator: DocIdSetIterator;
-    /// Returns an iterator over the document IDs.
-    fn iterator(&self) -> &Self::DocIdSetIterator;
+  type DocIdSetIterator: DocIdSetIterator;
+  /// Returns an iterator over the document IDs.
+  fn iterator(&self) -> &Self::DocIdSetIterator;
 }

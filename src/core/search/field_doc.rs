@@ -32,71 +32,71 @@ pub type FieldsValue = FieldComparatorValue;
 /// - `TopFieldDocs`
 #[derive(Clone, Default, Debug)]
 pub struct FieldDoc {
-    pub base: ScoreDoc,
-    /// Expert: The values which are used to sort the referenced document. The order of these will
-    /// match the original sort criteria given by a `Sort` object. Each Object will have been returned
-    /// from the `value` method corresponding `FieldComparator` used to sort this field.
-    ///
-    /// See also:
-    /// - `Sort`
-    /// - [`IndexSearcher::search`](crate::core::search::index_searcher::IndexSearcher::search)
-    pub fields: Vec<FieldsValue>,
+  pub base: ScoreDoc,
+  /// Expert: The values which are used to sort the referenced document. The order of these will
+  /// match the original sort criteria given by a `Sort` object. Each Object will have been returned
+  /// from the `value` method corresponding `FieldComparator` used to sort this field.
+  ///
+  /// See also:
+  /// - `Sort`
+  /// - [`IndexSearcher::search`](crate::core::search::index_searcher::IndexSearcher::search)
+  pub fields: Vec<FieldsValue>,
 }
 
 impl FieldDoc {
-    /// Creates one of these objects with empty sort information.
-    pub fn new(doc: i32, score: f32) -> Self {
-        Self {
-            base: ScoreDoc::new(doc, score),
-            fields: Vec::new(),
-        }
+  /// Creates one of these objects with empty sort information.
+  pub fn new(doc: i32, score: f32) -> Self {
+    Self {
+      base: ScoreDoc::new(doc, score),
+      fields: Vec::new(),
     }
+  }
 
-    /// Creates one of these objects with the given sort information.
-    pub fn with_fields(doc: i32, score: f32, fields: Vec<FieldsValue>) -> Self {
-        Self {
-            base: ScoreDoc::new(doc, score),
-            fields,
-        }
+  /// Creates one of these objects with the given sort information.
+  pub fn with_fields(doc: i32, score: f32, fields: Vec<FieldsValue>) -> Self {
+    Self {
+      base: ScoreDoc::new(doc, score),
+      fields,
     }
+  }
 
-    /// Creates one of these objects with the given sort information and shard_index.
-    pub fn with_fields_and_shard_index(
-        doc: i32,
-        score: f32,
-        fields: Vec<FieldsValue>,
-        shard_index: i32,
-    ) -> Self {
-        Self {
-            base: ScoreDoc::with_shard_index(doc, score, shard_index),
-            fields,
-        }
+  /// Creates one of these objects with the given sort information and shard_index.
+  pub fn with_fields_and_shard_index(
+    doc: i32,
+    score: f32,
+    fields: Vec<FieldsValue>,
+    shard_index: i32,
+  ) -> Self {
+    Self {
+      base: ScoreDoc::with_shard_index(doc, score, shard_index),
+      fields,
     }
+  }
 }
 impl ScoreDocLike for FieldDoc {
-    fn doc(&self) -> i32 {
-        self.base.doc
-    }
+  fn doc(&self) -> i32 {
+    self.base.doc
+  }
 
-    fn score(&self) -> f32 {
-        self.base.score
-    }
+  fn score(&self) -> f32 {
+    self.base.score
+  }
 
-    fn shard_index(&self) -> i32 {
-        self.base.shard_index
-    }
+  fn shard_index(&self) -> i32 {
+    self.base.shard_index
+  }
 
-    fn set_shard_index(&mut self, shard_index: i32) {
-        self.base.shard_index = shard_index;
-    }
+  fn set_shard_index(&mut self, shard_index: i32) {
+    self.base.shard_index = shard_index;
+  }
 
-    fn set_score(&mut self, score: f32) {
-        self.base.score = score;
-    }
+  fn set_score(&mut self, score: f32) {
+    self.base.score = score;
+  }
 }
 
 impl fmt::Display for FieldDoc {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} fields={:?}", self.base, self.fields)
-    }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{} fields={:?}", self.base, self.fields)
+  }
 }

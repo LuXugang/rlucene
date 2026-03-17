@@ -16,27 +16,27 @@
  */
 // TODO: should with mask
 pub fn flip_bit_range(bitset: &mut bit_set::BitSet, start: usize, end: usize) {
-    for i in start..end {
-        flip_bit(bitset, i);
-    }
+  for i in start..end {
+    flip_bit(bitset, i);
+  }
 }
 
 // TODO: should with mask
 pub fn clear_range(bitset: &mut bit_set::BitSet, start: usize, end: usize) {
-    for i in start..end {
-        bitset.remove(i);
-    }
+  for i in start..end {
+    bitset.remove(i);
+  }
 }
 // TODO: should with mask
 pub fn set_range(bitset: &mut bit_set::BitSet, start: usize, end: usize) {
-    for i in start..end {
-        bitset.insert(i);
-    }
+  for i in start..end {
+    bitset.insert(i);
+  }
 }
 pub fn flip_bit(bitset: &mut bit_set::BitSet, index: usize) {
-    if bitset.contains(index) {
-        bitset.remove(index);
-    } else {
-        bitset.insert(index);
-    }
+  if bitset.contains(index) {
+    bitset.remove(index);
+  } else {
+    bitset.insert(index);
+  }
 }

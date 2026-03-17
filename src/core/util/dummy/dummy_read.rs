@@ -19,7 +19,7 @@ use std::io::Read;
 #[derive(Debug)]
 pub struct DummyRead;
 impl Read for DummyRead {
-    fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

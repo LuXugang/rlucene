@@ -37,197 +37,196 @@ use std::fmt;
 
 /// Indexed as SortedNumeric DocValue, not stored.
 pub mod long_field_type {
-    use crate::core::document::field_type::FieldType;
-    use crate::core::index::doc_values_type::DocValuesType;
-    use crate::core::search::sort_field::SortFieldType;
-    use crate::core::search::sorted_numeric_selector::SortedNumericSelectorType;
-    use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
-    use crate::core::util::bit_util::BitUtil;
-    use crate::core::util::error::lucene_error::Result;
-    use once_cell::sync::Lazy;
+  use crate::core::document::field_type::FieldType;
+  use crate::core::index::doc_values_type::DocValuesType;
+  use crate::core::search::sort_field::SortFieldType;
+  use crate::core::search::sorted_numeric_selector::SortedNumericSelectorType;
+  use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
+  use crate::core::util::bit_util::BitUtil;
+  use crate::core::util::error::lucene_error::Result;
+  use once_cell::sync::Lazy;
 
-    pub static FIELD_TYPE: Lazy<FieldType> = Lazy::new(|| {
-        let mut ft = FieldType::new();
-        ft.set_dimensions(1, BitUtil::LONG_BYTES)
-            .expect("set_dimensions should not fail");
-        ft.set_doc_values_type(DocValuesType::SortedNumeric)
-            .expect("set_doc_values_type should not fail");
-        ft.freeze();
-        ft
-    });
-    /// Indexed as SortedNumeric DocValue, and stored.
-    pub static FIELD_TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
-        let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("should not fail");
-        ft.set_stored(true)
-            .expect("set_stored(true) should not fail");
-        ft.freeze();
-        ft
-    });
+  pub static FIELD_TYPE: Lazy<FieldType> = Lazy::new(|| {
+    let mut ft = FieldType::new();
+    ft.set_dimensions(1, BitUtil::LONG_BYTES)
+      .expect("set_dimensions should not fail");
+    ft.set_doc_values_type(DocValuesType::SortedNumeric)
+      .expect("set_doc_values_type should not fail");
+    ft.freeze();
+    ft
+  });
+  /// Indexed as SortedNumeric DocValue, and stored.
+  pub static FIELD_TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
+    let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("should not fail");
+    ft.set_stored(true)
+      .expect("set_stored(true) should not fail");
+    ft.freeze();
+    ft
+  });
 
-    pub fn new_sort_field<S>(
-        field: S,
-        reverse: bool,
-        selector: SortedNumericSelectorType,
-    ) -> Result<SortedNumericSortField>
-    where
-        S: Into<String>,
-    {
-        SortedNumericSortField::with_selector(field, SortFieldType::Long, reverse, selector)
-    }
+  pub fn new_sort_field<S>(
+    field: S,
+    reverse: bool,
+    selector: SortedNumericSelectorType,
+  ) -> Result<SortedNumericSortField>
+  where
+    S: Into<String>,
+  {
+    SortedNumericSortField::with_selector(field, SortFieldType::Long, reverse, selector)
+  }
 }
 
 pub struct LongField {
-    parent_field: Field,
-    stored_value: Option<FieldDataEnum>,
+  parent_field: Field,
+  stored_value: Option<FieldDataEnum>,
 }
 
 impl LongField {
-    /// Creates a new `LongField`, indexing the provided value,
-    /// storing it as a DocValue, and optionally as a stored field.
-    pub fn new<T>(name: T, value: i64, stored: Store) -> Result<LongField>
-    where
-        T: Into<String>,
-    {
-        let stored = stored.into();
-        let (field_type, stored_value) = if stored {
-            (FIELD_TYPE_STORED.clone(), Some(value.into()))
-        } else {
-            (FIELD_TYPE.clone(), None)
-        };
-        let parent_field = Field::new(name, value, field_type);
-        Ok(LongField {
-            parent_field,
-            stored_value,
-        })
-    }
-    pub fn new_exact_query(
-        field: &str,
-        value: i64,
-    ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
-        Self::new_range_query(field, value, value)
-    }
+  /// Creates a new `LongField`, indexing the provided value,
+  /// storing it as a DocValue, and optionally as a stored field.
+  pub fn new<T>(name: T, value: i64, stored: Store) -> Result<LongField>
+  where
+    T: Into<String>,
+  {
+    let stored = stored.into();
+    let (field_type, stored_value) = if stored {
+      (FIELD_TYPE_STORED.clone(), Some(value.into()))
+    } else {
+      (FIELD_TYPE.clone(), None)
+    };
+    let parent_field = Field::new(name, value, field_type);
+    Ok(LongField {
+      parent_field,
+      stored_value,
+    })
+  }
+  pub fn new_exact_query(
+    field: &str,
+    value: i64,
+  ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
+    Self::new_range_query(field, value, value)
+  }
 
-    pub fn new_range_query(
-        field: &str,
-        lower_value: i64,
-        upper_value: i64,
-    ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
-        let fallback_query = IndexOrDocValuesQuery::new(
-            LongPoint::new_range_query(field, lower_value, upper_value)?,
-            SortedNumericDocValuesField::new_slow_range_query(field, lower_value, upper_value),
-        );
+  pub fn new_range_query(
+    field: &str,
+    lower_value: i64,
+    upper_value: i64,
+  ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
+    let fallback_query = IndexOrDocValuesQuery::new(
+      LongPoint::new_range_query(field, lower_value, upper_value)?,
+      SortedNumericDocValuesField::new_slow_range_query(field, lower_value, upper_value),
+    );
 
-        Ok(IndexSortSortedNumericDocValuesRangeQuery::new(
-            field,
-            lower_value,
-            upper_value,
-            fallback_query,
-        ))
-    }
+    Ok(IndexSortSortedNumericDocValuesRangeQuery::new(
+      field,
+      lower_value,
+      upper_value,
+      fallback_query,
+    ))
+  }
 }
 
 impl FieldBase for LongField {
-    fn set_long_value(&mut self, value: i64) -> Result<()> {
-        self.parent_field.set_long_value(value)?;
-        if self.stored_value.is_some() {
-            self.stored_value = Some(value.into());
-        }
-        Ok(())
+  fn set_long_value(&mut self, value: i64) -> Result<()> {
+    self.parent_field.set_long_value(value)?;
+    if self.stored_value.is_some() {
+      self.stored_value = Some(value.into());
     }
+    Ok(())
+  }
 }
 
 impl IndexableField for LongField {
-    fn name(&self) -> &str {
-        self.parent_field.name()
+  fn name(&self) -> &str {
+    self.parent_field.name()
+  }
+
+  type FieldType = FieldType;
+
+  fn field_type(&self) -> &Self::FieldType {
+    self.parent_field.field_type()
+  }
+
+  type TokenStream = <Field as IndexableField>::TokenStream;
+
+  fn token_stream<'a>(
+    &'a mut self,
+    token_stream: Option<&'a mut InnerTokenStreams>,
+  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
+    self.parent_field.token_stream(token_stream)
+  }
+
+  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match &self.parent_field.fields_data {
+      FieldDataEnum::Number(Number::I64(v)) => {
+        let mut bytes = vec![0u8; BitUtil::LONG_BYTES];
+        NumericUtils::long_to_sortable_bytes(*v, &mut bytes, 0);
+        Ok(Some(Cow::Owned(BytesRef::from_bytes(bytes))))
+      },
+      _ => Err(LuceneError::illegal_state(
+        "parent_field`s fields_data does not have a long value",
+      )),
     }
+  }
 
-    type FieldType = FieldType;
+  fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+    self.binary_value().map(|v| v.map(|c| c.into_owned()))
+  }
 
-    fn field_type(&self) -> &Self::FieldType {
-        self.parent_field.field_type()
-    }
+  fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.parent_field.string_value()
+  }
 
-    type TokenStream = <Field as IndexableField>::TokenStream;
+  fn take_string_value(&mut self) -> Result<Option<String>> {
+    self.parent_field.take_string_value()
+  }
 
-    fn token_stream<'a>(
-        &'a mut self,
-        token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
-    {
-        self.parent_field.token_stream(token_stream)
-    }
+  fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
+    self.parent_field.take_reader_value()
+  }
 
-    fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        match &self.parent_field.fields_data {
-            FieldDataEnum::Number(Number::I64(v)) => {
-                let mut bytes = vec![0u8; BitUtil::LONG_BYTES];
-                NumericUtils::long_to_sortable_bytes(*v, &mut bytes, 0);
-                Ok(Some(Cow::Owned(BytesRef::from_bytes(bytes))))
-            },
-            _ => Err(LuceneError::illegal_state(
-                "parent_field`s fields_data does not have a long value",
-            )),
-        }
-    }
+  fn numeric_value(&self) -> Result<Option<Number>> {
+    self.parent_field.numeric_value()
+  }
 
-    fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-        self.binary_value().map(|v| v.map(|c| c.into_owned()))
-    }
+  fn stored_value(&self) -> Option<&FieldDataEnum> {
+    self.stored_value.as_ref()
+  }
 
-    fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
-        self.parent_field.string_value()
-    }
+  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
+    self.parent_field.take_stored_value()
+  }
 
-    fn take_string_value(&mut self) -> Result<Option<String>> {
-        self.parent_field.take_string_value()
-    }
+  fn invertable_type(&self) -> &InvertableType {
+    self.parent_field.invertable_type()
+  }
 
-    fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
-        self.parent_field.take_reader_value()
-    }
-
-    fn numeric_value(&self) -> Result<Option<Number>> {
-        self.parent_field.numeric_value()
-    }
-
-    fn stored_value(&self) -> Option<&FieldDataEnum> {
-        self.stored_value.as_ref()
-    }
-
-    fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-        self.parent_field.take_stored_value()
-    }
-
-    fn invertable_type(&self) -> &InvertableType {
-        self.parent_field.invertable_type()
-    }
-
-    fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-    where
-        A: Analyzer,
-    {
-        self.parent_field.init_token_stream(analyzer)
-    }
+  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
+  where
+    A: Analyzer,
+  {
+    self.parent_field.init_token_stream(analyzer)
+  }
 }
 
 impl fmt::Display for LongField {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} <{}:{}>",
-            std::any::type_name::<Self>(),
-            self.parent_field.name(),
-            self.parent_field.fields_data
-        )
-    }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "{} <{}:{}>",
+      std::any::type_name::<Self>(),
+      self.parent_field.name(),
+      self.parent_field.fields_data
+    )
+  }
 }
 
 #[cfg(test)]
 impl Clone for LongField {
-    fn clone(&self) -> Self {
-        Self {
-            parent_field: self.parent_field.clone(),
-            stored_value: self.stored_value.clone(),
-        }
+  fn clone(&self) -> Self {
+    Self {
+      parent_field: self.parent_field.clone(),
+      stored_value: self.stored_value.clone(),
     }
+  }
 }

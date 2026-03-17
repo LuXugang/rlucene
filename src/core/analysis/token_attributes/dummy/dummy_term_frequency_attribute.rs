@@ -23,11 +23,11 @@ pub struct DummyTermFrequencyAttribute;
 impl Attribute for DummyTermFrequencyAttribute {}
 
 impl TermFrequencyAttribute for DummyTermFrequencyAttribute {
-    fn set_term_frequency(&mut self, _term_frequency: i32) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn set_term_frequency(&mut self, _term_frequency: i32) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_term_frequency(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_term_frequency(&self) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

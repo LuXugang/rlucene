@@ -23,37 +23,37 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyIndexOutput;
 
 impl DataOutput for DummyIndexOutput {
-    fn write_byte(&mut self, _b: u8) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn write_byte(&mut self, _b: u8) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn write_bytes_range(&mut self, _b: &[u8], _offset: usize, _length: usize) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn write_bytes_range(&mut self, _b: &[u8], _offset: usize, _length: usize) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl Display for DummyIndexOutput {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl Closeable for DummyIndexOutput {
-    fn close(&mut self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn close(&mut self) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl IndexOutput for DummyIndexOutput {
-    fn get_file_pointer(&self) -> usize {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_file_pointer(&self) -> usize {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_checksum(&mut self) -> u64 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_checksum(&mut self) -> u64 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_name(&self) -> &str {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_name(&self) -> &str {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

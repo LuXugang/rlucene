@@ -31,97 +31,98 @@ use crate::core::util::error::lucene_error::Result;
 #[derive(Default)]
 pub struct ByteArrayDataOutput<B>
 where
-    B: ByteSourceMut,
+  B: ByteSourceMut,
 {
-    pub bytes: B,
-    pos: usize,
-    limit: usize,
+  pub bytes: B,
+  pos: usize,
+  limit: usize,
 }
 
 impl<B> ByteArrayDataOutput<B>
 where
-    B: ByteSourceMut,
+  B: ByteSourceMut,
 {
-    pub fn with_bytes(bytes: B) -> Self {
-        let len = bytes.as_slice().len();
-        Self::with_range(bytes, 0, len)
+  pub fn with_bytes(bytes: B) -> Self {
+    let len = bytes.as_slice().len();
+    Self::with_range(bytes, 0, len)
+  }
+  pub fn with_range(bytes: B, offset: usize, length: usize) -> Self {
+    Self {
+      bytes,
+      pos: offset,
+      limit: offset + length,
     }
-    pub fn with_range(bytes: B, offset: usize, length: usize) -> Self {
-        Self {
-            bytes,
-            pos: offset,
-            limit: offset + length,
-        }
-    }
-    pub fn reset(&mut self) -> Result<()> {
-        let len = self.bytes.as_slice().len();
-        let offset = 0;
-        self.reset_with_range(offset, len)
-    }
-    pub fn reset_with_range(&mut self, offset: usize, length: usize) -> Result<()> {
-        self.pos = offset;
-        self.limit = offset + length;
-        Ok(())
-    }
+  }
+  pub fn reset(&mut self) -> Result<()> {
+    let len = self.bytes.as_slice().len();
+    let offset = 0;
+    self.reset_with_range(offset, len)
+  }
+  pub fn reset_with_range(&mut self, offset: usize, length: usize) -> Result<()> {
+    self.pos = offset;
+    self.limit = offset + length;
+    Ok(())
+  }
 
-    pub fn get_position(&self) -> usize {
-        self.pos
-    }
+  pub fn get_position(&self) -> usize {
+    self.pos
+  }
 }
 
 impl<B> DataOutput for ByteArrayDataOutput<B>
 where
-    B: ByteSourceMut,
+  B: ByteSourceMut,
 {
-    fn write_byte(&mut self, b: u8) -> Result<()> {
-        debug_assert!(self.pos < self.limit);
-        self.bytes.as_slice_mut()[self.pos] = b;
-        self.pos += 1;
-        Ok(())
-    }
+  fn write_byte(&mut self, b: u8) -> Result<()> {
+    debug_assert!(self.pos < self.limit);
+    self.bytes.as_slice_mut()[self.pos] = b;
+    self.pos += 1;
+    Ok(())
+  }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
-        debug_assert!(
-            self.pos + length <= self.limit,
-            "Write exceeds the allowed limit: pos={}, length={}, limit={}",
-            self.pos,
-            length,
-            self.limit
-        );
-        self.bytes
-            .as_slice_mut()
-            .copy_from(&b[offset..(offset + length)], self.pos);
-        self.pos += length;
-        Ok(())
-    }
+  fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
+    debug_assert!(
+      self.pos + length <= self.limit,
+      "Write exceeds the allowed limit: pos={}, length={}, limit={}",
+      self.pos,
+      length,
+      self.limit
+    );
+    self
+      .bytes
+      .as_slice_mut()
+      .copy_from(&b[offset..(offset + length)], self.pos);
+    self.pos += length;
+    Ok(())
+  }
 
-    fn write_int(&mut self, i: i32) -> Result<()> {
-        debug_assert!(
-            self.pos + BitUtil::INT_BYTES <= self.limit,
-            "Write exceeds the allowed limit"
-        );
-        BitUtil::set_i32_le(self.bytes.as_slice_mut(), self.pos, i);
-        self.pos += BitUtil::INT_BYTES;
-        Ok(())
-    }
+  fn write_int(&mut self, i: i32) -> Result<()> {
+    debug_assert!(
+      self.pos + BitUtil::INT_BYTES <= self.limit,
+      "Write exceeds the allowed limit"
+    );
+    BitUtil::set_i32_le(self.bytes.as_slice_mut(), self.pos, i);
+    self.pos += BitUtil::INT_BYTES;
+    Ok(())
+  }
 
-    fn write_short(&mut self, i: i16) -> Result<()> {
-        debug_assert!(
-            self.pos + BitUtil::SHORT_BYTES <= self.limit,
-            "Write exceeds the allowed limit"
-        );
-        BitUtil::set_i16_le(self.bytes.as_slice_mut(), self.pos, i);
-        self.pos += BitUtil::SHORT_BYTES;
-        Ok(())
-    }
+  fn write_short(&mut self, i: i16) -> Result<()> {
+    debug_assert!(
+      self.pos + BitUtil::SHORT_BYTES <= self.limit,
+      "Write exceeds the allowed limit"
+    );
+    BitUtil::set_i16_le(self.bytes.as_slice_mut(), self.pos, i);
+    self.pos += BitUtil::SHORT_BYTES;
+    Ok(())
+  }
 
-    fn write_long(&mut self, i: i64) -> Result<()> {
-        debug_assert!(
-            self.pos + BitUtil::LONG_BYTES <= self.limit,
-            "Write exceeds the allowed limit"
-        );
-        BitUtil::set_i64_le(self.bytes.as_slice_mut(), self.pos, i);
-        self.pos += BitUtil::LONG_BYTES;
-        Ok(())
-    }
+  fn write_long(&mut self, i: i64) -> Result<()> {
+    debug_assert!(
+      self.pos + BitUtil::LONG_BYTES <= self.limit,
+      "Write exceeds the allowed limit"
+    );
+    BitUtil::set_i64_le(self.bytes.as_slice_mut(), self.pos, i);
+    self.pos += BitUtil::LONG_BYTES;
+    Ok(())
+  }
 }

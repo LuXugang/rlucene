@@ -32,340 +32,329 @@ use crate::core::util::numeric_utils::NumericUtils;
 /// expressions, function queries, etc.
 pub struct SortedNumericSelector;
 impl SortedNumericSelector {
-    /// Wraps a multi-valued `SortedNumericDocValues` as a single-valued view,
-    /// using the specified `selector` and `numeric_type`.
-    pub fn wrap<S>(
-        mut sorted_numeric: S,
-        selector: SortedNumericSelectorType,
-        numeric_type: SortFieldType,
-    ) -> Result<SortedNumericSelectorWrap<S>>
-    where
-        S: SortedNumericDocValues,
-    {
-        match numeric_type {
-            SortFieldType::Int
-            | SortFieldType::Long
-            | SortFieldType::Float
-            | SortFieldType::Double => {},
-            _ => {
-                return Err(LuceneError::illegal_argument(
-                    "numericType must be a numeric type",
-                ));
-            },
-        }
-        let view = if sorted_numeric.is_single_valued() {
-            NumericDocValuesEnum3::A(DocValues::unwrap_singleton_numeric(&mut sorted_numeric)?)
-        } else {
-            match selector {
-                SortedNumericSelectorType::Min => {
-                    NumericDocValuesEnum3::B(MinValue::new(sorted_numeric))
-                },
-                SortedNumericSelectorType::Max => {
-                    NumericDocValuesEnum3::C(MaxValue::new(sorted_numeric))
-                },
-            }
-        };
-
-        match numeric_type {
-            SortFieldType::Float => Ok(NumericDocValuesEnum3::A(FilterNumericDocValuesImpl1::new(
-                view,
-            ))),
-            SortFieldType::Double => Ok(NumericDocValuesEnum3::B(
-                FilterNumericDocValuesImpl2::new(view),
-            )),
-            _ => Ok(NumericDocValuesEnum3::C(view)),
-        }
+  /// Wraps a multi-valued `SortedNumericDocValues` as a single-valued view,
+  /// using the specified `selector` and `numeric_type`.
+  pub fn wrap<S>(
+    mut sorted_numeric: S,
+    selector: SortedNumericSelectorType,
+    numeric_type: SortFieldType,
+  ) -> Result<SortedNumericSelectorWrap<S>>
+  where
+    S: SortedNumericDocValues,
+  {
+    match numeric_type {
+      SortFieldType::Int | SortFieldType::Long | SortFieldType::Float | SortFieldType::Double => {},
+      _ => {
+        return Err(LuceneError::illegal_argument(
+          "numericType must be a numeric type",
+        ));
+      },
     }
+    let view = if sorted_numeric.is_single_valued() {
+      NumericDocValuesEnum3::A(DocValues::unwrap_singleton_numeric(&mut sorted_numeric)?)
+    } else {
+      match selector {
+        SortedNumericSelectorType::Min => NumericDocValuesEnum3::B(MinValue::new(sorted_numeric)),
+        SortedNumericSelectorType::Max => NumericDocValuesEnum3::C(MaxValue::new(sorted_numeric)),
+      }
+    };
+
+    match numeric_type {
+      SortFieldType::Float => Ok(NumericDocValuesEnum3::A(FilterNumericDocValuesImpl1::new(
+        view,
+      ))),
+      SortFieldType::Double => Ok(NumericDocValuesEnum3::B(FilterNumericDocValuesImpl2::new(
+        view,
+      ))),
+      _ => Ok(NumericDocValuesEnum3::C(view)),
+    }
+  }
 }
 /// Type of selection to perform.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SortedNumericSelectorType {
-    /// Selects the minimum value in the set.
-    Min,
-    /// Selects the maximum value in the set.
-    Max,
-    // TODO: We could implement Median in constant time (at most 2 lookups).
+  /// Selects the minimum value in the set.
+  Min,
+  /// Selects the maximum value in the set.
+  Max,
+  // TODO: We could implement Median in constant time (at most 2 lookups).
 }
 impl SortedNumericSelectorType {
-    pub fn values() -> &'static [Self] {
-        &[Self::Min, Self::Max]
-    }
+  pub fn values() -> &'static [Self] {
+    &[Self::Min, Self::Max]
+  }
 }
 
 pub struct MinValue<S> {
-    inner: S,
-    value: i64,
+  inner: S,
+  value: i64,
 }
 impl<S> MinValue<S> {
-    pub fn new(inner: S) -> Self {
-        MinValue { inner, value: 0 }
-    }
+  pub fn new(inner: S) -> Self {
+    MinValue { inner, value: 0 }
+  }
 }
 
 impl<S> DocValuesIterator for MinValue<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        if self.inner.advance_exact(target)? {
-            self.value = self.inner.next_value()?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    if self.inner.advance_exact(target)? {
+      self.value = self.inner.next_value()?;
+      Ok(true)
+    } else {
+      Ok(false)
     }
+  }
 }
 /// Wraps a SortedNumericDocValues and returns the first value (min)
 impl<S> DocIdSetIterator for MinValue<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        self.inner.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.inner.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        let doc = self.inner.next_doc()?;
-        if doc != NO_MORE_DOCS {
-            self.value = self.inner.next_value()?;
-        }
-        Ok(doc)
+  fn next_doc(&mut self) -> Result<i32> {
+    let doc = self.inner.next_doc()?;
+    if doc != NO_MORE_DOCS {
+      self.value = self.inner.next_value()?;
     }
+    Ok(doc)
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        let doc = self.inner.advance(target)?;
-        if doc != NO_MORE_DOCS {
-            self.value = self.inner.next_value()?;
-        }
-        Ok(doc)
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    let doc = self.inner.advance(target)?;
+    if doc != NO_MORE_DOCS {
+      self.value = self.inner.next_value()?;
     }
+    Ok(doc)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.inner.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.inner.cost()
+  }
 }
 
 impl<S> NumericDocValues for MinValue<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    fn long_value(&mut self) -> Result<i64> {
-        Ok(self.value)
-    }
+  fn long_value(&mut self) -> Result<i64> {
+    Ok(self.value)
+  }
 }
 /// Wraps a SortedNumericDocValues and returns the last value (max)
 pub struct MaxValue<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    inner: S,
-    value: i64,
+  inner: S,
+  value: i64,
 }
 
 impl<S> MaxValue<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    pub fn new(inner: S) -> Self {
-        MaxValue { inner, value: 0 }
-    }
+  pub fn new(inner: S) -> Self {
+    MaxValue { inner, value: 0 }
+  }
 
-    fn set_value(&mut self) -> Result<()> {
-        let count = self.inner.doc_value_count()?;
-        for _ in 0..count {
-            self.value = self.inner.next_value()?;
-        }
-        Ok(())
+  fn set_value(&mut self) -> Result<()> {
+    let count = self.inner.doc_value_count()?;
+    for _ in 0..count {
+      self.value = self.inner.next_value()?;
     }
+    Ok(())
+  }
 }
 
 impl<S> DocIdSetIterator for MaxValue<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        self.inner.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.inner.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        let doc = self.inner.next_doc()?;
-        if doc != NO_MORE_DOCS {
-            self.set_value()?;
-        }
-        Ok(doc)
+  fn next_doc(&mut self) -> Result<i32> {
+    let doc = self.inner.next_doc()?;
+    if doc != NO_MORE_DOCS {
+      self.set_value()?;
     }
+    Ok(doc)
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        let doc = self.inner.advance(target)?;
-        if doc != NO_MORE_DOCS {
-            self.set_value()?;
-        }
-        Ok(doc)
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    let doc = self.inner.advance(target)?;
+    if doc != NO_MORE_DOCS {
+      self.set_value()?;
     }
+    Ok(doc)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.inner.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.inner.cost()
+  }
 }
 
 impl<S> DocValuesIterator for MaxValue<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        if self.inner.advance_exact(target)? {
-            self.set_value()?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    if self.inner.advance_exact(target)? {
+      self.set_value()?;
+      Ok(true)
+    } else {
+      Ok(false)
     }
+  }
 }
 
 impl<S> NumericDocValues for MaxValue<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    fn long_value(&mut self) -> Result<i64> {
-        Ok(self.value)
-    }
+  fn long_value(&mut self) -> Result<i64> {
+    Ok(self.value)
+  }
 }
 
 pub struct FilterNumericDocValuesImpl1<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    inner: N,
+  inner: N,
 }
 impl<N> FilterNumericDocValuesImpl1<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    pub fn new(inner: N) -> Self {
-        FilterNumericDocValuesImpl1 { inner }
-    }
+  pub fn new(inner: N) -> Self {
+    FilterNumericDocValuesImpl1 { inner }
+  }
 }
 
 impl<N> DocValuesIterator for FilterNumericDocValuesImpl1<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.inner.advance_exact(target)
-    }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    self.inner.advance_exact(target)
+  }
 }
 
 impl<N> DocIdSetIterator for FilterNumericDocValuesImpl1<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        self.inner.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.inner.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.inner.next_doc()
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.inner.next_doc()
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance(target)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.advance(target)
+  }
 
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance(target)
-    }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.advance(target)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.inner.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.inner.cost()
+  }
 }
 
 impl<N> NumericDocValues for FilterNumericDocValuesImpl1<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn long_value(&mut self) -> Result<i64> {
-        let v = self.inner.long_value()? as i32;
-        Ok(NumericUtils::sortable_float_bits(v) as i64)
-    }
+  fn long_value(&mut self) -> Result<i64> {
+    let v = self.inner.long_value()? as i32;
+    Ok(NumericUtils::sortable_float_bits(v) as i64)
+  }
 }
 pub struct FilterNumericDocValuesImpl2<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    inner: N,
+  inner: N,
 }
 impl<N> FilterNumericDocValuesImpl2<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    pub fn new(inner: N) -> Self {
-        FilterNumericDocValuesImpl2 { inner }
-    }
+  pub fn new(inner: N) -> Self {
+    FilterNumericDocValuesImpl2 { inner }
+  }
 }
 
 impl<N> DocValuesIterator for FilterNumericDocValuesImpl2<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.inner.advance_exact(target)
-    }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    self.inner.advance_exact(target)
+  }
 }
 
 impl<N> DocIdSetIterator for FilterNumericDocValuesImpl2<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        self.inner.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.inner.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.inner.next_doc()
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.inner.next_doc()
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance(target)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.advance(target)
+  }
 
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance(target)
-    }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.advance(target)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.inner.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.inner.cost()
+  }
 }
 
 impl<N> NumericDocValues for FilterNumericDocValuesImpl2<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn long_value(&mut self) -> Result<i64> {
-        let v = self.inner.long_value()?;
-        Ok(NumericUtils::sortable_double_bits(v))
-    }
+  fn long_value(&mut self) -> Result<i64> {
+    let v = self.inner.long_value()?;
+    Ok(NumericUtils::sortable_double_bits(v))
+  }
 }
 
 pub type SortedNumericSelectorWrap<S> = NumericDocValuesEnum3<
-    FilterNumericDocValuesImpl1<
-        NumericDocValuesEnum3<
-            <S as SortedNumericDocValues>::NumericDocValues,
-            MinValue<S>,
-            MaxValue<S>,
-        >,
-    >,
-    FilterNumericDocValuesImpl2<
-        NumericDocValuesEnum3<
-            <S as SortedNumericDocValues>::NumericDocValues,
-            MinValue<S>,
-            MaxValue<S>,
-        >,
-    >,
+  FilterNumericDocValuesImpl1<
     NumericDocValuesEnum3<
-        <S as SortedNumericDocValues>::NumericDocValues,
-        MinValue<S>,
-        MaxValue<S>,
+      <S as SortedNumericDocValues>::NumericDocValues,
+      MinValue<S>,
+      MaxValue<S>,
     >,
+  >,
+  FilterNumericDocValuesImpl2<
+    NumericDocValuesEnum3<
+      <S as SortedNumericDocValues>::NumericDocValues,
+      MinValue<S>,
+      MaxValue<S>,
+    >,
+  >,
+  NumericDocValuesEnum3<<S as SortedNumericDocValues>::NumericDocValues, MinValue<S>, MaxValue<S>>,
 >;

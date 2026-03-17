@@ -66,460 +66,458 @@ use parking_lot::Mutex;
 /// [`Directory`]
 pub struct FSDirectory<D, T>
 where
-    D: LockFactory,
-    T: FSDirectoryBase,
+  D: LockFactory,
+  T: FSDirectoryBase,
 {
-    directory: PathBuf,
-    /// Maps files that we are trying to delete (or we tried already but
-    /// failed) before attempting to delete that key.
-    pending_deletes: Arc<Mutex<HashSet<String>>>,
-    ops_since_last_delete: AtomicU32,
-    /// Used to generate temp file names in
-    /// [`createTempOutput`](Directory::create_temp_output).
-    next_temp_file_counter: AtomicU64,
-    sub_fs_directory: T,
-    base: BaseDirectoryBase<D>,
-    id: Identity,
+  directory: PathBuf,
+  /// Maps files that we are trying to delete (or we tried already but
+  /// failed) before attempting to delete that key.
+  pending_deletes: Arc<Mutex<HashSet<String>>>,
+  ops_since_last_delete: AtomicU32,
+  /// Used to generate temp file names in
+  /// [`createTempOutput`](Directory::create_temp_output).
+  next_temp_file_counter: AtomicU64,
+  sub_fs_directory: T,
+  base: BaseDirectoryBase<D>,
+  id: Identity,
 }
 impl<D, T> FSDirectory<D, T>
 where
-    D: LockFactory,
-    T: FSDirectoryBase,
+  D: LockFactory,
+  T: FSDirectoryBase,
 {
-    pub fn with_lock_factory(
-        directory: PathBuf,
-        lock_factory: D,
-        sub_fs_directory: T,
-    ) -> Result<FSDirectory<D, T>> {
-        if !directory.is_dir() {
-            fs::create_dir(&directory)?;
-        }
-        let base = BaseDirectoryBase::new(lock_factory);
-        Ok(FSDirectory {
-            directory,
-            pending_deletes: Arc::new(Mutex::new(HashSet::new())),
-            ops_since_last_delete: AtomicU32::new(0),
-            next_temp_file_counter: AtomicU64::new(0),
-            sub_fs_directory,
-            base,
-            id: Identity::new(),
-        })
+  pub fn with_lock_factory(
+    directory: PathBuf,
+    lock_factory: D,
+    sub_fs_directory: T,
+  ) -> Result<FSDirectory<D, T>> {
+    if !directory.is_dir() {
+      fs::create_dir(&directory)?;
+    }
+    let base = BaseDirectoryBase::new(lock_factory);
+    Ok(FSDirectory {
+      directory,
+      pending_deletes: Arc::new(Mutex::new(HashSet::new())),
+      ops_since_last_delete: AtomicU32::new(0),
+      next_temp_file_counter: AtomicU64::new(0),
+      sub_fs_directory,
+      base,
+      id: Identity::new(),
+    })
+  }
+
+  fn list_all(dir: &Path, skip_names: Option<&HashSet<String>>) -> Result<Vec<String>> {
+    let mut entries = Vec::new();
+
+    for entry in dir.read_dir()? {
+      let entry = entry?;
+      let name = entry.file_name().to_string_lossy().to_string();
+
+      if let Some(skip) = &skip_names
+        && skip.contains(&name)
+      {
+        continue;
+      }
+
+      entries.push(name);
     }
 
-    fn list_all(dir: &Path, skip_names: Option<&HashSet<String>>) -> Result<Vec<String>> {
-        let mut entries = Vec::new();
+    entries.sort();
+    Ok(entries)
+  }
+  pub fn maybe_delete_pending_files(
+    directory: &Path,
+    pending_deletes: &mut HashSet<String>,
+    ops_since_last_delete: &AtomicU32,
+  ) -> Result<()> {
+    if !pending_deletes.is_empty() {
+      let count = ops_since_last_delete.fetch_add(1, SeqCst) + 1;
 
-        for entry in dir.read_dir()? {
-            let entry = entry?;
-            let name = entry.file_name().to_string_lossy().to_string();
-
-            if let Some(skip) = &skip_names
-                && skip.contains(&name)
-            {
-                continue;
-            }
-
-            entries.push(name);
-        }
-
-        entries.sort();
-        Ok(entries)
+      if count as usize >= pending_deletes.len() {
+        ops_since_last_delete.fetch_sub(count, SeqCst);
+        Self::delete_pending_files(directory, pending_deletes)?;
+      }
     }
-    pub fn maybe_delete_pending_files(
-        directory: &Path,
-        pending_deletes: &mut HashSet<String>,
-        ops_since_last_delete: &AtomicU32,
-    ) -> Result<()> {
-        if !pending_deletes.is_empty() {
-            let count = ops_since_last_delete.fetch_add(1, SeqCst) + 1;
+    Ok(())
+  }
 
-            if count as usize >= pending_deletes.len() {
-                ops_since_last_delete.fetch_sub(count, SeqCst);
-                Self::delete_pending_files(directory, pending_deletes)?;
-            }
-        }
+  /// Ensure that the given file is synchronized to the storage device.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - The name of the file to sync.
+  ///
+  /// # Errors
+  ///
+  /// Returns a `LuceneError` if the file cannot be found or synchronized.
+  pub fn fsync(&self, name: &str) -> Result<()> {
+    IOUtils::fsync(&self.directory.join(name), false)
+  }
+
+  /// Try to delete any pending files that we had previously tried to delete
+  /// but failed because we are on Windows and the files were still held
+  /// open.
+  pub fn delete_pending_files(
+    directory: &Path,
+    pending_deletes: &mut HashSet<String>,
+  ) -> Result<()> {
+    if !pending_deletes.is_empty() {
+      // TODO: we could fix IndexInputs from FSDirectory SubStruct to
+      // call this when they are closed?
+
+      // Clone the set since we mutate it in privateDeleteFile:
+      let files_to_delete: Vec<String> = pending_deletes.clone().into_iter().collect();
+
+      for name in files_to_delete {
+        Self::private_delete_file(directory, &name, true, pending_deletes)?;
+      }
+    }
+    Ok(())
+  }
+
+  fn private_delete_file(
+    directory: &Path,
+    name: &str,
+    is_pending_delete: bool,
+    pending_deletes: &mut HashSet<String>,
+  ) -> Result<()> {
+    let file_path = directory.join(name);
+    let file_name = file_path.to_string_lossy().to_string();
+    match fs::remove_file(file_path) {
+      Ok(_) => {
+        pending_deletes.remove(name);
         Ok(())
-    }
+      },
+      Err(e) if e.kind() == io::ErrorKind::NotFound => {
+        pending_deletes.remove(name);
 
-    /// Ensure that the given file is synchronized to the storage device.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - The name of the file to sync.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `LuceneError` if the file cannot be found or synchronized.
-    pub fn fsync(&self, name: &str) -> Result<()> {
-        IOUtils::fsync(&self.directory.join(name), false)
-    }
-
-    /// Try to delete any pending files that we had previously tried to delete
-    /// but failed because we are on Windows and the files were still held
-    /// open.
-    pub fn delete_pending_files(
-        directory: &Path,
-        pending_deletes: &mut HashSet<String>,
-    ) -> Result<()> {
-        if !pending_deletes.is_empty() {
-            // TODO: we could fix IndexInputs from FSDirectory SubStruct to
-            // call this when they are closed?
-
-            // Clone the set since we mutate it in privateDeleteFile:
-            let files_to_delete: Vec<String> = pending_deletes.clone().into_iter().collect();
-
-            for name in files_to_delete {
-                Self::private_delete_file(directory, &name, true, pending_deletes)?;
-            }
+        if is_pending_delete && cfg!(windows) {
+          // TODO: can we remove this OS-specific hacky logic?  If
+          // windows deleteFile is buggy, we
+          // should instead contain this workaround in
+          // a WindowsFSDirectory ...
+          // LUCENE-6684: we suppress this check for Windows, since a
+          // file could be in a confusing "pending
+          // delete" state, failing the first
+          // delete attempt with access denied and then apparently
+          // falsely failing here when we try ot
+          // delete it again, with NSFE/FNFE
+          Ok(())
+        } else {
+          Err(LuceneError::io_with_path(file_name, e))
         }
-        Ok(())
-    }
+      },
+      Err(e) => {
+        // On windows, a file delete can fail because there's still an
+        // open file handle against it.  We record this
+        // in pendingDeletes and try again later.
 
-    fn private_delete_file(
-        directory: &Path,
-        name: &str,
-        is_pending_delete: bool,
-        pending_deletes: &mut HashSet<String>,
-    ) -> Result<()> {
-        let file_path = directory.join(name);
-        let file_name = file_path.to_string_lossy().to_string();
-        match fs::remove_file(file_path) {
-            Ok(_) => {
-                pending_deletes.remove(name);
-                Ok(())
-            },
-            Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                pending_deletes.remove(name);
+        // TODO: this is hacky/lenient (we don't know which IOException
+        // this is), and it should only happen on
+        // filesystems that can do this, so really we should
+        // move this logic to WindowsDirectory or something
 
-                if is_pending_delete && cfg!(windows) {
-                    // TODO: can we remove this OS-specific hacky logic?  If
-                    // windows deleteFile is buggy, we
-                    // should instead contain this workaround in
-                    // a WindowsFSDirectory ...
-                    // LUCENE-6684: we suppress this check for Windows, since a
-                    // file could be in a confusing "pending
-                    // delete" state, failing the first
-                    // delete attempt with access denied and then apparently
-                    // falsely failing here when we try ot
-                    // delete it again, with NSFE/FNFE
-                    Ok(())
-                } else {
-                    Err(LuceneError::io_with_path(file_name, e))
-                }
-            },
-            Err(e) => {
-                // On windows, a file delete can fail because there's still an
-                // open file handle against it.  We record this
-                // in pendingDeletes and try again later.
-
-                // TODO: this is hacky/lenient (we don't know which IOException
-                // this is), and it should only happen on
-                // filesystems that can do this, so really we should
-                // move this logic to WindowsDirectory or something
-
-                // TODO: can/should we do if (Constants.WINDOWS) here, else
-                // throw the exc? but what about a Linux box
-                // with a CIFS mount?
-                if cfg!(windows) {
-                    pending_deletes.insert(name.to_string());
-                    Ok(())
-                } else {
-                    Err(LuceneError::io_with_path(file_name, e))
-                }
-            },
+        // TODO: can/should we do if (Constants.WINDOWS) here, else
+        // throw the exc? but what about a Linux box
+        // with a CIFS mount?
+        if cfg!(windows) {
+          pending_deletes.insert(name.to_string());
+          Ok(())
+        } else {
+          Err(LuceneError::io_with_path(file_name, e))
         }
+      },
     }
-    fn ensure_can_read(&self, name: &str) -> Result<()> {
-        let pending_deletes = self.pending_deletes.lock();
-        if pending_deletes.contains(name) {
-            return Err(LuceneError::not_found(format!(
-                "file \"{name}\" is pending delete and cannot be opened for read"
-            )));
-        }
-        Ok(())
+  }
+  fn ensure_can_read(&self, name: &str) -> Result<()> {
+    let pending_deletes = self.pending_deletes.lock();
+    if pending_deletes.contains(name) {
+      return Err(LuceneError::not_found(format!(
+        "file \"{name}\" is pending delete and cannot be opened for read"
+      )));
     }
+    Ok(())
+  }
 }
 impl<T> FSDirectory<NativeFSLockFactory, T>
 where
-    T: FSDirectoryBase,
+  T: FSDirectoryBase,
 {
-    pub fn new(
-        directory: PathBuf,
-        sub_fs_directory: T,
-    ) -> Result<FSDirectory<NativeFSLockFactory, T>> {
-        Self::with_lock_factory(directory, NativeFSLockFactory::new(), sub_fs_directory)
-    }
+  pub fn new(
+    directory: PathBuf,
+    sub_fs_directory: T,
+  ) -> Result<FSDirectory<NativeFSLockFactory, T>> {
+    Self::with_lock_factory(directory, NativeFSLockFactory::new(), sub_fs_directory)
+  }
 }
 
 impl<D, T> HasIdentity for FSDirectory<D, T>
 where
-    D: LockFactory,
-    T: FSDirectoryBase,
+  D: LockFactory,
+  T: FSDirectoryBase,
 {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 
 impl<D, T> Directory for FSDirectory<D, T>
 where
-    D: LockFactory,
-    T: FSDirectoryBase,
+  D: LockFactory,
+  T: FSDirectoryBase,
 {
-    fn list_all(&self) -> Result<Vec<String>> {
-        let pending_deletes = self.pending_deletes.lock();
-        Self::list_all(&self.directory, Some(&pending_deletes))
+  fn list_all(&self) -> Result<Vec<String>> {
+    let pending_deletes = self.pending_deletes.lock();
+    Self::list_all(&self.directory, Some(&pending_deletes))
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    let mut pending_deletes = self.pending_deletes.lock();
+    if pending_deletes.contains(name) {
+      return Err(LuceneError::not_found(format!(
+        "file \"{name}\" is already pending delete"
+      )));
     }
 
-    fn delete_file(&self, name: &str) -> Result<()> {
-        let mut pending_deletes = self.pending_deletes.lock();
-        if pending_deletes.contains(name) {
-            return Err(LuceneError::not_found(format!(
-                "file \"{name}\" is already pending delete"
-            )));
-        }
+    Self::private_delete_file(&self.directory, name, false, &mut pending_deletes)?;
 
-        Self::private_delete_file(&self.directory, name, false, &mut pending_deletes)?;
+    Self::maybe_delete_pending_files(
+      &self.directory,
+      &mut pending_deletes,
+      &self.ops_since_last_delete,
+    )?;
 
-        Self::maybe_delete_pending_files(
-            &self.directory,
-            &mut pending_deletes,
-            &self.ops_since_last_delete,
-        )?;
+    Ok(())
+  }
 
-        Ok(())
+  fn file_length(&self, name: &str) -> Result<usize> {
+    if self.pending_deletes.lock().contains(name) {
+      return Err(LuceneError::not_found(format!(
+        "file \"{name}\" is pending delete"
+      )));
     }
 
-    fn file_length(&self, name: &str) -> Result<usize> {
-        if self.pending_deletes.lock().contains(name) {
-            return Err(LuceneError::not_found(format!(
-                "file \"{name}\" is pending delete"
-            )));
-        }
+    let file_path = self.directory.join(name);
+    let file_name = file_path.to_string_lossy().to_string();
+    let metadata = fs::metadata(file_path).map_err(|e| LuceneError::io_with_path(file_name, e))?;
+    let length = metadata.len();
+    Ok(length as usize)
+  }
+  fn create_output(&self, name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
+    let mut pending_deletes = self.pending_deletes.lock();
+    Self::maybe_delete_pending_files(
+      &self.directory,
+      &mut pending_deletes,
+      &self.ops_since_last_delete,
+    )?;
 
-        let file_path = self.directory.join(name);
-        let file_name = file_path.to_string_lossy().to_string();
-        let metadata =
-            fs::metadata(file_path).map_err(|e| LuceneError::io_with_path(file_name, e))?;
-        let length = metadata.len();
-        Ok(length as usize)
+    if pending_deletes.remove(name) {
+      Self::private_delete_file(&self.directory, name, true, &mut pending_deletes)?;
+      pending_deletes.remove(name);
     }
-    fn create_output(&self, name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
-        let mut pending_deletes = self.pending_deletes.lock();
-        Self::maybe_delete_pending_files(
-            &self.directory,
-            &mut pending_deletes,
-            &self.ops_since_last_delete,
-        )?;
 
-        if pending_deletes.remove(name) {
-            Self::private_delete_file(&self.directory, name, true, &mut pending_deletes)?;
-            pending_deletes.remove(name);
-        }
+    let file_path = self.directory.join(name);
+    let file = File::options()
+      .write(true)
+      .create_new(true)
+      .open(&file_path)
+      .map_err(|err| LuceneError::io_with_path(file_path.to_string_lossy().to_string(), err))?;
 
-        let file_path = self.directory.join(name);
-        let file = File::options()
-            .write(true)
-            .create_new(true)
-            .open(&file_path)
-            .map_err(|err| {
-                LuceneError::io_with_path(file_path.to_string_lossy().to_string(), err)
-            })?;
+    OutputStreamIndexOutput::new(
+      format!("FSIndexOutput(path=\"{}\")", file_path.display()).as_str(),
+      name,
+      file,
+      CHUNK_SIZE,
+    )
+  }
 
-        OutputStreamIndexOutput::new(
+  type IndexOutput = OutputStreamIndexOutput<File>;
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    _context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    let mut pending_deletes = self.pending_deletes.lock();
+    Self::maybe_delete_pending_files(
+      &self.directory,
+      &mut pending_deletes,
+      &self.ops_since_last_delete,
+    )?;
+
+    loop {
+      let counter = self.next_temp_file_counter.fetch_add(1, SeqCst);
+      let name = get_temp_file_name(prefix, suffix, counter);
+
+      if pending_deletes.contains(&name) {
+        continue;
+      }
+
+      let file_path = self.directory.join(&name);
+      match File::options()
+        .write(true)
+        .create_new(true)
+        .open(&file_path)
+      {
+        Ok(file) => {
+          return OutputStreamIndexOutput::new(
             format!("FSIndexOutput(path=\"{}\")", file_path.display()).as_str(),
-            name,
+            &name,
             file,
             CHUNK_SIZE,
-        )
+          );
+        },
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+          continue;
+        },
+        Err(e) => {
+          return Err(LuceneError::io_with_path(
+            file_path.to_string_lossy().to_string(),
+            e,
+          ));
+        },
+      }
+    }
+  }
+
+  fn sync(&self, names: &[String]) -> Result<()> {
+    for name in names {
+      self.fsync(name)?;
+    }
+    Self::maybe_delete_pending_files(
+      &self.directory,
+      &mut self.pending_deletes.lock(),
+      &self.ops_since_last_delete,
+    )?;
+    Ok(())
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    // TODO: to improve listCommits(), IndexFileDeleter could call this
+    // after deleting segments_Ns
+    IOUtils::fsync(&self.directory, true)?;
+    Self::maybe_delete_pending_files(
+      &self.directory,
+      &mut self.pending_deletes.lock(),
+      &self.ops_since_last_delete,
+    )?;
+    Ok(())
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    let mut pending_deletes = self.pending_deletes.lock();
+    if pending_deletes.contains(source) {
+      return Err(LuceneError::not_found(format!(
+        "File \"{source}\" is pending delete and cannot be moved"
+      )));
+    }
+    Self::maybe_delete_pending_files(
+      &self.directory,
+      &mut pending_deletes,
+      &self.ops_since_last_delete,
+    )?;
+
+    if pending_deletes.remove(dest) {
+      Self::private_delete_file(&self.directory, dest, true, &mut pending_deletes)?; // try again to delete it - this is the best effort
+      pending_deletes.remove(dest); // watch out if the delete fails, it's
+      // back in here
     }
 
-    type IndexOutput = OutputStreamIndexOutput<File>;
-    fn create_temp_output(
-        &self,
-        prefix: &str,
-        suffix: &str,
-        _context: &IOContext,
-    ) -> Result<Self::IndexOutput> {
-        let mut pending_deletes = self.pending_deletes.lock();
-        Self::maybe_delete_pending_files(
-            &self.directory,
-            &mut pending_deletes,
-            &self.ops_since_last_delete,
-        )?;
+    let source_path = self.directory.join(source);
+    let dest_path = self.directory.join(dest);
 
-        loop {
-            let counter = self.next_temp_file_counter.fetch_add(1, SeqCst);
-            let name = get_temp_file_name(prefix, suffix, counter);
+    fs::rename(source_path, dest_path).map_err(LuceneError::io)?;
 
-            if pending_deletes.contains(&name) {
-                continue;
-            }
+    Ok(())
+  }
 
-            let file_path = self.directory.join(&name);
-            match File::options()
-                .write(true)
-                .create_new(true)
-                .open(&file_path)
-            {
-                Ok(file) => {
-                    return OutputStreamIndexOutput::new(
-                        format!("FSIndexOutput(path=\"{}\")", file_path.display()).as_str(),
-                        &name,
-                        file,
-                        CHUNK_SIZE,
-                    );
-                },
-                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
-                    continue;
-                },
-                Err(e) => {
-                    return Err(LuceneError::io_with_path(
-                        file_path.to_string_lossy().to_string(),
-                        e,
-                    ));
-                },
-            }
-        }
+  type IndexInput = T::Output;
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    self.ensure_can_read(name)?;
+    self
+      .sub_fs_directory
+      .open_input(name, context, &self.directory)
+  }
+
+  type Lock = D::Lock;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    self.base.obtain_lock(&self.directory, name)
+  }
+
+  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+    let mut pending_deletes = self.pending_deletes.lock();
+    Self::delete_pending_files(&self.directory, &mut pending_deletes)?;
+    if pending_deletes.is_empty() {
+      Ok(HashSet::new())
+    } else {
+      Ok(pending_deletes.clone())
     }
+  }
 
-    fn sync(&self, names: &[String]) -> Result<()> {
-        for name in names {
-            self.fsync(name)?;
-        }
-        Self::maybe_delete_pending_files(
-            &self.directory,
-            &mut self.pending_deletes.lock(),
-            &self.ops_since_last_delete,
-        )?;
-        Ok(())
-    }
+  #[cfg(debug_assertions)]
+  fn is_fs_directory(&self) -> bool {
+    true
+  }
 
-    fn sync_metadata(&self) -> Result<()> {
-        // TODO: to improve listCommits(), IndexFileDeleter could call this
-        // after deleting segments_Ns
-        IOUtils::fsync(&self.directory, true)?;
-        Self::maybe_delete_pending_files(
-            &self.directory,
-            &mut self.pending_deletes.lock(),
-            &self.ops_since_last_delete,
-        )?;
-        Ok(())
-    }
-
-    fn rename(&self, source: &str, dest: &str) -> Result<()> {
-        let mut pending_deletes = self.pending_deletes.lock();
-        if pending_deletes.contains(source) {
-            return Err(LuceneError::not_found(format!(
-                "File \"{source}\" is pending delete and cannot be moved"
-            )));
-        }
-        Self::maybe_delete_pending_files(
-            &self.directory,
-            &mut pending_deletes,
-            &self.ops_since_last_delete,
-        )?;
-
-        if pending_deletes.remove(dest) {
-            Self::private_delete_file(&self.directory, dest, true, &mut pending_deletes)?; // try again to delete it - this is the best effort
-            pending_deletes.remove(dest); // watch out if the delete fails, it's
-            // back in here
-        }
-
-        let source_path = self.directory.join(source);
-        let dest_path = self.directory.join(dest);
-
-        fs::rename(source_path, dest_path).map_err(LuceneError::io)?;
-
-        Ok(())
-    }
-
-    type IndexInput = T::Output;
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
-        self.ensure_can_read(name)?;
-        self.sub_fs_directory
-            .open_input(name, context, &self.directory)
-    }
-
-    type Lock = D::Lock;
-
-    fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
-        self.base.obtain_lock(&self.directory, name)
-    }
-
-    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
-        let mut pending_deletes = self.pending_deletes.lock();
-        Self::delete_pending_files(&self.directory, &mut pending_deletes)?;
-        if pending_deletes.is_empty() {
-            Ok(HashSet::new())
-        } else {
-            Ok(pending_deletes.clone())
-        }
-    }
-
-    #[cfg(debug_assertions)]
-    fn is_fs_directory(&self) -> bool {
-        true
-    }
-
-    fn ensure_open(&self) -> Result<()> {
-        self.base.ensure_open()
-    }
+  fn ensure_open(&self) -> Result<()> {
+    self.base.ensure_open()
+  }
 }
 
 impl<D, T> Closeable for FSDirectory<D, T>
 where
-    D: LockFactory,
-    T: FSDirectoryBase,
+  D: LockFactory,
+  T: FSDirectoryBase,
 {
-    fn close(&mut self) -> Result<()> {
-        // TODO
-        Ok(())
-    }
+  fn close(&mut self) -> Result<()> {
+    // TODO
+    Ok(())
+  }
 }
 
 impl<D, T> Display for FSDirectory<D, T>
 where
-    D: LockFactory,
-    T: FSDirectoryBase,
+  D: LockFactory,
+  T: FSDirectoryBase,
 {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{}@{} lockFactory={}",
-            self.sub_fs_directory,
-            self.directory.display(),
-            self.base.lock_factory,
-        )
-    }
+  fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+    write!(
+      f,
+      "{}@{} lockFactory={}",
+      self.sub_fs_directory,
+      self.directory.display(),
+      self.base.lock_factory,
+    )
+  }
 }
 
 impl<D, T> BaseDirectory for FSDirectory<D, T>
 where
-    D: LockFactory,
-    T: FSDirectoryBase,
+  D: LockFactory,
+  T: FSDirectoryBase,
 {
-    type LockFactory = D;
+  type LockFactory = D;
 
-    fn get_lock_factory(&self) -> &BaseDirectoryBase<Self::LockFactory> {
-        &self.base
-    }
+  fn get_lock_factory(&self) -> &BaseDirectoryBase<Self::LockFactory> {
+    &self.base
+  }
 }
 impl<D, T> Drop for FSDirectory<D, T>
 where
-    D: LockFactory,
-    T: FSDirectoryBase,
+  D: LockFactory,
+  T: FSDirectoryBase,
 {
-    fn drop(&mut self) {
-        let mut pending_deletes = self.pending_deletes.lock();
-        if let Err(e) = Self::maybe_delete_pending_files(
-            &self.directory,
-            &mut pending_deletes,
-            &self.ops_since_last_delete,
-        ) {
-            eprintln!("Error while deleting pending files during drop, ignoring: {e:?}");
-        }
+  fn drop(&mut self) {
+    let mut pending_deletes = self.pending_deletes.lock();
+    if let Err(e) = Self::maybe_delete_pending_files(
+      &self.directory,
+      &mut pending_deletes,
+      &self.ops_since_last_delete,
+    ) {
+      eprintln!("Error while deleting pending files during drop, ignoring: {e:?}");
     }
+  }
 }
 /// The maximum chunk size is 8192 bytes in the original Java implementation
 /// because:

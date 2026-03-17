@@ -20,5 +20,5 @@ use crate::core::internal::vectorization::posting_decoding_util::PostingDecoding
 use crate::core::store::IndexInput;
 
 pub fn new_posting_decoding_util<I: IndexInput>(input: I) -> PostingDecodingUtil<I> {
-    PostingDecodingUtil::new(input)
+  PostingDecodingUtil::new(input)
 }

@@ -23,7 +23,7 @@ use crate::core::index::term_states::TermStates;
 use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::{
-    RewritingWeight, RewritingWeightBase, TermAndState, WeightOrDocIdSetIterator,
+  RewritingWeight, RewritingWeightBase, TermAndState, WeightOrDocIdSetIterator,
 };
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::doc_id_set::DocIdSet;
@@ -48,189 +48,189 @@ use std::hash::Hash;
 /// matches into a bit set and building a `Scorer` on top of that bit set.
 #[derive(Clone)]
 pub struct MultiTermQueryConstantScoreWrapper {
-    q: MultiTermQueryEnum,
-    id: Identity,
+  q: MultiTermQueryEnum,
+  id: Identity,
 }
 impl MultiTermQueryConstantScoreWrapper {
-    pub fn new(q: MultiTermQueryEnum) -> Self {
-        Self {
-            q,
-            id: Identity::new(),
-        }
+  pub fn new(q: MultiTermQueryEnum) -> Self {
+    Self {
+      q,
+      id: Identity::new(),
     }
+  }
 }
 
 impl Debug for MultiTermQueryConstantScoreWrapper {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self.as_string("") {
-            Ok(s) => write!(f, "{}", s),
-            Err(_) => Err(std::fmt::Error),
-        }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self.as_string("") {
+      Ok(s) => write!(f, "{}", s),
+      Err(_) => Err(std::fmt::Error),
     }
+  }
 }
 
 impl HasIdentity for MultiTermQueryConstantScoreWrapper {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 
 impl QueryBase for MultiTermQueryConstantScoreWrapper {
-    fn as_string(&self, field: &str) -> Result<String> {
-        self.q.as_string(field)
-    }
+  fn as_string(&self, field: &str) -> Result<String> {
+    self.q.as_string(field)
+  }
 
-    fn create_weight<IRC>(
-        self,
-        _searcher: &IndexSearcher<IRC>,
-        score_mode: &ScoreMode,
-        boost: f32,
-    ) -> Result<QueryWeight<IRC>>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        let sub = StandardRewritingWeight;
-        match self.q {
-            MultiTermQueryEnum::Prefix(q) => Ok(Box::new(RewritingWeight::new(
-                boost,
-                *score_mode,
-                q,
-                sub.into(),
-            ))),
-            MultiTermQueryEnum::TermRange(q) => Ok(Box::new(RewritingWeight::new(
-                boost,
-                *score_mode,
-                q,
-                sub.into(),
-            ))),
-            MultiTermQueryEnum::Automaton(q) => Ok(Box::new(RewritingWeight::new(
-                boost,
-                *score_mode,
-                q,
-                sub.into(),
-            ))),
-            MultiTermQueryEnum::Wildcard(q) => Ok(Box::new(RewritingWeight::new(
-                boost,
-                *score_mode,
-                q,
-                sub.into(),
-            ))),
-            MultiTermQueryEnum::Regexp(q) => Ok(Box::new(RewritingWeight::new(
-                boost,
-                *score_mode,
-                q,
-                sub.into(),
-            ))),
-        }
+  fn create_weight<IRC>(
+    self,
+    _searcher: &IndexSearcher<IRC>,
+    score_mode: &ScoreMode,
+    boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    let sub = StandardRewritingWeight;
+    match self.q {
+      MultiTermQueryEnum::Prefix(q) => Ok(Box::new(RewritingWeight::new(
+        boost,
+        *score_mode,
+        q,
+        sub.into(),
+      ))),
+      MultiTermQueryEnum::TermRange(q) => Ok(Box::new(RewritingWeight::new(
+        boost,
+        *score_mode,
+        q,
+        sub.into(),
+      ))),
+      MultiTermQueryEnum::Automaton(q) => Ok(Box::new(RewritingWeight::new(
+        boost,
+        *score_mode,
+        q,
+        sub.into(),
+      ))),
+      MultiTermQueryEnum::Wildcard(q) => Ok(Box::new(RewritingWeight::new(
+        boost,
+        *score_mode,
+        q,
+        sub.into(),
+      ))),
+      MultiTermQueryEnum::Regexp(q) => Ok(Box::new(RewritingWeight::new(
+        boost,
+        *score_mode,
+        q,
+        sub.into(),
+      ))),
     }
+  }
 
-    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        Ok(self.into())
-    }
+  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    Ok(self.into())
+  }
 
-    fn visit<QV>(&self, _visitor: &QV)
-    where
-        QV: QueryVisitor,
-    {
-        todo!()
-    }
+  fn visit<QV>(&self, _visitor: &QV)
+  where
+    QV: QueryVisitor,
+  {
+    todo!()
+  }
 }
 impl Hash for MultiTermQueryConstantScoreWrapper {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.q.hash(state);
-    }
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.q.hash(state);
+  }
 }
 impl PartialEq for MultiTermQueryConstantScoreWrapper {
-    fn eq(&self, other: &Self) -> bool {
-        self.q == other.q
-    }
+  fn eq(&self, other: &Self) -> bool {
+    self.q == other.q
+  }
 }
 impl Eq for MultiTermQueryConstantScoreWrapper {}
 #[derive(Default, Clone)]
 pub struct StandardRewritingWeight;
 impl RewritingWeightBase for StandardRewritingWeight {
-    type Iter<T>
-        = DocIdSetIteratorEnum2<DummyDISI, DocIdSetBuilderIterator>
-    where
-        T: Terms,
-        TermsPosting<T>: 'static;
+  type Iter<T>
+    = DocIdSetIteratorEnum2<DummyDISI, DocIdSetBuilderIterator>
+  where
+    T: Terms,
+    TermsPosting<T>: 'static;
 
-    fn rewrite_inner<T, TE, IRC>(
-        &self,
-        field_doc_count: i32,
-        terms: &mut T,
-        terms_enum: &mut TE,
-        collected_terms: &[TermAndState],
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        searcher: &IndexSearcher<IRC>,
-        field: &str,
-        score_mode: &ScoreMode,
-        score: f32,
-    ) -> Result<WeightOrDocIdSetIterator<IRC, Self::Iter<T>>>
-    where
-        T: Terms,
-        TE: TermsEnum<PostingsEnum = <T::TermsEnum as TermsEnum>::PostingsEnum>,
-        IRC: IndexReaderContext,
-        TermsPosting<T>: 'static,
-    {
-        let max_doc = context.reader().max_doc()?;
-        let mut builder = DocIdSetBuilder::from_terms(max_doc, terms)?;
+  fn rewrite_inner<T, TE, IRC>(
+    &self,
+    field_doc_count: i32,
+    terms: &mut T,
+    terms_enum: &mut TE,
+    collected_terms: &[TermAndState],
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+    field: &str,
+    score_mode: &ScoreMode,
+    score: f32,
+  ) -> Result<WeightOrDocIdSetIterator<IRC, Self::Iter<T>>>
+  where
+    T: Terms,
+    TE: TermsEnum<PostingsEnum = <T::TermsEnum as TermsEnum>::PostingsEnum>,
+    IRC: IndexReaderContext,
+    TermsPosting<T>: 'static,
+  {
+    let max_doc = context.reader().max_doc()?;
+    let mut builder = DocIdSetBuilder::from_terms(max_doc, terms)?;
 
-        let mut docs = None;
+    let mut docs = None;
 
-        // Handle the already-collected terms:
-        if !collected_terms.is_empty() {
-            let mut terms_enum2 = terms.iterator()?;
-            for t in collected_terms.iter() {
-                terms_enum2.seek_exact_with_state(&t.term, &t.state)?;
-                let mut pe = terms_enum2.postings_with_flags(docs, NONE as i32)?;
-                builder.add_disi(&mut pe)?;
-                docs = Some(pe);
-            }
-        }
-
-        // Then keep filling the bit set with remaining terms:
-        loop {
-            let mut pe = terms_enum.postings_with_flags(docs, NONE as i32)?;
-            // If a term contains all docs with a value for the specified field, we can discard the
-            // other terms and just use the dense term's postings:
-            let doc_freq = terms_enum.doc_freq()?;
-
-            if field_doc_count == doc_freq {
-                let mut term_states = TermStates::new(searcher.get_top_reader_context())?;
-                term_states.register_with_stats(
-                    terms_enum.term_state()?,
-                    context.ord,
-                    doc_freq,
-                    terms_enum.total_term_freq()?,
-                );
-
-                let term = Term::new(field, terms_enum.term()?.into_owned());
-                let tq = TermQuery::with_term_state(term, Some(term_states));
-                let q = ConstantScoreQuery::new(tq);
-
-                let rewritten = searcher.rewrite(q)?;
-                let weight = rewritten.create_weight(searcher, score_mode, score)?;
-                return Ok(WeightOrDocIdSetIterator::from_weight(weight));
-            }
-
-            builder.add_disi(&mut pe)?;
-            docs = Some(pe);
-
-            if terms_enum.next()?.is_none() {
-                break;
-            }
-        }
-
-        let iterator = builder.build()?.iterator()?;
-
-        Ok(WeightOrDocIdSetIterator::from_iterator(
-            DocIdSetIteratorEnum2::B(iterator),
-        ))
+    // Handle the already-collected terms:
+    if !collected_terms.is_empty() {
+      let mut terms_enum2 = terms.iterator()?;
+      for t in collected_terms.iter() {
+        terms_enum2.seek_exact_with_state(&t.term, &t.state)?;
+        let mut pe = terms_enum2.postings_with_flags(docs, NONE as i32)?;
+        builder.add_disi(&mut pe)?;
+        docs = Some(pe);
+      }
     }
+
+    // Then keep filling the bit set with remaining terms:
+    loop {
+      let mut pe = terms_enum.postings_with_flags(docs, NONE as i32)?;
+      // If a term contains all docs with a value for the specified field, we can discard the
+      // other terms and just use the dense term's postings:
+      let doc_freq = terms_enum.doc_freq()?;
+
+      if field_doc_count == doc_freq {
+        let mut term_states = TermStates::new(searcher.get_top_reader_context())?;
+        term_states.register_with_stats(
+          terms_enum.term_state()?,
+          context.ord,
+          doc_freq,
+          terms_enum.total_term_freq()?,
+        );
+
+        let term = Term::new(field, terms_enum.term()?.into_owned());
+        let tq = TermQuery::with_term_state(term, Some(term_states));
+        let q = ConstantScoreQuery::new(tq);
+
+        let rewritten = searcher.rewrite(q)?;
+        let weight = rewritten.create_weight(searcher, score_mode, score)?;
+        return Ok(WeightOrDocIdSetIterator::from_weight(weight));
+      }
+
+      builder.add_disi(&mut pe)?;
+      docs = Some(pe);
+
+      if terms_enum.next()?.is_none() {
+        break;
+      }
+    }
+
+    let iterator = builder.build()?.iterator()?;
+
+    Ok(WeightOrDocIdSetIterator::from_iterator(
+      DocIdSetIteratorEnum2::B(iterator),
+    ))
+  }
 }

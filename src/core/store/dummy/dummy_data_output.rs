@@ -19,11 +19,11 @@ use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyDataOutput;
 impl DataOutput for DummyDataOutput {
-    fn write_byte(&mut self, _b: u8) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn write_byte(&mut self, _b: u8) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn write_bytes_range(&mut self, _b: &[u8], _offset: usize, _length: usize) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn write_bytes_range(&mut self, _b: &[u8], _offset: usize, _length: usize) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

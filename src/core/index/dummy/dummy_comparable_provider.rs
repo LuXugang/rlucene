@@ -18,10 +18,10 @@ use crate::core::index::index_sorter::ComparableProvider;
 
 pub struct DummyComparableProvider;
 impl ComparableProvider for DummyComparableProvider {
-    fn get_as_comparable_long(
-        &mut self,
-        _doc_id: i32,
-    ) -> crate::core::util::error::lucene_error::Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_as_comparable_long(
+    &mut self,
+    _doc_id: i32,
+  ) -> crate::core::util::error::lucene_error::Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

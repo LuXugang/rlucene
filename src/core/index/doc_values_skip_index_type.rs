@@ -22,36 +22,36 @@ use crate::core::index::doc_values_type::DocValuesType;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, Hash, Display)]
 #[repr(u8)]
 pub enum DocValuesSkipIndexType {
-    /// No skip index should be created.
-    None,
-    /// Record range of values. Suitable for:
-    /// - `Numeric`
-    /// - `SortedNumeric`
-    /// - `Sorted`
-    /// - `SortedSet`
-    ///
-    /// Records min/max values per range of doc IDs.
-    Range,
+  /// No skip index should be created.
+  None,
+  /// Record range of values. Suitable for:
+  /// - `Numeric`
+  /// - `SortedNumeric`
+  /// - `Sorted`
+  /// - `SortedSet`
+  ///
+  /// Records min/max values per range of doc IDs.
+  Range,
 }
 
 impl DocValuesSkipIndexType {
-    /// Checks compatibility with a specific doc values type
-    pub fn is_compatible_with(&self, dv_type: DocValuesType) -> bool {
-        match self {
-            Self::None => true,
-            Self::Range => matches!(
-                dv_type,
-                DocValuesType::Numeric
-                    | DocValuesType::SortedNumeric
-                    | DocValuesType::Sorted
-                    | DocValuesType::SortedSet
-            ),
-        }
+  /// Checks compatibility with a specific doc values type
+  pub fn is_compatible_with(&self, dv_type: DocValuesType) -> bool {
+    match self {
+      Self::None => true,
+      Self::Range => matches!(
+        dv_type,
+        DocValuesType::Numeric
+          | DocValuesType::SortedNumeric
+          | DocValuesType::Sorted
+          | DocValuesType::SortedSet
+      ),
     }
+  }
 }
 /// Use Default for padding
 impl Default for DocValuesSkipIndexType {
-    fn default() -> Self {
-        Self::None
-    }
+  fn default() -> Self {
+    Self::None
+  }
 }

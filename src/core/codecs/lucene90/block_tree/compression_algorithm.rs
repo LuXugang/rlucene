@@ -22,44 +22,44 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Compression algorithm used for suffixes of a block of terms.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CompressionAlgorithm {
-    NoCompression,
-    LowercaseAscii,
-    Lz4,
+  NoCompression,
+  LowercaseAscii,
+  Lz4,
 }
 
 impl CompressionAlgorithm {
-    pub fn code(&self) -> u8 {
-        match self {
-            CompressionAlgorithm::NoCompression => 0x00,
-            CompressionAlgorithm::LowercaseAscii => 0x01,
-            CompressionAlgorithm::Lz4 => 0x02,
-        }
+  pub fn code(&self) -> u8 {
+    match self {
+      CompressionAlgorithm::NoCompression => 0x00,
+      CompressionAlgorithm::LowercaseAscii => 0x01,
+      CompressionAlgorithm::Lz4 => 0x02,
     }
+  }
 
-    pub fn by_code(code: u8) -> Result<Self> {
-        match code {
-            0x00 => Ok(CompressionAlgorithm::NoCompression),
-            0x01 => Ok(CompressionAlgorithm::LowercaseAscii),
-            0x02 => Ok(CompressionAlgorithm::Lz4),
-            _ => Err(LuceneError::illegal_argument(format!(
-                "Illegal code for a compression algorithm: {code}"
-            ))),
-        }
+  pub fn by_code(code: u8) -> Result<Self> {
+    match code {
+      0x00 => Ok(CompressionAlgorithm::NoCompression),
+      0x01 => Ok(CompressionAlgorithm::LowercaseAscii),
+      0x02 => Ok(CompressionAlgorithm::Lz4),
+      _ => Err(LuceneError::illegal_argument(format!(
+        "Illegal code for a compression algorithm: {code}"
+      ))),
     }
+  }
 
-    pub fn read(&self, input: &mut impl DataInput, out: &mut [u8], len: i32) -> Result<()> {
-        match self {
-            CompressionAlgorithm::NoCompression => {
-                input.read_bytes(out, 0, len as usize)?;
-            },
-            CompressionAlgorithm::LowercaseAscii => {
-                debug_assert!(len >= 0);
-                LowercaseAsciiCompression::decompress(input, out, len as usize)?;
-            },
-            CompressionAlgorithm::Lz4 => {
-                LZ4::decompress(input, len, out, 0)?;
-            },
-        }
-        Ok(())
+  pub fn read(&self, input: &mut impl DataInput, out: &mut [u8], len: i32) -> Result<()> {
+    match self {
+      CompressionAlgorithm::NoCompression => {
+        input.read_bytes(out, 0, len as usize)?;
+      },
+      CompressionAlgorithm::LowercaseAscii => {
+        debug_assert!(len >= 0);
+        LowercaseAsciiCompression::decompress(input, out, len as usize)?;
+      },
+      CompressionAlgorithm::Lz4 => {
+        LZ4::decompress(input, len, out, 0)?;
+      },
     }
+    Ok(())
+  }
 }

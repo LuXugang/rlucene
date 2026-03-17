@@ -31,124 +31,124 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// works for both single-valued and multi-valued types.
 pub struct SingletonSortedSetDocValues<S>
 where
-    S: SortedDocValues,
+  S: SortedDocValues,
 {
-    pub(crate) inner: Option<S>,
-    ord: i64,
+  pub(crate) inner: Option<S>,
+  ord: i64,
 }
 
 impl<S> SingletonSortedSetDocValues<S>
 where
-    S: SortedDocValues,
+  S: SortedDocValues,
 {
-    /// Creates a multi-valued view over the provided SortedDocValues.
-    pub fn new(inner: S) -> Result<Self> {
-        if inner.doc_id() != -1 {
-            return Err(LuceneError::illegal_state(format!(
-                "iterator has already been used: docID={}",
-                inner.doc_id()
-            )));
-        }
-        Ok(Self {
-            inner: Some(inner),
-            ord: -1,
-        })
+  /// Creates a multi-valued view over the provided SortedDocValues.
+  pub fn new(inner: S) -> Result<Self> {
+    if inner.doc_id() != -1 {
+      return Err(LuceneError::illegal_state(format!(
+        "iterator has already been used: docID={}",
+        inner.doc_id()
+      )));
     }
+    Ok(Self {
+      inner: Some(inner),
+      ord: -1,
+    })
+  }
 
-    pub fn get_sorted_doc_values(&mut self) -> Result<S> {
-        if self.inner.as_ref().unwrap().doc_id() != -1 {
-            return Err(LuceneError::illegal_state(format!(
-                "iterator has already been used: docID={}",
-                self.inner.as_ref().unwrap().doc_id()
-            )));
-        }
-        Ok(self.inner.take().unwrap())
+  pub fn get_sorted_doc_values(&mut self) -> Result<S> {
+    if self.inner.as_ref().unwrap().doc_id() != -1 {
+      return Err(LuceneError::illegal_state(format!(
+        "iterator has already been used: docID={}",
+        self.inner.as_ref().unwrap().doc_id()
+      )));
     }
+    Ok(self.inner.take().unwrap())
+  }
 }
 
 impl<S> DocIdSetIterator for SingletonSortedSetDocValues<S>
 where
-    S: SortedDocValues,
+  S: SortedDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        self.inner.as_ref().unwrap().doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.inner.as_ref().unwrap().doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        let doc_id = self.inner.as_mut().unwrap().next_doc()?;
-        if doc_id != NO_MORE_DOCS {
-            self.ord = self.inner.as_mut().unwrap().ord_value()? as i64;
-        }
-        Ok(doc_id)
+  fn next_doc(&mut self) -> Result<i32> {
+    let doc_id = self.inner.as_mut().unwrap().next_doc()?;
+    if doc_id != NO_MORE_DOCS {
+      self.ord = self.inner.as_mut().unwrap().ord_value()? as i64;
     }
+    Ok(doc_id)
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        let doc_id = self.inner.as_mut().unwrap().advance(target)?;
-        if doc_id != NO_MORE_DOCS {
-            self.ord = self.inner.as_mut().unwrap().ord_value()? as i64;
-        }
-        Ok(doc_id)
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    let doc_id = self.inner.as_mut().unwrap().advance(target)?;
+    if doc_id != NO_MORE_DOCS {
+      self.ord = self.inner.as_mut().unwrap().ord_value()? as i64;
     }
+    Ok(doc_id)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.inner.as_ref().unwrap().cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.inner.as_ref().unwrap().cost()
+  }
 }
 
 impl<S> DocValuesIterator for SingletonSortedSetDocValues<S>
 where
-    S: SortedDocValues,
+  S: SortedDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        if self.inner.as_mut().unwrap().advance_exact(target)? {
-            self.ord = self.inner.as_mut().unwrap().ord_value()? as i64;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    if self.inner.as_mut().unwrap().advance_exact(target)? {
+      self.ord = self.inner.as_mut().unwrap().ord_value()? as i64;
+      Ok(true)
+    } else {
+      Ok(false)
     }
+  }
 }
 
 impl<S> SortedSetDocValues for SingletonSortedSetDocValues<S>
 where
-    S: SortedDocValues,
+  S: SortedDocValues,
 {
-    fn next_ord(&mut self) -> Result<i64> {
-        Ok(self.ord)
-    }
+  fn next_ord(&mut self) -> Result<i64> {
+    Ok(self.ord)
+  }
 
-    fn doc_value_count(&mut self) -> Result<i32> {
-        Ok(1)
-    }
+  fn doc_value_count(&mut self) -> Result<i32> {
+    Ok(1)
+  }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.inner.as_mut().unwrap().lookup_ord(ord as i32)
-    }
+  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    self.inner.as_mut().unwrap().lookup_ord(ord as i32)
+  }
 
-    fn get_value_count(&self) -> Result<i64> {
-        Ok(self.inner.as_ref().unwrap().get_value_count()? as i64)
-    }
+  fn get_value_count(&self) -> Result<i64> {
+    Ok(self.inner.as_ref().unwrap().get_value_count()? as i64)
+  }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
-        Ok(self.inner.as_mut().unwrap().lookup_term(key)? as i64)
-    }
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+    Ok(self.inner.as_mut().unwrap().lookup_term(key)? as i64)
+  }
 
-    type TermsEnum<'a>
-        = SortedSetDocValuesTermsEnum<&'a mut Self>
-    where
-        S: 'a;
+  type TermsEnum<'a>
+    = SortedSetDocValuesTermsEnum<&'a mut Self>
+  where
+    S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        self.default_terms_enum()
-    }
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
 
-    fn is_single_valued(&self) -> bool {
-        true
-    }
+  fn is_single_valued(&self) -> bool {
+    true
+  }
 
-    type SortedDocValues = S;
+  type SortedDocValues = S;
 
-    fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
-        self.get_sorted_doc_values()
-    }
+  fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+    self.get_sorted_doc_values()
+  }
 }

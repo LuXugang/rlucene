@@ -25,53 +25,53 @@ use crate::core::util::error::lucene_error::Result;
 /// abstracting away whether points are read from offline disk or from arrays in
 /// heap.
 pub trait PointReader {
-    /// Advances the iterator.
-    ///
-    /// Returns `Ok(true)` if there is another point available,
-    /// or `Ok(false)` if iteration is complete.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `io::Error` if an I/O error occurs during iteration.
-    fn next(&mut self) -> Result<bool>;
+  /// Advances the iterator.
+  ///
+  /// Returns `Ok(true)` if there is another point available,
+  /// or `Ok(false)` if iteration is complete.
+  ///
+  /// # Errors
+  ///
+  /// Returns an `io::Error` if an I/O error occurs during iteration.
+  fn next(&mut self) -> Result<bool>;
 
-    /// Returns the current point value.
-    fn point_value(&mut self) -> Result<&PointValueEnum>;
+  /// Returns the current point value.
+  fn point_value(&mut self) -> Result<&PointValueEnum>;
 }
 
 pub enum PointReaderEnum<I>
 where
-    I: IndexInput,
+  I: IndexInput,
 {
-    Offline(OfflinePointReader<I>),
-    Heap(HeapPointReader),
+  Offline(OfflinePointReader<I>),
+  Heap(HeapPointReader),
 }
 impl<I> PointReaderEnum<I>
 where
-    I: IndexInput,
+  I: IndexInput,
 {
-    pub fn remove_points(&mut self) -> Option<PointValueEnum> {
-        match self {
-            PointReaderEnum::Offline(_) => None,
-            PointReaderEnum::Heap(heap) => heap.remove_points(),
-        }
+  pub fn remove_points(&mut self) -> Option<PointValueEnum> {
+    match self {
+      PointReaderEnum::Offline(_) => None,
+      PointReaderEnum::Heap(heap) => heap.remove_points(),
     }
+  }
 }
 impl<I> PointReader for PointReaderEnum<I>
 where
-    I: IndexInput,
+  I: IndexInput,
 {
-    fn next(&mut self) -> Result<bool> {
-        match self {
-            PointReaderEnum::Offline(offline) => offline.next(),
-            PointReaderEnum::Heap(heap) => heap.next(),
-        }
+  fn next(&mut self) -> Result<bool> {
+    match self {
+      PointReaderEnum::Offline(offline) => offline.next(),
+      PointReaderEnum::Heap(heap) => heap.next(),
     }
+  }
 
-    fn point_value(&mut self) -> Result<&PointValueEnum> {
-        match self {
-            PointReaderEnum::Offline(offline) => offline.point_value(),
-            PointReaderEnum::Heap(heap) => heap.point_value(),
-        }
+  fn point_value(&mut self) -> Result<&PointValueEnum> {
+    match self {
+      PointReaderEnum::Offline(offline) => offline.point_value(),
+      PointReaderEnum::Heap(heap) => heap.point_value(),
     }
+  }
 }

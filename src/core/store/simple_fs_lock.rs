@@ -23,19 +23,19 @@ use crate::core::util::error::lucene_error::Result;
 pub struct SimpleFSLock;
 
 impl Display for SimpleFSLock {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
+  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    todo!()
+  }
 }
 
 impl Closeable for SimpleFSLock {
-    fn close(&mut self) -> Result<()> {
-        todo!()
-    }
+  fn close(&mut self) -> Result<()> {
+    todo!()
+  }
 }
 
 impl Lock for SimpleFSLock {
-    fn ensure_valid(&self) -> Result<()> {
-        todo!()
-    }
+  fn ensure_valid(&self) -> Result<()> {
+    todo!()
+  }
 }

@@ -17,57 +17,57 @@
 /// Different modes of search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub enum ScoreMode {
-    /// Produced scorers will allow visiting all matches and get their score.
-    Complete,
+  /// Produced scorers will allow visiting all matches and get their score.
+  Complete,
 
-    /// Produced scorers will allow visiting all matches but scores won't be available.
-    CompleteNoScores,
+  /// Produced scorers will allow visiting all matches but scores won't be available.
+  CompleteNoScores,
 
-    /// Produced scorers will optionally allow skipping over non-competitive hits
-    /// using the `Scorer::set_min_competitive_score`(crate::core::search::scorable::Scorable::set_min_competitive_score) API.
-    TopScores,
+  /// Produced scorers will optionally allow skipping over non-competitive hits
+  /// using the `Scorer::set_min_competitive_score`(crate::core::search::scorable::Scorable::set_min_competitive_score) API.
+  TopScores,
 
-    /// ScoreMode for top field collectors that can provide their own iterators,
-    /// to optionally allow to skip for non-competitive docs.
-    TopDocs,
+  /// ScoreMode for top field collectors that can provide their own iterators,
+  /// to optionally allow to skip for non-competitive docs.
+  TopDocs,
 
-    /// ScoreMode for top field collectors that can provide their own iterators,
-    /// to optionally allow to skip for non-competitive docs.
-    /// This mode is used when there is a secondary sort by `_score`.
-    TopDocsWithScores,
+  /// ScoreMode for top field collectors that can provide their own iterators,
+  /// to optionally allow to skip for non-competitive docs.
+  /// This mode is used when there is a secondary sort by `_score`.
+  TopDocsWithScores,
 }
 
 impl ScoreMode {
-    /// Whether this [`ScoreMode`] needs to compute scores.
-    pub fn needs_scores(&self) -> bool {
-        match self {
-            ScoreMode::Complete => true,
-            ScoreMode::CompleteNoScores => false,
-            ScoreMode::TopScores => true,
-            ScoreMode::TopDocs => false,
-            ScoreMode::TopDocsWithScores => true,
-        }
+  /// Whether this [`ScoreMode`] needs to compute scores.
+  pub fn needs_scores(&self) -> bool {
+    match self {
+      ScoreMode::Complete => true,
+      ScoreMode::CompleteNoScores => false,
+      ScoreMode::TopScores => true,
+      ScoreMode::TopDocs => false,
+      ScoreMode::TopDocsWithScores => true,
     }
+  }
 
-    /// Returns `true` if for this [`ScoreMode`] it is necessary to process all documents,
-    /// or `false` if it is enough to go through top documents only.
-    pub fn is_exhaustive(&self) -> bool {
-        match self {
-            ScoreMode::Complete => true,
-            ScoreMode::CompleteNoScores => true,
-            ScoreMode::TopScores => false,
-            ScoreMode::TopDocs => false,
-            ScoreMode::TopDocsWithScores => false,
-        }
+  /// Returns `true` if for this [`ScoreMode`] it is necessary to process all documents,
+  /// or `false` if it is enough to go through top documents only.
+  pub fn is_exhaustive(&self) -> bool {
+    match self {
+      ScoreMode::Complete => true,
+      ScoreMode::CompleteNoScores => true,
+      ScoreMode::TopScores => false,
+      ScoreMode::TopDocs => false,
+      ScoreMode::TopDocsWithScores => false,
     }
-    #[cfg(test)]
-    pub const fn values() -> &'static [ScoreMode] {
-        &[
-            ScoreMode::Complete,
-            ScoreMode::CompleteNoScores,
-            ScoreMode::TopScores,
-            ScoreMode::TopDocs,
-            ScoreMode::TopDocsWithScores,
-        ]
-    }
+  }
+  #[cfg(test)]
+  pub const fn values() -> &'static [ScoreMode] {
+    &[
+      ScoreMode::Complete,
+      ScoreMode::CompleteNoScores,
+      ScoreMode::TopScores,
+      ScoreMode::TopDocs,
+      ScoreMode::TopDocsWithScores,
+    ]
+  }
 }

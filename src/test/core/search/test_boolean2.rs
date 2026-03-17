@@ -196,58 +196,58 @@ pub struct TestBoolean2;
 //     Ok(copy)
 // }
 pub(crate) fn rand_bool_query<R: Rng + ?Sized, C: Callback>(
-    rnd: &mut R,
-    allow_must: bool,
-    level: i32,
-    field: &str,
-    vals: &[String],
-    cb: Option<&C>,
+  rnd: &mut R,
+  allow_must: bool,
+  level: i32,
+  field: &str,
+  vals: &[String],
+  cb: Option<&C>,
 ) -> Result<Builder> {
-    let mut current = Builder::new();
+  let mut current = Builder::new();
 
-    for _ in 0..(rnd.random_range(0..vals.len()) + 1) {
-        let mut q_type = 0;
-        if level > 0 {
-            q_type = rnd.random_range(0..10);
-        }
-
-        let q: Query = if q_type < 3 {
-            TermQuery::new(Term::from_text(
-                field,
-                &vals[rnd.random_range(0..vals.len())],
-            ))
-            .into()
-        } else if q_type < 4 {
-            let t1 = &vals[rnd.random_range(0..vals.len())];
-            let t2 = &vals[rnd.random_range(0..vals.len())];
-            PhraseQuery::from_terms(10, field, &[t1.as_str(), t2.as_str()])?.into()
-        } else if q_type < 7 {
-            WildcardQuery::new(Term::from_text(field, "w*"))?.into()
-        } else {
-            rand_bool_query(rnd, allow_must, level - 1, field, vals, cb)?
-                .build()
-                .into()
-        };
-
-        let r = rnd.random_range(0..10);
-        let occur = if r < 2 {
-            Occur::MustNot
-        } else if r < 5 {
-            if allow_must {
-                Occur::Must
-            } else {
-                Occur::Should
-            }
-        } else {
-            Occur::Should
-        };
-
-        current.add(q, occur)?;
+  for _ in 0..(rnd.random_range(0..vals.len()) + 1) {
+    let mut q_type = 0;
+    if level > 0 {
+      q_type = rnd.random_range(0..10);
     }
 
-    if let Some(cb) = cb {
-        cb.post_create(rnd, &mut current)?;
-    }
+    let q: Query = if q_type < 3 {
+      TermQuery::new(Term::from_text(
+        field,
+        &vals[rnd.random_range(0..vals.len())],
+      ))
+      .into()
+    } else if q_type < 4 {
+      let t1 = &vals[rnd.random_range(0..vals.len())];
+      let t2 = &vals[rnd.random_range(0..vals.len())];
+      PhraseQuery::from_terms(10, field, &[t1.as_str(), t2.as_str()])?.into()
+    } else if q_type < 7 {
+      WildcardQuery::new(Term::from_text(field, "w*"))?.into()
+    } else {
+      rand_bool_query(rnd, allow_must, level - 1, field, vals, cb)?
+        .build()
+        .into()
+    };
 
-    Ok(current)
+    let r = rnd.random_range(0..10);
+    let occur = if r < 2 {
+      Occur::MustNot
+    } else if r < 5 {
+      if allow_must {
+        Occur::Must
+      } else {
+        Occur::Should
+      }
+    } else {
+      Occur::Should
+    };
+
+    current.add(q, occur)?;
+  }
+
+  if let Some(cb) = cb {
+    cb.post_create(rnd, &mut current)?;
+  }
+
+  Ok(current)
 }

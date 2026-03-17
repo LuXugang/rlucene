@@ -25,72 +25,72 @@ use crate::core::util::error::lucene_error::Result;
 
 #[derive(Debug, Clone)]
 pub struct DummyQuery {
-    id: Identity,
+  id: Identity,
 }
 impl DummyQuery {
-    pub fn new() -> Self {
-        Self {
-            id: Identity::new(),
-        }
+  pub fn new() -> Self {
+    Self {
+      id: Identity::new(),
     }
+  }
 }
 impl Default for DummyQuery {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl PartialEq for DummyQuery {
-    fn eq(&self, _other: &Self) -> bool {
-        true
-    }
+  fn eq(&self, _other: &Self) -> bool {
+    true
+  }
 }
 
 impl Eq for DummyQuery {}
 
 impl std::hash::Hash for DummyQuery {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        0usize.hash(state);
-    }
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    0usize.hash(state);
+  }
 }
 
 impl HasIdentity for DummyQuery {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 impl QueryBase for DummyQuery {
-    fn as_string(&self, _field: &str) -> Result<String> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn as_string(&self, _field: &str) -> Result<String> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn create_weight<IRC>(
-        self,
-        _searcher: &IndexSearcher<IRC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
-    ) -> crate::core::util::error::lucene_error::Result<QueryWeight<IRC>>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn create_weight<IRC>(
+    self,
+    _searcher: &IndexSearcher<IRC>,
+    _score_mode: &ScoreMode,
+    _boost: f32,
+  ) -> crate::core::util::error::lucene_error::Result<QueryWeight<IRC>>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn rewrite<IRC>(
-        self,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> crate::core::util::error::lucene_error::Result<Query>
-    where
-        IRC: IndexReaderContext,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn rewrite<IRC>(
+    self,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> crate::core::util::error::lucene_error::Result<Query>
+  where
+    IRC: IndexReaderContext,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn visit<QV>(&self, _visitor: &QV)
-    where
-        QV: QueryVisitor,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn visit<QV>(&self, _visitor: &QV)
+  where
+    QV: QueryVisitor,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

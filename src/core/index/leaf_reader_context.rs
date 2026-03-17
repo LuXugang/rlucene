@@ -23,88 +23,88 @@ use std::fmt;
 /// [`IndexReaderContext`] for [`LeafReader`] instances.
 pub struct LeafReaderContext<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    /// The reader's ord in the top-level's leaves array
-    pub(crate) ord: usize,
-    /// The reader's absolute doc base
-    pub(crate) doc_base: usize,
-    reader: LR,
-    base: IndexReaderContextBase,
-    pub(crate) top_parent: TopParentMeta,
+  /// The reader's ord in the top-level's leaves array
+  pub(crate) ord: usize,
+  /// The reader's absolute doc base
+  pub(crate) doc_base: usize,
+  reader: LR,
+  base: IndexReaderContextBase,
+  pub(crate) top_parent: TopParentMeta,
 }
 #[derive(Clone, Default)]
 pub struct TopParentMeta {
-    pub(crate) leaves_num: usize,
-    pub(crate) max_doc: i32,
-    pub(crate) id: Identity,
+  pub(crate) leaves_num: usize,
+  pub(crate) max_doc: i32,
+  pub(crate) id: Identity,
 }
 impl<LR> LeafReaderContext<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    pub(crate) fn new(
-        reader: LR,
-        ord: i32,
-        doc_base: usize,
-        leaf_ord: usize,
-        leaf_doc_base: usize,
-        parent: TopParentMeta,
-    ) -> Self {
-        Self {
-            ord: leaf_ord,
-            doc_base: leaf_doc_base,
-            reader,
-            base: IndexReaderContextBase::new(true, ord, doc_base),
-            top_parent: parent,
-        }
+  pub(crate) fn new(
+    reader: LR,
+    ord: i32,
+    doc_base: usize,
+    leaf_ord: usize,
+    leaf_doc_base: usize,
+    parent: TopParentMeta,
+  ) -> Self {
+    Self {
+      ord: leaf_ord,
+      doc_base: leaf_doc_base,
+      reader,
+      base: IndexReaderContextBase::new(true, ord, doc_base),
+      top_parent: parent,
     }
-    pub(crate) fn from_top_lr(reader: LR) -> Self {
-        let mut v = Self::new(reader, 0, 0, 0, 0, TopParentMeta::default());
-        // leaf_reader is top
-        v.top_parent.id = v.base.id().clone();
-        v
-    }
+  }
+  pub(crate) fn from_top_lr(reader: LR) -> Self {
+    let mut v = Self::new(reader, 0, 0, 0, 0, TopParentMeta::default());
+    // leaf_reader is top
+    v.top_parent.id = v.base.id().clone();
+    v
+  }
 }
 
 impl<LR> IndexReaderContext for LeafReaderContext<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    type IndexReader = LR;
+  type IndexReader = LR;
 
-    fn reader(&self) -> &Self::IndexReader {
-        &self.reader
-    }
+  fn reader(&self) -> &Self::IndexReader {
+    &self.reader
+  }
 
-    type LeafReader = LR;
+  type LeafReader = LR;
 
-    fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
-        Ok(std::slice::from_ref(self))
-    }
+  fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
+    Ok(std::slice::from_ref(self))
+  }
 
-    fn base(&self) -> &IndexReaderContextBase {
-        &self.base
-    }
+  fn base(&self) -> &IndexReaderContextBase {
+    &self.base
+  }
 }
 
 impl<LR> LeafReaderContext<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    pub fn top_parent(&self) -> &TopParentMeta {
-        &self.top_parent
-    }
+  pub fn top_parent(&self) -> &TopParentMeta {
+    &self.top_parent
+  }
 }
 impl<LR> fmt::Display for LeafReaderContext<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "LeafReaderContext({} docBase={} ord={})",
-            self.reader, self.doc_base, self.ord
-        )
-    }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "LeafReaderContext({} docBase={} ord={})",
+      self.reader, self.doc_base, self.ord
+    )
+  }
 }

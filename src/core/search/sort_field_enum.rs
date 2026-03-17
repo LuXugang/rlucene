@@ -16,19 +16,19 @@
  */
 use crate::core::index::doc_values::SortedSet;
 use crate::core::index::index_sorter::{
-    CPEnumType1, CPEnumType2, ComparableProviderEnum3, DocComparatorImpl, IndexSorter,
-    StringComparableProvider, StringSorter,
+  CPEnumType1, CPEnumType2, ComparableProviderEnum3, DocComparatorImpl, IndexSorter,
+  StringComparableProvider, StringSorter,
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::search::field_comparator::FieldComparatorEnum;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::sort_field::{
-    IndexSorterEnumSorter, MissingValueEnum, NPImpl1, SProviderImpl2, SortField, SortFieldType,
-    SortFiledBase,
+  IndexSorterEnumSorter, MissingValueEnum, NPImpl1, SProviderImpl2, SortField, SortFieldType,
+  SortFiledBase,
 };
 use crate::core::search::sorted_numeric_sort_field::{
-    IndexSorterNumeric, NPImpl2, SortedNumericSortField,
+  IndexSorterNumeric, NPImpl2, SortedNumericSortField,
 };
 use crate::core::search::sorted_set_selector::SortedDocValuesWrap;
 use crate::core::search::sorted_set_sort_field::{SProviderImpl1, SortedSetSortField};
@@ -41,122 +41,120 @@ use std::hash::Hash;
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum SortFieldEnum {
-    SortedNumeric(SortedNumericSortField),
-    SortedSet(SortedSetSortField),
-    Sorter(SortField),
+  SortedNumeric(SortedNumericSortField),
+  SortedSet(SortedSetSortField),
+  Sorter(SortField),
 }
 impl SortFieldEnum {
-    pub fn get_reverse(&self) -> bool {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_reverse(),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_reverse(),
-            SortFieldEnum::Sorter(sort_field) => sort_field.get_reverse(),
-        }
+  pub fn get_reverse(&self) -> bool {
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_reverse(),
+      SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_reverse(),
+      SortFieldEnum::Sorter(sort_field) => sort_field.get_reverse(),
     }
-    pub fn get_field(&self) -> Option<&str> {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_field(),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_field(),
-            SortFieldEnum::Sorter(sort_field) => sort_field.get_field(),
-        }
+  }
+  pub fn get_field(&self) -> Option<&str> {
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_field(),
+      SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_field(),
+      SortFieldEnum::Sorter(sort_field) => sort_field.get_field(),
     }
-    pub fn get_type(&self) -> SortFieldType {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_type(),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_type(),
-            SortFieldEnum::Sorter(sort_field) => sort_field.get_type(),
-        }
+  }
+  pub fn get_type(&self) -> SortFieldType {
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_type(),
+      SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_type(),
+      SortFieldEnum::Sorter(sort_field) => sort_field.get_type(),
     }
-    pub fn get_missing_value(&self) -> Option<&MissingValueEnum> {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_missing_value(),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_missing_value(),
-            SortFieldEnum::Sorter(sort_field) => sort_field.get_missing_value(),
-        }
+  }
+  pub fn get_missing_value(&self) -> Option<&MissingValueEnum> {
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_missing_value(),
+      SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_missing_value(),
+      SortFieldEnum::Sorter(sort_field) => sort_field.get_missing_value(),
     }
+  }
 }
 
 impl SortFiledBase for SortFieldEnum {
-    fn set_missing_value<T>(&mut self, missing_value: T) -> Result<()>
-    where
-        T: Into<MissingValueEnum>,
-    {
-        let missing_value = missing_value.into();
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.set_missing_value(missing_value),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.set_missing_value(missing_value),
-            SortFieldEnum::Sorter(sort_field) => sort_field.set_missing_value(missing_value),
-        }
+  fn set_missing_value<T>(&mut self, missing_value: T) -> Result<()>
+  where
+    T: Into<MissingValueEnum>,
+  {
+    let missing_value = missing_value.into();
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => sort_field.set_missing_value(missing_value),
+      SortFieldEnum::SortedSet(sort_field) => sort_field.set_missing_value(missing_value),
+      SortFieldEnum::Sorter(sort_field) => sort_field.set_missing_value(missing_value),
     }
+  }
 
-    fn needs_scores(&self) -> bool {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.needs_scores(),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.needs_scores(),
-            SortFieldEnum::Sorter(sort_field) => sort_field.needs_scores(),
-        }
+  fn needs_scores(&self) -> bool {
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => sort_field.needs_scores(),
+      SortFieldEnum::SortedSet(sort_field) => sort_field.needs_scores(),
+      SortFieldEnum::Sorter(sort_field) => sort_field.needs_scores(),
     }
+  }
 
-    type IndexSort = IndexSortEnum;
+  type IndexSort = IndexSortEnum;
 
-    fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => {
-                let sorter = sort_field.get_index_sorter()?;
-                Ok(sorter.map(IndexSortEnum::SortedNumeric))
-            },
-            SortFieldEnum::SortedSet(sort_field) => {
-                let sorter = sort_field.get_index_sorter()?;
-                Ok(sorter.map(IndexSortEnum::SortedSet))
-            },
-            SortFieldEnum::Sorter(sort_field) => {
-                let sorter = sort_field.get_index_sorter()?;
-                Ok(sorter.map(IndexSortEnum::Sorter))
-            },
-        }
+  fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => {
+        let sorter = sort_field.get_index_sorter()?;
+        Ok(sorter.map(IndexSortEnum::SortedNumeric))
+      },
+      SortFieldEnum::SortedSet(sort_field) => {
+        let sorter = sort_field.get_index_sorter()?;
+        Ok(sorter.map(IndexSortEnum::SortedSet))
+      },
+      SortFieldEnum::Sorter(sort_field) => {
+        let sorter = sort_field.get_index_sorter()?;
+        Ok(sorter.map(IndexSortEnum::Sorter))
+      },
     }
+  }
 
-    fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.serialize(out),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.serialize(out),
-            SortFieldEnum::Sorter(sort_field) => sort_field.serialize(out),
-        }
+  fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => sort_field.serialize(out),
+      SortFieldEnum::SortedSet(sort_field) => sort_field.serialize(out),
+      SortFieldEnum::Sorter(sort_field) => sort_field.serialize(out),
     }
+  }
 
-    type FieldComparator = FieldComparatorEnum;
+  type FieldComparator = FieldComparatorEnum;
 
-    fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator> {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => {
-                sort_field.get_comparator(num_hits, pruning)
-            },
-            SortFieldEnum::SortedSet(sort_field) => sort_field.get_comparator(num_hits, pruning),
-            SortFieldEnum::Sorter(sort_field) => sort_field.get_comparator(num_hits, pruning),
-        }
+  fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator> {
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => sort_field.get_comparator(num_hits, pruning),
+      SortFieldEnum::SortedSet(sort_field) => sort_field.get_comparator(num_hits, pruning),
+      SortFieldEnum::Sorter(sort_field) => sort_field.get_comparator(num_hits, pruning),
     }
+  }
 }
 
 impl Display for SortFieldEnum {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => {
-                write!(f, "{sort_field}")
-            },
-            SortFieldEnum::SortedSet(sort_field) => write!(f, "{sort_field}"),
-            SortFieldEnum::Sorter(sort_field) => write!(f, "{sort_field}"),
-        }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => {
+        write!(f, "{sort_field}")
+      },
+      SortFieldEnum::SortedSet(sort_field) => write!(f, "{sort_field}"),
+      SortFieldEnum::Sorter(sort_field) => write!(f, "{sort_field}"),
     }
+  }
 }
 
 impl Hash for SortFieldEnum {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.hash(state),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.hash(state),
-            SortFieldEnum::Sorter(sort_field) => sort_field.hash(state),
-        }
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => sort_field.hash(state),
+      SortFieldEnum::SortedSet(sort_field) => sort_field.hash(state),
+      SortFieldEnum::Sorter(sort_field) => sort_field.hash(state),
     }
+  }
 }
 
 impl_from_for_enum!(
@@ -166,110 +164,110 @@ impl_from_for_enum!(
     SortedSetSortField => SortedSet,
 );
 pub type CPType<LR> = ComparableProviderEnum3<
-    CPEnumType2<NPImpl2, LR>,
-    StringComparableProvider<SortedDocValuesWrap<SortedSet<LR>>>,
-    CPEnumType1<NPImpl1, LR, SProviderImpl2>,
+  CPEnumType2<NPImpl2, LR>,
+  StringComparableProvider<SortedDocValuesWrap<SortedSet<LR>>>,
+  CPEnumType1<NPImpl1, LR, SProviderImpl2>,
 >;
 pub enum IndexSortEnum {
-    SortedNumeric(IndexSorterNumeric),
-    SortedSet(StringSorter<SProviderImpl1>),
-    Sorter(IndexSorterEnumSorter),
+  SortedNumeric(IndexSorterNumeric),
+  SortedSet(StringSorter<SProviderImpl1>),
+  Sorter(IndexSorterEnumSorter),
 }
 impl IndexSorter for IndexSortEnum {
-    fn get_provider_name(&self) -> &str {
-        match self {
-            IndexSortEnum::SortedNumeric(sorter) => sorter.get_provider_name(),
-            IndexSortEnum::SortedSet(sorter) => sorter.get_provider_name(),
-            IndexSortEnum::Sorter(sorter) => sorter.get_provider_name(),
-        }
+  fn get_provider_name(&self) -> &str {
+    match self {
+      IndexSortEnum::SortedNumeric(sorter) => sorter.get_provider_name(),
+      IndexSortEnum::SortedSet(sorter) => sorter.get_provider_name(),
+      IndexSortEnum::Sorter(sorter) => sorter.get_provider_name(),
     }
+  }
 
-    type ComparableProvider<LR>
-        = CPType<LR>
-    where
-        LR: LeafReader;
+  type ComparableProvider<LR>
+    = CPType<LR>
+  where
+    LR: LeafReader;
 
-    fn get_comparable_providers<LR>(
-        &self,
-        readers: &[LR],
-    ) -> Result<Vec<Self::ComparableProvider<LR>>>
-    where
-        LR: LeafReader,
-    {
-        let missing_value = self.get_missing_value();
-        let ordinal_map = self.get_ordinal_map(readers)?;
-        let mut provider = Vec::with_capacity(readers.len());
-        match self {
-            IndexSortEnum::SortedNumeric(sorter) => {
-                for (idx, reader) in readers.iter().enumerate() {
-                    let v = sorter.get_comparable_providers_per_reader(
-                        reader,
-                        idx,
-                        &missing_value,
-                        ordinal_map.as_ref(),
-                    )?;
-                    provider.push(ComparableProviderEnum3::SortedNumeric(v))
-                }
-                Ok(provider)
-            },
-            IndexSortEnum::SortedSet(sorter) => {
-                for (idx, reader) in readers.iter().enumerate() {
-                    let v = sorter.get_comparable_providers_per_reader(
-                        reader,
-                        idx,
-                        &missing_value,
-                        ordinal_map.as_ref(),
-                    )?;
-                    provider.push(ComparableProviderEnum3::SortedSet(v))
-                }
-                Ok(provider)
-            },
-            IndexSortEnum::Sorter(sorter) => {
-                for (idx, reader) in readers.iter().enumerate() {
-                    let v = sorter.get_comparable_providers_per_reader(
-                        reader,
-                        idx,
-                        &missing_value,
-                        ordinal_map.as_ref(),
-                    )?;
-                    provider.push(ComparableProviderEnum3::Sorter(v))
-                }
-                Ok(provider)
-            },
+  fn get_comparable_providers<LR>(
+    &self,
+    readers: &[LR],
+  ) -> Result<Vec<Self::ComparableProvider<LR>>>
+  where
+    LR: LeafReader,
+  {
+    let missing_value = self.get_missing_value();
+    let ordinal_map = self.get_ordinal_map(readers)?;
+    let mut provider = Vec::with_capacity(readers.len());
+    match self {
+      IndexSortEnum::SortedNumeric(sorter) => {
+        for (idx, reader) in readers.iter().enumerate() {
+          let v = sorter.get_comparable_providers_per_reader(
+            reader,
+            idx,
+            &missing_value,
+            ordinal_map.as_ref(),
+          )?;
+          provider.push(ComparableProviderEnum3::SortedNumeric(v))
         }
-    }
-
-    fn get_ordinal_map<LR>(&self, readers: &[LR]) -> Result<Option<OrdinalMap>>
-    where
-        LR: LeafReader,
-    {
-        match self {
-            IndexSortEnum::SortedNumeric(sorter) => sorter.get_ordinal_map(readers),
-            IndexSortEnum::SortedSet(sorter) => sorter.get_ordinal_map(readers),
-            IndexSortEnum::Sorter(sorter) => sorter.get_ordinal_map(readers),
+        Ok(provider)
+      },
+      IndexSortEnum::SortedSet(sorter) => {
+        for (idx, reader) in readers.iter().enumerate() {
+          let v = sorter.get_comparable_providers_per_reader(
+            reader,
+            idx,
+            &missing_value,
+            ordinal_map.as_ref(),
+          )?;
+          provider.push(ComparableProviderEnum3::SortedSet(v))
         }
-    }
-
-    fn get_missing_value(&self) -> MissingValueEnum {
-        match self {
-            IndexSortEnum::SortedNumeric(sorter) => sorter.get_missing_value(),
-            IndexSortEnum::SortedSet(sorter) => sorter.get_missing_value(),
-            IndexSortEnum::Sorter(sorter) => sorter.get_missing_value(),
+        Ok(provider)
+      },
+      IndexSortEnum::Sorter(sorter) => {
+        for (idx, reader) in readers.iter().enumerate() {
+          let v = sorter.get_comparable_providers_per_reader(
+            reader,
+            idx,
+            &missing_value,
+            ordinal_map.as_ref(),
+          )?;
+          provider.push(ComparableProviderEnum3::Sorter(v))
         }
+        Ok(provider)
+      },
     }
+  }
 
-    type DocComparator = DocComparatorImpl;
-
-    fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
-    where
-        LR: LeafReader,
-    {
-        match self {
-            IndexSortEnum::SortedNumeric(sorter) => sorter.get_doc_comparator(leaf_reader, max_doc),
-            IndexSortEnum::SortedSet(sorter) => Ok(DocComparatorImpl::String(
-                sorter.get_doc_comparator(leaf_reader, max_doc)?,
-            )),
-            IndexSortEnum::Sorter(sorter) => sorter.get_doc_comparator(leaf_reader, max_doc),
-        }
+  fn get_ordinal_map<LR>(&self, readers: &[LR]) -> Result<Option<OrdinalMap>>
+  where
+    LR: LeafReader,
+  {
+    match self {
+      IndexSortEnum::SortedNumeric(sorter) => sorter.get_ordinal_map(readers),
+      IndexSortEnum::SortedSet(sorter) => sorter.get_ordinal_map(readers),
+      IndexSortEnum::Sorter(sorter) => sorter.get_ordinal_map(readers),
     }
+  }
+
+  fn get_missing_value(&self) -> MissingValueEnum {
+    match self {
+      IndexSortEnum::SortedNumeric(sorter) => sorter.get_missing_value(),
+      IndexSortEnum::SortedSet(sorter) => sorter.get_missing_value(),
+      IndexSortEnum::Sorter(sorter) => sorter.get_missing_value(),
+    }
+  }
+
+  type DocComparator = DocComparatorImpl;
+
+  fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
+  where
+    LR: LeafReader,
+  {
+    match self {
+      IndexSortEnum::SortedNumeric(sorter) => sorter.get_doc_comparator(leaf_reader, max_doc),
+      IndexSortEnum::SortedSet(sorter) => Ok(DocComparatorImpl::String(
+        sorter.get_doc_comparator(leaf_reader, max_doc)?,
+      )),
+      IndexSortEnum::Sorter(sorter) => sorter.get_doc_comparator(leaf_reader, max_doc),
+    }
+  }
 }

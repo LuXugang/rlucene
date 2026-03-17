@@ -21,13 +21,13 @@ use std::fmt::Display;
 /// immediately removes all prior commits after a new commit is done. This is the default deletion
 /// policy.
 pub trait IndexDeletionPolicy: Display {
-    /// Deletes all commits except the most recent one.
-    fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
-    where
-        IC: IndexCommit;
+  /// Deletes all commits except the most recent one.
+  fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
+  where
+    IC: IndexCommit;
 
-    /// Deletes all commits except the most recent one.
-    fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
-    where
-        IC: IndexCommit;
+  /// Deletes all commits except the most recent one.
+  fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
+  where
+    IC: IndexCommit;
 }

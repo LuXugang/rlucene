@@ -20,13 +20,13 @@ use crate::core::util::error::lucene_error::Result;
 /// Automaton provider for [`RegExp`](crate::core::util::automation::reg_exp::RegExp)
 /// used by [`RegExp::get_automaton`](crate::core::util::automation::reg_exp::RegExp::get_automaton).
 pub trait AutomatonProvider {
-    /// Returns the automaton associated with the given name.
-    fn get_automaton(&self, name: &str) -> Result<Option<Automaton>>;
+  /// Returns the automaton associated with the given name.
+  fn get_automaton(&self, name: &str) -> Result<Option<Automaton>>;
 }
 #[derive(Default)]
 pub struct DefaultProvider;
 impl AutomatonProvider for DefaultProvider {
-    fn get_automaton(&self, _name: &str) -> Result<Option<Automaton>> {
-        Ok(None)
-    }
+  fn get_automaton(&self, _name: &str) -> Result<Option<Automaton>> {
+    Ok(None)
+  }
 }

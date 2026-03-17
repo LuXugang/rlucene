@@ -21,32 +21,32 @@ use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 /// [`OnHeapHnswGraph`](crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph).
 /// Used by [`HnswConcurrentMergeBuilder`](crate::core::util::hnsw::hnsw_concurrent_merge_builder::HnswConcurrentMergeBuilder) and its `HnswGraphBuilders`.
 pub(crate) struct HnswLock {
-    locks: Rc<Vec<RwLock<()>>>,
+  locks: Rc<Vec<RwLock<()>>>,
 }
 
 impl HnswLock {
-    const NUM_LOCKS: usize = 512;
-    pub fn new() -> Self {
-        let mut locks = Vec::with_capacity(Self::NUM_LOCKS);
-        for _ in 0..Self::NUM_LOCKS {
-            locks.push(RwLock::new(()));
-        }
-        Self {
-            locks: Rc::new(locks),
-        }
+  const NUM_LOCKS: usize = 512;
+  pub fn new() -> Self {
+    let mut locks = Vec::with_capacity(Self::NUM_LOCKS);
+    for _ in 0..Self::NUM_LOCKS {
+      locks.push(RwLock::new(()));
     }
+    Self {
+      locks: Rc::new(locks),
+    }
+  }
 
-    fn hash(v1: usize, v2: usize) -> usize {
-        v1.wrapping_mul(31).wrapping_add(v2)
-    }
+  fn hash(v1: usize, v2: usize) -> usize {
+    v1.wrapping_mul(31).wrapping_add(v2)
+  }
 
-    pub fn read(&'_ self, level: usize, node: usize) -> RwLockReadGuard<'_, ()> {
-        let lock_id = Self::hash(level, node) % Self::NUM_LOCKS;
-        self.locks[lock_id].read()
-    }
+  pub fn read(&'_ self, level: usize, node: usize) -> RwLockReadGuard<'_, ()> {
+    let lock_id = Self::hash(level, node) % Self::NUM_LOCKS;
+    self.locks[lock_id].read()
+  }
 
-    pub fn write(&'_ self, level: usize, node: usize) -> RwLockWriteGuard<'_, ()> {
-        let lock_id = Self::hash(level, node) % Self::NUM_LOCKS;
-        self.locks[lock_id].write()
-    }
+  pub fn write(&'_ self, level: usize, node: usize) -> RwLockWriteGuard<'_, ()> {
+    let lock_id = Self::hash(level, node) % Self::NUM_LOCKS;
+    self.locks[lock_id].write()
+  }
 }

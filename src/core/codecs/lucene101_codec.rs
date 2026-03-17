@@ -31,63 +31,63 @@ use std::fmt::{Display, Formatter};
 pub struct Lucene101Codec;
 
 impl Display for Lucene101Codec {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Lucene101Codec")
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "Lucene101Codec")
+  }
 }
 impl Codec for Lucene101Codec {
-    type PostingsFormat = Lucene101PostingsFormat;
-    type DocValuesFormat = Lucene90DocValuesFormat;
-    type StoredFieldsFormat = Lucene90StoredFieldsFormat;
-    type TermVectorsFormat = Lucene90TermVectorsFormat;
-    type FieldInfosFormat = Lucene94FieldInfosFormat;
-    type SegmentInfoFormat = Lucene99SegmentInfoFormat;
-    type NormsFormat = Lucene90NormsFormat;
-    type LiveDocsFormat = Lucene90LiveDocsFormat;
-    type CompoundFormat = Lucene90CompoundFormat;
-    type PointsFormat = Lucene90PointsFormat;
+  type PostingsFormat = Lucene101PostingsFormat;
+  type DocValuesFormat = Lucene90DocValuesFormat;
+  type StoredFieldsFormat = Lucene90StoredFieldsFormat;
+  type TermVectorsFormat = Lucene90TermVectorsFormat;
+  type FieldInfosFormat = Lucene94FieldInfosFormat;
+  type SegmentInfoFormat = Lucene99SegmentInfoFormat;
+  type NormsFormat = Lucene90NormsFormat;
+  type LiveDocsFormat = Lucene90LiveDocsFormat;
+  type CompoundFormat = Lucene90CompoundFormat;
+  type PointsFormat = Lucene90PointsFormat;
 
-    fn postings_format(&self) -> Self::PostingsFormat {
-        Lucene101PostingsFormat::new()
-    }
+  fn postings_format(&self) -> Self::PostingsFormat {
+    Lucene101PostingsFormat::new()
+  }
 
-    fn doc_values_format(&self) -> Self::DocValuesFormat {
-        Lucene90DocValuesFormat::default()
-    }
+  fn doc_values_format(&self) -> Self::DocValuesFormat {
+    Lucene90DocValuesFormat::default()
+  }
 
-    fn stored_fields_format(&self) -> Self::StoredFieldsFormat {
-        Lucene90StoredFieldsFormat::default()
-    }
+  fn stored_fields_format(&self) -> Self::StoredFieldsFormat {
+    Lucene90StoredFieldsFormat::default()
+  }
 
-    fn term_vectors_format(&self) -> Self::TermVectorsFormat {
-        Lucene90TermVectorsFormat::default()
-    }
+  fn term_vectors_format(&self) -> Self::TermVectorsFormat {
+    Lucene90TermVectorsFormat::default()
+  }
 
-    fn field_infos_format(&self) -> Self::FieldInfosFormat {
-        Lucene94FieldInfosFormat
-    }
+  fn field_infos_format(&self) -> Self::FieldInfosFormat {
+    Lucene94FieldInfosFormat
+  }
 
-    fn segment_info_format(&self) -> Self::SegmentInfoFormat {
-        Lucene99SegmentInfoFormat
-    }
+  fn segment_info_format(&self) -> Self::SegmentInfoFormat {
+    Lucene99SegmentInfoFormat
+  }
 
-    fn norms_format(&self) -> Self::NormsFormat {
-        Lucene90NormsFormat
-    }
+  fn norms_format(&self) -> Self::NormsFormat {
+    Lucene90NormsFormat
+  }
 
-    fn live_docs_format(&self) -> Self::LiveDocsFormat {
-        Lucene90LiveDocsFormat
-    }
+  fn live_docs_format(&self) -> Self::LiveDocsFormat {
+    Lucene90LiveDocsFormat
+  }
 
-    fn compound_format(&self) -> Self::CompoundFormat {
-        Lucene90CompoundFormat
-    }
+  fn compound_format(&self) -> Self::CompoundFormat {
+    Lucene90CompoundFormat
+  }
 
-    fn points_format(&self) -> Self::PointsFormat {
-        Lucene90PointsFormat
-    }
+  fn points_format(&self) -> Self::PointsFormat {
+    Lucene90PointsFormat
+  }
 
-    fn get_name(&self) -> &str {
-        "Lucene101"
-    }
+  fn get_name(&self) -> &str {
+    "Lucene101"
+  }
 }

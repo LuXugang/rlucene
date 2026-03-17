@@ -18,32 +18,32 @@ use crate::tasks::license::license_check;
 use crate::{LogColor, colorize, log, run_cargo};
 
 pub(crate) fn run() {
-    license_check::run();
-    log(&colorize("Running Cargo clippy ", LogColor::Green, true));
-    run_cargo(&[
-        "clippy",
-        "--fix",
-        "--all-targets",
-        "--all-features",
-        "--allow-dirty",
-        "--allow-staged",
-    ]);
-    log(&colorize("Finished Cargo clippy ", LogColor::Green, true));
-    log(&colorize("Running Cargo fix", LogColor::Green, true));
-    run_cargo(&[
-        "fix",
-        "--all-targets",
-        "--all-features",
-        "--allow-dirty",
-        "--allow-staged",
-    ]);
-    log(&colorize("Finished Cargo fix", LogColor::Green, true));
-    log(&colorize("Running Cargo fmt ", LogColor::Green, true));
-    run_cargo(&["fmt"]);
-    log(&colorize("Finished Cargo fmt ", LogColor::Green, true));
-    log(&colorize(
-        "✅ ✅ ✅ Finished Cargo tidy",
-        LogColor::Green,
-        true,
-    ));
+  license_check::run();
+  log(&colorize("Running Cargo clippy ", LogColor::Green, true));
+  run_cargo(&[
+    "clippy",
+    "--fix",
+    "--all-targets",
+    "--all-features",
+    "--allow-dirty",
+    "--allow-staged",
+  ]);
+  log(&colorize("Finished Cargo clippy ", LogColor::Green, true));
+  log(&colorize("Running Cargo fix", LogColor::Green, true));
+  run_cargo(&[
+    "fix",
+    "--all-targets",
+    "--all-features",
+    "--allow-dirty",
+    "--allow-staged",
+  ]);
+  log(&colorize("Finished Cargo fix", LogColor::Green, true));
+  log(&colorize("Running Cargo fmt ", LogColor::Green, true));
+  run_cargo(&["fmt"]);
+  log(&colorize("Finished Cargo fmt ", LogColor::Green, true));
+  log(&colorize(
+    "✅ ✅ ✅ Finished Cargo tidy",
+    LogColor::Green,
+    true,
+  ));
 }

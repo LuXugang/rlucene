@@ -33,164 +33,164 @@ use std::sync::Arc;
 /// A query that matches no documents.
 #[derive(Clone, Debug)]
 pub struct MatchNoDocsQuery {
-    id: Identity,
-    reason: String,
+  id: Identity,
+  reason: String,
 }
 
 impl Default for MatchNoDocsQuery {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl MatchNoDocsQuery {
-    /// Default constructor
-    pub fn new() -> Self {
-        Self {
-            id: Identity::new(),
-            reason: "".to_string(),
-        }
+  /// Default constructor
+  pub fn new() -> Self {
+    Self {
+      id: Identity::new(),
+      reason: "".to_string(),
     }
-    /// Provides a reason explaining why this query was used
-    pub fn with_message<T>(reason: T) -> Self
-    where
-        T: Into<String>,
-    {
-        let reason = reason.into();
-        Self {
-            id: Identity::new(),
-            reason,
-        }
+  }
+  /// Provides a reason explaining why this query was used
+  pub fn with_message<T>(reason: T) -> Self
+  where
+    T: Into<String>,
+  {
+    let reason = reason.into();
+    Self {
+      id: Identity::new(),
+      reason,
     }
+  }
 }
 
 impl PartialEq for MatchNoDocsQuery {
-    fn eq(&self, _other: &Self) -> bool {
-        true
-    }
+  fn eq(&self, _other: &Self) -> bool {
+    true
+  }
 }
 
 impl Eq for MatchNoDocsQuery {}
 
 impl Hash for MatchNoDocsQuery {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.reason.hash(state);
-    }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.reason.hash(state);
+  }
 }
 
 impl HasIdentity for MatchNoDocsQuery {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 
 impl QueryBase for MatchNoDocsQuery {
-    fn as_string(&self, _field: &str) -> Result<String> {
-        Ok(format!("MatchNoDocsQuery(\"{}\")", self.reason))
-    }
+  fn as_string(&self, _field: &str) -> Result<String> {
+    Ok(format!("MatchNoDocsQuery(\"{}\")", self.reason))
+  }
 
-    fn create_weight<IRC>(
-        self,
-        _searcher: &IndexSearcher<IRC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
-    ) -> Result<QueryWeight<IRC>>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        Ok(Box::new(MatchNoDocsWeight::new(self)))
-    }
+  fn create_weight<IRC>(
+    self,
+    _searcher: &IndexSearcher<IRC>,
+    _score_mode: &ScoreMode,
+    _boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    Ok(Box::new(MatchNoDocsWeight::new(self)))
+  }
 
-    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        Ok(self.into())
-    }
+  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    Ok(self.into())
+  }
 
-    fn visit<QV>(&self, _visitor: &QV)
-    where
-        QV: QueryVisitor,
-    {
-        todo!()
-    }
+  fn visit<QV>(&self, _visitor: &QV)
+  where
+    QV: QueryVisitor,
+  {
+    todo!()
+  }
 }
 
 pub struct MatchNoDocsWeight {
-    parent_query: Arc<Query>,
+  parent_query: Arc<Query>,
 }
 
 impl MatchNoDocsWeight {
-    pub fn new(query: MatchNoDocsQuery) -> Self {
-        Self {
-            parent_query: Arc::new(query.into()),
-        }
+  pub fn new(query: MatchNoDocsQuery) -> Self {
+    Self {
+      parent_query: Arc::new(query.into()),
     }
+  }
 }
 
 impl<IRC> SegmentCacheable<IRC> for MatchNoDocsWeight
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-        Ok(true)
-    }
+  fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
+    Ok(true)
+  }
 }
 
 impl<IRC> Weight<IRC> for MatchNoDocsWeight
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    type Matches = MatchWithNoTerms;
+  type Matches = MatchWithNoTerms;
 
-    fn matches(
-        &self,
-        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _doc: i32,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::Matches>> {
-        Ok(None)
-    }
+  fn matches(
+    &self,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _doc: i32,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::Matches>> {
+    Ok(None)
+  }
 
-    fn explain(
-        &self,
-        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _doc: i32,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Explanation> {
-        let parent_query = if let Query::MatchNoDocs(v) = self.parent_query.as_ref() {
-            v
-        } else {
-            return Err(LuceneError::illegal_state(""));
-        };
-        Ok(Explanation::no_match_no_details(
-            parent_query.reason.clone(),
-        ))
-    }
+  fn explain(
+    &self,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _doc: i32,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Explanation> {
+    let parent_query = if let Query::MatchNoDocs(v) = self.parent_query.as_ref() {
+      v
+    } else {
+      return Err(LuceneError::illegal_state(""));
+    };
+    Ok(Explanation::no_match_no_details(
+      parent_query.reason.clone(),
+    ))
+  }
 
-    fn get_query(&self) -> Arc<Query> {
-        self.parent_query.clone()
-    }
+  fn get_query(&self) -> Arc<Query> {
+    self.parent_query.clone()
+  }
 
-    type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = QueryWeightSs<IRC>;
 
-    fn scorer_supplier(
-        &self,
-        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::ScorerSupplier>> {
-        Ok(None)
-    }
+  fn scorer_supplier(
+    &self,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::ScorerSupplier>> {
+    Ok(None)
+  }
 
-    fn count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-        Ok(0)
-    }
+  fn count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+    Ok(0)
+  }
 }
 
 impl std::fmt::Debug for MatchNoDocsWeight {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "weight({:?})", self.parent_query)
-    }
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "weight({:?})", self.parent_query)
+  }
 }

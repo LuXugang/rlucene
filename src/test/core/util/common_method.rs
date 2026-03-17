@@ -16,13 +16,13 @@
  */
 
 pub fn assert_vecs_equal<T: PartialEq + std::fmt::Debug>(expected: &[T], actual: &[T]) {
-    if expected.len() != actual.len() {
-        assert_eq!(expected.len(), actual.len(),);
-    }
+  if expected.len() != actual.len() {
+    assert_eq!(expected.len(), actual.len(),);
+  }
 
-    for (exp, act) in expected.iter().zip(actual.iter()) {
-        if exp != act {
-            assert_eq!(exp, act,);
-        }
+  for (exp, act) in expected.iter().zip(actual.iter()) {
+    if exp != act {
+      assert_eq!(exp, act,);
     }
+  }
 }

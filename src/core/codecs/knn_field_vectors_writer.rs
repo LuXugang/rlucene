@@ -22,17 +22,17 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// - `T`: an array type; the type of vectors to be written.
 pub trait KnnFieldVectorsWriter<T>: Accountable {
-    /// Adds a new doc ID with its vector value to the given field for indexing.
-    /// Doc IDs must be added in increasing order.
-    fn add_value(&mut self, doc_id: i32, vector_value: T) -> Result<()>;
-    /// Used to copy values being indexed to internal storage.
-    ///
-    /// # Arguments
-    ///
-    /// - `vector_value`: an array containing the vector value to add.
-    ///
-    /// # Returns
-    ///
-    /// A copy of the value; a new array.
-    fn copy_value(&self, vector_value: T) -> T;
+  /// Adds a new doc ID with its vector value to the given field for indexing.
+  /// Doc IDs must be added in increasing order.
+  fn add_value(&mut self, doc_id: i32, vector_value: T) -> Result<()>;
+  /// Used to copy values being indexed to internal storage.
+  ///
+  /// # Arguments
+  ///
+  /// - `vector_value`: an array containing the vector value to add.
+  ///
+  /// # Returns
+  ///
+  /// A copy of the value; a new array.
+  fn copy_value(&self, vector_value: T) -> T;
 }

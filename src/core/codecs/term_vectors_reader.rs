@@ -22,24 +22,24 @@ use crate::core::index::terms::TermsEnum2;
 use crate::core::util::error::lucene_error::Result;
 /// Codec API for reading term vectors:
 pub trait TermVectorsReader: TermVectors + Clone {
-    /// Checks consistency of this reader.
-    ///
-    /// Note that this may be costly in terms of I/O, e.g. may involve computing
-    /// a checksum value against large data files.
-    fn check_integrity(&self) -> Result<()>;
+  /// Checks consistency of this reader.
+  ///
+  /// Note that this may be costly in terms of I/O, e.g. may involve computing
+  /// a checksum value against large data files.
+  fn check_integrity(&self) -> Result<()>;
 
-    /// Returns an instance optimized for merging.
-    ///
-    /// This instance may only be used from the thread that acquires it.
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        Ok(None)
-    }
+  /// Returns an instance optimized for merging.
+  ///
+  /// This instance may only be used from the thread that acquires it.
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    Ok(None)
+  }
 }
 pub type DefaultTermVectorsReader<I> =
-    <DefaultTermVectorsFormat as TermVectorsFormat>::TermVectorsReader<I>;
+  <DefaultTermVectorsFormat as TermVectorsFormat>::TermVectorsReader<I>;
 
 macro_rules! either_term_vectors_reader {
     ($vis:vis $name:ident => { fe: $fe:ident, te: $te:ident } { $Variant1:ident : $T1:ident, $( $Variant:ident : $T:ident ),+ $(,)? }) => {
@@ -155,303 +155,303 @@ either_term_vectors_reader!(
 
 impl<A, B> RawTermVectors for TermVectorsReaderEnum2<A, B>
 where
-    A: RawTermVectors,
-    B: RawTermVectors<IndexInput = A::IndexInput>,
+  A: RawTermVectors,
+  B: RawTermVectors<IndexInput = A::IndexInput>,
 {
-    type IndexInput = A::IndexInput;
+  type IndexInput = A::IndexInput;
 
-    fn raw_term_vectors_mut(&mut self) -> Result<&mut DefaultTermVectorsReader<Self::IndexInput>> {
-        match self {
-            Self::A(inner) => inner.raw_term_vectors_mut(),
-            Self::B(inner) => inner.raw_term_vectors_mut(),
-        }
+  fn raw_term_vectors_mut(&mut self) -> Result<&mut DefaultTermVectorsReader<Self::IndexInput>> {
+    match self {
+      Self::A(inner) => inner.raw_term_vectors_mut(),
+      Self::B(inner) => inner.raw_term_vectors_mut(),
     }
+  }
 
-    fn raw_term_vectors(&self) -> Result<&DefaultTermVectorsReader<Self::IndexInput>> {
-        match self {
-            Self::A(inner) => inner.raw_term_vectors(),
-            Self::B(inner) => inner.raw_term_vectors(),
-        }
+  fn raw_term_vectors(&self) -> Result<&DefaultTermVectorsReader<Self::IndexInput>> {
+    match self {
+      Self::A(inner) => inner.raw_term_vectors(),
+      Self::B(inner) => inner.raw_term_vectors(),
     }
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::core::document::document::Document;
-    use crate::core::document::field::Field;
-    use crate::core::document::field_type::FieldType;
-    use crate::core::document::stored_field::stored_field_type;
-    use crate::core::document::text_field::text_field_type;
-    use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-    use crate::test::core::index::random_index_writer::RandomIndexWriter;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, random,
-    };
+  use crate::core::document::document::Document;
+  use crate::core::document::field::Field;
+  use crate::core::document::field_type::FieldType;
+  use crate::core::document::stored_field::stored_field_type;
+  use crate::core::document::text_field::text_field_type;
+  use crate::core::util::error::lucene_error::{LuceneError, Result};
+  use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+  use crate::test::core::index::random_index_writer::RandomIndexWriter;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    new_directory_shared, random,
+  };
 
-    #[allow(dead_code)] // for quick search
-    struct TestTermVectorsReader;
+  #[allow(dead_code)] // for quick search
+  struct TestTermVectorsReader;
 
-    #[test]
-    fn test() -> Result<()> {
-        // TODO
-        Ok(())
-    }
-    #[test]
-    fn test_reader() -> Result<()> {
-        // TODO
-        Ok(())
-    }
-    #[test]
-    fn test_docs_enum() -> Result<()> {
-        // TODO
-        Ok(())
-    }
+  #[test]
+  fn test() -> Result<()> {
+    // TODO
+    Ok(())
+  }
+  #[test]
+  fn test_reader() -> Result<()> {
+    // TODO
+    Ok(())
+  }
+  #[test]
+  fn test_docs_enum() -> Result<()> {
+    // TODO
+    Ok(())
+  }
 
-    #[test]
-    fn test_position_reader() -> Result<()> {
-        // TODO
-        Ok(())
-    }
-    #[test]
-    fn test_offset_reader() -> Result<()> {
-        // TODO
-        Ok(())
-    }
-    #[test]
-    fn test_illegal_payloads_without_positions() -> Result<()> {
-        let mut random = random();
+  #[test]
+  fn test_position_reader() -> Result<()> {
+    // TODO
+    Ok(())
+  }
+  #[test]
+  fn test_offset_reader() -> Result<()> {
+    // TODO
+    Ok(())
+  }
+  #[test]
+  fn test_illegal_payloads_without_positions() -> Result<()> {
+    let mut random = random();
 
-        let dir = new_directory_shared(&mut random)?;
+    let dir = new_directory_shared(&mut random)?;
 
-        // TODO c需要使用带分词器的构造方法
-        let w = RandomIndexWriter::new(&mut random, dir.clone());
+    // TODO c需要使用带分词器的构造方法
+    let w = RandomIndexWriter::new(&mut random, dir.clone());
 
-        let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-        ft.set_store_term_vectors(true)?;
-        ft.set_store_term_vector_payloads(true)?;
+    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    ft.set_store_term_vectors(true)?;
+    ft.set_store_term_vector_payloads(true)?;
 
-        let mut doc = Document::new();
-        doc.add(Field::new("field", "value", ft));
+    let mut doc = Document::new();
+    doc.add(Field::new("field", "value", ft));
 
-        let err = w.add_document(doc).unwrap_err();
-        match err {
-            LuceneError::IllegalArgument(msg) => {
-                assert_eq!(
-                    msg.to_string(),
-                    "cannot index term vector payloads without term vector positions (field=\"field\")"
-                );
-            },
-            _ => unreachable!("{:?}", err),
-        }
-
-        w.close()?;
-        Ok(())
-    }
-    #[test]
-    fn test_illegal_offsets_without_vectors() -> Result<()> {
-        let mut random = random();
-
-        let dir = new_directory_shared(&mut random)?;
-
-        let mut a = MockAnalyzer::new(&mut random);
-        a.set_enable_checks(false);
-        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
-
-        let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-        ft.set_store_term_vectors(false)?;
-        ft.set_store_term_vector_offsets(true)?;
-
-        let mut doc = Document::new();
-        doc.add(Field::new("field", "value", ft));
-
-        let err = w.add_document(doc).unwrap_err();
-        match err {
-            LuceneError::IllegalArgument(msg) => {
-                assert_eq!(
-                    msg.to_string(),
-                    "cannot index term vector offsets when term vectors are not indexed (field=\"field\")"
-                );
-            },
-            _ => unreachable!("{:?}", err),
-        }
-
-        w.close()?;
-        Ok(())
-    }
-    #[test]
-    fn test_illegal_positions_without_vectors() -> Result<()> {
-        let mut random = random();
-
-        let dir = new_directory_shared(&mut random)?;
-
-        // TODO: 需要使用带分词器的构造方法
-        let w = RandomIndexWriter::new(&mut random, dir.clone());
-
-        let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-        ft.set_store_term_vectors(false)?;
-        ft.set_store_term_vector_positions(true)?;
-
-        let mut doc = Document::new();
-        doc.add(Field::new("field", "value", ft));
-
-        let err = w.add_document(doc).unwrap_err();
-        match err {
-            LuceneError::IllegalArgument(msg) => {
-                assert_eq!(
-                    msg.to_string(),
-                    "cannot index term vector positions when term vectors are not indexed (field=\"field\")"
-                );
-            },
-            _ => unreachable!("{:?}", err),
-        }
-
-        w.close()?;
-        Ok(())
-    }
-    #[test]
-    fn test_illegal_vector_payloads_without_vectors() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let mut a = MockAnalyzer::new(&mut random);
-        a.set_enable_checks(false);
-        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
-
-        let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-        ft.set_store_term_vectors(false)?;
-        ft.set_store_term_vector_payloads(true)?;
-
-        let mut doc = Document::new();
-        doc.add(Field::new("field", "value", ft));
-
-        let err = w.add_document(doc).unwrap_err();
-        match err {
-            LuceneError::IllegalArgument(msg) => {
-                assert_eq!(
-                    msg.to_string(),
-                    "cannot index term vector payloads when term vectors are not indexed (field=\"field\")"
-                );
-            },
-            _ => unreachable!("{err:?}"),
-        }
-
-        w.close()?;
-        Ok(())
+    let err = w.add_document(doc).unwrap_err();
+    match err {
+      LuceneError::IllegalArgument(msg) => {
+        assert_eq!(
+          msg.to_string(),
+          "cannot index term vector payloads without term vector positions (field=\"field\")"
+        );
+      },
+      _ => unreachable!("{:?}", err),
     }
 
-    #[test]
-    fn test_illegal_vectors_without_indexed() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let mut a = MockAnalyzer::new(&mut random);
-        a.set_enable_checks(false);
-        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+    w.close()?;
+    Ok(())
+  }
+  #[test]
+  fn test_illegal_offsets_without_vectors() -> Result<()> {
+    let mut random = random();
 
-        let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
-        ft.set_store_term_vectors(true)?;
+    let dir = new_directory_shared(&mut random)?;
 
-        let mut doc = Document::new();
-        doc.add(Field::new("field", "value", ft));
+    let mut a = MockAnalyzer::new(&mut random);
+    a.set_enable_checks(false);
+    let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
 
-        let err = w.add_document(doc).unwrap_err();
-        match err {
-            LuceneError::IllegalArgument(msg) => {
-                assert_eq!(
-                    msg.to_string(),
-                    "cannot store term vectors for a field that is not indexed (field=\"field\")"
-                );
-            },
-            _ => unreachable!("{err:?}"),
-        }
+    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    ft.set_store_term_vectors(false)?;
+    ft.set_store_term_vector_offsets(true)?;
 
-        w.close()?;
-        Ok(())
+    let mut doc = Document::new();
+    doc.add(Field::new("field", "value", ft));
+
+    let err = w.add_document(doc).unwrap_err();
+    match err {
+      LuceneError::IllegalArgument(msg) => {
+        assert_eq!(
+          msg.to_string(),
+          "cannot index term vector offsets when term vectors are not indexed (field=\"field\")"
+        );
+      },
+      _ => unreachable!("{:?}", err),
     }
 
-    #[test]
-    fn test_illegal_vector_positions_without_indexed() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let mut a = MockAnalyzer::new(&mut random);
-        a.set_enable_checks(false);
-        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+    w.close()?;
+    Ok(())
+  }
+  #[test]
+  fn test_illegal_positions_without_vectors() -> Result<()> {
+    let mut random = random();
 
-        let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
-        ft.set_store_term_vector_positions(true)?;
+    let dir = new_directory_shared(&mut random)?;
 
-        let mut doc = Document::new();
-        doc.add(Field::new("field", "value", ft));
+    // TODO: 需要使用带分词器的构造方法
+    let w = RandomIndexWriter::new(&mut random, dir.clone());
 
-        let err = w.add_document(doc).unwrap_err();
-        match err {
-            LuceneError::IllegalArgument(msg) => {
-                assert_eq!(
-                    msg.to_string(),
-                    "cannot store term vector positions for a field that is not indexed (field=\"field\")"
-                );
-            },
-            _ => unreachable!("{err:?}"),
-        }
+    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    ft.set_store_term_vectors(false)?;
+    ft.set_store_term_vector_positions(true)?;
 
-        w.close()?;
-        Ok(())
+    let mut doc = Document::new();
+    doc.add(Field::new("field", "value", ft));
+
+    let err = w.add_document(doc).unwrap_err();
+    match err {
+      LuceneError::IllegalArgument(msg) => {
+        assert_eq!(
+          msg.to_string(),
+          "cannot index term vector positions when term vectors are not indexed (field=\"field\")"
+        );
+      },
+      _ => unreachable!("{:?}", err),
     }
 
-    #[test]
-    fn test_illegal_vector_offsets_without_indexed() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let mut a = MockAnalyzer::new(&mut random);
-        a.set_enable_checks(false);
-        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+    w.close()?;
+    Ok(())
+  }
+  #[test]
+  fn test_illegal_vector_payloads_without_vectors() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut a = MockAnalyzer::new(&mut random);
+    a.set_enable_checks(false);
+    let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
 
-        let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
-        ft.set_store_term_vector_offsets(true)?;
+    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    ft.set_store_term_vectors(false)?;
+    ft.set_store_term_vector_payloads(true)?;
 
-        let mut doc = Document::new();
-        doc.add(Field::new("field", "value", ft));
+    let mut doc = Document::new();
+    doc.add(Field::new("field", "value", ft));
 
-        let err = w.add_document(doc).unwrap_err();
-        match err {
-            LuceneError::IllegalArgument(msg) => {
-                assert_eq!(
-                    msg.to_string(),
-                    "cannot store term vector offsets for a field that is not indexed (field=\"field\")"
-                );
-            },
-            _ => unreachable!("{err:?}"),
-        }
-
-        w.close()?;
-        Ok(())
+    let err = w.add_document(doc).unwrap_err();
+    match err {
+      LuceneError::IllegalArgument(msg) => {
+        assert_eq!(
+          msg.to_string(),
+          "cannot index term vector payloads when term vectors are not indexed (field=\"field\")"
+        );
+      },
+      _ => unreachable!("{err:?}"),
     }
 
-    #[test]
-    fn test_illegal_vector_payloads_without_indexed() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let mut a = MockAnalyzer::new(&mut random);
-        a.set_enable_checks(false);
-        let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+    w.close()?;
+    Ok(())
+  }
 
-        let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
-        ft.set_store_term_vector_payloads(true)?;
+  #[test]
+  fn test_illegal_vectors_without_indexed() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut a = MockAnalyzer::new(&mut random);
+    a.set_enable_checks(false);
+    let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
 
-        let mut doc = Document::new();
-        doc.add(Field::new("field", "value", ft));
+    let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
+    ft.set_store_term_vectors(true)?;
 
-        let err = w.add_document(doc).unwrap_err();
-        match err {
-            LuceneError::IllegalArgument(msg) => {
-                assert_eq!(
-                    msg.to_string(),
-                    "cannot store term vector payloads for a field that is not indexed (field=\"field\")"
-                );
-            },
-            _ => unreachable!("{err:?}"),
-        }
+    let mut doc = Document::new();
+    doc.add(Field::new("field", "value", ft));
 
-        w.close()?;
-        Ok(())
+    let err = w.add_document(doc).unwrap_err();
+    match err {
+      LuceneError::IllegalArgument(msg) => {
+        assert_eq!(
+          msg.to_string(),
+          "cannot store term vectors for a field that is not indexed (field=\"field\")"
+        );
+      },
+      _ => unreachable!("{err:?}"),
     }
+
+    w.close()?;
+    Ok(())
+  }
+
+  #[test]
+  fn test_illegal_vector_positions_without_indexed() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut a = MockAnalyzer::new(&mut random);
+    a.set_enable_checks(false);
+    let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+
+    let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
+    ft.set_store_term_vector_positions(true)?;
+
+    let mut doc = Document::new();
+    doc.add(Field::new("field", "value", ft));
+
+    let err = w.add_document(doc).unwrap_err();
+    match err {
+      LuceneError::IllegalArgument(msg) => {
+        assert_eq!(
+          msg.to_string(),
+          "cannot store term vector positions for a field that is not indexed (field=\"field\")"
+        );
+      },
+      _ => unreachable!("{err:?}"),
+    }
+
+    w.close()?;
+    Ok(())
+  }
+
+  #[test]
+  fn test_illegal_vector_offsets_without_indexed() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut a = MockAnalyzer::new(&mut random);
+    a.set_enable_checks(false);
+    let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+
+    let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
+    ft.set_store_term_vector_offsets(true)?;
+
+    let mut doc = Document::new();
+    doc.add(Field::new("field", "value", ft));
+
+    let err = w.add_document(doc).unwrap_err();
+    match err {
+      LuceneError::IllegalArgument(msg) => {
+        assert_eq!(
+          msg.to_string(),
+          "cannot store term vector offsets for a field that is not indexed (field=\"field\")"
+        );
+      },
+      _ => unreachable!("{err:?}"),
+    }
+
+    w.close()?;
+    Ok(())
+  }
+
+  #[test]
+  fn test_illegal_vector_payloads_without_indexed() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut a = MockAnalyzer::new(&mut random);
+    a.set_enable_checks(false);
+    let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+
+    let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
+    ft.set_store_term_vector_payloads(true)?;
+
+    let mut doc = Document::new();
+    doc.add(Field::new("field", "value", ft));
+
+    let err = w.add_document(doc).unwrap_err();
+    match err {
+      LuceneError::IllegalArgument(msg) => {
+        assert_eq!(
+          msg.to_string(),
+          "cannot store term vector payloads for a field that is not indexed (field=\"field\")"
+        );
+      },
+      _ => unreachable!("{err:?}"),
+    }
+
+    w.close()?;
+    Ok(())
+  }
 }

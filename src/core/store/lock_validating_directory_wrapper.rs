@@ -26,131 +26,131 @@ use crate::core::util::error::lucene_error::Result;
 /// This class makes a best-effort check that a provided [`Lock`] is valid before any destructive filesystem operation.
 pub struct LockValidatingDirectoryWrapper<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    in_: D,
-    write_lock: D::Lock,
-    id: Identity,
+  in_: D,
+  write_lock: D::Lock,
+  id: Identity,
 }
 
 impl<D> LockValidatingDirectoryWrapper<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub fn new(delegate: D, write_lock: D::Lock) -> Self {
-        Self {
-            in_: delegate,
-            write_lock,
-            id: Identity::new(),
-        }
+  pub fn new(delegate: D, write_lock: D::Lock) -> Self {
+    Self {
+      in_: delegate,
+      write_lock,
+      id: Identity::new(),
     }
+  }
 }
 
 impl<D> std::fmt::Display for LockValidatingDirectoryWrapper<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}({})", std::any::type_name::<Self>(), self.in_)
-    }
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}({})", std::any::type_name::<Self>(), self.in_)
+  }
 }
 
 impl<D> Closeable for LockValidatingDirectoryWrapper<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn close(&mut self) -> Result<()> {
-        // TODO
-        Ok(())
-    }
+  fn close(&mut self) -> Result<()> {
+    // TODO
+    Ok(())
+  }
 }
 
 impl<D> HasIdentity for LockValidatingDirectoryWrapper<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 
 impl<D> Directory for LockValidatingDirectoryWrapper<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn list_all(&self) -> Result<Vec<String>> {
-        self.in_.list_all()
-    }
-    fn delete_file(&self, name: &str) -> Result<()> {
-        self.write_lock.ensure_valid()?;
-        self.in_.delete_file(name)
-    }
-    fn file_length(&self, name: &str) -> Result<usize> {
-        self.in_.file_length(name)
-    }
+  fn list_all(&self) -> Result<Vec<String>> {
+    self.in_.list_all()
+  }
+  fn delete_file(&self, name: &str) -> Result<()> {
+    self.write_lock.ensure_valid()?;
+    self.in_.delete_file(name)
+  }
+  fn file_length(&self, name: &str) -> Result<usize> {
+    self.in_.file_length(name)
+  }
 
-    fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
-        self.write_lock.ensure_valid()?;
-        self.in_.create_output(name, context)
-    }
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    self.write_lock.ensure_valid()?;
+    self.in_.create_output(name, context)
+  }
 
-    type IndexOutput = <FilterDirectory<D> as Directory>::IndexOutput;
+  type IndexOutput = <FilterDirectory<D> as Directory>::IndexOutput;
 
-    fn create_temp_output(
-        &self,
-        prefix: &str,
-        suffix: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexOutput> {
-        self.in_.create_temp_output(prefix, suffix, context)
-    }
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    self.in_.create_temp_output(prefix, suffix, context)
+  }
 
-    fn sync(&self, names: &[String]) -> Result<()> {
-        self.write_lock.ensure_valid()?;
-        self.in_.sync(names)
-    }
+  fn sync(&self, names: &[String]) -> Result<()> {
+    self.write_lock.ensure_valid()?;
+    self.in_.sync(names)
+  }
 
-    fn sync_metadata(&self) -> Result<()> {
-        self.write_lock.ensure_valid()?;
-        self.in_.sync_metadata()
-    }
+  fn sync_metadata(&self) -> Result<()> {
+    self.write_lock.ensure_valid()?;
+    self.in_.sync_metadata()
+  }
 
-    fn rename(&self, source: &str, dest: &str) -> Result<()> {
-        self.write_lock.ensure_valid()?;
-        self.in_.rename(source, dest)
-    }
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    self.write_lock.ensure_valid()?;
+    self.in_.rename(source, dest)
+  }
 
-    type IndexInput = <FilterDirectory<D> as Directory>::IndexInput;
+  type IndexInput = <FilterDirectory<D> as Directory>::IndexInput;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
-        self.in_.open_input(name, context)
-    }
-    type Lock = <FilterDirectory<D> as Directory>::Lock;
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    self.in_.open_input(name, context)
+  }
+  type Lock = <FilterDirectory<D> as Directory>::Lock;
 
-    fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
-        self.in_.obtain_lock(name)
-    }
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    self.in_.obtain_lock(name)
+  }
 
-    fn copy_from(
-        &self,
-        from: &impl Directory,
-        src: &str,
-        dest: &str,
-        context: &IOContext,
-    ) -> Result<()> {
-        self.write_lock.ensure_valid()?;
-        self.in_.copy_from(from, src, dest, context)
-    }
+  fn copy_from(
+    &self,
+    from: &impl Directory,
+    src: &str,
+    dest: &str,
+    context: &IOContext,
+  ) -> Result<()> {
+    self.write_lock.ensure_valid()?;
+    self.in_.copy_from(from, src, dest, context)
+  }
 
-    fn delete_files_ignoring_exceptions(&self, files: &[String]) {
-        self.in_.delete_files_ignoring_exceptions(files)
-    }
+  fn delete_files_ignoring_exceptions(&self, files: &[String]) {
+    self.in_.delete_files_ignoring_exceptions(files)
+  }
 
-    fn get_pending_deletions(&self) -> Result<std::collections::HashSet<String>> {
-        self.in_.get_pending_deletions()
-    }
+  fn get_pending_deletions(&self) -> Result<std::collections::HashSet<String>> {
+    self.in_.get_pending_deletions()
+  }
 
-    fn is_fs_directory(&self) -> bool {
-        self.in_.is_fs_directory()
-    }
+  fn is_fs_directory(&self) -> bool {
+    self.in_.is_fs_directory()
+  }
 }

@@ -26,50 +26,50 @@ use std::borrow::Cow;
 pub struct DummyImpactsEnum;
 
 impl PostingsEnum for DummyImpactsEnum {
-    fn freq(&mut self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn freq(&mut self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn next_position(&mut self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn next_position(&mut self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn start_offset(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn start_offset(&self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn end_offset(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn end_offset(&self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl DocIdSetIterator for DummyImpactsEnum {
-    fn doc_id(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn doc_id(&self) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl ImpactsSource for DummyImpactsEnum {
-    fn advance_shallow(&mut self, _target: i32) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn advance_shallow(&mut self, _target: i32) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type Impacts<'a>
-        = DummyImpacts
-    where
-        Self: 'a;
+  type Impacts<'a>
+    = DummyImpacts
+  where
+    Self: 'a;
 
-    fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl ImpactsEnum for DummyImpactsEnum {}

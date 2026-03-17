@@ -16,7 +16,7 @@
  */
 use crate::core::util::error::lucene_error::Result;
 pub trait TryClone {
-    fn try_clone(&self) -> Result<Self>
-    where
-        Self: Sized;
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized;
 }

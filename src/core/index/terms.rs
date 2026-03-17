@@ -27,320 +27,320 @@ use std::rc::Rc;
 
 /// Trait representing base term statistics and access.
 pub trait Terms {
-    type TermsEnum: TermsEnum;
-    /// Returns an iterator that will step through all terms. This method will
-    /// not return None.
-    fn iterator(&self) -> Result<Self::TermsEnum>;
+  type TermsEnum: TermsEnum;
+  /// Returns an iterator that will step through all terms. This method will
+  /// not return None.
+  fn iterator(&self) -> Result<Self::TermsEnum>;
 
-    type IntersectIter: TermsEnum<PostingsEnum = <Self::TermsEnum as TermsEnum>::PostingsEnum>;
-    /// Returns a [`TermsEnum`] that iterates over all terms and documents
-    /// accepted by the given [`CompiledAutomaton`].
-    ///
-    /// If `start_term` is provided, the returned enum will only return terms
-    /// strictly greater than `start_term`, but you must still call `next()`
-    /// first to advance to the first term. The provided `start_term` must
-    /// be accepted by the automaton.
-    ///
-    /// This is an expert-level, low-level API that only works for
-    /// [`AutomatonType::NORMAL`](crate::core::util::automation::compiled_automaton::AutomatonType::Normal) compiled automata. To handle any type of
-    /// compiled automaton, use
-    /// [`CompiledAutomaton::get_terms_enum`](CompiledAutomaton::get_byte_runnable)
-    /// instead.
-    ///
-    /// **Note**: The returned `TermsEnum` does **not** support seeking.
-    fn intersect(
-        &self,
-        compiled: &CompiledAutomaton,
-        start_term: Option<&BytesRef<Vec<u8>>>,
-    ) -> Result<Self::IntersectIter>;
+  type IntersectIter: TermsEnum<PostingsEnum = <Self::TermsEnum as TermsEnum>::PostingsEnum>;
+  /// Returns a [`TermsEnum`] that iterates over all terms and documents
+  /// accepted by the given [`CompiledAutomaton`].
+  ///
+  /// If `start_term` is provided, the returned enum will only return terms
+  /// strictly greater than `start_term`, but you must still call `next()`
+  /// first to advance to the first term. The provided `start_term` must
+  /// be accepted by the automaton.
+  ///
+  /// This is an expert-level, low-level API that only works for
+  /// [`AutomatonType::NORMAL`](crate::core::util::automation::compiled_automaton::AutomatonType::Normal) compiled automata. To handle any type of
+  /// compiled automaton, use
+  /// [`CompiledAutomaton::get_terms_enum`](CompiledAutomaton::get_byte_runnable)
+  /// instead.
+  ///
+  /// **Note**: The returned `TermsEnum` does **not** support seeking.
+  fn intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<Self::IntersectIter>;
 
-    fn default_intersect(
-        &self,
-        compiled: &CompiledAutomaton,
-        start_term: Option<&BytesRef<Vec<u8>>>,
-    ) -> Result<FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>>
-    where
-        Self: Sized,
-    {
-        let terms_enum = self.iterator()?;
-        if start_term.is_some() {
-            AutomatonTermsEnum::with_start_term(terms_enum, compiled, start_term)
-        } else {
-            AutomatonTermsEnum::new(terms_enum, compiled)
-        }
+  fn default_intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>>
+  where
+    Self: Sized,
+  {
+    let terms_enum = self.iterator()?;
+    if start_term.is_some() {
+      AutomatonTermsEnum::with_start_term(terms_enum, compiled, start_term)
+    } else {
+      AutomatonTermsEnum::new(terms_enum, compiled)
     }
-    /// Returns the number of terms for this field, or `-1` if this measure
-    /// isn't stored by the codec.
-    ///
-    /// Note that, like other term measures, this value does **not** take
-    /// deleted documents into account.
-    fn size(&self) -> Result<i64>;
+  }
+  /// Returns the number of terms for this field, or `-1` if this measure
+  /// isn't stored by the codec.
+  ///
+  /// Note that, like other term measures, this value does **not** take
+  /// deleted documents into account.
+  fn size(&self) -> Result<i64>;
 
-    /// Returns the sum of
-    /// [`TermsEnum::total_term_freq`]
-    /// for all terms in this field. Note that, like other term measures,
-    /// this value does **not** take deleted documents into account.
-    fn get_sum_total_term_freq(&self) -> Result<i64>;
+  /// Returns the sum of
+  /// [`TermsEnum::total_term_freq`]
+  /// for all terms in this field. Note that, like other term measures,
+  /// this value does **not** take deleted documents into account.
+  fn get_sum_total_term_freq(&self) -> Result<i64>;
 
-    /// Returns the sum of
-    /// [`TermsEnum::doc_freq`]
-    /// for all terms in this field. Note that, like other term measures,
-    /// this value does **not** take deleted documents into account.
-    fn get_sum_doc_freq(&self) -> Result<i64>;
+  /// Returns the sum of
+  /// [`TermsEnum::doc_freq`]
+  /// for all terms in this field. Note that, like other term measures,
+  /// this value does **not** take deleted documents into account.
+  fn get_sum_doc_freq(&self) -> Result<i64>;
 
-    /// Returns the number of documents that have at least one term for this
-    /// field. Note that, like other term measures, this value does **not**
-    /// take deleted documents into account.
-    fn get_doc_count(&self) -> Result<i32>;
+  /// Returns the number of documents that have at least one term for this
+  /// field. Note that, like other term measures, this value does **not**
+  /// take deleted documents into account.
+  fn get_doc_count(&self) -> Result<i32>;
 
-    /// Returns `true` if documents in this field store per-document term
-    /// frequency
-    /// (see [`PostingsEnum::freq`](crate::core::index::postings_enum::PostingsEnum::freq)).
-    fn has_freqs(&self) -> bool;
+  /// Returns `true` if documents in this field store per-document term
+  /// frequency
+  /// (see [`PostingsEnum::freq`](crate::core::index::postings_enum::PostingsEnum::freq)).
+  fn has_freqs(&self) -> bool;
 
-    /// Returns true if documents in this field store offsets.
-    fn has_offsets(&self) -> bool;
+  /// Returns true if documents in this field store offsets.
+  fn has_offsets(&self) -> bool;
 
-    /// Returns true if documents in this field store positions.
-    fn has_positions(&self) -> bool;
+  /// Returns true if documents in this field store positions.
+  fn has_positions(&self) -> bool;
 
-    /// Returns true if documents in this field store payloads.
-    fn has_payloads(&self) -> bool;
+  /// Returns true if documents in this field store payloads.
+  fn has_payloads(&self) -> bool;
 
-    /// Returns the smallest term (in lexicographic order) in the field.  
-    /// Note that, like other term measures, this does **not** take deleted
-    /// documents into account. Returns `None` when there are no terms.
-    fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  /// Returns the smallest term (in lexicographic order) in the field.  
+  /// Note that, like other term measures, this does **not** take deleted
+  /// documents into account. Returns `None` when there are no terms.
+  fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    let mut iterator = self.iterator()?;
+    match iterator.next()? {
+      Some(term) => Ok(Some(Cow::Owned(term.into_owned()))),
+      None => Ok(None),
+    }
+  }
+
+  /// Returns the largest term (in lexicographic order) in the field.  
+  /// Note that, like other term measures, this does **not** take deleted
+  /// documents into account. Returns `None` when there are no terms.
+  fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    let size = self.size()?;
+    match size.cmp(&0) {
+      std::cmp::Ordering::Equal => return Ok(None),
+      std::cmp::Ordering::Greater => {
         let mut iterator = self.iterator()?;
-        match iterator.next()? {
-            Some(term) => Ok(Some(Cow::Owned(term.into_owned()))),
-            None => Ok(None),
-        }
+        iterator.seek_exact_with_ord(size - 1)?;
+        return Ok(Some(Cow::Owned(iterator.term()?.into_owned())));
+      },
+      std::cmp::Ordering::Less => {},
+    }
+    // otherwise: binary search
+    let mut iterator = self.iterator()?;
+    let v = iterator.next()?;
+    if v.is_none() {
+      return Ok(None);
     }
 
-    /// Returns the largest term (in lexicographic order) in the field.  
-    /// Note that, like other term measures, this does **not** take deleted
-    /// documents into account. Returns `None` when there are no terms.
-    fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        let size = self.size()?;
-        match size.cmp(&0) {
-            std::cmp::Ordering::Equal => return Ok(None),
-            std::cmp::Ordering::Greater => {
-                let mut iterator = self.iterator()?;
-                iterator.seek_exact_with_ord(size - 1)?;
-                return Ok(Some(Cow::Owned(iterator.term()?.into_owned())));
-            },
-            std::cmp::Ordering::Less => {},
-        }
-        // otherwise: binary search
-        let mut iterator = self.iterator()?;
-        let v = iterator.next()?;
-        if v.is_none() {
-            return Ok(None);
-        }
-
-        let mut scratch = BytesRefBuilder::new();
-        scratch.append_byte(0);
-        // Iterates over digits:
-        loop {
-            let mut low = 0;
-            let mut high = 256;
-            // Binary search current digit to find the highest
-            // digit before END:
-            while low != high {
-                let mid = (((low + high) as u32) >> 1) as i32;
-                scratch.set_byte_at(scratch.length() - 1, mid as u8);
-                match iterator.seek_ceil(scratch.get_bytes_mut_ref())? {
-                    SeekStatus::End => {
-                        if mid == 0 {
-                            scratch.set_length(scratch.length() - 1);
-                            return Ok(Some(Cow::Owned(scratch.get_bytes_owner())));
-                        }
-                        high = mid;
-                    },
-                    _ => {
-                        if low == mid {
-                            break;
-                        }
-                        low = mid;
-                    },
-                }
+    let mut scratch = BytesRefBuilder::new();
+    scratch.append_byte(0);
+    // Iterates over digits:
+    loop {
+      let mut low = 0;
+      let mut high = 256;
+      // Binary search current digit to find the highest
+      // digit before END:
+      while low != high {
+        let mid = (((low + high) as u32) >> 1) as i32;
+        scratch.set_byte_at(scratch.length() - 1, mid as u8);
+        match iterator.seek_ceil(scratch.get_bytes_mut_ref())? {
+          SeekStatus::End => {
+            if mid == 0 {
+              scratch.set_length(scratch.length() - 1);
+              return Ok(Some(Cow::Owned(scratch.get_bytes_owner())));
             }
-
-            scratch.set_length(scratch.length() + 1);
-            scratch.grow(scratch.length());
+            high = mid;
+          },
+          _ => {
+            if low == mid {
+              break;
+            }
+            low = mid;
+          },
         }
-    }
+      }
 
-    /// Returns debugging statistics string.
-    fn get_stats(&self) -> Result<String> {
-        Ok(format!(
-            "impl={},size={},docCount={},sumTotalTermFreq={},sumDocFreq={}",
-            std::any::type_name::<Self>(),
-            self.size()?,
-            self.get_doc_count()?,
-            self.get_sum_total_term_freq()?,
-            self.get_sum_doc_freq()?
-        ))
+      scratch.set_length(scratch.length() + 1);
+      scratch.grow(scratch.length());
     }
+  }
+
+  /// Returns debugging statistics string.
+  fn get_stats(&self) -> Result<String> {
+    Ok(format!(
+      "impl={},size={},docCount={},sumTotalTermFreq={},sumDocFreq={}",
+      std::any::type_name::<Self>(),
+      self.size()?,
+      self.get_doc_count()?,
+      self.get_sum_total_term_freq()?,
+      self.get_sum_doc_freq()?
+    ))
+  }
 }
 impl<T> Terms for Rc<T>
 where
-    T: Terms,
+  T: Terms,
 {
-    type TermsEnum = T::TermsEnum;
+  type TermsEnum = T::TermsEnum;
 
-    fn iterator(&self) -> Result<Self::TermsEnum> {
-        (**self).iterator()
-    }
+  fn iterator(&self) -> Result<Self::TermsEnum> {
+    (**self).iterator()
+  }
 
-    type IntersectIter = T::IntersectIter;
+  type IntersectIter = T::IntersectIter;
 
-    fn intersect(
-        &self,
-        compiled: &CompiledAutomaton,
-        start_term: Option<&BytesRef<Vec<u8>>>,
-    ) -> Result<Self::IntersectIter> {
-        (**self).intersect(compiled, start_term)
-    }
+  fn intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<Self::IntersectIter> {
+    (**self).intersect(compiled, start_term)
+  }
 
-    fn default_intersect(
-        &self,
-        compiled: &CompiledAutomaton,
-        start_term: Option<&BytesRef<Vec<u8>>>,
-    ) -> Result<FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>>
-    where
-        Self: Sized,
-    {
-        (**self).default_intersect(compiled, start_term)
-    }
+  fn default_intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>>
+  where
+    Self: Sized,
+  {
+    (**self).default_intersect(compiled, start_term)
+  }
 
-    fn size(&self) -> Result<i64> {
-        (**self).size()
-    }
+  fn size(&self) -> Result<i64> {
+    (**self).size()
+  }
 
-    fn get_sum_total_term_freq(&self) -> Result<i64> {
-        (**self).get_sum_total_term_freq()
-    }
+  fn get_sum_total_term_freq(&self) -> Result<i64> {
+    (**self).get_sum_total_term_freq()
+  }
 
-    fn get_sum_doc_freq(&self) -> Result<i64> {
-        (**self).get_sum_doc_freq()
-    }
+  fn get_sum_doc_freq(&self) -> Result<i64> {
+    (**self).get_sum_doc_freq()
+  }
 
-    fn get_doc_count(&self) -> Result<i32> {
-        (**self).get_doc_count()
-    }
+  fn get_doc_count(&self) -> Result<i32> {
+    (**self).get_doc_count()
+  }
 
-    fn has_freqs(&self) -> bool {
-        (**self).has_freqs()
-    }
+  fn has_freqs(&self) -> bool {
+    (**self).has_freqs()
+  }
 
-    fn has_offsets(&self) -> bool {
-        (**self).has_offsets()
-    }
+  fn has_offsets(&self) -> bool {
+    (**self).has_offsets()
+  }
 
-    fn has_positions(&self) -> bool {
-        (**self).has_positions()
-    }
+  fn has_positions(&self) -> bool {
+    (**self).has_positions()
+  }
 
-    fn has_payloads(&self) -> bool {
-        (**self).has_payloads()
-    }
+  fn has_payloads(&self) -> bool {
+    (**self).has_payloads()
+  }
 
-    fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        (**self).get_min()
-    }
+  fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    (**self).get_min()
+  }
 
-    fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        (**self).get_max()
-    }
+  fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    (**self).get_max()
+  }
 
-    fn get_stats(&self) -> Result<String> {
-        (**self).get_stats()
-    }
+  fn get_stats(&self) -> Result<String> {
+    (**self).get_stats()
+  }
 }
 
 pub mod terms_util {
-    use crate::core::index::leaf_reader::LeafReader;
-    use crate::core::index::terms::{EmptyTerms, TermsEnum2, TermsEnum2Type};
-    use crate::core::util::error::lucene_error::Result;
+  use crate::core::index::leaf_reader::LeafReader;
+  use crate::core::index::terms::{EmptyTerms, TermsEnum2, TermsEnum2Type};
+  use crate::core::util::error::lucene_error::Result;
 
-    /// Returns the [`Terms`] index for this field, or [`crate::core::index::terms::Terms::EMPTY`] if it
-    /// has none.
-    ///
-    /// Returns:
-    /// - A `Terms` instance, or an empty instance if the field does not exist
-    ///   in this reader.
-    ///
-    /// Errors:
-    /// - Returns an error if an I/O error occurs.
-    pub(crate) fn get_terms<LR>(reader: &LR, field: &str) -> Result<TermsEnum2Type<LR::Terms>>
-    where
-        LR: LeafReader,
-    {
-        let terms = reader.terms(field)?;
-        match terms {
-            Some(t) => Ok(TermsEnum2::A(t)),
-            None => Ok(TermsEnum2::B(EmptyTerms)),
-        }
+  /// Returns the [`Terms`] index for this field, or [`crate::core::index::terms::Terms::EMPTY`] if it
+  /// has none.
+  ///
+  /// Returns:
+  /// - A `Terms` instance, or an empty instance if the field does not exist
+  ///   in this reader.
+  ///
+  /// Errors:
+  /// - Returns an error if an I/O error occurs.
+  pub(crate) fn get_terms<LR>(reader: &LR, field: &str) -> Result<TermsEnum2Type<LR::Terms>>
+  where
+    LR: LeafReader,
+  {
+    let terms = reader.terms(field)?;
+    match terms {
+      Some(t) => Ok(TermsEnum2::A(t)),
+      None => Ok(TermsEnum2::B(EmptyTerms)),
     }
+  }
 }
 pub type TermsEnum2Type<T> = TermsEnum2<T, EmptyTerms>;
 
 #[derive(Default)]
 pub struct EmptyTerms;
 impl Terms for EmptyTerms {
-    type TermsEnum = BaseTermsEnum<EmptyTermsEnum>;
+  type TermsEnum = BaseTermsEnum<EmptyTermsEnum>;
 
-    fn iterator(&self) -> Result<Self::TermsEnum> {
-        Ok(EmptyTermsEnum.into())
-    }
+  fn iterator(&self) -> Result<Self::TermsEnum> {
+    Ok(EmptyTermsEnum.into())
+  }
 
-    type IntersectIter
-        = FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>
-    where
-        Self::TermsEnum: BytesRefIterator,
-        AutomatonTermsEnum: FilteredTermsEnumBase;
+  type IntersectIter
+    = FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>
+  where
+    Self::TermsEnum: BytesRefIterator,
+    AutomatonTermsEnum: FilteredTermsEnumBase;
 
-    fn intersect(
-        &self,
-        compiled: &CompiledAutomaton,
-        start_term: Option<&BytesRef<Vec<u8>>>,
-    ) -> Result<Self::IntersectIter> {
-        self.default_intersect(compiled, start_term)
-    }
+  fn intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<Self::IntersectIter> {
+    self.default_intersect(compiled, start_term)
+  }
 
-    fn size(&self) -> Result<i64> {
-        Ok(0)
-    }
+  fn size(&self) -> Result<i64> {
+    Ok(0)
+  }
 
-    fn get_sum_total_term_freq(&self) -> Result<i64> {
-        Ok(0)
-    }
+  fn get_sum_total_term_freq(&self) -> Result<i64> {
+    Ok(0)
+  }
 
-    fn get_sum_doc_freq(&self) -> Result<i64> {
-        Ok(0)
-    }
+  fn get_sum_doc_freq(&self) -> Result<i64> {
+    Ok(0)
+  }
 
-    fn get_doc_count(&self) -> Result<i32> {
-        Ok(0)
-    }
+  fn get_doc_count(&self) -> Result<i32> {
+    Ok(0)
+  }
 
-    fn has_freqs(&self) -> bool {
-        false
-    }
+  fn has_freqs(&self) -> bool {
+    false
+  }
 
-    fn has_offsets(&self) -> bool {
-        false
-    }
+  fn has_offsets(&self) -> bool {
+    false
+  }
 
-    fn has_positions(&self) -> bool {
-        false
-    }
+  fn has_positions(&self) -> bool {
+    false
+  }
 
-    fn has_payloads(&self) -> bool {
-        false
-    }
+  fn has_payloads(&self) -> bool {
+    false
+  }
 }
 
 macro_rules! either_terms {

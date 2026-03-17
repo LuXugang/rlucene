@@ -37,53 +37,53 @@ use crate::core::util::error::lucene_error::Result;
 /// [Lucene BKD wiki]: https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=173081898
 pub struct Lucene90PointsFormat;
 impl Default for Lucene90PointsFormat {
-    fn default() -> Self {
-        Lucene90PointsFormat
-    }
+  fn default() -> Self {
+    Lucene90PointsFormat
+  }
 }
 
 impl Lucene90PointsFormat {
-    pub(crate) const DATA_CODEC_NAME: &'static str = "Lucene90PointsFormatData";
-    pub(crate) const INDEX_CODEC_NAME: &'static str = "Lucene90PointsFormatIndex";
-    pub(crate) const META_CODEC_NAME: &'static str = "Lucene90PointsFormatMeta";
+  pub(crate) const DATA_CODEC_NAME: &'static str = "Lucene90PointsFormatData";
+  pub(crate) const INDEX_CODEC_NAME: &'static str = "Lucene90PointsFormatIndex";
+  pub(crate) const META_CODEC_NAME: &'static str = "Lucene90PointsFormatMeta";
 
-    /// Filename extension for the leaf blocks
-    pub(crate) const DATA_EXTENSION: &'static str = "kdd";
-    /// Filename extension for the index per field
-    pub(crate) const INDEX_EXTENSION: &'static str = "kdi";
-    /// Filename extension for the meta per field
-    pub(crate) const META_EXTENSION: &'static str = "kdm";
+  /// Filename extension for the leaf blocks
+  pub(crate) const DATA_EXTENSION: &'static str = "kdd";
+  /// Filename extension for the index per field
+  pub(crate) const INDEX_EXTENSION: &'static str = "kdi";
+  /// Filename extension for the meta per field
+  pub(crate) const META_EXTENSION: &'static str = "kdm";
 
-    pub(crate) const VERSION_START: i32 = 0;
-    pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
+  pub(crate) const VERSION_START: i32 = 0;
+  pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
 }
 
 impl PointsFormat for Lucene90PointsFormat {
-    type PointsWriter<T: IndexOutput> = Lucene90PointsWriter<T>;
+  type PointsWriter<T: IndexOutput> = Lucene90PointsWriter<T>;
 
-    fn fields_writer<D1, D2>(
-        &self,
-        state: &SegmentWriteState<D1>,
-        info: &SegmentInfo<D2>,
-    ) -> Result<Self::PointsWriter<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        Lucene90PointsWriter::with_default_config(state, info)
-    }
+  fn fields_writer<D1, D2>(
+    &self,
+    state: &SegmentWriteState<D1>,
+    info: &SegmentInfo<D2>,
+  ) -> Result<Self::PointsWriter<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    Lucene90PointsWriter::with_default_config(state, info)
+  }
 
-    type PointsReader<T: IndexInput> = Lucene90PointsReader<T>;
+  type PointsReader<T: IndexInput> = Lucene90PointsReader<T>;
 
-    fn fields_reader<D1, D2>(
-        &self,
-        state: &SegmentReadState<D1>,
-        info: &SegmentInfo<D2>,
-    ) -> Result<Self::PointsReader<D1::IndexInput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        Lucene90PointsReader::new(state, info)
-    }
+  fn fields_reader<D1, D2>(
+    &self,
+    state: &SegmentReadState<D1>,
+    info: &SegmentInfo<D2>,
+  ) -> Result<Self::PointsReader<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    Lucene90PointsReader::new(state, info)
+  }
 }

@@ -21,35 +21,35 @@ use crate::core::util::attribute_source::Attributes;
 pub struct DummyTokenStream;
 
 impl TokenStream for DummyTokenStream {
-    fn increment_token(&mut self) -> crate::core::util::error::lucene_error::Result<bool> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn increment_token(&mut self) -> crate::core::util::error::lucene_error::Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn end(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn end(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn default_end(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn default_end(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn reset(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn reset(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn default_reset(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn default_reset(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn close(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn close(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_attribute_source(&self) -> &Attributes {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_attribute_source(&self) -> &Attributes {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_attribute_source_mut(&mut self) -> &mut Attributes {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

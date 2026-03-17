@@ -16,5 +16,5 @@
  */
 use crate::core::util::error::lucene_error::Result;
 pub trait IntConsumer {
-    fn accept(&mut self, value: i32) -> Result<()>;
+  fn accept(&mut self, value: i32) -> Result<()>;
 }

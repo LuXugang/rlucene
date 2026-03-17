@@ -34,199 +34,198 @@ use std::borrow::Cow;
 use std::fmt;
 
 pub mod double_field_type {
-    use crate::core::document::field_type::FieldType;
-    use crate::core::index::doc_values_type::DocValuesType;
-    use crate::core::util::bit_util::BitUtil;
-    use once_cell::sync::Lazy;
+  use crate::core::document::field_type::FieldType;
+  use crate::core::index::doc_values_type::DocValuesType;
+  use crate::core::util::bit_util::BitUtil;
+  use once_cell::sync::Lazy;
 
-    pub static FIELD_TYPE: Lazy<FieldType> = Lazy::new(|| {
-        let mut ft = FieldType::new();
-        ft.set_dimensions(1, BitUtil::DOUBLE_BYTES)
-            .expect("set_dimensions should not fail");
-        ft.set_doc_values_type(DocValuesType::SortedNumeric)
-            .expect("set_doc_values_type should not fail");
-        ft.freeze();
-        ft
-    });
+  pub static FIELD_TYPE: Lazy<FieldType> = Lazy::new(|| {
+    let mut ft = FieldType::new();
+    ft.set_dimensions(1, BitUtil::DOUBLE_BYTES)
+      .expect("set_dimensions should not fail");
+    ft.set_doc_values_type(DocValuesType::SortedNumeric)
+      .expect("set_doc_values_type should not fail");
+    ft.freeze();
+    ft
+  });
 
-    /// Indexed as SortedNumeric DocValue, and stored.
-    pub static FIELD_TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
-        let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("should not fail");
-        ft.set_stored(true)
-            .expect("set_stored(true) should not fail");
-        ft.freeze();
-        ft
-    });
+  /// Indexed as SortedNumeric DocValue, and stored.
+  pub static FIELD_TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
+    let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("should not fail");
+    ft.set_stored(true)
+      .expect("set_stored(true) should not fail");
+    ft.freeze();
+    ft
+  });
 }
 pub struct DoubleField {
-    parent_field: Field,
-    stored_value: Option<FieldDataEnum>,
+  parent_field: Field,
+  stored_value: Option<FieldDataEnum>,
 }
 
 impl DoubleField {
-    /// Creates a new `DoubleField`, indexing the provided value,
-    /// storing it as a DocValue, and optionally as a stored field.
-    pub fn new<T>(name: T, value: f64, stored: Store) -> Result<DoubleField>
-    where
-        T: Into<String>,
-    {
-        let stored = stored.into();
-        let (field_type, stored_value) = if stored {
-            (
-                double_field_type::FIELD_TYPE_STORED.clone(),
-                Some(value.into()),
-            )
-        } else {
-            (double_field_type::FIELD_TYPE.clone(), None)
-        };
-        let sortable_long = NumericUtils::double_to_sortable_long(value);
-        let parent_field = Field::new(name, sortable_long, field_type);
-        Ok(DoubleField {
-            parent_field,
-            stored_value,
-        })
-    }
+  /// Creates a new `DoubleField`, indexing the provided value,
+  /// storing it as a DocValue, and optionally as a stored field.
+  pub fn new<T>(name: T, value: f64, stored: Store) -> Result<DoubleField>
+  where
+    T: Into<String>,
+  {
+    let stored = stored.into();
+    let (field_type, stored_value) = if stored {
+      (
+        double_field_type::FIELD_TYPE_STORED.clone(),
+        Some(value.into()),
+      )
+    } else {
+      (double_field_type::FIELD_TYPE.clone(), None)
+    };
+    let sortable_long = NumericUtils::double_to_sortable_long(value);
+    let parent_field = Field::new(name, sortable_long, field_type);
+    Ok(DoubleField {
+      parent_field,
+      stored_value,
+    })
+  }
 
-    /// Convert the stored sortable long back into a double.
-    fn get_value_as_double(&self) -> Result<f64> {
-        match self.numeric_value()? {
-            None => Err(LuceneError::illegal_state(
-                "field does not have a numeric value",
-            )),
-            Some(n) => match n {
-                Number::I64(v) => Ok(NumericUtils::sortable_long_to_double(v)),
-                _ => Err(LuceneError::illegal_state(
-                    "numeric value is not a long sortable double".to_string(),
-                )),
-            },
-        }
+  /// Convert the stored sortable long back into a double.
+  fn get_value_as_double(&self) -> Result<f64> {
+    match self.numeric_value()? {
+      None => Err(LuceneError::illegal_state(
+        "field does not have a numeric value",
+      )),
+      Some(n) => match n {
+        Number::I64(v) => Ok(NumericUtils::sortable_long_to_double(v)),
+        _ => Err(LuceneError::illegal_state(
+          "numeric value is not a long sortable double".to_string(),
+        )),
+      },
     }
-    pub fn new_exact_query(field: &str, value: f64) -> Result<IndexOrDocValuesQuery> {
-        Self::new_range_query(field, value, value)
-    }
-    pub fn new_range_query(
-        field: &str,
-        lower_value: f64,
-        upper_value: f64,
-    ) -> Result<IndexOrDocValuesQuery> {
-        // not required in Rust Lucene
-        // check_args(field, lower_value, upper_value)?;
+  }
+  pub fn new_exact_query(field: &str, value: f64) -> Result<IndexOrDocValuesQuery> {
+    Self::new_range_query(field, value, value)
+  }
+  pub fn new_range_query(
+    field: &str,
+    lower_value: f64,
+    upper_value: f64,
+  ) -> Result<IndexOrDocValuesQuery> {
+    // not required in Rust Lucene
+    // check_args(field, lower_value, upper_value)?;
 
-        Ok(IndexOrDocValuesQuery::new(
-            DoublePoint::new_range_query(field, lower_value, upper_value)?,
-            SortedNumericDocValuesField::new_slow_range_query(
-                field,
-                NumericUtils::double_to_sortable_long(lower_value),
-                NumericUtils::double_to_sortable_long(upper_value),
-            ),
-        ))
-    }
+    Ok(IndexOrDocValuesQuery::new(
+      DoublePoint::new_range_query(field, lower_value, upper_value)?,
+      SortedNumericDocValuesField::new_slow_range_query(
+        field,
+        NumericUtils::double_to_sortable_long(lower_value),
+        NumericUtils::double_to_sortable_long(upper_value),
+      ),
+    ))
+  }
 }
 
 impl FieldBase for DoubleField {
-    fn set_double_value(&mut self, value: f64) -> Result<()> {
-        let sortable = NumericUtils::double_to_sortable_long(value);
-        self.parent_field.set_long_value(sortable)?;
-        if self.stored_value.is_some() {
-            self.stored_value = Some(value.into());
-        }
-        Ok(())
+  fn set_double_value(&mut self, value: f64) -> Result<()> {
+    let sortable = NumericUtils::double_to_sortable_long(value);
+    self.parent_field.set_long_value(sortable)?;
+    if self.stored_value.is_some() {
+      self.stored_value = Some(value.into());
     }
+    Ok(())
+  }
 
-    fn set_long_value(&mut self, _value: i64) -> Result<()> {
-        Err(LuceneError::illegal_argument(
-            "cannot change value type from Double to Long",
-        ))
-    }
+  fn set_long_value(&mut self, _value: i64) -> Result<()> {
+    Err(LuceneError::illegal_argument(
+      "cannot change value type from Double to Long",
+    ))
+  }
 }
 
 impl IndexableField for DoubleField {
-    fn name(&self) -> &str {
-        self.parent_field.name()
-    }
+  fn name(&self) -> &str {
+    self.parent_field.name()
+  }
 
-    type FieldType = FieldType;
+  type FieldType = FieldType;
 
-    fn field_type(&self) -> &Self::FieldType {
-        self.parent_field.field_type()
-    }
+  fn field_type(&self) -> &Self::FieldType {
+    self.parent_field.field_type()
+  }
 
-    type TokenStream = <Field as IndexableField>::TokenStream;
+  type TokenStream = <Field as IndexableField>::TokenStream;
 
-    fn token_stream<'a>(
-        &'a mut self,
-        token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
-    {
-        self.parent_field.token_stream(token_stream)
-    }
+  fn token_stream<'a>(
+    &'a mut self,
+    token_stream: Option<&'a mut InnerTokenStreams>,
+  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
+    self.parent_field.token_stream(token_stream)
+  }
 
-    fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        let mut encode_point = vec![0u8; BitUtil::DOUBLE_BYTES];
-        let value = self.get_value_as_double()?;
-        DoublePoint::encode_dimension(value, &mut encode_point, 0);
-        Ok(Some(Cow::Owned(BytesRef::from_bytes(encode_point))))
-    }
+  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    let mut encode_point = vec![0u8; BitUtil::DOUBLE_BYTES];
+    let value = self.get_value_as_double()?;
+    DoublePoint::encode_dimension(value, &mut encode_point, 0);
+    Ok(Some(Cow::Owned(BytesRef::from_bytes(encode_point))))
+  }
 
-    fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-        self.binary_value().map(|v| v.map(|c| c.into_owned()))
-    }
+  fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+    self.binary_value().map(|v| v.map(|c| c.into_owned()))
+  }
 
-    fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
-        self.parent_field.string_value()
-    }
+  fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.parent_field.string_value()
+  }
 
-    fn take_string_value(&mut self) -> Result<Option<String>> {
-        self.parent_field.take_string_value()
-    }
+  fn take_string_value(&mut self) -> Result<Option<String>> {
+    self.parent_field.take_string_value()
+  }
 
-    fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
-        self.parent_field.take_reader_value()
-    }
+  fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
+    self.parent_field.take_reader_value()
+  }
 
-    fn numeric_value(&self) -> Result<Option<Number>> {
-        self.parent_field.numeric_value()
-    }
+  fn numeric_value(&self) -> Result<Option<Number>> {
+    self.parent_field.numeric_value()
+  }
 
-    fn stored_value(&self) -> Option<&FieldDataEnum> {
-        self.stored_value.as_ref()
-    }
+  fn stored_value(&self) -> Option<&FieldDataEnum> {
+    self.stored_value.as_ref()
+  }
 
-    fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-        self.parent_field.take_stored_value()
-    }
+  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
+    self.parent_field.take_stored_value()
+  }
 
-    fn invertable_type(&self) -> &InvertableType {
-        self.parent_field.invertable_type()
-    }
+  fn invertable_type(&self) -> &InvertableType {
+    self.parent_field.invertable_type()
+  }
 
-    fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-    where
-        A: Analyzer,
-    {
-        self.parent_field.init_token_stream(analyzer)
-    }
+  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
+  where
+    A: Analyzer,
+  {
+    self.parent_field.init_token_stream(analyzer)
+  }
 }
 
 impl fmt::Display for DoubleField {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let v = self.get_value_as_double().expect("should get double value");
-        write!(
-            f,
-            "{} <{}:{}>",
-            std::any::type_name::<Self>(),
-            self.parent_field.name(),
-            v
-        )
-    }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let v = self.get_value_as_double().expect("should get double value");
+    write!(
+      f,
+      "{} <{}:{}>",
+      std::any::type_name::<Self>(),
+      self.parent_field.name(),
+      v
+    )
+  }
 }
 
 #[cfg(test)]
 impl Clone for DoubleField {
-    fn clone(&self) -> Self {
-        Self {
-            parent_field: self.parent_field.clone(),
-            stored_value: self.stored_value.clone(),
-        }
+  fn clone(&self) -> Self {
+    Self {
+      parent_field: self.parent_field.clone(),
+      stored_value: self.stored_value.clone(),
     }
+  }
 }

@@ -22,22 +22,22 @@ use crate::core::store::data_output::DataOutput;
 use crate::core::util::error::lucene_error::Result;
 /// A [`DataOutput`] wrapping a plain [`OutputStream`](Write).
 pub struct OutputStreamDataOutput<W: Write> {
-    pub os: BufWriter<W>,
+  pub os: BufWriter<W>,
 }
 impl<W: Write> OutputStreamDataOutput<W> {
-    pub fn new(os: W) -> OutputStreamDataOutput<W> {
-        OutputStreamDataOutput {
-            os: BufWriter::new(os),
-        }
+  pub fn new(os: W) -> OutputStreamDataOutput<W> {
+    OutputStreamDataOutput {
+      os: BufWriter::new(os),
     }
+  }
 }
 impl<W: Write> DataOutput for OutputStreamDataOutput<W> {
-    fn write_byte(&mut self, b: u8) -> Result<()> {
-        Ok(self.os.write_u8(b)?)
-    }
+  fn write_byte(&mut self, b: u8) -> Result<()> {
+    Ok(self.os.write_u8(b)?)
+  }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
-        let end = offset + length;
-        Ok(self.os.write_all(&b[offset..end])?)
-    }
+  fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
+    let end = offset + length;
+    Ok(self.os.write_all(&b[offset..end])?)
+  }
 }

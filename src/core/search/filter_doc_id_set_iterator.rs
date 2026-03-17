@@ -21,35 +21,35 @@ use crate::core::util::error::lucene_error::Result;
 #[allow(dead_code)]
 pub struct FilterDocIdSetIterator<D>
 where
-    D: DocIdSetIterator,
+  D: DocIdSetIterator,
 {
-    in_: D,
+  in_: D,
 }
 impl<D> FilterDocIdSetIterator<D>
 where
-    D: DocIdSetIterator,
+  D: DocIdSetIterator,
 {
-    pub fn new(in_: D) -> Self {
-        Self { in_ }
-    }
+  pub fn new(in_: D) -> Self {
+    Self { in_ }
+  }
 }
 impl<D> DocIdSetIterator for FilterDocIdSetIterator<D>
 where
-    D: DocIdSetIterator,
+  D: DocIdSetIterator,
 {
-    fn doc_id(&self) -> i32 {
-        self.in_.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.in_.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.in_.next_doc()
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.in_.next_doc()
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.in_.advance(target)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.in_.advance(target)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.in_.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.in_.cost()
+  }
 }

@@ -54,68 +54,68 @@ use derive_getters::Getters;
 ///   and never exceeds `sum_total_term_freq()`. See [`Terms::sum_doc_freq()`](crate::core::index::terms::Terms::get_sum_doc_freq).
 #[derive(Getters)]
 pub struct CollectionStatistics {
-    field: String,
+  field: String,
+  max_doc: i64,
+  doc_count: i64,
+  sum_total_term_freq: i64,
+  sum_doc_freq: i64,
+}
+
+impl CollectionStatistics {
+  /// Creates statistics instance for a collection (field).
+  pub fn new<T>(
+    field: T,
     max_doc: i64,
     doc_count: i64,
     sum_total_term_freq: i64,
     sum_doc_freq: i64,
-}
-
-impl CollectionStatistics {
-    /// Creates statistics instance for a collection (field).
-    pub fn new<T>(
-        field: T,
-        max_doc: i64,
-        doc_count: i64,
-        sum_total_term_freq: i64,
-        sum_doc_freq: i64,
-    ) -> Result<Self>
-    where
-        T: Into<String>,
-    {
-        let field = field.into();
-        if max_doc <= 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "maxDoc must be positive, maxDoc: {max_doc}"
-            )));
-        }
-        if doc_count <= 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "docCount must be positive, docCount: {doc_count}"
-            )));
-        }
-        if doc_count > max_doc {
-            return Err(LuceneError::illegal_argument(format!(
-                "docCount must not exceed maxDoc, docCount: {doc_count}, maxDoc: {max_doc}"
-            )));
-        }
-        if sum_doc_freq <= 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "sumDocFreq must be positive, sumDocFreq: {sum_doc_freq}"
-            )));
-        }
-        if sum_doc_freq < doc_count {
-            return Err(LuceneError::illegal_argument(format!(
-                "sumDocFreq must be at least docCount, sumDocFreq: {sum_doc_freq}, docCount: {doc_count}"
-            )));
-        }
-        if sum_total_term_freq <= 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "sumTotalTermFreq must be positive, sumTotalTermFreq: {sum_total_term_freq}"
-            )));
-        }
-        if sum_total_term_freq < sum_doc_freq {
-            return Err(LuceneError::illegal_argument(format!(
-                "sumTotalTermFreq must be at least sumDocFreq, sumTotalTermFreq: {sum_total_term_freq}, sumDocFreq: {sum_doc_freq}"
-            )));
-        }
-
-        Ok(CollectionStatistics {
-            field,
-            max_doc,
-            doc_count,
-            sum_total_term_freq,
-            sum_doc_freq,
-        })
+  ) -> Result<Self>
+  where
+    T: Into<String>,
+  {
+    let field = field.into();
+    if max_doc <= 0 {
+      return Err(LuceneError::illegal_argument(format!(
+        "maxDoc must be positive, maxDoc: {max_doc}"
+      )));
     }
+    if doc_count <= 0 {
+      return Err(LuceneError::illegal_argument(format!(
+        "docCount must be positive, docCount: {doc_count}"
+      )));
+    }
+    if doc_count > max_doc {
+      return Err(LuceneError::illegal_argument(format!(
+        "docCount must not exceed maxDoc, docCount: {doc_count}, maxDoc: {max_doc}"
+      )));
+    }
+    if sum_doc_freq <= 0 {
+      return Err(LuceneError::illegal_argument(format!(
+        "sumDocFreq must be positive, sumDocFreq: {sum_doc_freq}"
+      )));
+    }
+    if sum_doc_freq < doc_count {
+      return Err(LuceneError::illegal_argument(format!(
+        "sumDocFreq must be at least docCount, sumDocFreq: {sum_doc_freq}, docCount: {doc_count}"
+      )));
+    }
+    if sum_total_term_freq <= 0 {
+      return Err(LuceneError::illegal_argument(format!(
+        "sumTotalTermFreq must be positive, sumTotalTermFreq: {sum_total_term_freq}"
+      )));
+    }
+    if sum_total_term_freq < sum_doc_freq {
+      return Err(LuceneError::illegal_argument(format!(
+        "sumTotalTermFreq must be at least sumDocFreq, sumTotalTermFreq: {sum_total_term_freq}, sumDocFreq: {sum_doc_freq}"
+      )));
+    }
+
+    Ok(CollectionStatistics {
+      field,
+      max_doc,
+      doc_count,
+      sum_total_term_freq,
+      sum_doc_freq,
+    })
+  }
 }

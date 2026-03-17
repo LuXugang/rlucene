@@ -22,17 +22,17 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyBulkScorer;
 
 impl BulkScorer for DummyBulkScorer {
-    fn score(
-        &mut self,
-        _collector: &mut dyn LeafCollector,
-        _accept_docs: Option<&dyn Bits>,
-        _min: i32,
-        _max: i32,
-    ) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn score(
+    &mut self,
+    _collector: &mut dyn LeafCollector,
+    _accept_docs: Option<&dyn Bits>,
+    _min: i32,
+    _max: i32,
+  ) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn cost(&mut self) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn cost(&mut self) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

@@ -24,83 +24,83 @@ use crate::core::util::{Comparator, SliceCopyOps, Sorter, TimSorter, TimSorterBa
 /// This is an internal API.
 pub struct ArrayTimSorter<'a, T, C: Comparator<T>>
 where
-    T: Copy,
+  T: Copy,
 {
-    arr: &'a mut [T],
-    tmp: Vec<T>,
-    comparator: C,
-    pivot_index: usize,
-    max_temp_slots: usize,
+  arr: &'a mut [T],
+  tmp: Vec<T>,
+  comparator: C,
+  pivot_index: usize,
+  max_temp_slots: usize,
 }
 impl<'a, T, C: Comparator<T>> ArrayTimSorter<'a, T, C>
 where
-    T: Copy,
+  T: Copy,
 {
-    pub fn new(
-        arr: &'a mut [T],
-        comparator: C,
-        max_temp_slots: usize,
-    ) -> TimSorter<ArrayTimSorter<'a, T, C>> {
-        let tmp = if max_temp_slots > 0 {
-            Vec::with_capacity(max_temp_slots)
-        } else {
-            vec![]
-        };
-        let sub = ArrayTimSorter {
-            arr,
-            tmp,
-            comparator,
-            pivot_index: 0,
-            max_temp_slots,
-        };
-        TimSorter::new(max_temp_slots, sub)
-    }
+  pub fn new(
+    arr: &'a mut [T],
+    comparator: C,
+    max_temp_slots: usize,
+  ) -> TimSorter<ArrayTimSorter<'a, T, C>> {
+    let tmp = if max_temp_slots > 0 {
+      Vec::with_capacity(max_temp_slots)
+    } else {
+      vec![]
+    };
+    let sub = ArrayTimSorter {
+      arr,
+      tmp,
+      comparator,
+      pivot_index: 0,
+      max_temp_slots,
+    };
+    TimSorter::new(max_temp_slots, sub)
+  }
 }
 impl<T, C: Comparator<T>> Sorter for ArrayTimSorter<'_, T, C>
 where
-    T: Copy,
+  T: Copy,
 {
-    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
-        self.comparator.compare(&self.arr[i], &self.arr[j])
-    }
+  fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+    self.comparator.compare(&self.arr[i], &self.arr[j])
+  }
 
-    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-        self.arr.swap(i, j);
-        Ok(())
-    }
+  fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+    self.arr.swap(i, j);
+    Ok(())
+  }
 
-    fn set_pivot(&mut self, i: usize) -> Result<()> {
-        self.pivot_index = i;
-        Ok(())
-    }
+  fn set_pivot(&mut self, i: usize) -> Result<()> {
+    self.pivot_index = i;
+    Ok(())
+  }
 
-    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
-        self.compare(self.pivot_index, j)
-    }
+  fn compare_pivot(&mut self, j: usize) -> Result<i32> {
+    self.compare(self.pivot_index, j)
+  }
 }
 impl<T, C: Comparator<T>> TimSorterBase for ArrayTimSorter<'_, T, C>
 where
-    T: Copy,
+  T: Copy,
 {
-    fn copy(&mut self, src: usize, dest: usize) {
-        self.arr[dest] = self.arr[src];
-    }
+  fn copy(&mut self, src: usize, dest: usize) {
+    self.arr[dest] = self.arr[src];
+  }
 
-    fn save(&mut self, start: usize, len: usize) {
-        let tmp_len = self.tmp.len();
-        if tmp_len < self.max_temp_slots {
-            for _ in 0..(self.max_temp_slots - tmp_len) {
-                self.tmp.push(self.arr[start]);
-            }
-        }
-        self.tmp.copy_from(&self.arr[start..start + len], 0);
+  fn save(&mut self, start: usize, len: usize) {
+    let tmp_len = self.tmp.len();
+    if tmp_len < self.max_temp_slots {
+      for _ in 0..(self.max_temp_slots - tmp_len) {
+        self.tmp.push(self.arr[start]);
+      }
     }
+    self.tmp.copy_from(&self.arr[start..start + len], 0);
+  }
 
-    fn restore(&mut self, src: usize, dest: usize) {
-        self.arr[dest] = self.tmp[src];
-    }
+  fn restore(&mut self, src: usize, dest: usize) {
+    self.arr[dest] = self.tmp[src];
+  }
 
-    fn compare_saved(&self, i: usize, j: usize) -> Result<i32> {
-        self.comparator.compare(&self.tmp[i], &self.arr[j])
-    }
+  fn compare_saved(&self, i: usize, j: usize) -> Result<i32> {
+    self.comparator.compare(&self.tmp[i], &self.arr[j])
+  }
 }

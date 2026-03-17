@@ -28,12 +28,12 @@ use crate::core::util::attribute::Attribute;
 ///
 /// See also: [`PostingsEnum`](crate::core::index::postings_enum::PostingsEnum)
 pub trait PayloadAttribute: Attribute {
-    /// Returns this token's payload.
-    ///
-    /// See also: [`Self::set_payload`]
-    fn get_payload(&self) -> &BytesRef<Vec<u8>>;
-    /// Sets this token's payload.
-    ///
-    /// See also: [`Self::get_payload`]
-    fn set_payload(&mut self, payload: BytesRef<Vec<u8>>);
+  /// Returns this token's payload.
+  ///
+  /// See also: [`Self::set_payload`]
+  fn get_payload(&self) -> &BytesRef<Vec<u8>>;
+  /// Sets this token's payload.
+  ///
+  /// See also: [`Self::get_payload`]
+  fn set_payload(&mut self, payload: BytesRef<Vec<u8>>);
 }

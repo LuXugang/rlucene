@@ -19,45 +19,45 @@ use crate::core::util::error::lucene_error::Result;
 
 /// A trait for scoring random nodes in batches against an abstract query.
 pub trait RandomVectorScorer {
-    /// Returns the score between the query and the provided node.
-    ///
-    /// # Arguments
-    ///
-    /// * `node` - a random node in the graph
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the scoring fails (e.g., I/O error).
-    fn score(&self, node: usize) -> Result<f32>;
+  /// Returns the score between the query and the provided node.
+  ///
+  /// # Arguments
+  ///
+  /// * `node` - a random node in the graph
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the scoring fails (e.g., I/O error).
+  fn score(&self, node: usize) -> Result<f32>;
 
-    /// Returns the maximum possible ordinal for this scorer.
-    fn max_ord(&self) -> usize;
+  /// Returns the maximum possible ordinal for this scorer.
+  fn max_ord(&self) -> usize;
 
-    /// Translates a vector ordinal to the correct document ID.  
-    /// By default, this is an identity function.
-    ///
-    /// # Arguments
-    ///
-    /// * `ord` - The vector ordinal.
-    ///
-    /// # Returns
-    ///
-    /// The document ID for the given vector ordinal.
-    fn ord_to_doc(&self, ord: i32) -> i32 {
-        ord
-    }
+  /// Translates a vector ordinal to the correct document ID.  
+  /// By default, this is an identity function.
+  ///
+  /// # Arguments
+  ///
+  /// * `ord` - The vector ordinal.
+  ///
+  /// # Returns
+  ///
+  /// The document ID for the given vector ordinal.
+  fn ord_to_doc(&self, ord: i32) -> i32 {
+    ord
+  }
 
-    type Bits: Bits;
-    type BitsR: Bits;
-    /// Returns the [`Bits`] representing live documents.  
-    /// By default, this is an identity function.
-    ///
-    /// # Arguments
-    ///
-    /// * `accept_docs` - The accept docs.
-    ///
-    /// # Returns
-    ///
-    /// The accept docs.
-    fn get_accept_ords(&self, accept_docs: Self::Bits) -> Self::Bits;
+  type Bits: Bits;
+  type BitsR: Bits;
+  /// Returns the [`Bits`] representing live documents.  
+  /// By default, this is an identity function.
+  ///
+  /// # Arguments
+  ///
+  /// * `accept_docs` - The accept docs.
+  ///
+  /// # Returns
+  ///
+  /// The accept docs.
+  fn get_accept_ords(&self, accept_docs: Self::Bits) -> Self::Bits;
 }

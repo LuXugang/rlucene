@@ -21,107 +21,107 @@ use crate::core::util::{BYTE_BLOCK_SIZE, Counter, SharedCounter};
 /// in use.  */
 #[derive(Debug)]
 pub struct DirectTrackingAllocatorByte {
-    block_size: usize,
-    pub(crate) byte_used: SharedCounter,
+  block_size: usize,
+  pub(crate) byte_used: SharedCounter,
 }
 
 impl DirectTrackingAllocatorByte {
-    pub fn new(byte_used: SharedCounter) -> Self {
-        DirectTrackingAllocatorByte {
-            block_size: BYTE_BLOCK_SIZE as usize,
-            byte_used,
-        }
+  pub fn new(byte_used: SharedCounter) -> Self {
+    DirectTrackingAllocatorByte {
+      block_size: BYTE_BLOCK_SIZE as usize,
+      byte_used,
     }
-    pub fn allocator_enum(byte_used: SharedCounter) -> AllocatorByteEnum {
-        AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used))
-    }
+  }
+  pub fn allocator_enum(byte_used: SharedCounter) -> AllocatorByteEnum {
+    AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used))
+  }
 }
 
 impl AllocatorByte for DirectTrackingAllocatorByte {
-    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: usize, end: usize) {
-        let delta = (end - start) as i64 * self.block_size as i64;
-        self.byte_used.add_and_get(-delta);
-    }
+  fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: usize, end: usize) {
+    let delta = (end - start) as i64 * self.block_size as i64;
+    self.byte_used.add_and_get(-delta);
+  }
 
-    fn get_byte_block(&mut self) -> Vec<u8> {
-        self.byte_used.add_and_get(self.block_size as i64);
-        vec![0; self.block_size]
-    }
+  fn get_byte_block(&mut self) -> Vec<u8> {
+    self.byte_used.add_and_get(self.block_size as i64);
+    vec![0; self.block_size]
+  }
 
-    fn get_block_size(&self) -> usize {
-        self.block_size
-    }
+  fn get_block_size(&self) -> usize {
+    self.block_size
+  }
 }
 
 /// Abstract trait for allocating and freeing byte blocks.
 pub trait AllocatorByte {
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize);
-    fn get_byte_block(&mut self) -> Vec<u8>;
-    fn get_block_size(&self) -> usize;
+  fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize);
+  fn get_byte_block(&mut self) -> Vec<u8>;
+  fn get_block_size(&self) -> usize;
 }
 
 /// A simple [`AllocatorByte`] that never recycles.  */
 #[derive(Debug)]
 pub struct DirectAllocatorByte {
-    block_size: usize,
+  block_size: usize,
 }
 
 impl Default for DirectAllocatorByte {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl DirectAllocatorByte {
-    pub fn new() -> Self {
-        DirectAllocatorByte {
-            block_size: BYTE_BLOCK_SIZE as usize,
-        }
+  pub fn new() -> Self {
+    DirectAllocatorByte {
+      block_size: BYTE_BLOCK_SIZE as usize,
     }
+  }
 }
 
 impl AllocatorByte for DirectAllocatorByte {
-    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], _start: usize, _end: usize) {}
+  fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], _start: usize, _end: usize) {}
 
-    fn get_byte_block(&mut self) -> Vec<u8> {
-        vec![0; self.block_size]
-    }
+  fn get_byte_block(&mut self) -> Vec<u8> {
+    vec![0; self.block_size]
+  }
 
-    fn get_block_size(&self) -> usize {
-        self.block_size
-    }
+  fn get_block_size(&self) -> usize {
+    self.block_size
+  }
 }
 
 #[derive(Debug)]
 pub enum AllocatorByteEnum {
-    DA(DirectAllocatorByte),
-    DTA(DirectTrackingAllocatorByte),
+  DA(DirectAllocatorByte),
+  DTA(DirectTrackingAllocatorByte),
 }
 impl AllocatorByteEnum {
-    pub fn get_used(&self) -> i64 {
-        match self {
-            AllocatorByteEnum::DA(_da) => 0,
-            AllocatorByteEnum::DTA(dta) => dta.byte_used.get(),
-        }
+  pub fn get_used(&self) -> i64 {
+    match self {
+      AllocatorByteEnum::DA(_da) => 0,
+      AllocatorByteEnum::DTA(dta) => dta.byte_used.get(),
     }
+  }
 }
 impl AllocatorByte for AllocatorByteEnum {
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize) {
-        match self {
-            AllocatorByteEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
-            AllocatorByteEnum::DTA(dta) => dta.recycle_byte_blocks(blocks, start, end),
-        }
+  fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize) {
+    match self {
+      AllocatorByteEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
+      AllocatorByteEnum::DTA(dta) => dta.recycle_byte_blocks(blocks, start, end),
     }
-    fn get_byte_block(&mut self) -> Vec<u8> {
-        match self {
-            AllocatorByteEnum::DA(da) => da.get_byte_block(),
-            AllocatorByteEnum::DTA(dta) => dta.get_byte_block(),
-        }
+  }
+  fn get_byte_block(&mut self) -> Vec<u8> {
+    match self {
+      AllocatorByteEnum::DA(da) => da.get_byte_block(),
+      AllocatorByteEnum::DTA(dta) => dta.get_byte_block(),
     }
-    fn get_block_size(&self) -> usize {
-        match self {
-            AllocatorByteEnum::DA(da) => da.get_block_size(),
-            AllocatorByteEnum::DTA(dta) => dta.get_block_size(),
-        }
+  }
+  fn get_block_size(&self) -> usize {
+    match self {
+      AllocatorByteEnum::DA(da) => da.get_block_size(),
+      AllocatorByteEnum::DTA(dta) => dta.get_block_size(),
     }
+  }
 }

@@ -39,367 +39,364 @@ use std::sync::Arc;
 
 pub struct BooleanWeight<IRC>
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    pub(crate) similarity: Arc<SimilarityEnum>,
-    pub(crate) weighted_clauses: Vec<WeightedBooleanClause<IRC>>,
-    pub(crate) query: BooleanQuery,
-    pub(crate) score_mode: ScoreMode,
+  pub(crate) similarity: Arc<SimilarityEnum>,
+  pub(crate) weighted_clauses: Vec<WeightedBooleanClause<IRC>>,
+  pub(crate) query: BooleanQuery,
+  pub(crate) score_mode: ScoreMode,
 }
 
 impl<IRC> BooleanWeight<IRC>
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    /// Return the number of matches of required clauses, or -1 if unknown, or numDocs if there are no
-    /// required clauses.
-    fn req_count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-        let num_docs = context.reader().num_docs()?;
-        let mut req_count = num_docs;
+  /// Return the number of matches of required clauses, or -1 if unknown, or numDocs if there are no
+  /// required clauses.
+  fn req_count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+    let num_docs = context.reader().num_docs()?;
+    let mut req_count = num_docs;
 
-        for weighted_clause in &self.weighted_clauses {
-            if !weighted_clause.clause.is_required() {
-                continue;
-            }
+    for weighted_clause in &self.weighted_clauses {
+      if !weighted_clause.clause.is_required() {
+        continue;
+      }
 
-            let count = weighted_clause.weight.count(context)?;
+      let count = weighted_clause.weight.count(context)?;
 
-            if count == -1 || count == 0 {
-                // If the count of one clause is unknown, then the count of the conjunction is unknown
-                // too. If one clause doesn't match any docs then the conjunction doesn't match any docs
-                // either.
-                return Ok(count);
-            } else if count == num_docs {
-                // the query matches all docs, it can be safely ignored
-            } else if req_count == num_docs {
-                // all clauses seen so far match all docs, so the count of the new clause is also the
-                // count of the conjunction
-                req_count = count;
-            } else {
-                // We have two clauses whose count is in [1, numDocs), we can't figure out the number of
-                // docs that match the conjunction without running the query.
-                return Ok(-1);
-            }
-        }
-
-        Ok(req_count)
+      if count == -1 || count == 0 {
+        // If the count of one clause is unknown, then the count of the conjunction is unknown
+        // too. If one clause doesn't match any docs then the conjunction doesn't match any docs
+        // either.
+        return Ok(count);
+      } else if count == num_docs {
+        // the query matches all docs, it can be safely ignored
+      } else if req_count == num_docs {
+        // all clauses seen so far match all docs, so the count of the new clause is also the
+        // count of the conjunction
+        req_count = count;
+      } else {
+        // We have two clauses whose count is in [1, numDocs), we can't figure out the number of
+        // docs that match the conjunction without running the query.
+        return Ok(-1);
+      }
     }
 
-    /// Return the number of matches of optional clauses, or -1 if unknown, or 0 if there are no
-    /// optional clauses.
-    fn opt_count(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        occur: Occur,
-    ) -> Result<i32> {
-        let num_docs = context.reader().num_docs()?;
-        let mut opt_count = 0i32;
-        let mut unknown_count = false;
+    Ok(req_count)
+  }
 
-        for weighted_clause in &self.weighted_clauses {
-            if *weighted_clause.clause.occur() != occur {
-                continue;
-            }
+  /// Return the number of matches of optional clauses, or -1 if unknown, or 0 if there are no
+  /// optional clauses.
+  fn opt_count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    occur: Occur,
+  ) -> Result<i32> {
+    let num_docs = context.reader().num_docs()?;
+    let mut opt_count = 0i32;
+    let mut unknown_count = false;
 
-            let count = weighted_clause.weight.count(context)?;
+    for weighted_clause in &self.weighted_clauses {
+      if *weighted_clause.clause.occur() != occur {
+        continue;
+      }
 
-            if count == -1 {
-                // If one clause has a number of matches that is unknown, let's be more aggressive to
-                // check whether remain clauses could match all docs.
-                unknown_count = true;
-                continue;
-            } else if count == num_docs {
-                // If either clause matches all docs, then the disjunction matches all docs.
-                return Ok(count);
-            } else if count == 0 {
-                // We can safely ignore this clause, it doesn't affect the count.
-            } else if opt_count == 0 {
-                // This is the first clause we see that has a non-zero count, it becomes the count of
-                // the disjunction.
-                opt_count = count;
-            } else {
-                // We have two clauses whose count is in [1, numDocs), we can't figure out the number of
-                // docs that match the disjunction without running the query.
-                unknown_count = true;
-            }
-        }
+      let count = weighted_clause.weight.count(context)?;
 
-        // If at least one of clauses has a number of matches that is unknown and no clause matches all
-        // docs, then the number of matches of the disjunction is unknown.
-        Ok(if unknown_count { -1 } else { opt_count })
+      if count == -1 {
+        // If one clause has a number of matches that is unknown, let's be more aggressive to
+        // check whether remain clauses could match all docs.
+        unknown_count = true;
+        continue;
+      } else if count == num_docs {
+        // If either clause matches all docs, then the disjunction matches all docs.
+        return Ok(count);
+      } else if count == 0 {
+        // We can safely ignore this clause, it doesn't affect the count.
+      } else if opt_count == 0 {
+        // This is the first clause we see that has a non-zero count, it becomes the count of
+        // the disjunction.
+        opt_count = count;
+      } else {
+        // We have two clauses whose count is in [1, numDocs), we can't figure out the number of
+        // docs that match the disjunction without running the query.
+        unknown_count = true;
+      }
     }
+
+    // If at least one of clauses has a number of matches that is unknown and no clause matches all
+    // docs, then the number of matches of the disjunction is unknown.
+    Ok(if unknown_count { -1 } else { opt_count })
+  }
 }
 
 impl<IRC> SegmentCacheable<IRC> for BooleanWeight<IRC>
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-        // Disallow caching large boolean queries to not encourage users
-        // to build large boolean queries as a workaround to the fact that
-        // we disallow caching large TermInSetQueries.
-        if self.query.clauses().len() > BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD {
-            return Ok(false);
-        }
-
-        for wc in &self.weighted_clauses {
-            if !wc.weight.is_cacheable(ctx)? {
-                return Ok(false);
-            }
-        }
-
-        Ok(true)
+  fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
+    // Disallow caching large boolean queries to not encourage users
+    // to build large boolean queries as a workaround to the fact that
+    // we disallow caching large TermInSetQueries.
+    if self.query.clauses().len() > BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD {
+      return Ok(false);
     }
+
+    for wc in &self.weighted_clauses {
+      if !wc.weight.is_cacheable(ctx)? {
+        return Ok(false);
+      }
+    }
+
+    Ok(true)
+  }
 }
 
 impl<IRC> Weight<IRC> for BooleanWeight<IRC>
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    type Matches = MatchWithNoTerms;
+  type Matches = MatchWithNoTerms;
 
-    fn matches(
-        &self,
-        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _doc: i32,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::Matches>> {
-        todo!()
+  fn matches(
+    &self,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _doc: i32,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::Matches>> {
+    todo!()
+  }
+
+  fn explain(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Explanation> {
+    let min_should_match = self.query.get_minimum_number_should_match();
+
+    let mut subs: Vec<Explanation> = Vec::new();
+    let mut fail = false;
+    let mut match_count = 0;
+    let mut should_match_count = 0;
+
+    for wc in &self.weighted_clauses {
+      let clause = &wc.clause;
+      let weight = &wc.weight;
+
+      let e = weight.explain(context, doc, searcher)?;
+
+      if e.is_match() {
+        if clause.is_scoring() {
+          subs.push(e);
+        } else if clause.is_required() {
+          subs.push(Explanation::match_(
+            0.0,
+            "match on required clause, product of:",
+            vec![
+              Explanation::match_(0.0, format!("{} clause", Occur::Filter), vec![]),
+              e,
+            ],
+          ));
+        } else if clause.is_prohibited() {
+          subs.push(Explanation::no_match(
+            format!(
+              "match on prohibited clause ({})",
+              clause.query.as_string("")?
+            ),
+            vec![e],
+          ));
+          fail = true;
+        }
+
+        if !clause.is_prohibited() {
+          match_count += 1;
+        }
+
+        if clause.occur() == &Occur::Should {
+          should_match_count += 1;
+        }
+      } else if clause.is_required() {
+        subs.push(Explanation::no_match(
+          format!(
+            "no match on required clause ({})",
+            clause.query.as_string("")?
+          ),
+          vec![e],
+        ));
+        fail = true;
+      }
     }
 
-    fn explain(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        doc: i32,
-        searcher: &IndexSearcher<IRC>,
-    ) -> Result<Explanation> {
-        let min_should_match = self.query.get_minimum_number_should_match();
+    if fail {
+      Ok(Explanation::no_match(
+        "Failure to meet condition(s) of required/prohibited clause(s)",
+        subs,
+      ))
+    } else if match_count == 0 {
+      Ok(Explanation::no_match("No matching clauses", subs))
+    } else if should_match_count < min_should_match {
+      Ok(Explanation::no_match(
+        format!(
+          "Failure to match minimum number of optional clauses: {}",
+          min_should_match
+        ),
+        subs,
+      ))
+    } else {
+      // Replicating the same floating-point errors as the scorer does is quite
+      // complex (essentially because of how ReqOptSumScorer casts intermediate
+      // contributions to the score to floats), so in order to make sure that
+      // explanations have the same value as the score, we pull a scorer and
+      // use it to compute the score.
 
-        let mut subs: Vec<Explanation> = Vec::new();
-        let mut fail = false;
-        let mut match_count = 0;
-        let mut should_match_count = 0;
+      let mut scorer = self
+        .scorer(context, searcher)?
+        .ok_or_else(|| LuceneError::illegal_state("no scorer available for explanation"))?;
 
-        for wc in &self.weighted_clauses {
-            let clause = &wc.clause;
-            let weight = &wc.weight;
+      let advanced = scorer.iterator_mut().advance(doc)?;
+      debug_assert!(advanced == doc);
 
-            let e = weight.explain(context, doc, searcher)?;
-
-            if e.is_match() {
-                if clause.is_scoring() {
-                    subs.push(e);
-                } else if clause.is_required() {
-                    subs.push(Explanation::match_(
-                        0.0,
-                        "match on required clause, product of:",
-                        vec![
-                            Explanation::match_(0.0, format!("{} clause", Occur::Filter), vec![]),
-                            e,
-                        ],
-                    ));
-                } else if clause.is_prohibited() {
-                    subs.push(Explanation::no_match(
-                        format!(
-                            "match on prohibited clause ({})",
-                            clause.query.as_string("")?
-                        ),
-                        vec![e],
-                    ));
-                    fail = true;
-                }
-
-                if !clause.is_prohibited() {
-                    match_count += 1;
-                }
-
-                if clause.occur() == &Occur::Should {
-                    should_match_count += 1;
-                }
-            } else if clause.is_required() {
-                subs.push(Explanation::no_match(
-                    format!(
-                        "no match on required clause ({})",
-                        clause.query.as_string("")?
-                    ),
-                    vec![e],
-                ));
-                fail = true;
-            }
-        }
-
-        if fail {
-            Ok(Explanation::no_match(
-                "Failure to meet condition(s) of required/prohibited clause(s)",
-                subs,
-            ))
-        } else if match_count == 0 {
-            Ok(Explanation::no_match("No matching clauses", subs))
-        } else if should_match_count < min_should_match {
-            Ok(Explanation::no_match(
-                format!(
-                    "Failure to match minimum number of optional clauses: {}",
-                    min_should_match
-                ),
-                subs,
-            ))
-        } else {
-            // Replicating the same floating-point errors as the scorer does is quite
-            // complex (essentially because of how ReqOptSumScorer casts intermediate
-            // contributions to the score to floats), so in order to make sure that
-            // explanations have the same value as the score, we pull a scorer and
-            // use it to compute the score.
-
-            let mut scorer = self
-                .scorer(context, searcher)?
-                .ok_or_else(|| LuceneError::illegal_state("no scorer available for explanation"))?;
-
-            let advanced = scorer.iterator_mut().advance(doc)?;
-            debug_assert!(advanced == doc);
-
-            Ok(Explanation::match_(scorer.score()?, "sum of:", subs))
-        }
+      Ok(Explanation::match_(scorer.score()?, "sum of:", subs))
     }
+  }
 
-    fn get_query(&self) -> Arc<Query> {
-        let v: Query = self.query.clone().into();
-        Arc::new(v)
-    }
+  fn get_query(&self) -> Arc<Query> {
+    let v: Query = self.query.clone().into();
+    Arc::new(v)
+  }
 
-    type ScorerSupplier = QueryWeightSs<IRC>;
-    // type ScorerSupplier = DummyScorerSupplier;
+  type ScorerSupplier = QueryWeightSs<IRC>;
+  // type ScorerSupplier = DummyScorerSupplier;
 
-    fn scorer_supplier(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::ScorerSupplier>> {
-        let mut min_should_match = self.query.get_minimum_number_should_match();
+  fn scorer_supplier(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::ScorerSupplier>> {
+    let mut min_should_match = self.query.get_minimum_number_should_match();
 
-        let mut must = Vec::new();
-        let mut should = Vec::new();
-        let mut filter = Vec::new();
-        let mut must_not = Vec::new();
+    let mut must = Vec::new();
+    let mut should = Vec::new();
+    let mut filter = Vec::new();
+    let mut must_not = Vec::new();
 
-        for wc in &self.weighted_clauses {
-            let sub_supplier = wc.weight.scorer_supplier(context, searcher)?;
-            match sub_supplier {
-                None => {
-                    if wc.clause.is_required() {
-                        return Ok(None);
-                    }
-                },
-                Some(sub_scorer) => match wc.clause.occur() {
-                    Occur::Must => must.push(sub_scorer),
-                    Occur::Should => should.push(sub_scorer),
-                    Occur::Filter => filter.push(sub_scorer),
-                    Occur::MustNot => must_not.push(sub_scorer),
-                },
-            }
-        }
-        // scorer simplifications:
-        if (should.len() as i32) == min_should_match {
-            must.append(&mut should);
-            min_should_match = 0;
-        }
-
-        if (filter.is_empty() && must.is_empty() && should.is_empty())
-            || (should.len() as i32) < min_should_match
-        {
+    for wc in &self.weighted_clauses {
+      let sub_supplier = wc.weight.scorer_supplier(context, searcher)?;
+      match sub_supplier {
+        None => {
+          if wc.clause.is_required() {
             return Ok(None);
-        }
-
-        if !self.score_mode.needs_scores()
-            && min_should_match == 0
-            && (must.len() + filter.len()) > 0
-        {
-            should.clear();
-        }
-        let max_doc = context.reader().max_doc()?;
-        let mut scores = HashMap::new();
-        scores.insert(Occur::Must, must);
-        scores.insert(Occur::Should, should);
-        scores.insert(Occur::Filter, filter);
-        scores.insert(Occur::MustNot, must_not);
-        let v = BooleanScorerSupplier::new(scores, self.score_mode, min_should_match, max_doc)?;
-        Ok(Some(Box::new(v)))
+          }
+        },
+        Some(sub_scorer) => match wc.clause.occur() {
+          Occur::Must => must.push(sub_scorer),
+          Occur::Should => should.push(sub_scorer),
+          Occur::Filter => filter.push(sub_scorer),
+          Occur::MustNot => must_not.push(sub_scorer),
+        },
+      }
+    }
+    // scorer simplifications:
+    if (should.len() as i32) == min_should_match {
+      must.append(&mut should);
+      min_should_match = 0;
     }
 
-    fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-        let num_docs = context.reader().num_docs()?;
-
-        if self.query.is_pure_disjunction() {
-            return self.opt_count(context, Occur::Should);
-        }
-
-        let positive_count = if (!self.query.get_clauses_idx(Filter).is_empty()
-            || !self.query.get_clauses_idx(Must).is_empty())
-            && self.query.get_minimum_number_should_match() == 0
-        {
-            self.req_count(context)?
-        } else {
-            // The query has a non-zero min-should match. We could handle some cases, e.g.
-            // minShouldMatch=N and we can find N SHOULD clauses that match all docs, but are there
-            // real-world queries that would benefit from Lucene handling this case?
-            -1
-        };
-
-        if positive_count == 0 {
-            return Ok(0);
-        }
-
-        let prohibited_count = self.opt_count(context, Occur::MustNot)?;
-
-        if prohibited_count == -1 {
-            Ok(-1)
-        } else if prohibited_count == 0 {
-            Ok(positive_count)
-        } else if prohibited_count == num_docs {
-            Ok(0)
-        } else if positive_count == num_docs {
-            Ok(num_docs - prohibited_count)
-        } else {
-            Ok(-1)
-        }
+    if (filter.is_empty() && must.is_empty() && should.is_empty())
+      || (should.len() as i32) < min_should_match
+    {
+      return Ok(None);
     }
+
+    if !self.score_mode.needs_scores() && min_should_match == 0 && (must.len() + filter.len()) > 0 {
+      should.clear();
+    }
+    let max_doc = context.reader().max_doc()?;
+    let mut scores = HashMap::new();
+    scores.insert(Occur::Must, must);
+    scores.insert(Occur::Should, should);
+    scores.insert(Occur::Filter, filter);
+    scores.insert(Occur::MustNot, must_not);
+    let v = BooleanScorerSupplier::new(scores, self.score_mode, min_should_match, max_doc)?;
+    Ok(Some(Box::new(v)))
+  }
+
+  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+    let num_docs = context.reader().num_docs()?;
+
+    if self.query.is_pure_disjunction() {
+      return self.opt_count(context, Occur::Should);
+    }
+
+    let positive_count = if (!self.query.get_clauses_idx(Filter).is_empty()
+      || !self.query.get_clauses_idx(Must).is_empty())
+      && self.query.get_minimum_number_should_match() == 0
+    {
+      self.req_count(context)?
+    } else {
+      // The query has a non-zero min-should match. We could handle some cases, e.g.
+      // minShouldMatch=N and we can find N SHOULD clauses that match all docs, but are there
+      // real-world queries that would benefit from Lucene handling this case?
+      -1
+    };
+
+    if positive_count == 0 {
+      return Ok(0);
+    }
+
+    let prohibited_count = self.opt_count(context, Occur::MustNot)?;
+
+    if prohibited_count == -1 {
+      Ok(-1)
+    } else if prohibited_count == 0 {
+      Ok(positive_count)
+    } else if prohibited_count == num_docs {
+      Ok(0)
+    } else if positive_count == num_docs {
+      Ok(num_docs - prohibited_count)
+    } else {
+      Ok(-1)
+    }
+  }
 }
 pub(crate) struct WeightedBooleanClause<IRC>
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    pub(crate) clause: BooleanClause,
-    pub(crate) weight: QueryWeight<IRC>,
+  pub(crate) clause: BooleanClause,
+  pub(crate) weight: QueryWeight<IRC>,
 }
 
 impl<IRC> WeightedBooleanClause<IRC>
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    pub(crate) fn new(clause: BooleanClause, weight: QueryWeight<IRC>) -> Self {
-        Self { clause, weight }
-    }
+  pub(crate) fn new(clause: BooleanClause, weight: QueryWeight<IRC>) -> Self {
+    Self { clause, weight }
+  }
 }
 struct BooleanQueryMeta {
+  minimum_number_should_match: i32,
+  is_pure_disjunction: bool,
+  has_no_filter: bool,
+  has_no_must: bool,
+  clause_size: i32,
+}
+impl BooleanQueryMeta {
+  pub fn new(
     minimum_number_should_match: i32,
     is_pure_disjunction: bool,
     has_no_filter: bool,
     has_no_must: bool,
     clause_size: i32,
-}
-impl BooleanQueryMeta {
-    pub fn new(
-        minimum_number_should_match: i32,
-        is_pure_disjunction: bool,
-        has_no_filter: bool,
-        has_no_must: bool,
-        clause_size: i32,
-    ) -> Self {
-        Self {
-            minimum_number_should_match,
-            is_pure_disjunction,
-            has_no_filter,
-            has_no_must,
-            clause_size,
-        }
+  ) -> Self {
+    Self {
+      minimum_number_should_match,
+      is_pure_disjunction,
+      has_no_filter,
+      has_no_must,
+      clause_size,
     }
+  }
 }

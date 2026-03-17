@@ -19,16 +19,16 @@ use derive_getters::Getters;
 /// Subreader slice from a parent composite reader.
 #[derive(Debug, Clone, PartialEq, Eq, Getters, Default)]
 pub struct ReaderSlice {
-    pub start: usize,
-    pub length: i32,
-    pub reader_index: i32,
+  pub start: usize,
+  pub length: i32,
+  pub reader_index: i32,
 }
 impl ReaderSlice {
-    pub fn new(start: usize, length: i32, reader_index: i32) -> Self {
-        Self {
-            start,
-            length,
-            reader_index,
-        }
+  pub fn new(start: usize, length: i32, reader_index: i32) -> Self {
+    Self {
+      start,
+      length,
+      reader_index,
     }
+  }
 }

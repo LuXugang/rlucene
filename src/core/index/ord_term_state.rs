@@ -22,23 +22,23 @@ use crate::core::util::error::lucene_error::Result;
 /// An ordinal-based [`TermState`]
 #[derive(Clone, Default)]
 pub struct OrdTermState {
-    /// Term ordinal, i.e. its position in the full list of sorted terms.
-    pub ord: i64,
+  /// Term ordinal, i.e. its position in the full list of sorted terms.
+  pub ord: i64,
 }
 impl OrdTermState {
-    pub fn new() -> OrdTermState {
-        OrdTermState { ord: 0 }
-    }
+  pub fn new() -> OrdTermState {
+    OrdTermState { ord: 0 }
+  }
 }
 impl Display for OrdTermState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ord={} ", std::any::type_name::<Self>(), self.ord)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{} ord={} ", std::any::type_name::<Self>(), self.ord)
+  }
 }
 
 impl TermState for OrdTermState {
-    fn copy_from(&mut self, other: &Self) -> Result<()> {
-        self.ord = other.ord;
-        Ok(())
-    }
+  fn copy_from(&mut self, other: &Self) -> Result<()> {
+    self.ord = other.ord;
+    Ok(())
+  }
 }

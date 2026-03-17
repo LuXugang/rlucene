@@ -31,207 +31,204 @@ use std::sync::Arc;
 
 pub(crate) struct StoredFieldsConsumer<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    directory: Arc<D>,
-    pub(crate) writer: Option<DefaultStoredFieldsWriter<D::IndexOutput>>,
-    last_doc: i32,
-    sub: Option<SortingStoredFieldsConsumer<D>>,
+  directory: Arc<D>,
+  pub(crate) writer: Option<DefaultStoredFieldsWriter<D::IndexOutput>>,
+  last_doc: i32,
+  sub: Option<SortingStoredFieldsConsumer<D>>,
 }
 impl<D> StoredFieldsConsumer<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) fn new(directory: Arc<D>, sub: Option<SortingStoredFieldsConsumer<D>>) -> Self {
-        Self {
-            directory,
-            writer: None,
-            last_doc: -1,
-            sub,
-        }
+  pub(crate) fn new(directory: Arc<D>, sub: Option<SortingStoredFieldsConsumer<D>>) -> Self {
+    Self {
+      directory,
+      writer: None,
+      last_doc: -1,
+      sub,
     }
-    fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
-    where
-        D1: Directory,
-    {
-        match self.sub {
-            Some(ref mut sub) => {
-                if sub.writer.is_none() {
-                    sub.init_stored_fields_writer(info)?;
-                }
-            },
-            None => {
-                if self.writer.is_none() {
-                    let writer = get_default_code().stored_fields_format().fields_writer(
-                        self.directory.as_ref(),
-                        info,
-                        &IOContext::default_io_context()?,
-                    )?;
-                    self.writer = Some(writer);
-                }
-            },
+  }
+  fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
+  where
+    D1: Directory,
+  {
+    match self.sub {
+      Some(ref mut sub) => {
+        if sub.writer.is_none() {
+          sub.init_stored_fields_writer(info)?;
         }
-        Ok(())
+      },
+      None => {
+        if self.writer.is_none() {
+          let writer = get_default_code().stored_fields_format().fields_writer(
+            self.directory.as_ref(),
+            info,
+            &IOContext::default_io_context()?,
+          )?;
+          self.writer = Some(writer);
+        }
+      },
+    }
+    Ok(())
+  }
+
+  pub(crate) fn start_document<D1>(&mut self, doc_id: i32, info: &mut SegmentInfo<D1>) -> Result<()>
+  where
+    D1: Directory,
+  {
+    debug_assert!(self.last_doc < doc_id);
+    self.init_stored_fields_writer(info)?;
+
+    match self.sub {
+      Some(ref mut sub) => {
+        while self.last_doc + 1 < doc_id {
+          self.last_doc += 1;
+          if let Some(writer) = &mut sub.writer {
+            writer.start_document()?;
+            writer.finish_document()?;
+          }
+        }
+        self.last_doc += 1;
+        if let Some(writer) = &mut sub.writer {
+          writer.start_document()?;
+        }
+      },
+      None => {
+        while self.last_doc + 1 < doc_id {
+          self.last_doc += 1;
+          if let Some(writer) = &mut self.writer {
+            writer.start_document()?;
+            writer.finish_document()?;
+          }
+        }
+        self.last_doc += 1;
+        match self.writer {
+          None => return Err(LuceneError::illegal_state("writer must be initialized")),
+          Some(ref mut v) => v.start_document()?,
+        }
+      },
+    }
+    Ok(())
+  }
+
+  pub(crate) fn write_field(&mut self, info: &FieldInfo, value: &FieldDataEnum) -> Result<()> {
+    match self.sub {
+      Some(ref mut sub) => {
+        Self::do_write_field(sub.writer.as_mut().unwrap(), info, value)?;
+      },
+      None => {
+        Self::do_write_field(self.writer.as_mut().unwrap(), info, value)?;
+      },
     }
 
-    pub(crate) fn start_document<D1>(
-        &mut self,
-        doc_id: i32,
-        info: &mut SegmentInfo<D1>,
-    ) -> Result<()>
-    where
-        D1: Directory,
-    {
-        debug_assert!(self.last_doc < doc_id);
-        self.init_stored_fields_writer(info)?;
-
-        match self.sub {
-            Some(ref mut sub) => {
-                while self.last_doc + 1 < doc_id {
-                    self.last_doc += 1;
-                    if let Some(writer) = &mut sub.writer {
-                        writer.start_document()?;
-                        writer.finish_document()?;
-                    }
-                }
-                self.last_doc += 1;
-                if let Some(writer) = &mut sub.writer {
-                    writer.start_document()?;
-                }
-            },
-            None => {
-                while self.last_doc + 1 < doc_id {
-                    self.last_doc += 1;
-                    if let Some(writer) = &mut self.writer {
-                        writer.start_document()?;
-                        writer.finish_document()?;
-                    }
-                }
-                self.last_doc += 1;
-                match self.writer {
-                    None => return Err(LuceneError::illegal_state("writer must be initialized")),
-                    Some(ref mut v) => v.start_document()?,
-                }
-            },
+    Ok(())
+  }
+  fn do_write_field(
+    writer: &mut impl StoredFieldsWriter,
+    info: &FieldInfo,
+    value: &FieldDataEnum,
+  ) -> Result<()> {
+    match value {
+      FieldDataEnum::Binary(bytes) => {
+        writer.write_field_bytes(info, bytes)?;
+      },
+      FieldDataEnum::String(s) => {
+        writer.write_field_str(info, s)?;
+      },
+      FieldDataEnum::Number(num) => {
+        match num {
+          Number::I32(n) => writer.write_field_i32(info, *n),
+          Number::I64(n) => writer.write_field_i64(info, *n),
+          Number::F32(n) => writer.write_field_f32(info, *n),
+          Number::F64(n) => writer.write_field_f64(info, *n),
+          _ => return Err(LuceneError::illegal_argument("unsupported number type")),
         }
-        Ok(())
+      }?,
+      _ => return Err(LuceneError::illegal_argument("unsupported field type")),
     }
+    Ok(())
+  }
 
-    pub(crate) fn write_field(&mut self, info: &FieldInfo, value: &FieldDataEnum) -> Result<()> {
-        match self.sub {
-            Some(ref mut sub) => {
-                Self::do_write_field(sub.writer.as_mut().unwrap(), info, value)?;
-            },
-            None => {
-                Self::do_write_field(self.writer.as_mut().unwrap(), info, value)?;
-            },
-        }
+  pub(crate) fn finish_document(&mut self) -> Result<()> {
+    match self.sub {
+      Some(ref mut sub) => {
+        let writer = sub.writer.as_mut().expect("sub writer must be initialized");
+        writer.finish_document()?;
+      },
+      None => {
+        let writer = self.writer.as_mut().expect("writer must be initialized");
+        writer.finish_document()?;
+      },
+    }
+    Ok(())
+  }
 
-        Ok(())
+  pub(crate) fn finish<D1>(&mut self, max_doc: i32, info: &mut SegmentInfo<D1>) -> Result<()>
+  where
+    D1: Directory,
+  {
+    while self.last_doc < max_doc - 1 {
+      self.start_document(self.last_doc + 1, info)?;
+      self.finish_document()?;
     }
-    fn do_write_field(
-        writer: &mut impl StoredFieldsWriter,
-        info: &FieldInfo,
-        value: &FieldDataEnum,
-    ) -> Result<()> {
-        match value {
-            FieldDataEnum::Binary(bytes) => {
-                writer.write_field_bytes(info, bytes)?;
-            },
-            FieldDataEnum::String(s) => {
-                writer.write_field_str(info, s)?;
-            },
-            FieldDataEnum::Number(num) => {
-                match num {
-                    Number::I32(n) => writer.write_field_i32(info, *n),
-                    Number::I64(n) => writer.write_field_i64(info, *n),
-                    Number::F32(n) => writer.write_field_f32(info, *n),
-                    Number::F64(n) => writer.write_field_f64(info, *n),
-                    _ => return Err(LuceneError::illegal_argument("unsupported number type")),
-                }
-            }?,
-            _ => return Err(LuceneError::illegal_argument("unsupported field type")),
-        }
-        Ok(())
-    }
+    Ok(())
+  }
 
-    pub(crate) fn finish_document(&mut self) -> Result<()> {
-        match self.sub {
-            Some(ref mut sub) => {
-                let writer = sub.writer.as_mut().expect("sub writer must be initialized");
-                writer.finish_document()?;
-            },
-            None => {
-                let writer = self.writer.as_mut().expect("writer must be initialized");
-                writer.finish_document()?;
-            },
+  pub(crate) fn flush<DM, D1>(
+    &mut self,
+    state: &mut SegmentWriteState<D>,
+    sort_map: Option<&DM>,
+    info: &mut SegmentInfo<D1>,
+    dir: &D,
+  ) -> Result<()>
+  where
+    DM: DocMap,
+    D1: Directory,
+  {
+    match self.sub {
+      // TODO: 如果writer这里实现了closeable 我们需要使用result封装 即使发生错误也要调用
+      Some(ref mut sub) => {
+        sub
+          .writer
+          .as_mut()
+          .unwrap()
+          .finish(info.max_doc()?, &sub.tmp_directory)?;
+        {
+          let _ = sub.writer.take();
         }
-        Ok(())
+        sub.flush(state, sort_map, info)?;
+      },
+      None => {
+        self.writer.as_mut().unwrap().finish(info.max_doc()?, dir)?;
+        let _ = self.writer.take();
+      },
     }
+    Ok(())
+  }
 
-    pub(crate) fn finish<D1>(&mut self, max_doc: i32, info: &mut SegmentInfo<D1>) -> Result<()>
-    where
-        D1: Directory,
-    {
-        while self.last_doc < max_doc - 1 {
-            self.start_document(self.last_doc + 1, info)?;
-            self.finish_document()?;
-        }
-        Ok(())
+  pub(crate) fn abort(&mut self) -> Result<()> {
+    match self.sub {
+      Some(ref mut sub) => sub.abort(),
+      None => Ok(()),
     }
-
-    pub(crate) fn flush<DM, D1>(
-        &mut self,
-        state: &mut SegmentWriteState<D>,
-        sort_map: Option<&DM>,
-        info: &mut SegmentInfo<D1>,
-        dir: &D,
-    ) -> Result<()>
-    where
-        DM: DocMap,
-        D1: Directory,
-    {
-        match self.sub {
-            // TODO: 如果writer这里实现了closeable 我们需要使用result封装 即使发生错误也要调用
-            Some(ref mut sub) => {
-                sub.writer
-                    .as_mut()
-                    .unwrap()
-                    .finish(info.max_doc()?, &sub.tmp_directory)?;
-                {
-                    let _ = sub.writer.take();
-                }
-                sub.flush(state, sort_map, info)?;
-            },
-            None => {
-                self.writer.as_mut().unwrap().finish(info.max_doc()?, dir)?;
-                let _ = self.writer.take();
-            },
-        }
-        Ok(())
-    }
-
-    pub(crate) fn abort(&mut self) -> Result<()> {
-        match self.sub {
-            Some(ref mut sub) => sub.abort(),
-            None => Ok(()),
-        }
-    }
+  }
 }
 
 pub(crate) trait StoredFieldsConsumerBase {
-    type Directory: Directory;
-    fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
-    where
-        D1: Directory;
-    fn flush<DM, D1>(
-        &mut self,
-        state: &SegmentWriteState<Self::Directory>,
-        sort_map: Option<&DM>,
-        info: &mut SegmentInfo<D1>,
-    ) -> Result<()>
-    where
-        DM: DocMap,
-        D1: Directory;
-    fn abort(&mut self) -> Result<()>;
+  type Directory: Directory;
+  fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
+  where
+    D1: Directory;
+  fn flush<DM, D1>(
+    &mut self,
+    state: &SegmentWriteState<Self::Directory>,
+    sort_map: Option<&DM>,
+    info: &mut SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    DM: DocMap,
+    D1: Directory;
+  fn abort(&mut self) -> Result<()>;
 }

@@ -20,90 +20,90 @@ use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A `Tokenizer` is a `TokenStream` whose input is a `Reader`.
 pub trait Tokenizer: TokenStream {
-    fn get_tokenizer_base_mut(&mut self) -> &mut TokenizerBase;
-    fn get_tokenizer_base(&self) -> &TokenizerBase;
-    /// Return the corrected offset.
-    /// If input is a CharFilter this method calls CharFilter.correctOffset else returns currentOff.
-    fn correct_offset(&self, current_off: i32) -> i32 {
-        let base = self.get_tokenizer_base();
-        base.input.correct_offset(current_off)
-    }
+  fn get_tokenizer_base_mut(&mut self) -> &mut TokenizerBase;
+  fn get_tokenizer_base(&self) -> &TokenizerBase;
+  /// Return the corrected offset.
+  /// If input is a CharFilter this method calls CharFilter.correctOffset else returns currentOff.
+  fn correct_offset(&self, current_off: i32) -> i32 {
+    let base = self.get_tokenizer_base();
+    base.input.correct_offset(current_off)
+  }
 }
 
 pub struct TokenizerBase {
-    /// The text source for this Tokenizer.
-    pub(crate) input: ReaderEnum,
-    /// Pending reader: not actually assigned to input until reset()
-    pub(crate) input_pending: ReaderEnum,
-    pub(crate) token_stream_base: TokenStreamBase,
+  /// The text source for this Tokenizer.
+  pub(crate) input: ReaderEnum,
+  /// Pending reader: not actually assigned to input until reset()
+  pub(crate) input_pending: ReaderEnum,
+  pub(crate) token_stream_base: TokenStreamBase,
 }
 impl TokenizerBase {
-    pub fn new(att: Attributes) -> Self {
-        Self {
-            input_pending: ReaderEnum::IllegalState(IllegalStateReader),
-            input: ReaderEnum::IllegalState(IllegalStateReader),
-            token_stream_base: TokenStreamBase::new(att),
-        }
+  pub fn new(att: Attributes) -> Self {
+    Self {
+      input_pending: ReaderEnum::IllegalState(IllegalStateReader),
+      input: ReaderEnum::IllegalState(IllegalStateReader),
+      token_stream_base: TokenStreamBase::new(att),
     }
+  }
 }
 
 impl Drop for TokenizerBase {
-    fn drop(&mut self) {
-        self.close().expect("should not fail");
-    }
+  fn drop(&mut self) {
+    self.close().expect("should not fail");
+  }
 }
 
 impl TokenStream for TokenizerBase {
-    fn end(&mut self) -> Result<()> {
-        self.default_end()
-    }
+  fn end(&mut self) -> Result<()> {
+    self.default_end()
+  }
 
-    fn reset(&mut self) -> Result<()> {
-        self.default_reset()?;
-        self.input = std::mem::take(&mut self.input_pending);
-        self.input_pending = ReaderEnum::IllegalState(IllegalStateReader);
-        Ok(())
-    }
+  fn reset(&mut self) -> Result<()> {
+    self.default_reset()?;
+    self.input = std::mem::take(&mut self.input_pending);
+    self.input_pending = ReaderEnum::IllegalState(IllegalStateReader);
+    Ok(())
+  }
 
-    /// Releases resources associated with this stream.
-    fn close(&mut self) -> Result<()> {
-        self.input.close()?;
-        self.input = ReaderEnum::IllegalState(IllegalStateReader);
-        self.input_pending = ReaderEnum::IllegalState(IllegalStateReader);
-        Ok(())
-    }
+  /// Releases resources associated with this stream.
+  fn close(&mut self) -> Result<()> {
+    self.input.close()?;
+    self.input = ReaderEnum::IllegalState(IllegalStateReader);
+    self.input_pending = ReaderEnum::IllegalState(IllegalStateReader);
+    Ok(())
+  }
 
-    fn get_attribute_source(&self) -> &Attributes {
-        &self.token_stream_base.att
-    }
+  fn get_attribute_source(&self) -> &Attributes {
+    &self.token_stream_base.att
+  }
 
-    fn get_attribute_source_mut(&mut self) -> &mut Attributes {
-        &mut self.token_stream_base.att
-    }
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    &mut self.token_stream_base.att
+  }
 
-    fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
-        if !matches!(self.input, ReaderEnum::IllegalState(_)) {
-            return Err(LuceneError::illegal_state(
-                "TokenStream contract violation: close() call missing",
-            ));
-        }
-        self.input_pending = input;
-        self.set_reader_test_point();
-        Ok(())
+  fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
+    if !matches!(self.input, ReaderEnum::IllegalState(_)) {
+      return Err(LuceneError::illegal_state(
+        "TokenStream contract violation: close() call missing",
+      ));
     }
+    self.input_pending = input;
+    self.set_reader_test_point();
+    Ok(())
+  }
 }
 #[derive(Debug, Clone, Default)]
 pub struct IllegalStateReader;
 impl Reader for IllegalStateReader {
-    fn read_range(&mut self, _buf: &mut [char], _off: usize, _len: usize) -> Result<i32> {
-        Err(LuceneError::illegal_state(
-            "TokenStream contract violation: reset()/close() call missing, \
+  fn read_range(&mut self, _buf: &mut [char], _off: usize, _len: usize) -> Result<i32> {
+    Err(LuceneError::illegal_state(
+      "TokenStream contract violation: reset()/close() call missing, \
 reset() called multiple times, or subclass does not call super.reset(). \
 Please see Javadocs of TokenStream class for more information about the correct consuming workflow.",
-        ))
-    }
+    ))
+  }
 
-    fn close(&mut self) -> Result<()> {
-        Ok(())
-    }
+  fn close(&mut self) -> Result<()> {
+    Ok(())
+  }
 }

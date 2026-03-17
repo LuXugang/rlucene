@@ -19,80 +19,81 @@ use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::Result;
 /// Utility struct to decode postings.
 pub struct PostingDecodingUtil<I: IndexInput> {
-    /// The wrapper {@link IndexInput}.
-    pub input: I,
+  /// The wrapper {@link IndexInput}.
+  pub input: I,
 }
 
 impl<I: IndexInput> PostingDecodingUtil<I> {
-    /// Sole constructor, called by sub-classes.
-    pub fn new(input: I) -> Self {
-        PostingDecodingUtil { input }
-    }
+  /// Sole constructor, called by sub-classes.
+  pub fn new(input: I) -> Self {
+    PostingDecodingUtil { input }
+  }
 
-    /// Core method for decoding blocks of docs / freqs / positions / offsets:
-    ///
-    /// - Read `count` longs into `c[c_index..]`
-    /// - For all `i >= 0` such that `b_shift - i * dec > 0`:
-    ///   - Apply shift `b_shift - i * dec` to each value in `c`
-    ///   - Store the result in `b` at offset `count * i`
-    /// - Apply mask `c_mask` to each value in `c` starting at `c_index`
-    #[allow(clippy::too_many_arguments)]
-    pub fn split_ints_same(
-        &mut self,
-        count: i32,
-        b_and_c: &mut [i32],
-        b_shift: i32,
-        dec: i32,
-        b_mask: i32,
-        c_index: i32,
-        c_mask: i32,
-    ) -> Result<()> {
-        self.input
-            .read_ints(b_and_c, c_index as usize, count as usize)?;
+  /// Core method for decoding blocks of docs / freqs / positions / offsets:
+  ///
+  /// - Read `count` longs into `c[c_index..]`
+  /// - For all `i >= 0` such that `b_shift - i * dec > 0`:
+  ///   - Apply shift `b_shift - i * dec` to each value in `c`
+  ///   - Store the result in `b` at offset `count * i`
+  /// - Apply mask `c_mask` to each value in `c` starting at `c_index`
+  #[allow(clippy::too_many_arguments)]
+  pub fn split_ints_same(
+    &mut self,
+    count: i32,
+    b_and_c: &mut [i32],
+    b_shift: i32,
+    dec: i32,
+    b_mask: i32,
+    c_index: i32,
+    c_mask: i32,
+  ) -> Result<()> {
+    self
+      .input
+      .read_ints(b_and_c, c_index as usize, count as usize)?;
 
-        let count = count as usize;
-        let c_index = c_index as usize;
-        let max_iter = (b_shift - 1) / dec;
-        for i in 0..count {
-            for j in 0..=max_iter {
-                let shift = b_shift - j * dec;
-                if shift > 0 {
-                    b_and_c[count * j as usize + i] =
-                        ((b_and_c[c_index + i] as u64) >> shift) as i32 & b_mask;
-                }
-            }
-            b_and_c[c_index + i] &= c_mask;
+    let count = count as usize;
+    let c_index = c_index as usize;
+    let max_iter = (b_shift - 1) / dec;
+    for i in 0..count {
+      for j in 0..=max_iter {
+        let shift = b_shift - j * dec;
+        if shift > 0 {
+          b_and_c[count * j as usize + i] =
+            ((b_and_c[c_index + i] as u64) >> shift) as i32 & b_mask;
         }
-
-        Ok(())
+      }
+      b_and_c[c_index + i] &= c_mask;
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn split_ints_diff(
-        &mut self,
-        count: i32,
-        b: &mut [i32],
-        b_shift: i32,
-        dec: i32,
-        b_mask: i32,
-        c: &mut [i32],
-        c_index: i32,
-        c_mask: i32,
-    ) -> Result<()> {
-        let count = count as usize;
-        let c_index = c_index as usize;
-        self.input.read_ints(c, c_index, count)?;
-        let max_iter = (b_shift - 1) / dec;
-        for i in 0..count {
-            for j in 0..=max_iter {
-                let shift = b_shift - j * dec;
-                if shift > 0 {
-                    b[count * j as usize + i] = ((c[c_index + i] as u64) >> shift) as i32 & b_mask;
-                }
-            }
-            c[c_index + i] &= c_mask;
+    Ok(())
+  }
+
+  #[allow(clippy::too_many_arguments)]
+  pub fn split_ints_diff(
+    &mut self,
+    count: i32,
+    b: &mut [i32],
+    b_shift: i32,
+    dec: i32,
+    b_mask: i32,
+    c: &mut [i32],
+    c_index: i32,
+    c_mask: i32,
+  ) -> Result<()> {
+    let count = count as usize;
+    let c_index = c_index as usize;
+    self.input.read_ints(c, c_index, count)?;
+    let max_iter = (b_shift - 1) / dec;
+    for i in 0..count {
+      for j in 0..=max_iter {
+        let shift = b_shift - j * dec;
+        if shift > 0 {
+          b[count * j as usize + i] = ((c[c_index + i] as u64) >> shift) as i32 & b_mask;
         }
-
-        Ok(())
+      }
+      c[c_index + i] &= c_mask;
     }
+
+    Ok(())
+  }
 }

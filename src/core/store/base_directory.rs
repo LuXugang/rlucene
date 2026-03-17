@@ -35,42 +35,42 @@ use std::sync::atomic::Ordering::SeqCst;
 /// it is temporarily retained to maintain consistency with the structure of
 /// Java Lucene.
 pub trait BaseDirectory: Directory {
-    type LockFactory: LockFactory<Lock = Self::Lock>;
-    fn get_lock_factory(&self) -> &BaseDirectoryBase<Self::LockFactory>;
+  type LockFactory: LockFactory<Lock = Self::Lock>;
+  fn get_lock_factory(&self) -> &BaseDirectoryBase<Self::LockFactory>;
 }
 pub struct BaseDirectoryBase<LF> {
-    pub(crate) lock_factory: LF,
-    is_open: AtomicBool,
+  pub(crate) lock_factory: LF,
+  is_open: AtomicBool,
 }
 impl<LF> Display for BaseDirectoryBase<LF>
 where
-    LF: LockFactory,
+  LF: LockFactory,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "BaseDirectoryBase with LockFactory:{}",
-            self.lock_factory
-        )
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(
+      f,
+      "BaseDirectoryBase with LockFactory:{}",
+      self.lock_factory
+    )
+  }
 }
 impl<LF> BaseDirectoryBase<LF>
 where
-    LF: LockFactory,
+  LF: LockFactory,
 {
-    pub fn new(lock_factory: LF) -> Self {
-        Self {
-            lock_factory,
-            is_open: AtomicBool::new(false),
-        }
+  pub fn new(lock_factory: LF) -> Self {
+    Self {
+      lock_factory,
+      is_open: AtomicBool::new(false),
     }
-    pub fn obtain_lock(&self, dir: &Path, name: &str) -> Result<LF::Lock> {
-        self.lock_factory.obtain_lock(dir, name)
+  }
+  pub fn obtain_lock(&self, dir: &Path, name: &str) -> Result<LF::Lock> {
+    self.lock_factory.obtain_lock(dir, name)
+  }
+  pub fn ensure_open(&self) -> Result<()> {
+    if !self.is_open.load(SeqCst) {
+      return Err(LuceneError::already_closed("this Directory is closed"));
     }
-    pub fn ensure_open(&self) -> Result<()> {
-        if !self.is_open.load(SeqCst) {
-            return Err(LuceneError::already_closed("this Directory is closed"));
-        }
-        Ok(())
-    }
+    Ok(())
+  }
 }

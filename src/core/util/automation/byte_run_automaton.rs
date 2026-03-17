@@ -24,73 +24,73 @@ use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 
 pub struct ByteRunAutomaton {
-    pub base: RunAutomaton,
+  pub base: RunAutomaton,
 }
 
 impl ByteRunAutomaton {
-    /// Converts the incoming automaton to a byte-based one (via UTF-32 to UTF-8
-    /// conversion).
-    ///
-    /// Errors:
-    /// - Returns an error if the automaton is not deterministic.
-    pub fn with_bool(a: Automaton, is_binary: bool) -> Result<Self> {
-        let automaton = if is_binary {
-            a
-        } else {
-            match Self::convert(&a)? {
-                Cow::Borrowed(_) => a,
-                Cow::Owned(o) => o,
-            }
-        };
+  /// Converts the incoming automaton to a byte-based one (via UTF-32 to UTF-8
+  /// conversion).
+  ///
+  /// Errors:
+  /// - Returns an error if the automaton is not deterministic.
+  pub fn with_bool(a: Automaton, is_binary: bool) -> Result<Self> {
+    let automaton = if is_binary {
+      a
+    } else {
+      match Self::convert(&a)? {
+        Cow::Borrowed(_) => a,
+        Cow::Owned(o) => o,
+      }
+    };
 
-        Ok(ByteRunAutomaton {
-            base: RunAutomaton::new(automaton, 256)?,
-        })
-    }
-    /// Expert use only: if `is_binary` is `true`, the input is already
-    /// byte-based.
-    ///
-    /// Errors:
-    /// - Returns an error if the automaton is not deterministic.
-    pub fn new(a: Automaton) -> Result<Self> {
-        Self::with_bool(a, false)
-    }
+    Ok(ByteRunAutomaton {
+      base: RunAutomaton::new(automaton, 256)?,
+    })
+  }
+  /// Expert use only: if `is_binary` is `true`, the input is already
+  /// byte-based.
+  ///
+  /// Errors:
+  /// - Returns an error if the automaton is not deterministic.
+  pub fn new(a: Automaton) -> Result<Self> {
+    Self::with_bool(a, false)
+  }
 
-    fn convert(a: &Automaton) -> Result<Cow<'_, Automaton>> {
-        if !a.is_deterministic() {
-            return Err(LuceneError::illegal_argument(
-                "Automaton must be deterministic",
-            ));
-        }
-        let converted = UTF32ToUTF8::default().convert(a)?;
-        match Operations::determinize(&converted, i32::MAX as usize)? {
-            Cow::Borrowed(_) => Ok(converted),
-            Cow::Owned(o) => Ok(Cow::Owned(o)),
-        }
+  fn convert(a: &Automaton) -> Result<Cow<'_, Automaton>> {
+    if !a.is_deterministic() {
+      return Err(LuceneError::illegal_argument(
+        "Automaton must be deterministic",
+      ));
     }
+    let converted = UTF32ToUTF8::default().convert(a)?;
+    match Operations::determinize(&converted, i32::MAX as usize)? {
+      Cow::Borrowed(_) => Ok(converted),
+      Cow::Owned(o) => Ok(Cow::Owned(o)),
+    }
+  }
 }
 impl ByteRunnable for ByteRunAutomaton {
-    fn step(&self, state: i32, c: i32) -> i32 {
-        self.base.step(state, c)
-    }
+  fn step(&self, state: i32, c: i32) -> i32 {
+    self.base.step(state, c)
+  }
 
-    fn is_accept(&self, state: i32) -> Result<bool> {
-        self.base.is_accept(state)
-    }
+  fn is_accept(&self, state: i32) -> Result<bool> {
+    self.base.is_accept(state)
+  }
 
-    fn get_size(&self) -> i32 {
-        self.base.size()
-    }
+  fn get_size(&self) -> i32 {
+    self.base.size()
+  }
 }
 
 impl PartialEq for ByteRunAutomaton {
-    fn eq(&self, other: &Self) -> bool {
-        self.base.eq(&other.base)
-    }
+  fn eq(&self, other: &Self) -> bool {
+    self.base.eq(&other.base)
+  }
 }
 impl Eq for ByteRunAutomaton {}
 impl Hash for ByteRunAutomaton {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.base.hash(state)
-    }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.base.hash(state)
+  }
 }

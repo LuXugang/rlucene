@@ -21,25 +21,25 @@ use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 /// Abstract API to visit point values.
 pub trait PointsReader {
-    /// Checks consistency of this reader.
-    ///
-    /// Note that this may be costly in terms of I/O, e.g. may involve computing
-    /// a checksum value against large data files.
-    fn check_integrity(&self) -> Result<()>;
+  /// Checks consistency of this reader.
+  ///
+  /// Note that this may be costly in terms of I/O, e.g. may involve computing
+  /// a checksum value against large data files.
+  fn check_integrity(&self) -> Result<()>;
 
-    type PointValuesType: PointValues;
-    fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>>;
+  type PointValuesType: PointValues;
+  fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>>;
 
-    /// Returns an instance optimized for merging. This instance may only be
-    /// cloned
-    /// # Note
-    /// Returning None means returning itself.
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        Ok(None)
-    }
+  /// Returns an instance optimized for merging. This instance may only be
+  /// cloned
+  /// # Note
+  /// Returning None means returning itself.
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    Ok(None)
+  }
 }
 pub type DefaultPointsReader<I> = <DefaultPointsFormat as PointsFormat>::PointsReader<I>;
 
@@ -98,26 +98,26 @@ either_points_reader!(pub PointsReaderEnum2 { A: A, B: B });
 
 impl<T> PointsReader for Arc<T>
 where
-    T: PointsReader,
+  T: PointsReader,
 {
-    fn check_integrity(&self) -> Result<()> {
-        (**self).check_integrity()
-    }
+  fn check_integrity(&self) -> Result<()> {
+    (**self).check_integrity()
+  }
 
-    type PointValuesType = T::PointValuesType;
+  type PointValuesType = T::PointValuesType;
 
-    fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>> {
-        (**self).get_values(field)
-    }
+  fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>> {
+    (**self).get_values(field)
+  }
 
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        let v = match (**self).get_merge_instance()? {
-            Some(v) => Arc::new(v),
-            None => return Ok(None),
-        };
-        Ok(Some(v))
-    }
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    let v = match (**self).get_merge_instance()? {
+      Some(v) => Arc::new(v),
+      None => return Ok(None),
+    };
+    Ok(Some(v))
+  }
 }

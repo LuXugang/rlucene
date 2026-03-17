@@ -20,73 +20,73 @@ use crate::core::util::packed::{Decoder, Encoder};
 #[derive(Default)]
 pub(crate) struct BulkOperationPacked16;
 impl Decoder for BulkOperationPacked16 {
-    fn decode_u64_to_i64(
-        &self,
-        blocks: &[u64],
-        mut blocks_offset: usize,
-        values: &mut [i64],
-        mut values_offset: usize,
-        iterations: i32,
-    ) {
-        for _ in 0..iterations {
-            let block = blocks[blocks_offset];
-            blocks_offset += 1;
-            for shift in (0..=48).rev().step_by(16) {
-                values[values_offset] = ((block >> shift) & 0xFFFF) as i64;
-                values_offset += 1;
-            }
-        }
+  fn decode_u64_to_i64(
+    &self,
+    blocks: &[u64],
+    mut blocks_offset: usize,
+    values: &mut [i64],
+    mut values_offset: usize,
+    iterations: i32,
+  ) {
+    for _ in 0..iterations {
+      let block = blocks[blocks_offset];
+      blocks_offset += 1;
+      for shift in (0..=48).rev().step_by(16) {
+        values[values_offset] = ((block >> shift) & 0xFFFF) as i64;
+        values_offset += 1;
+      }
     }
+  }
 
-    fn decode_u8_to_i64(
-        &self,
-        blocks: &[u8],
-        mut blocks_offset: usize,
-        values: &mut [i64],
-        mut values_offset: usize,
-        iterations: i32,
-    ) {
-        for _ in 0..iterations {
-            values[values_offset] =
-                ((blocks[blocks_offset] as i64) << 8) | (blocks[blocks_offset + 1] as i64);
-            blocks_offset += 2;
-            values_offset += 1;
-        }
+  fn decode_u8_to_i64(
+    &self,
+    blocks: &[u8],
+    mut blocks_offset: usize,
+    values: &mut [i64],
+    mut values_offset: usize,
+    iterations: i32,
+  ) {
+    for _ in 0..iterations {
+      values[values_offset] =
+        ((blocks[blocks_offset] as i64) << 8) | (blocks[blocks_offset + 1] as i64);
+      blocks_offset += 2;
+      values_offset += 1;
     }
+  }
 
-    fn decode_u64_to_i32(
-        &self,
-        blocks: &[u64],
-        mut blocks_offset: usize,
-        values: &mut [i32],
-        mut values_offset: usize,
-        iterations: i32,
-    ) {
-        for _ in 0..iterations {
-            let block = blocks[blocks_offset];
-            blocks_offset += 1;
-            for shift in (0..=48).rev().step_by(16) {
-                values[values_offset] = ((block >> shift) & 0xFFFF) as i32;
-                values_offset += 1;
-            }
-        }
+  fn decode_u64_to_i32(
+    &self,
+    blocks: &[u64],
+    mut blocks_offset: usize,
+    values: &mut [i32],
+    mut values_offset: usize,
+    iterations: i32,
+  ) {
+    for _ in 0..iterations {
+      let block = blocks[blocks_offset];
+      blocks_offset += 1;
+      for shift in (0..=48).rev().step_by(16) {
+        values[values_offset] = ((block >> shift) & 0xFFFF) as i32;
+        values_offset += 1;
+      }
     }
+  }
 
-    fn decode_u8_to_i32(
-        &self,
-        blocks: &[u8],
-        mut blocks_offset: usize,
-        values: &mut [i32],
-        mut values_offset: usize,
-        iterations: i32,
-    ) {
-        for _ in 0..iterations {
-            values[values_offset] =
-                ((blocks[blocks_offset] as i32) << 8) | (blocks[blocks_offset + 1] as i32);
-            blocks_offset += 2;
-            values_offset += 1;
-        }
+  fn decode_u8_to_i32(
+    &self,
+    blocks: &[u8],
+    mut blocks_offset: usize,
+    values: &mut [i32],
+    mut values_offset: usize,
+    iterations: i32,
+  ) {
+    for _ in 0..iterations {
+      values[values_offset] =
+        ((blocks[blocks_offset] as i32) << 8) | (blocks[blocks_offset + 1] as i32);
+      blocks_offset += 2;
+      values_offset += 1;
     }
+  }
 }
 impl Encoder for BulkOperationPacked16 {}
 impl BulkOperation for BulkOperationPacked16 {}

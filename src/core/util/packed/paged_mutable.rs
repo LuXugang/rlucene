@@ -25,50 +25,49 @@ use crate::core::util::packed::{Format, FormatAndBits, PackedInts, fastest_forma
 /// This is an internal utility for use within the Lucene system.
 #[derive(Default)]
 pub struct PagedMutable {
-    format: Format,
-    bits_per_value: i32,
+  format: Format,
+  bits_per_value: i32,
 }
 impl PagedMutable {
-    pub fn with_overhead_ratio(
-        page_size: i32,
-        bits_per_value: i32,
-        acceptable_overhead_ratio: f32,
-    ) -> Self {
-        let format_and_bits =
-            fastest_format_and_bits(page_size, bits_per_value, acceptable_overhead_ratio);
-        Self::with_format_and_bits(format_and_bits)
+  pub fn with_overhead_ratio(
+    page_size: i32,
+    bits_per_value: i32,
+    acceptable_overhead_ratio: f32,
+  ) -> Self {
+    let format_and_bits =
+      fastest_format_and_bits(page_size, bits_per_value, acceptable_overhead_ratio);
+    Self::with_format_and_bits(format_and_bits)
+  }
+  fn with_format_and_bits(format_and_bits: FormatAndBits) -> Self {
+    Self::with_bits_and_format(format_and_bits.bits_per_value, format_and_bits.format)
+  }
+  fn with_bits_and_format(bits_per_value: i32, format: Format) -> Self {
+    Self {
+      format,
+      bits_per_value,
     }
-    fn with_format_and_bits(format_and_bits: FormatAndBits) -> Self {
-        Self::with_bits_and_format(format_and_bits.bits_per_value, format_and_bits.format)
-    }
-    fn with_bits_and_format(bits_per_value: i32, format: Format) -> Self {
-        Self {
-            format,
-            bits_per_value,
-        }
-    }
+  }
 }
 impl AbstractPagedMutableBase for PagedMutable {
-    fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum {
-        debug_assert!(self.bits_per_value >= bits_per_value);
-        let sub_mutable =
-            PackedInts::get_mutable_impl(value_count, self.bits_per_value, self.format);
-        MutableEnum::Packed(sub_mutable)
-    }
+  fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum {
+    debug_assert!(self.bits_per_value >= bits_per_value);
+    let sub_mutable = PackedInts::get_mutable_impl(value_count, self.bits_per_value, self.format);
+    MutableEnum::Packed(sub_mutable)
+  }
 
-    fn new_unfilled_copy(&self) -> Self {
-        PagedMutable::with_bits_and_format(self.bits_per_value, self.format)
-    }
+  fn new_unfilled_copy(&self) -> Self {
+    PagedMutable::with_bits_and_format(self.bits_per_value, self.format)
+  }
 
-    fn base_ram_bytes_used_base(&self) -> i64 {
-        0
-    }
+  fn base_ram_bytes_used_base(&self) -> i64 {
+    0
+  }
 
-    fn fill_pages(&self) -> bool {
-        true
-    }
+  fn fill_pages(&self) -> bool {
+    true
+  }
 
-    fn bits_per_value(&self) -> i32 {
-        self.bits_per_value
-    }
+  fn bits_per_value(&self) -> i32 {
+    self.bits_per_value
+  }
 }

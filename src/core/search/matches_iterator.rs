@@ -30,51 +30,51 @@ use std::sync::Arc;
 ///
 /// @lucene.experimental
 pub trait MatchesIterator {
-    /// Advance the iterator to the next match position.
-    ///
-    /// # Returns
-    /// - `Ok(true)` if matches have not been exhausted
-    /// - `Ok(false)` if no more matches
-    fn next(&mut self) -> Result<bool>;
+  /// Advance the iterator to the next match position.
+  ///
+  /// # Returns
+  /// - `Ok(true)` if matches have not been exhausted
+  /// - `Ok(false)` if no more matches
+  fn next(&mut self) -> Result<bool>;
 
-    /// The start position of the current match, or `-1` if positions are not available.
-    ///
-    /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-    fn start_position(&self) -> Result<i32>;
+  /// The start position of the current match, or `-1` if positions are not available.
+  ///
+  /// Should only be called after [`MatchesIterator::next`] has returned `true`.
+  fn start_position(&self) -> Result<i32>;
 
-    /// The end position of the current match, or `-1` if positions are not available.
-    ///
-    /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-    fn end_position(&self) -> i32;
+  /// The end position of the current match, or `-1` if positions are not available.
+  ///
+  /// Should only be called after [`MatchesIterator::next`] has returned `true`.
+  fn end_position(&self) -> i32;
 
-    /// The starting offset of the current match, or `-1` if offsets are not available.
-    ///
-    /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-    fn start_offset(&self) -> Result<i32>;
+  /// The starting offset of the current match, or `-1` if offsets are not available.
+  ///
+  /// Should only be called after [`MatchesIterator::next`] has returned `true`.
+  fn start_offset(&self) -> Result<i32>;
 
-    /// The ending offset of the current match, or `-1` if offsets are not available.
-    ///
-    /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-    fn end_offset(&self) -> Result<i32>;
+  /// The ending offset of the current match, or `-1` if offsets are not available.
+  ///
+  /// Should only be called after [`MatchesIterator::next`] has returned `true`.
+  fn end_offset(&self) -> Result<i32>;
 
-    type MatchesIterRef<'a>: MatchesIterator
-    where
-        Self: 'a;
-    /// Returns a [`MatchesIterator`] that iterates over the positions and offsets
-    /// of individual terms within the current match.
-    ///
-    /// Returns `None` if there are no submatches (i.e. the current iterator is at the leaf level).
-    ///
-    /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-    fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>>;
+  type MatchesIterRef<'a>: MatchesIterator
+  where
+    Self: 'a;
+  /// Returns a [`MatchesIterator`] that iterates over the positions and offsets
+  /// of individual terms within the current match.
+  ///
+  /// Returns `None` if there are no submatches (i.e. the current iterator is at the leaf level).
+  ///
+  /// Should only be called after [`MatchesIterator::next`] has returned `true`.
+  fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>>;
 
-    /// Returns the [`Query`] causing the current match.
-    ///
-    /// If this [`MatchesIterator`] has been returned from a [`MatchesIterator::get_sub_matches`] call,
-    /// then returns a `TermQuery` equivalent to the current match.
-    ///
-    /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-    fn get_query(&self) -> Arc<Query>;
+  /// Returns the [`Query`] causing the current match.
+  ///
+  /// If this [`MatchesIterator`] has been returned from a [`MatchesIterator::get_sub_matches`] call,
+  /// then returns a `TermQuery` equivalent to the current match.
+  ///
+  /// Should only be called after [`MatchesIterator::next`] has returned `true`.
+  fn get_query(&self) -> Arc<Query>;
 }
 macro_rules! either_matches_iterator {
     (

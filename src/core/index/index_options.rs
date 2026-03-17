@@ -21,141 +21,141 @@ use strum_macros::{Display, EnumCount, FromRepr};
 ///
 /// # Experimental
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, Hash, EnumCount, Display,
+  Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, Hash, EnumCount, Display,
 )]
 #[repr(u8)]
 pub enum IndexOptions {
-    /// Not indexed
-    None,
-    /// Only documents are indexed: term frequencies and positions are omitted.
-    /// Phrase and other positional queries on the field will throw an
-    /// exception, and scoring will behave as if any term in the document
-    /// appears only once.
-    Docs,
-    /// Only documents and term frequencies are indexed: positions are omitted.
-    /// This enables normal scoring, but Phrase and other positional queries
-    /// will throw an Error.
-    DocsAndFreqs,
-    /// Indexes documents, frequencies, and positions.
-    /// This is the typical default for full-text search: full scoring is
-    /// enabled, and positional queries are supported.
-    DocsAndFreqsAndPositions,
-    /// Indexes documents, frequencies, positions, and offsets.
-    /// Character offsets are encoded alongside the positions.
-    DocsAndFreqsAndPositionsAndOffsets,
+  /// Not indexed
+  None,
+  /// Only documents are indexed: term frequencies and positions are omitted.
+  /// Phrase and other positional queries on the field will throw an
+  /// exception, and scoring will behave as if any term in the document
+  /// appears only once.
+  Docs,
+  /// Only documents and term frequencies are indexed: positions are omitted.
+  /// This enables normal scoring, but Phrase and other positional queries
+  /// will throw an Error.
+  DocsAndFreqs,
+  /// Indexes documents, frequencies, and positions.
+  /// This is the typical default for full-text search: full scoring is
+  /// enabled, and positional queries are supported.
+  DocsAndFreqsAndPositions,
+  /// Indexes documents, frequencies, positions, and offsets.
+  /// Character offsets are encoded alongside the positions.
+  DocsAndFreqsAndPositionsAndOffsets,
 }
 impl IndexOptions {
-    pub fn values() -> impl Iterator<Item = Self> {
-        (0..Self::COUNT).filter_map(|v| Self::from_repr(v as u8))
-    }
+  pub fn values() -> impl Iterator<Item = Self> {
+    (0..Self::COUNT).filter_map(|v| Self::from_repr(v as u8))
+  }
 }
 /// Use Default for padding
 impl Default for IndexOptions {
-    fn default() -> Self {
-        IndexOptions::None
-    }
+  fn default() -> Self {
+    IndexOptions::None
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::core::document::document::Document;
-    use crate::core::document::field::Field;
-    use crate::core::document::field_type::FieldType;
-    use crate::core::document::text_field::text_field_type;
+  use crate::core::document::document::Document;
+  use crate::core::document::field::Field;
+  use crate::core::document::field_type::FieldType;
+  use crate::core::document::text_field::text_field_type;
 
-    use crate::core::index::index_options::IndexOptions;
-    use crate::core::index::index_writer::IndexWriter;
-    use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config, random,
-    };
+  use crate::core::index::index_options::IndexOptions;
+  use crate::core::index::index_writer::IndexWriter;
+  use crate::core::util::error::lucene_error::{LuceneError, Result};
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    new_directory_shared, new_index_writer_config, random,
+  };
 
-    #[allow(dead_code)]
-    struct TestIndexOptions;
-    #[test]
-    fn test_change_index_options_via_add_document() -> Result<()> {
-        for from in IndexOptions::values() {
-            for to in IndexOptions::values() {
-                do_test_change_index_options_via_add_document(from, to)?;
-            }
-        }
-        Ok(())
+  #[allow(dead_code)]
+  struct TestIndexOptions;
+  #[test]
+  fn test_change_index_options_via_add_document() -> Result<()> {
+    for from in IndexOptions::values() {
+      for to in IndexOptions::values() {
+        do_test_change_index_options_via_add_document(from, to)?;
+      }
     }
+    Ok(())
+  }
 
-    fn do_test_change_index_options_via_add_document(
-        from: IndexOptions,
-        to: IndexOptions,
-    ) -> Result<()> {
-        let mut random = random();
+  fn do_test_change_index_options_via_add_document(
+    from: IndexOptions,
+    to: IndexOptions,
+  ) -> Result<()> {
+    let mut random = random();
 
-        let dir = new_directory_shared(&mut random)?;
-        let iwc = new_index_writer_config(&mut random);
-        let w = IndexWriter::new(dir.clone(), iwc)?;
+    let dir = new_directory_shared(&mut random)?;
+    let iwc = new_index_writer_config(&mut random);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
-        let mut ft1 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
-        ft1.set_index_options(from)?;
-        let mut doc1 = Document::new();
-        doc1.add(Field::new("foo", "bar", ft1));
-        w.add_document(doc1)?;
+    let mut ft1 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+    ft1.set_index_options(from)?;
+    let mut doc1 = Document::new();
+    doc1.add(Field::new("foo", "bar", ft1));
+    w.add_document(doc1)?;
 
-        let mut ft2 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
-        ft2.set_index_options(to)?;
-        let mut doc2 = Document::new();
-        doc2.add(Field::new("foo", "bar", ft2));
+    let mut ft2 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+    ft2.set_index_options(to)?;
+    let mut doc2 = Document::new();
+    doc2.add(Field::new("foo", "bar", ft2));
 
-        if from == to {
-            w.add_document(doc2)?;
-        } else {
-            let res = w.add_document(doc2);
-            let expected = format!(
-                "Inconsistency of field data structures across documents for field [foo] of doc [1].\
+    if from == to {
+      w.add_document(doc2)?;
+    } else {
+      let res = w.add_document(doc2);
+      let expected = format!(
+        "Inconsistency of field data structures across documents for field [foo] of doc [1].\
              index options: expected '{}', but it has '{}'.",
-                from, to
-            );
+        from, to
+      );
 
-            match res {
-                Err(LuceneError::IllegalArgument(msg)) => {
-                    assert_eq!(expected, msg.message);
-                },
-                other => {
-                    debug_assert!(false, "Unexpected error type: {:?}", other);
-                },
-            }
-        }
+      match res {
+        Err(LuceneError::IllegalArgument(msg)) => {
+          assert_eq!(expected, msg.message);
+        },
+        other => {
+          debug_assert!(false, "Unexpected error type: {:?}", other);
+        },
+      }
+    }
 
-        w.close()?;
-        Ok(())
+    w.close()?;
+    Ok(())
+  }
+  #[test]
+  fn test_change_index_options_via_add_indexes_codec_reader() -> Result<()> {
+    for from in IndexOptions::values() {
+      for to in IndexOptions::values() {
+        do_test_change_index_options_add_indexes_codec_reader(from, to)?;
+      }
     }
-    #[test]
-    fn test_change_index_options_via_add_indexes_codec_reader() -> Result<()> {
-        for from in IndexOptions::values() {
-            for to in IndexOptions::values() {
-                do_test_change_index_options_add_indexes_codec_reader(from, to)?;
-            }
-        }
-        Ok(())
+    Ok(())
+  }
+  fn do_test_change_index_options_add_indexes_codec_reader(
+    _from: IndexOptions,
+    _to: IndexOptions,
+  ) -> Result<()> {
+    // TODO add_indexes 未实现
+    Ok(())
+  }
+  #[test]
+  fn test_change_index_options_via_add_indexes_directory() -> Result<()> {
+    for from in IndexOptions::values() {
+      for to in IndexOptions::values() {
+        do_test_change_index_options_add_indexes_codec_reader(from, to)?;
+      }
     }
-    fn do_test_change_index_options_add_indexes_codec_reader(
-        _from: IndexOptions,
-        _to: IndexOptions,
-    ) -> Result<()> {
-        // TODO add_indexes 未实现
-        Ok(())
-    }
-    #[test]
-    fn test_change_index_options_via_add_indexes_directory() -> Result<()> {
-        for from in IndexOptions::values() {
-            for to in IndexOptions::values() {
-                do_test_change_index_options_add_indexes_codec_reader(from, to)?;
-            }
-        }
-        Ok(())
-    }
-    fn do_test_change_index_options_add_indexes_directory(
-        _from: IndexOptions,
-        _to: IndexOptions,
-    ) -> Result<()> {
-        // TODO add_indexes 未实现
-        Ok(())
-    }
+    Ok(())
+  }
+  fn do_test_change_index_options_add_indexes_directory(
+    _from: IndexOptions,
+    _to: IndexOptions,
+  ) -> Result<()> {
+    // TODO add_indexes 未实现
+    Ok(())
+  }
 }

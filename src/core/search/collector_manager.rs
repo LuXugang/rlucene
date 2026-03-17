@@ -33,19 +33,19 @@ use crate::core::search::collector::Collector;
 /// See also: `IndexSearcher::search(query, manager)`
 use crate::core::util::error::lucene_error::Result;
 pub trait CollectorManager {
-    /// The per-shard/per-task collector type to create.
-    type C: Collector;
+  /// The per-shard/per-task collector type to create.
+  type C: Collector;
 
-    /// The final reduced result type.
-    type T;
+  /// The final reduced result type.
+  type T;
 
-    /// Return a new collector. This **must return a different instance on each call**.
-    fn new_collector(&self) -> Result<Self::C>;
+  /// Return a new collector. This **must return a different instance on each call**.
+  fn new_collector(&self) -> Result<Self::C>;
 
-    /// Reduce the results of individual collectors into a meaningful result.
-    ///
-    /// For instance, a `TopDocsCollector` would compute the `top_docs()` of each collector
-    /// and then merge them, similar to `TopDocs::merge(...)`. This **must be called after**
-    /// collection is finished on all provided collectors.
-    fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T>;
+  /// Reduce the results of individual collectors into a meaningful result.
+  ///
+  /// For instance, a `TopDocsCollector` would compute the `top_docs()` of each collector
+  /// and then merge them, similar to `TopDocs::merge(...)`. This **must be called after**
+  /// collection is finished on all provided collectors.
+  fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T>;
 }

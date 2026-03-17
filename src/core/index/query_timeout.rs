@@ -23,44 +23,44 @@ use std::fmt::{Display, Formatter};
 /// in which case bulk scoring will be time-bound.
 /// Can also be used in combination with `ExitableDirectoryReader`.
 pub trait QueryTimeout {
-    /// Called to determine whether to stop processing a query.
-    ///
-    /// # Returns
-    /// `true` if the query should stop, `false` otherwise.
-    fn should_exit(&self) -> bool;
+  /// Called to determine whether to stop processing a query.
+  ///
+  /// # Returns
+  /// `true` if the query should stop, `false` otherwise.
+  fn should_exit(&self) -> bool;
 }
 
 pub type DynQueryTimeout = dyn QueryTimeout + Send + Sync;
 pub type CustomQueryTimeout = Box<DynQueryTimeout>;
 
 pub enum QueryTimeoutEnum {
-    Builtin(QueryTimeoutImpl),
-    Custom(CustomQueryTimeout),
+  Builtin(QueryTimeoutImpl),
+  Custom(CustomQueryTimeout),
 }
 
 impl QueryTimeoutEnum {
-    pub fn custom<T>(t: T) -> Self
-    where
-        T: QueryTimeout + Send + Sync + 'static,
-    {
-        Self::Custom(Box::new(t))
-    }
+  pub fn custom<T>(t: T) -> Self
+  where
+    T: QueryTimeout + Send + Sync + 'static,
+  {
+    Self::Custom(Box::new(t))
+  }
 }
 
 impl Display for QueryTimeoutEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Builtin(inner) => write!(f, "{}", inner),
-            Self::Custom(_) => write!(f, "CustomQueryTimeout"),
-        }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Builtin(inner) => write!(f, "{}", inner),
+      Self::Custom(_) => write!(f, "CustomQueryTimeout"),
     }
+  }
 }
 
 impl QueryTimeout for QueryTimeoutEnum {
-    fn should_exit(&self) -> bool {
-        match self {
-            Self::Builtin(inner) => inner.should_exit(),
-            Self::Custom(inner) => inner.should_exit(),
-        }
+  fn should_exit(&self) -> bool {
+    match self {
+      Self::Builtin(inner) => inner.should_exit(),
+      Self::Custom(inner) => inner.should_exit(),
     }
+  }
 }

@@ -26,76 +26,76 @@ use crate::core::util::group_vint_util::GroupVIntUtil;
 /// Implements reverse read from a RandomAccessInput.
 pub struct ReverseRandomAccessReader<R>
 where
-    R: RandomAccessInput,
+  R: RandomAccessInput,
 {
-    input: R,
-    pos: usize,
+  input: R,
+  pos: usize,
 }
 
 impl<R> ReverseRandomAccessReader<R>
 where
-    R: RandomAccessInput,
+  R: RandomAccessInput,
 {
-    pub fn new(input: R) -> Self {
-        Self { input, pos: 0 }
-    }
+  pub fn new(input: R) -> Self {
+    Self { input, pos: 0 }
+  }
 }
 
 impl<R> DataInput for ReverseRandomAccessReader<R>
 where
-    R: RandomAccessInput,
+  R: RandomAccessInput,
 {
-    fn read_byte(&mut self) -> Result<u8> {
-        let b = self.input.read_byte(self.pos)?;
-        self.pos -= 1;
-        Ok(b)
-    }
+  fn read_byte(&mut self) -> Result<u8> {
+    let b = self.input.read_byte(self.pos)?;
+    self.pos -= 1;
+    Ok(b)
+  }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
-        let mut i = offset;
-        let end = offset + len;
-        while i < end {
-            b[i] = self.input.read_byte(self.pos)?;
-            self.pos -= 1;
-            i += 1;
-        }
-        Ok(())
+  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    let mut i = offset;
+    let end = offset + len;
+    while i < end {
+      b[i] = self.input.read_byte(self.pos)?;
+      self.pos -= 1;
+      i += 1;
     }
+    Ok(())
+  }
 
-    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
-    }
+  fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+    GroupVIntUtil::read_group_vint_i32(self, dst, offset)
+  }
 
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-        let num_bytes = num_bytes.try_convert()?;
-        self.pos = self.pos.checked_sub(num_bytes).ok_or_else(|| {
-            LuceneError::illegal_state(format!(
-                "underflow, pos {}, num_bytes {} ",
-                self.pos, num_bytes
-            ))
-        })?;
-        Ok(())
-    }
+  fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+    let num_bytes = num_bytes.try_convert()?;
+    self.pos = self.pos.checked_sub(num_bytes).ok_or_else(|| {
+      LuceneError::illegal_state(format!(
+        "underflow, pos {}, num_bytes {} ",
+        self.pos, num_bytes
+      ))
+    })?;
+    Ok(())
+  }
 }
 
 impl<R> BytesReader for ReverseRandomAccessReader<R>
 where
-    R: RandomAccessInput,
+  R: RandomAccessInput,
 {
-    fn get_position(&self) -> usize {
-        self.pos
-    }
+  fn get_position(&self) -> usize {
+    self.pos
+  }
 
-    fn set_position(&mut self, pos: usize) {
-        self.pos = pos;
-    }
+  fn set_position(&mut self, pos: usize) {
+    self.pos = pos;
+  }
 }
 
 impl<R> Display for ReverseRandomAccessReader<R>
 where
-    R: RandomAccessInput,
+  R: RandomAccessInput,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }

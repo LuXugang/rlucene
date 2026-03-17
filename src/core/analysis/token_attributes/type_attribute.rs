@@ -18,19 +18,19 @@ use crate::core::util::attribute::Attribute;
 
 /// A Token’s lexical type. The default value is `"word"`.
 pub trait TypeAttribute: Attribute {
-    /// Returns this Token’s lexical type. Defaults to `"word"`.
-    ///
-    /// # See
-    ///
-    /// [`set_type`](TypeAttribute::set_type)
-    fn type_value(&self) -> &str;
+  /// Returns this Token’s lexical type. Defaults to `"word"`.
+  ///
+  /// # See
+  ///
+  /// [`set_type`](TypeAttribute::set_type)
+  fn type_value(&self) -> &str;
 
-    /// Set the lexical type.
-    ///
-    /// # See
-    ///
-    /// [`type`](TypeAttribute::type_value)
-    fn set_type(&mut self, type_: &str);
+  /// Set the lexical type.
+  ///
+  /// # See
+  ///
+  /// [`type`](TypeAttribute::type_value)
+  fn set_type(&mut self, type_: &str);
 }
 
 /// The default type.

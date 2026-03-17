@@ -23,31 +23,31 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// which defaults to a no-op.
 pub struct FilterScorable<'a, S>
 where
-    S: Scorable + ?Sized,
+  S: Scorable + ?Sized,
 {
-    pub(crate) in_: &'a mut S,
+  pub(crate) in_: &'a mut S,
 }
 impl<'a, S> FilterScorable<'a, S>
 where
-    S: Scorable + ?Sized,
+  S: Scorable + ?Sized,
 {
-    pub fn new(in_: &'a mut S) -> Self {
-        Self { in_ }
-    }
+  pub fn new(in_: &'a mut S) -> Self {
+    Self { in_ }
+  }
 }
 impl<S> Scorable for FilterScorable<'_, S>
 where
-    S: Scorable + ?Sized,
+  S: Scorable + ?Sized,
 {
-    fn score(&mut self) -> Result<f32> {
-        self.in_.score()
-    }
+  fn score(&mut self) -> Result<f32> {
+    self.in_.score()
+  }
 
-    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
-        todo!()
-    }
+  fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+    todo!()
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn cost(&self) -> Result<i64> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }

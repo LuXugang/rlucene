@@ -44,261 +44,262 @@ use std::sync::Arc;
 /// Similar to SortedNumericDocValuesRangeQuery but for a set
 #[derive(Debug, Clone)]
 pub struct SortedNumericDocValuesSetQuery {
-    id: Identity,
-    field: String,
-    numbers: Arc<DocValuesLongHashSet>,
+  id: Identity,
+  field: String,
+  numbers: Arc<DocValuesLongHashSet>,
 }
 impl SortedNumericDocValuesSetQuery {
-    pub fn new(field: String, mut numbers: Vec<i64>) -> Result<Self> {
-        numbers.sort_unstable();
-        Ok(SortedNumericDocValuesSetQuery {
-            id: Identity::new(),
-            field,
-            numbers: Arc::new(DocValuesLongHashSet::new(numbers.as_slice())?),
-        })
-    }
+  pub fn new(field: String, mut numbers: Vec<i64>) -> Result<Self> {
+    numbers.sort_unstable();
+    Ok(SortedNumericDocValuesSetQuery {
+      id: Identity::new(),
+      field,
+      numbers: Arc::new(DocValuesLongHashSet::new(numbers.as_slice())?),
+    })
+  }
 }
 impl PartialEq for SortedNumericDocValuesSetQuery {
-    fn eq(&self, other: &Self) -> bool {
-        self.field == other.field && self.numbers == other.numbers
-    }
+  fn eq(&self, other: &Self) -> bool {
+    self.field == other.field && self.numbers == other.numbers
+  }
 }
 impl Eq for SortedNumericDocValuesSetQuery {}
 
 impl Hash for SortedNumericDocValuesSetQuery {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.field.hash(state);
-        self.numbers.hash(state);
-    }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.field.hash(state);
+    self.numbers.hash(state);
+  }
 }
 
 impl HasIdentity for SortedNumericDocValuesSetQuery {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 impl QueryBase for SortedNumericDocValuesSetQuery {
-    fn as_string(&self, _field: &str) -> Result<String> {
-        Ok(format!("{}: {}", self.field, self.numbers))
-    }
+  fn as_string(&self, _field: &str) -> Result<String> {
+    Ok(format!("{}: {}", self.field, self.numbers))
+  }
 
-    fn create_weight<IRC>(
-        self,
-        _searcher: &IndexSearcher<IRC>,
-        score_mode: &ScoreMode,
-        boost: f32,
-    ) -> Result<QueryWeight<IRC>>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        Ok(Box::new(SortedNumericDocValuesSetQueryWeight::new(
-            self,
-            *score_mode,
-            boost,
-        )))
-    }
+  fn create_weight<IRC>(
+    self,
+    _searcher: &IndexSearcher<IRC>,
+    score_mode: &ScoreMode,
+    boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    Ok(Box::new(SortedNumericDocValuesSetQueryWeight::new(
+      self,
+      *score_mode,
+      boost,
+    )))
+  }
 
-    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        if self.numbers.size() == 0 {
-            return Ok(MatchNoDocsQuery::new().into());
-        }
-        Ok(self.into())
+  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    if self.numbers.size() == 0 {
+      return Ok(MatchNoDocsQuery::new().into());
     }
+    Ok(self.into())
+  }
 
-    fn visit<QV>(&self, _visitor: &QV)
-    where
-        QV: QueryVisitor,
-    {
-        todo!()
-    }
+  fn visit<QV>(&self, _visitor: &QV)
+  where
+    QV: QueryVisitor,
+  {
+    todo!()
+  }
 }
 impl Accountable for SortedNumericDocValuesSetQuery {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        todo!()
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    todo!()
+  }
 }
 
 pub struct SortedNumericDocValuesSetQueryWeight {
-    query: SortedNumericDocValuesSetQuery,
-    base: ConstantScoreWeight,
-    parent_query: Arc<Query>,
-    score_mode: ScoreMode,
+  query: SortedNumericDocValuesSetQuery,
+  base: ConstantScoreWeight,
+  parent_query: Arc<Query>,
+  score_mode: ScoreMode,
 }
 impl SortedNumericDocValuesSetQueryWeight {
-    pub(crate) fn new(
-        query: SortedNumericDocValuesSetQuery,
-        score_mode: ScoreMode,
-        boost: f32,
-    ) -> Self {
-        let query_clone = query.clone();
-        let parent_query = Arc::new(query.into());
-        Self {
-            query: query_clone,
-            base: ConstantScoreWeight::new(boost),
-            parent_query,
-            score_mode,
-        }
+  pub(crate) fn new(
+    query: SortedNumericDocValuesSetQuery,
+    score_mode: ScoreMode,
+    boost: f32,
+  ) -> Self {
+    let query_clone = query.clone();
+    let parent_query = Arc::new(query.into());
+    Self {
+      query: query_clone,
+      base: ConstantScoreWeight::new(boost),
+      parent_query,
+      score_mode,
     }
+  }
 }
 
 impl<IRC> SegmentCacheable<IRC> for SortedNumericDocValuesSetQueryWeight
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-        let field = vec![self.query.field.clone()];
-        DocValues::is_cacheable(ctx, field.as_ref())
-    }
+  fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
+    let field = vec![self.query.field.clone()];
+    DocValues::is_cacheable(ctx, field.as_ref())
+  }
 }
 
 impl<IRC> Weight<IRC> for SortedNumericDocValuesSetQueryWeight
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    type Matches = MatchWithNoTerms;
+  type Matches = MatchWithNoTerms;
 
-    fn matches(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        doc: i32,
-        searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::Matches>> {
-        self.default_matches(context, doc, searcher)
+  fn matches(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::Matches>> {
+    self.default_matches(context, doc, searcher)
+  }
+
+  fn explain(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Explanation> {
+    let scorer = self.scorer(context, searcher)?;
+    self
+      .base
+      .explain(scorer, doc, self.parent_query.as_string("")?)
+  }
+
+  fn get_query(&self) -> Arc<Query> {
+    self.parent_query.clone()
+  }
+
+  type ScorerSupplier = QueryWeightSs<IRC>;
+
+  fn scorer_supplier(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::ScorerSupplier>> {
+    if context
+      .reader()
+      .get_field_infos()?
+      .field_info_by_name(&self.query.field)
+      .is_none()
+    {
+      return Ok(None);
     }
-
-    fn explain(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        doc: i32,
-        searcher: &IndexSearcher<IRC>,
-    ) -> Result<Explanation> {
-        let scorer = self.scorer(context, searcher)?;
-        self.base
-            .explain(scorer, doc, self.parent_query.as_string("")?)
-    }
-
-    fn get_query(&self) -> Arc<Query> {
-        self.parent_query.clone()
-    }
-
-    type ScorerSupplier = QueryWeightSs<IRC>;
-
-    fn scorer_supplier(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::ScorerSupplier>> {
-        if context
-            .reader()
-            .get_field_infos()?
-            .field_info_by_name(&self.query.field)
-            .is_none()
-        {
-            return Ok(None);
-        }
-        let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
-        let iterator = if values.is_single_valued() {
-            let singleton = DocValues::unwrap_singleton_numeric(&mut values)?;
-            TwoPhaseIteratorEnum2::A(TwoPhaseIterator1::new(singleton, self.query.clone()))
-        } else {
-            TwoPhaseIteratorEnum2::B(TwoPhaseIterator2::new(values, self.query.clone()))
-        };
-        let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
-        Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
-    }
+    let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
+    let iterator = if values.is_single_valued() {
+      let singleton = DocValues::unwrap_singleton_numeric(&mut values)?;
+      TwoPhaseIteratorEnum2::A(TwoPhaseIterator1::new(singleton, self.query.clone()))
+    } else {
+      TwoPhaseIteratorEnum2::B(TwoPhaseIterator2::new(values, self.query.clone()))
+    };
+    let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
+    Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
+  }
 }
 
 pub struct TwoPhaseIterator1<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    singleton: N,
-    query: SortedNumericDocValuesSetQuery,
+  singleton: N,
+  query: SortedNumericDocValuesSetQuery,
 }
 impl<N> TwoPhaseIterator1<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    pub fn new(singleton: N, query: SortedNumericDocValuesSetQuery) -> Self {
-        TwoPhaseIterator1 { singleton, query }
-    }
+  pub fn new(singleton: N, query: SortedNumericDocValuesSetQuery) -> Self {
+    TwoPhaseIterator1 { singleton, query }
+  }
 }
 impl<N> TwoPhaseIterator for TwoPhaseIterator1<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&mut self.singleton)
-    }
+  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+    Box::new(&mut self.singleton)
+  }
 
-    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&self.singleton)
-    }
+  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+    Box::new(&self.singleton)
+  }
 
-    fn matches(&mut self) -> Result<bool> {
-        let value = self.singleton.long_value()?;
-        let numbers = &self.query.numbers;
-        Ok(value >= numbers.min_value && value <= numbers.max_value && numbers.contains(value))
-    }
+  fn matches(&mut self) -> Result<bool> {
+    let value = self.singleton.long_value()?;
+    let numbers = &self.query.numbers;
+    Ok(value >= numbers.min_value && value <= numbers.max_value && numbers.contains(value))
+  }
 
-    fn match_cost(&self) -> f32 {
-        5f32
-    }
+  fn match_cost(&self) -> f32 {
+    5f32
+  }
 }
 pub struct TwoPhaseIterator2<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    value: S,
-    query: SortedNumericDocValuesSetQuery,
+  value: S,
+  query: SortedNumericDocValuesSetQuery,
 }
 
 impl<S> TwoPhaseIterator2<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    pub fn new(value: S, query: SortedNumericDocValuesSetQuery) -> Self {
-        TwoPhaseIterator2 { value, query }
-    }
+  pub fn new(value: S, query: SortedNumericDocValuesSetQuery) -> Self {
+    TwoPhaseIterator2 { value, query }
+  }
 }
 
 impl<S> TwoPhaseIterator for TwoPhaseIterator2<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&mut self.value)
+  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+    Box::new(&mut self.value)
+  }
+
+  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+    Box::new(&self.value)
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    let numbers = &self.query.numbers;
+    let count = self.value.doc_value_count()?;
+
+    for _ in 0..count {
+      let value = self.value.next_value()?;
+
+      if value < numbers.min_value {
+        continue;
+      } else if value > numbers.max_value {
+        return Ok(false); // sorted, terminate
+      } else if numbers.contains(value) {
+        return Ok(true);
+      }
     }
 
-    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&self.value)
-    }
+    Ok(false)
+  }
 
-    fn matches(&mut self) -> Result<bool> {
-        let numbers = &self.query.numbers;
-        let count = self.value.doc_value_count()?;
-
-        for _ in 0..count {
-            let value = self.value.next_value()?;
-
-            if value < numbers.min_value {
-                continue;
-            } else if value > numbers.max_value {
-                return Ok(false); // sorted, terminate
-            } else if numbers.contains(value) {
-                return Ok(true);
-            }
-        }
-
-        Ok(false)
-    }
-
-    fn match_cost(&self) -> f32 {
-        5f32
-    }
+  fn match_cost(&self) -> f32 {
+    5f32
+  }
 }

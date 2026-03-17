@@ -23,92 +23,92 @@ use crate::core::util::error::lucene_error::Result;
 /// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 #[allow(dead_code)]
 pub struct FilterScorer<S> {
-    inner: S,
+  inner: S,
 }
 impl<S> FilterScorer<S>
 where
-    S: Scorer,
+  S: Scorer,
 {
-    pub fn new(inner: S) -> Self {
-        Self { inner }
-    }
+  pub fn new(inner: S) -> Self {
+    Self { inner }
+  }
 }
 
 impl<S> Scorable for FilterScorer<S>
 where
-    S: Scorer,
+  S: Scorer,
 {
-    fn score(&mut self) -> Result<f32> {
-        self.inner.score()
-    }
+  fn score(&mut self) -> Result<f32> {
+    self.inner.score()
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.iterator().cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.iterator().cost()
+  }
 }
 
 impl<S> Scorer for FilterScorer<S>
 where
-    S: Scorer,
+  S: Scorer,
 {
-    fn doc_id(&mut self) -> Result<i32> {
-        self.inner.doc_id()
-    }
+  fn doc_id(&mut self) -> Result<i32> {
+    self.inner.doc_id()
+  }
 
-    fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-        self.inner.iterator()
-    }
+  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+    self.inner.iterator()
+  }
 
-    fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        self.inner.iterator_mut()
-    }
+  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+    self.inner.iterator_mut()
+  }
 
-    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-        let FilterScorer { inner } = *self;
-        Box::new(inner).take_iterator()
-    }
+  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+    let FilterScorer { inner } = *self;
+    Box::new(inner).take_iterator()
+  }
 
-    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-        self.inner.two_phase_iterator()
-    }
+  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+    self.inner.two_phase_iterator()
+  }
 
-    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-        self.inner.two_phase_iterator_mut()
-    }
+  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+    self.inner.two_phase_iterator_mut()
+  }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
-    where
-        Self: Sized,
-    {
-        let FilterScorer { inner } = *self;
-        Box::new(inner).take_two_phase_iterator()
-    }
+  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
+  where
+    Self: Sized,
+  {
+    let FilterScorer { inner } = *self;
+    Box::new(inner).take_two_phase_iterator()
+  }
 
-    fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance_shallow(target)
-    }
+  fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+    self.inner.advance_shallow(target)
+  }
 
-    fn default_advance_shallow(&mut self, target: i32) -> Result<i32> {
-        self.inner.default_advance_shallow(target)
-    }
+  fn default_advance_shallow(&mut self, target: i32) -> Result<i32> {
+    self.inner.default_advance_shallow(target)
+  }
 
-    fn get_max_score(&mut self, upto: i32) -> Result<f32> {
-        self.inner.get_max_score(upto)
-    }
+  fn get_max_score(&mut self, upto: i32) -> Result<f32> {
+    self.inner.get_max_score(upto)
+  }
 
-    fn default_cost(&mut self) -> Result<i64> {
-        self.inner.default_cost()
-    }
+  fn default_cost(&mut self) -> Result<i64> {
+    self.inner.default_cost()
+  }
 
-    fn has_two_phase_iterator(&self) -> TwoPhaseState {
-        self.inner.has_two_phase_iterator()
-    }
+  fn has_two_phase_iterator(&self) -> TwoPhaseState {
+    self.inner.has_two_phase_iterator()
+  }
 
-    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-        self.inner.approximation()
-    }
+  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+    self.inner.approximation()
+  }
 
-    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        self.inner.approximation_mut()
-    }
+  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+    self.inner.approximation_mut()
+  }
 }

@@ -20,23 +20,23 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyScorable;
 
 impl Scorable for DummyScorable {
-    fn score(&mut self) -> Result<f32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn score(&mut self) -> Result<f32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn smoothing_score(&mut self, _doc_id: i32) -> Result<f32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn smoothing_score(&mut self, _doc_id: i32) -> Result<f32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn set_min_competitive_score(&mut self, _min_score: f32) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn set_min_competitive_score(&mut self, _min_score: f32) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn cost(&self) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn cost(&self) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

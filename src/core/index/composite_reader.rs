@@ -22,72 +22,72 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub trait CompositeReader: IndexReader {
-    type LeafReader: LeafReader + Clone;
-    type SubCompositeReader: CompositeReader<LeafReader = Self::LeafReader>;
-    fn get_sequential_sub_readers(
-        &self,
-    ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>];
-    fn to_string(&self) -> String {
-        todo!()
-    }
+  type LeafReader: LeafReader + Clone;
+  type SubCompositeReader: CompositeReader<LeafReader = Self::LeafReader>;
+  fn get_sequential_sub_readers(
+    &self,
+  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>];
+  fn to_string(&self) -> String {
+    todo!()
+  }
 }
 
 pub fn get_context<CR>(composite_reader: CR) -> Result<CompositeReaderContext<CR>>
 where
-    CR: CompositeReader,
+  CR: CompositeReader,
 {
-    create(composite_reader)
+  create(composite_reader)
 }
 impl<CR> CompositeReader for &CR
 where
-    CR: CompositeReader,
+  CR: CompositeReader,
 {
-    type LeafReader = CR::LeafReader;
-    type SubCompositeReader = CR::SubCompositeReader;
+  type LeafReader = CR::LeafReader;
+  type SubCompositeReader = CR::SubCompositeReader;
 
-    fn get_sequential_sub_readers(
-        &self,
-    ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
-        (**self).get_sequential_sub_readers()
-    }
+  fn get_sequential_sub_readers(
+    &self,
+  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+    (**self).get_sequential_sub_readers()
+  }
 
-    fn to_string(&self) -> String {
-        (**self).to_string()
-    }
+  fn to_string(&self) -> String {
+    (**self).to_string()
+  }
 }
 impl<CR> CompositeReader for Arc<CR>
 where
-    CR: CompositeReader,
+  CR: CompositeReader,
 {
-    type LeafReader = CR::LeafReader;
-    type SubCompositeReader = CR::SubCompositeReader;
+  type LeafReader = CR::LeafReader;
+  type SubCompositeReader = CR::SubCompositeReader;
 
-    fn get_sequential_sub_readers(
-        &self,
-    ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
-        (**self).get_sequential_sub_readers()
-    }
+  fn get_sequential_sub_readers(
+    &self,
+  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+    (**self).get_sequential_sub_readers()
+  }
 
-    fn to_string(&self) -> String {
-        (**self).to_string()
-    }
+  fn to_string(&self) -> String {
+    (**self).to_string()
+  }
 }
 impl<CR> CompositeReader for Rc<CR>
 where
-    CR: CompositeReader,
+  CR: CompositeReader,
 {
-    type LeafReader = CR::LeafReader;
-    type SubCompositeReader = CR::SubCompositeReader;
+  type LeafReader = CR::LeafReader;
+  type SubCompositeReader = CR::SubCompositeReader;
 
-    fn get_sequential_sub_readers(
-        &self,
-    ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
-        (**self).get_sequential_sub_readers()
-    }
+  fn get_sequential_sub_readers(
+    &self,
+  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+    (**self).get_sequential_sub_readers()
+  }
 
-    fn to_string(&self) -> String {
-        (**self).to_string()
-    }
+  fn to_string(&self) -> String {
+    (**self).to_string()
+  }
 }
 
 pub type CompositeReaderBits<CR> = <<CR as CompositeReader>::LeafReader as LeafReader>::Bits;

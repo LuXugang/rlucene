@@ -25,65 +25,65 @@ use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyStoredFieldsWriter;
 impl StoredFieldsWriter for DummyStoredFieldsWriter {
-    fn start_document(&mut self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn start_document(&mut self) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn finish_document(&mut self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn finish_document(&mut self) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn write_field_i32(&mut self, _field_info: &FieldInfo, _value: i32) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn write_field_i32(&mut self, _field_info: &FieldInfo, _value: i32) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn write_field_i64(&mut self, _field_info: &FieldInfo, _value: i64) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn write_field_i64(&mut self, _field_info: &FieldInfo, _value: i64) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn write_field_f32(&mut self, _field_info: &FieldInfo, _value: f32) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn write_field_f32(&mut self, _field_info: &FieldInfo, _value: f32) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn write_field_f64(&mut self, _field_info: &FieldInfo, _value: f64) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn write_field_f64(&mut self, _field_info: &FieldInfo, _value: f64) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn write_field_with_input(
-        &mut self,
-        _field_info: &FieldInfo,
-        _input: &mut impl DataInput,
-        _length: i32,
-    ) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn write_field_with_input(
+    &mut self,
+    _field_info: &FieldInfo,
+    _input: &mut impl DataInput,
+    _length: i32,
+  ) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn write_field_bytes(
-        &mut self,
-        _field_info: &FieldInfo,
-        _value: &BytesRef<Vec<u8>>,
-    ) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn write_field_bytes(
+    &mut self,
+    _field_info: &FieldInfo,
+    _value: &BytesRef<Vec<u8>>,
+  ) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn write_field_str(&mut self, _field_info: &FieldInfo, _value: &str) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn write_field_str(&mut self, _field_info: &FieldInfo, _value: &str) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn finish<D>(&mut self, _num_docs: i32, _dir: &D) -> Result<()>
-    where
-        D: Directory,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn finish<D>(&mut self, _num_docs: i32, _dir: &D) -> Result<()>
+  where
+    D: Directory,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn merge<D, D1, CR>(&mut self, _merge_state: &mut MergeState<D, CR>, _dir: &D1) -> Result<i32>
-    where
-        D: Directory,
-        D1: Directory,
-        CR: CodecReader,
-        Self: Sized,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn merge<D, D1, CR>(&mut self, _merge_state: &mut MergeState<D, CR>, _dir: &D1) -> Result<i32>
+  where
+    D: Directory,
+    D1: Directory,
+    CR: CodecReader,
+    Self: Sized,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

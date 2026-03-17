@@ -29,38 +29,38 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Selects a value from the document's set to use as the representative value.
 pub struct SortedSetSelector;
 impl SortedSetSelector {
-    /// Wraps a multi-valued SortedSetDocValues as a single-valued view, using
-    /// the specified selector.
-    pub fn wrap<S>(
-        mut sorted_set: S,
-        selector: SortedSetSelectorType,
-    ) -> Result<SortedDocValuesWrap<S>>
-    where
-        S: SortedSetDocValues,
-    {
-        if sorted_set.get_value_count()? >= i32::MAX as i64 {
-            return Err(LuceneError::unsupported_operation(format!(
-                "fields containing more than {} unique terms are unsupported",
-                i32::MAX - 1
-            )));
-        }
-        if sorted_set.is_single_valued() {
-            let singleton = DocValues::unwrap_singleton_sorted(&mut sorted_set)?;
-            Ok(SortedDocValuesWrap::Singleton(singleton))
-        } else {
-            let v = match selector {
-                SortedSetSelectorType::Min => SortedDocValuesWrap::Min(MinValue::new(sorted_set)),
-                SortedSetSelectorType::Max => SortedDocValuesWrap::Max(MaxValue::new(sorted_set)),
-                SortedSetSelectorType::MiddleMin => {
-                    SortedDocValuesWrap::MiddleMin(MiddleMinValue::new(sorted_set))
-                },
-                SortedSetSelectorType::MiddleMax => {
-                    SortedDocValuesWrap::MiddleMax(MiddleMaxValue::new(sorted_set))
-                },
-            };
-            Ok(v)
-        }
+  /// Wraps a multi-valued SortedSetDocValues as a single-valued view, using
+  /// the specified selector.
+  pub fn wrap<S>(
+    mut sorted_set: S,
+    selector: SortedSetSelectorType,
+  ) -> Result<SortedDocValuesWrap<S>>
+  where
+    S: SortedSetDocValues,
+  {
+    if sorted_set.get_value_count()? >= i32::MAX as i64 {
+      return Err(LuceneError::unsupported_operation(format!(
+        "fields containing more than {} unique terms are unsupported",
+        i32::MAX - 1
+      )));
     }
+    if sorted_set.is_single_valued() {
+      let singleton = DocValues::unwrap_singleton_sorted(&mut sorted_set)?;
+      Ok(SortedDocValuesWrap::Singleton(singleton))
+    } else {
+      let v = match selector {
+        SortedSetSelectorType::Min => SortedDocValuesWrap::Min(MinValue::new(sorted_set)),
+        SortedSetSelectorType::Max => SortedDocValuesWrap::Max(MaxValue::new(sorted_set)),
+        SortedSetSelectorType::MiddleMin => {
+          SortedDocValuesWrap::MiddleMin(MiddleMinValue::new(sorted_set))
+        },
+        SortedSetSelectorType::MiddleMax => {
+          SortedDocValuesWrap::MiddleMax(MiddleMaxValue::new(sorted_set))
+        },
+      };
+      Ok(v)
+    }
+  }
 }
 /// Type of selection to perform.
 ///
@@ -71,1596 +71,1596 @@ impl SortedSetSelector {
 ///   default codec, support this.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SortedSetSelectorType {
-    /// Selects the minimum value in the set.
-    Min,
-    /// Selects the maximum value in the set.
-    Max,
-    /// Selects the middle value in the set.
-    ///
-    /// If the set has an even number of values, the lower of the middle two is
-    /// chosen.
-    MiddleMin,
-    /// Selects the middle value in the set.
-    ///
-    /// If the set has an even number of values, the higher of the middle two
-    /// is chosen.
-    MiddleMax,
+  /// Selects the minimum value in the set.
+  Min,
+  /// Selects the maximum value in the set.
+  Max,
+  /// Selects the middle value in the set.
+  ///
+  /// If the set has an even number of values, the lower of the middle two is
+  /// chosen.
+  MiddleMin,
+  /// Selects the middle value in the set.
+  ///
+  /// If the set has an even number of values, the higher of the middle two
+  /// is chosen.
+  MiddleMax,
 }
 impl SortedSetSelectorType {
-    pub fn values() -> &'static [Self] {
-        &[Self::Min, Self::Max, Self::MiddleMin, Self::MiddleMax]
-    }
+  pub fn values() -> &'static [Self] {
+    &[Self::Min, Self::Max, Self::MiddleMin, Self::MiddleMax]
+  }
 }
 /// Wraps a SortedSetDocValues and returns the first ordinal (min)
 pub struct MinValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    inner: S,
-    ord: i32,
+  inner: S,
+  ord: i32,
 }
 
 impl<S> MinValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn new(inner: S) -> Self {
-        Self { inner, ord: 0 }
+  fn new(inner: S) -> Self {
+    Self { inner, ord: 0 }
+  }
+  fn set_ord(&mut self) -> Result<()> {
+    if self.doc_id() != NO_MORE_DOCS {
+      self.ord = self.inner.next_ord()? as i32
     }
-    fn set_ord(&mut self) -> Result<()> {
-        if self.doc_id() != NO_MORE_DOCS {
-            self.ord = self.inner.next_ord()? as i32
-        }
-        Ok(())
-    }
+    Ok(())
+  }
 }
 
 impl<S> DocValuesIterator for MinValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        if self.inner.advance_exact(target)? {
-            self.set_ord()?;
-            return Ok(true);
-        }
-        Ok(false)
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    if self.inner.advance_exact(target)? {
+      self.set_ord()?;
+      return Ok(true);
     }
+    Ok(false)
+  }
 }
 
 impl<S> DocIdSetIterator for MinValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        self.inner.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.inner.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.inner.next_doc()?;
-        self.set_ord()?;
-        Ok(self.doc_id())
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.inner.next_doc()?;
+    self.set_ord()?;
+    Ok(self.doc_id())
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance(target)?;
-        self.set_ord()?;
-        Ok(self.doc_id())
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.advance(target)?;
+    self.set_ord()?;
+    Ok(self.doc_id())
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Ok(self.ord as i64)
-    }
+  fn cost(&self) -> Result<i64> {
+    Ok(self.ord as i64)
+  }
 }
 
 impl<S> SortedDocValues for MinValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn ord_value(&mut self) -> Result<i32> {
-        Ok(self.ord)
-    }
+  fn ord_value(&mut self) -> Result<i32> {
+    Ok(self.ord)
+  }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.inner.lookup_ord(ord as i64)
-    }
+  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    self.inner.lookup_ord(ord as i64)
+  }
 
-    fn get_value_count(&self) -> Result<i32> {
-        Ok(self.inner.get_value_count()? as i32)
-    }
+  fn get_value_count(&self) -> Result<i32> {
+    Ok(self.inner.get_value_count()? as i32)
+  }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
-        Ok(self.inner.lookup_term(key)? as i32)
-    }
-    type TermsEnum<'a>
-        = SortedDocValuesTermsEnum<&'a mut Self>
-    where
-        S: 'a;
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    Ok(self.inner.lookup_term(key)? as i32)
+  }
+  type TermsEnum<'a>
+    = SortedDocValuesTermsEnum<&'a mut Self>
+  where
+    S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        self.default_terms_enum()
-    }
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
 }
 /// Wraps a SortedSetDocValues and returns the last ordinal (max)
 pub struct MaxValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    inner: S,
-    ord: i32,
+  inner: S,
+  ord: i32,
 }
 
 impl<S> MaxValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn new(inner: S) -> Self {
-        Self { inner, ord: 0 }
-    }
+  fn new(inner: S) -> Self {
+    Self { inner, ord: 0 }
+  }
 
-    fn set_ord(&mut self) -> Result<()> {
-        if self.doc_id() != NO_MORE_DOCS {
-            let doc_value_count = self.inner.doc_value_count()?;
-            for _ in 0..(doc_value_count - 1) {
-                self.inner.next_ord()?;
-            }
-            self.ord = self.inner.next_ord()? as i32;
-        }
-        Ok(())
+  fn set_ord(&mut self) -> Result<()> {
+    if self.doc_id() != NO_MORE_DOCS {
+      let doc_value_count = self.inner.doc_value_count()?;
+      for _ in 0..(doc_value_count - 1) {
+        self.inner.next_ord()?;
+      }
+      self.ord = self.inner.next_ord()? as i32;
     }
+    Ok(())
+  }
 }
 
 impl<S> DocValuesIterator for MaxValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        if self.inner.advance_exact(target)? {
-            self.set_ord()?;
-            return Ok(true);
-        }
-        Ok(false)
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    if self.inner.advance_exact(target)? {
+      self.set_ord()?;
+      return Ok(true);
     }
+    Ok(false)
+  }
 }
 
 impl<S> DocIdSetIterator for MaxValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        self.inner.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.inner.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.inner.next_doc()?;
-        self.set_ord()?;
-        Ok(self.doc_id())
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.inner.next_doc()?;
+    self.set_ord()?;
+    Ok(self.doc_id())
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance(target)?;
-        self.set_ord()?;
-        Ok(self.doc_id())
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.advance(target)?;
+    self.set_ord()?;
+    Ok(self.doc_id())
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.inner.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.inner.cost()
+  }
 }
 
 impl<S> SortedDocValues for MaxValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn ord_value(&mut self) -> Result<i32> {
-        Ok(self.ord)
-    }
+  fn ord_value(&mut self) -> Result<i32> {
+    Ok(self.ord)
+  }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.inner.lookup_ord(ord as i64)
-    }
+  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    self.inner.lookup_ord(ord as i64)
+  }
 
-    fn get_value_count(&self) -> Result<i32> {
-        Ok(self.inner.get_value_count()? as i32)
-    }
+  fn get_value_count(&self) -> Result<i32> {
+    Ok(self.inner.get_value_count()? as i32)
+  }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
-        Ok(self.inner.lookup_term(key)? as i32)
-    }
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    Ok(self.inner.lookup_term(key)? as i32)
+  }
 
-    type TermsEnum<'a>
-        = SortedDocValuesTermsEnum<&'a mut Self>
-    where
-        S: 'a;
+  type TermsEnum<'a>
+    = SortedDocValuesTermsEnum<&'a mut Self>
+  where
+    S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        self.default_terms_enum()
-    }
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or min of the
 /// two)
 pub struct MiddleMinValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    inner: S,
-    ord: i32,
+  inner: S,
+  ord: i32,
 }
 
 impl<S> MiddleMinValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn new(inner: S) -> Self {
-        Self { inner, ord: 0 }
-    }
+  fn new(inner: S) -> Self {
+    Self { inner, ord: 0 }
+  }
 
-    fn set_ord(&mut self) -> Result<()> {
-        if self.doc_id() != NO_MORE_DOCS {
-            let doc_value_count = self.inner.doc_value_count()?;
-            let target_idx = (doc_value_count - 1) >> 1;
-            for _ in 0..target_idx {
-                self.inner.next_ord()?;
-            }
-            self.ord = self.inner.next_ord()? as i32;
-        }
-        Ok(())
+  fn set_ord(&mut self) -> Result<()> {
+    if self.doc_id() != NO_MORE_DOCS {
+      let doc_value_count = self.inner.doc_value_count()?;
+      let target_idx = (doc_value_count - 1) >> 1;
+      for _ in 0..target_idx {
+        self.inner.next_ord()?;
+      }
+      self.ord = self.inner.next_ord()? as i32;
     }
+    Ok(())
+  }
 }
 
 impl<S> DocValuesIterator for MiddleMinValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        if self.inner.advance_exact(target)? {
-            self.set_ord()?;
-            return Ok(true);
-        }
-        Ok(false)
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    if self.inner.advance_exact(target)? {
+      self.set_ord()?;
+      return Ok(true);
     }
+    Ok(false)
+  }
 }
 
 impl<S> DocIdSetIterator for MiddleMinValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        self.inner.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.inner.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.inner.next_doc()?;
-        self.set_ord()?;
-        Ok(self.doc_id())
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.inner.next_doc()?;
+    self.set_ord()?;
+    Ok(self.doc_id())
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance(target)?;
-        self.set_ord()?;
-        Ok(self.doc_id())
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.advance(target)?;
+    self.set_ord()?;
+    Ok(self.doc_id())
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.inner.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.inner.cost()
+  }
 }
 
 impl<S> SortedDocValues for MiddleMinValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn ord_value(&mut self) -> Result<i32> {
-        Ok(self.ord)
-    }
+  fn ord_value(&mut self) -> Result<i32> {
+    Ok(self.ord)
+  }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.inner.lookup_ord(ord as i64)
-    }
+  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    self.inner.lookup_ord(ord as i64)
+  }
 
-    fn get_value_count(&self) -> Result<i32> {
-        Ok(self.inner.get_value_count()? as i32)
-    }
+  fn get_value_count(&self) -> Result<i32> {
+    Ok(self.inner.get_value_count()? as i32)
+  }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
-        Ok(self.inner.lookup_term(key)? as i32)
-    }
-    type TermsEnum<'a>
-        = SortedDocValuesTermsEnum<&'a mut Self>
-    where
-        S: 'a;
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    Ok(self.inner.lookup_term(key)? as i32)
+  }
+  type TermsEnum<'a>
+    = SortedDocValuesTermsEnum<&'a mut Self>
+  where
+    S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        self.default_terms_enum()
-    }
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or max of the
 /// two)
 pub struct MiddleMaxValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    inner: S,
-    ord: i32,
+  inner: S,
+  ord: i32,
 }
 
 impl<S> MiddleMaxValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn new(inner: S) -> Self {
-        Self { inner, ord: 0 }
-    }
+  fn new(inner: S) -> Self {
+    Self { inner, ord: 0 }
+  }
 
-    fn set_ord(&mut self) -> Result<()> {
-        if self.doc_id() != NO_MORE_DOCS {
-            let count = self.inner.doc_value_count()?;
-            let target_idx = ((count as u64) >> 1) as i32;
-            for _ in 0..target_idx {
-                self.inner.next_ord()?;
-            }
-            self.ord = self.inner.next_ord()? as i32;
-        }
-        Ok(())
+  fn set_ord(&mut self) -> Result<()> {
+    if self.doc_id() != NO_MORE_DOCS {
+      let count = self.inner.doc_value_count()?;
+      let target_idx = ((count as u64) >> 1) as i32;
+      for _ in 0..target_idx {
+        self.inner.next_ord()?;
+      }
+      self.ord = self.inner.next_ord()? as i32;
     }
+    Ok(())
+  }
 }
 
 impl<S> DocValuesIterator for MiddleMaxValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        if self.inner.advance_exact(target)? {
-            self.set_ord()?;
-            return Ok(true);
-        }
-        Ok(false)
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    if self.inner.advance_exact(target)? {
+      self.set_ord()?;
+      return Ok(true);
     }
+    Ok(false)
+  }
 }
 
 impl<S> DocIdSetIterator for MiddleMaxValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        self.inner.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.inner.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.inner.next_doc()?;
-        self.set_ord()?;
-        Ok(self.doc_id())
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.inner.next_doc()?;
+    self.set_ord()?;
+    Ok(self.doc_id())
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance(target)?;
-        self.set_ord()?;
-        Ok(self.doc_id())
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.advance(target)?;
+    self.set_ord()?;
+    Ok(self.doc_id())
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.inner.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.inner.cost()
+  }
 }
 
 impl<S> SortedDocValues for MiddleMaxValue<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn ord_value(&mut self) -> Result<i32> {
-        Ok(self.ord)
-    }
+  fn ord_value(&mut self) -> Result<i32> {
+    Ok(self.ord)
+  }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.inner.lookup_ord(ord as i64)
-    }
+  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    self.inner.lookup_ord(ord as i64)
+  }
 
-    fn get_value_count(&self) -> Result<i32> {
-        Ok(self.inner.get_value_count()? as i32)
-    }
+  fn get_value_count(&self) -> Result<i32> {
+    Ok(self.inner.get_value_count()? as i32)
+  }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
-        Ok(self.inner.lookup_term(key)? as i32)
-    }
-    type TermsEnum<'a>
-        = SortedDocValuesTermsEnum<&'a mut Self>
-    where
-        S: 'a;
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    Ok(self.inner.lookup_term(key)? as i32)
+  }
+  type TermsEnum<'a>
+    = SortedDocValuesTermsEnum<&'a mut Self>
+  where
+    S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        self.default_terms_enum()
-    }
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
 }
 
 pub enum SortedDocValuesWrap<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    Singleton(S::SortedDocValues),
-    Min(MinValue<S>),
-    Max(MaxValue<S>),
-    MiddleMin(MiddleMinValue<S>),
-    MiddleMax(MiddleMaxValue<S>),
+  Singleton(S::SortedDocValues),
+  Min(MinValue<S>),
+  Max(MaxValue<S>),
+  MiddleMin(MiddleMinValue<S>),
+  MiddleMax(MiddleMaxValue<S>),
 }
 
 impl<S> DocValuesIterator for SortedDocValuesWrap<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        match self {
-            SortedDocValuesWrap::Singleton(single) => single.advance_exact(target),
-            SortedDocValuesWrap::Min(min) => min.advance_exact(target),
-            SortedDocValuesWrap::Max(max) => max.advance_exact(target),
-            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.advance_exact(target),
-            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.advance_exact(target),
-        }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      SortedDocValuesWrap::Singleton(single) => single.advance_exact(target),
+      SortedDocValuesWrap::Min(min) => min.advance_exact(target),
+      SortedDocValuesWrap::Max(max) => max.advance_exact(target),
+      SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.advance_exact(target),
+      SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.advance_exact(target),
     }
+  }
 }
 
 impl<S> DocIdSetIterator for SortedDocValuesWrap<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        match self {
-            SortedDocValuesWrap::Singleton(single) => single.doc_id(),
-            SortedDocValuesWrap::Min(min) => min.doc_id(),
-            SortedDocValuesWrap::Max(max) => max.doc_id(),
-            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.doc_id(),
-            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.doc_id(),
-        }
+  fn doc_id(&self) -> i32 {
+    match self {
+      SortedDocValuesWrap::Singleton(single) => single.doc_id(),
+      SortedDocValuesWrap::Min(min) => min.doc_id(),
+      SortedDocValuesWrap::Max(max) => max.doc_id(),
+      SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.doc_id(),
+      SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.doc_id(),
     }
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            SortedDocValuesWrap::Singleton(single) => single.next_doc(),
-            SortedDocValuesWrap::Min(min) => min.next_doc(),
-            SortedDocValuesWrap::Max(max) => max.next_doc(),
-            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.next_doc(),
-            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.next_doc(),
-        }
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      SortedDocValuesWrap::Singleton(single) => single.next_doc(),
+      SortedDocValuesWrap::Min(min) => min.next_doc(),
+      SortedDocValuesWrap::Max(max) => max.next_doc(),
+      SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.next_doc(),
+      SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.next_doc(),
     }
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            SortedDocValuesWrap::Singleton(single) => single.advance(target),
-            SortedDocValuesWrap::Min(min) => min.advance(target),
-            SortedDocValuesWrap::Max(max) => max.advance(target),
-            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.advance(target),
-            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.advance(target),
-        }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      SortedDocValuesWrap::Singleton(single) => single.advance(target),
+      SortedDocValuesWrap::Min(min) => min.advance(target),
+      SortedDocValuesWrap::Max(max) => max.advance(target),
+      SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.advance(target),
+      SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.advance(target),
     }
+  }
 
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            SortedDocValuesWrap::Singleton(single) => single.slow_advance(target),
-            SortedDocValuesWrap::Min(min) => min.slow_advance(target),
-            SortedDocValuesWrap::Max(max) => max.slow_advance(target),
-            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.slow_advance(target),
-            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.slow_advance(target),
-        }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      SortedDocValuesWrap::Singleton(single) => single.slow_advance(target),
+      SortedDocValuesWrap::Min(min) => min.slow_advance(target),
+      SortedDocValuesWrap::Max(max) => max.slow_advance(target),
+      SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.slow_advance(target),
+      SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.slow_advance(target),
     }
+  }
 
-    fn cost(&self) -> Result<i64> {
-        match self {
-            SortedDocValuesWrap::Singleton(single) => single.cost(),
-            SortedDocValuesWrap::Min(min) => min.cost(),
-            SortedDocValuesWrap::Max(max) => max.cost(),
-            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.cost(),
-            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.cost(),
-        }
+  fn cost(&self) -> Result<i64> {
+    match self {
+      SortedDocValuesWrap::Singleton(single) => single.cost(),
+      SortedDocValuesWrap::Min(min) => min.cost(),
+      SortedDocValuesWrap::Max(max) => max.cost(),
+      SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.cost(),
+      SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.cost(),
     }
+  }
 }
 
 impl<S> SortedDocValues for SortedDocValuesWrap<S>
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn ord_value(&mut self) -> Result<i32> {
-        match self {
-            SortedDocValuesWrap::Singleton(single) => single.ord_value(),
-            SortedDocValuesWrap::Min(min) => min.ord_value(),
-            SortedDocValuesWrap::Max(max) => max.ord_value(),
-            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.ord_value(),
-            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.ord_value(),
-        }
+  fn ord_value(&mut self) -> Result<i32> {
+    match self {
+      SortedDocValuesWrap::Singleton(single) => single.ord_value(),
+      SortedDocValuesWrap::Min(min) => min.ord_value(),
+      SortedDocValuesWrap::Max(max) => max.ord_value(),
+      SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.ord_value(),
+      SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.ord_value(),
     }
+  }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        match self {
-            SortedDocValuesWrap::Singleton(single) => single.lookup_ord(ord),
-            SortedDocValuesWrap::Min(min) => min.lookup_ord(ord),
-            SortedDocValuesWrap::Max(max) => max.lookup_ord(ord),
-            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.lookup_ord(ord),
-            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.lookup_ord(ord),
-        }
+  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      SortedDocValuesWrap::Singleton(single) => single.lookup_ord(ord),
+      SortedDocValuesWrap::Min(min) => min.lookup_ord(ord),
+      SortedDocValuesWrap::Max(max) => max.lookup_ord(ord),
+      SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.lookup_ord(ord),
+      SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.lookup_ord(ord),
     }
+  }
 
-    fn get_value_count(&self) -> Result<i32> {
-        match self {
-            SortedDocValuesWrap::Singleton(single) => single.get_value_count(),
-            SortedDocValuesWrap::Min(min) => min.get_value_count(),
-            SortedDocValuesWrap::Max(max) => max.get_value_count(),
-            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.get_value_count(),
-            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.get_value_count(),
-        }
+  fn get_value_count(&self) -> Result<i32> {
+    match self {
+      SortedDocValuesWrap::Singleton(single) => single.get_value_count(),
+      SortedDocValuesWrap::Min(min) => min.get_value_count(),
+      SortedDocValuesWrap::Max(max) => max.get_value_count(),
+      SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.get_value_count(),
+      SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.get_value_count(),
     }
+  }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
-        match self {
-            SortedDocValuesWrap::Singleton(single) => single.lookup_term(key),
-            SortedDocValuesWrap::Min(min) => min.lookup_term(key),
-            SortedDocValuesWrap::Max(max) => max.lookup_term(key),
-            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.lookup_term(key),
-            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.lookup_term(key),
-        }
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    match self {
+      SortedDocValuesWrap::Singleton(single) => single.lookup_term(key),
+      SortedDocValuesWrap::Min(min) => min.lookup_term(key),
+      SortedDocValuesWrap::Max(max) => max.lookup_term(key),
+      SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.lookup_term(key),
+      SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.lookup_term(key),
     }
+  }
 
-    type TermsEnum<'a>
-        = SortedDocValuesTermsEnum<&'a mut Self>
-    where
-        S: 'a;
+  type TermsEnum<'a>
+    = SortedDocValuesTermsEnum<&'a mut Self>
+  where
+    S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        self.default_terms_enum()
-    }
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
 }
 #[cfg(test)]
 mod tests {
-    use crate::core::document::document::Document;
-    use crate::core::document::field::Store;
-    use crate::core::document::field_type::FieldType;
-    use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
-    use crate::core::index::stored_fields::StoredFields;
-    use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-    use crate::core::search::sort::Sort;
-    use crate::core::search::sort_field::MissingValueEnum::{StringFirst, StringLast};
-    use crate::core::search::sort_field::SortFiledBase;
-    use crate::core::search::sorted_set_selector::SortedSetSelectorType::{
-        Max, MiddleMax, MiddleMin,
-    };
-    use crate::core::search::sorted_set_sort_field::SortedSetSortField;
-    use crate::core::search::top_docs::TopDocsLike;
-    use crate::core::util::error::lucene_error::Result;
-    use crate::test::core::index::random_index_writer::RandomIndexWriter;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-        new_bytes_ref_from_string, new_directory_shared, new_searcher_with_wrap, new_string_field,
-        random,
-    };
-    use std::collections::HashMap;
+  use crate::core::document::document::Document;
+  use crate::core::document::field::Store;
+  use crate::core::document::field_type::FieldType;
+  use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
+  use crate::core::index::stored_fields::StoredFields;
+  use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+  use crate::core::search::sort::Sort;
+  use crate::core::search::sort_field::MissingValueEnum::{StringFirst, StringLast};
+  use crate::core::search::sort_field::SortFiledBase;
+  use crate::core::search::sorted_set_selector::SortedSetSelectorType::{
+    Max, MiddleMax, MiddleMin,
+  };
+  use crate::core::search::sorted_set_sort_field::SortedSetSortField;
+  use crate::core::search::top_docs::TopDocsLike;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::index::random_index_writer::RandomIndexWriter;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    new_bytes_ref_from_string, new_directory_shared, new_searcher_with_wrap, new_string_field,
+    random,
+  };
+  use std::collections::HashMap;
 
-    #[allow(dead_code)] // for quick search
-    struct TestSortedSetSelector;
-    #[test]
-    fn test_max() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
+  #[allow(dead_code)] // for quick search
+  struct TestSortedSetSelector;
+  #[test]
+  fn test_max() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
 
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-        let mut doc1 = Document::new();
-        doc1.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "foo")?,
-        ));
-        doc1.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "bar")?,
-        ));
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+    let mut doc1 = Document::new();
+    doc1.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "foo")?,
+    ));
+    doc1.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "bar")?,
+    ));
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
 
-        let mut doc2 = Document::new();
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "baz")?,
-        ));
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "baz")?,
+    ));
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
 
-        let reader = writer.get_reader()?;
-        writer.close()?;
-        // slow wrapper does not support random access ordinals (there is no need for that!)
-        let searcher = new_searcher_with_wrap(reader, false)?;
+    let reader = writer.get_reader()?;
+    writer.close()?;
+    // slow wrapper does not support random access ordinals (there is no need for that!)
+    let searcher = new_searcher_with_wrap(reader, false)?;
 
-        let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
-            "value", false, Max,
-        )?])?;
+    let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
+      "value", false, Max,
+    )?])?;
 
-        let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
 
-        assert_eq!(top_docs.total_hits().value(), 2);
-        let doc0 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[0].doc())?;
-        assert_eq!(doc0.get("id")?.unwrap().as_ref(), "2");
-        let doc1 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[1].doc())?;
-        assert_eq!(doc1.get("id")?.unwrap().as_ref(), "1");
+    assert_eq!(top_docs.total_hits().value(), 2);
+    let doc0 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[0].doc())?;
+    assert_eq!(doc0.get("id")?.unwrap().as_ref(), "2");
+    let doc1 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[1].doc())?;
+    assert_eq!(doc1.get("id")?.unwrap().as_ref(), "1");
 
-        Ok(())
+    Ok(())
+  }
+  #[test]
+  fn test_max_reverse() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+
+    let mut doc1 = Document::new();
+    doc1.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "foo")?,
+    ));
+    doc1.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "bar")?,
+    ));
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
+
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "baz")?,
+    ));
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+    // slow wrapper does not support random access ordinals (there is no need for that!)
+    let searcher = new_searcher_with_wrap(reader, false)?;
+
+    let sort = Sort::with_fields(vec![SortedSetSortField::with_selector("value", true, Max)?])?;
+
+    let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+
+    assert_eq!(top_docs.total_hits().value(), 2);
+
+    let doc0 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[0].doc())?;
+    assert_eq!(doc0.get("id")?.unwrap().as_ref(), "1");
+
+    let doc1 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[1].doc())?;
+    assert_eq!(doc1.get("id")?.unwrap().as_ref(), "2");
+
+    Ok(())
+  }
+  #[test]
+  fn test_max_missing_first() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+
+    let mut doc1 = Document::new();
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
+
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "foo")?,
+    ));
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "bar")?,
+    ));
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
+
+    let mut doc3 = Document::new();
+    doc3.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "baz")?,
+    ));
+    doc3.add(new_string_field(
+      &mut random,
+      "id",
+      "3",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc3)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_wrap(reader, false)?;
+
+    let mut sort_field = SortedSetSortField::with_selector("value", false, Max)?;
+    sort_field.set_missing_value(StringFirst)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+
+    let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+
+    assert_eq!(top_docs.total_hits().value(), 3);
+
+    let doc0 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[0].doc())?;
+    assert_eq!(doc0.get("id")?.unwrap().as_ref(), "1");
+
+    let doc1 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[1].doc())?;
+    assert_eq!(doc1.get("id")?.unwrap().as_ref(), "3");
+
+    let doc2 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[2].doc())?;
+    assert_eq!(doc2.get("id")?.unwrap().as_ref(), "2");
+
+    Ok(())
+  }
+  #[test]
+  fn test_max_missing_last() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+
+    let mut doc1 = Document::new();
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
+
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "foo")?,
+    ));
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "bar")?,
+    ));
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
+
+    let mut doc3 = Document::new();
+    doc3.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "baz")?,
+    ));
+    doc3.add(new_string_field(
+      &mut random,
+      "id",
+      "3",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc3)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_wrap(reader, false)?;
+
+    let mut sort_field = SortedSetSortField::with_selector("value", false, Max)?;
+    sort_field.set_missing_value(StringLast)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+
+    let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(top_docs.total_hits().value(), 3);
+
+    let d0 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[0].doc())?;
+    assert_eq!(d0.get("id")?.unwrap().as_ref(), "3");
+
+    let d1 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[1].doc())?;
+    assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
+
+    let d2 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[2].doc())?;
+    assert_eq!(d2.get("id")?.unwrap().as_ref(), "1");
+
+    Ok(())
+  }
+  #[test]
+  fn test_max_singleton() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+
+    let mut doc1 = Document::new();
+    doc1.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "baz")?,
+    ));
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
+
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "bar")?,
+    ));
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_wrap(reader, false)?;
+
+    let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
+      "value", false, Max,
+    )?])?;
+
+    let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(top_docs.total_hits().value(), 2);
+
+    let d0 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[0].doc())?;
+    assert_eq!(d0.get("id")?.unwrap().as_ref(), "1");
+
+    let d1 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[1].doc())?;
+    assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
+
+    Ok(())
+  }
+  #[test]
+  fn test_middle_min() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+
+    let mut doc1 = Document::new();
+    doc1.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "c")?,
+    ));
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
+
+    let mut doc2 = Document::new();
+    for v in ["a", "b", "c", "d"] {
+      doc2.add(SortedSetDocValuesField::new(
+        "value",
+        new_bytes_ref_from_string(&mut random, v)?,
+      ));
     }
-    #[test]
-    fn test_max_reverse() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
 
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+    let reader = writer.get_reader()?;
+    writer.close()?;
 
-        let mut doc1 = Document::new();
-        doc1.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "foo")?,
-        ));
-        doc1.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "bar")?,
-        ));
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
+    let searcher = new_searcher_with_wrap(reader, false)?;
 
-        let mut doc2 = Document::new();
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "baz")?,
-        ));
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
+    let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
+      "value", false, MiddleMin,
+    )?])?;
 
-        let reader = writer.get_reader()?;
-        writer.close()?;
-        // slow wrapper does not support random access ordinals (there is no need for that!)
-        let searcher = new_searcher_with_wrap(reader, false)?;
+    let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(top_docs.total_hits().value(), 2);
 
-        let sort = Sort::with_fields(vec![SortedSetSortField::with_selector("value", true, Max)?])?;
+    let d0 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[0].doc())?;
+    assert_eq!(d0.get("id")?.unwrap().as_ref(), "1");
 
-        let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    let d1 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[1].doc())?;
+    assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
 
-        assert_eq!(top_docs.total_hits().value(), 2);
+    Ok(())
+  }
+  #[test]
+  fn test_middle_min_reverse() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
 
-        let doc0 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[0].doc())?;
-        assert_eq!(doc0.get("id")?.unwrap().as_ref(), "1");
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
-        let doc1 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[1].doc())?;
-        assert_eq!(doc1.get("id")?.unwrap().as_ref(), "2");
-
-        Ok(())
+    let mut doc1 = Document::new();
+    for v in ["a", "b", "c", "d"] {
+      doc1.add(SortedSetDocValuesField::new(
+        "value",
+        new_bytes_ref_from_string(&mut random, v)?,
+      ));
     }
-    #[test]
-    fn test_max_missing_first() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
 
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "c")?,
+    ));
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
 
-        let mut doc1 = Document::new();
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
+    let reader = writer.get_reader()?;
+    writer.close()?;
 
-        let mut doc2 = Document::new();
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "foo")?,
-        ));
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "bar")?,
-        ));
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
+    let searcher = new_searcher_with_wrap(reader, false)?;
 
-        let mut doc3 = Document::new();
-        doc3.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "baz")?,
-        ));
-        doc3.add(new_string_field(
-            &mut random,
-            "id",
-            "3",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc3)?;
+    let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
+      "value", true, MiddleMin,
+    )?])?;
 
-        let reader = writer.get_reader()?;
-        writer.close()?;
+    let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(top_docs.total_hits().value(), 2);
 
-        let searcher = new_searcher_with_wrap(reader, false)?;
+    let d0 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[0].doc())?;
+    assert_eq!(d0.get("id")?.unwrap().as_ref(), "2");
 
-        let mut sort_field = SortedSetSortField::with_selector("value", false, Max)?;
-        sort_field.set_missing_value(StringFirst)?;
-        let sort = Sort::with_fields(vec![sort_field])?;
+    let d1 = searcher
+      .stored_fields()?
+      .document(top_docs.score_docs()[1].doc())?;
+    assert_eq!(d1.get("id")?.unwrap().as_ref(), "1");
 
-        let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    Ok(())
+  }
+  #[test]
+  fn test_middle_min_missing_first() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
 
-        assert_eq!(top_docs.total_hits().value(), 3);
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
-        let doc0 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[0].doc())?;
-        assert_eq!(doc0.get("id")?.unwrap().as_ref(), "1");
+    let mut doc1 = Document::new();
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "3",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
 
-        let doc1 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[1].doc())?;
-        assert_eq!(doc1.get("id")?.unwrap().as_ref(), "3");
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "c")?,
+    ));
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
 
-        let doc2 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[2].doc())?;
-        assert_eq!(doc2.get("id")?.unwrap().as_ref(), "2");
-
-        Ok(())
+    let mut doc3 = Document::new();
+    for v in ["a", "b", "c", "d"] {
+      doc3.add(SortedSetDocValuesField::new(
+        "value",
+        new_bytes_ref_from_string(&mut random, v)?,
+      ));
     }
-    #[test]
-    fn test_max_missing_last() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
+    doc3.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc3)?;
 
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+    let reader = writer.get_reader()?;
+    writer.close()?;
 
-        let mut doc1 = Document::new();
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
+    let searcher = new_searcher_with_wrap(reader, false)?;
 
-        let mut doc2 = Document::new();
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "foo")?,
-        ));
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "bar")?,
-        ));
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
+    let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMin)?;
+    sort_field.set_missing_value(StringFirst)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
 
-        let mut doc3 = Document::new();
-        doc3.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "baz")?,
-        ));
-        doc3.add(new_string_field(
-            &mut random,
-            "id",
-            "3",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc3)?;
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(td.total_hits().value(), 3);
 
-        let reader = writer.get_reader()?;
-        writer.close()?;
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!(d0.get("id")?.unwrap().as_ref(), "3");
 
-        let searcher = new_searcher_with_wrap(reader, false)?;
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!(d1.get("id")?.unwrap().as_ref(), "1");
 
-        let mut sort_field = SortedSetSortField::with_selector("value", false, Max)?;
-        sort_field.set_missing_value(StringLast)?;
-        let sort = Sort::with_fields(vec![sort_field])?;
+    let d2 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[2].doc())?;
+    assert_eq!(d2.get("id")?.unwrap().as_ref(), "2");
 
-        let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(top_docs.total_hits().value(), 3);
+    Ok(())
+  }
+  #[test]
+  fn test_middle_min_missing_last() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
 
-        let d0 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[0].doc())?;
-        assert_eq!(d0.get("id")?.unwrap().as_ref(), "3");
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
-        let d1 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[1].doc())?;
-        assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
+    let mut doc1 = Document::new();
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "3",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
 
-        let d2 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[2].doc())?;
-        assert_eq!(d2.get("id")?.unwrap().as_ref(), "1");
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "c")?,
+    ));
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
 
-        Ok(())
+    let mut doc3 = Document::new();
+    for v in ["a", "b", "c", "d"] {
+      doc3.add(SortedSetDocValuesField::new(
+        "value",
+        new_bytes_ref_from_string(&mut random, v)?,
+      ));
     }
-    #[test]
-    fn test_max_singleton() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
+    doc3.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc3)?;
 
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+    let reader = writer.get_reader()?;
+    writer.close()?;
 
-        let mut doc1 = Document::new();
-        doc1.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "baz")?,
-        ));
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
+    let searcher = new_searcher_with_wrap(reader, false)?;
 
-        let mut doc2 = Document::new();
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "bar")?,
-        ));
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
+    // MIDDLE_MIN with missing last
+    let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMin)?;
+    sort_field.set_missing_value(StringLast)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
 
-        let reader = writer.get_reader()?;
-        writer.close()?;
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(td.total_hits().value(), 3);
 
-        let searcher = new_searcher_with_wrap(reader, false)?;
+    // MiddleMin(["a","b","c","d"]) = "b" → first
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!(d0.get("id")?.unwrap().as_ref(), "1");
 
-        let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
-            "value", false, Max,
-        )?])?;
+    // MiddleMin(["c"]) = "c" → second
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
 
-        let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(top_docs.total_hits().value(), 2);
+    // missing → last
+    let d2 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[2].doc())?;
+    assert_eq!(d2.get("id")?.unwrap().as_ref(), "3");
 
-        let d0 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[0].doc())?;
-        assert_eq!(d0.get("id")?.unwrap().as_ref(), "1");
+    Ok(())
+  }
+  #[test]
+  fn test_middle_min_singleton() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
 
-        let d1 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[1].doc())?;
-        assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
-        Ok(())
+    let mut doc1 = Document::new();
+    doc1.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "baz")?,
+    ));
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
+
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "bar")?,
+    ));
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_wrap(reader, false)?;
+
+    let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
+      "value", false, MiddleMin,
+    )?])?;
+
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(td.total_hits().value(), 2);
+
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!(d0.get("id")?.unwrap().as_ref(), "1");
+
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
+
+    Ok(())
+  }
+  #[test]
+  fn test_middle_max() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+
+    let mut doc1 = Document::new();
+    for v in ["a", "b", "c", "d"] {
+      doc1.add(SortedSetDocValuesField::new(
+        "value",
+        new_bytes_ref_from_string(&mut random, v)?,
+      ));
     }
-    #[test]
-    fn test_middle_min() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
 
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "b")?,
+    ));
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
 
-        let mut doc1 = Document::new();
-        doc1.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "c")?,
-        ));
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
+    let reader = writer.get_reader()?;
+    writer.close()?;
 
-        let mut doc2 = Document::new();
-        for v in ["a", "b", "c", "d"] {
-            doc2.add(SortedSetDocValuesField::new(
-                "value",
-                new_bytes_ref_from_string(&mut random, v)?,
-            ));
-        }
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
+    let searcher = new_searcher_with_wrap(reader, false)?;
 
-        let reader = writer.get_reader()?;
-        writer.close()?;
+    let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
+      "value", false, MiddleMax,
+    )?])?;
 
-        let searcher = new_searcher_with_wrap(reader, false)?;
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(td.total_hits().value(), 2);
 
-        let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
-            "value", false, MiddleMin,
-        )?])?;
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!(d0.get("id")?.unwrap().as_ref(), "2");
 
-        let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(top_docs.total_hits().value(), 2);
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!(d1.get("id")?.unwrap().as_ref(), "1");
 
-        let d0 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[0].doc())?;
-        assert_eq!(d0.get("id")?.unwrap().as_ref(), "1");
+    Ok(())
+  }
+  #[test]
+  fn test_middle_max_reverse() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type = HashMap::new();
 
-        let d1 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[1].doc())?;
-        assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
+    let mut d1 = Document::new();
+    d1.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "b")?,
+    ));
+    d1.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(d1)?;
 
-        Ok(())
+    let mut d2 = Document::new();
+    for v in ["a", "b", "c", "d"] {
+      d2.add(SortedSetDocValuesField::new(
+        "value",
+        new_bytes_ref_from_string(&mut random, v)?,
+      ));
     }
-    #[test]
-    fn test_middle_min_reverse() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
+    d2.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(d2)?;
 
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+    let reader = writer.get_reader()?;
+    writer.close()?;
+    let searcher = new_searcher_with_wrap(reader, false)?;
 
-        let mut doc1 = Document::new();
-        for v in ["a", "b", "c", "d"] {
-            doc1.add(SortedSetDocValuesField::new(
-                "value",
-                new_bytes_ref_from_string(&mut random, v)?,
-            ));
-        }
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
+    let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
+      "value", true, MiddleMax,
+    )?])?;
 
-        let mut doc2 = Document::new();
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "c")?,
-        ));
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(td.total_hits().value(), 2);
 
-        let reader = writer.get_reader()?;
-        writer.close()?;
+    assert_eq!(
+      searcher
+        .stored_fields()?
+        .document(td.score_docs()[0].doc())?
+        .get("id")?
+        .unwrap()
+        .as_ref(),
+      "1"
+    );
+    assert_eq!(
+      searcher
+        .stored_fields()?
+        .document(td.score_docs()[1].doc())?
+        .get("id")?
+        .unwrap()
+        .as_ref(),
+      "2"
+    );
+    Ok(())
+  }
+  #[test]
+  fn test_middle_max_missing_first() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
 
-        let searcher = new_searcher_with_wrap(reader, false)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
-        let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
-            "value", true, MiddleMin,
-        )?])?;
+    let mut doc1 = Document::new();
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "3",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
 
-        let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(top_docs.total_hits().value(), 2);
-
-        let d0 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[0].doc())?;
-        assert_eq!(d0.get("id")?.unwrap().as_ref(), "2");
-
-        let d1 = searcher
-            .stored_fields()?
-            .document(top_docs.score_docs()[1].doc())?;
-        assert_eq!(d1.get("id")?.unwrap().as_ref(), "1");
-
-        Ok(())
+    let mut doc2 = Document::new();
+    for v in ["a", "b", "c", "d"] {
+      doc2.add(SortedSetDocValuesField::new(
+        "value",
+        new_bytes_ref_from_string(&mut random, v)?,
+      ));
     }
-    #[test]
-    fn test_middle_min_missing_first() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
 
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+    let mut doc3 = Document::new();
+    doc3.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "b")?,
+    ));
+    doc3.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc3)?;
 
-        let mut doc1 = Document::new();
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "3",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
+    let reader = writer.get_reader()?;
+    writer.close()?;
 
-        let mut doc2 = Document::new();
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "c")?,
-        ));
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
+    let searcher = new_searcher_with_wrap(reader, false)?;
 
-        let mut doc3 = Document::new();
-        for v in ["a", "b", "c", "d"] {
-            doc3.add(SortedSetDocValuesField::new(
-                "value",
-                new_bytes_ref_from_string(&mut random, v)?,
-            ));
-        }
-        doc3.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc3)?;
+    let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMax)?;
+    sort_field.set_missing_value(StringFirst)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
 
-        let reader = writer.get_reader()?;
-        writer.close()?;
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
 
-        let searcher = new_searcher_with_wrap(reader, false)?;
+    assert_eq!(td.total_hits().value(), 3);
 
-        let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMin)?;
-        sort_field.set_missing_value(StringFirst)?;
-        let sort = Sort::with_fields(vec![sort_field])?;
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!(d0.get("id")?.unwrap().as_ref(), "3");
 
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(td.total_hits().value(), 3);
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
 
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!(d0.get("id")?.unwrap().as_ref(), "3");
+    let d2 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[2].doc())?;
+    assert_eq!(d2.get("id")?.unwrap().as_ref(), "1");
 
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!(d1.get("id")?.unwrap().as_ref(), "1");
+    Ok(())
+  }
+  #[test]
+  fn test_middle_max_missing_last() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
 
-        let d2 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[2].doc())?;
-        assert_eq!(d2.get("id")?.unwrap().as_ref(), "2");
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
-        Ok(())
+    let mut doc1 = Document::new();
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "3",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
+
+    let mut doc2 = Document::new();
+    for v in ["a", "b", "c", "d"] {
+      doc2.add(SortedSetDocValuesField::new(
+        "value",
+        new_bytes_ref_from_string(&mut random, v)?,
+      ));
     }
-    #[test]
-    fn test_middle_min_missing_last() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-
-        let mut doc1 = Document::new();
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "3",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
-
-        let mut doc2 = Document::new();
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "c")?,
-        ));
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
-
-        let mut doc3 = Document::new();
-        for v in ["a", "b", "c", "d"] {
-            doc3.add(SortedSetDocValuesField::new(
-                "value",
-                new_bytes_ref_from_string(&mut random, v)?,
-            ));
-        }
-        doc3.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc3)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_wrap(reader, false)?;
-
-        // MIDDLE_MIN with missing last
-        let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMin)?;
-        sort_field.set_missing_value(StringLast)?;
-        let sort = Sort::with_fields(vec![sort_field])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(td.total_hits().value(), 3);
-
-        // MiddleMin(["a","b","c","d"]) = "b" → first
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!(d0.get("id")?.unwrap().as_ref(), "1");
-
-        // MiddleMin(["c"]) = "c" → second
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
-
-        // missing → last
-        let d2 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[2].doc())?;
-        assert_eq!(d2.get("id")?.unwrap().as_ref(), "3");
-
-        Ok(())
-    }
-    #[test]
-    fn test_middle_min_singleton() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-
-        let mut doc1 = Document::new();
-        doc1.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "baz")?,
-        ));
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
-
-        let mut doc2 = Document::new();
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "bar")?,
-        ));
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_wrap(reader, false)?;
-
-        let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
-            "value", false, MiddleMin,
-        )?])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(td.total_hits().value(), 2);
-
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!(d0.get("id")?.unwrap().as_ref(), "1");
-
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
-
-        Ok(())
-    }
-    #[test]
-    fn test_middle_max() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-
-        let mut doc1 = Document::new();
-        for v in ["a", "b", "c", "d"] {
-            doc1.add(SortedSetDocValuesField::new(
-                "value",
-                new_bytes_ref_from_string(&mut random, v)?,
-            ));
-        }
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
-
-        let mut doc2 = Document::new();
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "b")?,
-        ));
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_wrap(reader, false)?;
-
-        let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
-            "value", false, MiddleMax,
-        )?])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(td.total_hits().value(), 2);
-
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!(d0.get("id")?.unwrap().as_ref(), "2");
-
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!(d1.get("id")?.unwrap().as_ref(), "1");
-
-        Ok(())
-    }
-    #[test]
-    fn test_middle_max_reverse() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type = HashMap::new();
-
-        let mut d1 = Document::new();
-        d1.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "b")?,
-        ));
-        d1.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(d1)?;
-
-        let mut d2 = Document::new();
-        for v in ["a", "b", "c", "d"] {
-            d2.add(SortedSetDocValuesField::new(
-                "value",
-                new_bytes_ref_from_string(&mut random, v)?,
-            ));
-        }
-        d2.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(d2)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-        let searcher = new_searcher_with_wrap(reader, false)?;
-
-        let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
-            "value", true, MiddleMax,
-        )?])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(td.total_hits().value(), 2);
-
-        assert_eq!(
-            searcher
-                .stored_fields()?
-                .document(td.score_docs()[0].doc())?
-                .get("id")?
-                .unwrap()
-                .as_ref(),
-            "1"
-        );
-        assert_eq!(
-            searcher
-                .stored_fields()?
-                .document(td.score_docs()[1].doc())?
-                .get("id")?
-                .unwrap()
-                .as_ref(),
-            "2"
-        );
-        Ok(())
-    }
-    #[test]
-    fn test_middle_max_missing_first() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-
-        let mut doc1 = Document::new();
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "3",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
-
-        let mut doc2 = Document::new();
-        for v in ["a", "b", "c", "d"] {
-            doc2.add(SortedSetDocValuesField::new(
-                "value",
-                new_bytes_ref_from_string(&mut random, v)?,
-            ));
-        }
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
-
-        let mut doc3 = Document::new();
-        doc3.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "b")?,
-        ));
-        doc3.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc3)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_wrap(reader, false)?;
-
-        let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMax)?;
-        sort_field.set_missing_value(StringFirst)?;
-        let sort = Sort::with_fields(vec![sort_field])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-
-        assert_eq!(td.total_hits().value(), 3);
-
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!(d0.get("id")?.unwrap().as_ref(), "3");
-
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
-
-        let d2 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[2].doc())?;
-        assert_eq!(d2.get("id")?.unwrap().as_ref(), "1");
-
-        Ok(())
-    }
-    #[test]
-    fn test_middle_max_missing_last() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-
-        let mut doc1 = Document::new();
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "3",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
-
-        let mut doc2 = Document::new();
-        for v in ["a", "b", "c", "d"] {
-            doc2.add(SortedSetDocValuesField::new(
-                "value",
-                new_bytes_ref_from_string(&mut random, v)?,
-            ));
-        }
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
-
-        let mut doc3 = Document::new();
-        doc3.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "b")?,
-        ));
-        doc3.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc3)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_wrap(reader, false)?;
-
-        let mut sf = SortedSetSortField::with_selector("value", false, MiddleMax)?;
-        sf.set_missing_value(StringLast)?;
-        let sort = Sort::with_fields(vec![sf])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(td.total_hits().value(), 3);
-
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!(d0.get("id")?.unwrap().as_ref(), "2");
-
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!(d1.get("id")?.unwrap().as_ref(), "1");
-
-        let d2 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[2].doc())?;
-        assert_eq!(d2.get("id")?.unwrap().as_ref(), "3");
-
-        Ok(())
-    }
-    #[test]
-    fn test_middle_max_singleton() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-
-        let mut doc2 = Document::new();
-        doc2.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "baz")?,
-        ));
-        doc2.add(new_string_field(
-            &mut random,
-            "id",
-            "2",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc2)?;
-
-        let mut doc1 = Document::new();
-        doc1.add(SortedSetDocValuesField::new(
-            "value",
-            new_bytes_ref_from_string(&mut random, "bar")?,
-        ));
-        doc1.add(new_string_field(
-            &mut random,
-            "id",
-            "1",
-            Store::Yes,
-            &mut field_to_type,
-        )?);
-        writer.add_document(doc1)?;
-
-        let reader = writer.get_reader()?;
-        writer.close()?;
-
-        let searcher = new_searcher_with_wrap(reader, false)?;
-
-        let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
-            "value", false, MiddleMax,
-        )?])?;
-
-        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        assert_eq!(td.total_hits().value(), 2);
-
-        let d0 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[0].doc())?;
-        assert_eq!(d0.get("id")?.unwrap().as_ref(), "1");
-
-        let d1 = searcher
-            .stored_fields()?
-            .document(td.score_docs()[1].doc())?;
-        assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
-
-        Ok(())
-    }
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
+
+    let mut doc3 = Document::new();
+    doc3.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "b")?,
+    ));
+    doc3.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc3)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_wrap(reader, false)?;
+
+    let mut sf = SortedSetSortField::with_selector("value", false, MiddleMax)?;
+    sf.set_missing_value(StringLast)?;
+    let sort = Sort::with_fields(vec![sf])?;
+
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(td.total_hits().value(), 3);
+
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!(d0.get("id")?.unwrap().as_ref(), "2");
+
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!(d1.get("id")?.unwrap().as_ref(), "1");
+
+    let d2 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[2].doc())?;
+    assert_eq!(d2.get("id")?.unwrap().as_ref(), "3");
+
+    Ok(())
+  }
+  #[test]
+  fn test_middle_max_singleton() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "baz")?,
+    ));
+    doc2.add(new_string_field(
+      &mut random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc2)?;
+
+    let mut doc1 = Document::new();
+    doc1.add(SortedSetDocValuesField::new(
+      "value",
+      new_bytes_ref_from_string(&mut random, "bar")?,
+    ));
+    doc1.add(new_string_field(
+      &mut random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let searcher = new_searcher_with_wrap(reader, false)?;
+
+    let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
+      "value", false, MiddleMax,
+    )?])?;
+
+    let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+    assert_eq!(td.total_hits().value(), 2);
+
+    let d0 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[0].doc())?;
+    assert_eq!(d0.get("id")?.unwrap().as_ref(), "1");
+
+    let d1 = searcher
+      .stored_fields()?
+      .document(td.score_docs()[1].doc())?;
+    assert_eq!(d1.get("id")?.unwrap().as_ref(), "2");
+
+    Ok(())
+  }
 }

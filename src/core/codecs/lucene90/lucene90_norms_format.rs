@@ -96,55 +96,55 @@ use crate::core::util::error::lucene_error::Result;
 ///   [`CodecFooter`](crate::core::codecs::codec_util::CodecUtil::write_footer)
 pub struct Lucene90NormsFormat;
 impl Lucene90NormsFormat {
-    const DATA_CODEC: &'static str = "Lucene90NormsData";
-    const DATA_EXTENSION: &'static str = "nvd";
-    const METADATA_CODEC: &'static str = "Lucene90NormsMetadata";
-    const METADATA_EXTENSION: &'static str = "nvm";
-    pub(crate) const VERSION_START: i32 = 0;
-    pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
+  const DATA_CODEC: &'static str = "Lucene90NormsData";
+  const DATA_EXTENSION: &'static str = "nvd";
+  const METADATA_CODEC: &'static str = "Lucene90NormsMetadata";
+  const METADATA_EXTENSION: &'static str = "nvm";
+  pub(crate) const VERSION_START: i32 = 0;
+  pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
 }
 impl NormsFormat for Lucene90NormsFormat {
-    type NormsConsumer<T: IndexOutput> = Lucene90NormsConsumer<T>;
+  type NormsConsumer<T: IndexOutput> = Lucene90NormsConsumer<T>;
 
-    fn norms_consumer<D1, D2>(
-        &self,
-        state: &SegmentWriteState<D1>,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<Self::NormsConsumer<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        let norms_consumer = Lucene90NormsConsumer::new(
-            state,
-            Self::DATA_CODEC,
-            Self::DATA_EXTENSION,
-            Self::METADATA_CODEC,
-            Self::METADATA_EXTENSION,
-            segment_info,
-        )?;
-        Ok(norms_consumer)
-    }
+  fn norms_consumer<D1, D2>(
+    &self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::NormsConsumer<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    let norms_consumer = Lucene90NormsConsumer::new(
+      state,
+      Self::DATA_CODEC,
+      Self::DATA_EXTENSION,
+      Self::METADATA_CODEC,
+      Self::METADATA_EXTENSION,
+      segment_info,
+    )?;
+    Ok(norms_consumer)
+  }
 
-    type NormsProducer<T: IndexInput> = Lucene90NormsProducer<T>;
+  type NormsProducer<T: IndexInput> = Lucene90NormsProducer<T>;
 
-    fn norms_producer<D1, D2>(
-        &self,
-        state: &SegmentReadState<D1>,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<Self::NormsProducer<D1::IndexInput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        let norms_producer = Lucene90NormsProducer::new(
-            state,
-            Self::DATA_CODEC,
-            Self::DATA_EXTENSION,
-            Self::METADATA_CODEC,
-            Self::METADATA_EXTENSION,
-            segment_info,
-        )?;
-        Ok(norms_producer)
-    }
+  fn norms_producer<D1, D2>(
+    &self,
+    state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::NormsProducer<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    let norms_producer = Lucene90NormsProducer::new(
+      state,
+      Self::DATA_CODEC,
+      Self::DATA_EXTENSION,
+      Self::METADATA_CODEC,
+      Self::METADATA_EXTENSION,
+      segment_info,
+    )?;
+    Ok(norms_producer)
+  }
 }

@@ -23,49 +23,49 @@ pub trait TokenFilter: TokenStream {}
 
 pub struct TokenFilterBase<T>
 where
-    T: TokenStream,
+  T: TokenStream,
 {
-    pub(crate) input: T,
+  pub(crate) input: T,
 }
 impl<T> TokenFilterBase<T>
 where
-    T: TokenStream,
+  T: TokenStream,
 {
-    pub(crate) fn new(input: T) -> Self {
-        TokenFilterBase { input }
-    }
+  pub(crate) fn new(input: T) -> Self {
+    TokenFilterBase { input }
+  }
 }
 
 impl<T> Drop for TokenFilterBase<T>
 where
-    T: TokenStream,
+  T: TokenStream,
 {
-    fn drop(&mut self) {
-        self.close().expect("should not fail");
-    }
+  fn drop(&mut self) {
+    self.close().expect("should not fail");
+  }
 }
 
 impl<T> TokenStream for TokenFilterBase<T>
 where
-    T: TokenStream,
+  T: TokenStream,
 {
-    fn end(&mut self) -> Result<()> {
-        self.input.end()
-    }
+  fn end(&mut self) -> Result<()> {
+    self.input.end()
+  }
 
-    fn reset(&mut self) -> Result<()> {
-        self.input.reset()
-    }
+  fn reset(&mut self) -> Result<()> {
+    self.input.reset()
+  }
 
-    fn close(&mut self) -> Result<()> {
-        self.input.close()
-    }
+  fn close(&mut self) -> Result<()> {
+    self.input.close()
+  }
 
-    fn get_attribute_source(&self) -> &Attributes {
-        unreachable!("should not be called")
-    }
+  fn get_attribute_source(&self) -> &Attributes {
+    unreachable!("should not be called")
+  }
 
-    fn get_attribute_source_mut(&mut self) -> &mut Attributes {
-        unreachable!("should not be called")
-    }
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    unreachable!("should not be called")
+  }
 }

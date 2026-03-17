@@ -19,7 +19,7 @@ use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
 use crate::core::codecs::stored_fields_reader::{
-    DefaultStoredFieldsReader, StoredFieldsReader, StoredFieldsReaderEnum2,
+  DefaultStoredFieldsReader, StoredFieldsReader, StoredFieldsReaderEnum2,
 };
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{TermVectorsReader, TermVectorsReaderEnum2};
@@ -50,260 +50,259 @@ use std::sync::Arc;
 
 /// LeafReader implemented by codec APIs.
 pub trait CodecReader: LeafReader {
-    type StoredFieldsReader: StoredFieldsReader;
-    type TermVectorsReader: TermVectorsReader;
-    type NormsProducer: NormsProducer;
-    type DocValuesProducer: DocValuesProducer;
-    type FieldsProducer: FieldsProducer;
-    type PointsReader: PointsReader;
+  type StoredFieldsReader: StoredFieldsReader;
+  type TermVectorsReader: TermVectorsReader;
+  type NormsProducer: NormsProducer;
+  type DocValuesProducer: DocValuesProducer;
+  type FieldsProducer: FieldsProducer;
+  type PointsReader: PointsReader;
 
-    /// Expert: retrieve underlying StoredFieldsReader
-    fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>>;
+  /// Expert: retrieve underlying StoredFieldsReader
+  fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>>;
 
-    /// Expert: retrieve underlying TermVectorsReader
-    fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>>;
+  /// Expert: retrieve underlying TermVectorsReader
+  fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>>;
 
-    /// Expert: retrieve underlying NormsProducer
-    fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>>;
+  /// Expert: retrieve underlying NormsProducer
+  fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>>;
 
-    /// Expert: retrieve underlying DocValuesProducer
-    fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>>;
+  /// Expert: retrieve underlying DocValuesProducer
+  fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>>;
 
-    /// Expert: retrieve underlying FieldsProducer (postings)
-    fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>>;
+  /// Expert: retrieve underlying FieldsProducer (postings)
+  fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>>;
 
-    /// Expert: retrieve underlying PointsReader
-    fn get_points_reader(&self) -> Result<Option<Self::PointsReader>>;
+  /// Expert: retrieve underlying PointsReader
+  fn get_points_reader(&self) -> Result<Option<Self::PointsReader>>;
 
-    fn stored_fields(&self) -> Result<StoredFieldsType<Self::StoredFieldsReader>> {
-        let reader = self.get_fields_reader()?;
-        match reader {
-            None => Err(LuceneError::illegal_state(
-                "stored fields reader is None".to_string(),
-            )),
-            Some(r) => Ok(StoredFieldsImpl {
-                reader: r,
-                max_doc: self.max_doc()?,
-            }),
-        }
+  fn stored_fields(&self) -> Result<StoredFieldsType<Self::StoredFieldsReader>> {
+    let reader = self.get_fields_reader()?;
+    match reader {
+      None => Err(LuceneError::illegal_state(
+        "stored fields reader is None".to_string(),
+      )),
+      Some(r) => Ok(StoredFieldsImpl {
+        reader: r,
+        max_doc: self.max_doc()?,
+      }),
+    }
+  }
+
+  fn term_vectors(&self) -> Result<TermVectorsType<Self::TermVectorsReader>> {
+    let reader = self.get_term_vectors_reader()?;
+    match reader {
+      Some(r) => Ok(TermVectorsEnum2::B(r)),
+      None => Ok(TermVectorsEnum2::A(EmptyTermVectors)),
+    }
+  }
+  fn terms(
+    &self,
+    field: &str,
+  ) -> Result<Option<<<Self as CodecReader>::FieldsProducer as Fields>::Terms>> {
+    self.ensure_open()?;
+    let fi = self.get_field_infos()?.field_info_by_name(field);
+
+    if fi.is_none() || *fi.unwrap().get_index_options() == IndexOptions::None {
+      // Field does not exist or does not index postings
+      return Ok(None);
+    }
+    match self.get_postings_reader()? {
+      None => Err(LuceneError::illegal_state(
+        "postings reader is None".to_string(),
+      )),
+      Some(p) => p.terms(field),
+    }
+  }
+  fn get_dv_field(&self, field: &str, ty: DocValuesType) -> Result<Option<Arc<FieldInfo>>> {
+    let fi = self.get_field_infos()?.field_info_by_name(field);
+
+    let fi = match fi {
+      Some(f) => f,
+      None => return Ok(None), // Field does not exist
+    };
+
+    if *fi.get_doc_values_type() == DocValuesType::None {
+      // Field was not indexed with doc values
+      return Ok(None);
     }
 
-    fn term_vectors(&self) -> Result<TermVectorsType<Self::TermVectorsReader>> {
-        let reader = self.get_term_vectors_reader()?;
-        match reader {
-            Some(r) => Ok(TermVectorsEnum2::B(r)),
-            None => Ok(TermVectorsEnum2::A(EmptyTermVectors)),
-        }
-    }
-    fn terms(
-        &self,
-        field: &str,
-    ) -> Result<Option<<<Self as CodecReader>::FieldsProducer as Fields>::Terms>> {
-        self.ensure_open()?;
-        let fi = self.get_field_infos()?.field_info_by_name(field);
-
-        if fi.is_none() || *fi.unwrap().get_index_options() == IndexOptions::None {
-            // Field does not exist or does not index postings
-            return Ok(None);
-        }
-        match self.get_postings_reader()? {
-            None => Err(LuceneError::illegal_state(
-                "postings reader is None".to_string(),
-            )),
-            Some(p) => p.terms(field),
-        }
-    }
-    fn get_dv_field(&self, field: &str, ty: DocValuesType) -> Result<Option<Arc<FieldInfo>>> {
-        let fi = self.get_field_infos()?.field_info_by_name(field);
-
-        let fi = match fi {
-            Some(f) => f,
-            None => return Ok(None), // Field does not exist
-        };
-
-        if *fi.get_doc_values_type() == DocValuesType::None {
-            // Field was not indexed with doc values
-            return Ok(None);
-        }
-
-        if *fi.get_doc_values_type() != ty {
-            // Field DocValues are different than requested type
-            return Ok(None);
-        }
-
-        Ok(Some(fi))
+    if *fi.get_doc_values_type() != ty {
+      // Field DocValues are different than requested type
+      return Ok(None);
     }
 
-    fn get_numeric_doc_values(
-        &self,
-        field: &str,
-    ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::NumericDocValues>> {
-        self.ensure_open()?;
+    Ok(Some(fi))
+  }
 
-        let fi = self.get_dv_field(field, DocValuesType::Numeric)?;
-        let fi = match fi {
-            Some(f) => f,
-            None => return Ok(None),
-        };
-        let reader = self
-            .get_doc_values_reader()?
-            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+  fn get_numeric_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::NumericDocValues>> {
+    self.ensure_open()?;
 
-        Ok(Some(reader.get_numeric(&fi)?))
+    let fi = self.get_dv_field(field, DocValuesType::Numeric)?;
+    let fi = match fi {
+      Some(f) => f,
+      None => return Ok(None),
+    };
+    let reader = self
+      .get_doc_values_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+    Ok(Some(reader.get_numeric(&fi)?))
+  }
+  fn get_binary_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::BinaryDocValues>> {
+    let fi = self.get_dv_field(field, DocValuesType::Binary)?;
+    let fi = match fi {
+      Some(f) => f,
+      None => return Ok(None),
+    };
+
+    let reader = self
+      .get_doc_values_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+    Ok(Some(reader.get_binary(&fi)?))
+  }
+
+  fn get_sorted_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::SortedDocValues>> {
+    let fi = self.get_dv_field(field, DocValuesType::Sorted)?;
+    let fi = match fi {
+      Some(f) => f,
+      None => return Ok(None),
+    };
+    let reader = self
+      .get_doc_values_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+    Ok(Some(reader.get_sorted(&fi)?))
+  }
+
+  fn get_sorted_numeric_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::SortedNumericDocValues>> {
+    let fi = self.get_dv_field(field, DocValuesType::SortedNumeric)?;
+    let fi = match fi {
+      Some(f) => f,
+      None => return Ok(None),
+    };
+
+    let reader = self
+      .get_doc_values_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+    Ok(Some(reader.get_sorted_numeric(&fi)?))
+  }
+  fn get_sorted_set_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::SortedSetDocValues>> {
+    let fi = self.get_dv_field(field, DocValuesType::SortedSet)?;
+    let fi = match fi {
+      Some(f) => f,
+      None => return Ok(None),
+    };
+    let reader = self
+      .get_doc_values_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+    Ok(Some(reader.get_sorted_set(&fi)?))
+  }
+  fn get_doc_values_skipper(
+    &self,
+    field: &str,
+  ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::DocValuesSkipper>> {
+    self.ensure_open()?;
+
+    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = match fi {
+      Some(f) if *f.doc_values_skip_index_type() != DocValuesSkipIndexType::None => f,
+      _ => return Ok(None),
+    };
+    let reader = self
+      .get_doc_values_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+    reader.get_skipper(&fi)
+  }
+
+  fn get_norm_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<<Self::NormsProducer as NormsProducer>::NumericDocValues>> {
+    self.ensure_open()?;
+
+    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = match fi {
+      Some(f) if f.has_norms() => f,
+      _ => return Ok(None),
+    };
+    let reader = self
+      .get_norms_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("norms reader is None"))?;
+
+    Ok(Some(reader.get_norms(&fi)?))
+  }
+  fn get_point_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<<Self::PointsReader as PointsReader>::PointValuesType>> {
+    self.ensure_open()?;
+
+    let fi = self.get_field_infos()?.field_info_by_name(field);
+    match fi {
+      Some(f) if f.get_point_dimension_count() > 0 => f,
+      _ => return Ok(None),
+    };
+    let reader = self
+      .get_points_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("points reader is None"))?;
+
+    reader.get_values(field)
+  }
+
+  fn default_check_integrity(&self) -> Result<()> {
+    // terms/postings
+    if let Some(v) = self.get_postings_reader()? {
+      v.check_integrity()?;
     }
-    fn get_binary_doc_values(
-        &self,
-        field: &str,
-    ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::BinaryDocValues>> {
-        let fi = self.get_dv_field(field, DocValuesType::Binary)?;
-        let fi = match fi {
-            Some(f) => f,
-            None => return Ok(None),
-        };
-
-        let reader = self
-            .get_doc_values_reader()?
-            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
-
-        Ok(Some(reader.get_binary(&fi)?))
+    // norms
+    if let Some(v) = self.get_norms_reader()? {
+      v.check_integrity()?;
+    }
+    // docvalues
+    if let Some(v) = self.get_doc_values_reader()? {
+      v.check_integrity()?;
     }
 
-    fn get_sorted_doc_values(
-        &self,
-        field: &str,
-    ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::SortedDocValues>> {
-        let fi = self.get_dv_field(field, DocValuesType::Sorted)?;
-        let fi = match fi {
-            Some(f) => f,
-            None => return Ok(None),
-        };
-        let reader = self
-            .get_doc_values_reader()?
-            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
-
-        Ok(Some(reader.get_sorted(&fi)?))
+    // stored fields
+    if let Some(v) = self.get_fields_reader()? {
+      v.check_integrity()?;
+    }
+    // term vectors
+    if let Some(v) = self.get_term_vectors_reader()? {
+      v.check_integrity()?;
     }
 
-    fn get_sorted_numeric_doc_values(
-        &self,
-        field: &str,
-    ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::SortedNumericDocValues>>
-    {
-        let fi = self.get_dv_field(field, DocValuesType::SortedNumeric)?;
-        let fi = match fi {
-            Some(f) => f,
-            None => return Ok(None),
-        };
-
-        let reader = self
-            .get_doc_values_reader()?
-            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
-
-        Ok(Some(reader.get_sorted_numeric(&fi)?))
-    }
-    fn get_sorted_set_doc_values(
-        &self,
-        field: &str,
-    ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::SortedSetDocValues>> {
-        let fi = self.get_dv_field(field, DocValuesType::SortedSet)?;
-        let fi = match fi {
-            Some(f) => f,
-            None => return Ok(None),
-        };
-        let reader = self
-            .get_doc_values_reader()?
-            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
-
-        Ok(Some(reader.get_sorted_set(&fi)?))
-    }
-    fn get_doc_values_skipper(
-        &self,
-        field: &str,
-    ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::DocValuesSkipper>> {
-        self.ensure_open()?;
-
-        let fi = self.get_field_infos()?.field_info_by_name(field);
-        let fi = match fi {
-            Some(f) if *f.doc_values_skip_index_type() != DocValuesSkipIndexType::None => f,
-            _ => return Ok(None),
-        };
-        let reader = self
-            .get_doc_values_reader()?
-            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
-
-        reader.get_skipper(&fi)
+    // points
+    if let Some(v) = self.get_points_reader()? {
+      v.check_integrity()?;
     }
 
-    fn get_norm_values(
-        &self,
-        field: &str,
-    ) -> Result<Option<<Self::NormsProducer as NormsProducer>::NumericDocValues>> {
-        self.ensure_open()?;
-
-        let fi = self.get_field_infos()?.field_info_by_name(field);
-        let fi = match fi {
-            Some(f) if f.has_norms() => f,
-            _ => return Ok(None),
-        };
-        let reader = self
-            .get_norms_reader()?
-            .ok_or_else(|| LuceneError::illegal_state("norms reader is None"))?;
-
-        Ok(Some(reader.get_norms(&fi)?))
-    }
-    fn get_point_values(
-        &self,
-        field: &str,
-    ) -> Result<Option<<Self::PointsReader as PointsReader>::PointValuesType>> {
-        self.ensure_open()?;
-
-        let fi = self.get_field_infos()?.field_info_by_name(field);
-        match fi {
-            Some(f) if f.get_point_dimension_count() > 0 => f,
-            _ => return Ok(None),
-        };
-        let reader = self
-            .get_points_reader()?
-            .ok_or_else(|| LuceneError::illegal_state("points reader is None"))?;
-
-        reader.get_values(field)
-    }
-
-    fn default_check_integrity(&self) -> Result<()> {
-        // terms/postings
-        if let Some(v) = self.get_postings_reader()? {
-            v.check_integrity()?;
-        }
-        // norms
-        if let Some(v) = self.get_norms_reader()? {
-            v.check_integrity()?;
-        }
-        // docvalues
-        if let Some(v) = self.get_doc_values_reader()? {
-            v.check_integrity()?;
-        }
-
-        // stored fields
-        if let Some(v) = self.get_fields_reader()? {
-            v.check_integrity()?;
-        }
-        // term vectors
-        if let Some(v) = self.get_term_vectors_reader()? {
-            v.check_integrity()?;
-        }
-
-        // points
-        if let Some(v) = self.get_points_reader()? {
-            v.check_integrity()?;
-        }
-
-        // vectors
-        // self.get_vector_reader()?.check_integrity()
-        Ok(())
-    }
-    fn default_do_close(&self) -> Result<()> {
-        Ok(())
-    }
+    // vectors
+    // self.get_vector_reader()?.check_integrity()
+    Ok(())
+  }
+  fn default_do_close(&self) -> Result<()> {
+    Ok(())
+  }
 }
 pub type CRFieldsProducer<CR> = <CR as CodecReader>::FieldsProducer;
 pub type CRDocValuesProducer<CR> = <CR as CodecReader>::DocValuesProducer;
@@ -318,48 +317,46 @@ pub type TermVectorsType<TVR> = TermVectorsEnum2<EmptyTermVectors, TVR>;
 
 pub struct StoredFieldsImpl<SF>
 where
-    SF: StoredFields,
+  SF: StoredFields,
 {
-    reader: SF,
-    max_doc: i32,
+  reader: SF,
+  max_doc: i32,
 }
 impl<SF> StoredFields for StoredFieldsImpl<SF>
 where
-    SF: StoredFields,
+  SF: StoredFields,
 {
-    fn prefetch(&mut self, doc_id: i32) -> Result<()> {
-        // Don't trust the codec to do proper checks
-        CoreHelper::check_index(doc_id.try_convert()?, self.max_doc.try_convert()?)?;
-        self.reader.prefetch(doc_id)
-    }
+  fn prefetch(&mut self, doc_id: i32) -> Result<()> {
+    // Don't trust the codec to do proper checks
+    CoreHelper::check_index(doc_id.try_convert()?, self.max_doc.try_convert()?)?;
+    self.reader.prefetch(doc_id)
+  }
 
-    fn document_with_visitor<S: StoredFieldsWriter>(
-        &mut self,
-        doc_id: i32,
-        visitor: &mut impl StoredFieldVisitor,
-        writer: Option<&mut S>,
-    ) -> Result<()> {
-        // Don't trust the codec to do proper checks
-        CoreHelper::check_index(doc_id.try_convert()?, self.max_doc.try_convert()?)?;
-        self.reader.document_with_visitor(doc_id, visitor, writer)
-    }
+  fn document_with_visitor<S: StoredFieldsWriter>(
+    &mut self,
+    doc_id: i32,
+    visitor: &mut impl StoredFieldVisitor,
+    writer: Option<&mut S>,
+  ) -> Result<()> {
+    // Don't trust the codec to do proper checks
+    CoreHelper::check_index(doc_id.try_convert()?, self.max_doc.try_convert()?)?;
+    self.reader.document_with_visitor(doc_id, visitor, writer)
+  }
 }
 
 impl<SF> RawStoredFieldsReader for StoredFieldsImpl<SF>
 where
-    SF: RawStoredFieldsReader + StoredFields,
+  SF: RawStoredFieldsReader + StoredFields,
 {
-    type IndexInput = SF::IndexInput;
+  type IndexInput = SF::IndexInput;
 
-    fn raw_stored_fields_mut(
-        &mut self,
-    ) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
-        self.reader.raw_stored_fields_mut()
-    }
+  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+    self.reader.raw_stored_fields_mut()
+  }
 
-    fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
-        self.reader.raw_stored_fields()
-    }
+  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
+    self.reader.raw_stored_fields()
+  }
 }
 
 macro_rules! either_codec_reader {
@@ -712,36 +709,36 @@ either_codec_reader!(pub CodecReaderEnum2 { A: A, B: B });
 
 impl<CR> CodecReader for Arc<CR>
 where
-    CR: CodecReader,
+  CR: CodecReader,
 {
-    type StoredFieldsReader = CR::StoredFieldsReader;
-    type TermVectorsReader = CR::TermVectorsReader;
-    type NormsProducer = CR::NormsProducer;
-    type DocValuesProducer = CR::DocValuesProducer;
-    type FieldsProducer = CR::FieldsProducer;
-    type PointsReader = CR::PointsReader;
+  type StoredFieldsReader = CR::StoredFieldsReader;
+  type TermVectorsReader = CR::TermVectorsReader;
+  type NormsProducer = CR::NormsProducer;
+  type DocValuesProducer = CR::DocValuesProducer;
+  type FieldsProducer = CR::FieldsProducer;
+  type PointsReader = CR::PointsReader;
 
-    fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
-        (**self).get_fields_reader()
-    }
+  fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
+    (**self).get_fields_reader()
+  }
 
-    fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
-        (**self).get_term_vectors_reader()
-    }
+  fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
+    (**self).get_term_vectors_reader()
+  }
 
-    fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
-        (**self).get_norms_reader()
-    }
+  fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
+    (**self).get_norms_reader()
+  }
 
-    fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
-        (**self).get_doc_values_reader()
-    }
+  fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
+    (**self).get_doc_values_reader()
+  }
 
-    fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>> {
-        (**self).get_postings_reader()
-    }
+  fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>> {
+    (**self).get_postings_reader()
+  }
 
-    fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
-        (**self).get_points_reader()
-    }
+  fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
+    (**self).get_points_reader()
+  }
 }

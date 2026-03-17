@@ -23,38 +23,38 @@ use std::borrow::Cow;
 #[derive(Clone)]
 pub struct DummyPointValues;
 impl PointValues for DummyPointValues {
-    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_num_dimensions(&self) -> Result<usize> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_num_dimensions(&self) -> Result<usize> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_num_index_dimensions(&self) -> Result<usize> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_num_index_dimensions(&self) -> Result<usize> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_bytes_per_dimension(&self) -> Result<usize> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_bytes_per_dimension(&self) -> Result<usize> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn size(&self) -> Result<usize> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn size(&self) -> Result<usize> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_doc_count(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_doc_count(&self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type PointTree = DummyPointTree;
-    type MutablePointTree = DummyMutablePointTree;
+  type PointTree = DummyPointTree;
+  type MutablePointTree = DummyMutablePointTree;
 
-    fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

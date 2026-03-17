@@ -32,141 +32,141 @@ use std::borrow::Cow;
 /// Implements a [`TermsEnum`] wrapping a provided [`SortedDocValues`].
 pub struct SortedDocValuesTermsEnum<S>
 where
-    S: SortedDocValues,
+  S: SortedDocValues,
 {
-    values: S,
-    current_ord: i32,
-    scratch: BytesRefBuilder<Vec<u8>>,
+  values: S,
+  current_ord: i32,
+  scratch: BytesRefBuilder<Vec<u8>>,
 }
 
 impl<S> SortedDocValuesTermsEnum<S>
 where
-    S: SortedDocValues,
+  S: SortedDocValues,
 {
-    /// Creates a new TermsEnum over the provided values.
-    pub fn new(values: S) -> SortedDocValuesTermsEnum<S> {
-        SortedDocValuesTermsEnum {
-            values,
-            current_ord: -1,
-            scratch: BytesRefBuilder::new(),
-        }
+  /// Creates a new TermsEnum over the provided values.
+  pub fn new(values: S) -> SortedDocValuesTermsEnum<S> {
+    SortedDocValuesTermsEnum {
+      values,
+      current_ord: -1,
+      scratch: BytesRefBuilder::new(),
     }
+  }
 }
 
 impl<S> BytesRefIterator for SortedDocValuesTermsEnum<S>
 where
-    S: SortedDocValues,
+  S: SortedDocValues,
 {
-    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.current_ord += 1;
-        if self.current_ord >= self.values.get_value_count()? {
-            return Ok(None);
-        }
-        let term = self.values.lookup_ord(self.current_ord)?;
-        self.scratch.copy_bytes_from_ref(term.as_ref());
-        Ok(Some(Cow::Borrowed(self.scratch.get_bytes_ref())))
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    self.current_ord += 1;
+    if self.current_ord >= self.values.get_value_count()? {
+      return Ok(None);
     }
+    let term = self.values.lookup_ord(self.current_ord)?;
+    self.scratch.copy_bytes_from_ref(term.as_ref());
+    Ok(Some(Cow::Borrowed(self.scratch.get_bytes_ref())))
+  }
 }
 
 impl<S> TermsEnum for SortedDocValuesTermsEnum<S>
 where
-    S: SortedDocValues,
+  S: SortedDocValues,
 {
-    type AttributeSource = DummyAttributeSource;
+  type AttributeSource = DummyAttributeSource;
 
-    fn attributes(&self) -> Result<Self::AttributeSource> {
-        Err(LuceneError::not_implemented(""))
+  fn attributes(&self) -> Result<Self::AttributeSource> {
+    Err(LuceneError::not_implemented(""))
+  }
+
+  fn seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
+    let ord = self.values.lookup_term(text)?;
+    if ord >= 0 {
+      self.current_ord = ord;
+      self.scratch.copy_bytes_from_ref(text);
+      Ok(true)
+    } else {
+      Ok(false)
     }
+  }
 
-    fn seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
-        let ord = self.values.lookup_term(text)?;
-        if ord >= 0 {
-            self.current_ord = ord;
-            self.scratch.copy_bytes_from_ref(text);
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    Err(LuceneError::not_implemented(""))
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Err(LuceneError::not_implemented(""))
+  }
+
+  fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    let ord = self.values.lookup_term(text)?;
+    if ord >= 0 {
+      self.current_ord = ord;
+      self.scratch.copy_bytes_from_ref(text);
+      Ok(SeekStatus::Found)
+    } else {
+      self.current_ord = -ord - 1;
+      if self.current_ord == self.values.get_value_count()? {
+        Ok(SeekStatus::End)
+      } else {
+        let next_term = self.values.lookup_ord(self.current_ord)?;
+        self.scratch.copy_bytes_from_ref(next_term.as_ref());
+        Ok(SeekStatus::NotFound)
+      }
     }
+  }
 
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-        Err(LuceneError::not_implemented(""))
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    debug_assert!(
+      ord >= 0 && ord < self.values.get_value_count()? as i64,
+      "ord out of range: {ord}"
+    );
+    self.current_ord = ord as i32;
+    let term = self.values.lookup_ord(self.current_ord)?;
+    self.scratch.copy_bytes_from_ref(term.as_ref());
+    Ok(())
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    _term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()> {
+    self.seek_exact_with_ord(state.ord()?)
+  }
+
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    Ok(Cow::Borrowed(self.scratch.get_bytes_ref()))
+  }
+
+  fn ord(&self) -> Result<i64> {
+    Ok(self.current_ord as i64)
+  }
+
+  fn doc_freq(&mut self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn total_term_freq(&mut self) -> Result<i64> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type PostingsEnum = DummyPostingsEnum;
+
+  fn postings(&mut self, _reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type ImpactsEnum = DummyImpactsEnum;
+
+  fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    let v: TermStateEnum = OrdTermState {
+      ord: self.current_ord as i64,
     }
-
-    fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
-        Err(LuceneError::not_implemented(""))
-    }
-
-    fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        let ord = self.values.lookup_term(text)?;
-        if ord >= 0 {
-            self.current_ord = ord;
-            self.scratch.copy_bytes_from_ref(text);
-            Ok(SeekStatus::Found)
-        } else {
-            self.current_ord = -ord - 1;
-            if self.current_ord == self.values.get_value_count()? {
-                Ok(SeekStatus::End)
-            } else {
-                let next_term = self.values.lookup_ord(self.current_ord)?;
-                self.scratch.copy_bytes_from_ref(next_term.as_ref());
-                Ok(SeekStatus::NotFound)
-            }
-        }
-    }
-
-    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-        debug_assert!(
-            ord >= 0 && ord < self.values.get_value_count()? as i64,
-            "ord out of range: {ord}"
-        );
-        self.current_ord = ord as i32;
-        let term = self.values.lookup_ord(self.current_ord)?;
-        self.scratch.copy_bytes_from_ref(term.as_ref());
-        Ok(())
-    }
-
-    fn seek_exact_with_state(
-        &mut self,
-        _term: &BytesRef<Vec<u8>>,
-        state: &TermStateEnum,
-    ) -> Result<()> {
-        self.seek_exact_with_ord(state.ord()?)
-    }
-
-    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        Ok(Cow::Borrowed(self.scratch.get_bytes_ref()))
-    }
-
-    fn ord(&self) -> Result<i64> {
-        Ok(self.current_ord as i64)
-    }
-
-    fn doc_freq(&mut self) -> Result<i32> {
-        Err(LuceneError::unsupported_operation(""))
-    }
-
-    fn total_term_freq(&mut self) -> Result<i64> {
-        Err(LuceneError::unsupported_operation(""))
-    }
-
-    type PostingsEnum = DummyPostingsEnum;
-
-    fn postings(&mut self, _reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
-        Err(LuceneError::unsupported_operation(""))
-    }
-
-    type ImpactsEnum = DummyImpactsEnum;
-
-    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
-        Err(LuceneError::unsupported_operation(""))
-    }
-
-    fn term_state(&mut self) -> Result<TermStateEnum> {
-        let v: TermStateEnum = OrdTermState {
-            ord: self.current_ord as i64,
-        }
-        .into();
-        Ok(v)
-    }
+    .into();
+    Ok(v)
+  }
 }

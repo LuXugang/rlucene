@@ -34,48 +34,48 @@ use crate::core::util::error::lucene_error::Result;
 /// [`NoMergeScheduler`] if you want to disable merges from ever happening.
 pub struct NoMergeScheduler;
 impl Default for NoMergeScheduler {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl NoMergeScheduler {
-    pub fn new() -> Self {
-        Self
-    }
+  pub fn new() -> Self {
+    Self
+  }
 }
 
 impl Closeable for NoMergeScheduler {
-    fn close(&mut self) -> Result<()> {
-        todo!()
-    }
+  fn close(&mut self) -> Result<()> {
+    todo!()
+  }
 }
 
 impl MergeScheduler for NoMergeScheduler {
-    fn merge<MS, D, L, B>(
-        &self,
-        _merge_source: &MS,
-        _trigger: MergeTrigger,
-        _index_writer: &IndexWriter<D, L, B>,
-    ) -> Result<()>
-    where
-        MS: MergeSource,
-        D: Directory,
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
-    {
-        Ok(())
-    }
+  fn merge<MS, D, L, B>(
+    &self,
+    _merge_source: &MS,
+    _trigger: MergeTrigger,
+    _index_writer: &IndexWriter<D, L, B>,
+  ) -> Result<()>
+  where
+    MS: MergeSource,
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    Ok(())
+  }
 
-    type Directory<D>
-        = D
-    where
-        D: Directory;
+  type Directory<D>
+    = D
+  where
+    D: Directory;
 
-    fn wrap_for_merge<D>(&self, in_: D) -> Result<Self::Directory<D>>
-    where
-        D: Directory,
-    {
-        Ok(in_)
-    }
+  fn wrap_for_merge<D>(&self, in_: D) -> Result<Self::Directory<D>>
+  where
+    D: Directory,
+  {
+    Ok(in_)
+  }
 }

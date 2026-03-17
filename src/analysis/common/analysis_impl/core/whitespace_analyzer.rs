@@ -16,56 +16,56 @@
  */
 use crate::analysis::common::analysis_impl::core::whitespace_tokenizer::WhitespaceTokenizer;
 use crate::core::analysis::analyzer::{
-    Analyzer, AnalyzerBase, GlobalReuseStrategy, TokenStreamComponents,
+  Analyzer, AnalyzerBase, GlobalReuseStrategy, TokenStreamComponents,
 };
 use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream};
 use crate::core::analysis::util::char_tokenizer::{CharTokenizer, DEFAULT_MAX_WORD_LEN};
 use crate::core::util::error::lucene_error::Result;
 /// An Analyzer that uses [`WhitespaceTokenizer`]
 pub struct WhitespaceAnalyzer {
-    base: AnalyzerBase<WhitespaceAnalyzerTS, GlobalReuseStrategy<WhitespaceAnalyzerTS>>,
-    max_token_length: i32,
+  base: AnalyzerBase<WhitespaceAnalyzerTS, GlobalReuseStrategy<WhitespaceAnalyzerTS>>,
+  max_token_length: i32,
 }
 impl Default for WhitespaceAnalyzer {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl WhitespaceAnalyzer {
-    /// Creates a new WhitespaceAnalyzer with a maximum token length of 255 chars
-    pub fn new() -> Self {
-        Self::with_max_token_length(DEFAULT_MAX_WORD_LEN)
+  /// Creates a new WhitespaceAnalyzer with a maximum token length of 255 chars
+  pub fn new() -> Self {
+    Self::with_max_token_length(DEFAULT_MAX_WORD_LEN)
+  }
+  /// Creates a new WhitespaceAnalyzer with a custom maximum token length
+  /// # Parameters
+  /// - `max_token_length`: the maximum token length the analyzer will emit.
+  pub fn with_max_token_length(max_token_length: i32) -> Self {
+    let base: AnalyzerBase<WhitespaceAnalyzerTS, GlobalReuseStrategy<WhitespaceAnalyzerTS>> =
+      AnalyzerBase::new();
+    Self {
+      base,
+      max_token_length,
     }
-    /// Creates a new WhitespaceAnalyzer with a custom maximum token length
-    /// # Parameters
-    /// - `max_token_length`: the maximum token length the analyzer will emit.
-    pub fn with_max_token_length(max_token_length: i32) -> Self {
-        let base: AnalyzerBase<WhitespaceAnalyzerTS, GlobalReuseStrategy<WhitespaceAnalyzerTS>> =
-            AnalyzerBase::new();
-        Self {
-            base,
-            max_token_length,
-        }
-    }
+  }
 }
 impl Analyzer for WhitespaceAnalyzer {
-    fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
-        Ok(TokenStreamComponents::new(InnerTokenStreams::Whitespace(
-            WhitespaceTokenizer::with_max_token_len(self.max_token_length)?,
-        )))
-    }
+  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
+    Ok(TokenStreamComponents::new(InnerTokenStreams::Whitespace(
+      WhitespaceTokenizer::with_max_token_len(self.max_token_length)?,
+    )))
+  }
 
-    type TokenStream<TS>
-        = TS
-    where
-        TS: TokenStream;
+  type TokenStream<TS>
+    = TS
+  where
+    TS: TokenStream;
 
-    fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-    where
-        TS: TokenStream,
-    {
-        self.default_normalize_from_ts(_field_name, in_)
-    }
+  fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
+  where
+    TS: TokenStream,
+  {
+    self.default_normalize_from_ts(_field_name, in_)
+  }
 }
 pub type WhitespaceAnalyzerTS = CharTokenizer<WhitespaceTokenizer>;

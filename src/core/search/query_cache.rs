@@ -25,68 +25,68 @@ use std::sync::Arc;
 /// A cache for queries.
 pub trait QueryCache<IRC>
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    /// Return a wrapper around the provided `weight` that will cache matching documents
-    /// per-segment according to the given `policy`.
-    /// **Note:** The returned weight will only be equivalent if scores are not needed.
-    ///
-    /// See also [`Collector::score_mode`](crate::core::search::collector::Collector::score_mode).
-    fn do_cache(
-        &self,
-        weight: QueryWeight<IRC>,
-        policy: Arc<QueryCachingPolicyEnum>,
-    ) -> QueryWeight<IRC>
-    where
-        IRC: IndexReaderContext + 'static;
+  /// Return a wrapper around the provided `weight` that will cache matching documents
+  /// per-segment according to the given `policy`.
+  /// **Note:** The returned weight will only be equivalent if scores are not needed.
+  ///
+  /// See also [`Collector::score_mode`](crate::core::search::collector::Collector::score_mode).
+  fn do_cache(
+    &self,
+    weight: QueryWeight<IRC>,
+    policy: Arc<QueryCachingPolicyEnum>,
+  ) -> QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
 }
 pub type BoxQueryCache<IRC> = Box<dyn QueryCache<IRC> + Send + Sync>;
 pub enum QueryCacheEnum<IRC>
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    Lru(Arc<LRUQueryCache<MinSegmentSizePredicate>>),
-    #[cfg(test)]
-    LruImpl(Arc<LRUQueryCache<PredicateImpl>>),
-    Custom(BoxQueryCache<IRC>),
+  Lru(Arc<LRUQueryCache<MinSegmentSizePredicate>>),
+  #[cfg(test)]
+  LruImpl(Arc<LRUQueryCache<PredicateImpl>>),
+  Custom(BoxQueryCache<IRC>),
 }
 impl<IRC> QueryCacheEnum<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+  IRC: IndexReaderContext + 'static,
 {
-    pub fn custom<QC>(cache: QC) -> Self
-    where
-        QC: QueryCache<IRC> + Send + Sync + 'static,
-    {
-        Self::Custom(Box::new(cache))
-    }
+  pub fn custom<QC>(cache: QC) -> Self
+  where
+    QC: QueryCache<IRC> + Send + Sync + 'static,
+  {
+    Self::Custom(Box::new(cache))
+  }
 }
 impl<IRC> QueryCache<IRC> for QueryCacheEnum<IRC>
 where
-    IRC: IndexReaderContext + 'static,
+  IRC: IndexReaderContext + 'static,
 {
-    fn do_cache(
-        &self,
-        weight: QueryWeight<IRC>,
-        policy: Arc<QueryCachingPolicyEnum>,
-    ) -> QueryWeight<IRC>
-    where
-        IRC: IndexReaderContext,
-    {
-        match self {
-            QueryCacheEnum::Lru(cache) => cache.do_cache(weight, policy),
-            #[cfg(test)]
-            QueryCacheEnum::LruImpl(cache) => cache.do_cache(weight, policy),
-            QueryCacheEnum::Custom(cache) => cache.do_cache(weight, policy),
-        }
+  fn do_cache(
+    &self,
+    weight: QueryWeight<IRC>,
+    policy: Arc<QueryCachingPolicyEnum>,
+  ) -> QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext,
+  {
+    match self {
+      QueryCacheEnum::Lru(cache) => cache.do_cache(weight, policy),
+      #[cfg(test)]
+      QueryCacheEnum::LruImpl(cache) => cache.do_cache(weight, policy),
+      QueryCacheEnum::Custom(cache) => cache.do_cache(weight, policy),
     }
+  }
 }
 
 impl<IRC> From<Arc<LRUQueryCache<MinSegmentSizePredicate>>> for QueryCacheEnum<IRC>
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    fn from(v: Arc<LRUQueryCache<MinSegmentSizePredicate>>) -> Self {
-        QueryCacheEnum::Lru(v)
-    }
+  fn from(v: Arc<LRUQueryCache<MinSegmentSizePredicate>>) -> Self {
+    QueryCacheEnum::Lru(v)
+  }
 }

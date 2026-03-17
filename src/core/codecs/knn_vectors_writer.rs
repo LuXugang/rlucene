@@ -20,12 +20,12 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 
 pub trait KnnVectorsWriter: Accountable {
-    type KnnFieldVectorsWriter<T>: KnnFieldVectorsWriter<T>;
-    /// Adds a new field for indexing.
-    fn add_field<T>(&mut self, field_info: &FieldInfo) -> Result<Self::KnnFieldVectorsWriter<T>>;
+  type KnnFieldVectorsWriter<T>: KnnFieldVectorsWriter<T>;
+  /// Adds a new field for indexing.
+  fn add_field<T>(&mut self, field_info: &FieldInfo) -> Result<Self::KnnFieldVectorsWriter<T>>;
 
-    /// Flushes all buffered data on disk.
-    fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>;
+  /// Flushes all buffered data on disk.
+  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>;
 
-    fn finish<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>;
+  fn finish<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>;
 }

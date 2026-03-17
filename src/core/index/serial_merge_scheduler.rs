@@ -25,57 +25,57 @@ use crate::core::util::error::lucene_error::Result;
 /// A [`MergeScheduler`] that simply does each merge sequentially, using the current thread.
 pub struct SerialMergeScheduler;
 impl Default for SerialMergeScheduler {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl SerialMergeScheduler {
-    pub fn new() -> Self {
-        SerialMergeScheduler
-    }
+  pub fn new() -> Self {
+    SerialMergeScheduler
+  }
 }
 
 impl Closeable for SerialMergeScheduler {
-    fn close(&mut self) -> Result<()> {
-        todo!()
-    }
+  fn close(&mut self) -> Result<()> {
+    todo!()
+  }
 }
 /// Just do the merges in sequence.
 /// We do this "synchronized" so that even if the application is using multiple threads,
 /// only one merge may run at a time.
 impl MergeScheduler for SerialMergeScheduler {
-    fn merge<MS, D, L, B>(
-        &self,
-        merge_source: &MS,
-        _trigger: MergeTrigger,
-        index_writer: &IndexWriter<D, L, B>,
-    ) -> Result<()>
-    where
-        MS: MergeSource,
-        D: Directory,
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
-    {
-        loop {
-            let merge = match merge_source.get_next_merge(index_writer)? {
-                Some(merge) => merge,
-                None => break,
-            };
-            merge_source.merge(merge, index_writer)?;
-        }
-        Ok(())
+  fn merge<MS, D, L, B>(
+    &self,
+    merge_source: &MS,
+    _trigger: MergeTrigger,
+    index_writer: &IndexWriter<D, L, B>,
+  ) -> Result<()>
+  where
+    MS: MergeSource,
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    loop {
+      let merge = match merge_source.get_next_merge(index_writer)? {
+        Some(merge) => merge,
+        None => break,
+      };
+      merge_source.merge(merge, index_writer)?;
     }
+    Ok(())
+  }
 
-    type Directory<D>
-        = D
-    where
-        D: Directory;
+  type Directory<D>
+    = D
+  where
+    D: Directory;
 
-    fn wrap_for_merge<D>(&self, in_: D) -> Result<Self::Directory<D>>
-    where
-        D: Directory,
-    {
-        Ok(in_)
-    }
+  fn wrap_for_merge<D>(&self, in_: D) -> Result<Self::Directory<D>>
+  where
+    D: Directory,
+  {
+    Ok(in_)
+  }
 }

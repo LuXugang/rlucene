@@ -24,54 +24,54 @@ use crate::core::util::error::lucene_error::Result;
 /// documents need to override this. Otherwise, a default implementation is
 /// wrapped around the `Scorer` returned by [`Weight::scorer`](crate::core::search::weight::Weight::bulk_scorer).
 pub trait BulkScorer {
-    /// Collects matching documents in a range and returns an estimation of the
-    /// next matching document which is on or after `max`.
-    ///
-    /// # Return value
-    ///
-    /// - `>= max`
-    /// - [`NO_MORE_DOCS`](crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS) if there are no more matches
-    /// - `<=` the first matching document that is `>= max` otherwise
-    ///
-    /// # Parameters
-    ///
-    /// - `collector`: The collector to which all matching documents are passed.
-    /// - `accept_docs`: [`Bits`] that represents the allowed documents to match,
-    ///   or `None` if all are allowed to match.
-    /// - `min`: Score starting at, including, this document.
-    /// - `max`: Score up to, but not including, this doc.
-    ///
-    /// # Notes
-    ///
-    /// - `min` is the minimum document to be considered for matching. All documents
-    ///   strictly before this value must be ignored.
-    /// - Although `max` would be a legal return value for this method, higher values
-    ///   might help callers skip more efficiently over non-matching portions of the
-    ///   docID space.
-    ///
-    /// # Returns
-    ///
-    /// An under-estimation of the next matching doc after `max`.
-    fn score(
-        &mut self,
-        collector: &mut dyn LeafCollector,
-        accept_docs: Option<&dyn Bits>,
-        min: i32,
-        max: i32,
-    ) -> Result<i32>;
+  /// Collects matching documents in a range and returns an estimation of the
+  /// next matching document which is on or after `max`.
+  ///
+  /// # Return value
+  ///
+  /// - `>= max`
+  /// - [`NO_MORE_DOCS`](crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS) if there are no more matches
+  /// - `<=` the first matching document that is `>= max` otherwise
+  ///
+  /// # Parameters
+  ///
+  /// - `collector`: The collector to which all matching documents are passed.
+  /// - `accept_docs`: [`Bits`] that represents the allowed documents to match,
+  ///   or `None` if all are allowed to match.
+  /// - `min`: Score starting at, including, this document.
+  /// - `max`: Score up to, but not including, this doc.
+  ///
+  /// # Notes
+  ///
+  /// - `min` is the minimum document to be considered for matching. All documents
+  ///   strictly before this value must be ignored.
+  /// - Although `max` would be a legal return value for this method, higher values
+  ///   might help callers skip more efficiently over non-matching portions of the
+  ///   docID space.
+  ///
+  /// # Returns
+  ///
+  /// An under-estimation of the next matching doc after `max`.
+  fn score(
+    &mut self,
+    collector: &mut dyn LeafCollector,
+    accept_docs: Option<&dyn Bits>,
+    min: i32,
+    max: i32,
+  ) -> Result<i32>;
 
-    /// Same as [`DocIdSetIterator::cost`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost) for bulk scorers.
-    fn cost(&mut self) -> Result<i64>;
+  /// Same as [`DocIdSetIterator::cost`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost) for bulk scorers.
+  fn cost(&mut self) -> Result<i64>;
 
-    #[cfg(test)]
-    fn kind(&self) -> BulkScorerKind {
-        unimplemented!("")
-    }
+  #[cfg(test)]
+  fn kind(&self) -> BulkScorerKind {
+    unimplemented!("")
+  }
 }
 #[cfg(test)]
 pub enum BulkScorerKind {
-    Default,
-    ReqExcl,
+  Default,
+  ReqExcl,
 }
 macro_rules! either_bulk_scorer {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
@@ -114,19 +114,19 @@ either_bulk_scorer!(pub BulkScorerEnum3 { A: A1, B: B1, C: C1});
 either_bulk_scorer!(pub BulkScorerEnum4 { A: A1, B: B1, C: C1, D: D1});
 impl<T> BulkScorer for Box<T>
 where
-    T: BulkScorer + ?Sized,
+  T: BulkScorer + ?Sized,
 {
-    fn score(
-        &mut self,
-        collector: &mut dyn LeafCollector,
-        accept_docs: Option<&dyn Bits>,
-        min: i32,
-        max: i32,
-    ) -> Result<i32> {
-        (**self).score(collector, accept_docs, min, max)
-    }
+  fn score(
+    &mut self,
+    collector: &mut dyn LeafCollector,
+    accept_docs: Option<&dyn Bits>,
+    min: i32,
+    max: i32,
+  ) -> Result<i32> {
+    (**self).score(collector, accept_docs, min, max)
+  }
 
-    fn cost(&mut self) -> Result<i64> {
-        (**self).cost()
-    }
+  fn cost(&mut self) -> Result<i64> {
+    (**self).cost()
+  }
 }

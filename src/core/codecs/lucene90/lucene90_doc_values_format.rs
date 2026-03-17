@@ -135,153 +135,152 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// - `.dvd`: DocValues data
 /// - `.dvm`: DocValues metadata
 pub struct Lucene90DocValuesFormat {
-    skip_index_interval_size: i32,
-    name: String,
+  skip_index_interval_size: i32,
+  name: String,
 }
 impl Lucene90DocValuesFormat {
-    pub const DATA_CODEC: &'static str = "Lucene90DocValuesData";
-    pub const DATA_EXTENSION: &'static str = "dvd";
-    pub const META_CODEC: &'static str = "Lucene90DocValuesMetadata";
-    pub const META_EXTENSION: &'static str = "dvm";
+  pub const DATA_CODEC: &'static str = "Lucene90DocValuesData";
+  pub const DATA_EXTENSION: &'static str = "dvd";
+  pub const META_CODEC: &'static str = "Lucene90DocValuesMetadata";
+  pub const META_EXTENSION: &'static str = "dvm";
 
-    pub const VERSION_START: i32 = 0;
-    pub const VERSION_CURRENT: i32 = Self::VERSION_START;
+  pub const VERSION_START: i32 = 0;
+  pub const VERSION_CURRENT: i32 = Self::VERSION_START;
 
-    /// Indicates docvalues type
-    pub const NUMERIC: u8 = 0;
-    pub const BINARY: u8 = 1;
-    pub const SORTED: u8 = 2;
-    pub const SORTED_SET: u8 = 3;
-    pub const SORTED_NUMERIC: u8 = 4;
+  /// Indicates docvalues type
+  pub const NUMERIC: u8 = 0;
+  pub const BINARY: u8 = 1;
+  pub const SORTED: u8 = 2;
+  pub const SORTED_SET: u8 = 3;
+  pub const SORTED_NUMERIC: u8 = 4;
 
-    pub const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
+  pub const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 
-    pub const NUMERIC_BLOCK_SHIFT: i32 = 14;
-    pub const NUMERIC_BLOCK_SIZE: i32 = 1 << Self::NUMERIC_BLOCK_SHIFT;
+  pub const NUMERIC_BLOCK_SHIFT: i32 = 14;
+  pub const NUMERIC_BLOCK_SIZE: i32 = 1 << Self::NUMERIC_BLOCK_SHIFT;
 
-    pub const TERMS_DICT_BLOCK_LZ4_SHIFT: i32 = 6;
-    pub const TERMS_DICT_BLOCK_LZ4_SIZE: i32 = 1 << Self::TERMS_DICT_BLOCK_LZ4_SHIFT;
-    pub const TERMS_DICT_BLOCK_LZ4_MASK: i32 = Self::TERMS_DICT_BLOCK_LZ4_SIZE - 1;
+  pub const TERMS_DICT_BLOCK_LZ4_SHIFT: i32 = 6;
+  pub const TERMS_DICT_BLOCK_LZ4_SIZE: i32 = 1 << Self::TERMS_DICT_BLOCK_LZ4_SHIFT;
+  pub const TERMS_DICT_BLOCK_LZ4_MASK: i32 = Self::TERMS_DICT_BLOCK_LZ4_SIZE - 1;
 
-    pub const TERMS_DICT_REVERSE_INDEX_SHIFT: i32 = 10;
-    pub const TERMS_DICT_REVERSE_INDEX_SIZE: i32 = 1 << Self::TERMS_DICT_REVERSE_INDEX_SHIFT;
-    pub const TERMS_DICT_REVERSE_INDEX_MASK: i32 = Self::TERMS_DICT_REVERSE_INDEX_SIZE - 1;
+  pub const TERMS_DICT_REVERSE_INDEX_SHIFT: i32 = 10;
+  pub const TERMS_DICT_REVERSE_INDEX_SIZE: i32 = 1 << Self::TERMS_DICT_REVERSE_INDEX_SHIFT;
+  pub const TERMS_DICT_REVERSE_INDEX_MASK: i32 = Self::TERMS_DICT_REVERSE_INDEX_SIZE - 1;
 
-    /// Number of documents in an interval
-    pub const DEFAULT_SKIP_INDEX_INTERVAL_SIZE: i32 = 4096;
+  /// Number of documents in an interval
+  pub const DEFAULT_SKIP_INDEX_INTERVAL_SIZE: i32 = 4096;
 
-    /// Bytes on an interval:
-    ///   * 1 byte : number of levels
-    ///   * 16 bytes: min / max value,
-    ///   * 8 bytes:  min / max docID
-    ///   * 4 bytes: number of documents
-    pub const SKIP_INDEX_INTERVAL_BYTES: i64 = 29;
+  /// Bytes on an interval:
+  ///   * 1 byte : number of levels
+  ///   * 16 bytes: min / max value,
+  ///   * 8 bytes:  min / max docID
+  ///   * 4 bytes: number of documents
+  pub const SKIP_INDEX_INTERVAL_BYTES: i64 = 29;
 
-    /// Number of intervals represented as a shift to create a new level, this
-    /// is 1 << 3 == 8 intervals.
-    pub const SKIP_INDEX_LEVEL_SHIFT: i32 = 3;
+  /// Number of intervals represented as a shift to create a new level, this
+  /// is 1 << 3 == 8 intervals.
+  pub const SKIP_INDEX_LEVEL_SHIFT: i32 = 3;
 
-    /// Max number of levels
-    /// Increasing this number increases how much heap we need at index time.
-    /// We currently need (1 * 8 * 8 * 8) = 512 accumulators on heap
-    pub const SKIP_INDEX_MAX_LEVEL: usize = 4;
+  /// Max number of levels
+  /// Increasing this number increases how much heap we need at index time.
+  /// We currently need (1 * 8 * 8 * 8) = 512 accumulators on heap
+  pub const SKIP_INDEX_MAX_LEVEL: usize = 4;
 
-    pub fn new() -> Result<Self> {
-        Self::with_skip_index_interval_size(Self::DEFAULT_SKIP_INDEX_INTERVAL_SIZE)
+  pub fn new() -> Result<Self> {
+    Self::with_skip_index_interval_size(Self::DEFAULT_SKIP_INDEX_INTERVAL_SIZE)
+  }
+  pub fn with_skip_index_interval_size(skip_index_interval_size: i32) -> Result<Self> {
+    if skip_index_interval_size < 2 {
+      return Err(LuceneError::illegal_argument(format!(
+        "skip_index_interval_size must be > 1, got [{skip_index_interval_size}]"
+      )));
     }
-    pub fn with_skip_index_interval_size(skip_index_interval_size: i32) -> Result<Self> {
-        if skip_index_interval_size < 2 {
-            return Err(LuceneError::illegal_argument(format!(
-                "skip_index_interval_size must be > 1, got [{skip_index_interval_size}]"
-            )));
-        }
-        Ok(Self {
-            skip_index_interval_size,
-            name: "Lucene90".to_string(),
-        })
-    }
+    Ok(Self {
+      skip_index_interval_size,
+      name: "Lucene90".to_string(),
+    })
+  }
 }
 impl Default for Lucene90DocValuesFormat {
-    fn default() -> Self {
-        let result = Self::new();
-        debug_assert!(result.is_ok());
-        Self::new().unwrap()
-    }
+  fn default() -> Self {
+    let result = Self::new();
+    debug_assert!(result.is_ok());
+    Self::new().unwrap()
+  }
 }
 
 impl Display for Lucene90DocValuesFormat {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "DocValuesFormat(name= {} )",
-            self.skip_index_interval_size
-        )
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(
+      f,
+      "DocValuesFormat(name= {} )",
+      self.skip_index_interval_size
+    )
+  }
 }
 
 impl DocValuesFormat for Lucene90DocValuesFormat {
-    type DocValuesConsumer<T: IndexOutput> = Lucene90DocValuesConsumer<T>;
+  type DocValuesConsumer<T: IndexOutput> = Lucene90DocValuesConsumer<T>;
 
-    fn fields_consumer<D1, D2>(
-        &self,
-        state: &SegmentWriteState<D1>,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        Lucene90DocValuesConsumer::new(
-            state,
-            self.skip_index_interval_size,
-            Self::DATA_CODEC,
-            Self::DATA_EXTENSION,
-            Self::META_CODEC,
-            Self::META_EXTENSION,
-            segment_info,
-        )
-    }
+  fn fields_consumer<D1, D2>(
+    &self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    Lucene90DocValuesConsumer::new(
+      state,
+      self.skip_index_interval_size,
+      Self::DATA_CODEC,
+      Self::DATA_EXTENSION,
+      Self::META_CODEC,
+      Self::META_EXTENSION,
+      segment_info,
+    )
+  }
 
-    type DocValuesProducer<T: IndexInput> = Lucene90DocValuesProducer<T>;
+  type DocValuesProducer<T: IndexInput> = Lucene90DocValuesProducer<T>;
 
-    fn fields_producer<D1, D2>(
-        &self,
-        state: &SegmentReadState<D1>,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        Lucene90DocValuesProducer::new(
-            state,
-            Self::DATA_CODEC,
-            Self::DATA_EXTENSION,
-            Self::META_CODEC,
-            Self::META_EXTENSION,
-            segment_info,
-        )
-    }
+  fn fields_producer<D1, D2>(
+    &self,
+    state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    Lucene90DocValuesProducer::new(
+      state,
+      Self::DATA_CODEC,
+      Self::DATA_EXTENSION,
+      Self::META_CODEC,
+      Self::META_EXTENSION,
+      segment_info,
+    )
+  }
 }
 /// Number of bytes to skip when skipping a level. It does not take into account
 /// the current interval that is being read.
 pub static SKIP_INDEX_JUMP_LENGTH_PER_LEVEL: Lazy<
-    [i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
+  [i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
 > = Lazy::new(|| {
-    let mut arr = [0i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL];
-    // Size of the interval minus read bytes (1 byte for level and 4 bytes for
-    // maxDocID)
-    arr[0] = Lucene90DocValuesFormat::SKIP_INDEX_INTERVAL_BYTES - 5;
-    for level in 1..Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL {
-        // Jump from previous level
-        arr[level] = arr[level - 1];
-        // Nodes added by new level
-        arr[level] += (1 << (level as i32 * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT))
-            as i64
-            * Lucene90DocValuesFormat::SKIP_INDEX_INTERVAL_BYTES;
-        // Remove the byte levels added in the previous level
-        arr[level] -=
-            (1 << ((level as i32 - 1) * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT)) as i64;
-    }
-    arr
+  let mut arr = [0i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL];
+  // Size of the interval minus read bytes (1 byte for level and 4 bytes for
+  // maxDocID)
+  arr[0] = Lucene90DocValuesFormat::SKIP_INDEX_INTERVAL_BYTES - 5;
+  for level in 1..Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL {
+    // Jump from previous level
+    arr[level] = arr[level - 1];
+    // Nodes added by new level
+    arr[level] += (1 << (level as i32 * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT)) as i64
+      * Lucene90DocValuesFormat::SKIP_INDEX_INTERVAL_BYTES;
+    // Remove the byte levels added in the previous level
+    arr[level] -=
+      (1 << ((level as i32 - 1) * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT)) as i64;
+  }
+  arr
 });

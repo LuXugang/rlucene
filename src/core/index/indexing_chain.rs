@@ -27,17 +27,17 @@ use crate::core::document::fields::Fields;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values_writer::{
-    BinaryDocValuesWriter, BufferedBinaryDocValues,
+  BinaryDocValuesWriter, BufferedBinaryDocValues,
 };
 use crate::core::index::buffered_updates::BufferedUpdates;
 use crate::core::index::doc_values::{
-    DocValues, EmptyBinary, EmptyNumeric, EmptySorted, EmptySortedSet,
+  DocValues, EmptyBinary, EmptyNumeric, EmptySorted, EmptySortedSet,
 };
 use crate::core::index::doc_values_leaf_reader::DocValuesLeafReader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::doc_values_writer::{
-    DocValuesWriter, DocValuesWriterDISI, DocValuesWriterEnum,
+  DocValuesWriter, DocValuesWriterDISI, DocValuesWriterEnum,
 };
 use crate::core::index::docs_with_field_set::DocsWithFieldSetDISI;
 use crate::core::index::field_info::FieldInfo;
@@ -62,7 +62,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::norm_values_writer::NormValuesWriter;
 use crate::core::index::numeric_doc_values_writer::{
-    BufferedNumericDocValues, NumericDocValuesWriter,
+  BufferedNumericDocValues, NumericDocValuesWriter,
 };
 use crate::core::index::point_values_writer::PointValuesWriter;
 use crate::core::index::segment_info::SegmentInfo;
@@ -71,14 +71,14 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values_writer::{
-    BufferedSortedDocValues, SortedDocValuesWriter,
+  BufferedSortedDocValues, SortedDocValuesWriter,
 };
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values_writer::{
-    BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
+  BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
 };
 use crate::core::index::sorted_set_doc_values_writer::{
-    BufferedSortedSetDocValues, SortedSetDocValuesEnum2, SortedSetDocValuesWriter,
+  BufferedSortedSetDocValues, SortedSetDocValuesEnum2, SortedSetDocValuesWriter,
 };
 use crate::core::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::core::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
@@ -103,13 +103,13 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
 use crate::core::util::int_block_pool::{
-    AllocatorI32, AllocatorIntEnum, INT_BLOCK_SIZE, IntBlockPool,
+  AllocatorI32, AllocatorIntEnum, INT_BLOCK_SIZE, IntBlockPool,
 };
 use crate::core::util::number::Number;
 use crate::core::util::paged_bytes::PagedBytesDataInput;
 use crate::core::util::{
-    AtomicCounter, ByteBlockPool, CoreHelper, Counter, LUCENE_10_0_0, SharedCounter, SliceCopyOps,
-    TryIntoInt,
+  AtomicCounter, ByteBlockPool, CoreHelper, Counter, LUCENE_10_0_0, SharedCounter, SliceCopyOps,
+  TryIntoInt,
 };
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -122,1356 +122,1347 @@ use std::vec;
 /// Default general purpose indexing chain, which handles indexing all types of fields.
 pub(crate) struct IndexingChain<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    bytes_used: SharedCounter,
-    terms_hash: FreqProxTermsWriter<D>,
-    doc_values_byte_pool: ByteBlockPool,
-    stored_fields_consumer: StoredFieldsConsumer<D>,
-    field_hash: Vec<i32>,
-    hash_mask: usize,
-    total_field_count: usize,
-    next_field_gen: i64,
-    // Holds fields seen in each document
-    fields: Vec<usize>,
-    per_fields: Vec<PerField>,
-    doc_fields: Vec<usize>,
-    info_stream: InfoStreamMT,
-    index_created_version_major: i32,
-    has_hit_aborting_exception: bool,
-    context: IndexContext,
+  bytes_used: SharedCounter,
+  terms_hash: FreqProxTermsWriter<D>,
+  doc_values_byte_pool: ByteBlockPool,
+  stored_fields_consumer: StoredFieldsConsumer<D>,
+  field_hash: Vec<i32>,
+  hash_mask: usize,
+  total_field_count: usize,
+  next_field_gen: i64,
+  // Holds fields seen in each document
+  fields: Vec<usize>,
+  per_fields: Vec<PerField>,
+  doc_fields: Vec<usize>,
+  info_stream: InfoStreamMT,
+  index_created_version_major: i32,
+  has_hit_aborting_exception: bool,
+  context: IndexContext,
 }
 pub(crate) struct IndexContext {
-    pub(crate) term_vectors_int_pool: IntBlockPool,
-    pub(crate) freq_prox_term_int_pool: IntBlockPool,
-    pub(crate) byte_pool: ByteBlockPool,
+  pub(crate) term_vectors_int_pool: IntBlockPool,
+  pub(crate) freq_prox_term_int_pool: IntBlockPool,
+  pub(crate) byte_pool: ByteBlockPool,
 }
 impl IndexContext {
-    pub(crate) fn reset(&mut self) {
-        self.term_vectors_int_pool.reset(false, false);
-        self.freq_prox_term_int_pool.reset(false, false);
-        self.byte_pool.reset(false, false);
-    }
+  pub(crate) fn reset(&mut self) {
+    self.term_vectors_int_pool.reset(false, false);
+    self.freq_prox_term_int_pool.reset(false, false);
+    self.byte_pool.reset(false, false);
+  }
 }
 
 impl<D> IndexingChain<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) fn new<D1>(
-        index_created_version_major: i32,
-        segment_info: &SegmentInfo<D1>,
-        directory: Arc<D>,
-        index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<Self>
-    where
-        D1: Directory,
-    {
-        let bytes_used = Arc::new(AtomicCounter::new());
-        let (stored_fields_consumer, term_vectors_writer) =
-            if segment_info.get_index_sort().is_none() {
-                (
-                    StoredFieldsConsumer::new(directory.clone(), None),
-                    TermVectorsConsumer::new(directory.clone(), None),
-                )
-            } else {
-                let stored_fields_consumer_sub =
-                    SortingStoredFieldsConsumer::new(directory.clone())?;
-                let term_vector_consumer_sub = SortingTermVectorsConsumer::new(directory.clone())?;
-                (
-                    StoredFieldsConsumer::new(directory.clone(), Some(stored_fields_consumer_sub)),
-                    TermVectorsConsumer::new(directory.clone(), Some(term_vector_consumer_sub)),
-                )
-            };
+  pub(crate) fn new<D1>(
+    index_created_version_major: i32,
+    segment_info: &SegmentInfo<D1>,
+    directory: Arc<D>,
+    index_writer_config: &impl LiveIndexWriterConfig,
+  ) -> Result<Self>
+  where
+    D1: Directory,
+  {
+    let bytes_used = Arc::new(AtomicCounter::new());
+    let (stored_fields_consumer, term_vectors_writer) = if segment_info.get_index_sort().is_none() {
+      (
+        StoredFieldsConsumer::new(directory.clone(), None),
+        TermVectorsConsumer::new(directory.clone(), None),
+      )
+    } else {
+      let stored_fields_consumer_sub = SortingStoredFieldsConsumer::new(directory.clone())?;
+      let term_vector_consumer_sub = SortingTermVectorsConsumer::new(directory.clone())?;
+      (
+        StoredFieldsConsumer::new(directory.clone(), Some(stored_fields_consumer_sub)),
+        TermVectorsConsumer::new(directory.clone(), Some(term_vector_consumer_sub)),
+      )
+    };
 
-        let terms_hash = FreqProxTermsWriter::new(bytes_used.clone(), term_vectors_writer);
-        let doc_values_byte_pool = ByteBlockPool::new(DirectTrackingAllocatorByte::allocator_enum(
-            bytes_used.clone(),
-        ));
-        let info_stream = index_writer_config.get_info_stream().clone();
-        let term_vectors_int_pool =
-            IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(bytes_used.clone()));
-        let freq_prox_term_int_pool =
-            IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(bytes_used.clone()));
-        let allocator = DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone());
-        let byte_pool = ByteBlockPool::new(allocator);
-        let context = IndexContext {
-            term_vectors_int_pool,
-            freq_prox_term_int_pool,
-            byte_pool,
-        };
-        Ok(IndexingChain {
-            bytes_used,
-            terms_hash,
-            doc_values_byte_pool,
-            stored_fields_consumer,
-            field_hash: vec![-1; 2],
-            hash_mask: 1,
-            total_field_count: 0,
-            next_field_gen: 0,
-            fields: vec![0; 1],
-            per_fields: vec![],
-            doc_fields: vec![0; 2],
-            info_stream,
-            index_created_version_major,
-            has_hit_aborting_exception: false,
-            context,
-        })
-    }
-    pub(crate) fn maybe_sort_segment<D1>(
-        &mut self,
-        state: &SegmentWriteState<D>,
-        segment_info: &SegmentInfo<D1>,
-        field_info: &mut Builder,
-    ) -> Result<Option<Arc<DocMapImpl>>>
-    where
-        D: Directory,
-        D1: Directory,
-    {
-        let index_created_version_major = self.index_created_version_major;
-        let index_sort = segment_info.get_index_sort();
-        if index_sort.is_none() {
-            return Ok(None);
-        }
-
-        let doc_values_reader = DocValuesLeafReaderImpl1::new(self, field_info);
-        let max_doc = segment_info.max_doc()?;
-        let has_blocks = segment_info.get_has_blocks();
-        let parent_field = state.field_infos.get_parent_field();
-        let use_parent = has_blocks && parent_field.is_some();
-        let parent_bit_set = if use_parent {
-            let parent_field = *parent_field.as_ref().unwrap();
-            match doc_values_reader.get_numeric_doc_values(parent_field)? {
-                Some(ref mut reader_values) => {
-                    Some(Rc::new(of(reader_values, max_doc.try_convert()?)?))
-                },
-                None => {
-                    return Err(LuceneError::corrupt_index(format!(
-                        "missing doc values for parent field {parent_field} IndexingChain"
-                    )));
-                },
-            }
-        } else {
-            None
-        };
-
-        if has_blocks
-            && parent_field.is_none()
-            && index_created_version_major >= LUCENE_10_0_0.major
-        {
-            return Err(LuceneError::corrupt_index(format!(
-                "parent field is not set but the index has blocks and uses index sorting. indexCreatedVersionMajor: {} \"IndexingChain\"",
-                self.index_created_version_major
-            )));
-        }
-        let mut comparators = Vec::new();
-        for sort_field in &index_sort.as_ref().unwrap().fields {
-            let sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
-                LuceneError::unsupported_operation(format!(
-                    "Cannot sort index using sort field {sort_field}"
-                ))
-            })?;
-            let doc_comparator = sorter.get_doc_comparator(&doc_values_reader, max_doc)?;
-            let v = match &parent_bit_set {
-                Some(parent_bit_set) => DocComparatorEnum2::A(DocComparatorImpl::new(
-                    parent_bit_set.clone(),
-                    doc_comparator,
-                )),
-                None => DocComparatorEnum2::B(doc_comparator),
-            };
-            comparators.push(v);
-        }
-        // returns null if the documents are already sorted
-        match Sorter::sort(max_doc, comparators)? {
-            Some(doc_map) => Ok(Some(Arc::new(doc_map))),
-            None => Ok(None),
-        }
-    }
-    pub(crate) fn flush<D1>(
-        &mut self,
-        state: &mut SegmentWriteState<D>,
-        segment_info: &mut SegmentInfo<D1>,
-        seg_updates: Option<&mut BufferedUpdates>,
-        index_writer_config: &impl LiveIndexWriterConfig,
-        field_info: &mut Builder,
-    ) -> Result<Option<Arc<DocMapImpl>>>
-    where
-        D1: Directory,
-    {
-        // Rust-Lucene–specific method: its purpose is to make all DocValuesWriter instances call finished() first,
-        // so that DocValuesWriter::get_doc_values can be an immutable (&self) method.
-        let pool = std::mem::take(&mut self.doc_values_byte_pool);
-        self.finish_doc_values_writer(pool)?;
-        // NOTE: caller (DocumentsWriterPerThread) handles
-        // aborting on any exception from this method
-        let sort_map = self.maybe_sort_segment(state, segment_info, field_info)?;
-        let max_doc = segment_info.max_doc()?;
-
-        // write norms
-        let t0 = Instant::now();
-        self.write_norms(state, sort_map.as_ref(), segment_info, index_writer_config)?;
-        if self.info_stream.enabled("IW") {
-            self.info_stream.message(
-                "IW",
-                &format!("{} ms to write norms", t0.elapsed().as_millis()),
-            );
-        }
-
-        // write doc-values
-        let t0 = Instant::now();
-        self.write_doc_values(state, sort_map.as_ref(), segment_info, index_writer_config)?;
-        if self.info_stream.enabled("IW") {
-            self.info_stream.message(
-                "IW",
-                &format!("{} ms to write docValues", t0.elapsed().as_millis()),
-            );
-        }
-
-        // write points
-        let t0 = Instant::now();
-        self.write_points(state, sort_map.as_ref(), index_writer_config, segment_info)?;
-        if self.info_stream.enabled("IW") {
-            self.info_stream.message(
-                "IW",
-                &format!("{} ms to write points", t0.elapsed().as_millis()),
-            );
-        }
-
-        // write vectors
-        // let t0 = Instant::now();
-        // self.vector_values_consumer.flush(state, sort_map.as_ref(),segment_info)?;
-        // if self.info_stream.enabled("IW") {
-        //     self.info_stream.message("IW", &format!("{} ms to write vectors", t0.elapsed().as_millis()));
-        // }
-
-        // finish & flush stored fields
-        let t0 = Instant::now();
-        self.stored_fields_consumer.finish(max_doc, segment_info)?;
-        self.stored_fields_consumer.flush(
-            state,
-            sort_map.as_ref(),
-            segment_info,
-            state.directory,
-        )?;
-        if self.info_stream.enabled("IW") {
-            self.info_stream.message(
-                "IW",
-                &format!("{} ms to finish stored fields", t0.elapsed().as_millis()),
-            );
-        }
-
-        let mut fields_to_flush = HashMap::new();
-        for &idx in &self.field_hash {
-            let mut fp_idx = idx;
-            while fp_idx >= 0 {
-                let pf = &mut self.per_fields[fp_idx as usize];
-                if pf.invert_state.is_some() {
-                    fields_to_flush.insert(
-                        pf.field_info.as_ref().unwrap().name.clone(),
-                        pf.terms_hash_per_field.take().unwrap(),
-                    );
-                }
-                fp_idx = pf.next;
-            }
-        }
-        let io_context = IOContext::default_io_context()?;
-        let read_state = SegmentReadState::with_suffix(
-            state.directory,
-            state.field_infos.clone(),
-            &io_context,
-            &state.segment_suffix,
-        );
-        let norms = if read_state.field_infos.has_norms() {
-            Some(
-                index_writer_config
-                    .get_codec()
-                    .norms_format()
-                    .norms_producer(&read_state, segment_info)?,
-            )
-        } else {
-            None
-        };
-        let norms_merge_instance = match norms {
-            // Use the merge instance in order to reuse the same IndexInput for all terms
-            Some(norms) => match norms.get_merge_instance()? {
-                Some(norms_merge_instance) => Some(norms_merge_instance),
-                None => Some(norms),
-            },
-            None => None,
-        };
-
-        // flush postings + vectors
-        let int_pool = std::mem::take(&mut self.context.freq_prox_term_int_pool);
-        let byte_pool = std::mem::take(&mut self.context.byte_pool);
-        let t0 = Instant::now();
-        self.terms_hash.flush(
-            fields_to_flush,
-            state,
-            sort_map.as_ref(),
-            norms_merge_instance.as_ref(),
-            index_writer_config.get_codec(),
-            segment_info,
-            seg_updates,
-            int_pool,
-            byte_pool,
-        )?;
-        if self.info_stream.enabled("IW") {
-            self.info_stream.message(
-                "IW",
-                &format!(
-                    "{} ms to write postings and finish vectors",
-                    t0.elapsed().as_millis()
-                ),
-            );
-        }
-        // Important to save after asking consumer to flush so
-        // consumer can alter the FieldInfo* if necessary.  EG,
-        // FreqProxTermsWriter does this with
-        // FieldInfo.storePayload.
-        let t0 = Instant::now();
-        index_writer_config.get_codec().field_infos_format().write(
-            state.directory,
-            segment_info,
-            "",
-            &state.field_infos,
-            &IOContext::default_io_context()?,
-        )?;
-        if self.info_stream.enabled("IW") {
-            self.info_stream.message(
-                "IW",
-                &format!("{} ms to write fieldInfos", t0.elapsed().as_millis()),
-            );
-        }
-
-        Ok(sort_map)
-    }
-    ///  Writes all buffered points.
-    pub fn write_points<DM, D1>(
-        &mut self,
-        state: &SegmentWriteState<D>,
-        sort_map: Option<&DM>,
-        index_writer_config: &impl LiveIndexWriterConfig,
-        info: &SegmentInfo<D1>,
-    ) -> Result<()>
-    where
-        DM: DocMap + Clone,
-        D1: Directory,
-    {
-        let mut points_writer = None;
-        debug_assert!(self.field_hash.len() <= i32::MAX as usize);
-
-        for bucket in 0..self.field_hash.len() {
-            let mut per_field_index = self.field_hash[bucket];
-            while per_field_index >= 0 {
-                let per_field = &mut self.per_fields[per_field_index as usize];
-                if let Some(point_values_writer) = per_field.point_values_writer.as_mut() {
-                    let field_info = per_field.field_info.as_ref().unwrap();
-                    // We could have initialized pointValuesWriter, but failed to write even a single doc
-                    if field_info.get_point_dimension_count() > 0 {
-                        if points_writer.is_none() {
-                            // lazy init
-                            let fmt = index_writer_config.get_codec().points_format();
-                            points_writer = Some(fmt.fields_writer(state, info)?);
-                        }
-                        point_values_writer.flush(
-                            state.directory,
-                            sort_map,
-                            points_writer.as_mut().unwrap(),
-                            info,
-                        )?;
-                    }
-                }
-
-                per_field.point_values_writer = None;
-                per_field_index = per_field.next;
-            }
-        }
-
-        if let Some(mut w) = points_writer {
-            w.finish()?;
-        }
-        Ok(())
-    }
-    // Finishes all doc values writers.
-    fn finish_doc_values_writer(&mut self, pool: ByteBlockPool) -> Result<()> {
-        let pool = Arc::new(pool);
-        let mut per_field_index;
-        for i in 0..self.field_hash.len() {
-            per_field_index = self.field_hash[i];
-            while per_field_index >= 0 {
-                let per_field = &mut self.per_fields[per_field_index as usize];
-                if let Some(ref mut writer) = per_field.doc_values_writer {
-                    writer.finish(pool.clone())?;
-                }
-                per_field_index = per_field.next;
-            }
-        }
-        Ok(())
+    let terms_hash = FreqProxTermsWriter::new(bytes_used.clone(), term_vectors_writer);
+    let doc_values_byte_pool = ByteBlockPool::new(DirectTrackingAllocatorByte::allocator_enum(
+      bytes_used.clone(),
+    ));
+    let info_stream = index_writer_config.get_info_stream().clone();
+    let term_vectors_int_pool =
+      IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(bytes_used.clone()));
+    let freq_prox_term_int_pool =
+      IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(bytes_used.clone()));
+    let allocator = DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone());
+    let byte_pool = ByteBlockPool::new(allocator);
+    let context = IndexContext {
+      term_vectors_int_pool,
+      freq_prox_term_int_pool,
+      byte_pool,
+    };
+    Ok(IndexingChain {
+      bytes_used,
+      terms_hash,
+      doc_values_byte_pool,
+      stored_fields_consumer,
+      field_hash: vec![-1; 2],
+      hash_mask: 1,
+      total_field_count: 0,
+      next_field_gen: 0,
+      fields: vec![0; 1],
+      per_fields: vec![],
+      doc_fields: vec![0; 2],
+      info_stream,
+      index_created_version_major,
+      has_hit_aborting_exception: false,
+      context,
+    })
+  }
+  pub(crate) fn maybe_sort_segment<D1>(
+    &mut self,
+    state: &SegmentWriteState<D>,
+    segment_info: &SegmentInfo<D1>,
+    field_info: &mut Builder,
+  ) -> Result<Option<Arc<DocMapImpl>>>
+  where
+    D: Directory,
+    D1: Directory,
+  {
+    let index_created_version_major = self.index_created_version_major;
+    let index_sort = segment_info.get_index_sort();
+    if index_sort.is_none() {
+      return Ok(None);
     }
 
-    /// Writes all buffered doc values.
-    fn write_doc_values<DM, D1>(
-        &mut self,
-        state: &SegmentWriteState<D>,
-        sort_map: Option<&DM>,
-        segment_info: &SegmentInfo<D1>,
-        index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<()>
-    where
-        DM: DocMap,
-        D1: Directory,
-    {
-        let mut dv_consumer = None;
+    let doc_values_reader = DocValuesLeafReaderImpl1::new(self, field_info);
+    let max_doc = segment_info.max_doc()?;
+    let has_blocks = segment_info.get_has_blocks();
+    let parent_field = state.field_infos.get_parent_field();
+    let use_parent = has_blocks && parent_field.is_some();
+    let parent_bit_set = if use_parent {
+      let parent_field = *parent_field.as_ref().unwrap();
+      match doc_values_reader.get_numeric_doc_values(parent_field)? {
+        Some(ref mut reader_values) => Some(Rc::new(of(reader_values, max_doc.try_convert()?)?)),
+        None => {
+          return Err(LuceneError::corrupt_index(format!(
+            "missing doc values for parent field {parent_field} IndexingChain"
+          )));
+        },
+      }
+    } else {
+      None
+    };
 
-        // iterate hash buckets
-        let mut per_field_index;
-        debug_assert!(self.field_hash.len() <= i32::MAX as usize);
-        for bucket in 0..self.field_hash.len() {
-            per_field_index = self.field_hash[bucket];
-            while per_field_index >= 0 {
-                let per_field = &mut self.per_fields[per_field_index as usize];
-                if let Some(ref mut writer) = per_field.doc_values_writer {
-                    let field_info = per_field.field_info.as_ref().unwrap();
-                    if *field_info.get_doc_values_type() == DocValuesType::None {
-                        return Err(LuceneError::illegal_state(format!(
-                            "segment= {}: field={} has no docvalues but wrote them",
-                            segment_info, field_info.name
-                        )));
-                    }
-                    if dv_consumer.is_none() {
-                        // lazy init
-                        let fmt = index_writer_config.get_codec().doc_values_format();
-                        dv_consumer = Some(fmt.fields_consumer(state, segment_info)?);
-                    }
-                    // Since it’s only ever called once globally, we didn’t implement the DocValuesWriter trait for DocValuesWriterEnum.
-                    writer.flush(sort_map, dv_consumer.as_mut().unwrap(), segment_info)?;
-                } else if let Some(field_info) = &per_field.field_info
-                    && field_info.get_doc_values_type() != &DocValuesType::None
-                {
-                    return Err(LuceneError::illegal_state(format!(
-                        "segment={segment_info}: fieldInfos has docValues but did not write them"
-                    )));
-                }
-                per_field.doc_values_writer = None;
-                per_field_index = per_field.next;
-            }
+    if has_blocks && parent_field.is_none() && index_created_version_major >= LUCENE_10_0_0.major {
+      return Err(LuceneError::corrupt_index(format!(
+        "parent field is not set but the index has blocks and uses index sorting. indexCreatedVersionMajor: {} \"IndexingChain\"",
+        self.index_created_version_major
+      )));
+    }
+    let mut comparators = Vec::new();
+    for sort_field in &index_sort.as_ref().unwrap().fields {
+      let sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
+        LuceneError::unsupported_operation(format!(
+          "Cannot sort index using sort field {sort_field}"
+        ))
+      })?;
+      let doc_comparator = sorter.get_doc_comparator(&doc_values_reader, max_doc)?;
+      let v = match &parent_bit_set {
+        Some(parent_bit_set) => DocComparatorEnum2::A(DocComparatorImpl::new(
+          parent_bit_set.clone(),
+          doc_comparator,
+        )),
+        None => DocComparatorEnum2::B(doc_comparator),
+      };
+      comparators.push(v);
+    }
+    // returns null if the documents are already sorted
+    match Sorter::sort(max_doc, comparators)? {
+      Some(doc_map) => Ok(Some(Arc::new(doc_map))),
+      None => Ok(None),
+    }
+  }
+  pub(crate) fn flush<D1>(
+    &mut self,
+    state: &mut SegmentWriteState<D>,
+    segment_info: &mut SegmentInfo<D1>,
+    seg_updates: Option<&mut BufferedUpdates>,
+    index_writer_config: &impl LiveIndexWriterConfig,
+    field_info: &mut Builder,
+  ) -> Result<Option<Arc<DocMapImpl>>>
+  where
+    D1: Directory,
+  {
+    // Rust-Lucene–specific method: its purpose is to make all DocValuesWriter instances call finished() first,
+    // so that DocValuesWriter::get_doc_values can be an immutable (&self) method.
+    let pool = std::mem::take(&mut self.doc_values_byte_pool);
+    self.finish_doc_values_writer(pool)?;
+    // NOTE: caller (DocumentsWriterPerThread) handles
+    // aborting on any exception from this method
+    let sort_map = self.maybe_sort_segment(state, segment_info, field_info)?;
+    let max_doc = segment_info.max_doc()?;
+
+    // write norms
+    let t0 = Instant::now();
+    self.write_norms(state, sort_map.as_ref(), segment_info, index_writer_config)?;
+    if self.info_stream.enabled("IW") {
+      self.info_stream.message(
+        "IW",
+        &format!("{} ms to write norms", t0.elapsed().as_millis()),
+      );
+    }
+
+    // write doc-values
+    let t0 = Instant::now();
+    self.write_doc_values(state, sort_map.as_ref(), segment_info, index_writer_config)?;
+    if self.info_stream.enabled("IW") {
+      self.info_stream.message(
+        "IW",
+        &format!("{} ms to write docValues", t0.elapsed().as_millis()),
+      );
+    }
+
+    // write points
+    let t0 = Instant::now();
+    self.write_points(state, sort_map.as_ref(), index_writer_config, segment_info)?;
+    if self.info_stream.enabled("IW") {
+      self.info_stream.message(
+        "IW",
+        &format!("{} ms to write points", t0.elapsed().as_millis()),
+      );
+    }
+
+    // write vectors
+    // let t0 = Instant::now();
+    // self.vector_values_consumer.flush(state, sort_map.as_ref(),segment_info)?;
+    // if self.info_stream.enabled("IW") {
+    //     self.info_stream.message("IW", &format!("{} ms to write vectors", t0.elapsed().as_millis()));
+    // }
+
+    // finish & flush stored fields
+    let t0 = Instant::now();
+    self.stored_fields_consumer.finish(max_doc, segment_info)?;
+    self
+      .stored_fields_consumer
+      .flush(state, sort_map.as_ref(), segment_info, state.directory)?;
+    if self.info_stream.enabled("IW") {
+      self.info_stream.message(
+        "IW",
+        &format!("{} ms to finish stored fields", t0.elapsed().as_millis()),
+      );
+    }
+
+    let mut fields_to_flush = HashMap::new();
+    for &idx in &self.field_hash {
+      let mut fp_idx = idx;
+      while fp_idx >= 0 {
+        let pf = &mut self.per_fields[fp_idx as usize];
+        if pf.invert_state.is_some() {
+          fields_to_flush.insert(
+            pf.field_info.as_ref().unwrap().name.clone(),
+            pf.terms_hash_per_field.take().unwrap(),
+          );
         }
-        if !state.field_infos.has_doc_values() {
-            if dv_consumer.is_some() {
-                return Err(LuceneError::illegal_state(format!(
-                    "segment= {segment_info}: fieldInfos has no docValues but wrote them "
-                )));
+        fp_idx = pf.next;
+      }
+    }
+    let io_context = IOContext::default_io_context()?;
+    let read_state = SegmentReadState::with_suffix(
+      state.directory,
+      state.field_infos.clone(),
+      &io_context,
+      &state.segment_suffix,
+    );
+    let norms = if read_state.field_infos.has_norms() {
+      Some(
+        index_writer_config
+          .get_codec()
+          .norms_format()
+          .norms_producer(&read_state, segment_info)?,
+      )
+    } else {
+      None
+    };
+    let norms_merge_instance = match norms {
+      // Use the merge instance in order to reuse the same IndexInput for all terms
+      Some(norms) => match norms.get_merge_instance()? {
+        Some(norms_merge_instance) => Some(norms_merge_instance),
+        None => Some(norms),
+      },
+      None => None,
+    };
+
+    // flush postings + vectors
+    let int_pool = std::mem::take(&mut self.context.freq_prox_term_int_pool);
+    let byte_pool = std::mem::take(&mut self.context.byte_pool);
+    let t0 = Instant::now();
+    self.terms_hash.flush(
+      fields_to_flush,
+      state,
+      sort_map.as_ref(),
+      norms_merge_instance.as_ref(),
+      index_writer_config.get_codec(),
+      segment_info,
+      seg_updates,
+      int_pool,
+      byte_pool,
+    )?;
+    if self.info_stream.enabled("IW") {
+      self.info_stream.message(
+        "IW",
+        &format!(
+          "{} ms to write postings and finish vectors",
+          t0.elapsed().as_millis()
+        ),
+      );
+    }
+    // Important to save after asking consumer to flush so
+    // consumer can alter the FieldInfo* if necessary.  EG,
+    // FreqProxTermsWriter does this with
+    // FieldInfo.storePayload.
+    let t0 = Instant::now();
+    index_writer_config.get_codec().field_infos_format().write(
+      state.directory,
+      segment_info,
+      "",
+      &state.field_infos,
+      &IOContext::default_io_context()?,
+    )?;
+    if self.info_stream.enabled("IW") {
+      self.info_stream.message(
+        "IW",
+        &format!("{} ms to write fieldInfos", t0.elapsed().as_millis()),
+      );
+    }
+
+    Ok(sort_map)
+  }
+  ///  Writes all buffered points.
+  pub fn write_points<DM, D1>(
+    &mut self,
+    state: &SegmentWriteState<D>,
+    sort_map: Option<&DM>,
+    index_writer_config: &impl LiveIndexWriterConfig,
+    info: &SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    DM: DocMap + Clone,
+    D1: Directory,
+  {
+    let mut points_writer = None;
+    debug_assert!(self.field_hash.len() <= i32::MAX as usize);
+
+    for bucket in 0..self.field_hash.len() {
+      let mut per_field_index = self.field_hash[bucket];
+      while per_field_index >= 0 {
+        let per_field = &mut self.per_fields[per_field_index as usize];
+        if let Some(point_values_writer) = per_field.point_values_writer.as_mut() {
+          let field_info = per_field.field_info.as_ref().unwrap();
+          // We could have initialized pointValuesWriter, but failed to write even a single doc
+          if field_info.get_point_dimension_count() > 0 {
+            if points_writer.is_none() {
+              // lazy init
+              let fmt = index_writer_config.get_codec().points_format();
+              points_writer = Some(fmt.fields_writer(state, info)?);
             }
-        } else if dv_consumer.is_none() {
+            point_values_writer.flush(
+              state.directory,
+              sort_map,
+              points_writer.as_mut().unwrap(),
+              info,
+            )?;
+          }
+        }
+
+        per_field.point_values_writer = None;
+        per_field_index = per_field.next;
+      }
+    }
+
+    if let Some(mut w) = points_writer {
+      w.finish()?;
+    }
+    Ok(())
+  }
+  // Finishes all doc values writers.
+  fn finish_doc_values_writer(&mut self, pool: ByteBlockPool) -> Result<()> {
+    let pool = Arc::new(pool);
+    let mut per_field_index;
+    for i in 0..self.field_hash.len() {
+      per_field_index = self.field_hash[i];
+      while per_field_index >= 0 {
+        let per_field = &mut self.per_fields[per_field_index as usize];
+        if let Some(ref mut writer) = per_field.doc_values_writer {
+          writer.finish(pool.clone())?;
+        }
+        per_field_index = per_field.next;
+      }
+    }
+    Ok(())
+  }
+
+  /// Writes all buffered doc values.
+  fn write_doc_values<DM, D1>(
+    &mut self,
+    state: &SegmentWriteState<D>,
+    sort_map: Option<&DM>,
+    segment_info: &SegmentInfo<D1>,
+    index_writer_config: &impl LiveIndexWriterConfig,
+  ) -> Result<()>
+  where
+    DM: DocMap,
+    D1: Directory,
+  {
+    let mut dv_consumer = None;
+
+    // iterate hash buckets
+    let mut per_field_index;
+    debug_assert!(self.field_hash.len() <= i32::MAX as usize);
+    for bucket in 0..self.field_hash.len() {
+      per_field_index = self.field_hash[bucket];
+      while per_field_index >= 0 {
+        let per_field = &mut self.per_fields[per_field_index as usize];
+        if let Some(ref mut writer) = per_field.doc_values_writer {
+          let field_info = per_field.field_info.as_ref().unwrap();
+          if *field_info.get_doc_values_type() == DocValuesType::None {
             return Err(LuceneError::illegal_state(format!(
-                "segment= {segment_info}: fieldInfos has docValues but did not wrote them "
+              "segment= {}: field={} has no docvalues but wrote them",
+              segment_info, field_info.name
             )));
-        }
-
-        Ok(())
-    }
-
-    fn write_norms<DM, D1>(
-        &mut self,
-        state: &SegmentWriteState<D>,
-        sort_map: Option<&DM>,
-        segment_info: &SegmentInfo<D1>,
-        index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<()>
-    where
-        DM: DocMap,
-        D1: Directory,
-    {
-        if !state.field_infos.has_norms() {
-            return Ok(());
-        }
-
-        let mut norms_consumer = {
-            let norm_format = index_writer_config.get_codec().norms_format();
-            norm_format.norms_consumer(state, segment_info)?
-        };
-
-        let max_doc = segment_info.max_doc()?;
-        for fi in state.field_infos.iter() {
-            let per_field_index = self.get_per_field(&fi.name);
-            debug_assert!(per_field_index.is_some());
-            // we must check the final value of omitNorms for the fieldinfo: it could have
-            // changed for this field since the first time we added it.
-            if !fi.omits_norms() && *fi.get_index_options() != IndexOptions::None {
-                let per_field = &mut self.per_fields[per_field_index.unwrap()];
-                let norms = per_field.norms.as_mut().unwrap();
-                norms.finish(max_doc);
-                norms.flush(sort_map, &mut norms_consumer, segment_info)?;
-            }
-        }
-        Ok(())
-    }
-
-    pub(crate) fn abort(&mut self) -> Result<()> {
-        self.context.reset();
-        self.terms_hash.abort()?;
-        self.stored_fields_consumer.abort()?;
-        Ok(())
-    }
-
-    fn rehash(&mut self) {
-        let new_hash_size = self.field_hash.len() * 2;
-        debug_assert!(new_hash_size > self.field_hash.len());
-
-        let mut new_hash_array = vec![-1; new_hash_size];
-        let new_hash_mask = new_hash_size - 1;
-        for &idx in &self.field_hash {
-            let mut fp_idx = idx;
-            while fp_idx >= 0 {
-                let fp0 = &mut self.per_fields[fp_idx as usize];
-                let next_fp0 = fp0.next;
-                let hash_pos2 = CoreHelper::calculate_hash(&fp0.field_name) & new_hash_mask as u64;
-                let idx = new_hash_array[hash_pos2 as usize];
-                if idx < 0 {
-                    fp0.next = -1;
-                } else {
-                    fp0.next = idx;
-                };
-                new_hash_array[hash_pos2 as usize] = fp_idx;
-                fp_idx = next_fp0;
-            }
-        }
-        self.field_hash = new_hash_array;
-        self.hash_mask = new_hash_mask;
-    }
-
-    /// Calls `start_document` on the stored fields consumer, aborting the segment on error.
-    pub(crate) fn start_stored_fields<D1>(
-        &mut self,
-        doc_id: i32,
-        info: &mut SegmentInfo<D1>,
-    ) -> Result<()>
-    where
-        D1: Directory,
-    {
-        self.stored_fields_consumer
-            .start_document(doc_id, info)
-            .map(|_| ())
-            .inspect_err(|_| {
-                self.has_hit_aborting_exception = true;
-            })
-    }
-    ///  Calls StoredFieldsWriter.finishDocument, aborting the segment if it hits any error .
-    pub(crate) fn finish_stored_fields(&mut self) -> Result<()> {
-        self.stored_fields_consumer
-            .finish_document()
-            .inspect_err(|_| {
-                self.has_hit_aborting_exception = true;
-            })
-    }
-    pub(crate) fn process_document<DF, D1>(
-        &mut self,
-        doc_id: i32,
-        document: DF,
-        info: &mut SegmentInfo<D1>,
-        field_infos: &mut Builder,
-        index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<()>
-    where
-        DF: IntoIterator<Item = Fields>,
-        D1: Directory,
-    {
-        // number of unique fields by names (collapses multiple field instances by the same name)
-        let mut field_count = 0;
-        // number of unique fields indexed with postings
-        let mut indexed_field_count = 0;
-        let field_gen = self.next_field_gen;
-        self.next_field_gen += 1;
-        let mut doc_field_idx = 0;
-        // NOTE: we need two passes here, in case there are
-        // multi-valued fields, because we must process all
-        // instances of a given field at once, since the
-        // analyzer is free to reuse TokenStream across fields
-        // (i.e., we cannot have more than one TokenStream
-        // running "at once"):
-        self.terms_hash.start_document()?;
-        self.start_stored_fields(doc_id, info)?;
-
-        let mut document: Vec<Fields> = document.into_iter().collect();
-        // 1st pass over doc fields – verify that doc schema matches the index schema
-        // build schema for each unique doc field
-
-        let result = (|| {
-            for field in &document {
-                let field_type = field.field_type();
-                let is_reserved = field.is_reserved();
-                let pf_idx = self.get_or_add_per_field(field.name(), false);
-                {
-                    let pf = &mut self.per_fields[pf_idx];
-
-                    if pf.reserved != is_reserved {
-                        return Err(LuceneError::illegal_argument(format!(
-                            "\"{}\" is a reserved field and should not be added to any document",
-                            field.name()
-                        )));
-                    }
-
-                    if pf.field_gen != field_gen {
-                        // first time we see this field in this document
-                        self.fields[field_count] = pf_idx;
-                        field_count += 1;
-                        pf.field_gen = field_gen;
-                        pf.reset(doc_id);
-                    }
-                }
-                if doc_field_idx >= self.doc_fields.len() {
-                    self.oversize_doc_fields();
-                }
-                self.doc_fields[doc_field_idx] = pf_idx;
-                doc_field_idx += 1;
-                let pf = &mut self.per_fields[pf_idx];
-                Self::update_doc_field_schema(field.name(), &mut pf.schema, field_type)?;
-            }
-
-            // For each field, if it's the first time we see this field in this segment,
-            // initialize its FieldInfo.
-            // If we have already seen this field, verify that its schema
-            // within the current doc matches its schema in the index.
-            for i in 0..field_count {
-                let idx = self.fields[i];
-                let pf = &mut self.per_fields[idx];
-                if let Some(field_info) = pf.field_info.as_ref() {
-                    pf.schema.assert_same_schema(field_info)?;
-                } else {
-                    self.initialize_field_info(idx, field_infos, index_writer_config)?;
-                }
-            }
-
-            // 2nd pass over doc fields – index each field
-            // also count the number of unique fields indexed with postings
-            doc_field_idx = 0;
-
-            for field in &mut document {
-                let per_field_idx = self.doc_fields[doc_field_idx];
-                if self.process_field(doc_id, field, per_field_idx, index_writer_config)? {
-                    self.fields[indexed_field_count] = self.doc_fields[doc_field_idx];
-                    indexed_field_count += 1;
-                }
-                doc_field_idx += 1;
-            }
-            Ok(())
-        })();
-        if !self.has_hit_aborting_exception {
-            // Finish each indexed field name seen in the document:
-            for i in 0..indexed_field_count {
-                let idx = self.fields[i];
-                let pf = &mut self.per_fields[idx];
-                debug_assert!(pf.field_info.is_some());
-                pf.finish(
-                    doc_id,
-                    &mut self.terms_hash.next_terms_hash,
-                    index_writer_config.get_similarity(),
-                )?;
-            }
-            // TODO IMPORTANT: 这里没有使用abortingExceptionConsumer
-            self.finish_stored_fields()?;
-            self.terms_hash.finish_document(
-                doc_id,
-                info,
-                &mut self.per_fields,
-                &mut self.context.term_vectors_int_pool,
-                &mut self.context.byte_pool,
-            )?;
-        }
-        result
-    }
-    fn oversize_doc_fields(&mut self) {
-        let required = self.doc_fields.len() + 1;
-        // TODO: _bytes_per_element is padding value
-        let new_len = ArrayUtil::oversize(required, 1);
-        ArrayUtil::grow_with_len(&mut self.doc_fields, new_len);
-    }
-    pub(crate) fn initialize_field_info(
-        &mut self,
-        per_field_index: usize,
-        field_infos: &mut Builder,
-        index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<()> {
-        // Create and add a new fieldInfo to fieldInfos for this segment.
-        // During the creation of FieldInfo there is also verification of the correctness of all its
-        // parameters.
-
-        // If the fieldInfo doesn't exist in globalFieldNumbers for the whole index,
-        // it will be added there.
-        // If the field already exists in globalFieldNumbers (i.e. field present in other segments),
-        // we check consistency of its schema with schema for the whole index.
-        let pf = &mut self.per_fields[per_field_index];
-        let s = &mut pf.schema;
-
-        // validate sort DV type
-        if let Some(index_sort) = &index_writer_config.get_index_sort()
-            && s.doc_values_type != DocValuesType::None
+          }
+          if dv_consumer.is_none() {
+            // lazy init
+            let fmt = index_writer_config.get_codec().doc_values_format();
+            dv_consumer = Some(fmt.fields_consumer(state, segment_info)?);
+          }
+          // Since it’s only ever called once globally, we didn’t implement the DocValuesWriter trait for DocValuesWriterEnum.
+          writer.flush(sort_map, dv_consumer.as_mut().unwrap(), segment_info)?;
+        } else if let Some(field_info) = &per_field.field_info
+          && field_info.get_doc_values_type() != &DocValuesType::None
         {
-            Self::validate_index_sort_dv_type(index_sort, &pf.field_name, &s.doc_values_type)?;
+          return Err(LuceneError::illegal_state(format!(
+            "segment={segment_info}: fieldInfos has docValues but did not write them"
+          )));
         }
-        // TODO
-        // if s.vector_dimension != 0 {
-        //     let max_dim = self
-        //         .index_writer_config
-        //         .get_codec()
-        //         .knn_vectors_format()
-        //         .get_max_dimensions(&pf.field_name)?;
-        //     Self::validate_max_vector_dimension(&pf.field_name, s.vector_dimension, max_dim)?;
-        // }
-        let soft_deletes_field = field_infos.is_soft_deletes_field_name(&pf.field_name);
-        let is_parent_field = field_infos.is_parent_field_name(&pf.field_name);
-        let field_info = FieldInfo::new(
-            pf.field_name.clone(),
-            -1,
-            s.store_term_vector,
-            s.omit_norms,
-            false, // storePayloads is set up during indexing, if payloads were seen
-            s.index_options,
-            s.doc_values_type,
-            s.doc_values_skip_index,
-            -1,
-            std::mem::take(&mut s.attributes),
-            s.point_dimension_count,
-            s.point_index_dimension_count,
-            s.point_num_bytes,
-            s.vector_dimension,
-            s.vector_encoding,
-            s.vector_similarity_function,
-            soft_deletes_field,
-            is_parent_field,
-        );
-
-        let fi = field_infos.add(Arc::new(field_info))?;
-        pf.set_field_info(fi.clone());
-
-        if *fi.get_index_options() != IndexOptions::None {
-            pf.set_invert_state(&mut self.terms_hash, self.bytes_used.clone())?;
-        }
-
-        match fi.get_doc_values_type() {
-            DocValuesType::None => {},
-            DocValuesType::Numeric => {
-                pf.doc_values_writer = Some(DocValuesWriterEnum::Numeric(
-                    NumericDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
-                ));
-            },
-            DocValuesType::Binary => {
-                pf.doc_values_writer = Some(DocValuesWriterEnum::Binary(
-                    BinaryDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
-                ));
-            },
-            DocValuesType::Sorted => {
-                pf.doc_values_writer = Some(DocValuesWriterEnum::Sorted(
-                    SortedDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
-                ));
-            },
-            DocValuesType::SortedNumeric => {
-                pf.doc_values_writer = Some(DocValuesWriterEnum::SortedNumeric(
-                    SortedNumericDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
-                ));
-            },
-            DocValuesType::SortedSet => {
-                pf.doc_values_writer = Some(DocValuesWriterEnum::SortedSet(
-                    SortedSetDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
-                ));
-            },
-        }
-
-        if fi.get_point_dimension_count() != 0 {
-            pf.point_values_writer =
-                Some(PointValuesWriter::new(self.bytes_used.clone(), fi.clone())?);
-        }
-
-        // TODO
-        // if fi.get_vector_dimension() != 0 {
-        //     pf.knn_field_vectors_writer =
-        //         Some(self.vector_values_consumer.add_field(&fi).map_err(|e| {
-        //             self.has_hit_aborting_exception = true;
-        //             e
-        //         })?);
-        // }
-
-        Ok(())
+        per_field.doc_values_writer = None;
+        per_field_index = per_field.next;
+      }
+    }
+    if !state.field_infos.has_doc_values() {
+      if dv_consumer.is_some() {
+        return Err(LuceneError::illegal_state(format!(
+          "segment= {segment_info}: fieldInfos has no docValues but wrote them "
+        )));
+      }
+    } else if dv_consumer.is_none() {
+      return Err(LuceneError::illegal_state(format!(
+        "segment= {segment_info}: fieldInfos has docValues but did not wrote them "
+      )));
     }
 
-    fn process_field(
-        &mut self,
-        doc_id: i32,
-        field: &mut impl IndexableField,
-        per_field_index: usize,
-        index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<bool> {
-        let pf = &mut self.per_fields[per_field_index];
-        let mut indexed_field = false;
-        let field_type = field.field_type();
+    Ok(())
+  }
 
-        // Invert indexed fields
-        if *field_type.index_options() != IndexOptions::None {
-            // first time we see this field in this doc
-            if pf.first {
-                pf.invert(
-                    doc_id,
-                    field,
-                    true,
-                    index_writer_config.get_analyzer(),
-                    self.info_stream.as_ref(),
-                    &mut self.context,
-                )?;
-                pf.first = false;
-                indexed_field = true;
-            } else {
-                pf.invert(
-                    doc_id,
-                    field,
-                    false,
-                    index_writer_config.get_analyzer(),
-                    self.info_stream.as_ref(),
-                    &mut self.context,
-                )?;
-            }
-        }
-        let field_type = field.field_type();
-        // Add stored fields
-        if field_type.stored() {
-            let stored_value = field
-                .stored_value()
-                .ok_or_else(|| LuceneError::illegal_argument("Cannot store a null value"))?;
-            if let FieldDataEnum::String(s) = &stored_value
-                && s.len() > MAX_STORED_STRING_LENGTH as usize
-            {
-                return Err(LuceneError::illegal_argument(format!(
-                    "stored field \"{}\" is too large ({} characters) to store",
-                    field.name(),
-                    s.len()
-                )));
-            };
-            self.stored_fields_consumer
-                .write_field(pf.field_info.as_ref().unwrap(), stored_value)
-                .inspect_err(|_| {
-                    self.has_hit_aborting_exception = true;
-                })?;
-        }
-
-        let dv_type = *field_type.doc_values_type();
-        if dv_type != DocValuesType::None {
-            Self::index_doc_value(doc_id, pf, dv_type, field, &mut self.doc_values_byte_pool)?;
-        }
-
-        // points
-        if field_type.point_dimension_count() != 0 {
-            let binary_value = field
-                .binary_value()?
-                .ok_or_else(|| LuceneError::illegal_argument("point field missing binary value"))?;
-            pf.point_values_writer
-                .as_mut()
-                .unwrap()
-                .add_packed_value(doc_id, binary_value.as_ref())?;
-        }
-
-        // TODO:
-        // if field_type.vector_dimension() != 0 {
-        //     self.index_vector_value(
-        //         doc_id,
-        //         pf,
-        //         field_type.vector_encoding(),
-        //         field,
-        //     )?;
-        // }
-
-        Ok(indexed_field)
+  fn write_norms<DM, D1>(
+    &mut self,
+    state: &SegmentWriteState<D>,
+    sort_map: Option<&DM>,
+    segment_info: &SegmentInfo<D1>,
+    index_writer_config: &impl LiveIndexWriterConfig,
+  ) -> Result<()>
+  where
+    DM: DocMap,
+    D1: Directory,
+  {
+    if !state.field_infos.has_norms() {
+      return Ok(());
     }
-    /// Returns a previously created [`PerField`], absorbing the type information from
-    /// [`FieldType`](crate::core::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
-    pub(crate) fn get_or_add_per_field(&mut self, field_name: &str, reserved: bool) -> usize {
-        let hash_pos = CoreHelper::calculate_hash(field_name) as usize & self.hash_mask;
-        let mut per_field_index = self.field_hash[hash_pos];
-        let mut conflict = false;
-        while per_field_index >= 0 {
-            conflict = true;
-            debug_assert!(self.per_fields.get(per_field_index as usize).is_some());
-            let pf = &mut self.per_fields[per_field_index as usize];
-            if pf.field_name != field_name {
-                per_field_index = pf.next;
-            } else {
-                break;
-            }
-        }
-        if per_field_index < 0 {
-            let schema = FieldSchema::new(field_name);
-            let mut pf = PerField::new(
-                field_name,
-                self.index_created_version_major,
-                schema,
-                reserved,
-            );
-            // filed_name's hash conflict happened, and could not find existing PerField with the same name in next chain
-            if conflict {
-                let old_pos = self.field_hash[hash_pos];
-                pf.next = old_pos;
-            }
-            per_field_index = self.per_fields.len() as i32;
-            pf.idx_in_doc_field = per_field_index;
-            self.per_fields.push(pf);
-            self.field_hash[hash_pos] = per_field_index;
 
-            self.total_field_count += 1;
+    let mut norms_consumer = {
+      let norm_format = index_writer_config.get_codec().norms_format();
+      norm_format.norms_consumer(state, segment_info)?
+    };
 
-            if self.total_field_count >= (self.field_hash.len() >> 1) {
-                self.rehash();
-            }
-            if self.total_field_count > self.fields.len() {
-                // TODO:_bytes_per_element is padding value
-                let new_len = ArrayUtil::oversize(self.total_field_count, 1);
-                ArrayUtil::grow_with_len(&mut self.fields, new_len);
-            }
-        }
-        per_field_index as usize
+    let max_doc = segment_info.max_doc()?;
+    for fi in state.field_infos.iter() {
+      let per_field_index = self.get_per_field(&fi.name);
+      debug_assert!(per_field_index.is_some());
+      // we must check the final value of omitNorms for the fieldinfo: it could have
+      // changed for this field since the first time we added it.
+      if !fi.omits_norms() && *fi.get_index_options() != IndexOptions::None {
+        let per_field = &mut self.per_fields[per_field_index.unwrap()];
+        let norms = per_field.norms.as_mut().unwrap();
+        norms.finish(max_doc);
+        norms.flush(sort_map, &mut norms_consumer, segment_info)?;
+      }
     }
-    // update schema for field as seen in a particular document
-    fn update_doc_field_schema<IFT>(
-        field_name: &str,
-        schema: &mut FieldSchema,
-        field_type: &IFT,
-    ) -> Result<()>
-    where
-        IFT: IndexableFieldType,
-    {
-        if *field_type.index_options() != IndexOptions::None {
-            schema.set_index_options(
-                *field_type.index_options(),
-                field_type.omit_norms(),
-                field_type.store_term_vectors(),
-            )?;
+    Ok(())
+  }
+
+  pub(crate) fn abort(&mut self) -> Result<()> {
+    self.context.reset();
+    self.terms_hash.abort()?;
+    self.stored_fields_consumer.abort()?;
+    Ok(())
+  }
+
+  fn rehash(&mut self) {
+    let new_hash_size = self.field_hash.len() * 2;
+    debug_assert!(new_hash_size > self.field_hash.len());
+
+    let mut new_hash_array = vec![-1; new_hash_size];
+    let new_hash_mask = new_hash_size - 1;
+    for &idx in &self.field_hash {
+      let mut fp_idx = idx;
+      while fp_idx >= 0 {
+        let fp0 = &mut self.per_fields[fp_idx as usize];
+        let next_fp0 = fp0.next;
+        let hash_pos2 = CoreHelper::calculate_hash(&fp0.field_name) & new_hash_mask as u64;
+        let idx = new_hash_array[hash_pos2 as usize];
+        if idx < 0 {
+          fp0.next = -1;
         } else {
-            Self::verify_unindexed_field_type(field_name, field_type)?;
-        }
+          fp0.next = idx;
+        };
+        new_hash_array[hash_pos2 as usize] = fp_idx;
+        fp_idx = next_fp0;
+      }
+    }
+    self.field_hash = new_hash_array;
+    self.hash_mask = new_hash_mask;
+  }
 
-        if *field_type.doc_values_type() != DocValuesType::None {
-            schema.set_doc_values(
-                *field_type.doc_values_type(),
-                *field_type.doc_values_skip_index_type(),
-            )?;
-        } else if *field_type.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
-            return Err(LuceneError::illegal_argument(format!(
-                "field '{}' cannot have docValuesSkipIndexType={} without doc values",
-                schema.name,
-                field_type.doc_values_skip_index_type()
-            )));
-        }
+  /// Calls `start_document` on the stored fields consumer, aborting the segment on error.
+  pub(crate) fn start_stored_fields<D1>(
+    &mut self,
+    doc_id: i32,
+    info: &mut SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+  {
+    self
+      .stored_fields_consumer
+      .start_document(doc_id, info)
+      .map(|_| ())
+      .inspect_err(|_| {
+        self.has_hit_aborting_exception = true;
+      })
+  }
+  ///  Calls StoredFieldsWriter.finishDocument, aborting the segment if it hits any error .
+  pub(crate) fn finish_stored_fields(&mut self) -> Result<()> {
+    self
+      .stored_fields_consumer
+      .finish_document()
+      .inspect_err(|_| {
+        self.has_hit_aborting_exception = true;
+      })
+  }
+  pub(crate) fn process_document<DF, D1>(
+    &mut self,
+    doc_id: i32,
+    document: DF,
+    info: &mut SegmentInfo<D1>,
+    field_infos: &mut Builder,
+    index_writer_config: &impl LiveIndexWriterConfig,
+  ) -> Result<()>
+  where
+    DF: IntoIterator<Item = Fields>,
+    D1: Directory,
+  {
+    // number of unique fields by names (collapses multiple field instances by the same name)
+    let mut field_count = 0;
+    // number of unique fields indexed with postings
+    let mut indexed_field_count = 0;
+    let field_gen = self.next_field_gen;
+    self.next_field_gen += 1;
+    let mut doc_field_idx = 0;
+    // NOTE: we need two passes here, in case there are
+    // multi-valued fields, because we must process all
+    // instances of a given field at once, since the
+    // analyzer is free to reuse TokenStream across fields
+    // (i.e., we cannot have more than one TokenStream
+    // running "at once"):
+    self.terms_hash.start_document()?;
+    self.start_stored_fields(doc_id, info)?;
 
-        if field_type.point_dimension_count() != 0 {
-            schema.set_points(
-                field_type.point_dimension_count(),
-                field_type.point_index_dimension_count(),
-                field_type.point_num_bytes(),
-            )?;
-        }
+    let mut document: Vec<Fields> = document.into_iter().collect();
+    // 1st pass over doc fields – verify that doc schema matches the index schema
+    // build schema for each unique doc field
 
-        if field_type.vector_dimension() != 0 {
-            schema.set_vectors(
-                *field_type.vector_encoding(),
-                *field_type.vector_similarity_function(),
-                field_type.vector_dimension(),
-            )?;
-        }
-
-        if let Some(attrs) = field_type.get_attributes()
-            && !attrs.is_empty()
+    let result = (|| {
+      for field in &document {
+        let field_type = field.field_type();
+        let is_reserved = field.is_reserved();
+        let pf_idx = self.get_or_add_per_field(field.name(), false);
         {
-            schema.update_attributes(attrs.clone());
+          let pf = &mut self.per_fields[pf_idx];
+
+          if pf.reserved != is_reserved {
+            return Err(LuceneError::illegal_argument(format!(
+              "\"{}\" is a reserved field and should not be added to any document",
+              field.name()
+            )));
+          }
+
+          if pf.field_gen != field_gen {
+            // first time we see this field in this document
+            self.fields[field_count] = pf_idx;
+            field_count += 1;
+            pf.field_gen = field_gen;
+            pf.reset(doc_id);
+          }
         }
+        if doc_field_idx >= self.doc_fields.len() {
+          self.oversize_doc_fields();
+        }
+        self.doc_fields[doc_field_idx] = pf_idx;
+        doc_field_idx += 1;
+        let pf = &mut self.per_fields[pf_idx];
+        Self::update_doc_field_schema(field.name(), &mut pf.schema, field_type)?;
+      }
 
-        Ok(())
+      // For each field, if it's the first time we see this field in this segment,
+      // initialize its FieldInfo.
+      // If we have already seen this field, verify that its schema
+      // within the current doc matches its schema in the index.
+      for i in 0..field_count {
+        let idx = self.fields[i];
+        let pf = &mut self.per_fields[idx];
+        if let Some(field_info) = pf.field_info.as_ref() {
+          pf.schema.assert_same_schema(field_info)?;
+        } else {
+          self.initialize_field_info(idx, field_infos, index_writer_config)?;
+        }
+      }
+
+      // 2nd pass over doc fields – index each field
+      // also count the number of unique fields indexed with postings
+      doc_field_idx = 0;
+
+      for field in &mut document {
+        let per_field_idx = self.doc_fields[doc_field_idx];
+        if self.process_field(doc_id, field, per_field_idx, index_writer_config)? {
+          self.fields[indexed_field_count] = self.doc_fields[doc_field_idx];
+          indexed_field_count += 1;
+        }
+        doc_field_idx += 1;
+      }
+      Ok(())
+    })();
+    if !self.has_hit_aborting_exception {
+      // Finish each indexed field name seen in the document:
+      for i in 0..indexed_field_count {
+        let idx = self.fields[i];
+        let pf = &mut self.per_fields[idx];
+        debug_assert!(pf.field_info.is_some());
+        pf.finish(
+          doc_id,
+          &mut self.terms_hash.next_terms_hash,
+          index_writer_config.get_similarity(),
+        )?;
+      }
+      // TODO IMPORTANT: 这里没有使用abortingExceptionConsumer
+      self.finish_stored_fields()?;
+      self.terms_hash.finish_document(
+        doc_id,
+        info,
+        &mut self.per_fields,
+        &mut self.context.term_vectors_int_pool,
+        &mut self.context.byte_pool,
+      )?;
     }
+    result
+  }
+  fn oversize_doc_fields(&mut self) {
+    let required = self.doc_fields.len() + 1;
+    // TODO: _bytes_per_element is padding value
+    let new_len = ArrayUtil::oversize(required, 1);
+    ArrayUtil::grow_with_len(&mut self.doc_fields, new_len);
+  }
+  pub(crate) fn initialize_field_info(
+    &mut self,
+    per_field_index: usize,
+    field_infos: &mut Builder,
+    index_writer_config: &impl LiveIndexWriterConfig,
+  ) -> Result<()> {
+    // Create and add a new fieldInfo to fieldInfos for this segment.
+    // During the creation of FieldInfo there is also verification of the correctness of all its
+    // parameters.
 
-    fn verify_unindexed_field_type<IFT>(name: &str, ft: &IFT) -> Result<()>
-    where
-        IFT: IndexableFieldType,
+    // If the fieldInfo doesn't exist in globalFieldNumbers for the whole index,
+    // it will be added there.
+    // If the field already exists in globalFieldNumbers (i.e. field present in other segments),
+    // we check consistency of its schema with schema for the whole index.
+    let pf = &mut self.per_fields[per_field_index];
+    let s = &mut pf.schema;
+
+    // validate sort DV type
+    if let Some(index_sort) = &index_writer_config.get_index_sort()
+      && s.doc_values_type != DocValuesType::None
     {
-        if ft.store_term_vectors() {
-            return Err(LuceneError::illegal_argument(format!(
-                "cannot store term vectors for a field that is not indexed (field=\"{name}\")"
-            )));
-        }
-        if ft.store_term_vector_positions() {
-            return Err(LuceneError::illegal_argument(format!(
-                "cannot store term vector positions for a field that is not indexed (field=\"{name}\")"
-            )));
-        }
-        if ft.store_term_vector_offsets() {
-            return Err(LuceneError::illegal_argument(format!(
-                "cannot store term vector offsets for a field that is not indexed (field=\"{name}\")"
-            )));
-        }
-        if ft.store_term_vector_payloads() {
-            return Err(LuceneError::illegal_argument(format!(
-                "cannot store term vector payloads for a field that is not indexed (field=\"{name}\")"
-            )));
-        }
-        Ok(())
+      Self::validate_index_sort_dv_type(index_sort, &pf.field_name, &s.doc_values_type)?;
+    }
+    // TODO
+    // if s.vector_dimension != 0 {
+    //     let max_dim = self
+    //         .index_writer_config
+    //         .get_codec()
+    //         .knn_vectors_format()
+    //         .get_max_dimensions(&pf.field_name)?;
+    //     Self::validate_max_vector_dimension(&pf.field_name, s.vector_dimension, max_dim)?;
+    // }
+    let soft_deletes_field = field_infos.is_soft_deletes_field_name(&pf.field_name);
+    let is_parent_field = field_infos.is_parent_field_name(&pf.field_name);
+    let field_info = FieldInfo::new(
+      pf.field_name.clone(),
+      -1,
+      s.store_term_vector,
+      s.omit_norms,
+      false, // storePayloads is set up during indexing, if payloads were seen
+      s.index_options,
+      s.doc_values_type,
+      s.doc_values_skip_index,
+      -1,
+      std::mem::take(&mut s.attributes),
+      s.point_dimension_count,
+      s.point_index_dimension_count,
+      s.point_num_bytes,
+      s.vector_dimension,
+      s.vector_encoding,
+      s.vector_similarity_function,
+      soft_deletes_field,
+      is_parent_field,
+    );
+
+    let fi = field_infos.add(Arc::new(field_info))?;
+    pf.set_field_info(fi.clone());
+
+    if *fi.get_index_options() != IndexOptions::None {
+      pf.set_invert_state(&mut self.terms_hash, self.bytes_used.clone())?;
     }
 
-    fn validate_max_vector_dimension(
-        field_name: &str,
-        vector_dim: i32,
-        max_vector_dim: i32,
-    ) -> Result<()> {
-        if vector_dim > max_vector_dim {
-            return Err(LuceneError::illegal_argument(format!(
-                "Field [{field_name}] vector's dimensions must be <= [{max_vector_dim}]; got {vector_dim}"
-            )));
-        }
-        Ok(())
+    match fi.get_doc_values_type() {
+      DocValuesType::None => {},
+      DocValuesType::Numeric => {
+        pf.doc_values_writer = Some(DocValuesWriterEnum::Numeric(NumericDocValuesWriter::new(
+          fi.clone(),
+          self.bytes_used.clone(),
+        )?));
+      },
+      DocValuesType::Binary => {
+        pf.doc_values_writer = Some(DocValuesWriterEnum::Binary(BinaryDocValuesWriter::new(
+          fi.clone(),
+          self.bytes_used.clone(),
+        )?));
+      },
+      DocValuesType::Sorted => {
+        pf.doc_values_writer = Some(DocValuesWriterEnum::Sorted(SortedDocValuesWriter::new(
+          fi.clone(),
+          self.bytes_used.clone(),
+        )?));
+      },
+      DocValuesType::SortedNumeric => {
+        pf.doc_values_writer = Some(DocValuesWriterEnum::SortedNumeric(
+          SortedNumericDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
+        ));
+      },
+      DocValuesType::SortedSet => {
+        pf.doc_values_writer = Some(DocValuesWriterEnum::SortedSet(
+          SortedSetDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
+        ));
+      },
     }
 
-    fn validate_index_sort_dv_type(
-        index_sort: &Sort,
-        field_to_validate: &str,
-        dv_type: &DocValuesType,
-    ) -> Result<()> {
-        for sort_field in index_sort.get_sort() {
-            let sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
-                LuceneError::illegal_state(format!(
-                    "Cannot sort index with sort order {sort_field}"
-                ))
-            })?;
-            let doc_values_leaf_reader =
-                DocValuesLeafReaderImpl2::new(field_to_validate, dv_type, sort_field);
-            sorter.get_doc_comparator(&doc_values_leaf_reader, 0)?;
-        }
-        Ok(())
+    if fi.get_point_dimension_count() != 0 {
+      pf.point_values_writer = Some(PointValuesWriter::new(self.bytes_used.clone(), fi.clone())?);
     }
 
-    pub fn index_doc_value(
-        doc_id: i32,
-        fp: &mut PerField,
-        dv_type: DocValuesType,
-        field: &impl IndexableField,
-        pool: &mut ByteBlockPool,
-    ) -> Result<()> {
-        match fp.doc_values_writer.as_mut() {
-            Some(DocValuesWriterEnum::Numeric(writer)) => {
-                debug_assert_eq!(dv_type, DocValuesType::Numeric);
-                let num = field
-                    .numeric_value()?
-                    .ok_or_else(|| {
-                        LuceneError::illegal_argument(format!(
-                            "field=\"{}\": null value not allowed",
-                            fp.field_info.as_ref().unwrap().name
-                        ))
-                    })?
-                    .to_i64();
-                match num {
-                    Some(num) => {
-                        writer.add_value(doc_id, num)?;
-                    },
-                    _ => {
-                        return Err(LuceneError::illegal_argument(format!(
-                            "field=\"{}\": numeric value out of range: {:?}",
-                            fp.field_info.as_ref().unwrap().name,
-                            num
-                        )));
-                    },
-                }
-            },
-            Some(DocValuesWriterEnum::Binary(writer)) => {
-                debug_assert_eq!(dv_type, DocValuesType::Binary);
-                let bytes = field.binary_value()?.ok_or_else(|| {
-                    LuceneError::illegal_argument(format!(
-                        "field=\"{}\": null value not allowed",
-                        fp.field_info.as_ref().unwrap().name
-                    ))
-                })?;
-                writer.add_value(doc_id, bytes.as_ref())?;
-            },
-            Some(DocValuesWriterEnum::Sorted(writer)) => {
-                debug_assert_eq!(dv_type, DocValuesType::Sorted);
-                let bytes = field.binary_value()?.ok_or_else(|| {
-                    LuceneError::illegal_argument(format!(
-                        "field=\"{}\": null value not allowed",
-                        fp.field_info.as_ref().unwrap().name
-                    ))
-                })?;
-                writer.add_value(doc_id, bytes.as_ref(), pool)?;
-            },
-            Some(DocValuesWriterEnum::SortedNumeric(writer)) => {
-                debug_assert_eq!(dv_type, DocValuesType::SortedNumeric);
-                let num = field
-                    .numeric_value()?
-                    .ok_or_else(|| {
-                        LuceneError::illegal_argument(format!(
-                            "field=\"{}\": null value not allowed",
-                            fp.field_info.as_ref().unwrap().name
-                        ))
-                    })?
-                    .to_i64();
+    // TODO
+    // if fi.get_vector_dimension() != 0 {
+    //     pf.knn_field_vectors_writer =
+    //         Some(self.vector_values_consumer.add_field(&fi).map_err(|e| {
+    //             self.has_hit_aborting_exception = true;
+    //             e
+    //         })?);
+    // }
 
-                match num {
-                    Some(num) => {
-                        writer.add_value(doc_id, num)?;
-                    },
-                    _ => {
-                        return Err(LuceneError::illegal_argument(format!(
-                            "field=\"{}\": numeric value out of range: {:?}",
-                            fp.field_info.as_ref().unwrap().name,
-                            num
-                        )));
-                    },
-                }
-            },
-            Some(DocValuesWriterEnum::SortedSet(writer)) => {
-                debug_assert_eq!(dv_type, DocValuesType::SortedSet);
-                let bytes = field.binary_value()?.ok_or_else(|| {
-                    LuceneError::illegal_argument(format!(
-                        "field=\"{}\": null value not allowed",
-                        fp.field_info.as_ref().unwrap().name
-                    ))
-                })?;
-                writer.add_value(doc_id, bytes.as_ref(), pool)?;
-            },
-            None => {
-                return Err(LuceneError::illegal_state(format!(
-                    "field=\"{}\": no DocValuesWriter for type {:?}",
-                    fp.field_info.as_ref().unwrap().name,
-                    dv_type
-                )));
-            },
-        }
-        Ok(())
+    Ok(())
+  }
+
+  fn process_field(
+    &mut self,
+    doc_id: i32,
+    field: &mut impl IndexableField,
+    per_field_index: usize,
+    index_writer_config: &impl LiveIndexWriterConfig,
+  ) -> Result<bool> {
+    let pf = &mut self.per_fields[per_field_index];
+    let mut indexed_field = false;
+    let field_type = field.field_type();
+
+    // Invert indexed fields
+    if *field_type.index_options() != IndexOptions::None {
+      // first time we see this field in this doc
+      if pf.first {
+        pf.invert(
+          doc_id,
+          field,
+          true,
+          index_writer_config.get_analyzer(),
+          self.info_stream.as_ref(),
+          &mut self.context,
+        )?;
+        pf.first = false;
+        indexed_field = true;
+      } else {
+        pf.invert(
+          doc_id,
+          field,
+          false,
+          index_writer_config.get_analyzer(),
+          self.info_stream.as_ref(),
+          &mut self.context,
+        )?;
+      }
+    }
+    let field_type = field.field_type();
+    // Add stored fields
+    if field_type.stored() {
+      let stored_value = field
+        .stored_value()
+        .ok_or_else(|| LuceneError::illegal_argument("Cannot store a null value"))?;
+      if let FieldDataEnum::String(s) = &stored_value
+        && s.len() > MAX_STORED_STRING_LENGTH as usize
+      {
+        return Err(LuceneError::illegal_argument(format!(
+          "stored field \"{}\" is too large ({} characters) to store",
+          field.name(),
+          s.len()
+        )));
+      };
+      self
+        .stored_fields_consumer
+        .write_field(pf.field_info.as_ref().unwrap(), stored_value)
+        .inspect_err(|_| {
+          self.has_hit_aborting_exception = true;
+        })?;
     }
 
-    fn get_per_field(&self, name: &str) -> Option<usize> {
-        let hash_pos = CoreHelper::calculate_hash(&name.to_string()) as usize & self.hash_mask;
-        let mut per_field_index = self.field_hash[hash_pos];
-        while per_field_index >= 0 {
-            let pf = &self.per_fields[per_field_index as usize];
-            if pf.field_name == name {
-                return Some(per_field_index as usize);
-            }
-            per_field_index = pf.next;
-        }
-        None
+    let dv_type = *field_type.doc_values_type();
+    if dv_type != DocValuesType::None {
+      Self::index_doc_value(doc_id, pf, dv_type, field, &mut self.doc_values_byte_pool)?;
     }
-    pub(crate) fn mark_as_reserved<IF>(&mut self, field: IF) -> ReservedField<IF>
-    where
-        IF: IndexableField,
+
+    // points
+    if field_type.point_dimension_count() != 0 {
+      let binary_value = field
+        .binary_value()?
+        .ok_or_else(|| LuceneError::illegal_argument("point field missing binary value"))?;
+      pf.point_values_writer
+        .as_mut()
+        .unwrap()
+        .add_packed_value(doc_id, binary_value.as_ref())?;
+    }
+
+    // TODO:
+    // if field_type.vector_dimension() != 0 {
+    //     self.index_vector_value(
+    //         doc_id,
+    //         pf,
+    //         field_type.vector_encoding(),
+    //         field,
+    //     )?;
+    // }
+
+    Ok(indexed_field)
+  }
+  /// Returns a previously created [`PerField`], absorbing the type information from
+  /// [`FieldType`](crate::core::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
+  pub(crate) fn get_or_add_per_field(&mut self, field_name: &str, reserved: bool) -> usize {
+    let hash_pos = CoreHelper::calculate_hash(field_name) as usize & self.hash_mask;
+    let mut per_field_index = self.field_hash[hash_pos];
+    let mut conflict = false;
+    while per_field_index >= 0 {
+      conflict = true;
+      debug_assert!(self.per_fields.get(per_field_index as usize).is_some());
+      let pf = &mut self.per_fields[per_field_index as usize];
+      if pf.field_name != field_name {
+        per_field_index = pf.next;
+      } else {
+        break;
+      }
+    }
+    if per_field_index < 0 {
+      let schema = FieldSchema::new(field_name);
+      let mut pf = PerField::new(
+        field_name,
+        self.index_created_version_major,
+        schema,
+        reserved,
+      );
+      // filed_name's hash conflict happened, and could not find existing PerField with the same name in next chain
+      if conflict {
+        let old_pos = self.field_hash[hash_pos];
+        pf.next = old_pos;
+      }
+      per_field_index = self.per_fields.len() as i32;
+      pf.idx_in_doc_field = per_field_index;
+      self.per_fields.push(pf);
+      self.field_hash[hash_pos] = per_field_index;
+
+      self.total_field_count += 1;
+
+      if self.total_field_count >= (self.field_hash.len() >> 1) {
+        self.rehash();
+      }
+      if self.total_field_count > self.fields.len() {
+        // TODO:_bytes_per_element is padding value
+        let new_len = ArrayUtil::oversize(self.total_field_count, 1);
+        ArrayUtil::grow_with_len(&mut self.fields, new_len);
+      }
+    }
+    per_field_index as usize
+  }
+  // update schema for field as seen in a particular document
+  fn update_doc_field_schema<IFT>(
+    field_name: &str,
+    schema: &mut FieldSchema,
+    field_type: &IFT,
+  ) -> Result<()>
+  where
+    IFT: IndexableFieldType,
+  {
+    if *field_type.index_options() != IndexOptions::None {
+      schema.set_index_options(
+        *field_type.index_options(),
+        field_type.omit_norms(),
+        field_type.store_term_vectors(),
+      )?;
+    } else {
+      Self::verify_unindexed_field_type(field_name, field_type)?;
+    }
+
+    if *field_type.doc_values_type() != DocValuesType::None {
+      schema.set_doc_values(
+        *field_type.doc_values_type(),
+        *field_type.doc_values_skip_index_type(),
+      )?;
+    } else if *field_type.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
+      return Err(LuceneError::illegal_argument(format!(
+        "field '{}' cannot have docValuesSkipIndexType={} without doc values",
+        schema.name,
+        field_type.doc_values_skip_index_type()
+      )));
+    }
+
+    if field_type.point_dimension_count() != 0 {
+      schema.set_points(
+        field_type.point_dimension_count(),
+        field_type.point_index_dimension_count(),
+        field_type.point_num_bytes(),
+      )?;
+    }
+
+    if field_type.vector_dimension() != 0 {
+      schema.set_vectors(
+        *field_type.vector_encoding(),
+        *field_type.vector_similarity_function(),
+        field_type.vector_dimension(),
+      )?;
+    }
+
+    if let Some(attrs) = field_type.get_attributes()
+      && !attrs.is_empty()
     {
-        self.get_or_add_per_field(field.name(), true);
-        ReservedField::new(field)
+      schema.update_attributes(attrs.clone());
     }
-    pub(crate) fn get_has_doc_values(
-        &mut self,
-        field: &str,
-    ) -> Result<Option<DocValuesWriterDISI>> {
-        if let Some(idx) = self.get_per_field(field) {
-            let pf = &mut self.per_fields[idx];
-            if let Some(ref writer_enum) = pf.doc_values_writer {
-                if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::None {
-                    return Ok(None);
-                }
-                return Ok(Some(writer_enum.get_doc_values()?));
-            }
+
+    Ok(())
+  }
+
+  fn verify_unindexed_field_type<IFT>(name: &str, ft: &IFT) -> Result<()>
+  where
+    IFT: IndexableFieldType,
+  {
+    if ft.store_term_vectors() {
+      return Err(LuceneError::illegal_argument(format!(
+        "cannot store term vectors for a field that is not indexed (field=\"{name}\")"
+      )));
+    }
+    if ft.store_term_vector_positions() {
+      return Err(LuceneError::illegal_argument(format!(
+        "cannot store term vector positions for a field that is not indexed (field=\"{name}\")"
+      )));
+    }
+    if ft.store_term_vector_offsets() {
+      return Err(LuceneError::illegal_argument(format!(
+        "cannot store term vector offsets for a field that is not indexed (field=\"{name}\")"
+      )));
+    }
+    if ft.store_term_vector_payloads() {
+      return Err(LuceneError::illegal_argument(format!(
+        "cannot store term vector payloads for a field that is not indexed (field=\"{name}\")"
+      )));
+    }
+    Ok(())
+  }
+
+  fn validate_max_vector_dimension(
+    field_name: &str,
+    vector_dim: i32,
+    max_vector_dim: i32,
+  ) -> Result<()> {
+    if vector_dim > max_vector_dim {
+      return Err(LuceneError::illegal_argument(format!(
+        "Field [{field_name}] vector's dimensions must be <= [{max_vector_dim}]; got {vector_dim}"
+      )));
+    }
+    Ok(())
+  }
+
+  fn validate_index_sort_dv_type(
+    index_sort: &Sort,
+    field_to_validate: &str,
+    dv_type: &DocValuesType,
+  ) -> Result<()> {
+    for sort_field in index_sort.get_sort() {
+      let sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
+        LuceneError::illegal_state(format!("Cannot sort index with sort order {sort_field}"))
+      })?;
+      let doc_values_leaf_reader =
+        DocValuesLeafReaderImpl2::new(field_to_validate, dv_type, sort_field);
+      sorter.get_doc_comparator(&doc_values_leaf_reader, 0)?;
+    }
+    Ok(())
+  }
+
+  pub fn index_doc_value(
+    doc_id: i32,
+    fp: &mut PerField,
+    dv_type: DocValuesType,
+    field: &impl IndexableField,
+    pool: &mut ByteBlockPool,
+  ) -> Result<()> {
+    match fp.doc_values_writer.as_mut() {
+      Some(DocValuesWriterEnum::Numeric(writer)) => {
+        debug_assert_eq!(dv_type, DocValuesType::Numeric);
+        let num = field
+          .numeric_value()?
+          .ok_or_else(|| {
+            LuceneError::illegal_argument(format!(
+              "field=\"{}\": null value not allowed",
+              fp.field_info.as_ref().unwrap().name
+            ))
+          })?
+          .to_i64();
+        match num {
+          Some(num) => {
+            writer.add_value(doc_id, num)?;
+          },
+          _ => {
+            return Err(LuceneError::illegal_argument(format!(
+              "field=\"{}\": numeric value out of range: {:?}",
+              fp.field_info.as_ref().unwrap().name,
+              num
+            )));
+          },
         }
-        Ok(None)
+      },
+      Some(DocValuesWriterEnum::Binary(writer)) => {
+        debug_assert_eq!(dv_type, DocValuesType::Binary);
+        let bytes = field.binary_value()?.ok_or_else(|| {
+          LuceneError::illegal_argument(format!(
+            "field=\"{}\": null value not allowed",
+            fp.field_info.as_ref().unwrap().name
+          ))
+        })?;
+        writer.add_value(doc_id, bytes.as_ref())?;
+      },
+      Some(DocValuesWriterEnum::Sorted(writer)) => {
+        debug_assert_eq!(dv_type, DocValuesType::Sorted);
+        let bytes = field.binary_value()?.ok_or_else(|| {
+          LuceneError::illegal_argument(format!(
+            "field=\"{}\": null value not allowed",
+            fp.field_info.as_ref().unwrap().name
+          ))
+        })?;
+        writer.add_value(doc_id, bytes.as_ref(), pool)?;
+      },
+      Some(DocValuesWriterEnum::SortedNumeric(writer)) => {
+        debug_assert_eq!(dv_type, DocValuesType::SortedNumeric);
+        let num = field
+          .numeric_value()?
+          .ok_or_else(|| {
+            LuceneError::illegal_argument(format!(
+              "field=\"{}\": null value not allowed",
+              fp.field_info.as_ref().unwrap().name
+            ))
+          })?
+          .to_i64();
+
+        match num {
+          Some(num) => {
+            writer.add_value(doc_id, num)?;
+          },
+          _ => {
+            return Err(LuceneError::illegal_argument(format!(
+              "field=\"{}\": numeric value out of range: {:?}",
+              fp.field_info.as_ref().unwrap().name,
+              num
+            )));
+          },
+        }
+      },
+      Some(DocValuesWriterEnum::SortedSet(writer)) => {
+        debug_assert_eq!(dv_type, DocValuesType::SortedSet);
+        let bytes = field.binary_value()?.ok_or_else(|| {
+          LuceneError::illegal_argument(format!(
+            "field=\"{}\": null value not allowed",
+            fp.field_info.as_ref().unwrap().name
+          ))
+        })?;
+        writer.add_value(doc_id, bytes.as_ref(), pool)?;
+      },
+      None => {
+        return Err(LuceneError::illegal_state(format!(
+          "field=\"{}\": no DocValuesWriter for type {:?}",
+          fp.field_info.as_ref().unwrap().name,
+          dv_type
+        )));
+      },
     }
+    Ok(())
+  }
+
+  fn get_per_field(&self, name: &str) -> Option<usize> {
+    let hash_pos = CoreHelper::calculate_hash(&name.to_string()) as usize & self.hash_mask;
+    let mut per_field_index = self.field_hash[hash_pos];
+    while per_field_index >= 0 {
+      let pf = &self.per_fields[per_field_index as usize];
+      if pf.field_name == name {
+        return Some(per_field_index as usize);
+      }
+      per_field_index = pf.next;
+    }
+    None
+  }
+  pub(crate) fn mark_as_reserved<IF>(&mut self, field: IF) -> ReservedField<IF>
+  where
+    IF: IndexableField,
+  {
+    self.get_or_add_per_field(field.name(), true);
+    ReservedField::new(field)
+  }
+  pub(crate) fn get_has_doc_values(&mut self, field: &str) -> Result<Option<DocValuesWriterDISI>> {
+    if let Some(idx) = self.get_per_field(field) {
+      let pf = &mut self.per_fields[idx];
+      if let Some(ref writer_enum) = pf.doc_values_writer {
+        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::None {
+          return Ok(None);
+        }
+        return Ok(Some(writer_enum.get_doc_values()?));
+      }
+    }
+    Ok(None)
+  }
 }
 impl<D> Accountable for IndexingChain<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        // TODO: memory calculation not implement
-        todo!()
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    // TODO: memory calculation not implement
+    todo!()
+  }
 }
 
 pub(crate) struct PerField {
-    pub(crate) field_name: String,
-    pub(crate) index_created_version_major: i32,
-    pub(crate) schema: FieldSchema,
-    pub(crate) reserved: bool,
-    pub(crate) field_info: Option<Arc<FieldInfo>>,
-    pub(crate) invert_state: Option<FieldInvertState>,
-    pub(crate) terms_hash_per_field: Option<FreqProxTermsWriterPerField>,
-    pub(crate) doc_values_writer: Option<DocValuesWriterEnum>,
-    pub(crate) point_values_writer: Option<PointValuesWriter>,
-    // pub(crate) knn_field_vectors_writer: Option<KnnFieldVectorsWriter>,
-    pub(crate) field_gen: i64,
-    pub(crate) next: i32,
-    pub(crate) norms: Option<NormValuesWriter>,
-    pub(crate) token_stream: Option<<Fields as IndexableField>::TokenStream>,
-    pub(crate) first: bool,
-    pub(crate) idx_in_doc_field: i32,
+  pub(crate) field_name: String,
+  pub(crate) index_created_version_major: i32,
+  pub(crate) schema: FieldSchema,
+  pub(crate) reserved: bool,
+  pub(crate) field_info: Option<Arc<FieldInfo>>,
+  pub(crate) invert_state: Option<FieldInvertState>,
+  pub(crate) terms_hash_per_field: Option<FreqProxTermsWriterPerField>,
+  pub(crate) doc_values_writer: Option<DocValuesWriterEnum>,
+  pub(crate) point_values_writer: Option<PointValuesWriter>,
+  // pub(crate) knn_field_vectors_writer: Option<KnnFieldVectorsWriter>,
+  pub(crate) field_gen: i64,
+  pub(crate) next: i32,
+  pub(crate) norms: Option<NormValuesWriter>,
+  pub(crate) token_stream: Option<<Fields as IndexableField>::TokenStream>,
+  pub(crate) first: bool,
+  pub(crate) idx_in_doc_field: i32,
 }
 impl PerField {
-    pub(crate) fn new(
-        field_name: impl Into<String>,
-        index_created_version_major: i32,
-        schema: FieldSchema,
-        reserved: bool,
-    ) -> Self {
-        PerField {
-            field_name: field_name.into(),
-            index_created_version_major,
-            schema,
-            reserved,
-            field_info: None,
-            invert_state: None,
-            terms_hash_per_field: None,
-            doc_values_writer: None,
-            point_values_writer: None,
-            field_gen: -1,
-            next: -1,
-            norms: None,
-            token_stream: None,
-            first: false,
-            idx_in_doc_field: -1,
-        }
+  pub(crate) fn new(
+    field_name: impl Into<String>,
+    index_created_version_major: i32,
+    schema: FieldSchema,
+    reserved: bool,
+  ) -> Self {
+    PerField {
+      field_name: field_name.into(),
+      index_created_version_major,
+      schema,
+      reserved,
+      field_info: None,
+      invert_state: None,
+      terms_hash_per_field: None,
+      doc_values_writer: None,
+      point_values_writer: None,
+      field_gen: -1,
+      next: -1,
+      norms: None,
+      token_stream: None,
+      first: false,
+      idx_in_doc_field: -1,
     }
-    pub(crate) fn reset(&mut self, doc_id: i32) {
-        self.first = true;
-        self.schema.reset(doc_id);
+  }
+  pub(crate) fn reset(&mut self, doc_id: i32) {
+    self.first = true;
+    self.schema.reset(doc_id);
+  }
+
+  pub(crate) fn set_field_info(&mut self, field_info: Arc<FieldInfo>) {
+    debug_assert!(self.field_info.is_none());
+    self.field_info = Some(field_info);
+  }
+  pub(crate) fn set_invert_state<D>(
+    &mut self,
+    terms_hash: &mut FreqProxTermsWriter<D>,
+    bytes_used: SharedCounter,
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
+    let fi = self.field_info.as_ref().unwrap().clone();
+    let state = FieldInvertState::new(
+      self.index_created_version_major,
+      fi.name.clone(),
+      *fi.get_index_options(),
+    );
+    self.invert_state = Some(state);
+    self.terms_hash_per_field =
+      Some(terms_hash.add_field(self.field_info.as_ref().unwrap().clone()));
+
+    if !fi.omits_norms() {
+      // Even if no documents actually succeed in setting a norm, we still write norms for this
+      // segment
+      debug_assert!(self.norms.is_none());
+      self.norms = Some(NormValuesWriter::new(fi.clone(), bytes_used)?);
     }
 
-    pub(crate) fn set_field_info(&mut self, field_info: Arc<FieldInfo>) {
-        debug_assert!(self.field_info.is_none());
-        self.field_info = Some(field_info);
+    if fi.has_term_vectors() {
+      terms_hash.next_terms_hash.set_has_vectors();
     }
-    pub(crate) fn set_invert_state<D>(
-        &mut self,
-        terms_hash: &mut FreqProxTermsWriter<D>,
-        bytes_used: SharedCounter,
-    ) -> Result<()>
-    where
-        D: Directory,
-    {
-        let fi = self.field_info.as_ref().unwrap().clone();
-        let state = FieldInvertState::new(
-            self.index_created_version_major,
-            fi.name.clone(),
-            *fi.get_index_options(),
-        );
-        self.invert_state = Some(state);
-        self.terms_hash_per_field =
-            Some(terms_hash.add_field(self.field_info.as_ref().unwrap().clone()));
-
-        if !fi.omits_norms() {
-            // Even if no documents actually succeed in setting a norm, we still write norms for this
-            // segment
-            debug_assert!(self.norms.is_none());
-            self.norms = Some(NormValuesWriter::new(fi.clone(), bytes_used)?);
+    Ok(())
+  }
+  pub(crate) fn finish<D, S>(
+    &mut self,
+    doc_id: i32,
+    term_vectors_consumer: &mut TermVectorsConsumer<D>,
+    similarity: &S,
+  ) -> Result<()>
+  where
+    D: Directory,
+    S: Similarity,
+  {
+    if !self.field_info.as_ref().unwrap().omits_norms() {
+      let norm_value = {
+        let state = self.invert_state.as_ref().unwrap();
+        if state.length == 0 {
+          // the field exists in this document, but it did not have
+          // any indexed tokens, so we assign a default value of zero
+          // to the norm
+          0
+        } else {
+          let nv = similarity.compute_norm(state)?;
+          if nv == 0 {
+            return Err(LuceneError::illegal_state(format!(
+              "Similarity {similarity} returned 0 for non-empty field"
+            )));
+          }
+          nv
         }
-
-        if fi.has_term_vectors() {
-            terms_hash.next_terms_hash.set_has_vectors();
-        }
-        Ok(())
+      };
+      self.norms.as_mut().unwrap().add_value(doc_id, norm_value)?;
     }
-    pub(crate) fn finish<D, S>(
-        &mut self,
-        doc_id: i32,
-        term_vectors_consumer: &mut TermVectorsConsumer<D>,
-        similarity: &S,
-    ) -> Result<()>
-    where
-        D: Directory,
-        S: Similarity,
-    {
-        if !self.field_info.as_ref().unwrap().omits_norms() {
-            let norm_value = {
-                let state = self.invert_state.as_ref().unwrap();
-                if state.length == 0 {
-                    // the field exists in this document, but it did not have
-                    // any indexed tokens, so we assign a default value of zero
-                    // to the norm
-                    0
-                } else {
-                    let nv = similarity.compute_norm(state)?;
-                    if nv == 0 {
-                        return Err(LuceneError::illegal_state(format!(
-                            "Similarity {similarity} returned 0 for non-empty field"
-                        )));
-                    }
-                    nv
-                }
-            };
-            self.norms.as_mut().unwrap().add_value(doc_id, norm_value)?;
-        }
-        let meta = PerFieldMeta {
-            idx: self.idx_in_doc_field,
-            field_name: self.field_name.clone(),
-        };
-        self.terms_hash_per_field
-            .as_mut()
-            .unwrap()
-            .finish(term_vectors_consumer, meta)
+    let meta = PerFieldMeta {
+      idx: self.idx_in_doc_field,
+      field_name: self.field_name.clone(),
+    };
+    self
+      .terms_hash_per_field
+      .as_mut()
+      .unwrap()
+      .finish(term_vectors_consumer, meta)
+  }
+  /// Inverts one field for one document; first is true if this is the first time we are seeing
+  /// this field name in this document.
+  pub(crate) fn invert<A>(
+    &mut self,
+    doc_id: i32,
+    field: &mut impl IndexableField,
+    first: bool,
+    analyzer: &A,
+    info_stream: &InfoStreamEnum,
+    context: &mut IndexContext,
+  ) -> Result<()>
+  where
+    A: Analyzer,
+  {
+    debug_assert!(
+      *field.field_type().index_options() >= IndexOptions::Docs,
+      "field must be indexed with at least Docs"
+    );
+
+    if first {
+      match &mut self.invert_state {
+        Some(invert_state) => {
+          // First time we're seeing this field (indexed) in this document
+          invert_state.reset()
+        },
+        None => {
+          return Err(LuceneError::illegal_state("invert_state not initialized"));
+        },
+      }
     }
-    /// Inverts one field for one document; first is true if this is the first time we are seeing
-    /// this field name in this document.
-    pub(crate) fn invert<A>(
-        &mut self,
-        doc_id: i32,
-        field: &mut impl IndexableField,
-        first: bool,
-        analyzer: &A,
-        info_stream: &InfoStreamEnum,
-        context: &mut IndexContext,
-    ) -> Result<()>
-    where
-        A: Analyzer,
-    {
-        debug_assert!(
-            *field.field_type().index_options() >= IndexOptions::Docs,
-            "field must be indexed with at least Docs"
-        );
 
-        if first {
-            match &mut self.invert_state {
-                Some(invert_state) => {
-                    // First time we're seeing this field (indexed) in this document
-                    invert_state.reset()
-                },
-                None => {
-                    return Err(LuceneError::illegal_state("invert_state not initialized"));
-                },
-            }
-        }
-
-        match field.invertable_type() {
-            InvertableType::BINARY => {
-                self.invert_term(doc_id, field, first, context)?;
-            },
-            InvertableType::TokenStream => {
-                self.invert_token_stream(doc_id, field, first, analyzer, info_stream, context)?;
-            },
-        }
-
-        Ok(())
+    match field.invertable_type() {
+      InvertableType::BINARY => {
+        self.invert_term(doc_id, field, first, context)?;
+      },
+      InvertableType::TokenStream => {
+        self.invert_token_stream(doc_id, field, first, analyzer, info_stream, context)?;
+      },
     }
-    fn invert_token_stream<A>(
-        &mut self,
-        doc_id: i32,
-        field: &mut impl IndexableField,
-        first: bool,
-        analyzer: &A,
-        info_stream: &InfoStreamEnum,
-        context: &mut IndexContext,
-    ) -> Result<()>
-    where
-        A: Analyzer,
-    {
-        let analyzed = field.field_type().tokenized();
-        /*
-         * To assist people in tracking down problems in analysis components, we wish to write the field name to the infostream
-         * when we fail. We expect some caller to eventually deal with the real exception, so we don't want any 'catch' clauses,
-         * but rather a finally that takes note of the problem.
-         */
 
-        let field_name = field.name().to_string();
+    Ok(())
+  }
+  fn invert_token_stream<A>(
+    &mut self,
+    doc_id: i32,
+    field: &mut impl IndexableField,
+    first: bool,
+    analyzer: &A,
+    info_stream: &InfoStreamEnum,
+    context: &mut IndexContext,
+  ) -> Result<()>
+  where
+    A: Analyzer,
+  {
+    let analyzed = field.field_type().tokenized();
+    /*
+     * To assist people in tracking down problems in analysis components, we wish to write the field name to the infostream
+     * when we fail. We expect some caller to eventually deal with the real exception, so we don't want any 'catch' clauses,
+     * but rather a finally that takes note of the problem.
+     */
 
-        // try init Analyzer's TokenStream
-        field.init_token_stream(analyzer)?;
-        REUSE_STRATEGY.with(|reuse_strategy| {
+    let field_name = field.name().to_string();
+
+    // try init Analyzer's TokenStream
+    field.init_token_stream(analyzer)?;
+    REUSE_STRATEGY.with(|reuse_strategy| {
             (|| -> Result<()> {
                 let mut reuse_strategy = reuse_strategy.borrow_mut();
                 let ts = match reuse_strategy.as_mut() {
@@ -1614,136 +1605,137 @@ impl PerField {
             })()
         })?;
 
-        if analyzed {
-            let invert_state = self.invert_state.as_mut().unwrap();
-            invert_state.position +=
-                analyzer.get_position_increment_gap(&self.field_info.as_ref().unwrap().name);
-            invert_state.offset += analyzer.get_offset_gap(&self.field_info.as_ref().unwrap().name);
-        }
-        Ok(())
+    if analyzed {
+      let invert_state = self.invert_state.as_mut().unwrap();
+      invert_state.position +=
+        analyzer.get_position_increment_gap(&self.field_info.as_ref().unwrap().name);
+      invert_state.offset += analyzer.get_offset_gap(&self.field_info.as_ref().unwrap().name);
     }
+    Ok(())
+  }
 
-    fn invert_term<F>(
-        &mut self,
-        doc_id: i32,
-        field: &F,
-        first: bool,
-        context: &mut IndexContext,
-    ) -> Result<()>
-    where
-        F: IndexableField,
+  fn invert_term<F>(
+    &mut self,
+    doc_id: i32,
+    field: &F,
+    first: bool,
+    context: &mut IndexContext,
+  ) -> Result<()>
+  where
+    F: IndexableField,
+  {
+    let binary_value = field.binary_value()?.ok_or_else(|| {
+      LuceneError::illegal_argument(format!(
+        "Field {} returns TERM for invertable_type() and null for binary_value(), which is illegal",
+        field.name()
+      ))
+    })?;
+
+    let field_type = field.field_type();
+    if field_type.tokenized()
+      || *field_type.index_options() > IndexOptions::DocsAndFreqs
+      || field_type.store_term_vector_positions()
+      || field_type.store_term_vector_offsets()
+      || field_type.store_term_vector_payloads()
     {
-        let binary_value = field
-            .binary_value()?
-            .ok_or_else(|| LuceneError::illegal_argument(format!(
-                "Field {} returns TERM for invertable_type() and null for binary_value(), which is illegal",
-                field.name()
-            )))?;
-
-        let field_type = field.field_type();
-        if field_type.tokenized()
-            || *field_type.index_options() > IndexOptions::DocsAndFreqs
-            || field_type.store_term_vector_positions()
-            || field_type.store_term_vector_offsets()
-            || field_type.store_term_vector_payloads()
-        {
-            return Err(LuceneError::illegal_argument(format!(
-                "Fields that are tokenized or index proximity data must produce a non-null TokenStream, but {} did not",
-                field.name()
-            )));
-        }
-        let state = self.invert_state.as_mut().unwrap();
-        // TODO
-        // state.set_attribute_source();
-        state.position += 1;
-        state.length += 1;
-        let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
-        terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
-        match state.length.checked_add(1) {
-            Some(new_length) => {
-                state.length = new_length;
-            },
-            None => {
-                return Err(LuceneError::number_overflow("Field length overflowed"));
-            },
-        }
-        let mut attribute_source = EmptyAttributeSource;
-        if let Err(e) = terms_hash_per_field.add_with_bytes_ref(
-            Some(binary_value.as_ref()),
-            doc_id,
-            state,
-            &mut attribute_source,
-            context,
-        ) {
-            let mut prefix = [0u8; 30];
-            prefix.copy_from(
-                &binary_value.bytes[binary_value.offset..binary_value.offset + 30],
-                0,
-            );
-            let msg = format!(
-                "Document contains at least one immense term in field=\"{}\" (whose length is longer than the max length {}), all of which were skipped. The prefix of the first immense term is: '{:?}...'",
-                self.field_info.as_ref().unwrap().name,
-                MAX_TERM_LENGTH,
-                prefix
-            );
-            // if self.info_stream.is_enabled("IW") {
-            //     self.self.info_stream.message("IW", &format!("ERROR: {}", msg));
-            // }
-            return Err(LuceneError::illegal_state(format!("{msg} {e}")));
-        }
-        Ok(())
+      return Err(LuceneError::illegal_argument(format!(
+        "Fields that are tokenized or index proximity data must produce a non-null TokenStream, but {} did not",
+        field.name()
+      )));
     }
+    let state = self.invert_state.as_mut().unwrap();
+    // TODO
+    // state.set_attribute_source();
+    state.position += 1;
+    state.length += 1;
+    let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
+    terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
+    match state.length.checked_add(1) {
+      Some(new_length) => {
+        state.length = new_length;
+      },
+      None => {
+        return Err(LuceneError::number_overflow("Field length overflowed"));
+      },
+    }
+    let mut attribute_source = EmptyAttributeSource;
+    if let Err(e) = terms_hash_per_field.add_with_bytes_ref(
+      Some(binary_value.as_ref()),
+      doc_id,
+      state,
+      &mut attribute_source,
+      context,
+    ) {
+      let mut prefix = [0u8; 30];
+      prefix.copy_from(
+        &binary_value.bytes[binary_value.offset..binary_value.offset + 30],
+        0,
+      );
+      let msg = format!(
+        "Document contains at least one immense term in field=\"{}\" (whose length is longer than the max length {}), all of which were skipped. The prefix of the first immense term is: '{:?}...'",
+        self.field_info.as_ref().unwrap().name,
+        MAX_TERM_LENGTH,
+        prefix
+      );
+      // if self.info_stream.is_enabled("IW") {
+      //     self.self.info_stream.message("IW", &format!("ERROR: {}", msg));
+      // }
+      return Err(LuceneError::illegal_state(format!("{msg} {e}")));
+    }
+    Ok(())
+  }
 }
 
 impl PartialEq for PerField {
-    fn eq(&self, other: &Self) -> bool {
-        self.field_name == other.field_name
-    }
+  fn eq(&self, other: &Self) -> bool {
+    self.field_name == other.field_name
+  }
 }
 impl Eq for PerField {}
 
 impl PartialOrd for PerField {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
+  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
 }
 impl Ord for PerField {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.field_name.cmp(&other.field_name)
-    }
+  fn cmp(&self, other: &Self) -> Ordering {
+    self.field_name.cmp(&other.field_name)
+  }
 }
 
 pub struct IntBlockAllocator {
-    block_size: usize,
-    pub byte_used: SharedCounter,
+  block_size: usize,
+  pub byte_used: SharedCounter,
 }
 impl IntBlockAllocator {
-    fn new(byte_used: SharedCounter) -> Self {
-        IntBlockAllocator {
-            block_size: INT_BLOCK_SIZE as usize,
-            byte_used,
-        }
+  fn new(byte_used: SharedCounter) -> Self {
+    IntBlockAllocator {
+      block_size: INT_BLOCK_SIZE as usize,
+      byte_used,
     }
-    pub(crate) fn allocator_enum(byte_used: SharedCounter) -> AllocatorIntEnum {
-        AllocatorIntEnum::IBA(IntBlockAllocator::new(byte_used))
-    }
+  }
+  pub(crate) fn allocator_enum(byte_used: SharedCounter) -> AllocatorIntEnum {
+    AllocatorIntEnum::IBA(IntBlockAllocator::new(byte_used))
+  }
 }
 impl AllocatorI32 for IntBlockAllocator {
-    fn recycle_int_blocks(&mut self, _blocks: &[Vec<i32>], _offset: usize, length: usize) {
-        let delta = length as i64 * (self.block_size as i64 * BitUtil::INT_BYTES as i64);
-        self.byte_used.add_and_get(-delta);
-    }
+  fn recycle_int_blocks(&mut self, _blocks: &[Vec<i32>], _offset: usize, length: usize) {
+    let delta = length as i64 * (self.block_size as i64 * BitUtil::INT_BYTES as i64);
+    self.byte_used.add_and_get(-delta);
+  }
 
-    fn get_byte_block(&mut self) -> Vec<i32> {
-        let b = vec![0; INT_BLOCK_SIZE as usize];
-        self.byte_used
-            .add_and_get(INT_BLOCK_SIZE as i64 * BitUtil::INT_BYTES as i64);
-        b
-    }
+  fn get_byte_block(&mut self) -> Vec<i32> {
+    let b = vec![0; INT_BLOCK_SIZE as usize];
+    self
+      .byte_used
+      .add_and_get(INT_BLOCK_SIZE as i64 * BitUtil::INT_BYTES as i64);
+    b
+  }
 
-    fn get_block_size(&self) -> usize {
-        self.block_size
-    }
+  fn get_block_size(&self) -> usize {
+    self.block_size
+  }
 }
 
 /// A schema of the field in the current document. With every new document this schema is reset.
@@ -1753,844 +1745,839 @@ impl AllocatorI32 for IntBlockAllocator {
 /// in the segment where this field appeared). If there is any inconsistency, we return an error.
 /// This ensures that a field’s data structures remain consistent across all documents.
 pub(crate) struct FieldSchema {
-    name: String,
-    doc_id: i32,
-    attributes: HashMap<String, String>,
-    omit_norms: bool,
-    store_term_vector: bool,
-    index_options: IndexOptions,
-    doc_values_type: DocValuesType,
-    doc_values_skip_index: DocValuesSkipIndexType,
-    point_dimension_count: usize,
-    point_index_dimension_count: usize,
-    point_num_bytes: usize,
-    vector_dimension: i32,
-    vector_encoding: VectorEncoding,
-    vector_similarity_function: VectorSimilarityFunction,
+  name: String,
+  doc_id: i32,
+  attributes: HashMap<String, String>,
+  omit_norms: bool,
+  store_term_vector: bool,
+  index_options: IndexOptions,
+  doc_values_type: DocValuesType,
+  doc_values_skip_index: DocValuesSkipIndexType,
+  point_dimension_count: usize,
+  point_index_dimension_count: usize,
+  point_num_bytes: usize,
+  vector_dimension: i32,
+  vector_encoding: VectorEncoding,
+  vector_similarity_function: VectorSimilarityFunction,
 }
 impl FieldSchema {
-    const ERR_MSG: &'static str =
-        "Inconsistency of field data structures across documents for field ";
-    pub(crate) fn new(name: &str) -> Self {
-        FieldSchema {
-            name: name.to_string(),
-            doc_id: 0,
-            attributes: HashMap::new(),
-            omit_norms: false,
-            store_term_vector: false,
-            index_options: IndexOptions::None,
-            doc_values_type: DocValuesType::None,
-            doc_values_skip_index: DocValuesSkipIndexType::None,
-            point_dimension_count: 0,
-            point_index_dimension_count: 0,
-            point_num_bytes: 0,
-            vector_dimension: 0,
-            vector_encoding: VectorEncoding::FLOAT32(4),
-            vector_similarity_function: VectorSimilarityFunction::Euclidean,
-        }
+  const ERR_MSG: &'static str =
+    "Inconsistency of field data structures across documents for field ";
+  pub(crate) fn new(name: &str) -> Self {
+    FieldSchema {
+      name: name.to_string(),
+      doc_id: 0,
+      attributes: HashMap::new(),
+      omit_norms: false,
+      store_term_vector: false,
+      index_options: IndexOptions::None,
+      doc_values_type: DocValuesType::None,
+      doc_values_skip_index: DocValuesSkipIndexType::None,
+      point_dimension_count: 0,
+      point_index_dimension_count: 0,
+      point_num_bytes: 0,
+      vector_dimension: 0,
+      vector_encoding: VectorEncoding::FLOAT32(4),
+      vector_similarity_function: VectorSimilarityFunction::Euclidean,
     }
-    pub(crate) fn assert_same<T>(&self, label: &str, expected: &T, given: &T) -> Result<()>
-    where
-        T: PartialEq + Display,
-    {
-        if expected != given {
-            return Err(LuceneError::illegal_argument(format!(
-                "{}[{}] of doc [{}].{}: expected '{}', but it has '{}'.",
-                Self::ERR_MSG,
-                self.name,
-                self.doc_id,
-                label,
-                expected,
-                given
-            )));
-        }
-        Ok(())
+  }
+  pub(crate) fn assert_same<T>(&self, label: &str, expected: &T, given: &T) -> Result<()>
+  where
+    T: PartialEq + Display,
+  {
+    if expected != given {
+      return Err(LuceneError::illegal_argument(format!(
+        "{}[{}] of doc [{}].{}: expected '{}', but it has '{}'.",
+        Self::ERR_MSG,
+        self.name,
+        self.doc_id,
+        label,
+        expected,
+        given
+      )));
     }
-    pub(crate) fn update_attributes(&mut self, attrs: HashMap<String, String>) {
-        self.attributes.extend(attrs);
-    }
+    Ok(())
+  }
+  pub(crate) fn update_attributes(&mut self, attrs: HashMap<String, String>) {
+    self.attributes.extend(attrs);
+  }
 
-    pub(crate) fn set_index_options(
-        &mut self,
-        new_index_options: IndexOptions,
-        new_omit_norms: bool,
-        new_store_term_vector: bool,
-    ) -> Result<()> {
-        if self.index_options == IndexOptions::None {
-            self.index_options = new_index_options;
-            self.omit_norms = new_omit_norms;
-            self.store_term_vector = new_store_term_vector;
-        } else {
-            self.assert_same("index options", &self.index_options, &new_index_options)?;
-            self.assert_same("omit norms", &self.omit_norms, &new_omit_norms)?;
-            self.assert_same(
-                "store term vector",
-                &self.store_term_vector,
-                &new_store_term_vector,
-            )?;
-        }
-        Ok(())
+  pub(crate) fn set_index_options(
+    &mut self,
+    new_index_options: IndexOptions,
+    new_omit_norms: bool,
+    new_store_term_vector: bool,
+  ) -> Result<()> {
+    if self.index_options == IndexOptions::None {
+      self.index_options = new_index_options;
+      self.omit_norms = new_omit_norms;
+      self.store_term_vector = new_store_term_vector;
+    } else {
+      self.assert_same("index options", &self.index_options, &new_index_options)?;
+      self.assert_same("omit norms", &self.omit_norms, &new_omit_norms)?;
+      self.assert_same(
+        "store term vector",
+        &self.store_term_vector,
+        &new_store_term_vector,
+      )?;
     }
-    pub(crate) fn set_doc_values(
-        &mut self,
-        new_doc_values_type: DocValuesType,
-        new_doc_values_skip_index: DocValuesSkipIndexType,
-    ) -> Result<()> {
-        if self.doc_values_type == DocValuesType::None {
-            self.doc_values_type = new_doc_values_type;
-            self.doc_values_skip_index = new_doc_values_skip_index;
-        } else {
-            self.assert_same(
-                "doc values type",
-                &self.doc_values_type,
-                &new_doc_values_type,
-            )?;
-            self.assert_same(
-                "doc values skip index type",
-                &self.doc_values_skip_index,
-                &new_doc_values_skip_index,
-            )?;
-        }
-        Ok(())
+    Ok(())
+  }
+  pub(crate) fn set_doc_values(
+    &mut self,
+    new_doc_values_type: DocValuesType,
+    new_doc_values_skip_index: DocValuesSkipIndexType,
+  ) -> Result<()> {
+    if self.doc_values_type == DocValuesType::None {
+      self.doc_values_type = new_doc_values_type;
+      self.doc_values_skip_index = new_doc_values_skip_index;
+    } else {
+      self.assert_same(
+        "doc values type",
+        &self.doc_values_type,
+        &new_doc_values_type,
+      )?;
+      self.assert_same(
+        "doc values skip index type",
+        &self.doc_values_skip_index,
+        &new_doc_values_skip_index,
+      )?;
     }
+    Ok(())
+  }
 
-    pub(crate) fn set_points(
-        &mut self,
-        dimension_count: usize,
-        index_dimension_count: usize,
-        num_bytes: usize,
-    ) -> Result<()> {
-        if self.point_index_dimension_count == 0 {
-            self.point_dimension_count = dimension_count;
-            self.point_index_dimension_count = index_dimension_count;
-            self.point_num_bytes = num_bytes;
-        } else {
-            self.assert_same(
-                "point dimension",
-                &self.point_dimension_count,
-                &dimension_count,
-            )?;
-            self.assert_same(
-                "point index dimension",
-                &self.point_index_dimension_count,
-                &index_dimension_count,
-            )?;
-            self.assert_same("point num bytes", &self.point_num_bytes, &num_bytes)?;
-        }
-        Ok(())
+  pub(crate) fn set_points(
+    &mut self,
+    dimension_count: usize,
+    index_dimension_count: usize,
+    num_bytes: usize,
+  ) -> Result<()> {
+    if self.point_index_dimension_count == 0 {
+      self.point_dimension_count = dimension_count;
+      self.point_index_dimension_count = index_dimension_count;
+      self.point_num_bytes = num_bytes;
+    } else {
+      self.assert_same(
+        "point dimension",
+        &self.point_dimension_count,
+        &dimension_count,
+      )?;
+      self.assert_same(
+        "point index dimension",
+        &self.point_index_dimension_count,
+        &index_dimension_count,
+      )?;
+      self.assert_same("point num bytes", &self.point_num_bytes, &num_bytes)?;
     }
+    Ok(())
+  }
 
-    pub(crate) fn set_vectors(
-        &mut self,
-        encoding: VectorEncoding,
-        similarity_function: VectorSimilarityFunction,
-        dimension: i32,
-    ) -> Result<()> {
-        if self.vector_dimension == 0 {
-            self.vector_encoding = encoding;
-            self.vector_similarity_function = similarity_function;
-            self.vector_dimension = dimension;
-        } else {
-            self.assert_same("vector encoding", &self.vector_encoding, &encoding)?;
-            self.assert_same(
-                "vector similarity function",
-                &self.vector_similarity_function,
-                &similarity_function,
-            )?;
-            self.assert_same("vector dimension", &self.vector_dimension, &dimension)?;
-        }
-        Ok(())
+  pub(crate) fn set_vectors(
+    &mut self,
+    encoding: VectorEncoding,
+    similarity_function: VectorSimilarityFunction,
+    dimension: i32,
+  ) -> Result<()> {
+    if self.vector_dimension == 0 {
+      self.vector_encoding = encoding;
+      self.vector_similarity_function = similarity_function;
+      self.vector_dimension = dimension;
+    } else {
+      self.assert_same("vector encoding", &self.vector_encoding, &encoding)?;
+      self.assert_same(
+        "vector similarity function",
+        &self.vector_similarity_function,
+        &similarity_function,
+      )?;
+      self.assert_same("vector dimension", &self.vector_dimension, &dimension)?;
     }
-    pub(crate) fn reset(&mut self, doc: i32) {
-        self.doc_id = doc;
-        self.omit_norms = false;
-        self.store_term_vector = false;
-        self.index_options = IndexOptions::None;
-        self.doc_values_type = DocValuesType::None;
-        self.doc_values_skip_index = DocValuesSkipIndexType::None;
-        self.point_dimension_count = 0;
-        self.point_index_dimension_count = 0;
-        self.point_num_bytes = 0;
-        self.vector_dimension = 0;
-        self.vector_encoding = VectorEncoding::FLOAT32(4);
-        self.vector_similarity_function = VectorSimilarityFunction::Euclidean;
-    }
+    Ok(())
+  }
+  pub(crate) fn reset(&mut self, doc: i32) {
+    self.doc_id = doc;
+    self.omit_norms = false;
+    self.store_term_vector = false;
+    self.index_options = IndexOptions::None;
+    self.doc_values_type = DocValuesType::None;
+    self.doc_values_skip_index = DocValuesSkipIndexType::None;
+    self.point_dimension_count = 0;
+    self.point_index_dimension_count = 0;
+    self.point_num_bytes = 0;
+    self.vector_dimension = 0;
+    self.vector_encoding = VectorEncoding::FLOAT32(4);
+    self.vector_similarity_function = VectorSimilarityFunction::Euclidean;
+  }
 
-    pub(crate) fn assert_same_schema(&self, fi: &FieldInfo) -> Result<()> {
-        self.assert_same("index options", fi.get_index_options(), &self.index_options)?;
-        self.assert_same("omit norms", &fi.omits_norms(), &self.omit_norms)?;
-        self.assert_same(
-            "store term vector",
-            &fi.has_term_vectors(),
-            &self.store_term_vector,
-        )?;
-        self.assert_same(
-            "doc values type",
-            fi.get_doc_values_type(),
-            &self.doc_values_type,
-        )?;
-        self.assert_same(
-            "doc values skip index type",
-            fi.doc_values_skip_index_type(),
-            &self.doc_values_skip_index,
-        )?;
-        self.assert_same(
-            "vector similarity function",
-            fi.get_vector_similarity_function(),
-            &self.vector_similarity_function,
-        )?;
-        self.assert_same(
-            "vector encoding",
-            fi.get_vector_encoding(),
-            &self.vector_encoding,
-        )?;
-        self.assert_same(
-            "vector dimension",
-            &fi.get_vector_dimension(),
-            &self.vector_dimension,
-        )?;
-        self.assert_same(
-            "point dimension",
-            &fi.get_point_dimension_count(),
-            &self.point_dimension_count,
-        )?;
-        self.assert_same(
-            "point index dimension",
-            &fi.get_point_index_dimension_count(),
-            &self.point_index_dimension_count,
-        )?;
-        self.assert_same(
-            "point num bytes",
-            &fi.get_point_num_bytes(),
-            &self.point_num_bytes,
-        )?;
-        Ok(())
-    }
+  pub(crate) fn assert_same_schema(&self, fi: &FieldInfo) -> Result<()> {
+    self.assert_same("index options", fi.get_index_options(), &self.index_options)?;
+    self.assert_same("omit norms", &fi.omits_norms(), &self.omit_norms)?;
+    self.assert_same(
+      "store term vector",
+      &fi.has_term_vectors(),
+      &self.store_term_vector,
+    )?;
+    self.assert_same(
+      "doc values type",
+      fi.get_doc_values_type(),
+      &self.doc_values_type,
+    )?;
+    self.assert_same(
+      "doc values skip index type",
+      fi.doc_values_skip_index_type(),
+      &self.doc_values_skip_index,
+    )?;
+    self.assert_same(
+      "vector similarity function",
+      fi.get_vector_similarity_function(),
+      &self.vector_similarity_function,
+    )?;
+    self.assert_same(
+      "vector encoding",
+      fi.get_vector_encoding(),
+      &self.vector_encoding,
+    )?;
+    self.assert_same(
+      "vector dimension",
+      &fi.get_vector_dimension(),
+      &self.vector_dimension,
+    )?;
+    self.assert_same(
+      "point dimension",
+      &fi.get_point_dimension_count(),
+      &self.point_dimension_count,
+    )?;
+    self.assert_same(
+      "point index dimension",
+      &fi.get_point_index_dimension_count(),
+      &self.point_index_dimension_count,
+    )?;
+    self.assert_same(
+      "point num bytes",
+      &fi.get_point_num_bytes(),
+      &self.point_num_bytes,
+    )?;
+    Ok(())
+  }
 }
 
 struct DocValuesLeafReaderImpl1<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    index_chain: &'a mut IndexingChain<D>,
-    base: DocValuesLeafReader,
-    field_info: &'a mut Builder,
-    index_base: IndexReaderBase,
+  index_chain: &'a mut IndexingChain<D>,
+  base: DocValuesLeafReader,
+  field_info: &'a mut Builder,
+  index_base: IndexReaderBase,
 }
 impl<'a, D> DocValuesLeafReaderImpl1<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn new(index_chain: &'a mut IndexingChain<D>, field_info: &'a mut Builder) -> Self {
-        let base = DocValuesLeafReader;
-        DocValuesLeafReaderImpl1 {
-            index_chain,
-            base,
-            field_info,
-            index_base: IndexReaderBase::new(),
-        }
+  fn new(index_chain: &'a mut IndexingChain<D>, field_info: &'a mut Builder) -> Self {
+    let base = DocValuesLeafReader;
+    DocValuesLeafReaderImpl1 {
+      index_chain,
+      base,
+      field_info,
+      index_base: IndexReaderBase::new(),
     }
+  }
 }
 
 impl<D> Display for DocValuesLeafReaderImpl1<'_, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }
 
 impl<D> IndexReader for DocValuesLeafReaderImpl1<'_, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    type TermVectors = <DocValuesLeafReader as IndexReader>::TermVectors;
+  type TermVectors = <DocValuesLeafReader as IndexReader>::TermVectors;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
-        self.base.term_vectors()
-    }
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    self.base.term_vectors()
+  }
 
-    fn max_doc(&self) -> Result<i32> {
-        self.base.max_doc()
-    }
+  fn max_doc(&self) -> Result<i32> {
+    self.base.max_doc()
+  }
 
-    fn num_docs(&self) -> Result<i32> {
-        self.base.num_docs()
-    }
+  fn num_docs(&self) -> Result<i32> {
+    self.base.num_docs()
+  }
 
-    type StoredFields = <DocValuesLeafReader as IndexReader>::StoredFields;
+  type StoredFields = <DocValuesLeafReader as IndexReader>::StoredFields;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
-        self.base.stored_fields()
-    }
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    self.base.stored_fields()
+  }
 
-    fn do_close(&self) -> Result<()> {
-        self.base.do_close()
-    }
+  fn do_close(&self) -> Result<()> {
+    self.base.do_close()
+  }
 
-    type ReaderCacheHelper = <DocValuesLeafReader as IndexReader>::ReaderCacheHelper;
+  type ReaderCacheHelper = <DocValuesLeafReader as IndexReader>::ReaderCacheHelper;
 
-    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-        self.base.get_reader_cache_helper()
-    }
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    self.base.get_reader_cache_helper()
+  }
 
-    fn doc_freq(&self, term: &Term) -> Result<i32> {
-        LeafReader::doc_freq(self, term)
-    }
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    LeafReader::doc_freq(self, term)
+  }
 
-    fn total_term_freq(&self, term: &Term) -> Result<i64> {
-        LeafReader::get_total_term_freq(self, term)
-    }
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    LeafReader::get_total_term_freq(self, term)
+  }
 
-    fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-        LeafReader::get_sum_doc_freq(self, field)
-    }
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    LeafReader::get_sum_doc_freq(self, field)
+  }
 
-    fn get_doc_count(&self, field: &str) -> Result<i32> {
-        LeafReader::get_doc_count(self, field)
-    }
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    LeafReader::get_doc_count(self, field)
+  }
 
-    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-        LeafReader::get_sum_total_term_freq(self, field)
-    }
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    LeafReader::get_sum_total_term_freq(self, field)
+  }
 
-    fn index_base(&self) -> &IndexReaderBase {
-        &self.index_base
-    }
+  fn index_base(&self) -> &IndexReaderBase {
+    &self.index_base
+  }
 }
 
 impl<'a, D> LeafReader for DocValuesLeafReaderImpl1<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    type CacheHelper = <DocValuesLeafReader as LeafReader>::CacheHelper;
+  type CacheHelper = <DocValuesLeafReader as LeafReader>::CacheHelper;
 
-    fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-        self.base.get_core_cache_helper_ref()
+  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
+    self.base.get_core_cache_helper_ref()
+  }
+
+  fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
+    self.base.get_core_cache_helper()
+  }
+
+  type Terms = <DocValuesLeafReader as LeafReader>::Terms;
+
+  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    self.base.terms(field)
+  }
+
+  type NumericDocValues = BufferedNumericDocValues;
+
+  fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+    let pf_index = self.index_chain.get_per_field(field);
+    if pf_index.is_none() {
+      return Ok(None);
     }
-
-    fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
-        self.base.get_core_cache_helper()
+    let pf = &self.index_chain.per_fields[pf_index.unwrap()];
+    if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Numeric {
+      match pf.doc_values_writer {
+        Some(DocValuesWriterEnum::Numeric(ref writer)) => {
+          Ok(Option::from(writer.get_doc_values()?))
+        },
+        _ => Err(LuceneError::illegal_state(format!(
+          "field=\"{}\": expected Numeric DocValuesWriter, found {}",
+          pf.field_name,
+          pf.doc_values_writer.as_ref().unwrap()
+        ))),
+      }
+    } else {
+      Ok(None)
     }
+  }
 
-    type Terms = <DocValuesLeafReader as LeafReader>::Terms;
+  type BinaryDocValues = BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>;
 
-    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-        self.base.terms(field)
+  fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    let pf_index = self.index_chain.get_per_field(field);
+    if pf_index.is_none() {
+      return Ok(None);
     }
-
-    type NumericDocValues = BufferedNumericDocValues;
-
-    fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
-        let pf_index = self.index_chain.get_per_field(field);
-        if pf_index.is_none() {
-            return Ok(None);
-        }
-        let pf = &self.index_chain.per_fields[pf_index.unwrap()];
-        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Numeric {
-            match pf.doc_values_writer {
-                Some(DocValuesWriterEnum::Numeric(ref writer)) => {
-                    Ok(Option::from(writer.get_doc_values()?))
-                },
-                _ => Err(LuceneError::illegal_state(format!(
-                    "field=\"{}\": expected Numeric DocValuesWriter, found {}",
-                    pf.field_name,
-                    pf.doc_values_writer.as_ref().unwrap()
-                ))),
-            }
-        } else {
-            Ok(None)
-        }
+    let pf = &self.index_chain.per_fields[pf_index.unwrap()];
+    if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Binary {
+      match pf.doc_values_writer {
+        Some(DocValuesWriterEnum::Binary(ref writer)) => Ok(Option::from(writer.get_doc_values()?)),
+        _ => Err(LuceneError::illegal_state(format!(
+          "field=\"{}\": expected Binary DocValuesWriter, found {}",
+          pf.field_name,
+          pf.doc_values_writer.as_ref().unwrap()
+        ))),
+      }
+    } else {
+      Ok(None)
     }
+  }
 
-    type BinaryDocValues = BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>;
+  type SortedDocValues = BufferedSortedDocValues<DocsWithFieldSetDISI>;
 
-    fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
-        let pf_index = self.index_chain.get_per_field(field);
-        if pf_index.is_none() {
-            return Ok(None);
-        }
-        let pf = &self.index_chain.per_fields[pf_index.unwrap()];
-        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Binary {
-            match pf.doc_values_writer {
-                Some(DocValuesWriterEnum::Binary(ref writer)) => {
-                    Ok(Option::from(writer.get_doc_values()?))
-                },
-                _ => Err(LuceneError::illegal_state(format!(
-                    "field=\"{}\": expected Binary DocValuesWriter, found {}",
-                    pf.field_name,
-                    pf.doc_values_writer.as_ref().unwrap()
-                ))),
-            }
-        } else {
-            Ok(None)
-        }
+  fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+    let pf_index = self.index_chain.get_per_field(field);
+    if pf_index.is_none() {
+      return Ok(None);
     }
-
-    type SortedDocValues = BufferedSortedDocValues<DocsWithFieldSetDISI>;
-
-    fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
-        let pf_index = self.index_chain.get_per_field(field);
-        if pf_index.is_none() {
-            return Ok(None);
-        }
-        let pf = &self.index_chain.per_fields[pf_index.unwrap()];
-        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Sorted {
-            match pf.doc_values_writer {
-                Some(DocValuesWriterEnum::Sorted(ref writer)) => {
-                    Ok(Option::from(writer.get_doc_values()?))
-                },
-                _ => Err(LuceneError::illegal_state(format!(
-                    "field=\"{}\": expected Sorted DocValuesWriter, found {}",
-                    pf.field_name,
-                    pf.doc_values_writer.as_ref().unwrap()
-                ))),
-            }
-        } else {
-            Ok(None)
-        }
+    let pf = &self.index_chain.per_fields[pf_index.unwrap()];
+    if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Sorted {
+      match pf.doc_values_writer {
+        Some(DocValuesWriterEnum::Sorted(ref writer)) => Ok(Option::from(writer.get_doc_values()?)),
+        _ => Err(LuceneError::illegal_state(format!(
+          "field=\"{}\": expected Sorted DocValuesWriter, found {}",
+          pf.field_name,
+          pf.doc_values_writer.as_ref().unwrap()
+        ))),
+      }
+    } else {
+      Ok(None)
     }
+  }
 
-    type SortedNumericDocValues = SortedNumericDocValuesEnum2<
-        SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-        BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
-    >;
+  type SortedNumericDocValues = SortedNumericDocValuesEnum2<
+    SingletonSortedNumericDocValues<BufferedNumericDocValues>,
+    BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
+  >;
 
-    fn get_sorted_numeric_doc_values(
-        &self,
-        field: &str,
-    ) -> Result<Option<Self::SortedNumericDocValues>> {
-        let pf_index = self.index_chain.get_per_field(field);
-        if pf_index.is_none() {
-            return Ok(None);
-        }
-        let pf = &self.index_chain.per_fields[pf_index.unwrap()];
-        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::SortedNumeric {
-            match pf.doc_values_writer {
-                Some(DocValuesWriterEnum::SortedNumeric(ref writer)) => {
-                    Ok(Option::from(writer.get_doc_values()?))
-                },
-                _ => Err(LuceneError::illegal_state(format!(
-                    "field=\"{}\": expected SortedNumeric DocValuesWriter, found {}",
-                    pf.field_name,
-                    pf.doc_values_writer.as_ref().unwrap()
-                ))),
-            }
-        } else {
-            Ok(None)
-        }
+  fn get_sorted_numeric_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::SortedNumericDocValues>> {
+    let pf_index = self.index_chain.get_per_field(field);
+    if pf_index.is_none() {
+      return Ok(None);
     }
-
-    type SortedSetDocValues = SortedSetDocValuesEnum2<
-        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
-        BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
-    >;
-
-    fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
-        let pf_index = self.index_chain.get_per_field(field);
-        if pf_index.is_none() {
-            return Ok(None);
-        }
-        let pf = &self.index_chain.per_fields[pf_index.unwrap()];
-        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::SortedSet {
-            match pf.doc_values_writer {
-                Some(DocValuesWriterEnum::SortedSet(ref writer)) => {
-                    Ok(Option::from(writer.get_doc_values()?))
-                },
-                _ => Err(LuceneError::illegal_state(format!(
-                    "field=\"{}\": expected SortedSet DocValuesWriter, found {}",
-                    pf.field_name,
-                    pf.doc_values_writer.as_ref().unwrap()
-                ))),
-            }
-        } else {
-            Ok(None)
-        }
+    let pf = &self.index_chain.per_fields[pf_index.unwrap()];
+    if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::SortedNumeric {
+      match pf.doc_values_writer {
+        Some(DocValuesWriterEnum::SortedNumeric(ref writer)) => {
+          Ok(Option::from(writer.get_doc_values()?))
+        },
+        _ => Err(LuceneError::illegal_state(format!(
+          "field=\"{}\": expected SortedNumeric DocValuesWriter, found {}",
+          pf.field_name,
+          pf.doc_values_writer.as_ref().unwrap()
+        ))),
+      }
+    } else {
+      Ok(None)
     }
+  }
 
-    type NormNumericDocValues = <DocValuesLeafReader as LeafReader>::NumericDocValues;
+  type SortedSetDocValues = SortedSetDocValuesEnum2<
+    SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
+    BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
+  >;
 
-    fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
-        self.base.get_norm_values(field)
+  fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+    let pf_index = self.index_chain.get_per_field(field);
+    if pf_index.is_none() {
+      return Ok(None);
     }
-
-    type DocValuesSkipper = <DocValuesLeafReader as LeafReader>::DocValuesSkipper;
-
-    fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
-        self.base.get_doc_values_skipper(field)
+    let pf = &self.index_chain.per_fields[pf_index.unwrap()];
+    if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::SortedSet {
+      match pf.doc_values_writer {
+        Some(DocValuesWriterEnum::SortedSet(ref writer)) => {
+          Ok(Option::from(writer.get_doc_values()?))
+        },
+        _ => Err(LuceneError::illegal_state(format!(
+          "field=\"{}\": expected SortedSet DocValuesWriter, found {}",
+          pf.field_name,
+          pf.doc_values_writer.as_ref().unwrap()
+        ))),
+      }
+    } else {
+      Ok(None)
     }
+  }
 
-    fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
-        Ok(Arc::new(self.field_info.finish()?))
-    }
+  type NormNumericDocValues = <DocValuesLeafReader as LeafReader>::NumericDocValues;
 
-    type Bits = <DocValuesLeafReader as LeafReader>::Bits;
+  fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    self.base.get_norm_values(field)
+  }
 
-    fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
-        self.base.get_live_docs()
-    }
+  type DocValuesSkipper = <DocValuesLeafReader as LeafReader>::DocValuesSkipper;
 
-    type PointValues = <DocValuesLeafReader as LeafReader>::PointValues;
+  fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    self.base.get_doc_values_skipper(field)
+  }
 
-    fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
-        self.base.get_point_values(_field)
-    }
+  fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
+    Ok(Arc::new(self.field_info.finish()?))
+  }
 
-    fn check_integrity(&self) -> Result<()> {
-        self.base.check_integrity()
-    }
+  type Bits = <DocValuesLeafReader as LeafReader>::Bits;
 
-    fn get_metadata(&self) -> Result<&LeafMetaData> {
-        self.base.get_metadata()
-    }
+  fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
+    self.base.get_live_docs()
+  }
+
+  type PointValues = <DocValuesLeafReader as LeafReader>::PointValues;
+
+  fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
+    self.base.get_point_values(_field)
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    self.base.check_integrity()
+  }
+
+  fn get_metadata(&self) -> Result<&LeafMetaData> {
+    self.base.get_metadata()
+  }
 }
 struct DocValuesLeafReaderImpl2<'a, SFB>
 where
-    SFB: SortFiledBase,
+  SFB: SortFiledBase,
 {
-    field_to_validate: &'a str,
-    dv_type: &'a DocValuesType,
-    base: DocValuesLeafReader,
-    sort_field: &'a SFB,
-    index_base: IndexReaderBase,
+  field_to_validate: &'a str,
+  dv_type: &'a DocValuesType,
+  base: DocValuesLeafReader,
+  sort_field: &'a SFB,
+  index_base: IndexReaderBase,
 }
 impl<'a, SFB> DocValuesLeafReaderImpl2<'a, SFB>
 where
-    SFB: SortFiledBase,
+  SFB: SortFiledBase,
 {
-    fn new(field_to_validate: &'a str, dv_type: &'a DocValuesType, sort_field: &'a SFB) -> Self {
-        let base = DocValuesLeafReader;
-        DocValuesLeafReaderImpl2 {
-            field_to_validate,
-            dv_type,
-            base,
-            sort_field,
-            index_base: IndexReaderBase::new(),
-        }
+  fn new(field_to_validate: &'a str, dv_type: &'a DocValuesType, sort_field: &'a SFB) -> Self {
+    let base = DocValuesLeafReader;
+    DocValuesLeafReaderImpl2 {
+      field_to_validate,
+      dv_type,
+      base,
+      sort_field,
+      index_base: IndexReaderBase::new(),
     }
+  }
 }
 
 impl<SFB> Display for DocValuesLeafReaderImpl2<'_, SFB>
 where
-    SFB: SortFiledBase,
+  SFB: SortFiledBase,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }
 
 impl<SFB> IndexReader for DocValuesLeafReaderImpl2<'_, SFB>
 where
-    SFB: SortFiledBase,
+  SFB: SortFiledBase,
 {
-    type TermVectors = <DocValuesLeafReader as IndexReader>::TermVectors;
+  type TermVectors = <DocValuesLeafReader as IndexReader>::TermVectors;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
-        self.base.term_vectors()
-    }
-    fn max_doc(&self) -> Result<i32> {
-        self.base.max_doc()
-    }
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    self.base.term_vectors()
+  }
+  fn max_doc(&self) -> Result<i32> {
+    self.base.max_doc()
+  }
 
-    fn num_docs(&self) -> Result<i32> {
-        self.base.num_docs()
-    }
+  fn num_docs(&self) -> Result<i32> {
+    self.base.num_docs()
+  }
 
-    type StoredFields = <DocValuesLeafReader as IndexReader>::StoredFields;
+  type StoredFields = <DocValuesLeafReader as IndexReader>::StoredFields;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
-        self.base.stored_fields()
-    }
-    fn do_close(&self) -> Result<()> {
-        self.base.do_close()
-    }
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    self.base.stored_fields()
+  }
+  fn do_close(&self) -> Result<()> {
+    self.base.do_close()
+  }
 
-    type ReaderCacheHelper = <DocValuesLeafReader as IndexReader>::ReaderCacheHelper;
+  type ReaderCacheHelper = <DocValuesLeafReader as IndexReader>::ReaderCacheHelper;
 
-    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-        self.base.get_reader_cache_helper()
-    }
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    self.base.get_reader_cache_helper()
+  }
 
-    fn doc_freq(&self, term: &Term) -> Result<i32> {
-        LeafReader::doc_freq(self, term)
-    }
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    LeafReader::doc_freq(self, term)
+  }
 
-    fn total_term_freq(&self, term: &Term) -> Result<i64> {
-        LeafReader::get_total_term_freq(self, term)
-    }
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    LeafReader::get_total_term_freq(self, term)
+  }
 
-    fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-        LeafReader::get_sum_doc_freq(self, field)
-    }
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    LeafReader::get_sum_doc_freq(self, field)
+  }
 
-    fn get_doc_count(&self, field: &str) -> Result<i32> {
-        LeafReader::get_doc_count(self, field)
-    }
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    LeafReader::get_doc_count(self, field)
+  }
 
-    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-        LeafReader::get_sum_total_term_freq(self, field)
-    }
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    LeafReader::get_sum_total_term_freq(self, field)
+  }
 
-    fn index_base(&self) -> &IndexReaderBase {
-        &self.index_base
-    }
+  fn index_base(&self) -> &IndexReaderBase {
+    &self.index_base
+  }
 }
 
 impl<SFB> LeafReader for DocValuesLeafReaderImpl2<'_, SFB>
 where
-    SFB: SortFiledBase,
+  SFB: SortFiledBase,
 {
-    type CacheHelper = <DocValuesLeafReader as LeafReader>::CacheHelper;
+  type CacheHelper = <DocValuesLeafReader as LeafReader>::CacheHelper;
 
-    fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-        self.base.get_core_cache_helper_ref()
+  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
+    self.base.get_core_cache_helper_ref()
+  }
+  fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
+    self.base.get_core_cache_helper()
+  }
+  type Terms = <DocValuesLeafReader as LeafReader>::Terms;
+
+  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    self.base.terms(field)
+  }
+
+  type NumericDocValues = EmptyNumeric;
+
+  fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+    if field == self.field_to_validate && *self.dv_type != DocValuesType::Numeric {
+      return Err(LuceneError::illegal_argument(format!(
+        "SortField {} expected field [{}] to be NUMERIC but it is [{}]",
+        self.sort_field, field, self.dv_type
+      )));
     }
-    fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
-        self.base.get_core_cache_helper()
+    Ok(Some(DocValues::empty_numeric()))
+  }
+
+  type BinaryDocValues = EmptyBinary;
+
+  fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    if field == self.field_to_validate && *self.dv_type != DocValuesType::Binary {
+      return Err(LuceneError::illegal_argument(format!(
+        "SortField {} expected field [{}] to be BINARY but it is [{}]",
+        self.sort_field, field, self.dv_type
+      )));
     }
-    type Terms = <DocValuesLeafReader as LeafReader>::Terms;
+    Ok(Some(DocValues::empty_binary()))
+  }
 
-    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-        self.base.terms(field)
+  type SortedDocValues = EmptySorted;
+
+  fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+    if field == self.field_to_validate && *self.dv_type != DocValuesType::Sorted {
+      return Err(LuceneError::illegal_argument(format!(
+        "SortField {} expected field [{}] to be SORTED but it is [{}]",
+        self.sort_field, field, self.dv_type
+      )));
     }
+    Ok(Some(DocValues::empty_sorted()))
+  }
 
-    type NumericDocValues = EmptyNumeric;
+  type SortedNumericDocValues = SingletonSortedNumericDocValues<EmptyNumeric>;
 
-    fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
-        if field == self.field_to_validate && *self.dv_type != DocValuesType::Numeric {
-            return Err(LuceneError::illegal_argument(format!(
-                "SortField {} expected field [{}] to be NUMERIC but it is [{}]",
-                self.sort_field, field, self.dv_type
-            )));
-        }
-        Ok(Some(DocValues::empty_numeric()))
+  fn get_sorted_numeric_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::SortedNumericDocValues>> {
+    if field == self.field_to_validate && *self.dv_type != DocValuesType::SortedNumeric {
+      return Err(LuceneError::illegal_argument(format!(
+        "SortField {} expected field [{}] to be SORTED_NUMERIC but it is [{}]",
+        self.sort_field, field, self.dv_type
+      )));
     }
+    Ok(Some(DocValues::empty_sorted_numeric()?))
+  }
 
-    type BinaryDocValues = EmptyBinary;
+  type SortedSetDocValues = EmptySortedSet;
 
-    fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
-        if field == self.field_to_validate && *self.dv_type != DocValuesType::Binary {
-            return Err(LuceneError::illegal_argument(format!(
-                "SortField {} expected field [{}] to be BINARY but it is [{}]",
-                self.sort_field, field, self.dv_type
-            )));
-        }
-        Ok(Some(DocValues::empty_binary()))
+  fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+    if field == self.field_to_validate && *self.dv_type != DocValuesType::SortedSet {
+      return Err(LuceneError::illegal_argument(format!(
+        "SortField {} expected field [{}] to be SORTED_SET but it is [{}]",
+        self.sort_field, field, self.dv_type
+      )));
     }
+    Ok(Some(DocValues::empty_sorted_set()?))
+  }
 
-    type SortedDocValues = EmptySorted;
+  type NormNumericDocValues = <DocValuesLeafReader as LeafReader>::NumericDocValues;
 
-    fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
-        if field == self.field_to_validate && *self.dv_type != DocValuesType::Sorted {
-            return Err(LuceneError::illegal_argument(format!(
-                "SortField {} expected field [{}] to be SORTED but it is [{}]",
-                self.sort_field, field, self.dv_type
-            )));
-        }
-        Ok(Some(DocValues::empty_sorted()))
-    }
+  fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    self.base.get_norm_values(field)
+  }
 
-    type SortedNumericDocValues = SingletonSortedNumericDocValues<EmptyNumeric>;
+  type DocValuesSkipper = <DocValuesLeafReader as LeafReader>::DocValuesSkipper;
 
-    fn get_sorted_numeric_doc_values(
-        &self,
-        field: &str,
-    ) -> Result<Option<Self::SortedNumericDocValues>> {
-        if field == self.field_to_validate && *self.dv_type != DocValuesType::SortedNumeric {
-            return Err(LuceneError::illegal_argument(format!(
-                "SortField {} expected field [{}] to be SORTED_NUMERIC but it is [{}]",
-                self.sort_field, field, self.dv_type
-            )));
-        }
-        Ok(Some(DocValues::empty_sorted_numeric()?))
-    }
+  fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    self.base.get_doc_values_skipper(field)
+  }
 
-    type SortedSetDocValues = EmptySortedSet;
+  fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
+    self.base.get_field_infos()
+  }
 
-    fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
-        if field == self.field_to_validate && *self.dv_type != DocValuesType::SortedSet {
-            return Err(LuceneError::illegal_argument(format!(
-                "SortField {} expected field [{}] to be SORTED_SET but it is [{}]",
-                self.sort_field, field, self.dv_type
-            )));
-        }
-        Ok(Some(DocValues::empty_sorted_set()?))
-    }
+  type Bits = <DocValuesLeafReader as LeafReader>::Bits;
 
-    type NormNumericDocValues = <DocValuesLeafReader as LeafReader>::NumericDocValues;
+  fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
+    self.base.get_live_docs()
+  }
 
-    fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
-        self.base.get_norm_values(field)
-    }
+  type PointValues = <DocValuesLeafReader as LeafReader>::PointValues;
 
-    type DocValuesSkipper = <DocValuesLeafReader as LeafReader>::DocValuesSkipper;
+  fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
+    self.base.get_point_values(_field)
+  }
+  fn check_integrity(&self) -> Result<()> {
+    self.base.check_integrity()
+  }
 
-    fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
-        self.base.get_doc_values_skipper(field)
-    }
-
-    fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
-        self.base.get_field_infos()
-    }
-
-    type Bits = <DocValuesLeafReader as LeafReader>::Bits;
-
-    fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
-        self.base.get_live_docs()
-    }
-
-    type PointValues = <DocValuesLeafReader as LeafReader>::PointValues;
-
-    fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
-        self.base.get_point_values(_field)
-    }
-    fn check_integrity(&self) -> Result<()> {
-        self.base.check_integrity()
-    }
-
-    fn get_metadata(&self) -> Result<&LeafMetaData> {
-        self.base.get_metadata()
-    }
+  fn get_metadata(&self) -> Result<&LeafMetaData> {
+    self.base.get_metadata()
+  }
 }
 
 struct DocComparatorImpl<DC>
 where
-    DC: DocComparator,
+  DC: DocComparator,
 {
-    parents: Rc<SparseFixedBitSetBitSet>,
-    doc_comparator: DC,
+  parents: Rc<SparseFixedBitSetBitSet>,
+  doc_comparator: DC,
 }
 impl<DC> DocComparatorImpl<DC>
 where
-    DC: DocComparator,
+  DC: DocComparator,
 {
-    fn new(parents: Rc<SparseFixedBitSetBitSet>, doc_comparator: DC) -> Self {
-        DocComparatorImpl {
-            parents,
-            doc_comparator,
-        }
+  fn new(parents: Rc<SparseFixedBitSetBitSet>, doc_comparator: DC) -> Self {
+    DocComparatorImpl {
+      parents,
+      doc_comparator,
     }
+  }
 }
 impl<DC> DocComparator for DocComparatorImpl<DC>
 where
-    DC: DocComparator,
+  DC: DocComparator,
 {
-    fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
-        let doc_id1 = self.parents.next_set_bit(doc_id1);
-        let doc_id2 = self.parents.next_set_bit(doc_id2);
-        self.doc_comparator.compare(doc_id1, doc_id2)
-    }
+  fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
+    let doc_id1 = self.parents.next_set_bit(doc_id1);
+    let doc_id2 = self.parents.next_set_bit(doc_id2);
+    self.doc_comparator.compare(doc_id1, doc_id2)
+  }
 }
 
 pub struct ReservedField<T>
 where
-    T: IndexableField,
+  T: IndexableField,
 {
-    delegate: T,
+  delegate: T,
 }
 impl<T> ReservedField<T>
 where
-    T: IndexableField,
+  T: IndexableField,
 {
-    pub(crate) fn new(delegate: T) -> Self {
-        ReservedField { delegate }
-    }
+  pub(crate) fn new(delegate: T) -> Self {
+    ReservedField { delegate }
+  }
 }
 
 #[cfg(test)]
 impl<T> Clone for ReservedField<T>
 where
-    T: IndexableField + Clone,
+  T: IndexableField + Clone,
 {
-    fn clone(&self) -> Self {
-        Self {
-            delegate: self.delegate.clone(),
-        }
+  fn clone(&self) -> Self {
+    Self {
+      delegate: self.delegate.clone(),
     }
+  }
 }
 
 impl<T> Display for ReservedField<T>
 where
-    T: IndexableField,
+  T: IndexableField,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.delegate.fmt(f)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    self.delegate.fmt(f)
+  }
 }
 
 impl<T> IndexableField for ReservedField<T>
 where
-    T: IndexableField,
+  T: IndexableField,
 {
-    fn name(&self) -> &str {
-        self.delegate.name()
-    }
+  fn name(&self) -> &str {
+    self.delegate.name()
+  }
 
-    type FieldType = <T as IndexableField>::FieldType;
+  type FieldType = <T as IndexableField>::FieldType;
 
-    fn field_type(&self) -> &Self::FieldType {
-        self.delegate.field_type()
-    }
+  fn field_type(&self) -> &Self::FieldType {
+    self.delegate.field_type()
+  }
 
-    type TokenStream = <T as IndexableField>::TokenStream;
+  type TokenStream = <T as IndexableField>::TokenStream;
 
-    fn token_stream<'a>(
-        &'a mut self,
-        token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
-    {
-        self.delegate.token_stream(token_stream)
-    }
+  fn token_stream<'a>(
+    &'a mut self,
+    token_stream: Option<&'a mut InnerTokenStreams>,
+  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
+    self.delegate.token_stream(token_stream)
+  }
 
-    fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.delegate.binary_value()
-    }
+  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    self.delegate.binary_value()
+  }
 
-    fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-        self.delegate.take_binary_value()
-    }
+  fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+    self.delegate.take_binary_value()
+  }
 
-    fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
-        self.delegate.string_value()
-    }
+  fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.delegate.string_value()
+  }
 
-    fn take_string_value(&mut self) -> Result<Option<String>> {
-        self.delegate.take_string_value()
-    }
+  fn take_string_value(&mut self) -> Result<Option<String>> {
+    self.delegate.take_string_value()
+  }
 
-    fn get_char_sequence_value(&self) -> Result<Option<Cow<'_, String>>> {
-        self.delegate.get_char_sequence_value()
-    }
+  fn get_char_sequence_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.delegate.get_char_sequence_value()
+  }
 
-    fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
-        self.delegate.take_reader_value()
-    }
+  fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
+    self.delegate.take_reader_value()
+  }
 
-    fn numeric_value(&self) -> Result<Option<Number>> {
-        self.delegate.numeric_value()
-    }
+  fn numeric_value(&self) -> Result<Option<Number>> {
+    self.delegate.numeric_value()
+  }
 
-    fn stored_value(&self) -> Option<&FieldDataEnum> {
-        self.delegate.stored_value()
-    }
+  fn stored_value(&self) -> Option<&FieldDataEnum> {
+    self.delegate.stored_value()
+  }
 
-    fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-        self.delegate.take_stored_value()
-    }
+  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
+    self.delegate.take_stored_value()
+  }
 
-    fn invertable_type(&self) -> &InvertableType {
-        self.delegate.invertable_type()
-    }
+  fn invertable_type(&self) -> &InvertableType {
+    self.delegate.invertable_type()
+  }
 
-    fn is_reserved(&self) -> bool {
-        true
-    }
+  fn is_reserved(&self) -> bool {
+    true
+  }
 
-    fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-    where
-        A: Analyzer,
-    {
-        self.delegate.init_token_stream(analyzer)
-    }
+  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
+  where
+    A: Analyzer,
+  {
+    self.delegate.init_token_stream(analyzer)
+  }
 }

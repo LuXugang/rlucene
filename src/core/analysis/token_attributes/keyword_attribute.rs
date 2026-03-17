@@ -21,21 +21,21 @@ use crate::core::util::attribute::Attribute;
 /// if the token is modified. Stemming filters for instance can use this attribute to conditionally
 /// skip a term if [`is_keyword`](KeywordAttribute::is_keyword) returns `true`.
 pub trait KeywordAttribute: Attribute {
-    /// Returns `true` if the current token is a keyword, otherwise `false`.
-    ///
-    /// # See
-    ///
-    /// [`set_keyword`](KeywordAttribute::set_keyword)
-    fn is_keyword(&self) -> bool;
+  /// Returns `true` if the current token is a keyword, otherwise `false`.
+  ///
+  /// # See
+  ///
+  /// [`set_keyword`](KeywordAttribute::set_keyword)
+  fn is_keyword(&self) -> bool;
 
-    /// Marks the current token as keyword if set to `true`.
-    ///
-    /// # Parameters
-    ///
-    /// - `is_keyword`: `true` if the current token is a keyword, otherwise `false`.
-    ///
-    /// # See
-    ///
-    /// [`is_keyword`](KeywordAttribute::is_keyword)
-    fn set_keyword(&mut self, is_keyword: bool);
+  /// Marks the current token as keyword if set to `true`.
+  ///
+  /// # Parameters
+  ///
+  /// - `is_keyword`: `true` if the current token is a keyword, otherwise `false`.
+  ///
+  /// # See
+  ///
+  /// [`is_keyword`](KeywordAttribute::is_keyword)
+  fn set_keyword(&mut self, is_keyword: bool);
 }

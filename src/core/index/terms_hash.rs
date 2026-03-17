@@ -17,10 +17,10 @@
 use crate::core::util::SharedCounter;
 
 pub struct TermsHash {
-    pub(crate) bytes_used: SharedCounter,
+  pub(crate) bytes_used: SharedCounter,
 }
 impl TermsHash {
-    pub(crate) fn new(bytes_used: SharedCounter) -> Self {
-        Self { bytes_used }
-    }
+  pub(crate) fn new(bytes_used: SharedCounter) -> Self {
+    Self { bytes_used }
+  }
 }

@@ -24,111 +24,111 @@ use std::hash::{Hash, Hasher};
 
 /// Implementation class for BytesTermAttribute.
 pub struct BytesTermAttributeImpl {
-    bytes: Option<BytesRef<Vec<u8>>>,
+  bytes: Option<BytesRef<Vec<u8>>>,
 }
 impl Default for BytesTermAttributeImpl {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl BytesTermAttributeImpl {
-    pub fn new() -> Self {
-        Self { bytes: None }
-    }
+  pub fn new() -> Self {
+    Self { bytes: None }
+  }
 }
 
 impl Attribute for BytesTermAttributeImpl {}
 
 impl Clone for BytesTermAttributeImpl {
-    fn clone(&self) -> Self {
-        let mut c = BytesTermAttributeImpl::new();
-        self.copy_to(&mut c);
-        c
-    }
+  fn clone(&self) -> Self {
+    let mut c = BytesTermAttributeImpl::new();
+    self.copy_to(&mut c);
+    c
+  }
 }
 
 impl AttributeImpl for BytesTermAttributeImpl {
-    fn clear(&mut self) {
-        let _ = self.bytes.take();
-    }
+  fn clear(&mut self) {
+    let _ = self.bytes.take();
+  }
 
-    type AttributeImpl = BytesTermAttributeImpl;
+  type AttributeImpl = BytesTermAttributeImpl;
 
-    fn copy_to(&self, other: &mut Self::AttributeImpl) {
-        match self.bytes {
-            Some(ref bytes) => other.bytes = Some(BytesRef::deep_copy_of(bytes)),
-            None => other.bytes = None,
-        }
+  fn copy_to(&self, other: &mut Self::AttributeImpl) {
+    match self.bytes {
+      Some(ref bytes) => other.bytes = Some(BytesRef::deep_copy_of(bytes)),
+      None => other.bytes = None,
     }
+  }
 }
 
 impl TermToBytesRefAttribute for BytesTermAttributeImpl {
-    fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.bytes.as_ref().map(Cow::Borrowed)
-    }
+  fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+    self.bytes.as_ref().map(Cow::Borrowed)
+  }
 }
 
 impl BytesTermAttribute for BytesTermAttributeImpl {
-    fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) {
-        self.bytes = bytes;
-    }
+  fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) {
+    self.bytes = bytes;
+  }
 }
 impl Hash for BytesTermAttributeImpl {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.bytes.hash(state);
-    }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.bytes.hash(state);
+  }
 }
 impl PartialEq for BytesTermAttributeImpl {
-    fn eq(&self, other: &Self) -> bool {
-        self.bytes == other.bytes
-    }
+  fn eq(&self, other: &Self) -> bool {
+    self.bytes == other.bytes
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
-    use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
-    use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
-    use crate::core::index::BytesRef;
-    use crate::core::util::attribute_impl::AttributeImpl;
-    use crate::core::util::error::lucene_error::Result;
-    use std::hash::{DefaultHasher, Hash, Hasher};
-    #[allow(dead_code)]
-    struct TestBytesRefAttImpl;
-    #[test]
-    fn test_copy_to() -> Result<()> {
-        let mut t = BytesTermAttributeImpl::new();
-        let mut copy = assert_copy_is_equal(&t)?;
+  use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
+  use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
+  use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
+  use crate::core::index::BytesRef;
+  use crate::core::util::attribute_impl::AttributeImpl;
+  use crate::core::util::error::lucene_error::Result;
+  use std::hash::{DefaultHasher, Hash, Hasher};
+  #[allow(dead_code)]
+  struct TestBytesRefAttImpl;
+  #[test]
+  fn test_copy_to() -> Result<()> {
+    let mut t = BytesTermAttributeImpl::new();
+    let mut copy = assert_copy_is_equal(&t)?;
 
-        // first do empty
-        assert_eq!(t.get_bytes_ref(), copy.get_bytes_ref());
-        assert!(copy.get_bytes_ref().is_none());
+    // first do empty
+    assert_eq!(t.get_bytes_ref(), copy.get_bytes_ref());
+    assert!(copy.get_bytes_ref().is_none());
 
-        // now after setting it
-        t.set_bytes_ref(Some(BytesRef::from_string("hello")));
-        copy = assert_copy_is_equal(&t)?;
-        assert_eq!(t.get_bytes_ref(), copy.get_bytes_ref());
-        // no need check same instance
+    // now after setting it
+    t.set_bytes_ref(Some(BytesRef::from_string("hello")));
+    copy = assert_copy_is_equal(&t)?;
+    assert_eq!(t.get_bytes_ref(), copy.get_bytes_ref());
+    // no need check same instance
 
-        Ok(())
-    }
-    fn assert_copy_is_equal(att: &BytesTermAttributeImpl) -> Result<BytesTermAttributeImpl> {
-        let mut copy = BytesTermAttributeImpl::new();
-        att.copy_to(&mut copy);
-        assert!(att == &copy, "Copied instance must be equal");
+    Ok(())
+  }
+  fn assert_copy_is_equal(att: &BytesTermAttributeImpl) -> Result<BytesTermAttributeImpl> {
+    let mut copy = BytesTermAttributeImpl::new();
+    att.copy_to(&mut copy);
+    assert!(att == &copy, "Copied instance must be equal");
 
-        let mut h1 = DefaultHasher::new();
-        att.hash(&mut h1);
-        let mut h2 = DefaultHasher::new();
-        copy.hash(&mut h2);
+    let mut h1 = DefaultHasher::new();
+    att.hash(&mut h1);
+    let mut h2 = DefaultHasher::new();
+    copy.hash(&mut h2);
 
-        assert_eq!(
-            h1.finish(),
-            h2.finish(),
-            "Copied instance's hashcode must be equal"
-        );
+    assert_eq!(
+      h1.finish(),
+      h2.finish(),
+      "Copied instance's hashcode must be equal"
+    );
 
-        Ok(copy)
-    }
+    Ok(copy)
+  }
 }

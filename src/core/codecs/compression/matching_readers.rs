@@ -23,57 +23,57 @@ use crate::core::util::info_stream::InfoStream;
 /// Computes which segments have identical field name to number mappings,
 /// which allows stored fields and term vectors in this codec to be bulk-merged.
 pub struct MatchingReaders {
-    /// [`SegmentReader`](crate::core::index::segment_reader::SegmentReader)'s that
-    /// have identical field name/number mapping, so their stored fields
-    /// and term vectors may be bulk merged.
-    pub matching_readers: Vec<bool>,
+  /// [`SegmentReader`](crate::core::index::segment_reader::SegmentReader)'s that
+  /// have identical field name/number mapping, so their stored fields
+  /// and term vectors may be bulk merged.
+  pub matching_readers: Vec<bool>,
 
-    /// How many `matching_readers` are set.
-    pub count: i32,
+  /// How many `matching_readers` are set.
+  pub count: i32,
 }
 
 impl MatchingReaders {
-    pub fn new<D, CR>(merge_state: &MergeState<D, CR>) -> Result<Self>
-    where
-        D: Directory,
-        CR: CodecReader,
-    {
-        // If the i'th reader is a SegmentReader and has
-        // identical fieldName -> number mapping, then this
-        // array will be non-null at position i:
-        let num_readers = merge_state.max_docs.len();
-        let mut matching_readers = vec![false; num_readers];
-        let mut matched_count: i32 = 0;
+  pub fn new<D, CR>(merge_state: &MergeState<D, CR>) -> Result<Self>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    // If the i'th reader is a SegmentReader and has
+    // identical fieldName -> number mapping, then this
+    // array will be non-null at position i:
+    let num_readers = merge_state.max_docs.len();
+    let mut matching_readers = vec![false; num_readers];
+    let mut matched_count: i32 = 0;
 
-        'next_reader: for (i, field_infos) in merge_state.field_infos.iter().enumerate() {
-            for fi in &**field_infos {
-                match merge_state
-                    .merge_field_infos
-                    .field_info_by_number(fi.number)?
-                {
-                    Some(other) if other.name == fi.name => continue,
-                    _ => continue 'next_reader,
-                }
-            }
-            matching_readers[i] = true;
-            matched_count += 1;
+    'next_reader: for (i, field_infos) in merge_state.field_infos.iter().enumerate() {
+      for fi in &**field_infos {
+        match merge_state
+          .merge_field_infos
+          .field_info_by_number(fi.number)?
+        {
+          Some(other) if other.name == fi.name => continue,
+          _ => continue 'next_reader,
         }
-        if merge_state.info_stream.enabled("SM") {
-            merge_state.info_stream.message(
-                "SM",
-                &format!("merge store matched_count={matched_count} vs {num_readers}"),
-            );
-        }
-        if matched_count as usize != num_readers {
-            merge_state.info_stream.message(
-                "SM",
-                &format!("{} non-bulk merges", num_readers as i32 - matched_count),
-            );
-        }
-
-        Ok(Self {
-            matching_readers,
-            count: matched_count,
-        })
+      }
+      matching_readers[i] = true;
+      matched_count += 1;
     }
+    if merge_state.info_stream.enabled("SM") {
+      merge_state.info_stream.message(
+        "SM",
+        &format!("merge store matched_count={matched_count} vs {num_readers}"),
+      );
+    }
+    if matched_count as usize != num_readers {
+      merge_state.info_stream.message(
+        "SM",
+        &format!("{} non-bulk merges", num_readers as i32 - matched_count),
+      );
+    }
+
+    Ok(Self {
+      matching_readers,
+      count: matched_count,
+    })
+  }
 }

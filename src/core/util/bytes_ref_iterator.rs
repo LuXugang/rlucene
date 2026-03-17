@@ -20,64 +20,64 @@ use crate::core::index::BytesRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait BytesRefIterator {
-    /// The returned `BytesRef` may be re-used across calls to `next`. After
-    /// this method returns `None`, do not call it again as the results are
-    /// undefined.
-    ///
-    /// # Returns
-    /// The next [`BytesRef`] in the iterator or `None` if the end of the
-    /// iterator is reached.
-    ///
-    /// # Note
-    /// In some scenarios, we need to return a reference to the `BytesRef` to
-    /// avoid frequent copying operations.
-    /// Like in [`TermsDict`](crate::core::codecs::lucene90::lucene90_doc_values_producer::TermsDict), this method can be used
-    /// when reusing internal buffers to reduce allocations and improve
-    /// performance.
-    ///
-    /// To simplify the interface and allow for both owned and borrowed variants
-    /// in a unified way, it is recommended to use
-    /// [`Cow<BytesRef>`](std::borrow::Cow). This enables returning either:
-    ///
-    /// - `Cow::Borrowed(&BytesRef)` when the data is internally reusable,
-    ///   avoiding clone costs
-    /// - `Cow::Owned(BytesRef)` when a fresh copy is required
-    ///
-    /// This approach provides flexibility to the implementor and clarity to the
-    /// caller, while preserving performance by avoiding unnecessary
-    /// allocations. # Errors
-    /// Returns an `std::io::Error` if there is a low-level I/O error.
-    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        Err(LuceneError::need_implemented("this method need implement"))
-    }
-    fn set_next(&mut self) -> Result<bool> {
-        Err(LuceneError::need_implemented("this method need implement"))
-    }
+  /// The returned `BytesRef` may be re-used across calls to `next`. After
+  /// this method returns `None`, do not call it again as the results are
+  /// undefined.
+  ///
+  /// # Returns
+  /// The next [`BytesRef`] in the iterator or `None` if the end of the
+  /// iterator is reached.
+  ///
+  /// # Note
+  /// In some scenarios, we need to return a reference to the `BytesRef` to
+  /// avoid frequent copying operations.
+  /// Like in [`TermsDict`](crate::core::codecs::lucene90::lucene90_doc_values_producer::TermsDict), this method can be used
+  /// when reusing internal buffers to reduce allocations and improve
+  /// performance.
+  ///
+  /// To simplify the interface and allow for both owned and borrowed variants
+  /// in a unified way, it is recommended to use
+  /// [`Cow<BytesRef>`](std::borrow::Cow). This enables returning either:
+  ///
+  /// - `Cow::Borrowed(&BytesRef)` when the data is internally reusable,
+  ///   avoiding clone costs
+  /// - `Cow::Owned(BytesRef)` when a fresh copy is required
+  ///
+  /// This approach provides flexibility to the implementor and clarity to the
+  /// caller, while preserving performance by avoiding unnecessary
+  /// allocations. # Errors
+  /// Returns an `std::io::Error` if there is a low-level I/O error.
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    Err(LuceneError::need_implemented("this method need implement"))
+  }
+  fn set_next(&mut self) -> Result<bool> {
+    Err(LuceneError::need_implemented("this method need implement"))
+  }
 }
 
 pub struct EmptyBytesRefIterator;
 
 impl BytesRefIterator for EmptyBytesRefIterator {
-    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        Ok(None)
-    }
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    Ok(None)
+  }
 }
 
 impl EmptyBytesRefIterator {
-    pub const EMPTY: Self = EmptyBytesRefIterator;
+  pub const EMPTY: Self = EmptyBytesRefIterator;
 }
 
 impl<T> BytesRefIterator for &mut T
 where
-    T: BytesRefIterator,
+  T: BytesRefIterator,
 {
-    #[inline]
-    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        (**self).next()
-    }
+  #[inline]
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    (**self).next()
+  }
 
-    #[inline]
-    fn set_next(&mut self) -> Result<bool> {
-        (**self).set_next()
-    }
+  #[inline]
+  fn set_next(&mut self) -> Result<bool> {
+    (**self).set_next()
+  }
 }

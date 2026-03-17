@@ -23,35 +23,35 @@ use crate::core::util::info_stream::InfoStreamMT;
 /// # Experimental
 /// This API is experimental and subject to change.
 pub trait HnswBuilder {
-    /// Adds all nodes to the graph up to the provided `max_ord` (exclusive).
-    ///
-    /// # Arguments
-    ///
-    /// * `max_ord` - The maximum ordinal (excluded) of the nodes to be added.
-    ///
-    /// # Returns
-    ///
-    /// The built [`OnHeapHnswGraph`].
-    fn build(&mut self, max_ord: usize) -> Result<&mut OnHeapHnswGraph>;
+  /// Adds all nodes to the graph up to the provided `max_ord` (exclusive).
+  ///
+  /// # Arguments
+  ///
+  /// * `max_ord` - The maximum ordinal (excluded) of the nodes to be added.
+  ///
+  /// # Returns
+  ///
+  /// The built [`OnHeapHnswGraph`].
+  fn build(&mut self, max_ord: usize) -> Result<&mut OnHeapHnswGraph>;
 
-    /// Inserts a doc with vector value to the graph.
-    fn add_graph_node(&mut self, node: usize) -> Result<()>;
+  /// Inserts a doc with vector value to the graph.
+  fn add_graph_node(&mut self, node: usize) -> Result<()>;
 
-    /// Sets the info stream for debug output.
-    fn set_info_stream(&mut self, info_stream: InfoStreamMT);
+  /// Sets the info stream for debug output.
+  fn set_info_stream(&mut self, info_stream: InfoStreamMT);
 
-    /// Returns a reference to the current graph under construction.
-    fn get_graph(&mut self) -> &mut OnHeapHnswGraph;
-    /// Once this method is called, no further updates to the graph are
-    /// accepted.
-    ///
-    /// Calling this method disables further calls to `add_graph_node`, which
-    /// will panic (equivalent to throwing `IllegalStateException` in Java).
-    /// Final modifications to the graph—such as patching disconnected
-    /// components or reordering node IDs for better delta compression—may be
-    /// triggered.
-    ///
-    /// This operation may be time-consuming, and callers should expect it to
-    /// take some time.
-    fn get_completed_graph(&mut self) -> Result<&mut OnHeapHnswGraph>;
+  /// Returns a reference to the current graph under construction.
+  fn get_graph(&mut self) -> &mut OnHeapHnswGraph;
+  /// Once this method is called, no further updates to the graph are
+  /// accepted.
+  ///
+  /// Calling this method disables further calls to `add_graph_node`, which
+  /// will panic (equivalent to throwing `IllegalStateException` in Java).
+  /// Final modifications to the graph—such as patching disconnected
+  /// components or reordering node IDs for better delta compression—may be
+  /// triggered.
+  ///
+  /// This operation may be time-consuming, and callers should expect it to
+  /// take some time.
+  fn get_completed_graph(&mut self) -> Result<&mut OnHeapHnswGraph>;
 }

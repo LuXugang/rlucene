@@ -28,116 +28,112 @@ use crate::core::util::group_vint_util::GroupVIntUtil;
 /// Simple implementation of [`ChecksumIndexInput`] that wraps another input and
 /// delegates calls.
 pub struct BufferedChecksumIndexInput<T: IndexInput> {
-    main: T,
-    digest: BufferedChecksum<HasherChecksum>,
+  main: T,
+  digest: BufferedChecksum<HasherChecksum>,
 }
 impl<T> BufferedChecksumIndexInput<T>
 where
-    T: IndexInput,
+  T: IndexInput,
 {
-    pub fn new(main: T) -> BufferedChecksumIndexInput<T> {
-        let digest = BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
-        BufferedChecksumIndexInput { main, digest }
-    }
+  pub fn new(main: T) -> BufferedChecksumIndexInput<T> {
+    let digest = BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
+    BufferedChecksumIndexInput { main, digest }
+  }
 }
 
 impl<T> crate::core::util::clone::TryClone for BufferedChecksumIndexInput<T>
 where
-    T: IndexInput,
+  T: IndexInput,
 {
-    fn try_clone(&self) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        unreachable!("unsupported operation")
-    }
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    unreachable!("unsupported operation")
+  }
 }
 
 impl<T> IndexInput for BufferedChecksumIndexInput<T>
 where
-    T: IndexInput,
+  T: IndexInput,
 {
-    type IndexInput = BufferedChecksumIndexInput<T>;
+  type IndexInput = BufferedChecksumIndexInput<T>;
 
-    fn get_file_pointer(&self) -> Result<usize> {
-        self.main.get_file_pointer()
-    }
+  fn get_file_pointer(&self) -> Result<usize> {
+    self.main.get_file_pointer()
+  }
 
-    fn seek(&mut self, pos: usize) -> Result<()> {
-        ChecksumIndexInput::seek(self, pos)
-    }
+  fn seek(&mut self, pos: usize) -> Result<()> {
+    ChecksumIndexInput::seek(self, pos)
+  }
 
-    fn length(&self) -> usize {
-        self.main.length()
-    }
+  fn length(&self) -> usize {
+    self.main.length()
+  }
 
-    type RandomAccessSlice = DummyIndexInput;
+  type RandomAccessSlice = DummyIndexInput;
 
-    fn random_access_slice(
-        &self,
-        _offset: usize,
-        _length: usize,
-    ) -> Result<Self::RandomAccessSlice> {
-        Err(LuceneError::unsupported_operation(
-            "BufferedChecksumIndexInput does not support random access slicing",
-        ))
-    }
+  fn random_access_slice(&self, _offset: usize, _length: usize) -> Result<Self::RandomAccessSlice> {
+    Err(LuceneError::unsupported_operation(
+      "BufferedChecksumIndexInput does not support random access slicing",
+    ))
+  }
 }
 
 // TODO: readInt/Long not implement
 impl<T> DataInput for BufferedChecksumIndexInput<T>
 where
-    T: IndexInput,
+  T: IndexInput,
 {
-    fn read_byte(&mut self) -> Result<u8> {
-        let b = self.main.read_byte()?;
-        self.digest.update(b);
-        Ok(b)
-    }
+  fn read_byte(&mut self) -> Result<u8> {
+    let b = self.main.read_byte()?;
+    self.digest.update(b);
+    Ok(b)
+  }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
-        self.main.read_bytes(b, offset, len)?;
-        self.digest.update_bytes(b, offset, len);
-        Ok(())
-    }
+  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.main.read_bytes(b, offset, len)?;
+    self.digest.update_bytes(b, offset, len);
+    Ok(())
+  }
 
-    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
-    }
+  fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+    GroupVIntUtil::read_group_vint_i32(self, dst, offset)
+  }
 
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-        IndexInput::skip_bytes(self, num_bytes)
-    }
+  fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+    IndexInput::skip_bytes(self, num_bytes)
+  }
 
-    fn is_index_input(&self) -> bool {
-        true
-    }
+  fn is_index_input(&self) -> bool {
+    true
+  }
 
-    fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
-        debug_assert!(self.is_index_input());
-        IndexInput::seek(self, _pos)
-    }
+  fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
+    debug_assert!(self.is_index_input());
+    IndexInput::seek(self, _pos)
+  }
 
-    fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-        debug_assert!(self.is_index_input());
-        IndexInput::get_file_pointer(self)
-    }
+  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
+    debug_assert!(self.is_index_input());
+    IndexInput::get_file_pointer(self)
+  }
 }
 
 impl<T> Display for BufferedChecksumIndexInput<T>
 where
-    T: IndexInput,
+  T: IndexInput,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "BufferedChecksumIndexInput({})", self.main)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "BufferedChecksumIndexInput({})", self.main)
+  }
 }
 
 impl<T> ChecksumIndexInput for BufferedChecksumIndexInput<T>
 where
-    T: IndexInput,
+  T: IndexInput,
 {
-    fn get_checksum(&mut self) -> i64 {
-        self.digest.get_value()
-    }
+  fn get_checksum(&mut self) -> i64 {
+    self.digest.get_value()
+  }
 }

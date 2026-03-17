@@ -16,5 +16,5 @@
  */
 use crate::core::util::error::lucene_error::Result;
 pub trait Closeable {
-    fn close(&mut self) -> Result<()>;
+  fn close(&mut self) -> Result<()>;
 }

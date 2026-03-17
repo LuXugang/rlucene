@@ -39,158 +39,158 @@ use std::sync::Arc;
 /// is `>=` the configured max RAM buffer.
 pub struct FlushByRamOrCountsPolicy;
 impl Default for FlushByRamOrCountsPolicy {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl FlushByRamOrCountsPolicy {
-    pub fn new() -> Self {
-        Self {}
-    }
+  pub fn new() -> Self {
+    Self {}
+  }
 }
 
 impl FlushByRamOrCountsPolicy {
-    fn flush_deletes<D, L>(
-        &self,
-        control: &DocumentsWriterFlushControl<D>,
-        index_writer_config: &L,
-        delete_queue: &DocumentsWriterDeleteQueue,
-    ) -> Result<()>
-    where
-        D: Directory,
-        L: LiveIndexWriterConfig,
-    {
-        control.set_apply_all_deletes();
+  fn flush_deletes<D, L>(
+    &self,
+    control: &DocumentsWriterFlushControl<D>,
+    index_writer_config: &L,
+    delete_queue: &DocumentsWriterDeleteQueue,
+  ) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+  {
+    control.set_apply_all_deletes();
 
-        if control.info_stream.enabled("FP") {
-            control.info_stream.message(
-                "FP",
-                &format!(
-                    "force apply deletes bytesUsed={} vs ramBufferMB={}",
-                    control.get_delete_bytes_used(delete_queue)?,
-                    index_writer_config.get_ram_buffer_size_mb()
-                ),
-            );
-        }
-
-        Ok(())
-    }
-    fn flush_active_bytes<D, L>(
-        &self,
-        control: &DocumentsWriterFlushControl<D>,
-        per_thread: &DocumentsWriterPerThread<D>,
-        delete_queue: &DocumentsWriterDeleteQueue,
-        inner: &mut Inner<D>,
-        config: &L,
-    ) -> Result<()>
-    where
-        D: Directory,
-        L: LiveIndexWriterConfig,
-    {
-        if control.info_stream.enabled("FP") {
-            control.info_stream.message(
-                "FP",
-                &format!(
-                    "trigger flush: activeBytes={} deleteBytes={} vs ramBufferMB={}",
-                    control.active_bytes(Some(inner)),
-                    control.get_delete_bytes_used(delete_queue)?,
-                    config.get_ram_buffer_size_mb()
-                ),
-            );
-        }
-
-        self.mark_largest_writer_pending(control, per_thread, inner, config)?;
-        Ok(())
-    }
-    /// Marks the most ram consuming active [`DocumentsWriterPerThread`] flush pending
-    pub(crate) fn mark_largest_writer_pending<D, L>(
-        &self,
-        control: &DocumentsWriterFlushControl<D>,
-        per_thread: &DocumentsWriterPerThread<D>,
-        inner: &mut Inner<D>,
-        config: &L,
-    ) -> Result<()>
-    where
-        D: Directory,
-        L: LiveIndexWriterConfig,
-    {
-        let largest_non_pending_writer =
-            self.find_largest_non_pending_writer_for_thread(control, per_thread);
-        if let Some(largest_non_pendingwriter) = largest_non_pending_writer {
-            // If the found instance is itself, then use the `per_thread` parameter; otherwise, it may cause a deadlock.
-            let v = if Arc::ptr_eq(&largest_non_pendingwriter.state, &per_thread.state) {
-                per_thread
-            } else {
-                &*largest_non_pendingwriter.dwpt.lock()
-            };
-            control.set_flush_pending(v, Some(inner), config)?;
-        }
-        Ok(())
-    }
-    /// Returns `true` if this [`FlushPolicy`](crate::core::index::flush_policy::FlushPolicy) flushes on
-    /// [`LiveIndexWriterConfig::get_max_buffered_docs`], otherwise `false`.
-    fn flush_on_doc_count<L>(&self, index_writer_config: &L) -> bool
-    where
-        L: LiveIndexWriterConfig,
-    {
-        index_writer_config.get_max_buffered_docs() != DISABLE_AUTO_FLUSH
+    if control.info_stream.enabled("FP") {
+      control.info_stream.message(
+        "FP",
+        &format!(
+          "force apply deletes bytesUsed={} vs ramBufferMB={}",
+          control.get_delete_bytes_used(delete_queue)?,
+          index_writer_config.get_ram_buffer_size_mb()
+        ),
+      );
     }
 
-    /// Returns `true` if this [`FlushPolicy`](crate::core::index::flush_policy::FlushPolicy) flushes on
-    /// [`LiveIndexWriterConfig::get_ram_buffer_size_mb`], otherwise `false`.
-    fn flush_on_ram<L>(&self, index_writer_config: &L) -> bool
-    where
-        L: LiveIndexWriterConfig,
-    {
-        index_writer_config.get_ram_buffer_size_mb() != DISABLE_AUTO_FLUSH as f64
+    Ok(())
+  }
+  fn flush_active_bytes<D, L>(
+    &self,
+    control: &DocumentsWriterFlushControl<D>,
+    per_thread: &DocumentsWriterPerThread<D>,
+    delete_queue: &DocumentsWriterDeleteQueue,
+    inner: &mut Inner<D>,
+    config: &L,
+  ) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+  {
+    if control.info_stream.enabled("FP") {
+      control.info_stream.message(
+        "FP",
+        &format!(
+          "trigger flush: activeBytes={} deleteBytes={} vs ramBufferMB={}",
+          control.active_bytes(Some(inner)),
+          control.get_delete_bytes_used(delete_queue)?,
+          config.get_ram_buffer_size_mb()
+        ),
+      );
     }
+
+    self.mark_largest_writer_pending(control, per_thread, inner, config)?;
+    Ok(())
+  }
+  /// Marks the most ram consuming active [`DocumentsWriterPerThread`] flush pending
+  pub(crate) fn mark_largest_writer_pending<D, L>(
+    &self,
+    control: &DocumentsWriterFlushControl<D>,
+    per_thread: &DocumentsWriterPerThread<D>,
+    inner: &mut Inner<D>,
+    config: &L,
+  ) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+  {
+    let largest_non_pending_writer =
+      self.find_largest_non_pending_writer_for_thread(control, per_thread);
+    if let Some(largest_non_pendingwriter) = largest_non_pending_writer {
+      // If the found instance is itself, then use the `per_thread` parameter; otherwise, it may cause a deadlock.
+      let v = if Arc::ptr_eq(&largest_non_pendingwriter.state, &per_thread.state) {
+        per_thread
+      } else {
+        &*largest_non_pendingwriter.dwpt.lock()
+      };
+      control.set_flush_pending(v, Some(inner), config)?;
+    }
+    Ok(())
+  }
+  /// Returns `true` if this [`FlushPolicy`](crate::core::index::flush_policy::FlushPolicy) flushes on
+  /// [`LiveIndexWriterConfig::get_max_buffered_docs`], otherwise `false`.
+  fn flush_on_doc_count<L>(&self, index_writer_config: &L) -> bool
+  where
+    L: LiveIndexWriterConfig,
+  {
+    index_writer_config.get_max_buffered_docs() != DISABLE_AUTO_FLUSH
+  }
+
+  /// Returns `true` if this [`FlushPolicy`](crate::core::index::flush_policy::FlushPolicy) flushes on
+  /// [`LiveIndexWriterConfig::get_ram_buffer_size_mb`], otherwise `false`.
+  fn flush_on_ram<L>(&self, index_writer_config: &L) -> bool
+  where
+    L: LiveIndexWriterConfig,
+  {
+    index_writer_config.get_ram_buffer_size_mb() != DISABLE_AUTO_FLUSH as f64
+  }
 }
 impl FlushPolicy for FlushByRamOrCountsPolicy {
-    fn on_change<D, L>(
-        &self,
-        control: &DocumentsWriterFlushControl<D>,
-        inner: &mut Inner<D>,
-        per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
-        delete_queue: &DocumentsWriterDeleteQueue,
-        config: &L,
-    ) -> Result<()>
-    where
-        D: Directory,
-        L: LiveIndexWriterConfig,
+  fn on_change<D, L>(
+    &self,
+    control: &DocumentsWriterFlushControl<D>,
+    inner: &mut Inner<D>,
+    per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
+    delete_queue: &DocumentsWriterDeleteQueue,
+    config: &L,
+  ) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+  {
+    let index_writer_config = config;
+    if let Some(pt) = per_thread
+      && self.flush_on_doc_count(index_writer_config)
+      && pt.get_num_docs_in_ram() >= index_writer_config.get_max_buffered_docs()
     {
-        let index_writer_config = config;
-        if let Some(pt) = per_thread
-            && self.flush_on_doc_count(index_writer_config)
-            && pt.get_num_docs_in_ram() >= index_writer_config.get_max_buffered_docs()
-        {
-            // Flush this state by num docs
-            control.set_flush_pending(pt, Some(inner), config)?;
-            return Ok(());
-        }
-
-        if self.flush_on_ram(index_writer_config) {
-            let limit = (index_writer_config.get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64;
-            let active_ram = control.active_bytes(Some(inner));
-            let deletes_ram = control.get_delete_bytes_used(delete_queue)?;
-
-            if deletes_ram >= limit
-                && active_ram >= limit
-                && let Some(pt) = per_thread
-            {
-                self.flush_deletes(control, index_writer_config, delete_queue)?;
-                self.flush_active_bytes(control, pt, delete_queue, inner, config)?;
-                return Ok(());
-            }
-
-            if deletes_ram >= limit {
-                self.flush_deletes(control, index_writer_config, delete_queue)?;
-            } else if active_ram + deletes_ram >= limit
-                && let Some(pt) = per_thread
-            {
-                self.flush_active_bytes(control, pt, delete_queue, inner, config)?;
-            }
-        }
-        Ok(())
+      // Flush this state by num docs
+      control.set_flush_pending(pt, Some(inner), config)?;
+      return Ok(());
     }
+
+    if self.flush_on_ram(index_writer_config) {
+      let limit = (index_writer_config.get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64;
+      let active_ram = control.active_bytes(Some(inner));
+      let deletes_ram = control.get_delete_bytes_used(delete_queue)?;
+
+      if deletes_ram >= limit
+        && active_ram >= limit
+        && let Some(pt) = per_thread
+      {
+        self.flush_deletes(control, index_writer_config, delete_queue)?;
+        self.flush_active_bytes(control, pt, delete_queue, inner, config)?;
+        return Ok(());
+      }
+
+      if deletes_ram >= limit {
+        self.flush_deletes(control, index_writer_config, delete_queue)?;
+      } else if active_ram + deletes_ram >= limit
+        && let Some(pt) = per_thread
+      {
+        self.flush_active_bytes(control, pt, delete_queue, inner, config)?;
+      }
+    }
+    Ok(())
+  }
 }

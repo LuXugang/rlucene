@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
 use crate::core::codecs::compression::compression_mode::{
-    CompressionModeBase, CompressionModeEnum, CompressorEnum, DecompressorEnum,
+  CompressionModeBase, CompressionModeEnum, CompressorEnum, DecompressorEnum,
 };
 use crate::core::codecs::compression::compressor::Compressor;
 use crate::core::codecs::compression::decompressor::Decompressor;
@@ -46,271 +46,273 @@ use std::sync::Arc;
 
 pub(crate) struct SortingStoredFieldsConsumer<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) writer: Option<
-        DefaultStoredFieldsWriter<
-            <TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput,
-        >,
+  pub(crate) writer: Option<
+    DefaultStoredFieldsWriter<
+      <TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput,
     >,
-    pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<Arc<D>>,
-    stored_fields_format: Lucene90CompressingStoredFieldsFormat,
+  >,
+  pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<Arc<D>>,
+  stored_fields_format: Lucene90CompressingStoredFieldsFormat,
 }
 impl<D> SortingStoredFieldsConsumer<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) fn new(dir: Arc<D>) -> Result<Self> {
-        let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
-            "TempStoredFields",
-            CompressionModeEnum::Impl(NoCompression),
-            128 * 1024,
-            1,
-            10,
-        )?;
-        let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(dir);
-        Ok(Self {
-            writer: None,
-            tmp_directory,
-            stored_fields_format,
-        })
-    }
+  pub(crate) fn new(dir: Arc<D>) -> Result<Self> {
+    let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
+      "TempStoredFields",
+      CompressionModeEnum::Impl(NoCompression),
+      128 * 1024,
+      1,
+      10,
+    )?;
+    let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(dir);
+    Ok(Self {
+      writer: None,
+      tmp_directory,
+      stored_fields_format,
+    })
+  }
 }
 
 impl<D> StoredFieldsConsumerBase for SortingStoredFieldsConsumer<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    type Directory = D;
+  type Directory = D;
 
-    fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
-    where
-        D1: Directory,
-    {
-        if self.writer.is_none() {
-            self.writer = Some(self.stored_fields_format.fields_writer(
-                &self.tmp_directory,
-                info,
-                &IOContext::default_io_context()?,
-            )?);
-        }
-
-        Ok(())
+  fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
+  where
+    D1: Directory,
+  {
+    if self.writer.is_none() {
+      self.writer = Some(self.stored_fields_format.fields_writer(
+        &self.tmp_directory,
+        info,
+        &IOContext::default_io_context()?,
+      )?);
     }
 
-    fn flush<DM, D1>(
-        &mut self,
-        state: &SegmentWriteState<Self::Directory>,
-        sort_map: Option<&DM>,
-        info: &mut SegmentInfo<D1>,
-    ) -> Result<()>
-    where
-        DM: DocMap,
-        D1: Directory,
-    {
-        let mut reader = self.stored_fields_format.fields_reader(
-            &self.tmp_directory,
-            info,
-            state.field_infos.clone(),
-            &IOContext::default_io_context()?,
+    Ok(())
+  }
+
+  fn flush<DM, D1>(
+    &mut self,
+    state: &SegmentWriteState<Self::Directory>,
+    sort_map: Option<&DM>,
+    info: &mut SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    DM: DocMap,
+    D1: Directory,
+  {
+    let mut reader = self.stored_fields_format.fields_reader(
+      &self.tmp_directory,
+      info,
+      state.field_infos.clone(),
+      &IOContext::default_io_context()?,
+    )?;
+    // Don't pull a merge instance, since merge instances optimize for
+    // sequential access while we consume stored fields in random order here.
+    let mut sort_writer = get_default_code().stored_fields_format().fields_writer(
+      state.directory,
+      info,
+      state.context,
+    )?;
+
+    let result: Result<()> = (|| {
+      reader.check_integrity()?;
+      let mut visitor = CopyVisitor::new(&mut sort_writer);
+      let max_doc = info.max_doc()?;
+      for doc_id in 0..max_doc {
+        visitor.writer.start_document()?;
+        let mapped_doc = if let Some(sort_map) = sort_map {
+          sort_map.new_to_old(doc_id)?
+        } else {
+          doc_id
+        };
+        reader.document_with_visitor(
+          mapped_doc,
+          &mut visitor,
+          None::<&mut DummyStoredFieldsWriter>,
         )?;
-        // Don't pull a merge instance, since merge instances optimize for
-        // sequential access while we consume stored fields in random order here.
-        let mut sort_writer = get_default_code().stored_fields_format().fields_writer(
-            state.directory,
-            info,
-            state.context,
-        )?;
+        visitor.writer.finish_document()?;
+      }
 
-        let result: Result<()> = (|| {
-            reader.check_integrity()?;
-            let mut visitor = CopyVisitor::new(&mut sort_writer);
-            let max_doc = info.max_doc()?;
-            for doc_id in 0..max_doc {
-                visitor.writer.start_document()?;
-                let mapped_doc = if let Some(sort_map) = sort_map {
-                    sort_map.new_to_old(doc_id)?
-                } else {
-                    doc_id
-                };
-                reader.document_with_visitor(
-                    mapped_doc,
-                    &mut visitor,
-                    None::<&mut DummyStoredFieldsWriter>,
-                )?;
-                visitor.writer.finish_document()?;
-            }
+      sort_writer.finish(max_doc, state.directory)?;
+      Ok(())
+    })();
 
-            sort_writer.finish(max_doc, state.directory)?;
-            Ok(())
-        })();
+    let names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+    IOUtils::delete_files(&self.tmp_directory, names.values())?;
+    result?;
+    Ok(())
+  }
 
-        let names = &self.tmp_directory.get_temporary_files().borrow().file_names;
-        IOUtils::delete_files(&self.tmp_directory, names.values())?;
-        result?;
-        Ok(())
-    }
-
-    fn abort(&mut self) -> Result<()> {
-        let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
-        IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
-        Ok(())
-    }
+  fn abort(&mut self) -> Result<()> {
+    let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+    IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
+    Ok(())
+  }
 }
 
 /// A visitor that copies every field it sees in the provided [`StoredFieldsWriter`]
 pub(crate) struct CopyVisitor<'a, S>
 where
-    S: StoredFieldsWriter,
+  S: StoredFieldsWriter,
 {
-    pub(crate) writer: &'a mut S,
+  pub(crate) writer: &'a mut S,
 }
 impl<'a, S> CopyVisitor<'a, S>
 where
-    S: StoredFieldsWriter,
+  S: StoredFieldsWriter,
 {
-    pub fn new(writer: &'a mut S) -> Self {
-        Self { writer }
-    }
+  pub fn new(writer: &'a mut S) -> Self {
+    Self { writer }
+  }
 }
 impl<S> StoredFieldVisitor for CopyVisitor<'_, S>
 where
-    S: StoredFieldsWriter,
+  S: StoredFieldsWriter,
 {
-    fn binary_field_with_input<S1: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        input: &mut impl DataInput,
-        length: i32,
-        _writer: Option<&mut S1>,
-    ) -> Result<()> {
-        self.writer
-            .write_field_with_input(&field_info, input, length)
-    }
+  fn binary_field_with_input<S1: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    input: &mut impl DataInput,
+    length: i32,
+    _writer: Option<&mut S1>,
+  ) -> Result<()> {
+    self
+      .writer
+      .write_field_with_input(&field_info, input, length)
+  }
 
-    fn binary_field<S1: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: Vec<u8>,
-        _writer: Option<&mut S1>,
-    ) -> Result<()> {
-        self.writer
-            .write_field_bytes(&field_info, &BytesRef::from_bytes(value))
-    }
+  fn binary_field<S1: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: Vec<u8>,
+    _writer: Option<&mut S1>,
+  ) -> Result<()> {
+    self
+      .writer
+      .write_field_bytes(&field_info, &BytesRef::from_bytes(value))
+  }
 
-    fn string_field<S1: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: String,
-        _writer: Option<&mut S1>,
-    ) -> Result<()> {
-        self.writer.write_field_str(&field_info, &value)
-    }
+  fn string_field<S1: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: String,
+    _writer: Option<&mut S1>,
+  ) -> Result<()> {
+    self.writer.write_field_str(&field_info, &value)
+  }
 
-    fn int_field<S1: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: i32,
-        _writer: Option<&mut S1>,
-    ) -> Result<()> {
-        self.writer.write_field_i32(&field_info, value)
-    }
+  fn int_field<S1: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: i32,
+    _writer: Option<&mut S1>,
+  ) -> Result<()> {
+    self.writer.write_field_i32(&field_info, value)
+  }
 
-    fn long_field<S1: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: i64,
-        _writer: Option<&mut S1>,
-    ) -> Result<()> {
-        self.writer.write_field_i64(&field_info, value)
-    }
+  fn long_field<S1: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: i64,
+    _writer: Option<&mut S1>,
+  ) -> Result<()> {
+    self.writer.write_field_i64(&field_info, value)
+  }
 
-    fn float_field<S1: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: f32,
-        _writer: Option<&mut S1>,
-    ) -> Result<()> {
-        self.writer.write_field_f32(&field_info, value)
-    }
+  fn float_field<S1: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: f32,
+    _writer: Option<&mut S1>,
+  ) -> Result<()> {
+    self.writer.write_field_f32(&field_info, value)
+  }
 
-    fn double_field<S1: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: f64,
-        _writer: Option<&mut S1>,
-    ) -> Result<()> {
-        self.writer.write_field_f64(&field_info, value)
-    }
+  fn double_field<S1: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: f64,
+    _writer: Option<&mut S1>,
+  ) -> Result<()> {
+    self.writer.write_field_f64(&field_info, value)
+  }
 
-    fn needs_field<S1: StoredFieldsWriter>(
-        &mut self,
-        _field_info: Arc<FieldInfo>,
-        _writer: Option<&mut S1>,
-    ) -> Result<Status> {
-        Ok(Status::Yes)
-    }
+  fn needs_field<S1: StoredFieldsWriter>(
+    &mut self,
+    _field_info: Arc<FieldInfo>,
+    _writer: Option<&mut S1>,
+  ) -> Result<Status> {
+    Ok(Status::Yes)
+  }
 }
 #[derive(Debug)]
 pub struct NoCompression;
 
 impl Display for NoCompression {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }
 
 impl Clone for NoCompression {
-    fn clone(&self) -> Self {
-        NoCompression
-    }
+  fn clone(&self) -> Self {
+    NoCompression
+  }
 }
 
 impl CompressionModeBase for NoCompression {
-    fn new_compressor(&self) -> CompressorEnum {
-        CompressorEnum::Impl1(CompressorImpl)
-    }
+  fn new_compressor(&self) -> CompressorEnum {
+    CompressorEnum::Impl1(CompressorImpl)
+  }
 
-    fn new_decompressor(&self) -> DecompressorEnum {
-        DecompressorEnum::Impl1(DecompressorImpl)
-    }
+  fn new_decompressor(&self) -> DecompressorEnum {
+    DecompressorEnum::Impl1(DecompressorImpl)
+  }
 }
 
 pub struct CompressorImpl;
 impl Compressor for CompressorImpl {
-    fn compress(
-        &mut self,
-        buffers_input: &mut ByteBuffersDataInput<&[u8]>,
-        out: &mut impl DataOutput,
-    ) -> Result<()> {
-        let len = buffers_input.length();
-        out.copy_bytes(buffers_input, len)
-    }
+  fn compress(
+    &mut self,
+    buffers_input: &mut ByteBuffersDataInput<&[u8]>,
+    out: &mut impl DataOutput,
+  ) -> Result<()> {
+    let len = buffers_input.length();
+    out.copy_bytes(buffers_input, len)
+  }
 }
 pub struct DecompressorImpl;
 
 impl Clone for DecompressorImpl {
-    fn clone(&self) -> Self {
-        DecompressorImpl
-    }
+  fn clone(&self) -> Self {
+    DecompressorImpl
+  }
 }
 
 impl Decompressor for DecompressorImpl {
-    fn decompress(
-        &mut self,
-        input: &mut impl DataInput,
-        _original_length: i32,
-        offset: i32,
-        length: i32,
-        bytes: &mut BytesRef<Vec<u8>>,
-    ) -> Result<()> {
-        if let Some(new_array) = ArrayUtil::grow_no_copy(&bytes.bytes, length as usize) {
-            bytes.bytes = new_array
-        }
-        input.skip_bytes(offset as i64)?;
-        input.read_bytes(&mut bytes.bytes, 0, length as usize)?;
-        bytes.offset = 0;
-        bytes.length = length as usize;
-        Ok(())
+  fn decompress(
+    &mut self,
+    input: &mut impl DataInput,
+    _original_length: i32,
+    offset: i32,
+    length: i32,
+    bytes: &mut BytesRef<Vec<u8>>,
+  ) -> Result<()> {
+    if let Some(new_array) = ArrayUtil::grow_no_copy(&bytes.bytes, length as usize) {
+      bytes.bytes = new_array
     }
+    input.skip_bytes(offset as i64)?;
+    input.read_bytes(&mut bytes.bytes, 0, length as usize)?;
+    bytes.offset = 0;
+    bytes.length = length as usize;
+    Ok(())
+  }
 }

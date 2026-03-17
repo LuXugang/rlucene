@@ -27,107 +27,107 @@ use std::sync::Arc;
 /// Accumulator for documents that have a value for a field.
 /// This is optimized for the case where all documents have a value.
 pub struct DocsWithFieldSet {
-    set: Option<FixedBitSet>,
-    cardinality: i32,
-    last_doc_id: i32,
-    set_iter: Option<Arc<FixedBitSet>>,
-    finish: bool,
+  set: Option<FixedBitSet>,
+  cardinality: i32,
+  last_doc_id: i32,
+  set_iter: Option<Arc<FixedBitSet>>,
+  finish: bool,
 }
 impl Default for DocsWithFieldSet {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl DocsWithFieldSet {
-    pub fn new() -> DocsWithFieldSet {
-        DocsWithFieldSet {
-            set: None,
-            cardinality: 0,
-            last_doc_id: -1,
-            set_iter: None,
-            finish: false,
-        }
+  pub fn new() -> DocsWithFieldSet {
+    DocsWithFieldSet {
+      set: None,
+      cardinality: 0,
+      last_doc_id: -1,
+      set_iter: None,
+      finish: false,
     }
-    /// Adds a document to the set.
-    ///
-    /// # Parameters
-    /// - `doc_id`: The document ID to be added.
-    pub fn add(&mut self, doc_id: i32) -> Result<()> {
-        if doc_id <= self.last_doc_id {
-            return Err(LuceneError::illegal_argument(format!(
-                "Out of order doc ids: last= {}, next= {}",
-                self.last_doc_id, doc_id
-            )));
-        }
-        if self.finish {
-            return Err(LuceneError::illegal_state(
-                "DocsWithFieldSet must not be changed after finish() is called".to_string(),
-            ));
-        }
-        if let Some(set) = self.set.as_mut() {
-            set.ensure_capacity(doc_id as usize);
-            set.set(doc_id as usize);
-        } else if doc_id != self.cardinality {
-            let mut set = FixedBitSet::new((doc_id + 1) as usize);
-            set.set_with_range(0, self.cardinality as usize);
-            set.set(doc_id as usize);
-            self.set = Some(set);
-        }
+  }
+  /// Adds a document to the set.
+  ///
+  /// # Parameters
+  /// - `doc_id`: The document ID to be added.
+  pub fn add(&mut self, doc_id: i32) -> Result<()> {
+    if doc_id <= self.last_doc_id {
+      return Err(LuceneError::illegal_argument(format!(
+        "Out of order doc ids: last= {}, next= {}",
+        self.last_doc_id, doc_id
+      )));
+    }
+    if self.finish {
+      return Err(LuceneError::illegal_state(
+        "DocsWithFieldSet must not be changed after finish() is called".to_string(),
+      ));
+    }
+    if let Some(set) = self.set.as_mut() {
+      set.ensure_capacity(doc_id as usize);
+      set.set(doc_id as usize);
+    } else if doc_id != self.cardinality {
+      let mut set = FixedBitSet::new((doc_id + 1) as usize);
+      set.set_with_range(0, self.cardinality as usize);
+      set.set(doc_id as usize);
+      self.set = Some(set);
+    }
 
-        self.last_doc_id = doc_id;
-        self.cardinality += 1;
-        Ok(())
-    }
-    /// Returns the number of documents in this set.
-    pub fn cardinality(&self) -> i32 {
-        self.cardinality
-    }
+    self.last_doc_id = doc_id;
+    self.cardinality += 1;
+    Ok(())
+  }
+  /// Returns the number of documents in this set.
+  pub fn cardinality(&self) -> i32 {
+    self.cardinality
+  }
 }
 
 impl Accountable for DocsWithFieldSet {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        Ok(0)
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(0)
+  }
 }
 
 pub(crate) type DocsWithFieldSetDISI =
-    DocIdSetIteratorEnum2<AllDISI, BitSetIterator<Arc<FixedBitSet>>>;
+  DocIdSetIteratorEnum2<AllDISI, BitSetIterator<Arc<FixedBitSet>>>;
 
 impl DocIdSet for DocsWithFieldSet {
-    type DocIdSetIterator = DocsWithFieldSetDISI;
+  type DocIdSetIterator = DocsWithFieldSetDISI;
 
-    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
-        if !self.finish {
-            return Err(LuceneError::illegal_state(
-                "DocsWithFieldSet must be call finish() before creating an iterator",
-            ));
-        }
-        if let Some(set_iter) = self.set_iter.as_ref() {
-            debug_assert!(self.set.is_none());
-            debug_assert!(self.cardinality > 0);
-            Ok(DocIdSetIteratorEnum2::B(BitSetIterator::new(
-                set_iter.clone(),
-                self.cardinality as i64,
-            )?))
-        } else {
-            Ok(DocIdSetIteratorEnum2::A(AllDISI::new(self.cardinality)))
-        }
+  fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+    if !self.finish {
+      return Err(LuceneError::illegal_state(
+        "DocsWithFieldSet must be call finish() before creating an iterator",
+      ));
     }
-
-    type Bits = DummyBits;
-
-    fn bits(&self) -> Option<Self::Bits> {
-        None
+    if let Some(set_iter) = self.set_iter.as_ref() {
+      debug_assert!(self.set.is_none());
+      debug_assert!(self.cardinality > 0);
+      Ok(DocIdSetIteratorEnum2::B(BitSetIterator::new(
+        set_iter.clone(),
+        self.cardinality as i64,
+      )?))
+    } else {
+      Ok(DocIdSetIteratorEnum2::A(AllDISI::new(self.cardinality)))
     }
+  }
 
-    fn finish(&mut self) {
-        self.finish = true;
-        // not all documents are contiguous
-        if self.set.is_some() {
-            self.set_iter = Some(Arc::new(self.set.take().unwrap()));
-        }
+  type Bits = DummyBits;
+
+  fn bits(&self) -> Option<Self::Bits> {
+    None
+  }
+
+  fn finish(&mut self) {
+    self.finish = true;
+    // not all documents are contiguous
+    if self.set.is_some() {
+      self.set_iter = Some(Arc::new(self.set.take().unwrap()));
     }
+  }
 }
 
 //TODO
@@ -135,105 +135,105 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 
 #[cfg(test)]
 mod tests {
-    use rand::RngExt;
+  use rand::RngExt;
 
-    use crate::core::index::docs_with_field_set::DocsWithFieldSet;
-    use crate::core::search::doc_id_set::DocIdSet;
-    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::core::util::error::lucene_error::Result;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
-    use crate::test::core::util::test_util::TestUtil;
+  use crate::core::index::docs_with_field_set::DocsWithFieldSet;
+  use crate::core::search::doc_id_set::DocIdSet;
+  use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use crate::test::core::util::test_util::TestUtil;
 
-    #[allow(dead_code)] // for quick search
-    struct TestDocsWithFieldSet {}
-    #[test]
-    fn test_dense() -> Result<()> {
-        let mut random = random();
-        let mut set = DocsWithFieldSet::new();
-        let mut it;
+  #[allow(dead_code)] // for quick search
+  struct TestDocsWithFieldSet {}
+  #[test]
+  fn test_dense() -> Result<()> {
+    let mut random = random();
+    let mut set = DocsWithFieldSet::new();
+    let mut it;
 
-        match random.random_range(0..3) {
-            0 => {
-                set.finish();
-                let mut it = set.iterator()?;
-                assert_eq!(it.next_doc()?, NO_MORE_DOCS);
-                Ok(())
-            },
-            1 => {
-                set.add(0)?;
-                set.finish();
-                it = set.iterator()?;
-                assert_eq!(0, it.next_doc()?);
-                assert_eq!(it.next_doc()?, NO_MORE_DOCS);
-                Ok(())
-            },
-            _ => {
-                set.add(0)?;
-
-                // TODO: 可以在这里获取内存使用情况
-                // let ram_bytes_used = set.ram_bytes_used();
-
-                for i in 1..1000 {
-                    set.add(i)?;
-                }
-                set.finish();
-
-                // TODO: 之后可以加断言
-                // assert_eq!(ram_bytes_used, set.ram_bytes_used());
-
-                it = set.iterator()?;
-                for i in 0..1000 {
-                    assert_eq!(i, it.next_doc()?);
-                }
-                assert_eq!(NO_MORE_DOCS, it.next_doc()?);
-                Ok(())
-            },
-        }
-    }
-
-    #[test]
-    fn test_sparse() -> Result<()> {
-        let mut random = random();
-        let mut set = DocsWithFieldSet::new();
-        let doc = random.random_range(0..10000);
-        let _ = set.add(doc);
-        if random.random_bool(0.5) {
-            set.finish();
-            {
-                let mut it = set.iterator()?;
-                assert_eq!(doc, it.next_doc()?);
-                assert_eq!(it.next_doc()?, NO_MORE_DOCS);
-            }
-        } else {
-            let doc2 = doc + TestUtil::next_int(&mut random, 1, 100);
-            set.add(doc2)?;
-            set.finish();
-            let mut it = set.iterator()?;
-            assert_eq!(doc, it.next_doc()?);
-            assert_eq!(doc2, it.next_doc()?);
-            assert_eq!(it.next_doc()?, NO_MORE_DOCS);
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn test_dense_then_sparse() -> Result<()> {
-        let mut random = random();
-        let dense_count = random.random_range(1..10000);
-        let next_doc = dense_count + random.random_range(1..10000);
-        let mut set = DocsWithFieldSet::new();
-        for i in 0..dense_count {
-            set.add(i)?;
-        }
-        set.add(next_doc)?;
+    match random.random_range(0..3) {
+      0 => {
         set.finish();
         let mut it = set.iterator()?;
-        for i in 0..dense_count {
-            assert_eq!(i, it.next_doc()?);
+        assert_eq!(it.next_doc()?, NO_MORE_DOCS);
+        Ok(())
+      },
+      1 => {
+        set.add(0)?;
+        set.finish();
+        it = set.iterator()?;
+        assert_eq!(0, it.next_doc()?);
+        assert_eq!(it.next_doc()?, NO_MORE_DOCS);
+        Ok(())
+      },
+      _ => {
+        set.add(0)?;
+
+        // TODO: 可以在这里获取内存使用情况
+        // let ram_bytes_used = set.ram_bytes_used();
+
+        for i in 1..1000 {
+          set.add(i)?;
         }
-        assert_eq!(next_doc, it.next_doc()?);
+        set.finish();
+
+        // TODO: 之后可以加断言
+        // assert_eq!(ram_bytes_used, set.ram_bytes_used());
+
+        it = set.iterator()?;
+        for i in 0..1000 {
+          assert_eq!(i, it.next_doc()?);
+        }
         assert_eq!(NO_MORE_DOCS, it.next_doc()?);
         Ok(())
+      },
     }
+  }
+
+  #[test]
+  fn test_sparse() -> Result<()> {
+    let mut random = random();
+    let mut set = DocsWithFieldSet::new();
+    let doc = random.random_range(0..10000);
+    let _ = set.add(doc);
+    if random.random_bool(0.5) {
+      set.finish();
+      {
+        let mut it = set.iterator()?;
+        assert_eq!(doc, it.next_doc()?);
+        assert_eq!(it.next_doc()?, NO_MORE_DOCS);
+      }
+    } else {
+      let doc2 = doc + TestUtil::next_int(&mut random, 1, 100);
+      set.add(doc2)?;
+      set.finish();
+      let mut it = set.iterator()?;
+      assert_eq!(doc, it.next_doc()?);
+      assert_eq!(doc2, it.next_doc()?);
+      assert_eq!(it.next_doc()?, NO_MORE_DOCS);
+    }
+    Ok(())
+  }
+
+  #[test]
+  fn test_dense_then_sparse() -> Result<()> {
+    let mut random = random();
+    let dense_count = random.random_range(1..10000);
+    let next_doc = dense_count + random.random_range(1..10000);
+    let mut set = DocsWithFieldSet::new();
+    for i in 0..dense_count {
+      set.add(i)?;
+    }
+    set.add(next_doc)?;
+    set.finish();
+    let mut it = set.iterator()?;
+    for i in 0..dense_count {
+      assert_eq!(i, it.next_doc()?);
+    }
+    assert_eq!(next_doc, it.next_doc()?);
+    assert_eq!(NO_MORE_DOCS, it.next_doc()?);
+    Ok(())
+  }
 }

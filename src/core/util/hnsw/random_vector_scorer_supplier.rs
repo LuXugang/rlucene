@@ -19,22 +19,22 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 
 /// A supplier that creates  [`RandomVectorScorer`] from an ordinal.
 pub trait RandomVectorScorerSupplier {
-    type Scorer: RandomVectorScorer;
-    /// This creates a [`RandomVectorScorer`] for scoring random nodes in
-    /// batches against the given ordinal.
-    ///
-    /// # Arguments
-    ///
-    /// * `ord` - The ordinal of the node to compare.
-    ///
-    /// # Returns
-    ///
-    /// A new [`RandomVectorScorer`].
-    fn scorer(&self, ord: usize) -> Result<Self::Scorer>;
+  type Scorer: RandomVectorScorer;
+  /// This creates a [`RandomVectorScorer`] for scoring random nodes in
+  /// batches against the given ordinal.
+  ///
+  /// # Arguments
+  ///
+  /// * `ord` - The ordinal of the node to compare.
+  ///
+  /// # Returns
+  ///
+  /// A new [`RandomVectorScorer`].
+  fn scorer(&self, ord: usize) -> Result<Self::Scorer>;
 
-    /// Make a copy of the supplier, which will copy the underlying
-    /// `vectorValues` so the copy is safe to be used in other threads.
-    fn copy(&self) -> Result<Self>
-    where
-        Self: Sized;
+  /// Make a copy of the supplier, which will copy the underlying
+  /// `vectorValues` so the copy is safe to be used in other threads.
+  fn copy(&self) -> Result<Self>
+  where
+    Self: Sized;
 }

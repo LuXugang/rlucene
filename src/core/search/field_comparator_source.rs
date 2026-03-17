@@ -27,33 +27,33 @@ use crate::core::util::error::lucene_error::Result;
 /// # Lucene Experimental
 /// This API is experimental and may change in future versions.
 pub trait FieldComparatorSource: Display + Clone {
-    /// Creates a comparator for the field in the given index.
-    ///
-    /// # Arguments
-    /// - `field_name`: The name of the field to create a comparator for.
-    /// - `num_hits`: The number of hits.
-    /// - `pruning`: The pruning strategy to use.
-    /// - `reversed`: Whether the sorting should be reversed.
-    ///
-    /// # Returns
-    /// A new [`FieldComparator`] instance.
-    ///
-    /// # Errors
-    /// Returns an error if the comparator could not be created due to I/O
-    /// issues or invalid parameters.
-    fn new_comparator<F: FieldComparator>(
-        &self,
-        field_name: &str,
-        num_hits: usize,
-        pruning: Pruning,
-        reversed: bool,
-    ) -> Result<F>;
+  /// Creates a comparator for the field in the given index.
+  ///
+  /// # Arguments
+  /// - `field_name`: The name of the field to create a comparator for.
+  /// - `num_hits`: The number of hits.
+  /// - `pruning`: The pruning strategy to use.
+  /// - `reversed`: Whether the sorting should be reversed.
+  ///
+  /// # Returns
+  /// A new [`FieldComparator`] instance.
+  ///
+  /// # Errors
+  /// Returns an error if the comparator could not be created due to I/O
+  /// issues or invalid parameters.
+  fn new_comparator<F: FieldComparator>(
+    &self,
+    field_name: &str,
+    num_hits: usize,
+    pruning: Pruning,
+    reversed: bool,
+  ) -> Result<F>;
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum FieldComparatorSourceEnum {}
 impl Display for FieldComparatorSourceEnum {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
+  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    todo!()
+  }
 }

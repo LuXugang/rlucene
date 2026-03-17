@@ -20,46 +20,46 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone, Debug)]
 /// Pair of states
 pub(crate) struct StatePair {
-    pub(crate) s1: i32,
-    pub(crate) s2: i32,
-    // only mike knows what it does (do not expose)
-    pub(crate) s: i32,
+  pub(crate) s1: i32,
+  pub(crate) s2: i32,
+  // only mike knows what it does (do not expose)
+  pub(crate) s: i32,
 }
 
 impl StatePair {
-    pub(crate) fn with_s(s: i32, s1: i32, s2: i32) -> Self {
-        StatePair { s1, s2, s }
-    }
+  pub(crate) fn with_s(s: i32, s1: i32, s2: i32) -> Self {
+    StatePair { s1, s2, s }
+  }
 
-    /// Constructs a new state pair.
-    pub(crate) fn new(s1: i32, s2: i32) -> Self {
-        StatePair { s1, s2, s: -1 }
-    }
+  /// Constructs a new state pair.
+  pub(crate) fn new(s1: i32, s2: i32) -> Self {
+    StatePair { s1, s2, s: -1 }
+  }
 }
 
 impl PartialEq for StatePair {
-    fn eq(&self, other: &Self) -> bool {
-        self.s1 == other.s1 && self.s2 == other.s2
-    }
+  fn eq(&self, other: &Self) -> bool {
+    self.s1 == other.s1 && self.s2 == other.s2
+  }
 }
 
 impl Eq for StatePair {}
 
 impl Hash for StatePair {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.s1.hash(state);
-        self.s2.hash(state);
-    }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.s1.hash(state);
+    self.s2.hash(state);
+  }
 }
 
 impl fmt::Display for StatePair {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}(s1={} s2={})",
-            std::any::type_name::<Self>(),
-            self.s1,
-            self.s2
-        )
-    }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "{}(s1={} s2={})",
+      std::any::type_name::<Self>(),
+      self.s1,
+      self.s2
+    )
+  }
 }

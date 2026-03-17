@@ -26,29 +26,29 @@ use std::sync::Arc;
 
 /// Controls the format of term vectors
 pub trait TermVectorsFormat {
-    type TermVectorsReader<T: IndexInput>: TermVectorsReader;
+  type TermVectorsReader<T: IndexInput>: TermVectorsReader;
 
-    /// Returns a [`TermVectorsReader`] to read term vectors.
-    fn vectors_reader<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &SegmentInfo<D2>,
-        field_infos: Arc<FieldInfos>,
-        context: &IOContext,
-    ) -> Result<Self::TermVectorsReader<D1::IndexInput>>
-    where
-        D1: Directory,
-        D2: Directory;
+  /// Returns a [`TermVectorsReader`] to read term vectors.
+  fn vectors_reader<D1, D2>(
+    &self,
+    directory: &D1,
+    segment_info: &SegmentInfo<D2>,
+    field_infos: Arc<FieldInfos>,
+    context: &IOContext,
+  ) -> Result<Self::TermVectorsReader<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory;
 
-    type TermVectorsWriter<T: IndexOutput>: TermVectorsWriter;
-    /// Returns a [`TermVectorsWriter`] to write term vectors.
-    fn vectors_writer<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &SegmentInfo<D2>,
-        context: &IOContext,
-    ) -> Result<Self::TermVectorsWriter<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory;
+  type TermVectorsWriter<T: IndexOutput>: TermVectorsWriter;
+  /// Returns a [`TermVectorsWriter`] to write term vectors.
+  fn vectors_writer<D1, D2>(
+    &self,
+    directory: &D1,
+    segment_info: &SegmentInfo<D2>,
+    context: &IOContext,
+  ) -> Result<Self::TermVectorsWriter<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory;
 }

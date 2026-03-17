@@ -33,207 +33,207 @@ use std::sync::Arc;
 /// In the shared case, they correspond to locking a mutex for the
 /// duration of the closure.
 pub trait MutAccess<T> {
-    fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R;
-    fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R;
+  fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R;
+  fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R;
 }
 
 impl<T> MutAccess<T> for T {
-    #[inline]
-    fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R {
-        f(self)
-    }
-    #[inline]
-    fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R {
-        f(self)
-    }
+  #[inline]
+  fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R {
+    f(self)
+  }
+  #[inline]
+  fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+    f(self)
+  }
 }
 
 impl<T> MutAccess<T> for Arc<Mutex<T>> {
-    #[inline]
-    fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R {
-        let mut guard = self.lock();
-        f(&mut *guard)
-    }
-    #[inline]
-    fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R {
-        let guard = self.lock();
-        f(&*guard)
-    }
+  #[inline]
+  fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R {
+    let mut guard = self.lock();
+    f(&mut *guard)
+  }
+  #[inline]
+  fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+    let guard = self.lock();
+    f(&*guard)
+  }
 }
 pub trait WritableVec<T>: SharedAccessVec<T> {
-    fn access_mut<F, R>(&mut self, f: F) -> R
-    where
-        F: FnOnce(&mut Vec<T>) -> R;
+  fn access_mut<F, R>(&mut self, f: F) -> R
+  where
+    F: FnOnce(&mut Vec<T>) -> R;
 
-    fn copy(&mut self, src: &[T], offset: usize);
+  fn copy(&mut self, src: &[T], offset: usize);
 }
 impl<T> WritableVec<T> for Vec<T>
 where
-    T: Clone + Default,
+  T: Clone + Default,
 {
-    fn access_mut<F, R>(&mut self, f: F) -> R
-    where
-        F: FnOnce(&mut Vec<T>) -> R,
-    {
-        f(self)
-    }
+  fn access_mut<F, R>(&mut self, f: F) -> R
+  where
+    F: FnOnce(&mut Vec<T>) -> R,
+  {
+    f(self)
+  }
 
-    fn copy(&mut self, src: &[T], offset: usize) {
-        self.copy_from(src, offset)
-    }
+  fn copy(&mut self, src: &[T], offset: usize) {
+    self.copy_from(src, offset)
+  }
 }
 
 pub trait SharedAccessVec<T>: Clone + Default {
-    fn access<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&Vec<T>) -> R;
-    fn slice_clone(&self, offset: usize, length: usize) -> Self;
-    fn new() -> Self;
-    fn with_capacity(capacity: usize) -> Self;
-    fn from_vec(v: Vec<T>) -> Self;
+  fn access<F, R>(&self, f: F) -> R
+  where
+    F: FnOnce(&Vec<T>) -> R;
+  fn slice_clone(&self, offset: usize, length: usize) -> Self;
+  fn new() -> Self;
+  fn with_capacity(capacity: usize) -> Self;
+  fn from_vec(v: Vec<T>) -> Self;
 }
 
 // Vec<T>
 impl<T> SharedAccessVec<T> for Vec<T>
 where
-    T: Clone + Default,
+  T: Clone + Default,
 {
-    fn access<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&Vec<T>) -> R,
-    {
-        f(self)
-    }
+  fn access<F, R>(&self, f: F) -> R
+  where
+    F: FnOnce(&Vec<T>) -> R,
+  {
+    f(self)
+  }
 
-    fn slice_clone(&self, offset: usize, length: usize) -> Self {
-        ArrayUtil::copy_of_sub_array(self, offset, offset + length)
-    }
+  fn slice_clone(&self, offset: usize, length: usize) -> Self {
+    ArrayUtil::copy_of_sub_array(self, offset, offset + length)
+  }
 
-    fn new() -> Self {
-        Vec::new()
-    }
+  fn new() -> Self {
+    Vec::new()
+  }
 
-    fn with_capacity(capacity: usize) -> Self {
-        vec![T::default(); capacity]
-    }
+  fn with_capacity(capacity: usize) -> Self {
+    vec![T::default(); capacity]
+  }
 
-    fn from_vec(v: Vec<T>) -> Self {
-        v
-    }
+  fn from_vec(v: Vec<T>) -> Self {
+    v
+  }
 }
 // Rc<Vec<T>>
 impl<T> SharedAccessVec<T> for Rc<Vec<T>>
 where
-    T: Clone + Default,
+  T: Clone + Default,
 {
-    fn access<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&Vec<T>) -> R,
-    {
-        f(self)
-    }
+  fn access<F, R>(&self, f: F) -> R
+  where
+    F: FnOnce(&Vec<T>) -> R,
+  {
+    f(self)
+  }
 
-    fn slice_clone(&self, offset: usize, length: usize) -> Self {
-        let slice = &self[offset..offset + length];
-        Rc::new(slice.to_vec())
-    }
+  fn slice_clone(&self, offset: usize, length: usize) -> Self {
+    let slice = &self[offset..offset + length];
+    Rc::new(slice.to_vec())
+  }
 
-    fn new() -> Self {
-        Rc::new(Vec::new())
-    }
+  fn new() -> Self {
+    Rc::new(Vec::new())
+  }
 
-    fn with_capacity(_capacity: usize) -> Self {
-        Rc::new(Vec::new()) // Rc<Vec<T>> can't preallocate meaningfully
-    }
+  fn with_capacity(_capacity: usize) -> Self {
+    Rc::new(Vec::new()) // Rc<Vec<T>> can't preallocate meaningfully
+  }
 
-    fn from_vec(v: Vec<T>) -> Self {
-        Rc::new(v)
-    }
+  fn from_vec(v: Vec<T>) -> Self {
+    Rc::new(v)
+  }
 }
 // Arc<Vec<T>>
 impl<T> SharedAccessVec<T> for Arc<Vec<T>>
 where
-    T: Clone + Default,
+  T: Clone + Default,
 {
-    fn access<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&Vec<T>) -> R,
-    {
-        f(self)
-    }
+  fn access<F, R>(&self, f: F) -> R
+  where
+    F: FnOnce(&Vec<T>) -> R,
+  {
+    f(self)
+  }
 
-    fn slice_clone(&self, offset: usize, length: usize) -> Self {
-        let slice = &self[offset..offset + length];
-        Arc::new(slice.to_vec())
-    }
+  fn slice_clone(&self, offset: usize, length: usize) -> Self {
+    let slice = &self[offset..offset + length];
+    Arc::new(slice.to_vec())
+  }
 
-    fn new() -> Self {
-        Arc::new(Vec::new())
-    }
+  fn new() -> Self {
+    Arc::new(Vec::new())
+  }
 
-    fn with_capacity(_capacity: usize) -> Self {
-        Arc::new(Vec::new()) // Rc<Vec<T>> can't preallocate meaningfully
-    }
+  fn with_capacity(_capacity: usize) -> Self {
+    Arc::new(Vec::new()) // Rc<Vec<T>> can't preallocate meaningfully
+  }
 
-    fn from_vec(v: Vec<T>) -> Self {
-        Arc::new(v)
-    }
+  fn from_vec(v: Vec<T>) -> Self {
+    Arc::new(v)
+  }
 }
 
 #[macro_export]
 macro_rules! with_other {
-    (mut, $x:expr_2021, $y:expr_2021, |$ia:ident, $ib:ident| $body:expr_2021) => {
-        $x.access_mut(|$ia| $y.access(|$ib| $body))
-    };
-    ($x:expr_2021, $y:expr_2021, |$ia:ident, $ib:ident| $body:expr_2021) => {
-        $x.access(|$ia| $y.access(|$ib| $body))
-    };
+  (mut, $x:expr_2021, $y:expr_2021, |$ia:ident, $ib:ident| $body:expr_2021) => {
+    $x.access_mut(|$ia| $y.access(|$ib| $body))
+  };
+  ($x:expr_2021, $y:expr_2021, |$ia:ident, $ib:ident| $body:expr_2021) => {
+    $x.access(|$ia| $y.access(|$ib| $body))
+  };
 }
 pub trait ByteSource: Default {
-    fn as_slice(&self) -> &[u8];
+  fn as_slice(&self) -> &[u8];
 }
 impl ByteSource for Vec<u8> {
-    fn as_slice(&self) -> &[u8] {
-        self
-    }
+  fn as_slice(&self) -> &[u8] {
+    self
+  }
 }
 
 impl ByteSource for Rc<Vec<u8>> {
-    fn as_slice(&self) -> &[u8] {
-        self
-    }
+  fn as_slice(&self) -> &[u8] {
+    self
+  }
 }
 
 impl ByteSource for Arc<Vec<u8>> {
-    fn as_slice(&self) -> &[u8] {
-        self
-    }
+  fn as_slice(&self) -> &[u8] {
+    self
+  }
 }
 
 impl ByteSource for &[u8] {
-    fn as_slice(&self) -> &[u8] {
-        self
-    }
+  fn as_slice(&self) -> &[u8] {
+    self
+  }
 }
 pub trait ByteSourceMut {
-    fn as_slice_mut(&mut self) -> &mut [u8];
-    fn as_slice(&self) -> &[u8];
+  fn as_slice_mut(&mut self) -> &mut [u8];
+  fn as_slice(&self) -> &[u8];
 }
 impl ByteSourceMut for Vec<u8> {
-    fn as_slice_mut(&mut self) -> &mut [u8] {
-        self
-    }
+  fn as_slice_mut(&mut self) -> &mut [u8] {
+    self
+  }
 
-    fn as_slice(&self) -> &[u8] {
-        self
-    }
+  fn as_slice(&self) -> &[u8] {
+    self
+  }
 }
 impl ByteSourceMut for &mut [u8] {
-    fn as_slice_mut(&mut self) -> &mut [u8] {
-        self
-    }
+  fn as_slice_mut(&mut self) -> &mut [u8] {
+    self
+  }
 
-    fn as_slice(&self) -> &[u8] {
-        self
-    }
+  fn as_slice(&self) -> &[u8] {
+    self
+  }
 }

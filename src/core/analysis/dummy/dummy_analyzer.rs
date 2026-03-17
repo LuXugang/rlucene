@@ -21,38 +21,38 @@ use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyAnalyzer;
 impl Analyzer for DummyAnalyzer {
-    fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type TokenStream<TS>
-        = DummyTokenStream
-    where
-        TS: TokenStream;
+  type TokenStream<TS>
+    = DummyTokenStream
+  where
+    TS: TokenStream;
 
-    fn normalize_from_ts<TS>(&self, _field_name: &str, _in_: TS) -> Result<Self::TokenStream<TS>>
-    where
-        TS: TokenStream,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn normalize_from_ts<TS>(&self, _field_name: &str, _in_: TS) -> Result<Self::TokenStream<TS>>
+  where
+    TS: TokenStream,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn default_normalize_from_ts<TS>(&self, _field_name: &str, _in_: TS) -> Result<TS>
-    where
-        TS: TokenStream,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn default_normalize_from_ts<TS>(&self, _field_name: &str, _in_: TS) -> Result<TS>
+  where
+    TS: TokenStream,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_offset_gap(&self, _field_name: &str) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_offset_gap(&self, _field_name: &str) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

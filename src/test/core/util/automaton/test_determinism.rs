@@ -21,82 +21,80 @@ pub struct TestDeterminism;
 
 #[cfg(test)]
 mod tests {
-    use crate::core::util::automation::automata::Automata;
-    use crate::core::util::automation::automaton::Automaton;
-    use crate::core::util::automation::operations::Operations;
-    use crate::core::util::automation::reg_exp::RegExp;
-    use crate::core::util::error::lucene_error::Result;
-    use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
-    /// test a bunch of random regular expressions
-    #[test]
-    fn test_regexps() -> Result<()> {
-        let mut random = random();
-        let num = at_least(&mut random, 500);
-        for _ in 0..num {
-            let pattern = AutomatonTestUtil::random_regexp(&mut random)?;
-            let re = RegExp::parse(&pattern, RegExp::NONE, 0)?;
-            let a = re.to_automaton()?;
-            assert_automaton(&a)?;
-        }
-        Ok(())
+  use crate::core::util::automation::automata::Automata;
+  use crate::core::util::automation::automaton::Automaton;
+  use crate::core::util::automation::operations::Operations;
+  use crate::core::util::automation::reg_exp::RegExp;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+  /// test a bunch of random regular expressions
+  #[test]
+  fn test_regexps() -> Result<()> {
+    let mut random = random();
+    let num = at_least(&mut random, 500);
+    for _ in 0..num {
+      let pattern = AutomatonTestUtil::random_regexp(&mut random)?;
+      let re = RegExp::parse(&pattern, RegExp::NONE, 0)?;
+      let a = re.to_automaton()?;
+      assert_automaton(&a)?;
     }
-    /// test against a simple, unoptimized det
-    #[test]
-    fn test_against_simple() -> Result<()> {
-        let mut random = random();
-        let num = at_least(&mut random, 200);
+    Ok(())
+  }
+  /// test against a simple, unoptimized det
+  #[test]
+  fn test_against_simple() -> Result<()> {
+    let mut random = random();
+    let num = at_least(&mut random, 200);
 
-        for _ in 0..num {
-            let a0 = AutomatonTestUtil::random_automaton(&mut random)?;
-            let a = AutomatonTestUtil::determinize_simple(&a0)?;
-            let b = Operations::determinize(&a, usize::MAX)?;
-            assert!(AutomatonTestUtil::same_language(&a, &b)?);
-        }
-
-        Ok(())
+    for _ in 0..num {
+      let a0 = AutomatonTestUtil::random_automaton(&mut random)?;
+      let a = AutomatonTestUtil::determinize_simple(&a0)?;
+      let b = Operations::determinize(&a, usize::MAX)?;
+      assert!(AutomatonTestUtil::same_language(&a, &b)?);
     }
-    pub fn assert_automaton(a: &Automaton) -> Result<()> {
-        let v = Operations::remove_dead_states(a)?;
-        let a = Operations::determinize(&v, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
-        // complement(complement(a)) == a
-        let equivalent = {
-            let tmp = Operations::complement(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-            Operations::complement(&tmp, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
-        };
-        assert!(AutomatonTestUtil::same_language(&a, &equivalent)?);
+    Ok(())
+  }
+  pub fn assert_automaton(a: &Automaton) -> Result<()> {
+    let v = Operations::remove_dead_states(a)?;
+    let a = Operations::determinize(&v, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
-        // a union a == a
-        let union = Operations::union(&a, &a)?;
-        let reduced = Operations::remove_dead_states(&union)?;
-        let equivalent =
-            Operations::determinize(&reduced, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-        assert!(AutomatonTestUtil::same_language(&a, &equivalent)?);
+    // complement(complement(a)) == a
+    let equivalent = {
+      let tmp = Operations::complement(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+      Operations::complement(&tmp, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+    };
+    assert!(AutomatonTestUtil::same_language(&a, &equivalent)?);
 
-        // a intersect a == a
-        let inter = Operations::intersection(&a, &a)?;
-        let reduced = Operations::remove_dead_states(&inter)?;
-        let equivalent =
-            Operations::determinize(&reduced, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-        assert!(AutomatonTestUtil::same_language(&a, &equivalent)?);
+    // a union a == a
+    let union = Operations::union(&a, &a)?;
+    let reduced = Operations::remove_dead_states(&union)?;
+    let equivalent = Operations::determinize(&reduced, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+    assert!(AutomatonTestUtil::same_language(&a, &equivalent)?);
 
-        // a - a == empty
-        let empty = Operations::minus(&a, &a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-        assert!(Operations::is_empty(&empty));
+    // a intersect a == a
+    let inter = Operations::intersection(&a, &a)?;
+    let reduced = Operations::remove_dead_states(&inter)?;
+    let equivalent = Operations::determinize(&reduced, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+    assert!(AutomatonTestUtil::same_language(&a, &equivalent)?);
 
-        // if a doesn't accept empty string: optional(a) - ε == a
-        if !Operations::run_str(&a, "") {
-            let optional = Operations::optional(&a)?;
-            let epsilon = Automata::make_empty_string()?;
-            let equivalent = Operations::minus(
-                &optional,
-                &epsilon,
-                Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-            )?;
-            assert!(AutomatonTestUtil::same_language(&a, &equivalent)?);
-        }
+    // a - a == empty
+    let empty = Operations::minus(&a, &a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+    assert!(Operations::is_empty(&empty));
 
-        Ok(())
+    // if a doesn't accept empty string: optional(a) - ε == a
+    if !Operations::run_str(&a, "") {
+      let optional = Operations::optional(&a)?;
+      let epsilon = Automata::make_empty_string()?;
+      let equivalent = Operations::minus(
+        &optional,
+        &epsilon,
+        Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+      )?;
+      assert!(AutomatonTestUtil::same_language(&a, &equivalent)?);
     }
+
+    Ok(())
+  }
 }

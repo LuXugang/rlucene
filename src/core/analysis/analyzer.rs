@@ -35,128 +35,128 @@ thread_local! {
 }
 
 pub trait Analyzer {
-    fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>>;
-    /// Default reuse strategy is GlobalReuseStrategy
-    fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
-        ReuseStrategyEnum::Global(Box::default())
-    }
-    type TokenStream<TS>: TokenStream
-    where
-        TS: TokenStream;
-    fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-    where
-        TS: TokenStream + Into<TokenStreams>;
-    fn default_normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<TS>
-    where
-        TS: TokenStream,
-    {
-        Ok(in_)
-    }
+  fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>>;
+  /// Default reuse strategy is GlobalReuseStrategy
+  fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
+    ReuseStrategyEnum::Global(Box::default())
+  }
+  type TokenStream<TS>: TokenStream
+  where
+    TS: TokenStream;
+  fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
+  where
+    TS: TokenStream + Into<TokenStreams>;
+  fn default_normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<TS>
+  where
+    TS: TokenStream,
+  {
+    Ok(in_)
+  }
 
-    fn ensure_reuse_strategy<'a>(
-        &'a self,
-        slot: &'a mut Option<ReuseStrategyEnum>,
-    ) -> &'a mut ReuseStrategyEnum {
-        if slot.is_none() {
-            *slot = Some(self.init_reuse_strategy());
+  fn ensure_reuse_strategy<'a>(
+    &'a self,
+    slot: &'a mut Option<ReuseStrategyEnum>,
+  ) -> &'a mut ReuseStrategyEnum {
+    if slot.is_none() {
+      *slot = Some(self.init_reuse_strategy());
+    }
+    slot.as_mut().unwrap()
+  }
+  fn token_stream<R>(&self, field_name: &str, input: R) -> Result<()>
+  where
+    R: Into<ReaderEnum>,
+  {
+    let reader = self.init_reader(field_name, input.into());
+    REUSE_STRATEGY.with(move |reuse_strategy| {
+      (|| -> Result<()> {
+        let mut reuse_strategy = reuse_strategy.borrow_mut();
+        let reuse_strategy = self.ensure_reuse_strategy(&mut reuse_strategy);
+
+        let mut components = reuse_strategy.get_reusable_components(field_name)?;
+        if components.is_none() {
+          let v = self.create_components(field_name)?;
+          reuse_strategy.set_reusable_components(field_name, v)?;
+          components = reuse_strategy.get_reusable_components(field_name)?;
         }
-        slot.as_mut().unwrap()
-    }
-    fn token_stream<R>(&self, field_name: &str, input: R) -> Result<()>
-    where
-        R: Into<ReaderEnum>,
-    {
-        let reader = self.init_reader(field_name, input.into());
-        REUSE_STRATEGY.with(move |reuse_strategy| {
-            (|| -> Result<()> {
-                let mut reuse_strategy = reuse_strategy.borrow_mut();
-                let reuse_strategy = self.ensure_reuse_strategy(&mut reuse_strategy);
 
-                let mut components = reuse_strategy.get_reusable_components(field_name)?;
-                if components.is_none() {
-                    let v = self.create_components(field_name)?;
-                    reuse_strategy.set_reusable_components(field_name, v)?;
-                    components = reuse_strategy.get_reusable_components(field_name)?;
-                }
-
-                let components = components.as_mut().unwrap();
-                components.set_reader(reader)?;
-                Ok(())
-            })()
-        })?;
+        let components = components.as_mut().unwrap();
+        components.set_reader(reader)?;
         Ok(())
+      })()
+    })?;
+    Ok(())
+  }
+
+  fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
+    let mut str_reader = ReusableStringReader::new();
+    str_reader.set_value(text);
+    let mut reader =
+      self.init_reader_for_normalization(field_name, ReaderEnum::ReusedString(str_reader));
+
+    let mut buf = ['\0'; 64];
+    let mut filtered = String::new();
+    loop {
+      let len = buf.len();
+      let read = reader.read_range(&mut buf, 0, len)?;
+      if read == -1 {
+        break;
+      }
+      for &ch in &buf[..read as usize] {
+        filtered.push(ch);
+      }
     }
 
-    fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
-        let mut str_reader = ReusableStringReader::new();
-        str_reader.set_value(text);
-        let mut reader =
-            self.init_reader_for_normalization(field_name, ReaderEnum::ReusedString(str_reader));
+    let att = self.attribute_factory(field_name);
+    debug_assert!(text.len() <= i32::MAX as usize);
+    let mut ts = self.normalize_from_ts(
+      field_name,
+      StringTokenStream::new(att, &filtered, text.len() as i32),
+    )?;
 
-        let mut buf = ['\0'; 64];
-        let mut filtered = String::new();
-        loop {
-            let len = buf.len();
-            let read = reader.read_range(&mut buf, 0, len)?;
-            if read == -1 {
-                break;
-            }
-            for &ch in &buf[..read as usize] {
-                filtered.push(ch);
-            }
-        }
+    ts.reset()?;
+    if !ts.increment_token()? {
+      return Err(LuceneError::illegal_state(format!(
+        "expected 1 token but got 0 for analyzer and input \"{}\"",
+        text
+      )));
+    }
+    let term_att = ts.get_attribute_source_mut();
+    let term = match term_att.get_bytes_ref() {
+      Some(t) => BytesRef::deep_copy_of(&*t),
+      None => {
+        return Err(LuceneError::illegal_state(format!(
+          "CharTermAttribute is missing for analyzer and input \"{}\"",
+          text
+        )));
+      },
+    };
+    if ts.increment_token()? {
+      return Err(LuceneError::illegal_state(format!(
+        "expected 1 token but got more for analyzer and input \"{}\"",
+        text
+      )));
+    }
+    ts.end()?;
+    Ok(term)
+  }
 
-        let att = self.attribute_factory(field_name);
-        debug_assert!(text.len() <= i32::MAX as usize);
-        let mut ts = self.normalize_from_ts(
-            field_name,
-            StringTokenStream::new(att, &filtered, text.len() as i32),
-        )?;
+  fn init_reader(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
+    reader
+  }
 
-        ts.reset()?;
-        if !ts.increment_token()? {
-            return Err(LuceneError::illegal_state(format!(
-                "expected 1 token but got 0 for analyzer and input \"{}\"",
-                text
-            )));
-        }
-        let term_att = ts.get_attribute_source_mut();
-        let term = match term_att.get_bytes_ref() {
-            Some(t) => BytesRef::deep_copy_of(&*t),
-            None => {
-                return Err(LuceneError::illegal_state(format!(
-                    "CharTermAttribute is missing for analyzer and input \"{}\"",
-                    text
-                )));
-            },
-        };
-        if ts.increment_token()? {
-            return Err(LuceneError::illegal_state(format!(
-                "expected 1 token but got more for analyzer and input \"{}\"",
-                text
-            )));
-        }
-        ts.end()?;
-        Ok(term)
-    }
+  fn init_reader_for_normalization(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
+    reader
+  }
 
-    fn init_reader(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
-        reader
-    }
-
-    fn init_reader_for_normalization(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
-        reader
-    }
-
-    fn attribute_factory(&self, _field_name: &str) -> Attributes {
-        Attributes::default()
-    }
-    fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
-        0
-    }
-    fn get_offset_gap(&self, _field_name: &str) -> i32 {
-        1
-    }
+  fn attribute_factory(&self, _field_name: &str) -> Attributes {
+    Attributes::default()
+  }
+  fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
+    0
+  }
+  fn get_offset_gap(&self, _field_name: &str) -> i32 {
+    1
+  }
 }
 impl_from_for_enum!(
     AnalyzerEnum,
@@ -169,360 +169,360 @@ impl_from_for_enum!(
 );
 
 pub enum AnalyzerEnum {
-    Whitespace(WhitespaceAnalyzer),
-    #[cfg(test)]
-    Mock(MockAnalyzer),
+  Whitespace(WhitespaceAnalyzer),
+  #[cfg(test)]
+  Mock(MockAnalyzer),
 }
 impl Default for AnalyzerEnum {
-    fn default() -> Self {
-        AnalyzerEnum::Whitespace(WhitespaceAnalyzer::default())
-    }
+  fn default() -> Self {
+    AnalyzerEnum::Whitespace(WhitespaceAnalyzer::default())
+  }
 }
 impl Analyzer for AnalyzerEnum {
-    fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
-        match self {
-            AnalyzerEnum::Whitespace(v) => v.create_components(field),
-            #[cfg(test)]
-            AnalyzerEnum::Mock(v) => v.create_components(field),
-        }
+  fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.create_components(field),
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => v.create_components(field),
     }
+  }
 
-    fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
-        match self {
-            AnalyzerEnum::Whitespace(v) => v.init_reuse_strategy(),
-            #[cfg(test)]
-            AnalyzerEnum::Mock(v) => v.init_reuse_strategy(),
-        }
+  fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.init_reuse_strategy(),
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => v.init_reuse_strategy(),
     }
+  }
 
-    type TokenStream<TS>
-        = TokenStreams
-    where
-        TS: TokenStream;
+  type TokenStream<TS>
+    = TokenStreams
+  where
+    TS: TokenStream;
 
-    fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-    where
-        TS: TokenStream + Into<TokenStreams>,
-    {
-        match self {
-            AnalyzerEnum::Whitespace(v) => {
-                let v = v.normalize_from_ts(field_name, in_)?;
-                Ok(v.into())
-            },
-            #[cfg(test)]
-            AnalyzerEnum::Mock(v) => {
-                let v = v.normalize_from_ts(field_name, in_)?;
-                Ok(v.into())
-            },
-        }
+  fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
+  where
+    TS: TokenStream + Into<TokenStreams>,
+  {
+    match self {
+      AnalyzerEnum::Whitespace(v) => {
+        let v = v.normalize_from_ts(field_name, in_)?;
+        Ok(v.into())
+      },
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => {
+        let v = v.normalize_from_ts(field_name, in_)?;
+        Ok(v.into())
+      },
     }
+  }
 
-    fn ensure_reuse_strategy<'a>(
-        &'a self,
-        slot: &'a mut Option<ReuseStrategyEnum>,
-    ) -> &'a mut ReuseStrategyEnum {
-        match self {
-            AnalyzerEnum::Whitespace(v) => v.ensure_reuse_strategy(slot),
-            #[cfg(test)]
-            AnalyzerEnum::Mock(v) => v.ensure_reuse_strategy(slot),
-        }
+  fn ensure_reuse_strategy<'a>(
+    &'a self,
+    slot: &'a mut Option<ReuseStrategyEnum>,
+  ) -> &'a mut ReuseStrategyEnum {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.ensure_reuse_strategy(slot),
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => v.ensure_reuse_strategy(slot),
     }
+  }
 
-    fn token_stream<R>(&self, field_name: &str, input: R) -> Result<()>
-    where
-        R: Into<ReaderEnum>,
-    {
-        match self {
-            AnalyzerEnum::Whitespace(v) => v.token_stream(field_name, input),
-            #[cfg(test)]
-            AnalyzerEnum::Mock(v) => v.token_stream(field_name, input),
-        }
+  fn token_stream<R>(&self, field_name: &str, input: R) -> Result<()>
+  where
+    R: Into<ReaderEnum>,
+  {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.token_stream(field_name, input),
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => v.token_stream(field_name, input),
     }
+  }
 
-    fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
-        match self {
-            AnalyzerEnum::Whitespace(v) => v.normalize(field_name, text),
-            #[cfg(test)]
-            AnalyzerEnum::Mock(v) => v.normalize(field_name, text),
-        }
+  fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.normalize(field_name, text),
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => v.normalize(field_name, text),
     }
+  }
 
-    fn init_reader(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
-        match self {
-            AnalyzerEnum::Whitespace(v) => v.init_reader(_filed_name, reader),
-            #[cfg(test)]
-            AnalyzerEnum::Mock(v) => v.init_reader(_filed_name, reader),
-        }
+  fn init_reader(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.init_reader(_filed_name, reader),
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => v.init_reader(_filed_name, reader),
     }
+  }
 
-    fn init_reader_for_normalization(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
-        match self {
-            AnalyzerEnum::Whitespace(v) => v.init_reader_for_normalization(_filed_name, reader),
-            #[cfg(test)]
-            AnalyzerEnum::Mock(v) => v.init_reader_for_normalization(_filed_name, reader),
-        }
+  fn init_reader_for_normalization(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.init_reader_for_normalization(_filed_name, reader),
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => v.init_reader_for_normalization(_filed_name, reader),
     }
+  }
 
-    fn attribute_factory(&self, field_name: &str) -> Attributes {
-        match self {
-            AnalyzerEnum::Whitespace(v) => v.attribute_factory(field_name),
-            #[cfg(test)]
-            AnalyzerEnum::Mock(v) => v.attribute_factory(field_name),
-        }
+  fn attribute_factory(&self, field_name: &str) -> Attributes {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.attribute_factory(field_name),
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => v.attribute_factory(field_name),
     }
+  }
 
-    fn get_position_increment_gap(&self, field_name: &str) -> i32 {
-        match self {
-            AnalyzerEnum::Whitespace(v) => v.get_position_increment_gap(field_name),
-            #[cfg(test)]
-            AnalyzerEnum::Mock(v) => v.get_position_increment_gap(field_name),
-        }
+  fn get_position_increment_gap(&self, field_name: &str) -> i32 {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.get_position_increment_gap(field_name),
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => v.get_position_increment_gap(field_name),
     }
+  }
 
-    fn get_offset_gap(&self, field_name: &str) -> i32 {
-        match self {
-            AnalyzerEnum::Whitespace(v) => v.get_offset_gap(field_name),
-            #[cfg(test)]
-            AnalyzerEnum::Mock(v) => v.get_offset_gap(field_name),
-        }
+  fn get_offset_gap(&self, field_name: &str) -> i32 {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.get_offset_gap(field_name),
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => v.get_offset_gap(field_name),
     }
+  }
 }
 
 pub enum ReuseStrategyEnum {
-    Global(Box<GlobalReuseStrategy<InnerTokenStreams>>),
-    PerField(PerFieldReuseStrategy<InnerTokenStreams>),
+  Global(Box<GlobalReuseStrategy<InnerTokenStreams>>),
+  PerField(PerFieldReuseStrategy<InnerTokenStreams>),
 }
 impl ReuseStrategy<InnerTokenStreams> for ReuseStrategyEnum {
-    fn get_reusable_components(
-        &mut self,
-        field_name: &str,
-    ) -> Result<Option<&mut TokenStreamComponents<InnerTokenStreams>>> {
-        match self {
-            ReuseStrategyEnum::Global(v) => v.get_reusable_components(field_name),
-            ReuseStrategyEnum::PerField(v) => v.get_reusable_components(field_name),
-        }
+  fn get_reusable_components(
+    &mut self,
+    field_name: &str,
+  ) -> Result<Option<&mut TokenStreamComponents<InnerTokenStreams>>> {
+    match self {
+      ReuseStrategyEnum::Global(v) => v.get_reusable_components(field_name),
+      ReuseStrategyEnum::PerField(v) => v.get_reusable_components(field_name),
     }
+  }
 
-    fn set_reusable_components(
-        &mut self,
-        field_name: &str,
-        components: TokenStreamComponents<InnerTokenStreams>,
-    ) -> Result<()> {
-        match self {
-            ReuseStrategyEnum::Global(v) => v.set_reusable_components(field_name, components),
-            ReuseStrategyEnum::PerField(v) => v.set_reusable_components(field_name, components),
-        }
+  fn set_reusable_components(
+    &mut self,
+    field_name: &str,
+    components: TokenStreamComponents<InnerTokenStreams>,
+  ) -> Result<()> {
+    match self {
+      ReuseStrategyEnum::Global(v) => v.set_reusable_components(field_name, components),
+      ReuseStrategyEnum::PerField(v) => v.set_reusable_components(field_name, components),
     }
+  }
 }
 pub struct AnalyzerBase<TS, RS>
 where
-    TS: TokenStream,
-    RS: ReuseStrategy<TS>,
+  TS: TokenStream,
+  RS: ReuseStrategy<TS>,
 {
-    reuse_strategy: RS,
-    _phantom: PhantomData<TS>,
+  reuse_strategy: RS,
+  _phantom: PhantomData<TS>,
 }
 impl<TS> AnalyzerBase<TS, GlobalReuseStrategy<TS>>
 where
-    TS: TokenStream,
+  TS: TokenStream,
 {
-    pub(crate) fn new() -> Self {
-        Self {
-            reuse_strategy: GlobalReuseStrategy::default(),
-            _phantom: PhantomData,
-        }
+  pub(crate) fn new() -> Self {
+    Self {
+      reuse_strategy: GlobalReuseStrategy::default(),
+      _phantom: PhantomData,
     }
+  }
 }
 impl<TS, RS> AnalyzerBase<TS, RS>
 where
-    TS: TokenStream,
-    RS: ReuseStrategy<TS>,
+  TS: TokenStream,
+  RS: ReuseStrategy<TS>,
 {
-    fn with_rs(reuse_strategy: RS) -> Self {
-        Self {
-            reuse_strategy,
-            _phantom: PhantomData,
-        }
+  fn with_rs(reuse_strategy: RS) -> Self {
+    Self {
+      reuse_strategy,
+      _phantom: PhantomData,
     }
+  }
 }
 
 pub trait ReuseStrategy<TS>
 where
-    TS: TokenStream,
+  TS: TokenStream,
 {
-    fn get_reusable_components(
-        &mut self,
-        field_name: &str,
-    ) -> Result<Option<&mut TokenStreamComponents<TS>>>;
-    fn set_reusable_components(
-        &mut self,
-        field_name: &str,
-        components: TokenStreamComponents<TS>,
-    ) -> Result<()>;
+  fn get_reusable_components(
+    &mut self,
+    field_name: &str,
+  ) -> Result<Option<&mut TokenStreamComponents<TS>>>;
+  fn set_reusable_components(
+    &mut self,
+    field_name: &str,
+    components: TokenStreamComponents<TS>,
+  ) -> Result<()>;
 }
 pub struct GlobalReuseStrategy<TS>
 where
-    TS: TokenStream,
+  TS: TokenStream,
 {
-    store_value: Option<TokenStreamComponents<TS>>,
-    first: bool,
+  store_value: Option<TokenStreamComponents<TS>>,
+  first: bool,
 }
 impl<TS> Default for GlobalReuseStrategy<TS>
 where
-    TS: TokenStream,
+  TS: TokenStream,
 {
-    fn default() -> Self {
-        Self {
-            store_value: None,
-            first: true,
-        }
+  fn default() -> Self {
+    Self {
+      store_value: None,
+      first: true,
     }
+  }
 }
 impl<TS> ReuseStrategy<TS> for GlobalReuseStrategy<TS>
 where
-    TS: TokenStream,
+  TS: TokenStream,
 {
-    fn get_reusable_components(
-        &mut self,
-        _field_name: &str,
-    ) -> Result<Option<&mut TokenStreamComponents<TS>>> {
-        match self.store_value {
-            Some(ref mut v) => Ok(Some(v)),
-            _ => Ok(None),
-        }
+  fn get_reusable_components(
+    &mut self,
+    _field_name: &str,
+  ) -> Result<Option<&mut TokenStreamComponents<TS>>> {
+    match self.store_value {
+      Some(ref mut v) => Ok(Some(v)),
+      _ => Ok(None),
     }
+  }
 
-    fn set_reusable_components(
-        &mut self,
-        _field_name: &str,
-        components: TokenStreamComponents<TS>,
-    ) -> Result<()> {
-        if self.first {
-            self.first = false;
-            self.store_value = Some(components);
-            return Ok(());
-        }
-        let v = self
-            .store_value
-            .as_mut()
-            .ok_or_else(|| LuceneError::already_closed("this Analyzer is closed"))?;
-        *v = components;
-        Ok(())
+  fn set_reusable_components(
+    &mut self,
+    _field_name: &str,
+    components: TokenStreamComponents<TS>,
+  ) -> Result<()> {
+    if self.first {
+      self.first = false;
+      self.store_value = Some(components);
+      return Ok(());
     }
+    let v = self
+      .store_value
+      .as_mut()
+      .ok_or_else(|| LuceneError::already_closed("this Analyzer is closed"))?;
+    *v = components;
+    Ok(())
+  }
 }
 #[derive(Default)]
 pub struct PerFieldReuseStrategy<TS>
 where
-    TS: TokenStream,
+  TS: TokenStream,
 {
-    store_value: Option<HashMap<String, TokenStreamComponents<TS>>>,
+  store_value: Option<HashMap<String, TokenStreamComponents<TS>>>,
 }
 impl<TS> ReuseStrategy<TS> for PerFieldReuseStrategy<TS>
 where
-    TS: TokenStream,
+  TS: TokenStream,
 {
-    fn get_reusable_components(
-        &mut self,
-        field_name: &str,
-    ) -> Result<Option<&mut TokenStreamComponents<TS>>>
-    where
-        TS: TokenStream,
-    {
-        match self.store_value {
-            Some(ref mut v) => Ok(v.get_mut(field_name)),
-            _ => Ok(None),
-        }
+  fn get_reusable_components(
+    &mut self,
+    field_name: &str,
+  ) -> Result<Option<&mut TokenStreamComponents<TS>>>
+  where
+    TS: TokenStream,
+  {
+    match self.store_value {
+      Some(ref mut v) => Ok(v.get_mut(field_name)),
+      _ => Ok(None),
     }
+  }
 
-    fn set_reusable_components(
-        &mut self,
-        field_name: &str,
-        components: TokenStreamComponents<TS>,
-    ) -> Result<()> {
-        match self.store_value {
-            Some(ref mut v) => {
-                let _ = v.insert(field_name.to_string(), components);
-                Ok(())
-            },
-            None => Err(LuceneError::already_closed("this Analyzer is closed")),
-        }
+  fn set_reusable_components(
+    &mut self,
+    field_name: &str,
+    components: TokenStreamComponents<TS>,
+  ) -> Result<()> {
+    match self.store_value {
+      Some(ref mut v) => {
+        let _ = v.insert(field_name.to_string(), components);
+        Ok(())
+      },
+      None => Err(LuceneError::already_closed("this Analyzer is closed")),
     }
+  }
 }
 
 pub struct TokenStreamComponents<TS>
 where
-    TS: TokenStream,
+  TS: TokenStream,
 {
-    sink: Option<TS>,
+  sink: Option<TS>,
 }
 impl<TS> TokenStreamComponents<TS>
 where
-    TS: TokenStream,
+  TS: TokenStream,
 {
-    pub fn new(sink: TS) -> Self {
-        Self { sink: Some(sink) }
-    }
-    fn set_reader(&mut self, reader: ReaderEnum) -> Result<()> {
-        self.sink.as_mut().unwrap().set_reader(reader)
-    }
-    pub fn get_token_stream(&mut self) -> &mut TS {
-        self.sink.as_mut().unwrap()
-    }
-    pub fn take_token_stream(&mut self) -> Option<TS> {
-        self.sink.take()
-    }
+  pub fn new(sink: TS) -> Self {
+    Self { sink: Some(sink) }
+  }
+  fn set_reader(&mut self, reader: ReaderEnum) -> Result<()> {
+    self.sink.as_mut().unwrap().set_reader(reader)
+  }
+  pub fn get_token_stream(&mut self) -> &mut TS {
+    self.sink.as_mut().unwrap()
+  }
+  pub fn take_token_stream(&mut self) -> Option<TS> {
+    self.sink.take()
+  }
 }
 
 pub struct StringTokenStream {
-    value: String,
-    length: i32,
-    used: bool,
-    att: Attributes,
+  value: String,
+  length: i32,
+  used: bool,
+  att: Attributes,
 }
 impl StringTokenStream {
-    fn new(att: Attributes, value: &str, length: i32) -> Self {
-        Self {
-            value: value.to_string(),
-            length,
-            used: true,
-            att,
-        }
+  fn new(att: Attributes, value: &str, length: i32) -> Self {
+    Self {
+      value: value.to_string(),
+      length,
+      used: true,
+      att,
     }
+  }
 }
 
 impl Drop for StringTokenStream {
-    fn drop(&mut self) {
-        self.close().expect("should not fail");
-    }
+  fn drop(&mut self) {
+    self.close().expect("should not fail");
+  }
 }
 
 impl TokenStream for StringTokenStream {
-    fn increment_token(&mut self) -> Result<bool> {
-        if self.used {
-            return Ok(false);
-        }
-        self.att.clear_attributes();
-        self.att.append_str(Some(&self.value));
-        self.att.set_offset(0, self.length)?;
-        self.used = true;
-        Ok(true)
+  fn increment_token(&mut self) -> Result<bool> {
+    if self.used {
+      return Ok(false);
     }
+    self.att.clear_attributes();
+    self.att.append_str(Some(&self.value));
+    self.att.set_offset(0, self.length)?;
+    self.used = true;
+    Ok(true)
+  }
 
-    fn end(&mut self) -> Result<()> {
-        self.default_end()?;
-        self.att.set_offset(self.length, self.length)
-    }
+  fn end(&mut self) -> Result<()> {
+    self.default_end()?;
+    self.att.set_offset(self.length, self.length)
+  }
 
-    fn reset(&mut self) -> Result<()> {
-        self.used = false;
-        Ok(())
-    }
+  fn reset(&mut self) -> Result<()> {
+    self.used = false;
+    Ok(())
+  }
 
-    fn get_attribute_source(&self) -> &Attributes {
-        &self.att
-    }
+  fn get_attribute_source(&self) -> &Attributes {
+    &self.att
+  }
 
-    fn get_attribute_source_mut(&mut self) -> &mut Attributes {
-        &mut self.att
-    }
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    &mut self.att
+  }
 }

@@ -26,67 +26,67 @@ use std::borrow::Cow;
 pub struct DummySortedSetDocValues;
 
 impl DocValuesIterator for DummySortedSetDocValues {
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl DocIdSetIterator for DummySortedSetDocValues {
-    fn doc_id(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn doc_id(&self) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn slow_advance(&mut self, _target: i32) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn slow_advance(&mut self, _target: i32) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn cost(&self) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn cost(&self) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl SortedSetDocValues for DummySortedSetDocValues {
-    fn next_ord(&mut self) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn next_ord(&mut self) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn doc_value_count(&mut self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn doc_value_count(&mut self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_value_count(&self) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_value_count(&self) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type TermsEnum<'a> = DummyTermsEnum;
+  type TermsEnum<'a> = DummyTermsEnum;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn is_single_valued(&self) -> bool {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn is_single_valued(&self) -> bool {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type SortedDocValues = DummySortedDocValues;
+  type SortedDocValues = DummySortedDocValues;
 
-    fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

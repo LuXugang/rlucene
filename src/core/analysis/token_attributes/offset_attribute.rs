@@ -19,28 +19,28 @@ use crate::core::util::error::lucene_error::Result;
 
 /// The start and end character offset of a token.
 pub trait OffsetAttribute: Attribute {
-    /// Returns this token's starting offset, the position of the first
-    /// character in the source text.
-    ///
-    /// See also: [`Self::set_offset`]
-    fn start_offset(&self) -> i32;
+  /// Returns this token's starting offset, the position of the first
+  /// character in the source text.
+  ///
+  /// See also: [`Self::set_offset`]
+  fn start_offset(&self) -> i32;
 
-    /// Sets the starting and ending offset.
-    ///
-    /// # Errors
-    ///
-    /// Implementations should throw errors if `start_offset` or `end_offset`
-    /// are negative, or if `start_offset > end_offset`.
-    ///
-    /// See also: [`Self::start_offset`], [`Self::end_offset`]
-    fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()>;
+  /// Sets the starting and ending offset.
+  ///
+  /// # Errors
+  ///
+  /// Implementations should throw errors if `start_offset` or `end_offset`
+  /// are negative, or if `start_offset > end_offset`.
+  ///
+  /// See also: [`Self::start_offset`], [`Self::end_offset`]
+  fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()>;
 
-    /// Returns this token's ending offset, one greater than the position of the
-    /// last character in the source text.
-    ///
-    /// The length of the token in the source text is `end_offset() -
-    /// start_offset()`.
-    ///
-    /// See also: [`Self::set_offset`]
-    fn end_offset(&self) -> i32;
+  /// Returns this token's ending offset, one greater than the position of the
+  /// last character in the source text.
+  ///
+  /// The length of the token in the source text is `end_offset() -
+  /// start_offset()`.
+  ///
+  /// See also: [`Self::set_offset`]
+  fn end_offset(&self) -> i32;
 }

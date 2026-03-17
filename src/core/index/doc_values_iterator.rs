@@ -18,31 +18,31 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait DocValuesIterator: DocIdSetIterator {
-    /// Advances the iterator to exactly `target` and returns whether `target`
-    /// has a value.
-    ///
-    /// # Parameters
-    /// - `target`: The target document ID to advance to. `Target` must be
-    ///   greater than or equal to the current document ID
-    ///   ([`doc_id()`](DocIdSetIterator::doc_id)) and must be a valid document
-    ///   ID (i.e., `target >= 0` and `target < max_doc`).
-    ///
-    /// # Returns
-    /// `true` if `target` has a value, otherwise returns `false`.
-    ///
-    /// # Note
-    /// After this method returns, [`doc_id()`](DocIdSetIterator::doc_id)
-    /// will return the value of `target`.
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        Err(LuceneError::not_implemented(""))
-    }
+  /// Advances the iterator to exactly `target` and returns whether `target`
+  /// has a value.
+  ///
+  /// # Parameters
+  /// - `target`: The target document ID to advance to. `Target` must be
+  ///   greater than or equal to the current document ID
+  ///   ([`doc_id()`](DocIdSetIterator::doc_id)) and must be a valid document
+  ///   ID (i.e., `target >= 0` and `target < max_doc`).
+  ///
+  /// # Returns
+  /// `true` if `target` has a value, otherwise returns `false`.
+  ///
+  /// # Note
+  /// After this method returns, [`doc_id()`](DocIdSetIterator::doc_id)
+  /// will return the value of `target`.
+  fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    Err(LuceneError::not_implemented(""))
+  }
 }
 impl<S> DocValuesIterator for &mut S
 where
-    S: DocValuesIterator,
+  S: DocValuesIterator,
 {
-    #[inline]
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        (**self).advance_exact(target)
-    }
+  #[inline]
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    (**self).advance_exact(target)
+  }
 }

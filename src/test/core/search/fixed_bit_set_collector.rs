@@ -30,90 +30,90 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use std::fmt::{Display, Formatter};
 /// Collector that accumulates matching docs in a FixedBitSet
 pub struct FixedBitSetCollector {
-    bit_set: FixedBitSet,
-    doc_base: i32,
+  bit_set: FixedBitSet,
+  doc_base: i32,
 }
 
 impl FixedBitSetCollector {
-    pub fn new(max_doc: i32) -> Self {
-        Self {
-            bit_set: FixedBitSet::new(max_doc as usize),
-            doc_base: 0,
-        }
+  pub fn new(max_doc: i32) -> Self {
+    Self {
+      bit_set: FixedBitSet::new(max_doc as usize),
+      doc_base: 0,
     }
+  }
 
-    pub fn create_manager(max_doc: i32) -> FixedBitSetCollectorManager {
-        FixedBitSetCollectorManager { max_doc }
-    }
+  pub fn create_manager(max_doc: i32) -> FixedBitSetCollectorManager {
+    FixedBitSetCollectorManager { max_doc }
+  }
 }
 
 impl Collector for FixedBitSetCollector {
-    type LeafCollector<'a, IRC>
-        = &'a mut Self
-    where
-        Self: 'a,
-        IRC: IndexReaderContext;
+  type LeafCollector<'a, IRC>
+    = &'a mut Self
+  where
+    Self: 'a,
+    IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, IRC>(
-        &'a mut self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, IRC>>
-    where
-        IRC: IndexReaderContext,
-        W: Weight<IRC> + ?Sized,
-    {
-        SimpleCollector::do_set_next_reader(self, context)?;
-        Ok(self)
-    }
+  fn get_leaf_collector<'a, W, IRC>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC>>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    SimpleCollector::do_set_next_reader(self, context)?;
+    Ok(self)
+  }
 
-    fn score_mode(&self) -> ScoreMode {
-        ScoreMode::CompleteNoScores
-    }
+  fn score_mode(&self) -> ScoreMode {
+    ScoreMode::CompleteNoScores
+  }
 }
 
 impl LeafCollector for FixedBitSetCollector {
-    fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
-        self.bit_set.set((self.doc_base + doc) as usize);
-        Ok(())
-    }
+  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+    self.bit_set.set((self.doc_base + doc) as usize);
+    Ok(())
+  }
 }
 
 impl SimpleCollector for FixedBitSetCollector {
-    fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
-    where
-        LR: LeafReader,
-    {
-        self.doc_base = context.doc_base as i32;
-        Ok(())
-    }
+  fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
+  where
+    LR: LeafReader,
+  {
+    self.doc_base = context.doc_base as i32;
+    Ok(())
+  }
 }
 
 impl Display for FixedBitSetCollector {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }
 
 pub struct FixedBitSetCollectorManager {
-    max_doc: i32,
+  max_doc: i32,
 }
 
 impl CollectorManager for FixedBitSetCollectorManager {
-    type C = FixedBitSetCollector;
-    type T = FixedBitSet;
+  type C = FixedBitSetCollector;
+  type T = FixedBitSet;
 
-    fn new_collector(&self) -> Result<Self::C> {
-        Ok(FixedBitSetCollector::new(self.max_doc))
+  fn new_collector(&self) -> Result<Self::C> {
+    Ok(FixedBitSetCollector::new(self.max_doc))
+  }
+
+  fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+    let mut reduced = FixedBitSet::new(self.max_doc as usize);
+
+    for collector in collectors {
+      reduced.or(&collector.bit_set);
     }
 
-    fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
-        let mut reduced = FixedBitSet::new(self.max_doc as usize);
-
-        for collector in collectors {
-            reduced.or(&collector.bit_set);
-        }
-
-        Ok(reduced)
-    }
+    Ok(reduced)
+  }
 }

@@ -32,101 +32,101 @@ use std::sync::Arc;
 /// See [`DocumentStoredFieldVisitor`](crate::core::document::document_stored_field_visitor::DocumentStoredFieldVisitor), which is a `StoredFieldVisitor` that builds the [`Document`](crate::core::document::document::Document)
 /// containing all stored fields.
 pub trait StoredFieldVisitor {
-    /// Expert: Process a binary field directly from the DataInput.
-    /// Implementors of this method must read `length` bytes from the given
-    /// `DataInput`. Default implementation reads into a byte array and
-    /// delegates to `binary_field`.
-    fn binary_field_with_input<S: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        input: &mut impl DataInput,
-        length: i32,
-        writer: Option<&mut S>,
-    ) -> Result<()> {
-        let length = length as usize;
-        let mut buffer = vec![0u8; length];
-        input.read_bytes(&mut buffer, 0, length)?;
-        self.binary_field(field_info, buffer, writer)
-    }
+  /// Expert: Process a binary field directly from the DataInput.
+  /// Implementors of this method must read `length` bytes from the given
+  /// `DataInput`. Default implementation reads into a byte array and
+  /// delegates to `binary_field`.
+  fn binary_field_with_input<S: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    input: &mut impl DataInput,
+    length: i32,
+    writer: Option<&mut S>,
+  ) -> Result<()> {
+    let length = length as usize;
+    let mut buffer = vec![0u8; length];
+    input.read_bytes(&mut buffer, 0, length)?;
+    self.binary_field(field_info, buffer, writer)
+  }
 
-    /// Process a binary field.
-    fn binary_field<S: StoredFieldsWriter>(
-        &mut self,
-        _field_info: Arc<FieldInfo>,
-        _value: Vec<u8>,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        Ok(())
-    }
+  /// Process a binary field.
+  fn binary_field<S: StoredFieldsWriter>(
+    &mut self,
+    _field_info: Arc<FieldInfo>,
+    _value: Vec<u8>,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    Ok(())
+  }
 
-    /// Process a string field.
-    fn string_field<S: StoredFieldsWriter>(
-        &mut self,
-        _field_info: Arc<FieldInfo>,
-        _value: String,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        Ok(())
-    }
+  /// Process a string field.
+  fn string_field<S: StoredFieldsWriter>(
+    &mut self,
+    _field_info: Arc<FieldInfo>,
+    _value: String,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    Ok(())
+  }
 
-    /// Process an int numeric field.
-    fn int_field<S: StoredFieldsWriter>(
-        &mut self,
-        _field_info: Arc<FieldInfo>,
-        _value: i32,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        Ok(())
-    }
+  /// Process an int numeric field.
+  fn int_field<S: StoredFieldsWriter>(
+    &mut self,
+    _field_info: Arc<FieldInfo>,
+    _value: i32,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    Ok(())
+  }
 
-    /// Process a long numeric field.
-    fn long_field<S: StoredFieldsWriter>(
-        &mut self,
-        _field_info: Arc<FieldInfo>,
-        _value: i64,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        Ok(())
-    }
+  /// Process a long numeric field.
+  fn long_field<S: StoredFieldsWriter>(
+    &mut self,
+    _field_info: Arc<FieldInfo>,
+    _value: i64,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    Ok(())
+  }
 
-    /// Process a float numeric field.
-    fn float_field<S: StoredFieldsWriter>(
-        &mut self,
-        _field_info: Arc<FieldInfo>,
-        _value: f32,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        Ok(())
-    }
+  /// Process a float numeric field.
+  fn float_field<S: StoredFieldsWriter>(
+    &mut self,
+    _field_info: Arc<FieldInfo>,
+    _value: f32,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    Ok(())
+  }
 
-    /// Process a double numeric field.
-    fn double_field<S: StoredFieldsWriter>(
-        &mut self,
-        _field_info: Arc<FieldInfo>,
-        _value: f64,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        Ok(())
-    }
+  /// Process a double numeric field.
+  fn double_field<S: StoredFieldsWriter>(
+    &mut self,
+    _field_info: Arc<FieldInfo>,
+    _value: f64,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    Ok(())
+  }
 
-    /// Hook before processing a field.
-    /// Returns a [`Status`] representing whether to visit, skip, or stop.
-    fn needs_field<S: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        _writer: Option<&mut S>,
-    ) -> Result<Status>;
+  /// Hook before processing a field.
+  /// Returns a [`Status`] representing whether to visit, skip, or stop.
+  fn needs_field<S: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    _writer: Option<&mut S>,
+  ) -> Result<Status>;
 }
 
 /// Enumeration of possible return values for `needs_field`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Status {
-    /// YES: the field should be visited.
-    Yes,
-    /// NO: don't visit this field, but continue processing fields for this
-    /// document.
-    No,
-    /// STOP: don't visit this field and stop processing any other fields for
-    /// this document.
-    Stop,
+  /// YES: the field should be visited.
+  Yes,
+  /// NO: don't visit this field, but continue processing fields for this
+  /// document.
+  No,
+  /// STOP: don't visit this field and stop processing any other fields for
+  /// this document.
+  Stop,
 }

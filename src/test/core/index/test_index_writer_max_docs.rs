@@ -29,8 +29,7 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config, new_string_field,
-    random,
+  create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config, new_string_field, random,
 };
 use std::collections::HashMap;
 
@@ -38,63 +37,59 @@ use std::collections::HashMap;
 struct TestIndexWriterMaxDocs;
 #[test]
 fn test_exactly_at_true_limit() -> Result<()> {
-    // let max_docs = MAX_DOCS;
-    // TODO IMPORTANT 这个在Java Lucene需要执行特别长的时间, 我们这里置为一个较小的值, 以便测试能够在合理的时间内完成. 在Java Lucene中, 这个值被设置为MAX_DOCS, 也就是2^31 - 1.
-    let max_docs = 1000000;
-    let mut random = random();
+  // let max_docs = MAX_DOCS;
+  // TODO IMPORTANT 这个在Java Lucene需要执行特别长的时间, 我们这里置为一个较小的值, 以便测试能够在合理的时间内完成. 在Java Lucene中, 这个值被设置为MAX_DOCS, 也就是2^31 - 1.
+  let max_docs = 1000000;
+  let mut random = random();
 
-    let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("2BDocs3")?)?;
+  let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("2BDocs3")?)?;
 
-    let iwc = new_index_writer_config(&mut random);
-    let iw = IndexWriter::new(dir.clone(), iwc)?;
+  let iwc = new_index_writer_config(&mut random);
+  let iw = IndexWriter::new(dir.clone(), iwc)?;
 
-    let mut field_types = HashMap::new();
-    let mut doc = Document::new();
-    doc.add(new_string_field(
-        &mut random,
-        "field",
-        "text",
-        No,
-        &mut field_types,
-    )?);
+  let mut field_types = HashMap::new();
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "field",
+    "text",
+    No,
+    &mut field_types,
+  )?);
 
-    for _i in 0..max_docs {
-        iw.add_document(doc.clone())?;
-    }
+  for _i in 0..max_docs {
+    iw.add_document(doc.clone())?;
+  }
 
-    iw.commit()?;
+  iw.commit()?;
 
-    // first unoptimized, then optimized
-    for _iter in 0..2 {
-        let ir = directory_reader_util::open(dir.clone())?;
-        assert_eq!(max_docs, ir.max_doc()?);
-        assert_eq!(max_docs, ir.num_docs()?);
+  // first unoptimized, then optimized
+  for _iter in 0..2 {
+    let ir = directory_reader_util::open(dir.clone())?;
+    assert_eq!(max_docs, ir.max_doc()?);
+    assert_eq!(max_docs, ir.num_docs()?);
 
-        let searcher = IndexSearcher::from_cr(ir)?;
-        let collector_manager =
-            TopScoreDocCollectorManager::with_after(10, None, i32::MAX as usize)?;
+    let searcher = IndexSearcher::from_cr(ir)?;
+    let collector_manager = TopScoreDocCollectorManager::with_after(10, None, i32::MAX as usize)?;
 
-        let hits = searcher.search_with_collector_manager(
-            TermQuery::new(Term::from_text("field", "text")),
-            &collector_manager,
-        )?;
-        assert_eq!(max_docs as usize, hits.total_hits.value);
+    let hits = searcher.search_with_collector_manager(
+      TermQuery::new(Term::from_text("field", "text")),
+      &collector_manager,
+    )?;
+    assert_eq!(max_docs as usize, hits.total_hits.value);
 
-        // sort by docID reversed
-        let sort = Sort::with_fields(vec![SortField::with_reverse::<String>(None, Doc, true)?])?;
-        let hits2 = searcher.search_with_sort(
-            TermQuery::new(Term::from_text("field", "text")),
-            10,
-            sort,
-        )?;
+    // sort by docID reversed
+    let sort = Sort::with_fields(vec![SortField::with_reverse::<String>(None, Doc, true)?])?;
+    let hits2 =
+      searcher.search_with_sort(TermQuery::new(Term::from_text("field", "text")), 10, sort)?;
 
-        assert_eq!(max_docs as usize, hits2.total_hits().value);
-        assert_eq!(10, hits2.score_docs().len());
-        assert_eq!(max_docs - 1, hits2.score_docs()[0].doc());
+    assert_eq!(max_docs as usize, hits2.total_hits().value);
+    assert_eq!(10, hits2.score_docs().len());
+    assert_eq!(max_docs - 1, hits2.score_docs()[0].doc());
 
-        iw.force_merge(1)?;
-    }
+    iw.force_merge(1)?;
+  }
 
-    iw.close()?;
-    Ok(())
+  iw.close()?;
+  Ok(())
 }

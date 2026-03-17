@@ -24,25 +24,25 @@ use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 /// Encodes/decodes terms, postings, and proximity data.
 pub trait PostingsFormat {
-    type FieldsConsumer<T: IndexOutput>: FieldsConsumer;
-    /// Writes a new segment
-    fn fields_consumer<D1, D2>(
-        &self,
-        state: &SegmentWriteState<D1>,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory;
-    type FieldsProducer<T: IndexInput>: FieldsProducer;
-    /// Reads a segment. **NOTE**: by the time this call returns, it must hold open any files it will need
-    /// to use; else, those files may be deleted. Additionally, required files may be deleted during
-    /// the execution of this call before there is a chance to open them. Under these circumstances an
-    /// `IOException` should be returned by the implementation. IO exceptions are expected and will
-    /// automatically cause a retry of the segment opening logic with the newly revised segments.
-    fn fields_producer<D1: Directory, D2: Directory>(
-        &self,
-        state: &SegmentReadState<D1>,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<Self::FieldsProducer<D1::IndexInput>>;
+  type FieldsConsumer<T: IndexOutput>: FieldsConsumer;
+  /// Writes a new segment
+  fn fields_consumer<D1, D2>(
+    &self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory;
+  type FieldsProducer<T: IndexInput>: FieldsProducer;
+  /// Reads a segment. **NOTE**: by the time this call returns, it must hold open any files it will need
+  /// to use; else, those files may be deleted. Additionally, required files may be deleted during
+  /// the execution of this call before there is a chance to open them. Under these circumstances an
+  /// `IOException` should be returned by the implementation. IO exceptions are expected and will
+  /// automatically cause a retry of the segment opening logic with the newly revised segments.
+  fn fields_producer<D1: Directory, D2: Directory>(
+    &self,
+    state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::FieldsProducer<D1::IndexInput>>;
 }

@@ -30,103 +30,103 @@ use std::fmt::{Display, Formatter};
 /// to locate the correct sub-reader.
 pub struct MultiBits<B>
 where
-    B: Bits,
+  B: Bits,
 {
-    subs: Vec<Option<B>>,
-    starts: Vec<usize>,
-    default_value: bool,
-    id: Identity,
+  subs: Vec<Option<B>>,
+  starts: Vec<usize>,
+  default_value: bool,
+  id: Identity,
 }
 
 impl<B> MultiBits<B>
 where
-    B: Bits,
+  B: Bits,
 {
-    pub fn new(subs: Vec<Option<B>>, starts: Vec<usize>, default_value: bool) -> Self {
-        debug_assert_eq!(starts.len(), subs.len() + 1);
-        Self {
-            subs,
-            starts,
-            default_value,
-            id: Identity::new(),
-        }
+  pub fn new(subs: Vec<Option<B>>, starts: Vec<usize>, default_value: bool) -> Self {
+    debug_assert_eq!(starts.len(), subs.len() + 1);
+    Self {
+      subs,
+      starts,
+      default_value,
+      id: Identity::new(),
     }
-    fn check_length(&self, reader: usize, doc: usize) -> bool {
-        let length = self.starts[reader + 1] - self.starts[reader];
-        debug_assert!(
-            doc - self.starts[reader] < length,
-            "doc={} reader={} starts[reader]={} length={}",
-            doc,
-            reader,
-            self.starts[reader],
-            length
-        );
-        true
-    }
+  }
+  fn check_length(&self, reader: usize, doc: usize) -> bool {
+    let length = self.starts[reader + 1] - self.starts[reader];
+    debug_assert!(
+      doc - self.starts[reader] < length,
+      "doc={} reader={} starts[reader]={} length={}",
+      doc,
+      reader,
+      self.starts[reader],
+      length
+    );
+    true
+  }
 }
 
 impl<B> HasIdentity for MultiBits<B>
 where
-    B: Bits,
+  B: Bits,
 {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 
 impl<B> Bits for MultiBits<B>
 where
-    B: Bits,
+  B: Bits,
 {
-    fn get(&self, index: usize) -> Result<bool> {
-        let reader = ReaderUtil::sub_index(index, &self.starts);
-        debug_assert!(reader != -1);
+  fn get(&self, index: usize) -> Result<bool> {
+    let reader = ReaderUtil::sub_index(index, &self.starts);
+    debug_assert!(reader != -1);
 
-        let reader = reader as usize;
-        let bits = &self.subs[reader];
-        match bits {
-            None => Ok(self.default_value),
-            Some(bits) => {
-                debug_assert!(self.check_length(reader, index));
-                bits.get(index - self.starts[reader])
-            },
-        }
+    let reader = reader as usize;
+    let bits = &self.subs[reader];
+    match bits {
+      None => Ok(self.default_value),
+      Some(bits) => {
+        debug_assert!(self.check_length(reader, index));
+        bits.get(index - self.starts[reader])
+      },
     }
+  }
 
-    fn length(&self) -> usize {
-        let len = self.starts.len() - 1;
-        self.starts[len]
-    }
+  fn length(&self) -> usize {
+    let len = self.starts.len() - 1;
+    self.starts[len]
+  }
 }
 impl<B> Display for MultiBits<B>
 where
-    B: Bits,
+  B: Bits,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} subs: ", self.subs.len())?;
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{} subs: ", self.subs.len())?;
 
-        for i in 0..self.subs.len() {
-            if i != 0 {
-                write!(f, "; ")?;
-            }
+    for i in 0..self.subs.len() {
+      if i != 0 {
+        write!(f, "; ")?;
+      }
 
-            match &self.subs[i] {
-                None => {
-                    write!(f, "s={} l=null", self.starts[i])?;
-                },
-                Some(bits) => {
-                    write!(
-                        f,
-                        "s={} l={} b={}",
-                        self.starts[i],
-                        bits.length(),
-                        bits.as_string()
-                    )?;
-                },
-            }
-        }
-        write!(f, " end={}", self.starts[self.subs.len()])
+      match &self.subs[i] {
+        None => {
+          write!(f, "s={} l=null", self.starts[i])?;
+        },
+        Some(bits) => {
+          write!(
+            f,
+            "s={} l={} b={}",
+            self.starts[i],
+            bits.length(),
+            bits.as_string()
+          )?;
+        },
+      }
     }
+    write!(f, " end={}", self.starts[self.subs.len()])
+  }
 }
 /// Returns a single `Bits` instance for this reader, merging live documents on the fly.
 /// This method will return `None` if the reader has no deletions.
@@ -136,40 +136,40 @@ where
 /// It's better to get the sub-readers and iterate through them yourself.
 pub fn get_live_docs<CR>(reader: CR) -> Result<Option<BitsType<CR>>>
 where
-    CR: CompositeReader,
+  CR: CompositeReader,
 {
-    if !reader.has_deletions()? {
-        return Ok(None);
-    }
-    let max_doc = reader.max_doc()?;
-    let ctx = get_context(reader)?;
-    let leaves = ctx.leaves()?;
-    let size = leaves.len();
-    debug_assert!(
-        size > 0,
-        "A reader with deletions must have at least one leave"
-    );
+  if !reader.has_deletions()? {
+    return Ok(None);
+  }
+  let max_doc = reader.max_doc()?;
+  let ctx = get_context(reader)?;
+  let leaves = ctx.leaves()?;
+  let size = leaves.len();
+  debug_assert!(
+    size > 0,
+    "A reader with deletions must have at least one leave"
+  );
 
-    if size == 1 {
-        return match leaves[0].reader().get_live_docs()? {
-            Some(bits) => Ok(Some(BitsEnum2::A(bits))),
-            None => Ok(None),
-        };
-    }
+  if size == 1 {
+    return match leaves[0].reader().get_live_docs()? {
+      Some(bits) => Ok(Some(BitsEnum2::A(bits))),
+      None => Ok(None),
+    };
+  }
 
-    let mut live_docs = Vec::with_capacity(size);
-    let mut starts: Vec<usize> = Vec::with_capacity(size + 1);
+  let mut live_docs = Vec::with_capacity(size);
+  let mut starts: Vec<usize> = Vec::with_capacity(size + 1);
 
-    for ctx in leaves {
-        // record all liveDocs, even if they are null
-        live_docs.push(ctx.reader().get_live_docs()?);
-        starts.push(ctx.doc_base);
-    }
+  for ctx in leaves {
+    // record all liveDocs, even if they are null
+    live_docs.push(ctx.reader().get_live_docs()?);
+    starts.push(ctx.doc_base);
+  }
 
-    starts.push(max_doc.try_convert()?);
+  starts.push(max_doc.try_convert()?);
 
-    Ok(Some(BitsType::<CR>::B(MultiBits::new(
-        live_docs, starts, true,
-    ))))
+  Ok(Some(BitsType::<CR>::B(MultiBits::new(
+    live_docs, starts, true,
+  ))))
 }
 pub type BitsType<CR> = BitsEnum2<CompositeReaderBits<CR>, MultiBits<CompositeReaderBits<CR>>>;

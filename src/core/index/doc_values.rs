@@ -28,7 +28,7 @@ use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocVa
 use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_numeric_doc_values::{
-    SortedNumericDocValues, SortedNumericDocValuesEnum2,
+  SortedNumericDocValues, SortedNumericDocValuesEnum2,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
@@ -41,717 +41,715 @@ pub type EmptySortedSet = SingletonSortedSetDocValues<EmptySorted>;
 /// This struct contains utility methods and constants for DocValues
 pub struct DocValues;
 impl DocValues {
-    /// An empty [`BinaryDocValues`] which returns no documents
-    pub fn empty_binary() -> EmptyBinary {
-        EmptyBinary::new()
-    }
-    /// An empty [`NumericDocValues`] which returns no documents
-    pub fn empty_numeric() -> EmptyNumeric {
-        EmptyNumeric::new()
-    }
-    /// An empty SortedDocValues which returns empty BytesRef for every document
-    pub fn empty_sorted() -> EmptySorted {
-        EmptySorted::new()
-    }
-    /// An empty SortedNumericDocValues which returns zero values for every
-    /// document.
-    pub fn empty_sorted_numeric() -> Result<SingletonSortedNumericDocValues<EmptyNumeric>> {
-        Self::singleton_numeric(Self::empty_numeric())
-    }
-    /// An empty SortedDocValues which returns empty [`BytesRef`] for every
-    /// document.
-    pub fn empty_sorted_set() -> Result<SingletonSortedSetDocValues<EmptySorted>> {
-        Self::singleton_sorted(Self::empty_sorted())
-    }
+  /// An empty [`BinaryDocValues`] which returns no documents
+  pub fn empty_binary() -> EmptyBinary {
+    EmptyBinary::new()
+  }
+  /// An empty [`NumericDocValues`] which returns no documents
+  pub fn empty_numeric() -> EmptyNumeric {
+    EmptyNumeric::new()
+  }
+  /// An empty SortedDocValues which returns empty BytesRef for every document
+  pub fn empty_sorted() -> EmptySorted {
+    EmptySorted::new()
+  }
+  /// An empty SortedNumericDocValues which returns zero values for every
+  /// document.
+  pub fn empty_sorted_numeric() -> Result<SingletonSortedNumericDocValues<EmptyNumeric>> {
+    Self::singleton_numeric(Self::empty_numeric())
+  }
+  /// An empty SortedDocValues which returns empty [`BytesRef`] for every
+  /// document.
+  pub fn empty_sorted_set() -> Result<SingletonSortedSetDocValues<EmptySorted>> {
+    Self::singleton_sorted(Self::empty_sorted())
+  }
 
-    /// Returns a multi-valued view over the provided SortedDocValues.
-    pub fn singleton_sorted<S>(dv: S) -> Result<SingletonSortedSetDocValues<S>>
-    where
-        S: SortedDocValues,
-    {
-        SingletonSortedSetDocValues::new(dv)
-    }
+  /// Returns a multi-valued view over the provided SortedDocValues.
+  pub fn singleton_sorted<S>(dv: S) -> Result<SingletonSortedSetDocValues<S>>
+  where
+    S: SortedDocValues,
+  {
+    SingletonSortedSetDocValues::new(dv)
+  }
 
-    /// Returns a single-valued view of the SortedSetDocValues, if it was
-    /// previously wrapped with
-    /// [`singleton_sorted`](DocValues::singleton_sorted), or null.
-    pub fn unwrap_singleton_sorted<S>(dv: &mut S) -> Result<S::SortedDocValues>
-    where
-        S: SortedSetDocValues,
-    {
-        dv.get_sorted_doc_values()
-    }
+  /// Returns a single-valued view of the SortedSetDocValues, if it was
+  /// previously wrapped with
+  /// [`singleton_sorted`](DocValues::singleton_sorted), or null.
+  pub fn unwrap_singleton_sorted<S>(dv: &mut S) -> Result<S::SortedDocValues>
+  where
+    S: SortedSetDocValues,
+  {
+    dv.get_sorted_doc_values()
+  }
 
-    /// Returns a single-valued view of the SortedNumericDocValues, if it was
-    /// previously wrapped with
-    /// [`singleton_numeric`](DocValues::singleton_numeric), or null.
-    pub fn unwrap_singleton_numeric<SN>(dv: &mut SN) -> Result<SN::NumericDocValues>
-    where
-        SN: SortedNumericDocValues,
-    {
-        dv.get_numeric_doc_values()
-    }
-    /// Returns a multi-valued view over the provided NumericDocValues.
-    pub fn singleton_numeric<N>(dv: N) -> Result<SingletonSortedNumericDocValues<N>>
-    where
-        N: NumericDocValues,
-    {
-        SingletonSortedNumericDocValues::new(dv)
-    }
+  /// Returns a single-valued view of the SortedNumericDocValues, if it was
+  /// previously wrapped with
+  /// [`singleton_numeric`](DocValues::singleton_numeric), or null.
+  pub fn unwrap_singleton_numeric<SN>(dv: &mut SN) -> Result<SN::NumericDocValues>
+  where
+    SN: SortedNumericDocValues,
+  {
+    dv.get_numeric_doc_values()
+  }
+  /// Returns a multi-valued view over the provided NumericDocValues.
+  pub fn singleton_numeric<N>(dv: N) -> Result<SingletonSortedNumericDocValues<N>>
+  where
+    N: NumericDocValues,
+  {
+    SingletonSortedNumericDocValues::new(dv)
+  }
 
-    fn check_field<LR>(reader: &LR, field: &str, expected: &[DocValuesType]) -> Result<()>
-    where
-        LR: LeafReader,
-    {
-        if let Some(fi) = reader.get_field_infos()?.field_info_by_name(field) {
-            let actual = *fi.get_doc_values_type();
-            if !expected.contains(&actual) {
-                let expected_str = if expected.len() == 1 {
-                    format!("={}", expected[0])
-                } else {
-                    format!("one of {expected:?}")
-                };
-                return Err(LuceneError::illegal_state(format!(
-                    "unexpected docvalues type {actual} for field '{field}' (expected {expected_str}). Re-index with correct docvalues type."
-                )));
-            }
-        }
-        Ok(())
+  fn check_field<LR>(reader: &LR, field: &str, expected: &[DocValuesType]) -> Result<()>
+  where
+    LR: LeafReader,
+  {
+    if let Some(fi) = reader.get_field_infos()?.field_info_by_name(field) {
+      let actual = *fi.get_doc_values_type();
+      if !expected.contains(&actual) {
+        let expected_str = if expected.len() == 1 {
+          format!("={}", expected[0])
+        } else {
+          format!("one of {expected:?}")
+        };
+        return Err(LuceneError::illegal_state(format!(
+          "unexpected docvalues type {actual} for field '{field}' (expected {expected_str}). Re-index with correct docvalues type."
+        )));
+      }
     }
-    /// Returns `NumericDocValues` for the field, or [`Self::empty_numeric()`] if it has none.
-    ///
-    /// # Returns
-    ///
-    /// A `NumericDocValues` instance, or an empty instance if `field` does not exist in this reader.
-    ///
-    /// # Error
-    ///
-    /// - IllegalStateException if `field` exists but was not indexed with doc values.  
-    /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Numeric`].  
-    pub fn get_numeric<LR>(reader: &LR, field: &str) -> Result<Numeric<LR>>
-    where
-        LR: LeafReader,
-    {
-        match reader.get_numeric_doc_values(field)? {
-            Some(dv) => Ok(NumericDocValuesEnum2::A(dv)),
-            None => {
-                Self::check_field(reader, field, &[DocValuesType::Numeric])?;
-                Ok(NumericDocValuesEnum2::B(Self::empty_numeric()))
-            },
-        }
+    Ok(())
+  }
+  /// Returns `NumericDocValues` for the field, or [`Self::empty_numeric()`] if it has none.
+  ///
+  /// # Returns
+  ///
+  /// A `NumericDocValues` instance, or an empty instance if `field` does not exist in this reader.
+  ///
+  /// # Error
+  ///
+  /// - IllegalStateException if `field` exists but was not indexed with doc values.  
+  /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Numeric`].  
+  pub fn get_numeric<LR>(reader: &LR, field: &str) -> Result<Numeric<LR>>
+  where
+    LR: LeafReader,
+  {
+    match reader.get_numeric_doc_values(field)? {
+      Some(dv) => Ok(NumericDocValuesEnum2::A(dv)),
+      None => {
+        Self::check_field(reader, field, &[DocValuesType::Numeric])?;
+        Ok(NumericDocValuesEnum2::B(Self::empty_numeric()))
+      },
     }
-    /// Returns `BinaryDocValues` for the field, or [`Self::empty_binary()`] if it has none.
-    ///
-    /// # Returns
-    ///
-    /// A `BinaryDocValues` instance, or an empty instance if `field` does not exist in this reader.
-    ///
-    /// # Error
-    ///
-    /// - IllegalStateException if `field` exists but was not indexed with doc values.  
-    /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Binary`].  
-    pub fn get_binary<LR>(reader: &LR, field: &str) -> Result<Binary<LR>>
-    where
-        LR: LeafReader,
-    {
-        match reader.get_binary_doc_values(field)? {
-            Some(dv) => Ok(BinaryDocValuesEnum2::A(dv)),
-            None => {
-                Self::check_field(reader, field, &[DocValuesType::Binary])?;
-                Ok(BinaryDocValuesEnum2::B(Self::empty_binary()))
-            },
-        }
+  }
+  /// Returns `BinaryDocValues` for the field, or [`Self::empty_binary()`] if it has none.
+  ///
+  /// # Returns
+  ///
+  /// A `BinaryDocValues` instance, or an empty instance if `field` does not exist in this reader.
+  ///
+  /// # Error
+  ///
+  /// - IllegalStateException if `field` exists but was not indexed with doc values.  
+  /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Binary`].  
+  pub fn get_binary<LR>(reader: &LR, field: &str) -> Result<Binary<LR>>
+  where
+    LR: LeafReader,
+  {
+    match reader.get_binary_doc_values(field)? {
+      Some(dv) => Ok(BinaryDocValuesEnum2::A(dv)),
+      None => {
+        Self::check_field(reader, field, &[DocValuesType::Binary])?;
+        Ok(BinaryDocValuesEnum2::B(Self::empty_binary()))
+      },
     }
-    /// Returns `SortedDocValues` for the field, or [`Self::empty_sorted()`] if it has none.
-    ///
-    /// # Returns
-    ///
-    /// A `SortedDocValues` instance, or an empty instance if `field` does not exist in this reader.
-    ///
-    /// # Error
-    ///
-    /// - IllegalStateException if `field` exists but was not indexed with doc values.  
-    /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Sorted`].  
-    pub fn get_sorted<LR>(reader: &LR, field: &str) -> Result<Sorted<LR>>
-    where
-        LR: LeafReader,
-    {
-        match reader.get_sorted_doc_values(field)? {
-            Some(dv) => Ok(SortedDocValuesEnum2::A(dv)),
-            None => {
-                Self::check_field(reader, field, &[DocValuesType::Sorted])?;
-                Ok(SortedDocValuesEnum2::B(Self::empty_sorted()))
-            },
-        }
+  }
+  /// Returns `SortedDocValues` for the field, or [`Self::empty_sorted()`] if it has none.
+  ///
+  /// # Returns
+  ///
+  /// A `SortedDocValues` instance, or an empty instance if `field` does not exist in this reader.
+  ///
+  /// # Error
+  ///
+  /// - IllegalStateException if `field` exists but was not indexed with doc values.  
+  /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Sorted`].  
+  pub fn get_sorted<LR>(reader: &LR, field: &str) -> Result<Sorted<LR>>
+  where
+    LR: LeafReader,
+  {
+    match reader.get_sorted_doc_values(field)? {
+      Some(dv) => Ok(SortedDocValuesEnum2::A(dv)),
+      None => {
+        Self::check_field(reader, field, &[DocValuesType::Sorted])?;
+        Ok(SortedDocValuesEnum2::B(Self::empty_sorted()))
+      },
     }
-    /// Returns `SortedNumericDocValues` for the field, or [`Self::empty_sorted_numeric()`] if it has none.
-    ///
-    /// # Returns
-    ///
-    /// A `SortedNumericDocValues` instance, or an empty instance if `field` does not exist in this reader.
-    ///
-    /// # Error
-    ///
-    /// - IllegalStateException if `field` exists but was not indexed with doc values.  
-    /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedNumeric`] or [`DocValuesType::Numeric`].  
-    pub fn get_sorted_numeric<LR>(reader: &LR, field: &str) -> Result<SortedNumeric<LR>>
-    where
-        LR: LeafReader,
-    {
-        match reader.get_sorted_numeric_doc_values(field)? {
-            Some(dv) => Ok(SortedNumericDocValuesEnum2::A(dv)),
-            None => {
-                let v = match reader.get_numeric_doc_values(field)? {
-                    Some(single) => {
-                        SortedNumericDocValuesEnum2::A(Self::singleton_numeric(single)?)
-                    },
-                    None => {
-                        Self::check_field(reader, field, &[DocValuesType::SortedNumeric])?;
-                        SortedNumericDocValuesEnum2::B(Self::empty_sorted_numeric()?)
-                    },
-                };
-                Ok(SortedNumericDocValuesEnum2::B(v))
-            },
-        }
+  }
+  /// Returns `SortedNumericDocValues` for the field, or [`Self::empty_sorted_numeric()`] if it has none.
+  ///
+  /// # Returns
+  ///
+  /// A `SortedNumericDocValues` instance, or an empty instance if `field` does not exist in this reader.
+  ///
+  /// # Error
+  ///
+  /// - IllegalStateException if `field` exists but was not indexed with doc values.  
+  /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedNumeric`] or [`DocValuesType::Numeric`].  
+  pub fn get_sorted_numeric<LR>(reader: &LR, field: &str) -> Result<SortedNumeric<LR>>
+  where
+    LR: LeafReader,
+  {
+    match reader.get_sorted_numeric_doc_values(field)? {
+      Some(dv) => Ok(SortedNumericDocValuesEnum2::A(dv)),
+      None => {
+        let v = match reader.get_numeric_doc_values(field)? {
+          Some(single) => SortedNumericDocValuesEnum2::A(Self::singleton_numeric(single)?),
+          None => {
+            Self::check_field(reader, field, &[DocValuesType::SortedNumeric])?;
+            SortedNumericDocValuesEnum2::B(Self::empty_sorted_numeric()?)
+          },
+        };
+        Ok(SortedNumericDocValuesEnum2::B(v))
+      },
     }
-    /// Returns `SortedSetDocValues` for the field, or [`Self::empty_sorted_set()`] if it has none.
-    ///
-    /// # Returns
-    ///
-    /// A `SortedSetDocValues` instance, or an empty instance if `field` does not exist in this reader.
-    ///
-    /// # Error
-    ///
-    /// - IllegalStateException if `field` exists but was not indexed with doc values.  
-    /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedSet`] or [`DocValuesType::Sorted`].  
-    pub fn get_sorted_set<LR>(reader: &LR, field: &str) -> Result<SortedSet<LR>>
-    where
-        LR: LeafReader,
-    {
-        match reader.get_sorted_set_doc_values(field)? {
-            Some(dv) => Ok(SortedSetDocValuesEnum2::A(dv)),
-            None => {
-                let v = match reader.get_sorted_doc_values(field)? {
-                    Some(sorted) => SortedSetDocValuesEnum2::A(Self::singleton_sorted(sorted)?),
-                    None => {
-                        Self::check_field(
-                            reader,
-                            field,
-                            &[DocValuesType::Sorted, DocValuesType::SortedSet],
-                        )?;
-                        SortedSetDocValuesEnum2::B(Self::empty_sorted_set()?)
-                    },
-                };
-                Ok(SortedSetDocValuesEnum2::B(v))
-            },
-        }
+  }
+  /// Returns `SortedSetDocValues` for the field, or [`Self::empty_sorted_set()`] if it has none.
+  ///
+  /// # Returns
+  ///
+  /// A `SortedSetDocValues` instance, or an empty instance if `field` does not exist in this reader.
+  ///
+  /// # Error
+  ///
+  /// - IllegalStateException if `field` exists but was not indexed with doc values.  
+  /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedSet`] or [`DocValuesType::Sorted`].  
+  pub fn get_sorted_set<LR>(reader: &LR, field: &str) -> Result<SortedSet<LR>>
+  where
+    LR: LeafReader,
+  {
+    match reader.get_sorted_set_doc_values(field)? {
+      Some(dv) => Ok(SortedSetDocValuesEnum2::A(dv)),
+      None => {
+        let v = match reader.get_sorted_doc_values(field)? {
+          Some(sorted) => SortedSetDocValuesEnum2::A(Self::singleton_sorted(sorted)?),
+          None => {
+            Self::check_field(
+              reader,
+              field,
+              &[DocValuesType::Sorted, DocValuesType::SortedSet],
+            )?;
+            SortedSetDocValuesEnum2::B(Self::empty_sorted_set()?)
+          },
+        };
+        Ok(SortedSetDocValuesEnum2::B(v))
+      },
     }
+  }
 
-    /// Returns `true` if the specified docvalues fields have not been updated
-    pub fn is_cacheable<LR>(ctx: &LeafReaderContext<LR>, fields: &[String]) -> Result<bool>
-    where
-        LR: LeafReader,
-    {
-        for field in fields {
-            if let Some(fi) = ctx.reader().get_field_infos()?.field_info_by_name(field)
-                && fi.get_doc_values_gen() > -1
-            {
-                return Ok(false);
-            }
-        }
-        Ok(true)
+  /// Returns `true` if the specified docvalues fields have not been updated
+  pub fn is_cacheable<LR>(ctx: &LeafReaderContext<LR>, fields: &[String]) -> Result<bool>
+  where
+    LR: LeafReader,
+  {
+    for field in fields {
+      if let Some(fi) = ctx.reader().get_field_infos()?.field_info_by_name(field)
+        && fi.get_doc_values_gen() > -1
+      {
+        return Ok(false);
+      }
     }
+    Ok(true)
+  }
 }
 pub type Numeric<LR> = NumericDocValuesEnum2<<LR as LeafReader>::NumericDocValues, EmptyNumeric>;
 pub type Binary<LR> = BinaryDocValuesEnum2<<LR as LeafReader>::BinaryDocValues, EmptyBinary>;
 pub type Sorted<LR> = SortedDocValuesEnum2<<LR as LeafReader>::SortedDocValues, EmptySorted>;
 pub type SortedNumeric<LR> = SortedNumericDocValuesEnum2<
-    <LR as LeafReader>::SortedNumericDocValues,
-    SortedNumericDocValuesEnum2<
-        SingletonSortedNumericDocValues<<LR as LeafReader>::NumericDocValues>,
-        SingletonSortedNumericDocValues<EmptyNumeric>,
-    >,
+  <LR as LeafReader>::SortedNumericDocValues,
+  SortedNumericDocValuesEnum2<
+    SingletonSortedNumericDocValues<<LR as LeafReader>::NumericDocValues>,
+    SingletonSortedNumericDocValues<EmptyNumeric>,
+  >,
 >;
 pub type SortedSet<LR> = SortedSetDocValuesEnum2<
-    <LR as LeafReader>::SortedSetDocValues,
-    SortedSetDocValuesEnum2<
-        SingletonSortedSetDocValues<<LR as LeafReader>::SortedDocValues>,
-        EmptySortedSet,
-    >,
+  <LR as LeafReader>::SortedSetDocValues,
+  SortedSetDocValuesEnum2<
+    SingletonSortedSetDocValues<<LR as LeafReader>::SortedDocValues>,
+    EmptySortedSet,
+  >,
 >;
 /// An empty [`BinaryDocValues`] which returns no documents  */
 pub struct EmptyBinary {
-    doc: i32,
-    bytes: BytesRef<Vec<u8>>,
+  doc: i32,
+  bytes: BytesRef<Vec<u8>>,
 }
 impl Default for EmptyBinary {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 impl EmptyBinary {
-    fn new() -> Self {
-        Self {
-            doc: -1,
-            bytes: BytesRef::default(),
-        }
+  fn new() -> Self {
+    Self {
+      doc: -1,
+      bytes: BytesRef::default(),
     }
+  }
 }
 
 impl DocIdSetIterator for EmptyBinary {
-    fn doc_id(&self) -> i32 {
-        self.doc
-    }
+  fn doc_id(&self) -> i32 {
+    self.doc
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.doc = NO_MORE_DOCS;
-        Ok(self.doc)
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.doc = NO_MORE_DOCS;
+    Ok(self.doc)
+  }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        self.doc = NO_MORE_DOCS;
-        Ok(self.doc)
-    }
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    self.doc = NO_MORE_DOCS;
+    Ok(self.doc)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Ok(0)
-    }
+  fn cost(&self) -> Result<i64> {
+    Ok(0)
+  }
 }
 
 impl DocValuesIterator for EmptyBinary {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.doc = target;
-        Ok(false)
-    }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    self.doc = target;
+    Ok(false)
+  }
 }
 impl BinaryDocValues for EmptyBinary {
-    fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        debug_assert!(
-            false,
-            "EmptyBinary::binary_value() should not be called, as it is an empty iterator"
-        );
-        Ok(Cow::Borrowed(&self.bytes))
-    }
+  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    debug_assert!(
+      false,
+      "EmptyBinary::binary_value() should not be called, as it is an empty iterator"
+    );
+    Ok(Cow::Borrowed(&self.bytes))
+  }
 }
 /// An empty [`NumericDocValues`] which returns no documents  */
 pub struct EmptyNumeric {
-    doc: i32,
+  doc: i32,
 }
 impl Default for EmptyNumeric {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl EmptyNumeric {
-    fn new() -> Self {
-        Self { doc: -1 }
-    }
+  fn new() -> Self {
+    Self { doc: -1 }
+  }
 }
 
 impl DocValuesIterator for EmptyNumeric {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.doc = target;
-        Ok(false)
-    }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    self.doc = target;
+    Ok(false)
+  }
 }
 
 impl DocIdSetIterator for EmptyNumeric {
-    fn doc_id(&self) -> i32 {
-        self.doc
-    }
+  fn doc_id(&self) -> i32 {
+    self.doc
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.doc = NO_MORE_DOCS;
-        Ok(self.doc)
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.doc = NO_MORE_DOCS;
+    Ok(self.doc)
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.doc = target;
-        Ok(self.doc)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.doc = target;
+    Ok(self.doc)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Ok(0)
-    }
+  fn cost(&self) -> Result<i64> {
+    Ok(0)
+  }
 }
 
 impl NumericDocValues for EmptyNumeric {
-    fn long_value(&mut self) -> Result<i64> {
-        debug_assert!(false);
-        Ok(0)
-    }
+  fn long_value(&mut self) -> Result<i64> {
+    debug_assert!(false);
+    Ok(0)
+  }
 }
 
 /// An empty SortedDocValues which returns empty [`BytesRef`] for every
 /// document.
 pub struct EmptySorted {
-    doc: i32,
-    empty: BytesRef<Vec<u8>>,
+  doc: i32,
+  empty: BytesRef<Vec<u8>>,
 }
 
 impl Default for EmptySorted {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl EmptySorted {
-    fn new() -> Self {
-        Self {
-            doc: -1,
-            empty: BytesRef::default(),
-        }
+  fn new() -> Self {
+    Self {
+      doc: -1,
+      empty: BytesRef::default(),
     }
+  }
 }
 
 impl DocValuesIterator for EmptySorted {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.doc = target;
-        Ok(false)
-    }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    self.doc = target;
+    Ok(false)
+  }
 }
 
 impl DocIdSetIterator for EmptySorted {
-    fn doc_id(&self) -> i32 {
-        self.doc
-    }
+  fn doc_id(&self) -> i32 {
+    self.doc
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.doc = NO_MORE_DOCS;
-        Ok(self.doc)
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.doc = NO_MORE_DOCS;
+    Ok(self.doc)
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.doc = target;
-        Ok(NO_MORE_DOCS)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.doc = target;
+    Ok(NO_MORE_DOCS)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Ok(0)
-    }
+  fn cost(&self) -> Result<i64> {
+    Ok(0)
+  }
 }
 
 impl SortedDocValues for EmptySorted {
-    fn ord_value(&mut self) -> Result<i32> {
-        debug_assert!(
-            false,
-            "EmptySorted should not be called, as it is an empty iterator"
-        );
-        Ok(-1)
-    }
+  fn ord_value(&mut self) -> Result<i32> {
+    debug_assert!(
+      false,
+      "EmptySorted should not be called, as it is an empty iterator"
+    );
+    Ok(-1)
+  }
 
-    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        Ok(Cow::Owned(std::mem::take(&mut self.empty)))
-    }
+  fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    Ok(Cow::Owned(std::mem::take(&mut self.empty)))
+  }
 
-    fn get_value_count(&self) -> Result<i32> {
-        Ok(0)
-    }
+  fn get_value_count(&self) -> Result<i32> {
+    Ok(0)
+  }
 
-    type TermsEnum<'a> = SortedDocValuesTermsEnum<&'a mut Self>;
+  type TermsEnum<'a> = SortedDocValuesTermsEnum<&'a mut Self>;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        self.default_terms_enum()
-    }
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
-    use crate::core::document::document::Document;
-    use crate::core::document::field::Store;
-    use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
-    use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
-    use crate::core::document::string_field::StringField;
-    use crate::core::index::BytesRef;
-    use crate::core::index::directory_reader::directory_reader_util;
-    use crate::core::index::doc_values::DocValues;
-    use crate::core::index::index_writer::IndexWriter;
-    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-        get_only_leaf_reader, new_directory_shared, new_index_writer_config, random,
-    };
+  use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
+  use crate::core::document::document::Document;
+  use crate::core::document::field::Store;
+  use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+  use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
+  use crate::core::document::string_field::StringField;
+  use crate::core::index::BytesRef;
+  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::doc_values::DocValues;
+  use crate::core::index::index_writer::IndexWriter;
+  use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::util::error::lucene_error::{LuceneError, Result};
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    get_only_leaf_reader, new_directory_shared, new_index_writer_config, random,
+  };
 
-    use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
-    use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
+  use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+  use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 
-    #[allow(dead_code)] // for quick search
-    struct TestDocValues;
+  #[allow(dead_code)] // for quick search
+  struct TestDocValues;
 
-    ///If the field doesn't exist, we return empty instances:
-    /// It can easily happen that a segment just doesn't have any docs with the field.
-    #[test]
-    fn test_empty_index() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
-        let doc = Document::new();
-        writer.add_document(doc)?;
+  ///If the field doesn't exist, we return empty instances:
+  /// It can easily happen that a segment just doesn't have any docs with the field.
+  #[test]
+  fn test_empty_index() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let doc = Document::new();
+    writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_from_writer(&writer)?;
-        let r = get_only_leaf_reader(dr)?;
+    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let r = get_only_leaf_reader(dr)?;
 
-        let mut v = DocValues::get_binary(r.as_ref(), "bogus")?;
-        assert_eq!(v.next_doc()?, NO_MORE_DOCS);
-        let mut v = DocValues::get_numeric(r.as_ref(), "bogus")?;
-        assert_eq!(v.next_doc()?, NO_MORE_DOCS);
-        let mut v = DocValues::get_sorted(r.as_ref(), "bogus")?;
-        assert_eq!(v.next_doc()?, NO_MORE_DOCS);
-        let mut v = DocValues::get_sorted_set(r.as_ref(), "bogus")?;
-        assert_eq!(v.next_doc()?, NO_MORE_DOCS);
-        let mut v = DocValues::get_sorted_numeric(r.as_ref(), "bogus")?;
-        assert_eq!(v.next_doc()?, NO_MORE_DOCS);
+    let mut v = DocValues::get_binary(r.as_ref(), "bogus")?;
+    assert_eq!(v.next_doc()?, NO_MORE_DOCS);
+    let mut v = DocValues::get_numeric(r.as_ref(), "bogus")?;
+    assert_eq!(v.next_doc()?, NO_MORE_DOCS);
+    let mut v = DocValues::get_sorted(r.as_ref(), "bogus")?;
+    assert_eq!(v.next_doc()?, NO_MORE_DOCS);
+    let mut v = DocValues::get_sorted_set(r.as_ref(), "bogus")?;
+    assert_eq!(v.next_doc()?, NO_MORE_DOCS);
+    let mut v = DocValues::get_sorted_numeric(r.as_ref(), "bogus")?;
+    assert_eq!(v.next_doc()?, NO_MORE_DOCS);
 
-        writer.close()?;
-        Ok(())
-    }
-    /// field just doesnt have any docvalues at all:error
-    #[test]
-    fn test_misconfigured_field() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    writer.close()?;
+    Ok(())
+  }
+  /// field just doesnt have any docvalues at all:error
+  #[test]
+  fn test_misconfigured_field() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
-        let mut doc = Document::new();
-        doc.add(StringField::from_string("foo", "bar", Store::No)?);
-        writer.add_document(doc)?;
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("foo", "bar", Store::No)?);
+    writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_from_writer(&writer)?;
-        let r = get_only_leaf_reader(dr)?;
+    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let r = get_only_leaf_reader(dr)?;
 
-        // errors
-        assert!(matches!(
-            DocValues::get_binary(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_numeric(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted_set(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted_numeric(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
+    // errors
+    assert!(matches!(
+      DocValues::get_binary(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_numeric(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted_set(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted_numeric(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
 
-        writer.close()?;
-        Ok(())
-    }
-    /// field with numeric docvalues
-    #[test]
-    fn test_numeric_field() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    writer.close()?;
+    Ok(())
+  }
+  /// field with numeric docvalues
+  #[test]
+  fn test_numeric_field() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
-        let mut doc = Document::new();
-        doc.add(NumericDocValuesField::new("foo", 3));
-        writer.add_document(doc)?;
+    let mut doc = Document::new();
+    doc.add(NumericDocValuesField::new("foo", 3));
+    writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_from_writer(&writer)?;
-        let r = get_only_leaf_reader(dr)?;
+    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let r = get_only_leaf_reader(dr)?;
 
-        // ok
-        let mut v = DocValues::get_numeric(r.as_ref(), "foo")?;
-        assert_eq!(v.next_doc()?, 0);
+    // ok
+    let mut v = DocValues::get_numeric(r.as_ref(), "foo")?;
+    assert_eq!(v.next_doc()?, 0);
 
-        let mut v = DocValues::get_sorted_numeric(r.as_ref(), "foo")?;
-        assert_eq!(v.next_doc()?, 0);
+    let mut v = DocValues::get_sorted_numeric(r.as_ref(), "foo")?;
+    assert_eq!(v.next_doc()?, 0);
 
-        // errors
-        assert!(matches!(
-            DocValues::get_binary(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted_set(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
+    // errors
+    assert!(matches!(
+      DocValues::get_binary(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted_set(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
 
-        writer.close()?;
-        Ok(())
-    }
-    /// field with binary docvalues
-    #[test]
-    fn test_binary_field() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    writer.close()?;
+    Ok(())
+  }
+  /// field with binary docvalues
+  #[test]
+  fn test_binary_field() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
-        let mut doc = Document::new();
-        doc.add(BinaryDocValuesField::new(
-            "foo",
-            BytesRef::from_string("bar"),
-        ));
-        writer.add_document(doc)?;
+    let mut doc = Document::new();
+    doc.add(BinaryDocValuesField::new(
+      "foo",
+      BytesRef::from_string("bar"),
+    ));
+    writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_from_writer(&writer)?;
-        let r = get_only_leaf_reader(dr)?;
+    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let r = get_only_leaf_reader(dr)?;
 
-        // ok
-        let mut v = DocValues::get_binary(r.as_ref(), "foo")?;
-        assert_eq!(v.next_doc()?, 0);
+    // ok
+    let mut v = DocValues::get_binary(r.as_ref(), "foo")?;
+    assert_eq!(v.next_doc()?, 0);
 
-        // errors
-        assert!(matches!(
-            DocValues::get_numeric(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted_set(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted_numeric(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
+    // errors
+    assert!(matches!(
+      DocValues::get_numeric(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted_set(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted_numeric(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
 
-        writer.close()?;
-        Ok(())
-    }
-    /// field with sorted docvalues
-    #[test]
-    fn test_sorted_field() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    writer.close()?;
+    Ok(())
+  }
+  /// field with sorted docvalues
+  #[test]
+  fn test_sorted_field() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
-        let mut doc = Document::new();
-        doc.add(SortedDocValuesField::new(
-            "foo",
-            BytesRef::from_string("bar"),
-        ));
-        writer.add_document(doc)?;
+    let mut doc = Document::new();
+    doc.add(SortedDocValuesField::new(
+      "foo",
+      BytesRef::from_string("bar"),
+    ));
+    writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_from_writer(&writer)?;
-        let r = get_only_leaf_reader(dr)?;
+    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let r = get_only_leaf_reader(dr)?;
 
-        // ok
-        let mut v = DocValues::get_sorted(r.as_ref(), "foo")?;
-        assert_eq!(v.next_doc()?, 0);
+    // ok
+    let mut v = DocValues::get_sorted(r.as_ref(), "foo")?;
+    assert_eq!(v.next_doc()?, 0);
 
-        let mut v = DocValues::get_sorted_set(r.as_ref(), "foo")?;
-        assert_eq!(v.next_doc()?, 0);
+    let mut v = DocValues::get_sorted_set(r.as_ref(), "foo")?;
+    assert_eq!(v.next_doc()?, 0);
 
-        // errors
-        assert!(matches!(
-            DocValues::get_binary(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_numeric(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted_numeric(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
+    // errors
+    assert!(matches!(
+      DocValues::get_binary(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_numeric(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted_numeric(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
 
-        writer.close()?;
-        Ok(())
-    }
-    /// field with sortedset docvalues
-    #[test]
-    fn test_sorted_set_field() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    writer.close()?;
+    Ok(())
+  }
+  /// field with sortedset docvalues
+  #[test]
+  fn test_sorted_set_field() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
-        let mut doc = Document::new();
-        doc.add(SortedSetDocValuesField::new(
-            "foo",
-            BytesRef::from_string("bar"),
-        ));
-        writer.add_document(doc)?;
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "foo",
+      BytesRef::from_string("bar"),
+    ));
+    writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_from_writer(&writer)?;
-        let r = get_only_leaf_reader(&dr)?;
+    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let r = get_only_leaf_reader(&dr)?;
 
-        // ok
-        let mut v = DocValues::get_sorted_set(r.as_ref(), "foo")?;
-        assert_eq!(v.next_doc()?, 0);
+    // ok
+    let mut v = DocValues::get_sorted_set(r.as_ref(), "foo")?;
+    assert_eq!(v.next_doc()?, 0);
 
-        // errors
-        assert!(matches!(
-            DocValues::get_binary(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_numeric(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted_numeric(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
+    // errors
+    assert!(matches!(
+      DocValues::get_binary(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_numeric(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted_numeric(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
 
-        writer.close()?;
-        Ok(())
-    }
-    /// field with sortednumeric docvalues
-    #[test]
-    fn test_sorted_numeric_field() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    writer.close()?;
+    Ok(())
+  }
+  /// field with sortednumeric docvalues
+  #[test]
+  fn test_sorted_numeric_field() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
-        let mut doc = Document::new();
-        doc.add(SortedNumericDocValuesField::new("foo", 3));
-        writer.add_document(doc)?;
+    let mut doc = Document::new();
+    doc.add(SortedNumericDocValuesField::new("foo", 3));
+    writer.add_document(doc)?;
 
-        let dr = directory_reader_util::open_from_writer(&writer)?;
-        let r = get_only_leaf_reader(dr)?;
+    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let r = get_only_leaf_reader(dr)?;
 
-        // ok
-        let mut v = DocValues::get_sorted_numeric(r.as_ref(), "foo")?;
-        assert_eq!(v.next_doc()?, 0);
+    // ok
+    let mut v = DocValues::get_sorted_numeric(r.as_ref(), "foo")?;
+    assert_eq!(v.next_doc()?, 0);
 
-        // errors
-        assert!(matches!(
-            DocValues::get_binary(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_numeric(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
-        assert!(matches!(
-            DocValues::get_sorted_set(r.as_ref(), "foo"),
-            Err(LuceneError::IllegalState(_))
-        ));
+    // errors
+    assert!(matches!(
+      DocValues::get_binary(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_numeric(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
+    assert!(matches!(
+      DocValues::get_sorted_set(r.as_ref(), "foo"),
+      Err(LuceneError::IllegalState(_))
+    ));
 
-        writer.close()?;
-        Ok(())
-    }
-    #[test]
-    fn test_add_null_numeric_doc_values() -> Result<()> {
-        // this test is not required in Rust Lucene
-        Ok(())
-    }
+    writer.close()?;
+    Ok(())
+  }
+  #[test]
+  fn test_add_null_numeric_doc_values() -> Result<()> {
+    // this test is not required in Rust Lucene
+    Ok(())
+  }
 }

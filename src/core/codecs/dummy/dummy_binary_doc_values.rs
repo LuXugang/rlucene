@@ -24,35 +24,35 @@ use std::borrow::Cow;
 pub struct DummyBinaryDocValues;
 
 impl DocValuesIterator for DummyBinaryDocValues {
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl DocIdSetIterator for DummyBinaryDocValues {
-    fn doc_id(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn doc_id(&self) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn slow_advance(&mut self, _target: i32) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn slow_advance(&mut self, _target: i32) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn cost(&self) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn cost(&self) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl BinaryDocValues for DummyBinaryDocValues {
-    fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

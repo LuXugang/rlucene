@@ -23,19 +23,19 @@ use crate::core::util::fst_impl::fst_reader::FstReader;
 pub struct DummyFSTReader;
 
 impl Accountable for DummyFSTReader {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        Err(LuceneError::unreachable("this method should not be called"))
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Err(LuceneError::unreachable("this method should not be called"))
+  }
 }
 
 impl FstReader for DummyFSTReader {
-    type FstBytesReader = DummyBytesReader;
+  type FstBytesReader = DummyBytesReader;
 
-    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
-        Err(LuceneError::unreachable("this method should not be called"))
-    }
+  fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
+    Err(LuceneError::unreachable("this method should not be called"))
+  }
 
-    fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
-        Err(LuceneError::unreachable("this method should not be called"))
-    }
+  fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
+    Err(LuceneError::unreachable("this method should not be called"))
+  }
 }

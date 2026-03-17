@@ -20,27 +20,27 @@ use crate::core::util::error::lucene_error::Result;
 
 /// A decompressor.
 pub trait Decompressor: Clone {
-    /// Decompress bytes that were stored between offsets `offset` and `offset +
-    /// length` in the original stream from the compressed stream `in` to
-    /// `bytes`. After returning, the length of `bytes` must be equal to
-    /// `length`. Implementations of this method are free to resize `bytes`
-    /// depending on their needs.
-    ///
-    /// # Parameters
-    /// - `in`: The input that stores the compressed stream.
-    /// - `original_length`: The length of the original data (before
-    ///   compression).
-    /// - `offset`: Bytes before this offset do not need to be decompressed.
-    /// - `length`: Bytes after `offset + length` do not need to be
-    ///   decompressed.
-    /// - `bytes`: A reference to a `BytesRef` where to store the decompressed
-    ///   data.
-    fn decompress(
-        &mut self,
-        input: &mut impl DataInput,
-        original_length: i32,
-        offset: i32,
-        length: i32,
-        bytes: &mut BytesRef<Vec<u8>>,
-    ) -> Result<()>;
+  /// Decompress bytes that were stored between offsets `offset` and `offset +
+  /// length` in the original stream from the compressed stream `in` to
+  /// `bytes`. After returning, the length of `bytes` must be equal to
+  /// `length`. Implementations of this method are free to resize `bytes`
+  /// depending on their needs.
+  ///
+  /// # Parameters
+  /// - `in`: The input that stores the compressed stream.
+  /// - `original_length`: The length of the original data (before
+  ///   compression).
+  /// - `offset`: Bytes before this offset do not need to be decompressed.
+  /// - `length`: Bytes after `offset + length` do not need to be
+  ///   decompressed.
+  /// - `bytes`: A reference to a `BytesRef` where to store the decompressed
+  ///   data.
+  fn decompress(
+    &mut self,
+    input: &mut impl DataInput,
+    original_length: i32,
+    offset: i32,
+    length: i32,
+    bytes: &mut BytesRef<Vec<u8>>,
+  ) -> Result<()>;
 }

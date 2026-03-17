@@ -20,35 +20,35 @@ use std::fmt::Display;
 /// Per-document scoring factors.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Impact {
-    /// Term frequency of the term in the document.
-    pub freq: i32,
+  /// Term frequency of the term in the document.
+  pub freq: i32,
 
-    /// Norm factor of the document.
-    pub norm: i64,
+  /// Norm factor of the document.
+  pub norm: i64,
 }
 
 impl Impact {
-    /// Constructor
-    pub fn new(freq: i32, norm: i64) -> Self {
-        Self { freq, norm }
-    }
+  /// Constructor
+  pub fn new(freq: i32, norm: i64) -> Self {
+    Self { freq, norm }
+  }
 }
 
 impl Display for Impact {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{{freq={},norm={}}}", self.freq, self.norm)
-    }
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{{freq={},norm={}}}", self.freq, self.norm)
+  }
 }
 impl PartialOrd for Impact {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
+  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
 }
 impl Ord for Impact {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self.freq.cmp(&other.freq) {
-            Ordering::Equal => (other.norm as u64).cmp(&(self.norm as u64)),
-            non_eq => non_eq,
-        }
+  fn cmp(&self, other: &Self) -> Ordering {
+    match self.freq.cmp(&other.freq) {
+      Ordering::Equal => (other.norm as u64).cmp(&(self.norm as u64)),
+      non_eq => non_eq,
     }
+  }
 }

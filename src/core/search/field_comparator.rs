@@ -32,8 +32,8 @@ use crate::core::search::dummy::dummy_field_comparator::DummyFieldComparator;
 use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldComparatorEnum};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_numeric_sort_field::{
-    SortedNumericDoubleComparator, SortedNumericFloatComparator, SortedNumericIntComparator,
-    SortedNumericLongComparator,
+  SortedNumericDoubleComparator, SortedNumericFloatComparator, SortedNumericIntComparator,
+  SortedNumericLongComparator,
 };
 use crate::core::search::sorted_set_sort_field::SortedDocValuesTermOrdValComparator;
 use crate::core::util::ToInt;
@@ -69,90 +69,90 @@ use std::cmp::Ordering;
 /// - [`LeafFieldComparator`]
 /// - `lucene.experimental`
 pub trait FieldComparator {
-    // f64 f32 not implement Ord
-    type V: PartialOrd;
-    /// Compare hit at slot1 with hit at slot2.
-    ///
-    /// Returns:
-    /// - `N < 0` if slot2's value is sorted after slot1
-    /// - `N > 0` if slot2's value is sorted before slot1
-    /// - `0` if they are equal
-    fn compare(&self, slot1: usize, slot2: usize) -> i32;
+  // f64 f32 not implement Ord
+  type V: PartialOrd;
+  /// Compare hit at slot1 with hit at slot2.
+  ///
+  /// Returns:
+  /// - `N < 0` if slot2's value is sorted after slot1
+  /// - `N > 0` if slot2's value is sorted before slot1
+  /// - `0` if they are equal
+  fn compare(&self, slot1: usize, slot2: usize) -> i32;
 
-    /// Record the top value, for future calls to [`LeafFieldComparator::compare_top`].
-    /// This is only called for searches that use `search_after` (deep paging),
-    /// and is invoked before any calls to [`Self::get_leaf_comparator`].
-    fn set_top_value(&mut self, value: Self::V);
+  /// Record the top value, for future calls to [`LeafFieldComparator::compare_top`].
+  /// This is only called for searches that use `search_after` (deep paging),
+  /// and is invoked before any calls to [`Self::get_leaf_comparator`].
+  fn set_top_value(&mut self, value: Self::V);
 
-    /// Return the actual value in the slot.
-    ///
-    /// # Parameters
-    /// - `slot`: the slot index
-    ///
-    /// # Returns
-    /// The value stored in this slot if it exists, otherwise [`None`].
-    fn value(&self, slot: usize) -> Option<Self::V>;
+  /// Return the actual value in the slot.
+  ///
+  /// # Parameters
+  /// - `slot`: the slot index
+  ///
+  /// # Returns
+  /// The value stored in this slot if it exists, otherwise [`None`].
+  fn value(&self, slot: usize) -> Option<Self::V>;
 
-    type LeafFieldComparator<LR>: LeafFieldComparator
-    where
-        LR: LeafReader;
-    /// Get a per-segment [`LeafFieldComparator`] to collect the given
-    /// [`LeafReaderContext`].
-    ///
-    /// All docIDs supplied to this [`LeafFieldComparator`] are relative to the current reader
-    /// (you must add `docBase` if you need to map it to a top-level docID).
-    ///
-    /// # Parameters
-    /// - `context`: current reader context
-    ///
-    /// # Returns
-    /// The comparator to use for this segment.
-    ///
-    /// # Errors
-    /// Returns an error if there is a low-level I/O problem.
-    fn get_leaf_comparator<LR>(
-        &mut self,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Self::LeafFieldComparator<LR>>
-    where
-        LR: LeafReader;
+  type LeafFieldComparator<LR>: LeafFieldComparator
+  where
+    LR: LeafReader;
+  /// Get a per-segment [`LeafFieldComparator`] to collect the given
+  /// [`LeafReaderContext`].
+  ///
+  /// All docIDs supplied to this [`LeafFieldComparator`] are relative to the current reader
+  /// (you must add `docBase` if you need to map it to a top-level docID).
+  ///
+  /// # Parameters
+  /// - `context`: current reader context
+  ///
+  /// # Returns
+  /// The comparator to use for this segment.
+  ///
+  /// # Errors
+  /// Returns an error if there is a low-level I/O problem.
+  fn get_leaf_comparator<LR>(
+    &mut self,
+    context: &LeafReaderContext<LR>,
+  ) -> Result<Self::LeafFieldComparator<LR>>
+  where
+    LR: LeafReader;
 
-    /// Returns a negative integer if `first` is less than `second`, `0` if they are equal,
-    /// and a positive integer otherwise.
-    ///
-    /// Default implementation assumes the type implements [`Ord`] (like Java's `Comparable`)
-    /// and invokes `.cmp`.
-    ///
-    /// Be sure to override this method if your `FieldComparator`'s type isn't comparable
-    /// or if your values may sometimes be `null` (represented as [`Option::None`] in Rust).
-    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
-        match (first, second) {
-            (None, None) => 0,
-            (None, Some(_)) => -1,
-            (Some(_), None) => 1,
-            (Some(f), Some(s)) => {
-                match f.partial_cmp(s) {
-                    Some(ord) => ord.to_int(),
-                    // In case of NaN for f64 or other non-comparable values
-                    None => self.fallback_compare(f, s),
-                }
-            },
+  /// Returns a negative integer if `first` is less than `second`, `0` if they are equal,
+  /// and a positive integer otherwise.
+  ///
+  /// Default implementation assumes the type implements [`Ord`] (like Java's `Comparable`)
+  /// and invokes `.cmp`.
+  ///
+  /// Be sure to override this method if your `FieldComparator`'s type isn't comparable
+  /// or if your values may sometimes be `null` (represented as [`Option::None`] in Rust).
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+    match (first, second) {
+      (None, None) => 0,
+      (None, Some(_)) => -1,
+      (Some(_), None) => 1,
+      (Some(f), Some(s)) => {
+        match f.partial_cmp(s) {
+          Some(ord) => ord.to_int(),
+          // In case of NaN for f64 or other non-comparable values
+          None => self.fallback_compare(f, s),
         }
+      },
     }
-    fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> i32 {
-        unimplemented!("fallback_compare must be implemented if the type isn't fully comparable");
-    }
-    /// Informs the comparator that sort is done on this single field.
-    /// This is useful to enable some optimizations for skipping non-competitive documents.
-    fn set_single_sort(&mut self) {}
+  }
+  fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> i32 {
+    unimplemented!("fallback_compare must be implemented if the type isn't fully comparable");
+  }
+  /// Informs the comparator that sort is done on this single field.
+  /// This is useful to enable some optimizations for skipping non-competitive documents.
+  fn set_single_sort(&mut self) {}
 
-    /// Informs the comparator that the skipping of documents should be disabled.
-    /// This function is called by [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector) in cases when the skipping functionality
-    /// should not be applied or not necessary.
-    ///
-    /// An example could be when search sort is a part of the index sort, and can be already efficiently
-    /// handled by [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector), and doing extra work for skipping in the comparator is redundant.
-    fn disable_skipping(&mut self) {}
+  /// Informs the comparator that the skipping of documents should be disabled.
+  /// This function is called by [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector) in cases when the skipping functionality
+  /// should not be applied or not necessary.
+  ///
+  /// An example could be when search sort is a part of the index sort, and can be already efficiently
+  /// handled by [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector), and doing extra work for skipping in the comparator is redundant.
+  fn disable_skipping(&mut self) {}
 }
 /// Sorts by descending relevance.
 ///
@@ -161,172 +161,172 @@ pub trait FieldComparator {
 /// `TopScoreDocCollector` directly (which [`IndexSearcher::search`](crate::core::search::index_searcher::IndexSearcher) uses
 /// when no `Sort` is specified).
 pub struct RelevanceComparator {
-    pub(crate) scores: Vec<f32>,
-    pub(crate) bottom: f32,
-    pub(crate) top_value: f32,
+  pub(crate) scores: Vec<f32>,
+  pub(crate) bottom: f32,
+  pub(crate) top_value: f32,
 }
 impl RelevanceComparator {
-    pub fn new(num_hits: usize) -> Self {
-        Self {
-            scores: vec![0.0; num_hits],
-            bottom: 0.0,
-            top_value: 0.0,
-        }
+  pub fn new(num_hits: usize) -> Self {
+    Self {
+      scores: vec![0.0; num_hits],
+      bottom: 0.0,
+      top_value: 0.0,
     }
+  }
 }
 impl FieldComparator for RelevanceComparator {
-    type V = f32;
+  type V = f32;
 
-    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
-        let slot1_v = self.scores[slot2];
-        let slot2_v = self.scores[slot1];
-        slot1_v.total_cmp(&slot2_v).to_int()
-    }
+  fn compare(&self, slot1: usize, slot2: usize) -> i32 {
+    let slot1_v = self.scores[slot2];
+    let slot2_v = self.scores[slot1];
+    slot1_v.total_cmp(&slot2_v).to_int()
+  }
 
-    fn set_top_value(&mut self, value: Self::V) {
-        self.top_value = value
-    }
+  fn set_top_value(&mut self, value: Self::V) {
+    self.top_value = value
+  }
 
-    fn value(&self, slot: usize) -> Option<Self::V> {
-        Some(self.scores[slot])
-    }
+  fn value(&self, slot: usize) -> Option<Self::V> {
+    Some(self.scores[slot])
+  }
 
-    type LeafFieldComparator<LR>
-        = RelevanceLeafComparator
-    where
-        LR: LeafReader;
+  type LeafFieldComparator<LR>
+    = RelevanceLeafComparator
+  where
+    LR: LeafReader;
 
-    fn get_leaf_comparator<LR>(
-        &mut self,
-        _context: &LeafReaderContext<LR>,
-    ) -> Result<Self::LeafFieldComparator<LR>>
-    where
-        LR: LeafReader,
-    {
-        Ok(RelevanceLeafComparator::new())
-    }
+  fn get_leaf_comparator<LR>(
+    &mut self,
+    _context: &LeafReaderContext<LR>,
+  ) -> Result<Self::LeafFieldComparator<LR>>
+  where
+    LR: LeafReader,
+  {
+    Ok(RelevanceLeafComparator::new())
+  }
 
-    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
-        match (first, second) {
-            (Some(&f), Some(&s)) => {
-                // Reversed intentionally because relevance by default
-                // sorts descending:
-                match s.partial_cmp(&f) {
-                    Some(r) => r.to_int(),
-                    None => self.fallback_compare(&s, &f),
-                }
-            },
-            (None, Some(_)) => 1,
-            (Some(_), None) => -1,
-            (None, None) => 0,
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+    match (first, second) {
+      (Some(&f), Some(&s)) => {
+        // Reversed intentionally because relevance by default
+        // sorts descending:
+        match s.partial_cmp(&f) {
+          Some(r) => r.to_int(),
+          None => self.fallback_compare(&s, &f),
         }
+      },
+      (None, Some(_)) => 1,
+      (Some(_), None) => -1,
+      (None, None) => 0,
     }
+  }
 
-    fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
-        if first.is_nan() && second.is_nan() {
-            0
-        } else if first.is_nan() {
-            1
-        } else if second.is_nan() {
-            -1
-        } else {
-            0
-        }
+  fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
+    if first.is_nan() && second.is_nan() {
+      0
+    } else if first.is_nan() {
+      1
+    } else if second.is_nan() {
+      -1
+    } else {
+      0
     }
+  }
 }
 pub struct RelevanceLeafComparator;
 impl Default for RelevanceLeafComparator {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl RelevanceLeafComparator {
-    pub fn new() -> Self {
-        Self
-    }
+  pub fn new() -> Self {
+    Self
+  }
 }
 impl LeafFieldComparator for RelevanceLeafComparator {
-    type FieldComparator = RelevanceComparator;
-    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
-        comparator.bottom = comparator.scores[slot];
-        Ok(())
-    }
+  type FieldComparator = RelevanceComparator;
+  fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
+    comparator.bottom = comparator.scores[slot];
+    Ok(())
+  }
 
-    fn compare_bottom<S>(
-        &mut self,
-        _doc: i32,
-        scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<i32>
-    where
-        S: Scorable + ?Sized,
-    {
-        let doc_value = scorer.score()?;
-        debug_assert!(!doc_value.is_nan());
-        match doc_value.partial_cmp(&comparator.bottom) {
-            Some(r) => Ok(r.to_int()),
-            None => Ok(comparator.fallback_compare(&doc_value, &comparator.bottom)),
-        }
+  fn compare_bottom<S>(
+    &mut self,
+    _doc: i32,
+    scorer: &mut S,
+    comparator: &mut Self::FieldComparator,
+  ) -> Result<i32>
+  where
+    S: Scorable + ?Sized,
+  {
+    let doc_value = scorer.score()?;
+    debug_assert!(!doc_value.is_nan());
+    match doc_value.partial_cmp(&comparator.bottom) {
+      Some(r) => Ok(r.to_int()),
+      None => Ok(comparator.fallback_compare(&doc_value, &comparator.bottom)),
     }
+  }
 
-    fn compare_top<S>(
-        &mut self,
-        _doc: i32,
-        scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<i32>
-    where
-        S: Scorable + ?Sized,
-    {
-        let doc_value = scorer.score()?;
-        debug_assert!(!doc_value.is_nan());
-        match doc_value.partial_cmp(&comparator.top_value) {
-            Some(r) => Ok(r.to_int()),
-            None => Ok(comparator.fallback_compare(&doc_value, &comparator.top_value)),
-        }
+  fn compare_top<S>(
+    &mut self,
+    _doc: i32,
+    scorer: &mut S,
+    comparator: &mut Self::FieldComparator,
+  ) -> Result<i32>
+  where
+    S: Scorable + ?Sized,
+  {
+    let doc_value = scorer.score()?;
+    debug_assert!(!doc_value.is_nan());
+    match doc_value.partial_cmp(&comparator.top_value) {
+      Some(r) => Ok(r.to_int()),
+      None => Ok(comparator.fallback_compare(&doc_value, &comparator.top_value)),
     }
+  }
 
-    fn copy<S>(
-        &mut self,
-        slot: usize,
-        _doc: i32,
-        scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<()>
-    where
-        S: Scorable + ?Sized,
-    {
-        let score = scorer.score()?;
-        comparator.scores[slot] = score;
-        debug_assert!(!score.is_nan());
-        Ok(())
-    }
+  fn copy<S>(
+    &mut self,
+    slot: usize,
+    _doc: i32,
+    scorer: &mut S,
+    comparator: &mut Self::FieldComparator,
+  ) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
+    let score = scorer.score()?;
+    comparator.scores[slot] = score;
+    debug_assert!(!score.is_nan());
+    Ok(())
+  }
 
-    fn set_scorer<S>(
-        &mut self,
-        _scorer: &mut S,
-        _comparator: &mut Self::FieldComparator,
-    ) -> Result<()>
-    where
-        S: Scorable + ?Sized,
-    {
-        Ok(())
-    }
+  fn set_scorer<S>(
+    &mut self,
+    _scorer: &mut S,
+    _comparator: &mut Self::FieldComparator,
+  ) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
+    Ok(())
+  }
 
-    type DocIdSetIteratorRef<'a> = &'a mut DummyDISI;
+  type DocIdSetIteratorRef<'a> = &'a mut DummyDISI;
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum FieldComparatorValue {
-    #[default]
-    Missing,
-    Doc(i32),
-    Double(f64),
-    Float(f32),
-    Int(i32),
-    Long(i64),
-    TermVal(BytesRef<Vec<u8>>),
+  #[default]
+  Missing,
+  Doc(i32),
+  Double(f64),
+  Float(f32),
+  Int(i32),
+  Long(i64),
+  TermVal(BytesRef<Vec<u8>>),
 }
 impl_from_for_enum!(
     FieldComparatorValue,
@@ -337,120 +337,120 @@ impl_from_for_enum!(
     BytesRef<Vec<u8>> => TermVal,
 );
 impl FieldComparatorValue {
-    pub fn missing() -> Self {
-        FieldComparatorValue::Missing
-    }
+  pub fn missing() -> Self {
+    FieldComparatorValue::Missing
+  }
 
-    pub fn as_i32(&self) -> Option<&i32> {
-        match self {
-            FieldComparatorValue::Doc(v) | FieldComparatorValue::Int(v) => Some(v),
-            _ => None,
-        }
+  pub fn as_i32(&self) -> Option<&i32> {
+    match self {
+      FieldComparatorValue::Doc(v) | FieldComparatorValue::Int(v) => Some(v),
+      _ => None,
     }
+  }
 
-    pub fn into_i32(self) -> Option<i32> {
-        match self {
-            FieldComparatorValue::Doc(v) | FieldComparatorValue::Int(v) => Some(v),
-            _ => None,
-        }
+  pub fn into_i32(self) -> Option<i32> {
+    match self {
+      FieldComparatorValue::Doc(v) | FieldComparatorValue::Int(v) => Some(v),
+      _ => None,
     }
+  }
 
-    pub fn as_i64(&self) -> Option<&i64> {
-        match self {
-            FieldComparatorValue::Long(v) => Some(v),
-            _ => None,
-        }
+  pub fn as_i64(&self) -> Option<&i64> {
+    match self {
+      FieldComparatorValue::Long(v) => Some(v),
+      _ => None,
     }
+  }
 
-    pub fn into_i64(self) -> Option<i64> {
-        match self {
-            FieldComparatorValue::Long(v) => Some(v),
-            _ => None,
-        }
+  pub fn into_i64(self) -> Option<i64> {
+    match self {
+      FieldComparatorValue::Long(v) => Some(v),
+      _ => None,
     }
+  }
 
-    pub fn as_f32(&self) -> Option<&f32> {
-        match self {
-            FieldComparatorValue::Float(v) => Some(v),
-            _ => None,
-        }
+  pub fn as_f32(&self) -> Option<&f32> {
+    match self {
+      FieldComparatorValue::Float(v) => Some(v),
+      _ => None,
     }
+  }
 
-    pub fn into_f32(self) -> Option<f32> {
-        match self {
-            FieldComparatorValue::Float(v) => Some(v),
-            _ => None,
-        }
+  pub fn into_f32(self) -> Option<f32> {
+    match self {
+      FieldComparatorValue::Float(v) => Some(v),
+      _ => None,
     }
+  }
 
-    pub fn as_f64(&self) -> Option<&f64> {
-        match self {
-            FieldComparatorValue::Double(v) => Some(v),
-            _ => None,
-        }
+  pub fn as_f64(&self) -> Option<&f64> {
+    match self {
+      FieldComparatorValue::Double(v) => Some(v),
+      _ => None,
     }
+  }
 
-    pub fn into_f64(self) -> Option<f64> {
-        match self {
-            FieldComparatorValue::Double(v) => Some(v),
-            _ => None,
-        }
+  pub fn into_f64(self) -> Option<f64> {
+    match self {
+      FieldComparatorValue::Double(v) => Some(v),
+      _ => None,
     }
+  }
 
-    pub fn as_term_val(&self) -> Option<&BytesRef<Vec<u8>>> {
-        match self {
-            FieldComparatorValue::TermVal(v) => Some(v),
-            FieldComparatorValue::Missing => None,
-            _ => None,
-        }
+  pub fn as_term_val(&self) -> Option<&BytesRef<Vec<u8>>> {
+    match self {
+      FieldComparatorValue::TermVal(v) => Some(v),
+      FieldComparatorValue::Missing => None,
+      _ => None,
     }
+  }
 
-    pub fn into_term_val(self) -> Option<BytesRef<Vec<u8>>> {
-        match self {
-            FieldComparatorValue::TermVal(v) => Some(v),
-            _ => None,
-        }
+  pub fn into_term_val(self) -> Option<BytesRef<Vec<u8>>> {
+    match self {
+      FieldComparatorValue::TermVal(v) => Some(v),
+      _ => None,
     }
+  }
 }
 
 impl PartialOrd for FieldComparatorValue {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (self, other) {
-            (FieldComparatorValue::Missing, FieldComparatorValue::Missing) => Some(Ordering::Equal),
-            (FieldComparatorValue::Doc(a), FieldComparatorValue::Doc(b))
-            | (FieldComparatorValue::Int(a), FieldComparatorValue::Int(b))
-            | (FieldComparatorValue::Doc(a), FieldComparatorValue::Int(b))
-            | (FieldComparatorValue::Int(a), FieldComparatorValue::Doc(b)) => a.partial_cmp(b),
-            (FieldComparatorValue::Double(a), FieldComparatorValue::Double(b)) => a.partial_cmp(b),
-            (FieldComparatorValue::Float(a), FieldComparatorValue::Float(b)) => a.partial_cmp(b),
-            (FieldComparatorValue::Long(a), FieldComparatorValue::Long(b)) => a.partial_cmp(b),
-            (FieldComparatorValue::TermVal(a), FieldComparatorValue::TermVal(b)) => Some(a.cmp(b)),
-            _ => None,
-        }
+  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    match (self, other) {
+      (FieldComparatorValue::Missing, FieldComparatorValue::Missing) => Some(Ordering::Equal),
+      (FieldComparatorValue::Doc(a), FieldComparatorValue::Doc(b))
+      | (FieldComparatorValue::Int(a), FieldComparatorValue::Int(b))
+      | (FieldComparatorValue::Doc(a), FieldComparatorValue::Int(b))
+      | (FieldComparatorValue::Int(a), FieldComparatorValue::Doc(b)) => a.partial_cmp(b),
+      (FieldComparatorValue::Double(a), FieldComparatorValue::Double(b)) => a.partial_cmp(b),
+      (FieldComparatorValue::Float(a), FieldComparatorValue::Float(b)) => a.partial_cmp(b),
+      (FieldComparatorValue::Long(a), FieldComparatorValue::Long(b)) => a.partial_cmp(b),
+      (FieldComparatorValue::TermVal(a), FieldComparatorValue::TermVal(b)) => Some(a.cmp(b)),
+      _ => None,
     }
+  }
 }
 
 pub enum FieldComparatorEnum {
-    Relevance(RelevanceComparator),
-    Doc(DocComparator),
-    Double(DoubleComparator),
-    Float(FloatComparator),
-    Int(IntComparator),
-    Long(LongComparator),
-    TermVal(TermValComparator),
-    TermOrdValue(TermOrdValComparator),
-    SortedNumericInt(SortedNumericIntComparator),
-    SortedNumericLong(SortedNumericLongComparator),
-    SortedNumericFloat(SortedNumericFloatComparator),
-    SortedNumericDouble(SortedNumericDoubleComparator),
-    SortedDocValuesTermOrdVal(SortedDocValuesTermOrdValComparator),
-    Dummy(DummyFieldComparator),
+  Relevance(RelevanceComparator),
+  Doc(DocComparator),
+  Double(DoubleComparator),
+  Float(FloatComparator),
+  Int(IntComparator),
+  Long(LongComparator),
+  TermVal(TermValComparator),
+  TermOrdValue(TermOrdValComparator),
+  SortedNumericInt(SortedNumericIntComparator),
+  SortedNumericLong(SortedNumericLongComparator),
+  SortedNumericFloat(SortedNumericFloatComparator),
+  SortedNumericDouble(SortedNumericDoubleComparator),
+  SortedDocValuesTermOrdVal(SortedDocValuesTermOrdValComparator),
+  Dummy(DummyFieldComparator),
 }
 // for std::mem::take
 impl Default for FieldComparatorEnum {
-    fn default() -> Self {
-        FieldComparatorEnum::Dummy(DummyFieldComparator)
-    }
+  fn default() -> Self {
+    FieldComparatorEnum::Dummy(DummyFieldComparator)
+  }
 }
 impl_from_for_enum!(
     FieldComparatorEnum,
@@ -471,357 +471,336 @@ impl_from_for_enum!(
 );
 
 impl FieldComparator for FieldComparatorEnum {
-    type V = FieldComparatorValue;
+  type V = FieldComparatorValue;
 
-    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
-        match self {
-            FieldComparatorEnum::Relevance(comparator) => comparator.compare(slot1, slot2),
-            FieldComparatorEnum::Doc(comparator) => comparator.compare(slot1, slot2),
-            FieldComparatorEnum::Double(comparator) => comparator.compare(slot1, slot2),
-            FieldComparatorEnum::Float(comparator) => comparator.compare(slot1, slot2),
-            FieldComparatorEnum::Int(comparator) => comparator.compare(slot1, slot2),
-            FieldComparatorEnum::Long(comparator) => comparator.compare(slot1, slot2),
-            FieldComparatorEnum::TermVal(comparator) => comparator.compare(slot1, slot2),
-            FieldComparatorEnum::TermOrdValue(comparator) => comparator.compare(slot1, slot2),
-            FieldComparatorEnum::SortedNumericInt(comparator) => comparator.compare(slot1, slot2),
-            FieldComparatorEnum::SortedNumericLong(comparator) => comparator.compare(slot1, slot2),
-            FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.compare(slot1, slot2),
-            FieldComparatorEnum::SortedNumericDouble(comparator) => {
-                comparator.compare(slot1, slot2)
-            },
-            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
-                comparator.compare(slot1, slot2)
-            },
-            FieldComparatorEnum::Dummy(comparator) => comparator.compare(slot1, slot2),
-        }
+  fn compare(&self, slot1: usize, slot2: usize) -> i32 {
+    match self {
+      FieldComparatorEnum::Relevance(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::Doc(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::Double(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::Float(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::Int(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::Long(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::TermVal(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::TermOrdValue(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::SortedNumericInt(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::SortedNumericLong(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.compare(slot1, slot2),
+      FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
+        comparator.compare(slot1, slot2)
+      },
+      FieldComparatorEnum::Dummy(comparator) => comparator.compare(slot1, slot2),
     }
+  }
 
-    fn set_top_value(&mut self, value: Self::V) {
-        match self {
-            FieldComparatorEnum::Relevance(comparator) => {
-                let v = value
-                    .into_f32()
-                    .expect("expected relevance comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::Doc(comparator) => {
-                let v = value.into_i32().expect("expected doc comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::Double(comparator) => {
-                let v = value.into_f64().expect("expected double comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::Float(comparator) => {
-                let v = value.into_f32().expect("expected float comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::Int(comparator) => {
-                let v = value.into_i32().expect("expected int comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::Long(comparator) => {
-                let v = value.into_i64().expect("expected long comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::TermVal(comparator) => {
-                let v = value
-                    .into_term_val()
-                    .expect("expected term value comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::TermOrdValue(comparator) => {
-                let v = value
-                    .into_term_val()
-                    .expect("expected term ord value comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::SortedNumericInt(comparator) => {
-                let v = value
-                    .into_i32()
-                    .expect("expected sorted numeric int comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::SortedNumericLong(comparator) => {
-                let v = value
-                    .into_i64()
-                    .expect("expected sorted numeric long comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::SortedNumericFloat(comparator) => {
-                let v = value
-                    .into_f32()
-                    .expect("expected sorted numeric float comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::SortedNumericDouble(comparator) => {
-                let v = value
-                    .into_f64()
-                    .expect("expected sorted numeric double comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
-                let v = value
-                    .into_term_val()
-                    .expect("expected sorted doc values term ord val comparator value");
-                comparator.set_top_value(v);
-            },
-            FieldComparatorEnum::Dummy(_comparator) => {
-                unreachable!(
-                    "Dummy implementation: this method should never be called in real usage"
-                )
-            },
-        }
+  fn set_top_value(&mut self, value: Self::V) {
+    match self {
+      FieldComparatorEnum::Relevance(comparator) => {
+        let v = value
+          .into_f32()
+          .expect("expected relevance comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::Doc(comparator) => {
+        let v = value.into_i32().expect("expected doc comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::Double(comparator) => {
+        let v = value.into_f64().expect("expected double comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::Float(comparator) => {
+        let v = value.into_f32().expect("expected float comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::Int(comparator) => {
+        let v = value.into_i32().expect("expected int comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::Long(comparator) => {
+        let v = value.into_i64().expect("expected long comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::TermVal(comparator) => {
+        let v = value
+          .into_term_val()
+          .expect("expected term value comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::TermOrdValue(comparator) => {
+        let v = value
+          .into_term_val()
+          .expect("expected term ord value comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::SortedNumericInt(comparator) => {
+        let v = value
+          .into_i32()
+          .expect("expected sorted numeric int comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::SortedNumericLong(comparator) => {
+        let v = value
+          .into_i64()
+          .expect("expected sorted numeric long comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::SortedNumericFloat(comparator) => {
+        let v = value
+          .into_f32()
+          .expect("expected sorted numeric float comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::SortedNumericDouble(comparator) => {
+        let v = value
+          .into_f64()
+          .expect("expected sorted numeric double comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
+        let v = value
+          .into_term_val()
+          .expect("expected sorted doc values term ord val comparator value");
+        comparator.set_top_value(v);
+      },
+      FieldComparatorEnum::Dummy(_comparator) => {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+      },
     }
+  }
 
-    fn value(&self, slot: usize) -> Option<Self::V> {
-        match self {
-            FieldComparatorEnum::Relevance(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::Float)
-            },
-            FieldComparatorEnum::Doc(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::Doc)
-            },
-            FieldComparatorEnum::Double(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::Double)
-            },
-            FieldComparatorEnum::Float(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::Float)
-            },
-            FieldComparatorEnum::Int(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::Int)
-            },
-            FieldComparatorEnum::Long(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::Long)
-            },
-            FieldComparatorEnum::TermVal(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::TermVal)
-            },
-            FieldComparatorEnum::TermOrdValue(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::TermVal)
-            },
-            FieldComparatorEnum::SortedNumericInt(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::Int)
-            },
-            FieldComparatorEnum::SortedNumericLong(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::Long)
-            },
-            FieldComparatorEnum::SortedNumericFloat(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::Float)
-            },
-            FieldComparatorEnum::SortedNumericDouble(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::Double)
-            },
-            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
-                comparator.value(slot).map(FieldComparatorValue::TermVal)
-            },
-            FieldComparatorEnum::Dummy(_comparator) => {
-                unreachable!(
-                    "Dummy implementation: this method should never be called in real usage"
-                )
-            },
-        }
+  fn value(&self, slot: usize) -> Option<Self::V> {
+    match self {
+      FieldComparatorEnum::Relevance(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::Float)
+      },
+      FieldComparatorEnum::Doc(comparator) => comparator.value(slot).map(FieldComparatorValue::Doc),
+      FieldComparatorEnum::Double(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::Double)
+      },
+      FieldComparatorEnum::Float(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::Float)
+      },
+      FieldComparatorEnum::Int(comparator) => comparator.value(slot).map(FieldComparatorValue::Int),
+      FieldComparatorEnum::Long(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::Long)
+      },
+      FieldComparatorEnum::TermVal(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::TermVal)
+      },
+      FieldComparatorEnum::TermOrdValue(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::TermVal)
+      },
+      FieldComparatorEnum::SortedNumericInt(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::Int)
+      },
+      FieldComparatorEnum::SortedNumericLong(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::Long)
+      },
+      FieldComparatorEnum::SortedNumericFloat(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::Float)
+      },
+      FieldComparatorEnum::SortedNumericDouble(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::Double)
+      },
+      FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::TermVal)
+      },
+      FieldComparatorEnum::Dummy(_comparator) => {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+      },
     }
+  }
 
-    type LeafFieldComparator<LR>
-        = LeafFieldComparatorEnum<LR>
-    where
-        LR: LeafReader;
+  type LeafFieldComparator<LR>
+    = LeafFieldComparatorEnum<LR>
+  where
+    LR: LeafReader;
 
-    fn get_leaf_comparator<LR>(
-        &mut self,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Self::LeafFieldComparator<LR>>
-    where
-        LR: LeafReader,
-    {
-        match self {
-            FieldComparatorEnum::Relevance(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::Relevance),
-            FieldComparatorEnum::Doc(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::Doc),
-            FieldComparatorEnum::Double(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::Double),
-            FieldComparatorEnum::Float(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::Float),
-            FieldComparatorEnum::Int(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::Int),
-            FieldComparatorEnum::Long(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::Long),
-            FieldComparatorEnum::TermVal(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::TermVal),
-            FieldComparatorEnum::TermOrdValue(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::TermOrdVal),
-            FieldComparatorEnum::SortedNumericInt(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::Int),
-            FieldComparatorEnum::SortedNumericLong(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::Long),
-            FieldComparatorEnum::SortedNumericFloat(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::Float),
-            FieldComparatorEnum::SortedNumericDouble(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::Double),
-            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator
-                .get_leaf_comparator(context)
-                .map(LeafFieldComparatorEnum::TermOrdVal),
-            FieldComparatorEnum::Dummy(_) => {
-                unreachable!(
-                    "Dummy implementation: this method should never be called in real usage"
-                )
-            },
-        }
+  fn get_leaf_comparator<LR>(
+    &mut self,
+    context: &LeafReaderContext<LR>,
+  ) -> Result<Self::LeafFieldComparator<LR>>
+  where
+    LR: LeafReader,
+  {
+    match self {
+      FieldComparatorEnum::Relevance(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::Relevance),
+      FieldComparatorEnum::Doc(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::Doc),
+      FieldComparatorEnum::Double(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::Double),
+      FieldComparatorEnum::Float(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::Float),
+      FieldComparatorEnum::Int(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::Int),
+      FieldComparatorEnum::Long(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::Long),
+      FieldComparatorEnum::TermVal(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::TermVal),
+      FieldComparatorEnum::TermOrdValue(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::TermOrdVal),
+      FieldComparatorEnum::SortedNumericInt(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::Int),
+      FieldComparatorEnum::SortedNumericLong(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::Long),
+      FieldComparatorEnum::SortedNumericFloat(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::Float),
+      FieldComparatorEnum::SortedNumericDouble(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::Double),
+      FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::TermOrdVal),
+      FieldComparatorEnum::Dummy(_) => {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+      },
     }
+  }
 
-    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
-        match self {
-            FieldComparatorEnum::Relevance(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_f32),
-                second.and_then(FieldComparatorValue::as_f32),
-            ),
-            FieldComparatorEnum::Doc(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_i32),
-                second.and_then(FieldComparatorValue::as_i32),
-            ),
-            FieldComparatorEnum::Double(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_f64),
-                second.and_then(FieldComparatorValue::as_f64),
-            ),
-            FieldComparatorEnum::Float(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_f32),
-                second.and_then(FieldComparatorValue::as_f32),
-            ),
-            FieldComparatorEnum::Int(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_i32),
-                second.and_then(FieldComparatorValue::as_i32),
-            ),
-            FieldComparatorEnum::Long(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_i64),
-                second.and_then(FieldComparatorValue::as_i64),
-            ),
-            FieldComparatorEnum::TermVal(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_term_val),
-                second.and_then(FieldComparatorValue::as_term_val),
-            ),
-            FieldComparatorEnum::TermOrdValue(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_term_val),
-                second.and_then(FieldComparatorValue::as_term_val),
-            ),
-            FieldComparatorEnum::SortedNumericInt(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_i32),
-                second.and_then(FieldComparatorValue::as_i32),
-            ),
-            FieldComparatorEnum::SortedNumericLong(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_i64),
-                second.and_then(FieldComparatorValue::as_i64),
-            ),
-            FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_f32),
-                second.and_then(FieldComparatorValue::as_f32),
-            ),
-            FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.compare_values(
-                first.and_then(FieldComparatorValue::as_f64),
-                second.and_then(FieldComparatorValue::as_f64),
-            ),
-            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator
-                .compare_values(
-                    first.and_then(FieldComparatorValue::as_term_val),
-                    second.and_then(FieldComparatorValue::as_term_val),
-                ),
-            FieldComparatorEnum::Dummy(_) => {
-                unreachable!(
-                    "Dummy implementation: this method should never be called in real usage"
-                )
-            },
-        }
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+    match self {
+      FieldComparatorEnum::Relevance(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_f32),
+        second.and_then(FieldComparatorValue::as_f32),
+      ),
+      FieldComparatorEnum::Doc(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_i32),
+        second.and_then(FieldComparatorValue::as_i32),
+      ),
+      FieldComparatorEnum::Double(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_f64),
+        second.and_then(FieldComparatorValue::as_f64),
+      ),
+      FieldComparatorEnum::Float(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_f32),
+        second.and_then(FieldComparatorValue::as_f32),
+      ),
+      FieldComparatorEnum::Int(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_i32),
+        second.and_then(FieldComparatorValue::as_i32),
+      ),
+      FieldComparatorEnum::Long(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_i64),
+        second.and_then(FieldComparatorValue::as_i64),
+      ),
+      FieldComparatorEnum::TermVal(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_term_val),
+        second.and_then(FieldComparatorValue::as_term_val),
+      ),
+      FieldComparatorEnum::TermOrdValue(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_term_val),
+        second.and_then(FieldComparatorValue::as_term_val),
+      ),
+      FieldComparatorEnum::SortedNumericInt(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_i32),
+        second.and_then(FieldComparatorValue::as_i32),
+      ),
+      FieldComparatorEnum::SortedNumericLong(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_i64),
+        second.and_then(FieldComparatorValue::as_i64),
+      ),
+      FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_f32),
+        second.and_then(FieldComparatorValue::as_f32),
+      ),
+      FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_f64),
+        second.and_then(FieldComparatorValue::as_f64),
+      ),
+      FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_term_val),
+        second.and_then(FieldComparatorValue::as_term_val),
+      ),
+      FieldComparatorEnum::Dummy(_) => {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+      },
     }
+  }
 
-    fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
-        match self {
-            FieldComparatorEnum::Double(comparator) => comparator.fallback_compare(
-                first.as_f64().expect("expected double comparator value"),
-                second.as_f64().expect("expected double comparator value"),
-            ),
-            FieldComparatorEnum::Float(comparator) => comparator.fallback_compare(
-                first.as_f32().expect("expected float comparator value"),
-                second.as_f32().expect("expected float comparator value"),
-            ),
-            FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.fallback_compare(
-                first
-                    .as_f64()
-                    .expect("expected sorted numeric double comparator value"),
-                second
-                    .as_f64()
-                    .expect("expected sorted numeric double comparator value"),
-            ),
-            FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.fallback_compare(
-                first
-                    .as_f32()
-                    .expect("expected sorted numeric float comparator value"),
-                second
-                    .as_f32()
-                    .expect("expected sorted numeric float comparator value"),
-            ),
-            FieldComparatorEnum::Dummy(_) => {
-                unreachable!(
-                    "Dummy implementation: this method should never be called in real usage"
-                )
-            },
-            _ => 0,
-        }
+  fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
+    match self {
+      FieldComparatorEnum::Double(comparator) => comparator.fallback_compare(
+        first.as_f64().expect("expected double comparator value"),
+        second.as_f64().expect("expected double comparator value"),
+      ),
+      FieldComparatorEnum::Float(comparator) => comparator.fallback_compare(
+        first.as_f32().expect("expected float comparator value"),
+        second.as_f32().expect("expected float comparator value"),
+      ),
+      FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.fallback_compare(
+        first
+          .as_f64()
+          .expect("expected sorted numeric double comparator value"),
+        second
+          .as_f64()
+          .expect("expected sorted numeric double comparator value"),
+      ),
+      FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.fallback_compare(
+        first
+          .as_f32()
+          .expect("expected sorted numeric float comparator value"),
+        second
+          .as_f32()
+          .expect("expected sorted numeric float comparator value"),
+      ),
+      FieldComparatorEnum::Dummy(_) => {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+      },
+      _ => 0,
     }
+  }
 
-    fn set_single_sort(&mut self) {
-        match self {
-            FieldComparatorEnum::Relevance(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::Doc(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::Double(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::Float(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::Int(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::Long(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::TermVal(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::TermOrdValue(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::SortedNumericInt(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::SortedNumericLong(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.set_single_sort(),
-            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
-                comparator.set_single_sort()
-            },
-            FieldComparatorEnum::Dummy(comparator) => comparator.set_single_sort(),
-        }
+  fn set_single_sort(&mut self) {
+    match self {
+      FieldComparatorEnum::Relevance(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::Doc(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::Double(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::Float(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::Int(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::Long(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::TermVal(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::TermOrdValue(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::SortedNumericInt(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::SortedNumericLong(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::Dummy(comparator) => comparator.set_single_sort(),
     }
+  }
 
-    fn disable_skipping(&mut self) {
-        match self {
-            FieldComparatorEnum::Relevance(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::Doc(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::Double(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::Float(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::Int(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::Long(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::TermVal(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::TermOrdValue(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::SortedNumericInt(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::SortedNumericLong(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.disable_skipping(),
-            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
-                comparator.disable_skipping()
-            },
-            FieldComparatorEnum::Dummy(comparator) => comparator.disable_skipping(),
-        }
+  fn disable_skipping(&mut self) {
+    match self {
+      FieldComparatorEnum::Relevance(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::Doc(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::Double(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::Float(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::Int(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::Long(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::TermVal(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::TermOrdValue(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::SortedNumericInt(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::SortedNumericLong(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::Dummy(comparator) => comparator.disable_skipping(),
     }
+  }
 }
 /// Sorts by field's natural Term sort order.
 ///
@@ -829,187 +808,185 @@ impl FieldComparator for FieldComparatorEnum {
 /// which is slow for medium to large result sets but possibly
 /// very fast for very small result sets.
 pub struct TermValComparator {
-    pub(crate) values: Vec<Option<BytesRef<Vec<u8>>>>,
-    pub(crate) field: String,
-    pub(crate) bottom: usize,
-    pub(crate) top_value: Option<BytesRef<Vec<u8>>>,
-    pub(crate) missing_sort_cmp: i32,
+  pub(crate) values: Vec<Option<BytesRef<Vec<u8>>>>,
+  pub(crate) field: String,
+  pub(crate) bottom: usize,
+  pub(crate) top_value: Option<BytesRef<Vec<u8>>>,
+  pub(crate) missing_sort_cmp: i32,
 }
 
 impl TermValComparator {
-    pub fn new(field: String, num_hits: usize, sort_missing_last: bool) -> Self {
-        Self {
-            values: vec![None; num_hits],
-            field,
-            bottom: 0,
-            top_value: None,
-            missing_sort_cmp: if sort_missing_last { 1 } else { -1 },
-        }
+  pub fn new(field: String, num_hits: usize, sort_missing_last: bool) -> Self {
+    Self {
+      values: vec![None; num_hits],
+      field,
+      bottom: 0,
+      top_value: None,
+      missing_sort_cmp: if sort_missing_last { 1 } else { -1 },
     }
+  }
 
-    fn compare_values(
-        &self,
-        val1: Option<&BytesRef<Vec<u8>>>,
-        val2: Option<&BytesRef<Vec<u8>>>,
-    ) -> i32 {
-        match (val1, val2) {
-            (None, None) => 0,
-            (None, Some(_)) => self.missing_sort_cmp,
-            (Some(_), None) => -self.missing_sort_cmp,
-            (Some(v1), Some(v2)) => v1.cmp(v2).to_int(),
-        }
+  fn compare_values(
+    &self,
+    val1: Option<&BytesRef<Vec<u8>>>,
+    val2: Option<&BytesRef<Vec<u8>>>,
+  ) -> i32 {
+    match (val1, val2) {
+      (None, None) => 0,
+      (None, Some(_)) => self.missing_sort_cmp,
+      (Some(_), None) => -self.missing_sort_cmp,
+      (Some(v1), Some(v2)) => v1.cmp(v2).to_int(),
     }
+  }
 }
 
 impl FieldComparator for TermValComparator {
-    type V = BytesRef<Vec<u8>>;
+  type V = BytesRef<Vec<u8>>;
 
-    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
-        let val1 = self.values[slot1].as_ref();
-        let val2 = self.values[slot2].as_ref();
-        self.compare_values(val1, val2)
+  fn compare(&self, slot1: usize, slot2: usize) -> i32 {
+    let val1 = self.values[slot1].as_ref();
+    let val2 = self.values[slot2].as_ref();
+    self.compare_values(val1, val2)
+  }
+
+  fn set_top_value(&mut self, value: Self::V) {
+    self.top_value = Some(value);
+  }
+
+  fn value(&self, slot: usize) -> Option<Self::V> {
+    // TODO IMPORTANT - avoid clone here
+    self.values[slot].clone()
+  }
+
+  type LeafFieldComparator<LR>
+    = TermValLeafComparator<LR>
+  where
+    LR: LeafReader;
+
+  fn get_leaf_comparator<LR>(
+    &mut self,
+    context: &LeafReaderContext<LR>,
+  ) -> Result<Self::LeafFieldComparator<LR>>
+  where
+    LR: LeafReader,
+  {
+    let doc_terms = DocValues::get_binary(context.reader(), &self.field)?;
+    Ok(TermValLeafComparator::new(doc_terms))
+  }
+
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+    match (first, second) {
+      (Some(f), Some(s)) => f.cmp(s).to_int(),
+      (None, Some(_)) => self.missing_sort_cmp,
+      (Some(_), None) => -self.missing_sort_cmp,
+      (None, None) => 0,
     }
-
-    fn set_top_value(&mut self, value: Self::V) {
-        self.top_value = Some(value);
-    }
-
-    fn value(&self, slot: usize) -> Option<Self::V> {
-        // TODO IMPORTANT - avoid clone here
-        self.values[slot].clone()
-    }
-
-    type LeafFieldComparator<LR>
-        = TermValLeafComparator<LR>
-    where
-        LR: LeafReader;
-
-    fn get_leaf_comparator<LR>(
-        &mut self,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Self::LeafFieldComparator<LR>>
-    where
-        LR: LeafReader,
-    {
-        let doc_terms = DocValues::get_binary(context.reader(), &self.field)?;
-        Ok(TermValLeafComparator::new(doc_terms))
-    }
-
-    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
-        match (first, second) {
-            (Some(f), Some(s)) => f.cmp(s).to_int(),
-            (None, Some(_)) => self.missing_sort_cmp,
-            (Some(_), None) => -self.missing_sort_cmp,
-            (None, None) => 0,
-        }
-    }
+  }
 }
 pub struct TermValLeafComparator<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    doc_terms: Binary<LR>,
+  doc_terms: Binary<LR>,
 }
 
 impl<LR> TermValLeafComparator<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    pub fn new(doc_terms: Binary<LR>) -> Self {
-        Self { doc_terms }
-    }
+  pub fn new(doc_terms: Binary<LR>) -> Self {
+    Self { doc_terms }
+  }
 
-    fn get_value_for_doc(
-        doc_terms: &mut Binary<LR>,
-        doc: i32,
-    ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        if doc_terms.advance_exact(doc)? {
-            Ok(Some(doc_terms.binary_value()?))
-        } else {
-            Ok(None)
-        }
+  fn get_value_for_doc(
+    doc_terms: &mut Binary<LR>,
+    doc: i32,
+  ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if doc_terms.advance_exact(doc)? {
+      Ok(Some(doc_terms.binary_value()?))
+    } else {
+      Ok(None)
     }
+  }
 }
 
 impl<LR> LeafFieldComparator for TermValLeafComparator<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    type FieldComparator = TermValComparator;
-    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
-        comparator.bottom = slot;
-        Ok(())
-    }
+  type FieldComparator = TermValComparator;
+  fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
+    comparator.bottom = slot;
+    Ok(())
+  }
 
-    fn compare_bottom<S>(
-        &mut self,
-        doc: i32,
-        _scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<i32>
-    where
-        S: Scorable + ?Sized,
-    {
-        let (comparator, doc_terms) = (&comparator, &mut self.doc_terms);
-        let val = Self::get_value_for_doc(doc_terms, doc)?;
-        let bottom_value = match &comparator.values[comparator.bottom] {
-            Some(v) => Some(v),
-            None => None,
-        };
-        match val {
-            Some(v) => Ok(comparator.compare_values(bottom_value, Some(v.as_ref()))),
-            None => Ok(comparator.compare_values(bottom_value, None)),
-        }
+  fn compare_bottom<S>(
+    &mut self,
+    doc: i32,
+    _scorer: &mut S,
+    comparator: &mut Self::FieldComparator,
+  ) -> Result<i32>
+  where
+    S: Scorable + ?Sized,
+  {
+    let (comparator, doc_terms) = (&comparator, &mut self.doc_terms);
+    let val = Self::get_value_for_doc(doc_terms, doc)?;
+    let bottom_value = match &comparator.values[comparator.bottom] {
+      Some(v) => Some(v),
+      None => None,
+    };
+    match val {
+      Some(v) => Ok(comparator.compare_values(bottom_value, Some(v.as_ref()))),
+      None => Ok(comparator.compare_values(bottom_value, None)),
     }
+  }
 
-    fn compare_top<S>(
-        &mut self,
-        doc: i32,
-        _scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<i32>
-    where
-        S: Scorable + ?Sized,
-    {
-        let (comparator, doc_terms) = (&comparator, &mut self.doc_terms);
-        match Self::get_value_for_doc(doc_terms, doc)? {
-            None => Ok(comparator.compare_values(comparator.top_value.as_ref(), None)),
-            Some(val) => {
-                Ok(comparator.compare_values(comparator.top_value.as_ref(), Some(val.as_ref())))
-            },
-        }
+  fn compare_top<S>(
+    &mut self,
+    doc: i32,
+    _scorer: &mut S,
+    comparator: &mut Self::FieldComparator,
+  ) -> Result<i32>
+  where
+    S: Scorable + ?Sized,
+  {
+    let (comparator, doc_terms) = (&comparator, &mut self.doc_terms);
+    match Self::get_value_for_doc(doc_terms, doc)? {
+      None => Ok(comparator.compare_values(comparator.top_value.as_ref(), None)),
+      Some(val) => Ok(comparator.compare_values(comparator.top_value.as_ref(), Some(val.as_ref()))),
     }
+  }
 
-    fn copy<S>(
-        &mut self,
-        slot: usize,
-        doc: i32,
-        _scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<()>
-    where
-        S: Scorable + ?Sized,
-    {
-        match Self::get_value_for_doc(&mut self.doc_terms, doc)? {
-            None => comparator.values[slot] = None,
-            Some(val) => comparator.values[slot] = Some(val.into_owned()),
-        }
-        Ok(())
+  fn copy<S>(
+    &mut self,
+    slot: usize,
+    doc: i32,
+    _scorer: &mut S,
+    comparator: &mut Self::FieldComparator,
+  ) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
+    match Self::get_value_for_doc(&mut self.doc_terms, doc)? {
+      None => comparator.values[slot] = None,
+      Some(val) => comparator.values[slot] = Some(val.into_owned()),
     }
+    Ok(())
+  }
 
-    fn set_scorer<S>(
-        &mut self,
-        _scorer: &mut S,
-        _comparator: &mut Self::FieldComparator,
-    ) -> Result<()>
-    where
-        S: Scorable + ?Sized,
-    {
-        Ok(())
-    }
+  fn set_scorer<S>(
+    &mut self,
+    _scorer: &mut S,
+    _comparator: &mut Self::FieldComparator,
+  ) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
+    Ok(())
+  }
 
-    type DocIdSetIteratorRef<'a>
-        = &'a mut DummyDISI
-    where
-        LR: 'a;
+  type DocIdSetIteratorRef<'a>
+    = &'a mut DummyDISI
+  where
+    LR: 'a;
 }

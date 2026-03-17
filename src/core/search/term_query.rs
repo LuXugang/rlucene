@@ -18,7 +18,7 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::{
-    LRImpactsEnum, LRNormNumericDocValues, LRPosting, LRTermsEnum, LeafReader,
+  LRImpactsEnum, LRNormNumericDocValues, LRPosting, LRTermsEnum, LeafReader,
 };
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -36,7 +36,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
-    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -44,7 +44,7 @@ use crate::core::search::scorer::{Scorer, ScorerEnum2};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
-    SimScorer, SimScorerEnum2, Similarity, SimilarityEnum, SimilaritySimScorer,
+  SimScorer, SimScorerEnum2, Similarity, SimilarityEnum, SimilaritySimScorer,
 };
 use crate::core::search::term_scorer::TermScorer;
 use crate::core::search::term_statistics::TermStatistics;
@@ -59,849 +59,841 @@ use std::sync::Arc;
 /// A Query that matches documents containing a term. This may be combined with other terms with a [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery).
 #[derive(Clone)]
 pub struct TermQuery {
-    id: Identity,
-    pub(crate) term: Arc<Term>,
-    per_reader_term_state: Option<TermStates>,
+  id: Identity,
+  pub(crate) term: Arc<Term>,
+  per_reader_term_state: Option<TermStates>,
 }
 impl TermQuery {
-    pub fn new<T>(term: T) -> Self
-    where
-        T: Into<Arc<Term>>,
-    {
-        Self::with_term_state(term, None)
+  pub fn new<T>(term: T) -> Self
+  where
+    T: Into<Arc<Term>>,
+  {
+    Self::with_term_state(term, None)
+  }
+  pub fn get_term(&self) -> Arc<Term> {
+    self.term.clone()
+  }
+  pub fn with_term_state<T>(term: T, ts: Option<TermStates>) -> Self
+  where
+    T: Into<Arc<Term>>,
+  {
+    Self {
+      id: Identity::new(),
+      term: term.into(),
+      per_reader_term_state: ts,
     }
-    pub fn get_term(&self) -> Arc<Term> {
-        self.term.clone()
-    }
-    pub fn with_term_state<T>(term: T, ts: Option<TermStates>) -> Self
-    where
-        T: Into<Arc<Term>>,
-    {
-        Self {
-            id: Identity::new(),
-            term: term.into(),
-            per_reader_term_state: ts,
-        }
-    }
-    pub fn get_term_states(&self) -> Option<&TermStates> {
-        self.per_reader_term_state.as_ref()
-    }
+  }
+  pub fn get_term_states(&self) -> Option<&TermStates> {
+    self.per_reader_term_state.as_ref()
+  }
 }
 
 impl PartialEq for TermQuery {
-    fn eq(&self, other: &Self) -> bool {
-        self.term == other.term
-    }
+  fn eq(&self, other: &Self) -> bool {
+    self.term == other.term
+  }
 }
 
 impl Hash for TermQuery {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.term.hash(state);
-    }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.term.hash(state);
+  }
 }
 impl Eq for TermQuery {}
 
 impl Debug for TermQuery {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self.as_string("") {
-            Ok(s) => write!(f, "{}", s),
-            Err(_) => Err(std::fmt::Error),
-        }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self.as_string("") {
+      Ok(s) => write!(f, "{}", s),
+      Err(_) => Err(std::fmt::Error),
     }
+  }
 }
 
 impl HasIdentity for TermQuery {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 
 impl QueryBase for TermQuery {
-    fn as_string(&self, field: &str) -> Result<String> {
-        let mut buffer = String::new();
-        if self.term.field != field {
-            buffer.push_str(&self.term.field);
-            buffer.push(':');
-        }
-        match self.term.text() {
-            Ok(text) => {
-                buffer.push_str(&text);
-            },
-            Err(_) => {
-                buffer.push_str("<?>");
-            },
-        }
-        Ok(buffer)
+  fn as_string(&self, field: &str) -> Result<String> {
+    let mut buffer = String::new();
+    if self.term.field != field {
+      buffer.push_str(&self.term.field);
+      buffer.push(':');
     }
+    match self.term.text() {
+      Ok(text) => {
+        buffer.push_str(&text);
+      },
+      Err(_) => {
+        buffer.push_str("<?>");
+      },
+    }
+    Ok(buffer)
+  }
 
-    fn create_weight<IRC>(
-        mut self,
-        searcher: &IndexSearcher<IRC>,
-        score_mode: &ScoreMode,
-        boost: f32,
-    ) -> Result<QueryWeight<IRC>>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        let context = searcher.get_top_reader_context();
-        let ts = match self.per_reader_term_state.take() {
-            Some(v) if { v.was_built_for_id(&context.base().identity) } => v,
-            _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
-        };
-        Ok(Box::new(TermWeight::new(
-            searcher,
-            *score_mode,
-            boost,
-            ts,
-            self,
-        )?))
-    }
+  fn create_weight<IRC>(
+    mut self,
+    searcher: &IndexSearcher<IRC>,
+    score_mode: &ScoreMode,
+    boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    let context = searcher.get_top_reader_context();
+    let ts = match self.per_reader_term_state.take() {
+      Some(v) if { v.was_built_for_id(&context.base().identity) } => v,
+      _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
+    };
+    Ok(Box::new(TermWeight::new(
+      searcher,
+      *score_mode,
+      boost,
+      ts,
+      self,
+    )?))
+  }
 
-    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        Ok(self.into())
-    }
+  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    Ok(self.into())
+  }
 
-    fn visit<QV>(&self, _visitor: &QV)
-    where
-        QV: QueryVisitor,
-    {
-        todo!()
-    }
+  fn visit<QV>(&self, _visitor: &QV)
+  where
+    QV: QueryVisitor,
+  {
+    todo!()
+  }
 }
 #[derive(Clone)]
 pub struct TermStatesMeta {
+  ord: usize,
+  doc_freq: i32,
+  total_term_freq: i64,
+  term_state: TermStateEnum,
+  id: Identity,
+}
+impl TermStatesMeta {
+  pub(crate) fn new(
     ord: usize,
     doc_freq: i32,
     total_term_freq: i64,
     term_state: TermStateEnum,
     id: Identity,
-}
-impl TermStatesMeta {
-    pub(crate) fn new(
-        ord: usize,
-        doc_freq: i32,
-        total_term_freq: i64,
-        term_state: TermStateEnum,
-        id: Identity,
-    ) -> Self {
-        Self {
-            ord,
-            doc_freq,
-            total_term_freq,
-            term_state,
-            id,
-        }
+  ) -> Self {
+    Self {
+      ord,
+      doc_freq,
+      total_term_freq,
+      term_state,
+      id,
     }
+  }
 }
 pub struct TermWeight {
-    similarity: Arc<SimilarityEnum>,
-    sim_scorer: Option<Arc<TermQuerySimScorer>>,
-    term_states: Arc<Mutex<TermStates>>,
-    score_mode: ScoreMode,
-    parent_query: Arc<Query>,
+  similarity: Arc<SimilarityEnum>,
+  sim_scorer: Option<Arc<TermQuerySimScorer>>,
+  term_states: Arc<Mutex<TermStates>>,
+  score_mode: ScoreMode,
+  parent_query: Arc<Query>,
 }
 impl TermWeight {
-    pub fn new<IRC>(
-        searcher: &IndexSearcher<IRC>,
-        score_mode: ScoreMode,
-        boost: f32,
-        term_states: TermStates,
-        query: TermQuery,
-    ) -> Result<Self>
-    where
-        IRC: IndexReaderContext,
-    {
-        debug_assert!(query.per_reader_term_state.is_none());
-        let similarity = searcher.get_similarity();
+  pub fn new<IRC>(
+    searcher: &IndexSearcher<IRC>,
+    score_mode: ScoreMode,
+    boost: f32,
+    term_states: TermStates,
+    query: TermQuery,
+  ) -> Result<Self>
+  where
+    IRC: IndexReaderContext,
+  {
+    debug_assert!(query.per_reader_term_state.is_none());
+    let similarity = searcher.get_similarity();
 
-        let (collection_stats, term_stats) = if score_mode.needs_scores() {
-            let collection_stats = searcher.collection_statistics(query.term.field())?;
-            let term_stats = if term_states.doc_freq()? > 0 {
-                Some(searcher.term_statistics(
-                    query.term.clone(),
-                    term_states.doc_freq()?,
-                    term_states.total_term_freq()?,
-                )?)
-            } else {
-                None
-            };
-            (collection_stats, term_stats)
-        } else {
-            // we do not need the actual stats, use fake stats with docFreq=maxDoc=ttf=1
-            let collection_stats = Some(CollectionStatistics::new(query.term.field(), 1, 1, 1, 1)?);
-            let term_stats = Some(TermStatistics::new(query.term.clone(), 1, 1)?);
-            (collection_stats, term_stats)
-        };
+    let (collection_stats, term_stats) = if score_mode.needs_scores() {
+      let collection_stats = searcher.collection_statistics(query.term.field())?;
+      let term_stats = if term_states.doc_freq()? > 0 {
+        Some(searcher.term_statistics(
+          query.term.clone(),
+          term_states.doc_freq()?,
+          term_states.total_term_freq()?,
+        )?)
+      } else {
+        None
+      };
+      (collection_stats, term_stats)
+    } else {
+      // we do not need the actual stats, use fake stats with docFreq=maxDoc=ttf=1
+      let collection_stats = Some(CollectionStatistics::new(query.term.field(), 1, 1, 1, 1)?);
+      let term_stats = Some(TermStatistics::new(query.term.clone(), 1, 1)?);
+      (collection_stats, term_stats)
+    };
 
-        // Assigning a dummy simScorer in case score is not needed to avoid unnecessary float[]
-        // allocations in case default BM25Scorer is used.
-        // See: https://github.com/apache/lucene/issues/12297
-        let sim_scorer = if let Some(term_stats) = term_stats {
-            debug_assert!(collection_stats.is_some());
-            if score_mode.needs_scores() {
-                Some(Arc::new(TermQuerySimScorer::A(similarity.scorer(
-                    boost,
-                    collection_stats.as_ref().unwrap(),
-                    &[term_stats],
-                )?)))
-            } else {
-                Some(Arc::new(TermQuerySimScorer::B(SimScorerImpl)))
-            }
-        } else {
-            None
-        };
+    // Assigning a dummy simScorer in case score is not needed to avoid unnecessary float[]
+    // allocations in case default BM25Scorer is used.
+    // See: https://github.com/apache/lucene/issues/12297
+    let sim_scorer = if let Some(term_stats) = term_stats {
+      debug_assert!(collection_stats.is_some());
+      if score_mode.needs_scores() {
+        Some(Arc::new(TermQuerySimScorer::A(similarity.scorer(
+          boost,
+          collection_stats.as_ref().unwrap(),
+          &[term_stats],
+        )?)))
+      } else {
+        Some(Arc::new(TermQuerySimScorer::B(SimScorerImpl)))
+      }
+    } else {
+      None
+    };
 
-        Ok(Self {
-            similarity,
-            sim_scorer,
-            term_states: Arc::new(Mutex::new(term_states)),
-            score_mode,
-            parent_query: Arc::new(query.into()),
-        })
-    }
-    /// Returns a TermsEnum positioned at this weights Term or None if the term does not exist in the given context
-    fn get_terms_enum<LR>(&self, context: &LeafReaderContext<LR>) -> Result<Option<LRTermsEnum<LR>>>
-    where
-        LR: LeafReader,
-    {
-        debug_assert!(
-            {
-                let v = ReaderUtil::get_top_level_context(context);
-                self.term_states.lock().was_built_for(v)
-            },
-            "The top-reader used to create Weight is not the same as the current reader's top-reader"
-        );
-        let mut term_states = self.term_states.lock();
-        let mut supplier = term_states.get(context)?;
+    Ok(Self {
+      similarity,
+      sim_scorer,
+      term_states: Arc::new(Mutex::new(term_states)),
+      score_mode,
+      parent_query: Arc::new(query.into()),
+    })
+  }
+  /// Returns a TermsEnum positioned at this weights Term or None if the term does not exist in the given context
+  fn get_terms_enum<LR>(&self, context: &LeafReaderContext<LR>) -> Result<Option<LRTermsEnum<LR>>>
+  where
+    LR: LeafReader,
+  {
+    debug_assert!(
+      {
+        let v = ReaderUtil::get_top_level_context(context);
+        self.term_states.lock().was_built_for(v)
+      },
+      "The top-reader used to create Weight is not the same as the current reader's top-reader"
+    );
+    let mut term_states = self.term_states.lock();
+    let mut supplier = term_states.get(context)?;
 
-        let state = match supplier {
-            Some(ref mut s) => term_states.resolve(s)?,
-            None => None,
-        };
-        let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
-            v
-        } else {
-            return Err(LuceneError::illegal_state(""));
-        };
+    let state = match supplier {
+      Some(ref mut s) => term_states.resolve(s)?,
+      None => None,
+    };
+    let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
+      v
+    } else {
+      return Err(LuceneError::illegal_state(""));
+    };
 
-        let Some(state) = state else {
-            debug_assert!(
-                self.term_not_in_reader(context.reader(), parent_query.term.as_ref())?,
-                "no termstate found but term exists in reader"
-            );
-            return Ok(None);
-        };
-        let mut terms_enum = context
-            .reader()
-            .terms(parent_query.term.field())?
-            .as_ref()
-            .unwrap()
-            .iterator()?;
-        terms_enum.seek_exact_with_state(parent_query.term.bytes(), state.as_ref())?;
-        Ok(Some(terms_enum))
-    }
-    fn term_not_in_reader<LR>(&self, reader: &LR, term: &Term) -> Result<bool>
-    where
-        LR: LeafReader,
-    {
-        Ok(LeafReader::doc_freq(reader, term)? == 0)
-    }
+    let Some(state) = state else {
+      debug_assert!(
+        self.term_not_in_reader(context.reader(), parent_query.term.as_ref())?,
+        "no termstate found but term exists in reader"
+      );
+      return Ok(None);
+    };
+    let mut terms_enum = context
+      .reader()
+      .terms(parent_query.term.field())?
+      .as_ref()
+      .unwrap()
+      .iterator()?;
+    terms_enum.seek_exact_with_state(parent_query.term.bytes(), state.as_ref())?;
+    Ok(Some(terms_enum))
+  }
+  fn term_not_in_reader<LR>(&self, reader: &LR, term: &Term) -> Result<bool>
+  where
+    LR: LeafReader,
+  {
+    Ok(LeafReader::doc_freq(reader, term)? == 0)
+  }
 }
 
 impl<IRC> SegmentCacheable<IRC> for TermWeight
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-        Ok(true)
-    }
+  fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
+    Ok(true)
+  }
 }
 
 impl<IRC> Weight<IRC> for TermWeight
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    type Matches = MatchWithNoTerms;
+  type Matches = MatchWithNoTerms;
 
-    fn matches(
-        &self,
-        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _doc: i32,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::Matches>> {
-        todo!()
-    }
+  fn matches(
+    &self,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _doc: i32,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::Matches>> {
+    todo!()
+  }
 
-    fn explain(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        doc: i32,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Explanation> {
-        let scorer_opt = self.build_term_scorer(context)?;
-        if let Some(mut scorer) = scorer_opt {
-            let new_doc = scorer.iterator_mut().advance(doc)?;
-            if new_doc == doc {
-                let freq = match &mut scorer {
-                    ScorerEnum2::A(ts) => ts.freq()?,
-                    ScorerEnum2::B(_) => {
-                        return Err(LuceneError::illegal_state("should TermScorer here"));
-                    },
-                };
-
-                let mut norm: i64 = 1;
-                let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
-                    v
-                } else {
-                    return Err(LuceneError::illegal_state(""));
-                };
-
-                if let Some(mut norms) =
-                    context.reader().get_norm_values(&parent_query.term.field)?
-                    && norms.advance_exact(doc)?
-                {
-                    norm = norms.long_value()?;
-                }
-
-                let freq_explanation = Explanation::match_no_details(
-                    freq,
-                    "freq, occurrences of term within document".to_string(),
-                );
-
-                let score_explanation = self
-                    .sim_scorer
-                    .as_ref()
-                    .unwrap()
-                    .explain(freq_explanation, norm)?;
-
-                return Ok(Explanation::match_(
-                    score_explanation.value,
-                    format!(
-                        "weight({:?} in {}) [{}], result of:",
-                        <Self as Weight<IRC>>::get_query(self),
-                        doc,
-                        self.similarity,
-                    ),
-                    vec![score_explanation],
-                ));
-            }
-        }
-
-        Ok(Explanation::no_match_no_details(
-            "no matching term".to_string(),
-        ))
-    }
-
-    fn get_query(&self) -> Arc<Query> {
-        self.parent_query.clone()
-    }
-
-    type ScorerSupplier = QueryWeightSs<IRC>;
-
-    fn scorer_supplier(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::ScorerSupplier>> {
-        debug_assert!(
-            {
-                let v = ReaderUtil::get_top_level_context(context);
-                self.term_states.lock().was_built_for(v)
-            },
-            "The top-reader used to create Weight is not the same as the current reader's top-reader"
-        );
-        let state_supplier = self.term_states.lock().get(context)?;
-        let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
-            v
-        } else {
-            return Err(LuceneError::illegal_state(""));
+  fn explain(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Explanation> {
+    let scorer_opt = self.build_term_scorer(context)?;
+    if let Some(mut scorer) = scorer_opt {
+      let new_doc = scorer.iterator_mut().advance(doc)?;
+      if new_doc == doc {
+        let freq = match &mut scorer {
+          ScorerEnum2::A(ts) => ts.freq()?,
+          ScorerEnum2::B(_) => {
+            return Err(LuceneError::illegal_state("should TermScorer here"));
+          },
         };
 
-        match state_supplier {
-            None => Ok(None),
-            Some(v) => {
-                debug_assert!(self.sim_scorer.is_some());
-                let v = TermScorerSupplier::new(
-                    false,
-                    self.term_states.clone(),
-                    v,
-                    parent_query.term.clone(),
-                    self.sim_scorer.as_ref().unwrap().clone(),
-                    self.score_mode,
-                );
-                let v = Box::new(v);
-                Ok(Some(v))
-            },
+        let mut norm: i64 = 1;
+        let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
+          v
+        } else {
+          return Err(LuceneError::illegal_state(""));
+        };
+
+        if let Some(mut norms) = context.reader().get_norm_values(&parent_query.term.field)?
+          && norms.advance_exact(doc)?
+        {
+          norm = norms.long_value()?;
         }
+
+        let freq_explanation = Explanation::match_no_details(
+          freq,
+          "freq, occurrences of term within document".to_string(),
+        );
+
+        let score_explanation = self
+          .sim_scorer
+          .as_ref()
+          .unwrap()
+          .explain(freq_explanation, norm)?;
+
+        return Ok(Explanation::match_(
+          score_explanation.value,
+          format!(
+            "weight({:?} in {}) [{}], result of:",
+            <Self as Weight<IRC>>::get_query(self),
+            doc,
+            self.similarity,
+          ),
+          vec![score_explanation],
+        ));
+      }
     }
 
-    fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-        if !context.reader().has_deletions()? {
-            if let Some(mut terms_enum) = self.get_terms_enum(context)? {
-                terms_enum.doc_freq()
-            } else {
-                Ok(0)
-            }
-        } else {
-            <Self as Weight<IRC>>::default_count(self, context)
-        }
+    Ok(Explanation::no_match_no_details(
+      "no matching term".to_string(),
+    ))
+  }
+
+  fn get_query(&self) -> Arc<Query> {
+    self.parent_query.clone()
+  }
+
+  type ScorerSupplier = QueryWeightSs<IRC>;
+
+  fn scorer_supplier(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::ScorerSupplier>> {
+    debug_assert!(
+      {
+        let v = ReaderUtil::get_top_level_context(context);
+        self.term_states.lock().was_built_for(v)
+      },
+      "The top-reader used to create Weight is not the same as the current reader's top-reader"
+    );
+    let state_supplier = self.term_states.lock().get(context)?;
+    let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
+      v
+    } else {
+      return Err(LuceneError::illegal_state(""));
+    };
+
+    match state_supplier {
+      None => Ok(None),
+      Some(v) => {
+        debug_assert!(self.sim_scorer.is_some());
+        let v = TermScorerSupplier::new(
+          false,
+          self.term_states.clone(),
+          v,
+          parent_query.term.clone(),
+          self.sim_scorer.as_ref().unwrap().clone(),
+          self.score_mode,
+        );
+        let v = Box::new(v);
+        Ok(Some(v))
+      },
     }
+  }
+
+  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+    if !context.reader().has_deletions()? {
+      if let Some(mut terms_enum) = self.get_terms_enum(context)? {
+        terms_enum.doc_freq()
+      } else {
+        Ok(0)
+      }
+    } else {
+      <Self as Weight<IRC>>::default_count(self, context)
+    }
+  }
 }
 
 impl TermWeight {
-    fn build_term_scorer<LR>(
-        &self,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Option<TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>>>
-    where
-        LR: LeafReader,
-    {
-        match self.get_terms_enum(context)? {
-            Some(mut terms_enum) => {
-                let norms = if self.score_mode.needs_scores() {
-                    let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
-                        v
-                    } else {
-                        return Err(LuceneError::illegal_state(""));
-                    };
-                    context.reader().get_norm_values(&parent_query.term.field)?
-                } else {
-                    None
-                };
+  fn build_term_scorer<LR>(
+    &self,
+    context: &LeafReaderContext<LR>,
+  ) -> Result<Option<TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>>>
+  where
+    LR: LeafReader,
+  {
+    match self.get_terms_enum(context)? {
+      Some(mut terms_enum) => {
+        let norms = if self.score_mode.needs_scores() {
+          let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
+            v
+          } else {
+            return Err(LuceneError::illegal_state(""));
+          };
+          context.reader().get_norm_values(&parent_query.term.field)?
+        } else {
+          None
+        };
 
-                if self.score_mode == ScoreMode::TopScores {
-                    let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
-                        TermScorer::from_impacts(
-                            terms_enum.impacts(FREQS as i32)?,
-                            self.sim_scorer.as_ref().unwrap().clone(),
-                            norms,
-                            false,
-                        ),
-                    );
-                    Ok(Some(v))
-                } else {
-                    let flags = if self.score_mode.needs_scores() {
-                        FREQS
-                    } else {
-                        NONE
-                    };
-                    let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
-                        TermScorer::from_postings(
-                            terms_enum.postings_with_flags(None, flags as i32)?,
-                            self.sim_scorer.as_ref().unwrap().clone(),
-                            norms,
-                        ),
-                    );
-                    Ok(Some(v))
-                }
-            },
-            None => {
-                let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
-                    ConstantScoreScorer::from_disi(0.0, self.score_mode, EmptyDISI::default()),
-                );
-                Ok(Some(v))
-            },
+        if self.score_mode == ScoreMode::TopScores {
+          let v =
+            TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(TermScorer::from_impacts(
+              terms_enum.impacts(FREQS as i32)?,
+              self.sim_scorer.as_ref().unwrap().clone(),
+              norms,
+              false,
+            ));
+          Ok(Some(v))
+        } else {
+          let flags = if self.score_mode.needs_scores() {
+            FREQS
+          } else {
+            NONE
+          };
+          let v =
+            TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(TermScorer::from_postings(
+              terms_enum.postings_with_flags(None, flags as i32)?,
+              self.sim_scorer.as_ref().unwrap().clone(),
+              norms,
+            ));
+          Ok(Some(v))
         }
+      },
+      None => {
+        let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
+          ConstantScoreScorer::from_disi(0.0, self.score_mode, EmptyDISI::default()),
+        );
+        Ok(Some(v))
+      },
     }
+  }
 }
 pub struct TermScorerSupplier<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
+  top_level_scoring_clause: bool,
+  term_states: Arc<Mutex<TermStates>>,
+  prepare_state: PrepareState<LR>,
+  term: Arc<Term>,
+  sim_scorer: Arc<TermQuerySimScorer>,
+  score_mode: ScoreMode,
+  terms_enum: Option<LRTermsEnum<LR>>,
+}
+impl<LR> TermScorerSupplier<LR>
+where
+  LR: LeafReader,
+{
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
     top_level_scoring_clause: bool,
     term_states: Arc<Mutex<TermStates>>,
     prepare_state: PrepareState<LR>,
     term: Arc<Term>,
     sim_scorer: Arc<TermQuerySimScorer>,
     score_mode: ScoreMode,
-    terms_enum: Option<LRTermsEnum<LR>>,
-}
-impl<LR> TermScorerSupplier<LR>
-where
-    LR: LeafReader,
-{
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        top_level_scoring_clause: bool,
-        term_states: Arc<Mutex<TermStates>>,
-        prepare_state: PrepareState<LR>,
-        term: Arc<Term>,
-        sim_scorer: Arc<TermQuerySimScorer>,
-        score_mode: ScoreMode,
-    ) -> Self {
-        Self {
-            top_level_scoring_clause,
-            term_states,
-            prepare_state,
-            term,
-            sim_scorer,
-            score_mode,
-            terms_enum: None,
-        }
+  ) -> Self {
+    Self {
+      top_level_scoring_clause,
+      term_states,
+      prepare_state,
+      term,
+      sim_scorer,
+      score_mode,
+      terms_enum: None,
     }
+  }
 
-    pub(crate) fn get_terms_enum(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<()>> {
-        if self.terms_enum.is_none() {
-            // TODO IMPORTANT 如果state_opt为None 那么terms_enum仍然为None 如果执行cost会再次尝试resolve 是不是可以增加一个flag避免重复resolve
-            let state_opt = self.term_states.lock().resolve(&mut self.prepare_state)?;
-            match state_opt {
-                None => return Ok(None),
-                Some(s) => {
-                    let mut terms_enum = match context.reader().terms(self.term.field())? {
-                        Some(term) => term.iterator()?,
-                        None => {
-                            return Err(LuceneError::illegal_argument(format!(
-                                "term should exist here {}",
-                                self.term
-                            )));
-                        },
-                    };
-                    terms_enum.seek_exact_with_state(self.term.bytes(), s.as_ref())?;
-                    self.terms_enum = Some(terms_enum);
-                },
-            };
-        }
-        Ok(Some(()))
+  pub(crate) fn get_terms_enum(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<()>> {
+    if self.terms_enum.is_none() {
+      // TODO IMPORTANT 如果state_opt为None 那么terms_enum仍然为None 如果执行cost会再次尝试resolve 是不是可以增加一个flag避免重复resolve
+      let state_opt = self.term_states.lock().resolve(&mut self.prepare_state)?;
+      match state_opt {
+        None => return Ok(None),
+        Some(s) => {
+          let mut terms_enum = match context.reader().terms(self.term.field())? {
+            Some(term) => term.iterator()?,
+            None => {
+              return Err(LuceneError::illegal_argument(format!(
+                "term should exist here {}",
+                self.term
+              )));
+            },
+          };
+          terms_enum.seek_exact_with_state(self.term.bytes(), s.as_ref())?;
+          self.terms_enum = Some(terms_enum);
+        },
+      };
     }
+    Ok(Some(()))
+  }
 }
 impl<IRC> ScorerSupplier<IRC> for TermScorerSupplier<IRCLeafReader<IRC>>
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    type Scorer = QueryWeightSsScorer;
-    type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer;
+  type BulkScorer = QueryWeightSsBulkScorer;
 
-    fn get(
-        &mut self,
-        _lead_cost: i64,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Self::Scorer> {
-        match self.get_terms_enum(context)? {
-            Some(_) => {
-                debug_assert!(self.terms_enum.is_some());
-                let norms = if self.score_mode.needs_scores() {
-                    context.reader().get_norm_values(&self.term.field)?
-                } else {
-                    None
-                };
+  fn get(
+    &mut self,
+    _lead_cost: i64,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Self::Scorer> {
+    match self.get_terms_enum(context)? {
+      Some(_) => {
+        debug_assert!(self.terms_enum.is_some());
+        let norms = if self.score_mode.needs_scores() {
+          context.reader().get_norm_values(&self.term.field)?
+        } else {
+          None
+        };
 
-                if self.score_mode == ScoreMode::TopScores {
-                    let v =
-                        TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::A(
-                            TermScorer::from_impacts(
-                                self.terms_enum.as_mut().unwrap().impacts(FREQS as i32)?,
-                                self.sim_scorer.clone(),
-                                norms,
-                                self.top_level_scoring_clause,
-                            ),
-                        );
-                    Ok(Box::new(v))
-                } else {
-                    let flags = if self.score_mode.needs_scores() {
-                        FREQS
-                    } else {
-                        NONE
-                    };
-                    let v =
-                        TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::A(
-                            TermScorer::from_postings(
-                                self.terms_enum
-                                    .as_mut()
-                                    .unwrap()
-                                    .postings_with_flags(None, flags as i32)?,
-                                self.sim_scorer.clone(),
-                                norms,
-                            ),
-                        );
-                    Ok(Box::new(v))
-                }
-            },
-            None => {
-                let v = TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::B(
-                    ConstantScoreScorer::from_disi(0.0, self.score_mode, EmptyDISI::default()),
-                );
-                Ok(Box::new(v))
-            },
+        if self.score_mode == ScoreMode::TopScores {
+          let v = TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::A(
+            TermScorer::from_impacts(
+              self.terms_enum.as_mut().unwrap().impacts(FREQS as i32)?,
+              self.sim_scorer.clone(),
+              norms,
+              self.top_level_scoring_clause,
+            ),
+          );
+          Ok(Box::new(v))
+        } else {
+          let flags = if self.score_mode.needs_scores() {
+            FREQS
+          } else {
+            NONE
+          };
+          let v = TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::A(
+            TermScorer::from_postings(
+              self
+                .terms_enum
+                .as_mut()
+                .unwrap()
+                .postings_with_flags(None, flags as i32)?,
+              self.sim_scorer.clone(),
+              norms,
+            ),
+          );
+          Ok(Box::new(v))
         }
+      },
+      None => {
+        let v = TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::B(
+          ConstantScoreScorer::from_disi(0.0, self.score_mode, EmptyDISI::default()),
+        );
+        Ok(Box::new(v))
+      },
     }
+  }
 
-    fn bulk_scorer(
-        &mut self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
-    }
+  fn bulk_scorer(
+    &mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::BulkScorer>> {
+    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  }
 
-    fn cost(
-        &mut self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<i64> {
-        let result: Result<i32> = (|| match self.get_terms_enum(context)? {
-            None => Ok(0),
-            Some(_) => Ok(self.terms_enum.as_mut().unwrap().doc_freq()?),
-        })();
-        match result {
-            Ok(v) => Ok(v as i64),
-            Err(e) => Err(LuceneError::unchecked_io_error(e)),
-        }
+  fn cost(
+    &mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<i64> {
+    let result: Result<i32> = (|| match self.get_terms_enum(context)? {
+      None => Ok(0),
+      Some(_) => Ok(self.terms_enum.as_mut().unwrap().doc_freq()?),
+    })();
+    match result {
+      Ok(v) => Ok(v as i64),
+      Err(e) => Err(LuceneError::unchecked_io_error(e)),
     }
+  }
 }
 
 pub struct SimScorerImpl;
 impl SimScorer for SimScorerImpl {
-    fn score(&self, _freq: f32, _norm: i64) -> f32 {
-        0f32
-    }
+  fn score(&self, _freq: f32, _norm: i64) -> f32 {
+    0f32
+  }
 }
 pub(crate) type TermQuerySimScorer = SimScorerEnum2<SimilaritySimScorer, SimScorerImpl>;
 
 pub type TermScorerEnum<LR, DISI, TPI> = ScorerEnum2<
-    TermScorer<
-        LRPosting<LR>,
-        Arc<TermQuerySimScorer>,
-        LRNormNumericDocValues<LR>,
-        LRImpactsEnum<LR>,
-    >,
-    ConstantScoreScorer<DISI, TPI>,
+  TermScorer<LRPosting<LR>, Arc<TermQuerySimScorer>, LRNormNumericDocValues<LR>, LRImpactsEnum<LR>>,
+  ConstantScoreScorer<DISI, TPI>,
 >;
 
 #[cfg(test)]
 mod tests {
-    use crate::core::document::document::Document;
-    use crate::core::document::field::Store;
-    use crate::core::document::string_field::StringField;
-    use crate::core::index::composite_reader::get_context;
-    use crate::core::index::field_invert_state::FieldInvertState;
-    use crate::core::index::index_reader_context::IndexReaderContext;
-    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-    use crate::core::index::multi_reader::MultiReader;
-    use crate::core::index::no_merge_policy::NoMergePolicy;
-    use crate::core::index::term::Term;
-    use crate::core::index::term_states::build;
-    use crate::core::search::collection_statistics::CollectionStatistics;
-    use crate::core::search::index_searcher::IndexSearcher;
-    use crate::core::search::query::{Query, QueryBase};
-    use crate::core::search::score_mode::ScoreMode;
-    use crate::core::search::similarities_impl::similarities::{
-        BoxSimScorer, SimScorer, Similarity, SimilarityEnum,
-    };
-    use crate::core::search::term_query::TermQuery;
-    use crate::core::search::term_statistics::TermStatistics;
-    use crate::core::util::error::lucene_error::Result;
-    use crate::test::core::index::random_index_writer::RandomIndexWriter;
-    use crate::test::core::search::query_utils::QueryUtils;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
-    };
-    use crate::test::core::util::test_util::TestUtil;
-    use rand::RngExt;
-    use std::fmt::{Display, Formatter};
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicBool, Ordering};
+  use crate::core::document::document::Document;
+  use crate::core::document::field::Store;
+  use crate::core::document::string_field::StringField;
+  use crate::core::index::composite_reader::get_context;
+  use crate::core::index::field_invert_state::FieldInvertState;
+  use crate::core::index::index_reader_context::IndexReaderContext;
+  use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+  use crate::core::index::multi_reader::MultiReader;
+  use crate::core::index::no_merge_policy::NoMergePolicy;
+  use crate::core::index::term::Term;
+  use crate::core::index::term_states::build;
+  use crate::core::search::collection_statistics::CollectionStatistics;
+  use crate::core::search::index_searcher::IndexSearcher;
+  use crate::core::search::query::{Query, QueryBase};
+  use crate::core::search::score_mode::ScoreMode;
+  use crate::core::search::similarities_impl::similarities::{
+    BoxSimScorer, SimScorer, Similarity, SimilarityEnum,
+  };
+  use crate::core::search::term_query::TermQuery;
+  use crate::core::search::term_statistics::TermStatistics;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::index::random_index_writer::RandomIndexWriter;
+  use crate::test::core::search::query_utils::QueryUtils;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
+  };
+  use crate::test::core::util::test_util::TestUtil;
+  use rand::RngExt;
+  use std::fmt::{Display, Formatter};
+  use std::sync::Arc;
+  use std::sync::atomic::{AtomicBool, Ordering};
 
-    #[allow(dead_code)] // for quick search
-    struct TestTermQuery;
+  #[allow(dead_code)] // for quick search
+  struct TestTermQuery;
 
-    #[test]
-    fn test_equals() -> Result<()> {
-        QueryUtils::check_equal::<Query>(
-            &TermQuery::new(Term::from_text("foo", "bar")).into(),
-            &TermQuery::new(Term::from_text("foo", "bar")).into(),
-        );
+  #[test]
+  fn test_equals() -> Result<()> {
+    QueryUtils::check_equal::<Query>(
+      &TermQuery::new(Term::from_text("foo", "bar")).into(),
+      &TermQuery::new(Term::from_text("foo", "bar")).into(),
+    );
 
-        QueryUtils::check_unequal::<Query>(
-            &TermQuery::new(Term::from_text("foo", "bar")).into(),
-            &TermQuery::new(Term::from_text("foo", "baz")).into(),
-        );
+    QueryUtils::check_unequal::<Query>(
+      &TermQuery::new(Term::from_text("foo", "bar")).into(),
+      &TermQuery::new(Term::from_text("foo", "baz")).into(),
+    );
 
-        let multi_reader = MultiReader::empty()?;
-        let context = get_context(multi_reader)?;
-        let searcher = IndexSearcher::new(context)?;
+    let multi_reader = MultiReader::empty()?;
+    let context = get_context(multi_reader)?;
+    let searcher = IndexSearcher::new(context)?;
 
-        QueryUtils::check_equal::<Query>(
-            &TermQuery::new(Term::from_text("foo", "bar")).into(),
-            &TermQuery::with_term_state(
-                Term::from_text("foo", "bar"),
-                Some(build(&searcher, Term::from_text("foo", "bar"), true)?),
-            )
-            .into(),
-        );
+    QueryUtils::check_equal::<Query>(
+      &TermQuery::new(Term::from_text("foo", "bar")).into(),
+      &TermQuery::with_term_state(
+        Term::from_text("foo", "bar"),
+        Some(build(&searcher, Term::from_text("foo", "bar"), true)?),
+      )
+      .into(),
+    );
 
-        Ok(())
-    }
-    #[test]
-    fn test_create_weight_does_not_seek_if_scores_are_not_needed() -> Result<()> {
-        // FilterDirectoryReader未实现
-        Ok(())
-    }
-    #[test]
-    fn test_query_matches_count() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    Ok(())
+  }
+  #[test]
+  fn test_create_weight_does_not_seek_if_scores_are_not_needed() -> Result<()> {
+    // FilterDirectoryReader未实现
+    Ok(())
+  }
+  #[test]
+  fn test_query_matches_count() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
 
-        let random_num_docs = TestUtil::next_int(&mut random, 10, 100);
-        let mut num_matching_docs = 0;
+    let random_num_docs = TestUtil::next_int(&mut random, 10, 100);
+    let mut num_matching_docs = 0;
 
-        for _ in 0..random_num_docs {
-            let mut doc = Document::new();
-            if random.random_bool(0.5) {
-                doc.add(StringField::from_string("foo", "bar", Store::No)?);
-                num_matching_docs += 1;
-            }
-            writer.add_document(doc)?;
-        }
-
-        writer.force_merge(1)?;
-
-        let reader = writer.get_reader()?;
-        let searcher = new_searcher_with_reader(reader)?;
-
-        let test_query: Query = TermQuery::new(Term::from_text("foo", "bar")).into();
-        assert_eq!(num_matching_docs, searcher.count(test_query.clone())?);
-
-        let weight = searcher.create_weight(test_query, ScoreMode::Complete, 1.0)?;
-        let leaves = searcher.reader_context.leaves()?;
-        assert_eq!(num_matching_docs, weight.count(&leaves[0])?);
-
-        writer.close()?;
-        Ok(())
-    }
-    #[test]
-    fn test_get_term_states() -> Result<()> {
-        assert!(
-            TermQuery::new(Term::from_text("foo", "bar"))
-                .get_term_states()
-                .is_none()
-        );
-
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
-
-        let mut iwc = new_index_writer_config(&mut random);
-        iwc.set_merge_policy(NoMergePolicy::default());
-
-        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
-
-        let mut doc = Document::new();
+    for _ in 0..random_num_docs {
+      let mut doc = Document::new();
+      if random.random_bool(0.5) {
         doc.add(StringField::from_string("foo", "bar", Store::No)?);
-        writer.add_document(doc)?;
-        writer.get_reader()?;
-
-        let mut doc = Document::new();
-        doc.add(StringField::from_string("foo", "baz", Store::No)?);
-        writer.add_document(doc)?;
-        writer.get_reader()?;
-
-        writer.add_document(Document::new())?;
-
-        let reader = writer.get_reader()?;
-        let searcher = new_searcher_with_reader(reader)?;
-
-        let query_with_context = TermQuery::with_term_state(
-            Term::from_text("foo", "bar"),
-            Some(build(&searcher, Term::from_text("foo", "bar"), true)?),
-        );
-        assert!(query_with_context.get_term_states().is_some());
-
-        writer.close()?;
-        Ok(())
+        num_matching_docs += 1;
+      }
+      writer.add_document(doc)?;
     }
 
-    #[test]
-    fn test_with_different_score_modes() -> Result<()> {
-        let mut random = random();
-        let dir = new_directory_shared(&mut random)?;
+    writer.force_merge(1)?;
 
-        let mut iwc = new_index_writer_config(&mut random);
-        iwc.set_merge_policy(NoMergePolicy::default());
-        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+    let reader = writer.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
 
-        let mut doc = Document::new();
-        doc.add(StringField::from_string("foo", "bar", Store::No)?);
-        writer.add_document(doc)?;
-        writer.get_reader()?;
+    let test_query: Query = TermQuery::new(Term::from_text("foo", "bar")).into();
+    assert_eq!(num_matching_docs, searcher.count(test_query.clone())?);
 
-        let reader = writer.get_reader()?;
-        let mut searcher = new_searcher_with_reader(reader)?;
-        let existing_similarity = searcher.get_similarity().clone();
+    let weight = searcher.create_weight(test_query, ScoreMode::Complete, 1.0)?;
+    let leaves = searcher.reader_context.leaves()?;
+    assert_eq!(num_matching_docs, weight.count(&leaves[0])?);
 
-        for score_mode in ScoreMode::values() {
-            let scorer_called = Arc::new(AtomicBool::new(false));
-            let s = SimilarityEnum::custom(SimilarityImpl::new(
-                existing_similarity.clone(),
-                scorer_called.clone(),
-            ));
-            searcher.set_similarity(s);
-            let term_query = TermQuery::new(Term::from_text("foo", "bar"));
-            term_query.create_weight(&searcher, score_mode, 1f32)?;
-            assert_eq!(
-                score_mode.needs_scores(),
-                scorer_called.load(Ordering::Relaxed)
-            );
-        }
+    writer.close()?;
+    Ok(())
+  }
+  #[test]
+  fn test_get_term_states() -> Result<()> {
+    assert!(
+      TermQuery::new(Term::from_text("foo", "bar"))
+        .get_term_states()
+        .is_none()
+    );
 
-        writer.close()?;
-        Ok(())
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(NoMergePolicy::default());
+
+    let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("foo", "bar", Store::No)?);
+    writer.add_document(doc)?;
+    writer.get_reader()?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("foo", "baz", Store::No)?);
+    writer.add_document(doc)?;
+    writer.get_reader()?;
+
+    writer.add_document(Document::new())?;
+
+    let reader = writer.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let query_with_context = TermQuery::with_term_state(
+      Term::from_text("foo", "bar"),
+      Some(build(&searcher, Term::from_text("foo", "bar"), true)?),
+    );
+    assert!(query_with_context.get_term_states().is_some());
+
+    writer.close()?;
+    Ok(())
+  }
+
+  #[test]
+  fn test_with_different_score_modes() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(NoMergePolicy::default());
+    let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("foo", "bar", Store::No)?);
+    writer.add_document(doc)?;
+    writer.get_reader()?;
+
+    let reader = writer.get_reader()?;
+    let mut searcher = new_searcher_with_reader(reader)?;
+    let existing_similarity = searcher.get_similarity().clone();
+
+    for score_mode in ScoreMode::values() {
+      let scorer_called = Arc::new(AtomicBool::new(false));
+      let s = SimilarityEnum::custom(SimilarityImpl::new(
+        existing_similarity.clone(),
+        scorer_called.clone(),
+      ));
+      searcher.set_similarity(s);
+      let term_query = TermQuery::new(Term::from_text("foo", "bar"));
+      term_query.create_weight(&searcher, score_mode, 1f32)?;
+      assert_eq!(
+        score_mode.needs_scores(),
+        scorer_called.load(Ordering::Relaxed)
+      );
     }
 
-    pub struct SimilarityImpl<S> {
-        existing_similarity: S,
-        scorer_called: Arc<AtomicBool>,
+    writer.close()?;
+    Ok(())
+  }
+
+  pub struct SimilarityImpl<S> {
+    existing_similarity: S,
+    scorer_called: Arc<AtomicBool>,
+  }
+  impl<S> SimilarityImpl<S>
+  where
+    S: Similarity,
+  {
+    fn new(existing_similarity: S, scorer_called: Arc<AtomicBool>) -> Self {
+      Self {
+        existing_similarity,
+        scorer_called,
+      }
     }
-    impl<S> SimilarityImpl<S>
-    where
-        S: Similarity,
-    {
-        fn new(existing_similarity: S, scorer_called: Arc<AtomicBool>) -> Self {
-            Self {
-                existing_similarity,
-                scorer_called,
-            }
-        }
+  }
+
+  impl<S> Display for SimilarityImpl<S>
+  where
+    S: Similarity,
+  {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+      write!(f, "SimilarityImpl")
+    }
+  }
+
+  impl<S> Similarity for SimilarityImpl<S>
+  where
+    S: Similarity,
+    S::SimScorer: SimScorer + Send + Sync + 'static,
+  {
+    fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
+      self.existing_similarity.compute_norm(state)
     }
 
-    impl<S> Display for SimilarityImpl<S>
-    where
-        S: Similarity,
-    {
-        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            write!(f, "SimilarityImpl")
-        }
+    type SimScorer = BoxSimScorer;
+
+    fn scorer(
+      &self,
+      boost: f32,
+      collection_stats: &CollectionStatistics,
+      term_stats: &[TermStatistics],
+    ) -> Result<Self::SimScorer> {
+      self
+        .scorer_called
+        .store(true, std::sync::atomic::Ordering::Relaxed);
+      Ok(Box::new(self.existing_similarity.scorer(
+        boost,
+        collection_stats,
+        term_stats,
+      )?))
     }
-
-    impl<S> Similarity for SimilarityImpl<S>
-    where
-        S: Similarity,
-        S::SimScorer: SimScorer + Send + Sync + 'static,
-    {
-        fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
-            self.existing_similarity.compute_norm(state)
-        }
-
-        type SimScorer = BoxSimScorer;
-
-        fn scorer(
-            &self,
-            boost: f32,
-            collection_stats: &CollectionStatistics,
-            term_stats: &[TermStatistics],
-        ) -> Result<Self::SimScorer> {
-            self.scorer_called
-                .store(true, std::sync::atomic::Ordering::Relaxed);
-            Ok(Box::new(self.existing_similarity.scorer(
-                boost,
-                collection_stats,
-                term_stats,
-            )?))
-        }
-    }
+  }
 }

@@ -19,42 +19,42 @@ use crate::core::util::error::IllegalStateError;
 /// Used for parsing version strings so we don't have to use the overkill of
 /// `String.split` or `StringTokenizer` (which silently skips empty tokens).
 pub struct StrictStringTokenizer<'a> {
-    s: &'a str,
-    delimiter: char,
-    pos: Option<usize>,
+  s: &'a str,
+  delimiter: char,
+  pos: Option<usize>,
 }
 
 impl<'a> StrictStringTokenizer<'a> {
-    pub fn new(s: &'a str, delimiter: char) -> Self {
-        Self {
-            s,
-            delimiter,
-            pos: Some(0),
-        }
+  pub fn new(s: &'a str, delimiter: char) -> Self {
+    Self {
+      s,
+      delimiter,
+      pos: Some(0),
     }
+  }
 
-    pub(crate) fn next_token(&mut self) -> Result<&'a str, IllegalStateError> {
-        if let Some(start) = self.pos {
-            if start >= self.s.len() {
-                self.pos = None;
-                return Err(IllegalStateError::new("no more tokens"));
-            }
+  pub(crate) fn next_token(&mut self) -> Result<&'a str, IllegalStateError> {
+    if let Some(start) = self.pos {
+      if start >= self.s.len() {
+        self.pos = None;
+        return Err(IllegalStateError::new("no more tokens"));
+      }
 
-            if let Some(end) = self.s[start..].find(self.delimiter) {
-                let token = &self.s[start..start + end];
-                self.pos = Some(start + end + 1);
-                Ok(token)
-            } else {
-                let token = &self.s[start..];
-                self.pos = None;
-                Ok(token)
-            }
-        } else {
-            Err(IllegalStateError::new("no more tokens"))
-        }
+      if let Some(end) = self.s[start..].find(self.delimiter) {
+        let token = &self.s[start..start + end];
+        self.pos = Some(start + end + 1);
+        Ok(token)
+      } else {
+        let token = &self.s[start..];
+        self.pos = None;
+        Ok(token)
+      }
+    } else {
+      Err(IllegalStateError::new("no more tokens"))
     }
+  }
 
-    pub(crate) fn has_more_tokens(&self) -> bool {
-        self.pos.is_some()
-    }
+  pub(crate) fn has_more_tokens(&self) -> bool {
+    self.pos.is_some()
+  }
 }

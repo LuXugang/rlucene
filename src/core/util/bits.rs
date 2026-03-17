@@ -26,179 +26,179 @@ use std::sync::Arc;
 /// # Note
 /// This is an experimental API.
 pub trait Bits: HasIdentity {
-    /// Returns the value of the bit at the specified `index`.
-    ///
-    /// # Arguments
-    /// * `index` - The index should be non-negative and less than the length of
-    ///   the bitset.
-    ///
-    /// # Returns
-    /// `Ok(true)` if the bit is set, `Ok(false)` otherwise.
-    fn get(&self, index: usize) -> Result<bool>;
+  /// Returns the value of the bit at the specified `index`.
+  ///
+  /// # Arguments
+  /// * `index` - The index should be non-negative and less than the length of
+  ///   the bitset.
+  ///
+  /// # Returns
+  /// `Ok(true)` if the bit is set, `Ok(false)` otherwise.
+  fn get(&self, index: usize) -> Result<bool>;
 
-    /// Returns the number of bits in this set
-    fn length(&self) -> usize;
+  /// Returns the number of bits in this set
+  fn length(&self) -> usize;
 
-    /// Make a copy of the given bits.
-    fn copy_of(&self) -> Result<FixedBitSet> {
-        let length = self.length();
-        let mut bit_set = FixedBitSet::new(length);
-        bit_set.set_with_range(0, length);
-        for i in 0..length {
-            if !self.get(i)? {
-                bit_set.clear_with_index(i);
-            }
-        }
-        Ok(bit_set)
+  /// Make a copy of the given bits.
+  fn copy_of(&self) -> Result<FixedBitSet> {
+    let length = self.length();
+    let mut bit_set = FixedBitSet::new(length);
+    bit_set.set_with_range(0, length);
+    for i in 0..length {
+      if !self.get(i)? {
+        bit_set.clear_with_index(i);
+      }
     }
-    fn as_string(&self) -> String {
-        std::any::type_name::<Self>().to_string()
-    }
+    Ok(bit_set)
+  }
+  fn as_string(&self) -> String {
+    std::any::type_name::<Self>().to_string()
+  }
 }
 
 /// Bits impl of the specified length with all bits set.
 #[derive(Clone)]
 pub struct MatchAllBits {
-    len: usize,
-    id: Identity,
+  len: usize,
+  id: Identity,
 }
 impl MatchAllBits {
-    pub fn new(len: usize) -> MatchAllBits {
-        MatchAllBits {
-            len,
-            id: Identity::new(),
-        }
+  pub fn new(len: usize) -> MatchAllBits {
+    MatchAllBits {
+      len,
+      id: Identity::new(),
     }
+  }
 }
 
 impl HasIdentity for MatchAllBits {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 
 impl Bits for MatchAllBits {
-    fn get(&self, _index: usize) -> Result<bool> {
-        Ok(true)
-    }
+  fn get(&self, _index: usize) -> Result<bool> {
+    Ok(true)
+  }
 
-    fn length(&self) -> usize {
-        self.len
-    }
+  fn length(&self) -> usize {
+    self.len
+  }
 }
 
 /// Bits impl of the specified length with no bits set.
 #[derive(Default)]
 pub struct MatchNoBits {
-    len: usize,
-    id: Identity,
+  len: usize,
+  id: Identity,
 }
 
 impl HasIdentity for MatchNoBits {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 
 impl Bits for MatchNoBits {
-    fn get(&self, _index: usize) -> Result<bool> {
-        Ok(false)
-    }
+  fn get(&self, _index: usize) -> Result<bool> {
+    Ok(false)
+  }
 
-    fn length(&self) -> usize {
-        self.len
-    }
+  fn length(&self) -> usize {
+    self.len
+  }
 }
 
 pub enum BitsEnum2<A, B> {
-    A(A),
-    B(B),
+  A(A),
+  B(B),
 }
 
 impl<A, B> HasIdentity for BitsEnum2<A, B>
 where
-    A: Bits,
-    B: Bits,
+  A: Bits,
+  B: Bits,
 {
-    fn identity(&self) -> &Identity {
-        match self {
-            BitsEnum2::A(t) => t.identity(),
-            BitsEnum2::B(s) => s.identity(),
-        }
+  fn identity(&self) -> &Identity {
+    match self {
+      BitsEnum2::A(t) => t.identity(),
+      BitsEnum2::B(s) => s.identity(),
     }
+  }
 }
 
 impl<A, B> Bits for BitsEnum2<A, B>
 where
-    A: Bits,
-    B: Bits,
+  A: Bits,
+  B: Bits,
 {
-    fn get(&self, index: usize) -> Result<bool> {
-        match self {
-            BitsEnum2::A(t) => t.get(index),
-            BitsEnum2::B(s) => s.get(index),
-        }
+  fn get(&self, index: usize) -> Result<bool> {
+    match self {
+      BitsEnum2::A(t) => t.get(index),
+      BitsEnum2::B(s) => s.get(index),
     }
+  }
 
-    fn length(&self) -> usize {
-        match self {
-            BitsEnum2::A(t) => t.length(),
-            BitsEnum2::B(s) => s.length(),
-        }
+  fn length(&self) -> usize {
+    match self {
+      BitsEnum2::A(t) => t.length(),
+      BitsEnum2::B(s) => s.length(),
     }
+  }
 
-    fn copy_of(&self) -> Result<FixedBitSet> {
-        match self {
-            BitsEnum2::A(t) => t.copy_of(),
-            BitsEnum2::B(s) => s.copy_of(),
-        }
+  fn copy_of(&self) -> Result<FixedBitSet> {
+    match self {
+      BitsEnum2::A(t) => t.copy_of(),
+      BitsEnum2::B(s) => s.copy_of(),
     }
+  }
 
-    fn as_string(&self) -> String {
-        match self {
-            BitsEnum2::A(t) => t.as_string(),
-            BitsEnum2::B(s) => s.as_string(),
-        }
+  fn as_string(&self) -> String {
+    match self {
+      BitsEnum2::A(t) => t.as_string(),
+      BitsEnum2::B(s) => s.as_string(),
     }
+  }
 }
 
 impl<T> Bits for Arc<T>
 where
-    T: Bits,
+  T: Bits,
 {
-    fn get(&self, index: usize) -> Result<bool> {
-        (**self).get(index)
-    }
+  fn get(&self, index: usize) -> Result<bool> {
+    (**self).get(index)
+  }
 
-    fn length(&self) -> usize {
-        (**self).length()
-    }
+  fn length(&self) -> usize {
+    (**self).length()
+  }
 
-    fn copy_of(&self) -> Result<FixedBitSet> {
-        (**self).copy_of()
-    }
-    fn as_string(&self) -> String {
-        (**self).as_string()
-    }
+  fn copy_of(&self) -> Result<FixedBitSet> {
+    (**self).copy_of()
+  }
+  fn as_string(&self) -> String {
+    (**self).as_string()
+  }
 }
 
 impl<T> Bits for &T
 where
-    T: Bits,
+  T: Bits,
 {
-    fn get(&self, index: usize) -> Result<bool> {
-        <T as Bits>::get(*self, index)
-    }
+  fn get(&self, index: usize) -> Result<bool> {
+    <T as Bits>::get(*self, index)
+  }
 
-    fn length(&self) -> usize {
-        <T as Bits>::length(*self)
-    }
+  fn length(&self) -> usize {
+    <T as Bits>::length(*self)
+  }
 
-    fn copy_of(&self) -> Result<FixedBitSet> {
-        <T as Bits>::copy_of(*self)
-    }
+  fn copy_of(&self) -> Result<FixedBitSet> {
+    <T as Bits>::copy_of(*self)
+  }
 
-    fn as_string(&self) -> String {
-        <T as Bits>::as_string(*self)
-    }
+  fn as_string(&self) -> String {
+    <T as Bits>::as_string(*self)
+  }
 }

@@ -22,34 +22,34 @@ const SKIP_BUFFER_SIZE: usize = 1024;
 /// Callers can retrieve the checksum using the `get_checksum` method from the
 /// implemented trait.
 pub trait ChecksumIndexInput: IndexInput {
-    /// Returns the current checksum value.
-    fn get_checksum(&mut self) -> i64;
-    /// Inherits documentation from the parent implementation.
-    ///
-    /// # Note
-    /// [`ChecksumIndexInput`] can only seek forward, and seeks are expensive
-    /// because they require reading the bytes between the current position
-    /// and the target position to update the checksum.
-    fn seek(&mut self, pos: usize) -> Result<()> {
-        let cur_fp = self.get_file_pointer()?;
-        if pos < cur_fp {
-            return Err(LuceneError::illegal_state(format!(
-                "cannot seek backwards (pos= {pos}  getFilePointer()= {cur_fp})"
-            )));
-        }
-        self.skip_by_reading(pos - cur_fp)
+  /// Returns the current checksum value.
+  fn get_checksum(&mut self) -> i64;
+  /// Inherits documentation from the parent implementation.
+  ///
+  /// # Note
+  /// [`ChecksumIndexInput`] can only seek forward, and seeks are expensive
+  /// because they require reading the bytes between the current position
+  /// and the target position to update the checksum.
+  fn seek(&mut self, pos: usize) -> Result<()> {
+    let cur_fp = self.get_file_pointer()?;
+    if pos < cur_fp {
+      return Err(LuceneError::illegal_state(format!(
+        "cannot seek backwards (pos= {pos}  getFilePointer()= {cur_fp})"
+      )));
     }
-    /// Skips over `num_bytes` bytes.
-    /// The behavior of this method is equivalent to reading the same number of
-    /// bytes into a buffer and discarding its content.
-    fn skip_by_reading(&mut self, num_bytes: usize) -> Result<()> {
-        let mut skip_buffer = [0u8; SKIP_BUFFER_SIZE];
-        let mut skipped = 0;
-        while skipped < num_bytes {
-            let step = SKIP_BUFFER_SIZE.min(num_bytes - skipped);
-            self.read_bytes_with_buffer(&mut skip_buffer, 0, step, false)?;
-            skipped += step;
-        }
-        Ok(())
+    self.skip_by_reading(pos - cur_fp)
+  }
+  /// Skips over `num_bytes` bytes.
+  /// The behavior of this method is equivalent to reading the same number of
+  /// bytes into a buffer and discarding its content.
+  fn skip_by_reading(&mut self, num_bytes: usize) -> Result<()> {
+    let mut skip_buffer = [0u8; SKIP_BUFFER_SIZE];
+    let mut skipped = 0;
+    while skipped < num_bytes {
+      let step = SKIP_BUFFER_SIZE.min(num_bytes - skipped);
+      self.read_bytes_with_buffer(&mut skip_buffer, 0, step, false)?;
+      skipped += step;
     }
+    Ok(())
+  }
 }

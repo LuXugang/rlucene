@@ -23,64 +23,64 @@ use std::sync::Arc;
 
 /// A trait that produces field normalization values.
 pub trait NormsProducer {
-    type NumericDocValues: NumericDocValues;
-    /// Returns `NumericDocValues` for the given field.
-    ///
-    /// The returned instance is not required to be thread-safe:
-    /// it will only be used by a single thread.
-    ///
-    /// Behavior is undefined if the given field does not have norms enabled.
-    fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues>;
+  type NumericDocValues: NumericDocValues;
+  /// Returns `NumericDocValues` for the given field.
+  ///
+  /// The returned instance is not required to be thread-safe:
+  /// it will only be used by a single thread.
+  ///
+  /// Behavior is undefined if the given field does not have norms enabled.
+  fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues>;
 
-    /// Checks consistency of this producer.
-    ///
-    /// Note: this may be expensive in terms of I/O,
-    /// for example it might compute a checksum over large data files.
-    fn check_integrity(&self) -> Result<()>;
+  /// Checks consistency of this producer.
+  ///
+  /// Note: this may be expensive in terms of I/O,
+  /// for example it might compute a checksum over large data files.
+  fn check_integrity(&self) -> Result<()>;
 
-    /// Returns an instance optimized for merging.
-    ///
-    /// This instance may only be used from the thread that acquires it.
-    ///
-    /// By default, this method returns `None`, which indicates that no new
-    /// `NormsProducerEnum` is required for merging, and the current instance
-    /// should be used directly during merge operations.
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        Ok(None)
-    }
+  /// Returns an instance optimized for merging.
+  ///
+  /// This instance may only be used from the thread that acquires it.
+  ///
+  /// By default, this method returns `None`, which indicates that no new
+  /// `NormsProducerEnum` is required for merging, and the current instance
+  /// should be used directly during merge operations.
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    Ok(None)
+  }
 }
 
 pub type DefaultNormProducer<I> = <DefaultNormsFormat as NormsFormat>::NormsProducer<I>;
 pub type DefaultNormNumericDocValues<I> =
-    <DefaultNormProducer<I> as NormsProducer>::NumericDocValues;
+  <DefaultNormProducer<I> as NormsProducer>::NumericDocValues;
 
 impl<T> NormsProducer for Arc<T>
 where
-    T: NormsProducer,
+  T: NormsProducer,
 {
-    type NumericDocValues = T::NumericDocValues;
+  type NumericDocValues = T::NumericDocValues;
 
-    fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-        (**self).get_norms(field)
-    }
+  fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    (**self).get_norms(field)
+  }
 
-    fn check_integrity(&self) -> Result<()> {
-        (**self).check_integrity()
-    }
+  fn check_integrity(&self) -> Result<()> {
+    (**self).check_integrity()
+  }
 
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        let v = match (**self).get_merge_instance()? {
-            Some(v) => Arc::new(v),
-            None => return Ok(None),
-        };
-        Ok(Some(v))
-    }
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    let v = match (**self).get_merge_instance()? {
+      Some(v) => Arc::new(v),
+      None => return Ok(None),
+    };
+    Ok(Some(v))
+  }
 }
 
 macro_rules! either_normsproducer {

@@ -41,406 +41,408 @@ use std::sync::atomic::{AtomicI64, Ordering};
 /// Each packet is assigned a generation, and each flushed or merged segment is also assigned a
 /// generation, so we can track which buffered-deletes packets to apply to any given segment.
 pub(crate) struct BufferedUpdatesStream {
-    info_stream: InfoStreamMT,
-    inner: Mutex<BufferedUpdatesStreamInner>,
-    bytes_used: AtomicI64,
-    finished_segments: FinishedSegments,
+  info_stream: InfoStreamMT,
+  inner: Mutex<BufferedUpdatesStreamInner>,
+  bytes_used: AtomicI64,
+  finished_segments: FinishedSegments,
 }
 pub(crate) struct BufferedUpdatesStreamInner {
-    updates: HashMap<Identity, Arc<FrozenBufferedUpdates>>,
-    // Starts at 1 so that SegmentInfos that have never had
-    // deletes applied (whose bufferedDelGen defaults to 0)
-    // will be correct:
-    next_gen: i64,
+  updates: HashMap<Identity, Arc<FrozenBufferedUpdates>>,
+  // Starts at 1 so that SegmentInfos that have never had
+  // deletes applied (whose bufferedDelGen defaults to 0)
+  // will be correct:
+  next_gen: i64,
 }
 impl BufferedUpdatesStream {
-    pub(crate) fn new(info_stream: InfoStreamMT) -> Self {
-        Self {
-            info_stream: info_stream.clone(),
-            inner: Mutex::new(BufferedUpdatesStreamInner {
-                updates: HashMap::new(),
-                next_gen: 1,
-            }),
-            bytes_used: AtomicI64::new(0),
-            finished_segments: FinishedSegments::new(info_stream),
-        }
+  pub(crate) fn new(info_stream: InfoStreamMT) -> Self {
+    Self {
+      info_stream: info_stream.clone(),
+      inner: Mutex::new(BufferedUpdatesStreamInner {
+        updates: HashMap::new(),
+        next_gen: 1,
+      }),
+      bytes_used: AtomicI64::new(0),
+      finished_segments: FinishedSegments::new(info_stream),
     }
-    // Appends a new packet of buffered deletes to the stream,
-    // setting its generation:
-    pub(crate) fn push(
-        &self,
-        mut packet: FrozenBufferedUpdates,
-    ) -> (i64, Arc<FrozenBufferedUpdates>) {
-        // The insert operation must be atomic. If we let threads increment the gen
-        // and push the packet afterwards we risk that packets are out of order.
-        // With DWPT this is possible if two or more flushes are racing for pushing
-        // updates. If the pushed packets get our of order would loose documents
-        // since deletes are applied to the wrong segments.
-        let mut inner = self.inner.lock();
-        packet.set_del_gen(inner.next_gen);
-        inner.next_gen += 1;
-        debug_assert!(packet.any());
-        debug_assert!(self.check_delete_stats(&inner));
+  }
+  // Appends a new packet of buffered deletes to the stream,
+  // setting its generation:
+  pub(crate) fn push(
+    &self,
+    mut packet: FrozenBufferedUpdates,
+  ) -> (i64, Arc<FrozenBufferedUpdates>) {
+    // The insert operation must be atomic. If we let threads increment the gen
+    // and push the packet afterwards we risk that packets are out of order.
+    // With DWPT this is possible if two or more flushes are racing for pushing
+    // updates. If the pushed packets get our of order would loose documents
+    // since deletes are applied to the wrong segments.
+    let mut inner = self.inner.lock();
+    packet.set_del_gen(inner.next_gen);
+    inner.next_gen += 1;
+    debug_assert!(packet.any());
+    debug_assert!(self.check_delete_stats(&inner));
 
-        let bytes_used = packet.bytes_used;
-        let del_gen = packet.del_gen();
-        let packet_msg = packet.to_string();
-        let v = Arc::new(packet);
-        inner.updates.insert(v.id.clone(), v.clone());
-        self.bytes_used
-            .fetch_add(bytes_used as i64, Ordering::SeqCst);
-        {
-            if self.info_stream.enabled("BD") {
-                let count = inner.updates.len();
-                let used_mb = self.bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
-                self.info_stream.message(
-                    "BD",
-                    &format!(
-                        "push new packet ({packet_msg}), packetCount={count}, bytesUsed={used_mb:.3} MB"
-                    ),
-                );
-            }
-        }
-        debug_assert!(self.check_delete_stats(&inner));
-        (del_gen, v)
-    }
-    pub(crate) fn get_pending_updates_count(&self) -> usize {
-        let inner = self.inner.lock();
-        inner.updates.len()
-    }
-    /// Only used by IW.rollback
-    pub(crate) fn clear(&self) {
-        let mut inner = self.inner.lock();
-        inner.updates.clear();
-        inner.next_gen = 1;
-        self.finished_segments.clear();
-        self.bytes_used.store(0, Ordering::SeqCst);
-    }
-    pub(crate) fn any(&self) -> bool {
-        self.bytes_used.load(Ordering::SeqCst) != 0
-    }
-    /// Waits for all in-flight packets, which are being resolved concurrently by indexing threads, to finish.
-    ///
-    /// Returns `true` if there were any new deletes or updates.
-    ///
-    /// This is called during refresh and commit.
-    pub(crate) fn wait_apply_all<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
-    where
-        D: Directory,
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
+    let bytes_used = packet.bytes_used;
+    let del_gen = packet.del_gen();
+    let packet_msg = packet.to_string();
+    let v = Arc::new(packet);
+    inner.updates.insert(v.id.clone(), v.clone());
+    self
+      .bytes_used
+      .fetch_add(bytes_used as i64, Ordering::SeqCst);
     {
-        let wait_for = {
-            let inner = self.inner.lock();
-            inner.updates.clone()
-        };
-        self.wait_apply(wait_for, writer)
+      if self.info_stream.enabled("BD") {
+        let count = inner.updates.len();
+        let used_mb = self.bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
+        self.info_stream.message(
+          "BD",
+          &format!(
+            "push new packet ({packet_msg}), packetCount={count}, bytesUsed={used_mb:.3} MB"
+          ),
+        );
+      }
     }
-    /// Returns true if this delGen is still running.
-    pub(crate) fn still_running(&self, del_gen: i64) -> bool {
-        self.finished_segments.still_running(del_gen)
-    }
+    debug_assert!(self.check_delete_stats(&inner));
+    (del_gen, v)
+  }
+  pub(crate) fn get_pending_updates_count(&self) -> usize {
+    let inner = self.inner.lock();
+    inner.updates.len()
+  }
+  /// Only used by IW.rollback
+  pub(crate) fn clear(&self) {
+    let mut inner = self.inner.lock();
+    inner.updates.clear();
+    inner.next_gen = 1;
+    self.finished_segments.clear();
+    self.bytes_used.store(0, Ordering::SeqCst);
+  }
+  pub(crate) fn any(&self) -> bool {
+    self.bytes_used.load(Ordering::SeqCst) != 0
+  }
+  /// Waits for all in-flight packets, which are being resolved concurrently by indexing threads, to finish.
+  ///
+  /// Returns `true` if there were any new deletes or updates.
+  ///
+  /// This is called during refresh and commit.
+  pub(crate) fn wait_apply_all<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    let wait_for = {
+      let inner = self.inner.lock();
+      inner.updates.clone()
+    };
+    self.wait_apply(wait_for, writer)
+  }
+  /// Returns true if this delGen is still running.
+  pub(crate) fn still_running(&self, del_gen: i64) -> bool {
+    self.finished_segments.still_running(del_gen)
+  }
 
-    pub(crate) fn finished_segment(&self, del_gen: i64) {
-        self.finished_segments.finished_segment(del_gen);
-    }
-    /// Called by indexing threads once they are fully done resolving all deletes for the provided `del_gen`.
-    /// We track completed deletion generations and record the maximum `del_gen` for which all prior generations,
-    /// inclusive, are completed, so that it’s safe for doc values updates to apply and write.
-    pub(crate) fn finished(&self, packet: &FrozenBufferedUpdates) {
-        // TODO: would be a bit more memory efficient to track this per-segment, so when each segment
-        // writes it writes all packets finished for
-        // it, rather than only recording here, across all segments.  But, more complex code, and more
-        // CPU, and maybe not so much impact in
-        // practice?
-        debug_assert!(!packet.applied.load(Ordering::SeqCst), "packet={packet}");
-        packet.applied.store(true, Ordering::SeqCst);
+  pub(crate) fn finished_segment(&self, del_gen: i64) {
+    self.finished_segments.finished_segment(del_gen);
+  }
+  /// Called by indexing threads once they are fully done resolving all deletes for the provided `del_gen`.
+  /// We track completed deletion generations and record the maximum `del_gen` for which all prior generations,
+  /// inclusive, are completed, so that it’s safe for doc values updates to apply and write.
+  pub(crate) fn finished(&self, packet: &FrozenBufferedUpdates) {
+    // TODO: would be a bit more memory efficient to track this per-segment, so when each segment
+    // writes it writes all packets finished for
+    // it, rather than only recording here, across all segments.  But, more complex code, and more
+    // CPU, and maybe not so much impact in
+    // practice?
+    debug_assert!(!packet.applied.load(Ordering::SeqCst), "packet={packet}");
+    packet.applied.store(true, Ordering::SeqCst);
 
-        let mut inner = self.inner.lock();
-        inner.updates.remove(&packet.id);
+    let mut inner = self.inner.lock();
+    inner.updates.remove(&packet.id);
 
-        let bytes = packet.bytes_used as i64;
-        self.bytes_used.fetch_sub(bytes, Ordering::SeqCst);
+    let bytes = packet.bytes_used as i64;
+    self.bytes_used.fetch_sub(bytes, Ordering::SeqCst);
 
-        self.finished_segment(packet.del_gen());
-    }
-    /// All frozen packets up to and including this del gen are guaranteed to be finished.
-    pub fn get_completed_del_gen(&self) -> i64 {
-        self.finished_segments.get_completed_del_gen()
-    }
-    /// Waits only for those in-flight packets that apply to these merge segments.
-    /// This is called when a merge needs to finish and must ensure all deletes to the merging segments are resolved.
-    pub(crate) fn wait_apply_for_merge<D, L, B>(
-        &self,
-        merge_infos_id: &[String],
-        writer: &IndexWriter<D, L, B>,
-    ) -> Result<()>
-    where
-        D: Directory,
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
+    self.finished_segment(packet.del_gen());
+  }
+  /// All frozen packets up to and including this del gen are guaranteed to be finished.
+  pub fn get_completed_del_gen(&self) -> i64 {
+    self.finished_segments.get_completed_del_gen()
+  }
+  /// Waits only for those in-flight packets that apply to these merge segments.
+  /// This is called when a merge needs to finish and must ensure all deletes to the merging segments are resolved.
+  pub(crate) fn wait_apply_for_merge<D, L, B>(
+    &self,
+    merge_infos_id: &[String],
+    writer: &IndexWriter<D, L, B>,
+  ) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    let mut max_del_gen = i64::MIN;
     {
-        let mut max_del_gen = i64::MIN;
-        {
-            let writer_inner = writer.inner.lock();
-            for info in merge_infos_id {
-                let info = writer_inner.segment_infos.info(info).ok_or_else(|| {
-                    LuceneError::illegal_argument(
-                        "could not find merge's segment from IndexWriter's segment_infos",
-                    )
-                })?;
-                max_del_gen = max_del_gen.max(info.get_buffered_deletes_gen());
-            }
-        }
-
-        let wait_for = {
-            let inner = self.inner.lock();
-            let mut set = HashMap::new();
-
-            for packet in inner.updates.values() {
-                if packet.del_gen() <= max_del_gen {
-                    // We must wait for this packet before finishing the merge because its
-                    // deletes apply to a subset of the segments being merged.
-                    set.insert(packet.id.clone(), packet.clone());
-                }
-            }
-
-            set
-        };
-
-        if self.info_stream.enabled("BD") {
-            self.info_stream.message(
-                "BD",
-                &format!(
-                    "waitApplyForMerge: {} packets, {} merging segments",
-                    wait_for.len(),
-                    merge_infos_id.len()
-                ),
-            );
-        }
-
-        self.wait_apply(wait_for, writer)
+      let writer_inner = writer.inner.lock();
+      for info in merge_infos_id {
+        let info = writer_inner.segment_infos.info(info).ok_or_else(|| {
+          LuceneError::illegal_argument(
+            "could not find merge's segment from IndexWriter's segment_infos",
+          )
+        })?;
+        max_del_gen = max_del_gen.max(info.get_buffered_deletes_gen());
+      }
     }
 
-    fn wait_apply<D, L, B>(
-        &self,
-        wait_for: HashMap<Identity, Arc<FrozenBufferedUpdates>>,
-        writer: &IndexWriter<D, L, B>,
-    ) -> Result<()>
-    where
-        D: Directory,
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
-    {
-        let start_ns = std::time::Instant::now();
-        let packet_count = wait_for.len();
+    let wait_for = {
+      let inner = self.inner.lock();
+      let mut set = HashMap::new();
 
-        if wait_for.is_empty() {
-            if self.info_stream.enabled("BD") {
-                self.info_stream
-                    .message("BD", "waitApply: no deletes to apply");
-            }
-            return Ok(());
+      for packet in inner.updates.values() {
+        if packet.del_gen() <= max_del_gen {
+          // We must wait for this packet before finishing the merge because its
+          // deletes apply to a subset of the segments being merged.
+          set.insert(packet.id.clone(), packet.clone());
         }
+      }
 
-        if self.info_stream.enabled("BD") {
-            self.info_stream.message(
-                "BD",
-                &format!("waitApply: {packet_count:?} packets: {wait_for:?}"),
-            );
-        }
+      set
+    };
 
-        let mut pending = Vec::new();
-        let mut total_del_count: i64 = 0;
-        for packet in wait_for.values() {
-            // Frozen packets are now resolved, concurrently, by the indexing threads that
-            // create them, by adding a DocumentsWriter.ResolveUpdatesEvent to the events queue,
-            // but if we get here and the packet is not yet resolved, we resolve it now ourselves:
-            if !writer.try_apply(packet)? {
-                total_del_count += packet.total_del_count.load(Ordering::SeqCst);
-                // if somebody else is currently applying it - move on to the next one and force apply below
-                pending.push(packet);
-            } else {
-                total_del_count += packet.total_del_count.load(Ordering::SeqCst);
-            }
-        }
-        for packet in pending {
-            // now block on all the packets that were concurrently applied to ensure they are due before
-            // we continue.
-            writer.force_apply(packet)?;
-        }
+    if self.info_stream.enabled("BD") {
+      self.info_stream.message(
+        "BD",
+        &format!(
+          "waitApplyForMerge: {} packets, {} merging segments",
+          wait_for.len(),
+          merge_infos_id.len()
+        ),
+      );
+    }
 
-        if self.info_stream.enabled("BD") {
-            let elapsed = start_ns.elapsed().as_secs_f64() * 1000.0;
-            let bytes = self.bytes_used.load(Ordering::SeqCst);
-            self.info_stream.message(
+    self.wait_apply(wait_for, writer)
+  }
+
+  fn wait_apply<D, L, B>(
+    &self,
+    wait_for: HashMap<Identity, Arc<FrozenBufferedUpdates>>,
+    writer: &IndexWriter<D, L, B>,
+  ) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    let start_ns = std::time::Instant::now();
+    let packet_count = wait_for.len();
+
+    if wait_for.is_empty() {
+      if self.info_stream.enabled("BD") {
+        self
+          .info_stream
+          .message("BD", "waitApply: no deletes to apply");
+      }
+      return Ok(());
+    }
+
+    if self.info_stream.enabled("BD") {
+      self.info_stream.message(
+        "BD",
+        &format!("waitApply: {packet_count:?} packets: {wait_for:?}"),
+      );
+    }
+
+    let mut pending = Vec::new();
+    let mut total_del_count: i64 = 0;
+    for packet in wait_for.values() {
+      // Frozen packets are now resolved, concurrently, by the indexing threads that
+      // create them, by adding a DocumentsWriter.ResolveUpdatesEvent to the events queue,
+      // but if we get here and the packet is not yet resolved, we resolve it now ourselves:
+      if !writer.try_apply(packet)? {
+        total_del_count += packet.total_del_count.load(Ordering::SeqCst);
+        // if somebody else is currently applying it - move on to the next one and force apply below
+        pending.push(packet);
+      } else {
+        total_del_count += packet.total_del_count.load(Ordering::SeqCst);
+      }
+    }
+    for packet in pending {
+      // now block on all the packets that were concurrently applied to ensure they are due before
+      // we continue.
+      writer.force_apply(packet)?;
+    }
+
+    if self.info_stream.enabled("BD") {
+      let elapsed = start_ns.elapsed().as_secs_f64() * 1000.0;
+      let bytes = self.bytes_used.load(Ordering::SeqCst);
+      self.info_stream.message(
                     "BD",
                     &format!(
                         "waitApply: done {packet_count} packets; totalDelCount={total_del_count}; totBytesUsed={bytes}; took {elapsed:.2} msec"
                     ),
                 );
-        }
-        Ok(())
     }
+    Ok(())
+  }
 
-    pub(crate) fn get_next_gen(&self) -> i64 {
-        let mut inner = self.inner.lock();
-        let r#gen = inner.next_gen;
-        inner.next_gen += 1;
-        r#gen
+  pub(crate) fn get_next_gen(&self) -> i64 {
+    let mut inner = self.inner.lock();
+    let r#gen = inner.next_gen;
+    inner.next_gen += 1;
+    r#gen
+  }
+  // only for assert
+  fn check_delete_stats(&self, inner: &BufferedUpdatesStreamInner) -> bool {
+    let mut bytes_used2 = 0i64;
+    for packet in inner.updates.values() {
+      bytes_used2 += packet.bytes_used as i64;
     }
-    // only for assert
-    fn check_delete_stats(&self, inner: &BufferedUpdatesStreamInner) -> bool {
-        let mut bytes_used2 = 0i64;
-        for packet in inner.updates.values() {
-            bytes_used2 += packet.bytes_used as i64;
-        }
-        let actual = self.bytes_used.load(Ordering::SeqCst);
-        debug_assert_eq!(
-            bytes_used2, actual,
-            "bytes_used2={bytes_used2} vs bytes_used={actual}"
-        );
-        true
-    }
+    let actual = self.bytes_used.load(Ordering::SeqCst);
+    debug_assert_eq!(
+      bytes_used2, actual,
+      "bytes_used2={bytes_used2} vs bytes_used={actual}"
+    );
+    true
+  }
 }
 impl Accountable for BufferedUpdatesStream {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        Ok(self.bytes_used.load(Ordering::SeqCst))
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(self.bytes_used.load(Ordering::SeqCst))
+  }
 }
 
 pub(crate) struct SegmentState<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) del_gen: i64,
-    pub(crate) rld: Arc<ReadersAndUpdates<D>>,
-    pub(crate) start_del_count: i32,
+  pub(crate) del_gen: i64,
+  pub(crate) rld: Arc<ReadersAndUpdates<D>>,
+  pub(crate) start_del_count: i32,
 }
 impl<D> SegmentState<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) fn new(rld: Arc<ReadersAndUpdates<D>>, info: &SegmentCommitInfo<D>) -> Result<Self> {
-        rld.get_reader(&IOContext::default_io_context()?, info, None)?;
-        Ok(SegmentState {
-            del_gen: info.get_buffered_deletes_gen(),
-            rld,
-            start_del_count: info.get_del_count(),
-        })
-    }
-    pub(crate) fn close<L, B>(
-        &self,
-        writer: &IndexWriter<D, L, B>,
-        inner: &mut crate::core::index::index_writer::Inner<D>,
-    ) -> Result<()>
-    where
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
+  pub(crate) fn new(rld: Arc<ReadersAndUpdates<D>>, info: &SegmentCommitInfo<D>) -> Result<Self> {
+    rld.get_reader(&IOContext::default_io_context()?, info, None)?;
+    Ok(SegmentState {
+      del_gen: info.get_buffered_deletes_gen(),
+      rld,
+      start_del_count: info.get_del_count(),
+    })
+  }
+  pub(crate) fn close<L, B>(
+    &self,
+    writer: &IndexWriter<D, L, B>,
+    inner: &mut crate::core::index::index_writer::Inner<D>,
+  ) -> Result<()>
+  where
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
     {
-        {
-            let rld_inner = self.rld.inner.lock();
-            let reader = match rld_inner.reader {
-                Some(ref reader) => reader,
-                None => {
-                    return Err(LuceneError::illegal_state(
-                        "read in ReadersAndUpdates should not None",
-                    ));
-                },
-            };
-            self.rld.release(reader.as_ref(), Some(&rld_inner))?;
-        }
-        writer.release(self.rld.as_ref(), inner)?;
-        Ok(())
+      let rld_inner = self.rld.inner.lock();
+      let reader = match rld_inner.reader {
+        Some(ref reader) => reader,
+        None => {
+          return Err(LuceneError::illegal_state(
+            "read in ReadersAndUpdates should not None",
+          ));
+        },
+      };
+      self.rld.release(reader.as_ref(), Some(&rld_inner))?;
     }
+    writer.release(self.rld.as_ref(), inner)?;
+    Ok(())
+  }
 }
 impl<D> Display for SegmentState<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SegmentState({})", self.rld.info_id)
-    }
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "SegmentState({})", self.rld.info_id)
+  }
 }
 
 /// Tracks the contiguous range of packets that have finished resolving.
 ///
 /// Packets are resolved concurrently, and only contiguous completed packets can be written to disk.
 pub(crate) struct FinishedSegments {
-    info_stream: InfoStreamMT,
-    inner: Mutex<Inner>,
+  info_stream: InfoStreamMT,
+  inner: Mutex<Inner>,
 }
 pub(crate) struct Inner {
-    /// Largest del gen, inclusive, for which all prior packets have finished applying.
-    completed_del_gen: i64,
-    /// This lets us track the "holes" in the current frontier of applying del gens;
-    /// once the holes are filled in we can advance completedDelGen.
-    finished_del_gens: HashSet<i64>,
+  /// Largest del gen, inclusive, for which all prior packets have finished applying.
+  completed_del_gen: i64,
+  /// This lets us track the "holes" in the current frontier of applying del gens;
+  /// once the holes are filled in we can advance completedDelGen.
+  finished_del_gens: HashSet<i64>,
 }
 impl FinishedSegments {
-    pub(crate) fn new(info_stream: InfoStreamMT) -> Self {
-        FinishedSegments {
-            info_stream,
-            inner: Mutex::new(Inner {
-                completed_del_gen: 0,
-                finished_del_gens: HashSet::new(),
-            }),
-        }
+  pub(crate) fn new(info_stream: InfoStreamMT) -> Self {
+    FinishedSegments {
+      info_stream,
+      inner: Mutex::new(Inner {
+        completed_del_gen: 0,
+        finished_del_gens: HashSet::new(),
+      }),
     }
+  }
 
-    pub(crate) fn clear(&self) {
-        let mut inner = self.inner.lock();
-        inner.finished_del_gens.clear();
-        inner.completed_del_gen = 0;
-    }
+  pub(crate) fn clear(&self) {
+    let mut inner = self.inner.lock();
+    inner.finished_del_gens.clear();
+    inner.completed_del_gen = 0;
+  }
 
-    pub(crate) fn still_running(&self, del_gen: i64) -> bool {
-        let inner = self.inner.lock();
-        del_gen > inner.completed_del_gen && !inner.finished_del_gens.contains(&del_gen)
-    }
-    pub fn get_completed_del_gen(&self) -> i64 {
-        let inner = self.inner.lock();
-        inner.completed_del_gen
-    }
+  pub(crate) fn still_running(&self, del_gen: i64) -> bool {
+    let inner = self.inner.lock();
+    del_gen > inner.completed_del_gen && !inner.finished_del_gens.contains(&del_gen)
+  }
+  pub fn get_completed_del_gen(&self) -> i64 {
+    let inner = self.inner.lock();
+    inner.completed_del_gen
+  }
 
-    pub(crate) fn finished_segment(&self, del_gen: i64) {
-        let mut inner = self.inner.lock();
-        inner.finished_del_gens.insert(del_gen);
-        while inner
-            .finished_del_gens
-            .contains(&(inner.completed_del_gen + 1))
-        {
-            let v = inner.completed_del_gen + 1;
-            inner.finished_del_gens.remove(&v);
-            inner.completed_del_gen += 1;
-        }
-        {
-            if self.info_stream.enabled("BD") {
-                self.info_stream.message(
-                    "BD",
-                    &format!(
-                        "finished packet delGen={} now completedDelGen={}",
-                        del_gen, inner.completed_del_gen
-                    ),
-                );
-            }
-        }
+  pub(crate) fn finished_segment(&self, del_gen: i64) {
+    let mut inner = self.inner.lock();
+    inner.finished_del_gens.insert(del_gen);
+    while inner
+      .finished_del_gens
+      .contains(&(inner.completed_del_gen + 1))
+    {
+      let v = inner.completed_del_gen + 1;
+      inner.finished_del_gens.remove(&v);
+      inner.completed_del_gen += 1;
     }
+    {
+      if self.info_stream.enabled("BD") {
+        self.info_stream.message(
+          "BD",
+          &format!(
+            "finished packet delGen={} now completedDelGen={}",
+            del_gen, inner.completed_del_gen
+          ),
+        );
+      }
+    }
+  }
 }
 /// Result of applying deletes.
 ///
 /// - `any_new_deletes`: true if any actual deletes took place
 /// - `all_deleted`: if `Some`, contains segments_id that are 100% deleted
 pub(crate) struct ApplyDeletesResult {
-    pub any_new_deletes: bool,
-    pub all_deleted: Option<Vec<String>>,
+  pub any_new_deletes: bool,
+  pub all_deleted: Option<Vec<String>>,
 }
 
 impl ApplyDeletesResult {
-    pub fn new(any_new_deletes: bool, all_deleted: Option<Vec<String>>) -> Self {
-        Self {
-            any_new_deletes,
-            all_deleted,
-        }
+  pub fn new(any_new_deletes: bool, all_deleted: Option<Vec<String>>) -> Self {
+    Self {
+      any_new_deletes,
+      all_deleted,
     }
+  }
 }

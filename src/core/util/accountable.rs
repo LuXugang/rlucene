@@ -20,28 +20,28 @@ use crate::core::util::error::lucene_error::Result;
 /// # Note
 /// This is an internal API.
 pub trait Accountable {
-    /// Return the memory usage of this object in bytes. Negative values are
-    /// illegal.
-    fn ram_bytes_used(&self) -> Result<i64>;
+  /// Return the memory usage of this object in bytes. Negative values are
+  /// illegal.
+  fn ram_bytes_used(&self) -> Result<i64>;
 
-    /// Returns nested resources of this struct. The result should be a
-    /// point-in-time snapshot (to avoid race conditions).
-    fn get_child_resources<A>(&self) -> Vec<A>
-    where
-        A: Accountable,
-    {
-        vec![]
-    }
+  /// Returns nested resources of this struct. The result should be a
+  /// point-in-time snapshot (to avoid race conditions).
+  fn get_child_resources<A>(&self) -> Vec<A>
+  where
+    A: Accountable,
+  {
+    vec![]
+  }
 }
 
 struct EmptyAccountable;
 impl EmptyAccountable {
-    pub fn new() -> Self {
-        EmptyAccountable
-    }
+  pub fn new() -> Self {
+    EmptyAccountable
+  }
 }
 impl Accountable for EmptyAccountable {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        Ok(0)
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(0)
+  }
 }

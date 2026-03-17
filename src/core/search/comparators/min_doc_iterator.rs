@@ -19,44 +19,44 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct MinDocIterator {
-    segment_min_doc: i32,
-    max_doc: i32,
-    doc: i32,
+  segment_min_doc: i32,
+  max_doc: i32,
+  doc: i32,
 }
 
 impl MinDocIterator {
-    pub fn new(segment_min_doc: i32, max_doc: i32) -> Self {
-        Self {
-            segment_min_doc,
-            max_doc,
-            doc: -1,
-        }
+  pub fn new(segment_min_doc: i32, max_doc: i32) -> Self {
+    Self {
+      segment_min_doc,
+      max_doc,
+      doc: -1,
     }
+  }
 }
 impl DocIdSetIterator for MinDocIterator {
-    fn doc_id(&self) -> i32 {
-        self.doc
-    }
+  fn doc_id(&self) -> i32 {
+    self.doc
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.advance(self.doc + 1)
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.advance(self.doc + 1)
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        debug_assert!(target > self.doc);
-        if self.doc == -1 {
-            // skip directly to minDoc
-            self.doc = target.max(self.segment_min_doc);
-        } else {
-            self.doc = target;
-        }
-        if self.doc >= self.max_doc {
-            self.doc = NO_MORE_DOCS;
-        }
-        Ok(self.doc)
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    debug_assert!(target > self.doc);
+    if self.doc == -1 {
+      // skip directly to minDoc
+      self.doc = target.max(self.segment_min_doc);
+    } else {
+      self.doc = target;
     }
+    if self.doc >= self.max_doc {
+      self.doc = NO_MORE_DOCS;
+    }
+    Ok(self.doc)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Ok((self.max_doc - self.segment_min_doc) as i64)
-    }
+  fn cost(&self) -> Result<i64> {
+    Ok((self.max_doc - self.segment_min_doc) as i64)
+  }
 }

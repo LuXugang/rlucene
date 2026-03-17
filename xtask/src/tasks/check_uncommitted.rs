@@ -18,28 +18,28 @@ use crate::{LogColor, colorize, log};
 use std::process::{self, Command};
 
 pub(crate) fn run() {
-    log(&colorize(
-        "Running Checking uncommitted changes",
-        LogColor::Green,
-        true,
-    ));
-    let output = Command::new("git")
-        .args(["status", "--porcelain"])
-        .output()
-        .expect("failed to execute git");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    if stdout.trim().is_empty() {
-        log("✅ ✅ ✅ Working directory clean. All changes committed.")
-    } else {
-        log(
-            "❌ ❌ ❌ Uncommitted changes detected after code check. Please run `Cargo tidy` then commit your work again.",
-        );
-        log(&stdout);
-        process::exit(1);
-    }
-    log(&colorize(
-        "Finished Checking uncommitted changes",
-        LogColor::Green,
-        true,
-    ));
+  log(&colorize(
+    "Running Checking uncommitted changes",
+    LogColor::Green,
+    true,
+  ));
+  let output = Command::new("git")
+    .args(["status", "--porcelain"])
+    .output()
+    .expect("failed to execute git");
+  let stdout = String::from_utf8_lossy(&output.stdout);
+  if stdout.trim().is_empty() {
+    log("✅ ✅ ✅ Working directory clean. All changes committed.")
+  } else {
+    log(
+      "❌ ❌ ❌ Uncommitted changes detected after code check. Please run `Cargo tidy` then commit your work again.",
+    );
+    log(&stdout);
+    process::exit(1);
+  }
+  log(&colorize(
+    "Finished Checking uncommitted changes",
+    LogColor::Green,
+    true,
+  ));
 }

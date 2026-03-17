@@ -33,136 +33,136 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// the dictionary value (ordinal) can be retrieved for each document. Ordinals
 /// are dense and in increasing sorted order.
 pub trait SortedSetDocValues: DocValuesIterator {
-    /// Returns the next ordinal for the current document. It is illegal to call
-    /// this method after
-    /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
-    /// `false`. It is illegal to call this more than
-    /// [`doc_value_count()`](SortedSetDocValues::doc_value_count) times for the
-    /// currently-positioned doc.
-    ///
-    /// # Returns
-    /// Next ordinal for the document. Ordinals are dense, start at 0, then
-    /// increment by 1 for the next value in sorted order.
-    fn next_ord(&mut self) -> Result<i64>;
+  /// Returns the next ordinal for the current document. It is illegal to call
+  /// this method after
+  /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
+  /// `false`. It is illegal to call this more than
+  /// [`doc_value_count()`](SortedSetDocValues::doc_value_count) times for the
+  /// currently-positioned doc.
+  ///
+  /// # Returns
+  /// Next ordinal for the document. Ordinals are dense, start at 0, then
+  /// increment by 1 for the next value in sorted order.
+  fn next_ord(&mut self) -> Result<i64>;
 
-    /// Retrieves the number of unique ords for the current document. This must
-    /// always be greater than zero. It is illegal to call this method after
-    /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
-    /// `false`.
-    fn doc_value_count(&mut self) -> Result<i32>;
+  /// Retrieves the number of unique ords for the current document. This must
+  /// always be greater than zero. It is illegal to call this method after
+  /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
+  /// `false`.
+  fn doc_value_count(&mut self) -> Result<i32>;
 
-    /// Retrieves the value for the specified ordinal. The returned [`BytesRef`]
-    /// may be re-used across calls to `lookup_ord`, so make sure to
-    /// [`BytesRef::deep_copy_of`] it if you want to keep it around.
-    ///
-    /// # Arguments
-    /// * `ord` - Ordinal to lookup
-    ///
-    /// See also: [`next_ord`](SortedSetDocValues::next_ord)
-    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        Err(LuceneError::need_implemented("this method not implement"))
-    }
-    /// Returns the number of unique values.
-    ///
-    /// # Returns
-    /// Number of unique values in this `SortedDocValues`. This is also
-    /// equivalent to one plus the maximum ordinal.
-    fn get_value_count(&self) -> Result<i64> {
-        Err(LuceneError::need_implemented("this method not implement"))
-    }
-    /// If `key` exists, returns its ordinal, else returns `-insertion_point -
-    /// 1`, like `Arrays.binarySearch`.
-    ///
-    /// # Arguments
-    /// * `key` - Key to look up
-    ///
-    /// # Returns
-    /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
-        let mut low = 0;
-        let mut high = self.get_value_count()? - 1;
+  /// Retrieves the value for the specified ordinal. The returned [`BytesRef`]
+  /// may be re-used across calls to `lookup_ord`, so make sure to
+  /// [`BytesRef::deep_copy_of`] it if you want to keep it around.
+  ///
+  /// # Arguments
+  /// * `ord` - Ordinal to lookup
+  ///
+  /// See also: [`next_ord`](SortedSetDocValues::next_ord)
+  fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    Err(LuceneError::need_implemented("this method not implement"))
+  }
+  /// Returns the number of unique values.
+  ///
+  /// # Returns
+  /// Number of unique values in this `SortedDocValues`. This is also
+  /// equivalent to one plus the maximum ordinal.
+  fn get_value_count(&self) -> Result<i64> {
+    Err(LuceneError::need_implemented("this method not implement"))
+  }
+  /// If `key` exists, returns its ordinal, else returns `-insertion_point -
+  /// 1`, like `Arrays.binarySearch`.
+  ///
+  /// # Arguments
+  /// * `key` - Key to look up
+  ///
+  /// # Returns
+  /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+    let mut low = 0;
+    let mut high = self.get_value_count()? - 1;
 
-        while low <= high {
-            let mid = (low + high) >> 1;
-            let term = self.lookup_ord(mid)?;
-            let cmp = term.as_ref().cmp(key).to_int();
-            if cmp < 0 {
-                low = mid + 1;
-            } else if cmp > 0 {
-                high = mid - 1;
-            } else {
-                return Ok(mid); // key found
-            }
-        }
-        Ok(-(low + 1)) // key not found
+    while low <= high {
+      let mid = (low + high) >> 1;
+      let term = self.lookup_ord(mid)?;
+      let cmp = term.as_ref().cmp(key).to_int();
+      if cmp < 0 {
+        low = mid + 1;
+      } else if cmp > 0 {
+        high = mid - 1;
+      } else {
+        return Ok(mid); // key found
+      }
     }
-    type TermsEnum<'a>: TermsEnum
-    where
-        Self: 'a;
-    /// Returns a [`TermsEnum`] over the
-    /// values. The enum supports
-    /// [`TermsEnum::ord()`] and
-    /// [`TermsEnum::seek_exact_with_ord()`].
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>>;
+    Ok(-(low + 1)) // key not found
+  }
+  type TermsEnum<'a>: TermsEnum
+  where
+    Self: 'a;
+  /// Returns a [`TermsEnum`] over the
+  /// values. The enum supports
+  /// [`TermsEnum::ord()`] and
+  /// [`TermsEnum::seek_exact_with_ord()`].
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>>;
 
-    fn default_terms_enum(&mut self) -> Result<SortedSetDocValuesTermsEnum<&mut Self>>
-    where
-        Self: Sized,
-    {
-        Ok(SortedSetDocValuesTermsEnum::new(self))
-    }
+  fn default_terms_enum(&mut self) -> Result<SortedSetDocValuesTermsEnum<&mut Self>>
+  where
+    Self: Sized,
+  {
+    Ok(SortedSetDocValuesTermsEnum::new(self))
+  }
 
-    // TODO:
-    // intersect not implement
+  // TODO:
+  // intersect not implement
 
-    fn is_single_valued(&self) -> bool {
-        false
-    }
-    type SortedDocValues: SortedDocValues;
-    fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn is_single_valued(&self) -> bool {
+    false
+  }
+  type SortedDocValues: SortedDocValues;
+  fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }
 impl<S> SortedSetDocValues for &mut S
 where
-    S: SortedSetDocValues,
+  S: SortedSetDocValues,
 {
-    fn next_ord(&mut self) -> Result<i64> {
-        (**self).next_ord()
-    }
+  fn next_ord(&mut self) -> Result<i64> {
+    (**self).next_ord()
+  }
 
-    fn doc_value_count(&mut self) -> Result<i32> {
-        (**self).doc_value_count()
-    }
+  fn doc_value_count(&mut self) -> Result<i32> {
+    (**self).doc_value_count()
+  }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        (**self).lookup_ord(ord)
-    }
+  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    (**self).lookup_ord(ord)
+  }
 
-    fn get_value_count(&self) -> Result<i64> {
-        (**self).get_value_count()
-    }
+  fn get_value_count(&self) -> Result<i64> {
+    (**self).get_value_count()
+  }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
-        (**self).lookup_term(key)
-    }
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+    (**self).lookup_term(key)
+  }
 
-    type TermsEnum<'a>
-        = <S as SortedSetDocValues>::TermsEnum<'a>
-    where
-        Self: 'a;
+  type TermsEnum<'a>
+    = <S as SortedSetDocValues>::TermsEnum<'a>
+  where
+    Self: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        (**self).terms_enum()
-    }
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    (**self).terms_enum()
+  }
 
-    fn is_single_valued(&self) -> bool {
-        (**self).is_single_valued()
-    }
+  fn is_single_valued(&self) -> bool {
+    (**self).is_single_valued()
+  }
 
-    type SortedDocValues = S::SortedDocValues;
+  type SortedDocValues = S::SortedDocValues;
 
-    fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
-        (**self).get_sorted_doc_values()
-    }
+  fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+    (**self).get_sorted_doc_values()
+  }
 }

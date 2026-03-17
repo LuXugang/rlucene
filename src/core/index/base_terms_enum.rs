@@ -44,190 +44,190 @@ use std::fmt::{Debug, Display, Formatter};
 /// possible.
 pub struct BaseTermsEnum<S>
 where
-    S: TermsEnum,
+  S: TermsEnum,
 {
-    sub: S,
+  sub: S,
 }
 impl<S> BaseTermsEnum<S>
 where
-    S: TermsEnum,
+  S: TermsEnum,
 {
-    pub fn new(sub: S) -> Self {
-        Self { sub }
-    }
+  pub fn new(sub: S) -> Self {
+    Self { sub }
+  }
 }
 pub type BaseTermsEnumAttributeSource<S> =
-    AttributeSourceEnum2<<S as TermsEnum>::AttributeSource, DummyAttributeSource>;
+  AttributeSourceEnum2<<S as TermsEnum>::AttributeSource, DummyAttributeSource>;
 impl<S> BytesRefIterator for BaseTermsEnum<S>
 where
-    S: TermsEnum,
+  S: TermsEnum,
 {
-    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.sub.next()
-    }
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    self.sub.next()
+  }
 }
 
 impl<S> TermsEnum for BaseTermsEnum<S>
 where
-    S: TermsEnum,
+  S: TermsEnum,
 {
-    type AttributeSource = BaseTermsEnumAttributeSource<S>;
+  type AttributeSource = BaseTermsEnumAttributeSource<S>;
 
-    fn attributes(&self) -> Result<Self::AttributeSource> {
-        match self.sub.attributes() {
-            Ok(v) => Ok(AttributeSourceEnum2::A(v)),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => Ok(AttributeSourceEnum2::B(DummyAttributeSource)),
-                _ => Err(e),
-            },
-        }
+  fn attributes(&self) -> Result<Self::AttributeSource> {
+    match self.sub.attributes() {
+      Ok(v) => Ok(AttributeSourceEnum2::A(v)),
+      Err(e) => match e {
+        LuceneError::NotImplemented(_) => Ok(AttributeSourceEnum2::B(DummyAttributeSource)),
+        _ => Err(e),
+      },
     }
+  }
 
-    fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
-        match self.sub.seek_exact(term) {
-            Ok(v) => Ok(v),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => Ok(self.seek_ceil(term)? == SeekStatus::Found),
-                _ => Err(e),
-            },
-        }
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self.sub.seek_exact(term) {
+      Ok(v) => Ok(v),
+      Err(e) => match e {
+        LuceneError::NotImplemented(_) => Ok(self.seek_ceil(term)? == SeekStatus::Found),
+        _ => Err(e),
+      },
     }
+  }
 
-    fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-        match self.sub.prepare_seek_exact(text) {
-            Ok(v) => Ok(v),
-            Err(e) => match e {
-                // delegate to seek_exact)
-                LuceneError::NotImplemented(_) => Ok(Some(())),
-                _ => Err(e),
-            },
-        }
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    match self.sub.prepare_seek_exact(text) {
+      Ok(v) => Ok(v),
+      Err(e) => match e {
+        // delegate to seek_exact)
+        LuceneError::NotImplemented(_) => Ok(Some(())),
+        _ => Err(e),
+      },
     }
+  }
 
-    fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
-        self.sub.get_prepare_seek_exact_status(target)
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    self.sub.get_prepare_seek_exact_status(target)
+  }
+
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    self.sub.seek_ceil(term)
+  }
+
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    self.sub.seek_exact_with_ord(ord)
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()> {
+    let result = self.sub.seek_exact_with_state(term, state);
+    match result {
+      Ok(v) => Ok(v),
+      Err(e) => match e {
+        LuceneError::NotImplemented(_) => {
+          if !self.seek_exact(term)? {
+            return Err(LuceneError::illegal_argument(format!(
+              "term= {term} does not exist"
+            )));
+          }
+          Ok(())
+        },
+        _ => Err(e),
+      },
     }
+  }
 
-    fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        self.sub.seek_ceil(term)
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    self.sub.term()
+  }
+
+  fn ord(&self) -> Result<i64> {
+    self.sub.ord()
+  }
+
+  fn doc_freq(&mut self) -> Result<i32> {
+    self.sub.doc_freq()
+  }
+
+  fn total_term_freq(&mut self) -> Result<i64> {
+    self.sub.total_term_freq()
+  }
+
+  type PostingsEnum = S::PostingsEnum;
+
+  fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+    self.sub.postings(reuse)
+  }
+
+  fn postings_with_flags(
+    &mut self,
+    reuse: Option<Self::PostingsEnum>,
+    flags: i32,
+  ) -> Result<Self::PostingsEnum> {
+    self.sub.postings_with_flags(reuse, flags)
+  }
+
+  type ImpactsEnum = S::ImpactsEnum;
+
+  fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+    self.sub.impacts(flags)
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    let v = self.sub.term_state();
+    match v {
+      Ok(v) => Ok(v),
+      Err(e) => match e {
+        LuceneError::NotImplemented(_) => Ok(BaseTermsEnumTermStateImpl.into()),
+        _ => Err(e),
+      },
     }
-
-    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-        self.sub.seek_exact_with_ord(ord)
-    }
-
-    fn seek_exact_with_state(
-        &mut self,
-        term: &BytesRef<Vec<u8>>,
-        state: &TermStateEnum,
-    ) -> Result<()> {
-        let result = self.sub.seek_exact_with_state(term, state);
-        match result {
-            Ok(v) => Ok(v),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => {
-                    if !self.seek_exact(term)? {
-                        return Err(LuceneError::illegal_argument(format!(
-                            "term= {term} does not exist"
-                        )));
-                    }
-                    Ok(())
-                },
-                _ => Err(e),
-            },
-        }
-    }
-
-    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.sub.term()
-    }
-
-    fn ord(&self) -> Result<i64> {
-        self.sub.ord()
-    }
-
-    fn doc_freq(&mut self) -> Result<i32> {
-        self.sub.doc_freq()
-    }
-
-    fn total_term_freq(&mut self) -> Result<i64> {
-        self.sub.total_term_freq()
-    }
-
-    type PostingsEnum = S::PostingsEnum;
-
-    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
-        self.sub.postings(reuse)
-    }
-
-    fn postings_with_flags(
-        &mut self,
-        reuse: Option<Self::PostingsEnum>,
-        flags: i32,
-    ) -> Result<Self::PostingsEnum> {
-        self.sub.postings_with_flags(reuse, flags)
-    }
-
-    type ImpactsEnum = S::ImpactsEnum;
-
-    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
-        self.sub.impacts(flags)
-    }
-
-    fn term_state(&mut self) -> Result<TermStateEnum> {
-        let v = self.sub.term_state();
-        match v {
-            Ok(v) => Ok(v),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => Ok(BaseTermsEnumTermStateImpl.into()),
-                _ => Err(e),
-            },
-        }
-    }
+  }
 }
 // BaseTermsEnum's sub
 impl From<FreqProxTermsEnum> for BaseTermsEnum<FreqProxTermsEnum> {
-    fn from(value: FreqProxTermsEnum) -> Self {
-        BaseTermsEnum::new(value)
-    }
+  fn from(value: FreqProxTermsEnum) -> Self {
+    BaseTermsEnum::new(value)
+  }
 }
 impl<I, P> From<SegmentTermsEnum<I, P>> for BaseTermsEnum<SegmentTermsEnum<I, P>>
 where
-    I: IndexInput,
-    P: PostingsReaderBase,
+  I: IndexInput,
+  P: PostingsReaderBase,
 {
-    fn from(value: SegmentTermsEnum<I, P>) -> Self {
-        BaseTermsEnum::new(value)
-    }
+  fn from(value: SegmentTermsEnum<I, P>) -> Self {
+    BaseTermsEnum::new(value)
+  }
 }
 impl From<TVTermsEnum> for BaseTermsEnum<TVTermsEnum> {
-    fn from(value: TVTermsEnum) -> Self {
-        BaseTermsEnum::new(value)
-    }
+  fn from(value: TVTermsEnum) -> Self {
+    BaseTermsEnum::new(value)
+  }
 }
 impl<I> From<TermsDict<I>> for BaseTermsEnum<TermsDict<I>>
 where
-    I: IndexInput,
+  I: IndexInput,
 {
-    fn from(value: TermsDict<I>) -> Self {
-        BaseTermsEnum::new(value)
-    }
+  fn from(value: TermsDict<I>) -> Self {
+    BaseTermsEnum::new(value)
+  }
 }
 impl From<EmptyTermsEnum> for BaseTermsEnum<EmptyTermsEnum> {
-    fn from(value: EmptyTermsEnum) -> Self {
-        BaseTermsEnum::new(value)
-    }
+  fn from(value: EmptyTermsEnum) -> Self {
+    BaseTermsEnum::new(value)
+  }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct BaseTermsEnumTermStateImpl;
 impl Display for BaseTermsEnumTermStateImpl {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }
 impl TermState for BaseTermsEnumTermStateImpl {
-    fn copy_from(&mut self, _other: &Self) -> Result<()> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn copy_from(&mut self, _other: &Self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }

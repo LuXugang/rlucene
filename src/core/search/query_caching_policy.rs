@@ -27,92 +27,92 @@ use std::sync::Arc;
 /// See also: [`UsageTrackingQueryCachingPolicy`], `LRUQueryCache`.
 // TODO: add APIs for integration with `IndexWriter::IndexReaderWarmer`
 pub trait QueryCachingPolicy {
-    /// Callback that is called every time that a cached filter is used.
-    /// This is typically useful if the policy wants to track usage statistics
-    /// in order to make decisions.
-    fn on_use(&self, query: &Query);
+  /// Callback that is called every time that a cached filter is used.
+  /// This is typically useful if the policy wants to track usage statistics
+  /// in order to make decisions.
+  fn on_use(&self, query: &Query);
 
-    /// Whether the given [`Query`] is worth caching.
-    ///
-    /// This method will be called by the `QueryCache` to know whether to cache.
-    /// It will first attempt to load a [`DocIdSet`](crate::core::search::doc_id_set::DocIdSet) from the cache. If it is not cached yet
-    /// and this method returns `true` then a cache entry will be generated.
-    /// Otherwise an uncached scorer will be returned.
-    fn should_cache(&self, query: &Query) -> Result<bool>;
+  /// Whether the given [`Query`] is worth caching.
+  ///
+  /// This method will be called by the `QueryCache` to know whether to cache.
+  /// It will first attempt to load a [`DocIdSet`](crate::core::search::doc_id_set::DocIdSet) from the cache. If it is not cached yet
+  /// and this method returns `true` then a cache entry will be generated.
+  /// Otherwise an uncached scorer will be returned.
+  fn should_cache(&self, query: &Query) -> Result<bool>;
 }
 
 impl<T> QueryCachingPolicy for &T
 where
-    T: QueryCachingPolicy,
+  T: QueryCachingPolicy,
 {
-    fn on_use(&self, query: &Query) {
-        (**self).on_use(query)
-    }
+  fn on_use(&self, query: &Query) {
+    (**self).on_use(query)
+  }
 
-    fn should_cache(&self, query: &Query) -> Result<bool> {
-        (**self).should_cache(query)
-    }
+  fn should_cache(&self, query: &Query) -> Result<bool> {
+    (**self).should_cache(query)
+  }
 }
 impl<T> QueryCachingPolicy for Arc<T>
 where
-    T: QueryCachingPolicy,
+  T: QueryCachingPolicy,
 {
-    fn on_use(&self, query: &Query) {
-        (**self).on_use(query)
-    }
+  fn on_use(&self, query: &Query) {
+    (**self).on_use(query)
+  }
 
-    fn should_cache(&self, query: &Query) -> Result<bool> {
-        (**self).should_cache(query)
-    }
+  fn should_cache(&self, query: &Query) -> Result<bool> {
+    (**self).should_cache(query)
+  }
 }
 pub type DynQueryCachingPolicy = dyn QueryCachingPolicy + Send + Sync;
 pub type CustomQueryCachingPolicy = Box<DynQueryCachingPolicy>;
 
 pub enum QueryCachingPolicyEnum {
-    UsageTracking(UsageTrackingQueryCachingPolicy),
-    Custom(CustomQueryCachingPolicy),
+  UsageTracking(UsageTrackingQueryCachingPolicy),
+  Custom(CustomQueryCachingPolicy),
 }
 
 impl QueryCachingPolicyEnum {
-    pub fn custom<P>(p: P) -> Self
-    where
-        P: QueryCachingPolicy + Send + Sync + 'static,
-    {
-        Self::Custom(Box::new(p))
-    }
+  pub fn custom<P>(p: P) -> Self
+  where
+    P: QueryCachingPolicy + Send + Sync + 'static,
+  {
+    Self::Custom(Box::new(p))
+  }
 }
 impl_from_for_enum!(QueryCachingPolicyEnum, UsageTrackingQueryCachingPolicy => UsageTracking);
 impl QueryCachingPolicy for QueryCachingPolicyEnum {
-    fn on_use(&self, query: &Query) {
-        match self {
-            Self::UsageTracking(inner) => inner.on_use(query),
-            Self::Custom(inner) => inner.on_use(query),
-        }
+  fn on_use(&self, query: &Query) {
+    match self {
+      Self::UsageTracking(inner) => inner.on_use(query),
+      Self::Custom(inner) => inner.on_use(query),
     }
+  }
 
-    fn should_cache(&self, query: &Query) -> Result<bool> {
-        match self {
-            Self::UsageTracking(inner) => inner.should_cache(query),
-            Self::Custom(inner) => inner.should_cache(query),
-        }
+  fn should_cache(&self, query: &Query) -> Result<bool> {
+    match self {
+      Self::UsageTracking(inner) => inner.should_cache(query),
+      Self::Custom(inner) => inner.should_cache(query),
     }
+  }
 }
 
 pub trait QueryCachingPolicyArc {
-    fn into_query_cache_policy_arc(self) -> Arc<QueryCachingPolicyEnum>;
+  fn into_query_cache_policy_arc(self) -> Arc<QueryCachingPolicyEnum>;
 }
 
 impl QueryCachingPolicyArc for Arc<QueryCachingPolicyEnum> {
-    fn into_query_cache_policy_arc(self) -> Arc<QueryCachingPolicyEnum> {
-        self
-    }
+  fn into_query_cache_policy_arc(self) -> Arc<QueryCachingPolicyEnum> {
+    self
+  }
 }
 
 impl<T> QueryCachingPolicyArc for T
 where
-    T: QueryCachingPolicy + Into<QueryCachingPolicyEnum>,
+  T: QueryCachingPolicy + Into<QueryCachingPolicyEnum>,
 {
-    fn into_query_cache_policy_arc(self) -> Arc<QueryCachingPolicyEnum> {
-        Arc::new(self.into())
-    }
+  fn into_query_cache_policy_arc(self) -> Arc<QueryCachingPolicyEnum> {
+    Arc::new(self.into())
+  }
 }

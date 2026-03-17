@@ -16,7 +16,7 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::index::filtered_terms_enum::{
-    AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
+  AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
 };
 use crate::core::index::terms_enum::TermsEnum;
 /// SubStruct of `FilteredTermsEnum` for enumerating a single term.
@@ -24,31 +24,31 @@ use crate::core::index::terms_enum::TermsEnum;
 /// For example, this can be used by [`MultiTermQuery`](crate::core::search::multi_term_query::MultiTermQuery)s that need only visit one term, but
 /// want to preserve `MultiTermQuery` semantics such as `MultiTermQuery::get_rewrite_method`.
 pub struct SingleTermsEnum {
-    single_ref: BytesRef<Vec<u8>>,
+  single_ref: BytesRef<Vec<u8>>,
 }
 impl SingleTermsEnum {
-    pub fn new<T>(te: T, term_text: BytesRef<Vec<u8>>) -> FilteredTermsEnum<T, SingleTermsEnum>
-    where
-        T: TermsEnum,
-    {
-        let sub = SingleTermsEnum {
-            single_ref: term_text.clone(),
-        };
-        let mut v = FilteredTermsEnum::new(te, sub);
-        v.set_initial_seek_term(term_text);
-        v
-    }
+  pub fn new<T>(te: T, term_text: BytesRef<Vec<u8>>) -> FilteredTermsEnum<T, SingleTermsEnum>
+  where
+    T: TermsEnum,
+  {
+    let sub = SingleTermsEnum {
+      single_ref: term_text.clone(),
+    };
+    let mut v = FilteredTermsEnum::new(te, sub);
+    v.set_initial_seek_term(term_text);
+    v
+  }
 }
 impl FilteredTermsEnumBase for SingleTermsEnum {
-    fn accept(
-        &mut self,
-        term: &BytesRef<Vec<u8>>,
-        _ord: i64,
-    ) -> crate::core::util::error::lucene_error::Result<AcceptStatus> {
-        if term == &self.single_ref {
-            Ok(AcceptStatus::Yes)
-        } else {
-            Ok(AcceptStatus::No)
-        }
+  fn accept(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    _ord: i64,
+  ) -> crate::core::util::error::lucene_error::Result<AcceptStatus> {
+    if term == &self.single_ref {
+      Ok(AcceptStatus::Yes)
+    } else {
+      Ok(AcceptStatus::No)
     }
+  }
 }

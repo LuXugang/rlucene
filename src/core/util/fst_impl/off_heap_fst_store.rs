@@ -24,53 +24,53 @@ use std::sync::Arc;
 /// index input instead of  byte store on heap
 pub struct OffHeapFSTStore<I>
 where
-    I: IndexInput,
+  I: IndexInput,
 {
-    input: Arc<I>,
-    offset: usize,
-    num_bytes: usize,
+  input: Arc<I>,
+  offset: usize,
+  num_bytes: usize,
 }
 impl<I> OffHeapFSTStore<I>
 where
-    I: IndexInput,
+  I: IndexInput,
 {
-    pub fn new(input: Arc<I>, offset: usize, num_bytes: usize) -> Self {
-        Self {
-            input,
-            offset,
-            num_bytes,
-        }
+  pub fn new(input: Arc<I>, offset: usize, num_bytes: usize) -> Self {
+    Self {
+      input,
+      offset,
+      num_bytes,
     }
-    pub fn size(&self) -> usize {
-        self.num_bytes
-    }
+  }
+  pub fn size(&self) -> usize {
+    self.num_bytes
+  }
 }
 
 impl<I> Accountable for OffHeapFSTStore<I>
 where
-    I: IndexInput,
+  I: IndexInput,
 {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        todo!()
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    todo!()
+  }
 }
 
 impl<I> FstReader for OffHeapFSTStore<I>
 where
-    I: IndexInput,
+  I: IndexInput,
 {
-    type FstBytesReader = ReverseRandomAccessReader<I::RandomAccessSlice>;
+  type FstBytesReader = ReverseRandomAccessReader<I::RandomAccessSlice>;
 
-    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
-        let slice = self
-            .input
-            .random_access_slice(self.offset, self.num_bytes)?;
-        Ok(ReverseRandomAccessReader::new(slice))
-    }
+  fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
+    let slice = self
+      .input
+      .random_access_slice(self.offset, self.num_bytes)?;
+    Ok(ReverseRandomAccessReader::new(slice))
+  }
 
-    fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
-        Err(LuceneError::unsupported_operation(
-            "write_to is not supported for OffHeapFSTStore",
-        ))
-    }
+  fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "write_to is not supported for OffHeapFSTStore",
+    ))
+  }
 }

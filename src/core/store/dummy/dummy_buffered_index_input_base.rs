@@ -22,40 +22,35 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyBufferedIndexInputBase;
 
 impl crate::core::util::clone::TryClone for DummyBufferedIndexInputBase {
-    fn try_clone(&self) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
-    fn seek_internal(&mut self, _pos: usize) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn seek_internal(&mut self, _pos: usize) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn read_internal(
-        &mut self,
-        _b: &mut Cursor<Vec<u8>>,
-        _len: usize,
-        _file_pointer: usize,
-    ) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn read_internal(
+    &mut self,
+    _b: &mut Cursor<Vec<u8>>,
+    _len: usize,
+    _file_pointer: usize,
+  ) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type Slice = BufferedIndexInput<DummyBufferedIndexInputBase>;
+  type Slice = BufferedIndexInput<DummyBufferedIndexInputBase>;
 
-    fn slice(
-        &self,
-        _slice_description: &str,
-        _offset: usize,
-        _length: usize,
-    ) -> Result<Self::Slice> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn slice(&self, _slice_description: &str, _offset: usize, _length: usize) -> Result<Self::Slice> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn length(&self) -> usize {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn length(&self) -> usize {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

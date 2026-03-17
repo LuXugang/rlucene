@@ -21,9 +21,9 @@ use std::borrow::Cow;
 /// This attribute is requested by `TermsHashPerField` to index the contents. It can be used to
 /// customize the final `byte[]` encoding of terms.
 pub trait TermToBytesRefAttribute: Attribute {
-    /// Retrieve this attribute’s `BytesRef`. The bytes are updated from the current term.
-    /// The implementation may return a new instance or keep the previous one.
-    /// The returned reference stays valid only until the next call to
-    /// `increment_token()`.
-    fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>>;
+  /// Retrieve this attribute’s `BytesRef`. The bytes are updated from the current term.
+  /// The implementation may return a new instance or keep the previous one.
+  /// The returned reference stays valid only until the next call to
+  /// `increment_token()`.
+  fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>>;
 }

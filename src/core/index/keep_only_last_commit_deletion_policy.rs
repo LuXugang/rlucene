@@ -22,28 +22,28 @@ use std::fmt::{Display, Formatter};
 pub struct KeepOnlyLastCommitDeletionPolicy;
 
 impl Display for KeepOnlyLastCommitDeletionPolicy {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }
 
 impl IndexDeletionPolicy for KeepOnlyLastCommitDeletionPolicy {
-    fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
-    where
-        IC: IndexCommit,
-    {
-        self.on_commit(commits)
-    }
+  fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
+  where
+    IC: IndexCommit,
+  {
+    self.on_commit(commits)
+  }
 
-    /// Deletes all commits except the most recent one.
-    fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
-    where
-        IC: IndexCommit,
-    {
-        let size = commits.len().saturating_sub(1);
-        for commit in commits.iter_mut().take(size) {
-            commit.delete()?;
-        }
-        Ok(())
+  /// Deletes all commits except the most recent one.
+  fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
+  where
+    IC: IndexCommit,
+  {
+    let size = commits.len().saturating_sub(1);
+    for commit in commits.iter_mut().take(size) {
+      commit.delete()?;
     }
+    Ok(())
+  }
 }

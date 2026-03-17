@@ -29,201 +29,202 @@ pub type ByteBuffersIndexInputRef<'a> = ByteBuffersIndexInput<&'a [u8]>;
 pub type ByteBuffersIndexInputOwned = ByteBuffersIndexInput<Vec<u8>>;
 
 pub struct ByteBuffersIndexInput<B: AsRef<[u8]>> {
-    data_input: ByteBuffersDataInput<B>,
-    resource_description: String,
+  data_input: ByteBuffersDataInput<B>,
+  resource_description: String,
 }
 impl<B> ByteBuffersIndexInput<B>
 where
-    B: AsRef<[u8]>,
+  B: AsRef<[u8]>,
 {
-    pub fn new(data_input: ByteBuffersDataInput<B>, resource_description: &str) -> Self {
-        Self {
-            data_input,
-            resource_description: resource_description.to_string(),
-        }
+  pub fn new(data_input: ByteBuffersDataInput<B>, resource_description: &str) -> Self {
+    Self {
+      data_input,
+      resource_description: resource_description.to_string(),
     }
+  }
 }
 
 impl<B> DataInput for ByteBuffersIndexInput<B>
 where
-    B: AsRef<[u8]> + Clone,
+  B: AsRef<[u8]> + Clone,
 {
-    fn read_byte(&mut self) -> Result<u8> {
-        DataInput::read_byte(&mut self.data_input)
-    }
+  fn read_byte(&mut self) -> Result<u8> {
+    DataInput::read_byte(&mut self.data_input)
+  }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
-        DataInput::read_bytes(&mut self.data_input, b, offset, len)
-    }
+  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    DataInput::read_bytes(&mut self.data_input, b, offset, len)
+  }
 
-    fn read_bytes_with_buffer(
-        &mut self,
-        b: &mut [u8],
-        offset: usize,
-        len: usize,
-        _use_buffer: bool,
-    ) -> Result<()> {
-        self.data_input
-            .read_bytes_with_buffer(b, offset, len, false)
-    }
+  fn read_bytes_with_buffer(
+    &mut self,
+    b: &mut [u8],
+    offset: usize,
+    len: usize,
+    _use_buffer: bool,
+  ) -> Result<()> {
+    self
+      .data_input
+      .read_bytes_with_buffer(b, offset, len, false)
+  }
 
-    fn read_short(&mut self) -> Result<i16> {
-        DataInput::read_short(&mut self.data_input)
-    }
+  fn read_short(&mut self) -> Result<i16> {
+    DataInput::read_short(&mut self.data_input)
+  }
 
-    fn read_int(&mut self) -> Result<i32> {
-        DataInput::read_int(&mut self.data_input)
-    }
+  fn read_int(&mut self) -> Result<i32> {
+    DataInput::read_int(&mut self.data_input)
+  }
 
-    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-        self.data_input.read_group_vint(dst, offset)
-    }
+  fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+    self.data_input.read_group_vint(dst, offset)
+  }
 
-    fn read_vint(&mut self) -> Result<i32> {
-        DataInput::read_vint(&mut self.data_input)
-    }
+  fn read_vint(&mut self) -> Result<i32> {
+    DataInput::read_vint(&mut self.data_input)
+  }
 
-    fn read_zint(&mut self) -> Result<i32> {
-        DataInput::read_zint(&mut self.data_input)
-    }
+  fn read_zint(&mut self) -> Result<i32> {
+    DataInput::read_zint(&mut self.data_input)
+  }
 
-    fn read_long(&mut self) -> Result<i64> {
-        DataInput::read_long(&mut self.data_input)
-    }
+  fn read_long(&mut self) -> Result<i64> {
+    DataInput::read_long(&mut self.data_input)
+  }
 
-    fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
-        self.data_input.read_longs(dst, offset, len)
-    }
+  fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
+    self.data_input.read_longs(dst, offset, len)
+  }
 
-    fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
-        self.data_input.read_floats(dst, offset, len)
-    }
+  fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
+    self.data_input.read_floats(dst, offset, len)
+  }
 
-    fn read_vlong(&mut self) -> Result<i64> {
-        self.data_input.read_vlong()
-    }
+  fn read_vlong(&mut self) -> Result<i64> {
+    self.data_input.read_vlong()
+  }
 
-    fn read_zlong(&mut self) -> Result<i64> {
-        self.data_input.read_zlong()
-    }
+  fn read_zlong(&mut self) -> Result<i64> {
+    self.data_input.read_zlong()
+  }
 
-    fn read_string(&mut self) -> Result<String> {
-        self.data_input.read_string()
-    }
+  fn read_string(&mut self) -> Result<String> {
+    self.data_input.read_string()
+  }
 
-    fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
-        self.data_input.read_map_of_strings()
-    }
+  fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
+    self.data_input.read_map_of_strings()
+  }
 
-    fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
-        self.data_input.read_set_of_strings()
-    }
+  fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
+    self.data_input.read_set_of_strings()
+  }
 
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-        DataInput::skip_bytes(&mut self.data_input, num_bytes)
-    }
+  fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+    DataInput::skip_bytes(&mut self.data_input, num_bytes)
+  }
 
-    fn is_index_input(&self) -> bool {
-        true
-    }
+  fn is_index_input(&self) -> bool {
+    true
+  }
 
-    fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
-        debug_assert!(self.is_index_input());
-        IndexInput::seek(self, _pos)
-    }
+  fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
+    debug_assert!(self.is_index_input());
+    IndexInput::seek(self, _pos)
+  }
 
-    fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-        debug_assert!(self.is_index_input());
-        IndexInput::get_file_pointer(self)
-    }
+  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
+    debug_assert!(self.is_index_input());
+    IndexInput::get_file_pointer(self)
+  }
 }
 impl<B> RandomAccessInput for ByteBuffersIndexInput<B>
 where
-    B: AsRef<[u8]>,
+  B: AsRef<[u8]>,
 {
-    fn length(&self) -> usize {
-        RandomAccessInput::length(&self.data_input)
-    }
+  fn length(&self) -> usize {
+    RandomAccessInput::length(&self.data_input)
+  }
 
-    fn read_byte(&mut self, pos: usize) -> Result<u8> {
-        RandomAccessInput::read_byte(&mut self.data_input, pos)
-    }
+  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+    RandomAccessInput::read_byte(&mut self.data_input, pos)
+  }
 
-    fn read_short(&mut self, pos: usize) -> Result<i16> {
-        RandomAccessInput::read_short(&mut self.data_input, pos)
-    }
+  fn read_short(&mut self, pos: usize) -> Result<i16> {
+    RandomAccessInput::read_short(&mut self.data_input, pos)
+  }
 
-    fn read_int(&mut self, pos: usize) -> Result<i32> {
-        RandomAccessInput::read_int(&mut self.data_input, pos)
-    }
+  fn read_int(&mut self, pos: usize) -> Result<i32> {
+    RandomAccessInput::read_int(&mut self.data_input, pos)
+  }
 
-    fn read_long(&mut self, pos: usize) -> Result<i64> {
-        RandomAccessInput::read_long(&mut self.data_input, pos)
-    }
+  fn read_long(&mut self, pos: usize) -> Result<i64> {
+    RandomAccessInput::read_long(&mut self.data_input, pos)
+  }
 
-    fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
-        Ok(())
-    }
+  fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+    Ok(())
+  }
 }
 
 impl<B> Display for ByteBuffersIndexInput<B>
 where
-    B: AsRef<[u8]>,
+  B: AsRef<[u8]>,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.resource_description)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.resource_description)
+  }
 }
 
 impl<B> crate::core::util::clone::TryClone for ByteBuffersIndexInput<B>
 where
-    B: AsRef<[u8]> + Clone,
+  B: AsRef<[u8]> + Clone,
 {
-    fn try_clone(&self) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        let slice = self.data_input.slice(0, self.data_input.length())?;
-        Ok(ByteBuffersIndexInput::new(
-            slice,
-            format!("(clone of) {self}").as_str(),
-        ))
-    }
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    let slice = self.data_input.slice(0, self.data_input.length())?;
+    Ok(ByteBuffersIndexInput::new(
+      slice,
+      format!("(clone of) {self}").as_str(),
+    ))
+  }
 }
 
 impl<B> IndexInput for ByteBuffersIndexInput<B>
 where
-    B: AsRef<[u8]> + Clone,
+  B: AsRef<[u8]> + Clone,
 {
-    type IndexInput = ByteBuffersIndexInput<B>;
+  type IndexInput = ByteBuffersIndexInput<B>;
 
-    fn get_file_pointer(&self) -> Result<usize> {
-        self.data_input.position()
-    }
+  fn get_file_pointer(&self) -> Result<usize> {
+    self.data_input.position()
+  }
 
-    fn seek(&mut self, pos: usize) -> Result<()> {
-        self.data_input.seek(pos)
-    }
+  fn seek(&mut self, pos: usize) -> Result<()> {
+    self.data_input.seek(pos)
+  }
 
-    fn length(&self) -> usize {
-        self.data_input.length()
-    }
+  fn length(&self) -> usize {
+    self.data_input.length()
+  }
 
-    fn slice(
-        &self,
-        slice_description: &str,
-        offset: usize,
-        length: usize,
-    ) -> Result<Self::IndexInput> {
-        Ok(ByteBuffersIndexInput::new(
-            self.data_input.slice(offset, length)?,
-            slice_description,
-        ))
-    }
+  fn slice(
+    &self,
+    slice_description: &str,
+    offset: usize,
+    length: usize,
+  ) -> Result<Self::IndexInput> {
+    Ok(ByteBuffersIndexInput::new(
+      self.data_input.slice(offset, length)?,
+      slice_description,
+    ))
+  }
 
-    type RandomAccessSlice = ByteBuffersIndexInput<B>;
+  type RandomAccessSlice = ByteBuffersIndexInput<B>;
 
-    fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
-        self.slice("", offset, length)
-    }
+  fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
+    self.slice("", offset, length)
+  }
 }

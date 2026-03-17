@@ -22,35 +22,35 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyNumericDocValues;
 
 impl DocValuesIterator for DummyNumericDocValues {
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl DocIdSetIterator for DummyNumericDocValues {
-    fn doc_id(&self) -> i32 {
-        -1
-    }
+  fn doc_id(&self) -> i32 {
+    -1
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn slow_advance(&mut self, _target: i32) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn slow_advance(&mut self, _target: i32) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn cost(&self) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn cost(&self) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl NumericDocValues for DummyNumericDocValues {
-    fn long_value(&mut self) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn long_value(&mut self) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

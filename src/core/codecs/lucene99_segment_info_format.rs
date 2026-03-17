@@ -84,342 +84,339 @@ pub struct Lucene99SegmentInfoFormat;
 const SI_EXTENSION: &str = "si";
 
 impl Lucene99SegmentInfoFormat {
-    const CODEC_NAME: &'static str = "Lucene90SegmentInfo";
-    const VERSION_START: i32 = 0;
-    const VERSION_CURRENT: i32 = Lucene99SegmentInfoFormat::VERSION_START;
-    fn parse_segment_info<D>(
-        dir: Arc<D>,
-        input: &mut impl DataInput,
-        segment: &str,
-        segment_id: &[u8; StringHelper::ID_LENGTH],
-    ) -> Result<SegmentInfo<D>>
-    where
-        D: Directory,
-    {
+  const CODEC_NAME: &'static str = "Lucene90SegmentInfo";
+  const VERSION_START: i32 = 0;
+  const VERSION_CURRENT: i32 = Lucene99SegmentInfoFormat::VERSION_START;
+  fn parse_segment_info<D>(
+    dir: Arc<D>,
+    input: &mut impl DataInput,
+    segment: &str,
+    segment_id: &[u8; StringHelper::ID_LENGTH],
+  ) -> Result<SegmentInfo<D>>
+  where
+    D: Directory,
+  {
+    let major = input.read_int()?;
+    debug_assert!(major >= 0);
+    let minor = input.read_int()?;
+    debug_assert!(minor >= 0);
+    let bug_fix = input.read_int()?;
+    debug_assert!(bug_fix >= 0);
+    let version = Version::from_bits(major, minor, bug_fix)?;
+
+    let has_min_version = input.read_byte()?;
+    let min_version = match has_min_version {
+      0 => None,
+      1 => {
         let major = input.read_int()?;
         debug_assert!(major >= 0);
         let minor = input.read_int()?;
         debug_assert!(minor >= 0);
         let bug_fix = input.read_int()?;
         debug_assert!(bug_fix >= 0);
-        let version = Version::from_bits(major, minor, bug_fix)?;
+        Some(Version::from_bits(major, minor, bug_fix)?)
+      },
+      _ => {
+        return Err(LuceneError::corrupt_index(format!(
+          "Illegal boolean value : {has_min_version} (resource={input})"
+        )));
+      },
+    };
 
-        let has_min_version = input.read_byte()?;
-        let min_version = match has_min_version {
-            0 => None,
-            1 => {
-                let major = input.read_int()?;
-                debug_assert!(major >= 0);
-                let minor = input.read_int()?;
-                debug_assert!(minor >= 0);
-                let bug_fix = input.read_int()?;
-                debug_assert!(bug_fix >= 0);
-                Some(Version::from_bits(major, minor, bug_fix)?)
-            },
-            _ => {
-                return Err(LuceneError::corrupt_index(format!(
-                    "Illegal boolean value : {has_min_version} (resource={input})"
-                )));
-            },
-        };
-
-        let doc_count = input.read_int()?;
-        if doc_count < 0 {
-            return Err(LuceneError::corrupt_index(format!(
-                "Invalid docCount: {doc_count} (resource={input})"
-            )));
-        }
-        let is_compound_file = input.read_byte()? == seg_info::YES as u8;
-        let has_blocks = input.read_byte()? == seg_info::YES as u8;
-        let diagnostics = input.read_map_of_strings()?;
-        let files = input.read_set_of_strings()?;
-        let attributes = input.read_map_of_strings()?;
-        let num_sort_fields = input.read_vint()?;
-        let index_sort = match num_sort_fields.cmp(&0) {
-            std::cmp::Ordering::Greater => {
-                let mut sort_fields = Vec::with_capacity(num_sort_fields as usize);
-                for _ in 0..num_sort_fields {
-                    let name = input.read_string()?;
-                    let sort_field = for_name(&name).read_sort_field(input)?;
-                    sort_fields.push(sort_field);
-                }
-                Some(Arc::new(Sort::with_fields(sort_fields)?))
-            },
-            std::cmp::Ordering::Less => {
-                return Err(LuceneError::corrupt_index(format!(
-                    "invalid index sort field count: {num_sort_fields} (resource={input})"
-                )));
-            },
-            std::cmp::Ordering::Equal => None,
-        };
-
-        let mut si = SegmentInfo::new(
-            dir,
-            Option::from(version),
-            min_version,
-            segment,
-            doc_count,
-            is_compound_file,
-            has_blocks,
-            diagnostics,
-            *segment_id,
-            attributes,
-            index_sort,
-        )?;
-        si.set_files(files)?;
-        Ok(si)
+    let doc_count = input.read_int()?;
+    if doc_count < 0 {
+      return Err(LuceneError::corrupt_index(format!(
+        "Invalid docCount: {doc_count} (resource={input})"
+      )));
     }
-    fn write_segment_info<D>(output: &mut impl DataOutput, si: &SegmentInfo<D>) -> Result<()>
-    where
-        D: Directory,
+    let is_compound_file = input.read_byte()? == seg_info::YES as u8;
+    let has_blocks = input.read_byte()? == seg_info::YES as u8;
+    let diagnostics = input.read_map_of_strings()?;
+    let files = input.read_set_of_strings()?;
+    let attributes = input.read_map_of_strings()?;
+    let num_sort_fields = input.read_vint()?;
+    let index_sort = match num_sort_fields.cmp(&0) {
+      std::cmp::Ordering::Greater => {
+        let mut sort_fields = Vec::with_capacity(num_sort_fields as usize);
+        for _ in 0..num_sort_fields {
+          let name = input.read_string()?;
+          let sort_field = for_name(&name).read_sort_field(input)?;
+          sort_fields.push(sort_field);
+        }
+        Some(Arc::new(Sort::with_fields(sort_fields)?))
+      },
+      std::cmp::Ordering::Less => {
+        return Err(LuceneError::corrupt_index(format!(
+          "invalid index sort field count: {num_sort_fields} (resource={input})"
+        )));
+      },
+      std::cmp::Ordering::Equal => None,
+    };
+
+    let mut si = SegmentInfo::new(
+      dir,
+      Option::from(version),
+      min_version,
+      segment,
+      doc_count,
+      is_compound_file,
+      has_blocks,
+      diagnostics,
+      *segment_id,
+      attributes,
+      index_sort,
+    )?;
+    si.set_files(files)?;
+    Ok(si)
+  }
+  fn write_segment_info<D>(output: &mut impl DataOutput, si: &SegmentInfo<D>) -> Result<()>
+  where
+    D: Directory,
+  {
+    let version_wrap = si.get_version_ref();
+    debug_assert!(version_wrap.is_some());
+    let version = version_wrap.unwrap();
+    if version.major < 7 {
+      return Err(LuceneError::illegal_argument(format!(
+        "invalid major version: should be >= 7 but got: {} segment={}",
+        version.major, si
+      )));
+    }
+    output.write_int(version.major)?;
+    output.write_int(version.minor)?;
+    output.write_int(version.bug_fix)?;
+
+    // Write the min Lucene version that contributed docs to the segment,
+    // since 7.0
+    if let Some(min_version) = si.get_min_version_ref() {
+      output.write_byte(1)?;
+      output.write_int(min_version.major)?;
+      output.write_int(min_version.minor)?;
+      output.write_int(min_version.bug_fix)?;
+    } else {
+      output.write_byte(0)?;
+    }
+
+    debug_assert_eq!(version.prerelease, 0);
+    output.write_int(si.max_doc()?)?;
+
+    output.write_byte(if si.get_use_compound_file() {
+      seg_info::YES as u8
+    } else {
+      seg_info::NO as u8
+    })?;
+    output.write_byte(if si.get_has_blocks() {
+      seg_info::YES as u8
+    } else {
+      seg_info::NO as u8
+    })?;
+    output.write_map_of_strings(si.get_diagnostics())?;
+
     {
-        let version_wrap = si.get_version_ref();
-        debug_assert!(version_wrap.is_some());
-        let version = version_wrap.unwrap();
-        if version.major < 7 {
-            return Err(LuceneError::illegal_argument(format!(
-                "invalid major version: should be >= 7 but got: {} segment={}",
-                version.major, si
-            )));
+      let files = si.files()?;
+      for file in files {
+        if IndexFileNames::parse_segment_name(file) != si.name {
+          return Err(LuceneError::illegal_argument(format!(
+            "invalid files: expected segment={}, got file={}",
+            si.name, file
+          )));
         }
-        output.write_int(version.major)?;
-        output.write_int(version.minor)?;
-        output.write_int(version.bug_fix)?;
-
-        // Write the min Lucene version that contributed docs to the segment,
-        // since 7.0
-        if let Some(min_version) = si.get_min_version_ref() {
-            output.write_byte(1)?;
-            output.write_int(min_version.major)?;
-            output.write_int(min_version.minor)?;
-            output.write_int(min_version.bug_fix)?;
-        } else {
-            output.write_byte(0)?;
-        }
-
-        debug_assert_eq!(version.prerelease, 0);
-        output.write_int(si.max_doc()?)?;
-
-        output.write_byte(if si.get_use_compound_file() {
-            seg_info::YES as u8
-        } else {
-            seg_info::NO as u8
-        })?;
-        output.write_byte(if si.get_has_blocks() {
-            seg_info::YES as u8
-        } else {
-            seg_info::NO as u8
-        })?;
-        output.write_map_of_strings(si.get_diagnostics())?;
-
-        {
-            let files = si.files()?;
-            for file in files {
-                if IndexFileNames::parse_segment_name(file) != si.name {
-                    return Err(LuceneError::illegal_argument(format!(
-                        "invalid files: expected segment={}, got file={}",
-                        si.name, file
-                    )));
-                }
-            }
-            output.write_set_of_strings(files)?;
-        }
-        output.write_map_of_strings(si.get_attributes()?)?;
-
-        if let Some(index_sort) = si.get_index_sort() {
-            let sort_fields = index_sort.get_sort();
-            let num_sort_fields = sort_fields.len();
-            output.write_vint(num_sort_fields as i32)?;
-
-            for sort_field in sort_fields {
-                if let Some(sorter) = sort_field.get_index_sorter()? {
-                    output.write_string(sorter.get_provider_name())?;
-                    write(sort_field, output)?;
-                } else {
-                    return Err(LuceneError::illegal_argument(format!(
-                        "cannot serialize SortField {sort_field}"
-                    )));
-                }
-            }
-        } else {
-            output.write_vint(0)?;
-        }
-        Ok(())
+      }
+      output.write_set_of_strings(files)?;
     }
+    output.write_map_of_strings(si.get_attributes()?)?;
+
+    if let Some(index_sort) = si.get_index_sort() {
+      let sort_fields = index_sort.get_sort();
+      let num_sort_fields = sort_fields.len();
+      output.write_vint(num_sort_fields as i32)?;
+
+      for sort_field in sort_fields {
+        if let Some(sorter) = sort_field.get_index_sorter()? {
+          output.write_string(sorter.get_provider_name())?;
+          write(sort_field, output)?;
+        } else {
+          return Err(LuceneError::illegal_argument(format!(
+            "cannot serialize SortField {sort_field}"
+          )));
+        }
+      }
+    } else {
+      output.write_vint(0)?;
+    }
+    Ok(())
+  }
 }
 
 impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
-    fn read<D>(
-        &self,
-        dir: Arc<D>,
-        segment: &str,
-        segment_id: &[u8; StringHelper::ID_LENGTH],
-        _context: &IOContext,
-    ) -> Result<SegmentInfo<D>>
-    where
-        D: Directory,
+  fn read<D>(
+    &self,
+    dir: Arc<D>,
+    segment: &str,
+    segment_id: &[u8; StringHelper::ID_LENGTH],
+    _context: &IOContext,
+  ) -> Result<SegmentInfo<D>>
+  where
+    D: Directory,
+  {
+    let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
+    let mut input = dir.open_checksum_input(&file_name)?;
+
+    let mut prior_e: Option<LuceneError> = None;
+    let mut si: Option<SegmentInfo<D>> = None;
     {
-        let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
-        let mut input = dir.open_checksum_input(&file_name)?;
-
-        let mut prior_e: Option<LuceneError> = None;
-        let mut si: Option<SegmentInfo<D>> = None;
-        {
-            let result = {
-                let check_result = CodecUtil::check_index_header(
-                    &mut input,
-                    Lucene99SegmentInfoFormat::CODEC_NAME,
-                    Lucene99SegmentInfoFormat::VERSION_START,
-                    Lucene99SegmentInfoFormat::VERSION_CURRENT,
-                    segment_id,
-                    "",
-                );
-                match check_result {
-                    Ok(_) => {
-                        match Self::parse_segment_info(dir.clone(), &mut input, segment, segment_id)
-                        {
-                            Ok(parsed_info) => {
-                                si = Some(parsed_info);
-                                Ok(())
-                            },
-                            Err(e) => Err(e),
-                        }
-                    },
-                    Err(e) => Err(e),
-                }
-            };
-
-            // Catch the exception if there was one during the reading process
-            if let Err(exception) = result {
-                prior_e = Some(exception);
-            }
+      let result = {
+        let check_result = CodecUtil::check_index_header(
+          &mut input,
+          Lucene99SegmentInfoFormat::CODEC_NAME,
+          Lucene99SegmentInfoFormat::VERSION_START,
+          Lucene99SegmentInfoFormat::VERSION_CURRENT,
+          segment_id,
+          "",
+        );
+        match check_result {
+          Ok(_) => match Self::parse_segment_info(dir.clone(), &mut input, segment, segment_id) {
+            Ok(parsed_info) => {
+              si = Some(parsed_info);
+              Ok(())
+            },
+            Err(e) => Err(e),
+          },
+          Err(e) => Err(e),
         }
-        if let Some(e) = prior_e {
-            return Err(CodecUtil::check_footer_with_error(&mut input, e));
-        } else {
-            CodecUtil::check_footer(&mut input)?;
-        }
+      };
 
-        si.ok_or_else(|| {
-            LuceneError::corrupt_index(format!("Failed to parse segment info for {segment}"))
-        })
+      // Catch the exception if there was one during the reading process
+      if let Err(exception) = result {
+        prior_e = Some(exception);
+      }
+    }
+    if let Some(e) = prior_e {
+      return Err(CodecUtil::check_footer_with_error(&mut input, e));
+    } else {
+      CodecUtil::check_footer(&mut input)?;
     }
 
-    fn write<D>(
-        &self,
-        dir: &impl Directory,
-        si: &mut SegmentInfo<D>,
-        io_context: &IOContext,
-    ) -> Result<()>
-    where
-        D: Directory,
-    {
-        let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
-        let mut output = dir.create_output(&file_name, io_context)?;
-        si.add_file(file_name)?;
-        CodecUtil::write_index_header(
-            &mut output,
-            Lucene99SegmentInfoFormat::CODEC_NAME,
-            Lucene99SegmentInfoFormat::VERSION_CURRENT,
-            si.get_id(),
-            "",
-        )?;
-        Self::write_segment_info(&mut output, si)?;
-        CodecUtil::write_footer(&mut output)?;
-        Ok(())
-    }
+    si.ok_or_else(|| {
+      LuceneError::corrupt_index(format!("Failed to parse segment info for {segment}"))
+    })
+  }
+
+  fn write<D>(
+    &self,
+    dir: &impl Directory,
+    si: &mut SegmentInfo<D>,
+    io_context: &IOContext,
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
+    let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
+    let mut output = dir.create_output(&file_name, io_context)?;
+    si.add_file(file_name)?;
+    CodecUtil::write_index_header(
+      &mut output,
+      Lucene99SegmentInfoFormat::CODEC_NAME,
+      Lucene99SegmentInfoFormat::VERSION_CURRENT,
+      si.get_id(),
+      "",
+    )?;
+    Self::write_segment_info(&mut output, si)?;
+    CodecUtil::write_footer(&mut output)?;
+    Ok(())
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::core::util::error::lucene_error::Result;
-    use crate::core::util::{LATEST, Version};
-    use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-    use crate::test::core::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::core::util::{LATEST, Version};
+  use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+  use crate::test::core::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
-    pub struct TestLucene99SegmentInfoFormat;
+  pub struct TestLucene99SegmentInfoFormat;
 
-    impl BaseIndexFileFormatTestCase for TestLucene99SegmentInfoFormat {}
+  impl BaseIndexFileFormatTestCase for TestLucene99SegmentInfoFormat {}
 
-    impl BaseSegmentInfoFormatTestCase for TestLucene99SegmentInfoFormat {
-        fn get_versions(&self) -> Vec<Version> {
-            Vec::from([LATEST.clone()])
-        }
+  impl BaseSegmentInfoFormatTestCase for TestLucene99SegmentInfoFormat {
+    fn get_versions(&self) -> Vec<Version> {
+      Vec::from([LATEST.clone()])
     }
+  }
 
-    #[test]
-    fn test_files() -> Result<()> {
-        let mut random = random();
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_files(&mut random)
-    }
-    #[test]
-    fn test_has_blocks() -> Result<()> {
-        let mut random = random();
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_has_blocks(&mut random)
-    }
-    #[test]
-    fn test_adds_self_to_files() -> Result<()> {
-        let mut random = random();
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_adds_self_to_files(&mut random)
-    }
-    #[test]
-    fn test_diagnostics() -> Result<()> {
-        let mut random = random();
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_diagnostics(&mut random)
-    }
-    #[test]
-    fn test_attributes() -> Result<()> {
-        let mut random = random();
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_attributes(&mut random)
-    }
-    #[test]
-    fn test_unique_id() -> Result<()> {
-        let mut random = random();
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_unique_id(&mut random)
-    }
-    #[test]
-    fn test_versions() -> Result<()> {
-        let mut random = random();
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_versions(&mut random)
-    }
-    #[test]
-    fn test_sort() -> Result<()> {
-        let mut random = random();
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_sort(&mut random)
-    }
-    #[test]
-    fn test_exception_on_create_output() -> Result<()> {
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_exception_on_create_output()
-    }
-    #[test]
-    fn test_exception_on_close_output() -> Result<()> {
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_exception_on_close_output()
-    }
-    #[test]
-    fn test_exception_on_open_input() -> Result<()> {
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_exception_on_open_input()
-    }
-    #[test]
-    fn test_exception_on_close_input() -> Result<()> {
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_exception_on_close_input()
-    }
-    #[test]
-    fn test_random() -> Result<()> {
-        let mut random = random();
-        let test = TestLucene99SegmentInfoFormat;
-        test.test_random(&mut random)
-    }
+  #[test]
+  fn test_files() -> Result<()> {
+    let mut random = random();
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_files(&mut random)
+  }
+  #[test]
+  fn test_has_blocks() -> Result<()> {
+    let mut random = random();
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_has_blocks(&mut random)
+  }
+  #[test]
+  fn test_adds_self_to_files() -> Result<()> {
+    let mut random = random();
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_adds_self_to_files(&mut random)
+  }
+  #[test]
+  fn test_diagnostics() -> Result<()> {
+    let mut random = random();
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_diagnostics(&mut random)
+  }
+  #[test]
+  fn test_attributes() -> Result<()> {
+    let mut random = random();
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_attributes(&mut random)
+  }
+  #[test]
+  fn test_unique_id() -> Result<()> {
+    let mut random = random();
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_unique_id(&mut random)
+  }
+  #[test]
+  fn test_versions() -> Result<()> {
+    let mut random = random();
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_versions(&mut random)
+  }
+  #[test]
+  fn test_sort() -> Result<()> {
+    let mut random = random();
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_sort(&mut random)
+  }
+  #[test]
+  fn test_exception_on_create_output() -> Result<()> {
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_exception_on_create_output()
+  }
+  #[test]
+  fn test_exception_on_close_output() -> Result<()> {
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_exception_on_close_output()
+  }
+  #[test]
+  fn test_exception_on_open_input() -> Result<()> {
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_exception_on_open_input()
+  }
+  #[test]
+  fn test_exception_on_close_input() -> Result<()> {
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_exception_on_close_input()
+  }
+  #[test]
+  fn test_random() -> Result<()> {
+    let mut random = random();
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_random(&mut random)
+  }
 }

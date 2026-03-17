@@ -27,86 +27,86 @@ use crate::core::util::error::lucene_error::Result;
 /// works for both single-valued and multi-valued types.
 pub struct SingletonSortedNumericDocValues<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    inner: Option<N>,
+  inner: Option<N>,
 }
 
 impl<N> SingletonSortedNumericDocValues<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    pub fn new(inner: N) -> Result<Self> {
-        if inner.doc_id() != -1 {
-            return Err(LuceneError::illegal_state(format!(
-                "iterator has already been used: docID={}",
-                inner.doc_id()
-            )));
-        }
-        Ok(Self { inner: Some(inner) })
+  pub fn new(inner: N) -> Result<Self> {
+    if inner.doc_id() != -1 {
+      return Err(LuceneError::illegal_state(format!(
+        "iterator has already been used: docID={}",
+        inner.doc_id()
+      )));
     }
+    Ok(Self { inner: Some(inner) })
+  }
 }
 
 impl<N> DocIdSetIterator for SingletonSortedNumericDocValues<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        self.inner.as_ref().unwrap().doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.inner.as_ref().unwrap().doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.inner.as_mut().unwrap().next_doc()
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.inner.as_mut().unwrap().next_doc()
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.as_mut().unwrap().advance(target)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.as_mut().unwrap().advance(target)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.inner.as_ref().unwrap().cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.inner.as_ref().unwrap().cost()
+  }
 }
 
 impl<N> DocValuesIterator for SingletonSortedNumericDocValues<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.inner.as_mut().unwrap().advance_exact(target)
-    }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    self.inner.as_mut().unwrap().advance_exact(target)
+  }
 }
 
 impl<N> SortedNumericDocValues for SingletonSortedNumericDocValues<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn next_value(&mut self) -> Result<i64> {
-        self.inner.as_mut().unwrap().long_value()
-    }
+  fn next_value(&mut self) -> Result<i64> {
+    self.inner.as_mut().unwrap().long_value()
+  }
 
-    fn doc_value_count(&mut self) -> Result<i32> {
-        Ok(1)
-    }
+  fn doc_value_count(&mut self) -> Result<i32> {
+    Ok(1)
+  }
 
-    fn is_single_valued(&self) -> bool {
-        true
-    }
+  fn is_single_valued(&self) -> bool {
+    true
+  }
 
-    type NumericDocValues = N;
+  type NumericDocValues = N;
 
-    fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
-        match self.inner.take() {
-            Some(inner) => {
-                if inner.doc_id() != -1 {
-                    return Err(LuceneError::illegal_state(format!(
-                        "iterator has already been used: docID={}",
-                        inner.doc_id()
-                    )));
-                }
-                Ok(inner)
-            },
-            None => Err(LuceneError::illegal_state("inner is None")),
+  fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
+    match self.inner.take() {
+      Some(inner) => {
+        if inner.doc_id() != -1 {
+          return Err(LuceneError::illegal_state(format!(
+            "iterator has already been used: docID={}",
+            inner.doc_id()
+          )));
         }
+        Ok(inner)
+      },
+      None => Err(LuceneError::illegal_state("inner is None")),
     }
+  }
 }

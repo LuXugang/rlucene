@@ -23,39 +23,39 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 
 pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
-    /// Returns the segments file (`segments_N`) associated with this commit point.
-    fn get_segments_file_name(&self) -> &str;
-    /// Returns all index files referenced by this commit point.
-    fn get_file_names(&self) -> Result<&[String]>;
-    type Directory: Directory;
-    /// Returns the [`Directory`] for the index.
-    fn get_directory(&self) -> Arc<Self::Directory>;
-    /// Delete this commit point. This only applies when using the commit point in the context of
-    /// `IndexWriter`’s `IndexDeletionPolicy`.
-    ///
-    /// Upon calling this, the writer is notified that this commit point should be deleted.
-    ///
-    /// Decision that a commit-point should be deleted is taken by the [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy)
-    /// in effect and therefore this should only be called by its
-    /// [`IndexDeletionPolicy::on_init()`](crate::core::index::index_deletion_policy::IndexDeletionPolicy::on_init) or [`IndexDeletionPolicy::on_commit()`](crate::core::index::index_deletion_policy::IndexDeletionPolicy::on_commit) methods.
-    fn delete(&mut self) -> Result<()>;
-    /// Returns `true` if this commit should be deleted; this is only used by [`IndexWriter`](crate::core::index::index_writer::IndexWriter) after
-    /// invoking the [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy).
-    fn is_deleted(&self) -> bool;
-    /// Returns number of segments referenced by this commit.
-    fn get_segment_count(&self) -> usize;
-    /// Returns the generation (the _N in segments_N) for this IndexCommit
-    fn get_generation(&self) -> i64;
-    /// Returns `user_data`, previously passed to [`IndexWriter::set_live_commit_data()`](crate::core::index::index_writer::IndexWriter::set_live_commit_data) for this commit. The map is `String` → `String`.
-    fn user_data(&self) -> &HashMap<String, String>;
-    type LeafReader: LeafReader + Clone;
-    type Comparator: Comparator<Self::LeafReader>;
-    fn get_reader(
-        &self,
-    ) -> Option<StandardDirectoryReader<Self::LeafReader, Self::Comparator, Self::Directory>> where
-    {
-        None
-    }
+  /// Returns the segments file (`segments_N`) associated with this commit point.
+  fn get_segments_file_name(&self) -> &str;
+  /// Returns all index files referenced by this commit point.
+  fn get_file_names(&self) -> Result<&[String]>;
+  type Directory: Directory;
+  /// Returns the [`Directory`] for the index.
+  fn get_directory(&self) -> Arc<Self::Directory>;
+  /// Delete this commit point. This only applies when using the commit point in the context of
+  /// `IndexWriter`’s `IndexDeletionPolicy`.
+  ///
+  /// Upon calling this, the writer is notified that this commit point should be deleted.
+  ///
+  /// Decision that a commit-point should be deleted is taken by the [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy)
+  /// in effect and therefore this should only be called by its
+  /// [`IndexDeletionPolicy::on_init()`](crate::core::index::index_deletion_policy::IndexDeletionPolicy::on_init) or [`IndexDeletionPolicy::on_commit()`](crate::core::index::index_deletion_policy::IndexDeletionPolicy::on_commit) methods.
+  fn delete(&mut self) -> Result<()>;
+  /// Returns `true` if this commit should be deleted; this is only used by [`IndexWriter`](crate::core::index::index_writer::IndexWriter) after
+  /// invoking the [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy).
+  fn is_deleted(&self) -> bool;
+  /// Returns number of segments referenced by this commit.
+  fn get_segment_count(&self) -> usize;
+  /// Returns the generation (the _N in segments_N) for this IndexCommit
+  fn get_generation(&self) -> i64;
+  /// Returns `user_data`, previously passed to [`IndexWriter::set_live_commit_data()`](crate::core::index::index_writer::IndexWriter::set_live_commit_data) for this commit. The map is `String` → `String`.
+  fn user_data(&self) -> &HashMap<String, String>;
+  type LeafReader: LeafReader + Clone;
+  type Comparator: Comparator<Self::LeafReader>;
+  fn get_reader(
+    &self,
+  ) -> Option<StandardDirectoryReader<Self::LeafReader, Self::Comparator, Self::Directory>> where
+  {
+    None
+  }
 }
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::Comparator;
@@ -63,14 +63,14 @@ use std::cmp::Ordering;
 
 pub fn is_same_commit<T>(a: &T, b: &T) -> bool
 where
-    T: IndexCommit,
+  T: IndexCommit,
 {
-    Arc::ptr_eq(&a.get_directory(), &b.get_directory()) && a.get_generation() == b.get_generation()
+  Arc::ptr_eq(&a.get_directory(), &b.get_directory()) && a.get_generation() == b.get_generation()
 }
 pub fn cmp_commit<T>(a: &T, b: &T) -> Ordering
 where
-    T: IndexCommit,
+  T: IndexCommit,
 {
-    debug_assert!(Arc::ptr_eq(&a.get_directory(), &b.get_directory()));
-    a.get_generation().cmp(&b.get_generation())
+  debug_assert!(Arc::ptr_eq(&a.get_directory(), &b.get_directory()));
+  a.get_generation().cmp(&b.get_generation())
 }

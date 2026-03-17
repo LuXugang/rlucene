@@ -19,33 +19,33 @@ use strum_macros::{Display, EnumCount, FromRepr};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, EnumCount, Display)]
 #[repr(u8)]
 pub enum VectorEncoding {
-    /**
-     * Encodes vector using 8 bits of precision per sample. Values provided
-     * with higher precision (e.g., queries provided as float) *must*
-     * be in the range [-128, 127]. NOTE: this can enable significant
-     * storage savings and faster searches, at the cost of some possible
-     * loss of precision.
-     */
-    BYTE(i32),
+  /**
+   * Encodes vector using 8 bits of precision per sample. Values provided
+   * with higher precision (e.g., queries provided as float) *must*
+   * be in the range [-128, 127]. NOTE: this can enable significant
+   * storage savings and faster searches, at the cost of some possible
+   * loss of precision.
+   */
+  BYTE(i32),
 
-    /// Encodes vector using 32 bits of precision per sample in IEEE floating
-    /// point format.
-    FLOAT32(i32),
+  /// Encodes vector using 32 bits of precision per sample in IEEE floating
+  /// point format.
+  FLOAT32(i32),
 }
 
 impl VectorEncoding {
-    /// The number of bytes required to encode a scalar in this format.
-    /// A vector will nominally require dimension * byteSize bytes of storage.
-    pub fn byte_size(&self) -> i32 {
-        match self {
-            VectorEncoding::BYTE(size) => *size,
-            VectorEncoding::FLOAT32(size) => *size,
-        }
+  /// The number of bytes required to encode a scalar in this format.
+  /// A vector will nominally require dimension * byteSize bytes of storage.
+  pub fn byte_size(&self) -> i32 {
+    match self {
+      VectorEncoding::BYTE(size) => *size,
+      VectorEncoding::FLOAT32(size) => *size,
     }
+  }
 }
 
 impl Default for VectorEncoding {
-    fn default() -> Self {
-        VectorEncoding::BYTE(1)
-    }
+  fn default() -> Self {
+    VectorEncoding::BYTE(1)
+  }
 }

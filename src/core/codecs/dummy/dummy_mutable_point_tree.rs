@@ -24,76 +24,76 @@ use std::borrow::Cow;
 pub struct DummyMutablePointTree;
 
 impl TryClone for DummyMutablePointTree {
-    fn try_clone(&self) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl PointTree for DummyMutablePointTree {
-    fn move_to_child(&mut self) -> Result<bool> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn move_to_child(&mut self) -> Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn move_to_sibling(&mut self) -> Result<bool> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn move_to_sibling(&mut self) -> Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn move_to_parent(&mut self) -> Result<bool> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn move_to_parent(&mut self) -> Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn size(&self) -> Result<usize> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn size(&self) -> Result<usize> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn visit_doc_ids<IV>(&mut self, _visitor: &mut IV) -> Result<()>
-    where
-        IV: IntersectVisitor,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn visit_doc_ids<IV>(&mut self, _visitor: &mut IV) -> Result<()>
+  where
+    IV: IntersectVisitor,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn visit_doc_values<IV>(&mut self, _visitor: &mut IV) -> Result<()>
-    where
-        IV: IntersectVisitor,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn visit_doc_values<IV>(&mut self, _visitor: &mut IV) -> Result<()>
+  where
+    IV: IntersectVisitor,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl MutablePointTree for DummyMutablePointTree {
-    fn get_value(&self, _i: usize, _packed_value: &mut BytesRef<Vec<u8>>) {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_value(&self, _i: usize, _packed_value: &mut BytesRef<Vec<u8>>) {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_byte_at(&self, _i: usize, _k: usize) -> u8 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_byte_at(&self, _i: usize, _k: usize) -> u8 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_doc_id(&self, _i: usize) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_doc_id(&self, _i: usize) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn swap(&mut self, _i: usize, _j: usize) {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn swap(&mut self, _i: usize, _j: usize) {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn save(&mut self, _i: usize, _j: usize) {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn save(&mut self, _i: usize, _j: usize) {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn restore(&mut self, _i: usize, _j: usize) {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn restore(&mut self, _i: usize, _j: usize) {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

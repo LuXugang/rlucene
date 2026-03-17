@@ -25,46 +25,44 @@ use std::collections::HashSet;
 
 pub struct DummyStoredFields;
 impl StoredFields for DummyStoredFields {
-    fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn document(&mut self, _doc_id: i32) -> Result<Document> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn document(&mut self, _doc_id: i32) -> Result<Document> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn document_with_visitor<S: StoredFieldsWriter>(
-        &mut self,
-        _doc_id: i32,
-        _visitor: &mut impl StoredFieldVisitor,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn document_with_visitor<S: StoredFieldsWriter>(
+    &mut self,
+    _doc_id: i32,
+    _visitor: &mut impl StoredFieldVisitor,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn document_with_fields(
-        &mut self,
-        _doc_id: i32,
-        _fields_to_load: &HashSet<String>,
-    ) -> Result<Document> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn document_with_fields(
+    &mut self,
+    _doc_id: i32,
+    _fields_to_load: &HashSet<String>,
+  ) -> Result<Document> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl RawStoredFieldsReader for DummyStoredFields {
-    type IndexInput = DummyIndexInput;
+  type IndexInput = DummyIndexInput;
 
-    fn raw_stored_fields_mut(
-        &mut self,
-    ) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
-        Err(LuceneError::illegal_state(
-            "DummyStoredFields has no raw stored fields reader",
-        ))
-    }
+  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+    Err(LuceneError::illegal_state(
+      "DummyStoredFields has no raw stored fields reader",
+    ))
+  }
 
-    fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
-        Err(LuceneError::illegal_state(
-            "DummyStoredFields has no raw stored fields reader",
-        ))
-    }
+  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
+    Err(LuceneError::illegal_state(
+      "DummyStoredFields has no raw stored fields reader",
+    ))
+  }
 }

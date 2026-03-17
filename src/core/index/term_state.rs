@@ -21,6 +21,6 @@ use crate::core::util::error::lucene_error::Result;
 /// Encapsulates all required internal state to position the associated
 /// [`TermsEnum`](crate::core::index::terms_enum::TermsEnum) without re-seeking.
 pub trait TermState: Display + Clone {
-    /// Copies the content of the given `TermState` to this instance.
-    fn copy_from(&mut self, other: &Self) -> Result<()>;
+  /// Copies the content of the given `TermState` to this instance.
+  fn copy_from(&mut self, other: &Self) -> Result<()>;
 }

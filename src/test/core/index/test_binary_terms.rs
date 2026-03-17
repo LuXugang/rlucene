@@ -25,7 +25,7 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_field, new_searcher_with_reader, new_string_field_binary, random,
+  new_directory_shared, new_field, new_searcher_with_reader, new_string_field_binary, random,
 };
 use std::collections::HashMap;
 
@@ -33,66 +33,66 @@ use std::collections::HashMap;
 struct TestBinaryTerms;
 #[test]
 fn test_binary() -> Result<()> {
-    let mut random = random();
-    let directory = new_directory_shared(&mut random)?;
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
 
-    let iw = RandomIndexWriter::new(&mut random, directory.clone());
-    let mut field_types = HashMap::new();
-    let mut bytes: BytesRef<Vec<u8>> = BytesRef::with_capacity(2);
+  let iw = RandomIndexWriter::new(&mut random, directory.clone());
+  let mut field_types = HashMap::new();
+  let mut bytes: BytesRef<Vec<u8>> = BytesRef::with_capacity(2);
 
-    for i in 0..256u16 {
-        bytes.bytes[0] = i as u8;
-        bytes.bytes[1] = (255 - i) as u8;
-        bytes.length = 2;
+  for i in 0..256u16 {
+    bytes.bytes[0] = i as u8;
+    bytes.bytes[1] = (255 - i) as u8;
+    bytes.length = 2;
 
-        let mut doc = Document::new();
+    let mut doc = Document::new();
 
-        let mut custom_type = FieldType::default();
-        custom_type.set_stored(true)?;
-        doc.add(new_field(
-            &mut random,
-            "id",
-            i.to_string(),
-            &custom_type,
-            &mut field_types,
-        )?);
-        doc.add(new_string_field_binary(
-            &mut random,
-            "bytes",
-            bytes.clone(),
-            No,
-            &mut field_types,
-        )?);
+    let mut custom_type = FieldType::default();
+    custom_type.set_stored(true)?;
+    doc.add(new_field(
+      &mut random,
+      "id",
+      i.to_string(),
+      &custom_type,
+      &mut field_types,
+    )?);
+    doc.add(new_string_field_binary(
+      &mut random,
+      "bytes",
+      bytes.clone(),
+      No,
+      &mut field_types,
+    )?);
 
-        iw.add_document(doc)?;
-    }
+    iw.add_document(doc)?;
+  }
 
-    let ir = iw.get_reader()?;
-    let is = new_searcher_with_reader(ir)?;
+  let ir = iw.get_reader()?;
+  let is = new_searcher_with_reader(ir)?;
 
-    for i in 0..256u16 {
-        bytes.bytes[0] = i as u8;
-        bytes.bytes[1] = (255 - i) as u8;
-        bytes.length = 2;
-        let term = Term::new("bytes", bytes.clone());
-        let query = TermQuery::new(term);
-        let docs = is.search(query, 5)?;
-        assert_eq!(docs.total_hits().value(), 1);
-        let v = is
-            .stored_fields()?
-            .document(docs.score_docs[0].doc)?
-            .get("id")?
-            .unwrap()
-            .to_string();
-        assert_eq!(v, i.to_string());
-    }
+  for i in 0..256u16 {
+    bytes.bytes[0] = i as u8;
+    bytes.bytes[1] = (255 - i) as u8;
+    bytes.length = 2;
+    let term = Term::new("bytes", bytes.clone());
+    let query = TermQuery::new(term);
+    let docs = is.search(query, 5)?;
+    assert_eq!(docs.total_hits().value(), 1);
+    let v = is
+      .stored_fields()?
+      .document(docs.score_docs[0].doc)?
+      .get("id")?
+      .unwrap()
+      .to_string();
+    assert_eq!(v, i.to_string());
+  }
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_to_string() -> Result<()> {
-    let bytes = BytesRef::from_bytes(vec![0xffu8, 0xfeu8]);
-    let term = Term::new("foo", bytes);
-    assert_eq!("foo:[ff fe]", term.to_string());
-    Ok(())
+  let bytes = BytesRef::from_bytes(vec![0xffu8, 0xfeu8]);
+  let term = Term::new("foo", bytes);
+  assert_eq!("foo:[ff fe]", term.to_string());
+  Ok(())
 }

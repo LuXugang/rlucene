@@ -24,53 +24,53 @@ use std::sync::Arc;
 /// @lucene.experimental
 pub struct SegmentReadState<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    /// Directory where this segment is read from.
-    pub directory: &'a D,
+  /// Directory where this segment is read from.
+  pub directory: &'a D,
 
-    /// FieldInfos describing all fields in this segment.
-    pub field_infos: Arc<FieldInfos>,
+  /// FieldInfos describing all fields in this segment.
+  pub field_infos: Arc<FieldInfos>,
 
-    /// IOContext to pass to Directory::open_input.
-    pub context: &'a IOContext,
+  /// IOContext to pass to Directory::open_input.
+  pub context: &'a IOContext,
 
-    /// Unique suffix for any postings files read for this segment.
-    pub segment_suffix: String,
+  /// Unique suffix for any postings files read for this segment.
+  pub segment_suffix: String,
 }
 
 impl<'a, D> SegmentReadState<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    /// Creates a SegmentReadState with an empty segment suffix.
-    pub fn new(directory: &'a D, field_infos: Arc<FieldInfos>, context: &'a IOContext) -> Self {
-        Self::with_suffix(directory, field_infos, context, "")
-    }
+  /// Creates a SegmentReadState with an empty segment suffix.
+  pub fn new(directory: &'a D, field_infos: Arc<FieldInfos>, context: &'a IOContext) -> Self {
+    Self::with_suffix(directory, field_infos, context, "")
+  }
 
-    /// Creates a SegmentReadState with a custom segment suffix.
-    pub fn with_suffix(
-        directory: &'a D,
-        field_infos: Arc<FieldInfos>,
-        context: &'a IOContext,
-        segment_suffix: &str,
-    ) -> Self {
-        Self {
-            directory,
-            field_infos,
-            context,
-            segment_suffix: segment_suffix.to_string(),
-        }
+  /// Creates a SegmentReadState with a custom segment suffix.
+  pub fn with_suffix(
+    directory: &'a D,
+    field_infos: Arc<FieldInfos>,
+    context: &'a IOContext,
+    segment_suffix: &str,
+  ) -> Self {
+    Self {
+      directory,
+      field_infos,
+      context,
+      segment_suffix: segment_suffix.to_string(),
     }
+  }
 
-    /// Creates a copy of an existing SegmentReadState with a different segment
-    /// suffix.
-    pub fn copy_with_suffix(other: &'a mut SegmentReadState<'_, D>, segment_suffix: &str) -> Self {
-        Self {
-            directory: other.directory,
-            field_infos: other.field_infos.clone(),
-            context: other.context,
-            segment_suffix: segment_suffix.to_string(),
-        }
+  /// Creates a copy of an existing SegmentReadState with a different segment
+  /// suffix.
+  pub fn copy_with_suffix(other: &'a mut SegmentReadState<'_, D>, segment_suffix: &str) -> Self {
+    Self {
+      directory: other.directory,
+      field_infos: other.field_infos.clone(),
+      context: other.context,
+      segment_suffix: segment_suffix.to_string(),
     }
+  }
 }

@@ -25,80 +25,80 @@ use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
 
 pub struct MockAnalyzer {
-    in_: WhitespaceAnalyzer,
+  in_: WhitespaceAnalyzer,
 }
 impl MockAnalyzer {
-    pub fn new<R: Rng + ?Sized>(_random: &mut R) -> MockAnalyzer {
-        // TODO IMPORTANT only support WhitespaceAnalyzer now
-        MockAnalyzer {
-            in_: WhitespaceAnalyzer::new(),
-        }
+  pub fn new<R: Rng + ?Sized>(_random: &mut R) -> MockAnalyzer {
+    // TODO IMPORTANT only support WhitespaceAnalyzer now
+    MockAnalyzer {
+      in_: WhitespaceAnalyzer::new(),
     }
-    pub fn set_enable_checks(&mut self, _enable_checks: bool) {}
+  }
+  pub fn set_enable_checks(&mut self, _enable_checks: bool) {}
 }
 impl Analyzer for MockAnalyzer {
-    fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
-        self.in_.create_components(field)
-    }
+  fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
+    self.in_.create_components(field)
+  }
 
-    fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
-        self.in_.init_reuse_strategy()
-    }
+  fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
+    self.in_.init_reuse_strategy()
+  }
 
-    type TokenStream<TS>
-        = TS
-    where
-        TS: TokenStream;
+  type TokenStream<TS>
+    = TS
+  where
+    TS: TokenStream;
 
-    fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-    where
-        TS: TokenStream + Into<TokenStreams>,
-    {
-        self.in_.normalize_from_ts(_field_name, in_)
-    }
+  fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
+  where
+    TS: TokenStream + Into<TokenStreams>,
+  {
+    self.in_.normalize_from_ts(_field_name, in_)
+  }
 
-    fn default_normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<TS>
-    where
-        TS: TokenStream,
-    {
-        self.in_.default_normalize_from_ts(_field_name, in_)
-    }
+  fn default_normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<TS>
+  where
+    TS: TokenStream,
+  {
+    self.in_.default_normalize_from_ts(_field_name, in_)
+  }
 
-    fn ensure_reuse_strategy<'a>(
-        &'a self,
-        slot: &'a mut Option<ReuseStrategyEnum>,
-    ) -> &'a mut ReuseStrategyEnum {
-        self.in_.ensure_reuse_strategy(slot)
-    }
+  fn ensure_reuse_strategy<'a>(
+    &'a self,
+    slot: &'a mut Option<ReuseStrategyEnum>,
+  ) -> &'a mut ReuseStrategyEnum {
+    self.in_.ensure_reuse_strategy(slot)
+  }
 
-    fn token_stream<R>(&self, field_name: &str, input: R) -> Result<()>
-    where
-        R: Into<ReaderEnum>,
-    {
-        self.in_.token_stream(field_name, input)
-    }
+  fn token_stream<R>(&self, field_name: &str, input: R) -> Result<()>
+  where
+    R: Into<ReaderEnum>,
+  {
+    self.in_.token_stream(field_name, input)
+  }
 
-    fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
-        self.in_.normalize(field_name, text)
-    }
+  fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
+    self.in_.normalize(field_name, text)
+  }
 
-    fn init_reader(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
-        self.in_.init_reader(_filed_name, reader)
-    }
+  fn init_reader(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
+    self.in_.init_reader(_filed_name, reader)
+  }
 
-    fn init_reader_for_normalization(&self, filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
-        self.in_.init_reader_for_normalization(filed_name, reader)
-    }
+  fn init_reader_for_normalization(&self, filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
+    self.in_.init_reader_for_normalization(filed_name, reader)
+  }
 
-    fn attribute_factory(&self, field_name: &str) -> Attributes {
-        self.in_.attribute_factory(field_name)
-    }
+  fn attribute_factory(&self, field_name: &str) -> Attributes {
+    self.in_.attribute_factory(field_name)
+  }
 
-    fn get_position_increment_gap(&self, field_name: &str) -> i32 {
-        self.in_.get_position_increment_gap(field_name)
-    }
+  fn get_position_increment_gap(&self, field_name: &str) -> i32 {
+    self.in_.get_position_increment_gap(field_name)
+  }
 
-    fn get_offset_gap(&self, _field_name: &str) -> i32 {
-        self.in_.get_offset_gap(_field_name)
-    }
+  fn get_offset_gap(&self, _field_name: &str) -> i32 {
+    self.in_.get_offset_gap(_field_name)
+  }
 }

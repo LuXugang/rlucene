@@ -30,24 +30,24 @@ use std::collections::HashSet;
 /// stored fields for a document, implement `clone()`(creating clones of any
 /// IndexInputs used, etc)
 pub trait StoredFieldsReader: StoredFields + Clone {
-    /// Checks consistency of this reader.
-    ///
-    /// Note that this may be costly in terms of I/O, e.g. may involve computing
-    /// a checksum value against large data files.
-    fn check_integrity(&self) -> Result<()>;
-    /// Returns an instance optimized for merging. This instance may only be
-    /// cloned # Note
-    /// Returning None means returning itself.
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        Ok(None)
-    }
+  /// Checks consistency of this reader.
+  ///
+  /// Note that this may be costly in terms of I/O, e.g. may involve computing
+  /// a checksum value against large data files.
+  fn check_integrity(&self) -> Result<()>;
+  /// Returns an instance optimized for merging. This instance may only be
+  /// cloned # Note
+  /// Returning None means returning itself.
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    Ok(None)
+  }
 }
 
 pub type DefaultStoredFieldsReader<I> =
-    <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsReader<I>;
+  <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsReader<I>;
 
 macro_rules! either_stored_fields_reader {
     ($vis:vis $name:ident { $FirstVariant:ident : $First:ident, $( $Variant:ident : $T:ident ),+ $(,)? }) => {
@@ -151,24 +151,22 @@ either_stored_fields_reader!(pub StoredFieldsReaderEnum2 { A: A, B: B });
 
 impl<A, B> RawStoredFieldsReader for StoredFieldsReaderEnum2<A, B>
 where
-    A: RawStoredFieldsReader,
-    B: RawStoredFieldsReader<IndexInput = A::IndexInput>,
+  A: RawStoredFieldsReader,
+  B: RawStoredFieldsReader<IndexInput = A::IndexInput>,
 {
-    type IndexInput = A::IndexInput;
+  type IndexInput = A::IndexInput;
 
-    fn raw_stored_fields_mut(
-        &mut self,
-    ) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
-        match self {
-            Self::A(inner) => inner.raw_stored_fields_mut(),
-            Self::B(inner) => inner.raw_stored_fields_mut(),
-        }
+  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+    match self {
+      Self::A(inner) => inner.raw_stored_fields_mut(),
+      Self::B(inner) => inner.raw_stored_fields_mut(),
     }
+  }
 
-    fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
-        match self {
-            Self::A(inner) => inner.raw_stored_fields(),
-            Self::B(inner) => inner.raw_stored_fields(),
-        }
+  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
+    match self {
+      Self::A(inner) => inner.raw_stored_fields(),
+      Self::B(inner) => inner.raw_stored_fields(),
     }
+  }
 }

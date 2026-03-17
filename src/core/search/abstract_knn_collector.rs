@@ -21,56 +21,56 @@ use crate::core::util::error::lucene_error::Result;
 ///  AbstractKnnCollector is the default implementation for a knn collector used
 ///  for gathering kNN results and providing topDocs from the gathered neighbors
 pub struct AbstractKnnCollector {
-    visited_count: usize,
-    visit_limit: usize,
-    k: usize,
+  visited_count: usize,
+  visit_limit: usize,
+  k: usize,
 }
 
 impl AbstractKnnCollector {
-    pub fn new(k: usize, visit_limit: usize) -> Self {
-        Self {
-            visited_count: 0,
-            visit_limit,
-            k,
-        }
+  pub fn new(k: usize, visit_limit: usize) -> Self {
+    Self {
+      visited_count: 0,
+      visit_limit,
+      k,
     }
+  }
 }
 impl KnnCollector for AbstractKnnCollector {
-    fn early_terminated(&self) -> bool {
-        self.visited_count >= self.visit_limit
-    }
+  fn early_terminated(&self) -> bool {
+    self.visited_count >= self.visit_limit
+  }
 
-    fn inc_visited_count(&mut self, count: usize) {
-        self.visited_count += count;
-    }
+  fn inc_visited_count(&mut self, count: usize) {
+    self.visited_count += count;
+  }
 
-    fn visited_count(&self) -> usize {
-        self.visited_count
-    }
+  fn visited_count(&self) -> usize {
+    self.visited_count
+  }
 
-    fn visit_limit(&self) -> usize {
-        self.visit_limit
-    }
+  fn visit_limit(&self) -> usize {
+    self.visit_limit
+  }
 
-    fn k(&self) -> usize {
-        self.k
-    }
+  fn k(&self) -> usize {
+    self.k
+  }
 
-    fn collect(&mut self, _doc_id: usize, _similarity: f32) -> bool {
-        unimplemented!()
-    }
+  fn collect(&mut self, _doc_id: usize, _similarity: f32) -> bool {
+    unimplemented!()
+  }
 
-    fn min_competitive_similarity(&self) -> f32 {
-        unimplemented!()
-    }
+  fn min_competitive_similarity(&self) -> f32 {
+    unimplemented!()
+  }
 
-    type Item = DummyScoreDocLike;
+  type Item = DummyScoreDocLike;
 
-    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
-        unimplemented!()
-    }
+  fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
+    unimplemented!()
+  }
 }
 
 pub trait AbstractKnnCollectorBase {
-    fn num_collected(&self) -> usize;
+  fn num_collected(&self) -> usize;
 }

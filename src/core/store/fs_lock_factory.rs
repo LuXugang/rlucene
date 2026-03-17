@@ -25,24 +25,24 @@ use crate::core::util::error::lucene_error::Result;
 /// the passed [`Directory`](crate::core::store::directory::Directory)
 /// is an `FSDirectory`.
 pub trait FSLockFactory: LockFactory {
-    /// Returns the default locking implementation for this platform.
-    ///
-    /// This method always returns
-    /// [`native_fs_lock_factory`](NativeFSLockFactory).
-    fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<Self::Lock> {
-        self.obtain_fs_lock(directory, lock_name)
-    }
+  /// Returns the default locking implementation for this platform.
+  ///
+  /// This method always returns
+  /// [`native_fs_lock_factory`](NativeFSLockFactory).
+  fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<Self::Lock> {
+    self.obtain_fs_lock(directory, lock_name)
+  }
 
-    /// Gets a lock for a `fs_directory` instance.
-    ///
-    /// # Errors
-    /// Returns an `io::Error` if the lock could not be obtained.
-    ///
-    /// # Note
-    /// Implement this method to define how the lock should be acquired.
-    fn obtain_fs_lock(&self, directory: &Path, lock_name: &str) -> Result<Self::Lock>;
+  /// Gets a lock for a `fs_directory` instance.
+  ///
+  /// # Errors
+  /// Returns an `io::Error` if the lock could not be obtained.
+  ///
+  /// # Note
+  /// Implement this method to define how the lock should be acquired.
+  fn obtain_fs_lock(&self, directory: &Path, lock_name: &str) -> Result<Self::Lock>;
 }
 
 pub(crate) fn get_default() -> impl FSLockFactory {
-    NativeFSLockFactory::new()
+  NativeFSLockFactory::new()
 }

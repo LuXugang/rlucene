@@ -30,7 +30,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory_shared, new_string_field, random,
+  at_least, new_directory_shared, new_string_field, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -41,80 +41,80 @@ use std::collections::HashMap;
 pub struct TestDocCount;
 #[test]
 fn test_simple() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
-    let num_docs = at_least(&mut random, 100);
-    let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-    for _ in 0..num_docs {
-        iw.add_document(doc(&mut random, &mut field_to_type)?)?;
-    }
+  let num_docs = at_least(&mut random, 100);
+  let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+  for _ in 0..num_docs {
+    iw.add_document(doc(&mut random, &mut field_to_type)?)?;
+  }
 
-    {
-        let ir = iw.get_reader()?;
-        verify_count(&ir, &mut random)?;
-    }
-    iw.force_merge(1)?;
+  {
+    let ir = iw.get_reader()?;
+    verify_count(&ir, &mut random)?;
+  }
+  iw.force_merge(1)?;
 
-    {
-        let ir = iw.get_reader()?;
-        verify_count(&ir, &mut random)?;
-    }
+  {
+    let ir = iw.get_reader()?;
+    verify_count(&ir, &mut random)?;
+  }
 
-    iw.close()?;
-    Ok(())
+  iw.close()?;
+  Ok(())
 }
 fn doc<R: Rng + ?Sized>(
-    random: &mut R,
-    field_to_type: &mut HashMap<String, FieldType>,
+  random: &mut R,
+  field_to_type: &mut HashMap<String, FieldType>,
 ) -> Result<Document> {
-    let mut doc = Document::new();
-    let num_fields = TestUtil::next_int(random, 1, 10);
-    for _ in 0..num_fields {
-        let field_name = char::from_u32(TestUtil::next_int(random, 'a' as i32, 'z' as i32) as u32)
-            .unwrap()
-            .to_string();
-        let field_value = char::from_u32(TestUtil::next_int(random, 'a' as i32, 'z' as i32) as u32)
-            .unwrap()
-            .to_string();
+  let mut doc = Document::new();
+  let num_fields = TestUtil::next_int(random, 1, 10);
+  for _ in 0..num_fields {
+    let field_name = char::from_u32(TestUtil::next_int(random, 'a' as i32, 'z' as i32) as u32)
+      .unwrap()
+      .to_string();
+    let field_value = char::from_u32(TestUtil::next_int(random, 'a' as i32, 'z' as i32) as u32)
+      .unwrap()
+      .to_string();
 
-        doc.add(new_string_field(
-            random,
-            &field_name,
-            &field_value,
-            No,
-            field_to_type,
-        )?);
-    }
-    Ok(doc)
+    doc.add(new_string_field(
+      random,
+      &field_name,
+      &field_value,
+      No,
+      field_to_type,
+    )?);
+  }
+  Ok(doc)
 }
 
 fn verify_count<CR, R: Rng + ?Sized>(reader: &CR, random: &mut R) -> Result<()>
 where
-    CR: CompositeReader,
+  CR: CompositeReader,
 {
-    let max_doc = reader.max_doc()?;
-    let fields = get_indexed_fields(reader)?;
+  let max_doc = reader.max_doc()?;
+  let fields = get_indexed_fields(reader)?;
 
-    for field in fields {
-        let Some(terms) = get_terms(reader, &field)? else {
-            continue;
-        };
+  for field in fields {
+    let Some(terms) = get_terms(reader, &field)? else {
+      continue;
+    };
 
-        let doc_count = terms.get_doc_count()?;
-        let mut visited = FixedBitSet::new(max_doc as usize);
+    let doc_count = terms.get_doc_count()?;
+    let mut visited = FixedBitSet::new(max_doc as usize);
 
-        let mut te = terms.iterator()?;
-        while te.next()?.is_some() {
-            let mut de = TestUtil::docs(random, &mut te, None, NONE as i32)?;
-            while de.next_doc()? != NO_MORE_DOCS {
-                visited.set(de.doc_id() as usize);
-            }
-        }
-
-        assert_eq!(visited.cardinality(), doc_count as usize);
+    let mut te = terms.iterator()?;
+    while te.next()?.is_some() {
+      let mut de = TestUtil::docs(random, &mut te, None, NONE as i32)?;
+      while de.next_doc()? != NO_MORE_DOCS {
+        visited.set(de.doc_id() as usize);
+      }
     }
 
-    Ok(())
+    assert_eq!(visited.cardinality(), doc_count as usize);
+  }
+
+  Ok(())
 }

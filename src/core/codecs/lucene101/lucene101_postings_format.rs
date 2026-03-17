@@ -19,7 +19,7 @@ use std::fmt::{Display, Formatter};
 use crate::core::codecs::block_term_state::BlockTermState;
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader;
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_writer::{
-    DEFAULT_MAX_BLOCK_SIZE, DEFAULT_MIN_BLOCK_SIZE, Lucene90BlockTreeTermsWriter,
+  DEFAULT_MAX_BLOCK_SIZE, DEFAULT_MIN_BLOCK_SIZE, Lucene90BlockTreeTermsWriter,
 };
 use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
@@ -235,128 +235,127 @@ use crate::core::util::error::lucene_error::Result;
 /// - `PayLength` in `PackedPayLengthBlock` is the length of each payload associated with the
 ///   current position.
 pub struct Lucene101PostingsFormat {
-    min_term_block_size: i32,
-    max_term_block_size: i32,
+  min_term_block_size: i32,
+  max_term_block_size: i32,
 }
 
 impl Default for Lucene101PostingsFormat {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl Lucene101PostingsFormat {
-    /// Filename extension for some small metadata about how postings are
-    /// encoded.
-    pub const META_EXTENSION: &'static str = "psm";
-    /// Filename extension for document number, frequencies, and skip data.
-    /// See chapter: `Frequencies and Skip Data`
-    pub const DOC_EXTENSION: &'static str = "doc";
+  /// Filename extension for some small metadata about how postings are
+  /// encoded.
+  pub const META_EXTENSION: &'static str = "psm";
+  /// Filename extension for document number, frequencies, and skip data.
+  /// See chapter: `Frequencies and Skip Data`
+  pub const DOC_EXTENSION: &'static str = "doc";
 
-    /// Filename extension for positions.
-    /// See chapter: `Positions`
-    pub const POS_EXTENSION: &'static str = "pos";
+  /// Filename extension for positions.
+  /// See chapter: `Positions`
+  pub const POS_EXTENSION: &'static str = "pos";
 
-    /// Filename extension for payloads and offsets.
-    /// See chapter: `Payloads and Offsets`
-    pub const PAY_EXTENSION: &'static str = "pay";
+  /// Filename extension for payloads and offsets.
+  /// See chapter: `Payloads and Offsets`
+  pub const PAY_EXTENSION: &'static str = "pay";
 
-    /// Size of blocks.
-    pub const BLOCK_SIZE: usize = ForUtil::BLOCK_SIZE;
+  /// Size of blocks.
+  pub const BLOCK_SIZE: usize = ForUtil::BLOCK_SIZE;
 
-    #[allow(dead_code)]
-    pub const BLOCK_MASK: usize = Self::BLOCK_SIZE - 1;
+  #[allow(dead_code)]
+  pub const BLOCK_MASK: usize = Self::BLOCK_SIZE - 1;
 
-    /// We insert skip data on every block and every SKIP_FACTOR=32 blocks.
-    pub const LEVEL1_FACTOR: i32 = 32;
+  /// We insert skip data on every block and every SKIP_FACTOR=32 blocks.
+  pub const LEVEL1_FACTOR: i32 = 32;
 
-    /// Total number of docs covered by level 1 skip data: 32 * 128 = 4,096
-    pub const LEVEL1_NUM_DOCS: i32 = Self::LEVEL1_FACTOR * Self::BLOCK_SIZE as i32;
+  /// Total number of docs covered by level 1 skip data: 32 * 128 = 4,096
+  pub const LEVEL1_NUM_DOCS: i32 = Self::LEVEL1_FACTOR * Self::BLOCK_SIZE as i32;
 
-    pub const LEVEL1_MASK: i32 = Self::LEVEL1_NUM_DOCS - 1;
+  pub const LEVEL1_MASK: i32 = Self::LEVEL1_NUM_DOCS - 1;
 
-    pub(crate) const TERMS_CODEC: &'static str = "Lucene90PostingsWriterTerms";
-    pub(crate) const META_CODEC: &'static str = "Lucene101PostingsWriterMeta";
-    pub(crate) const DOC_CODEC: &'static str = "Lucene101PostingsWriterDoc";
-    pub(crate) const POS_CODEC: &'static str = "Lucene101PostingsWriterPos";
-    pub(crate) const PAY_CODEC: &'static str = "Lucene101PostingsWriterPay";
+  pub(crate) const TERMS_CODEC: &'static str = "Lucene90PostingsWriterTerms";
+  pub(crate) const META_CODEC: &'static str = "Lucene101PostingsWriterMeta";
+  pub(crate) const DOC_CODEC: &'static str = "Lucene101PostingsWriterDoc";
+  pub(crate) const POS_CODEC: &'static str = "Lucene101PostingsWriterPos";
+  pub(crate) const PAY_CODEC: &'static str = "Lucene101PostingsWriterPay";
 
-    pub(crate) const VERSION_START: i32 = 0;
-    pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
+  pub(crate) const VERSION_START: i32 = 0;
+  pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
 
-    pub fn new() -> Self {
-        Self::with_iterm_num(DEFAULT_MIN_BLOCK_SIZE, DEFAULT_MAX_BLOCK_SIZE).unwrap()
+  pub fn new() -> Self {
+    Self::with_iterm_num(DEFAULT_MIN_BLOCK_SIZE, DEFAULT_MAX_BLOCK_SIZE).unwrap()
+  }
+  /// Creates a `Lucene101PostingsFormat` with custom values for `min_block_size` and `max_block_size`
+  /// passed to the block terms dictionary.
+  ///
+  /// See [`Lucene90BlockTreeTermsWriter::new`](Lucene90BlockTreeTermsWriter)
+  /// for details.
+  pub fn with_iterm_num(min_items_in_block: i32, max_items_in_block: i32) -> Result<Self> {
+    Self::validate_settings(min_items_in_block, max_items_in_block)?;
+    Ok(Self {
+      min_term_block_size: min_items_in_block,
+      max_term_block_size: max_items_in_block,
+    })
+  }
+
+  pub fn validate_settings(min_items_in_block: i32, max_items_in_block: i32) -> Result<()> {
+    if min_items_in_block <= 1 {
+      return Err(LuceneError::illegal_argument(format!(
+        "min_items_in_block must be >= 2; got {min_items_in_block}"
+      )));
     }
-    /// Creates a `Lucene101PostingsFormat` with custom values for `min_block_size` and `max_block_size`
-    /// passed to the block terms dictionary.
-    ///
-    /// See [`Lucene90BlockTreeTermsWriter::new`](Lucene90BlockTreeTermsWriter)
-    /// for details.
-    pub fn with_iterm_num(min_items_in_block: i32, max_items_in_block: i32) -> Result<Self> {
-        Self::validate_settings(min_items_in_block, max_items_in_block)?;
-        Ok(Self {
-            min_term_block_size: min_items_in_block,
-            max_term_block_size: max_items_in_block,
-        })
+    if max_items_in_block < min_items_in_block {
+      return Err(LuceneError::illegal_argument(format!(
+        "max_items_in_block must be >= min_items_in_block; got max_items_in_block={max_items_in_block} min_items_in_block={min_items_in_block}"
+      )));
     }
-
-    pub fn validate_settings(min_items_in_block: i32, max_items_in_block: i32) -> Result<()> {
-        if min_items_in_block <= 1 {
-            return Err(LuceneError::illegal_argument(format!(
-                "min_items_in_block must be >= 2; got {min_items_in_block}"
-            )));
-        }
-        if max_items_in_block < min_items_in_block {
-            return Err(LuceneError::illegal_argument(format!(
-                "max_items_in_block must be >= min_items_in_block; got max_items_in_block={max_items_in_block} min_items_in_block={min_items_in_block}"
-            )));
-        }
-        if max_items_in_block < 2 * (min_items_in_block - 1) {
-            return Err(LuceneError::illegal_argument(format!(
-                "max_items_in_block must be at least 2*(min_items_in_block-1); got max_items_in_block={max_items_in_block} min_items_in_block={min_items_in_block}"
-            )));
-        }
-        Ok(())
+    if max_items_in_block < 2 * (min_items_in_block - 1) {
+      return Err(LuceneError::illegal_argument(format!(
+        "max_items_in_block must be at least 2*(min_items_in_block-1); got max_items_in_block={max_items_in_block} min_items_in_block={min_items_in_block}"
+      )));
     }
+    Ok(())
+  }
 }
 
 impl PostingsFormat for Lucene101PostingsFormat {
-    type FieldsConsumer<O: IndexOutput> =
-        Lucene90BlockTreeTermsWriter<O, PushPostingsWriterBase<Lucene101PostingsWriter<O>>>;
+  type FieldsConsumer<O: IndexOutput> =
+    Lucene90BlockTreeTermsWriter<O, PushPostingsWriterBase<Lucene101PostingsWriter<O>>>;
 
-    fn fields_consumer<D1, D2>(
-        &self,
-        state: &SegmentWriteState<D1>,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        let posting_writer =
-            PushPostingsWriterBase::new(Lucene101PostingsWriter::new(state, segment_info)?);
-        let ret = Lucene90BlockTreeTermsWriter::new(
-            state,
-            posting_writer,
-            self.min_term_block_size,
-            self.max_term_block_size,
-            segment_info,
-        )?;
-        Ok(ret)
-    }
+  fn fields_consumer<D1, D2>(
+    &self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    let posting_writer =
+      PushPostingsWriterBase::new(Lucene101PostingsWriter::new(state, segment_info)?);
+    let ret = Lucene90BlockTreeTermsWriter::new(
+      state,
+      posting_writer,
+      self.min_term_block_size,
+      self.max_term_block_size,
+      segment_info,
+    )?;
+    Ok(ret)
+  }
 
-    type FieldsProducer<I: IndexInput> =
-        Lucene90BlockTreeTermsReader<I, Lucene101PostingsReader<I>>;
+  type FieldsProducer<I: IndexInput> = Lucene90BlockTreeTermsReader<I, Lucene101PostingsReader<I>>;
 
-    fn fields_producer<D1: Directory, D2: Directory>(
-        &self,
-        state: &SegmentReadState<D1>,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<Self::FieldsProducer<D1::IndexInput>> {
-        let postings_reader = Lucene101PostingsReader::new(state, segment_info)?;
-        let ret = Lucene90BlockTreeTermsReader::new(postings_reader, state, segment_info)?;
-        Ok(ret)
-    }
+  fn fields_producer<D1: Directory, D2: Directory>(
+    &self,
+    state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::FieldsProducer<D1::IndexInput>> {
+    let postings_reader = Lucene101PostingsReader::new(state, segment_info)?;
+    let ret = Lucene90BlockTreeTermsReader::new(postings_reader, state, segment_info)?;
+    Ok(ret)
+  }
 }
 
 /// Holds all state required for
@@ -365,203 +364,203 @@ impl PostingsFormat for Lucene101PostingsFormat {
 /// without re-seeking the terms dict.
 #[derive(Default, Clone)]
 pub struct IntBlockTermState {
-    /// file pointer to the start of the doc ids enumeration, in
-    /// [`DOC_EXTENSION`](Lucene101PostingsFormat::DOC_EXTENSION) file
-    pub doc_start_fp: i64,
+  /// file pointer to the start of the doc ids enumeration, in
+  /// [`DOC_EXTENSION`](Lucene101PostingsFormat::DOC_EXTENSION) file
+  pub doc_start_fp: i64,
 
-    /// file pointer to the start of the positions enumeration, in
-    /// [`POS_EXTENSION`](Lucene101PostingsFormat::POS_EXTENSION) file
-    pub pos_start_fp: i64,
+  /// file pointer to the start of the positions enumeration, in
+  /// [`POS_EXTENSION`](Lucene101PostingsFormat::POS_EXTENSION) file
+  pub pos_start_fp: i64,
 
-    /// file pointer to the start of the payloads enumeration, in
-    /// [`PAY_EXTENSION`](Lucene101PostingsFormat::PAY_EXTENSION) file
-    pub pay_start_fp: i64,
+  /// file pointer to the start of the payloads enumeration, in
+  /// [`PAY_EXTENSION`](Lucene101PostingsFormat::PAY_EXTENSION) file
+  pub pay_start_fp: i64,
 
-    /**
-     * file offset for the last position in the last block, if there are
-     * more than [`BLOCK_SIZE`](crate::core::codecs::lucene101) positions;
-     * otherwise -1
-     *
-     * One might think to use total term frequency to track how many
-     * positions are left to read as we decode the blocks, and decode
-     * the last block differently when num_left_positions < BLOCK_SIZE.
-     * Unfortunately this won't work since the tracking will be messed up
-     * when we skip blocks as the skipper will only tell us new
-     * position offset (start of block) and number of positions to skip
-     * for that block, without telling us how many positions it has
-     * skipped.
-     */
-    pub last_pos_block_offset: i64,
+  /**
+   * file offset for the last position in the last block, if there are
+   * more than [`BLOCK_SIZE`](crate::core::codecs::lucene101) positions;
+   * otherwise -1
+   *
+   * One might think to use total term frequency to track how many
+   * positions are left to read as we decode the blocks, and decode
+   * the last block differently when num_left_positions < BLOCK_SIZE.
+   * Unfortunately this won't work since the tracking will be messed up
+   * when we skip blocks as the skipper will only tell us new
+   * position offset (start of block) and number of positions to skip
+   * for that block, without telling us how many positions it has
+   * skipped.
+   */
+  pub last_pos_block_offset: i64,
 
-    /**
-     * docid when there is a single pulsed posting, otherwise -1. freq is
-     * always implicitly totalTermFreq in this case.
-     */
-    pub singleton_doc_id: i32,
+  /**
+   * docid when there is a single pulsed posting, otherwise -1. freq is
+   * always implicitly totalTermFreq in this case.
+   */
+  pub singleton_doc_id: i32,
 
-    /// Base block term state
-    pub base: BlockTermState,
+  /// Base block term state
+  pub base: BlockTermState,
 }
 impl IntBlockTermState {
-    #[allow(clippy::field_reassign_with_default)]
-    pub fn new() -> Self {
-        let mut state = IntBlockTermState::default();
-        state.last_pos_block_offset = -1;
-        state.singleton_doc_id = -1;
-        state
-    }
+  #[allow(clippy::field_reassign_with_default)]
+  pub fn new() -> Self {
+    let mut state = IntBlockTermState::default();
+    state.last_pos_block_offset = -1;
+    state.singleton_doc_id = -1;
+    state
+  }
 }
 impl Display for IntBlockTermState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} docStartFP={} posStartFP={} payStartFP={} lastPosBlockOffset={} singletonDocID={}",
-            self.base,
-            self.doc_start_fp,
-            self.pos_start_fp,
-            self.pay_start_fp,
-            self.last_pos_block_offset,
-            self.singleton_doc_id
-        )
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(
+      f,
+      "{} docStartFP={} posStartFP={} payStartFP={} lastPosBlockOffset={} singletonDocID={}",
+      self.base,
+      self.doc_start_fp,
+      self.pos_start_fp,
+      self.pay_start_fp,
+      self.last_pos_block_offset,
+      self.singleton_doc_id
+    )
+  }
 }
 
 impl TermState for IntBlockTermState {
-    fn copy_from(&mut self, other: &Self) -> Result<()> {
-        self.doc_start_fp = other.doc_start_fp;
-        self.pos_start_fp = other.pos_start_fp;
-        self.pay_start_fp = other.pay_start_fp;
-        self.last_pos_block_offset = other.last_pos_block_offset;
-        self.singleton_doc_id = other.singleton_doc_id;
-        self.base.copy_from(&other.base)
-    }
+  fn copy_from(&mut self, other: &Self) -> Result<()> {
+    self.doc_start_fp = other.doc_start_fp;
+    self.pos_start_fp = other.pos_start_fp;
+    self.pay_start_fp = other.pay_start_fp;
+    self.last_pos_block_offset = other.last_pos_block_offset;
+    self.singleton_doc_id = other.singleton_doc_id;
+    self.base.copy_from(&other.base)
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use rand::RngExt;
+  use rand::RngExt;
 
-    use crate::core::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
-    use crate::core::codecs::lucene101::lucene101_postings_reader::{
-        MutableImpactList, read_impacts, read_vint15, read_vlong15,
-    };
-    use crate::core::codecs::lucene101::lucene101_postings_writer::{
-        write_impacts, write_vint15, write_vlong15,
-    };
-    use crate::core::index::impact::Impact;
-    use crate::core::store::directory::Directory;
-    use crate::core::store::{
-        ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext, IndexInput,
-    };
-    use crate::core::util::error::lucene_error::Result;
-    use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, random,
-    };
+  use crate::core::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
+  use crate::core::codecs::lucene101::lucene101_postings_reader::{
+    MutableImpactList, read_impacts, read_vint15, read_vlong15,
+  };
+  use crate::core::codecs::lucene101::lucene101_postings_writer::{
+    write_impacts, write_vint15, write_vlong15,
+  };
+  use crate::core::index::impact::Impact;
+  use crate::core::store::directory::Directory;
+  use crate::core::store::{
+    ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext, IndexInput,
+  };
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    new_directory_shared, random,
+  };
 
-    struct TestLucene101PostingsFormat;
-    impl BaseIndexFileFormatTestCase for TestLucene101PostingsFormat {
-        // TODO
+  struct TestLucene101PostingsFormat;
+  impl BaseIndexFileFormatTestCase for TestLucene101PostingsFormat {
+    // TODO
+  }
+  #[test]
+  fn test_vint15() -> Result<()> {
+    let buffer = vec![0u8; 5];
+    let mut out = ByteArrayDataOutput::with_bytes(buffer);
+    for &i in &[0i32, 1, 127, 128, 32767, 32768, i32::MAX] {
+      out.reset()?;
+      write_vint15(&mut out, i)?;
+      let mut inp = ByteArrayDataInput::with_bytes(out.bytes.as_slice());
+      let v = read_vint15(&mut inp)?;
+      assert_eq!(v, i);
+      assert_eq!(inp.get_position(), out.get_position());
     }
-    #[test]
-    fn test_vint15() -> Result<()> {
-        let buffer = vec![0u8; 5];
-        let mut out = ByteArrayDataOutput::with_bytes(buffer);
-        for &i in &[0i32, 1, 127, 128, 32767, 32768, i32::MAX] {
-            out.reset()?;
-            write_vint15(&mut out, i)?;
-            let mut inp = ByteArrayDataInput::with_bytes(out.bytes.as_slice());
-            let v = read_vint15(&mut inp)?;
-            assert_eq!(v, i);
-            assert_eq!(inp.get_position(), out.get_position());
-        }
-        Ok(())
+    Ok(())
+  }
+  #[test]
+  fn test_vlong15() -> Result<()> {
+    // buffer size should accommodate the largest encoded value
+    let mut out = ByteArrayDataOutput::with_bytes(vec![0u8; 9]);
+    for &i in &[0i64, 1, 127, 128, 32_767, 32_768, i32::MAX as i64, i64::MAX] {
+      out.reset()?;
+      write_vlong15(&mut out, i)?;
+      let mut inp = ByteArrayDataInput::with_bytes(out.bytes.as_slice());
+      let v = read_vlong15(&mut inp)?;
+      assert_eq!(v, i);
+      assert_eq!(inp.get_position(), out.get_position());
     }
-    #[test]
-    fn test_vlong15() -> Result<()> {
-        // buffer size should accommodate the largest encoded value
-        let mut out = ByteArrayDataOutput::with_bytes(vec![0u8; 9]);
-        for &i in &[0i64, 1, 127, 128, 32_767, 32_768, i32::MAX as i64, i64::MAX] {
-            out.reset()?;
-            write_vlong15(&mut out, i)?;
-            let mut inp = ByteArrayDataInput::with_bytes(out.bytes.as_slice());
-            let v = read_vlong15(&mut inp)?;
-            assert_eq!(v, i);
-            assert_eq!(inp.get_position(), out.get_position());
-        }
-        Ok(())
-    }
-    #[test]
-    fn test_final_block() -> Result<()> {
-        // TODO
-        Ok(())
-    }
-    #[test]
-    fn test_impact_serialization() -> Result<()> {
-        let cases = vec![
-            vec![Impact { freq: 1, norm: 1 }],
-            vec![Impact { freq: 1, norm: 42 }],
-            vec![Impact {
-                freq: 1,
-                norm: -100,
-            }],
-            vec![Impact { freq: 30, norm: 1 }],
-            vec![Impact { freq: 500, norm: 1 }],
-            vec![
-                Impact { freq: 1, norm: 7 },
-                Impact { freq: 3, norm: 9 },
-                Impact { freq: 7, norm: 10 },
-                Impact { freq: 15, norm: 11 },
-                Impact { freq: 20, norm: 13 },
-                Impact { freq: 28, norm: 14 },
-            ],
-            vec![
-                Impact { freq: 2, norm: 2 },
-                Impact { freq: 10, norm: 10 },
-                Impact { freq: 12, norm: 50 },
-                Impact {
-                    freq: 50,
-                    norm: -100,
-                },
-                Impact {
-                    freq: 1000,
-                    norm: -80,
-                },
-                Impact {
-                    freq: 1005,
-                    norm: -3,
-                },
-            ],
-        ];
+    Ok(())
+  }
+  #[test]
+  fn test_final_block() -> Result<()> {
+    // TODO
+    Ok(())
+  }
+  #[test]
+  fn test_impact_serialization() -> Result<()> {
+    let cases = vec![
+      vec![Impact { freq: 1, norm: 1 }],
+      vec![Impact { freq: 1, norm: 42 }],
+      vec![Impact {
+        freq: 1,
+        norm: -100,
+      }],
+      vec![Impact { freq: 30, norm: 1 }],
+      vec![Impact { freq: 500, norm: 1 }],
+      vec![
+        Impact { freq: 1, norm: 7 },
+        Impact { freq: 3, norm: 9 },
+        Impact { freq: 7, norm: 10 },
+        Impact { freq: 15, norm: 11 },
+        Impact { freq: 20, norm: 13 },
+        Impact { freq: 28, norm: 14 },
+      ],
+      vec![
+        Impact { freq: 2, norm: 2 },
+        Impact { freq: 10, norm: 10 },
+        Impact { freq: 12, norm: 50 },
+        Impact {
+          freq: 50,
+          norm: -100,
+        },
+        Impact {
+          freq: 1000,
+          norm: -80,
+        },
+        Impact {
+          freq: 1005,
+          norm: -3,
+        },
+      ],
+    ];
 
-        for impacts in cases {
-            do_test_impact_serialization(&impacts)?;
-        }
-
-        Ok(())
+    for impacts in cases {
+      do_test_impact_serialization(&impacts)?;
     }
-    fn do_test_impact_serialization(impacts: &[Impact]) -> Result<()> {
-        let mut random = random();
-        let mut acc = CompetitiveImpactAccumulator::new();
-        for imp in impacts {
-            acc.add(imp.freq, imp.norm);
-        }
-        let dir = new_directory_shared(&mut random)?;
-        {
-            let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-            write_impacts(&acc.get_competitive_freq_norm_pairs(), &mut out)?;
-        }
-        let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
-        let len = input.length();
-        let mut buffer = vec![0u8; len as usize];
-        input.read_bytes(&mut buffer, 0, len)?;
 
-        let mut data_in = ByteArrayDataInput::with_bytes(buffer.as_slice());
-        let mut mutable_impacts_list =
-            MutableImpactList::with_capacity(impacts.len() + random.random_range(0..3));
-        read_impacts(&mut data_in, &mut mutable_impacts_list)?;
-        let len = mutable_impacts_list.length;
-        assert_eq!(&mutable_impacts_list.impacts[0..len], impacts);
-        Ok(())
+    Ok(())
+  }
+  fn do_test_impact_serialization(impacts: &[Impact]) -> Result<()> {
+    let mut random = random();
+    let mut acc = CompetitiveImpactAccumulator::new();
+    for imp in impacts {
+      acc.add(imp.freq, imp.norm);
     }
+    let dir = new_directory_shared(&mut random)?;
+    {
+      let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+      write_impacts(&acc.get_competitive_freq_norm_pairs(), &mut out)?;
+    }
+    let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+    let len = input.length();
+    let mut buffer = vec![0u8; len as usize];
+    input.read_bytes(&mut buffer, 0, len)?;
+
+    let mut data_in = ByteArrayDataInput::with_bytes(buffer.as_slice());
+    let mut mutable_impacts_list =
+      MutableImpactList::with_capacity(impacts.len() + random.random_range(0..3));
+    read_impacts(&mut data_in, &mut mutable_impacts_list)?;
+    let len = mutable_impacts_list.length;
+    assert_eq!(&mutable_impacts_list.impacts[0..len], impacts);
+    Ok(())
+  }
 }

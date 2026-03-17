@@ -27,38 +27,38 @@ pub struct DummyScorerSupplier;
 
 impl<IRC> ScorerSupplier<IRC> for DummyScorerSupplier
 where
-    IRC: IndexReaderContext,
-    IRCLeafReader<IRC>: LeafReader,
+  IRC: IndexReaderContext,
+  IRCLeafReader<IRC>: LeafReader,
 {
-    type Scorer = DummyScorer;
-    type BulkScorer = DummyBulkScorer;
+  type Scorer = DummyScorer;
+  type BulkScorer = DummyBulkScorer;
 
-    fn get(
-        &mut self,
-        _lead_cost: i64,
-        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Self::Scorer> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get(
+    &mut self,
+    _lead_cost: i64,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Self::Scorer> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn bulk_scorer(
-        &mut self,
-        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::BulkScorer>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn bulk_scorer(
+    &mut self,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::BulkScorer>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn cost(
-        &mut self,
-        _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn cost(
+    &mut self,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn set_top_level_scoring_clause(&mut self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn set_top_level_scoring_clause(&mut self) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

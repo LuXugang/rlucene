@@ -39,49 +39,49 @@ use std::sync::Arc;
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == FieldsProducer/Consumer
 pub trait PostingsWriterBase {
-    /// Called once after startup, before any terms have been added.
-    /// Implementations typically write a header to the provided `termsOut`.
-    fn init<D1, D2>(
-        &mut self,
-        terms_out: &mut impl IndexOutput,
-        state: &SegmentWriteState<D1>,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<()>
-    where
-        D1: Directory,
-        D2: Directory;
+  /// Called once after startup, before any terms have been added.
+  /// Implementations typically write a header to the provided `termsOut`.
+  fn init<D1, D2>(
+    &mut self,
+    terms_out: &mut impl IndexOutput,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory;
 
-    /// Write all postings for one term; use the provided [`TermsEnum`] to pull
-    /// a [`PostingsEnum`]. This
-    /// method should not re-position the `terms_enum`! It is already
-    /// positioned on the term that should be written. This method must set the
-    /// bit in the provided [`FixedBitSet`] for every docID written. If no
-    /// docs were written, this method should return `None`, and the terms
-    /// dict will skip the term.
-    fn write_term<N: NormsProducer, PE: PostingsEnum>(
-        &mut self,
-        _term: &BytesRef<Vec<u8>>,
-        _terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
-        _docs_seen: &mut FixedBitSet,
-        _norms: Option<&N>,
-        _postings_enum: Option<PE>,
-    ) -> Result<(Option<PE>, Option<TermStateEnum>)> {
-        unimplemented!()
-    }
+  /// Write all postings for one term; use the provided [`TermsEnum`] to pull
+  /// a [`PostingsEnum`]. This
+  /// method should not re-position the `terms_enum`! It is already
+  /// positioned on the term that should be written. This method must set the
+  /// bit in the provided [`FixedBitSet`] for every docID written. If no
+  /// docs were written, this method should return `None`, and the terms
+  /// dict will skip the term.
+  fn write_term<N: NormsProducer, PE: PostingsEnum>(
+    &mut self,
+    _term: &BytesRef<Vec<u8>>,
+    _terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
+    _docs_seen: &mut FixedBitSet,
+    _norms: Option<&N>,
+    _postings_enum: Option<PE>,
+  ) -> Result<(Option<PE>, Option<TermStateEnum>)> {
+    unimplemented!()
+  }
 
-    /// Encode metadata as `&[i64]` and `&[u8]`. `absolute` controls whether the
-    /// current term is delta encoded according to the latest term. Usually
-    /// elements in `longs` are file pointers, so each one always increases
-    /// when a new term is consumed. `out` is used to write generic bytes,
-    /// which are not monotonic.
-    fn encode_term(
-        &mut self,
-        out: &mut impl DataOutput,
-        field_info: &FieldInfo,
-        state: Cow<TermStateEnum>,
-        absolute: bool,
-    ) -> Result<()>;
+  /// Encode metadata as `&[i64]` and `&[u8]`. `absolute` controls whether the
+  /// current term is delta encoded according to the latest term. Usually
+  /// elements in `longs` are file pointers, so each one always increases
+  /// when a new term is consumed. `out` is used to write generic bytes,
+  /// which are not monotonic.
+  fn encode_term(
+    &mut self,
+    out: &mut impl DataOutput,
+    field_info: &FieldInfo,
+    state: Cow<TermStateEnum>,
+    absolute: bool,
+  ) -> Result<()>;
 
-    /// Sets the current field for writing.
-    fn set_field(&mut self, field_info: Arc<FieldInfo>);
+  /// Sets the current field for writing.
+  fn set_field(&mut self, field_info: Arc<FieldInfo>);
 }

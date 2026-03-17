@@ -22,7 +22,7 @@ use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_directory, new_index_writer_config, random,
+  new_directory, new_index_writer_config, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -35,181 +35,181 @@ pub struct TestExceedMaxTermLength;
 const MIN_TEST_TERM_LENGTH: i32 = MAX_TERM_LENGTH + 1;
 const MAX_TEST_TERM_LENGTH: i32 = MAX_TERM_LENGTH * 2;
 fn create_dir<R: Rng + ?Sized>(random: &mut R) -> DirEnum {
-    new_directory(random).unwrap()
+  new_directory(random).unwrap()
 }
 
 // TODO IMPORTANT MockAnalyzer 未实现
 fn test_token_stream() -> Result<()> {
-    let mut random = random();
-    let dir = Arc::new(create_dir(&mut random));
+  let mut random = random();
+  let dir = Arc::new(create_dir(&mut random));
 
-    // TODO: MockAnalyzer 未实现
-    let iwc = new_index_writer_config(&mut random);
-    let writer = IndexWriter::new(dir.clone(), iwc)?;
+  // TODO: MockAnalyzer 未实现
+  let iwc = new_index_writer_config(&mut random);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-    let mut ft = FieldType::new();
-    ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
-    ft.set_stored(random.random_bool(0.5))?;
-    ft.freeze();
+  let mut ft = FieldType::new();
+  ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
+  ft.set_stored(random.random_bool(0.5))?;
+  ft.freeze();
 
-    let mut doc = Document::new();
+  let mut doc = Document::new();
 
-    if random.random_bool(0.5) {
-        doc.add(Field::new(
-            TestUtil::random_simple_string_range(&mut random, 1, 10),
-            TestUtil::random_simple_string_range(&mut random, 1, 10),
-            ft.clone(),
-        ));
-    }
+  if random.random_bool(0.5) {
+    doc.add(Field::new(
+      TestUtil::random_simple_string_range(&mut random, 1, 10),
+      TestUtil::random_simple_string_range(&mut random, 1, 10),
+      ft.clone(),
+    ));
+  }
 
-    let name = TestUtil::random_simple_string_range(&mut random, 1, 50);
-    let value = TestUtil::random_simple_string_range(
-        &mut random,
-        MIN_TEST_TERM_LENGTH as usize,
-        MAX_TEST_TERM_LENGTH as usize,
-    );
-    let f = Field::new(name.clone(), value, ft.clone());
+  let name = TestUtil::random_simple_string_range(&mut random, 1, 50);
+  let value = TestUtil::random_simple_string_range(
+    &mut random,
+    MIN_TEST_TERM_LENGTH as usize,
+    MAX_TEST_TERM_LENGTH as usize,
+  );
+  let f = Field::new(name.clone(), value, ft.clone());
 
-    if random.random_bool(0.5) {
-        doc.add(Field::new(
-            TestUtil::random_simple_string_range(&mut random, 1, 10),
-            TestUtil::random_simple_string_range(&mut random, 1, 10),
-            ft.clone(),
-        ));
-    }
+  if random.random_bool(0.5) {
+    doc.add(Field::new(
+      TestUtil::random_simple_string_range(&mut random, 1, 10),
+      TestUtil::random_simple_string_range(&mut random, 1, 10),
+      ft.clone(),
+    ));
+  }
 
-    doc.add(f);
+  doc.add(f);
 
-    let res = writer.add_document(doc);
+  let res = writer.add_document(doc);
 
-    match res {
-        Err(LuceneError::IllegalArgument(msg)) => {
-            let error_msg = &msg.message;
+  match res {
+    Err(LuceneError::IllegalArgument(msg)) => {
+      let error_msg = &msg.message;
 
-            let max_len = MAX_TERM_LENGTH.to_string();
+      let max_len = MAX_TERM_LENGTH.to_string();
 
-            assert!(
-                error_msg.contains("immense term"),
-                "IllegalArgumentException didn't mention 'immense term': {}",
-                error_msg
-            );
+      assert!(
+        error_msg.contains("immense term"),
+        "IllegalArgumentException didn't mention 'immense term': {}",
+        error_msg
+      );
 
-            assert!(
-                error_msg.contains(&max_len),
-                "IllegalArgumentException didn't mention max length ({}): {}",
-                max_len,
-                error_msg
-            );
+      assert!(
+        error_msg.contains(&max_len),
+        "IllegalArgumentException didn't mention max length ({}): {}",
+        max_len,
+        error_msg
+      );
 
-            assert!(
-                error_msg.contains(&name),
-                "IllegalArgumentException didn't mention field name ({}): {}",
-                name,
-                error_msg
-            );
+      assert!(
+        error_msg.contains(&name),
+        "IllegalArgumentException didn't mention field name ({}): {}",
+        name,
+        error_msg
+      );
 
-            assert!(
-                error_msg.contains("bytes can be at most") && error_msg.contains("in length; got"),
-                "IllegalArgumentException didn't mention original message: {}",
-                error_msg
-            );
-        },
-        other => {
-            unreachable!("expected IllegalArgument but got {:?}", other);
-        },
-    }
+      assert!(
+        error_msg.contains("bytes can be at most") && error_msg.contains("in length; got"),
+        "IllegalArgumentException didn't mention original message: {}",
+        error_msg
+      );
+    },
+    other => {
+      unreachable!("expected IllegalArgument but got {:?}", other);
+    },
+  }
 
-    writer.close()?;
-    Ok(())
+  writer.close()?;
+  Ok(())
 }
 // TODO IMPORTANT MockAnalyzer 未实现
 fn test_binary_value() -> Result<()> {
-    let mut random = random();
-    let dir = Arc::new(create_dir(&mut random));
-    let iwc = new_index_writer_config(&mut random);
-    let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut random = random();
+  let dir = Arc::new(create_dir(&mut random));
+  let iwc = new_index_writer_config(&mut random);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-    let mut ft = FieldType::new();
-    let opts = if random.random_bool(0.5) {
-        IndexOptions::Docs
-    } else {
-        IndexOptions::DocsAndFreqs
-    };
-    ft.set_index_options(opts)?;
-    ft.set_stored(random.random_bool(0.5))?;
-    ft.set_tokenized(false)?;
-    ft.freeze();
+  let mut ft = FieldType::new();
+  let opts = if random.random_bool(0.5) {
+    IndexOptions::Docs
+  } else {
+    IndexOptions::DocsAndFreqs
+  };
+  ft.set_index_options(opts)?;
+  ft.set_stored(random.random_bool(0.5))?;
+  ft.set_tokenized(false)?;
+  ft.freeze();
 
-    let mut doc = Document::new();
+  let mut doc = Document::new();
 
-    if random.random_bool(0.5) {
-        doc.add(Field::from_bytes_ref(
-            TestUtil::random_simple_string_range(&mut random, 1, 10),
-            TestUtil::random_binary_term_with_len(&mut random, 10),
-            ft.clone(),
-        )?);
-    }
+  if random.random_bool(0.5) {
+    doc.add(Field::from_bytes_ref(
+      TestUtil::random_simple_string_range(&mut random, 1, 10),
+      TestUtil::random_binary_term_with_len(&mut random, 10),
+      ft.clone(),
+    )?);
+  }
 
-    // problematic field
-    let name = TestUtil::random_simple_string_range(&mut random, 1, 50);
-    let len = TestUtil::next_usize(
-        &mut random,
-        MIN_TEST_TERM_LENGTH as usize,
-        MAX_TEST_TERM_LENGTH as usize,
-    );
-    let value = TestUtil::random_binary_term_with_len(&mut random, len);
+  // problematic field
+  let name = TestUtil::random_simple_string_range(&mut random, 1, 50);
+  let len = TestUtil::next_usize(
+    &mut random,
+    MIN_TEST_TERM_LENGTH as usize,
+    MAX_TEST_TERM_LENGTH as usize,
+  );
+  let value = TestUtil::random_binary_term_with_len(&mut random, len);
 
-    let f = Field::from_bytes_ref(name.clone(), value, ft.clone())?;
+  let f = Field::from_bytes_ref(name.clone(), value, ft.clone())?;
 
-    if random.random_bool(0.5) {
-        doc.add(Field::from_bytes_ref(
-            TestUtil::random_simple_string_range(&mut random, 1, 10),
-            TestUtil::random_binary_term_with_len(&mut random, 10),
-            ft.clone(),
-        )?);
-    }
+  if random.random_bool(0.5) {
+    doc.add(Field::from_bytes_ref(
+      TestUtil::random_simple_string_range(&mut random, 1, 10),
+      TestUtil::random_binary_term_with_len(&mut random, 10),
+      ft.clone(),
+    )?);
+  }
 
-    doc.add(f);
+  doc.add(f);
 
-    // expect error
-    let res = writer.add_document(doc);
+  // expect error
+  let res = writer.add_document(doc);
 
-    match res {
-        Err(LuceneError::IllegalArgument(msg)) => {
-            let error_msg = &msg.message;
-            let max_len = MAX_TERM_LENGTH.to_string();
+  match res {
+    Err(LuceneError::IllegalArgument(msg)) => {
+      let error_msg = &msg.message;
+      let max_len = MAX_TERM_LENGTH.to_string();
 
-            assert!(
-                error_msg.contains("immense term"),
-                "IllegalArgumentException didn't mention 'immense term': {}",
-                error_msg
-            );
+      assert!(
+        error_msg.contains("immense term"),
+        "IllegalArgumentException didn't mention 'immense term': {}",
+        error_msg
+      );
 
-            assert!(
-                error_msg.contains(&max_len),
-                "IllegalArgumentException didn't mention max length ({}): {}",
-                max_len,
-                error_msg
-            );
+      assert!(
+        error_msg.contains(&max_len),
+        "IllegalArgumentException didn't mention max length ({}): {}",
+        max_len,
+        error_msg
+      );
 
-            assert!(
-                error_msg.contains(&name),
-                "IllegalArgumentException didn't mention field name ({}): {}",
-                name,
-                error_msg
-            );
+      assert!(
+        error_msg.contains(&name),
+        "IllegalArgumentException didn't mention field name ({}): {}",
+        name,
+        error_msg
+      );
 
-            assert!(
-                error_msg.contains("bytes can be at most") && error_msg.contains("in length; got"),
-                "IllegalArgumentException didn't mention original message: {}",
-                error_msg
-            );
-        },
-        other => {
-            unreachable!("expected IllegalArgument but got {:?}", other);
-        },
-    }
+      assert!(
+        error_msg.contains("bytes can be at most") && error_msg.contains("in length; got"),
+        "IllegalArgumentException didn't mention original message: {}",
+        error_msg
+      );
+    },
+    other => {
+      unreachable!("expected IllegalArgument but got {:?}", other);
+    },
+  }
 
-    writer.close()?;
-    Ok(())
+  writer.close()?;
+  Ok(())
 }

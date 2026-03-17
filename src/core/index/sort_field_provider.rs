@@ -23,56 +23,52 @@ use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait SortFieldProvider {
-    fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum>;
-    /// Writes a SortField to a DataOutput
-    /// This is used to record index sort information in segment headers
-    fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()>;
+  fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum>;
+  /// Writes a SortField to a DataOutput
+  /// This is used to record index sort information in segment headers
+  fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()>;
 }
 pub fn write(sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
-    if let Some(index_sort) = sf.get_index_sorter()? {
-        let provider = for_name(index_sort.get_provider_name());
-        provider.write_sort_field(sf, output)?;
-    } else {
-        return Err(LuceneError::illegal_argument(format!(
-            "Cannot serialize sort field {sf}"
-        )));
-    }
-    Ok(())
+  if let Some(index_sort) = sf.get_index_sorter()? {
+    let provider = for_name(index_sort.get_provider_name());
+    provider.write_sort_field(sf, output)?;
+  } else {
+    return Err(LuceneError::illegal_argument(format!(
+      "Cannot serialize sort field {sf}"
+    )));
+  }
+  Ok(())
 }
 pub fn for_name(name: &str) -> SortFieldProviderEnum {
-    match name {
-        NumericProvider::NAME => SortFieldProviderEnum::SortedNumericProvider(NumericProvider),
-        SetProvider::NAME => SortFieldProviderEnum::SortedSetProvider(SetProvider),
-        _ => SortFieldProviderEnum::SortProvider(Provider),
-    }
+  match name {
+    NumericProvider::NAME => SortFieldProviderEnum::SortedNumericProvider(NumericProvider),
+    SetProvider::NAME => SortFieldProviderEnum::SortedSetProvider(SetProvider),
+    _ => SortFieldProviderEnum::SortProvider(Provider),
+  }
 }
 pub enum SortFieldProviderEnum {
-    SortedNumericProvider(NumericProvider),
-    SortedSetProvider(SetProvider),
-    SortProvider(Provider),
+  SortedNumericProvider(NumericProvider),
+  SortedSetProvider(SetProvider),
+  SortProvider(Provider),
 }
 impl SortFieldProvider for SortFieldProviderEnum {
-    fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
-        match self {
-            SortFieldProviderEnum::SortedNumericProvider(provider) => {
-                provider.read_sort_field(data_input)
-            },
-            SortFieldProviderEnum::SortedSetProvider(provider) => {
-                provider.read_sort_field(data_input)
-            },
-            SortFieldProviderEnum::SortProvider(provider) => provider.read_sort_field(data_input),
-        }
+  fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
+    match self {
+      SortFieldProviderEnum::SortedNumericProvider(provider) => {
+        provider.read_sort_field(data_input)
+      },
+      SortFieldProviderEnum::SortedSetProvider(provider) => provider.read_sort_field(data_input),
+      SortFieldProviderEnum::SortProvider(provider) => provider.read_sort_field(data_input),
     }
+  }
 
-    fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
-        match self {
-            SortFieldProviderEnum::SortedNumericProvider(provider) => {
-                provider.write_sort_field(sf, output)
-            },
-            SortFieldProviderEnum::SortedSetProvider(provider) => {
-                provider.write_sort_field(sf, output)
-            },
-            SortFieldProviderEnum::SortProvider(provider) => provider.write_sort_field(sf, output),
-        }
+  fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
+    match self {
+      SortFieldProviderEnum::SortedNumericProvider(provider) => {
+        provider.write_sort_field(sf, output)
+      },
+      SortFieldProviderEnum::SortedSetProvider(provider) => provider.write_sort_field(sf, output),
+      SortFieldProviderEnum::SortProvider(provider) => provider.write_sort_field(sf, output),
     }
+  }
 }

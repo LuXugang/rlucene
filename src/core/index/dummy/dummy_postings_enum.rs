@@ -23,33 +23,33 @@ use std::borrow::Cow;
 pub struct DummyPostingsEnum;
 
 impl DocIdSetIterator for DummyPostingsEnum {
-    fn doc_id(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn doc_id(&self) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl PostingsEnum for DummyPostingsEnum {
-    fn freq(&mut self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn freq(&mut self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn next_position(&mut self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn next_position(&mut self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn start_offset(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn start_offset(&self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn end_offset(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn end_offset(&self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

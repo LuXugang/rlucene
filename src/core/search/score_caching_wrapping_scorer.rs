@@ -33,91 +33,91 @@ use std::fmt::{Display, Formatter};
 /// document more than once.
 pub struct ScoreCachingWrappingScorer<S>
 where
-    S: Scorable,
+  S: Scorable,
 {
-    score_is_cached: bool,
-    cur_score: f32,
-    in_: S,
+  score_is_cached: bool,
+  cur_score: f32,
+  in_: S,
 }
 /// Creates a new instance by wrapping the given scorer.
 impl<S> ScoreCachingWrappingScorer<S>
 where
-    S: Scorable,
+  S: Scorable,
 {
-    pub fn new(in_: S) -> Self {
-        Self {
-            score_is_cached: false,
-            cur_score: 0.0,
-            in_,
-        }
+  pub fn new(in_: S) -> Self {
+    Self {
+      score_is_cached: false,
+      cur_score: 0.0,
+      in_,
     }
+  }
 }
 
 impl<S> Scorable for ScoreCachingWrappingScorer<S>
 where
-    S: Scorable,
+  S: Scorable,
 {
-    fn score(&mut self) -> Result<f32> {
-        if !self.score_is_cached {
-            self.cur_score = self.in_.score()?;
-            self.score_is_cached = true;
-        }
-        Ok(self.cur_score)
+  fn score(&mut self) -> Result<f32> {
+    if !self.score_is_cached {
+      self.cur_score = self.in_.score()?;
+      self.score_is_cached = true;
     }
+    Ok(self.cur_score)
+  }
 
-    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
-        self.in_.set_min_competitive_score(min_score)
-    }
+  fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+    self.in_.set_min_competitive_score(min_score)
+  }
 
-    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
-        todo!()
-    }
+  fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+    todo!()
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn cost(&self) -> Result<i64> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }
 pub struct ScoreCachingWrappingLeafCollector<LC>
 where
-    LC: LeafCollector,
+  LC: LeafCollector,
 {
-    inner: LC,
+  inner: LC,
 }
 impl<LC> ScoreCachingWrappingLeafCollector<LC>
 where
-    LC: LeafCollector,
+  LC: LeafCollector,
 {
-    pub(crate) fn new(base: LC) -> Self {
-        Self { inner: base }
-    }
+  pub(crate) fn new(base: LC) -> Self {
+    Self { inner: base }
+  }
 }
 
 impl<LC> Display for ScoreCachingWrappingLeafCollector<LC>
 where
-    LC: LeafCollector,
+  LC: LeafCollector,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.inner.fmt(f)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    self.inner.fmt(f)
+  }
 }
 
 impl<LC> LeafCollector for ScoreCachingWrappingLeafCollector<LC>
 where
-    LC: LeafCollector,
+  LC: LeafCollector,
 {
-    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
-        self.inner.set_scorer(scorer)
-    }
+  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+    self.inner.set_scorer(scorer)
+  }
 
-    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-        let mut wrapper = ScoreCachingWrappingScorer::new(scorer);
-        self.inner.collect(doc, &mut wrapper)
-    }
-    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
-        self.inner.competitive_iterator()
-    }
+  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+    let mut wrapper = ScoreCachingWrappingScorer::new(scorer);
+    self.inner.collect(doc, &mut wrapper)
+  }
+  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+    self.inner.competitive_iterator()
+  }
 
-    fn finish(&mut self) -> Result<()> {
-        self.inner.finish()
-    }
+  fn finish(&mut self) -> Result<()> {
+    self.inner.finish()
+  }
 }

@@ -23,56 +23,56 @@ use std::sync::Arc;
 #[derive(Default)]
 pub struct NoOutputs;
 impl NoOutputs {
-    pub fn get_singleton(&self) -> Self {
-        todo!()
-    }
+  pub fn get_singleton(&self) -> Self {
+    todo!()
+  }
 }
 
 impl Display for NoOutputs {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
+  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    todo!()
+  }
 }
 
 impl Clone for NoOutputs {
-    fn clone(&self) -> Self {
-        NoOutputs
-    }
+  fn clone(&self) -> Self {
+    NoOutputs
+  }
 }
 
 impl Outputs for NoOutputs {
-    // TODO: 未完成
-    type V = Arc<i64>;
+  // TODO: 未完成
+  type V = Arc<i64>;
 
-    fn common(&self, _output1: &Self::V, _output2: &Self::V) -> Self::V {
-        todo!()
-    }
+  fn common(&self, _output1: &Self::V, _output2: &Self::V) -> Self::V {
+    todo!()
+  }
 
-    fn subtract(&self, _output: &Self::V, _inc: &Self::V) -> Self::V {
-        todo!()
-    }
+  fn subtract(&self, _output: &Self::V, _inc: &Self::V) -> Self::V {
+    todo!()
+  }
 
-    fn add(&self, _prefix: &Self::V, _output: &Self::V) -> Self::V {
-        todo!()
-    }
+  fn add(&self, _prefix: &Self::V, _output: &Self::V) -> Self::V {
+    todo!()
+  }
 
-    fn write(&self, _output: &Self::V, _out: &mut impl DataOutput) -> Result<()> {
-        todo!()
-    }
+  fn write(&self, _output: &Self::V, _out: &mut impl DataOutput) -> Result<()> {
+    todo!()
+  }
 
-    fn read(&self, _input: &mut impl DataInput) -> Result<Self::V> {
-        todo!()
-    }
+  fn read(&self, _input: &mut impl DataInput) -> Result<Self::V> {
+    todo!()
+  }
 
-    fn get_no_output(&self) -> Self::V {
-        todo!()
-    }
+  fn get_no_output(&self) -> Self::V {
+    todo!()
+  }
 
-    fn output_to_string(&self, _output: &Self::V) -> String {
-        todo!()
-    }
+  fn output_to_string(&self, _output: &Self::V) -> String {
+    todo!()
+  }
 
-    fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
-        todo!()
-    }
+  fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
+    todo!()
+  }
 }

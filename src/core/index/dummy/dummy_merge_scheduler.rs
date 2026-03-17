@@ -25,39 +25,39 @@ use crate::core::util::close::Closeable;
 pub struct DummyMergeScheduler;
 
 impl Closeable for DummyMergeScheduler {
-    fn close(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn close(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl MergeScheduler for DummyMergeScheduler {
-    fn merge<MS, D, L, B>(
-        &self,
-        _merge_source: &MS,
-        _trigger: MergeTrigger,
-        _writer: &IndexWriter<D, L, B>,
-    ) -> crate::core::util::error::lucene_error::Result<()>
-    where
-        MS: MergeSource,
-        D: Directory,
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn merge<MS, D, L, B>(
+    &self,
+    _merge_source: &MS,
+    _trigger: MergeTrigger,
+    _writer: &IndexWriter<D, L, B>,
+  ) -> crate::core::util::error::lucene_error::Result<()>
+  where
+    MS: MergeSource,
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type Directory<D>
-        = DummyDirectory
-    where
-        D: Directory;
+  type Directory<D>
+    = DummyDirectory
+  where
+    D: Directory;
 
-    fn wrap_for_merge<D>(
-        &self,
-        _in_: D,
-    ) -> crate::core::util::error::lucene_error::Result<Self::Directory<D>>
-    where
-        D: Directory,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn wrap_for_merge<D>(
+    &self,
+    _in_: D,
+  ) -> crate::core::util::error::lucene_error::Result<Self::Directory<D>>
+  where
+    D: Directory,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

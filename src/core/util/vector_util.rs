@@ -21,21 +21,21 @@ use once_cell::sync::Lazy;
 pub static VECTOR_UTIL: Lazy<VectorUtil> = Lazy::new(VectorUtil::default);
 #[derive(Default)]
 pub struct VectorUtil {
-    impl_: DefaultVectorization,
+  impl_: DefaultVectorization,
 }
 impl VectorUtil {
-    pub fn find_next_geq(&self, buffer: &[i32], target: i32, from: usize, to: usize) -> usize {
-        debug_assert!({
-            let mut ok = true;
-            for i in 0..to.saturating_sub(1) {
-                if buffer[i] > buffer[i + 1] {
-                    ok = false;
-                    break;
-                }
-            }
-            ok
-        });
+  pub fn find_next_geq(&self, buffer: &[i32], target: i32, from: usize, to: usize) -> usize {
+    debug_assert!({
+      let mut ok = true;
+      for i in 0..to.saturating_sub(1) {
+        if buffer[i] > buffer[i + 1] {
+          ok = false;
+          break;
+        }
+      }
+      ok
+    });
 
-        self.impl_.find_next_geq(buffer, target, from, to)
-    }
+    self.impl_.find_next_geq(buffer, target, from, to)
+  }
 }

@@ -21,8 +21,8 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::search::comparators::numeric_comparator::{
-    NumericComparator, NumericCompetitiveIterator, NumericLeafComparator,
-    NumericLeafComparatorDocValues, ToLong,
+  NumericComparator, NumericCompetitiveIterator, NumericLeafComparator,
+  NumericLeafComparatorDocValues, ToLong,
 };
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
@@ -38,248 +38,244 @@ use crate::core::util::numeric_utils::NumericUtils;
 /// This comparator provides a skipping functionality – an iterator that can skip over
 /// non-competitive documents.
 pub struct DoubleComparator {
-    values: Vec<f64>,
-    top_value: f64,
-    bottom: f64,
-    pub(crate) base: NumericComparator<f64>,
+  values: Vec<f64>,
+  top_value: f64,
+  bottom: f64,
+  pub(crate) base: NumericComparator<f64>,
 }
 
 impl DoubleComparator {
-    pub fn new(
-        field: String,
-        num_hits: usize,
-        missing_value: Option<f64>,
-        reverse: bool,
-        pruning: Pruning,
-    ) -> Self {
-        let missing_value = missing_value.unwrap_or(0f64);
-        let base = NumericComparator::new(
-            field,
-            missing_value,
-            reverse,
-            pruning,
-            BitUtil::DOUBLE_BYTES,
-            NumericUtils::double_to_sortable_long(missing_value),
-        );
-        Self {
-            values: vec![0.0; num_hits],
-            top_value: 0.0,
-            bottom: 0.0,
-            base,
-        }
+  pub fn new(
+    field: String,
+    num_hits: usize,
+    missing_value: Option<f64>,
+    reverse: bool,
+    pruning: Pruning,
+  ) -> Self {
+    let missing_value = missing_value.unwrap_or(0f64);
+    let base = NumericComparator::new(
+      field,
+      missing_value,
+      reverse,
+      pruning,
+      BitUtil::DOUBLE_BYTES,
+      NumericUtils::double_to_sortable_long(missing_value),
+    );
+    Self {
+      values: vec![0.0; num_hits],
+      top_value: 0.0,
+      bottom: 0.0,
+      base,
     }
+  }
 }
 
 impl FieldComparator for DoubleComparator {
-    type V = f64;
-    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
-        let slot1_v = self.values[slot1];
-        let slot2_v = self.values[slot2];
-        slot1_v.total_cmp(&slot2_v).to_int()
-    }
+  type V = f64;
+  fn compare(&self, slot1: usize, slot2: usize) -> i32 {
+    let slot1_v = self.values[slot1];
+    let slot2_v = self.values[slot2];
+    slot1_v.total_cmp(&slot2_v).to_int()
+  }
 
-    fn set_top_value(&mut self, value: Self::V) {
-        self.base.set_top_value();
-        self.top_value = value;
-    }
+  fn set_top_value(&mut self, value: Self::V) {
+    self.base.set_top_value();
+    self.top_value = value;
+  }
 
-    fn value(&self, slot: usize) -> Option<Self::V> {
-        Some(self.values[slot])
-    }
+  fn value(&self, slot: usize) -> Option<Self::V> {
+    Some(self.values[slot])
+  }
 
-    type LeafFieldComparator<LR>
-        = DoubleLeafComparator<LR>
-    where
-        LR: LeafReader;
+  type LeafFieldComparator<LR>
+    = DoubleLeafComparator<LR>
+  where
+    LR: LeafReader;
 
-    fn get_leaf_comparator<LR>(
-        &mut self,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Self::LeafFieldComparator<LR>>
-    where
-        LR: LeafReader,
-    {
-        DoubleLeafComparator::new(self, context, None, None)
-    }
+  fn get_leaf_comparator<LR>(
+    &mut self,
+    context: &LeafReaderContext<LR>,
+  ) -> Result<Self::LeafFieldComparator<LR>>
+  where
+    LR: LeafReader,
+  {
+    DoubleLeafComparator::new(self, context, None, None)
+  }
 
-    fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
-        if first.is_nan() && second.is_nan() {
-            0
-        } else if first.is_nan() {
-            1
-        } else if second.is_nan() {
-            -1
-        } else {
-            0
-        }
+  fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
+    if first.is_nan() && second.is_nan() {
+      0
+    } else if first.is_nan() {
+      1
+    } else if second.is_nan() {
+      -1
+    } else {
+      0
     }
+  }
 
-    fn disable_skipping(&mut self) {
-        self.base.disable_skipping()
-    }
+  fn disable_skipping(&mut self) {
+    self.base.disable_skipping()
+  }
 }
 pub struct DoubleLeafComparator<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    base: NumericLeafComparator<LR, NumericLeafComparatorDocValues<LR>, f64, DoubleConverter>,
+  base: NumericLeafComparator<LR, NumericLeafComparatorDocValues<LR>, f64, DoubleConverter>,
 }
 
 impl<LR> DoubleLeafComparator<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    pub fn new(
-        comparator: &mut DoubleComparator,
-        context: &LeafReaderContext<LR>,
-        doc_values: Option<NumericLeafComparatorDocValues<LR>>,
-        candidate: Option<NumericLeafComparatorDocValues<LR>>,
-    ) -> Result<Self> {
-        let (doc_value, candidate) = match (doc_values, candidate) {
-            (Some(v1), Some(v2)) => (v1, v2),
-            (None, None) => {
-                let v1 = NumericLeafComparatorDocValues::<LR>::B(DocValues::get_numeric(
-                    context.reader(),
-                    &comparator.base.field,
-                )?);
-                let v2 = NumericLeafComparatorDocValues::<LR>::B(DocValues::get_numeric(
-                    context.reader(),
-                    &comparator.base.field,
-                )?);
-                (v1, v2)
-            },
-            _ => {
-                return Err(LuceneError::illegal_state(
-                    "doc_values and candidate must be both Some or None",
-                ));
-            },
-        };
-        let top_value = comparator.top_value;
-        let base = NumericLeafComparator::new(
-            context,
-            &mut comparator.base,
-            doc_value,
-            candidate,
-            DoubleConverter,
-            top_value,
-        )?;
-        Ok(Self { base })
+  pub fn new(
+    comparator: &mut DoubleComparator,
+    context: &LeafReaderContext<LR>,
+    doc_values: Option<NumericLeafComparatorDocValues<LR>>,
+    candidate: Option<NumericLeafComparatorDocValues<LR>>,
+  ) -> Result<Self> {
+    let (doc_value, candidate) = match (doc_values, candidate) {
+      (Some(v1), Some(v2)) => (v1, v2),
+      (None, None) => {
+        let v1 = NumericLeafComparatorDocValues::<LR>::B(DocValues::get_numeric(
+          context.reader(),
+          &comparator.base.field,
+        )?);
+        let v2 = NumericLeafComparatorDocValues::<LR>::B(DocValues::get_numeric(
+          context.reader(),
+          &comparator.base.field,
+        )?);
+        (v1, v2)
+      },
+      _ => {
+        return Err(LuceneError::illegal_state(
+          "doc_values and candidate must be both Some or None",
+        ));
+      },
+    };
+    let top_value = comparator.top_value;
+    let base = NumericLeafComparator::new(
+      context,
+      &mut comparator.base,
+      doc_value,
+      candidate,
+      DoubleConverter,
+      top_value,
+    )?;
+    Ok(Self { base })
+  }
+  fn get_value_for_doc(
+    &mut self,
+    doc: i32,
+    comparator: &mut NumericComparator<f64>,
+  ) -> Result<f64> {
+    let doc_values = &mut self.base.doc_values;
+    if doc_values.advance_exact(doc)? {
+      let bits = doc_values.long_value()? as u64;
+      Ok(f64::from_bits(bits))
+    } else {
+      Ok(comparator.missing_value)
     }
-    fn get_value_for_doc(
-        &mut self,
-        doc: i32,
-        comparator: &mut NumericComparator<f64>,
-    ) -> Result<f64> {
-        let doc_values = &mut self.base.doc_values;
-        if doc_values.advance_exact(doc)? {
-            let bits = doc_values.long_value()? as u64;
-            Ok(f64::from_bits(bits))
-        } else {
-            Ok(comparator.missing_value)
-        }
-    }
+  }
 }
 
 impl<LR> LeafFieldComparator for DoubleLeafComparator<LR>
 where
-    LR: LeafReader,
+  LR: LeafReader,
 {
-    type FieldComparator = DoubleComparator;
-    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
-        comparator.bottom = comparator.values[slot];
-        self.base.set_bottom(
-            comparator.bottom,
-            comparator.top_value,
-            &mut comparator.base,
-        )
-    }
+  type FieldComparator = DoubleComparator;
+  fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
+    comparator.bottom = comparator.values[slot];
+    self.base.set_bottom(
+      comparator.bottom,
+      comparator.top_value,
+      &mut comparator.base,
+    )
+  }
 
-    fn compare_bottom<S>(
-        &mut self,
-        doc: i32,
-        _scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<i32>
-    where
-        S: Scorable + ?Sized,
-    {
-        let v = self.get_value_for_doc(doc, &mut comparator.base)?;
-        Ok(comparator.bottom.total_cmp(&v).to_int())
-    }
+  fn compare_bottom<S>(
+    &mut self,
+    doc: i32,
+    _scorer: &mut S,
+    comparator: &mut Self::FieldComparator,
+  ) -> Result<i32>
+  where
+    S: Scorable + ?Sized,
+  {
+    let v = self.get_value_for_doc(doc, &mut comparator.base)?;
+    Ok(comparator.bottom.total_cmp(&v).to_int())
+  }
 
-    fn compare_top<S>(
-        &mut self,
-        doc: i32,
-        _scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<i32>
-    where
-        S: Scorable + ?Sized,
-    {
-        let v = self.get_value_for_doc(doc, &mut comparator.base)?;
-        Ok(comparator.top_value.total_cmp(&v).to_int())
-    }
+  fn compare_top<S>(
+    &mut self,
+    doc: i32,
+    _scorer: &mut S,
+    comparator: &mut Self::FieldComparator,
+  ) -> Result<i32>
+  where
+    S: Scorable + ?Sized,
+  {
+    let v = self.get_value_for_doc(doc, &mut comparator.base)?;
+    Ok(comparator.top_value.total_cmp(&v).to_int())
+  }
 
-    fn copy<S>(
-        &mut self,
-        slot: usize,
-        doc: i32,
-        _scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<()>
-    where
-        S: Scorable + ?Sized,
-    {
-        let v = self.get_value_for_doc(doc, &mut comparator.base)?;
-        comparator.values[slot] = v;
-        self.base.copy(doc)
-    }
+  fn copy<S>(
+    &mut self,
+    slot: usize,
+    doc: i32,
+    _scorer: &mut S,
+    comparator: &mut Self::FieldComparator,
+  ) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
+    let v = self.get_value_for_doc(doc, &mut comparator.base)?;
+    comparator.values[slot] = v;
+    self.base.copy(doc)
+  }
 
-    fn set_scorer<S>(
-        &mut self,
-        scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<()>
-    where
-        S: Scorable + ?Sized,
-    {
-        self.base.set_scorer(
-            scorer,
-            comparator.bottom,
-            comparator.top_value,
-            &mut comparator.base,
-        )
-    }
+  fn set_scorer<S>(&mut self, scorer: &mut S, comparator: &mut Self::FieldComparator) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
+    self.base.set_scorer(
+      scorer,
+      comparator.bottom,
+      comparator.top_value,
+      &mut comparator.base,
+    )
+  }
 
-    type DocIdSetIteratorRef<'a>
-        = &'a mut NumericCompetitiveIterator<LR>
-    where
-        LR: 'a;
+  type DocIdSetIteratorRef<'a>
+    = &'a mut NumericCompetitiveIterator<LR>
+  where
+    LR: 'a;
 
-    fn competitive_iterator(
-        &mut self,
-        _comparator: &mut Self::FieldComparator,
-    ) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
-        Ok(self.base.competitive_iterator())
-    }
+  fn competitive_iterator(
+    &mut self,
+    _comparator: &mut Self::FieldComparator,
+  ) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+    Ok(self.base.competitive_iterator())
+  }
 
-    fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {
-        self.base.set_hits_threshold_reached(
-            comparator.bottom,
-            comparator.top_value,
-            &mut comparator.base,
-        )
-    }
+  fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {
+    self.base.set_hits_threshold_reached(
+      comparator.bottom,
+      comparator.top_value,
+      &mut comparator.base,
+    )
+  }
 }
 pub(crate) struct DoubleConverter;
 impl ToLong for DoubleConverter {
-    type V = f64;
+  type V = f64;
 
-    fn value_to_long(&self, v: Self::V) -> i64 {
-        NumericUtils::double_to_sortable_long(v)
-    }
+  fn value_to_long(&self, v: Self::V) -> i64 {
+    NumericUtils::double_to_sortable_long(v)
+  }
 
-    fn bytes_to_long(&self, bytes: &[u8]) -> i64 {
-        NumericUtils::sortable_bytes_to_long(bytes, 0)
-    }
+  fn bytes_to_long(&self, bytes: &[u8]) -> i64 {
+    NumericUtils::sortable_bytes_to_long(bytes, 0)
+  }
 }

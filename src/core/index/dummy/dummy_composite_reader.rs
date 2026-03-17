@@ -27,101 +27,101 @@ use std::fmt::{Display, Formatter};
 
 pub struct DummyCompositeReader<LR>
 where
-    LR: LeafReader + Clone,
+  LR: LeafReader + Clone,
 {
-    lr: Vec<IndexReaderEnum<LR, DummyCompositeReader<LR>>>,
+  lr: Vec<IndexReaderEnum<LR, DummyCompositeReader<LR>>>,
 }
 
 impl DummyCompositeReader<DummyLeafReader> {
-    pub fn new(lr: DummyLeafReader) -> Self {
-        let v = IndexReaderEnum::Leaf(lr);
-        Self { lr: vec![v] }
-    }
+  pub fn new(lr: DummyLeafReader) -> Self {
+    let v = IndexReaderEnum::Leaf(lr);
+    Self { lr: vec![v] }
+  }
 }
 
 impl<LR> IndexReader for DummyCompositeReader<LR>
 where
-    LR: LeafReader + Clone,
+  LR: LeafReader + Clone,
 {
-    type TermVectors = DummyTermVectors;
+  type TermVectors = DummyTermVectors;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn max_doc(&self) -> Result<i32> {
-        Ok(1)
-    }
+  fn max_doc(&self) -> Result<i32> {
+    Ok(1)
+  }
 
-    fn num_docs(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn num_docs(&self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type StoredFields = DummyStoredFields;
+  type StoredFields = DummyStoredFields;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn do_close(&self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn do_close(&self) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type ReaderCacheHelper = DummyCacheHelper;
+  type ReaderCacheHelper = DummyCacheHelper;
 
-    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn doc_freq(&self, _term: &Term) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn doc_freq(&self, _term: &Term) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn total_term_freq(&self, _term: &Term) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn total_term_freq(&self, _term: &Term) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_sum_doc_freq(&self, _field: &str) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_sum_doc_freq(&self, _field: &str) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_doc_count(&self, _field: &str) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_doc_count(&self, _field: &str) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_sum_total_term_freq(&self, _field: &str) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_sum_total_term_freq(&self, _field: &str) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn index_base(&self) -> &IndexReaderBase {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn index_base(&self) -> &IndexReaderBase {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl<LR> Display for DummyCompositeReader<LR>
 where
-    LR: LeafReader + Clone,
+  LR: LeafReader + Clone,
 {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl<LR> CompositeReader for DummyCompositeReader<LR>
 where
-    LR: LeafReader + Clone,
+  LR: LeafReader + Clone,
 {
-    type LeafReader = LR;
+  type LeafReader = LR;
 
-    type SubCompositeReader = DummyCompositeReader<LR>;
+  type SubCompositeReader = DummyCompositeReader<LR>;
 
-    fn get_sequential_sub_readers(
-        &self,
-    ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
-        self.lr.as_slice()
-    }
+  fn get_sequential_sub_readers(
+    &self,
+  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+    self.lr.as_slice()
+  }
 
-    fn to_string(&self) -> String {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn to_string(&self) -> String {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

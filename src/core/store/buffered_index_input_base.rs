@@ -21,30 +21,30 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::error::lucene_error::Result;
 
 pub trait BufferedIndexInputBase: crate::core::util::clone::TryClone {
-    /// Expert: Implements seek functionality. Sets the current position in this
-    /// file, where the next call to
-    /// [`read_internal`](BufferedIndexInputBase::read_internal) will occur.
-    ///
-    /// # See Also
-    /// [`read_internal`](BufferedIndexInputBase::read_internal)
-    fn seek_internal(&mut self, pos: usize) -> Result<()>;
-    /// Expert: Implements buffer refill. Reads bytes from the current position
-    /// in the input.
-    ///
-    /// # Arguments
-    /// * `b` - The buffer to read bytes into.
-    fn read_internal(
-        &mut self,
-        b: &mut Cursor<Vec<u8>>,
-        len: usize,
-        file_pointer: usize,
-    ) -> Result<()>;
+  /// Expert: Implements seek functionality. Sets the current position in this
+  /// file, where the next call to
+  /// [`read_internal`](BufferedIndexInputBase::read_internal) will occur.
+  ///
+  /// # See Also
+  /// [`read_internal`](BufferedIndexInputBase::read_internal)
+  fn seek_internal(&mut self, pos: usize) -> Result<()>;
+  /// Expert: Implements buffer refill. Reads bytes from the current position
+  /// in the input.
+  ///
+  /// # Arguments
+  /// * `b` - The buffer to read bytes into.
+  fn read_internal(
+    &mut self,
+    b: &mut Cursor<Vec<u8>>,
+    len: usize,
+    file_pointer: usize,
+  ) -> Result<()>;
 
-    /// Creates a slice of this index input, with the given description, offset,
-    /// and length. The slice is positioned at the beginning.
-    type Slice: IndexInput + RandomAccessInput;
-    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self::Slice>;
+  /// Creates a slice of this index input, with the given description, offset,
+  /// and length. The slice is positioned at the beginning.
+  type Slice: IndexInput + RandomAccessInput;
+  fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self::Slice>;
 
-    /// The number of bytes in the file.
-    fn length(&self) -> usize;
+  /// The number of bytes in the file.
+  fn length(&self) -> usize;
 }

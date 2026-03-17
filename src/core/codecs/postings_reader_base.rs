@@ -38,60 +38,60 @@ use std::sync::Arc;
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
 pub trait PostingsReaderBase: Display {
-    /// Performs any initialization, such as reading and verifying the header
-    /// from the provided terms dictionary [`IndexInput`].
-    fn init<D1, D2>(
-        &self,
-        terms_in: &mut impl IndexInput,
-        state: &SegmentReadState<D1>,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<()>
-    where
-        D1: Directory,
-        D2: Directory;
+  /// Performs any initialization, such as reading and verifying the header
+  /// from the provided terms dictionary [`IndexInput`].
+  fn init<D1, D2>(
+    &self,
+    terms_in: &mut impl IndexInput,
+    state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory;
 
-    /// Return a newly created empty `TermState`.
-    fn new_term_state(&self) -> Result<TermStateEnum>;
+  /// Return a newly created empty `TermState`.
+  fn new_term_state(&self) -> Result<TermStateEnum>;
 
-    /// Actually decode metadata for next term
-    ///
-    /// See also:
-    /// - [`PostingsWriterBase::encodeTerm`](crate::core::codecs::postings_writer_base::PostingsWriterBase::encode_term)
-    fn decode_term(
-        &self,
-        input: &mut impl DataInput,
-        field_info: &Arc<FieldInfo>,
-        state: &mut TermStateEnum,
-        absolute: bool,
-    ) -> Result<()>;
+  /// Actually decode metadata for next term
+  ///
+  /// See also:
+  /// - [`PostingsWriterBase::encodeTerm`](crate::core::codecs::postings_writer_base::PostingsWriterBase::encode_term)
+  fn decode_term(
+    &self,
+    input: &mut impl DataInput,
+    field_info: &Arc<FieldInfo>,
+    state: &mut TermStateEnum,
+    absolute: bool,
+  ) -> Result<()>;
 
-    /// Must fully consume `state`, since after this call that `TermState` may
-    /// be reused.
-    type PostingsEnum: PostingsEnum;
-    fn postings(
-        &self,
-        field_info: &FieldInfo,
-        state: &TermStateEnum,
-        reuse: Option<Self::PostingsEnum>,
-        flags: i32,
-    ) -> Result<Option<Self::PostingsEnum>>;
+  /// Must fully consume `state`, since after this call that `TermState` may
+  /// be reused.
+  type PostingsEnum: PostingsEnum;
+  fn postings(
+    &self,
+    field_info: &FieldInfo,
+    state: &TermStateEnum,
+    reuse: Option<Self::PostingsEnum>,
+    flags: i32,
+  ) -> Result<Option<Self::PostingsEnum>>;
 
-    type ImpactsEnum: ImpactsEnum;
-    /// Return an [`ImpactsEnum`] that computes impacts
-    /// with `scorer`.
-    ///
-    /// See also:
-    /// - [`postings`](Self::postings)
-    fn impacts(
-        &self,
-        field_info: &FieldInfo,
-        state: &TermStateEnum,
-        flags: i32,
-    ) -> Result<Self::ImpactsEnum>;
+  type ImpactsEnum: ImpactsEnum;
+  /// Return an [`ImpactsEnum`] that computes impacts
+  /// with `scorer`.
+  ///
+  /// See also:
+  /// - [`postings`](Self::postings)
+  fn impacts(
+    &self,
+    field_info: &FieldInfo,
+    state: &TermStateEnum,
+    flags: i32,
+  ) -> Result<Self::ImpactsEnum>;
 
-    /// Checks consistency of this reader.
-    ///
-    /// Note that this may be costly in terms of I/O, e.g. may involve computing
-    /// a checksum value against large data files.
-    fn check_integrity(&self) -> Result<()>;
+  /// Checks consistency of this reader.
+  ///
+  /// Note that this may be costly in terms of I/O, e.g. may involve computing
+  /// a checksum value against large data files.
+  fn check_integrity(&self) -> Result<()>;
 }

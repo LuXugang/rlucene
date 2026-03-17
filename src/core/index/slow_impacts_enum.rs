@@ -29,111 +29,111 @@ use std::borrow::Cow;
 /// This is typically used for short postings that do not need skipping.
 pub struct SlowImpactsEnum<P>
 where
-    P: PostingsEnum,
+  P: PostingsEnum,
 {
-    pub(crate) delegate: P,
+  pub(crate) delegate: P,
 }
 impl<P> SlowImpactsEnum<P>
 where
-    P: PostingsEnum,
+  P: PostingsEnum,
 {
-    pub fn new(delegate: P) -> Self {
-        SlowImpactsEnum { delegate }
-    }
+  pub fn new(delegate: P) -> Self {
+    SlowImpactsEnum { delegate }
+  }
 }
 
 impl<P> PostingsEnum for SlowImpactsEnum<P>
 where
-    P: PostingsEnum,
+  P: PostingsEnum,
 {
-    fn freq(&mut self) -> Result<i32> {
-        self.delegate.freq()
-    }
+  fn freq(&mut self) -> Result<i32> {
+    self.delegate.freq()
+  }
 
-    fn next_position(&mut self) -> Result<i32> {
-        self.delegate.next_position()
-    }
+  fn next_position(&mut self) -> Result<i32> {
+    self.delegate.next_position()
+  }
 
-    fn start_offset(&self) -> Result<i32> {
-        self.delegate.start_offset()
-    }
+  fn start_offset(&self) -> Result<i32> {
+    self.delegate.start_offset()
+  }
 
-    fn end_offset(&self) -> Result<i32> {
-        self.delegate.end_offset()
-    }
+  fn end_offset(&self) -> Result<i32> {
+    self.delegate.end_offset()
+  }
 
-    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.delegate.get_payload()
-    }
+  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    self.delegate.get_payload()
+  }
 }
 
 impl<P> DocIdSetIterator for SlowImpactsEnum<P>
 where
-    P: PostingsEnum,
+  P: PostingsEnum,
 {
-    fn doc_id(&self) -> i32 {
-        self.delegate.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.delegate.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.delegate.next_doc()
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.delegate.next_doc()
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.delegate.advance(target)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.delegate.advance(target)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.delegate.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.delegate.cost()
+  }
 }
 
 impl<P> ImpactsSource for SlowImpactsEnum<P>
 where
-    P: PostingsEnum,
+  P: PostingsEnum,
 {
-    fn advance_shallow(&mut self, _target: i32) -> Result<()> {
-        Ok(())
-    }
+  fn advance_shallow(&mut self, _target: i32) -> Result<()> {
+    Ok(())
+  }
 
-    type Impacts<'a>
-        = DummyImpacts
-    where
-        Self: 'a;
+  type Impacts<'a>
+    = DummyImpacts
+  where
+    Self: 'a;
 
-    fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
-        Ok(DummyImpacts::new())
-    }
+  fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
+    Ok(DummyImpacts::new())
+  }
 }
 
 impl<P> ImpactsEnum for SlowImpactsEnum<P> where P: PostingsEnum {}
 
 pub struct DummyImpacts {
-    impacts: Vec<Impact>,
+  impacts: Vec<Impact>,
 }
 impl Default for DummyImpacts {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl DummyImpacts {
-    pub fn new() -> Self {
-        DummyImpacts {
-            impacts: vec![Impact::new(i32::MAX, 0)],
-        }
+  pub fn new() -> Self {
+    DummyImpacts {
+      impacts: vec![Impact::new(i32::MAX, 0)],
     }
+  }
 }
 impl Impacts for DummyImpacts {
-    fn num_levels(&self) -> i32 {
-        1
-    }
+  fn num_levels(&self) -> i32 {
+    1
+  }
 
-    fn get_doc_id_upto(&self, _level: i32) -> i32 {
-        NO_MORE_DOCS
-    }
+  fn get_doc_id_upto(&self, _level: i32) -> i32 {
+    NO_MORE_DOCS
+  }
 
-    fn get_impacts(&self, _level: i32) -> Result<Vec<Impact>> {
-        Ok(self.impacts.clone())
-    }
+  fn get_impacts(&self, _level: i32) -> Result<Vec<Impact>> {
+    Ok(self.impacts.clone())
+  }
 }

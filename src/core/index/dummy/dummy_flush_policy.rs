@@ -26,18 +26,18 @@ use parking_lot::MutexGuard;
 
 pub struct DummyFlushPolicy;
 impl FlushPolicy for DummyFlushPolicy {
-    fn on_change<D, L>(
-        &self,
-        _control: &DocumentsWriterFlushControl<D>,
-        _inner: &mut Inner<D>,
-        _per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
-        _delete_queue: &DocumentsWriterDeleteQueue,
-        _config: &L,
-    ) -> Result<()>
-    where
-        D: Directory,
-        L: LiveIndexWriterConfig,
-    {
-        Ok(())
-    }
+  fn on_change<D, L>(
+    &self,
+    _control: &DocumentsWriterFlushControl<D>,
+    _inner: &mut Inner<D>,
+    _per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
+    _delete_queue: &DocumentsWriterDeleteQueue,
+    _config: &L,
+  ) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+  {
+    Ok(())
+  }
 }

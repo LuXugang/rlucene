@@ -29,7 +29,7 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory_shared, new_searcher_with_reader, random, rarely,
+  at_least, new_directory_shared, new_searcher_with_reader, random, rarely,
 };
 use rand::RngExt;
 use std::fmt::{Display, Formatter};
@@ -40,106 +40,106 @@ struct TestEarlyTermination;
 
 #[test]
 fn test_early_termination() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let writer = RandomIndexWriter::new(&mut random, dir.clone());
-    let num_docs = at_least(&mut random, 100);
-    for _ in 0..num_docs {
-        writer.add_document(Document::new())?;
-        if rarely(&mut random) {
-            writer.commit()?;
-        }
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let num_docs = at_least(&mut random, 100);
+  for _ in 0..num_docs {
+    writer.add_document(Document::new())?;
+    if rarely(&mut random) {
+      writer.commit()?;
     }
-    let reader = Rc::new(writer.get_reader()?);
-    let iter = at_least(&mut random, 5);
-    for _ in 0..iter {
-        let searcher = new_searcher_with_reader(reader.clone())?;
-        searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &CollectorManagerImpl)?;
-    }
+  }
+  let reader = Rc::new(writer.get_reader()?);
+  let iter = at_least(&mut random, 5);
+  for _ in 0..iter {
+    let searcher = new_searcher_with_reader(reader.clone())?;
+    searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &CollectorManagerImpl)?;
+  }
 
-    writer.close()?;
-    Ok(())
+  writer.close()?;
+  Ok(())
 }
 #[derive(Default)]
 struct CollectorManagerImpl;
 impl CollectorManager for CollectorManagerImpl {
-    type C = SimpleCollectorImpl;
-    type T = ();
+  type C = SimpleCollectorImpl;
+  type T = ();
 
-    fn new_collector(&self) -> Result<Self::C> {
-        Ok(SimpleCollectorImpl::new())
-    }
+  fn new_collector(&self) -> Result<Self::C> {
+    Ok(SimpleCollectorImpl::new())
+  }
 
-    fn reduce(&self, _collectors: Vec<Self::C>) -> Result<Self::T> {
-        Ok(())
-    }
+  fn reduce(&self, _collectors: Vec<Self::C>) -> Result<Self::T> {
+    Ok(())
+  }
 }
 
 struct SimpleCollectorImpl {
-    collection_terminated: bool,
+  collection_terminated: bool,
 }
 impl SimpleCollectorImpl {
-    fn new() -> Self {
-        Self {
-            collection_terminated: true,
-        }
+  fn new() -> Self {
+    Self {
+      collection_terminated: true,
     }
+  }
 }
 
 impl Collector for SimpleCollectorImpl {
-    type LeafCollector<'a, IRC>
-        = &'a mut Self
-    where
-        Self: 'a,
-        IRC: IndexReaderContext;
+  type LeafCollector<'a, IRC>
+    = &'a mut Self
+  where
+    Self: 'a,
+    IRC: IndexReaderContext;
 
-    fn get_leaf_collector<'a, W, IRC>(
-        &'a mut self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        weight: Option<&W>,
-    ) -> Result<Self::LeafCollector<'a, IRC>>
-    where
-        IRC: IndexReaderContext,
-        W: Weight<IRC> + ?Sized,
-    {
-        SimpleCollector::get_leaf_collector(self, context, weight)?;
-        Ok(self)
-    }
+  fn get_leaf_collector<'a, W, IRC>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC>>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    SimpleCollector::get_leaf_collector(self, context, weight)?;
+    Ok(self)
+  }
 
-    fn score_mode(&self) -> ScoreMode {
-        ScoreMode::CompleteNoScores
-    }
+  fn score_mode(&self) -> ScoreMode {
+    ScoreMode::CompleteNoScores
+  }
 }
 
 impl Display for SimpleCollectorImpl {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }
 
 impl LeafCollector for SimpleCollectorImpl {
-    fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
-        assert!(!self.collection_terminated);
-        if rarely(&mut random()) {
-            self.collection_terminated = true;
-            return Err(LuceneError::collection_terminated(""));
-        }
-        Ok(())
+  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+    assert!(!self.collection_terminated);
+    if rarely(&mut random()) {
+      self.collection_terminated = true;
+      return Err(LuceneError::collection_terminated(""));
     }
+    Ok(())
+  }
 }
 
 impl SimpleCollector for SimpleCollectorImpl {
-    fn do_set_next_reader<LR>(&mut self, _context: &LeafReaderContext<LR>) -> Result<()>
-    where
-        LR: LeafReader,
-    {
-        let mut random = random();
-        if random.random_bool(0.5) {
-            self.collection_terminated = true;
-            return Err(LuceneError::collection_terminated(""));
-        } else {
-            self.collection_terminated = false;
-        }
-        Ok(())
+  fn do_set_next_reader<LR>(&mut self, _context: &LeafReaderContext<LR>) -> Result<()>
+  where
+    LR: LeafReader,
+  {
+    let mut random = random();
+    if random.random_bool(0.5) {
+      self.collection_terminated = true;
+      return Err(LuceneError::collection_terminated(""));
+    } else {
+      self.collection_terminated = false;
     }
+    Ok(())
+  }
 }

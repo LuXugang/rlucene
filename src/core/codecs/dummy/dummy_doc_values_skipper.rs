@@ -19,47 +19,47 @@ use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyDocValuesSkipper;
 impl DocValuesSkipper for DummyDocValuesSkipper {
-    fn advance(&mut self, _target: i32) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn advance(&mut self, _target: i32) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn num_levels(&self) -> usize {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn num_levels(&self) -> usize {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn min_doc_id_with_level(&self, _level: usize) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn min_doc_id_with_level(&self, _level: usize) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn max_doc_id_with_level(&self, _level: usize) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn max_doc_id_with_level(&self, _level: usize) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn min_value_with_level(&self, _level: usize) -> i64 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn min_value_with_level(&self, _level: usize) -> i64 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn max_value_with_level(&self, _level: usize) -> i64 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn max_value_with_level(&self, _level: usize) -> i64 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn doc_count_with_level(&self, _level: usize) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn doc_count_with_level(&self, _level: usize) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn min_value(&self) -> i64 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn min_value(&self) -> i64 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn max_value(&self) -> i64 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn max_value(&self) -> i64 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn doc_count(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn doc_count(&self) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn advance_with_range(&mut self, _min_value: i64, _max_value: i64) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn advance_with_range(&mut self, _min_value: i64, _max_value: i64) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

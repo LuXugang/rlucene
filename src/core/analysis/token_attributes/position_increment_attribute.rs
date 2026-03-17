@@ -37,21 +37,21 @@ use crate::core::util::error::lucene_error::Result;
 /// # See
 /// [`PostingsEnum`](crate::core::index::postings_enum::PostingsEnum)
 pub trait PositionIncrementAttribute: Attribute {
-    /// Set the position increment. The default value is `1`.
-    ///
-    /// # Parameters
-    ///
-    /// - `position_increment`: the distance from the prior term; must be non-negative.
-    ///
-    /// # Error
-    ///
-    /// Error if `position_increment < 0`.
-    fn set_position_increment(&mut self, position_increment: i32) -> Result<()>;
+  /// Set the position increment. The default value is `1`.
+  ///
+  /// # Parameters
+  ///
+  /// - `position_increment`: the distance from the prior term; must be non-negative.
+  ///
+  /// # Error
+  ///
+  /// Error if `position_increment < 0`.
+  fn set_position_increment(&mut self, position_increment: i32) -> Result<()>;
 
-    /// Returns the position increment of this Token.
-    ///
-    /// # See
-    ///
-    /// [`set_position_increment`](PositionIncrementAttribute::set_position_increment)
-    fn get_position_increment(&self) -> i32;
+  /// Returns the position increment of this Token.
+  ///
+  /// # See
+  ///
+  /// [`set_position_increment`](PositionIncrementAttribute::set_position_increment)
+  fn get_position_increment(&self) -> i32;
 }

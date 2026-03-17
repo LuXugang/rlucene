@@ -25,86 +25,86 @@ use std::sync::Arc;
 
 pub struct CoreHelper;
 impl CoreHelper {
-    pub const CLONE_WARRING: &'static str = "does not implement the Clone logic.
+  pub const CLONE_WARRING: &'static str = "does not implement the Clone logic.
 The purpose of implementing the Clone trait is to make it could be used with Cow";
-    pub fn check_from_index_size(from_index: usize, size: usize, length: usize) -> Result<usize> {
-        if size > length - from_index {
-            Err(LuceneError::array_index_out_of_bounds(format!(
-                "size: {size} is too large, from_index: {from_index}, length: {length}"
-            )))
-        } else {
-            Ok(from_index)
-        }
+  pub fn check_from_index_size(from_index: usize, size: usize, length: usize) -> Result<usize> {
+    if size > length - from_index {
+      Err(LuceneError::array_index_out_of_bounds(format!(
+        "size: {size} is too large, from_index: {from_index}, length: {length}"
+      )))
+    } else {
+      Ok(from_index)
     }
-    pub fn check_from_to_index(from_index: usize, to_index: usize, length: usize) -> Result<usize> {
-        if from_index > to_index || to_index > length {
-            return Err(LuceneError::array_index_out_of_bounds(format!(
-                "index out of bounds: from_index={from_index} to_index={to_index} length={length}"
-            )));
-        }
-        Ok(from_index)
+  }
+  pub fn check_from_to_index(from_index: usize, to_index: usize, length: usize) -> Result<usize> {
+    if from_index > to_index || to_index > length {
+      return Err(LuceneError::array_index_out_of_bounds(format!(
+        "index out of bounds: from_index={from_index} to_index={to_index} length={length}"
+      )));
     }
-    pub fn check_index(index: usize, length: usize) -> Result<usize> {
-        if index >= length {
-            return Err(LuceneError::array_index_out_of_bounds(format!(
-                "index out of bounds: index={index} length={length}"
-            )));
-        }
-        Ok(index)
+    Ok(from_index)
+  }
+  pub fn check_index(index: usize, length: usize) -> Result<usize> {
+    if index >= length {
+      return Err(LuceneError::array_index_out_of_bounds(format!(
+        "index out of bounds: index={index} length={length}"
+      )));
     }
-    pub fn miss_match<T: PartialEq>(a: &[T], b: &[T]) -> i32 {
-        let miss_match = a.iter().zip(b.iter()).position(|(x, y)| x != y);
-        match miss_match {
-            Some(i) => i as i32,
-            None => match a.len().cmp(&b.len()) {
-                Ordering::Greater => b.len() as i32,
-                Ordering::Less => a.len() as i32,
-                Ordering::Equal => -1,
-            },
-        }
+    Ok(index)
+  }
+  pub fn miss_match<T: PartialEq>(a: &[T], b: &[T]) -> i32 {
+    let miss_match = a.iter().zip(b.iter()).position(|(x, y)| x != y);
+    match miss_match {
+      Some(i) => i as i32,
+      None => match a.len().cmp(&b.len()) {
+        Ordering::Greater => b.len() as i32,
+        Ordering::Less => a.len() as i32,
+        Ordering::Equal => -1,
+      },
     }
+  }
 
-    pub fn take_and_reset<T, F>(target: &mut T, reset_fn: F) -> T
-    where
-        T: Default,
-        F: FnOnce(&T) -> T,
-    {
-        let old = std::mem::take(target);
-        *target = reset_fn(&old);
-        old
+  pub fn take_and_reset<T, F>(target: &mut T, reset_fn: F) -> T
+  where
+    T: Default,
+    F: FnOnce(&T) -> T,
+  {
+    let old = std::mem::take(target);
+    *target = reset_fn(&old);
+    old
+  }
+  pub fn calculate_hash<T>(value: &T) -> u64
+  where
+    T: Hash + ?Sized,
+  {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish()
+  }
+  pub fn get_two_mut<T>(slice: &mut [T], i: usize, j: usize) -> (&mut T, &mut T) {
+    debug_assert!(i != j);
+    if i < j {
+      let (a, b) = slice.split_at_mut(j);
+      (&mut a[i], &mut b[0])
+    } else {
+      let (a, b) = slice.split_at_mut(i);
+      (&mut b[0], &mut a[j])
     }
-    pub fn calculate_hash<T>(value: &T) -> u64
-    where
-        T: Hash + ?Sized,
-    {
-        let mut hasher = DefaultHasher::new();
-        value.hash(&mut hasher);
-        hasher.finish()
-    }
-    pub fn get_two_mut<T>(slice: &mut [T], i: usize, j: usize) -> (&mut T, &mut T) {
-        debug_assert!(i != j);
-        if i < j {
-            let (a, b) = slice.split_at_mut(j);
-            (&mut a[i], &mut b[0])
-        } else {
-            let (a, b) = slice.split_at_mut(i);
-            (&mut b[0], &mut a[j])
-        }
-    }
+  }
 }
 
 pub trait ToInt {
-    fn to_int(&self) -> i32;
+  fn to_int(&self) -> i32;
 }
 
 impl ToInt for Ordering {
-    fn to_int(&self) -> i32 {
-        match self {
-            Ordering::Less => -1,
-            Ordering::Equal => 0,
-            Ordering::Greater => 1,
-        }
+  fn to_int(&self) -> i32 {
+    match self {
+      Ordering::Less => -1,
+      Ordering::Equal => 0,
+      Ordering::Greater => 1,
     }
+  }
 }
 
 /// Extension trait for `Option<T>` that provides a convenient way to
@@ -115,138 +115,138 @@ impl ToInt for Ordering {
 /// contents, perform some fallible operation, and then put the value
 /// back—without panicking or manually handling `take()` / `replace()`.
 pub trait OptionTakeExt<T> {
-    /// Takes the inner `T` out of the `Option`, leaving `None` in its place,
-    /// then calls the provided closure `f` on a mutable reference to that `T`.
-    ///
-    /// - If the `Option` was `Some(val)`, runs `f(&mut val)`, restores
-    ///   `Some(val)`, and returns the closure’s `Result<R>`.
-    /// - If the `Option` was `None`, returns an `Err` with a
-    ///   `LuceneError::illegal_state("Option was None".to_string())`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Err(LuceneError::illegal_state)` if the `Option` is empty,
-    /// or propagates any `Err` returned by the closure.
-    fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R>;
+  /// Takes the inner `T` out of the `Option`, leaving `None` in its place,
+  /// then calls the provided closure `f` on a mutable reference to that `T`.
+  ///
+  /// - If the `Option` was `Some(val)`, runs `f(&mut val)`, restores
+  ///   `Some(val)`, and returns the closure’s `Result<R>`.
+  /// - If the `Option` was `None`, returns an `Err` with a
+  ///   `LuceneError::illegal_state("Option was None".to_string())`.
+  ///
+  /// # Errors
+  ///
+  /// Returns `Err(LuceneError::illegal_state)` if the `Option` is empty,
+  /// or propagates any `Err` returned by the closure.
+  fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R>;
 }
 
 impl<T> OptionTakeExt<T> for Option<T> {
-    /// Implementation of `take_do_return` for all `Option<T>`.
-    ///
-    /// 1. Calls `self.take()` to extract the value (or return an error if
-    ///    `None`).
-    /// 2. Runs the user-provided closure on a mutable reference to the value.
-    /// 3. Restores the value back into `self` regardless of success or failure.
-    /// 4. Returns the `Result<R>` produced by the closure.
-    fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R> {
-        let mut val = self
-            .take()
-            .ok_or_else(|| LuceneError::illegal_state("Option was None"))?;
-        let res = f(&mut val);
-        *self = Some(val);
-        res
-    }
+  /// Implementation of `take_do_return` for all `Option<T>`.
+  ///
+  /// 1. Calls `self.take()` to extract the value (or return an error if
+  ///    `None`).
+  /// 2. Runs the user-provided closure on a mutable reference to the value.
+  /// 3. Restores the value back into `self` regardless of success or failure.
+  /// 4. Returns the `Result<R>` produced by the closure.
+  fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R> {
+    let mut val = self
+      .take()
+      .ok_or_else(|| LuceneError::illegal_state("Option was None"))?;
+    let res = f(&mut val);
+    *self = Some(val);
+    res
+  }
 }
 pub trait BitSetExt {
-    fn next_set_bit(&self, from: usize) -> i32;
+  fn next_set_bit(&self, from: usize) -> i32;
 }
 impl BitSetExt for BitSet {
-    // TODO: this method Need optimization
-    fn next_set_bit(&self, from: usize) -> i32 {
-        match self.iter().find(|&bit| bit >= from) {
-            Some(bit) => bit as i32,
-            None => -1,
-        }
+  // TODO: this method Need optimization
+  fn next_set_bit(&self, from: usize) -> i32 {
+    match self.iter().find(|&bit| bit >= from) {
+      Some(bit) => bit as i32,
+      None => -1,
     }
+  }
 }
 pub trait OutputIdentity {
-    fn is_same_reference(&self, other: &Self) -> bool;
+  fn is_same_reference(&self, other: &Self) -> bool;
 }
 impl OutputIdentity for Arc<i64> {
-    fn is_same_reference(&self, other: &Self) -> bool {
-        Arc::ptr_eq(self, other)
-    }
+  fn is_same_reference(&self, other: &Self) -> bool {
+    Arc::ptr_eq(self, other)
+  }
 }
 impl OutputIdentity for BytesRef<Arc<Vec<u8>>> {
-    fn is_same_reference(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.bytes, &other.bytes)
-            && self.offset == other.offset
-            && self.length == other.length
-    }
+  fn is_same_reference(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.bytes, &other.bytes)
+      && self.offset == other.offset
+      && self.length == other.length
+  }
 }
 
 impl OutputIdentity for IntsRef<Arc<Vec<i32>>> {
-    fn is_same_reference(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.ints, &other.ints)
-            && self.offset == other.offset
-            && self.length == other.length
-    }
+  fn is_same_reference(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.ints, &other.ints)
+      && self.offset == other.offset
+      && self.length == other.length
+  }
 }
 
 pub trait HashCode {
-    fn hash_code(&self) -> i32;
+  fn hash_code(&self) -> i32;
 }
 // i32
 impl HashCode for i32 {
-    fn hash_code(&self) -> i32 {
-        *self
-    }
+  fn hash_code(&self) -> i32 {
+    *self
+  }
 }
 // i64
 impl HashCode for i64 {
-    fn hash_code(&self) -> i32 {
-        let value = *self as u64;
-        let high = value >> 32;
-        let mixed = value ^ high;
-        (mixed & 0xFFFF_FFFF) as i32
-    }
+  fn hash_code(&self) -> i32 {
+    let value = *self as u64;
+    let high = value >> 32;
+    let mixed = value ^ high;
+    (mixed & 0xFFFF_FFFF) as i32
+  }
 }
 // Arc<i64>
 impl HashCode for Arc<i64> {
-    fn hash_code(&self) -> i32 {
-        (**self).hash_code()
-    }
+  fn hash_code(&self) -> i32 {
+    (**self).hash_code()
+  }
 }
 
 #[derive(Clone)]
 pub struct IdentityArc<T> {
-    pub object: Arc<T>,
+  pub object: Arc<T>,
 }
 impl<T> IdentityArc<T> {
-    pub fn new(object: Arc<T>) -> Self {
-        Self { object }
-    }
+  pub fn new(object: Arc<T>) -> Self {
+    Self { object }
+  }
 }
 impl<T> PartialEq for IdentityArc<T> {
-    fn eq(&self, other: &Self) -> bool {
-        Arc::as_ptr(&self.object) == Arc::as_ptr(&other.object)
-    }
+  fn eq(&self, other: &Self) -> bool {
+    Arc::as_ptr(&self.object) == Arc::as_ptr(&other.object)
+  }
 }
 impl<T> Eq for IdentityArc<T> {}
 
 impl<T> Hash for IdentityArc<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        Arc::as_ptr(&self.object).hash(state)
-    }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    Arc::as_ptr(&self.object).hash(state)
+  }
 }
 pub trait TryIntoInt<T> {
-    fn try_convert(self) -> Result<T>;
+  fn try_convert(self) -> Result<T>;
 }
 macro_rules! impl_try_convert {
-    ($src:ty => $dst:ty) => {
-        impl TryIntoInt<$dst> for $src {
-            #[inline]
-            fn try_convert(self) -> Result<$dst> {
-                <$dst>::try_from(self).map_err(|_| {
-                    LuceneError::illegal_state(format!(
-                        "value {} does not fit into {}",
-                        self,
-                        stringify!($dst)
-                    ))
-                })
-            }
-        }
-    };
+  ($src:ty => $dst:ty) => {
+    impl TryIntoInt<$dst> for $src {
+      #[inline]
+      fn try_convert(self) -> Result<$dst> {
+        <$dst>::try_from(self).map_err(|_| {
+          LuceneError::illegal_state(format!(
+            "value {} does not fit into {}",
+            self,
+            stringify!($dst)
+          ))
+        })
+      }
+    }
+  };
 }
 impl_try_convert!(usize => i32);
 impl_try_convert!(usize => i64);
@@ -261,24 +261,24 @@ impl_try_convert!(u32   => i32);
 impl_try_convert!(i64 => u8);
 
 pub trait HasIdentity {
-    fn identity(&self) -> &Identity;
+  fn identity(&self) -> &Identity;
 }
 
 impl<T> HasIdentity for Arc<T>
 where
-    T: HasIdentity,
+  T: HasIdentity,
 {
-    fn identity(&self) -> &Identity {
-        (**self).identity()
-    }
+  fn identity(&self) -> &Identity {
+    (**self).identity()
+  }
 }
 impl<T> HasIdentity for &T
 where
-    T: HasIdentity,
+  T: HasIdentity,
 {
-    fn identity(&self) -> &Identity {
-        (**self).identity()
-    }
+  fn identity(&self) -> &Identity {
+    (**self).identity()
+  }
 }
 #[macro_export]
 macro_rules! impl_from_for_enum {

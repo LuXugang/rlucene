@@ -29,131 +29,131 @@ use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 /// A min-heap is used to keep track of the currently collected vectors,
 /// allowing for efficient updates as better vectors are collected.
 pub struct TopKnnCollector {
-    queue: NeighborQueue,
-    base: AbstractKnnCollector,
+  queue: NeighborQueue,
+  base: AbstractKnnCollector,
 }
 
 impl TopKnnCollector {
-    /// # Arguments
-    ///
-    /// * `k` - the number of neighbors to collect
-    /// * `visit_limit` - how many vector nodes the results are allowed to visit
-    pub fn new(k: usize, visit_limit: usize) -> Result<Self> {
-        let base = AbstractKnnCollector::new(k, visit_limit);
-        Ok(Self {
-            queue: NeighborQueue::new(k, false)?,
-            base,
-        })
-    }
+  /// # Arguments
+  ///
+  /// * `k` - the number of neighbors to collect
+  /// * `visit_limit` - how many vector nodes the results are allowed to visit
+  pub fn new(k: usize, visit_limit: usize) -> Result<Self> {
+    let base = AbstractKnnCollector::new(k, visit_limit);
+    Ok(Self {
+      queue: NeighborQueue::new(k, false)?,
+      base,
+    })
+  }
 }
 impl AbstractKnnCollectorBase for TopKnnCollector {
-    fn num_collected(&self) -> usize {
-        self.queue.size()
-    }
+  fn num_collected(&self) -> usize {
+    self.queue.size()
+  }
 }
 impl KnnCollector for TopKnnCollector {
-    fn early_terminated(&self) -> bool {
-        self.base.early_terminated()
+  fn early_terminated(&self) -> bool {
+    self.base.early_terminated()
+  }
+
+  fn inc_visited_count(&mut self, count: usize) {
+    self.base.inc_visited_count(count);
+  }
+
+  fn visited_count(&self) -> usize {
+    self.base.visited_count()
+  }
+
+  fn visit_limit(&self) -> usize {
+    self.base.visit_limit()
+  }
+
+  fn k(&self) -> usize {
+    self.base.k()
+  }
+
+  fn collect(&mut self, doc_id: usize, similarity: f32) -> bool {
+    self.queue.insert_with_overflow(doc_id, similarity)
+  }
+
+  fn min_competitive_similarity(&self) -> f32 {
+    if self.queue.size() >= self.k() {
+      self.queue.top_score()
+    } else {
+      f32::NEG_INFINITY
+    }
+  }
+
+  type Item = ScoreDoc;
+
+  fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
+    debug_assert!(
+      self.queue.size() <= self.k(),
+      "Tried to collect more results than the maximum number allowed"
+    );
+
+    let mut score_docs = vec![ScoreDoc::default(); self.queue.size()];
+    for i in 1..=score_docs.len() {
+      let doc_id = self.queue.top_node();
+      let score = self.queue.top_score();
+      let len = score_docs.len() - i;
+      score_docs[len] = ScoreDoc::new(doc_id.try_convert()?, score);
+      self.queue.pop()?;
     }
 
-    fn inc_visited_count(&mut self, count: usize) {
-        self.base.inc_visited_count(count);
-    }
+    let relation = if self.early_terminated() {
+      Relation::GreaterThanOrEqualTo
+    } else {
+      Relation::EqualTo
+    };
 
-    fn visited_count(&self) -> usize {
-        self.base.visited_count()
-    }
-
-    fn visit_limit(&self) -> usize {
-        self.base.visit_limit()
-    }
-
-    fn k(&self) -> usize {
-        self.base.k()
-    }
-
-    fn collect(&mut self, doc_id: usize, similarity: f32) -> bool {
-        self.queue.insert_with_overflow(doc_id, similarity)
-    }
-
-    fn min_competitive_similarity(&self) -> f32 {
-        if self.queue.size() >= self.k() {
-            self.queue.top_score()
-        } else {
-            f32::NEG_INFINITY
-        }
-    }
-
-    type Item = ScoreDoc;
-
-    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
-        debug_assert!(
-            self.queue.size() <= self.k(),
-            "Tried to collect more results than the maximum number allowed"
-        );
-
-        let mut score_docs = vec![ScoreDoc::default(); self.queue.size()];
-        for i in 1..=score_docs.len() {
-            let doc_id = self.queue.top_node();
-            let score = self.queue.top_score();
-            let len = score_docs.len() - i;
-            score_docs[len] = ScoreDoc::new(doc_id.try_convert()?, score);
-            self.queue.pop()?;
-        }
-
-        let relation = if self.early_terminated() {
-            Relation::GreaterThanOrEqualTo
-        } else {
-            Relation::EqualTo
-        };
-
-        let total_hits = TotalHits::new(self.visited_count(), relation);
-        Ok(TopDocs::new(total_hits, score_docs))
-    }
+    let total_hits = TotalHits::new(self.visited_count(), relation);
+    Ok(TopDocs::new(total_hits, score_docs))
+  }
 }
 
 impl fmt::Display for TopKnnCollector {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "TopKnnCollector[k={}, size={}]",
-            self.k(),
-            self.queue.size()
-        )
-    }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "TopKnnCollector[k={}, size={}]",
+      self.k(),
+      self.queue.size()
+    )
+  }
 }
 #[cfg(test)]
 mod tests {
 
-    use crate::core::search::knn_collector::KnnCollector;
-    use crate::core::search::top_knn_collector::TopKnnCollector;
-    use crate::core::util::error::lucene_error::Result;
+  use crate::core::search::knn_collector::KnnCollector;
+  use crate::core::search::top_knn_collector::TopKnnCollector;
+  use crate::core::util::error::lucene_error::Result;
 
-    #[allow(dead_code)] // for quick search
-    struct TestTopKnnResults;
-    #[test]
-    fn test_collect_and_provide_results() -> Result<()> {
-        let mut results = TopKnnCollector::new(5, i32::MAX as usize)?;
-        let nodes = [4, 1, 5, 7, 8, 10, 2];
-        let scores = [1.0, 0.5, 0.6, 2.0, 2.0, 1.2, 4.0];
+  #[allow(dead_code)] // for quick search
+  struct TestTopKnnResults;
+  #[test]
+  fn test_collect_and_provide_results() -> Result<()> {
+    let mut results = TopKnnCollector::new(5, i32::MAX as usize)?;
+    let nodes = [4, 1, 5, 7, 8, 10, 2];
+    let scores = [1.0, 0.5, 0.6, 2.0, 2.0, 1.2, 4.0];
 
-        for (node, score) in nodes.iter().zip(scores.iter()) {
-            results.collect(*node, *score);
-        }
-
-        let top_docs = results.top_docs()?;
-        let sorted_nodes: Vec<i32> = top_docs.score_docs.iter().map(|doc| doc.doc).collect();
-        let sorted_scores: Vec<f32> = top_docs.score_docs.iter().map(|doc| doc.score).collect();
-
-        assert_eq!(sorted_nodes, vec![2, 7, 8, 10, 4]);
-        assert!(
-            sorted_scores
-                .iter()
-                .zip([4.0, 2.0, 2.0, 1.2, 1.0].iter())
-                .all(|(a, b)| (a - b).abs() < f32::EPSILON),
-            "Scores do not match: {:?} vs expected",
-            sorted_scores
-        );
-        Ok(())
+    for (node, score) in nodes.iter().zip(scores.iter()) {
+      results.collect(*node, *score);
     }
+
+    let top_docs = results.top_docs()?;
+    let sorted_nodes: Vec<i32> = top_docs.score_docs.iter().map(|doc| doc.doc).collect();
+    let sorted_scores: Vec<f32> = top_docs.score_docs.iter().map(|doc| doc.score).collect();
+
+    assert_eq!(sorted_nodes, vec![2, 7, 8, 10, 4]);
+    assert!(
+      sorted_scores
+        .iter()
+        .zip([4.0, 2.0, 2.0, 1.2, 1.0].iter())
+        .all(|(a, b)| (a - b).abs() < f32::EPSILON),
+      "Scores do not match: {:?} vs expected",
+      sorted_scores
+    );
+    Ok(())
+  }
 }

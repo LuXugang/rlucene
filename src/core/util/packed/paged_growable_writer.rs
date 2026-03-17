@@ -30,44 +30,44 @@ use crate::core::util::packed::mutable_enum::MutableEnum;
 /// This is an internal utility for use within the Lucene system.
 #[derive(Default)]
 pub struct PagedGrowableWriter {
-    acceptable_overhead_ratio: f32,
-    bits_per_value: i32,
-    fill_page: bool,
+  acceptable_overhead_ratio: f32,
+  bits_per_value: i32,
+  fill_page: bool,
 }
 impl PagedGrowableWriter {
-    pub fn new(start_bits_per_value: i32, acceptable_overhead_ratio: f32, fill_page: bool) -> Self {
-        PagedGrowableWriter {
-            acceptable_overhead_ratio,
-            bits_per_value: start_bits_per_value,
-            fill_page,
-        }
+  pub fn new(start_bits_per_value: i32, acceptable_overhead_ratio: f32, fill_page: bool) -> Self {
+    PagedGrowableWriter {
+      acceptable_overhead_ratio,
+      bits_per_value: start_bits_per_value,
+      fill_page,
     }
-    pub fn with_fill_page(start_bits_per_value: i32, acceptable_overhead_ratio: f32) -> Self {
-        PagedGrowableWriter::new(start_bits_per_value, acceptable_overhead_ratio, true)
-    }
+  }
+  pub fn with_fill_page(start_bits_per_value: i32, acceptable_overhead_ratio: f32) -> Self {
+    PagedGrowableWriter::new(start_bits_per_value, acceptable_overhead_ratio, true)
+  }
 }
 impl AbstractPagedMutableBase for PagedGrowableWriter {
-    fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum {
-        MutableEnum::GrowableW(GrowableWriter::new(
-            bits_per_value,
-            value_count,
-            self.acceptable_overhead_ratio,
-        ))
-    }
+  fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum {
+    MutableEnum::GrowableW(GrowableWriter::new(
+      bits_per_value,
+      value_count,
+      self.acceptable_overhead_ratio,
+    ))
+  }
 
-    fn new_unfilled_copy(&self) -> Self {
-        PagedGrowableWriter::new(self.bits_per_value, self.acceptable_overhead_ratio, false)
-    }
+  fn new_unfilled_copy(&self) -> Self {
+    PagedGrowableWriter::new(self.bits_per_value, self.acceptable_overhead_ratio, false)
+  }
 
-    fn base_ram_bytes_used_base(&self) -> i64 {
-        0
-    }
+  fn base_ram_bytes_used_base(&self) -> i64 {
+    0
+  }
 
-    fn fill_pages(&self) -> bool {
-        self.fill_page
-    }
+  fn fill_pages(&self) -> bool {
+    self.fill_page
+  }
 
-    fn bits_per_value(&self) -> i32 {
-        self.bits_per_value
-    }
+  fn bits_per_value(&self) -> i32 {
+    self.bits_per_value
+  }
 }

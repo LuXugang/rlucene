@@ -20,11 +20,11 @@ use crate::core::util::error::lucene_error::Result;
 
 pub struct DummySimScorer;
 impl SimScorer for DummySimScorer {
-    fn score(&self, _freq: f32, _norm: i64) -> f32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn score(&self, _freq: f32, _norm: i64) -> f32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn explain(&self, _freq: Explanation, _norm: i64) -> Result<Explanation> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn explain(&self, _freq: Explanation, _norm: i64) -> Result<Explanation> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

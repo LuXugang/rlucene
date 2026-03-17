@@ -30,31 +30,31 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 /// - `pre_populate`: specifies whether to pre-populate the queue with sentinel values.
 pub struct HitQueue;
 impl HitQueue {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new(
-        size: usize,
-        pre_populate: bool,
-    ) -> Result<PriorityQueue<ScoreDoc, HitQueueComparator>> {
-        PriorityQueue::with_sentinel_object(
-            size,
-            || {
-                if pre_populate {
-                    Some(ScoreDoc::new(i32::MAX, f32::NEG_INFINITY))
-                } else {
-                    None
-                }
-            },
-            HitQueueComparator,
-        )
-    }
+  #[allow(clippy::new_ret_no_self)]
+  pub fn new(
+    size: usize,
+    pre_populate: bool,
+  ) -> Result<PriorityQueue<ScoreDoc, HitQueueComparator>> {
+    PriorityQueue::with_sentinel_object(
+      size,
+      || {
+        if pre_populate {
+          Some(ScoreDoc::new(i32::MAX, f32::NEG_INFINITY))
+        } else {
+          None
+        }
+      },
+      HitQueueComparator,
+    )
+  }
 }
 pub struct HitQueueComparator;
 impl Compare<ScoreDoc> for HitQueueComparator {
-    fn less_than(&self, hit_a: &ScoreDoc, hit_b: &ScoreDoc) -> Result<bool> {
-        if hit_a.score() == hit_b.score() {
-            Ok(hit_a.doc() > hit_b.doc())
-        } else {
-            Ok(hit_a.score() < hit_b.score())
-        }
+  fn less_than(&self, hit_a: &ScoreDoc, hit_b: &ScoreDoc) -> Result<bool> {
+    if hit_a.score() == hit_b.score() {
+      Ok(hit_a.doc() > hit_b.doc())
+    } else {
+      Ok(hit_a.score() < hit_b.score())
     }
+  }
 }

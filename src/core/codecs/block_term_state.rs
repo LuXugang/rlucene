@@ -31,50 +31,46 @@ use crate::impl_from_for_enum;
 /// without re-seeking the terms dict.
 #[derive(Default, Clone)]
 pub struct BlockTermState {
-    /// how many docs have this term
-    pub doc_freq: i32,
-    /// total number of occurrences of this term
-    pub total_term_freq: i64,
-    /// the term's ord in the current block
-    pub term_block_ord: i32,
-    /// fp into the terms dict primary file (_X.tim) that holds this term
-    // TODO: update BTR to nuke this
-    pub block_file_pointer: i64,
-    ord: OrdTermState,
+  /// how many docs have this term
+  pub doc_freq: i32,
+  /// total number of occurrences of this term
+  pub total_term_freq: i64,
+  /// the term's ord in the current block
+  pub term_block_ord: i32,
+  /// fp into the terms dict primary file (_X.tim) that holds this term
+  // TODO: update BTR to nuke this
+  pub block_file_pointer: i64,
+  ord: OrdTermState,
 }
 
 impl Display for BlockTermState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} docFreq={} totalTermFreq={} termBlockOrd={} blockFP={}",
-            self.ord,
-            self.doc_freq,
-            self.total_term_freq,
-            self.term_block_ord,
-            self.block_file_pointer
-        )
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(
+      f,
+      "{} docFreq={} totalTermFreq={} termBlockOrd={} blockFP={}",
+      self.ord, self.doc_freq, self.total_term_freq, self.term_block_ord, self.block_file_pointer
+    )
+  }
 }
 
 impl TermState for BlockTermState {
-    fn copy_from(&mut self, other: &Self) -> Result<()> {
-        self.doc_freq = other.doc_freq;
-        self.total_term_freq = other.total_term_freq;
-        self.term_block_ord = other.term_block_ord;
-        self.block_file_pointer = other.block_file_pointer;
-        self.ord = other.ord.clone();
-        Ok(())
-    }
+  fn copy_from(&mut self, other: &Self) -> Result<()> {
+    self.doc_freq = other.doc_freq;
+    self.total_term_freq = other.total_term_freq;
+    self.term_block_ord = other.term_block_ord;
+    self.block_file_pointer = other.block_file_pointer;
+    self.ord = other.ord.clone();
+    Ok(())
+  }
 }
 
 #[derive(Clone)]
 pub enum TermStateEnum {
-    Int(IntBlockTermState),
-    Block(BlockTermState),
-    Empty(EmptyTermState),
-    Ord(OrdTermState),
-    BaseTermsEnum(BaseTermsEnumTermStateImpl),
+  Int(IntBlockTermState),
+  Block(BlockTermState),
+  Empty(EmptyTermState),
+  Ord(OrdTermState),
+  BaseTermsEnum(BaseTermsEnumTermStateImpl),
 }
 impl_from_for_enum!(
     TermStateEnum,
@@ -86,64 +82,62 @@ impl_from_for_enum!(
 );
 
 impl TermStateEnum {
-    pub fn get_block_term_state_mut(&mut self) -> Result<&mut BlockTermState> {
-        match self {
-            TermStateEnum::Int(int) => Ok(&mut int.base),
-            TermStateEnum::Block(block) => Ok(block),
-            _ => Err(LuceneError::unsupported_operation("")),
-        }
+  pub fn get_block_term_state_mut(&mut self) -> Result<&mut BlockTermState> {
+    match self {
+      TermStateEnum::Int(int) => Ok(&mut int.base),
+      TermStateEnum::Block(block) => Ok(block),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
-    pub fn get_block_term_state(&self) -> Result<&BlockTermState> {
-        match self {
-            TermStateEnum::Int(int) => Ok(&int.base),
-            TermStateEnum::Block(block) => Ok(block),
-            _ => Err(LuceneError::unsupported_operation("")),
-        }
+  }
+  pub fn get_block_term_state(&self) -> Result<&BlockTermState> {
+    match self {
+      TermStateEnum::Int(int) => Ok(&int.base),
+      TermStateEnum::Block(block) => Ok(block),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
-    pub fn ord(&self) -> Result<i64> {
-        match self {
-            TermStateEnum::Int(int) => Ok(int.base.ord.ord),
-            TermStateEnum::Block(block) => Ok(block.ord.ord),
-            TermStateEnum::Ord(ord) => Ok(ord.ord),
-            _ => Err(LuceneError::unsupported_operation("")),
-        }
+  }
+  pub fn ord(&self) -> Result<i64> {
+    match self {
+      TermStateEnum::Int(int) => Ok(int.base.ord.ord),
+      TermStateEnum::Block(block) => Ok(block.ord.ord),
+      TermStateEnum::Ord(ord) => Ok(ord.ord),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
-    pub fn set_ord(&mut self, ord: i64) -> Result<()> {
-        match self {
-            TermStateEnum::Int(v) => v.base.ord.ord = ord,
-            TermStateEnum::Block(v) => v.ord.ord = ord,
-            TermStateEnum::Ord(v) => v.ord = ord,
-            _ => return Err(LuceneError::unsupported_operation("")),
-        }
-        Ok(())
+  }
+  pub fn set_ord(&mut self, ord: i64) -> Result<()> {
+    match self {
+      TermStateEnum::Int(v) => v.base.ord.ord = ord,
+      TermStateEnum::Block(v) => v.ord.ord = ord,
+      TermStateEnum::Ord(v) => v.ord = ord,
+      _ => return Err(LuceneError::unsupported_operation("")),
     }
+    Ok(())
+  }
 }
 
 impl Display for TermStateEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TermStateEnum::Int(v) => v.fmt(f),
-            TermStateEnum::Block(v) => v.fmt(f),
-            TermStateEnum::Empty(v) => v.fmt(f),
-            TermStateEnum::Ord(v) => v.fmt(f),
-            TermStateEnum::BaseTermsEnum(v) => v.fmt(f),
-        }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      TermStateEnum::Int(v) => v.fmt(f),
+      TermStateEnum::Block(v) => v.fmt(f),
+      TermStateEnum::Empty(v) => v.fmt(f),
+      TermStateEnum::Ord(v) => v.fmt(f),
+      TermStateEnum::BaseTermsEnum(v) => v.fmt(f),
     }
+  }
 }
 
 impl TermState for TermStateEnum {
-    fn copy_from(&mut self, other: &Self) -> Result<()> {
-        match (self, other) {
-            (TermStateEnum::Int(int), TermStateEnum::Int(o)) => int.copy_from(o),
-            (TermStateEnum::Block(block), TermStateEnum::Block(o)) => block.copy_from(o),
-            (TermStateEnum::Empty(empty), TermStateEnum::Empty(o)) => empty.copy_from(o),
-            (TermStateEnum::Ord(ord), TermStateEnum::Ord(o)) => ord.copy_from(o),
-            (TermStateEnum::BaseTermsEnum(ord), TermStateEnum::BaseTermsEnum(o)) => {
-                ord.copy_from(o)
-            },
-            _ => Err(LuceneError::illegal_state(
-                "TermState variants must match when copying",
-            )),
-        }
+  fn copy_from(&mut self, other: &Self) -> Result<()> {
+    match (self, other) {
+      (TermStateEnum::Int(int), TermStateEnum::Int(o)) => int.copy_from(o),
+      (TermStateEnum::Block(block), TermStateEnum::Block(o)) => block.copy_from(o),
+      (TermStateEnum::Empty(empty), TermStateEnum::Empty(o)) => empty.copy_from(o),
+      (TermStateEnum::Ord(ord), TermStateEnum::Ord(o)) => ord.copy_from(o),
+      (TermStateEnum::BaseTermsEnum(ord), TermStateEnum::BaseTermsEnum(o)) => ord.copy_from(o),
+      _ => Err(LuceneError::illegal_state(
+        "TermState variants must match when copying",
+      )),
     }
+  }
 }

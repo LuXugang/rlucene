@@ -32,210 +32,210 @@ use std::fs::File;
 ///
 /// [`IndexInput`](crate::core::store::index_input::IndexInput)
 pub trait IndexOutput: DataOutput + Display + Closeable {
-    /// Returns the current position in this file, where the next write will
-    /// occur.
-    fn get_file_pointer(&self) -> usize;
-    /// Returns the current checksum of bytes written so far.
-    fn get_checksum(&mut self) -> u64;
-    /// Returns the name used to create this `IndexOutput`. This is especially
-    /// useful when using
-    /// [`Directory::create_temp_output`](crate::core::store::directory::Directory::create_temp_output).
-    fn get_name(&self) -> &str;
-    /// Aligns the current file pointer to multiples of `alignment_bytes` bytes
-    /// to improve reads with mmap. This will write between 0 and
-    /// `(alignment_bytes - 1)` zero bytes using
-    /// [`write_byte`](DataOutput::write_byte).
-    ///
-    /// # Arguments
-    /// * `alignment_bytes` - The alignment to which it should forward the file
-    ///   pointer (must be a power of 2).
-    ///
-    /// # Returns
-    /// The new file pointer after alignment.
-    ///
-    /// # See Also
-    /// [`align_offset`]
-    fn align_file_pointer(&mut self, alignment_bytes: usize) -> Result<usize> {
-        let offset = self.get_file_pointer();
-        let aligned_offset = align_offset(offset, alignment_bytes)?;
-        let count = (aligned_offset - offset) as usize;
-        for _ in 0..count {
-            self.write_byte(0)?;
-        }
-        Ok(aligned_offset)
+  /// Returns the current position in this file, where the next write will
+  /// occur.
+  fn get_file_pointer(&self) -> usize;
+  /// Returns the current checksum of bytes written so far.
+  fn get_checksum(&mut self) -> u64;
+  /// Returns the name used to create this `IndexOutput`. This is especially
+  /// useful when using
+  /// [`Directory::create_temp_output`](crate::core::store::directory::Directory::create_temp_output).
+  fn get_name(&self) -> &str;
+  /// Aligns the current file pointer to multiples of `alignment_bytes` bytes
+  /// to improve reads with mmap. This will write between 0 and
+  /// `(alignment_bytes - 1)` zero bytes using
+  /// [`write_byte`](DataOutput::write_byte).
+  ///
+  /// # Arguments
+  /// * `alignment_bytes` - The alignment to which it should forward the file
+  ///   pointer (must be a power of 2).
+  ///
+  /// # Returns
+  /// The new file pointer after alignment.
+  ///
+  /// # See Also
+  /// [`align_offset`]
+  fn align_file_pointer(&mut self, alignment_bytes: usize) -> Result<usize> {
+    let offset = self.get_file_pointer();
+    let aligned_offset = align_offset(offset, alignment_bytes)?;
+    let count = (aligned_offset - offset) as usize;
+    for _ in 0..count {
+      self.write_byte(0)?;
     }
+    Ok(aligned_offset)
+  }
 }
 pub type DynIndexOutput = dyn IndexOutput + Send + Sync;
 pub type CustomIndexOutput = Box<DynIndexOutput>;
 pub enum IndexOutputEnum {
-    Fs(OutputStreamIndexOutput<File>),
-    Custom(CustomIndexOutput),
+  Fs(OutputStreamIndexOutput<File>),
+  Custom(CustomIndexOutput),
 }
 impl IndexOutputEnum {
-    pub fn custom<O>(out: O) -> Self
-    where
-        O: IndexOutput + Send + Sync + 'static,
-    {
-        Self::Custom(Box::new(out))
-    }
+  pub fn custom<O>(out: O) -> Self
+  where
+    O: IndexOutput + Send + Sync + 'static,
+  {
+    Self::Custom(Box::new(out))
+  }
 }
 
 impl DataOutput for IndexOutputEnum {
-    fn write_byte(&mut self, b: u8) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_byte(b),
-            Self::Custom(inner) => inner.write_byte(b),
-        }
+  fn write_byte(&mut self, b: u8) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_byte(b),
+      Self::Custom(inner) => inner.write_byte(b),
     }
+  }
 
-    fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_bytes_with_len(b, len),
-            Self::Custom(inner) => inner.write_bytes_with_len(b, len),
-        }
+  fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_bytes_with_len(b, len),
+      Self::Custom(inner) => inner.write_bytes_with_len(b, len),
     }
+  }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_bytes_range(b, offset, length),
-            Self::Custom(inner) => inner.write_bytes_range(b, offset, length),
-        }
+  fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_bytes_range(b, offset, length),
+      Self::Custom(inner) => inner.write_bytes_range(b, offset, length),
     }
+  }
 
-    fn write_int(&mut self, i: i32) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_int(i),
-            Self::Custom(inner) => inner.write_int(i),
-        }
+  fn write_int(&mut self, i: i32) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_int(i),
+      Self::Custom(inner) => inner.write_int(i),
     }
+  }
 
-    fn write_short(&mut self, i: i16) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_short(i),
-            Self::Custom(inner) => inner.write_short(i),
-        }
+  fn write_short(&mut self, i: i16) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_short(i),
+      Self::Custom(inner) => inner.write_short(i),
     }
+  }
 
-    fn write_vint(&mut self, i: i32) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_vint(i),
-            Self::Custom(inner) => inner.write_vint(i),
-        }
+  fn write_vint(&mut self, i: i32) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_vint(i),
+      Self::Custom(inner) => inner.write_vint(i),
     }
+  }
 
-    fn write_zint(&mut self, i: i32) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_zint(i),
-            Self::Custom(inner) => inner.write_zint(i),
-        }
+  fn write_zint(&mut self, i: i32) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_zint(i),
+      Self::Custom(inner) => inner.write_zint(i),
     }
+  }
 
-    fn write_long(&mut self, i: i64) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_long(i),
-            Self::Custom(inner) => inner.write_long(i),
-        }
+  fn write_long(&mut self, i: i64) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_long(i),
+      Self::Custom(inner) => inner.write_long(i),
     }
+  }
 
-    fn write_vlong(&mut self, i: i64) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_vlong(i),
-            Self::Custom(inner) => inner.write_vlong(i),
-        }
+  fn write_vlong(&mut self, i: i64) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_vlong(i),
+      Self::Custom(inner) => inner.write_vlong(i),
     }
+  }
 
-    fn write_signed_vlong(&mut self, i: i64) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_signed_vlong(i),
-            Self::Custom(inner) => inner.write_signed_vlong(i),
-        }
+  fn write_signed_vlong(&mut self, i: i64) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_signed_vlong(i),
+      Self::Custom(inner) => inner.write_signed_vlong(i),
     }
+  }
 
-    fn write_zlong(&mut self, i: i64) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_zlong(i),
-            Self::Custom(inner) => inner.write_zlong(i),
-        }
+  fn write_zlong(&mut self, i: i64) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_zlong(i),
+      Self::Custom(inner) => inner.write_zlong(i),
     }
+  }
 
-    fn write_string(&mut self, s: &str) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_string(s),
-            Self::Custom(inner) => inner.write_string(s),
-        }
+  fn write_string(&mut self, s: &str) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_string(s),
+      Self::Custom(inner) => inner.write_string(s),
     }
+  }
 
-    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()>
-    where
-        Self: Sized,
-    {
-        match self {
-            Self::Fs(inner) => inner.copy_bytes(input, num_bytes),
-            Self::Custom(inner) => inner.copy_bytes_dyn(input, num_bytes),
-        }
+  fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()>
+  where
+    Self: Sized,
+  {
+    match self {
+      Self::Fs(inner) => inner.copy_bytes(input, num_bytes),
+      Self::Custom(inner) => inner.copy_bytes_dyn(input, num_bytes),
     }
+  }
 
-    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_map_of_strings(map),
-            Self::Custom(inner) => inner.write_map_of_strings(map),
-        }
+  fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_map_of_strings(map),
+      Self::Custom(inner) => inner.write_map_of_strings(map),
     }
+  }
 
-    fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.write_set_of_strings(set),
-            Self::Custom(inner) => inner.write_set_of_strings(set),
-        }
+  fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_set_of_strings(set),
+      Self::Custom(inner) => inner.write_set_of_strings(set),
     }
+  }
 }
 
 impl Display for IndexOutputEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Fs(inner) => inner.fmt(f),
-            Self::Custom(inner) => inner.fmt(f),
-        }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Fs(inner) => inner.fmt(f),
+      Self::Custom(inner) => inner.fmt(f),
     }
+  }
 }
 
 impl Closeable for IndexOutputEnum {
-    fn close(&mut self) -> Result<()> {
-        match self {
-            Self::Fs(inner) => inner.close(),
-            Self::Custom(inner) => inner.close(),
-        }
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.close(),
+      Self::Custom(inner) => inner.close(),
     }
+  }
 }
 
 impl IndexOutput for IndexOutputEnum {
-    fn get_file_pointer(&self) -> usize {
-        match self {
-            Self::Fs(inner) => inner.get_file_pointer(),
-            Self::Custom(inner) => inner.get_file_pointer(),
-        }
+  fn get_file_pointer(&self) -> usize {
+    match self {
+      Self::Fs(inner) => inner.get_file_pointer(),
+      Self::Custom(inner) => inner.get_file_pointer(),
     }
+  }
 
-    fn get_checksum(&mut self) -> u64 {
-        match self {
-            Self::Fs(inner) => inner.get_checksum(),
-            Self::Custom(inner) => inner.get_checksum(),
-        }
+  fn get_checksum(&mut self) -> u64 {
+    match self {
+      Self::Fs(inner) => inner.get_checksum(),
+      Self::Custom(inner) => inner.get_checksum(),
     }
+  }
 
-    fn get_name(&self) -> &str {
-        match self {
-            Self::Fs(inner) => inner.get_name(),
-            Self::Custom(inner) => inner.get_name(),
-        }
+  fn get_name(&self) -> &str {
+    match self {
+      Self::Fs(inner) => inner.get_name(),
+      Self::Custom(inner) => inner.get_name(),
     }
+  }
 
-    fn align_file_pointer(&mut self, alignment_bytes: usize) -> Result<usize> {
-        match self {
-            Self::Fs(inner) => inner.align_file_pointer(alignment_bytes),
-            Self::Custom(inner) => inner.align_file_pointer(alignment_bytes),
-        }
+  fn align_file_pointer(&mut self, alignment_bytes: usize) -> Result<usize> {
+    match self {
+      Self::Fs(inner) => inner.align_file_pointer(alignment_bytes),
+      Self::Custom(inner) => inner.align_file_pointer(alignment_bytes),
     }
+  }
 }
 
 /// Aligns the given `offset` to multiples of `alignment_bytes` bytes by
@@ -246,12 +246,12 @@ impl IndexOutput for IndexOutputEnum {
 /// * `alignment_bytes` - The alignment to which it should be rounded (must be a
 ///   power of 2).
 pub fn align_offset(offset: usize, alignment_bytes: usize) -> Result<usize> {
-    if alignment_bytes == 0 || alignment_bytes.count_ones() != 1 {
-        return Err(LuceneError::illegal_argument(
-            "Alignment must be a power of 2",
-        ));
-    }
-    Ok((offset + alignment_bytes - 1) & !(alignment_bytes - 1))
+  if alignment_bytes == 0 || alignment_bytes.count_ones() != 1 {
+    return Err(LuceneError::illegal_argument(
+      "Alignment must be a power of 2",
+    ));
+  }
+  Ok((offset + alignment_bytes - 1) & !(alignment_bytes - 1))
 }
 
 macro_rules! either_index_output {

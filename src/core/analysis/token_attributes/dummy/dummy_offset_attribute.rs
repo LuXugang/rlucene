@@ -22,19 +22,19 @@ pub struct DummyOffsetAttribute;
 impl Attribute for DummyOffsetAttribute {}
 
 impl OffsetAttribute for DummyOffsetAttribute {
-    fn start_offset(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn start_offset(&self) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn set_offset(
-        &mut self,
-        _start_offset: i32,
-        _end_offset: i32,
-    ) -> crate::core::util::error::lucene_error::Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn set_offset(
+    &mut self,
+    _start_offset: i32,
+    _end_offset: i32,
+  ) -> crate::core::util::error::lucene_error::Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn end_offset(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn end_offset(&self) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

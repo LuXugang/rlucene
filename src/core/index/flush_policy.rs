@@ -47,54 +47,54 @@ use std::sync::Arc;
 /// - [`DocumentsWriterPerThread`]
 /// - [`IndexWriterConfig::set_flush_policy`]
 pub trait FlushPolicy {
-    /// Called for each delete, insert or update.
-    /// For pure deletes, the given [`DocumentsWriterPerThread`] may be `None`.
-    ///
-    /// Note: This method is called synchronized on the given [`DocumentsWriterFlushControl`]
-    /// and it is guaranteed that the calling thread holds the lock on the given
-    /// [`DocumentsWriterPerThread`].
-    fn on_change<D, L>(
-        &self,
-        control: &DocumentsWriterFlushControl<D>,
-        inner: &mut Inner<D>,
-        #[allow(clippy::type_complexity)] per_thread: Option<
-            &MutexGuard<'_, DocumentsWriterPerThread<D>>,
-        >,
-        delete_queue: &DocumentsWriterDeleteQueue,
-        config: &L,
-    ) -> Result<()>
-    where
-        D: Directory,
-        L: LiveIndexWriterConfig;
-    /// Returns the current most RAM consuming non-pending [`DocumentsWriterPerThread`]
-    /// with at least one indexed document.
-    ///
-    /// This method will never return `None`.
-    fn find_largest_non_pending_writer_for_thread<D>(
-        &self,
-        control: &DocumentsWriterFlushControl<D>,
-        per_thread: &DocumentsWriterPerThread<D>,
-    ) -> Option<Arc<DwptWrapper<D>>>
-    where
-        D: Directory,
-    {
-        debug_assert!(
-            per_thread.state.get_num_docs_in_ram() > 0,
-            "expected per_thread to have >0 docs in RAM"
-        );
-        // the dwpt which needs to be flushed eventually
-        let max_ram_using_writer = control.find_largest_non_pending_writer();
-        debug_assert!(self.assert_message(
-            "set largest ram consuming thread pending on lower watermark",
-            &control.info_stream
-        ));
-        max_ram_using_writer
-    }
+  /// Called for each delete, insert or update.
+  /// For pure deletes, the given [`DocumentsWriterPerThread`] may be `None`.
+  ///
+  /// Note: This method is called synchronized on the given [`DocumentsWriterFlushControl`]
+  /// and it is guaranteed that the calling thread holds the lock on the given
+  /// [`DocumentsWriterPerThread`].
+  fn on_change<D, L>(
+    &self,
+    control: &DocumentsWriterFlushControl<D>,
+    inner: &mut Inner<D>,
+    #[allow(clippy::type_complexity)] per_thread: Option<
+      &MutexGuard<'_, DocumentsWriterPerThread<D>>,
+    >,
+    delete_queue: &DocumentsWriterDeleteQueue,
+    config: &L,
+  ) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig;
+  /// Returns the current most RAM consuming non-pending [`DocumentsWriterPerThread`]
+  /// with at least one indexed document.
+  ///
+  /// This method will never return `None`.
+  fn find_largest_non_pending_writer_for_thread<D>(
+    &self,
+    control: &DocumentsWriterFlushControl<D>,
+    per_thread: &DocumentsWriterPerThread<D>,
+  ) -> Option<Arc<DwptWrapper<D>>>
+  where
+    D: Directory,
+  {
+    debug_assert!(
+      per_thread.state.get_num_docs_in_ram() > 0,
+      "expected per_thread to have >0 docs in RAM"
+    );
+    // the dwpt which needs to be flushed eventually
+    let max_ram_using_writer = control.find_largest_non_pending_writer();
+    debug_assert!(self.assert_message(
+      "set largest ram consuming thread pending on lower watermark",
+      &control.info_stream
+    ));
+    max_ram_using_writer
+  }
 
-    fn assert_message(&self, s: &str, info_stream: &InfoStreamEnum) -> bool {
-        if info_stream.enabled("FP") {
-            info_stream.message("FP", s);
-        }
-        true
+  fn assert_message(&self, s: &str, info_stream: &InfoStreamEnum) -> bool {
+    if info_stream.enabled("FP") {
+      info_stream.message("FP", s);
     }
+    true
+  }
 }

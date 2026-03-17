@@ -23,24 +23,24 @@ use std::fmt::{Display, Formatter};
 pub struct DummyLeafCollector;
 
 impl Display for DummyLeafCollector {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl LeafCollector for DummyLeafCollector {
-    fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn finish(&mut self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn finish(&mut self) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

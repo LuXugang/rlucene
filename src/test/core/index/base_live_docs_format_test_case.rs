@@ -35,168 +35,168 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_direct
 use crate::test::core::util::test_util::TestUtil;
 
 pub trait BaseLiveDocsFormatTestCase {
-    fn test_dense_live_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let max_doc = TestUtil::next_int(random, 3, 1000);
-        Self::test_serialization(random, max_doc, max_doc - 1, false)?;
-        Self::test_serialization(random, max_doc, max_doc - 1, true)?;
-        Ok(())
-    }
-    fn test_empty_live_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let max_doc = TestUtil::next_int(random, 3, 1000);
-        Self::test_serialization(random, max_doc, 0, false)?;
-        Self::test_serialization(random, max_doc, 0, true)?;
+  fn test_dense_live_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let max_doc = TestUtil::next_int(random, 3, 1000);
+    Self::test_serialization(random, max_doc, max_doc - 1, false)?;
+    Self::test_serialization(random, max_doc, max_doc - 1, true)?;
+    Ok(())
+  }
+  fn test_empty_live_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let max_doc = TestUtil::next_int(random, 3, 1000);
+    Self::test_serialization(random, max_doc, 0, false)?;
+    Self::test_serialization(random, max_doc, 0, true)?;
 
-        Ok(())
-    }
-    fn test_sparse_live_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let max_doc = TestUtil::next_int(random, 3, 1000);
-        Self::test_serialization(random, max_doc, 1, false)?;
-        Self::test_serialization(random, max_doc, 1, true)?;
-        Ok(())
-    }
-    fn test_over_flow<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        Self::test_serialization(random, MAX_DOCS, MAX_DOCS - 7, true)?;
-        Ok(())
-    }
+    Ok(())
+  }
+  fn test_sparse_live_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let max_doc = TestUtil::next_int(random, 3, 1000);
+    Self::test_serialization(random, max_doc, 1, false)?;
+    Self::test_serialization(random, max_doc, 1, true)?;
+    Ok(())
+  }
+  fn test_over_flow<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    Self::test_serialization(random, MAX_DOCS, MAX_DOCS - 7, true)?;
+    Ok(())
+  }
 
-    fn test_serialization<R: Rng + ?Sized>(
-        random: &mut R,
-        max_doc: i32,
-        num_live_docs: i32,
-        fixed_bit_set: bool,
-    ) -> Result<()> {
-        let format = LATEST_CODEC.live_docs_format();
-        let mut live_docs = FixedBitSet::new(max_doc as usize);
-        if num_live_docs > max_doc / 2 {
-            live_docs.set_with_range(0, max_doc as usize);
-            for _ in 0..(max_doc - num_live_docs) {
-                let mut clear_bit;
-                loop {
-                    clear_bit = random.random_range(0..max_doc);
-                    if live_docs.get(clear_bit as usize)? {
-                        break;
-                    }
-                }
-                live_docs.clear_with_index(clear_bit as usize);
-            }
-        } else {
-            for _ in 0..num_live_docs {
-                let mut set_bit;
-                loop {
-                    set_bit = random.random_range(0..max_doc);
-                    if !live_docs.get(set_bit as usize)? {
-                        break;
-                    }
-                }
-                live_docs.set(set_bit as usize);
-            }
+  fn test_serialization<R: Rng + ?Sized>(
+    random: &mut R,
+    max_doc: i32,
+    num_live_docs: i32,
+    fixed_bit_set: bool,
+  ) -> Result<()> {
+    let format = LATEST_CODEC.live_docs_format();
+    let mut live_docs = FixedBitSet::new(max_doc as usize);
+    if num_live_docs > max_doc / 2 {
+      live_docs.set_with_range(0, max_doc as usize);
+      for _ in 0..(max_doc - num_live_docs) {
+        let mut clear_bit;
+        loop {
+          clear_bit = random.random_range(0..max_doc);
+          if live_docs.get(clear_bit as usize)? {
+            break;
+          }
         }
-        let bits = if fixed_bit_set {
-            TestBitsEnum::Fixed(live_docs)
-        } else {
-            TestBitsEnum::Test(TestBits::new(live_docs))
-        };
-        let dir = new_directory_shared(random)?;
-        let si = SegmentInfo::new(
-            dir.clone(),
-            Option::from(LATEST.clone()),
-            Option::from(LATEST.clone()),
-            "foo",
-            max_doc,
-            rand::random(),
-            false,
-            HashMap::new(),
-            StringHelper::random_id(),
-            HashMap::new(),
-            None,
-        )?;
-        let io_context = IOContext::default_io_context()?;
-        let si1 = si.clone();
-        let mut sci =
-            SegmentCommitInfo::new(si, 0, 0, 0, -1, -1, Option::from(StringHelper::random_id()))?;
-        format.write_live_docs(
-            &bits,
-            dir.as_ref(),
-            &sci,
-            max_doc - num_live_docs,
-            &io_context,
-        )?;
-
-        sci = SegmentCommitInfo::new(
-            si1,
-            max_doc - num_live_docs,
-            0,
-            1,
-            -1,
-            -1,
-            Option::from(StringHelper::random_id()),
-        )?;
-        let io_context = IOContext::read_once_io_context()?;
-        let dir = dir;
-        let bits2 = format.read_live_docs(dir.as_ref(), &sci, &io_context)?;
-
-        assert_eq!(max_doc as usize, bits2.length());
-        for i in 0..max_doc as usize {
-            assert_eq!(bits.get(i)?, bits2.get(i)?);
+        live_docs.clear_with_index(clear_bit as usize);
+      }
+    } else {
+      for _ in 0..num_live_docs {
+        let mut set_bit;
+        loop {
+          set_bit = random.random_range(0..max_doc);
+          if !live_docs.get(set_bit as usize)? {
+            break;
+          }
         }
-        Ok(())
+        live_docs.set(set_bit as usize);
+      }
     }
+    let bits = if fixed_bit_set {
+      TestBitsEnum::Fixed(live_docs)
+    } else {
+      TestBitsEnum::Test(TestBits::new(live_docs))
+    };
+    let dir = new_directory_shared(random)?;
+    let si = SegmentInfo::new(
+      dir.clone(),
+      Option::from(LATEST.clone()),
+      Option::from(LATEST.clone()),
+      "foo",
+      max_doc,
+      rand::random(),
+      false,
+      HashMap::new(),
+      StringHelper::random_id(),
+      HashMap::new(),
+      None,
+    )?;
+    let io_context = IOContext::default_io_context()?;
+    let si1 = si.clone();
+    let mut sci =
+      SegmentCommitInfo::new(si, 0, 0, 0, -1, -1, Option::from(StringHelper::random_id()))?;
+    format.write_live_docs(
+      &bits,
+      dir.as_ref(),
+      &sci,
+      max_doc - num_live_docs,
+      &io_context,
+    )?;
+
+    sci = SegmentCommitInfo::new(
+      si1,
+      max_doc - num_live_docs,
+      0,
+      1,
+      -1,
+      -1,
+      Option::from(StringHelper::random_id()),
+    )?;
+    let io_context = IOContext::read_once_io_context()?;
+    let dir = dir;
+    let bits2 = format.read_live_docs(dir.as_ref(), &sci, &io_context)?;
+
+    assert_eq!(max_doc as usize, bits2.length());
+    for i in 0..max_doc as usize {
+      assert_eq!(bits.get(i)?, bits2.get(i)?);
+    }
+    Ok(())
+  }
 }
 
 pub struct TestBits {
-    live_docs: FixedBitSet,
-    id: Identity,
+  live_docs: FixedBitSet,
+  id: Identity,
 }
 impl TestBits {
-    pub fn new(live_docs: FixedBitSet) -> Self {
-        TestBits {
-            live_docs,
-            id: Identity::new(),
-        }
+  pub fn new(live_docs: FixedBitSet) -> Self {
+    TestBits {
+      live_docs,
+      id: Identity::new(),
     }
+  }
 }
 
 impl HasIdentity for TestBits {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 
 impl Bits for TestBits {
-    fn get(&self, index: usize) -> Result<bool> {
-        self.live_docs.get(index)
-    }
+  fn get(&self, index: usize) -> Result<bool> {
+    self.live_docs.get(index)
+  }
 
-    fn length(&self) -> usize {
-        self.live_docs.length()
-    }
+  fn length(&self) -> usize {
+    self.live_docs.length()
+  }
 }
 
 enum TestBitsEnum {
-    Test(TestBits),
-    Fixed(FixedBitSet),
+  Test(TestBits),
+  Fixed(FixedBitSet),
 }
 
 impl HasIdentity for TestBitsEnum {
-    fn identity(&self) -> &Identity {
-        match self {
-            TestBitsEnum::Test(test) => test.identity(),
-            TestBitsEnum::Fixed(fixed) => fixed.identity(),
-        }
+  fn identity(&self) -> &Identity {
+    match self {
+      TestBitsEnum::Test(test) => test.identity(),
+      TestBitsEnum::Fixed(fixed) => fixed.identity(),
     }
+  }
 }
 
 impl Bits for TestBitsEnum {
-    fn get(&self, index: usize) -> Result<bool> {
-        match self {
-            TestBitsEnum::Test(test) => test.get(index),
-            TestBitsEnum::Fixed(fixed) => fixed.get(index),
-        }
+  fn get(&self, index: usize) -> Result<bool> {
+    match self {
+      TestBitsEnum::Test(test) => test.get(index),
+      TestBitsEnum::Fixed(fixed) => fixed.get(index),
     }
-    fn length(&self) -> usize {
-        match self {
-            TestBitsEnum::Test(test) => test.length(),
-            TestBitsEnum::Fixed(fixed) => fixed.length(),
-        }
+  }
+  fn length(&self) -> usize {
+    match self {
+      TestBitsEnum::Test(test) => test.length(),
+      TestBitsEnum::Fixed(fixed) => fixed.length(),
     }
+  }
 }

@@ -15,50 +15,50 @@
  * limitations under the License.
  */
 pub(crate) trait SliceCopyOps<T> {
-    /// Copies elements from a source slice (`src`) into the current slice
-    /// (`self`) starting at the specified offset.
-    ///
-    /// # Parameters
-    /// - `self`: The destination mutable slice where the elements will be
-    ///   copied to.
-    /// - `src`: The source slice containing the elements to copy.
-    /// - `Offset`: The starting position in the destination slice where the
-    ///   copy begins.
-    ///
-    /// # Panics
-    /// This function does not panic during runtime in release builds. However,
-    /// it includes a `debug_assert!` in debug mode to ensure that `offset +
-    /// src.len()` does not exceed the length of the destination slice (`self`).
-    /// If the assertion fails, it indicates an out-of-bounds access.
-    ///
-    /// # Safety
-    /// This function uses `unsafe` code to call
-    /// `std::ptr::copy_nonoverlapping`, which performs unchecked memory
-    /// operations. You must ensure that:
-    /// - The destination slice has enough space to accommodate the copied
-    ///   elements.
-    /// - The `src` and the destination slice (from `offset`) do not overlap.
-    fn copy_from(&mut self, src: &[T], offset: usize);
+  /// Copies elements from a source slice (`src`) into the current slice
+  /// (`self`) starting at the specified offset.
+  ///
+  /// # Parameters
+  /// - `self`: The destination mutable slice where the elements will be
+  ///   copied to.
+  /// - `src`: The source slice containing the elements to copy.
+  /// - `Offset`: The starting position in the destination slice where the
+  ///   copy begins.
+  ///
+  /// # Panics
+  /// This function does not panic during runtime in release builds. However,
+  /// it includes a `debug_assert!` in debug mode to ensure that `offset +
+  /// src.len()` does not exceed the length of the destination slice (`self`).
+  /// If the assertion fails, it indicates an out-of-bounds access.
+  ///
+  /// # Safety
+  /// This function uses `unsafe` code to call
+  /// `std::ptr::copy_nonoverlapping`, which performs unchecked memory
+  /// operations. You must ensure that:
+  /// - The destination slice has enough space to accommodate the copied
+  ///   elements.
+  /// - The `src` and the destination slice (from `offset`) do not overlap.
+  fn copy_from(&mut self, src: &[T], offset: usize);
 }
 
 impl<T> SliceCopyOps<T> for Vec<T> {
-    #[inline]
-    fn copy_from(&mut self, src: &[T], offset: usize) {
-        self.as_mut_slice().copy_from(src, offset)
-    }
+  #[inline]
+  fn copy_from(&mut self, src: &[T], offset: usize) {
+    self.as_mut_slice().copy_from(src, offset)
+  }
 }
 impl<T> SliceCopyOps<T> for [T] {
-    fn copy_from(&mut self, src: &[T], offset: usize) {
-        debug_assert!(
-            offset + src.len() <= self.len(),
-            "Copy out of bounds: offset={}, src_len={}, buffer_len={}",
-            offset,
-            src.len(),
-            self.len()
-        );
+  fn copy_from(&mut self, src: &[T], offset: usize) {
+    debug_assert!(
+      offset + src.len() <= self.len(),
+      "Copy out of bounds: offset={}, src_len={}, buffer_len={}",
+      offset,
+      src.len(),
+      self.len()
+    );
 
-        unsafe {
-            std::ptr::copy_nonoverlapping(src.as_ptr(), self.as_mut_ptr().add(offset), src.len());
-        }
+    unsafe {
+      std::ptr::copy_nonoverlapping(src.as_ptr(), self.as_mut_ptr().add(offset), src.len());
     }
+  }
 }

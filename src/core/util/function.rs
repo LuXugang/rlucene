@@ -16,5 +16,5 @@
  */
 use crate::core::util::error::lucene_error::Result;
 pub trait Function<T, R> {
-    fn apply(&self, t: &T) -> Result<R>;
+  fn apply(&self, t: &T) -> Result<R>;
 }

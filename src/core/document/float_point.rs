@@ -32,267 +32,260 @@ use std::borrow::Cow;
 use std::fmt;
 
 pub struct FloatPoint {
-    parent_field: Field,
+  parent_field: Field,
 }
 
 impl FloatPoint {
-    /// Create a new FloatPoint with the given name and float values
-    pub fn new<T, P>(name: T, point: P) -> Result<FloatPoint>
-    where
-        T: Into<String>,
-        P: AsRef<[f32]>,
-    {
-        let point = point.as_ref();
-        let value = Self::pack(point)?;
-        let field_type = Self::get_type(point.len())?;
-        let parent_field = Field::from_bytes_ref(name, value, field_type)?;
-        Ok(FloatPoint { parent_field })
+  /// Create a new FloatPoint with the given name and float values
+  pub fn new<T, P>(name: T, point: P) -> Result<FloatPoint>
+  where
+    T: Into<String>,
+    P: AsRef<[f32]>,
+  {
+    let point = point.as_ref();
+    let value = Self::pack(point)?;
+    let field_type = Self::get_type(point.len())?;
+    let parent_field = Field::from_bytes_ref(name, value, field_type)?;
+    Ok(FloatPoint { parent_field })
+  }
+  pub fn next_up(f: f32) -> f32 {
+    if f.to_bits() == 0x8000_0000u32 {
+      0.0
+    } else {
+      f.next_up()
     }
-    pub fn next_up(f: f32) -> f32 {
-        if f.to_bits() == 0x8000_0000u32 {
-            0.0
-        } else {
-            f.next_up()
-        }
-    }
+  }
 
-    pub fn next_down(f: f32) -> f32 {
-        if f.to_bits() == 0u32 {
-            -0.0
-        } else {
-            f.next_down()
-        }
+  pub fn next_down(f: f32) -> f32 {
+    if f.to_bits() == 0u32 {
+      -0.0
+    } else {
+      f.next_down()
     }
+  }
 
-    fn get_type(num_dims: usize) -> Result<FieldType> {
-        let mut field_type = FieldType::new();
-        field_type.set_dimensions(num_dims, BitUtil::FLOAT_BYTES)?;
-        field_type.freeze();
-        Ok(field_type)
+  fn get_type(num_dims: usize) -> Result<FieldType> {
+    let mut field_type = FieldType::new();
+    field_type.set_dimensions(num_dims, BitUtil::FLOAT_BYTES)?;
+    field_type.freeze();
+    Ok(field_type)
+  }
+
+  /// Change the values of this field
+  pub fn set_float_values(&mut self, point: &[f32]) -> Result<()> {
+    if self.parent_field.field_type().point_dimension_count() != point.len() {
+      return Err(LuceneError::illegal_argument(format!(
+        "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
+        self.parent_field.name(),
+        self.parent_field.field_type().point_dimension_count(),
+        point.len()
+      )));
     }
+    let value = Self::pack(point)?;
+    self.parent_field.fields_data = value.into();
+    Ok(())
+  }
 
-    /// Change the values of this field
-    pub fn set_float_values(&mut self, point: &[f32]) -> Result<()> {
-        if self.parent_field.field_type().point_dimension_count() != point.len() {
-            return Err(LuceneError::illegal_argument(format!(
-                "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
-                self.parent_field.name(),
-                self.parent_field.field_type().point_dimension_count(),
-                point.len()
-            )));
-        }
-        let value = Self::pack(point)?;
-        self.parent_field.fields_data = value.into();
-        Ok(())
+  /// Pack a float array into bytes
+  pub fn pack(point: &[f32]) -> Result<BytesRef<Vec<u8>>> {
+    if point.is_empty() {
+      return Err(LuceneError::illegal_argument(
+        "point must not be 0 dimensions".to_string(),
+      ));
     }
-
-    /// Pack a float array into bytes
-    pub fn pack(point: &[f32]) -> Result<BytesRef<Vec<u8>>> {
-        if point.is_empty() {
-            return Err(LuceneError::illegal_argument(
-                "point must not be 0 dimensions".to_string(),
-            ));
-        }
-        let mut packed = vec![0u8; point.len() * BitUtil::FLOAT_BYTES];
-        for (i, &dim) in point.iter().enumerate() {
-            Self::encode_dimension(dim, &mut packed, i * BitUtil::FLOAT_BYTES);
-        }
-        Ok(BytesRef::from_bytes(packed))
+    let mut packed = vec![0u8; point.len() * BitUtil::FLOAT_BYTES];
+    for (i, &dim) in point.iter().enumerate() {
+      Self::encode_dimension(dim, &mut packed, i * BitUtil::FLOAT_BYTES);
     }
+    Ok(BytesRef::from_bytes(packed))
+  }
 
-    /// Encode single float dimension
-    pub fn encode_dimension(value: f32, dest: &mut [u8], offset: usize) {
-        let sortable = NumericUtils::float_to_sortable_int(value);
-        NumericUtils::int_to_sortable_bytes(sortable, dest, offset);
-    }
+  /// Encode single float dimension
+  pub fn encode_dimension(value: f32, dest: &mut [u8], offset: usize) {
+    let sortable = NumericUtils::float_to_sortable_int(value);
+    NumericUtils::int_to_sortable_bytes(sortable, dest, offset);
+  }
 
-    /// Decode single float dimension
-    pub fn decode_dimension(value: &[u8], offset: usize) -> f32 {
-        let int_val = NumericUtils::sortable_bytes_to_int(value, offset);
-        NumericUtils::sortable_int_to_float(int_val)
-    }
-    pub fn new_exact_query<T>(field: T, value: f32) -> Result<PointRangeQuery>
-    where
-        T: Into<String>,
-    {
-        Self::new_range_query(field, value, value)
-    }
+  /// Decode single float dimension
+  pub fn decode_dimension(value: &[u8], offset: usize) -> f32 {
+    let int_val = NumericUtils::sortable_bytes_to_int(value, offset);
+    NumericUtils::sortable_int_to_float(int_val)
+  }
+  pub fn new_exact_query<T>(field: T, value: f32) -> Result<PointRangeQuery>
+  where
+    T: Into<String>,
+  {
+    Self::new_range_query(field, value, value)
+  }
 
-    pub fn new_range_query<T>(
-        field: T,
-        lower_value: f32,
-        upper_value: f32,
-    ) -> Result<PointRangeQuery>
-    where
-        T: Into<String>,
-    {
-        Self::new_range_query_n(field, [lower_value], [upper_value])
-    }
+  pub fn new_range_query<T>(field: T, lower_value: f32, upper_value: f32) -> Result<PointRangeQuery>
+  where
+    T: Into<String>,
+  {
+    Self::new_range_query_n(field, [lower_value], [upper_value])
+  }
 
-    pub fn new_range_query_n<T, V>(
-        field: T,
-        lower_value: V,
-        upper_value: V,
-    ) -> Result<PointRangeQuery>
-    where
-        T: Into<String>,
-        V: AsRef<[f32]>,
-    {
-        let field = field.into();
-        let len = lower_value.as_ref().len();
-        let mut lower_point = FloatPoint::pack(lower_value.as_ref())?;
-        let mut upper_point = FloatPoint::pack(upper_value.as_ref())?;
+  pub fn new_range_query_n<T, V>(
+    field: T,
+    lower_value: V,
+    upper_value: V,
+  ) -> Result<PointRangeQuery>
+  where
+    T: Into<String>,
+    V: AsRef<[f32]>,
+  {
+    let field = field.into();
+    let len = lower_value.as_ref().len();
+    let mut lower_point = FloatPoint::pack(lower_value.as_ref())?;
+    let mut upper_point = FloatPoint::pack(upper_value.as_ref())?;
 
-        check_args(&field, &lower_point.bytes, &upper_point.bytes)?;
+    check_args(&field, &lower_point.bytes, &upper_point.bytes)?;
 
-        PointRangeQuery::new(
-            field,
-            lower_point.take_bytes(),
-            upper_point.take_bytes(),
-            len,
-            FloatPointRangeQuery,
-        )
-    }
+    PointRangeQuery::new(
+      field,
+      lower_point.take_bytes(),
+      upper_point.take_bytes(),
+      len,
+      FloatPointRangeQuery,
+    )
+  }
 }
 
 impl FieldBase for FloatPoint {
-    fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
-        Err(LuceneError::illegal_argument(
-            "cannot change value type from float to BytesRef".to_string(),
-        ))
-    }
+  fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
+    Err(LuceneError::illegal_argument(
+      "cannot change value type from float to BytesRef".to_string(),
+    ))
+  }
 
-    fn set_float_value(&mut self, value: f32) -> Result<()> {
-        self.set_float_values(&[value])
-    }
+  fn set_float_value(&mut self, value: f32) -> Result<()> {
+    self.set_float_values(&[value])
+  }
 }
 
 impl IndexableField for FloatPoint {
-    fn name(&self) -> &str {
-        self.parent_field.name()
+  fn name(&self) -> &str {
+    self.parent_field.name()
+  }
+
+  type FieldType = FieldType;
+
+  fn field_type(&self) -> &Self::FieldType {
+    self.parent_field.field_type()
+  }
+
+  type TokenStream = <Field as IndexableField>::TokenStream;
+
+  fn token_stream<'a>(
+    &'a mut self,
+    token_stream: Option<&'a mut InnerTokenStreams>,
+  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
+    self.parent_field.token_stream(token_stream)
+  }
+
+  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    self.parent_field.binary_value()
+  }
+
+  fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+    self.parent_field.take_binary_value()
+  }
+
+  fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.parent_field.string_value()
+  }
+
+  fn take_string_value(&mut self) -> Result<Option<String>> {
+    self.parent_field.take_string_value()
+  }
+
+  fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
+    todo!()
+  }
+
+  fn numeric_value(&self) -> Result<Option<Number>> {
+    if self.parent_field.field_type().point_dimension_count() != 1 {
+      return Err(LuceneError::illegal_state(format!(
+        "this field (name={}) uses {} dimensions; cannot convert to a single numeric value",
+        self.parent_field.name(),
+        self.parent_field.field_type().point_dimension_count()
+      )));
     }
-
-    type FieldType = FieldType;
-
-    fn field_type(&self) -> &Self::FieldType {
-        self.parent_field.field_type()
+    match &self.parent_field.fields_data {
+      FieldDataEnum::Binary(bytes) => {
+        debug_assert!(bytes.length == BitUtil::FLOAT_BYTES);
+        let value = Self::decode_dimension(&bytes.bytes, bytes.offset);
+        Ok(Some(Number::F32(value)))
+      },
+      _ => Err(LuceneError::illegal_argument(
+        "Unsupported FieldDataEnum variant",
+      )),
     }
+  }
 
-    type TokenStream = <Field as IndexableField>::TokenStream;
+  fn stored_value(&self) -> Option<&FieldDataEnum> {
+    self.parent_field.stored_value()
+  }
 
-    fn token_stream<'a>(
-        &'a mut self,
-        token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
-    {
-        self.parent_field.token_stream(token_stream)
-    }
+  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
+    self.parent_field.take_stored_value()
+  }
 
-    fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.parent_field.binary_value()
-    }
+  fn invertable_type(&self) -> &InvertableType {
+    self.parent_field.invertable_type()
+  }
 
-    fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-        self.parent_field.take_binary_value()
-    }
-
-    fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
-        self.parent_field.string_value()
-    }
-
-    fn take_string_value(&mut self) -> Result<Option<String>> {
-        self.parent_field.take_string_value()
-    }
-
-    fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
-        todo!()
-    }
-
-    fn numeric_value(&self) -> Result<Option<Number>> {
-        if self.parent_field.field_type().point_dimension_count() != 1 {
-            return Err(LuceneError::illegal_state(format!(
-                "this field (name={}) uses {} dimensions; cannot convert to a single numeric value",
-                self.parent_field.name(),
-                self.parent_field.field_type().point_dimension_count()
-            )));
-        }
-        match &self.parent_field.fields_data {
-            FieldDataEnum::Binary(bytes) => {
-                debug_assert!(bytes.length == BitUtil::FLOAT_BYTES);
-                let value = Self::decode_dimension(&bytes.bytes, bytes.offset);
-                Ok(Some(Number::F32(value)))
-            },
-            _ => Err(LuceneError::illegal_argument(
-                "Unsupported FieldDataEnum variant",
-            )),
-        }
-    }
-
-    fn stored_value(&self) -> Option<&FieldDataEnum> {
-        self.parent_field.stored_value()
-    }
-
-    fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-        self.parent_field.take_stored_value()
-    }
-
-    fn invertable_type(&self) -> &InvertableType {
-        self.parent_field.invertable_type()
-    }
-
-    fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-    where
-        A: Analyzer,
-    {
-        self.parent_field.init_token_stream(analyzer)
-    }
+  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
+  where
+    A: Analyzer,
+  {
+    self.parent_field.init_token_stream(analyzer)
+  }
 }
 
 impl fmt::Display for FloatPoint {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} <{}:",
-            std::any::type_name::<Self>(),
-            self.parent_field.name()
-        )?;
-        match &self.parent_field.fields_data {
-            FieldDataEnum::Binary(bytes) => {
-                let dim_count = self.parent_field.field_type().point_dimension_count();
-                for dim in 0..dim_count {
-                    if dim > 0 {
-                        write!(f, ",")?;
-                    }
-                    let value = Self::decode_dimension(
-                        &bytes.bytes,
-                        bytes.offset + dim * BitUtil::FLOAT_BYTES,
-                    );
-                    write!(f, "{value}")?;
-                }
-            },
-            _ => {
-                debug_assert!(false, "no possible here");
-                write!(f, "Unsupported FieldDataEnum variant")?;
-            },
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "{} <{}:",
+      std::any::type_name::<Self>(),
+      self.parent_field.name()
+    )?;
+    match &self.parent_field.fields_data {
+      FieldDataEnum::Binary(bytes) => {
+        let dim_count = self.parent_field.field_type().point_dimension_count();
+        for dim in 0..dim_count {
+          if dim > 0 {
+            write!(f, ",")?;
+          }
+          let value =
+            Self::decode_dimension(&bytes.bytes, bytes.offset + dim * BitUtil::FLOAT_BYTES);
+          write!(f, "{value}")?;
         }
-        write!(f, ">")
+      },
+      _ => {
+        debug_assert!(false, "no possible here");
+        write!(f, "Unsupported FieldDataEnum variant")?;
+      },
     }
+    write!(f, ">")
+  }
 }
 
 #[derive(Debug, Clone)]
 pub struct FloatPointRangeQuery;
 
 impl PointRangeBase for FloatPointRangeQuery {
-    fn to_string(&self, _dimension: usize, value: &[u8]) -> String {
-        FloatPoint::decode_dimension(value, 0).to_string()
-    }
+  fn to_string(&self, _dimension: usize, value: &[u8]) -> String {
+    FloatPoint::decode_dimension(value, 0).to_string()
+  }
 }
 
 #[cfg(test)]
 impl Clone for FloatPoint {
-    fn clone(&self) -> Self {
-        Self {
-            parent_field: self.parent_field.clone(),
-        }
+  fn clone(&self) -> Self {
+    Self {
+      parent_field: self.parent_field.clone(),
     }
+  }
 }

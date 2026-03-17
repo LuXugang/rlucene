@@ -22,56 +22,56 @@ use crate::core::util::error::lucene_error::Result;
 /// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 #[allow(dead_code)]
 pub struct FilterNumericDocValues<N> {
-    inner: N,
+  inner: N,
 }
 impl<N> FilterNumericDocValues<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    pub fn new(inner: N) -> Self {
-        FilterNumericDocValues { inner }
-    }
+  pub fn new(inner: N) -> Self {
+    FilterNumericDocValues { inner }
+  }
 }
 
 impl<N> DocValuesIterator for FilterNumericDocValues<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.inner.advance_exact(target)
-    }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    self.inner.advance_exact(target)
+  }
 }
 
 impl<N> DocIdSetIterator for FilterNumericDocValues<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn doc_id(&self) -> i32 {
-        self.inner.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.inner.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.inner.next_doc()
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.inner.next_doc()
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance(target)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.advance(target)
+  }
 
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance(target)
-    }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.advance(target)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.inner.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.inner.cost()
+  }
 }
 
 impl<N> NumericDocValues for FilterNumericDocValues<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn long_value(&mut self) -> Result<i64> {
-        self.inner.long_value()
-    }
+  fn long_value(&mut self) -> Result<i64> {
+    self.inner.long_value()
+  }
 }

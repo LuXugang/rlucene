@@ -21,13 +21,13 @@ use crate::core::util::error::lucene_error::Result;
 #[derive(Debug, Clone)]
 pub struct DummyTermState;
 impl Display for DummyTermState {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl TermState for DummyTermState {
-    fn copy_from(&mut self, _other: &Self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn copy_from(&mut self, _other: &Self) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

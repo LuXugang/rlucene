@@ -16,7 +16,7 @@
  */
 use crate::core::util::error::lucene_error::Result;
 pub trait Consumer {
-    type V;
-    fn accept_mut(&mut self, item: Self::V) -> Result<()>;
-    fn accept(&self, item: Self::V) -> Result<()>;
+  type V;
+  fn accept_mut(&mut self, item: Self::V) -> Result<()>;
+  fn accept(&self, item: Self::V) -> Result<()>;
 }

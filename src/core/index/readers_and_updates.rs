@@ -29,8 +29,8 @@ use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_field_updates::merged_iterator;
 use crate::core::index::doc_values_field_updates::{
-    BinaryDocValuesDVFU, DocValuesFieldIterator, DocValuesFieldIteratorEnum,
-    DocValuesFieldUpdatesEnum, MergedIterator, NumericDocValuesDVFU,
+  BinaryDocValuesDVFU, DocValuesFieldIterator, DocValuesFieldIteratorEnum,
+  DocValuesFieldUpdatesEnum, MergedIterator, NumericDocValuesDVFU,
 };
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -71,1283 +71,1281 @@ use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
 /// for a given segment
 pub(crate) struct ReadersAndUpdates<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    // Tracks how many consumers are using this instance:
-    ref_count: AtomicI32, // starts at 1
-    // the major version this index was created with
-    index_created_version_major: i32,
-    // Only set if there are doc values updates against this segment, and the index is sorted:
-    pub(crate) sort_map: Option<Arc<DocMapImpl>>,
-    pub(crate) ram_bytes_used: AtomicI64,
-    pub(crate) inner: Mutex<Inner<D>>,
-    pub(crate) info_id: String,
+  // Tracks how many consumers are using this instance:
+  ref_count: AtomicI32, // starts at 1
+  // the major version this index was created with
+  index_created_version_major: i32,
+  // Only set if there are doc values updates against this segment, and the index is sorted:
+  pub(crate) sort_map: Option<Arc<DocMapImpl>>,
+  pub(crate) ram_bytes_used: AtomicI64,
+  pub(crate) inner: Mutex<Inner<D>>,
+  pub(crate) info_id: String,
 }
 
 pub(crate) struct Inner<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    // Set once (None, and then maybe set, and never set again):
-    pub(crate) reader: Option<Arc<SegmentReader<D>>>,
-    // How many further deletions we've done against
-    // liveDocs vs when we loaded it or last wrote it:
-    pending_deletes: PendingDeletesEnum,
-    // Indicates whether this segment is currently being merged. While a segment
-    // is merging, all field updates are also registered in the
-    // mergingDVUpdates map. Also, calls to writeFieldUpdates merge the
-    // updates with mergingDVUpdates.
-    // That way, when the segment is done merging, IndexWriter can apply the
-    // updates on the merged segment too.
-    is_merging: bool,
-    // Holds resolved (to docIDs) doc values updates that have not yet been
-    // written to the index
-    pending_dv_updates: HashMap<String, Vec<Arc<DocValuesFieldUpdatesEnum>>>,
-    // Holds resolved (to docIDs) doc values updates that were resolved while
-    // this segment was being merged; at the end of the merge we carry over
-    // these updates (remapping their docIDs) to the newly merged segment
-    merging_dv_updates: HashMap<String, Vec<Arc<DocValuesFieldUpdatesEnum>>>,
+  // Set once (None, and then maybe set, and never set again):
+  pub(crate) reader: Option<Arc<SegmentReader<D>>>,
+  // How many further deletions we've done against
+  // liveDocs vs when we loaded it or last wrote it:
+  pending_deletes: PendingDeletesEnum,
+  // Indicates whether this segment is currently being merged. While a segment
+  // is merging, all field updates are also registered in the
+  // mergingDVUpdates map. Also, calls to writeFieldUpdates merge the
+  // updates with mergingDVUpdates.
+  // That way, when the segment is done merging, IndexWriter can apply the
+  // updates on the merged segment too.
+  is_merging: bool,
+  // Holds resolved (to docIDs) doc values updates that have not yet been
+  // written to the index
+  pending_dv_updates: HashMap<String, Vec<Arc<DocValuesFieldUpdatesEnum>>>,
+  // Holds resolved (to docIDs) doc values updates that were resolved while
+  // this segment was being merged; at the end of the merge we carry over
+  // these updates (remapping their docIDs) to the newly merged segment
+  merging_dv_updates: HashMap<String, Vec<Arc<DocValuesFieldUpdatesEnum>>>,
 }
 
 impl<D> ReadersAndUpdates<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) fn new(
-        index_created_version_major: i32,
-        info_id: String,
-        pending_deletes: PendingDeletesEnum,
-    ) -> Self {
-        let inner = Mutex::new(Inner {
-            reader: None,
-            pending_deletes,
-            is_merging: false,
-            pending_dv_updates: HashMap::new(),
-            merging_dv_updates: HashMap::new(),
-        });
-        Self {
-            ref_count: AtomicI32::new(1),
-            index_created_version_major,
-            sort_map: None,
-            ram_bytes_used: AtomicI64::new(0),
-            inner,
-            info_id,
-        }
+  pub(crate) fn new(
+    index_created_version_major: i32,
+    info_id: String,
+    pending_deletes: PendingDeletesEnum,
+  ) -> Self {
+    let inner = Mutex::new(Inner {
+      reader: None,
+      pending_deletes,
+      is_merging: false,
+      pending_dv_updates: HashMap::new(),
+      merging_dv_updates: HashMap::new(),
+    });
+    Self {
+      ref_count: AtomicI32::new(1),
+      index_created_version_major,
+      sort_map: None,
+      ram_bytes_used: AtomicI64::new(0),
+      inner,
+      info_id,
     }
-    /// Init from a previously opened SegmentReader.
-    pub(crate) fn with_reader(
-        index_created_version_major: i32,
-        reader: Arc<SegmentReader<D>>,
-        info: &SegmentCommitInfo<D>,
-        pending_deletes: PendingDeletesEnum,
-    ) -> Result<Self> {
-        debug_assert!(reader.get_original_segment_info_id() == pending_deletes.get_info_id());
-        let v = Self::new(
-            index_created_version_major,
-            reader.get_original_segment_info_id().to_string(),
-            pending_deletes,
-        );
-        {
-            let mut inner = v.inner.lock();
-            inner.pending_deletes.on_new_reader(&reader, info)?;
-            inner.reader = Some(reader);
-        }
-        Ok(v)
-    }
-    pub fn inc_ref(&self) {
-        let rc = self.ref_count.fetch_add(1, Ordering::SeqCst) + 1;
-        debug_assert!(rc > 1);
-    }
-
-    pub fn dec_ref(&self) {
-        let rc = self.ref_count.fetch_sub(1, Ordering::SeqCst) - 1;
-        debug_assert!(rc >= 0);
-    }
-
-    pub fn ref_count(&self) -> i32 {
-        let rc = self.ref_count.load(Ordering::SeqCst);
-        debug_assert!(rc >= 0);
-        rc
-    }
-    pub(crate) fn get_del_count(&self, info: &SegmentCommitInfo<D>) -> i32
-    where
-        D: Directory,
+  }
+  /// Init from a previously opened SegmentReader.
+  pub(crate) fn with_reader(
+    index_created_version_major: i32,
+    reader: Arc<SegmentReader<D>>,
+    info: &SegmentCommitInfo<D>,
+    pending_deletes: PendingDeletesEnum,
+  ) -> Result<Self> {
+    debug_assert!(reader.get_original_segment_info_id() == pending_deletes.get_info_id());
+    let v = Self::new(
+      index_created_version_major,
+      reader.get_original_segment_info_id().to_string(),
+      pending_deletes,
+    );
     {
-        self.inner.lock().pending_deletes.get_del_count(info)
+      let mut inner = v.inner.lock();
+      inner.pending_deletes.on_new_reader(&reader, info)?;
+      inner.reader = Some(reader);
+    }
+    Ok(v)
+  }
+  pub fn inc_ref(&self) {
+    let rc = self.ref_count.fetch_add(1, Ordering::SeqCst) + 1;
+    debug_assert!(rc > 1);
+  }
+
+  pub fn dec_ref(&self) {
+    let rc = self.ref_count.fetch_sub(1, Ordering::SeqCst) - 1;
+    debug_assert!(rc >= 0);
+  }
+
+  pub fn ref_count(&self) -> i32 {
+    let rc = self.ref_count.load(Ordering::SeqCst);
+    debug_assert!(rc >= 0);
+    rc
+  }
+  pub(crate) fn get_del_count(&self, info: &SegmentCommitInfo<D>) -> i32
+  where
+    D: Directory,
+  {
+    self.inner.lock().pending_deletes.get_del_count(info)
+  }
+
+  fn assert_no_dup_gen(
+    &self,
+    field_updates: &[Arc<DocValuesFieldUpdatesEnum>],
+    update: &DocValuesFieldUpdatesEnum,
+  ) -> bool {
+    let dup = field_updates
+      .iter()
+      .any(|old_update| old_update.del_gen == update.del_gen);
+    debug_assert!(!dup, "duplicate delGen={}", update.del_gen);
+    true
+  }
+  /// Adds a new resolved (meaning it maps docIDs to new values) doc values packet.
+  /// We buffer these in RAM and write to disk when too much RAM is used or when a merge needs to kick off, or a commit/refresh.
+  pub fn add_dv_update<T>(&self, update: T) -> Result<()>
+  where
+    T: Into<Arc<DocValuesFieldUpdatesEnum>>,
+  {
+    let update = update.into();
+    let mut inner = self.inner.lock();
+    if !update.get_finished()? {
+      return Err(LuceneError::illegal_argument("call finish first"));
     }
 
-    fn assert_no_dup_gen(
-        &self,
-        field_updates: &[Arc<DocValuesFieldUpdatesEnum>],
-        update: &DocValuesFieldUpdatesEnum,
-    ) -> bool {
-        let dup = field_updates
-            .iter()
-            .any(|old_update| old_update.del_gen == update.del_gen);
-        debug_assert!(!dup, "duplicate delGen={}", update.del_gen);
-        true
+    let field = update.field.to_string();
+    let update_bytes = update.ram_bytes_used()?;
+
+    let field_updates = inner.pending_dv_updates.entry(field.clone()).or_default();
+
+    debug_assert!(self.assert_no_dup_gen(field_updates, &update));
+    self
+      .ram_bytes_used
+      .fetch_add(update_bytes, Ordering::Relaxed);
+
+    field_updates.push(update.clone());
+
+    if inner.is_merging {
+      inner
+        .merging_dv_updates
+        .entry(field)
+        .or_default()
+        .push(update);
     }
-    /// Adds a new resolved (meaning it maps docIDs to new values) doc values packet.
-    /// We buffer these in RAM and write to disk when too much RAM is used or when a merge needs to kick off, or a commit/refresh.
-    pub fn add_dv_update<T>(&self, update: T) -> Result<()>
-    where
-        T: Into<Arc<DocValuesFieldUpdatesEnum>>,
+    Ok(())
+  }
+
+  pub(crate) fn get_num_dv_updates(&self) -> i64 {
+    let inner = self.inner.lock();
+    inner
+      .pending_dv_updates
+      .values()
+      .map(|v| v.len() as i64)
+      .sum()
+  }
+  pub fn get_reader(
+    &self,
+    context: &IOContext,
+    info: &SegmentCommitInfo<D>,
+    inner: Option<&mut Inner<D>>,
+  ) -> Result<()> {
+    let inner = match inner {
+      Some(inner) => inner,
+      None => &mut *self.inner.lock(),
+    };
+    if inner.reader.is_none() {
+      let reader = SegmentReader::new(info, self.index_created_version_major, context)?;
+      inner.pending_deletes.on_new_reader(&reader, info)?;
+      inner.reader = Some(Arc::new(reader));
+    }
+    // Ref for caller
+    inner.reader.as_ref().unwrap().inc_ref()?;
+    Ok(())
+  }
+  pub fn release(&self, sr: &SegmentReader<D>, inner: Option<&Inner<D>>) -> Result<()> {
+    let _inner = match inner {
+      Some(inner) => inner,
+      None => &mut *self.inner.lock(),
+    };
+    debug_assert!(self.info_id == sr.get_original_segment_info_id());
+    sr.dec_ref()?;
+    Ok(())
+  }
+
+  pub fn delete(
+    &self,
+    doc_id: i32,
+    info: &SegmentCommitInfo<D>,
+    inner: Option<&mut Inner<D>>,
+  ) -> Result<bool> {
+    let inner = match inner {
+      Some(inner) => inner,
+      None => &mut *self.inner.lock(),
+    };
+    if inner.reader.is_none() && inner.pending_deletes.must_init_on_delete() {
+      self.get_reader(&IOContext::default_io_context()?, info, Some(inner))?; // pass a reader to initialize the pending deletes
+    }
+
+    inner.pending_deletes.delete(doc_id, info)
+  }
+  pub fn drop_readers(&self) -> Result<()> {
+    let mut inner = self.inner.lock();
+    // TODO: can we somehow use IOUtils here...?  problem is
+    // we are calling .decRef not .close)...
+    if let Some(reader) = &inner.reader {
+      reader.dec_ref()?;
+    }
+    inner.reader = None;
+    Ok(())
+  }
+  /// Returns a ref to a clone. NOTE: you should decRef() the reader when you're done (ie do not call close()).
+  pub(crate) fn get_read_only_clone(
+    &self,
+    context: &IOContext,
+    info: &SegmentCommitInfo<D>,
+  ) -> Result<Option<Arc<SegmentReader<D>>>> {
+    let mut inner = self.inner.lock();
+    if inner.reader.is_none() {
+      self.get_reader(context, info, Some(&mut inner))?;
+      debug_assert!(inner.reader.is_some());
+      inner.reader.as_ref().unwrap().dec_ref()?;
+    }
+
+    // force new liveDocs
+    if let Some(live_docs) = inner.pending_deletes.get_live_docs() {
+      let hard_live_docs = inner.pending_deletes.get_hard_live_docs();
+      let sr = SegmentReader::new_from_reader(
+        info,
+        inner.reader.as_ref().unwrap(),
+        Some(live_docs),
+        hard_live_docs,
+        inner.pending_deletes.num_docs(info)?,
+        true,
+      )?;
+      return Ok(Some(Arc::new(sr)));
+    }
     {
-        let update = update.into();
-        let mut inner = self.inner.lock();
-        if !update.get_finished()? {
-            return Err(LuceneError::illegal_argument("call finish first"));
-        }
-
-        let field = update.field.to_string();
-        let update_bytes = update.ram_bytes_used()?;
-
-        let field_updates = inner.pending_dv_updates.entry(field.clone()).or_default();
-
-        debug_assert!(self.assert_no_dup_gen(field_updates, &update));
-        self.ram_bytes_used
-            .fetch_add(update_bytes, Ordering::Relaxed);
-
-        field_updates.push(update.clone());
-
-        if inner.is_merging {
-            inner
-                .merging_dv_updates
-                .entry(field)
-                .or_default()
-                .push(update);
-        }
-        Ok(())
+      // liveDocs == null and reader != null. That can only be if there are no deletes
+      let r = inner.reader.as_ref().unwrap();
+      debug_assert!(r.get_live_docs()?.is_none());
+      r.inc_ref()?;
+      Ok(inner.reader.clone())
     }
+  }
 
-    pub(crate) fn get_num_dv_updates(&self) -> i64 {
-        let inner = self.inner.lock();
-        inner
-            .pending_dv_updates
-            .values()
-            .map(|v| v.len() as i64)
-            .sum()
-    }
-    pub fn get_reader(
-        &self,
-        context: &IOContext,
-        info: &SegmentCommitInfo<D>,
-        inner: Option<&mut Inner<D>>,
-    ) -> Result<()> {
-        let inner = match inner {
-            Some(inner) => inner,
-            None => &mut *self.inner.lock(),
-        };
-        if inner.reader.is_none() {
-            let reader = SegmentReader::new(info, self.index_created_version_major, context)?;
-            inner.pending_deletes.on_new_reader(&reader, info)?;
-            inner.reader = Some(Arc::new(reader));
-        }
-        // Ref for caller
-        inner.reader.as_ref().unwrap().inc_ref()?;
-        Ok(())
-    }
-    pub fn release(&self, sr: &SegmentReader<D>, inner: Option<&Inner<D>>) -> Result<()> {
-        let _inner = match inner {
-            Some(inner) => inner,
-            None => &mut *self.inner.lock(),
-        };
-        debug_assert!(self.info_id == sr.get_original_segment_info_id());
-        sr.dec_ref()?;
-        Ok(())
-    }
+  pub(crate) fn num_deletes_to_merge<P>(
+    &self,
+    policy: &P,
+    info: &SegmentCommitInfo<D>,
+  ) -> Result<i32>
+  where
+    P: MergePolicy,
+  {
+    let inner = self.inner.lock();
+    inner
+      .pending_deletes
+      .num_deletes_to_merge(policy, info, || {
+        self.is_fully_deleted(info)?;
+        let v = self.inner.lock().reader.clone();
+        debug_assert!(v.is_some());
+        Ok(v.unwrap())
+      })
+  }
 
-    pub fn delete(
-        &self,
-        doc_id: i32,
-        info: &SegmentCommitInfo<D>,
-        inner: Option<&mut Inner<D>>,
-    ) -> Result<bool> {
-        let inner = match inner {
-            Some(inner) => inner,
-            None => &mut *self.inner.lock(),
-        };
-        if inner.reader.is_none() && inner.pending_deletes.must_init_on_delete() {
-            self.get_reader(&IOContext::default_io_context()?, info, Some(inner))?; // pass a reader to initialize the pending deletes
-        }
-
-        inner.pending_deletes.delete(doc_id, info)
+  fn get_latest_read(
+    &self,
+    info: &SegmentCommitInfo<D>,
+    inner: Option<&mut Inner<D>>,
+  ) -> Result<()> {
+    let mut inner = match inner {
+      Some(inner) => inner,
+      None => &mut *self.inner.lock(),
+    };
+    if inner.reader.is_none() {
+      // get a reader and dec the ref right away we just make sure we have a reader
+      self.get_reader(&IOContext::default_io_context()?, info, Some(&mut inner))?;
+      inner.reader.as_ref().unwrap().dec_ref()?;
     }
-    pub fn drop_readers(&self) -> Result<()> {
-        let mut inner = self.inner.lock();
-        // TODO: can we somehow use IOUtils here...?  problem is
-        // we are calling .decRef not .close)...
-        if let Some(reader) = &inner.reader {
-            reader.dec_ref()?;
-        }
-        inner.reader = None;
-        Ok(())
-    }
-    /// Returns a ref to a clone. NOTE: you should decRef() the reader when you're done (ie do not call close()).
-    pub(crate) fn get_read_only_clone(
-        &self,
-        context: &IOContext,
-        info: &SegmentCommitInfo<D>,
-    ) -> Result<Option<Arc<SegmentReader<D>>>> {
-        let mut inner = self.inner.lock();
-        if inner.reader.is_none() {
-            self.get_reader(context, info, Some(&mut inner))?;
-            debug_assert!(inner.reader.is_some());
-            inner.reader.as_ref().unwrap().dec_ref()?;
-        }
-
-        // force new liveDocs
-        if let Some(live_docs) = inner.pending_deletes.get_live_docs() {
-            let hard_live_docs = inner.pending_deletes.get_hard_live_docs();
-            let sr = SegmentReader::new_from_reader(
-                info,
-                inner.reader.as_ref().unwrap(),
-                Some(live_docs),
-                hard_live_docs,
-                inner.pending_deletes.num_docs(info)?,
-                true,
-            )?;
-            return Ok(Some(Arc::new(sr)));
-        }
-        {
-            // liveDocs == null and reader != null. That can only be if there are no deletes
-            let r = inner.reader.as_ref().unwrap();
-            debug_assert!(r.get_live_docs()?.is_none());
-            r.inc_ref()?;
-            Ok(inner.reader.clone())
-        }
-    }
-
-    pub(crate) fn num_deletes_to_merge<P>(
-        &self,
-        policy: &P,
-        info: &SegmentCommitInfo<D>,
-    ) -> Result<i32>
-    where
-        P: MergePolicy,
+    // we should take the reader out of the struct temporarily, cause borrow check
+    // it is safe take reader under lock because we put it back right away
+    let reader = inner.reader.take();
+    if inner
+      .pending_deletes
+      .needs_refresh(reader.as_ref().unwrap(), info)?
     {
-        let inner = self.inner.lock();
-        inner
-            .pending_deletes
-            .num_deletes_to_merge(policy, info, || {
-                self.is_fully_deleted(info)?;
-                let v = self.inner.lock().reader.clone();
-                debug_assert!(v.is_some());
-                Ok(v.unwrap())
-            })
+      // we have a reader but its live-docs are out of sync. let's create a temporary one that we
+      // never share
+      self.swap_new_reader_with_latest_live_docs(inner, info)?;
     }
+    // put reader back
+    inner.reader = reader;
+    debug_assert!(inner.reader.is_some());
+    Ok(())
+  }
 
-    fn get_latest_read(
-        &self,
-        info: &SegmentCommitInfo<D>,
-        inner: Option<&mut Inner<D>>,
-    ) -> Result<()> {
-        let mut inner = match inner {
-            Some(inner) => inner,
-            None => &mut *self.inner.lock(),
-        };
-        if inner.reader.is_none() {
-            // get a reader and dec the ref right away we just make sure we have a reader
-            self.get_reader(&IOContext::default_io_context()?, info, Some(&mut inner))?;
-            inner.reader.as_ref().unwrap().dec_ref()?;
+  /// Returns a snapshot of the live docs.
+  pub fn get_live_docs(&self) -> Option<DocBits> {
+    let mut inner = self.inner.lock();
+    inner.pending_deletes.get_live_docs()
+  }
+
+  /// Returns the live-docs bits excluding documents that are not live due to soft-deletes.
+  pub fn get_hard_live_docs(&self) -> Option<DocBits> {
+    let mut inner = self.inner.lock();
+    inner.pending_deletes.get_hard_live_docs()
+  }
+  pub fn drop_changes(&self) {
+    // Discard (don't save) changes when we are dropping
+    // the reader; this is used only on the sub-readers
+    // after a successful merge.  If deletes had
+    // accumulated on those sub-readers while the merge
+    // is running, by now we have carried forward those
+    // deletes onto the newly merged segment, so we can
+    // discard them on the sub-readers:
+    let mut inner = self.inner.lock();
+    inner.pending_deletes.drop_changes();
+    self.drop_merging_updates(Some(&mut inner));
+  }
+  // Commit live docs (writes new _X_N.del files) and field updates (writes new
+  // _X_N updates files) to the directory; returns true if it wrote any file
+  // and false if there were no new deletes or updates to write:
+  pub fn write_live_docs<D1>(&self, dir: &D1, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+  where
+    D: Directory,
+    D1: Directory,
+  {
+    let mut inner = self.inner.lock();
+    inner.pending_deletes.write_live_docs(dir, info)
+  }
+
+  #[allow(clippy::too_many_arguments)]
+  pub fn handle_dv_updates<D1, F>(
+    &self,
+    infos: &FieldInfos,
+    dir: D1,
+    dv_format: &F,
+    inner: &mut Inner<D>,
+    field_files: &mut HashMap<i32, HashSet<String>>,
+    max_del_gen: i64,
+    info_stream: &impl InfoStream,
+    info: &mut SegmentCommitInfo<D>,
+  ) -> Result<()>
+  where
+    F: DocValuesFormat,
+    D1: Directory,
+  {
+    for (field, updates) in inner.pending_dv_updates.iter() {
+      let ty = updates[0].type_;
+      debug_assert!(
+        matches!(ty, DocValuesType::Numeric | DocValuesType::Binary),
+        "unsupported type: {:?}",
+        ty
+      );
+
+      let mut updates_to_apply = Vec::new();
+      let mut bytes: i64 = 0;
+
+      for update in updates {
+        if update.del_gen <= max_del_gen {
+          // safe to apply this one
+          bytes += update.ram_bytes_used()?;
+          updates_to_apply.push(update.clone());
         }
-        // we should take the reader out of the struct temporarily, cause borrow check
-        // it is safe take reader under lock because we put it back right away
-        let reader = inner.reader.take();
-        if inner
-            .pending_deletes
-            .needs_refresh(reader.as_ref().unwrap(), info)?
-        {
-            // we have a reader but its live-docs are out of sync. let's create a temporary one that we
-            // never share
-            self.swap_new_reader_with_latest_live_docs(inner, info)?;
-        }
-        // put reader back
-        inner.reader = reader;
-        debug_assert!(inner.reader.is_some());
-        Ok(())
-    }
+      }
 
-    /// Returns a snapshot of the live docs.
-    pub fn get_live_docs(&self) -> Option<DocBits> {
-        let mut inner = self.inner.lock();
-        inner.pending_deletes.get_live_docs()
-    }
+      if updates_to_apply.is_empty() {
+        // nothing to apply yet
+        continue;
+      }
 
-    /// Returns the live-docs bits excluding documents that are not live due to soft-deletes.
-    pub fn get_hard_live_docs(&self) -> Option<DocBits> {
-        let mut inner = self.inner.lock();
-        inner.pending_deletes.get_hard_live_docs()
-    }
-    pub fn drop_changes(&self) {
-        // Discard (don't save) changes when we are dropping
-        // the reader; this is used only on the sub-readers
-        // after a successful merge.  If deletes had
-        // accumulated on those sub-readers while the merge
-        // is running, by now we have carried forward those
-        // deletes onto the newly merged segment, so we can
-        // discard them on the sub-readers:
-        let mut inner = self.inner.lock();
-        inner.pending_deletes.drop_changes();
-        self.drop_merging_updates(Some(&mut inner));
-    }
-    // Commit live docs (writes new _X_N.del files) and field updates (writes new
-    // _X_N updates files) to the directory; returns true if it wrote any file
-    // and false if there were no new deletes or updates to write:
-    pub fn write_live_docs<D1>(&self, dir: &D1, info: &mut SegmentCommitInfo<D>) -> Result<bool>
-    where
-        D: Directory,
-        D1: Directory,
-    {
-        let mut inner = self.inner.lock();
-        inner.pending_deletes.write_live_docs(dir, info)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn handle_dv_updates<D1, F>(
-        &self,
-        infos: &FieldInfos,
-        dir: D1,
-        dv_format: &F,
-        inner: &mut Inner<D>,
-        field_files: &mut HashMap<i32, HashSet<String>>,
-        max_del_gen: i64,
-        info_stream: &impl InfoStream,
-        info: &mut SegmentCommitInfo<D>,
-    ) -> Result<()>
-    where
-        F: DocValuesFormat,
-        D1: Directory,
-    {
-        for (field, updates) in inner.pending_dv_updates.iter() {
-            let ty = updates[0].type_;
-            debug_assert!(
-                matches!(ty, DocValuesType::Numeric | DocValuesType::Binary),
-                "unsupported type: {:?}",
-                ty
-            );
-
-            let mut updates_to_apply = Vec::new();
-            let mut bytes: i64 = 0;
-
-            for update in updates {
-                if update.del_gen <= max_del_gen {
-                    // safe to apply this one
-                    bytes += update.ram_bytes_used()?;
-                    updates_to_apply.push(update.clone());
-                }
-            }
-
-            if updates_to_apply.is_empty() {
-                // nothing to apply yet
-                continue;
-            }
-
-            if info_stream.enabled("BD") {
-                info_stream.message(
-                    "BD",
-                    &format!(
-                        "now write {} pending numeric DV updates for field={}, seg={}, bytes={:.3} MB",
-                        updates_to_apply.len(),
-                        field,
-                        info,
-                        (bytes as f64) / 1024.0 / 1024.0
-                    ),
-                );
-            }
-
-            let next_doc_values_gen = info.get_next_doc_values_gen();
-            let segment_suffix = num_bigint::BigInt::from(next_doc_values_gen)
-                .to_str_radix(36)
-                .to_string();
-            let updates_context =
-                IOContext::with_flush(FlushInfo::new(info.info.max_doc()?, bytes))?;
-
-            let field_info = infos
-                .field_info_by_name(field)
-                .ok_or_else(|| LuceneError::illegal_argument("fieldInfo is None"))?;
-            field_info.set_doc_values_gen(next_doc_values_gen)?;
-
-            let field_infos = Arc::new(FieldInfos::new(vec![field_info.clone()])?);
-
-            let tracking_dir = TrackingDirectoryWrapper::new(&dir);
-
-            let state = SegmentWriteState::with_suffix(
-                Arc::new(InfoStreamEnum::default()),
-                &tracking_dir,
-                field_infos,
-                &updates_context,
-                &segment_suffix,
-            );
-
-            {
-                let mut fields_consumer = dv_format.fields_consumer(&state, &info.info)?;
-
-                let update_supplier = FunctionImpl::new(field_info.clone(), updates_to_apply);
-
-                inner
-                    .pending_deletes
-                    .on_doc_values_update(&field_info, update_supplier.apply(&field_info)?);
-                if ty == DocValuesType::Binary {
-                    let v = DocValuesProducerBinary::new(
-                        update_supplier,
-                        field,
-                        inner.reader.as_ref().unwrap(),
-                        field_info.clone(),
-                    );
-                    fields_consumer.add_binary_field(&field_info, &v)?
-                } else {
-                    let v = DocValuesProducerNumeric::new(
-                        update_supplier,
-                        field,
-                        inner.reader.as_mut().unwrap(),
-                        field_info.clone(),
-                    );
-                    fields_consumer.add_numeric_field(&field_info, &v)?;
-                }
-            }
-
-            info.advance_doc_values_gen();
-            debug_assert!(!field_files.contains_key(&field_info.number));
-            field_files.insert(
-                field_info.number,
-                state
-                    .directory
-                    .get_created_files()
-                    .lock()
-                    .created_filenames
-                    .clone(),
-            );
-        }
-        Ok(())
-    }
-
-    fn write_field_infos_gen<D1, F>(
-        &self,
-        field_infos: &FieldInfos,
-        dir: D1,
-        infos_format: &F,
-        info: &mut SegmentCommitInfo<D>,
-    ) -> Result<HashSet<String>>
-    where
-        F: FieldInfosFormat,
-        D1: Directory,
-    {
-        let next_field_infos_gen = info.get_next_field_infos_gen();
-        let segment_suffix = num_bigint::BigInt::from(next_field_infos_gen).to_str_radix(36);
-        // we write approximately that many bytes (based on Lucene46DVF):
-        // HEADER + FOOTER: 40
-        // 90 bytes per-field (over estimating long name and attributes map)
-        let est_infos_size = 40 + 90 * (field_infos.size() as i64);
-        // IOContext for a flush with estimated size
-        let flush_info = FlushInfo::new(info.info.max_doc()?, est_infos_size);
-        let infos_context = IOContext::with_flush(flush_info)?;
-        // separately also track which files were created for this gen
-        let mut tracking_dir = TrackingDirectoryWrapper::new(dir);
-        infos_format.write(
-            &tracking_dir,
-            &info.info,
-            &segment_suffix,
-            field_infos,
-            &infos_context,
-        )?;
-        info.advance_field_infos_gen();
-        Ok(tracking_dir.take_created_files())
-    }
-    pub fn write_field_updates<D1>(
-        &self,
-        dir: D1,
-        field_numbers: &FieldNumbers,
-        max_del_gen: i64,
-        info_stream: &impl InfoStream,
-        info: &mut SegmentCommitInfo<D>,
-    ) -> Result<bool>
-    where
-        D1: Directory,
-    {
-        let mut inner = self.inner.lock();
-        let start_time_ns = std::time::Instant::now();
-
-        let mut new_dv_files = HashMap::new();
-        let mut field_infos_files: Option<HashSet<String>> = None;
-        let mut field_infos = FieldInfos::default();
-
-        let mut any = false;
-        'outer: for updates in inner.pending_dv_updates.values() {
-            for update in updates {
-                if update.del_gen <= max_del_gen && update.any() {
-                    any = true;
-                    break 'outer;
-                }
-            }
-        }
-        if !any {
-            // no updates
-            return Ok(false);
-        }
-
-        // Do this so we can delete any created files on
-        // exception; this saves all codecs from having to do it:
-        let tracking_dir = Arc::new(TrackingDirectoryWrapper::new(&dir));
-
-        let is_reader_none = inner.reader.is_none();
-        let result = (|| -> Result<()> {
-            let codec = get_default_code();
-
-            if is_reader_none {
-                let reader = SegmentReader::new(
-                    info,
-                    self.index_created_version_major,
-                    &IOContext::read_once_io_context()?,
-                )?;
-                inner.pending_deletes.on_new_reader(&reader, info)?;
-                inner.reader = Option::from(Arc::new(reader));
-            }
-
-            // clone FieldInfos so that we can update their dvGen separately from
-            // the reader's infos and write them to a new fieldInfos_gen file.
-            let mut max_field_number: i32 = -1;
-            let mut by_name = HashMap::new();
-
-            for fi in inner.reader.as_ref().unwrap().get_field_infos()?.iter() {
-                // cannot use builder.add(fi) because it does not preserve
-                // the local field number. Field numbers can be different from
-                // the global ones if the segment was created externally (and added to
-                // this index with IndexWriter#addIndexes(Directory)).
-                by_name.insert(fi.name.to_string(), clone_field_info(fi, fi.number));
-                max_field_number = max_field_number.max(fi.number);
-            }
-
-            // create new fields with the right DV type for updates whose field doesn't yet exist
-            for updates in inner.pending_dv_updates.values() {
-                if let Some(update) = updates.first() {
-                    let field = &update.field;
-                    if by_name.contains_key(field) {
-                        // the field already exists in this segment
-                        let fi = by_name.get(field).expect("should not fail");
-                        debug_assert_eq!(*fi.get_doc_values_type(), update.type_);
-                    } else {
-                        // the field is not present in this segment so we clone the global field
-                        // (which is guaranteed to exist) and remaps its field number locally.
-                        if let Some(fi) = field_numbers.construct_field_info(
-                            field,
-                            update.type_,
-                            max_field_number + 1,
-                        )? {
-                            max_field_number += 1;
-                            by_name.insert(fi.name.to_string(), fi);
-                        } else {
-                            debug_assert!(false);
-                        }
-                    }
-                }
-            }
-
-            field_infos = FieldInfos::new(by_name.into_values().map(Arc::new).collect())?;
-
-            let dv_format = codec.doc_values_format();
-
-            self.handle_dv_updates(
-                &field_infos,
-                tracking_dir.clone(),
-                &dv_format,
-                &mut inner,
-                &mut new_dv_files,
-                max_del_gen,
-                info_stream,
-                info,
-            )?;
-
-            let files = self.write_field_infos_gen(
-                &field_infos,
-                tracking_dir.clone(),
-                &codec.field_infos_format(),
-                info,
-            )?;
-            field_infos_files = Some(files);
-
-            if is_reader_none {
-                let _ = inner.reader.take();
-            }
-            Ok(())
-        })();
-
-        if let Err(e) = result {
-            info.advance_next_write_field_infos_gen();
-            info.advance_next_write_doc_values_gen();
-            IOUtils::delete_files_ignoring_exceptions(
-                &dir,
-                &tracking_dir.get_created_files().lock().created_filenames,
-            );
-
-            return Err(e);
-        }
-        // Prune the now-written DV updates:
-        let mut bytes_freed: i64 = 0;
-        inner.pending_dv_updates.retain(|_, updates| {
-            let mut keep = Vec::with_capacity(updates.len());
-            for u in updates.drain(..) {
-                if u.del_gen > max_del_gen {
-                    keep.push(u);
-                } else {
-                    bytes_freed += u.ram_bytes_used().expect("should not fail");
-                }
-            }
-            *updates = keep;
-            !updates.is_empty()
-        });
-
-        let prev = self.ram_bytes_used.fetch_sub(bytes_freed, Ordering::SeqCst);
-        let bytes_now = prev - bytes_freed;
-        debug_assert!(bytes_now >= 0, "ram_bytes_used should not go negative");
-        // writing field updates succeeded
-        debug_assert!(field_infos_files.is_some());
-        info.set_field_infos_files(field_infos_files.take().unwrap());
-        // update the doc-values updates files. the files map each field to its set
-        // of files, hence we copy from the existing map all fields w/ updates that
-        // were not updated in this session, and add new mappings for fields that
-        // were updated now.
-        debug_assert!(!new_dv_files.is_empty());
-
-        for (field_num, files_set) in info.get_doc_values_updates_files().iter() {
-            new_dv_files
-                .entry(*field_num)
-                .or_insert_with(|| files_set.clone());
-        }
-        info.set_doc_values_updates_files(new_dv_files.clone());
-        // if there is a reader open, reopen it to reflect the updates
-        if !is_reader_none {
-            self.swap_new_reader_with_latest_live_docs(&mut inner, info)?;
-        }
-
-        if info_stream.enabled("BD") {
-            info_stream.message(
-                "BD",
-                &format!(
-                    "done write field updates for seg={}; took {:.3}s; new files: {:?}",
-                    info,
-                    start_time_ns.elapsed().as_secs_f64(),
-                    new_dv_files,
-                ),
-            );
-        }
-        Ok(true)
-    }
-    pub(crate) fn create_new_reader_with_latest_live_docs<'a>(
-        &self,
-        inner: &'a mut Inner<D>, // Same to Java's Thread.holdsLock(this)
-        reader: Option<&'a SegmentReader<D>>,
-        info: &SegmentCommitInfo<D>,
-    ) -> Result<SegmentReader<D>> {
-        let reader = match reader {
-            Some(r) => r,
-            None => inner.reader.as_ref().unwrap().as_ref(),
-        };
-
-        let new_reader = SegmentReader::new_from_reader(
+      if info_stream.enabled("BD") {
+        info_stream.message(
+          "BD",
+          &format!(
+            "now write {} pending numeric DV updates for field={}, seg={}, bytes={:.3} MB",
+            updates_to_apply.len(),
+            field,
             info,
-            reader,
-            inner.pending_deletes.get_live_docs(),
-            inner.pending_deletes.get_hard_live_docs(),
-            inner.pending_deletes.num_docs(info)?,
-            true,
-        )?;
-
-        let res: Result<()> = (|| {
-            inner.pending_deletes.on_new_reader(&new_reader, info)?;
-            reader.dec_ref()?;
-            Ok(())
-        })();
-
-        if res.is_err() {
-            let _ = new_reader.dec_ref();
-        }
-        res?;
-        Ok(new_reader)
-    }
-
-    fn swap_new_reader_with_latest_live_docs(
-        &self,
-        inner: &mut Inner<D>,
-        info: &SegmentCommitInfo<D>,
-    ) -> Result<()> {
-        inner.reader = Some(Arc::new(
-            self.create_new_reader_with_latest_live_docs(inner, None, info)?,
-        ));
-        Ok(())
-    }
-    pub(crate) fn set_is_merging(&self) {
-        let mut inner = self.inner.lock();
-        if !inner.is_merging {
-            inner.is_merging = true;
-            debug_assert!(inner.merging_dv_updates.is_empty());
-        }
-    }
-
-    pub(crate) fn is_merging(&self) -> bool {
-        let inner = self.inner.lock();
-        inner.is_merging
-    }
-    pub(crate) fn get_reader_for_merge(
-        &self,
-        context: &IOContext,
-        info: &SegmentCommitInfo<D>,
-        segment_infos: &SegmentInfos<D>,
-    ) -> Result<MergeReaderSR<D>> {
-        // We must carry over any still-pending DV updates because they were not
-        // successfully written, e.g. because there was a hole in the delGens,
-        // or they arrived after we wrote all DVs for merge but before we set
-        // isMerging here:
-        let mut inner = self.inner.lock();
-        let Inner {
-            pending_dv_updates,
-            merging_dv_updates,
-            ..
-        } = &mut *inner;
-
-        for (field, updates) in pending_dv_updates.iter() {
-            let entry = merging_dv_updates
-                .entry(field.clone())
-                .or_insert_with(Vec::new);
-            entry.extend(updates.iter().cloned());
-        }
-
-        self.get_reader(context, info, Some(&mut inner))?;
-        let mut reader_arc = inner.reader.as_ref().unwrap().clone();
-
-        let mut need_refresh = inner
-            .pending_deletes
-            .needs_refresh(reader_arc.as_ref(), info)?;
-        let pending_info = segment_infos
-            .info(inner.pending_deletes.get_info_id())
-            .ok_or_else(|| {
-                LuceneError::illegal_state(
-                    "pending_deletes's segment info could not find from IndexWriter#segment_infos",
-                )
-            })?;
-        need_refresh |= reader_arc.get_segment_info().get_del_gen() != pending_info.get_del_gen();
-
-        if need_refresh {
-            debug_assert!(inner.pending_deletes.get_live_docs().is_some());
-            let new_reader = self.create_new_reader_with_latest_live_docs(
-                &mut inner,
-                Some(reader_arc.as_ref()),
-                info,
-            )?;
-            reader_arc = Arc::new(new_reader);
-        }
-
-        debug_assert!(
-            inner
-                .pending_deletes
-                .verify_doc_counts(reader_arc.as_ref(), info)?
+            (bytes as f64) / 1024.0 / 1024.0
+          ),
         );
+      }
 
-        let merge_reader = MergeReader::new(
-            reader_arc.clone(),
-            inner.pending_deletes.get_hard_live_docs(),
-        );
-        Ok(merge_reader)
-    }
+      let next_doc_values_gen = info.get_next_doc_values_gen();
+      let segment_suffix = num_bigint::BigInt::from(next_doc_values_gen)
+        .to_str_radix(36)
+        .to_string();
+      let updates_context = IOContext::with_flush(FlushInfo::new(info.info.max_doc()?, bytes))?;
 
-    /// Drops all merging updates.
-    /// Called from IndexWriter after this segment finished merging (whether successfully or not).
-    pub fn drop_merging_updates(&self, inner: Option<&mut Inner<D>>) {
-        let inner = match inner {
-            Some(inner) => inner,
-            None => &mut *self.inner.lock(),
-        };
-        inner.merging_dv_updates.clear();
-        inner.is_merging = false;
-    }
-    pub fn get_merging_dv_updates(&self) -> HashMap<String, Vec<Arc<DocValuesFieldUpdatesEnum>>> {
-        // We must atomically (in single sync'd block) clear isMerging when we return the DV updates
-        // otherwise we can lose updates:
-        let mut inner = self.inner.lock();
-        inner.is_merging = false;
-        inner.merging_dv_updates.clone()
-    }
-    pub fn is_fully_deleted(&self, info: &SegmentCommitInfo<D>) -> Result<bool> {
-        let inner = self.inner.lock();
+      let field_info = infos
+        .field_info_by_name(field)
+        .ok_or_else(|| LuceneError::illegal_argument("fieldInfo is None"))?;
+      field_info.set_doc_values_gen(next_doc_values_gen)?;
+
+      let field_infos = Arc::new(FieldInfos::new(vec![field_info.clone()])?);
+
+      let tracking_dir = TrackingDirectoryWrapper::new(&dir);
+
+      let state = SegmentWriteState::with_suffix(
+        Arc::new(InfoStreamEnum::default()),
+        &tracking_dir,
+        field_infos,
+        &updates_context,
+        &segment_suffix,
+      );
+
+      {
+        let mut fields_consumer = dv_format.fields_consumer(&state, &info.info)?;
+
+        let update_supplier = FunctionImpl::new(field_info.clone(), updates_to_apply);
+
         inner
-            .pending_deletes
-            .is_fully_deleted(&IOSupplierImpl::new(self, info))
+          .pending_deletes
+          .on_doc_values_update(&field_info, update_supplier.apply(&field_info)?);
+        if ty == DocValuesType::Binary {
+          let v = DocValuesProducerBinary::new(
+            update_supplier,
+            field,
+            inner.reader.as_ref().unwrap(),
+            field_info.clone(),
+          );
+          fields_consumer.add_binary_field(&field_info, &v)?
+        } else {
+          let v = DocValuesProducerNumeric::new(
+            update_supplier,
+            field,
+            inner.reader.as_mut().unwrap(),
+            field_info.clone(),
+          );
+          fields_consumer.add_numeric_field(&field_info, &v)?;
+        }
+      }
+
+      info.advance_doc_values_gen();
+      debug_assert!(!field_files.contains_key(&field_info.number));
+      field_files.insert(
+        field_info.number,
+        state
+          .directory
+          .get_created_files()
+          .lock()
+          .created_filenames
+          .clone(),
+      );
     }
-    pub(crate) fn keep_fully_deleted_segment(
-        &self,
-        merge_policy: &impl MergePolicy,
-        info: &SegmentCommitInfo<D>,
-    ) -> Result<bool> {
-        merge_policy.keep_fully_deleted_segment(|| {
-            self.is_fully_deleted(info)?;
-            let v = self.inner.lock().reader.clone();
-            debug_assert!(v.is_some());
-            Ok(v.unwrap())
-        })?;
-        Ok(false)
+    Ok(())
+  }
+
+  fn write_field_infos_gen<D1, F>(
+    &self,
+    field_infos: &FieldInfos,
+    dir: D1,
+    infos_format: &F,
+    info: &mut SegmentCommitInfo<D>,
+  ) -> Result<HashSet<String>>
+  where
+    F: FieldInfosFormat,
+    D1: Directory,
+  {
+    let next_field_infos_gen = info.get_next_field_infos_gen();
+    let segment_suffix = num_bigint::BigInt::from(next_field_infos_gen).to_str_radix(36);
+    // we write approximately that many bytes (based on Lucene46DVF):
+    // HEADER + FOOTER: 40
+    // 90 bytes per-field (over estimating long name and attributes map)
+    let est_infos_size = 40 + 90 * (field_infos.size() as i64);
+    // IOContext for a flush with estimated size
+    let flush_info = FlushInfo::new(info.info.max_doc()?, est_infos_size);
+    let infos_context = IOContext::with_flush(flush_info)?;
+    // separately also track which files were created for this gen
+    let mut tracking_dir = TrackingDirectoryWrapper::new(dir);
+    infos_format.write(
+      &tracking_dir,
+      &info.info,
+      &segment_suffix,
+      field_infos,
+      &infos_context,
+    )?;
+    info.advance_field_infos_gen();
+    Ok(tracking_dir.take_created_files())
+  }
+  pub fn write_field_updates<D1>(
+    &self,
+    dir: D1,
+    field_numbers: &FieldNumbers,
+    max_del_gen: i64,
+    info_stream: &impl InfoStream,
+    info: &mut SegmentCommitInfo<D>,
+  ) -> Result<bool>
+  where
+    D1: Directory,
+  {
+    let mut inner = self.inner.lock();
+    let start_time_ns = std::time::Instant::now();
+
+    let mut new_dv_files = HashMap::new();
+    let mut field_infos_files: Option<HashSet<String>> = None;
+    let mut field_infos = FieldInfos::default();
+
+    let mut any = false;
+    'outer: for updates in inner.pending_dv_updates.values() {
+      for update in updates {
+        if update.del_gen <= max_del_gen && update.any() {
+          any = true;
+          break 'outer;
+        }
+      }
     }
-    pub(crate) fn get_info_id(&self) -> &str {
-        &self.info_id
+    if !any {
+      // no updates
+      return Ok(false);
     }
+
+    // Do this so we can delete any created files on
+    // exception; this saves all codecs from having to do it:
+    let tracking_dir = Arc::new(TrackingDirectoryWrapper::new(&dir));
+
+    let is_reader_none = inner.reader.is_none();
+    let result = (|| -> Result<()> {
+      let codec = get_default_code();
+
+      if is_reader_none {
+        let reader = SegmentReader::new(
+          info,
+          self.index_created_version_major,
+          &IOContext::read_once_io_context()?,
+        )?;
+        inner.pending_deletes.on_new_reader(&reader, info)?;
+        inner.reader = Option::from(Arc::new(reader));
+      }
+
+      // clone FieldInfos so that we can update their dvGen separately from
+      // the reader's infos and write them to a new fieldInfos_gen file.
+      let mut max_field_number: i32 = -1;
+      let mut by_name = HashMap::new();
+
+      for fi in inner.reader.as_ref().unwrap().get_field_infos()?.iter() {
+        // cannot use builder.add(fi) because it does not preserve
+        // the local field number. Field numbers can be different from
+        // the global ones if the segment was created externally (and added to
+        // this index with IndexWriter#addIndexes(Directory)).
+        by_name.insert(fi.name.to_string(), clone_field_info(fi, fi.number));
+        max_field_number = max_field_number.max(fi.number);
+      }
+
+      // create new fields with the right DV type for updates whose field doesn't yet exist
+      for updates in inner.pending_dv_updates.values() {
+        if let Some(update) = updates.first() {
+          let field = &update.field;
+          if by_name.contains_key(field) {
+            // the field already exists in this segment
+            let fi = by_name.get(field).expect("should not fail");
+            debug_assert_eq!(*fi.get_doc_values_type(), update.type_);
+          } else {
+            // the field is not present in this segment so we clone the global field
+            // (which is guaranteed to exist) and remaps its field number locally.
+            if let Some(fi) =
+              field_numbers.construct_field_info(field, update.type_, max_field_number + 1)?
+            {
+              max_field_number += 1;
+              by_name.insert(fi.name.to_string(), fi);
+            } else {
+              debug_assert!(false);
+            }
+          }
+        }
+      }
+
+      field_infos = FieldInfos::new(by_name.into_values().map(Arc::new).collect())?;
+
+      let dv_format = codec.doc_values_format();
+
+      self.handle_dv_updates(
+        &field_infos,
+        tracking_dir.clone(),
+        &dv_format,
+        &mut inner,
+        &mut new_dv_files,
+        max_del_gen,
+        info_stream,
+        info,
+      )?;
+
+      let files = self.write_field_infos_gen(
+        &field_infos,
+        tracking_dir.clone(),
+        &codec.field_infos_format(),
+        info,
+      )?;
+      field_infos_files = Some(files);
+
+      if is_reader_none {
+        let _ = inner.reader.take();
+      }
+      Ok(())
+    })();
+
+    if let Err(e) = result {
+      info.advance_next_write_field_infos_gen();
+      info.advance_next_write_doc_values_gen();
+      IOUtils::delete_files_ignoring_exceptions(
+        &dir,
+        &tracking_dir.get_created_files().lock().created_filenames,
+      );
+
+      return Err(e);
+    }
+    // Prune the now-written DV updates:
+    let mut bytes_freed: i64 = 0;
+    inner.pending_dv_updates.retain(|_, updates| {
+      let mut keep = Vec::with_capacity(updates.len());
+      for u in updates.drain(..) {
+        if u.del_gen > max_del_gen {
+          keep.push(u);
+        } else {
+          bytes_freed += u.ram_bytes_used().expect("should not fail");
+        }
+      }
+      *updates = keep;
+      !updates.is_empty()
+    });
+
+    let prev = self.ram_bytes_used.fetch_sub(bytes_freed, Ordering::SeqCst);
+    let bytes_now = prev - bytes_freed;
+    debug_assert!(bytes_now >= 0, "ram_bytes_used should not go negative");
+    // writing field updates succeeded
+    debug_assert!(field_infos_files.is_some());
+    info.set_field_infos_files(field_infos_files.take().unwrap());
+    // update the doc-values updates files. the files map each field to its set
+    // of files, hence we copy from the existing map all fields w/ updates that
+    // were not updated in this session, and add new mappings for fields that
+    // were updated now.
+    debug_assert!(!new_dv_files.is_empty());
+
+    for (field_num, files_set) in info.get_doc_values_updates_files().iter() {
+      new_dv_files
+        .entry(*field_num)
+        .or_insert_with(|| files_set.clone());
+    }
+    info.set_doc_values_updates_files(new_dv_files.clone());
+    // if there is a reader open, reopen it to reflect the updates
+    if !is_reader_none {
+      self.swap_new_reader_with_latest_live_docs(&mut inner, info)?;
+    }
+
+    if info_stream.enabled("BD") {
+      info_stream.message(
+        "BD",
+        &format!(
+          "done write field updates for seg={}; took {:.3}s; new files: {:?}",
+          info,
+          start_time_ns.elapsed().as_secs_f64(),
+          new_dv_files,
+        ),
+      );
+    }
+    Ok(true)
+  }
+  pub(crate) fn create_new_reader_with_latest_live_docs<'a>(
+    &self,
+    inner: &'a mut Inner<D>, // Same to Java's Thread.holdsLock(this)
+    reader: Option<&'a SegmentReader<D>>,
+    info: &SegmentCommitInfo<D>,
+  ) -> Result<SegmentReader<D>> {
+    let reader = match reader {
+      Some(r) => r,
+      None => inner.reader.as_ref().unwrap().as_ref(),
+    };
+
+    let new_reader = SegmentReader::new_from_reader(
+      info,
+      reader,
+      inner.pending_deletes.get_live_docs(),
+      inner.pending_deletes.get_hard_live_docs(),
+      inner.pending_deletes.num_docs(info)?,
+      true,
+    )?;
+
+    let res: Result<()> = (|| {
+      inner.pending_deletes.on_new_reader(&new_reader, info)?;
+      reader.dec_ref()?;
+      Ok(())
+    })();
+
+    if res.is_err() {
+      let _ = new_reader.dec_ref();
+    }
+    res?;
+    Ok(new_reader)
+  }
+
+  fn swap_new_reader_with_latest_live_docs(
+    &self,
+    inner: &mut Inner<D>,
+    info: &SegmentCommitInfo<D>,
+  ) -> Result<()> {
+    inner.reader = Some(Arc::new(
+      self.create_new_reader_with_latest_live_docs(inner, None, info)?,
+    ));
+    Ok(())
+  }
+  pub(crate) fn set_is_merging(&self) {
+    let mut inner = self.inner.lock();
+    if !inner.is_merging {
+      inner.is_merging = true;
+      debug_assert!(inner.merging_dv_updates.is_empty());
+    }
+  }
+
+  pub(crate) fn is_merging(&self) -> bool {
+    let inner = self.inner.lock();
+    inner.is_merging
+  }
+  pub(crate) fn get_reader_for_merge(
+    &self,
+    context: &IOContext,
+    info: &SegmentCommitInfo<D>,
+    segment_infos: &SegmentInfos<D>,
+  ) -> Result<MergeReaderSR<D>> {
+    // We must carry over any still-pending DV updates because they were not
+    // successfully written, e.g. because there was a hole in the delGens,
+    // or they arrived after we wrote all DVs for merge but before we set
+    // isMerging here:
+    let mut inner = self.inner.lock();
+    let Inner {
+      pending_dv_updates,
+      merging_dv_updates,
+      ..
+    } = &mut *inner;
+
+    for (field, updates) in pending_dv_updates.iter() {
+      let entry = merging_dv_updates
+        .entry(field.clone())
+        .or_insert_with(Vec::new);
+      entry.extend(updates.iter().cloned());
+    }
+
+    self.get_reader(context, info, Some(&mut inner))?;
+    let mut reader_arc = inner.reader.as_ref().unwrap().clone();
+
+    let mut need_refresh = inner
+      .pending_deletes
+      .needs_refresh(reader_arc.as_ref(), info)?;
+    let pending_info = segment_infos
+      .info(inner.pending_deletes.get_info_id())
+      .ok_or_else(|| {
+        LuceneError::illegal_state(
+          "pending_deletes's segment info could not find from IndexWriter#segment_infos",
+        )
+      })?;
+    need_refresh |= reader_arc.get_segment_info().get_del_gen() != pending_info.get_del_gen();
+
+    if need_refresh {
+      debug_assert!(inner.pending_deletes.get_live_docs().is_some());
+      let new_reader = self.create_new_reader_with_latest_live_docs(
+        &mut inner,
+        Some(reader_arc.as_ref()),
+        info,
+      )?;
+      reader_arc = Arc::new(new_reader);
+    }
+
+    debug_assert!(
+      inner
+        .pending_deletes
+        .verify_doc_counts(reader_arc.as_ref(), info)?
+    );
+
+    let merge_reader = MergeReader::new(
+      reader_arc.clone(),
+      inner.pending_deletes.get_hard_live_docs(),
+    );
+    Ok(merge_reader)
+  }
+
+  /// Drops all merging updates.
+  /// Called from IndexWriter after this segment finished merging (whether successfully or not).
+  pub fn drop_merging_updates(&self, inner: Option<&mut Inner<D>>) {
+    let inner = match inner {
+      Some(inner) => inner,
+      None => &mut *self.inner.lock(),
+    };
+    inner.merging_dv_updates.clear();
+    inner.is_merging = false;
+  }
+  pub fn get_merging_dv_updates(&self) -> HashMap<String, Vec<Arc<DocValuesFieldUpdatesEnum>>> {
+    // We must atomically (in single sync'd block) clear isMerging when we return the DV updates
+    // otherwise we can lose updates:
+    let mut inner = self.inner.lock();
+    inner.is_merging = false;
+    inner.merging_dv_updates.clone()
+  }
+  pub fn is_fully_deleted(&self, info: &SegmentCommitInfo<D>) -> Result<bool> {
+    let inner = self.inner.lock();
+    inner
+      .pending_deletes
+      .is_fully_deleted(&IOSupplierImpl::new(self, info))
+  }
+  pub(crate) fn keep_fully_deleted_segment(
+    &self,
+    merge_policy: &impl MergePolicy,
+    info: &SegmentCommitInfo<D>,
+  ) -> Result<bool> {
+    merge_policy.keep_fully_deleted_segment(|| {
+      self.is_fully_deleted(info)?;
+      let v = self.inner.lock().reader.clone();
+      debug_assert!(v.is_some());
+      Ok(v.unwrap())
+    })?;
+    Ok(false)
+  }
+  pub(crate) fn get_info_id(&self) -> &str {
+    &self.info_id
+  }
 }
 impl<D> Display for ReadersAndUpdates<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let inner = self.inner.lock();
-        write!(
-            f,
-            "ReadersAndLiveDocs(seg={}, PendingDeletesEnum={})",
-            self.info_id, inner.pending_deletes
-        )
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    let inner = self.inner.lock();
+    write!(
+      f,
+      "ReadersAndLiveDocs(seg={}, PendingDeletesEnum={})",
+      self.info_id, inner.pending_deletes
+    )
+  }
 }
 
 enum CurrentSource {
-    OnDisk,
-    Update,
+  OnDisk,
+  Update,
 }
 /// This class merges the current on-disk DV with an incoming update DV instance and merges the two instances giving the incoming update precedence in terms of values,
 /// in other words the values of the update always wins over the on-disk version.
 struct MergedDocValues<DI>
 where
-    DI: DocValuesIterator,
+  DI: DocValuesIterator,
 {
-    // merged docID
-    doc_id_out: i32,
-    // docID from our original doc values
-    doc_id_on_disk: i32,
-    // docID from our updates
-    update_doc_id: i32,
+  // merged docID
+  doc_id_out: i32,
+  // docID from our original doc values
+  doc_id_on_disk: i32,
+  // docID from our updates
+  update_doc_id: i32,
 
-    on_disk_doc_values: Option<DI>,
-    update_doc_values: DocIdSetIteratorEnum2<
-        BinaryDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
-        NumericDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
-    >,
-    current_values_supplier: Option<CurrentSource>,
+  on_disk_doc_values: Option<DI>,
+  update_doc_values: DocIdSetIteratorEnum2<
+    BinaryDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
+    NumericDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
+  >,
+  current_values_supplier: Option<CurrentSource>,
 }
 impl<DI> MergedDocValues<DI>
 where
-    DI: DocValuesIterator,
+  DI: DocValuesIterator,
 {
-    pub fn new(
-        on_disk_doc_values: Option<DI>,
-        update_doc_values: DocIdSetIteratorEnum2<
-            BinaryDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
-            NumericDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
-        >,
-    ) -> Self {
-        Self {
-            doc_id_out: -1,
-            doc_id_on_disk: -1,
-            update_doc_id: -1,
-            on_disk_doc_values,
-            update_doc_values,
-            current_values_supplier: None,
-        }
+  pub fn new(
+    on_disk_doc_values: Option<DI>,
+    update_doc_values: DocIdSetIteratorEnum2<
+      BinaryDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
+      NumericDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
+    >,
+  ) -> Self {
+    Self {
+      doc_id_out: -1,
+      doc_id_on_disk: -1,
+      update_doc_id: -1,
+      on_disk_doc_values,
+      update_doc_values,
+      current_values_supplier: None,
     }
+  }
 }
 impl<DI> DocIdSetIterator for MergedDocValues<DI>
 where
-    DI: DocValuesIterator,
+  DI: DocValuesIterator,
 {
-    fn doc_id(&self) -> i32 {
-        self.doc_id_out
-    }
+  fn doc_id(&self) -> i32 {
+    self.doc_id_out
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        let mut has_value = false;
+  fn next_doc(&mut self) -> Result<i32> {
+    let mut has_value = false;
 
-        while !has_value {
-            if self.doc_id_on_disk == self.doc_id_out {
-                match self.on_disk_doc_values.as_mut() {
-                    Some(dv) => {
-                        self.doc_id_on_disk = dv.next_doc()?;
-                    },
-                    None => {
-                        self.doc_id_on_disk = NO_MORE_DOCS;
-                    },
-                }
-            }
-
-            if self.update_doc_id == self.doc_id_out {
-                self.update_doc_id = self.update_doc_values.next_doc()?;
-            }
-
-            if self.doc_id_on_disk < self.update_doc_id {
-                // no update to this doc - we use the on-disk values
-                self.doc_id_out = self.doc_id_on_disk;
-                self.current_values_supplier = Some(CurrentSource::OnDisk);
-                has_value = true;
-            } else {
-                self.doc_id_out = self.update_doc_id;
-                if self.doc_id_out != NO_MORE_DOCS {
-                    self.current_values_supplier = Some(CurrentSource::Update);
-                    has_value = match self.update_doc_values {
-                        DocIdSetIteratorEnum2::A(ref mut dv) => dv.iterator.has_value()?,
-                        DocIdSetIteratorEnum2::B(ref mut dv) => dv.iterator.has_value()?,
-                    };
-                } else {
-                    has_value = true;
-                }
-            }
+    while !has_value {
+      if self.doc_id_on_disk == self.doc_id_out {
+        match self.on_disk_doc_values.as_mut() {
+          Some(dv) => {
+            self.doc_id_on_disk = dv.next_doc()?;
+          },
+          None => {
+            self.doc_id_on_disk = NO_MORE_DOCS;
+          },
         }
-        Ok(self.doc_id_out)
-    }
+      }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+      if self.update_doc_id == self.doc_id_out {
+        self.update_doc_id = self.update_doc_values.next_doc()?;
+      }
 
-    fn cost(&self) -> Result<i64> {
-        self.on_disk_doc_values.as_ref().unwrap().cost()
+      if self.doc_id_on_disk < self.update_doc_id {
+        // no update to this doc - we use the on-disk values
+        self.doc_id_out = self.doc_id_on_disk;
+        self.current_values_supplier = Some(CurrentSource::OnDisk);
+        has_value = true;
+      } else {
+        self.doc_id_out = self.update_doc_id;
+        if self.doc_id_out != NO_MORE_DOCS {
+          self.current_values_supplier = Some(CurrentSource::Update);
+          has_value = match self.update_doc_values {
+            DocIdSetIteratorEnum2::A(ref mut dv) => dv.iterator.has_value()?,
+            DocIdSetIteratorEnum2::B(ref mut dv) => dv.iterator.has_value()?,
+          };
+        } else {
+          has_value = true;
+        }
+      }
     }
+    Ok(self.doc_id_out)
+  }
+
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.on_disk_doc_values.as_ref().unwrap().cost()
+  }
 }
 
 impl<DI> DocValuesIterator for MergedDocValues<DI>
 where
-    DI: DocValuesIterator,
+  DI: DocValuesIterator,
 {
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }
 
 struct BinaryDocValuesImpl<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::BinaryDocValues>,
+  merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::BinaryDocValues>,
 }
 impl<D> BinaryDocValuesImpl<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn new(
-        merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::BinaryDocValues>,
-    ) -> Self {
-        Self { merged_doc_values }
-    }
+  fn new(
+    merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::BinaryDocValues>,
+  ) -> Self {
+    Self { merged_doc_values }
+  }
 }
 
 impl<D> DocValuesIterator for BinaryDocValuesImpl<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.merged_doc_values.advance_exact(target)
-    }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    self.merged_doc_values.advance_exact(target)
+  }
 }
 
 impl<D> DocIdSetIterator for BinaryDocValuesImpl<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn doc_id(&self) -> i32 {
-        self.merged_doc_values.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.merged_doc_values.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.merged_doc_values.next_doc()
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.merged_doc_values.next_doc()
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.merged_doc_values.advance(target)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.merged_doc_values.advance(target)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.merged_doc_values.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.merged_doc_values.cost()
+  }
 }
 
 impl<D> BinaryDocValues for BinaryDocValuesImpl<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        match self.merged_doc_values.current_values_supplier {
-            Some(CurrentSource::OnDisk) => {
-                if let Some(dv) = &mut self.merged_doc_values.on_disk_doc_values {
-                    dv.binary_value()
-                } else {
-                    Err(LuceneError::illegal_state(
-                        "no on-disk doc values available",
-                    ))
-                }
-            },
-            Some(CurrentSource::Update) => match self.merged_doc_values.update_doc_values {
-                DocIdSetIteratorEnum2::A(ref mut dv) => dv.binary_value(),
-                DocIdSetIteratorEnum2::B(_) => Err(LuceneError::illegal_state(
-                    "update doc values should be BinaryDocValuesDVFU",
-                )),
-            },
-            None => Err(LuceneError::illegal_state("no current values supplier set")),
+  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self.merged_doc_values.current_values_supplier {
+      Some(CurrentSource::OnDisk) => {
+        if let Some(dv) = &mut self.merged_doc_values.on_disk_doc_values {
+          dv.binary_value()
+        } else {
+          Err(LuceneError::illegal_state(
+            "no on-disk doc values available",
+          ))
         }
+      },
+      Some(CurrentSource::Update) => match self.merged_doc_values.update_doc_values {
+        DocIdSetIteratorEnum2::A(ref mut dv) => dv.binary_value(),
+        DocIdSetIteratorEnum2::B(_) => Err(LuceneError::illegal_state(
+          "update doc values should be BinaryDocValuesDVFU",
+        )),
+      },
+      None => Err(LuceneError::illegal_state("no current values supplier set")),
     }
+  }
 }
 struct NumericDocValuesImpl<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::NumericDocValues>,
+  merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::NumericDocValues>,
 }
 
 impl<D> NumericDocValuesImpl<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn new(
-        merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::NumericDocValues>,
-    ) -> Self {
-        Self { merged_doc_values }
-    }
+  fn new(
+    merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::NumericDocValues>,
+  ) -> Self {
+    Self { merged_doc_values }
+  }
 }
 
 impl<D> DocValuesIterator for NumericDocValuesImpl<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.merged_doc_values.advance_exact(target)
-    }
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    self.merged_doc_values.advance_exact(target)
+  }
 }
 
 impl<D> DocIdSetIterator for NumericDocValuesImpl<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn doc_id(&self) -> i32 {
-        self.merged_doc_values.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.merged_doc_values.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.merged_doc_values.next_doc()
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.merged_doc_values.next_doc()
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.merged_doc_values.advance(target)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.merged_doc_values.advance(target)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.merged_doc_values.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.merged_doc_values.cost()
+  }
 }
 
 impl<D> NumericDocValues for NumericDocValuesImpl<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn long_value(&mut self) -> Result<i64> {
-        match self.merged_doc_values.current_values_supplier {
-            Some(CurrentSource::OnDisk) => {
-                if let Some(dv) = &mut self.merged_doc_values.on_disk_doc_values {
-                    dv.long_value()
-                } else {
-                    Err(LuceneError::illegal_state(
-                        "no on-disk doc values available",
-                    ))
-                }
-            },
-            Some(CurrentSource::Update) => match self.merged_doc_values.update_doc_values {
-                DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
-                    "update doc values should be BinaryDocValuesDVFU",
-                )),
-                DocIdSetIteratorEnum2::B(ref mut dv) => dv.long_value(),
-            },
-            None => Err(LuceneError::illegal_state("no current values supplier set")),
+  fn long_value(&mut self) -> Result<i64> {
+    match self.merged_doc_values.current_values_supplier {
+      Some(CurrentSource::OnDisk) => {
+        if let Some(dv) = &mut self.merged_doc_values.on_disk_doc_values {
+          dv.long_value()
+        } else {
+          Err(LuceneError::illegal_state(
+            "no on-disk doc values available",
+          ))
         }
+      },
+      Some(CurrentSource::Update) => match self.merged_doc_values.update_doc_values {
+        DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
+          "update doc values should be BinaryDocValuesDVFU",
+        )),
+        DocIdSetIteratorEnum2::B(ref mut dv) => dv.long_value(),
+      },
+      None => Err(LuceneError::illegal_state("no current values supplier set")),
     }
+  }
 }
 
 struct DocValuesProducerBinary<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
+  update_supplier: FunctionImpl,
+  field: &'a str,
+  reader: &'a SegmentReader<D>,
+  field_info: Arc<FieldInfo>,
+}
+impl<'a, D> DocValuesProducerBinary<'a, D>
+where
+  D: Directory,
+{
+  pub fn new(
     update_supplier: FunctionImpl,
     field: &'a str,
     reader: &'a SegmentReader<D>,
     field_info: Arc<FieldInfo>,
-}
-impl<'a, D> DocValuesProducerBinary<'a, D>
-where
-    D: Directory,
-{
-    pub fn new(
-        update_supplier: FunctionImpl,
-        field: &'a str,
-        reader: &'a SegmentReader<D>,
-        field_info: Arc<FieldInfo>,
-    ) -> Self {
-        Self {
-            update_supplier,
-            field,
-            reader,
-            field_info,
-        }
+  ) -> Self {
+    Self {
+      update_supplier,
+      field,
+      reader,
+      field_info,
     }
+  }
 }
 
 impl<'a, D> DocValuesProducer for DocValuesProducerBinary<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    type NumericDocValues = DummyNumericDocValues;
-    type BinaryDocValues = BinaryDocValuesImpl<D>;
+  type NumericDocValues = DummyNumericDocValues;
+  type BinaryDocValues = BinaryDocValuesImpl<D>;
 
-    fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-        let iterator = match self.update_supplier.apply(&self.field_info)? {
-            Some(it) => it,
-            None => {
-                return Err(LuceneError::illegal_argument(
-                    "iterator should never None here",
-                ));
-            },
-        };
-        let merged_doc_values = MergedDocValues::new(
-            self.reader.get_binary_doc_values(self.field)?,
-            DocIdSetIteratorEnum2::A(BinaryDocValuesDVFU::new(iterator)),
-        );
-        Ok(BinaryDocValuesImpl::new(merged_doc_values))
-    }
+  fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    let iterator = match self.update_supplier.apply(&self.field_info)? {
+      Some(it) => it,
+      None => {
+        return Err(LuceneError::illegal_argument(
+          "iterator should never None here",
+        ));
+      },
+    };
+    let merged_doc_values = MergedDocValues::new(
+      self.reader.get_binary_doc_values(self.field)?,
+      DocIdSetIteratorEnum2::A(BinaryDocValuesDVFU::new(iterator)),
+    );
+    Ok(BinaryDocValuesImpl::new(merged_doc_values))
+  }
 
-    type SortedDocValues = DummySortedDocValues;
-    type SortedNumericDocValues = DummySortedNumericDocValues;
-    type SortedSetDocValues = DummySortedSetDocValues;
-    type DocValuesSkipper = DummyDocValuesSkipper;
+  type SortedDocValues = DummySortedDocValues;
+  type SortedNumericDocValues = DummySortedNumericDocValues;
+  type SortedSetDocValues = DummySortedSetDocValues;
+  type DocValuesSkipper = DummyDocValuesSkipper;
 }
 struct DocValuesProducerNumeric<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    update_supplier: FunctionImpl,
-    field: &'a str,
-    reader: &'a SegmentReader<D>,
-    field_info: Arc<FieldInfo>,
+  update_supplier: FunctionImpl,
+  field: &'a str,
+  reader: &'a SegmentReader<D>,
+  field_info: Arc<FieldInfo>,
 }
 
 impl<'a, D> DocValuesProducerNumeric<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub fn new(
-        update_supplier: FunctionImpl,
-        field: &'a str,
-        reader: &'a SegmentReader<D>,
-        field_info: Arc<FieldInfo>,
-    ) -> Self {
-        Self {
-            update_supplier,
-            field,
-            reader,
-            field_info,
-        }
+  pub fn new(
+    update_supplier: FunctionImpl,
+    field: &'a str,
+    reader: &'a SegmentReader<D>,
+    field_info: Arc<FieldInfo>,
+  ) -> Self {
+    Self {
+      update_supplier,
+      field,
+      reader,
+      field_info,
     }
+  }
 }
 impl<'a, D> DocValuesProducer for DocValuesProducerNumeric<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    type NumericDocValues = NumericDocValuesImpl<D>;
-    fn get_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-        let iterator = match self.update_supplier.apply(&self.field_info)? {
-            Some(it) => it,
-            None => {
-                return Err(LuceneError::illegal_argument(
-                    "iterator should never None here",
-                ));
-            },
-        };
+  type NumericDocValues = NumericDocValuesImpl<D>;
+  fn get_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    let iterator = match self.update_supplier.apply(&self.field_info)? {
+      Some(it) => it,
+      None => {
+        return Err(LuceneError::illegal_argument(
+          "iterator should never None here",
+        ));
+      },
+    };
 
-        let merged_doc_values = MergedDocValues::new(
-            self.reader.get_numeric_doc_values(self.field)?,
-            DocIdSetIteratorEnum2::B(NumericDocValuesDVFU::new(iterator)),
-        );
-        // Merge sort of the original doc values with updated doc values:
-        Ok(NumericDocValuesImpl::new(merged_doc_values))
-    }
-    type BinaryDocValues = DummyBinaryDocValues;
-    type SortedDocValues = DummySortedDocValues;
-    type SortedNumericDocValues = DummySortedNumericDocValues;
-    type SortedSetDocValues = DummySortedSetDocValues;
+    let merged_doc_values = MergedDocValues::new(
+      self.reader.get_numeric_doc_values(self.field)?,
+      DocIdSetIteratorEnum2::B(NumericDocValuesDVFU::new(iterator)),
+    );
+    // Merge sort of the original doc values with updated doc values:
+    Ok(NumericDocValuesImpl::new(merged_doc_values))
+  }
+  type BinaryDocValues = DummyBinaryDocValues;
+  type SortedDocValues = DummySortedDocValues;
+  type SortedNumericDocValues = DummySortedNumericDocValues;
+  type SortedSetDocValues = DummySortedSetDocValues;
 
-    type DocValuesSkipper = DummyDocValuesSkipper;
+  type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
 struct FunctionImpl {
-    field_info: Arc<FieldInfo>,
-    updates_to_apply: Vec<Arc<DocValuesFieldUpdatesEnum>>,
+  field_info: Arc<FieldInfo>,
+  updates_to_apply: Vec<Arc<DocValuesFieldUpdatesEnum>>,
 }
 impl FunctionImpl {
-    fn new(
-        field_info: Arc<FieldInfo>,
-        updates_to_apply: Vec<Arc<DocValuesFieldUpdatesEnum>>,
-    ) -> Self {
-        Self {
-            field_info,
-            updates_to_apply,
-        }
+  fn new(
+    field_info: Arc<FieldInfo>,
+    updates_to_apply: Vec<Arc<DocValuesFieldUpdatesEnum>>,
+  ) -> Self {
+    Self {
+      field_info,
+      updates_to_apply,
     }
+  }
 }
 impl Function<Arc<FieldInfo>, Option<MergedIterator<DocValuesFieldIteratorEnum>>> for FunctionImpl {
-    fn apply(
-        &self,
-        info: &Arc<FieldInfo>,
-    ) -> Result<Option<MergedIterator<DocValuesFieldIteratorEnum>>> {
-        if !Arc::ptr_eq(info, &self.field_info) {
-            return Err(LuceneError::illegal_argument(format!(
-                "expected field info for field: {} but got: {}",
-                self.field_info.name, info.name
-            )));
-        }
-
-        let mut subs = vec![];
-        for v in &self.updates_to_apply {
-            subs.push(v.iterator()?)
-        }
-        merged_iterator(subs)
+  fn apply(
+    &self,
+    info: &Arc<FieldInfo>,
+  ) -> Result<Option<MergedIterator<DocValuesFieldIteratorEnum>>> {
+    if !Arc::ptr_eq(info, &self.field_info) {
+      return Err(LuceneError::illegal_argument(format!(
+        "expected field info for field: {} but got: {}",
+        self.field_info.name, info.name
+      )));
     }
+
+    let mut subs = vec![];
+    for v in &self.updates_to_apply {
+      subs.push(v.iterator()?)
+    }
+    merged_iterator(subs)
+  }
 }
 
 fn clone_field_info(fi: &FieldInfo, field_number: i32) -> FieldInfo {
-    FieldInfo::new(
-        fi.name.to_string(),
-        field_number,
-        fi.has_term_vectors(),
-        fi.omits_norms(),
-        fi.has_payloads(),
-        *fi.get_index_options(),
-        *fi.get_doc_values_type(),
-        *fi.doc_values_skip_index_type(),
-        fi.get_doc_values_gen(),
-        fi.attributes().lock().attributes.clone(),
-        fi.get_point_dimension_count(),
-        fi.get_point_index_dimension_count(),
-        fi.get_point_num_bytes(),
-        fi.get_vector_dimension(),
-        *fi.get_vector_encoding(),
-        *fi.get_vector_similarity_function(),
-        fi.is_soft_deletes_field(),
-        fi.is_parent_field(),
-    )
+  FieldInfo::new(
+    fi.name.to_string(),
+    field_number,
+    fi.has_term_vectors(),
+    fi.omits_norms(),
+    fi.has_payloads(),
+    *fi.get_index_options(),
+    *fi.get_doc_values_type(),
+    *fi.doc_values_skip_index_type(),
+    fi.get_doc_values_gen(),
+    fi.attributes().lock().attributes.clone(),
+    fi.get_point_dimension_count(),
+    fi.get_point_index_dimension_count(),
+    fi.get_point_num_bytes(),
+    fi.get_vector_dimension(),
+    *fi.get_vector_encoding(),
+    *fi.get_vector_similarity_function(),
+    fi.is_soft_deletes_field(),
+    fi.is_parent_field(),
+  )
 }
 
 pub(crate) struct IOSupplierImpl<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) rdl: &'a ReadersAndUpdates<D>,
-    pub(crate) info: &'a SegmentCommitInfo<D>,
+  pub(crate) rdl: &'a ReadersAndUpdates<D>,
+  pub(crate) info: &'a SegmentCommitInfo<D>,
 }
 impl<'a, D> IOSupplierImpl<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) fn new(rdl: &'a ReadersAndUpdates<D>, info: &'a SegmentCommitInfo<D>) -> Self {
-        Self { rdl, info }
-    }
-    fn set(&mut self, inner: Option<&mut Inner<D>>) -> Result<()> {
-        self.rdl.get_latest_read(self.info, inner)
-    }
+  pub(crate) fn new(rdl: &'a ReadersAndUpdates<D>, info: &'a SegmentCommitInfo<D>) -> Self {
+    Self { rdl, info }
+  }
+  fn set(&mut self, inner: Option<&mut Inner<D>>) -> Result<()> {
+    self.rdl.get_latest_read(self.info, inner)
+  }
 }

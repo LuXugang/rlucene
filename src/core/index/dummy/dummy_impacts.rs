@@ -21,15 +21,15 @@ use crate::core::util::error::lucene_error::Result;
 #[derive(Clone)]
 pub struct DummyImpacts;
 impl Impacts for DummyImpacts {
-    fn num_levels(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn num_levels(&self) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_doc_id_upto(&self, _level: i32) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_doc_id_upto(&self, _level: i32) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_impacts(&self, _level: i32) -> Result<Vec<Impact>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_impacts(&self, _level: i32) -> Result<Vec<Impact>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

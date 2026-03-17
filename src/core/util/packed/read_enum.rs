@@ -20,44 +20,44 @@ use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::{NullReader, Reader};
 
 pub enum PackedIntsReadEnum {
-    PackedReader(MutablePacked64Enum),
-    NullReader(NullReader),
+  PackedReader(MutablePacked64Enum),
+  NullReader(NullReader),
 }
 
 impl Accountable for PackedIntsReadEnum {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        match self {
-            PackedIntsReadEnum::PackedReader(op) => op.ram_bytes_used(),
-            PackedIntsReadEnum::NullReader(op) => op.ram_bytes_used(),
-        }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self {
+      PackedIntsReadEnum::PackedReader(op) => op.ram_bytes_used(),
+      PackedIntsReadEnum::NullReader(op) => op.ram_bytes_used(),
     }
+  }
 }
 
 impl Reader for PackedIntsReadEnum {
-    fn get(&self, index: usize) -> i64 {
-        match self {
-            PackedIntsReadEnum::PackedReader(op) => op.get(index),
-            PackedIntsReadEnum::NullReader(op) => op.get(index),
-        }
+  fn get(&self, index: usize) -> i64 {
+    match self {
+      PackedIntsReadEnum::PackedReader(op) => op.get(index),
+      PackedIntsReadEnum::NullReader(op) => op.get(index),
     }
+  }
 
-    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
-        match self {
-            PackedIntsReadEnum::PackedReader(op) => op.get_bulk(index, arr, off, len),
-            PackedIntsReadEnum::NullReader(op) => op.get_bulk(index, arr, off, len),
-        }
+  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
+    match self {
+      PackedIntsReadEnum::PackedReader(op) => op.get_bulk(index, arr, off, len),
+      PackedIntsReadEnum::NullReader(op) => op.get_bulk(index, arr, off, len),
     }
+  }
 
-    fn size(&self) -> i32 {
-        match self {
-            PackedIntsReadEnum::PackedReader(op) => op.size(),
-            PackedIntsReadEnum::NullReader(op) => op.size(),
-        }
+  fn size(&self) -> i32 {
+    match self {
+      PackedIntsReadEnum::PackedReader(op) => op.size(),
+      PackedIntsReadEnum::NullReader(op) => op.size(),
     }
+  }
 }
 impl Default for PackedIntsReadEnum {
-    // used for padding value
-    fn default() -> Self {
-        PackedIntsReadEnum::NullReader(NullReader::new(0))
-    }
+  // used for padding value
+  fn default() -> Self {
+    PackedIntsReadEnum::NullReader(NullReader::new(0))
+  }
 }

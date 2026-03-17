@@ -21,20 +21,20 @@ use crate::core::index::terms::TermsEnum2;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 pub trait FieldsProducer: Fields {
-    /// Checks consistency of this reader.
-    ///
-    /// Note that this may be costly in terms of I/O, e.g. may involve computing
-    /// a checksum value against large data files.
-    fn check_integrity(&self) -> Result<()>;
-    /// Returns an instance optimized for merging. This instance may only be
-    /// cloned # Note
-    /// Returning None means returning itself.
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        Ok(None)
-    }
+  /// Checks consistency of this reader.
+  ///
+  /// Note that this may be costly in terms of I/O, e.g. may involve computing
+  /// a checksum value against large data files.
+  fn check_integrity(&self) -> Result<()>;
+  /// Returns an instance optimized for merging. This instance may only be
+  /// cloned # Note
+  /// Returning None means returning itself.
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    Ok(None)
+  }
 }
 pub type DefaultFieldsProducer<I> = <DefaultPostingsFormat as PostingsFormat>::FieldsProducer<I>;
 
@@ -115,20 +115,20 @@ either_fields_producer!(pub FieldsProducerEnum2 { A: A, B: B });
 
 impl<T> FieldsProducer for Arc<T>
 where
-    T: FieldsProducer,
+  T: FieldsProducer,
 {
-    fn check_integrity(&self) -> Result<()> {
-        (**self).check_integrity()
-    }
+  fn check_integrity(&self) -> Result<()> {
+    (**self).check_integrity()
+  }
 
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        let v = match (**self).get_merge_instance()? {
-            Some(v) => Arc::new(v),
-            None => return Ok(None),
-        };
-        Ok(Some(v))
-    }
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    let v = match (**self).get_merge_instance()? {
+      Some(v) => Arc::new(v),
+      None => return Ok(None),
+    };
+    Ok(Some(v))
+  }
 }

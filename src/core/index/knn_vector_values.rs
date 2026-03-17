@@ -25,284 +25,284 @@ use crate::core::util::{HasIdentity, TryIntoInt};
 /// This struct abstracts addressing of document vector values indexed as
 /// `KnnFloatVectorField` or `KnnByteVectorField`.
 pub trait KnnVectorValues {
-    /// Return the dimension of the vectors
-    fn dimension(&self) -> i32;
-    /// Return the number of vectors for this field.
-    ///
-    /// # Returns
-    /// The number of vectors returned by this iterator.
-    fn size(&self) -> i32;
-    /// Return the docid of the document indexed with the given vector ordinal.
-    /// This default implementation returns the argument and is appropriate for
-    /// dense values implementations where every doc has a single value.
-    fn ord_to_doc(&self, ord: i32) -> i32 {
-        ord
-    }
-    /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
-    /// need to access different values at once, to avoid overwriting the
-    /// underlying vector returned.
-    fn copy(&self) -> Result<Self>
-    where
-        Self: Sized;
-    /// Returns the vector byte length, defaults to dimension multiplied by
-    /// float byte size
-    fn get_vector_byte_length(&self) -> usize {
-        (self.dimension() * self.get_encoding().byte_size()) as usize
-    }
-    /// The vector encoding of these values.
-    fn get_encoding(&self) -> VectorEncoding;
+  /// Return the dimension of the vectors
+  fn dimension(&self) -> i32;
+  /// Return the number of vectors for this field.
+  ///
+  /// # Returns
+  /// The number of vectors returned by this iterator.
+  fn size(&self) -> i32;
+  /// Return the docid of the document indexed with the given vector ordinal.
+  /// This default implementation returns the argument and is appropriate for
+  /// dense values implementations where every doc has a single value.
+  fn ord_to_doc(&self, ord: i32) -> i32 {
+    ord
+  }
+  /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
+  /// need to access different values at once, to avoid overwriting the
+  /// underlying vector returned.
+  fn copy(&self) -> Result<Self>
+  where
+    Self: Sized;
+  /// Returns the vector byte length, defaults to dimension multiplied by
+  /// float byte size
+  fn get_vector_byte_length(&self) -> usize {
+    (self.dimension() * self.get_encoding().byte_size()) as usize
+  }
+  /// The vector encoding of these values.
+  fn get_encoding(&self) -> VectorEncoding;
 
-    type Bits: Bits;
-    /// Returns a Bits accepting docs accepted by the argument and having a
-    /// vector value
-    fn get_accept_ords<B>(&self, accept_docs: B) -> Self::Bits
-    where
-        B: Bits;
+  type Bits: Bits;
+  /// Returns a Bits accepting docs accepted by the argument and having a
+  /// vector value
+  fn get_accept_ords<B>(&self, accept_docs: B) -> Self::Bits
+  where
+    B: Bits;
 
-    type DocIndexIterator: DocIndexIterator;
-    ///  Create an iterator for this instance.
-    fn iterator(&self) -> Result<Self::DocIndexIterator> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  type DocIndexIterator: DocIndexIterator;
+  ///  Create an iterator for this instance.
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }
 
 pub(crate) struct BitsImpl<B, T>
 where
-    B: Bits,
-    T: OrdToDoc,
+  B: Bits,
+  T: OrdToDoc,
 {
-    accept_docs: B,
-    size: usize,
-    map: T,
-    id: Identity,
+  accept_docs: B,
+  size: usize,
+  map: T,
+  id: Identity,
 }
 impl<B, T> BitsImpl<B, T>
 where
-    B: Bits,
-    T: OrdToDoc,
+  B: Bits,
+  T: OrdToDoc,
 {
-    pub(crate) fn new(accept_docs: B, size: usize, map: T) -> Self {
-        Self {
-            accept_docs,
-            size,
-            map,
-            id: Identity::new(),
-        }
+  pub(crate) fn new(accept_docs: B, size: usize, map: T) -> Self {
+    Self {
+      accept_docs,
+      size,
+      map,
+      id: Identity::new(),
     }
+  }
 }
 
 impl<B, T> HasIdentity for BitsImpl<B, T>
 where
-    B: Bits,
-    T: OrdToDoc,
+  B: Bits,
+  T: OrdToDoc,
 {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 
 impl<B, T> Bits for BitsImpl<B, T>
 where
-    B: Bits,
-    T: OrdToDoc,
+  B: Bits,
+  T: OrdToDoc,
 {
-    fn get(&self, index: usize) -> Result<bool> {
-        self.accept_docs.get(self.map.ord_to_doc(index) as usize)
-    }
+  fn get(&self, index: usize) -> Result<bool> {
+    self.accept_docs.get(self.map.ord_to_doc(index) as usize)
+  }
 
-    fn length(&self) -> usize {
-        self.size
-    }
+  fn length(&self) -> usize {
+    self.size
+  }
 }
 
 /// A DocIdSetIterator that also provides an index() method tracking a distinct
 /// ordinal for a vector associated with each doc.
 pub trait DocIndexIterator: DocIdSetIterator {
-    /// return the value index (aka "ordinal" or "ord") corresponding to the
-    /// current doc
-    fn index(&self) -> Result<i32>;
+  /// return the value index (aka "ordinal" or "ord") corresponding to the
+  /// current doc
+  fn index(&self) -> Result<i32>;
 }
 
 pub(crate) struct DocIndexIteratorImpl1 {
-    doc: i32,
-    size: i32,
+  doc: i32,
+  size: i32,
 }
 impl DocIndexIteratorImpl1 {
-    pub(crate) fn new(size: i32) -> Self {
-        Self { doc: -1, size }
-    }
+  pub(crate) fn new(size: i32) -> Self {
+    Self { doc: -1, size }
+  }
 }
 
 impl DocIdSetIterator for DocIndexIteratorImpl1 {
-    fn doc_id(&self) -> i32 {
-        self.doc
-    }
+  fn doc_id(&self) -> i32 {
+    self.doc
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        if self.doc >= self.size - 1 {
-            self.doc = NO_MORE_DOCS;
-        } else {
-            self.doc += 1;
-        }
-        Ok(self.doc)
+  fn next_doc(&mut self) -> Result<i32> {
+    if self.doc >= self.size - 1 {
+      self.doc = NO_MORE_DOCS;
+    } else {
+      self.doc += 1;
     }
+    Ok(self.doc)
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        if target >= self.size {
-            self.doc = NO_MORE_DOCS;
-        } else {
-            self.doc = target;
-        }
-        Ok(self.doc)
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    if target >= self.size {
+      self.doc = NO_MORE_DOCS;
+    } else {
+      self.doc = target;
     }
+    Ok(self.doc)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Ok(self.size as i64)
-    }
+  fn cost(&self) -> Result<i64> {
+    Ok(self.size as i64)
+  }
 }
 
 impl DocIndexIterator for DocIndexIteratorImpl1 {
-    fn index(&self) -> Result<i32> {
-        Ok(self.doc)
-    }
+  fn index(&self) -> Result<i32> {
+    Ok(self.doc)
+  }
 }
 
 pub(crate) struct DocIndexIteratorImpl2<D> {
-    ord: i32,
-    docs_with_field: D,
+  ord: i32,
+  docs_with_field: D,
 }
 
 impl<D> DocIndexIteratorImpl2<D>
 where
-    D: DocIdSetIterator,
+  D: DocIdSetIterator,
 {
-    pub(crate) fn new(docs_with_field: D) -> Self {
-        Self {
-            ord: -1,
-            docs_with_field,
-        }
+  pub(crate) fn new(docs_with_field: D) -> Self {
+    Self {
+      ord: -1,
+      docs_with_field,
     }
+  }
 }
 
 impl<D> DocIdSetIterator for DocIndexIteratorImpl2<D>
 where
-    D: DocIdSetIterator,
+  D: DocIdSetIterator,
 {
-    fn doc_id(&self) -> i32 {
-        self.docs_with_field.doc_id()
-    }
+  fn doc_id(&self) -> i32 {
+    self.docs_with_field.doc_id()
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        if self.doc_id() == NO_MORE_DOCS {
-            return Ok(NO_MORE_DOCS);
-        }
-        self.ord += 1;
-        self.docs_with_field.next_doc()
+  fn next_doc(&mut self) -> Result<i32> {
+    if self.doc_id() == NO_MORE_DOCS {
+      return Ok(NO_MORE_DOCS);
     }
+    self.ord += 1;
+    self.docs_with_field.next_doc()
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.docs_with_field.advance(target)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.docs_with_field.advance(target)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        self.docs_with_field.cost()
-    }
+  fn cost(&self) -> Result<i64> {
+    self.docs_with_field.cost()
+  }
 }
 
 impl<D> DocIndexIterator for DocIndexIteratorImpl2<D>
 where
-    D: DocIdSetIterator,
+  D: DocIdSetIterator,
 {
-    fn index(&self) -> Result<i32> {
-        Ok(self.ord)
-    }
+  fn index(&self) -> Result<i32> {
+    Ok(self.ord)
+  }
 }
 
 pub(crate) struct DocIndexIteratorImpl3<T>
 where
-    T: OrdToDoc,
+  T: OrdToDoc,
 {
-    ord: i32,
-    size: usize,
-    map: T,
+  ord: i32,
+  size: usize,
+  map: T,
 }
 
 impl<T> DocIndexIteratorImpl3<T>
 where
-    T: OrdToDoc,
+  T: OrdToDoc,
 {
-    pub(crate) fn new(size: usize, ord_to_doc: T) -> Self {
-        Self {
-            ord: -1,
-            size,
-            map: ord_to_doc,
-        }
+  pub(crate) fn new(size: usize, ord_to_doc: T) -> Self {
+    Self {
+      ord: -1,
+      size,
+      map: ord_to_doc,
     }
+  }
 }
 
 impl<T> DocIdSetIterator for DocIndexIteratorImpl3<T>
 where
-    T: OrdToDoc,
+  T: OrdToDoc,
 {
-    fn doc_id(&self) -> i32 {
-        if self.ord == -1 {
-            -1
-        } else if self.ord == NO_MORE_DOCS {
-            NO_MORE_DOCS
-        } else {
-            self.map.ord_to_doc(self.ord as usize)
-        }
+  fn doc_id(&self) -> i32 {
+    if self.ord == -1 {
+      -1
+    } else if self.ord == NO_MORE_DOCS {
+      NO_MORE_DOCS
+    } else {
+      self.map.ord_to_doc(self.ord as usize)
     }
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        if (self.ord + 1).try_convert()? >= self.size {
-            self.ord = NO_MORE_DOCS;
-        } else {
-            self.ord += 1;
-        }
-        Ok(self.doc_id())
+  fn next_doc(&mut self) -> Result<i32> {
+    if (self.ord + 1).try_convert()? >= self.size {
+      self.ord = NO_MORE_DOCS;
+    } else {
+      self.ord += 1;
     }
+    Ok(self.doc_id())
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.slow_advance(target)
-    }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.slow_advance(target)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Ok(self.size as i64)
-    }
+  fn cost(&self) -> Result<i64> {
+    Ok(self.size as i64)
+  }
 }
 
 impl<T> DocIndexIterator for DocIndexIteratorImpl3<T>
 where
-    T: OrdToDoc,
+  T: OrdToDoc,
 {
-    fn index(&self) -> Result<i32> {
-        Ok(self.ord)
-    }
+  fn index(&self) -> Result<i32> {
+    Ok(self.ord)
+  }
 }
 
 pub trait OrdToDoc {
-    fn ord_to_doc(&self, ord: usize) -> i32;
+  fn ord_to_doc(&self, ord: usize) -> i32;
 }
 
 pub(crate) fn create_dense_iterator(size: i32) -> DocIndexIteratorImpl1 {
-    DocIndexIteratorImpl1::new(size)
+  DocIndexIteratorImpl1::new(size)
 }
 
 /// creates an iterator from a docidsetiterator indicating which docs have
 /// values, and for which ordinals increase monotonically with docid.
 pub(crate) fn from_disi<D>(disi: D) -> DocIndexIteratorImpl2<D>
 where
-    D: DocIdSetIterator,
+  D: DocIdSetIterator,
 {
-    DocIndexIteratorImpl2::new(disi)
+  DocIndexIteratorImpl2::new(disi)
 }
 
 ///  Creates an iterator from this instance's ordinal-to-docid mapping which
 /// must be monotonic (docid increases when ordinal does).
 pub(crate) fn create_sparse_iterator<T>(size: usize, map: T) -> DocIndexIteratorImpl3<T>
 where
-    T: OrdToDoc,
+  T: OrdToDoc,
 {
-    DocIndexIteratorImpl3::new(size, map)
+  DocIndexIteratorImpl3::new(size, map)
 }

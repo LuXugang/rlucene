@@ -22,14 +22,14 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 /// be used since the iterator implementation ensures it will use the same
 /// `String` instance for a given field.
 pub trait FieldTermIterator: BytesRefIterator {
-    /// Returns the current field. This method should not be called after
-    /// iteration is done. Note that you may use `==` to detect a change in
-    /// field.
-    fn field(&self) -> &str;
+  /// Returns the current field. This method should not be called after
+  /// iteration is done. Note that you may use `==` to detect a change in
+  /// field.
+  fn field(&self) -> &str;
 
-    /// Returns the del generation of the current term.
-    /// Note: In some cases, this represents the current iterator (e.g., when
-    /// using `MergedPrefixCodedTermsIterator`) to identify which iterator
-    /// is active.
-    fn del_gen(&self) -> i64;
+  /// Returns the del generation of the current term.
+  /// Note: In some cases, this represents the current iterator (e.g., when
+  /// using `MergedPrefixCodedTermsIterator`) to identify which iterator
+  /// is active.
+  fn del_gen(&self) -> i64;
 }

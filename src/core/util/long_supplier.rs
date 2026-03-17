@@ -15,6 +15,6 @@
  * limitations under the License.
  */
 pub trait LongSupplier {
-    /// Gets a result.
-    fn get_as_long(&self) -> i64;
+  /// Gets a result.
+  fn get_as_long(&self) -> i64;
 }

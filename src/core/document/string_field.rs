@@ -29,36 +29,36 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 
 pub mod string_field_type {
-    use crate::core::document::field_type::FieldType;
-    use crate::core::index::index_options::IndexOptions;
-    use once_cell::sync::Lazy;
+  use crate::core::document::field_type::FieldType;
+  use crate::core::index::index_options::IndexOptions;
+  use once_cell::sync::Lazy;
 
-    /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, not stored.
-    pub(crate) static TYPE_NOT_STORED: Lazy<FieldType> = Lazy::new(|| {
-        let mut ft = FieldType::new();
-        ft.set_omit_norms(true)
-            .expect("set_omit_norms(true) should never fail in this context");
-        ft.set_index_options(IndexOptions::Docs)
-            .expect("set_index_options should never fail in this context");
-        ft.set_tokenized(false)
-            .expect("set_tokenized(false) should never fail in this context");
-        ft.freeze();
-        ft
-    });
-    /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, stored.
-    pub(crate) static TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
-        let mut ft = FieldType::new();
-        ft.set_omit_norms(true)
-            .expect("set_omit_norms(true) should never fail in this context");
-        ft.set_index_options(IndexOptions::Docs)
-            .expect("set_index_options should never fail in this context");
-        ft.set_stored(true)
-            .expect("set_stored(true) should never fail in this context");
-        ft.set_tokenized(false)
-            .expect("set_tokenized(false) should never fail in this context");
-        ft.freeze();
-        ft
-    });
+  /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, not stored.
+  pub(crate) static TYPE_NOT_STORED: Lazy<FieldType> = Lazy::new(|| {
+    let mut ft = FieldType::new();
+    ft.set_omit_norms(true)
+      .expect("set_omit_norms(true) should never fail in this context");
+    ft.set_index_options(IndexOptions::Docs)
+      .expect("set_index_options should never fail in this context");
+    ft.set_tokenized(false)
+      .expect("set_tokenized(false) should never fail in this context");
+    ft.freeze();
+    ft
+  });
+  /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, stored.
+  pub(crate) static TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
+    let mut ft = FieldType::new();
+    ft.set_omit_norms(true)
+      .expect("set_omit_norms(true) should never fail in this context");
+    ft.set_index_options(IndexOptions::Docs)
+      .expect("set_index_options should never fail in this context");
+    ft.set_stored(true)
+      .expect("set_stored(true) should never fail in this context");
+    ft.set_tokenized(false)
+      .expect("set_tokenized(false) should never fail in this context");
+    ft.freeze();
+    ft
+  });
 }
 /// A field that is indexed but not tokenized: the entire string value is
 /// indexed as a single token. For example, this might be used for a `country`
@@ -66,179 +66,178 @@ pub mod string_field_type {
 /// [`SortedDocValuesField`](crate::core::document::sorted_doc_values_field::SortedDocValuesField)
 /// separately to the document.
 pub struct StringField {
-    parent_field: Field,
-    binary_value: Option<BytesRef<Vec<u8>>>,
-    has_stored_value: bool,
+  parent_field: Field,
+  binary_value: Option<BytesRef<Vec<u8>>>,
+  has_stored_value: bool,
 }
 
 impl StringField {
-    /// Creates a new textual `StringField`, indexing the provided string value
-    /// as a single token.
-    ///
-    /// # Parameters
-    /// - `name`: Field name.
-    /// - `value`: String value.
-    /// - `stored`: `Store::Yes` if the content should also be stored.
-    pub fn from_string<T1, T2>(name: T1, value: T2, store: Store) -> Result<Self>
-    where
-        T1: Into<String>,
-        T2: Into<String>,
-    {
-        let store = store.into();
-        let (field_type, has_stored_value) = if store {
-            (string_field_type::TYPE_STORED.clone(), true)
-        } else {
-            (string_field_type::TYPE_NOT_STORED.clone(), false)
-        };
-        let value_str = value.into();
-        let binary_value = Some(BytesRef::from_string(&value_str));
-        let parent_field = Field::from_string(name, value_str, field_type)?;
+  /// Creates a new textual `StringField`, indexing the provided string value
+  /// as a single token.
+  ///
+  /// # Parameters
+  /// - `name`: Field name.
+  /// - `value`: String value.
+  /// - `stored`: `Store::Yes` if the content should also be stored.
+  pub fn from_string<T1, T2>(name: T1, value: T2, store: Store) -> Result<Self>
+  where
+    T1: Into<String>,
+    T2: Into<String>,
+  {
+    let store = store.into();
+    let (field_type, has_stored_value) = if store {
+      (string_field_type::TYPE_STORED.clone(), true)
+    } else {
+      (string_field_type::TYPE_NOT_STORED.clone(), false)
+    };
+    let value_str = value.into();
+    let binary_value = Some(BytesRef::from_string(&value_str));
+    let parent_field = Field::from_string(name, value_str, field_type)?;
 
-        Ok(Self {
-            parent_field,
-            binary_value,
-            has_stored_value,
-        })
-    }
-    /// Creates a new binary `StringField`, indexing the provided binary
-    /// (`BytesRef`) value as a single token.
-    ///
-    /// # Parameters
-    /// - `name`: Field name.
-    /// - `value`: `BytesRef` value. The provided value is **not cloned**, so it
-    ///   must not be modified until the document(s) holding it have been
-    ///   indexed.
-    /// - `stored`: `Store::Yes` if the content should also be stored.
-    pub fn from_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>, store: Store) -> Result<Self>
-    where
-        T: Into<String>,
-    {
-        let store = store.into();
-        let (field_type, has_stored_value) = if store {
-            (string_field_type::TYPE_STORED.clone(), true)
-        } else {
-            (string_field_type::TYPE_NOT_STORED.clone(), false)
-        };
-        let parent_field = Field::from_bytes_ref(name, value, field_type)?;
-        Ok(Self {
-            parent_field,
-            binary_value: None,
-            has_stored_value,
-        })
-    }
+    Ok(Self {
+      parent_field,
+      binary_value,
+      has_stored_value,
+    })
+  }
+  /// Creates a new binary `StringField`, indexing the provided binary
+  /// (`BytesRef`) value as a single token.
+  ///
+  /// # Parameters
+  /// - `name`: Field name.
+  /// - `value`: `BytesRef` value. The provided value is **not cloned**, so it
+  ///   must not be modified until the document(s) holding it have been
+  ///   indexed.
+  /// - `stored`: `Store::Yes` if the content should also be stored.
+  pub fn from_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>, store: Store) -> Result<Self>
+  where
+    T: Into<String>,
+  {
+    let store = store.into();
+    let (field_type, has_stored_value) = if store {
+      (string_field_type::TYPE_STORED.clone(), true)
+    } else {
+      (string_field_type::TYPE_NOT_STORED.clone(), false)
+    };
+    let parent_field = Field::from_bytes_ref(name, value, field_type)?;
+    Ok(Self {
+      parent_field,
+      binary_value: None,
+      has_stored_value,
+    })
+  }
 }
 
 impl FieldBase for StringField {
-    fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
-        self.parent_field.set_bytes_value(value)?;
-        self.has_stored_value = true;
-        Ok(())
-    }
+  fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
+    self.parent_field.set_bytes_value(value)?;
+    self.has_stored_value = true;
+    Ok(())
+  }
 
-    fn set_string_value<T>(&mut self, value: T) -> Result<()>
-    where
-        T: Into<String>,
-    {
-        let v = value.into();
-        self.parent_field.set_string_value(v)?;
-        match &self.parent_field.fields_data {
-            FieldDataEnum::String(v) => {
-                self.binary_value = Some(BytesRef::from_string(v));
-            },
-            _ => return Err(LuceneError::illegal_state("shoudl not be here")),
-        }
-        self.has_stored_value = true;
-        Ok(())
+  fn set_string_value<T>(&mut self, value: T) -> Result<()>
+  where
+    T: Into<String>,
+  {
+    let v = value.into();
+    self.parent_field.set_string_value(v)?;
+    match &self.parent_field.fields_data {
+      FieldDataEnum::String(v) => {
+        self.binary_value = Some(BytesRef::from_string(v));
+      },
+      _ => return Err(LuceneError::illegal_state("shoudl not be here")),
     }
+    self.has_stored_value = true;
+    Ok(())
+  }
 }
 
 impl Display for StringField {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.parent_field.fmt(f)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    self.parent_field.fmt(f)
+  }
 }
 
 impl IndexableField for StringField {
-    fn name(&self) -> &str {
-        self.parent_field.name()
-    }
+  fn name(&self) -> &str {
+    self.parent_field.name()
+  }
 
-    type FieldType = FieldType;
+  type FieldType = FieldType;
 
-    fn field_type(&self) -> &Self::FieldType {
-        self.parent_field.field_type()
-    }
+  fn field_type(&self) -> &Self::FieldType {
+    self.parent_field.field_type()
+  }
 
-    type TokenStream = <Field as IndexableField>::TokenStream;
+  type TokenStream = <Field as IndexableField>::TokenStream;
 
-    fn token_stream<'a>(
-        &'a mut self,
-        token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
-    {
-        self.parent_field.token_stream(token_stream)
+  fn token_stream<'a>(
+    &'a mut self,
+    token_stream: Option<&'a mut InnerTokenStreams>,
+  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
+    self.parent_field.token_stream(token_stream)
+  }
+  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match &self.binary_value {
+      None => Ok(self.parent_field.binary_value()?),
+      Some(v) => Ok(Some(Cow::Borrowed(v))),
     }
-    fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        match &self.binary_value {
-            None => Ok(self.parent_field.binary_value()?),
-            Some(v) => Ok(Some(Cow::Borrowed(v))),
-        }
-    }
+  }
 
-    fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-        match &self.binary_value {
-            None => Ok(self.parent_field.take_binary_value()?),
-            Some(_) => Ok(self.binary_value.take()),
-        }
+  fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+    match &self.binary_value {
+      None => Ok(self.parent_field.take_binary_value()?),
+      Some(_) => Ok(self.binary_value.take()),
     }
+  }
 
-    fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
-        self.parent_field.string_value()
-    }
+  fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.parent_field.string_value()
+  }
 
-    fn take_string_value(&mut self) -> Result<Option<String>> {
-        self.parent_field.take_string_value()
-    }
+  fn take_string_value(&mut self) -> Result<Option<String>> {
+    self.parent_field.take_string_value()
+  }
 
-    fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
-        self.parent_field.take_reader_value()
-    }
+  fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
+    self.parent_field.take_reader_value()
+  }
 
-    fn numeric_value(&self) -> Result<Option<Number>> {
-        self.parent_field.numeric_value()
-    }
+  fn numeric_value(&self) -> Result<Option<Number>> {
+    self.parent_field.numeric_value()
+  }
 
-    fn stored_value(&self) -> Option<&FieldDataEnum> {
-        if self.has_stored_value {
-            self.parent_field.stored_value()
-        } else {
-            None
-        }
+  fn stored_value(&self) -> Option<&FieldDataEnum> {
+    if self.has_stored_value {
+      self.parent_field.stored_value()
+    } else {
+      None
     }
+  }
 
-    fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-        self.parent_field.take_stored_value()
-    }
+  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
+    self.parent_field.take_stored_value()
+  }
 
-    fn invertable_type(&self) -> &InvertableType {
-        &InvertableType::BINARY
-    }
+  fn invertable_type(&self) -> &InvertableType {
+    &InvertableType::BINARY
+  }
 
-    fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-    where
-        A: Analyzer,
-    {
-        self.parent_field.init_token_stream(analyzer)
-    }
+  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
+  where
+    A: Analyzer,
+  {
+    self.parent_field.init_token_stream(analyzer)
+  }
 }
 
 #[cfg(test)]
 impl Clone for StringField {
-    fn clone(&self) -> Self {
-        Self {
-            parent_field: self.parent_field.clone(),
-            binary_value: self.binary_value.clone(),
-            has_stored_value: self.has_stored_value,
-        }
+  fn clone(&self) -> Self {
+    Self {
+      parent_field: self.parent_field.clone(),
+      binary_value: self.binary_value.clone(),
+      has_stored_value: self.has_stored_value,
     }
+  }
 }

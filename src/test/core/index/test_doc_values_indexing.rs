@@ -49,9 +49,8 @@ use crate::core::util::number::Number;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    get_only_leaf_reader, new_bytes_ref_from_bytes, new_bytes_ref_from_string,
-    new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-    new_log_merge_policy, random,
+  get_only_leaf_reader, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy, random,
 };
 use rand::Rng;
 use std::borrow::Cow;
@@ -62,958 +61,957 @@ struct TestDocValuesIndexing;
 
 #[test]
 fn test_add_indexes() -> Result<()> {
-    // TODO IndexWriter#add_indexes 未实现
-    Ok(())
+  // TODO IndexWriter#add_indexes 未实现
+  Ok(())
 }
 #[test]
 fn test_multi_valued_doc_values_field() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let d = new_directory_shared(&mut random)?;
-    let config = new_index_writer_config(&mut random);
-    let w = RandomIndexWriter::with_config(&mut random, d.clone(), config);
+  let d = new_directory_shared(&mut random)?;
+  let config = new_index_writer_config(&mut random);
+  let w = RandomIndexWriter::with_config(&mut random, d.clone(), config);
 
-    let mut doc = Document::new();
-    let f = NumericDocValuesField::new("field", 17);
-    doc.add(f.clone());
+  let mut doc = Document::new();
+  let f = NumericDocValuesField::new("field", 17);
+  doc.add(f.clone());
 
-    w.add_document(doc.clone())?;
+  w.add_document(doc.clone())?;
 
-    doc.add(f.clone());
-    // Index doc values are single-valued so we should not
-    // be able to add same field more than once:
-    let res = w.add_document(doc);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  doc.add(f.clone());
+  // Index doc values are single-valued so we should not
+  // be able to add same field more than once:
+  let res = w.add_document(doc);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
 
-    let r = w.get_reader()?;
-    w.close()?;
+  let r = w.get_reader()?;
+  w.close()?;
 
-    let leaf = get_only_leaf_reader(r)?;
-    let values_opt = leaf.get_numeric_doc_values("field")?;
-    assert!(values_opt.is_some());
-    let mut values = values_opt.unwrap();
+  let leaf = get_only_leaf_reader(r)?;
+  let values_opt = leaf.get_numeric_doc_values("field")?;
+  assert!(values_opt.is_some());
+  let mut values = values_opt.unwrap();
 
-    assert_eq!(0, values.next_doc()?);
-    assert_eq!(17, values.long_value()?);
+  assert_eq!(0, values.next_doc()?);
+  assert_eq!(17, values.long_value()?);
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_different_typed_doc_values_field() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    // directory + writer
-    let d = new_directory_shared(&mut random)?;
-    let config = new_index_writer_config(&mut random);
-    let w = RandomIndexWriter::with_config(&mut random, d.clone(), config);
+  // directory + writer
+  let d = new_directory_shared(&mut random)?;
+  let config = new_index_writer_config(&mut random);
+  let w = RandomIndexWriter::with_config(&mut random, d.clone(), config);
 
-    let mut doc = Document::new();
-    doc.add(NumericDocValuesField::new("field", 17));
-    w.add_document(doc.clone())?;
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("field", 17));
+  w.add_document(doc.clone())?;
 
-    // Index doc values are single-valued so we should not
-    // be able to add same field more than once:
-    doc.add(BinaryDocValuesField::new(
-        "field",
-        new_bytes_ref_from_string(&mut random, "blah")?,
-    ));
+  // Index doc values are single-valued so we should not
+  // be able to add same field more than once:
+  doc.add(BinaryDocValuesField::new(
+    "field",
+    new_bytes_ref_from_string(&mut random, "blah")?,
+  ));
 
-    let res = w.add_document(doc);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument for mixed doc-values types, got: {:?}",
-        res
-    );
+  let res = w.add_document(doc);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument for mixed doc-values types, got: {:?}",
+    res
+  );
 
-    let r = w.get_reader()?;
-    w.close()?;
+  let r = w.get_reader()?;
+  w.close()?;
 
-    let leaf = get_only_leaf_reader(r)?;
-    let values_opt = leaf.get_numeric_doc_values("field")?;
-    assert!(values_opt.is_some());
+  let leaf = get_only_leaf_reader(r)?;
+  let values_opt = leaf.get_numeric_doc_values("field")?;
+  assert!(values_opt.is_some());
 
-    let mut values = values_opt.unwrap();
-    assert_eq!(0, values.next_doc()?);
-    assert_eq!(17, values.long_value()?);
+  let mut values = values_opt.unwrap();
+  assert_eq!(0, values.next_doc()?);
+  assert_eq!(17, values.long_value()?);
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_different_typed_doc_values_field2() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let d = new_directory_shared(&mut random)?;
-    let config = new_index_writer_config(&mut random);
-    let w = RandomIndexWriter::with_config(&mut random, d.clone(), config);
+  let d = new_directory_shared(&mut random)?;
+  let config = new_index_writer_config(&mut random);
+  let w = RandomIndexWriter::with_config(&mut random, d.clone(), config);
 
-    let mut doc = Document::new();
-    doc.add(NumericDocValuesField::new("field", 17));
-    w.add_document(doc.clone())?;
-    // Index doc values are single-valued so we should not
-    // be able to add same field more than once:
-    doc.add(SortedDocValuesField::new(
-        "field",
-        new_bytes_ref_from_string(&mut random, "hello")?,
-    ));
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("field", 17));
+  w.add_document(doc.clone())?;
+  // Index doc values are single-valued so we should not
+  // be able to add same field more than once:
+  doc.add(SortedDocValuesField::new(
+    "field",
+    new_bytes_ref_from_string(&mut random, "hello")?,
+  ));
 
-    let res = w.add_document(doc);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  let res = w.add_document(doc);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
 
-    let r = w.get_reader()?;
+  let r = w.get_reader()?;
 
-    let leaf = get_only_leaf_reader(r)?;
-    let values_opt = leaf.get_numeric_doc_values("field")?;
-    assert!(values_opt.is_some());
-    let mut values = values_opt.unwrap();
+  let leaf = get_only_leaf_reader(r)?;
+  let values_opt = leaf.get_numeric_doc_values("field")?;
+  assert!(values_opt.is_some());
+  let mut values = values_opt.unwrap();
 
-    assert_eq!(0, values.next_doc()?);
-    assert_eq!(17, values.long_value()?);
+  assert_eq!(0, values.next_doc()?);
+  assert_eq!(17, values.long_value()?);
 
-    w.close()?;
+  w.close()?;
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_length_prefix_across_two_pages() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let d = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let config = new_index_writer_config_with_analyzer(&mut random, mock);
-    let w = IndexWriter::new(d.clone(), config)?;
+  let d = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(d.clone(), config)?;
 
-    let mut doc = Document::new();
+  let mut doc = Document::new();
 
-    let mut bytes = vec![0u8; 32_764];
-    let mut b = BytesRef::from_bytes(bytes.clone());
-    doc.add(SortedDocValuesField::new("field", b));
-    w.add_document(doc.clone())?;
+  let mut bytes = vec![0u8; 32_764];
+  let mut b = BytesRef::from_bytes(bytes.clone());
+  doc.add(SortedDocValuesField::new("field", b));
+  w.add_document(doc.clone())?;
 
-    bytes[0] = 1;
-    b = BytesRef::from_bytes(bytes.clone());
-    doc = Document::new();
-    doc.add(SortedDocValuesField::new("field", b.clone()));
-    w.add_document(doc)?;
-    w.force_merge(1)?;
-    let r = directory_reader_util::open_from_writer(&w)?;
+  bytes[0] = 1;
+  b = BytesRef::from_bytes(bytes.clone());
+  doc = Document::new();
+  doc.add(SortedDocValuesField::new("field", b.clone()));
+  w.add_document(doc)?;
+  w.force_merge(1)?;
+  let r = directory_reader_util::open_from_writer(&w)?;
 
-    let leaf = get_only_leaf_reader(r)?;
-    let mut s = leaf
-        .get_sorted_doc_values("field")?
-        .expect("sorted doc values must exist");
+  let leaf = get_only_leaf_reader(r)?;
+  let mut s = leaf
+    .get_sorted_doc_values("field")?
+    .expect("sorted doc values must exist");
 
-    assert_eq!(0, s.next_doc()?);
-    let ord = s.ord_value()?;
-    let mut bytes1 = s.lookup_ord(ord)?;
+  assert_eq!(0, s.next_doc()?);
+  let ord = s.ord_value()?;
+  let mut bytes1 = s.lookup_ord(ord)?;
 
-    assert_eq!(bytes.len(), bytes1.length);
+  assert_eq!(bytes.len(), bytes1.length);
 
-    bytes[0] = 0;
-    let b0 = BytesRef::from_bytes(bytes.clone());
-    assert_eq!(&b0, bytes1.as_ref());
+  bytes[0] = 0;
+  let b0 = BytesRef::from_bytes(bytes.clone());
+  assert_eq!(&b0, bytes1.as_ref());
 
-    assert_eq!(1, s.next_doc()?);
-    let ord2 = s.ord_value()?;
-    bytes1 = s.lookup_ord(ord2)?;
-    assert_eq!(bytes.len(), bytes1.length);
+  assert_eq!(1, s.next_doc()?);
+  let ord2 = s.ord_value()?;
+  bytes1 = s.lookup_ord(ord2)?;
+  assert_eq!(bytes.len(), bytes1.length);
 
-    bytes[0] = 1;
-    let b1 = BytesRef::from_bytes(bytes.clone());
-    assert_eq!(&b1, bytes1.as_ref());
+  bytes[0] = 1;
+  let b1 = BytesRef::from_bytes(bytes.clone());
+  assert_eq!(&b1, bytes1.as_ref());
 
-    w.close()?;
+  w.close()?;
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_doc_values_unstored() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
-    let writer = IndexWriter::new(dir.clone(), iwc)?;
-    for i in 0..50 {
-        let mut doc = Document::new();
-        doc.add(NumericDocValuesField::new("dv", i as i64));
-        doc.add(TextField::from_string("docId", i.to_string(), Store::Yes)?);
-        writer.add_document(doc)?;
-    }
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  for i in 0..50 {
+    let mut doc = Document::new();
+    doc.add(NumericDocValuesField::new("dv", i as i64));
+    doc.add(TextField::from_string("docId", i.to_string(), Store::Yes)?);
+    writer.add_document(doc)?;
+  }
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
-    let fi = get_merged_field_infos(&reader)?;
-    let dv_info = fi
-        .field_info_by_name("dv")
-        .ok_or_else(|| LuceneError::illegal_state("missing field dv"))?;
-    assert_ne!(*dv_info.get_doc_values_type(), DocValuesType::None);
+  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let fi = get_merged_field_infos(&reader)?;
+  let dv_info = fi
+    .field_info_by_name("dv")
+    .ok_or_else(|| LuceneError::illegal_state("missing field dv"))?;
+  assert_ne!(*dv_info.get_doc_values_type(), DocValuesType::None);
 
-    let mut dv = MultiDocValues::get_numeric_values(&reader, "dv")?.unwrap();
-    let mut stored_fields = reader.stored_fields()?;
+  let mut dv = MultiDocValues::get_numeric_values(&reader, "dv")?.unwrap();
+  let mut stored_fields = reader.stored_fields()?;
 
-    for i in 0..50 {
-        assert_eq!(i, dv.next_doc()?);
-        assert_eq!(i as i64, dv.long_value()?);
+  for i in 0..50 {
+    assert_eq!(i, dv.next_doc()?);
+    assert_eq!(i as i64, dv.long_value()?);
 
-        let d = stored_fields.document(i)?;
-        // cannot use d.get("dv") due to another bug!
-        assert!(d.get_field("dv").is_none());
-        assert_eq!(&i.to_string(), d.get("docId")?.unwrap().as_ref());
-    }
-    writer.close()?;
-    Ok(())
+    let d = stored_fields.document(i)?;
+    // cannot use d.get("dv") due to another bug!
+    assert!(d.get_field("dv").is_none());
+    assert_eq!(&i.to_string(), d.get("docId")?.unwrap().as_ref());
+  }
+  writer.close()?;
+  Ok(())
 }
 #[test]
 fn test_mixed_types_same_document() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let config = new_index_writer_config_with_analyzer(&mut random, mock);
-    let w = IndexWriter::new(dir.clone(), config)?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), config)?;
 
-    w.add_document(Document::new())?;
+  w.add_document(Document::new())?;
 
-    let mut doc = Document::new();
-    doc.add(NumericDocValuesField::new("foo", 0));
-    doc.add(SortedDocValuesField::new(
-        "foo",
-        new_bytes_ref_from_string(&mut random, "hello")?,
-    ));
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("foo", 0));
+  doc.add(SortedDocValuesField::new(
+    "foo",
+    new_bytes_ref_from_string(&mut random, "hello")?,
+  ));
 
-    let res = w.add_document(doc);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  let res = w.add_document(doc);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
 
-    let ir = directory_reader_util::open_from_writer(&w)?;
-    assert_eq!(1, ir.num_docs()?);
+  let ir = directory_reader_util::open_from_writer(&w)?;
+  assert_eq!(1, ir.num_docs()?);
 
-    w.close()?;
+  w.close()?;
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_mixed_types_different_documents() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let config = new_index_writer_config_with_analyzer(&mut random, mock);
-    let w = IndexWriter::new(dir.clone(), config)?;
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), config)?;
 
-    let mut doc = Document::new();
-    doc.add(NumericDocValuesField::new("foo", 0));
-    w.add_document(doc)?;
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("foo", 0));
+  w.add_document(doc)?;
 
-    let mut doc2 = Document::new();
-    doc2.add(SortedDocValuesField::new(
-        "foo",
-        new_bytes_ref_from_string(&mut random, "hello")?,
-    ));
+  let mut doc2 = Document::new();
+  doc2.add(SortedDocValuesField::new(
+    "foo",
+    new_bytes_ref_from_string(&mut random, "hello")?,
+  ));
 
-    let res = w.add_document(doc2);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  let res = w.add_document(doc2);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
 
-    let ir = directory_reader_util::open_from_writer(&w)?;
-    assert_eq!(1, ir.num_docs()?);
+  let ir = directory_reader_util::open_from_writer(&w)?;
+  assert_eq!(1, ir.num_docs()?);
 
-    w.close()?;
+  w.close()?;
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_add_sorted_twice() -> Result<()> {
-    let mut random = random();
-    let directory = new_directory_shared(&mut random)?;
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
 
-    let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
-    let iwriter = IndexWriter::new(directory.clone(), iwc)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
-    let mut doc = Document::new();
-    doc.add(SortedDocValuesField::new(
-        "dv",
-        new_bytes_ref_from_string(&mut random, "foo!")?,
-    ));
-    iwriter.add_document(doc.clone())?;
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "foo!")?,
+  ));
+  iwriter.add_document(doc.clone())?;
 
-    doc.add(SortedDocValuesField::new(
-        "dv",
-        new_bytes_ref_from_string(&mut random, "bar!")?,
-    ));
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "bar!")?,
+  ));
 
-    let res = iwriter.add_document(doc);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  let res = iwriter.add_document(doc);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
 
-    let ir = directory_reader_util::open_from_writer(&iwriter)?;
-    assert_eq!(1, ir.num_docs()?);
-    iwriter.close()?;
+  let ir = directory_reader_util::open_from_writer(&iwriter)?;
+  assert_eq!(1, ir.num_docs()?);
+  iwriter.close()?;
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_add_binary_twice() -> Result<()> {
-    let mut random = random();
-    let directory = new_directory_shared(&mut random)?;
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
 
-    let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
-    let iwriter = IndexWriter::new(directory.clone(), iwc)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
-    let mut doc = Document::new();
-    doc.add(BinaryDocValuesField::new(
-        "dv",
-        new_bytes_ref_from_string(&mut random, "foo!")?,
-    ));
-    iwriter.add_document(doc.clone())?;
+  let mut doc = Document::new();
+  doc.add(BinaryDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "foo!")?,
+  ));
+  iwriter.add_document(doc.clone())?;
 
-    doc.add(BinaryDocValuesField::new(
-        "dv",
-        new_bytes_ref_from_string(&mut random, "bar!")?,
-    ));
+  doc.add(BinaryDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "bar!")?,
+  ));
 
-    let res = iwriter.add_document(doc);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  let res = iwriter.add_document(doc);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
 
-    let ir = directory_reader_util::open_from_writer(&iwriter)?;
-    assert_eq!(1, ir.num_docs()?);
+  let ir = directory_reader_util::open_from_writer(&iwriter)?;
+  assert_eq!(1, ir.num_docs()?);
 
-    iwriter.close()?;
+  iwriter.close()?;
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_add_numeric_twice() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let directory = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
-    let iwriter = IndexWriter::new(directory.clone(), iwc)?;
+  let directory = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
-    let mut doc = Document::new();
-    doc.add(NumericDocValuesField::new("dv", 1));
-    iwriter.add_document(doc.clone())?;
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("dv", 1));
+  iwriter.add_document(doc.clone())?;
 
-    doc.add(NumericDocValuesField::new("dv", 2));
+  doc.add(NumericDocValuesField::new("dv", 2));
 
-    let res = iwriter.add_document(doc);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  let res = iwriter.add_document(doc);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
 
-    let ir = directory_reader_util::open_from_writer(&iwriter)?;
-    assert_eq!(1, ir.num_docs()?);
+  let ir = directory_reader_util::open_from_writer(&iwriter)?;
+  assert_eq!(1, ir.num_docs()?);
 
-    iwriter.close()?;
+  iwriter.close()?;
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_too_large_sorted_bytes() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let directory = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
-    let iwriter = IndexWriter::new(directory.clone(), iwc)?;
+  let directory = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
-    let mut doc = Document::new();
-    doc.add(SortedDocValuesField::new(
-        "dv",
-        new_bytes_ref_from_string(&mut random, "just fine")?,
-    ));
-    iwriter.add_document(doc.clone())?;
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "just fine")?,
+  ));
+  iwriter.add_document(doc.clone())?;
 
-    // huge doc: SortedDocValues too large
-    let mut huge_doc = Document::new();
-    let mut bytes = vec![0u8; 100_000];
-    random.fill_bytes(&mut bytes);
-    let b = new_bytes_ref_from_bytes(&mut random, bytes.as_ref())?;
+  // huge doc: SortedDocValues too large
+  let mut huge_doc = Document::new();
+  let mut bytes = vec![0u8; 100_000];
+  random.fill_bytes(&mut bytes);
+  let b = new_bytes_ref_from_bytes(&mut random, bytes.as_ref())?;
 
-    huge_doc.add(SortedDocValuesField::new("dv", b));
+  huge_doc.add(SortedDocValuesField::new("dv", b));
 
-    let res = iwriter.add_document(huge_doc);
-    assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
+  let res = iwriter.add_document(huge_doc);
+  assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
 
-    let ir = directory_reader_util::open_from_writer(&iwriter)?;
-    assert_eq!(1, ir.num_docs()?);
+  let ir = directory_reader_util::open_from_writer(&iwriter)?;
+  assert_eq!(1, ir.num_docs()?);
 
-    iwriter.close()?;
+  iwriter.close()?;
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_too_large_term_sorted_set_bytes() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let directory = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
-    let iwriter = IndexWriter::new(directory.clone(), iwc)?;
+  let directory = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let iwriter = IndexWriter::new(directory.clone(), iwc)?;
 
-    // Initial OK doc
-    let mut doc = Document::new();
-    doc.add(SortedSetDocValuesField::new(
-        "dv",
-        new_bytes_ref_from_string(&mut random, "just fine")?,
-    ));
-    iwriter.add_document(doc.clone())?;
+  // Initial OK doc
+  let mut doc = Document::new();
+  doc.add(SortedSetDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "just fine")?,
+  ));
+  iwriter.add_document(doc.clone())?;
 
-    // Huge doc containing SortedSetDV with very large BytesRef
-    let mut huge_doc = Document::new();
-    let mut bytes = vec![0u8; 100_000];
-    random.fill_bytes(&mut bytes);
-    let b = BytesRef::from_bytes(bytes);
+  // Huge doc containing SortedSetDV with very large BytesRef
+  let mut huge_doc = Document::new();
+  let mut bytes = vec![0u8; 100_000];
+  random.fill_bytes(&mut bytes);
+  let b = BytesRef::from_bytes(bytes);
 
-    huge_doc.add(SortedSetDocValuesField::new("dv", b));
+  huge_doc.add(SortedSetDocValuesField::new("dv", b));
 
-    let res = iwriter.add_document(huge_doc);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  let res = iwriter.add_document(huge_doc);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
 
-    let ir = directory_reader_util::open_from_writer(&iwriter)?;
-    assert_eq!(1, ir.num_docs()?);
+  let ir = directory_reader_util::open_from_writer(&iwriter)?;
+  assert_eq!(1, ir.num_docs()?);
 
-    iwriter.close()?;
+  iwriter.close()?;
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_mixed_types_different_segments() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    let w = IndexWriter::new(dir.clone(), iwc)?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
 
-    let mut doc = Document::new();
-    doc.add(NumericDocValuesField::new("foo", 0));
-    w.add_document(doc)?;
-    w.commit()?;
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("foo", 0));
+  w.add_document(doc)?;
+  w.commit()?;
 
-    let mut doc2 = Document::new();
-    doc2.add(SortedDocValuesField::new(
-        "foo",
-        new_bytes_ref_from_string(&mut random, "hello")?,
-    ));
+  let mut doc2 = Document::new();
+  doc2.add(SortedDocValuesField::new(
+    "foo",
+    new_bytes_ref_from_string(&mut random, "hello")?,
+  ));
 
-    let res = w.add_document(doc2);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  let res = w.add_document(doc2);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
 
-    w.close()?;
+  w.close()?;
 
-    Ok(())
+  Ok(())
 }
 
 #[test]
 fn test_mixed_types_after_delete_all() -> Result<()> {
-    // TODO writer.delete_all未实现
-    Ok(())
+  // TODO writer.delete_all未实现
+  Ok(())
 }
 #[test]
 fn test_mixed_types_after_reopen_create() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
-    {
-        let w = IndexWriter::new(dir.clone(), iwc1)?;
-        let mut doc = Document::new();
-        doc.add(NumericDocValuesField::new("foo", 0));
-        w.add_document(doc)?;
-        w.close()?;
-    }
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
+  {
+    let w = IndexWriter::new(dir.clone(), iwc1)?;
+    let mut doc = Document::new();
+    doc.add(NumericDocValuesField::new("foo", 0));
+    w.add_document(doc)?;
+    w.close()?;
+  }
 
-    let mut iwc2 = new_index_writer_config(&mut random);
-    iwc2.set_open_mode(OpenMode::Create);
-    let w2 = IndexWriter::new(dir.clone(), iwc2)?;
+  let mut iwc2 = new_index_writer_config(&mut random);
+  iwc2.set_open_mode(OpenMode::Create);
+  let w2 = IndexWriter::new(dir.clone(), iwc2)?;
 
-    let doc2 = Document::new();
-    w2.add_document(doc2)?;
+  let doc2 = Document::new();
+  w2.add_document(doc2)?;
 
-    w2.close()?;
+  w2.close()?;
 
-    Ok(())
+  Ok(())
 }
 
 #[test]
 fn test_mixed_types_after_reopen_append1() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
-    {
-        let w = IndexWriter::new(dir.clone(), iwc1)?;
-        let mut doc = Document::new();
-        doc.add(NumericDocValuesField::new("foo", 0));
-        w.add_document(doc)?;
-        w.close()?;
-    }
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
+  {
+    let w = IndexWriter::new(dir.clone(), iwc1)?;
+    let mut doc = Document::new();
+    doc.add(NumericDocValuesField::new("foo", 0));
+    w.add_document(doc)?;
+    w.close()?;
+  }
 
-    let iwc2 = new_index_writer_config(&mut random);
-    let w2 = IndexWriter::new(dir.clone(), iwc2)?;
+  let iwc2 = new_index_writer_config(&mut random);
+  let w2 = IndexWriter::new(dir.clone(), iwc2)?;
 
-    let mut doc2 = Document::new();
-    doc2.add(SortedDocValuesField::new(
-        "foo",
-        new_bytes_ref_from_string(&mut random, "hello")?,
-    ));
+  let mut doc2 = Document::new();
+  doc2.add(SortedDocValuesField::new(
+    "foo",
+    new_bytes_ref_from_string(&mut random, "hello")?,
+  ));
 
-    let res = w2.add_document(doc2);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  let res = w2.add_document(doc2);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
 
-    w2.close()?;
+  w2.close()?;
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_mixed_types_after_reopen_append2() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
 
-    let mock = MockAnalyzer::new(&mut random);
-    let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
-    {
-        let w = IndexWriter::new(dir.clone(), iwc1)?;
-        let mut doc = Document::new();
-        doc.add(SortedSetDocValuesField::new(
-            "foo",
-            new_bytes_ref_from_string(&mut random, "foo")?,
-        ));
-        w.add_document(doc)?;
-        w.close()?;
-    }
-
-    let iwc2 = new_index_writer_config(&mut random);
-    let w2 = IndexWriter::new(dir.clone(), iwc2)?;
-
-    // Add a field first as StringField (no DV), then as BinaryDV → must error
-    let mut doc2 = Document::new();
-    doc2.add(StringField::from_string("foo", "bar", No)?);
-    doc2.add(BinaryDocValuesField::new(
-        "foo",
-        new_bytes_ref_from_string(&mut random, "foo")?,
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
+  {
+    let w = IndexWriter::new(dir.clone(), iwc1)?;
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "foo",
+      new_bytes_ref_from_string(&mut random, "foo")?,
     ));
+    w.add_document(doc)?;
+    w.close()?;
+  }
 
-    let res = w2.add_document(doc2);
-    // NOTE: this case follows a different code path inside
-    // DefaultIndexingChain/FieldInfos, because the field (foo)
-    // is first added without DocValues:
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  let iwc2 = new_index_writer_config(&mut random);
+  let w2 = IndexWriter::new(dir.clone(), iwc2)?;
 
-    w2.force_merge(1)?;
-    w2.close()?;
+  // Add a field first as StringField (no DV), then as BinaryDV → must error
+  let mut doc2 = Document::new();
+  doc2.add(StringField::from_string("foo", "bar", No)?);
+  doc2.add(BinaryDocValuesField::new(
+    "foo",
+    new_bytes_ref_from_string(&mut random, "foo")?,
+  ));
 
-    Ok(())
+  let res = w2.add_document(doc2);
+  // NOTE: this case follows a different code path inside
+  // DefaultIndexingChain/FieldInfos, because the field (foo)
+  // is first added without DocValues:
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
+
+  w2.force_merge(1)?;
+  w2.close()?;
+
+  Ok(())
 }
 #[test]
 fn test_mixed_types_after_reopen_append3() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
-    {
-        let w = IndexWriter::new(dir.clone(), iwc1)?;
-        let mut doc = Document::new();
-        doc.add(SortedSetDocValuesField::new(
-            "foo",
-            new_bytes_ref_from_string(&mut random, "foo")?,
-        ));
-        w.add_document(doc)?;
-        w.close()?;
-    }
-
-    let iwc2 = new_index_writer_config(&mut random);
-    let w2 = IndexWriter::new(dir.clone(), iwc2)?;
-
-    // Add a StringField first (no DV), then BinaryDV → must error
-    let mut doc2 = Document::new();
-    doc2.add(StringField::from_string("foo", "bar", No)?);
-    doc2.add(BinaryDocValuesField::new(
-        "foo",
-        new_bytes_ref_from_string(&mut random, "foo")?,
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
+  {
+    let w = IndexWriter::new(dir.clone(), iwc1)?;
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "foo",
+      new_bytes_ref_from_string(&mut random, "foo")?,
     ));
+    w.add_document(doc)?;
+    w.close()?;
+  }
 
-    let res = w2.add_document(doc2);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
+  let iwc2 = new_index_writer_config(&mut random);
+  let w2 = IndexWriter::new(dir.clone(), iwc2)?;
 
-    // Also add another document to ensure a segment is written
-    w2.add_document(Document::new())?;
-    w2.force_merge(1)?;
-    w2.close()?;
+  // Add a StringField first (no DV), then BinaryDV → must error
+  let mut doc2 = Document::new();
+  doc2.add(StringField::from_string("foo", "bar", No)?);
+  doc2.add(BinaryDocValuesField::new(
+    "foo",
+    new_bytes_ref_from_string(&mut random, "foo")?,
+  ));
 
-    Ok(())
+  let res = w2.add_document(doc2);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
+
+  // Also add another document to ensure a segment is written
+  w2.add_document(Document::new())?;
+  w2.force_merge(1)?;
+  w2.close()?;
+
+  Ok(())
 }
 #[test]
 fn test_mixed_types_different_threads() -> Result<()> {
-    // TODO
-    Ok(())
+  // TODO
+  Ok(())
 }
 #[test]
 fn test_mixed_types_via_add_indexes() -> Result<()> {
-    // TODO add_indexes未实现
-    Ok(())
+  // TODO add_indexes未实现
+  Ok(())
 }
 #[test]
 fn test_illegal_type_change() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let conf = new_index_writer_config_with_analyzer(&mut random, mock);
-    let writer = IndexWriter::new(dir.clone(), conf)?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), conf)?;
+
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("dv", 0));
+  writer.add_document(doc)?;
+
+  let mut doc2 = Document::new();
+  doc2.add(SortedDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "foo")?,
+  ));
+
+  let res = writer.add_document(doc2);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got: {:?}",
+    res
+  );
+
+  let ir = directory_reader_util::open_from_writer(&writer)?;
+  assert_eq!(1, ir.num_docs()?);
+
+  writer.close()?;
+
+  Ok(())
+}
+#[test]
+fn test_illegal_type_change_across_segments() -> Result<()> {
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let conf1 = new_index_writer_config_with_analyzer(&mut random, mock);
+  {
+    let writer = IndexWriter::new(dir.clone(), conf1)?;
 
     let mut doc = Document::new();
     doc.add(NumericDocValuesField::new("dv", 0));
     writer.add_document(doc)?;
-
-    let mut doc2 = Document::new();
-    doc2.add(SortedDocValuesField::new(
-        "dv",
-        new_bytes_ref_from_string(&mut random, "foo")?,
-    ));
-
-    let res = writer.add_document(doc2);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got: {:?}",
-        res
-    );
-
-    let ir = directory_reader_util::open_from_writer(&writer)?;
-    assert_eq!(1, ir.num_docs()?);
-
     writer.close()?;
+  }
 
-    Ok(())
-}
-#[test]
-fn test_illegal_type_change_across_segments() -> Result<()> {
-    let mut random = random();
+  let conf2 = new_index_writer_config(&mut random);
+  let writer2 = IndexWriter::new(dir.clone(), conf2)?;
 
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let conf1 = new_index_writer_config_with_analyzer(&mut random, mock);
-    {
-        let writer = IndexWriter::new(dir.clone(), conf1)?;
+  let mut doc2 = Document::new();
+  doc2.add(SortedDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "foo")?,
+  ));
 
-        let mut doc = Document::new();
-        doc.add(NumericDocValuesField::new("dv", 0));
-        writer.add_document(doc)?;
-        writer.close()?;
-    }
+  let res = writer2.add_document(doc2);
+  assert!(
+    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    "expected IllegalArgument but got {:?}",
+    res
+  );
 
-    let conf2 = new_index_writer_config(&mut random);
-    let writer2 = IndexWriter::new(dir.clone(), conf2)?;
+  writer2.close()?;
 
-    let mut doc2 = Document::new();
-    doc2.add(SortedDocValuesField::new(
-        "dv",
-        new_bytes_ref_from_string(&mut random, "foo")?,
-    ));
-
-    let res = writer2.add_document(doc2);
-    assert!(
-        matches!(res, Err(LuceneError::IllegalArgument(_))),
-        "expected IllegalArgument but got {:?}",
-        res
-    );
-
-    writer2.close()?;
-
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_type_change_after_close_and_delete_all() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
 
-    let mock = MockAnalyzer::new(&mut random);
-    let conf1 = new_index_writer_config_with_analyzer(&mut random, mock);
-    {
-        let writer = IndexWriter::new(dir.clone(), conf1)?;
-        let mut doc = Document::new();
-        doc.add(NumericDocValuesField::new("dv", 0));
-        writer.add_document(doc)?;
-        writer.close()?;
-    }
+  let mock = MockAnalyzer::new(&mut random);
+  let conf1 = new_index_writer_config_with_analyzer(&mut random, mock);
+  {
+    let writer = IndexWriter::new(dir.clone(), conf1)?;
+    let mut doc = Document::new();
+    doc.add(NumericDocValuesField::new("dv", 0));
+    writer.add_document(doc)?;
+    writer.close()?;
+  }
 
-    let conf2 = new_index_writer_config(&mut random);
-    let writer2 = IndexWriter::new(dir.clone(), conf2)?;
-    writer2.delete_all()?;
+  let conf2 = new_index_writer_config(&mut random);
+  let writer2 = IndexWriter::new(dir.clone(), conf2)?;
+  writer2.delete_all()?;
 
-    let mut doc2 = Document::new();
-    doc2.add(SortedDocValuesField::new(
-        "dv",
-        new_bytes_ref_from_string(&mut random, "foo")?,
-    ));
-    writer2.add_document(doc2)?;
+  let mut doc2 = Document::new();
+  doc2.add(SortedDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "foo")?,
+  ));
+  writer2.add_document(doc2)?;
 
-    writer2.close()?;
+  writer2.close()?;
 
-    Ok(())
+  Ok(())
 }
 
 #[test]
 fn test_type_change_after_delete_all() -> Result<()> {
-    // TODO writer.delete_all未实现
-    Ok(())
+  // TODO writer.delete_all未实现
+  Ok(())
 }
 #[test]
 fn test_type_change_after_commit_and_delete_all() -> Result<()> {
-    // TODO writer.delete_all未实现
-    Ok(())
+  // TODO writer.delete_all未实现
+  Ok(())
 }
 #[test]
 fn test_type_change_after_open_create() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let conf1 = new_index_writer_config_with_analyzer(&mut random, mock);
-    {
-        let writer = IndexWriter::new(dir.clone(), conf1)?;
-        let mut doc = Document::new();
-        doc.add(NumericDocValuesField::new("dv", 0));
-        writer.add_document(doc)?;
-        writer.close()?;
-    }
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let conf1 = new_index_writer_config_with_analyzer(&mut random, mock);
+  {
+    let writer = IndexWriter::new(dir.clone(), conf1)?;
+    let mut doc = Document::new();
+    doc.add(NumericDocValuesField::new("dv", 0));
+    writer.add_document(doc)?;
+    writer.close()?;
+  }
 
-    let mut conf2 = new_index_writer_config(&mut random);
-    conf2.set_open_mode(Create);
-    let writer2 = IndexWriter::new(dir.clone(), conf2)?;
+  let mut conf2 = new_index_writer_config(&mut random);
+  conf2.set_open_mode(Create);
+  let writer2 = IndexWriter::new(dir.clone(), conf2)?;
 
-    let mut doc2 = Document::new();
-    doc2.add(SortedDocValuesField::new(
-        "dv",
-        new_bytes_ref_from_string(&mut random, "foo")?,
-    ));
-    writer2.add_document(doc2)?;
+  let mut doc2 = Document::new();
+  doc2.add(SortedDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "foo")?,
+  ));
+  writer2.add_document(doc2)?;
 
-    writer2.close()?;
+  writer2.close()?;
 
-    Ok(())
+  Ok(())
 }
 
 #[test]
 fn test_type_change_via_add_indexes() -> Result<()> {
-    // TODO add_indexes未实现
-    Ok(())
+  // TODO add_indexes未实现
+  Ok(())
 }
 #[test]
 fn test_type_change_via_add_indexes_ir() -> Result<()> {
-    // TODO add_indexes未实现
-    Ok(())
+  // TODO add_indexes未实现
+  Ok(())
 }
 #[test]
 fn test_type_change_via_add_indexes_2() -> Result<()> {
-    // TODO add_indexes未实现
-    Ok(())
+  // TODO add_indexes未实现
+  Ok(())
 }
 #[test]
 fn test_type_change_via_add_indexes_ir_2() -> Result<()> {
-    // TODO add_indexes未实现
-    Ok(())
+  // TODO add_indexes未实现
+  Ok(())
 }
 #[test]
 fn test_same_field_name_for_posting_and_doc_value() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let conf = new_index_writer_config_with_analyzer(&mut random, mock);
-    let writer = IndexWriter::new(dir.clone(), conf)?;
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), conf)?;
 
-    let mut doc = Document::new();
-    doc.add(StringField::from_string("f", "mock-value", No)?);
-    doc.add(NumericDocValuesField::new("f", 5));
-    writer.add_document(doc)?;
-    writer.commit()?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("f", "mock-value", No)?);
+  doc.add(NumericDocValuesField::new("f", 5));
+  writer.add_document(doc)?;
+  writer.commit()?;
 
-    let mut doc2 = Document::new();
-    doc2.add(BinaryDocValuesField::new(
-        "f",
-        new_bytes_ref_from_string(&mut random, "mock")?,
-    ));
-    let res = writer.add_document(doc2);
-    assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
+  let mut doc2 = Document::new();
+  doc2.add(BinaryDocValuesField::new(
+    "f",
+    new_bytes_ref_from_string(&mut random, "mock")?,
+  ));
+  let res = writer.add_document(doc2);
+  assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
 
-    // TODO: rollback未实现
-    // writer.rollback()?;
-    // TODO: 这里不需要close
-    writer.close()?;
-    Ok(())
+  // TODO: rollback未实现
+  // writer.rollback()?;
+  // TODO: 这里不需要close
+  writer.close()?;
+  Ok(())
 }
 
 #[test]
 fn test_exc_indexing_doc_before_doc_values() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    let w = IndexWriter::new(dir.clone(), iwc)?;
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
 
-    let mut ft = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
-    ft.set_doc_values_type(DocValuesType::Sorted)?;
-    ft.freeze();
+  let mut ft = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
+  ft.set_doc_values_type(DocValuesType::Sorted)?;
+  ft.freeze();
 
-    let bytes = BytesRef::from_string("value");
-    let field = FieldImpl::new("test", bytes, ft);
+  let bytes = BytesRef::from_string("value");
+  let field = FieldImpl::new("test", bytes, ft);
 
-    let mut doc = Document::new();
-    doc.add(field);
+  let mut doc = Document::new();
+  doc.add(field);
 
-    let res = w.add_document(doc);
-    assert!(matches!(res, Err(LuceneError::UnsupportedOperation(_))));
+  let res = w.add_document(doc);
+  assert!(matches!(res, Err(LuceneError::UnsupportedOperation(_))));
 
-    w.add_document(Document::new())?;
-    w.close()?;
-    Ok(())
+  w.add_document(Document::new())?;
+  w.close()?;
+  Ok(())
 }
 
 pub struct FieldImpl {
-    parent_field: Field,
+  parent_field: Field,
 }
 impl FieldImpl {
-    fn new(name: &str, value: BytesRef<Vec<u8>>, field_type: FieldType) -> Self {
-        let parent_field = Field::new(name, value, field_type);
-        FieldImpl { parent_field }
-    }
+  fn new(name: &str, value: BytesRef<Vec<u8>>, field_type: FieldType) -> Self {
+    let parent_field = Field::new(name, value, field_type);
+    FieldImpl { parent_field }
+  }
 }
 impl FieldBase for FieldImpl {}
 
 impl Display for FieldImpl {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.parent_field)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.parent_field)
+  }
 }
 
 impl IndexableField for FieldImpl {
-    fn name(&self) -> &str {
-        self.parent_field.name()
-    }
+  fn name(&self) -> &str {
+    self.parent_field.name()
+  }
 
-    type FieldType = FieldType;
+  type FieldType = FieldType;
 
-    fn field_type(&self) -> &Self::FieldType {
-        self.parent_field.field_type()
-    }
+  fn field_type(&self) -> &Self::FieldType {
+    self.parent_field.field_type()
+  }
 
-    type TokenStream = <Field as IndexableField>::TokenStream;
+  type TokenStream = <Field as IndexableField>::TokenStream;
 
-    fn token_stream<'a>(
-        &'a mut self,
-        _token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
-    {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn token_stream<'a>(
+    &'a mut self,
+    _token_stream: Option<&'a mut InnerTokenStreams>,
+  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.parent_field.binary_value()
-    }
+  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    self.parent_field.binary_value()
+  }
 
-    fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-        self.parent_field.take_binary_value()
-    }
+  fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+    self.parent_field.take_binary_value()
+  }
 
-    fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
-        self.parent_field.string_value()
-    }
+  fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.parent_field.string_value()
+  }
 
-    fn take_string_value(&mut self) -> Result<Option<String>> {
-        self.parent_field.take_string_value()
-    }
+  fn take_string_value(&mut self) -> Result<Option<String>> {
+    self.parent_field.take_string_value()
+  }
 
-    fn get_char_sequence_value(&self) -> Result<Option<Cow<'_, String>>> {
-        self.parent_field.get_char_sequence_value()
-    }
+  fn get_char_sequence_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.parent_field.get_char_sequence_value()
+  }
 
-    fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
-        self.parent_field.take_reader_value()
-    }
+  fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
+    self.parent_field.take_reader_value()
+  }
 
-    fn numeric_value(&self) -> Result<Option<Number>> {
-        self.parent_field.numeric_value()
-    }
+  fn numeric_value(&self) -> Result<Option<Number>> {
+    self.parent_field.numeric_value()
+  }
 
-    fn stored_value(&self) -> Option<&FieldDataEnum> {
-        self.parent_field.stored_value()
-    }
+  fn stored_value(&self) -> Option<&FieldDataEnum> {
+    self.parent_field.stored_value()
+  }
 
-    fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-        self.parent_field.take_stored_value()
-    }
+  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
+    self.parent_field.take_stored_value()
+  }
 
-    fn invertable_type(&self) -> &InvertableType {
-        self.parent_field.invertable_type()
-    }
+  fn invertable_type(&self) -> &InvertableType {
+    self.parent_field.invertable_type()
+  }
 
-    fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-    where
-        A: Analyzer,
-    {
-        self.parent_field.init_token_stream(analyzer)
-    }
+  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
+  where
+    A: Analyzer,
+  {
+    self.parent_field.init_token_stream(analyzer)
+  }
 }
 #[cfg(test)]
 impl Clone for FieldImpl {
-    fn clone(&self) -> Self {
-        Self {
-            parent_field: self.parent_field.clone(),
-        }
+  fn clone(&self) -> Self {
+    Self {
+      parent_field: self.parent_field.clone(),
     }
+  }
 }

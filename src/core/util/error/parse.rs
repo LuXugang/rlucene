@@ -18,40 +18,40 @@ use crate::core::util::error::IllegalArgumentError;
 
 #[derive(Debug)]
 pub struct Parse {
-    pub message: String,
-    pub position: i32,
-    pub error: Option<IllegalArgumentError>,
+  pub message: String,
+  pub position: i32,
+  pub error: Option<IllegalArgumentError>,
 }
 
 impl Parse {
-    pub fn new(msg: impl Into<String>, position: i32) -> Self {
-        Self {
-            message: msg.into(),
-            position,
-            error: None,
-        }
+  pub fn new(msg: impl Into<String>, position: i32) -> Self {
+    Self {
+      message: msg.into(),
+      position,
+      error: None,
     }
-    pub fn with_error(msg: impl Into<String>, error: Option<IllegalArgumentError>) -> Self {
-        Self {
-            message: msg.into(),
-            position: 0,
-            error,
-        }
+  }
+  pub fn with_error(msg: impl Into<String>, error: Option<IllegalArgumentError>) -> Self {
+    Self {
+      message: msg.into(),
+      position: 0,
+      error,
     }
+  }
 }
 
 impl std::fmt::Display for Parse {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(error) = self.error.as_ref() {
-            write!(
-                f,
-                "Parse Error at {}: {} reason: {}",
-                self.position, self.message, error.message
-            )
-        } else {
-            write!(f, "Parse Error at {}: {}", self.position, self.message)
-        }
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    if let Some(error) = self.error.as_ref() {
+      write!(
+        f,
+        "Parse Error at {}: {} reason: {}",
+        self.position, self.message, error.message
+      )
+    } else {
+      write!(f, "Parse Error at {}: {}", self.position, self.message)
     }
+  }
 }
 
 impl std::error::Error for Parse {}

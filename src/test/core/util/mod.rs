@@ -44,17 +44,17 @@ pub type DefaultLRReader = Arc<SegmentReader<DirEnum>>;
 pub type DefaultIndexSearchCR = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReader>>;
 pub type DefaultIndexSearchLR = DefaultIndexSearcher<LeafReaderContext<DefaultLRReader>>;
 pub(crate) fn dummy_index_searcher() -> crate::core::util::error::lucene_error::Result<
-    DefaultIndexSearcher<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
+  DefaultIndexSearcher<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
 > {
-    let dummy_lr = DummyLeafReader;
-    let cr = DummyCompositeReader::new(dummy_lr);
-    let irc = get_context(cr)?;
-    IndexSearcher::new(irc)
+  let dummy_lr = DummyLeafReader;
+  let cr = DummyCompositeReader::new(dummy_lr);
+  let irc = get_context(cr)?;
+  IndexSearcher::new(irc)
 }
 
 impl LeafReaderContext<DummyLeafReader> {
-    pub(crate) fn dummy_lrc() -> Self {
-        let parent = TopParentMeta::default();
-        Self::new(DummyLeafReader, 0, 0, 0, 0, parent)
-    }
+  pub(crate) fn dummy_lrc() -> Self {
+    let parent = TopParentMeta::default();
+    Self::new(DummyLeafReader, 0, 0, 0, 0, parent)
+  }
 }

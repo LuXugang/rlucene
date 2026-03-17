@@ -31,111 +31,111 @@ use std::sync::atomic::{AtomicBool, Ordering};
 ///
 /// See also: [`LockFactory`]
 pub struct SingleInstanceLockFactory {
-    inner: Arc<Mutex<Inner>>,
+  inner: Arc<Mutex<Inner>>,
 }
 pub struct Inner {
-    locks: HashSet<String>,
+  locks: HashSet<String>,
 }
 impl Default for SingleInstanceLockFactory {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl SingleInstanceLockFactory {
-    pub fn new() -> SingleInstanceLockFactory {
-        SingleInstanceLockFactory {
-            inner: Arc::new(Mutex::new(Inner {
-                locks: HashSet::new(),
-            })),
-        }
+  pub fn new() -> SingleInstanceLockFactory {
+    SingleInstanceLockFactory {
+      inner: Arc::new(Mutex::new(Inner {
+        locks: HashSet::new(),
+      })),
     }
+  }
 }
 
 impl Display for SingleInstanceLockFactory {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SingleInstanceLockFactory")
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "SingleInstanceLockFactory")
+  }
 }
 
 impl LockFactory for SingleInstanceLockFactory {
-    type Lock = SingleInstanceLock;
+  type Lock = SingleInstanceLock;
 
-    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
-        let mut inner = self.inner.lock();
+  fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
+    let mut inner = self.inner.lock();
 
-        if inner.locks.insert(lock_name.to_string()) {
-            return Ok(SingleInstanceLock::new(lock_name, self.inner.clone()));
-        }
-        Err(LuceneError::lock_obtain_failed(format!(
-            "lock instance already obtained: (dir={:?}, lockName={})",
-            dir, lock_name
-        )))
+    if inner.locks.insert(lock_name.to_string()) {
+      return Ok(SingleInstanceLock::new(lock_name, self.inner.clone()));
     }
+    Err(LuceneError::lock_obtain_failed(format!(
+      "lock instance already obtained: (dir={:?}, lockName={})",
+      dir, lock_name
+    )))
+  }
 }
 
 pub struct SingleInstanceLock {
-    lock_name: String,
-    closed: AtomicBool,
-    inner: Arc<Mutex<Inner>>,
+  lock_name: String,
+  closed: AtomicBool,
+  inner: Arc<Mutex<Inner>>,
 }
 impl SingleInstanceLock {
-    pub fn new(lock_name: &str, inner: Arc<Mutex<Inner>>) -> SingleInstanceLock {
-        SingleInstanceLock {
-            lock_name: lock_name.to_string(),
-            closed: AtomicBool::new(false),
-            inner,
-        }
+  pub fn new(lock_name: &str, inner: Arc<Mutex<Inner>>) -> SingleInstanceLock {
+    SingleInstanceLock {
+      lock_name: lock_name.to_string(),
+      closed: AtomicBool::new(false),
+      inner,
     }
+  }
 }
 
 impl Display for SingleInstanceLock {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let addr = format!("{:p}", self);
-        f.write_fmt(format_args!("{}: {}", addr, self.lock_name))
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    let addr = format!("{:p}", self);
+    f.write_fmt(format_args!("{}: {}", addr, self.lock_name))
+  }
 }
 
 impl Closeable for SingleInstanceLock {
-    fn close(&mut self) -> Result<()> {
-        if self.closed.load(Ordering::Acquire) {
-            return Ok(());
-        }
-
-        let mut result: Result<()> = Ok(());
-        {
-            let mut inner = self.inner.lock();
-            let removed = inner.locks.remove(&self.lock_name);
-
-            if !removed {
-                result = Err(LuceneError::already_closed(format!(
-                    "Lock was already released: {}",
-                    self
-                )));
-            }
-        }
-        self.closed.store(true, Ordering::Release);
-        result
+  fn close(&mut self) -> Result<()> {
+    if self.closed.load(Ordering::Acquire) {
+      return Ok(());
     }
+
+    let mut result: Result<()> = Ok(());
+    {
+      let mut inner = self.inner.lock();
+      let removed = inner.locks.remove(&self.lock_name);
+
+      if !removed {
+        result = Err(LuceneError::already_closed(format!(
+          "Lock was already released: {}",
+          self
+        )));
+      }
+    }
+    self.closed.store(true, Ordering::Release);
+    result
+  }
 }
 
 impl Lock for SingleInstanceLock {
-    fn ensure_valid(&self) -> Result<()> {
-        if self.closed.load(Ordering::Acquire) {
-            return Err(LuceneError::already_closed(format!(
-                "Lock instance already released: {}",
-                self
-            )));
-        }
-
-        let inner = self.inner.lock();
-        if !inner.locks.contains(&self.lock_name) {
-            return Err(LuceneError::already_closed(format!(
-                "Lock instance was invalidated from map: {}",
-                self
-            )));
-        }
-
-        Ok(())
+  fn ensure_valid(&self) -> Result<()> {
+    if self.closed.load(Ordering::Acquire) {
+      return Err(LuceneError::already_closed(format!(
+        "Lock instance already released: {}",
+        self
+      )));
     }
+
+    let inner = self.inner.lock();
+    if !inner.locks.contains(&self.lock_name) {
+      return Err(LuceneError::already_closed(format!(
+        "Lock instance was invalidated from map: {}",
+        self
+      )));
+    }
+
+    Ok(())
+  }
 }

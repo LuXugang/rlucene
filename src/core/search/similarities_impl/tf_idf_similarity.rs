@@ -34,11 +34,11 @@ use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 
 static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
-    let mut table = [0i32; 256];
-    for (i, slot) in table.iter_mut().enumerate() {
-        *slot = SmallFloat::byte4_to_int(i as u8).expect("should not fail");
-    }
-    table
+  let mut table = [0i32; 256];
+  for (i, slot) in table.iter_mut().enumerate() {
+    *slot = SmallFloat::byte4_to_int(i as u8).expect("should not fail");
+  }
+  table
 });
 /// Implementation of [`Similarity`] with the Vector Space Model.
 ///
@@ -333,358 +333,358 @@ static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
 /// @see IndexSearcher#setSimilarity(Similarity)
 #[derive(Clone)]
 pub struct TFIDFSimilarity {
-    sub: TFIDFSubEnum,
-    discount_overlaps: bool,
+  sub: TFIDFSubEnum,
+  discount_overlaps: bool,
 }
 impl TFIDFSimilarity {
-    pub fn new(sub: TFIDFSubEnum) -> Self {
-        Self {
-            sub,
-            discount_overlaps: true,
-        }
+  pub fn new(sub: TFIDFSubEnum) -> Self {
+    Self {
+      sub,
+      discount_overlaps: true,
     }
-    pub fn with_discount_overlaps(sub: TFIDFSubEnum, discount_overlaps: bool) -> Self {
-        Self {
-            sub,
-            discount_overlaps,
-        }
+  }
+  pub fn with_discount_overlaps(sub: TFIDFSubEnum, discount_overlaps: bool) -> Self {
+    Self {
+      sub,
+      discount_overlaps,
     }
+  }
 }
 
 impl Display for TFIDFSimilarity {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>(),)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>(),)
+  }
 }
 
 impl Similarity for TFIDFSimilarity {
-    fn get_discount_overlaps(&self) -> bool {
-        self.discount_overlaps
+  fn get_discount_overlaps(&self) -> bool {
+    self.discount_overlaps
+  }
+
+  type SimScorer = TFIDFScorer;
+
+  fn scorer(
+    &self,
+    boost: f32,
+    collection_stats: &CollectionStatistics,
+    term_stats: &[TermStatistics],
+  ) -> Result<Self::SimScorer> {
+    let idf = if term_stats.len() == 1 {
+      self.sub.idf_explain(collection_stats, &term_stats[0])
+    } else {
+      self
+        .sub
+        .idf_explain_from_multi_ts(collection_stats, term_stats)
+    };
+
+    let mut norm_table = vec![0f32; 256];
+    for i in 1..256 {
+      let norm = self.sub.length_norm(LENGTH_TABLE[i]);
+      norm_table[i] = norm;
     }
+    norm_table[0] = 1f32 / norm_table[255];
 
-    type SimScorer = TFIDFScorer;
-
-    fn scorer(
-        &self,
-        boost: f32,
-        collection_stats: &CollectionStatistics,
-        term_stats: &[TermStatistics],
-    ) -> Result<Self::SimScorer> {
-        let idf = if term_stats.len() == 1 {
-            self.sub.idf_explain(collection_stats, &term_stats[0])
-        } else {
-            self.sub
-                .idf_explain_from_multi_ts(collection_stats, term_stats)
-        };
-
-        let mut norm_table = vec![0f32; 256];
-        for i in 1..256 {
-            let norm = self.sub.length_norm(LENGTH_TABLE[i]);
-            norm_table[i] = norm;
-        }
-        norm_table[0] = 1f32 / norm_table[255];
-
-        TFIDFScorer::new(boost, idf, norm_table, self.sub.clone())
-    }
+    TFIDFScorer::new(boost, idf, norm_table, self.sub.clone())
+  }
 }
 
 pub struct TFIDFScorer {
-    idf: Explanation,
-    boost: f32,
-    query_weight: f32,
-    pub(crate) norm_table: Vec<f32>,
-    base: TFIDFSubEnum,
+  idf: Explanation,
+  boost: f32,
+  query_weight: f32,
+  pub(crate) norm_table: Vec<f32>,
+  base: TFIDFSubEnum,
 }
 impl TFIDFScorer {
-    pub fn new(
-        boost: f32,
-        idf: Explanation,
-        norm_table: Vec<f32>,
-        base: TFIDFSubEnum,
-    ) -> Result<Self> {
-        let idf_value = idf.value.to_f32().ok_or_else(|| {
-            LuceneError::illegal_argument(format!("invalid idf#value: {}", idf.value))
-        })?;
+  pub fn new(
+    boost: f32,
+    idf: Explanation,
+    norm_table: Vec<f32>,
+    base: TFIDFSubEnum,
+  ) -> Result<Self> {
+    let idf_value = idf
+      .value
+      .to_f32()
+      .ok_or_else(|| LuceneError::illegal_argument(format!("invalid idf#value: {}", idf.value)))?;
 
-        let query_weight = boost * idf_value;
+    let query_weight = boost * idf_value;
 
-        Ok(Self {
-            idf,
-            boost,
-            query_weight,
-            norm_table,
-            base,
-        })
+    Ok(Self {
+      idf,
+      boost,
+      query_weight,
+      norm_table,
+      base,
+    })
+  }
+  fn explain_score(
+    &self,
+    freq: &Explanation,
+    encoded_norm: i64,
+    norm_table: &[f32],
+  ) -> Result<Explanation> {
+    let mut subs = Vec::new();
+
+    if self.boost != 1.0 {
+      subs.push(Explanation::match_no_details(
+        self.boost,
+        "boost".to_string(),
+      ));
     }
-    fn explain_score(
-        &self,
-        freq: &Explanation,
-        encoded_norm: i64,
-        norm_table: &[f32],
-    ) -> Result<Explanation> {
-        let mut subs = Vec::new();
 
-        if self.boost != 1.0 {
-            subs.push(Explanation::match_no_details(
-                self.boost,
-                "boost".to_string(),
-            ));
-        }
+    subs.push(self.idf.clone());
+    let freq_value = freq
+      .value
+      .to_f32()
+      .ok_or_else(|| LuceneError::illegal_argument(format!("invalid idf#value: {}", freq.value)))?;
+    let value = self.base.tf(freq_value);
+    let tf = Explanation::match_(
+      value,
+      format!("tf(freq={}), with freq of:", freq_value),
+      vec![freq.clone()],
+    );
 
-        subs.push(self.idf.clone());
-        let freq_value = freq.value.to_f32().ok_or_else(|| {
-            LuceneError::illegal_argument(format!("invalid idf#value: {}", freq.value))
-        })?;
-        let value = self.base.tf(freq_value);
-        let tf = Explanation::match_(
-            value,
-            format!("tf(freq={}), with freq of:", freq_value),
-            vec![freq.clone()],
-        );
+    let tf_value = tf
+      .value
+      .to_f32()
+      .ok_or_else(|| LuceneError::illegal_argument(format!("invalid idf#value: {}", freq.value)))?;
+    subs.push(tf);
 
-        let tf_value = tf.value.to_f32().ok_or_else(|| {
-            LuceneError::illegal_argument(format!("invalid idf#value: {}", freq.value))
-        })?;
-        subs.push(tf);
+    let idx = (encoded_norm & 0xFF) as usize;
+    let norm = norm_table[idx];
 
-        let idx = (encoded_norm & 0xFF) as usize;
-        let norm = norm_table[idx];
+    let field_norm = Explanation::match_no_details(norm, "fieldNorm".to_string());
+    subs.push(field_norm);
 
-        let field_norm = Explanation::match_no_details(norm, "fieldNorm".to_string());
-        subs.push(field_norm);
-
-        let score = self.query_weight * tf_value * norm;
-        Ok(Explanation::match_(
-            score,
-            format!("score(freq={}), product of:", freq_value),
-            subs,
-        ))
-    }
+    let score = self.query_weight * tf_value * norm;
+    Ok(Explanation::match_(
+      score,
+      format!("score(freq={}), product of:", freq_value),
+      subs,
+    ))
+  }
 }
 impl SimScorer for TFIDFScorer {
-    fn score(&self, freq: f32, norm: i64) -> f32 {
-        let raw = self.base.tf(freq) * self.query_weight;
-        let norm_value = self.norm_table[(norm & 0xFF) as usize];
-        raw * norm_value
-    }
+  fn score(&self, freq: f32, norm: i64) -> f32 {
+    let raw = self.base.tf(freq) * self.query_weight;
+    let norm_value = self.norm_table[(norm & 0xFF) as usize];
+    raw * norm_value
+  }
 
-    fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
-        self.explain_score(&freq, norm, &self.norm_table)
-    }
+  fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
+    self.explain_score(&freq, norm, &self.norm_table)
+  }
 }
 #[derive(Clone)]
 pub enum TFIDFSubEnum {
-    Classic(ClassicSimilarity),
-    #[cfg(test)]
-    Simple(SimpleSimilarity),
-    #[cfg(test)]
-    Test(TestSimilarity),
-    #[cfg(test)]
-    Simple1(SimpleSimilarity1),
+  Classic(ClassicSimilarity),
+  #[cfg(test)]
+  Simple(SimpleSimilarity),
+  #[cfg(test)]
+  Test(TestSimilarity),
+  #[cfg(test)]
+  Simple1(SimpleSimilarity1),
 }
 impl TFIDFSimilarityBase for TFIDFSubEnum {
-    fn tf(&self, freq: f32) -> f32 {
-        match self {
-            TFIDFSubEnum::Classic(classic) => classic.tf(freq),
-            #[cfg(test)]
-            TFIDFSubEnum::Simple(simple) => simple.tf(freq),
-            #[cfg(test)]
-            TFIDFSubEnum::Test(test) => test.tf(freq),
-            #[cfg(test)]
-            TFIDFSubEnum::Simple1(test) => test.tf(freq),
-        }
+  fn tf(&self, freq: f32) -> f32 {
+    match self {
+      TFIDFSubEnum::Classic(classic) => classic.tf(freq),
+      #[cfg(test)]
+      TFIDFSubEnum::Simple(simple) => simple.tf(freq),
+      #[cfg(test)]
+      TFIDFSubEnum::Test(test) => test.tf(freq),
+      #[cfg(test)]
+      TFIDFSubEnum::Simple1(test) => test.tf(freq),
     }
+  }
 
-    fn idf_explain(
-        &self,
-        collection_stats: &CollectionStatistics,
-        term_stats: &TermStatistics,
-    ) -> Explanation {
-        match self {
-            TFIDFSubEnum::Classic(classic) => classic.idf_explain(collection_stats, term_stats),
-            #[cfg(test)]
-            TFIDFSubEnum::Simple(simple) => simple.idf_explain(collection_stats, term_stats),
-            #[cfg(test)]
-            TFIDFSubEnum::Test(test) => test.idf_explain(collection_stats, term_stats),
-            #[cfg(test)]
-            TFIDFSubEnum::Simple1(test) => test.idf_explain(collection_stats, term_stats),
-        }
+  fn idf_explain(
+    &self,
+    collection_stats: &CollectionStatistics,
+    term_stats: &TermStatistics,
+  ) -> Explanation {
+    match self {
+      TFIDFSubEnum::Classic(classic) => classic.idf_explain(collection_stats, term_stats),
+      #[cfg(test)]
+      TFIDFSubEnum::Simple(simple) => simple.idf_explain(collection_stats, term_stats),
+      #[cfg(test)]
+      TFIDFSubEnum::Test(test) => test.idf_explain(collection_stats, term_stats),
+      #[cfg(test)]
+      TFIDFSubEnum::Simple1(test) => test.idf_explain(collection_stats, term_stats),
     }
+  }
 
-    fn idf_explain_from_multi_ts(
-        &self,
-        collection_stats: &CollectionStatistics,
-        term_stats: &[TermStatistics],
-    ) -> Explanation {
-        match self {
-            TFIDFSubEnum::Classic(classic) => {
-                classic.idf_explain_from_multi_ts(collection_stats, term_stats)
-            },
-            #[cfg(test)]
-            TFIDFSubEnum::Simple(simple) => {
-                simple.idf_explain_from_multi_ts(collection_stats, term_stats)
-            },
-            #[cfg(test)]
-            TFIDFSubEnum::Test(test) => {
-                test.idf_explain_from_multi_ts(collection_stats, term_stats)
-            },
-            #[cfg(test)]
-            TFIDFSubEnum::Simple1(test) => {
-                test.idf_explain_from_multi_ts(collection_stats, term_stats)
-            },
-        }
+  fn idf_explain_from_multi_ts(
+    &self,
+    collection_stats: &CollectionStatistics,
+    term_stats: &[TermStatistics],
+  ) -> Explanation {
+    match self {
+      TFIDFSubEnum::Classic(classic) => {
+        classic.idf_explain_from_multi_ts(collection_stats, term_stats)
+      },
+      #[cfg(test)]
+      TFIDFSubEnum::Simple(simple) => {
+        simple.idf_explain_from_multi_ts(collection_stats, term_stats)
+      },
+      #[cfg(test)]
+      TFIDFSubEnum::Test(test) => test.idf_explain_from_multi_ts(collection_stats, term_stats),
+      #[cfg(test)]
+      TFIDFSubEnum::Simple1(test) => test.idf_explain_from_multi_ts(collection_stats, term_stats),
     }
+  }
 
-    fn idf(&self, doc_freq: i64, doc_count: i64) -> f32 {
-        match self {
-            TFIDFSubEnum::Classic(classic) => classic.idf(doc_freq, doc_count),
-            #[cfg(test)]
-            TFIDFSubEnum::Simple(simple) => simple.idf(doc_freq, doc_count),
-            #[cfg(test)]
-            TFIDFSubEnum::Test(test) => test.idf(doc_freq, doc_count),
-            #[cfg(test)]
-            TFIDFSubEnum::Simple1(test) => test.idf(doc_freq, doc_count),
-        }
+  fn idf(&self, doc_freq: i64, doc_count: i64) -> f32 {
+    match self {
+      TFIDFSubEnum::Classic(classic) => classic.idf(doc_freq, doc_count),
+      #[cfg(test)]
+      TFIDFSubEnum::Simple(simple) => simple.idf(doc_freq, doc_count),
+      #[cfg(test)]
+      TFIDFSubEnum::Test(test) => test.idf(doc_freq, doc_count),
+      #[cfg(test)]
+      TFIDFSubEnum::Simple1(test) => test.idf(doc_freq, doc_count),
     }
+  }
 
-    fn length_norm(&self, length: i32) -> f32 {
-        match self {
-            TFIDFSubEnum::Classic(classic) => classic.length_norm(length),
-            #[cfg(test)]
-            TFIDFSubEnum::Simple(simple) => simple.length_norm(length),
-            #[cfg(test)]
-            TFIDFSubEnum::Test(test) => test.length_norm(length),
-            #[cfg(test)]
-            TFIDFSubEnum::Simple1(test) => test.length_norm(length),
-        }
+  fn length_norm(&self, length: i32) -> f32 {
+    match self {
+      TFIDFSubEnum::Classic(classic) => classic.length_norm(length),
+      #[cfg(test)]
+      TFIDFSubEnum::Simple(simple) => simple.length_norm(length),
+      #[cfg(test)]
+      TFIDFSubEnum::Test(test) => test.length_norm(length),
+      #[cfg(test)]
+      TFIDFSubEnum::Simple1(test) => test.length_norm(length),
     }
+  }
 }
 pub trait TFIDFSimilarityBase {
-    /// Computes a score factor based on a term or phrase's frequency in a document. This value is
-    /// multiplied by the [`Self::idf`] factor for each term in the query and these products
-    /// are then summed to form the initial score for a document.
-    ///
-    /// <p>Terms and phrases repeated in a document indicate the topic of the document, so
-    /// implementations of this method usually return larger values when <code>freq</code> is large,
-    /// and smaller values when <code>freq</code> is small.
-    ///
-    /// # Arguments
-    ///
-    /// * `freq` - the frequency of a term within a document
-    ///
-    /// # Returns
-    ///
-    /// A score factor based on a term's within-document frequency
-    fn tf(&self, freq: f32) -> f32;
-    /// Computes a score factor for a simple term and returns an explanation for that score factor.
-    ///
-    /// <p>The default implementation uses:
-    ///
-    /// <pre class="prettyprint">
-    /// idf(docFreq, docCount);
-    /// </pre>
-    ///
-    /// Note that [`CollectionStatistics::get_doc_count`] is used instead of
-    /// `IndexReader::num_docs()` because also [`TermStatistics::get_doc_freq`] is used,
-    /// and when the latter is inaccurate, so is [`CollectionStatistics::get_doc_count`],
-    /// and in the same direction. In addition, [`CollectionStatistics::get_doc_count`]
-    /// does not skew when fields are sparse.
-    ///
-    /// # Arguments
-    ///
-    /// * `collection_stats` - collection-level statistics
-    /// * `term_stats` - term-level statistics for the term
-    ///
-    /// # Returns
-    ///
-    /// An [`Explanation`] that includes both an idf score factor and an explanation
-    /// for the term.
-    fn idf_explain(
-        &self,
-        collection_stats: &CollectionStatistics,
-        term_stats: &TermStatistics,
-    ) -> Explanation {
-        let df = term_stats.get_doc_freq();
-        let doc_count = collection_stats.get_doc_count();
-        let idf = self.idf(df, doc_count);
+  /// Computes a score factor based on a term or phrase's frequency in a document. This value is
+  /// multiplied by the [`Self::idf`] factor for each term in the query and these products
+  /// are then summed to form the initial score for a document.
+  ///
+  /// <p>Terms and phrases repeated in a document indicate the topic of the document, so
+  /// implementations of this method usually return larger values when <code>freq</code> is large,
+  /// and smaller values when <code>freq</code> is small.
+  ///
+  /// # Arguments
+  ///
+  /// * `freq` - the frequency of a term within a document
+  ///
+  /// # Returns
+  ///
+  /// A score factor based on a term's within-document frequency
+  fn tf(&self, freq: f32) -> f32;
+  /// Computes a score factor for a simple term and returns an explanation for that score factor.
+  ///
+  /// <p>The default implementation uses:
+  ///
+  /// <pre class="prettyprint">
+  /// idf(docFreq, docCount);
+  /// </pre>
+  ///
+  /// Note that [`CollectionStatistics::get_doc_count`] is used instead of
+  /// `IndexReader::num_docs()` because also [`TermStatistics::get_doc_freq`] is used,
+  /// and when the latter is inaccurate, so is [`CollectionStatistics::get_doc_count`],
+  /// and in the same direction. In addition, [`CollectionStatistics::get_doc_count`]
+  /// does not skew when fields are sparse.
+  ///
+  /// # Arguments
+  ///
+  /// * `collection_stats` - collection-level statistics
+  /// * `term_stats` - term-level statistics for the term
+  ///
+  /// # Returns
+  ///
+  /// An [`Explanation`] that includes both an idf score factor and an explanation
+  /// for the term.
+  fn idf_explain(
+    &self,
+    collection_stats: &CollectionStatistics,
+    term_stats: &TermStatistics,
+  ) -> Explanation {
+    let df = term_stats.get_doc_freq();
+    let doc_count = collection_stats.get_doc_count();
+    let idf = self.idf(df, doc_count);
 
-        Explanation::match_(
-            idf,
-            "idf(docFreq, docCount)".to_string(),
-            vec![
-                Explanation::match_no_details(
-                    df,
-                    "docFreq, number of documents containing term".to_string(),
-                ),
-                Explanation::match_no_details(
-                    doc_count,
-                    "docCount, total number of documents with field".to_string(),
-                ),
-            ],
-        )
-    }
-    /// Computes a score factor for a phrase.
-    ///
-    /// <p>The default implementation sums the idf factor for each term in the phrase.
-    ///
-    /// # Arguments
-    ///
-    /// * `collection_stats` - collection-level statistics
-    /// * `term_stats` - term-level statistics for the terms in the phrase
-    ///
-    /// # Returns
-    ///
-    /// An [`Explanation`] that includes both an idf score factor for the phrase
-    /// and an explanation for each term.
-    fn idf_explain_from_multi_ts(
-        &self,
-        collection_stats: &CollectionStatistics,
-        term_stats: &[TermStatistics],
-    ) -> Explanation {
-        let mut idf = 0f64;
-        let mut subs = Vec::new();
+    Explanation::match_(
+      idf,
+      "idf(docFreq, docCount)".to_string(),
+      vec![
+        Explanation::match_no_details(
+          df,
+          "docFreq, number of documents containing term".to_string(),
+        ),
+        Explanation::match_no_details(
+          doc_count,
+          "docCount, total number of documents with field".to_string(),
+        ),
+      ],
+    )
+  }
+  /// Computes a score factor for a phrase.
+  ///
+  /// <p>The default implementation sums the idf factor for each term in the phrase.
+  ///
+  /// # Arguments
+  ///
+  /// * `collection_stats` - collection-level statistics
+  /// * `term_stats` - term-level statistics for the terms in the phrase
+  ///
+  /// # Returns
+  ///
+  /// An [`Explanation`] that includes both an idf score factor for the phrase
+  /// and an explanation for each term.
+  fn idf_explain_from_multi_ts(
+    &self,
+    collection_stats: &CollectionStatistics,
+    term_stats: &[TermStatistics],
+  ) -> Explanation {
+    let mut idf = 0f64;
+    let mut subs = Vec::new();
 
-        for stat in term_stats {
-            let idf_explain = self.idf_explain(collection_stats, stat);
-            let v = match idf_explain.value.to_f32() {
-                Some(v) => v,
-                None => {
-                    return Explanation::error_explanation(format!(
-                        "idf value {} can not convert to f32",
-                        idf_explain.value
-                    ));
-                },
-            };
-            idf += v as f64;
-            subs.push(idf_explain);
-        }
-        Explanation::match_(idf as f32, "idf(), sum of:".to_string(), subs)
+    for stat in term_stats {
+      let idf_explain = self.idf_explain(collection_stats, stat);
+      let v = match idf_explain.value.to_f32() {
+        Some(v) => v,
+        None => {
+          return Explanation::error_explanation(format!(
+            "idf value {} can not convert to f32",
+            idf_explain.value
+          ));
+        },
+      };
+      idf += v as f64;
+      subs.push(idf_explain);
     }
-    /// Computes a score factor based on a term's document frequency (the number of documents which
-    /// contain the term). This value is multiplied by the [`Self::tf`] factor for each term in
-    /// the query and these products are then summed to form the initial score for a document.
-    ///
-    /// <p>Terms that occur in fewer documents are better indicators of topic, so implementations of
-    /// this method usually return larger values for rare terms, and smaller values for common terms.
-    ///
-    /// # Arguments
-    ///
-    /// * `doc_freq` - the number of documents which contain the term
-    /// * `doc_count` - the total number of documents in the collection
-    ///
-    /// # Returns
-    ///
-    /// A score factor based on the term's document frequency.
-    fn idf(&self, doc_freq: i64, doc_count: i64) -> f32;
-    /// Compute an index-time normalization value for this field instance.
-    ///
-    /// # Arguments
-    ///
-    /// * `length` - the number of terms in the field, optionally
-    ///   `Self::get_discount_overlaps` discounting overlaps
-    ///
-    /// # Returns
-    ///
-    /// A length normalization value.
-    fn length_norm(&self, length: i32) -> f32;
+    Explanation::match_(idf as f32, "idf(), sum of:".to_string(), subs)
+  }
+  /// Computes a score factor based on a term's document frequency (the number of documents which
+  /// contain the term). This value is multiplied by the [`Self::tf`] factor for each term in
+  /// the query and these products are then summed to form the initial score for a document.
+  ///
+  /// <p>Terms that occur in fewer documents are better indicators of topic, so implementations of
+  /// this method usually return larger values for rare terms, and smaller values for common terms.
+  ///
+  /// # Arguments
+  ///
+  /// * `doc_freq` - the number of documents which contain the term
+  /// * `doc_count` - the total number of documents in the collection
+  ///
+  /// # Returns
+  ///
+  /// A score factor based on the term's document frequency.
+  fn idf(&self, doc_freq: i64, doc_count: i64) -> f32;
+  /// Compute an index-time normalization value for this field instance.
+  ///
+  /// # Arguments
+  ///
+  /// * `length` - the number of terms in the field, optionally
+  ///   `Self::get_discount_overlaps` discounting overlaps
+  ///
+  /// # Returns
+  ///
+  /// A length normalization value.
+  fn length_norm(&self, length: i32) -> f32;
 }

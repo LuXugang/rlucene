@@ -26,7 +26,7 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
-    AllDISI, DocIdSetIterator, DocIdSetIteratorEnum2, EmptyDISI, RangeDISI,
+  AllDISI, DocIdSetIterator, DocIdSetIteratorEnum2, EmptyDISI, RangeDISI,
 };
 use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
 use crate::core::search::explanation::Explanation;
@@ -47,426 +47,416 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct SortedNumericDocValuesRangeQuery {
-    id: Identity,
-    field: String,
-    lower_value: i64,
-    upper_value: i64,
+  id: Identity,
+  field: String,
+  lower_value: i64,
+  upper_value: i64,
 }
 impl SortedNumericDocValuesRangeQuery {
-    pub fn new(field: String, lower_value: i64, upper_value: i64) -> Self {
-        Self {
-            id: Identity::new(),
-            field,
-            lower_value,
-            upper_value,
-        }
+  pub fn new(field: String, lower_value: i64, upper_value: i64) -> Self {
+    Self {
+      id: Identity::new(),
+      field,
+      lower_value,
+      upper_value,
     }
+  }
 }
 impl PartialEq for SortedNumericDocValuesRangeQuery {
-    fn eq(&self, other: &Self) -> bool {
-        self.field == other.field
-            && self.lower_value == other.lower_value
-            && self.upper_value == other.upper_value
-    }
+  fn eq(&self, other: &Self) -> bool {
+    self.field == other.field
+      && self.lower_value == other.lower_value
+      && self.upper_value == other.upper_value
+  }
 }
 impl Eq for SortedNumericDocValuesRangeQuery {}
 
 impl Hash for SortedNumericDocValuesRangeQuery {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.field.hash(state);
-        self.lower_value.hash(state);
-        self.upper_value.hash(state);
-    }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.field.hash(state);
+    self.lower_value.hash(state);
+    self.upper_value.hash(state);
+  }
 }
 
 impl HasIdentity for SortedNumericDocValuesRangeQuery {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 impl QueryBase for SortedNumericDocValuesRangeQuery {
-    fn as_string(&self, field: &str) -> Result<String> {
-        let mut out = String::new();
+  fn as_string(&self, field: &str) -> Result<String> {
+    let mut out = String::new();
 
-        if self.field != field {
-            out.push_str(&self.field);
-            out.push(':');
-        }
-        out.push('[');
-        out.push_str(&self.lower_value.to_string());
-        out.push_str(" TO ");
-        out.push_str(&self.upper_value.to_string());
-        out.push(']');
-        Ok(out)
+    if self.field != field {
+      out.push_str(&self.field);
+      out.push(':');
     }
+    out.push('[');
+    out.push_str(&self.lower_value.to_string());
+    out.push_str(" TO ");
+    out.push_str(&self.upper_value.to_string());
+    out.push(']');
+    Ok(out)
+  }
 
-    fn create_weight<IRC>(
-        self,
-        _searcher: &IndexSearcher<IRC>,
-        score_mode: &ScoreMode,
-        boost: f32,
-    ) -> Result<QueryWeight<IRC>>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        Ok(Box::new(SortedNumericDocValuesRangeQueryWeight::new(
-            self,
-            *score_mode,
-            boost,
-        )))
-    }
+  fn create_weight<IRC>(
+    self,
+    _searcher: &IndexSearcher<IRC>,
+    score_mode: &ScoreMode,
+    boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    Ok(Box::new(SortedNumericDocValuesRangeQueryWeight::new(
+      self,
+      *score_mode,
+      boost,
+    )))
+  }
 
-    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        if self.lower_value == i64::MIN && self.upper_value == i64::MAX {
-            return Ok(FieldExistsQuery::new(self.field).into());
-        }
-        if self.lower_value > self.upper_value {
-            return Ok(MatchNoDocsQuery::new().into());
-        }
-        Ok(self.into())
+  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    if self.lower_value == i64::MIN && self.upper_value == i64::MAX {
+      return Ok(FieldExistsQuery::new(self.field).into());
     }
+    if self.lower_value > self.upper_value {
+      return Ok(MatchNoDocsQuery::new().into());
+    }
+    Ok(self.into())
+  }
 
-    fn visit<QV>(&self, _visitor: &QV)
-    where
-        QV: QueryVisitor,
-    {
-        todo!()
-    }
+  fn visit<QV>(&self, _visitor: &QV)
+  where
+    QV: QueryVisitor,
+  {
+    todo!()
+  }
 }
 pub struct SortedNumericDocValuesRangeQueryWeight {
-    query: SortedNumericDocValuesRangeQuery,
-    base: ConstantScoreWeight,
-    parent_query: Arc<Query>,
-    score_mode: ScoreMode,
+  query: SortedNumericDocValuesRangeQuery,
+  base: ConstantScoreWeight,
+  parent_query: Arc<Query>,
+  score_mode: ScoreMode,
 }
 impl SortedNumericDocValuesRangeQueryWeight {
-    pub(crate) fn new(
-        query: SortedNumericDocValuesRangeQuery,
-        score_mode: ScoreMode,
-        boost: f32,
-    ) -> Self {
-        let query_clone = query.clone();
-        let parent_query = Arc::new(query.into());
-        Self {
-            query: query_clone,
-            base: ConstantScoreWeight::new(boost),
-            parent_query,
-            score_mode,
-        }
+  pub(crate) fn new(
+    query: SortedNumericDocValuesRangeQuery,
+    score_mode: ScoreMode,
+    boost: f32,
+  ) -> Self {
+    let query_clone = query.clone();
+    let parent_query = Arc::new(query.into());
+    Self {
+      query: query_clone,
+      base: ConstantScoreWeight::new(boost),
+      parent_query,
+      score_mode,
+    }
+  }
+
+  fn get_doc_id_set_iterator_or_null_for_primary_sort<NDV, SK, LR>(
+    &self,
+    reader: &LR,
+    numeric_doc_values: &mut NDV,
+    skipper: &mut SK,
+  ) -> Result<Option<DISI>>
+  where
+    NDV: NumericDocValues,
+    SK: DocValuesSkipper,
+    LR: LeafReader,
+  {
+    if skipper.doc_count() != reader.max_doc()? {
+      return Ok(None);
     }
 
-    fn get_doc_id_set_iterator_or_null_for_primary_sort<NDV, SK, LR>(
-        &self,
-        reader: &LR,
-        numeric_doc_values: &mut NDV,
-        skipper: &mut SK,
-    ) -> Result<Option<DISI>>
-    where
-        NDV: NumericDocValues,
-        SK: DocValuesSkipper,
-        LR: LeafReader,
-    {
-        if skipper.doc_count() != reader.max_doc()? {
-            return Ok(None);
-        }
-
-        let index_sort = reader.get_metadata()?.get_sort();
-        let index_sort = match index_sort {
-            Some(index_sort) => index_sort,
-            None => return Ok(None),
-        };
-        let sort_fields = index_sort.get_sort();
-        let Some(first) = sort_fields.first() else {
-            return Ok(None);
-        };
-        if first.get_field() != Some(&self.query.field) {
-            return Ok(None);
-        }
-        let min_doc_id: i32;
-        let max_doc_id: i32;
-
-        if first.get_reverse() {
-            if skipper.max_value() <= self.query.upper_value {
-                min_doc_id = 0;
-            } else {
-                skipper.advance_with_range(i64::MIN, self.query.upper_value)?;
-                min_doc_id =
-                    Self::next_doc(skipper.min_doc_id_with_level(0), numeric_doc_values, |l| {
-                        l <= self.query.upper_value
-                    })?;
-            }
-
-            if skipper.min_value() >= self.query.lower_value {
-                max_doc_id = skipper.doc_count();
-            } else {
-                skipper.advance_with_range(i64::MIN, self.query.lower_value)?;
-                max_doc_id =
-                    Self::next_doc(skipper.min_doc_id_with_level(0), numeric_doc_values, |l| {
-                        l < self.query.lower_value
-                    })?;
-            }
-        } else {
-            if skipper.min_value() >= self.query.lower_value {
-                min_doc_id = 0;
-            } else {
-                skipper.advance_with_range(self.query.lower_value, i64::MAX)?;
-                min_doc_id =
-                    Self::next_doc(skipper.min_doc_id_with_level(0), numeric_doc_values, |l| {
-                        l >= self.query.lower_value
-                    })?;
-            }
-
-            if skipper.max_value() <= self.query.upper_value {
-                max_doc_id = skipper.doc_count();
-            } else {
-                skipper.advance_with_range(self.query.upper_value, i64::MAX)?;
-                max_doc_id =
-                    Self::next_doc(skipper.min_doc_id_with_level(0), numeric_doc_values, |l| {
-                        l > self.query.upper_value
-                    })?;
-            }
-        }
-
-        if min_doc_id == max_doc_id {
-            return Ok(Some(DISI::A(EmptyDISI::default())));
-        }
-
-        Ok(Some(DISI::B(RangeDISI::new(min_doc_id, max_doc_id)?)))
+    let index_sort = reader.get_metadata()?.get_sort();
+    let index_sort = match index_sort {
+      Some(index_sort) => index_sort,
+      None => return Ok(None),
+    };
+    let sort_fields = index_sort.get_sort();
+    let Some(first) = sort_fields.first() else {
+      return Ok(None);
+    };
+    if first.get_field() != Some(&self.query.field) {
+      return Ok(None);
     }
-    fn next_doc<NDV, P>(start_doc: i32, doc_values: &mut NDV, predicate: P) -> Result<i32>
-    where
-        NDV: NumericDocValues,
-        P: Fn(i64) -> bool,
-    {
-        let mut doc = doc_values.doc_id();
-        if start_doc > doc {
-            doc = doc_values.advance(start_doc)?;
-        }
+    let min_doc_id: i32;
+    let max_doc_id: i32;
 
-        while doc < NO_MORE_DOCS {
-            if predicate(doc_values.long_value()?) {
-                break;
-            }
-            doc = doc_values.next_doc()?;
-        }
-        Ok(doc)
+    if first.get_reverse() {
+      if skipper.max_value() <= self.query.upper_value {
+        min_doc_id = 0;
+      } else {
+        skipper.advance_with_range(i64::MIN, self.query.upper_value)?;
+        min_doc_id = Self::next_doc(skipper.min_doc_id_with_level(0), numeric_doc_values, |l| {
+          l <= self.query.upper_value
+        })?;
+      }
+
+      if skipper.min_value() >= self.query.lower_value {
+        max_doc_id = skipper.doc_count();
+      } else {
+        skipper.advance_with_range(i64::MIN, self.query.lower_value)?;
+        max_doc_id = Self::next_doc(skipper.min_doc_id_with_level(0), numeric_doc_values, |l| {
+          l < self.query.lower_value
+        })?;
+      }
+    } else {
+      if skipper.min_value() >= self.query.lower_value {
+        min_doc_id = 0;
+      } else {
+        skipper.advance_with_range(self.query.lower_value, i64::MAX)?;
+        min_doc_id = Self::next_doc(skipper.min_doc_id_with_level(0), numeric_doc_values, |l| {
+          l >= self.query.lower_value
+        })?;
+      }
+
+      if skipper.max_value() <= self.query.upper_value {
+        max_doc_id = skipper.doc_count();
+      } else {
+        skipper.advance_with_range(self.query.upper_value, i64::MAX)?;
+        max_doc_id = Self::next_doc(skipper.min_doc_id_with_level(0), numeric_doc_values, |l| {
+          l > self.query.upper_value
+        })?;
+      }
     }
+
+    if min_doc_id == max_doc_id {
+      return Ok(Some(DISI::A(EmptyDISI::default())));
+    }
+
+    Ok(Some(DISI::B(RangeDISI::new(min_doc_id, max_doc_id)?)))
+  }
+  fn next_doc<NDV, P>(start_doc: i32, doc_values: &mut NDV, predicate: P) -> Result<i32>
+  where
+    NDV: NumericDocValues,
+    P: Fn(i64) -> bool,
+  {
+    let mut doc = doc_values.doc_id();
+    if start_doc > doc {
+      doc = doc_values.advance(start_doc)?;
+    }
+
+    while doc < NO_MORE_DOCS {
+      if predicate(doc_values.long_value()?) {
+        break;
+      }
+      doc = doc_values.next_doc()?;
+    }
+    Ok(doc)
+  }
 }
 
 impl<IRC> SegmentCacheable<IRC> for SortedNumericDocValuesRangeQueryWeight
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-        let field = vec![self.query.field.clone()];
-        DocValues::is_cacheable(ctx, field.as_ref())
-    }
+  fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
+    let field = vec![self.query.field.clone()];
+    DocValues::is_cacheable(ctx, field.as_ref())
+  }
 }
 
 impl<IRC> Weight<IRC> for SortedNumericDocValuesRangeQueryWeight
 where
-    IRC: IndexReaderContext,
+  IRC: IndexReaderContext,
 {
-    type Matches = MatchWithNoTerms;
+  type Matches = MatchWithNoTerms;
 
-    fn matches(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        doc: i32,
-        searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::Matches>> {
-        self.default_matches(context, doc, searcher)
+  fn matches(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::Matches>> {
+    self.default_matches(context, doc, searcher)
+  }
+
+  fn explain(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Explanation> {
+    let scorer = self.scorer(context, searcher)?;
+    self
+      .base
+      .explain(scorer, doc, self.parent_query.as_string("")?)
+  }
+
+  fn get_query(&self) -> Arc<Query> {
+    self.parent_query.clone()
+  }
+
+  type ScorerSupplier = QueryWeightSs<IRC>;
+
+  fn scorer_supplier(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::ScorerSupplier>> {
+    if context
+      .reader()
+      .get_field_infos()?
+      .field_info_by_name(&self.query.field)
+      .is_none()
+    {
+      return Ok(None);
     }
+    let mut skipper_opt = context.reader().get_doc_values_skipper(&self.query.field)?;
+    if let Some(ref skipper) = skipper_opt {
+      if skipper.min_value() > self.query.upper_value
+        || skipper.max_value() < self.query.lower_value
+      {
+        return Ok(None);
+      }
 
-    fn explain(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        doc: i32,
-        searcher: &IndexSearcher<IRC>,
-    ) -> Result<Explanation> {
-        let scorer = self.scorer(context, searcher)?;
-        self.base
-            .explain(scorer, doc, self.parent_query.as_string("")?)
+      if skipper.doc_count() == context.reader().max_doc()?
+        && skipper.min_value() >= self.query.lower_value
+        && skipper.max_value() <= self.query.upper_value
+      {
+        let iter = AllDISI::new(skipper.doc_count());
+        let scorer = ConstantScoreScorer::from_disi(self.base.score(), self.score_mode, iter);
+        return Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))));
+      }
     }
-
-    fn get_query(&self) -> Arc<Query> {
-        self.parent_query.clone()
+    let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
+    let iterator = if values.is_single_valued() {
+      let mut singleton = DocValues::unwrap_singleton_numeric(&mut values)?;
+      match skipper_opt {
+        Some(ref mut skipper) => {
+          let ps_iterator_opt = self.get_doc_id_set_iterator_or_null_for_primary_sort(
+            context.reader(),
+            &mut singleton,
+            skipper,
+          )?;
+          if let Some(ps_iterator) = ps_iterator_opt {
+            let v = DefaultScorerSupplier::new(ConstantScoreScorer::from_disi(
+              self.base.score(),
+              self.score_mode,
+              ps_iterator,
+            ));
+            return Ok(Some(Box::new(v)));
+          } else {
+            TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(singleton, self.query.clone()))
+          }
+        },
+        None => TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(singleton, self.query.clone())),
+      }
+    } else {
+      TwoPhaseIteratorEnum2::B(TwoPhaseIterator4::new(values, self.query.clone()))
+    };
+    match skipper_opt {
+      Some(skipper) => {
+        let v = DocValuesRangeIterator::new(
+          iterator,
+          skipper,
+          self.query.lower_value,
+          self.query.upper_value,
+          false,
+        );
+        let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, v);
+        let v = DefaultScorerSupplier::new(scorer);
+        Ok(Some(Box::new(v)))
+      },
+      None => {
+        let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
+        let v = DefaultScorerSupplier::new(scorer);
+        Ok(Some(Box::new(v)))
+      },
     }
-
-    type ScorerSupplier = QueryWeightSs<IRC>;
-
-    fn scorer_supplier(
-        &self,
-        context: &LeafReaderContext<IRCLeafReader<IRC>>,
-        _searcher: &IndexSearcher<IRC>,
-    ) -> Result<Option<Self::ScorerSupplier>> {
-        if context
-            .reader()
-            .get_field_infos()?
-            .field_info_by_name(&self.query.field)
-            .is_none()
-        {
-            return Ok(None);
-        }
-        let mut skipper_opt = context.reader().get_doc_values_skipper(&self.query.field)?;
-        if let Some(ref skipper) = skipper_opt {
-            if skipper.min_value() > self.query.upper_value
-                || skipper.max_value() < self.query.lower_value
-            {
-                return Ok(None);
-            }
-
-            if skipper.doc_count() == context.reader().max_doc()?
-                && skipper.min_value() >= self.query.lower_value
-                && skipper.max_value() <= self.query.upper_value
-            {
-                let iter = AllDISI::new(skipper.doc_count());
-                let scorer =
-                    ConstantScoreScorer::from_disi(self.base.score(), self.score_mode, iter);
-                return Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))));
-            }
-        }
-        let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
-        let iterator = if values.is_single_valued() {
-            let mut singleton = DocValues::unwrap_singleton_numeric(&mut values)?;
-            match skipper_opt {
-                Some(ref mut skipper) => {
-                    let ps_iterator_opt = self.get_doc_id_set_iterator_or_null_for_primary_sort(
-                        context.reader(),
-                        &mut singleton,
-                        skipper,
-                    )?;
-                    if let Some(ps_iterator) = ps_iterator_opt {
-                        let v = DefaultScorerSupplier::new(ConstantScoreScorer::from_disi(
-                            self.base.score(),
-                            self.score_mode,
-                            ps_iterator,
-                        ));
-                        return Ok(Some(Box::new(v)));
-                    } else {
-                        TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(
-                            singleton,
-                            self.query.clone(),
-                        ))
-                    }
-                },
-                None => {
-                    TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(singleton, self.query.clone()))
-                },
-            }
-        } else {
-            TwoPhaseIteratorEnum2::B(TwoPhaseIterator4::new(values, self.query.clone()))
-        };
-        match skipper_opt {
-            Some(skipper) => {
-                let v = DocValuesRangeIterator::new(
-                    iterator,
-                    skipper,
-                    self.query.lower_value,
-                    self.query.upper_value,
-                    false,
-                );
-                let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, v);
-                let v = DefaultScorerSupplier::new(scorer);
-                Ok(Some(Box::new(v)))
-            },
-            None => {
-                let scorer =
-                    ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
-                let v = DefaultScorerSupplier::new(scorer);
-                Ok(Some(Box::new(v)))
-            },
-        }
-    }
+  }
 }
 pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, RangeDISI>;
 pub struct TwoPhaseIterator3<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    singleton: N,
-    query: SortedNumericDocValuesRangeQuery,
+  singleton: N,
+  query: SortedNumericDocValuesRangeQuery,
 }
 impl<N> TwoPhaseIterator3<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    pub fn new(singleton: N, query: SortedNumericDocValuesRangeQuery) -> Self {
-        TwoPhaseIterator3 { singleton, query }
-    }
+  pub fn new(singleton: N, query: SortedNumericDocValuesRangeQuery) -> Self {
+    TwoPhaseIterator3 { singleton, query }
+  }
 }
 impl<N> TwoPhaseIterator for TwoPhaseIterator3<N>
 where
-    N: NumericDocValues,
+  N: NumericDocValues,
 {
-    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&mut self.singleton)
-    }
+  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+    Box::new(&mut self.singleton)
+  }
 
-    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&self.singleton)
-    }
+  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+    Box::new(&self.singleton)
+  }
 
-    fn matches(&mut self) -> Result<bool> {
-        let value = self.singleton.long_value()?;
-        Ok(value >= self.query.lower_value && value <= self.query.upper_value)
-    }
+  fn matches(&mut self) -> Result<bool> {
+    let value = self.singleton.long_value()?;
+    Ok(value >= self.query.lower_value && value <= self.query.upper_value)
+  }
 
-    fn match_cost(&self) -> f32 {
-        2f32
-    }
+  fn match_cost(&self) -> f32 {
+    2f32
+  }
 }
 pub struct TwoPhaseIterator4<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    value: S,
-    query: SortedNumericDocValuesRangeQuery,
+  value: S,
+  query: SortedNumericDocValuesRangeQuery,
 }
 
 impl<S> TwoPhaseIterator4<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    pub fn new(value: S, query: SortedNumericDocValuesRangeQuery) -> Self {
-        TwoPhaseIterator4 { value, query }
-    }
+  pub fn new(value: S, query: SortedNumericDocValuesRangeQuery) -> Self {
+    TwoPhaseIterator4 { value, query }
+  }
 }
 
 impl<S> TwoPhaseIterator for TwoPhaseIterator4<S>
 where
-    S: SortedNumericDocValues,
+  S: SortedNumericDocValues,
 {
-    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&mut self.value)
+  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+    Box::new(&mut self.value)
+  }
+
+  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+    Box::new(&self.value)
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    let lower = self.query.lower_value;
+    let upper = self.query.upper_value;
+    let count = self.value.doc_value_count()?;
+    for _ in 0..count {
+      let value = self.value.next_value()?;
+
+      if value < lower {
+        continue;
+      }
+      return Ok(value <= upper);
     }
 
-    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&self.value)
-    }
+    Ok(false)
+  }
 
-    fn matches(&mut self) -> Result<bool> {
-        let lower = self.query.lower_value;
-        let upper = self.query.upper_value;
-        let count = self.value.doc_value_count()?;
-        for _ in 0..count {
-            let value = self.value.next_value()?;
-
-            if value < lower {
-                continue;
-            }
-            return Ok(value <= upper);
-        }
-
-        Ok(false)
-    }
-
-    fn match_cost(&self) -> f32 {
-        2f32
-    }
+  fn match_cost(&self) -> f32 {
+    2f32
+  }
 }

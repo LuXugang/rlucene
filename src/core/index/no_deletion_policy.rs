@@ -23,23 +23,23 @@ use std::fmt::{Display, Formatter};
 pub struct NoDeletionPolicy;
 
 impl Display for NoDeletionPolicy {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }
 
 impl IndexDeletionPolicy for NoDeletionPolicy {
-    fn on_init<IC>(&self, _commits: &mut [IC]) -> Result<()>
-    where
-        IC: IndexCommit,
-    {
-        Ok(())
-    }
+  fn on_init<IC>(&self, _commits: &mut [IC]) -> Result<()>
+  where
+    IC: IndexCommit,
+  {
+    Ok(())
+  }
 
-    fn on_commit<IC>(&self, _commits: &mut [IC]) -> Result<()>
-    where
-        IC: IndexCommit,
-    {
-        Ok(())
-    }
+  fn on_commit<IC>(&self, _commits: &mut [IC]) -> Result<()>
+  where
+    IC: IndexCommit,
+  {
+    Ok(())
+  }
 }

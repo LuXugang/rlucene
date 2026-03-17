@@ -17,104 +17,104 @@
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::monotonic_long_values::{
-    MonotonicLongValues, MonotonicLongValuesBuilder,
+  MonotonicLongValues, MonotonicLongValuesBuilder,
 };
 use crate::core::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
 
 pub(crate) struct DeltaPackedLongValues {
-    pub(crate) sub_long_value: Option<MonotonicLongValues>,
-    pub(crate) mins: Vec<i64>,
+  pub(crate) sub_long_value: Option<MonotonicLongValues>,
+  pub(crate) mins: Vec<i64>,
 }
 
 impl DeltaPackedLongValues {
-    const BASE_RAM_BYTES_USED: u64 = 0;
-    pub(crate) fn new(mins: Vec<i64>, sub_reader: Option<MonotonicLongValues>) -> Self {
-        Self {
-            sub_long_value: sub_reader,
-            mins,
-        }
+  const BASE_RAM_BYTES_USED: u64 = 0;
+  pub(crate) fn new(mins: Vec<i64>, sub_reader: Option<MonotonicLongValues>) -> Self {
+    Self {
+      sub_long_value: sub_reader,
+      mins,
     }
-    pub(crate) fn decode_block(&self, block: i32, dest: &mut [i64], count: i32) -> i32 {
-        let min = self.mins[block as usize];
-        for item in dest.iter_mut().take(count as usize) {
-            *item += min;
-        }
-        match self.sub_long_value {
-            Some(ref sub) => sub.decode_block(block, dest, count),
-            _ => count,
-        }
+  }
+  pub(crate) fn decode_block(&self, block: i32, dest: &mut [i64], count: i32) -> i32 {
+    let min = self.mins[block as usize];
+    for item in dest.iter_mut().take(count as usize) {
+      *item += min;
     }
+    match self.sub_long_value {
+      Some(ref sub) => sub.decode_block(block, dest, count),
+      _ => count,
+    }
+  }
 
-    pub(crate) fn get_value(&self, block: i32, element: i32, _value: u64) -> i64 {
-        let current = self.mins[block as usize];
-        match self.sub_long_value {
-            Some(ref reader) => reader.get_value(block, element, current as u64),
-            None => current,
-        }
+  pub(crate) fn get_value(&self, block: i32, element: i32, _value: u64) -> i64 {
+    let current = self.mins[block as usize];
+    match self.sub_long_value {
+      Some(ref reader) => reader.get_value(block, element, current as u64),
+      None => current,
     }
+  }
 }
 
 pub struct DeltaPackedLongValuesBuilder {
-    pub(crate) sub_builder: Option<MonotonicLongValuesBuilder>,
-    pub(crate) mins: Vec<i64>,
+  pub(crate) sub_builder: Option<MonotonicLongValuesBuilder>,
+  pub(crate) mins: Vec<i64>,
 }
 impl Default for DeltaPackedLongValuesBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl DeltaPackedLongValuesBuilder {
-    // TODO
-    const BASE_RAM_BYTES_USED: u64 = 0;
-    pub(crate) fn new() -> DeltaPackedLongValuesBuilder {
-        Self::with_sub_builder(None)
+  // TODO
+  const BASE_RAM_BYTES_USED: u64 = 0;
+  pub(crate) fn new() -> DeltaPackedLongValuesBuilder {
+    Self::with_sub_builder(None)
+  }
+  pub(crate) fn with_sub_builder(
+    sub_builder: Option<MonotonicLongValuesBuilder>,
+  ) -> DeltaPackedLongValuesBuilder {
+    Self {
+      sub_builder,
+      mins: vec![0; INITIAL_PAGE_COUNT as usize],
     }
-    pub(crate) fn with_sub_builder(
-        sub_builder: Option<MonotonicLongValuesBuilder>,
-    ) -> DeltaPackedLongValuesBuilder {
-        Self {
-            sub_builder,
-            mins: vec![0; INITIAL_PAGE_COUNT as usize],
-        }
+  }
+
+  pub(crate) fn build(mut self, values_off: i32) -> Result<DeltaPackedLongValues> {
+    let sub_reader = match self.sub_builder.take() {
+      Some(sb) => Some(sb.build(values_off)?),
+      None => None,
+    };
+
+    self.mins.truncate(values_off as usize);
+    // TODO:
+    let _ram_bytes_used = 0;
+
+    Ok(DeltaPackedLongValues::new(self.mins, sub_reader))
+  }
+  pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) {
+    if let Some(sub_builder) = self.sub_builder.as_mut() {
+      sub_builder.pack(values, num_values, block);
     }
 
-    pub(crate) fn build(mut self, values_off: i32) -> Result<DeltaPackedLongValues> {
-        let sub_reader = match self.sub_builder.take() {
-            Some(sb) => Some(sb.build(values_off)?),
-            None => None,
-        };
-
-        self.mins.truncate(values_off as usize);
-        // TODO:
-        let _ram_bytes_used = 0;
-
-        Ok(DeltaPackedLongValues::new(self.mins, sub_reader))
+    let mut min = values[0];
+    for &value in values.iter().take(num_values as usize).skip(1) {
+      min = min.min(value);
     }
-    pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) {
-        if let Some(sub_builder) = self.sub_builder.as_mut() {
-            sub_builder.pack(values, num_values, block);
-        }
+    for value in values.iter_mut().take(num_values as usize) {
+      *value -= min;
+    }
+    self.mins[block as usize] = min;
+  }
 
-        let mut min = values[0];
-        for &value in values.iter().take(num_values as usize).skip(1) {
-            min = min.min(value);
-        }
-        for value in values.iter_mut().take(num_values as usize) {
-            *value -= min;
-        }
-        self.mins[block as usize] = min;
+  pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<()> {
+    if let Some(ref mut builder) = self.sub_builder {
+      builder.grow(new_block_count)?
     }
-
-    pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<()> {
-        if let Some(ref mut builder) = self.sub_builder {
-            builder.grow(new_block_count)?
-        }
-        ArrayUtil::grow_exact(&mut self.mins, new_block_count as usize)?;
-        // TODO: memory calculation not implement
-        Ok(())
-    }
-    fn base_ram_bytes_used(&self) -> u64 {
-        todo!()
-    }
+    ArrayUtil::grow_exact(&mut self.mins, new_block_count as usize)?;
+    // TODO: memory calculation not implement
+    Ok(())
+  }
+  fn base_ram_bytes_used(&self) -> u64 {
+    todo!()
+  }
 }

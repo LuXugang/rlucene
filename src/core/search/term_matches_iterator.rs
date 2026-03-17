@@ -24,67 +24,67 @@ use std::sync::Arc;
 /// A [`MatchesIterator`] over a single term's postings list
 pub(crate) struct TermMatchesIterator<PE>
 where
-    PE: PostingsEnum,
+  PE: PostingsEnum,
 {
-    upto: i32,
-    pos: i32,
-    pe: PE,
-    query: Arc<Query>,
+  upto: i32,
+  pos: i32,
+  pe: PE,
+  query: Arc<Query>,
 }
 impl<PE> TermMatchesIterator<PE>
 where
-    PE: PostingsEnum,
+  PE: PostingsEnum,
 {
-    pub fn new(mut pe: PE, query: Arc<Query>) -> Result<Self> {
-        Ok(TermMatchesIterator {
-            upto: pe.freq()?,
-            pos: 0,
-            pe,
-            query,
-        })
-    }
+  pub fn new(mut pe: PE, query: Arc<Query>) -> Result<Self> {
+    Ok(TermMatchesIterator {
+      upto: pe.freq()?,
+      pos: 0,
+      pe,
+      query,
+    })
+  }
 }
 impl<PE> MatchesIterator for TermMatchesIterator<PE>
 where
-    PE: PostingsEnum,
+  PE: PostingsEnum,
 {
-    fn next(&mut self) -> Result<bool> {
-        let prev = self.upto;
-        self.upto -= 1;
-        if prev > 0 {
-            self.pos = self.pe.next_position()?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+  fn next(&mut self) -> Result<bool> {
+    let prev = self.upto;
+    self.upto -= 1;
+    if prev > 0 {
+      self.pos = self.pe.next_position()?;
+      Ok(true)
+    } else {
+      Ok(false)
     }
+  }
 
-    fn start_position(&self) -> Result<i32> {
-        Ok(self.pos)
-    }
+  fn start_position(&self) -> Result<i32> {
+    Ok(self.pos)
+  }
 
-    fn end_position(&self) -> i32 {
-        self.upto
-    }
+  fn end_position(&self) -> i32 {
+    self.upto
+  }
 
-    fn start_offset(&self) -> Result<i32> {
-        self.pe.start_offset()
-    }
+  fn start_offset(&self) -> Result<i32> {
+    self.pe.start_offset()
+  }
 
-    fn end_offset(&self) -> Result<i32> {
-        self.pe.end_offset()
-    }
+  fn end_offset(&self) -> Result<i32> {
+    self.pe.end_offset()
+  }
 
-    type MatchesIterRef<'a>
-        = DummyMatchesIterator
-    where
-        Self: 'a;
+  type MatchesIterRef<'a>
+    = DummyMatchesIterator
+  where
+    Self: 'a;
 
-    fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>> {
-        Ok(None)
-    }
+  fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>> {
+    Ok(None)
+  }
 
-    fn get_query(&self) -> Arc<Query> {
-        self.query.clone()
-    }
+  fn get_query(&self) -> Arc<Query> {
+    self.query.clone()
+  }
 }

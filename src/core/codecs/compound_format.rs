@@ -22,28 +22,23 @@ use crate::core::util::error::lucene_error::Result;
 
 /// Encodes/decodes compound files
 pub trait CompoundFormat {
-    /// Returns a read-only view of the compound files in this segment.
-    type Directory<D>: Directory
-    where
-        D: Directory;
-    fn get_compound_reader<D>(&self, dir: &D, si: &SegmentInfo<D>) -> Result<Self::Directory<D>>
-    where
-        D: Directory;
+  /// Returns a read-only view of the compound files in this segment.
+  type Directory<D>: Directory
+  where
+    D: Directory;
+  fn get_compound_reader<D>(&self, dir: &D, si: &SegmentInfo<D>) -> Result<Self::Directory<D>>
+  where
+    D: Directory;
 
-    /// Packs the provided segment's files into a compound format.
-    ///
-    /// All files referenced by the provided [`SegmentInfo`]
-    /// must have their headers and footers
-    /// written using
-    /// [`CodecUtil::write_index_header`](crate::core::codecs::codec_util::CodecUtil::write_index_header)
-    /// and [`CodecUtil::write_footer`](crate::core::codecs::codec_util::CodecUtil::write_footer).
-    fn write<D>(
-        &self,
-        dir: &impl Directory,
-        si: &SegmentInfo<D>,
-        context: &IOContext,
-    ) -> Result<()>
-    where
-        D: Directory;
+  /// Packs the provided segment's files into a compound format.
+  ///
+  /// All files referenced by the provided [`SegmentInfo`]
+  /// must have their headers and footers
+  /// written using
+  /// [`CodecUtil::write_index_header`](crate::core::codecs::codec_util::CodecUtil::write_index_header)
+  /// and [`CodecUtil::write_footer`](crate::core::codecs::codec_util::CodecUtil::write_footer).
+  fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>
+  where
+    D: Directory;
 }
 pub type DefaultCompoundReader<D> = <DefaultCompoundFormat as CompoundFormat>::Directory<D>;

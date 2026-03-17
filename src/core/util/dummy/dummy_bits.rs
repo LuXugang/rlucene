@@ -23,17 +23,17 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyBits;
 
 impl HasIdentity for DummyBits {
-    fn identity(&self) -> &Identity {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn identity(&self) -> &Identity {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl Bits for DummyBits {
-    fn get(&self, _index: usize) -> Result<bool> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get(&self, _index: usize) -> Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn length(&self) -> usize {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn length(&self) -> usize {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

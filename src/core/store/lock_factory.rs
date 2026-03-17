@@ -34,16 +34,16 @@ use crate::core::util::error::lucene_error::Result;
 /// instances and clean up any leftover lock files before starting with the new
 /// configuration. Different implementations cannot work together.
 pub trait LockFactory: Display {
-    type Lock: Lock;
-    /// Returns a new got `Lock` instance identified by `lock_name`.
-    ///
-    /// # Arguments
-    /// * `lock_name` - The name of the lock to be created.
-    ///
-    /// # Errors
-    /// - Returns a `LockObtainFailedException` (optional specific exception) if
-    ///   the lock could not be obtained because it is currently held elsewhere.
-    /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain
-    ///   the lock.
-    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock>;
+  type Lock: Lock;
+  /// Returns a new got `Lock` instance identified by `lock_name`.
+  ///
+  /// # Arguments
+  /// * `lock_name` - The name of the lock to be created.
+  ///
+  /// # Errors
+  /// - Returns a `LockObtainFailedException` (optional specific exception) if
+  ///   the lock could not be obtained because it is currently held elsewhere.
+  /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain
+  ///   the lock.
+  fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock>;
 }

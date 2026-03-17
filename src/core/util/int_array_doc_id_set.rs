@@ -30,8 +30,8 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 /// # Note
 /// This is an internal API.
 pub struct IntArrayDocIdSet {
-    docs: Rc<Vec<i32>>,
-    length: i32,
+  docs: Rc<Vec<i32>>,
+  length: i32,
 }
 /// Builds an `IntArrayDocIdSet` from an `i32` array and its length.
 ///
@@ -42,175 +42,174 @@ pub struct IntArrayDocIdSet {
 ///   [`DocIdSetIterator::NO_MORE_DOCS`](NO_MORE_DOCS).
 /// * `len` - The valid docs length in the array.
 impl IntArrayDocIdSet {
-    pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet> {
-        if docs[length as usize] != NO_MORE_DOCS {
-            return Err(LuceneError::illegal_argument(format!(
-                "last value must be {NO_MORE_DOCS}"
-            )));
-        }
-        debug_assert!(
-            assert_array_sorted(&docs),
-            "IntArrayDocIdSet need docs to be sorted:{}",
-            docs.iter()
-                .map(|x| x.to_string())
-                .collect::<Vec<String>>()
-                .join(", ")
-        );
-        Ok(IntArrayDocIdSet {
-            docs: Rc::new(docs),
-            length,
-        })
+  pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet> {
+    if docs[length as usize] != NO_MORE_DOCS {
+      return Err(LuceneError::illegal_argument(format!(
+        "last value must be {NO_MORE_DOCS}"
+      )));
     }
+    debug_assert!(
+      assert_array_sorted(&docs),
+      "IntArrayDocIdSet need docs to be sorted:{}",
+      docs
+        .iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>()
+        .join(", ")
+    );
+    Ok(IntArrayDocIdSet {
+      docs: Rc::new(docs),
+      length,
+    })
+  }
 }
 fn assert_array_sorted(docs: &[i32]) -> bool {
-    docs.windows(2).all(|w| w[0] < w[1])
+  docs.windows(2).all(|w| w[0] < w[1])
 }
 
 impl DocIdSet for IntArrayDocIdSet {
-    type DocIdSetIterator = IntArrayDocIdSetIterator;
+  type DocIdSetIterator = IntArrayDocIdSetIterator;
 
-    fn iterator(&self) -> Result<Self::DocIdSetIterator> {
-        Ok(IntArrayDocIdSetIterator::new(
-            self.docs.clone(),
-            self.length,
-        ))
-    }
+  fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+    Ok(IntArrayDocIdSetIterator::new(
+      self.docs.clone(),
+      self.length,
+    ))
+  }
 
-    type Bits = DummyBits;
+  type Bits = DummyBits;
 
-    fn bits(&self) -> Option<Self::Bits> {
-        None
-    }
+  fn bits(&self) -> Option<Self::Bits> {
+    None
+  }
 }
 
 impl Accountable for IntArrayDocIdSet {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        todo!()
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    todo!()
+  }
 }
 
 pub struct IntArrayDocIdSetIterator {
-    docs: Rc<Vec<i32>>,
-    length: i32,
-    i: i32,
-    doc: i32,
+  docs: Rc<Vec<i32>>,
+  length: i32,
+  i: i32,
+  doc: i32,
 }
 impl IntArrayDocIdSetIterator {
-    pub fn new(docs: Rc<Vec<i32>>, length: i32) -> IntArrayDocIdSetIterator {
-        IntArrayDocIdSetIterator {
-            docs,
-            length,
-            i: 0,
-            doc: -1,
-        }
+  pub fn new(docs: Rc<Vec<i32>>, length: i32) -> IntArrayDocIdSetIterator {
+    IntArrayDocIdSetIterator {
+      docs,
+      length,
+      i: 0,
+      doc: -1,
     }
+  }
 }
 impl DocIdSetIterator for IntArrayDocIdSetIterator {
-    fn doc_id(&self) -> i32 {
-        self.doc
-    }
+  fn doc_id(&self) -> i32 {
+    self.doc
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.doc = self.docs[self.i as usize];
-        self.i += 1;
-        Ok(self.doc)
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.doc = self.docs[self.i as usize];
+    self.i += 1;
+    Ok(self.doc)
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        let mut bound = 1;
-        // given that we use this for small arrays only, this is very unlikely
-        // to overflow
-        while (self.i + bound < self.length)
-            && (self.docs[self.i as usize + bound as usize] < target)
-        {
-            bound *= 2;
-        }
-        let mut start = self.i as usize + (bound / 2) as usize;
-        let end = std::cmp::min(self.i + bound + 1, self.length) as usize;
-        let index = self.docs[start..end]
-            .binary_search(&target)
-            .unwrap_or_else(|index| index);
-        start += index;
-        self.doc = self.docs[start];
-        self.i = start as i32 + 1;
-        Ok(self.doc)
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    let mut bound = 1;
+    // given that we use this for small arrays only, this is very unlikely
+    // to overflow
+    while (self.i + bound < self.length) && (self.docs[self.i as usize + bound as usize] < target) {
+      bound *= 2;
     }
+    let mut start = self.i as usize + (bound / 2) as usize;
+    let end = std::cmp::min(self.i + bound + 1, self.length) as usize;
+    let index = self.docs[start..end]
+      .binary_search(&target)
+      .unwrap_or_else(|index| index);
+    start += index;
+    self.doc = self.docs[start];
+    self.i = start as i32 + 1;
+    Ok(self.doc)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Ok(self.length as i64)
-    }
+  fn cost(&self) -> Result<i64> {
+    Ok(self.length as i64)
+  }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use rand::Rng;
+  use rand::Rng;
 
-    use crate::core::search::doc_id_set::DocIdSet;
-    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::core::util::error::lucene_error::Result;
-    use crate::core::util::int_array_doc_id_set::IntArrayDocIdSet;
-    use crate::test::core::util::base_doc_id_set_test_case::{
-        BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
-    };
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use crate::core::search::doc_id_set::DocIdSet;
+  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::core::util::int_array_doc_id_set::IntArrayDocIdSet;
+  use crate::test::core::util::base_doc_id_set_test_case::{
+    BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
+  };
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
-    struct TestIntArrayDocIdSet;
-    impl BaseDocIdSetTestCase for TestIntArrayDocIdSet {
-        type DocIdSet = IntArrayDocIdSet;
+  struct TestIntArrayDocIdSet;
+  impl BaseDocIdSetTestCase for TestIntArrayDocIdSet {
+    type DocIdSet = IntArrayDocIdSet;
 
-        fn copy_of(&self, bs: &bit_set::BitSet, _length: usize) -> Result<Self::DocIdSet> {
-            let mut docs: Vec<i32> = vec![];
-            let iter = bs.iter();
-            for doc in iter {
-                docs.push(doc as i32);
-            }
-            let l = docs.len() as i32;
-            docs.push(NO_MORE_DOCS);
-            IntArrayDocIdSet::new(docs, l)
-        }
-
-        fn assert_equals<R: Rng + ?Sized>(
-            &self,
-            random: &mut R,
-            num_bits: usize,
-            ds1: &bit_set::BitSet,
-            ds2: impl DocIdSet,
-        ) -> Result<()> {
-            BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
-        }
-    }
-    #[test]
-    fn test_bit_0() -> Result<()> {
-        let test_case = TestIntArrayDocIdSet;
-        let mut random = random();
-        test_case.test_bit_0(&mut random)
+    fn copy_of(&self, bs: &bit_set::BitSet, _length: usize) -> Result<Self::DocIdSet> {
+      let mut docs: Vec<i32> = vec![];
+      let iter = bs.iter();
+      for doc in iter {
+        docs.push(doc as i32);
+      }
+      let l = docs.len() as i32;
+      docs.push(NO_MORE_DOCS);
+      IntArrayDocIdSet::new(docs, l)
     }
 
-    #[test]
-    fn test_bit_1() -> Result<()> {
-        let test_case = TestIntArrayDocIdSet;
-        let mut random = random();
-        test_case.test_bit_1(&mut random)
+    fn assert_equals<R: Rng + ?Sized>(
+      &self,
+      random: &mut R,
+      num_bits: usize,
+      ds1: &bit_set::BitSet,
+      ds2: impl DocIdSet,
+    ) -> Result<()> {
+      BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
     }
-    #[test]
-    fn test_bit_2() -> Result<()> {
-        let test_case = TestIntArrayDocIdSet;
-        let mut random = random();
-        test_case.test_bit_2(&mut random)
-    }
-    #[test]
-    fn test_against_bit_set() -> Result<()> {
-        let test_case = TestIntArrayDocIdSet;
-        let mut random = random();
-        test_case.test_against_bit_set(&mut random)
-    }
-    #[test]
-    fn test_ram_bytes_used() {
-        let test_case = TestIntArrayDocIdSet;
-        let mut random = random();
-        test_case.test_ram_bytes_used(&mut random);
-    }
+  }
+  #[test]
+  fn test_bit_0() -> Result<()> {
+    let test_case = TestIntArrayDocIdSet;
+    let mut random = random();
+    test_case.test_bit_0(&mut random)
+  }
 
-    impl BaseDocIdSetTestCaseSupperImpl for TestIntArrayDocIdSet {}
+  #[test]
+  fn test_bit_1() -> Result<()> {
+    let test_case = TestIntArrayDocIdSet;
+    let mut random = random();
+    test_case.test_bit_1(&mut random)
+  }
+  #[test]
+  fn test_bit_2() -> Result<()> {
+    let test_case = TestIntArrayDocIdSet;
+    let mut random = random();
+    test_case.test_bit_2(&mut random)
+  }
+  #[test]
+  fn test_against_bit_set() -> Result<()> {
+    let test_case = TestIntArrayDocIdSet;
+    let mut random = random();
+    test_case.test_against_bit_set(&mut random)
+  }
+  #[test]
+  fn test_ram_bytes_used() {
+    let test_case = TestIntArrayDocIdSet;
+    let mut random = random();
+    test_case.test_ram_bytes_used(&mut random);
+  }
+
+  impl BaseDocIdSetTestCaseSupperImpl for TestIntArrayDocIdSet {}
 }

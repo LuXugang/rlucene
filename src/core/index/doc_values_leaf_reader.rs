@@ -39,149 +39,149 @@ use std::sync::Arc;
 pub(crate) struct DocValuesLeafReader;
 
 impl Display for DocValuesLeafReader {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }
 
 impl IndexReader for DocValuesLeafReader {
-    type TermVectors = DummyTermVectors;
+  type TermVectors = DummyTermVectors;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn max_doc(&self) -> Result<i32> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn max_doc(&self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn num_docs(&self) -> Result<i32> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn num_docs(&self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type StoredFields = DummyStoredFields;
+  type StoredFields = DummyStoredFields;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn do_close(&self) -> Result<()> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn do_close(&self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type ReaderCacheHelper = DummyCacheHelper;
+  type ReaderCacheHelper = DummyCacheHelper;
 
-    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn doc_freq(&self, term: &Term) -> Result<i32> {
-        LeafReader::doc_freq(self, term)
-    }
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    LeafReader::doc_freq(self, term)
+  }
 
-    fn total_term_freq(&self, term: &Term) -> Result<i64> {
-        LeafReader::get_total_term_freq(self, term)
-    }
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    LeafReader::get_total_term_freq(self, term)
+  }
 
-    fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-        LeafReader::get_sum_doc_freq(self, field)
-    }
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    LeafReader::get_sum_doc_freq(self, field)
+  }
 
-    fn get_doc_count(&self, field: &str) -> Result<i32> {
-        LeafReader::get_doc_count(self, field)
-    }
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    LeafReader::get_doc_count(self, field)
+  }
 
-    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-        LeafReader::get_sum_total_term_freq(self, field)
-    }
-    fn index_base(&self) -> &IndexReaderBase {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    LeafReader::get_sum_total_term_freq(self, field)
+  }
+  fn index_base(&self) -> &IndexReaderBase {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl LeafReader for DocValuesLeafReader {
-    type CacheHelper = DummyCacheHelper;
+  type CacheHelper = DummyCacheHelper;
 
-    fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type Terms = DummyTerms;
+  type Terms = DummyTerms;
 
-    fn terms(&self, _field: &str) -> Result<Option<Self::Terms>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn terms(&self, _field: &str) -> Result<Option<Self::Terms>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type NumericDocValues = DummyNumericDocValues;
+  type NumericDocValues = DummyNumericDocValues;
 
-    fn get_numeric_doc_values(&self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_numeric_doc_values(&self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type BinaryDocValues = DummyBinaryDocValues;
+  type BinaryDocValues = DummyBinaryDocValues;
 
-    fn get_binary_doc_values(&self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_binary_doc_values(&self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type SortedDocValues = DummySortedDocValues;
+  type SortedDocValues = DummySortedDocValues;
 
-    fn get_sorted_doc_values(&self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_sorted_doc_values(&self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type SortedNumericDocValues = DummySortedNumericDocValues;
+  type SortedNumericDocValues = DummySortedNumericDocValues;
 
-    fn get_sorted_numeric_doc_values(
-        &self,
-        _field: &str,
-    ) -> Result<Option<Self::SortedNumericDocValues>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_sorted_numeric_doc_values(
+    &self,
+    _field: &str,
+  ) -> Result<Option<Self::SortedNumericDocValues>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type SortedSetDocValues = DummySortedSetDocValues;
+  type SortedSetDocValues = DummySortedSetDocValues;
 
-    fn get_sorted_set_doc_values(&self, _field: &str) -> Result<Option<Self::SortedSetDocValues>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_sorted_set_doc_values(&self, _field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type NormNumericDocValues = DummyNumericDocValues;
+  type NormNumericDocValues = DummyNumericDocValues;
 
-    fn get_norm_values(&self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_norm_values(&self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type DocValuesSkipper = DummyDocValuesSkipper;
+  type DocValuesSkipper = DummyDocValuesSkipper;
 
-    fn get_doc_values_skipper(&self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_doc_values_skipper(&self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type Bits = DummyBits;
+  type Bits = DummyBits;
 
-    fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    type PointValues = DummyPointValues;
+  type PointValues = DummyPointValues;
 
-    fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn check_integrity(&self) -> Result<()> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn check_integrity(&self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn get_metadata(&self) -> Result<&LeafMetaData> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn get_metadata(&self) -> Result<&LeafMetaData> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }

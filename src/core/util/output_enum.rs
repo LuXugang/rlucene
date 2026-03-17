@@ -19,25 +19,25 @@ use std::io;
 use std::io::Write;
 
 pub enum OutputEnum {
-    File(File),
-    Stdout,
-    Stderr,
+  File(File),
+  Stdout,
+  Stderr,
 }
 
 impl Write for OutputEnum {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self {
-            OutputEnum::File(file) => file.write(buf),
-            OutputEnum::Stdout => io::stdout().write(buf),
-            OutputEnum::Stderr => io::stderr().write(buf),
-        }
+  fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    match self {
+      OutputEnum::File(file) => file.write(buf),
+      OutputEnum::Stdout => io::stdout().write(buf),
+      OutputEnum::Stderr => io::stderr().write(buf),
     }
+  }
 
-    fn flush(&mut self) -> io::Result<()> {
-        match self {
-            OutputEnum::File(file) => file.flush(),
-            OutputEnum::Stdout => io::stdout().flush(),
-            OutputEnum::Stderr => io::stderr().flush(),
-        }
+  fn flush(&mut self) -> io::Result<()> {
+    match self {
+      OutputEnum::File(file) => file.flush(),
+      OutputEnum::Stdout => io::stdout().flush(),
+      OutputEnum::Stderr => io::stderr().flush(),
     }
+  }
 }

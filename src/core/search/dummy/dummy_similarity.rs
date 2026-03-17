@@ -25,31 +25,31 @@ use std::fmt::{Display, Formatter};
 pub struct DummySimilarity;
 
 impl Display for DummySimilarity {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl Similarity for DummySimilarity {
-    fn get_discount_overlaps(&self) -> bool {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_discount_overlaps(&self) -> bool {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn compute_norm(
-        &self,
-        _state: &FieldInvertState,
-    ) -> crate::core::util::error::lucene_error::Result<i64> {
-        Ok(1)
-    }
+  fn compute_norm(
+    &self,
+    _state: &FieldInvertState,
+  ) -> crate::core::util::error::lucene_error::Result<i64> {
+    Ok(1)
+  }
 
-    type SimScorer = DummySimScorer;
+  type SimScorer = DummySimScorer;
 
-    fn scorer(
-        &self,
-        _boost: f32,
-        _collection_stats: &CollectionStatistics,
-        _term_stats: &[TermStatistics],
-    ) -> Result<Self::SimScorer> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn scorer(
+    &self,
+    _boost: f32,
+    _collection_stats: &CollectionStatistics,
+    _term_stats: &[TermStatistics],
+  ) -> Result<Self::SimScorer> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

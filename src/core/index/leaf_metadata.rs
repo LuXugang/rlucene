@@ -24,45 +24,45 @@ use crate::core::util::version::{LATEST, Version};
 #[derive(Getters, Clone)]
 #[cfg_attr(test, derive(Default))] // for test
 pub struct LeafMetaData {
-    /// The major version of the Lucene format used to create this segment.
-    pub created_version_major: i32,
-    /// The minimum version of Lucene that contributed to this segment.
-    pub min_version: Option<Version>,
-    /// The sort order of documents in this segment, if any.
-    pub sort: Option<Arc<Sort>>,
-    /// Indicates whether this segment contains documents written as blocks.
-    pub has_blocks: bool,
+  /// The major version of the Lucene format used to create this segment.
+  pub created_version_major: i32,
+  /// The minimum version of Lucene that contributed to this segment.
+  pub min_version: Option<Version>,
+  /// The sort order of documents in this segment, if any.
+  pub sort: Option<Arc<Sort>>,
+  /// Indicates whether this segment contains documents written as blocks.
+  pub has_blocks: bool,
 }
 
 impl LeafMetaData {
-    /// Constructs a new `LeafMetaData` instance.
-    pub fn new(
-        created_version_major: i32,
-        min_version: Option<Version>,
-        sort: Option<Arc<Sort>>,
-        has_blocks: bool,
-    ) -> Result<Self> {
-        if created_version_major > LATEST.major {
-            return Err(LuceneError::illegal_argument(format!(
-                "created_version_major is in the future: {created_version_major}"
-            )));
-        }
-        if created_version_major < 6 {
-            return Err(LuceneError::illegal_argument(format!(
-                "created_version_major must be >= 6, got: {created_version_major}"
-            )));
-        }
-        if created_version_major >= 7 && min_version.is_none() {
-            return Err(LuceneError::illegal_argument(
-                "min_version must be set when created_version_major is >= 7".to_string(),
-            ));
-        }
-
-        Ok(Self {
-            created_version_major,
-            min_version,
-            sort,
-            has_blocks,
-        })
+  /// Constructs a new `LeafMetaData` instance.
+  pub fn new(
+    created_version_major: i32,
+    min_version: Option<Version>,
+    sort: Option<Arc<Sort>>,
+    has_blocks: bool,
+  ) -> Result<Self> {
+    if created_version_major > LATEST.major {
+      return Err(LuceneError::illegal_argument(format!(
+        "created_version_major is in the future: {created_version_major}"
+      )));
     }
+    if created_version_major < 6 {
+      return Err(LuceneError::illegal_argument(format!(
+        "created_version_major must be >= 6, got: {created_version_major}"
+      )));
+    }
+    if created_version_major >= 7 && min_version.is_none() {
+      return Err(LuceneError::illegal_argument(
+        "min_version must be set when created_version_major is >= 7".to_string(),
+      ));
+    }
+
+    Ok(Self {
+      created_version_major,
+      min_version,
+      sort,
+      has_blocks,
+    })
+  }
 }

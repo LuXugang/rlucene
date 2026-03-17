@@ -19,14 +19,14 @@ use strum_macros::{Display, EnumCount, FromRepr};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, EnumCount, Display)]
 #[repr(u8)]
 pub enum VectorSimilarityFunction {
-    Euclidean,
-    DotProduct,
-    Cosine,
-    MaximumInnerProduct,
+  Euclidean,
+  DotProduct,
+  Cosine,
+  MaximumInnerProduct,
 }
 /// Use Default for padding
 impl Default for VectorSimilarityFunction {
-    fn default() -> Self {
-        VectorSimilarityFunction::Euclidean
-    }
+  fn default() -> Self {
+    VectorSimilarityFunction::Euclidean
+  }
 }

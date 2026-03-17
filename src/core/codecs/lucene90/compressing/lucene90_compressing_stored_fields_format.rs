@@ -39,160 +39,160 @@ use std::sync::Arc;
 /// [`MergePolicy`](crate::core::index::merge_policy::MergePolicy) that returns
 /// segments that have the biggest byte size first.
 pub struct Lucene90CompressingStoredFieldsFormat {
-    format_name: String,
-    segment_suffix: String,
+  format_name: String,
+  segment_suffix: String,
+  compression_mode: CompressionModeEnum,
+  chunk_size: i32,
+  max_docs_per_chunk: i32,
+  block_shift: i32,
+}
+impl Lucene90CompressingStoredFieldsFormat {
+  /// Create a new [`Lucene90CompressingStoredFieldsFormat`] with an empty
+  /// segment suffix.
+  pub fn new(
+    format_name: &str,
     compression_mode: CompressionModeEnum,
     chunk_size: i32,
     max_docs_per_chunk: i32,
     block_shift: i32,
-}
-impl Lucene90CompressingStoredFieldsFormat {
-    /// Create a new [`Lucene90CompressingStoredFieldsFormat`] with an empty
-    /// segment suffix.
-    pub fn new(
-        format_name: &str,
-        compression_mode: CompressionModeEnum,
-        chunk_size: i32,
-        max_docs_per_chunk: i32,
-        block_shift: i32,
-    ) -> Result<Self> {
-        Self::with_suffix(
-            format_name,
-            "",
-            compression_mode,
-            chunk_size,
-            max_docs_per_chunk,
-            block_shift,
-        )
+  ) -> Result<Self> {
+    Self::with_suffix(
+      format_name,
+      "",
+      compression_mode,
+      chunk_size,
+      max_docs_per_chunk,
+      block_shift,
+    )
+  }
+  /// Create a new [`Lucene90CompressingStoredFieldsFormat`].
+  ///
+  /// - `format_name` is the name of the format. This name will be used in the
+  ///   file formats to perform
+  ///   [`CodecUtil::check_index_header`](crate::core::codecs::codec_util::CodecUtil::check_index_header)
+  ///   header checks.
+  /// - `segment_suffix` is the segment suffix. This suffix is added to the
+  ///   result file name only if it's not the empty string.
+  /// - The `compression_mode` parameter allows you to choose between
+  ///   compression algorithms that have various compression and decompression
+  ///   speeds so that you can pick the one that best fits your indexing and
+  ///   searching throughput. You should never instantiate two
+  ///   [`Lucene90CompressingStoredFieldsFormat`]s that have the same name but
+  ///   different [`CompressionMode`](crate::core::codecs::compression::compression_mode::CompressionMode)s.
+  /// - `chunk_size` is the minimum byte size of a chunk of documents. A value
+  ///   of `1` can make sense if there is redundancy across fields.
+  /// - `max_docs_per_chunk` is an upper bound on how many docs may be stored
+  ///   in a single chunk. This is to bound the CPU costs for highly
+  ///   compressible data.
+  ///
+  /// Higher values of `chunk_size` should improve the compression ratio but
+  /// will require more memory at indexing time and might make document
+  /// loading a little slower (depending on the size of your OS cache
+  /// compared to the size of your index).
+  ///
+  /// - `format_name`: the name of the [`StoredFieldsFormat`]
+  /// - `compression_mode`: the
+  ///   [`CompressionMode`](crate::core::codecs::compression::compression_mode::CompressionMode)
+  ///   to use
+  /// - `chunk_size`: the minimum number of bytes of a single chunk of stored
+  ///   documents
+  /// - `max_docs_per_chunk`: the maximum number of documents in a single
+  ///   chunk
+  /// - `block_shift`: the log in base 2 of number of chunks to store in an
+  ///   index block
+  ///
+  /// See [`CompressionMode`](crate::core::codecs::compression::compression_mode::CompressionMode).
+  pub fn with_suffix(
+    format_name: &str,
+    segment_suffix: &str,
+    compression_mode: CompressionModeEnum,
+    chunk_size: i32,
+    max_docs_per_chunk: i32,
+    block_shift: i32,
+  ) -> Result<Self> {
+    if chunk_size < 1 {
+      return Err(LuceneError::illegal_argument(
+        "chunk_size must be >= 1".to_string(),
+      ));
     }
-    /// Create a new [`Lucene90CompressingStoredFieldsFormat`].
-    ///
-    /// - `format_name` is the name of the format. This name will be used in the
-    ///   file formats to perform
-    ///   [`CodecUtil::check_index_header`](crate::core::codecs::codec_util::CodecUtil::check_index_header)
-    ///   header checks.
-    /// - `segment_suffix` is the segment suffix. This suffix is added to the
-    ///   result file name only if it's not the empty string.
-    /// - The `compression_mode` parameter allows you to choose between
-    ///   compression algorithms that have various compression and decompression
-    ///   speeds so that you can pick the one that best fits your indexing and
-    ///   searching throughput. You should never instantiate two
-    ///   [`Lucene90CompressingStoredFieldsFormat`]s that have the same name but
-    ///   different [`CompressionMode`](crate::core::codecs::compression::compression_mode::CompressionMode)s.
-    /// - `chunk_size` is the minimum byte size of a chunk of documents. A value
-    ///   of `1` can make sense if there is redundancy across fields.
-    /// - `max_docs_per_chunk` is an upper bound on how many docs may be stored
-    ///   in a single chunk. This is to bound the CPU costs for highly
-    ///   compressible data.
-    ///
-    /// Higher values of `chunk_size` should improve the compression ratio but
-    /// will require more memory at indexing time and might make document
-    /// loading a little slower (depending on the size of your OS cache
-    /// compared to the size of your index).
-    ///
-    /// - `format_name`: the name of the [`StoredFieldsFormat`]
-    /// - `compression_mode`: the
-    ///   [`CompressionMode`](crate::core::codecs::compression::compression_mode::CompressionMode)
-    ///   to use
-    /// - `chunk_size`: the minimum number of bytes of a single chunk of stored
-    ///   documents
-    /// - `max_docs_per_chunk`: the maximum number of documents in a single
-    ///   chunk
-    /// - `block_shift`: the log in base 2 of number of chunks to store in an
-    ///   index block
-    ///
-    /// See [`CompressionMode`](crate::core::codecs::compression::compression_mode::CompressionMode).
-    pub fn with_suffix(
-        format_name: &str,
-        segment_suffix: &str,
-        compression_mode: CompressionModeEnum,
-        chunk_size: i32,
-        max_docs_per_chunk: i32,
-        block_shift: i32,
-    ) -> Result<Self> {
-        if chunk_size < 1 {
-            return Err(LuceneError::illegal_argument(
-                "chunk_size must be >= 1".to_string(),
-            ));
-        }
-        if max_docs_per_chunk < 1 {
-            return Err(LuceneError::illegal_argument(
-                "max_docs_per_chunk must be >= 1".to_string(),
-            ));
-        }
-        if !(MIN_BLOCK_SHIFT..=MAX_BLOCK_SHIFT).contains(&block_shift) {
-            return Err(LuceneError::illegal_argument(format!(
-                "block_shift must be in {}-{}, got {}",
-                MIN_BLOCK_SHIFT, MAX_BLOCK_SHIFT, block_shift
-            )));
-        }
+    if max_docs_per_chunk < 1 {
+      return Err(LuceneError::illegal_argument(
+        "max_docs_per_chunk must be >= 1".to_string(),
+      ));
+    }
+    if !(MIN_BLOCK_SHIFT..=MAX_BLOCK_SHIFT).contains(&block_shift) {
+      return Err(LuceneError::illegal_argument(format!(
+        "block_shift must be in {}-{}, got {}",
+        MIN_BLOCK_SHIFT, MAX_BLOCK_SHIFT, block_shift
+      )));
+    }
 
-        Ok(Self {
-            format_name: format_name.to_string(),
-            segment_suffix: segment_suffix.to_string(),
-            compression_mode,
-            chunk_size,
-            max_docs_per_chunk,
-            block_shift,
-        })
-    }
+    Ok(Self {
+      format_name: format_name.to_string(),
+      segment_suffix: segment_suffix.to_string(),
+      compression_mode,
+      chunk_size,
+      max_docs_per_chunk,
+      block_shift,
+    })
+  }
 }
 impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
-    type StoredFieldsReader<T: IndexInput> = Lucene90CompressingStoredFieldsReader<T>;
+  type StoredFieldsReader<T: IndexInput> = Lucene90CompressingStoredFieldsReader<T>;
 
-    fn fields_reader<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &SegmentInfo<D2>,
-        field_infos: Arc<FieldInfos>,
-        context: &IOContext,
-    ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        Lucene90CompressingStoredFieldsReader::new(
-            directory,
-            segment_info,
-            &self.segment_suffix,
-            field_infos,
-            context,
-            &self.format_name,
-            self.compression_mode.clone(),
-        )
-    }
+  fn fields_reader<D1, D2>(
+    &self,
+    directory: &D1,
+    segment_info: &SegmentInfo<D2>,
+    field_infos: Arc<FieldInfos>,
+    context: &IOContext,
+  ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    Lucene90CompressingStoredFieldsReader::new(
+      directory,
+      segment_info,
+      &self.segment_suffix,
+      field_infos,
+      context,
+      &self.format_name,
+      self.compression_mode.clone(),
+    )
+  }
 
-    type StoredFieldsWriter<T: IndexOutput> = Lucene90CompressingStoredFieldsWriter<T>;
+  type StoredFieldsWriter<T: IndexOutput> = Lucene90CompressingStoredFieldsWriter<T>;
 
-    fn fields_writer<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &mut SegmentInfo<D2>,
-        context: &IOContext,
-    ) -> Result<Self::StoredFieldsWriter<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        Lucene90CompressingStoredFieldsWriter::new(
-            directory,
-            segment_info,
-            &self.segment_suffix,
-            context,
-            &self.format_name,
-            self.compression_mode.clone(),
-            self.chunk_size,
-            self.max_docs_per_chunk,
-            self.block_shift,
-        )
-    }
+  fn fields_writer<D1, D2>(
+    &self,
+    directory: &D1,
+    segment_info: &mut SegmentInfo<D2>,
+    context: &IOContext,
+  ) -> Result<Self::StoredFieldsWriter<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    Lucene90CompressingStoredFieldsWriter::new(
+      directory,
+      segment_info,
+      &self.segment_suffix,
+      context,
+      &self.format_name,
+      self.compression_mode.clone(),
+      self.chunk_size,
+      self.max_docs_per_chunk,
+      self.block_shift,
+    )
+  }
 }
 impl fmt::Display for Lucene90CompressingStoredFieldsFormat {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Lucene90CompressingStoredFieldsFormat(compressionMode={}, chunkSize={}, maxDocsPerChunk={}, blockShift={})",
-            self.compression_mode, self.chunk_size, self.max_docs_per_chunk, self.block_shift
-        )
-    }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "Lucene90CompressingStoredFieldsFormat(compressionMode={}, chunkSize={}, maxDocsPerChunk={}, blockShift={})",
+      self.compression_mode, self.chunk_size, self.max_docs_per_chunk, self.block_shift
+    )
+  }
 }

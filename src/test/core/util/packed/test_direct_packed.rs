@@ -26,7 +26,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::direct_reader::DirectReader;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    is_night_mode, new_directory, new_directory_shared, random,
+  is_night_mode, new_directory, new_directory_shared, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 
@@ -35,140 +35,140 @@ pub struct TestDirectPacked;
 
 #[test]
 fn test_simple() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let bits_per_value = bits_required(2)?;
-    {
-        let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
-        writer.add(1)?;
-        writer.add(0)?;
-        writer.add(2)?;
-        writer.add(1)?;
-        writer.add(2)?;
-        writer.finish()?;
-    }
-    let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
-    let slice = input.random_access_slice(0, input.length())?;
-    let mut reader = DirectReader::get_instance_with_offset(Some(slice), bits_per_value, 0)?;
-    assert_eq!(1, reader.get_mut(0)?);
-    assert_eq!(0, reader.get_mut(1)?);
-    assert_eq!(2, reader.get_mut(2)?);
-    assert_eq!(1, reader.get_mut(3)?);
-    assert_eq!(2, reader.get_mut(4)?);
-    Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let bits_per_value = bits_required(2)?;
+  {
+    let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
+    let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
+    writer.add(1)?;
+    writer.add(0)?;
+    writer.add(2)?;
+    writer.add(1)?;
+    writer.add(2)?;
+    writer.finish()?;
+  }
+  let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let slice = input.random_access_slice(0, input.length())?;
+  let mut reader = DirectReader::get_instance_with_offset(Some(slice), bits_per_value, 0)?;
+  assert_eq!(1, reader.get_mut(0)?);
+  assert_eq!(0, reader.get_mut(1)?);
+  assert_eq!(2, reader.get_mut(2)?);
+  assert_eq!(1, reader.get_mut(3)?);
+  assert_eq!(2, reader.get_mut(4)?);
+  Ok(())
 }
 /// test exception is delivered if you add the wrong number of values.
 #[test]
 fn test_not_enough_values() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let bits_per_value = bits_required(2)?;
-    {
-        let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
-        writer.add(1)?;
-        writer.add(0)?;
-        writer.add(2)?;
-        writer.add(1)?;
-        let err = writer.finish().unwrap_err();
-        assert!(err.to_string().starts_with("Wrong number of values added"));
-    }
-    Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let bits_per_value = bits_required(2)?;
+  {
+    let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
+    let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
+    writer.add(1)?;
+    writer.add(0)?;
+    writer.add(2)?;
+    writer.add(1)?;
+    let err = writer.finish().unwrap_err();
+    assert!(err.to_string().starts_with("Wrong number of values added"));
+  }
+  Ok(())
 }
 
 #[test]
 fn test_random() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory(&mut random)?;
-    for bpv in 1..=64 {
-        do_test_bpv(&mut random, &dir, bpv, 0, false)?;
-    }
-    Ok(())
+  let mut random = random();
+  let dir = new_directory(&mut random)?;
+  for bpv in 1..=64 {
+    do_test_bpv(&mut random, &dir, bpv, 0, false)?;
+  }
+  Ok(())
 }
 
 #[test]
 fn test_random_with_offset() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory(&mut random)?;
-    let offset = TestUtil::next_usize(&mut random, 1, 100);
-    for bpv in 1..=64 {
-        do_test_bpv(&mut random, &dir, bpv, offset, false)?;
-    }
-    Ok(())
+  let mut random = random();
+  let dir = new_directory(&mut random)?;
+  let offset = TestUtil::next_usize(&mut random, 1, 100);
+  for bpv in 1..=64 {
+    do_test_bpv(&mut random, &dir, bpv, offset, false)?;
+  }
+  Ok(())
 }
 
 #[test]
 fn test_random_merge() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory(&mut random)?;
-    for bpv in 1..=64 {
-        do_test_bpv(&mut random, &dir, bpv, 0, true)?;
-    }
-    Ok(())
+  let mut random = random();
+  let dir = new_directory(&mut random)?;
+  for bpv in 1..=64 {
+    do_test_bpv(&mut random, &dir, bpv, 0, true)?;
+  }
+  Ok(())
 }
 
 #[test]
 fn test_random_merge_with_offset() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory(&mut random)?;
-    let offset = TestUtil::next_usize(&mut random, 1, 100);
-    for bpv in 1..=64 {
-        do_test_bpv(&mut random, &dir, bpv, offset, true)?;
-    }
-    Ok(())
+  let mut random = random();
+  let dir = new_directory(&mut random)?;
+  let offset = TestUtil::next_usize(&mut random, 1, 100);
+  for bpv in 1..=64 {
+    do_test_bpv(&mut random, &dir, bpv, offset, true)?;
+  }
+  Ok(())
 }
 
 fn do_test_bpv<R: Rng + ?Sized>(
-    random: &mut R,
-    directory: &impl Directory,
-    bpv: i32,
-    offset: usize,
-    merge: bool,
+  random: &mut R,
+  directory: &impl Directory,
+  bpv: i32,
+  offset: usize,
+  merge: bool,
 ) -> Result<()> {
-    let num_iters = if is_night_mode() { 100 } else { 10 };
-    for i in 0..num_iters {
-        let original = random_longs(random, bpv);
-        let bits_required = if bpv == 64 {
-            64
-        } else {
-            bits_required(1i64 << (bpv - 1))?
-        };
-        let name = format!("bpv{}_{}", bpv, i);
-        {
-            let mut output = directory.create_output(&name, &IOContext::default_io_context()?)?;
-            for _ in 0..offset {
-                output.write_byte(random.random())?;
-            }
-            let mut writer =
-                DirectWriter::get_instance(&mut output, original.len() as i64, bits_required)?;
-            for &val in &original {
-                writer.add(val)?;
-            }
-            writer.finish()?;
-        }
-
-        let input = directory.open_input(&name, &IOContext::default_io_context()?)?;
-        let slice = input.random_access_slice(0, input.length())?;
-        let mut reader = if merge {
-            DirectReader::get_merge_instance_with_base_offset(
-                Some(slice),
-                bits_required,
-                offset,
-                original.len(),
-            )
-        } else {
-            DirectReader::get_instance_with_offset(Some(slice), bits_required, offset)?
-        };
-        for (j, &expected) in original.iter().enumerate() {
-            assert_eq!(expected, reader.get_mut(j)?, "bpv={}", bpv);
-        }
+  let num_iters = if is_night_mode() { 100 } else { 10 };
+  for i in 0..num_iters {
+    let original = random_longs(random, bpv);
+    let bits_required = if bpv == 64 {
+      64
+    } else {
+      bits_required(1i64 << (bpv - 1))?
+    };
+    let name = format!("bpv{}_{}", bpv, i);
+    {
+      let mut output = directory.create_output(&name, &IOContext::default_io_context()?)?;
+      for _ in 0..offset {
+        output.write_byte(random.random())?;
+      }
+      let mut writer =
+        DirectWriter::get_instance(&mut output, original.len() as i64, bits_required)?;
+      for &val in &original {
+        writer.add(val)?;
+      }
+      writer.finish()?;
     }
-    Ok(())
+
+    let input = directory.open_input(&name, &IOContext::default_io_context()?)?;
+    let slice = input.random_access_slice(0, input.length())?;
+    let mut reader = if merge {
+      DirectReader::get_merge_instance_with_base_offset(
+        Some(slice),
+        bits_required,
+        offset,
+        original.len(),
+      )
+    } else {
+      DirectReader::get_instance_with_offset(Some(slice), bits_required, offset)?
+    };
+    for (j, &expected) in original.iter().enumerate() {
+      assert_eq!(expected, reader.get_mut(j)?, "bpv={}", bpv);
+    }
+  }
+  Ok(())
 }
 
 fn random_longs<R: Rng + ?Sized>(random: &mut R, bpv: i32) -> Vec<i64> {
-    let amount = random.random_range(0..5000);
-    let max = PackedInts::max_value(bpv);
-    (0..amount).map(|_| random.random_range(0..=max)).collect()
+  let amount = random.random_range(0..5000);
+  let max = PackedInts::max_value(bpv);
+  (0..amount).map(|_| random.random_range(0..=max)).collect()
 }

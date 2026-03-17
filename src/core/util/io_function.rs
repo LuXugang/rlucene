@@ -16,5 +16,5 @@
  */
 use crate::core::util::error::lucene_error::Result;
 pub trait IOFunction<T, R> {
-    fn apply(&mut self, input: &T) -> Result<R>;
+  fn apply(&mut self, input: &T) -> Result<R>;
 }

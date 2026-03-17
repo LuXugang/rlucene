@@ -22,19 +22,19 @@ use strum_macros::{EnumCount, FromRepr};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, Hash, EnumCount)]
 #[repr(u8)]
 pub enum InvertableType {
-    /// The field should be treated as a single value whose binary content is
-    /// returned by
-    /// [`IndexableField::binary_value()`](crate::core::index::indexable_field::IndexableField::binary_value).
-    /// The term frequency is assumed to be one. If you need to index
-    /// multiple values, you should pass multiple
-    /// [`IndexableField`](crate::core::index::indexable_field::IndexableField)
-    /// instances to the
-    /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter). If the same
-    /// value is provided multiple times, the term frequency will be equal
-    /// to the number of times that this value occurred in the same document.
-    BINARY,
+  /// The field should be treated as a single value whose binary content is
+  /// returned by
+  /// [`IndexableField::binary_value()`](crate::core::index::indexable_field::IndexableField::binary_value).
+  /// The term frequency is assumed to be one. If you need to index
+  /// multiple values, you should pass multiple
+  /// [`IndexableField`](crate::core::index::indexable_field::IndexableField)
+  /// instances to the
+  /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter). If the same
+  /// value is provided multiple times, the term frequency will be equal
+  /// to the number of times that this value occurred in the same document.
+  BINARY,
 
-    /// The field should be inverted through its
-    /// [`IndexableField::token_stream()`](crate::core::index::indexable_field::IndexableField::token_stream).
-    TokenStream,
+  /// The field should be inverted through its
+  /// [`IndexableField::token_stream()`](crate::core::index::indexable_field::IndexableField::token_stream).
+  TokenStream,
 }

@@ -33,65 +33,65 @@ use std::rc::Rc;
 /// implementations of this actually do "something" with the postings (write it into the index in a
 /// specific format).
 pub trait FieldsConsumer {
-    /// Write all fields, terms and postings. This is the "pull" API, allowing you to iterate more than
-    /// once over the postings, somewhat analogous to using a DOM API to traverse an XML tree.
-    ///
-    /// # Notes
-    ///
-    /// - You must compute index statistics, including each Term’s `doc_freq` and `total_term_freq`, as
-    ///   well as the summary `sum_total_term_freq`, `sum_total_doc_freq` and `doc_count`.
-    /// - You must skip terms that have no docs and fields that have no terms, even though the
-    ///   provided `Fields` API will expose them; this typically requires lazily writing the field or
-    ///   term until you’ve actually seen the first term or document.
-    /// - The provided `Fields` instance is limited: you cannot call any methods that return
-    ///   statistics/counts; you cannot pass a non-null live docs when pulling docs/positions enums.
-    fn write<F, N>(&mut self, fields: &mut F, norms: Option<&N>) -> Result<()>
-    where
-        F: Fields,
-        N: NormsProducer;
-    /// Merges the fields from the readers in `merge_state`.
-    ///
-    /// The default implementation skips and maps around deleted documents, and
-    /// calls [`Self::write`] with the merged [`Fields`] and the provided
-    /// [`NormsProducer`].
-    ///
-    /// Implementations may override this method to perform more sophisticated
-    /// merging strategies (such as bulk byte copying, etc.).
-    fn merge<D, N, CR>(&mut self, merge_state: &MergeState<D, CR>, norms: Option<&N>) -> Result<()>
-    where
-        D: Directory,
-        N: NormsProducer,
-        CR: CodecReader,
-    {
-        let mut fields = Vec::new();
-        let mut slices = Vec::new();
+  /// Write all fields, terms and postings. This is the "pull" API, allowing you to iterate more than
+  /// once over the postings, somewhat analogous to using a DOM API to traverse an XML tree.
+  ///
+  /// # Notes
+  ///
+  /// - You must compute index statistics, including each Term’s `doc_freq` and `total_term_freq`, as
+  ///   well as the summary `sum_total_term_freq`, `sum_total_doc_freq` and `doc_count`.
+  /// - You must skip terms that have no docs and fields that have no terms, even though the
+  ///   provided `Fields` API will expose them; this typically requires lazily writing the field or
+  ///   term until you’ve actually seen the first term or document.
+  /// - The provided `Fields` instance is limited: you cannot call any methods that return
+  ///   statistics/counts; you cannot pass a non-null live docs when pulling docs/positions enums.
+  fn write<F, N>(&mut self, fields: &mut F, norms: Option<&N>) -> Result<()>
+  where
+    F: Fields,
+    N: NormsProducer;
+  /// Merges the fields from the readers in `merge_state`.
+  ///
+  /// The default implementation skips and maps around deleted documents, and
+  /// calls [`Self::write`] with the merged [`Fields`] and the provided
+  /// [`NormsProducer`].
+  ///
+  /// Implementations may override this method to perform more sophisticated
+  /// merging strategies (such as bulk byte copying, etc.).
+  fn merge<D, N, CR>(&mut self, merge_state: &MergeState<D, CR>, norms: Option<&N>) -> Result<()>
+  where
+    D: Directory,
+    N: NormsProducer,
+    CR: CodecReader,
+  {
+    let mut fields = Vec::new();
+    let mut slices = Vec::new();
 
-        let mut doc_base = 0;
+    let mut doc_base = 0;
 
-        for reader_index in 0..merge_state.fields_producers.len() {
-            let f = &merge_state.fields_producers[reader_index];
-            let max_doc = merge_state.max_docs[reader_index] as usize;
+    for reader_index in 0..merge_state.fields_producers.len() {
+      let f = &merge_state.fields_producers[reader_index];
+      let max_doc = merge_state.max_docs[reader_index] as usize;
 
-            if let Some(f) = f {
-                f.check_integrity()?;
-                slices.push(Rc::new(ReaderSlice::new(
-                    doc_base,
-                    max_doc as i32,
-                    reader_index as i32,
-                )));
-                fields.push(f);
-            }
+      if let Some(f) = f {
+        f.check_integrity()?;
+        slices.push(Rc::new(ReaderSlice::new(
+          doc_base,
+          max_doc as i32,
+          reader_index as i32,
+        )));
+        fields.push(f);
+      }
 
-            doc_base += max_doc;
-        }
-
-        let field = MultiFields::new(fields, slices);
-        let mut merged_fields = MappedMultiFields::new(merge_state, &field);
-
-        self.write(&mut merged_fields, norms)
+      doc_base += max_doc;
     }
 
-    fn close(&mut self) -> Result<()>;
+    let field = MultiFields::new(fields, slices);
+    let mut merged_fields = MappedMultiFields::new(merge_state, &field);
+
+    self.write(&mut merged_fields, norms)
+  }
+
+  fn close(&mut self) -> Result<()>;
 }
 pub type FieldsConsumerEnum<O> =
-    Lucene90BlockTreeTermsWriter<O, PushPostingsWriterBase<Lucene101PostingsWriter<O>>>;
+  Lucene90BlockTreeTermsWriter<O, PushPostingsWriterBase<Lucene101PostingsWriter<O>>>;

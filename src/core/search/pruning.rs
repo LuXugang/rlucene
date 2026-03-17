@@ -19,13 +19,13 @@
 /// skips documents.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub enum Pruning {
-    /// Not allowed to skip documents.
-    #[default]
-    None,
-    /// Allowed to skip documents that compare strictly better than the top
-    /// value, or strictly worse than the bottom value.
-    GreaterThan,
-    /// Allowed to skip documents that compare better than the top value,
-    /// or worse than or equal to the bottom value.
-    GreaterThanOrEqualTo,
+  /// Not allowed to skip documents.
+  #[default]
+  None,
+  /// Allowed to skip documents that compare strictly better than the top
+  /// value, or strictly worse than the bottom value.
+  GreaterThan,
+  /// Allowed to skip documents that compare better than the top value,
+  /// or worse than or equal to the bottom value.
+  GreaterThanOrEqualTo,
 }

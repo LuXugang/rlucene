@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::test_index_writer::add_doc;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader, random,
+  new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader, random,
 };
 use std::collections::HashMap;
 
@@ -36,139 +36,139 @@ struct TestIndexWriterCommit;
  */
 #[test]
 fn test_commit_on_close() -> Result<()> {
-    let mut random = random();
+  let mut random = random();
 
-    let dir = new_directory_shared(&mut random)?;
-    let mut field_types = HashMap::new();
+  let dir = new_directory_shared(&mut random)?;
+  let mut field_types = HashMap::new();
 
-    let mock = MockAnalyzer::new(&mut random);
-    let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
-    {
-        let writer = IndexWriter::new(dir.clone(), iwc1)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
+  {
+    let writer = IndexWriter::new(dir.clone(), iwc1)?;
 
-        for _ in 0..14 {
-            add_doc(&mut random, &writer, &mut field_types)?;
-        }
-
-        writer.close()?;
-    }
-
-    let search_term = Term::from_text("content", "aaa");
-
-    {
-        let reader = directory_reader_util::open(dir.clone())?;
-        let searcher = new_searcher_with_reader(reader)?;
-        let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
-        assert_eq!(14, hits.score_docs.len(), "first number of hits");
-    }
-
-    let reader = directory_reader_util::open(dir.clone())?;
-
-    let mock = MockAnalyzer::new(&mut random);
-    let iwc2 = new_index_writer_config_with_analyzer(&mut random, mock);
-    let writer = IndexWriter::new(dir.clone(), iwc2)?;
-
-    for _ in 0..3 {
-        for _ in 0..11 {
-            add_doc(&mut random, &writer, &mut field_types)?;
-        }
-
-        let r = directory_reader_util::open(dir.clone())?;
-        let searcher = new_searcher_with_reader(r)?;
-        let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
-        assert_eq!(
-            14,
-            hits.score_docs.len(),
-            "reader incorrectly sees changes from writer"
-        );
-
-        assert!(
-            reader.is_current(&writer)?,
-            "reader should have still been current"
-        );
+    for _ in 0..14 {
+      add_doc(&mut random, &writer, &mut field_types)?;
     }
 
     writer.close()?;
+  }
 
-    assert!(
-        !reader.is_current(&writer)?,
-        "reader should not be current now"
-    );
+  let search_term = Term::from_text("content", "aaa");
 
-    {
-        let r = directory_reader_util::open(dir.clone())?;
-        let searcher = new_searcher_with_reader(r)?;
-        let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
-        assert_eq!(
-            47,
-            hits.score_docs.len(),
-            "reader did not see changes after writer was closed"
-        );
+  {
+    let reader = directory_reader_util::open(dir.clone())?;
+    let searcher = new_searcher_with_reader(reader)?;
+    let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
+    assert_eq!(14, hits.score_docs.len(), "first number of hits");
+  }
+
+  let reader = directory_reader_util::open(dir.clone())?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc2 = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), iwc2)?;
+
+  for _ in 0..3 {
+    for _ in 0..11 {
+      add_doc(&mut random, &writer, &mut field_types)?;
     }
 
-    Ok(())
+    let r = directory_reader_util::open(dir.clone())?;
+    let searcher = new_searcher_with_reader(r)?;
+    let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
+    assert_eq!(
+      14,
+      hits.score_docs.len(),
+      "reader incorrectly sees changes from writer"
+    );
+
+    assert!(
+      reader.is_current(&writer)?,
+      "reader should have still been current"
+    );
+  }
+
+  writer.close()?;
+
+  assert!(
+    !reader.is_current(&writer)?,
+    "reader should not be current now"
+  );
+
+  {
+    let r = directory_reader_util::open(dir.clone())?;
+    let searcher = new_searcher_with_reader(r)?;
+    let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
+    assert_eq!(
+      47,
+      hits.score_docs.len(),
+      "reader did not see changes after writer was closed"
+    );
+  }
+
+  Ok(())
 }
 #[test]
 fn test_commit_on_close_abort() -> Result<()> {
-    // TODO: roll_back未实现
-    Ok(())
+  // TODO: roll_back未实现
+  Ok(())
 }
 
 #[test]
 fn test_commit_on_close_disk_usage() -> Result<()> {
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_commit_on_close_force_merge() -> Result<()> {
-    // TODO: roll_back未实现
-    Ok(())
+  // TODO: roll_back未实现
+  Ok(())
 }
 #[test]
 fn test_commit_thread_safety() -> Result<()> {
-    // TODO: 多线程未实现
-    Ok(())
+  // TODO: 多线程未实现
+  Ok(())
 }
 #[test]
 fn test_force_commit() -> Result<()> {
-    // TODO: open_if_change 未实现
-    Ok(())
+  // TODO: open_if_change 未实现
+  Ok(())
 }
 #[test]
 fn test_future_commit() -> Result<()> {
-    // TODO: ReaderCommit未实现
-    Ok(())
+  // TODO: ReaderCommit未实现
+  Ok(())
 }
 
 #[test]
 fn test_zero_commits() -> Result<()> {
-    // TODO: ReaderCommit未实现
-    Ok(())
+  // TODO: ReaderCommit未实现
+  Ok(())
 }
 #[test]
 fn test_prepare_commit() -> Result<()> {
-    // TODO: open_if_changed 未实现
-    Ok(())
+  // TODO: open_if_changed 未实现
+  Ok(())
 }
 
 #[test]
 fn test_prepare_commit_rollback() -> Result<()> {
-    // TODO: open_if_changed 未实现
-    Ok(())
+  // TODO: open_if_changed 未实现
+  Ok(())
 }
 #[test]
 fn test_prepare_commit_no_changes() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
-    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-    writer.prepare_commit()?;
-    writer.commit()?;
-    writer.close()?;
+  writer.prepare_commit()?;
+  writer.commit()?;
+  writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
-    assert_eq!(0, reader.num_docs()?);
+  let reader = directory_reader_util::open(dir.clone())?;
+  assert_eq!(0, reader.num_docs()?);
 
-    Ok(())
+  Ok(())
 }

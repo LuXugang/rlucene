@@ -21,22 +21,22 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 #[derive(Default)]
 pub struct DummyRandomVectorScorer;
 impl RandomVectorScorer for DummyRandomVectorScorer {
-    fn score(&self, _node: usize) -> Result<f32> {
-        Ok(0f32)
-    }
+  fn score(&self, _node: usize) -> Result<f32> {
+    Ok(0f32)
+  }
 
-    fn max_ord(&self) -> usize {
-        0
-    }
+  fn max_ord(&self) -> usize {
+    0
+  }
 
-    fn ord_to_doc(&self, _ord: i32) -> i32 {
-        0
-    }
+  fn ord_to_doc(&self, _ord: i32) -> i32 {
+    0
+  }
 
-    type Bits = MatchNoBits;
-    type BitsR = MatchNoBits;
+  type Bits = MatchNoBits;
+  type BitsR = MatchNoBits;
 
-    fn get_accept_ords(&self, _accept_docs: Self::Bits) -> Self::Bits {
-        MatchNoBits::default()
-    }
+  fn get_accept_ords(&self, _accept_docs: Self::Bits) -> Self::Bits {
+    MatchNoBits::default()
+  }
 }

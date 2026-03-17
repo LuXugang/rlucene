@@ -25,45 +25,45 @@ use crate::core::util::error::lucene_error::Result;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct TermInSetQuery {
-    field: String,
+  field: String,
 }
 
 impl HasIdentity for TermInSetQuery {
-    fn identity(&self) -> &Identity {
-        todo!()
-    }
+  fn identity(&self) -> &Identity {
+    todo!()
+  }
 }
 
 impl QueryBase for TermInSetQuery {
-    fn as_string(&self, _field: &str) -> Result<String> {
-        todo!()
-    }
+  fn as_string(&self, _field: &str) -> Result<String> {
+    todo!()
+  }
 
-    fn create_weight<IRC>(
-        self,
-        _searcher: &IndexSearcher<IRC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
-    ) -> Result<QueryWeight<IRC>>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        todo!()
-    }
+  fn create_weight<IRC>(
+    self,
+    _searcher: &IndexSearcher<IRC>,
+    _score_mode: &ScoreMode,
+    _boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    todo!()
+  }
 
-    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-    where
-        IRC: IndexReaderContext,
-        Self: Sized,
-    {
-        todo!()
-    }
+  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    todo!()
+  }
 
-    fn visit<QV>(&self, _visitor: &QV)
-    where
-        QV: QueryVisitor,
-    {
-        todo!()
-    }
+  fn visit<QV>(&self, _visitor: &QV)
+  where
+    QV: QueryVisitor,
+  {
+    todo!()
+  }
 }

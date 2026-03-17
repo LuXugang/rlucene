@@ -23,43 +23,43 @@ use std::collections::HashSet;
 
 /// Format for live/deleted documents
 pub trait LiveDocsFormat {
-    type Bits: Bits;
-    /// Reads live docs bits from the specified directory.
-    ///
-    /// # Arguments
-    /// - `dir`: The directory to read from.
-    /// - `info`: The segment commit info for the segment.
-    /// - `Context`: The IO context.
-    ///
-    /// # Returns
-    /// A `Bits` implementation representing the live docs.
-    fn read_live_docs<D>(
-        &self,
-        dir: &impl Directory,
-        info: &SegmentCommitInfo<D>,
-        context: &IOContext,
-    ) -> Result<Self::Bits>
-    where
-        D: Directory;
+  type Bits: Bits;
+  /// Reads live docs bits from the specified directory.
+  ///
+  /// # Arguments
+  /// - `dir`: The directory to read from.
+  /// - `info`: The segment commit info for the segment.
+  /// - `Context`: The IO context.
+  ///
+  /// # Returns
+  /// A `Bits` implementation representing the live docs.
+  fn read_live_docs<D>(
+    &self,
+    dir: &impl Directory,
+    info: &SegmentCommitInfo<D>,
+    context: &IOContext,
+  ) -> Result<Self::Bits>
+  where
+    D: Directory;
 
-    /// Persist live docs bits. Use
-    /// [`SegmentCommitInfo#
-    /// getNextDelGen`](SegmentCommitInfo::get_next_write_del_gen) to determine
-    /// the generation of the deletes file you should write to.
-    fn write_live_docs<D>(
-        &self,
-        bits: &impl Bits,
-        dir: &impl Directory,
-        info: &SegmentCommitInfo<D>,
-        new_del_count: i32,
-        context: &IOContext,
-    ) -> Result<()>
-    where
-        D: Directory;
+  /// Persist live docs bits. Use
+  /// [`SegmentCommitInfo#
+  /// getNextDelGen`](SegmentCommitInfo::get_next_write_del_gen) to determine
+  /// the generation of the deletes file you should write to.
+  fn write_live_docs<D>(
+    &self,
+    bits: &impl Bits,
+    dir: &impl Directory,
+    info: &SegmentCommitInfo<D>,
+    new_del_count: i32,
+    context: &IOContext,
+  ) -> Result<()>
+  where
+    D: Directory;
 
-    /// Records all files in use by this [`SegmentCommitInfo`] into the files
-    /// argument.
-    fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
-    where
-        D: Directory;
+  /// Records all files in use by this [`SegmentCommitInfo`] into the files
+  /// argument.
+  fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
+  where
+    D: Directory;
 }

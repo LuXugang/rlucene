@@ -19,13 +19,13 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
 /// A per-document numeric value.
 pub trait NumericDocValues: DocValuesIterator {
-    /// Returns the numeric value for the current document ID.
-    /// It is illegal to call this method after
-    /// [`advanceExact`](DocValuesIterator::advance_exact) returned `false`.
-    ///
-    /// # Returns
-    /// The numeric value for the current document ID.
-    fn long_value(&mut self) -> Result<i64>;
+  /// Returns the numeric value for the current document ID.
+  /// It is illegal to call this method after
+  /// [`advanceExact`](DocValuesIterator::advance_exact) returned `false`.
+  ///
+  /// # Returns
+  /// The numeric value for the current document ID.
+  fn long_value(&mut self) -> Result<i64>;
 }
 
 macro_rules! either_numeric_docvalues {

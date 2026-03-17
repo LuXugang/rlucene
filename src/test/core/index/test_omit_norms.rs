@@ -27,8 +27,8 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
-    new_log_merge_policy_with_merge_factor, random,
+  get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_log_merge_policy_with_merge_factor, random,
 };
 use std::sync::Arc;
 
@@ -37,170 +37,172 @@ pub struct TestOmitNorms;
 
 #[test]
 fn test_mixed_merge_throws_error() -> Result<()> {
-    let mut random = random();
-    let ram = new_directory_shared(&mut random)?;
-    let analyzer = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
-    iwc.set_max_buffered_docs(3);
-    iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
-    let writer = IndexWriter::new(ram.clone(), iwc)?;
+  let mut random = random();
+  let ram = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  iwc.set_max_buffered_docs(3);
+  iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
+  let writer = IndexWriter::new(ram.clone(), iwc)?;
 
-    let mut d = Document::new();
+  let mut d = Document::new();
 
-    let mut field_type1 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-    field_type1.set_omit_norms(false)?;
-    field_type1.set_store_term_vectors(false)?;
-    let f1 = Field::new("f1", "This field has norms", field_type1.clone());
-    d.add(f1);
+  let mut field_type1 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  field_type1.set_omit_norms(false)?;
+  field_type1.set_store_term_vectors(false)?;
+  let f1 = Field::new("f1", "This field has norms", field_type1.clone());
+  d.add(f1);
 
-    let mut field_type2 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-    field_type2.set_omit_norms(true)?;
-    field_type2.set_store_term_vectors(false)?;
-    let f2 = Field::new(
-        "f2",
-        "This field has NO norms in all docs",
-        field_type2.clone(),
-    );
-    d.add(f2);
+  let mut field_type2 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  field_type2.set_omit_norms(true)?;
+  field_type2.set_store_term_vectors(false)?;
+  let f2 = Field::new(
+    "f2",
+    "This field has NO norms in all docs",
+    field_type2.clone(),
+  );
+  d.add(f2);
 
-    for _ in 0..30 {
-        writer.add_document(d.clone())?;
-    }
+  for _ in 0..30 {
+    writer.add_document(d.clone())?;
+  }
 
-    let mut d2 = Document::new();
-    d2.add(Field::new(
-        "f1",
-        "This field has NO norms",
-        field_type2.clone(),
-    ));
-    d2.add(Field::new(
-        "f2",
-        "This field has norms",
-        field_type1.clone(),
-    ));
+  let mut d2 = Document::new();
+  d2.add(Field::new(
+    "f1",
+    "This field has NO norms",
+    field_type2.clone(),
+  ));
+  d2.add(Field::new(
+    "f2",
+    "This field has norms",
+    field_type1.clone(),
+  ));
 
-    let err = writer.add_document(d2).unwrap_err();
-    match err {
-        LuceneError::IllegalArgument(msg) => {
-            assert_eq!(
-                "cannot change field \"f1\" from omitNorms=false to inconsistent omitNorms=true",
-                msg.to_string()
-            );
-        },
-        _ => unreachable!("expected IllegalArgument error"),
-    }
+  let err = writer.add_document(d2).unwrap_err();
+  match err {
+    LuceneError::IllegalArgument(msg) => {
+      assert_eq!(
+        "cannot change field \"f1\" from omitNorms=false to inconsistent omitNorms=true",
+        msg.to_string()
+      );
+    },
+    _ => unreachable!("expected IllegalArgument error"),
+  }
 
-    writer.force_merge(1)?;
-    writer.close()?;
+  writer.force_merge(1)?;
+  writer.close()?;
 
-    let reader = directory_reader_util::open(ram.clone())?;
-    let leaf = get_only_leaf_reader(&reader)?;
-    let fi = leaf.get_field_infos()?;
+  let reader = directory_reader_util::open(ram.clone())?;
+  let leaf = get_only_leaf_reader(&reader)?;
+  let fi = leaf.get_field_infos()?;
 
-    assert!(
-        !fi.field_info_by_name("f1")
-            .ok_or_else(|| LuceneError::illegal_state("field f1 not found"))?
-            .omits_norms()
-    );
-    assert!(
-        fi.field_info_by_name("f2")
-            .ok_or_else(|| LuceneError::illegal_state("field f2 not found"))?
-            .omits_norms()
-    );
+  assert!(
+    !fi
+      .field_info_by_name("f1")
+      .ok_or_else(|| LuceneError::illegal_state("field f1 not found"))?
+      .omits_norms()
+  );
+  assert!(
+    fi.field_info_by_name("f2")
+      .ok_or_else(|| LuceneError::illegal_state("field f2 not found"))?
+      .omits_norms()
+  );
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_mixed_ram() -> Result<()> {
-    let mut random = random();
-    let ram = new_directory_shared(&mut random)?;
-    let analyzer = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
-    iwc.set_max_buffered_docs(10);
-    iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
-    let writer = IndexWriter::new(ram.clone(), iwc)?;
+  let mut random = random();
+  let ram = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  iwc.set_max_buffered_docs(10);
+  iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
+  let writer = IndexWriter::new(ram.clone(), iwc)?;
 
-    let mut d = Document::new();
+  let mut d = Document::new();
 
-    let f1 = Field::new(
-        "f1",
-        "This field has norms",
-        text_field_type::TYPE_NOT_STORED.clone(),
-    );
-    d.add(f1);
+  let f1 = Field::new(
+    "f1",
+    "This field has norms",
+    text_field_type::TYPE_NOT_STORED.clone(),
+  );
+  d.add(f1);
 
-    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-    custom_type.set_omit_norms(true)?;
-    let f2 = Field::new("f2", "This field has NO norms in all docs", custom_type);
-    d.add(f2);
+  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  custom_type.set_omit_norms(true)?;
+  let f2 = Field::new("f2", "This field has NO norms in all docs", custom_type);
+  d.add(f2);
 
-    for _ in 0..5 {
-        writer.add_document(d.clone())?;
-    }
+  for _ in 0..5 {
+    writer.add_document(d.clone())?;
+  }
 
-    for _ in 0..20 {
-        writer.add_document(d.clone())?;
-    }
+  for _ in 0..20 {
+    writer.add_document(d.clone())?;
+  }
 
-    writer.force_merge(1)?;
-    writer.close()?;
+  writer.force_merge(1)?;
+  writer.close()?;
 
-    let reader = directory_reader_util::open(ram.clone())?;
-    let leaf = get_only_leaf_reader(&reader)?;
-    let fi = leaf.get_field_infos()?;
+  let reader = directory_reader_util::open(ram.clone())?;
+  let leaf = get_only_leaf_reader(&reader)?;
+  let fi = leaf.get_field_infos()?;
 
-    assert!(
-        !fi.field_info_by_name("f1")
-            .ok_or_else(|| LuceneError::illegal_state("field f1 not found"))?
-            .omits_norms()
-    );
-    assert!(
-        fi.field_info_by_name("f2")
-            .ok_or_else(|| LuceneError::illegal_state("field f2 not found"))?
-            .omits_norms()
-    );
+  assert!(
+    !fi
+      .field_info_by_name("f1")
+      .ok_or_else(|| LuceneError::illegal_state("field f1 not found"))?
+      .omits_norms()
+  );
+  assert!(
+    fi.field_info_by_name("f2")
+      .ok_or_else(|| LuceneError::illegal_state("field f2 not found"))?
+      .omits_norms()
+  );
 
-    Ok(())
+  Ok(())
 }
 fn assert_no_nrm<D: Directory>(dir: Arc<D>) -> Result<()> {
-    let files = dir.list_all()?;
-    for file in files {
-        assert!(!file.ends_with(".nrm") && !file.ends_with(".len"));
-    }
-    Ok(())
+  let files = dir.list_all()?;
+  for file in files {
+    assert!(!file.ends_with(".nrm") && !file.ends_with(".len"));
+  }
+  Ok(())
 }
 
 #[test]
 fn test_no_nrm_file() -> Result<()> {
-    let mut random = random();
-    let ram = new_directory_shared(&mut random)?;
-    let analyzer = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
-    iwc.set_max_buffered_docs(3);
-    let mut mp = new_log_merge_policy_with_merge_factor(&mut random, 2)?;
-    mp.get_base_mut().set_no_cfs_ratio(0.0)?;
-    iwc.set_merge_policy(mp);
-    let writer = IndexWriter::new(ram.clone(), iwc)?;
+  let mut random = random();
+  let ram = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  iwc.set_max_buffered_docs(3);
+  let mut mp = new_log_merge_policy_with_merge_factor(&mut random, 2)?;
+  mp.get_base_mut().set_no_cfs_ratio(0.0)?;
+  iwc.set_merge_policy(mp);
+  let writer = IndexWriter::new(ram.clone(), iwc)?;
 
-    let mut d = Document::new();
+  let mut d = Document::new();
 
-    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-    custom_type.set_omit_norms(true)?;
-    let f1 = Field::new("f1", "This field has no norms", custom_type);
-    d.add(f1);
+  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  custom_type.set_omit_norms(true)?;
+  let f1 = Field::new("f1", "This field has no norms", custom_type);
+  d.add(f1);
 
-    for _ in 0..30 {
-        writer.add_document(d.clone())?;
-    }
+  for _ in 0..30 {
+    writer.add_document(d.clone())?;
+  }
 
-    writer.commit()?;
+  writer.commit()?;
 
-    assert_no_nrm(ram.clone())?;
+  assert_no_nrm(ram.clone())?;
 
-    writer.force_merge(1)?;
-    writer.close()?;
+  writer.force_merge(1)?;
+  writer.close()?;
 
-    assert_no_nrm(ram.clone())?;
+  assert_no_nrm(ram.clone())?;
 
-    Ok(())
+  Ok(())
 }

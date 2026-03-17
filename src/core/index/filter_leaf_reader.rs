@@ -33,41 +33,41 @@ pub trait FilterLeafReader {}
 #[allow(dead_code)]
 pub struct FilterFields<F>
 where
-    F: Fields,
+  F: Fields,
 {
-    /// The underlying Fields instance.
-    pub(crate) in_: F,
+  /// The underlying Fields instance.
+  pub(crate) in_: F,
 }
 impl<F> FilterFields<F>
 where
-    F: Fields,
+  F: Fields,
 {
-    pub fn new(inner: F) -> FilterFields<F> {
-        Self { in_: inner }
-    }
+  pub fn new(inner: F) -> FilterFields<F> {
+    Self { in_: inner }
+  }
 }
 impl<F> Fields for FilterFields<F>
 where
-    F: Fields,
+  F: Fields,
 {
-    type FieldIter<'a>
-        = F::FieldIter<'a>
-    where
-        F: 'a;
+  type FieldIter<'a>
+    = F::FieldIter<'a>
+  where
+    F: 'a;
 
-    fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-        self.in_.iterator()
-    }
+  fn iterator(&self) -> Result<Self::FieldIter<'_>> {
+    self.in_.iterator()
+  }
 
-    type Terms = F::Terms;
+  type Terms = F::Terms;
 
-    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-        self.in_.terms(field)
-    }
+  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    self.in_.terms(field)
+  }
 
-    fn size(&self) -> Result<i32> {
-        self.in_.size()
-    }
+  fn size(&self) -> Result<i32> {
+    self.in_.size()
+  }
 }
 
 /// # Note
@@ -75,79 +75,79 @@ where
 #[allow(dead_code)]
 pub struct FilterTerms<T>
 where
-    T: Terms,
+  T: Terms,
 {
-    /// The underlying `Terms` instance.
-    pub(crate) in_: T,
+  /// The underlying `Terms` instance.
+  pub(crate) in_: T,
 }
 
 impl<T> FilterTerms<T>
 where
-    T: Terms,
+  T: Terms,
 {
-    pub fn new(inner: T) -> Self {
-        Self { in_: inner }
-    }
+  pub fn new(inner: T) -> Self {
+    Self { in_: inner }
+  }
 }
 impl<T> Terms for FilterTerms<T>
 where
-    T: Terms,
+  T: Terms,
 {
-    type TermsEnum = T::TermsEnum;
+  type TermsEnum = T::TermsEnum;
 
-    fn iterator(&self) -> Result<Self::TermsEnum> {
-        self.in_.iterator()
-    }
+  fn iterator(&self) -> Result<Self::TermsEnum> {
+    self.in_.iterator()
+  }
 
-    type IntersectIter
-        = FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>
-    where
-        Self::TermsEnum: BytesRefIterator,
-        AutomatonTermsEnum: FilteredTermsEnumBase;
+  type IntersectIter
+    = FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>
+  where
+    Self::TermsEnum: BytesRefIterator,
+    AutomatonTermsEnum: FilteredTermsEnumBase;
 
-    fn intersect(
-        &self,
-        compiled: &CompiledAutomaton,
-        start_term: Option<&BytesRef<Vec<u8>>>,
-    ) -> Result<Self::IntersectIter> {
-        self.default_intersect(compiled, start_term)
-    }
+  fn intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<Self::IntersectIter> {
+    self.default_intersect(compiled, start_term)
+  }
 
-    fn size(&self) -> Result<i64> {
-        self.in_.size()
-    }
+  fn size(&self) -> Result<i64> {
+    self.in_.size()
+  }
 
-    fn get_sum_total_term_freq(&self) -> Result<i64> {
-        self.in_.get_sum_total_term_freq()
-    }
+  fn get_sum_total_term_freq(&self) -> Result<i64> {
+    self.in_.get_sum_total_term_freq()
+  }
 
-    fn get_sum_doc_freq(&self) -> Result<i64> {
-        self.in_.get_sum_doc_freq()
-    }
+  fn get_sum_doc_freq(&self) -> Result<i64> {
+    self.in_.get_sum_doc_freq()
+  }
 
-    fn get_doc_count(&self) -> Result<i32> {
-        self.in_.get_doc_count()
-    }
+  fn get_doc_count(&self) -> Result<i32> {
+    self.in_.get_doc_count()
+  }
 
-    fn has_freqs(&self) -> bool {
-        self.in_.has_freqs()
-    }
+  fn has_freqs(&self) -> bool {
+    self.in_.has_freqs()
+  }
 
-    fn has_offsets(&self) -> bool {
-        self.in_.has_offsets()
-    }
+  fn has_offsets(&self) -> bool {
+    self.in_.has_offsets()
+  }
 
-    fn has_positions(&self) -> bool {
-        self.in_.has_positions()
-    }
+  fn has_positions(&self) -> bool {
+    self.in_.has_positions()
+  }
 
-    fn has_payloads(&self) -> bool {
-        self.in_.has_payloads()
-    }
+  fn has_payloads(&self) -> bool {
+    self.in_.has_payloads()
+  }
 
-    fn get_stats(&self) -> Result<String> {
-        self.in_.get_stats()
-    }
+  fn get_stats(&self) -> Result<String> {
+    self.in_.get_stats()
+  }
 }
 
 /// # Note
@@ -155,91 +155,91 @@ where
 #[allow(dead_code)]
 pub struct FilterTermsEnum<T>
 where
-    T: TermsEnum,
+  T: TermsEnum,
 {
-    pub(crate) in_: T,
+  pub(crate) in_: T,
 }
 impl<T> FilterTermsEnum<T>
 where
-    T: TermsEnum,
+  T: TermsEnum,
 {
-    pub fn new(terms_enum: T) -> Self {
-        Self { in_: terms_enum }
-    }
+  pub fn new(terms_enum: T) -> Self {
+    Self { in_: terms_enum }
+  }
 }
 
 impl<T> BytesRefIterator for FilterTermsEnum<T>
 where
-    T: TermsEnum,
+  T: TermsEnum,
 {
-    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.in_.next()
-    }
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    self.in_.next()
+  }
 }
 
 impl<T> TermsEnum for FilterTermsEnum<T>
 where
-    T: TermsEnum,
+  T: TermsEnum,
 {
-    type AttributeSource = T::AttributeSource;
+  type AttributeSource = T::AttributeSource;
 
-    fn attributes(&self) -> Result<Self::AttributeSource> {
-        self.in_.attributes()
-    }
+  fn attributes(&self) -> Result<Self::AttributeSource> {
+    self.in_.attributes()
+  }
 
-    fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
-        self.in_.seek_exact(term)
-    }
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    self.in_.seek_exact(term)
+  }
 
-    fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        self.in_.seek_ceil(term)
-    }
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    self.in_.seek_ceil(term)
+  }
 
-    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-        self.in_.seek_exact_with_ord(ord)
-    }
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    self.in_.seek_exact_with_ord(ord)
+  }
 
-    fn seek_exact_with_state(
-        &mut self,
-        term: &BytesRef<Vec<u8>>,
-        state: &TermStateEnum,
-    ) -> Result<()> {
-        self.in_.seek_exact_with_state(term, state)
-    }
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()> {
+    self.in_.seek_exact_with_state(term, state)
+  }
 
-    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.in_.term()
-    }
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    self.in_.term()
+  }
 
-    fn ord(&self) -> Result<i64> {
-        self.in_.ord()
-    }
+  fn ord(&self) -> Result<i64> {
+    self.in_.ord()
+  }
 
-    fn doc_freq(&mut self) -> Result<i32> {
-        self.in_.doc_freq()
-    }
+  fn doc_freq(&mut self) -> Result<i32> {
+    self.in_.doc_freq()
+  }
 
-    fn total_term_freq(&mut self) -> Result<i64> {
-        self.in_.total_term_freq()
-    }
+  fn total_term_freq(&mut self) -> Result<i64> {
+    self.in_.total_term_freq()
+  }
 
-    type PostingsEnum = T::PostingsEnum;
+  type PostingsEnum = T::PostingsEnum;
 
-    fn postings_with_flags(
-        &mut self,
-        reuse: Option<Self::PostingsEnum>,
-        flags: i32,
-    ) -> Result<Self::PostingsEnum> {
-        self.in_.postings_with_flags(reuse, flags)
-    }
+  fn postings_with_flags(
+    &mut self,
+    reuse: Option<Self::PostingsEnum>,
+    flags: i32,
+  ) -> Result<Self::PostingsEnum> {
+    self.in_.postings_with_flags(reuse, flags)
+  }
 
-    type ImpactsEnum = T::ImpactsEnum;
+  type ImpactsEnum = T::ImpactsEnum;
 
-    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
-        self.in_.impacts(flags)
-    }
+  fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+    self.in_.impacts(flags)
+  }
 
-    fn term_state(&mut self) -> Result<TermStateEnum> {
-        self.in_.term_state()
-    }
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    self.in_.term_state()
+  }
 }

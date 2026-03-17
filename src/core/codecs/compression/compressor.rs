@@ -20,12 +20,12 @@ use crate::core::util::error::lucene_error::Result;
 
 /// A data compressor.
 pub trait Compressor {
-    /// Compress bytes into `out`. It is the responsibility of the compressor to
-    /// add all necessary information so that a `Decompressor` will know
-    /// when to stop decompressing bytes from the stream.
-    fn compress(
-        &mut self,
-        buffers_input: &mut ByteBuffersDataInput<&[u8]>,
-        out: &mut impl DataOutput,
-    ) -> Result<()>;
+  /// Compress bytes into `out`. It is the responsibility of the compressor to
+  /// add all necessary information so that a `Decompressor` will know
+  /// when to stop decompressing bytes from the stream.
+  fn compress(
+    &mut self,
+    buffers_input: &mut ByteBuffersDataInput<&[u8]>,
+    out: &mut impl DataOutput,
+  ) -> Result<()>;
 }

@@ -34,171 +34,170 @@ use num_bigint::BigInt;
 pub struct IndexFileNames;
 
 impl IndexFileNames {
-    /// Name of the index segment file
-    pub const SEGMENTS: &'static str = "segments";
-    /// Name of a pending index segment file
-    pub const PENDING_SEGMENTS: &'static str = "pending_segments";
-    /// Computes the full file name from `base`, `extension`, and `generation`.
-    /// If the generation is `-1`, the file name is `None`. If it's `0`, the
-    /// file name is `<base>.<ext>`. If it's greater than `0`, the file name
-    /// is `<base>_<gen>.<ext>`.
-    ///
-    /// # Note
-    /// `.ext` is added to the name only if `ext` is not an empty string.
-    ///
-    /// # Arguments
-    /// * `base` - Main part of the file name.
-    /// * `ext` - Extension of the filename.
-    /// * `gen` - Generation.
-    pub fn file_name_from_generation(base: &str, ext: &str, gen_: i64) -> Option<String> {
-        if gen_ == -1 {
-            return None;
-        }
-        if gen_ == 0 {
-            Option::from(IndexFileNames::segment_file_name(base, "", ext))
-        } else {
-            // base-36
-            let gen_str = BigInt::from(gen_).to_str_radix(36);
-            let mut res = String::with_capacity(base.len() + 6 + ext.len());
-            res.push_str(base);
-            res.push('_');
-            res.push_str(&gen_str);
+  /// Name of the index segment file
+  pub const SEGMENTS: &'static str = "segments";
+  /// Name of a pending index segment file
+  pub const PENDING_SEGMENTS: &'static str = "pending_segments";
+  /// Computes the full file name from `base`, `extension`, and `generation`.
+  /// If the generation is `-1`, the file name is `None`. If it's `0`, the
+  /// file name is `<base>.<ext>`. If it's greater than `0`, the file name
+  /// is `<base>_<gen>.<ext>`.
+  ///
+  /// # Note
+  /// `.ext` is added to the name only if `ext` is not an empty string.
+  ///
+  /// # Arguments
+  /// * `base` - Main part of the file name.
+  /// * `ext` - Extension of the filename.
+  /// * `gen` - Generation.
+  pub fn file_name_from_generation(base: &str, ext: &str, gen_: i64) -> Option<String> {
+    if gen_ == -1 {
+      return None;
+    }
+    if gen_ == 0 {
+      Option::from(IndexFileNames::segment_file_name(base, "", ext))
+    } else {
+      // base-36
+      let gen_str = BigInt::from(gen_).to_str_radix(36);
+      let mut res = String::with_capacity(base.len() + 6 + ext.len());
+      res.push_str(base);
+      res.push('_');
+      res.push_str(&gen_str);
 
-            if !ext.is_empty() {
-                res.push('.');
-                res.push_str(ext);
-            }
-            Option::from(res)
-        }
+      if !ext.is_empty() {
+        res.push('.');
+        res.push_str(ext);
+      }
+      Option::from(res)
     }
-    /// Returns a file name that includes the given `segment_name`, your own
-    /// custom `name`, and `extension`. The format of the filename is:
-    /// `<segment_name>_<name>.<ext>`.
-    ///
-    /// # Note
-    /// - `.ext` is added to the result file name only if `ext` is not empty.
-    /// - `_segment_suffix` is added to the result file name only if it's not
-    ///   the empty string.
-    /// - All custom files should be named using this method, or otherwise some
-    ///   structures may fail to handle them properly (such as if they are added
-    ///   to compound files).
-    ///
-    /// # Arguments
-    /// * `segment_name` - The segment name.
-    /// * `name` - The custom name.
-    /// * `ext` - The file extension.
-    pub fn segment_file_name(segment_name: &str, segment_suffix: &str, ext: &str) -> String {
-        if !ext.is_empty() || !segment_suffix.is_empty() {
-            debug_assert!(!ext.starts_with('.'), "Extension should not start with '.'");
-            let mut sb =
-                String::with_capacity(segment_name.len() + 2 + segment_suffix.len() + ext.len());
-            sb.push_str(segment_name);
-            if !segment_suffix.is_empty() {
-                sb.push('_');
-                sb.push_str(segment_suffix);
-            }
-            if !ext.is_empty() {
-                sb.push('.');
-                sb.push_str(ext);
-            }
-            sb
-        } else {
-            segment_name.to_string()
-        }
+  }
+  /// Returns a file name that includes the given `segment_name`, your own
+  /// custom `name`, and `extension`. The format of the filename is:
+  /// `<segment_name>_<name>.<ext>`.
+  ///
+  /// # Note
+  /// - `.ext` is added to the result file name only if `ext` is not empty.
+  /// - `_segment_suffix` is added to the result file name only if it's not
+  ///   the empty string.
+  /// - All custom files should be named using this method, or otherwise some
+  ///   structures may fail to handle them properly (such as if they are added
+  ///   to compound files).
+  ///
+  /// # Arguments
+  /// * `segment_name` - The segment name.
+  /// * `name` - The custom name.
+  /// * `ext` - The file extension.
+  pub fn segment_file_name(segment_name: &str, segment_suffix: &str, ext: &str) -> String {
+    if !ext.is_empty() || !segment_suffix.is_empty() {
+      debug_assert!(!ext.starts_with('.'), "Extension should not start with '.'");
+      let mut sb = String::with_capacity(segment_name.len() + 2 + segment_suffix.len() + ext.len());
+      sb.push_str(segment_name);
+      if !segment_suffix.is_empty() {
+        sb.push('_');
+        sb.push_str(segment_suffix);
+      }
+      if !ext.is_empty() {
+        sb.push('.');
+        sb.push_str(ext);
+      }
+      sb
+    } else {
+      segment_name.to_string()
     }
+  }
 
-    /// Returns true if the given filename ends with the given extension. One
-    /// should provide a `pure` extension, without '.'.
-    pub fn matches_extension(filename: &str, ext: &str) -> bool {
-        // It doesn't make a difference whether we allocate a StringBuilder
-        // ourselves or not, since there's only 1 '+' operator.
-        filename.ends_with(&format!(".{ext}"))
+  /// Returns true if the given filename ends with the given extension. One
+  /// should provide a `pure` extension, without '.'.
+  pub fn matches_extension(filename: &str, ext: &str) -> bool {
+    // It doesn't make a difference whether we allocate a StringBuilder
+    // ourselves or not, since there's only 1 '+' operator.
+    filename.ends_with(&format!(".{ext}"))
+  }
+  /// locates the boundary of the segment name, or -1  */
+  pub fn index_of_segment_name(filename: &str) -> i32 {
+    debug_assert!(filename.len() <= i32::MAX as usize);
+    if let Some(idx) = filename[1..].find('_') {
+      (idx + 1) as i32
+    } else if let Some(idx) = filename.find('.') {
+      idx as i32
+    } else {
+      -1
     }
-    /// locates the boundary of the segment name, or -1  */
-    pub fn index_of_segment_name(filename: &str) -> i32 {
-        debug_assert!(filename.len() <= i32::MAX as usize);
-        if let Some(idx) = filename[1..].find('_') {
-            (idx + 1) as i32
-        } else if let Some(idx) = filename.find('.') {
-            idx as i32
-        } else {
-            -1
-        }
-    }
+  }
 
-    /// Strips the segment name out of the given file name. If you used
-    /// [`segment_file_name`](#method.segment_file_name) or
-    /// [`file_name_from_generation`](#method.file_name_from_generation) to
-    /// create your files, this method simply removes whatever comes before
-    /// the first `.` or the second `_` (excluding both).
-    ///
-    /// # Returns
-    /// The filename with the segment name removed, or the given filename if it
-    /// does not contain a `.` and `_`.
-    pub fn strip_segment_name(filename: &str) -> &str {
-        let idx = IndexFileNames::index_of_segment_name(filename);
-        if idx != -1 {
-            &filename[idx as usize..]
-        } else {
-            filename
-        }
+  /// Strips the segment name out of the given file name. If you used
+  /// [`segment_file_name`](#method.segment_file_name) or
+  /// [`file_name_from_generation`](#method.file_name_from_generation) to
+  /// create your files, this method simply removes whatever comes before
+  /// the first `.` or the second `_` (excluding both).
+  ///
+  /// # Returns
+  /// The filename with the segment name removed, or the given filename if it
+  /// does not contain a `.` and `_`.
+  pub fn strip_segment_name(filename: &str) -> &str {
+    let idx = IndexFileNames::index_of_segment_name(filename);
+    if idx != -1 {
+      &filename[idx as usize..]
+    } else {
+      filename
     }
+  }
 
-    /// Returns the generation from this file name, or 0 if there is no
-    /// generation.
-    pub fn parse_generation(filename: &str) -> Result<i64> {
-        debug_assert!(filename.starts_with('_'), "Filename must start with '_'");
+  /// Returns the generation from this file name, or 0 if there is no
+  /// generation.
+  pub fn parse_generation(filename: &str) -> Result<i64> {
+    debug_assert!(filename.starts_with('_'), "Filename must start with '_'");
 
-        let stripped = IndexFileNames::strip_extension(filename);
-        let parts: Vec<&str> = stripped[1..].split('_').collect();
-        // 4 cases:
-        // segment.ext
-        // segment_gen.ext
-        // segment_codec_suffix.ext
-        // segment_gen_codec_suffix.ext
-        if parts.len() == 2 || parts.len() == 4 {
-            // base-36
-            Ok(i64::from_str_radix(parts[1], 36)?)
-        } else {
-            Ok(0)
-        }
+    let stripped = IndexFileNames::strip_extension(filename);
+    let parts: Vec<&str> = stripped[1..].split('_').collect();
+    // 4 cases:
+    // segment.ext
+    // segment_gen.ext
+    // segment_codec_suffix.ext
+    // segment_gen_codec_suffix.ext
+    if parts.len() == 2 || parts.len() == 4 {
+      // base-36
+      Ok(i64::from_str_radix(parts[1], 36)?)
+    } else {
+      Ok(0)
     }
-    /// Parses the segment name out of the given file name.
-    ///
-    /// # Returns
-    /// The segment name only, or the filename if it does not contain a `.` and
-    /// `_`.
-    pub fn parse_segment_name(filename: &str) -> &str {
-        let idx = IndexFileNames::index_of_segment_name(filename);
-        if idx != -1 {
-            &filename[..idx as usize]
-        } else {
-            filename
-        }
+  }
+  /// Parses the segment name out of the given file name.
+  ///
+  /// # Returns
+  /// The segment name only, or the filename if it does not contain a `.` and
+  /// `_`.
+  pub fn parse_segment_name(filename: &str) -> &str {
+    let idx = IndexFileNames::index_of_segment_name(filename);
+    if idx != -1 {
+      &filename[..idx as usize]
+    } else {
+      filename
     }
-    /// Removes the extension (anything after the first '.'), otherwise returns
-    /// the original filename.
-    pub fn strip_extension(filename: &str) -> &str {
-        if let Some(idx) = filename.find('.') {
-            &filename[..idx]
-        } else {
-            filename
-        }
+  }
+  /// Removes the extension (anything after the first '.'), otherwise returns
+  /// the original filename.
+  pub fn strip_extension(filename: &str) -> &str {
+    if let Some(idx) = filename.find('.') {
+      &filename[..idx]
+    } else {
+      filename
     }
+  }
 
-    /// Return the extension (anything after the first '.'), or null if there is
-    /// no '.' in the file name.
-    pub fn get_extension(filename: &str) -> Option<&str> {
-        if let Some(idx) = filename.find('.') {
-            Some(&filename[idx + 1..])
-        } else {
-            None
-        }
+  /// Return the extension (anything after the first '.'), or null if there is
+  /// no '.' in the file name.
+  pub fn get_extension(filename: &str) -> Option<&str> {
+    if let Some(idx) = filename.find('.') {
+      Some(&filename[idx + 1..])
+    } else {
+      None
     }
+  }
 }
 
 use once_cell::sync::Lazy;
 use regex::Regex;
 
 pub static CODEC_FILE_PATTERN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"_[a-z0-9]+(_.*)?\..*").unwrap());
+  Lazy::new(|| Regex::new(r"_[a-z0-9]+(_.*)?\..*").unwrap());

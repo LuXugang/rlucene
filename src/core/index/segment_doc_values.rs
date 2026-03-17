@@ -33,97 +33,97 @@ use std::sync::Arc;
 /// Manages the [`DocValuesProducer`](crate::core::codecs::doc_values_producer::DocValuesProducer) held by [`SegmentReader`](crate::core::index::segment_reader::SegmentReader) and keeps track of their reference counting.
 pub(crate) struct SegmentDocValues<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    inner: Mutex<Inner<D>>,
+  inner: Mutex<Inner<D>>,
 }
 pub(crate) struct Inner<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    gen_dv_producers: HashMap<i64, RefCount<Arc<DefaultDocValuesProducer<D::IndexInput>>>>,
+  gen_dv_producers: HashMap<i64, RefCount<Arc<DefaultDocValuesProducer<D::IndexInput>>>>,
 }
 
 impl<D> SegmentDocValues<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) fn new() -> Self {
-        SegmentDocValues {
-            inner: Mutex::new(Inner {
-                gen_dv_producers: HashMap::new(),
-            }),
-        }
+  pub(crate) fn new() -> Self {
+    SegmentDocValues {
+      inner: Mutex::new(Inner {
+        gen_dv_producers: HashMap::new(),
+      }),
     }
-    pub(crate) fn new_doc_values_producer<D1>(
-        &self,
-        si: &SegmentCommitInfo<D>,
-        dir: Option<&D1>,
-        r#gen: i64,
-        infos: Arc<FieldInfos>,
-    ) -> Result<RefCount<Arc<DefaultDocValuesProducer<D1::IndexInput>>>>
-    where
-        D1: Directory<IndexInput = D::IndexInput, IndexOutput = D::IndexOutput, Lock = D::Lock>,
-    {
-        let mut dv_dir = match dir {
-            Some(d) => CompoundDirectoryEnum::A(d),
-            None => CompoundDirectoryEnum::B(si.info.dir.as_ref()),
-        };
-        let mut segment_suffix = "".to_string();
+  }
+  pub(crate) fn new_doc_values_producer<D1>(
+    &self,
+    si: &SegmentCommitInfo<D>,
+    dir: Option<&D1>,
+    r#gen: i64,
+    infos: Arc<FieldInfos>,
+  ) -> Result<RefCount<Arc<DefaultDocValuesProducer<D1::IndexInput>>>>
+  where
+    D1: Directory<IndexInput = D::IndexInput, IndexOutput = D::IndexOutput, Lock = D::Lock>,
+  {
+    let mut dv_dir = match dir {
+      Some(d) => CompoundDirectoryEnum::A(d),
+      None => CompoundDirectoryEnum::B(si.info.dir.as_ref()),
+    };
+    let mut segment_suffix = "".to_string();
 
-        if r#gen != -1 {
-            // gen'd files are written outside CFS, so use SegInfo directory
-            dv_dir = CompoundDirectoryEnum::B(si.info.dir.as_ref());
-            let v = BigInt::from(r#gen).to_str_radix(36);
-            segment_suffix = v.to_string();
-        }
-
-        let io_context = IOContext::default_io_context()?;
-        // set SegmentReadState to list only the fields that are relevant to that gen
-        let srs = SegmentReadState::with_suffix(&dv_dir, infos, &io_context, &segment_suffix);
-
-        let dv_format = get_default_code().doc_values_format();
-
-        Ok(RefCount::new(Arc::new(
-            dv_format.fields_producer(&srs, &si.info)?,
-        )))
+    if r#gen != -1 {
+      // gen'd files are written outside CFS, so use SegInfo directory
+      dv_dir = CompoundDirectoryEnum::B(si.info.dir.as_ref());
+      let v = BigInt::from(r#gen).to_str_radix(36);
+      segment_suffix = v.to_string();
     }
-    /// Returns the [`DocValuesProducer`](crate::core::codecs::doc_values_producer::DocValuesProducer) for the given generation.
-    pub(crate) fn get_doc_values_producer<D1>(
-        &self,
-        r#gen: i64,
-        si: &SegmentCommitInfo<D>,
-        dir: Option<&D1>,
-        infos: Arc<FieldInfos>,
-    ) -> Result<Arc<DefaultDocValuesProducer<D1::IndexInput>>>
-    where
-        D1: Directory<IndexInput = D::IndexInput, IndexOutput = D::IndexOutput, Lock = D::Lock>,
-    {
-        let mut inner = self.inner.lock();
 
-        if let Some(dvp) = inner.gen_dv_producers.get_mut(&r#gen) {
-            dvp.inc_ref();
-            Ok(dvp.get().clone())
-        } else {
-            let dvp = self.new_doc_values_producer(si, dir, r#gen, infos)?;
-            let v = dvp.get().clone();
-            inner.gen_dv_producers.insert(r#gen, dvp);
-            Ok(v)
-        }
-    }
-    ///  Decrement the reference count of the given [`DocValuesProducer`](crate::core::codecs::doc_values_producer::DocValuesProducer) generations.
-    pub(crate) fn dec_ref(&self, gens: &[i64]) -> Result<()> {
-        let mut inner = self.inner.lock();
+    let io_context = IOContext::default_io_context()?;
+    // set SegmentReadState to list only the fields that are relevant to that gen
+    let srs = SegmentReadState::with_suffix(&dv_dir, infos, &io_context, &segment_suffix);
 
-        for &r#gen in gens {
-            if let Some(dvp) = inner.gen_dv_producers.get_mut(&r#gen) {
-                if dvp.dec_ref()? {
-                    inner.gen_dv_producers.remove(&r#gen);
-                }
-            } else {
-                debug_assert!(false, "gen={} not found in gen_dv_producers", r#gen);
-            }
-        }
-        Ok(())
+    let dv_format = get_default_code().doc_values_format();
+
+    Ok(RefCount::new(Arc::new(
+      dv_format.fields_producer(&srs, &si.info)?,
+    )))
+  }
+  /// Returns the [`DocValuesProducer`](crate::core::codecs::doc_values_producer::DocValuesProducer) for the given generation.
+  pub(crate) fn get_doc_values_producer<D1>(
+    &self,
+    r#gen: i64,
+    si: &SegmentCommitInfo<D>,
+    dir: Option<&D1>,
+    infos: Arc<FieldInfos>,
+  ) -> Result<Arc<DefaultDocValuesProducer<D1::IndexInput>>>
+  where
+    D1: Directory<IndexInput = D::IndexInput, IndexOutput = D::IndexOutput, Lock = D::Lock>,
+  {
+    let mut inner = self.inner.lock();
+
+    if let Some(dvp) = inner.gen_dv_producers.get_mut(&r#gen) {
+      dvp.inc_ref();
+      Ok(dvp.get().clone())
+    } else {
+      let dvp = self.new_doc_values_producer(si, dir, r#gen, infos)?;
+      let v = dvp.get().clone();
+      inner.gen_dv_producers.insert(r#gen, dvp);
+      Ok(v)
     }
+  }
+  ///  Decrement the reference count of the given [`DocValuesProducer`](crate::core::codecs::doc_values_producer::DocValuesProducer) generations.
+  pub(crate) fn dec_ref(&self, gens: &[i64]) -> Result<()> {
+    let mut inner = self.inner.lock();
+
+    for &r#gen in gens {
+      if let Some(dvp) = inner.gen_dv_producers.get_mut(&r#gen) {
+        if dvp.dec_ref()? {
+          inner.gen_dv_producers.remove(&r#gen);
+        }
+      } else {
+        debug_assert!(false, "gen={} not found in gen_dv_producers", r#gen);
+      }
+    }
+    Ok(())
+  }
 }

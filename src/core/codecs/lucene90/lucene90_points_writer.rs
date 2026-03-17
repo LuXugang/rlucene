@@ -22,7 +22,7 @@ use crate::core::index::IndexFileNames;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::point_values::Relation::CellCrossesQuery;
 use crate::core::index::point_values::{
-    IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
+  IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
 };
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -37,220 +37,214 @@ use std::sync::Arc;
 /// Writes dimensional values
 pub struct Lucene90PointsWriter<O>
 where
-    O: IndexOutput,
+  O: IndexOutput,
 {
-    data_out: O,
-    meta_out: O,
-    index_out: O,
-    max_points_in_leaf_node: usize,
-    max_mb_sort_in_heap: f64,
-    finish: bool,
+  data_out: O,
+  meta_out: O,
+  index_out: O,
+  max_points_in_leaf_node: usize,
+  max_mb_sort_in_heap: f64,
+  finish: bool,
 }
 
 impl<O> Lucene90PointsWriter<O>
 where
-    O: IndexOutput,
+  O: IndexOutput,
 {
-    /// Uses the default values for `max_points_in_leaf_node` (512)
-    /// and `max_mb_sort_in_heap` (16.0).
-    pub fn with_default_config<D1, D2>(
-        write_state: &SegmentWriteState<D1>,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<Self>
-    where
-        D1: Directory<IndexOutput = O>,
-        D2: Directory,
-    {
-        Self::new(
-            write_state,
-            BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
-            DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
-            segment_info,
-        )
-    }
-    pub fn new<D1, D2>(
-        write_state: &SegmentWriteState<D1>,
-        max_points_in_leaf_node: usize,
-        max_mb_sort_in_heap: f64,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<Self>
-    where
-        D1: Directory<IndexOutput = O>,
-        D2: Directory,
-    {
-        debug_assert!(write_state.field_infos.has_point_values());
+  /// Uses the default values for `max_points_in_leaf_node` (512)
+  /// and `max_mb_sort_in_heap` (16.0).
+  pub fn with_default_config<D1, D2>(
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self>
+  where
+    D1: Directory<IndexOutput = O>,
+    D2: Directory,
+  {
+    Self::new(
+      write_state,
+      BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
+      DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+      segment_info,
+    )
+  }
+  pub fn new<D1, D2>(
+    write_state: &SegmentWriteState<D1>,
+    max_points_in_leaf_node: usize,
+    max_mb_sort_in_heap: f64,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self>
+  where
+    D1: Directory<IndexOutput = O>,
+    D2: Directory,
+  {
+    debug_assert!(write_state.field_infos.has_point_values());
 
-        let data_file = IndexFileNames::segment_file_name(
-            &segment_info.name,
-            &write_state.segment_suffix,
-            Lucene90PointsFormat::DATA_EXTENSION,
-        );
-        let mut data_out = write_state
-            .directory
-            .create_output(&data_file, write_state.context)?;
+    let data_file = IndexFileNames::segment_file_name(
+      &segment_info.name,
+      &write_state.segment_suffix,
+      Lucene90PointsFormat::DATA_EXTENSION,
+    );
+    let mut data_out = write_state
+      .directory
+      .create_output(&data_file, write_state.context)?;
 
-        CodecUtil::write_index_header(
-            &mut data_out,
-            Lucene90PointsFormat::DATA_CODEC_NAME,
-            Lucene90PointsFormat::VERSION_CURRENT,
-            segment_info.get_id(),
-            &write_state.segment_suffix,
-        )?;
+    CodecUtil::write_index_header(
+      &mut data_out,
+      Lucene90PointsFormat::DATA_CODEC_NAME,
+      Lucene90PointsFormat::VERSION_CURRENT,
+      segment_info.get_id(),
+      &write_state.segment_suffix,
+    )?;
 
-        let meta_file = IndexFileNames::segment_file_name(
-            &segment_info.name,
-            &write_state.segment_suffix,
-            Lucene90PointsFormat::META_EXTENSION,
-        );
-        let mut meta_out = write_state
-            .directory
-            .create_output(&meta_file, write_state.context)?;
-        CodecUtil::write_index_header(
-            &mut meta_out,
-            Lucene90PointsFormat::META_CODEC_NAME,
-            Lucene90PointsFormat::VERSION_CURRENT,
-            segment_info.get_id(),
-            &write_state.segment_suffix,
-        )?;
+    let meta_file = IndexFileNames::segment_file_name(
+      &segment_info.name,
+      &write_state.segment_suffix,
+      Lucene90PointsFormat::META_EXTENSION,
+    );
+    let mut meta_out = write_state
+      .directory
+      .create_output(&meta_file, write_state.context)?;
+    CodecUtil::write_index_header(
+      &mut meta_out,
+      Lucene90PointsFormat::META_CODEC_NAME,
+      Lucene90PointsFormat::VERSION_CURRENT,
+      segment_info.get_id(),
+      &write_state.segment_suffix,
+    )?;
 
-        let index_file = IndexFileNames::segment_file_name(
-            &segment_info.name,
-            &write_state.segment_suffix,
-            Lucene90PointsFormat::INDEX_EXTENSION,
-        );
-        let mut index_out = write_state
-            .directory
-            .create_output(&index_file, write_state.context)?;
-        CodecUtil::write_index_header(
-            &mut index_out,
-            Lucene90PointsFormat::INDEX_CODEC_NAME,
-            Lucene90PointsFormat::VERSION_CURRENT,
-            segment_info.get_id(),
-            &write_state.segment_suffix,
-        )?;
+    let index_file = IndexFileNames::segment_file_name(
+      &segment_info.name,
+      &write_state.segment_suffix,
+      Lucene90PointsFormat::INDEX_EXTENSION,
+    );
+    let mut index_out = write_state
+      .directory
+      .create_output(&index_file, write_state.context)?;
+    CodecUtil::write_index_header(
+      &mut index_out,
+      Lucene90PointsFormat::INDEX_CODEC_NAME,
+      Lucene90PointsFormat::VERSION_CURRENT,
+      segment_info.get_id(),
+      &write_state.segment_suffix,
+    )?;
 
-        Ok(Self {
-            data_out,
-            meta_out,
-            index_out,
-            max_points_in_leaf_node,
-            max_mb_sort_in_heap,
-            finish: false,
-        })
-    }
+    Ok(Self {
+      data_out,
+      meta_out,
+      index_out,
+      max_points_in_leaf_node,
+      max_mb_sort_in_heap,
+      finish: false,
+    })
+  }
 }
 
 impl<O> PointsWriter for Lucene90PointsWriter<O>
 where
-    O: IndexOutput,
+  O: IndexOutput,
 {
-    fn write_field<PR, D1, D2>(
-        &mut self,
-        field_info: &Arc<FieldInfo>,
-        reader: &mut PR,
-        dir: &D1,
-        segment_info: &SegmentInfo<D2>,
-    ) -> Result<()>
-    where
-        PR: PointsReader,
-        D1: Directory,
-        D2: Directory,
-    {
-        let mut values = reader
-            .get_values(&field_info.name)?
-            .ok_or_else(|| LuceneError::illegal_state("PointValues is None"))?
-            .get_point_tree()?;
-        let config = BKDConfig::new(
-            field_info.get_point_index_dimension_count(),
-            field_info.get_point_index_dimension_count(),
-            field_info.get_point_num_bytes(),
-            self.max_points_in_leaf_node,
-        )?;
-        let mut writer = BKDWriter::new(
-            segment_info.max_doc()?,
-            dir,
-            &segment_info.name,
-            config,
-            self.max_mb_sort_in_heap,
-            values.size()?.try_convert()?,
-        )?;
-        match values {
-            PointTreeEnum::Mutable(ref mut mutable_tree) => {
-                match writer.write_field(&mut self.data_out, mutable_tree, &field_info.name)? {
-                    Some(finalizer) => {
-                        self.meta_out.write_int(field_info.number)?;
-                        writer.write_index(
-                            &mut self.meta_out,
-                            Some(&mut self.index_out),
-                            &finalizer,
-                        )
-                    },
-                    None => Ok(()),
-                }
-            },
-            PointTreeEnum::Other(mut tree) => {
-                let mut intersect_visitor = IntersectVisitorImpl::new(&mut writer);
-                tree.visit_doc_values(&mut intersect_visitor)?;
-                match writer.finish(&mut self.data_out)? {
-                    Some(finalizer) => {
-                        self.meta_out.write_int(field_info.number)?;
-                        writer.write_index(
-                            &mut self.meta_out,
-                            Some(&mut self.index_out),
-                            &finalizer,
-                        )
-                    },
-                    None => Ok(()),
-                }
-            },
+  fn write_field<PR, D1, D2>(
+    &mut self,
+    field_info: &Arc<FieldInfo>,
+    reader: &mut PR,
+    dir: &D1,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<()>
+  where
+    PR: PointsReader,
+    D1: Directory,
+    D2: Directory,
+  {
+    let mut values = reader
+      .get_values(&field_info.name)?
+      .ok_or_else(|| LuceneError::illegal_state("PointValues is None"))?
+      .get_point_tree()?;
+    let config = BKDConfig::new(
+      field_info.get_point_index_dimension_count(),
+      field_info.get_point_index_dimension_count(),
+      field_info.get_point_num_bytes(),
+      self.max_points_in_leaf_node,
+    )?;
+    let mut writer = BKDWriter::new(
+      segment_info.max_doc()?,
+      dir,
+      &segment_info.name,
+      config,
+      self.max_mb_sort_in_heap,
+      values.size()?.try_convert()?,
+    )?;
+    match values {
+      PointTreeEnum::Mutable(ref mut mutable_tree) => {
+        match writer.write_field(&mut self.data_out, mutable_tree, &field_info.name)? {
+          Some(finalizer) => {
+            self.meta_out.write_int(field_info.number)?;
+            writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)
+          },
+          None => Ok(()),
         }
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        if self.finish {
-            return Err(LuceneError::illegal_state("already finished"));
+      },
+      PointTreeEnum::Other(mut tree) => {
+        let mut intersect_visitor = IntersectVisitorImpl::new(&mut writer);
+        tree.visit_doc_values(&mut intersect_visitor)?;
+        match writer.finish(&mut self.data_out)? {
+          Some(finalizer) => {
+            self.meta_out.write_int(field_info.number)?;
+            writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)
+          },
+          None => Ok(()),
         }
-        self.finish = true;
-
-        self.meta_out.write_int(-1)?;
-        CodecUtil::write_footer(&mut self.index_out)?;
-        CodecUtil::write_footer(&mut self.data_out)?;
-        self.meta_out
-            .write_long(self.index_out.get_file_pointer() as i64)?;
-        self.meta_out
-            .write_long(self.data_out.get_file_pointer() as i64)?;
-        CodecUtil::write_footer(&mut self.meta_out)?;
-        Ok(())
+      },
     }
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    if self.finish {
+      return Err(LuceneError::illegal_state("already finished"));
+    }
+    self.finish = true;
+
+    self.meta_out.write_int(-1)?;
+    CodecUtil::write_footer(&mut self.index_out)?;
+    CodecUtil::write_footer(&mut self.data_out)?;
+    self
+      .meta_out
+      .write_long(self.index_out.get_file_pointer() as i64)?;
+    self
+      .meta_out
+      .write_long(self.data_out.get_file_pointer() as i64)?;
+    CodecUtil::write_footer(&mut self.meta_out)?;
+    Ok(())
+  }
 }
 
 struct IntersectVisitorImpl<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    writer: &'a mut BKDWriter<D>,
+  writer: &'a mut BKDWriter<D>,
 }
 impl<'a, D> IntersectVisitorImpl<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub fn new(writer: &'a mut BKDWriter<D>) -> Self {
-        Self { writer }
-    }
+  pub fn new(writer: &'a mut BKDWriter<D>) -> Self {
+    Self { writer }
+  }
 }
 impl<'a, D> IntersectVisitor for IntersectVisitorImpl<'a, D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn visit(&mut self, _doc_id: i32) -> Result<()> {
-        Err(LuceneError::illegal_state(""))
-    }
+  fn visit(&mut self, _doc_id: i32) -> Result<()> {
+    Err(LuceneError::illegal_state(""))
+  }
 
-    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
-        self.writer.add(packed_value, doc_id)
-    }
+  fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
+    self.writer.add(packed_value, doc_id)
+  }
 
-    fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
-        Ok(CellCrossesQuery)
-    }
+  fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    Ok(CellCrossesQuery)
+  }
 }

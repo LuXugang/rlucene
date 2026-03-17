@@ -26,75 +26,71 @@ use crate::core::util::math_util::MathUtil;
 #[derive(Default)]
 pub struct DisjunctionSumScorer;
 impl DisjunctionScorerBase for DisjunctionSumScorer {
-    fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: Option<usize>) -> Result<f32>
-    where
-        S: Scorer,
-    {
-        let mut score: f64 = 0.0;
-        let mut w = match top_list {
-            Some(idx) => &mut disi_wrapper[idx],
-            None => return Ok(score as f32),
-        };
-        loop {
-            let sub_score = w.scorer.score()? as f64;
-            score += sub_score;
+  fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: Option<usize>) -> Result<f32>
+  where
+    S: Scorer,
+  {
+    let mut score: f64 = 0.0;
+    let mut w = match top_list {
+      Some(idx) => &mut disi_wrapper[idx],
+      None => return Ok(score as f32),
+    };
+    loop {
+      let sub_score = w.scorer.score()? as f64;
+      score += sub_score;
 
-            match w.next {
-                Some(idx) => {
-                    w = &mut disi_wrapper[idx];
-                },
-                None => break,
-            }
-        }
-
-        Ok(score as f32)
+      match w.next {
+        Some(idx) => {
+          w = &mut disi_wrapper[idx];
+        },
+        None => break,
+      }
     }
 
-    fn advance_shallow<S>(
-        &mut self,
-        target: i32,
-        disi_wrapper: &mut [DisiWrapper<S>],
-    ) -> Result<i32>
-    where
-        S: Scorer,
-    {
-        let mut min = NO_MORE_DOCS;
+    Ok(score as f32)
+  }
 
-        for w in disi_wrapper.iter_mut() {
-            if w.scorer.doc_id()? <= target {
-                min = std::cmp::min(min, w.scorer.advance_shallow(target)?);
-            }
-        }
+  fn advance_shallow<S>(&mut self, target: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<i32>
+  where
+    S: Scorer,
+  {
+    let mut min = NO_MORE_DOCS;
 
-        Ok(min)
+    for w in disi_wrapper.iter_mut() {
+      if w.scorer.doc_id()? <= target {
+        min = std::cmp::min(min, w.scorer.advance_shallow(target)?);
+      }
     }
 
-    fn get_max_score<S>(&mut self, upto: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<f32>
-    where
-        S: Scorer,
-    {
-        let mut sum: f64 = 0.0;
+    Ok(min)
+  }
 
-        for w in disi_wrapper.iter_mut() {
-            if w.scorer.doc_id()? <= upto {
-                let v = w.scorer.get_max_score(upto)? as f64;
-                sum += v;
-            }
-        }
+  fn get_max_score<S>(&mut self, upto: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<f32>
+  where
+    S: Scorer,
+  {
+    let mut sum: f64 = 0.0;
 
-        let result = MathUtil::sum_upper_bound(sum, disi_wrapper.len().try_convert()?);
-
-        Ok(result as f32)
+    for w in disi_wrapper.iter_mut() {
+      if w.scorer.doc_id()? <= upto {
+        let v = w.scorer.get_max_score(upto)? as f64;
+        sum += v;
+      }
     }
 
-    fn set_min_competitive_score<S>(
-        &mut self,
-        _min_score: f32,
-        _disi_wrapper: &mut [DisiWrapper<S>],
-    ) -> Result<()>
-    where
-        S: Scorer,
-    {
-        Ok(())
-    }
+    let result = MathUtil::sum_upper_bound(sum, disi_wrapper.len().try_convert()?);
+
+    Ok(result as f32)
+  }
+
+  fn set_min_competitive_score<S>(
+    &mut self,
+    _min_score: f32,
+    _disi_wrapper: &mut [DisiWrapper<S>],
+  ) -> Result<()>
+  where
+    S: Scorer,
+  {
+    Ok(())
+  }
 }

@@ -25,28 +25,28 @@ use crate::core::util::error::lucene_error::Result;
 
 /// Encodes/decodes indexed points.
 pub trait PointsFormat {
-    type PointsWriter<T: IndexOutput>: PointsWriter;
-    fn fields_writer<D1, D2>(
-        &self,
-        state: &SegmentWriteState<D1>,
-        info: &SegmentInfo<D2>,
-    ) -> Result<Self::PointsWriter<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory;
+  type PointsWriter<T: IndexOutput>: PointsWriter;
+  fn fields_writer<D1, D2>(
+    &self,
+    state: &SegmentWriteState<D1>,
+    info: &SegmentInfo<D2>,
+  ) -> Result<Self::PointsWriter<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory;
 
-    type PointsReader<T: IndexInput>: PointsReader;
-    /// Reads a segment. NOTE: by the time this call returns, it must hold open any files it will need
-    ///  to use; else, those files may be deleted. Additionally, required files may be deleted during
-    ///  the execution of this call before there is a chance to open them. Under these circumstances an
-    ///  IOException should be thrown by the implementation. IOExceptions are expected and will
-    ///  automatically cause a retry of the segment opening logic with the newly revised segments.
-    fn fields_reader<D1, D2>(
-        &self,
-        state: &SegmentReadState<D1>,
-        info: &SegmentInfo<D2>,
-    ) -> Result<Self::PointsReader<D1::IndexInput>>
-    where
-        D1: Directory,
-        D2: Directory;
+  type PointsReader<T: IndexInput>: PointsReader;
+  /// Reads a segment. NOTE: by the time this call returns, it must hold open any files it will need
+  ///  to use; else, those files may be deleted. Additionally, required files may be deleted during
+  ///  the execution of this call before there is a chance to open them. Under these circumstances an
+  ///  IOException should be thrown by the implementation. IOExceptions are expected and will
+  ///  automatically cause a retry of the segment opening logic with the newly revised segments.
+  fn fields_reader<D1, D2>(
+    &self,
+    state: &SegmentReadState<D1>,
+    info: &SegmentInfo<D2>,
+  ) -> Result<Self::PointsReader<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory;
 }

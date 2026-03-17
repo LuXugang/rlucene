@@ -23,27 +23,27 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// **Note:** this is optional, and most analyzers don’t change the default value (`1`).
 pub trait PositionLengthAttribute: Attribute {
-    /// Set the position length of this Token.
-    ///
-    /// The default value is `1`.
-    ///
-    /// # Parameters
-    ///
-    /// - `position_length`: how many positions this token spans.
-    ///
-    /// # Error
-    ///
-    /// Error if `position_length <= 0`.
-    ///
-    /// # See
-    ///
-    /// [`get_position_length`](PositionLengthAttribute::get_position_length)
-    fn set_position_length(&mut self, position_length: i32) -> Result<()>;
+  /// Set the position length of this Token.
+  ///
+  /// The default value is `1`.
+  ///
+  /// # Parameters
+  ///
+  /// - `position_length`: how many positions this token spans.
+  ///
+  /// # Error
+  ///
+  /// Error if `position_length <= 0`.
+  ///
+  /// # See
+  ///
+  /// [`get_position_length`](PositionLengthAttribute::get_position_length)
+  fn set_position_length(&mut self, position_length: i32) -> Result<()>;
 
-    /// Returns the position length of this Token.
-    ///
-    /// # See
-    ///
-    /// [`set_position_length`](PositionLengthAttribute::set_position_length)
-    fn get_position_length(&self) -> i32;
+  /// Returns the position length of this Token.
+  ///
+  /// # See
+  ///
+  /// [`set_position_length`](PositionLengthAttribute::set_position_length)
+  fn get_position_length(&self) -> i32;
 }

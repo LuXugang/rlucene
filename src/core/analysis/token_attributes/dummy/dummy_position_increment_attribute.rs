@@ -22,14 +22,14 @@ pub struct DummyPositionIncrementAttribute;
 impl Attribute for DummyPositionIncrementAttribute {}
 
 impl PositionIncrementAttribute for DummyPositionIncrementAttribute {
-    fn set_position_increment(
-        &mut self,
-        _position_increment: i32,
-    ) -> crate::core::util::error::lucene_error::Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn set_position_increment(
+    &mut self,
+    _position_increment: i32,
+  ) -> crate::core::util::error::lucene_error::Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_position_increment(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_position_increment(&self) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

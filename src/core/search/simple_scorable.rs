@@ -19,22 +19,22 @@ use crate::core::util::error::lucene_error::Result;
 
 #[derive(Default)]
 pub struct SimpleScorable {
-    pub(crate) score: f32,
-    pub(crate) min_competitive_score: f32,
+  pub(crate) score: f32,
+  pub(crate) min_competitive_score: f32,
 }
 impl SimpleScorable {
-    pub(crate) fn set_score(&mut self, score: f32) {
-        self.score = score
-    }
+  pub(crate) fn set_score(&mut self, score: f32) {
+    self.score = score
+  }
 }
 
 impl Scorable for SimpleScorable {
-    fn score(&mut self) -> Result<f32> {
-        Ok(self.score)
-    }
+  fn score(&mut self) -> Result<f32> {
+    Ok(self.score)
+  }
 
-    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
-        self.min_competitive_score = min_score;
-        Ok(())
-    }
+  fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+    self.min_competitive_score = min_score;
+    Ok(())
+  }
 }

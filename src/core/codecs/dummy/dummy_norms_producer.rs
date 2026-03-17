@@ -22,16 +22,16 @@ use std::sync::Arc;
 pub struct DummyNormsProducer;
 
 impl NormsProducer for DummyNormsProducer {
-    type NumericDocValues = DummyNumericDocValues;
+  type NumericDocValues = DummyNumericDocValues;
 
-    fn get_norms(
-        &self,
-        _field: &Arc<FieldInfo>,
-    ) -> crate::core::util::error::lucene_error::Result<Self::NumericDocValues> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_norms(
+    &self,
+    _field: &Arc<FieldInfo>,
+  ) -> crate::core::util::error::lucene_error::Result<Self::NumericDocValues> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn check_integrity(&self) -> crate::core::util::error::lucene_error::Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn check_integrity(&self) -> crate::core::util::error::lucene_error::Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

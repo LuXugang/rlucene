@@ -27,135 +27,135 @@ use crate::core::util::error::lucene_error::Result;
 /// @lucene.internal
 pub struct ImpactsDISI<D, IE, SS>
 where
-    D: DocIdSetIterator,
-    IE: ImpactsEnum,
-    SS: SimScorer,
+  D: DocIdSetIterator,
+  IE: ImpactsEnum,
+  SS: SimScorer,
 {
-    pub(crate) in_: D,
-    pub(crate) max_score_cache: MaxScoreCache<IE, SS>,
-    min_competitive_score: f32,
-    upto: i32,
-    max_score: f32,
-    pub(crate) use_disi: bool,
+  pub(crate) in_: D,
+  pub(crate) max_score_cache: MaxScoreCache<IE, SS>,
+  min_competitive_score: f32,
+  upto: i32,
+  max_score: f32,
+  pub(crate) use_disi: bool,
 }
 impl<D, IE, SS> ImpactsDISI<D, IE, SS>
 where
-    D: DocIdSetIterator,
-    IE: ImpactsEnum,
-    SS: SimScorer,
+  D: DocIdSetIterator,
+  IE: ImpactsEnum,
+  SS: SimScorer,
 {
-    pub fn new(in_: D, max_score_cache: MaxScoreCache<IE, SS>, use_disi: bool) -> Self {
-        Self {
-            in_,
-            max_score_cache,
-            min_competitive_score: 0.0,
-            upto: NO_MORE_DOCS,
-            max_score: f32::INFINITY,
-            use_disi,
-        }
+  pub fn new(in_: D, max_score_cache: MaxScoreCache<IE, SS>, use_disi: bool) -> Self {
+    Self {
+      in_,
+      max_score_cache,
+      min_competitive_score: 0.0,
+      upto: NO_MORE_DOCS,
+      max_score: f32::INFINITY,
+      use_disi,
     }
-    /// Get the [`MaxScoreCache`].
-    pub fn max_score_cache(&self) -> &MaxScoreCache<IE, SS> {
-        &self.max_score_cache
+  }
+  /// Get the [`MaxScoreCache`].
+  pub fn max_score_cache(&self) -> &MaxScoreCache<IE, SS> {
+    &self.max_score_cache
+  }
+
+  /// Set the minimum competitive score.
+  ///
+  /// See also `Scorer::set_min_competitive_score`(crate::core::search::scorer::Scorer::set_min_competitive_score).
+  pub fn set_min_competitive_score(&mut self, min_competitive_score: f32) {
+    debug_assert!(min_competitive_score >= self.min_competitive_score);
+    if min_competitive_score > self.min_competitive_score {
+      self.min_competitive_score = min_competitive_score;
+      // force `upto` and `max_score` to be recomputed so that we will skip
+      // documents if the current block of documents is not competitive
+      // only if the min competitive score actually increased
+      self.upto = -1;
     }
-
-    /// Set the minimum competitive score.
-    ///
-    /// See also `Scorer::set_min_competitive_score`(crate::core::search::scorer::Scorer::set_min_competitive_score).
-    pub fn set_min_competitive_score(&mut self, min_competitive_score: f32) {
-        debug_assert!(min_competitive_score >= self.min_competitive_score);
-        if min_competitive_score > self.min_competitive_score {
-            self.min_competitive_score = min_competitive_score;
-            // force `upto` and `max_score` to be recomputed so that we will skip
-            // documents if the current block of documents is not competitive
-            // only if the min competitive score actually increased
-            self.upto = -1;
-        }
+  }
+  fn advance_target(&mut self, mut target: i32) -> Result<i32> {
+    if target <= self.upto {
+      // we are still in the current block, which is considered competitive
+      // according to impacts, no skipping
+      return Ok(target);
     }
-    fn advance_target(&mut self, mut target: i32) -> Result<i32> {
-        if target <= self.upto {
-            // we are still in the current block, which is considered competitive
-            // according to impacts, no skipping
-            return Ok(target);
-        }
-        self.upto = self.max_score_cache.advance_shallow(target)?;
-        self.max_score = self.max_score_cache.get_max_score_with_level_zero()?;
+    self.upto = self.max_score_cache.advance_shallow(target)?;
+    self.max_score = self.max_score_cache.get_max_score_with_level_zero()?;
 
-        loop {
-            debug_assert!(self.upto >= target);
+    loop {
+      debug_assert!(self.upto >= target);
 
-            if self.max_score >= self.min_competitive_score {
-                return Ok(target);
-            }
+      if self.max_score >= self.min_competitive_score {
+        return Ok(target);
+      }
 
-            if self.upto == NO_MORE_DOCS {
-                return Ok(NO_MORE_DOCS);
-            }
+      if self.upto == NO_MORE_DOCS {
+        return Ok(NO_MORE_DOCS);
+      }
 
-            let skip_up_to = self
-                .max_score_cache
-                .get_skip_up_to(self.min_competitive_score)?;
-            if skip_up_to == -1 {
-                // no further skipping
-                target = self.upto + 1;
-            } else if skip_up_to == NO_MORE_DOCS {
-                return Ok(NO_MORE_DOCS);
-            } else {
-                target = skip_up_to + 1;
-            }
+      let skip_up_to = self
+        .max_score_cache
+        .get_skip_up_to(self.min_competitive_score)?;
+      if skip_up_to == -1 {
+        // no further skipping
+        target = self.upto + 1;
+      } else if skip_up_to == NO_MORE_DOCS {
+        return Ok(NO_MORE_DOCS);
+      } else {
+        target = skip_up_to + 1;
+      }
 
-            self.upto = self.max_score_cache.advance_shallow(target)?;
-            self.max_score = self.max_score_cache.get_max_score_with_level_zero()?;
-        }
+      self.upto = self.max_score_cache.advance_shallow(target)?;
+      self.max_score = self.max_score_cache.get_max_score_with_level_zero()?;
     }
+  }
 
-    fn disi_mut(&mut self) -> Disi<&mut D, &mut IE> {
-        match self.use_disi {
-            true => Disi::A(&mut self.in_),
-            false => Disi::B(&mut self.max_score_cache.impacts_source),
-        }
+  fn disi_mut(&mut self) -> Disi<&mut D, &mut IE> {
+    match self.use_disi {
+      true => Disi::A(&mut self.in_),
+      false => Disi::B(&mut self.max_score_cache.impacts_source),
     }
+  }
 }
 impl<D, IE, SS> DocIdSetIterator for ImpactsDISI<D, IE, SS>
 where
-    D: DocIdSetIterator,
-    IE: ImpactsEnum,
-    SS: SimScorer,
+  D: DocIdSetIterator,
+  IE: ImpactsEnum,
+  SS: SimScorer,
 {
-    fn doc_id(&self) -> i32 {
-        match self.use_disi {
-            true => self.in_.doc_id(),
-            false => self.max_score_cache.impacts_source.doc_id(),
-        }
+  fn doc_id(&self) -> i32 {
+    match self.use_disi {
+      true => self.in_.doc_id(),
+      false => self.max_score_cache.impacts_source.doc_id(),
     }
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        let upto = self.upto;
-        let doc = {
-            let mut disi = self.disi_mut();
-            let doc = disi.doc_id();
-            if doc < upto {
-                return disi.next_doc();
-            }
-            doc
-        };
-        self.advance(doc + 1)
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    let upto = self.upto;
+    let doc = {
+      let mut disi = self.disi_mut();
+      let doc = disi.doc_id();
+      if doc < upto {
+        return disi.next_doc();
+      }
+      doc
+    };
+    self.advance(doc + 1)
+  }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        let doc_id = self.advance_target(target)?;
-        match self.use_disi {
-            true => self.in_.advance(doc_id),
-            false => self.max_score_cache.impacts_source.advance(doc_id),
-        }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    let doc_id = self.advance_target(target)?;
+    match self.use_disi {
+      true => self.in_.advance(doc_id),
+      false => self.max_score_cache.impacts_source.advance(doc_id),
     }
+  }
 
-    fn cost(&self) -> Result<i64> {
-        match self.use_disi {
-            true => self.in_.cost(),
-            false => self.max_score_cache.impacts_source.cost(),
-        }
+  fn cost(&self) -> Result<i64> {
+    match self.use_disi {
+      true => self.in_.cost(),
+      false => self.max_score_cache.impacts_source.cost(),
     }
+  }
 }
 
 type Disi<I, IE> = DocIdSetIteratorEnum2<I, IE>;

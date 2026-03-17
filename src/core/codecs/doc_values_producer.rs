@@ -35,143 +35,143 @@ use std::sync::Arc;
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted
 /// numeric doc values.
 pub trait DocValuesProducer {
-    type NumericDocValues: NumericDocValues;
-    /// Returns [`NumericDocValues`] for this field. The returned instance need
-    /// not be thread-safe: it will only be used by a single thread. The
-    /// behavior is undefined if the doc values type of the given field is
-    /// not [`DocValuesType::NUMERIC`](crate::core::index::doc_values_type::DocValuesType::Numeric).
-    fn get_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-        Err(LuceneError::need_implemented(""))
-    }
-    type BinaryDocValues: BinaryDocValues;
-    /// Returns [`BinaryDocValues`] for this field. The returned instance need
-    /// not be thread-safe: it will only be used by a single thread. The
-    /// behavior is undefined if the doc values type of the given field is
-    /// not
-    /// [`DocValuesType::BINARY`](crate::core::index::doc_values_type::DocValuesType::Binary).
-    /// The return value is never `null`.
-    fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-        Err(LuceneError::need_implemented(""))
-    }
-    type SortedDocValues: SortedDocValues;
-    /// Returns [`SortedDocValues`] for this field. The returned instance need
-    /// not be thread-safe: it will only be used by a single thread. The
-    /// behavior is undefined if the doc values type of the given field is
-    /// not
-    /// [`DocValuesType::SORTED`](crate::core::index::doc_values_type::DocValuesType::Sorted).
-    /// The return value is never `null`.
-    fn get_sorted(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-        Err(LuceneError::need_implemented(""))
-    }
-    type SortedNumericDocValues: SortedNumericDocValues;
-    /// Returns [`SortedNumericDocValues`] for this field. The returned instance
-    /// need not be thread-safe: it will only be used by a single thread.
-    /// The behavior is undefined if the doc values type of the given field
-    /// is not [`DocValuesType::SORTED_NUMERIC`](crate::core::index::doc_values_type::DocValuesType::SortedNumeric).
-    /// The return value is never `null`.
-    fn get_sorted_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-        Err(LuceneError::need_implemented(""))
-    }
+  type NumericDocValues: NumericDocValues;
+  /// Returns [`NumericDocValues`] for this field. The returned instance need
+  /// not be thread-safe: it will only be used by a single thread. The
+  /// behavior is undefined if the doc values type of the given field is
+  /// not [`DocValuesType::NUMERIC`](crate::core::index::doc_values_type::DocValuesType::Numeric).
+  fn get_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    Err(LuceneError::need_implemented(""))
+  }
+  type BinaryDocValues: BinaryDocValues;
+  /// Returns [`BinaryDocValues`] for this field. The returned instance need
+  /// not be thread-safe: it will only be used by a single thread. The
+  /// behavior is undefined if the doc values type of the given field is
+  /// not
+  /// [`DocValuesType::BINARY`](crate::core::index::doc_values_type::DocValuesType::Binary).
+  /// The return value is never `null`.
+  fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    Err(LuceneError::need_implemented(""))
+  }
+  type SortedDocValues: SortedDocValues;
+  /// Returns [`SortedDocValues`] for this field. The returned instance need
+  /// not be thread-safe: it will only be used by a single thread. The
+  /// behavior is undefined if the doc values type of the given field is
+  /// not
+  /// [`DocValuesType::SORTED`](crate::core::index::doc_values_type::DocValuesType::Sorted).
+  /// The return value is never `null`.
+  fn get_sorted(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
+    Err(LuceneError::need_implemented(""))
+  }
+  type SortedNumericDocValues: SortedNumericDocValues;
+  /// Returns [`SortedNumericDocValues`] for this field. The returned instance
+  /// need not be thread-safe: it will only be used by a single thread.
+  /// The behavior is undefined if the doc values type of the given field
+  /// is not [`DocValuesType::SORTED_NUMERIC`](crate::core::index::doc_values_type::DocValuesType::SortedNumeric).
+  /// The return value is never `null`.
+  fn get_sorted_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
+    Err(LuceneError::need_implemented(""))
+  }
 
-    type SortedSetDocValues: SortedSetDocValues;
-    /// Returns [`SortedSetDocValues`] for this field. The returned instance
-    /// need not be thread-safe: it will only be used by a single thread.
-    /// The behavior is undefined if the doc values type of the given field
-    /// is not
-    /// [`DocValuesType::SORTED_SET`](crate::core::index::doc_values_type::DocValuesType::SortedSet).
-    /// The return value is never `null`.
-    fn get_sorted_set(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
-        Err(LuceneError::need_implemented(""))
-    }
-    type DocValuesSkipper: DocValuesSkipper;
-    /// Returns a [`DocValuesSkipper`] for this field. The returned instance
-    /// need not be thread-safe: it will only be used by a single thread.
-    /// The return value is undefined if
-    /// [`FieldInfo::doc_values_skip_index_type()`](FieldInfo::doc_values_skip_index_type) returns
-    /// [`DocValuesSkipIndexType::NONE`](crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType::None).
-    fn get_skipper(&self, _field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
-        Err(LuceneError::need_implemented(""))
-    }
-    /// Checks consistency of this producer.
-    ///
-    /// Note that this may be costly in terms of I/O, e.g. it may involve
-    /// computing a checksum value against large data files.
-    fn check_integrity(&self) -> Result<()> {
-        Err(LuceneError::need_implemented(""))
-    }
-    /// Returns an instance optimized for merging. This instance may only be consumed in the thread
-    /// that called [`get_merge_instance()`](DocValuesProducer::get_merge_instance).
-    /// The default implementation returns `self`.
-    /// # Note
-    /// Returning None means returning itself.
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        Ok(None)
-    }
+  type SortedSetDocValues: SortedSetDocValues;
+  /// Returns [`SortedSetDocValues`] for this field. The returned instance
+  /// need not be thread-safe: it will only be used by a single thread.
+  /// The behavior is undefined if the doc values type of the given field
+  /// is not
+  /// [`DocValuesType::SORTED_SET`](crate::core::index::doc_values_type::DocValuesType::SortedSet).
+  /// The return value is never `null`.
+  fn get_sorted_set(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    Err(LuceneError::need_implemented(""))
+  }
+  type DocValuesSkipper: DocValuesSkipper;
+  /// Returns a [`DocValuesSkipper`] for this field. The returned instance
+  /// need not be thread-safe: it will only be used by a single thread.
+  /// The return value is undefined if
+  /// [`FieldInfo::doc_values_skip_index_type()`](FieldInfo::doc_values_skip_index_type) returns
+  /// [`DocValuesSkipIndexType::NONE`](crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType::None).
+  fn get_skipper(&self, _field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
+    Err(LuceneError::need_implemented(""))
+  }
+  /// Checks consistency of this producer.
+  ///
+  /// Note that this may be costly in terms of I/O, e.g. it may involve
+  /// computing a checksum value against large data files.
+  fn check_integrity(&self) -> Result<()> {
+    Err(LuceneError::need_implemented(""))
+  }
+  /// Returns an instance optimized for merging. This instance may only be consumed in the thread
+  /// that called [`get_merge_instance()`](DocValuesProducer::get_merge_instance).
+  /// The default implementation returns `self`.
+  /// # Note
+  /// Returning None means returning itself.
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    Ok(None)
+  }
 }
 pub type DefaultDocValuesProducer<I> =
-    <DefaultDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>;
+  <DefaultDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>;
 
 pub type DefaultBinary<I> = <DefaultDocValuesProducer<I> as DocValuesProducer>::BinaryDocValues;
 pub type DefaultNumeric<I> = <DefaultDocValuesProducer<I> as DocValuesProducer>::NumericDocValues;
 pub type DefaultSorted<I> = <DefaultDocValuesProducer<I> as DocValuesProducer>::SortedDocValues;
 pub type DefaultSortedNumeric<I> =
-    <DefaultDocValuesProducer<I> as DocValuesProducer>::SortedNumericDocValues;
+  <DefaultDocValuesProducer<I> as DocValuesProducer>::SortedNumericDocValues;
 pub type DefaultSortedSet<I> =
-    <DefaultDocValuesProducer<I> as DocValuesProducer>::SortedSetDocValues;
+  <DefaultDocValuesProducer<I> as DocValuesProducer>::SortedSetDocValues;
 pub type DefaultSkipper<I> = <DefaultDocValuesProducer<I> as DocValuesProducer>::DocValuesSkipper;
 
 impl<T> DocValuesProducer for Arc<T>
 where
-    T: DocValuesProducer,
+  T: DocValuesProducer,
 {
-    type NumericDocValues = T::NumericDocValues;
-    fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-        (**self).get_numeric(field)
-    }
-    type BinaryDocValues = T::BinaryDocValues;
-    fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-        (**self).get_binary(field)
-    }
-    type SortedDocValues = T::SortedDocValues;
-    fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-        (**self).get_sorted(field)
-    }
+  type NumericDocValues = T::NumericDocValues;
+  fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    (**self).get_numeric(field)
+  }
+  type BinaryDocValues = T::BinaryDocValues;
+  fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    (**self).get_binary(field)
+  }
+  type SortedDocValues = T::SortedDocValues;
+  fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
+    (**self).get_sorted(field)
+  }
 
-    type SortedNumericDocValues = T::SortedNumericDocValues;
+  type SortedNumericDocValues = T::SortedNumericDocValues;
 
-    fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-        (**self).get_sorted_numeric(field)
-    }
+  fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
+    (**self).get_sorted_numeric(field)
+  }
 
-    type SortedSetDocValues = T::SortedSetDocValues;
+  type SortedSetDocValues = T::SortedSetDocValues;
 
-    fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
-        (**self).get_sorted_set(field)
-    }
+  fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    (**self).get_sorted_set(field)
+  }
 
-    type DocValuesSkipper = T::DocValuesSkipper;
+  type DocValuesSkipper = T::DocValuesSkipper;
 
-    fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
-        (**self).get_skipper(field)
-    }
+  fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
+    (**self).get_skipper(field)
+  }
 
-    fn check_integrity(&self) -> Result<()> {
-        (**self).check_integrity()
-    }
+  fn check_integrity(&self) -> Result<()> {
+    (**self).check_integrity()
+  }
 
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        let v = match (**self).get_merge_instance()? {
-            Some(v) => Arc::new(v),
-            None => return Ok(None),
-        };
-        Ok(Some(v))
-    }
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    let v = match (**self).get_merge_instance()? {
+      Some(v) => Arc::new(v),
+      None => return Ok(None),
+    };
+    Ok(Some(v))
+  }
 }
 macro_rules! either_docvaluesproducer {
     ($vis:vis $name:ident { A: $A:ident, B: $B:ident }) => {

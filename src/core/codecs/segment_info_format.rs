@@ -30,38 +30,38 @@ use crate::core::util::error::lucene_error::Result;
 /// # Note
 /// This is considered experimental and may change in future versions.
 pub trait SegmentInfoFormat {
-    /// Read `SegmentInfo` data from a directory.
-    ///
-    /// # Arguments
-    ///
-    /// * `directory` - The directory to read from.
-    /// * `segment_name` - The name of the segment to read.
-    /// * `segment_id` - The expected identifier for the segment.
-    /// * `context` - The IO context.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if an I/O error occurs.
-    fn read<D>(
-        &self,
-        directory: Arc<D>,
-        segment_name: &str,
-        segment_id: &[u8; StringHelper::ID_LENGTH],
-        context: &IOContext,
-    ) -> Result<SegmentInfo<D>>
-    where
-        D: Directory;
+  /// Read `SegmentInfo` data from a directory.
+  ///
+  /// # Arguments
+  ///
+  /// * `directory` - The directory to read from.
+  /// * `segment_name` - The name of the segment to read.
+  /// * `segment_id` - The expected identifier for the segment.
+  /// * `context` - The IO context.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if an I/O error occurs.
+  fn read<D>(
+    &self,
+    directory: Arc<D>,
+    segment_name: &str,
+    segment_id: &[u8; StringHelper::ID_LENGTH],
+    context: &IOContext,
+  ) -> Result<SegmentInfo<D>>
+  where
+    D: Directory;
 
-    /// Write [`SegmentInfo`] data.
-    ///
-    /// The codec must add its SegmentInfo filename(s) to `info` before doing
-    /// I/O.
-    fn write<D>(
-        &self,
-        directory: &impl Directory,
-        info: &mut SegmentInfo<D>,
-        context: &IOContext,
-    ) -> Result<()>
-    where
-        D: Directory;
+  /// Write [`SegmentInfo`] data.
+  ///
+  /// The codec must add its SegmentInfo filename(s) to `info` before doing
+  /// I/O.
+  fn write<D>(
+    &self,
+    directory: &impl Directory,
+    info: &mut SegmentInfo<D>,
+    context: &IOContext,
+  ) -> Result<()>
+  where
+    D: Directory;
 }

@@ -34,132 +34,137 @@ use std::sync::Arc;
 /// [`StoredFields::document`](crate::core::index::stored_fields::StoredFields::document)
 /// to load a document.
 pub struct DocumentStoredFieldVisitor<'a> {
-    doc: Document,
-    fields_to_add: Option<&'a HashSet<String>>,
+  doc: Document,
+  fields_to_add: Option<&'a HashSet<String>>,
 }
 impl Default for DocumentStoredFieldVisitor<'_> {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl<'a> DocumentStoredFieldVisitor<'a> {
-    /// Load all fields
-    pub fn new() -> Self {
-        Self {
-            doc: Document::default(),
-            fields_to_add: None,
-        }
+  /// Load all fields
+  pub fn new() -> Self {
+    Self {
+      doc: Document::default(),
+      fields_to_add: None,
     }
+  }
 
-    /// Load only selected fields
-    pub fn with_fields(fields: &'a HashSet<String>) -> Self {
-        Self {
-            doc: Document::default(),
-            fields_to_add: Some(fields),
-        }
+  /// Load only selected fields
+  pub fn with_fields(fields: &'a HashSet<String>) -> Self {
+    Self {
+      doc: Document::default(),
+      fields_to_add: Some(fields),
     }
+  }
 
-    pub fn get_document_ref(&self) -> &Document {
-        &self.doc
-    }
-    /// Retrieve the visited document.
-    ///
-    /// Returns a [`Document`] populated with stored fields.
-    /// Note that only the stored information in the field instances is valid;
-    /// data such as indexing options, term vector options, etc. is not set.
-    pub fn get_document_owner(&mut self) -> Document {
-        std::mem::take(&mut self.doc)
-    }
+  pub fn get_document_ref(&self) -> &Document {
+    &self.doc
+  }
+  /// Retrieve the visited document.
+  ///
+  /// Returns a [`Document`] populated with stored fields.
+  /// Note that only the stored information in the field instances is valid;
+  /// data such as indexing options, term vector options, etc. is not set.
+  pub fn get_document_owner(&mut self) -> Document {
+    std::mem::take(&mut self.doc)
+  }
 }
 impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
-    fn binary_field<S: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: Vec<u8>,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        self.doc
-            .add(StoredField::with_binary(&field_info.name, value)?);
-        Ok(())
-    }
+  fn binary_field<S: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: Vec<u8>,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    self
+      .doc
+      .add(StoredField::with_binary(&field_info.name, value)?);
+    Ok(())
+  }
 
-    fn string_field<S: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: String,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
-        ft.set_store_term_vectors(field_info.has_term_vectors())?;
-        ft.set_omit_norms(field_info.omits_norms())?;
-        ft.set_index_options(*field_info.get_index_options())?;
-        self.doc.add(StoredField::from_string_and_type(
-            &field_info.name,
-            value,
-            ft,
-        )?);
-        Ok(())
-    }
+  fn string_field<S: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: String,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+    ft.set_store_term_vectors(field_info.has_term_vectors())?;
+    ft.set_omit_norms(field_info.omits_norms())?;
+    ft.set_index_options(*field_info.get_index_options())?;
+    self.doc.add(StoredField::from_string_and_type(
+      &field_info.name,
+      value,
+      ft,
+    )?);
+    Ok(())
+  }
 
-    fn int_field<S: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: i32,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        self.doc
-            .add(StoredField::from_i32(&field_info.name, value)?);
-        Ok(())
-    }
+  fn int_field<S: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: i32,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    self
+      .doc
+      .add(StoredField::from_i32(&field_info.name, value)?);
+    Ok(())
+  }
 
-    fn long_field<S: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: i64,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        self.doc
-            .add(StoredField::from_i64(&field_info.name, value)?);
-        Ok(())
-    }
+  fn long_field<S: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: i64,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    self
+      .doc
+      .add(StoredField::from_i64(&field_info.name, value)?);
+    Ok(())
+  }
 
-    fn float_field<S: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: f32,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        self.doc
-            .add(StoredField::from_f32(&field_info.name, value)?);
-        Ok(())
-    }
+  fn float_field<S: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: f32,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    self
+      .doc
+      .add(StoredField::from_f32(&field_info.name, value)?);
+    Ok(())
+  }
 
-    fn double_field<S: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        value: f64,
-        _writer: Option<&mut S>,
-    ) -> Result<()> {
-        self.doc
-            .add(StoredField::from_f64(&field_info.name, value)?);
-        Ok(())
-    }
+  fn double_field<S: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    value: f64,
+    _writer: Option<&mut S>,
+  ) -> Result<()> {
+    self
+      .doc
+      .add(StoredField::from_f64(&field_info.name, value)?);
+    Ok(())
+  }
 
-    fn needs_field<S: StoredFieldsWriter>(
-        &mut self,
-        field_info: Arc<FieldInfo>,
-        _writer: Option<&mut S>,
-    ) -> Result<Status> {
-        match self.fields_to_add {
-            Some(fields) => {
-                if fields.contains(&field_info.name) {
-                    Ok(Status::Yes)
-                } else {
-                    Ok(Status::No)
-                }
-            },
-            None => Ok(Status::Yes),
+  fn needs_field<S: StoredFieldsWriter>(
+    &mut self,
+    field_info: Arc<FieldInfo>,
+    _writer: Option<&mut S>,
+  ) -> Result<Status> {
+    match self.fields_to_add {
+      Some(fields) => {
+        if fields.contains(&field_info.name) {
+          Ok(Status::Yes)
+        } else {
+          Ok(Status::No)
         }
+      },
+      None => Ok(Status::Yes),
     }
+  }
 }

@@ -18,68 +18,68 @@ mod tasks;
 
 use chrono::Local;
 use std::{
-    env,
-    process::{self, Command},
+  env,
+  process::{self, Command},
 };
 
 pub(crate) fn run_cargo(args: &[&str]) {
-    let status = Command::new("cargo").args(args).status();
-    match status {
-        Err(e) => {
-            log(&format!("Failed to execute cargo: {}", e));
-            process::exit(1);
-        },
-        Ok(exit) if !exit.success() => {
-            log(&format!(
-                "cargo {:?} exited with status: {}",
-                args,
-                exit.code().unwrap_or_default()
-            ));
-            process::exit(1);
-        },
-        Ok(_) => {},
-    }
+  let status = Command::new("cargo").args(args).status();
+  match status {
+    Err(e) => {
+      log(&format!("Failed to execute cargo: {}", e));
+      process::exit(1);
+    },
+    Ok(exit) if !exit.success() => {
+      log(&format!(
+        "cargo {:?} exited with status: {}",
+        args,
+        exit.code().unwrap_or_default()
+      ));
+      process::exit(1);
+    },
+    Ok(_) => {},
+  }
 }
 
 pub(crate) enum LogColor {
-    Green,
-    Red,
+  Green,
+  Red,
 }
 
 impl LogColor {
-    fn code(self) -> u8 {
-        match self {
-            LogColor::Green => 32,
-            LogColor::Red => 31,
-        }
+  fn code(self) -> u8 {
+    match self {
+      LogColor::Green => 32,
+      LogColor::Red => 31,
     }
+  }
 }
 
 pub(crate) fn colorize(msg: &str, color: LogColor, bold: bool) -> String {
-    let code = color.code();
-    if bold {
-        format!("\x1b[1;{code}m{msg}\x1b[0m")
-    } else {
-        format!("\x1b[{code}m{msg}\x1b[0m")
-    }
+  let code = color.code();
+  if bold {
+    format!("\x1b[1;{code}m{msg}\x1b[0m")
+  } else {
+    format!("\x1b[{code}m{msg}\x1b[0m")
+  }
 }
 
 pub(crate) fn log(msg: &str) {
-    let now = Local::now();
-    eprintln!("[{}] {}", now.format("%Y-%m-%d %H:%M:%S"), msg);
+  let now = Local::now();
+  eprintln!("[{}] {}", now.format("%Y-%m-%d %H:%M:%S"), msg);
 }
 
 fn main() {
-    let mut args = env::args().skip(1);
-    match args.next().as_deref() {
-        Some("tidy") => tasks::tidy::run(),
-        Some("commit") => tasks::commit::run(),
-        Some("ci") => tasks::ci::run(),
-        Some("check-uncommitted") => tasks::check_uncommitted::run(),
-        Some("license-check") => tasks::license::license_check::run(),
-        _ => {
-            log("Available commands: tidy, commit, ci, check-uncommitted, license-check");
-            process::exit(1);
-        },
-    }
+  let mut args = env::args().skip(1);
+  match args.next().as_deref() {
+    Some("tidy") => tasks::tidy::run(),
+    Some("commit") => tasks::commit::run(),
+    Some("ci") => tasks::ci::run(),
+    Some("check-uncommitted") => tasks::check_uncommitted::run(),
+    Some("license-check") => tasks::license::license_check::run(),
+    _ => {
+      log("Available commands: tidy, commit, ci, check-uncommitted, license-check");
+      process::exit(1);
+    },
+  }
 }

@@ -20,69 +20,69 @@ use std::fmt::{Debug, Display};
 /// Holds one hit in [`TopDocs`](crate::core::search::top_docs::TopDocs).
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ScoreDoc {
-    /// The score of this document for the query.
-    pub score: f32,
+  /// The score of this document for the query.
+  pub score: f32,
 
-    /// A hit document's number.
-    ///
-    /// See [`StoredFields::document`](crate::core::index::stored_fields::StoredFields::document).
-    pub doc: i32,
+  /// A hit document's number.
+  ///
+  /// See [`StoredFields::document`](crate::core::index::stored_fields::StoredFields::document).
+  pub doc: i32,
 
-    /// Only set by `TopDocs::merge`.
-    pub shard_index: i32,
+  /// Only set by `TopDocs::merge`.
+  pub shard_index: i32,
 }
 
 impl ScoreDoc {
-    /// Constructs a `ScoreDoc`.
-    pub fn new(doc: i32, score: f32) -> Self {
-        Self::with_shard_index(doc, score, -1)
-    }
+  /// Constructs a `ScoreDoc`.
+  pub fn new(doc: i32, score: f32) -> Self {
+    Self::with_shard_index(doc, score, -1)
+  }
 
-    /// Constructs a `ScoreDoc` with a given `shard_index`.
-    pub fn with_shard_index(doc: i32, score: f32, shard_index: i32) -> Self {
-        Self {
-            doc,
-            score,
-            shard_index,
-        }
+  /// Constructs a `ScoreDoc` with a given `shard_index`.
+  pub fn with_shard_index(doc: i32, score: f32, shard_index: i32) -> Self {
+    Self {
+      doc,
+      score,
+      shard_index,
     }
+  }
 }
 impl ScoreDocLike for ScoreDoc {
-    fn doc(&self) -> i32 {
-        self.doc
-    }
+  fn doc(&self) -> i32 {
+    self.doc
+  }
 
-    fn score(&self) -> f32 {
-        self.score
-    }
+  fn score(&self) -> f32 {
+    self.score
+  }
 
-    fn shard_index(&self) -> i32 {
-        self.shard_index
-    }
+  fn shard_index(&self) -> i32 {
+    self.shard_index
+  }
 
-    fn set_shard_index(&mut self, shard_index: i32) {
-        self.shard_index = shard_index
-    }
+  fn set_shard_index(&mut self, shard_index: i32) {
+    self.shard_index = shard_index
+  }
 
-    fn set_score(&mut self, score: f32) {
-        self.score = score
-    }
+  fn set_score(&mut self, score: f32) {
+    self.score = score
+  }
 }
 
 impl fmt::Display for ScoreDoc {
-    /// A convenience method for debugging.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "doc={} score={} shardIndex={}",
-            self.doc, self.score, self.shard_index
-        )
-    }
+  /// A convenience method for debugging.
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "doc={} score={} shardIndex={}",
+      self.doc, self.score, self.shard_index
+    )
+  }
 }
 pub trait ScoreDocLike: Display + Clone + Default + Debug {
-    fn doc(&self) -> i32;
-    fn score(&self) -> f32;
-    fn shard_index(&self) -> i32;
-    fn set_shard_index(&mut self, shard_index: i32);
-    fn set_score(&mut self, score: f32);
+  fn doc(&self) -> i32;
+  fn score(&self) -> f32;
+  fn shard_index(&self) -> i32;
+  fn set_shard_index(&mut self, shard_index: i32);
+  fn set_score(&mut self, score: f32);
 }

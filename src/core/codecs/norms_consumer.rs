@@ -43,227 +43,225 @@ use std::sync::Arc;
 ///    multiple times.
 /// 3. After all fields are added, the consumer is closed.
 pub trait NormsConsumer {
-    /// Writes normalization values for a field.
-    ///
-    /// # Arguments
-    /// * `field` - Field metadata
-    /// * `norms_producer` - Provides numeric norms for the field
-    ///
-    /// # Errors
-    /// If an I/O error occurs during writing.
-    fn add_norms_field(
-        &mut self,
-        field: &Arc<FieldInfo>,
-        norms_producer: &mut impl NormsProducer,
-    ) -> Result<()>;
-    /// Merges in the fields from the readers in `merge_state`.
-    ///
-    /// The default implementation calls
-    /// [`merge_norms_field`](NormsConsumer::merge_norms_field) for each field,
-    /// filling segments with missing norms for the field with zeros.
-    ///
-    /// Implementations can override this method for more sophisticated merging
-    /// (e.g. bulk-byte copying).
-    fn merge<D, CR>(&mut self, merge_state: &MergeState<D, CR>) -> Result<()>
-    where
-        D: Directory,
-        CR: CodecReader,
-    {
-        for producer in merge_state.norms_producers.iter().flatten() {
-            producer.check_integrity()?;
-        }
-
-        for field_info in merge_state.merge_field_infos.clone().as_ref() {
-            if field_info.has_norms() {
-                self.merge_norms_field(field_info, merge_state)?;
-            }
-        }
-
-        Ok(())
+  /// Writes normalization values for a field.
+  ///
+  /// # Arguments
+  /// * `field` - Field metadata
+  /// * `norms_producer` - Provides numeric norms for the field
+  ///
+  /// # Errors
+  /// If an I/O error occurs during writing.
+  fn add_norms_field(
+    &mut self,
+    field: &Arc<FieldInfo>,
+    norms_producer: &mut impl NormsProducer,
+  ) -> Result<()>;
+  /// Merges in the fields from the readers in `merge_state`.
+  ///
+  /// The default implementation calls
+  /// [`merge_norms_field`](NormsConsumer::merge_norms_field) for each field,
+  /// filling segments with missing norms for the field with zeros.
+  ///
+  /// Implementations can override this method for more sophisticated merging
+  /// (e.g. bulk-byte copying).
+  fn merge<D, CR>(&mut self, merge_state: &MergeState<D, CR>) -> Result<()>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    for producer in merge_state.norms_producers.iter().flatten() {
+      producer.check_integrity()?;
     }
-    /// Merges the norms from `to_merge`.
-    ///
-    /// The default implementation calls
-    /// [`add_norms_field`](NormsConsumer::add_norms_field), passing an iterator
-    /// that merges and filters deleted documents on the fly.
-    fn merge_norms_field<D, CR>(
-        &mut self,
-        merge_field_info: &Arc<FieldInfo>,
-        merge_state: &MergeState<D, CR>,
-    ) -> Result<()>
-    where
-        D: Directory,
-        CR: CodecReader,
-    {
-        let mut norms_producer = NormsProducerMerge {
-            merge_field_info: merge_field_info.clone(),
-            merge_state,
-        };
-        // TODO: try to share code with default merge of DVConsumer by passing
-        // MatchAllBits ?
-        self.add_norms_field(merge_field_info, &mut norms_producer)?;
-        Ok(())
+
+    for field_info in merge_state.merge_field_infos.clone().as_ref() {
+      if field_info.has_norms() {
+        self.merge_norms_field(field_info, merge_state)?;
+      }
     }
+
+    Ok(())
+  }
+  /// Merges the norms from `to_merge`.
+  ///
+  /// The default implementation calls
+  /// [`add_norms_field`](NormsConsumer::add_norms_field), passing an iterator
+  /// that merges and filters deleted documents on the fly.
+  fn merge_norms_field<D, CR>(
+    &mut self,
+    merge_field_info: &Arc<FieldInfo>,
+    merge_state: &MergeState<D, CR>,
+  ) -> Result<()>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    let mut norms_producer = NormsProducerMerge {
+      merge_field_info: merge_field_info.clone(),
+      merge_state,
+    };
+    // TODO: try to share code with default merge of DVConsumer by passing
+    // MatchAllBits ?
+    self.add_norms_field(merge_field_info, &mut norms_producer)?;
+    Ok(())
+  }
 }
 
 struct NormsProducerMerge<'a, D, CR>
 where
-    D: Directory,
-    CR: CodecReader,
+  D: Directory,
+  CR: CodecReader,
 {
-    merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a MergeState<'a, D, CR>,
+  merge_field_info: Arc<FieldInfo>,
+  merge_state: &'a MergeState<'a, D, CR>,
 }
 
 impl<D, CR> NormsProducer for NormsProducerMerge<'_, D, CR>
 where
-    D: Directory,
-    CR: CodecReader,
+  D: Directory,
+  CR: CodecReader,
 {
-    type NumericDocValues =
-        NumericDocValuesMerge<<CRNormsProducer<CR> as NormsProducer>::NumericDocValues, CR>;
+  type NumericDocValues =
+    NumericDocValuesMerge<<CRNormsProducer<CR> as NormsProducer>::NumericDocValues, CR>;
 
-    fn get_norms(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-        if !Arc::ptr_eq(field_info, &self.merge_field_info) {
-            return Err(LuceneError::illegal_argument("wrong fieldInfo"));
-        }
-
-        let mut subs = vec![];
-        debug_assert!(
-            self.merge_state.doc_maps.len() == self.merge_state.doc_values_producers.len()
-        );
-        for i in 0..self.merge_state.doc_values_producers.len() {
-            let mut norms = None;
-            let norms_producer_opt = &self.merge_state.norms_producers[i];
-            if let Some(norms_producer) = norms_producer_opt {
-                let reader_field_info =
-                    self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);
-                if let Some(reader_field_info) = &reader_field_info
-                    && reader_field_info.has_norms()
-                {
-                    norms = Some(norms_producer.get_norms(reader_field_info)?);
-                }
-            }
-
-            if let Some(norms) = norms {
-                let doc_map = self.merge_state.doc_maps[i].clone();
-                subs.push(Sub::new(NumericDocValuesSub::new(doc_map, norms)));
-            }
-        }
-
-        let doc_id_merger = of(subs, self.merge_state.needs_index_sort)?;
-        Ok(NumericDocValuesMerge {
-            doc_id: -1,
-            current: None,
-            doc_id_merger,
-        })
+  fn get_norms(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    if !Arc::ptr_eq(field_info, &self.merge_field_info) {
+      return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
 
-    fn check_integrity(&self) -> Result<()> {
-        Ok(())
+    let mut subs = vec![];
+    debug_assert!(self.merge_state.doc_maps.len() == self.merge_state.doc_values_producers.len());
+    for i in 0..self.merge_state.doc_values_producers.len() {
+      let mut norms = None;
+      let norms_producer_opt = &self.merge_state.norms_producers[i];
+      if let Some(norms_producer) = norms_producer_opt {
+        let reader_field_info =
+          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);
+        if let Some(reader_field_info) = &reader_field_info
+          && reader_field_info.has_norms()
+        {
+          norms = Some(norms_producer.get_norms(reader_field_info)?);
+        }
+      }
+
+      if let Some(norms) = norms {
+        let doc_map = self.merge_state.doc_maps[i].clone();
+        subs.push(Sub::new(NumericDocValuesSub::new(doc_map, norms)));
+      }
     }
+
+    let doc_id_merger = of(subs, self.merge_state.needs_index_sort)?;
+    Ok(NumericDocValuesMerge {
+      doc_id: -1,
+      current: None,
+      doc_id_merger,
+    })
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    Ok(())
+  }
 }
 
 pub struct NumericDocValuesMerge<N, CR>
 where
-    N: NumericDocValues,
-    CR: CodecReader,
+  N: NumericDocValues,
+  CR: CodecReader,
 {
-    doc_id: i32,
-    current: Option<usize>,
-    doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<N, CR>>,
+  doc_id: i32,
+  current: Option<usize>,
+  doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<N, CR>>,
 }
 
 impl<N, CR> DocValuesIterator for NumericDocValuesMerge<N, CR>
 where
-    N: NumericDocValues,
-    CR: CodecReader,
+  N: NumericDocValues,
+  CR: CodecReader,
 {
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }
 
 impl<N, CR> DocIdSetIterator for NumericDocValuesMerge<N, CR>
 where
-    N: NumericDocValues,
-    CR: CodecReader,
+  N: NumericDocValues,
+  CR: CodecReader,
 {
-    fn doc_id(&self) -> i32 {
-        self.doc_id
-    }
+  fn doc_id(&self) -> i32 {
+    self.doc_id
+  }
 
-    fn next_doc(&mut self) -> Result<i32> {
-        self.current = self.doc_id_merger.next()?;
-        match self.current {
-            Some(ref current) => {
-                let v = self.doc_id_merger.get_subs()[*current].mapped_doc_id;
-                self.doc_id = v;
-                Ok(self.doc_id)
-            },
-            None => {
-                self.doc_id = NO_MORE_DOCS;
-                Ok(NO_MORE_DOCS)
-            },
-        }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.current = self.doc_id_merger.next()?;
+    match self.current {
+      Some(ref current) => {
+        let v = self.doc_id_merger.get_subs()[*current].mapped_doc_id;
+        self.doc_id = v;
+        Ok(self.doc_id)
+      },
+      None => {
+        self.doc_id = NO_MORE_DOCS;
+        Ok(NO_MORE_DOCS)
+      },
     }
+  }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Ok(0)
-    }
+  fn cost(&self) -> Result<i64> {
+    Ok(0)
+  }
 }
 
 impl<N, CR> NumericDocValues for NumericDocValuesMerge<N, CR>
 where
-    N: NumericDocValues,
-    CR: CodecReader,
+  N: NumericDocValues,
+  CR: CodecReader,
 {
-    fn long_value(&mut self) -> Result<i64> {
-        match self.current {
-            Some(ref current) => {
-                let v = &mut self.doc_id_merger.get_subs_mut()[*current].sub;
-                v.values.long_value()
-            },
-            None => Err(LuceneError::unreachable("")),
-        }
+  fn long_value(&mut self) -> Result<i64> {
+    match self.current {
+      Some(ref current) => {
+        let v = &mut self.doc_id_merger.get_subs_mut()[*current].sub;
+        v.values.long_value()
+      },
+      None => Err(LuceneError::unreachable("")),
     }
+  }
 }
 /// Tracks state of one numeric sub-reader that we are merging.
 struct NumericDocValuesSub<N, CR>
 where
-    N: NumericDocValues,
-    CR: CodecReader,
+  N: NumericDocValues,
+  CR: CodecReader,
 {
-    values: N,
-    doc_map: Rc<MergeStateDocMap<CR>>,
+  values: N,
+  doc_map: Rc<MergeStateDocMap<CR>>,
 }
 
 impl<N, CR> NumericDocValuesSub<N, CR>
 where
-    N: NumericDocValues,
-    CR: CodecReader,
+  N: NumericDocValues,
+  CR: CodecReader,
 {
-    fn new(doc_map: Rc<MergeStateDocMap<CR>>, values: N) -> Self {
-        debug_assert!(values.doc_id() == -1);
-        NumericDocValuesSub { values, doc_map }
-    }
+  fn new(doc_map: Rc<MergeStateDocMap<CR>>, values: N) -> Self {
+    debug_assert!(values.doc_id() == -1);
+    NumericDocValuesSub { values, doc_map }
+  }
 }
 impl<N, CR> SubBase for NumericDocValuesSub<N, CR>
 where
-    N: NumericDocValues,
-    CR: CodecReader,
+  N: NumericDocValues,
+  CR: CodecReader,
 {
-    fn next_doc(&mut self) -> Result<i32> {
-        self.values.next_doc()
-    }
+  fn next_doc(&mut self) -> Result<i32> {
+    self.values.next_doc()
+  }
 
-    type DocMap = MergeStateDocMap<CR>;
+  type DocMap = MergeStateDocMap<CR>;
 
-    fn get_doc_map(&self) -> Result<&Self::DocMap> {
-        Ok(&self.doc_map)
-    }
+  fn get_doc_map(&self) -> Result<&Self::DocMap> {
+    Ok(&self.doc_map)
+  }
 }

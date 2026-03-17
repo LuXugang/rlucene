@@ -19,55 +19,55 @@ use crate::core::util::{BINARY_SORT_THRESHOLD, Sorter, check_range};
 
 pub struct InPlaceMergeSorter<S>
 where
-    S: Sorter,
+  S: Sorter,
 {
-    sub: S,
-    pivot_index: usize,
+  sub: S,
+  pivot_index: usize,
 }
 impl<S> InPlaceMergeSorter<S>
 where
-    S: Sorter,
+  S: Sorter,
 {
-    pub fn new(sub: S) -> Self {
-        InPlaceMergeSorter {
-            sub,
-            pivot_index: 0,
-        }
+  pub fn new(sub: S) -> Self {
+    InPlaceMergeSorter {
+      sub,
+      pivot_index: 0,
     }
-    fn merge_sort(&mut self, from: usize, to: usize) -> Result<()> {
-        if to - from < BINARY_SORT_THRESHOLD {
-            self.binary_sort(from, to)
-        } else {
-            let mid = (from + to) >> 1;
-            self.merge_sort(from, mid)?;
-            self.merge_sort(mid, to)?;
-            self.merge_in_place(from, mid, to)
-        }
+  }
+  fn merge_sort(&mut self, from: usize, to: usize) -> Result<()> {
+    if to - from < BINARY_SORT_THRESHOLD {
+      self.binary_sort(from, to)
+    } else {
+      let mid = (from + to) >> 1;
+      self.merge_sort(from, mid)?;
+      self.merge_sort(mid, to)?;
+      self.merge_in_place(from, mid, to)
     }
+  }
 }
 impl<S> Sorter for InPlaceMergeSorter<S>
 where
-    S: Sorter,
+  S: Sorter,
 {
-    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
-        self.sub.compare(i, j)
-    }
+  fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+    self.sub.compare(i, j)
+  }
 
-    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-        self.sub.swap(i, j)
-    }
+  fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+    self.sub.swap(i, j)
+  }
 
-    fn set_pivot(&mut self, i: usize) -> Result<()> {
-        self.pivot_index = i;
-        Ok(())
-    }
+  fn set_pivot(&mut self, i: usize) -> Result<()> {
+    self.pivot_index = i;
+    Ok(())
+  }
 
-    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
-        self.compare(self.pivot_index, j)
-    }
+  fn compare_pivot(&mut self, j: usize) -> Result<i32> {
+    self.compare(self.pivot_index, j)
+  }
 
-    fn sort(&mut self, from: usize, to: usize) -> Result<()> {
-        check_range(from, to)?;
-        self.merge_sort(from, to)
-    }
+  fn sort(&mut self, from: usize, to: usize) -> Result<()> {
+    check_range(from, to)?;
+    self.merge_sort(from, to)
+  }
 }

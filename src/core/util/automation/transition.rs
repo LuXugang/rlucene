@@ -23,50 +23,50 @@ use crate::core::util::error::lucene_error::Result;
 /// and [`TransitionAccessor::get_next_transition`](crate::core::util::automation::transition_accessor::TransitionAccessor::get_next_transition).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Transition {
-    /// Source state.
-    pub source: i32,
-    /// Destination state.
-    pub dest: i32,
-    /// Minimum accepted label (inclusive).
-    pub min: i32,
-    /// Maximum accepted label (inclusive).
-    pub max: i32,
-    /// Remembers where we are in the iteration; initialized to -1 to provoke
-    /// an error if `get_next_transition` is called without first
-    /// `init_transition`.
-    pub transition_upto: i32,
+  /// Source state.
+  pub source: i32,
+  /// Destination state.
+  pub dest: i32,
+  /// Minimum accepted label (inclusive).
+  pub min: i32,
+  /// Maximum accepted label (inclusive).
+  pub max: i32,
+  /// Remembers where we are in the iteration; initialized to -1 to provoke
+  /// an error if `get_next_transition` is called without first
+  /// `init_transition`.
+  pub transition_upto: i32,
 }
 /// Static estimation of bytes used by a `Transition` instance.
 // TODO: memory calculation not implement
 pub const BYTES_USED: usize = size_of::<Transition>();
 
 impl Default for Transition {
-    /// Creates a `Transition` with zeroed fields and `transition_upto` set to
-    /// -1.
-    fn default() -> Self {
-        Transition {
-            source: 0,
-            dest: 0,
-            min: 0,
-            max: 0,
-            transition_upto: -1,
-        }
+  /// Creates a `Transition` with zeroed fields and `transition_upto` set to
+  /// -1.
+  fn default() -> Self {
+    Transition {
+      source: 0,
+      dest: 0,
+      min: 0,
+      max: 0,
+      transition_upto: -1,
     }
+  }
 }
 
 impl Accountable for Transition {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        Ok(BYTES_USED as i64)
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(BYTES_USED as i64)
+  }
 }
 
 impl std::fmt::Display for Transition {
-    /// Formats the transition as `source --> dest minChar-maxChar`.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} --> {} {}-{}",
-            self.source, self.dest, self.min as u8 as char, self.max as u8 as char
-        )
-    }
+  /// Formats the transition as `source --> dest minChar-maxChar`.
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(
+      f,
+      "{} --> {} {}-{}",
+      self.source, self.dest, self.min as u8 as char, self.max as u8 as char
+    )
+  }
 }

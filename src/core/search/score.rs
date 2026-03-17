@@ -20,19 +20,19 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// [`Scorable`] to
 /// [`LeafCollector::collect`](crate::core::search::leaf_collector::LeafCollector::collect).
 pub struct Score {
-    pub(crate) score: f32,
+  pub(crate) score: f32,
 }
 impl Score {
-    pub fn new(score: f32) -> Self {
-        Self { score }
-    }
+  pub fn new(score: f32) -> Self {
+    Self { score }
+  }
 }
 impl Scorable for Score {
-    fn score(&mut self) -> Result<f32> {
-        Ok(self.score)
-    }
+  fn score(&mut self) -> Result<f32> {
+    Ok(self.score)
+  }
 
-    fn cost(&self) -> Result<i64> {
-        Err(LuceneError::unsupported_operation(""))
-    }
+  fn cost(&self) -> Result<i64> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }

@@ -33,72 +33,72 @@ use std::fmt::Display;
 ///
 /// @lucene.experimental
 pub trait IndexableField: Display {
-    /// Field name
-    fn name(&self) -> &str;
+  /// Field name
+  fn name(&self) -> &str;
 
-    /// {@link IndexableFieldType} describing the properties of this field.
-    type FieldType: IndexableFieldType;
-    fn field_type(&self) -> &Self::FieldType;
-    /// Creates the TokenStream used for indexing this field. If appropriate,
-    /// implementations should use the given Analyzer to create the
-    /// TokenStreams.
-    ///
-    /// * `analyzer` - Analyzer that should be used to create the TokenStreams
-    ///   from
-    /// * `reuse` - TokenStream for a previous instance of this field **name**.
-    ///   This allows custom field types (like StringField and NumericField)
-    ///   that do not use the analyzer to still have good performance. Note: the
-    ///   passed-in type may be inappropriate, for example if you mix up
-    ///   different types of Fields for the same field name. So it's the
-    ///   responsibility of the implementation to check.
-    ///
-    /// # Returns
-    /// TokenStream value for indexing the document. Should always return a
-    /// non-null value if the field is to be indexed.
-    type TokenStream: TokenStream;
-    fn token_stream<'a>(
-        &'a mut self,
-        token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>;
-    /// Non-null if this field has a binary value.
-    fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
-    fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>>;
+  /// {@link IndexableFieldType} describing the properties of this field.
+  type FieldType: IndexableFieldType;
+  fn field_type(&self) -> &Self::FieldType;
+  /// Creates the TokenStream used for indexing this field. If appropriate,
+  /// implementations should use the given Analyzer to create the
+  /// TokenStreams.
+  ///
+  /// * `analyzer` - Analyzer that should be used to create the TokenStreams
+  ///   from
+  /// * `reuse` - TokenStream for a previous instance of this field **name**.
+  ///   This allows custom field types (like StringField and NumericField)
+  ///   that do not use the analyzer to still have good performance. Note: the
+  ///   passed-in type may be inappropriate, for example if you mix up
+  ///   different types of Fields for the same field name. So it's the
+  ///   responsibility of the implementation to check.
+  ///
+  /// # Returns
+  /// TokenStream value for indexing the document. Should always return a
+  /// non-null value if the field is to be indexed.
+  type TokenStream: TokenStream;
+  fn token_stream<'a>(
+    &'a mut self,
+    token_stream: Option<&'a mut InnerTokenStreams>,
+  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>;
+  /// Non-null if this field has a binary value.
+  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
+  fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>>;
 
-    /// Non-null if this field has a string value.
-    fn string_value(&self) -> Result<Option<Cow<'_, String>>>;
-    fn take_string_value(&mut self) -> Result<Option<String>>;
-    /// Non-null if this field has a string value.
-    fn get_char_sequence_value(&self) -> Result<Option<Cow<'_, String>>> {
-        self.string_value()
-    }
+  /// Non-null if this field has a string value.
+  fn string_value(&self) -> Result<Option<Cow<'_, String>>>;
+  fn take_string_value(&mut self) -> Result<Option<String>>;
+  /// Non-null if this field has a string value.
+  fn get_char_sequence_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.string_value()
+  }
 
-    /// Non-null if this field has a Reader value.
-    fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>>;
+  /// Non-null if this field has a Reader value.
+  fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>>;
 
-    /// Non-null if this field has a numeric value.
-    fn numeric_value(&self) -> Result<Option<Number>>;
+  /// Non-null if this field has a numeric value.
+  fn numeric_value(&self) -> Result<Option<Number>>;
 
-    /// Stored value. This method is called to populate stored fields and must
-    /// return a non-null value if the field stored.
-    fn stored_value(&self) -> Option<&FieldDataEnum>;
-    fn take_stored_value(&mut self) -> Option<FieldDataEnum>;
+  /// Stored value. This method is called to populate stored fields and must
+  /// return a non-null value if the field stored.
+  fn stored_value(&self) -> Option<&FieldDataEnum>;
+  fn take_stored_value(&mut self) -> Option<FieldDataEnum>;
 
-    /// Describes how this field should be inverted. This must return a non-null
-    /// value if the field indexes terms and postings.
-    fn invertable_type(&self) -> &InvertableType;
+  /// Describes how this field should be inverted. This must return a non-null
+  /// value if the field indexes terms and postings.
+  fn invertable_type(&self) -> &InvertableType;
 
-    fn is_reserved(&self) -> bool {
-        false
-    }
-    // Rust Lucene Only
-    fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-    where
-        A: Analyzer;
+  fn is_reserved(&self) -> bool {
+    false
+  }
+  // Rust Lucene Only
+  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
+  where
+    A: Analyzer;
 }
 
 #[cfg(test)]
 mod tests {
-    // TODO : IndexWriter not implement
-    #[allow(dead_code)] // for quick search
-    struct TestIndexableField;
+  // TODO : IndexWriter not implement
+  #[allow(dead_code)] // for quick search
+  struct TestIndexableField;
 }

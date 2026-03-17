@@ -20,24 +20,24 @@ use crate::core::util::attribute_impl::AttributeImpl;
 
 #[derive(Default)]
 pub struct BinaryTokenStreamAttributeImpl {
-    packed_token: PackedTokenAttributeImpl,
-    binary: BytesTermAttributeImpl,
+  packed_token: PackedTokenAttributeImpl,
+  binary: BytesTermAttributeImpl,
 }
 impl BinaryTokenStreamAttributeImpl {
-    pub fn get_packed_token(&self) -> &PackedTokenAttributeImpl {
-        &self.packed_token
-    }
-    pub fn get_packed_token_mut(&mut self) -> &mut PackedTokenAttributeImpl {
-        &mut self.packed_token
-    }
-    pub fn get_binary(&self) -> &BytesTermAttributeImpl {
-        &self.binary
-    }
-    pub fn get_binary_mut(&mut self) -> &mut BytesTermAttributeImpl {
-        &mut self.binary
-    }
-    pub fn clear(&mut self) {
-        self.binary.clear();
-        self.packed_token.clear()
-    }
+  pub fn get_packed_token(&self) -> &PackedTokenAttributeImpl {
+    &self.packed_token
+  }
+  pub fn get_packed_token_mut(&mut self) -> &mut PackedTokenAttributeImpl {
+    &mut self.packed_token
+  }
+  pub fn get_binary(&self) -> &BytesTermAttributeImpl {
+    &self.binary
+  }
+  pub fn get_binary_mut(&mut self) -> &mut BytesTermAttributeImpl {
+    &mut self.binary
+  }
+  pub fn clear(&mut self) {
+    self.binary.clear();
+    self.packed_token.clear()
+  }
 }

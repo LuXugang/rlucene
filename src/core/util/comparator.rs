@@ -21,89 +21,89 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub trait Comparator<T> {
-    /// A static string that identifies the type of comparator.
-    const TYPE: &'static str;
+  /// A static string that identifies the type of comparator.
+  const TYPE: &'static str;
 
-    /// Compares two values and returns the result as `Result<i32>`.
-    ///
-    /// This method is fallible to support cases where comparison may fail,
-    /// such as dynamic comparator logic or I/O-dependent comparisons.
-    /// For most simple comparators (e.g., numerical or lexical), this
-    /// will always return `Ok(result)`.
-    fn compare(&self, a: &T, b: &T) -> Result<i32>;
+  /// Compares two values and returns the result as `Result<i32>`.
+  ///
+  /// This method is fallible to support cases where comparison may fail,
+  /// such as dynamic comparator logic or I/O-dependent comparisons.
+  /// For most simple comparators (e.g., numerical or lexical), this
+  /// will always return `Ok(result)`.
+  fn compare(&self, a: &T, b: &T) -> Result<i32>;
 }
 
 impl<T, C> Comparator<T> for Arc<C>
 where
-    C: Comparator<T>,
+  C: Comparator<T>,
 {
-    const TYPE: &'static str = C::TYPE;
+  const TYPE: &'static str = C::TYPE;
 
-    fn compare(&self, a: &T, b: &T) -> Result<i32> {
-        (**self).compare(a, b)
-    }
+  fn compare(&self, a: &T, b: &T) -> Result<i32> {
+    (**self).compare(a, b)
+  }
 }
 impl<T, C> Comparator<T> for Rc<C>
 where
-    C: Comparator<T>,
+  C: Comparator<T>,
 {
-    const TYPE: &'static str = C::TYPE;
+  const TYPE: &'static str = C::TYPE;
 
-    fn compare(&self, a: &T, b: &T) -> Result<i32> {
-        (**self).compare(a, b)
-    }
+  fn compare(&self, a: &T, b: &T) -> Result<i32> {
+    (**self).compare(a, b)
+  }
 }
 
 pub struct NaturalOrder;
 impl Default for NaturalOrder {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl NaturalOrder {
-    pub fn new() -> NaturalOrder {
-        NaturalOrder {}
-    }
+  pub fn new() -> NaturalOrder {
+    NaturalOrder {}
+  }
 }
 impl<T> Comparator<T> for NaturalOrder
 where
-    T: Ord,
+  T: Ord,
 {
-    const TYPE: &'static str = COMPARATOR_TYPE;
+  const TYPE: &'static str = COMPARATOR_TYPE;
 
-    fn compare(&self, a: &T, b: &T) -> Result<i32> {
-        Ok(a.cmp(b).to_int())
-    }
+  fn compare(&self, a: &T, b: &T) -> Result<i32> {
+    Ok(a.cmp(b).to_int())
+  }
 }
 
 pub struct ReverseOrder {
-    comparator: NaturalOrder,
+  comparator: NaturalOrder,
 }
 
 impl Default for ReverseOrder {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl ReverseOrder {
-    pub fn new() -> ReverseOrder {
-        ReverseOrder {
-            comparator: NaturalOrder::new(),
-        }
+  pub fn new() -> ReverseOrder {
+    ReverseOrder {
+      comparator: NaturalOrder::new(),
     }
+  }
 }
 
 impl<T> Comparator<T> for ReverseOrder
 where
-    T: Ord,
+  T: Ord,
 {
-    const TYPE: &'static str = "ReverseOrder";
+  const TYPE: &'static str = "ReverseOrder";
 
-    fn compare(&self, a: &T, b: &T) -> Result<i32> {
-        Ok(-self.comparator.compare(a, b)?)
-    }
+  fn compare(&self, a: &T, b: &T) -> Result<i32> {
+    Ok(-self.comparator.compare(a, b)?)
+  }
 }
 
 /// # NOTE
@@ -112,12 +112,12 @@ where
 /// that also implement BytesRefComparator, distinguishing its type by the TYPE
 /// constant.
 impl BytesRefComparator for NaturalOrder {
-    fn byte_at(&self, bytes_ref: &BytesRef<Vec<u8>>, i: usize) -> Result<i32> {
-        if bytes_ref.length <= i {
-            return Ok(-1);
-        }
-        Ok(bytes_ref.bytes[bytes_ref.offset + i] as i32)
+  fn byte_at(&self, bytes_ref: &BytesRef<Vec<u8>>, i: usize) -> Result<i32> {
+    if bytes_ref.length <= i {
+      return Ok(-1);
     }
+    Ok(bytes_ref.bytes[bytes_ref.offset + i] as i32)
+  }
 }
 
 pub const COMPARATOR_TYPE: &str = "Comparator";

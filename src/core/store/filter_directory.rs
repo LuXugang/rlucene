@@ -28,110 +28,110 @@ use std::fmt::{Display, Formatter};
 #[allow(dead_code)]
 pub struct FilterDirectory<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) delegate: D,
-    id: Identity,
+  pub(crate) delegate: D,
+  id: Identity,
 }
 impl<D> FilterDirectory<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub fn new(inner: D) -> Self {
-        FilterDirectory {
-            delegate: inner,
-            id: Identity::new(),
-        }
+  pub fn new(inner: D) -> Self {
+    FilterDirectory {
+      delegate: inner,
+      id: Identity::new(),
     }
-    pub fn get_inner(&mut self) -> &mut D {
-        &mut self.delegate
-    }
+  }
+  pub fn get_inner(&mut self) -> &mut D {
+    &mut self.delegate
+  }
 }
 
 impl<D> Display for FilterDirectory<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "FilterDirectory({})", self.delegate)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "FilterDirectory({})", self.delegate)
+  }
 }
 
 impl<D> Closeable for FilterDirectory<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn close(&mut self) -> Result<()> {
-        // TODO
-        Ok(())
-    }
+  fn close(&mut self) -> Result<()> {
+    // TODO
+    Ok(())
+  }
 }
 
 impl<D> HasIdentity for FilterDirectory<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn identity(&self) -> &Identity {
-        &self.id
-    }
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
 }
 
 impl<D> Directory for FilterDirectory<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn list_all(&self) -> Result<Vec<String>> {
-        self.delegate.list_all()
-    }
+  fn list_all(&self) -> Result<Vec<String>> {
+    self.delegate.list_all()
+  }
 
-    fn delete_file(&self, name: &str) -> Result<()> {
-        self.delegate.delete_file(name)
-    }
+  fn delete_file(&self, name: &str) -> Result<()> {
+    self.delegate.delete_file(name)
+  }
 
-    fn file_length(&self, name: &str) -> Result<usize> {
-        self.delegate.file_length(name)
-    }
+  fn file_length(&self, name: &str) -> Result<usize> {
+    self.delegate.file_length(name)
+  }
 
-    fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
-        self.delegate.create_output(name, context)
-    }
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    self.delegate.create_output(name, context)
+  }
 
-    type IndexOutput = D::IndexOutput;
+  type IndexOutput = D::IndexOutput;
 
-    fn create_temp_output(
-        &self,
-        prefix: &str,
-        suffix: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexOutput> {
-        self.delegate.create_temp_output(prefix, suffix, context)
-    }
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    self.delegate.create_temp_output(prefix, suffix, context)
+  }
 
-    fn sync(&self, names: &[String]) -> Result<()> {
-        self.delegate.sync(names)
-    }
+  fn sync(&self, names: &[String]) -> Result<()> {
+    self.delegate.sync(names)
+  }
 
-    fn sync_metadata(&self) -> Result<()> {
-        self.delegate.sync_metadata()
-    }
+  fn sync_metadata(&self) -> Result<()> {
+    self.delegate.sync_metadata()
+  }
 
-    fn rename(&self, source: &str, dest: &str) -> Result<()> {
-        self.delegate.rename(source, dest)
-    }
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    self.delegate.rename(source, dest)
+  }
 
-    type IndexInput = D::IndexInput;
+  type IndexInput = D::IndexInput;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
-        self.delegate.open_input(name, context)
-    }
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    self.delegate.open_input(name, context)
+  }
 
-    type Lock = D::Lock;
+  type Lock = D::Lock;
 
-    fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
-        self.delegate.obtain_lock(name)
-    }
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    self.delegate.obtain_lock(name)
+  }
 
-    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
-        self.delegate.get_pending_deletions()
-    }
+  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+    self.delegate.get_pending_deletions()
+  }
 }

@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
 use crate::core::codecs::compression::compression_mode::{
-    CompressionModeEnum, DeflateCompressionMode,
+  CompressionModeEnum, DeflateCompressionMode,
 };
 use crate::core::codecs::lz4_with_preset_dict_compression_mode::LZ4WithPresetDictCompressionMode;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
@@ -93,141 +93,141 @@ use std::sync::Arc;
 ///
 /// @lucene.experimental
 pub struct Lucene90StoredFieldsFormat {
-    pub mode: Mode,
+  pub mode: Mode,
 }
 impl Default for Lucene90StoredFieldsFormat {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl Lucene90StoredFieldsFormat {
-    /// Attribute key for compression mode.
-    const MODE_KEY: &'static str = concat!(module_path!(), "::mode");
+  /// Attribute key for compression mode.
+  const MODE_KEY: &'static str = concat!(module_path!(), "::mode");
 
-    /// Shoot for 10 sub blocks of 48kB each.
-    const BEST_COMPRESSION_BLOCK_LENGTH: usize = 10 * 48 * 1024;
+  /// Shoot for 10 sub blocks of 48kB each.
+  const BEST_COMPRESSION_BLOCK_LENGTH: usize = 10 * 48 * 1024;
 
-    /// Shoot for 10 sub blocks of 8kB each.
-    const BEST_SPEED_BLOCK_LENGTH: usize = 10 * 8 * 1024;
-    /// Stored fields format with default options.
-    pub fn new() -> Self {
-        Self::with_mode(Mode::BestSpeed)
-    }
-    /// Stored fields format with specified mode.
-    pub fn with_mode(mode: Mode) -> Self {
-        Self { mode }
-    }
+  /// Shoot for 10 sub blocks of 8kB each.
+  const BEST_SPEED_BLOCK_LENGTH: usize = 10 * 8 * 1024;
+  /// Stored fields format with default options.
+  pub fn new() -> Self {
+    Self::with_mode(Mode::BestSpeed)
+  }
+  /// Stored fields format with specified mode.
+  pub fn with_mode(mode: Mode) -> Self {
+    Self { mode }
+  }
 
-    fn stored_fields_format_impl(
-        &self,
-        mode: &Mode,
-    ) -> Result<Lucene90CompressingStoredFieldsFormat> {
-        match mode {
-            Mode::BestSpeed => Lucene90CompressingStoredFieldsFormat::new(
-                "Lucene90StoredFieldsFastData",
-                BEST_SPEED_MODE.clone(),
-                Self::BEST_SPEED_BLOCK_LENGTH as i32,
-                1024,
-                10,
-            ),
-            Mode::BestCompression => Lucene90CompressingStoredFieldsFormat::new(
-                "Lucene90StoredFieldsHighData",
-                BEST_COMPRESSION_MODE.clone(),
-                Self::BEST_COMPRESSION_BLOCK_LENGTH as i32,
-                4096,
-                10,
-            ),
-        }
+  fn stored_fields_format_impl(
+    &self,
+    mode: &Mode,
+  ) -> Result<Lucene90CompressingStoredFieldsFormat> {
+    match mode {
+      Mode::BestSpeed => Lucene90CompressingStoredFieldsFormat::new(
+        "Lucene90StoredFieldsFastData",
+        BEST_SPEED_MODE.clone(),
+        Self::BEST_SPEED_BLOCK_LENGTH as i32,
+        1024,
+        10,
+      ),
+      Mode::BestCompression => Lucene90CompressingStoredFieldsFormat::new(
+        "Lucene90StoredFieldsHighData",
+        BEST_COMPRESSION_MODE.clone(),
+        Self::BEST_COMPRESSION_BLOCK_LENGTH as i32,
+        4096,
+        10,
+      ),
     }
+  }
 }
 impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
-    type StoredFieldsReader<T: IndexInput> =
-        <Lucene90CompressingStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsReader<T>;
+  type StoredFieldsReader<T: IndexInput> =
+    <Lucene90CompressingStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsReader<T>;
 
-    fn fields_reader<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &SegmentInfo<D2>,
-        field_infos: Arc<FieldInfos>,
-        context: &IOContext,
-    ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
-    where
-        D1: Directory,
-        D2: Directory,
+  fn fields_reader<D1, D2>(
+    &self,
+    directory: &D1,
+    segment_info: &SegmentInfo<D2>,
+    field_infos: Arc<FieldInfos>,
+    context: &IOContext,
+  ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    let value = segment_info.get_attribute(Self::MODE_KEY);
+    let mode_name = value.ok_or_else(|| {
+      LuceneError::illegal_state(format!(
+        "missing value for {} for segment: {}",
+        Self::MODE_KEY,
+        segment_info.name
+      ))
+    })?;
+
+    let mode = Mode::from_name(mode_name)?;
+
+    let format = self.stored_fields_format_impl(&mode)?;
+    format.fields_reader(directory, segment_info, field_infos, context)
+  }
+
+  type StoredFieldsWriter<T: IndexOutput> =
+    <Lucene90CompressingStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<T>;
+
+  fn fields_writer<D1, D2>(
+    &self,
+    directory: &D1,
+    segment_info: &mut SegmentInfo<D2>,
+    context: &IOContext,
+  ) -> Result<Self::StoredFieldsWriter<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    let previous =
+      segment_info.put_attribute(Self::MODE_KEY.to_string(), self.mode.name().to_string());
+
+    if let Some(prev) = previous
+      && prev != *self.mode.name()
     {
-        let value = segment_info.get_attribute(Self::MODE_KEY);
-        let mode_name = value.ok_or_else(|| {
-            LuceneError::illegal_state(format!(
-                "missing value for {} for segment: {}",
-                Self::MODE_KEY,
-                segment_info.name
-            ))
-        })?;
-
-        let mode = Mode::from_name(mode_name)?;
-
-        let format = self.stored_fields_format_impl(&mode)?;
-        format.fields_reader(directory, segment_info, field_infos, context)
+      return Err(LuceneError::illegal_state(format!(
+        "found existing value for {} for segment: {}, old={}, new={}",
+        Self::MODE_KEY,
+        segment_info.name,
+        prev,
+        self.mode.name()
+      )));
     }
-
-    type StoredFieldsWriter<T: IndexOutput> =
-        <Lucene90CompressingStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<T>;
-
-    fn fields_writer<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &mut SegmentInfo<D2>,
-        context: &IOContext,
-    ) -> Result<Self::StoredFieldsWriter<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        let previous =
-            segment_info.put_attribute(Self::MODE_KEY.to_string(), self.mode.name().to_string());
-
-        if let Some(prev) = previous
-            && prev != *self.mode.name()
-        {
-            return Err(LuceneError::illegal_state(format!(
-                "found existing value for {} for segment: {}, old={}, new={}",
-                Self::MODE_KEY,
-                segment_info.name,
-                prev,
-                self.mode.name()
-            )));
-        }
-        let format = self.stored_fields_format_impl(&self.mode)?;
-        format.fields_writer(directory, segment_info, context)
-    }
+    let format = self.stored_fields_format_impl(&self.mode)?;
+    format.fields_writer(directory, segment_info, context)
+  }
 }
 /// Compression mode for [`Mode::BestCompression`].
 static BEST_COMPRESSION_MODE: CompressionModeEnum =
-    CompressionModeEnum::Deflate(DeflateCompressionMode);
+  CompressionModeEnum::Deflate(DeflateCompressionMode);
 /// Compression mode for [`Mode::BestSpeed`].
 static BEST_SPEED_MODE: CompressionModeEnum =
-    CompressionModeEnum::LZ4Dict(LZ4WithPresetDictCompressionMode);
+  CompressionModeEnum::LZ4Dict(LZ4WithPresetDictCompressionMode);
 
 /// Configuration option for stored fields.
 pub enum Mode {
-    /// Trade compression ratio for retrieval speed.
-    BestSpeed,
-    /// Trade retrieval speed for compression ratio.
-    BestCompression,
+  /// Trade compression ratio for retrieval speed.
+  BestSpeed,
+  /// Trade retrieval speed for compression ratio.
+  BestCompression,
 }
 impl Mode {
-    fn name(&self) -> &'static str {
-        match self {
-            Mode::BestSpeed => "BEST_SPEED",
-            Mode::BestCompression => "BEST_COMPRESSION",
-        }
+  fn name(&self) -> &'static str {
+    match self {
+      Mode::BestSpeed => "BEST_SPEED",
+      Mode::BestCompression => "BEST_COMPRESSION",
     }
-    fn from_name(name: &str) -> Result<Self> {
-        match name {
-            "BEST_SPEED" => Ok(Mode::BestSpeed),
-            "BEST_COMPRESSION" => Ok(Mode::BestCompression),
-            _ => Err(LuceneError::illegal_state("unknown mode name")),
-        }
+  }
+  fn from_name(name: &str) -> Result<Self> {
+    match name {
+      "BEST_SPEED" => Ok(Mode::BestSpeed),
+      "BEST_COMPRESSION" => Ok(Mode::BestCompression),
+      _ => Err(LuceneError::illegal_state("unknown mode name")),
     }
+  }
 }

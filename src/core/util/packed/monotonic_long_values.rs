@@ -20,79 +20,79 @@ use crate::core::util::packed::monotonic_block_packed_reader::expected;
 use crate::core::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
 
 pub(crate) struct MonotonicLongValues {
-    averages: Vec<f32>,
+  averages: Vec<f32>,
 }
 
 impl MonotonicLongValues {
-    //TODO
-    const BASE_RAM_BYTES_USED: u64 = 0;
+  //TODO
+  const BASE_RAM_BYTES_USED: u64 = 0;
 
-    pub(crate) fn new(averages: Vec<f32>) -> Self {
-        Self { averages }
+  pub(crate) fn new(averages: Vec<f32>) -> Self {
+    Self { averages }
+  }
+  pub(crate) fn decode_block(&self, block: i32, dest: &mut [i64], count: i32) -> i32 {
+    let average = self.averages[block as usize];
+    for (i, item) in dest.iter_mut().enumerate().take(count as usize) {
+      debug_assert!(i <= i32::MAX as usize);
+      *item += expected(0, average, i as i32);
     }
-    pub(crate) fn decode_block(&self, block: i32, dest: &mut [i64], count: i32) -> i32 {
-        let average = self.averages[block as usize];
-        for (i, item) in dest.iter_mut().enumerate().take(count as usize) {
-            debug_assert!(i <= i32::MAX as usize);
-            *item += expected(0, average, i as i32);
-        }
-        count
-    }
+    count
+  }
 
-    pub(crate) fn get_value(&self, block: i32, element: i32, value: u64) -> i64 {
-        expected(value as i64, self.averages[block as usize], element)
-    }
+  pub(crate) fn get_value(&self, block: i32, element: i32, value: u64) -> i64 {
+    expected(value as i64, self.averages[block as usize], element)
+  }
 }
 
 pub struct MonotonicLongValuesBuilder {
-    averages: Vec<f32>,
+  averages: Vec<f32>,
 }
 
 impl Default for MonotonicLongValuesBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl MonotonicLongValuesBuilder {
-    //TODO
-    const BASE_RAM_BYTES_USED: u64 = 0;
+  //TODO
+  const BASE_RAM_BYTES_USED: u64 = 0;
 
-    pub(crate) fn new() -> Self {
-        Self {
-            averages: vec![0.0; INITIAL_PAGE_COUNT as usize],
-        }
+  pub(crate) fn new() -> Self {
+    Self {
+      averages: vec![0.0; INITIAL_PAGE_COUNT as usize],
     }
+  }
 
-    pub(crate) fn build(mut self, values_off: i32) -> Result<MonotonicLongValues> {
-        let _ = self.averages.split_off(values_off as usize);
+  pub(crate) fn build(mut self, values_off: i32) -> Result<MonotonicLongValues> {
+    let _ = self.averages.split_off(values_off as usize);
 
-        // TODO
-        let _ram_bytes_used = 0;
+    // TODO
+    let _ram_bytes_used = 0;
 
-        Ok(MonotonicLongValues::new(std::mem::take(&mut self.averages)))
+    Ok(MonotonicLongValues::new(std::mem::take(&mut self.averages)))
+  }
+  pub(crate) fn base_ram_bytes_used(&self) -> u64 {
+    // TODO
+    Self::BASE_RAM_BYTES_USED
+  }
+
+  pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) {
+    let average = if num_values == 1 {
+      0.0
+    } else {
+      (values[num_values as usize - 1] - values[0]) as f32 / (num_values - 1) as f32
+    };
+
+    for (i, value) in values.iter_mut().enumerate().take(num_values as usize) {
+      debug_assert!(i <= i32::MAX as usize);
+      *value -= expected(0, average, i as i32);
     }
-    pub(crate) fn base_ram_bytes_used(&self) -> u64 {
-        // TODO
-        Self::BASE_RAM_BYTES_USED
-    }
+    self.averages[block as usize] = average;
+  }
 
-    pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) {
-        let average = if num_values == 1 {
-            0.0
-        } else {
-            (values[num_values as usize - 1] - values[0]) as f32 / (num_values - 1) as f32
-        };
-
-        for (i, value) in values.iter_mut().enumerate().take(num_values as usize) {
-            debug_assert!(i <= i32::MAX as usize);
-            *value -= expected(0, average, i as i32);
-        }
-        self.averages[block as usize] = average;
-    }
-
-    pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<()> {
-        // TODO: memory calculation not implement
-        ArrayUtil::grow_exact(&mut self.averages, new_block_count as usize)
-    }
+  pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<()> {
+    // TODO: memory calculation not implement
+    ArrayUtil::grow_exact(&mut self.averages, new_block_count as usize)
+  }
 }

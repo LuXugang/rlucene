@@ -72,182 +72,182 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// # See Also
 /// - [`lock_factory`](crate::core::store::lock_factory)
 pub struct NativeFSLockFactory {
-    lock_held: Arc<Mutex<HashSet<String>>>,
+  lock_held: Arc<Mutex<HashSet<String>>>,
 }
 
 impl Default for NativeFSLockFactory {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl NativeFSLockFactory {
-    /// Creates a new instance.
-    pub fn new() -> Self {
-        Self {
-            lock_held: get_lock_held(),
-        }
+  /// Creates a new instance.
+  pub fn new() -> Self {
+    Self {
+      lock_held: get_lock_held(),
     }
+  }
 }
 impl LockFactory for NativeFSLockFactory {
-    type Lock = NativeFSLock;
+  type Lock = NativeFSLock;
 
-    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
-        FSLockFactory::obtain_lock(self, dir, lock_name)
-    }
+  fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
+    FSLockFactory::obtain_lock(self, dir, lock_name)
+  }
 }
 
 impl Display for NativeFSLockFactory {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NativeFSLockFactory")
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "NativeFSLockFactory")
+  }
 }
 
 impl FSLockFactory for NativeFSLockFactory {
-    fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
-        fs::create_dir_all(dir)
-            .map_err(|e| LuceneError::io_with_path(dir.to_string_lossy().to_string(), e))?;
+  fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
+    fs::create_dir_all(dir)
+      .map_err(|e| LuceneError::io_with_path(dir.to_string_lossy().to_string(), e))?;
 
-        let lock_file = dir.join(lock_name);
+    let lock_file = dir.join(lock_name);
 
-        // we must create the file to have a truly canonical path.
-        // if it's already created, we don't care. if it cant be created, it
-        // will fail below.
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(&lock_file)?;
-        let real_path = lock_file
-            .canonicalize()
-            .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
-        let real_path_str = real_path.to_string_lossy().to_string();
+    // we must create the file to have a truly canonical path.
+    // if it's already created, we don't care. if it cant be created, it
+    // will fail below.
+    let file = OpenOptions::new()
+      .write(true)
+      .create(true)
+      .truncate(false)
+      .open(&lock_file)?;
+    let real_path = lock_file
+      .canonicalize()
+      .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
+    let real_path_str = real_path.to_string_lossy().to_string();
 
-        let mut lock_held = self.lock_held.lock();
-        if !lock_held.insert(real_path_str.clone()) {
-            return Err(LuceneError::lock_already_held(format!(
-                "Lock held by another program: {real_path_str}"
-            )));
-        }
-        match file.try_lock_exclusive() {
-            Ok(_) => {
-                let metadata = file.metadata()?;
-                let lock = NativeFSLock {
-                    file,
-                    path: real_path,
-                    metadata,
-                };
-                Ok(lock)
-            },
-            Err(_) => {
-                lock_held.remove(&real_path_str);
-                Err(LuceneError::lock_held_by_other(format!(
-                    "Lock held by this machine: {real_path_str}"
-                )))
-            },
-        }
+    let mut lock_held = self.lock_held.lock();
+    if !lock_held.insert(real_path_str.clone()) {
+      return Err(LuceneError::lock_already_held(format!(
+        "Lock held by another program: {real_path_str}"
+      )));
     }
+    match file.try_lock_exclusive() {
+      Ok(_) => {
+        let metadata = file.metadata()?;
+        let lock = NativeFSLock {
+          file,
+          path: real_path,
+          metadata,
+        };
+        Ok(lock)
+      },
+      Err(_) => {
+        lock_held.remove(&real_path_str);
+        Err(LuceneError::lock_held_by_other(format!(
+          "Lock held by this machine: {real_path_str}"
+        )))
+      },
+    }
+  }
 }
 
 impl Drop for NativeFSLock {
-    fn drop(&mut self) {
-        let real_path_str = self.path.to_string_lossy().to_string();
-        let locks = get_lock_held();
-        locks.lock().remove(&real_path_str);
-    }
+  fn drop(&mut self) {
+    let real_path_str = self.path.to_string_lossy().to_string();
+    let locks = get_lock_held();
+    locks.lock().remove(&real_path_str);
+  }
 }
 
 static LOCK_HELD: OnceLock<Arc<Mutex<HashSet<String>>>> = OnceLock::new();
 
 fn get_lock_held() -> Arc<Mutex<HashSet<String>>> {
-    LOCK_HELD
-        .get_or_init(|| Arc::new(Mutex::new(HashSet::new())))
-        .clone()
+  LOCK_HELD
+    .get_or_init(|| Arc::new(Mutex::new(HashSet::new())))
+    .clone()
 }
 
 pub struct NativeFSLock {
-    file: File,
-    path: PathBuf,
-    metadata: Metadata,
+  file: File,
+  path: PathBuf,
+  metadata: Metadata,
 }
 
 impl NativeFSLock {
-    fn format_metadata(&self) -> String {
-        let size = self.metadata.len();
-        let permissions = self.metadata.permissions();
-        let modified_time = self.metadata.modified().ok().map_or_else(
-            || "unknown".to_string(),
-            |time| match time.duration_since(SystemTime::UNIX_EPOCH) {
-                Ok(duration) => {
-                    let datetime = DateTime::<Utc>::from(SystemTime::UNIX_EPOCH + duration);
-                    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
-                },
-                Err(_) => "invalid time".to_string(),
-            },
-        );
-        format!("size: {size} bytes, permissions: {permissions:?}, modified: {modified_time}")
-    }
+  fn format_metadata(&self) -> String {
+    let size = self.metadata.len();
+    let permissions = self.metadata.permissions();
+    let modified_time = self.metadata.modified().ok().map_or_else(
+      || "unknown".to_string(),
+      |time| match time.duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(duration) => {
+          let datetime = DateTime::<Utc>::from(SystemTime::UNIX_EPOCH + duration);
+          datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+        },
+        Err(_) => "invalid time".to_string(),
+      },
+    );
+    format!("size: {size} bytes, permissions: {permissions:?}, modified: {modified_time}")
+  }
 }
 
 impl Display for NativeFSLock {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "NativeFSLock(path= {}, file_metadata= {})",
-            self.path.display(),
-            self.format_metadata()
-        )
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(
+      f,
+      "NativeFSLock(path= {}, file_metadata= {})",
+      self.path.display(),
+      self.format_metadata()
+    )
+  }
 }
 
 impl Closeable for NativeFSLock {
-    fn close(&mut self) -> Result<()> {
-        todo!()
-    }
+  fn close(&mut self) -> Result<()> {
+    todo!()
+  }
 }
 
 impl Lock for NativeFSLock {
-    /// Ensures the validity of the current lock.
-    ///
-    /// # Errors
-    /// - Returns `LuceneError::illegal_state` if:
-    ///   - The lock file is no longer in the global lock map.
-    ///   - The file lock is no longer valid.
-    ///   - The lock file size is not 0.
-    ///   - The lock file has been deleted or is inaccessible.
-    fn ensure_valid(&self) -> Result<()> {
-        let lock_held = LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
-        let lock_held = lock_held.lock();
-        if !lock_held.contains(&self.path.to_string_lossy().to_string()) {
-            return Err(LuceneError::illegal_state(format!(
-                "Lock path unexpectedly cleared from map: {:?}",
-                self.path
-            )));
-        }
-
-        if self.file.try_lock_exclusive().is_err() {
-            return Err(LuceneError::illegal_state(format!(
-                "File lock invalidated by an external force: {:?}",
-                self.path
-            )));
-        }
-
-        let metadata = self.file.metadata().map_err(LuceneError::io)?;
-        if metadata.len() != 0 {
-            return Err(LuceneError::illegal_state(format!(
-                "Unexpected lock file size: {}, (lock: {:?})",
-                metadata.len(),
-                self.path
-            )));
-        }
-
-        if !self.path.exists() {
-            return Err(LuceneError::illegal_state(format!(
-                "Lock file deleted or inaccessible: {:?}",
-                self.path
-            )));
-        }
-
-        Ok(())
+  /// Ensures the validity of the current lock.
+  ///
+  /// # Errors
+  /// - Returns `LuceneError::illegal_state` if:
+  ///   - The lock file is no longer in the global lock map.
+  ///   - The file lock is no longer valid.
+  ///   - The lock file size is not 0.
+  ///   - The lock file has been deleted or is inaccessible.
+  fn ensure_valid(&self) -> Result<()> {
+    let lock_held = LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
+    let lock_held = lock_held.lock();
+    if !lock_held.contains(&self.path.to_string_lossy().to_string()) {
+      return Err(LuceneError::illegal_state(format!(
+        "Lock path unexpectedly cleared from map: {:?}",
+        self.path
+      )));
     }
+
+    if self.file.try_lock_exclusive().is_err() {
+      return Err(LuceneError::illegal_state(format!(
+        "File lock invalidated by an external force: {:?}",
+        self.path
+      )));
+    }
+
+    let metadata = self.file.metadata().map_err(LuceneError::io)?;
+    if metadata.len() != 0 {
+      return Err(LuceneError::illegal_state(format!(
+        "Unexpected lock file size: {}, (lock: {:?})",
+        metadata.len(),
+        self.path
+      )));
+    }
+
+    if !self.path.exists() {
+      return Err(LuceneError::illegal_state(format!(
+        "Lock file deleted or inaccessible: {:?}",
+        self.path
+      )));
+    }
+
+    Ok(())
+  }
 }

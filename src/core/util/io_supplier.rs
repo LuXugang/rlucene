@@ -16,5 +16,5 @@
  */
 use crate::core::util::error::lucene_error::Result;
 pub trait IOSupplier<T> {
-    fn get(&self) -> Result<&T>;
+  fn get(&self) -> Result<&T>;
 }

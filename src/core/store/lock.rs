@@ -37,64 +37,64 @@ use std::fmt::{Display, Formatter};
 /// # Note
 /// This is an internal API.
 pub trait Lock: Display + Closeable {
-    /// Best effort check that this lock is still valid. Locks could become
-    /// invalidated externally for a number of reasons, such as if a user
-    /// deletes the lock file manually or when a network filesystem is in
-    /// use.
-    ///
-    /// # Errors
-    /// Returns an `LuceneError` if the lock is no longer valid.
-    fn ensure_valid(&self) -> Result<()>;
+  /// Best effort check that this lock is still valid. Locks could become
+  /// invalidated externally for a number of reasons, such as if a user
+  /// deletes the lock file manually or when a network filesystem is in
+  /// use.
+  ///
+  /// # Errors
+  /// Returns an `LuceneError` if the lock is no longer valid.
+  fn ensure_valid(&self) -> Result<()>;
 }
 
 pub type DynLock = dyn Lock + Send + Sync;
 pub type CustomLock = Box<DynLock>;
 pub enum LockEnum {
-    Single(SingleInstanceLock),
-    Simple(SimpleFSLock),
-    Native(NativeFSLock),
-    Custom(CustomLock),
+  Single(SingleInstanceLock),
+  Simple(SimpleFSLock),
+  Native(NativeFSLock),
+  Custom(CustomLock),
 }
 impl LockEnum {
-    pub fn custom<L>(lock: L) -> Self
-    where
-        L: Lock + Send + Sync + 'static,
-    {
-        Self::Custom(Box::new(lock))
-    }
+  pub fn custom<L>(lock: L) -> Self
+  where
+    L: Lock + Send + Sync + 'static,
+  {
+    Self::Custom(Box::new(lock))
+  }
 }
 
 impl Display for LockEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Single(inner) => inner.fmt(f),
-            Self::Simple(inner) => inner.fmt(f),
-            Self::Native(inner) => inner.fmt(f),
-            Self::Custom(inner) => inner.fmt(f),
-        }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Single(inner) => inner.fmt(f),
+      Self::Simple(inner) => inner.fmt(f),
+      Self::Native(inner) => inner.fmt(f),
+      Self::Custom(inner) => inner.fmt(f),
     }
+  }
 }
 
 impl Closeable for LockEnum {
-    fn close(&mut self) -> Result<()> {
-        match self {
-            Self::Single(inner) => inner.close(),
-            Self::Simple(inner) => inner.close(),
-            Self::Native(inner) => inner.close(),
-            Self::Custom(inner) => inner.close(),
-        }
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::Single(inner) => inner.close(),
+      Self::Simple(inner) => inner.close(),
+      Self::Native(inner) => inner.close(),
+      Self::Custom(inner) => inner.close(),
     }
+  }
 }
 
 impl Lock for LockEnum {
-    fn ensure_valid(&self) -> Result<()> {
-        match self {
-            Self::Single(inner) => inner.ensure_valid(),
-            Self::Simple(inner) => inner.ensure_valid(),
-            Self::Native(inner) => inner.ensure_valid(),
-            Self::Custom(inner) => inner.ensure_valid(),
-        }
+  fn ensure_valid(&self) -> Result<()> {
+    match self {
+      Self::Single(inner) => inner.ensure_valid(),
+      Self::Simple(inner) => inner.ensure_valid(),
+      Self::Native(inner) => inner.ensure_valid(),
+      Self::Custom(inner) => inner.ensure_valid(),
     }
+  }
 }
 
 macro_rules! either_lock {

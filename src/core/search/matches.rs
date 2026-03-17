@@ -26,15 +26,15 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// @lucene.experimental
 pub trait Matches {
-    type MatchesIterator: MatchesIterator;
-    /// Returns a [`MatchesIterator`] over the matches for a single field,
-    /// or `None` if there are no matches in that field.
-    fn get_matches(&self, field: &str) -> Result<Option<Self::MatchesIterator>>;
+  type MatchesIterator: MatchesIterator;
+  /// Returns a [`MatchesIterator`] over the matches for a single field,
+  /// or `None` if there are no matches in that field.
+  fn get_matches(&self, field: &str) -> Result<Option<Self::MatchesIterator>>;
 
-    type Matches: Matches;
-    /// Returns a collection of [`Matches`] that make up this instance;
-    /// if it is not a composite, then this returns an empty list.
-    fn get_sub_matches(&mut self) -> Vec<Self::Matches>;
+  type Matches: Matches;
+  /// Returns a collection of [`Matches`] that make up this instance;
+  /// if it is not a composite, then this returns an empty list.
+  fn get_sub_matches(&mut self) -> Vec<Self::Matches>;
 
-    fn field(&self) -> &[String];
+  fn field(&self) -> &[String];
 }

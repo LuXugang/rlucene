@@ -21,36 +21,36 @@ use std::sync::Arc;
 
 pub struct DummyMatchesIterator;
 impl MatchesIterator for DummyMatchesIterator {
-    fn next(&mut self) -> crate::core::util::error::lucene_error::Result<bool> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn next(&mut self) -> crate::core::util::error::lucene_error::Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn start_position(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn start_position(&self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn end_position(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn end_position(&self) -> i32 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn start_offset(&self) -> crate::core::util::error::lucene_error::Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn start_offset(&self) -> crate::core::util::error::lucene_error::Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn end_offset(&self) -> crate::core::util::error::lucene_error::Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn end_offset(&self) -> crate::core::util::error::lucene_error::Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type MatchesIterRef<'a>
-        = DummyMatchesIterator
-    where
-        Self: 'a;
+  type MatchesIterRef<'a>
+    = DummyMatchesIterator
+  where
+    Self: 'a;
 
-    fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_query(&self) -> Arc<Query> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_query(&self) -> Arc<Query> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

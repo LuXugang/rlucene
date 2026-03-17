@@ -21,19 +21,19 @@ use crate::core::util::iterator::VecIter;
 
 pub struct DummyFields;
 impl Fields for DummyFields {
-    type FieldIter<'a> = VecIter<'a>;
+  type FieldIter<'a> = VecIter<'a>;
 
-    fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn iterator(&self) -> Result<Self::FieldIter<'_>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type Terms = DummyTerms;
+  type Terms = DummyTerms;
 
-    fn terms(&self, _field: &str) -> Result<Option<Self::Terms>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn terms(&self, _field: &str) -> Result<Option<Self::Terms>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn size(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn size(&self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

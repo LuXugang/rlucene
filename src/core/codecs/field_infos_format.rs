@@ -24,26 +24,26 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// # Experimental
 pub trait FieldInfosFormat {
-    /// Reads the FieldInfos previously written.
-    fn read<D>(
-        &self,
-        directory: &impl Directory,
-        segment_info: &SegmentInfo<D>,
-        segment_suffix: &str,
-        io_context: &IOContext,
-    ) -> Result<FieldInfos>
-    where
-        D: Directory;
+  /// Reads the FieldInfos previously written.
+  fn read<D>(
+    &self,
+    directory: &impl Directory,
+    segment_info: &SegmentInfo<D>,
+    segment_suffix: &str,
+    io_context: &IOContext,
+  ) -> Result<FieldInfos>
+  where
+    D: Directory;
 
-    /// Writes the provided FieldInfos.
-    fn write<D>(
-        &self,
-        directory: &impl Directory,
-        segment_info: &SegmentInfo<D>,
-        segment_suffix: &str,
-        infos: &FieldInfos,
-        io_context: &IOContext,
-    ) -> Result<()>
-    where
-        D: Directory;
+  /// Writes the provided FieldInfos.
+  fn write<D>(
+    &self,
+    directory: &impl Directory,
+    segment_info: &SegmentInfo<D>,
+    segment_suffix: &str,
+    infos: &FieldInfos,
+    io_context: &IOContext,
+  ) -> Result<()>
+  where
+    D: Directory;
 }

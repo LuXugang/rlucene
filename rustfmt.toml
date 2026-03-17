@@ -12,3 +12,5 @@ newline_style = "Unix"
 merge_derives = true
 # Maximum line length for single line let-else statements.
 single_line_let_else_max_width=0
+# Number of spaces per tab
+tab_spaces = 2

@@ -26,11 +26,10 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashSet;
 
 pub trait RawStoredFieldsReader {
-    type IndexInput: IndexInput;
+  type IndexInput: IndexInput;
 
-    fn raw_stored_fields_mut(&mut self)
-    -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>>;
-    fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>>;
+  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>>;
+  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>>;
 }
 
 /// API for reading stored fields.
@@ -38,73 +37,73 @@ pub trait RawStoredFieldsReader {
 /// **NOTE**: This struct is not thread-safe and should only be consumed in the
 /// thread where it was acquired.
 pub trait StoredFields: RawStoredFieldsReader {
-    /// Optional method: Give a hint to this [`StoredFields`] instance that the
-    /// given document will be read in the near future. This typically
-    /// delegates to
-    /// [`IndexInput::prefetch`]
-    /// and is useful to parallelize I/O across multiple documents.
-    ///
-    /// NOTE: This API is expected to be called on a small enough set of doc IDs
-    /// that they could all fit in the page cache. If you plan on retrieving
-    /// a very large number of documents, it may be a good idea to perform
-    /// calls to [`prefetch`](StoredFields::prefetch) and
-    /// [`document`](Document) in batches instead of
-    /// prefetching all documents up-front.
-    fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
-        Ok(())
-    }
+  /// Optional method: Give a hint to this [`StoredFields`] instance that the
+  /// given document will be read in the near future. This typically
+  /// delegates to
+  /// [`IndexInput::prefetch`]
+  /// and is useful to parallelize I/O across multiple documents.
+  ///
+  /// NOTE: This API is expected to be called on a small enough set of doc IDs
+  /// that they could all fit in the page cache. If you plan on retrieving
+  /// a very large number of documents, it may be a good idea to perform
+  /// calls to [`prefetch`](StoredFields::prefetch) and
+  /// [`document`](Document) in batches instead of
+  /// prefetching all documents up-front.
+  fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
+    Ok(())
+  }
 
-    /// Returns the stored fields of the `n`th `Document` in this index. This is
-    /// just sugar for using [`DocumentStoredFieldVisitor`].
-    ///
-    /// **NOTE:** for performance reasons, this method does not check if the
-    /// requested document is deleted, and therefore asking for a deleted
-    /// document may yield unspecified results. Usually this is not
-    /// required, however you can test if the doc is deleted by checking the
-    /// [`Bits`](crate::core::util::bits::Bits) returned from
-    /// [`MultiBits`](crate::core::index::multi_bits::MultiBits).
-    ///
-    /// **NOTE:** only the content of a field is returned, if that field was
-    /// stored during indexing. Metadata like boost, omitNorm, IndexOptions,
-    /// tokenized, etc., are not preserved.
-    ///
-    /// # Errors
-    ///
-    /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError) if the
-    ///   index is corrupt
-    /// - [`std::io::Error`] if there is a low-level IO error
-    // TODO: we need a separate StoredField, so that the
-    // Document returned here contains that struct not
-    // IndexableField
-    fn document(&mut self, doc_id: i32) -> Result<Document> {
-        let mut visitor = DocumentStoredFieldVisitor::new();
-        self.document_with_visitor(doc_id, &mut visitor, Some(&mut DummyStoredFieldsWriter))?;
-        Ok(visitor.get_document_owner())
-    }
+  /// Returns the stored fields of the `n`th `Document` in this index. This is
+  /// just sugar for using [`DocumentStoredFieldVisitor`].
+  ///
+  /// **NOTE:** for performance reasons, this method does not check if the
+  /// requested document is deleted, and therefore asking for a deleted
+  /// document may yield unspecified results. Usually this is not
+  /// required, however you can test if the doc is deleted by checking the
+  /// [`Bits`](crate::core::util::bits::Bits) returned from
+  /// [`MultiBits`](crate::core::index::multi_bits::MultiBits).
+  ///
+  /// **NOTE:** only the content of a field is returned, if that field was
+  /// stored during indexing. Metadata like boost, omitNorm, IndexOptions,
+  /// tokenized, etc., are not preserved.
+  ///
+  /// # Errors
+  ///
+  /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError) if the
+  ///   index is corrupt
+  /// - [`std::io::Error`] if there is a low-level IO error
+  // TODO: we need a separate StoredField, so that the
+  // Document returned here contains that struct not
+  // IndexableField
+  fn document(&mut self, doc_id: i32) -> Result<Document> {
+    let mut visitor = DocumentStoredFieldVisitor::new();
+    self.document_with_visitor(doc_id, &mut visitor, Some(&mut DummyStoredFieldsWriter))?;
+    Ok(visitor.get_document_owner())
+  }
 
-    /// Expert: visits the fields of a stored document, for custom
-    /// processing/loading of each field. If you simply want to load all
-    /// fields, use [`document`](Document). If you want to load a subset,
-    /// use [`DocumentStoredFieldVisitor`].
-    fn document_with_visitor<S: StoredFieldsWriter>(
-        &mut self,
-        doc_id: i32,
-        visitor: &mut impl StoredFieldVisitor,
-        writer: Option<&mut S>,
-    ) -> Result<()>;
+  /// Expert: visits the fields of a stored document, for custom
+  /// processing/loading of each field. If you simply want to load all
+  /// fields, use [`document`](Document). If you want to load a subset,
+  /// use [`DocumentStoredFieldVisitor`].
+  fn document_with_visitor<S: StoredFieldsWriter>(
+    &mut self,
+    doc_id: i32,
+    visitor: &mut impl StoredFieldVisitor,
+    writer: Option<&mut S>,
+  ) -> Result<()>;
 
-    /// Like [`document`](Document) but only loads the specified fields. Note
-    /// that this is simply sugar
-    /// for [`DocumentStoredFieldVisitor::new_fields`](DocumentStoredFieldVisitor::needs_field).
-    fn document_with_fields(
-        &mut self,
-        doc_id: i32,
-        fields_to_load: &HashSet<String>,
-    ) -> Result<Document> {
-        let mut visitor = DocumentStoredFieldVisitor::with_fields(fields_to_load);
-        self.document_with_visitor(doc_id, &mut visitor, Some(&mut DummyStoredFieldsWriter))?;
-        Ok(visitor.get_document_owner())
-    }
+  /// Like [`document`](Document) but only loads the specified fields. Note
+  /// that this is simply sugar
+  /// for [`DocumentStoredFieldVisitor::new_fields`](DocumentStoredFieldVisitor::needs_field).
+  fn document_with_fields(
+    &mut self,
+    doc_id: i32,
+    fields_to_load: &HashSet<String>,
+  ) -> Result<Document> {
+    let mut visitor = DocumentStoredFieldVisitor::with_fields(fields_to_load);
+    self.document_with_visitor(doc_id, &mut visitor, Some(&mut DummyStoredFieldsWriter))?;
+    Ok(visitor.get_document_owner())
+  }
 }
 macro_rules! either_stored_fields {
     (
@@ -161,19 +160,17 @@ either_stored_fields!(
 );
 
 impl<A, B> RawStoredFieldsReader for StoredFieldsEnum2<A, B> {
-    type IndexInput = DummyIndexInput;
+  type IndexInput = DummyIndexInput;
 
-    fn raw_stored_fields_mut(
-        &mut self,
-    ) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
-        Err(LuceneError::illegal_state(
-            "Raw stored fields are not available for StoredFieldsEnum2",
-        ))
-    }
+  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+    Err(LuceneError::illegal_state(
+      "Raw stored fields are not available for StoredFieldsEnum2",
+    ))
+  }
 
-    fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
-        Err(LuceneError::illegal_state(
-            "Raw stored fields are not available for StoredFieldsEnum2",
-        ))
-    }
+  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
+    Err(LuceneError::illegal_state(
+      "Raw stored fields are not available for StoredFieldsEnum2",
+    ))
+  }
 }

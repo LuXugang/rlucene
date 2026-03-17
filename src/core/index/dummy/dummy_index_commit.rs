@@ -27,94 +27,94 @@ use std::sync::Arc;
 
 pub struct DummyIndexCommit<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    _marker: PhantomData<D>,
+  _marker: PhantomData<D>,
 }
 
 impl<D> PartialEq for DummyIndexCommit<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn eq(&self, _other: &Self) -> bool {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn eq(&self, _other: &Self) -> bool {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl<D> Eq for DummyIndexCommit<D> where D: Directory {}
 
 impl<D> PartialOrd for DummyIndexCommit<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
-        Some(self.cmp(_other))
-    }
+  fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
+    Some(self.cmp(_other))
+  }
 }
 
 impl<D> Ord for DummyIndexCommit<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn cmp(&self, _other: &Self) -> Ordering {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn cmp(&self, _other: &Self) -> Ordering {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl<D> Display for DummyIndexCommit<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl<D> IndexCommit for DummyIndexCommit<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn get_segments_file_name(&self) -> &str {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_segments_file_name(&self) -> &str {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_file_names(&self) -> crate::core::util::error::lucene_error::Result<&[String]> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_file_names(&self) -> crate::core::util::error::lucene_error::Result<&[String]> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type Directory = D;
+  type Directory = D;
 
-    fn get_directory(&self) -> Arc<Self::Directory> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_directory(&self) -> Arc<Self::Directory> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn delete(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn delete(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn is_deleted(&self) -> bool {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn is_deleted(&self) -> bool {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_segment_count(&self) -> usize {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_segment_count(&self) -> usize {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_generation(&self) -> i64 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_generation(&self) -> i64 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn user_data(&self) -> &HashMap<String, String> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn user_data(&self) -> &HashMap<String, String> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type LeafReader = DummyLeafReader;
-    type Comparator = DummyComparator;
+  type LeafReader = DummyLeafReader;
+  type Comparator = DummyComparator;
 
-    fn get_reader(
-        &self,
-    ) -> Option<StandardDirectoryReader<Self::LeafReader, Self::Comparator, Self::Directory>>
+  fn get_reader(
+    &self,
+  ) -> Option<StandardDirectoryReader<Self::LeafReader, Self::Comparator, Self::Directory>>
 where {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

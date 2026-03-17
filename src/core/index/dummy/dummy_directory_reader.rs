@@ -35,153 +35,153 @@ use std::fmt::{Display, Formatter};
 
 pub struct DummyDirectoryReader<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    _marker: std::marker::PhantomData<D>,
+  _marker: std::marker::PhantomData<D>,
 }
 
 impl<D> BaseCompositeReader for DummyDirectoryReader<D> where D: Directory {}
 
 impl<D> CompositeReader for DummyDirectoryReader<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    type LeafReader = DummyLeafReader;
-    type SubCompositeReader = DummyCompositeReader<DummyLeafReader>;
+  type LeafReader = DummyLeafReader;
+  type SubCompositeReader = DummyCompositeReader<DummyLeafReader>;
 
-    fn get_sequential_sub_readers(
-        &self,
-    ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_sequential_sub_readers(
+    &self,
+  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn to_string(&self) -> String {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn to_string(&self) -> String {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl<D> IndexReader for DummyDirectoryReader<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    type TermVectors = DummyTermVectors;
+  type TermVectors = DummyTermVectors;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn max_doc(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn max_doc(&self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn num_docs(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn num_docs(&self) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type StoredFields = DummyStoredFields;
+  type StoredFields = DummyStoredFields;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn do_close(&self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn do_close(&self) -> Result<()> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type ReaderCacheHelper = DummyCacheHelper;
+  type ReaderCacheHelper = DummyCacheHelper;
 
-    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn doc_freq(&self, _term: &Term) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn doc_freq(&self, _term: &Term) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn total_term_freq(&self, _term: &Term) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn total_term_freq(&self, _term: &Term) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_sum_doc_freq(&self, _field: &str) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_sum_doc_freq(&self, _field: &str) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_doc_count(&self, _field: &str) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_doc_count(&self, _field: &str) -> Result<i32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_sum_total_term_freq(&self, _field: &str) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_sum_total_term_freq(&self, _field: &str) -> Result<i64> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn index_base(&self) -> &IndexReaderBase {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn index_base(&self) -> &IndexReaderBase {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl<D> Display for DummyDirectoryReader<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
 
 impl<D> DirectoryReader for DummyDirectoryReader<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    type DirectoryReader = DummyDirectoryReader<D>;
+  type DirectoryReader = DummyDirectoryReader<D>;
 
-    fn do_open_if_changed(&mut self) -> Result<Option<Self::DirectoryReader>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn do_open_if_changed(&mut self) -> Result<Option<Self::DirectoryReader>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn do_open_if_changed_with_commit<IC>(
-        &mut self,
-        _commit: Option<&IC>,
-    ) -> Result<Option<Self::DirectoryReader>>
-    where
-        IC: IndexCommit,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn do_open_if_changed_with_commit<IC>(
+    &mut self,
+    _commit: Option<&IC>,
+  ) -> Result<Option<Self::DirectoryReader>>
+  where
+    IC: IndexCommit,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn do_open_if_changed_with_index_writer<L, B>(
-        &self,
-        _writer: IndexWriter<Self::Directory, L, B>,
-        _apply_deletes: bool,
-    ) -> Result<Self::DirectoryReader>
-    where
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn do_open_if_changed_with_index_writer<L, B>(
+    &self,
+    _writer: IndexWriter<Self::Directory, L, B>,
+    _apply_deletes: bool,
+  ) -> Result<Self::DirectoryReader>
+  where
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_version(&self) -> i64 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_version(&self) -> i64 {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn is_current<D1, L, B>(&self, _index_writer: &IndexWriter<D1, L, B>) -> Result<bool>
-    where
-        D1: Directory,
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn is_current<D1, L, B>(&self, _index_writer: &IndexWriter<D1, L, B>) -> Result<bool>
+  where
+    D1: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type IndexCommit = DummyIndexCommit<D>;
+  type IndexCommit = DummyIndexCommit<D>;
 
-    fn get_index_commit(&self) -> Result<Self::IndexCommit> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_index_commit(&self) -> Result<Self::IndexCommit> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type Directory = DummyDirectory;
+  type Directory = DummyDirectory;
 
-    fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

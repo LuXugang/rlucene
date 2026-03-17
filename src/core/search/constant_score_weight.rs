@@ -24,51 +24,51 @@ use crate::core::util::error::lucene_error::Result;
 /// meaningful scores and are mostly useful for filtering.
 #[derive(Clone, Default)]
 pub struct ConstantScoreWeight {
-    score: f32,
+  score: f32,
 }
 impl ConstantScoreWeight {
-    pub fn new(score: f32) -> Self {
-        Self { score }
-    }
-    /// Return the score produced by this Weight.
-    pub fn score(&self) -> f32 {
-        self.score
-    }
-    pub fn explain<S, T>(&self, scorer: Option<S>, doc: i32, query_str: T) -> Result<Explanation>
-    where
-        S: Scorer,
-        T: Into<String>,
-    {
-        let exists = match scorer {
-            None => false,
-            Some(mut s) => {
-                let has_two_phase = s.has_two_phase_iterator();
-                if has_two_phase == TwoPhaseState::Yes {
-                    let mut two_phase = s.two_phase_iterator_mut().unwrap();
-                    let mut approximation = two_phase.approximation_mut();
-                    let is_match = approximation.advance(doc)? == doc;
-                    drop(approximation);
-                    is_match && two_phase.matches()?
-                } else {
-                    s.iterator_mut().advance(doc)? == doc
-                }
-            },
-        };
-
-        if exists {
-            if (self.score - 1.0).abs() < f32::EPSILON {
-                Ok(Explanation::match_no_details(self.score, query_str.into()))
-            } else {
-                Ok(Explanation::match_no_details(
-                    self.score,
-                    format!("{}^{}", query_str.into(), self.score),
-                ))
-            }
+  pub fn new(score: f32) -> Self {
+    Self { score }
+  }
+  /// Return the score produced by this Weight.
+  pub fn score(&self) -> f32 {
+    self.score
+  }
+  pub fn explain<S, T>(&self, scorer: Option<S>, doc: i32, query_str: T) -> Result<Explanation>
+  where
+    S: Scorer,
+    T: Into<String>,
+  {
+    let exists = match scorer {
+      None => false,
+      Some(mut s) => {
+        let has_two_phase = s.has_two_phase_iterator();
+        if has_two_phase == TwoPhaseState::Yes {
+          let mut two_phase = s.two_phase_iterator_mut().unwrap();
+          let mut approximation = two_phase.approximation_mut();
+          let is_match = approximation.advance(doc)? == doc;
+          drop(approximation);
+          is_match && two_phase.matches()?
         } else {
-            Ok(Explanation::no_match(
-                format!("{} doesn't match id {}", query_str.into(), doc),
-                vec![],
-            ))
+          s.iterator_mut().advance(doc)? == doc
         }
+      },
+    };
+
+    if exists {
+      if (self.score - 1.0).abs() < f32::EPSILON {
+        Ok(Explanation::match_no_details(self.score, query_str.into()))
+      } else {
+        Ok(Explanation::match_no_details(
+          self.score,
+          format!("{}^{}", query_str.into(), self.score),
+        ))
+      }
+    } else {
+      Ok(Explanation::no_match(
+        format!("{} doesn't match id {}", query_str.into(), doc),
+        vec![],
+      ))
     }
+  }
 }

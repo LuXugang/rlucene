@@ -27,64 +27,64 @@ pub struct MatchesUtils;
 pub static MATCH_WITH_NO_TERMS: Lazy<MatchWithNoTerms> = Lazy::new(|| MatchWithNoTerms);
 pub struct MatchWithNoTerms;
 impl Matches for MatchWithNoTerms {
-    type MatchesIterator = DummyMatchesIterator;
+  type MatchesIterator = DummyMatchesIterator;
 
-    fn get_matches(&self, _field: &str) -> Result<Option<Self::MatchesIterator>> {
-        Ok(None)
-    }
+  fn get_matches(&self, _field: &str) -> Result<Option<Self::MatchesIterator>> {
+    Ok(None)
+  }
 
-    type Matches = DummyMatches;
+  type Matches = DummyMatches;
 
-    fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
-        Vec::new()
-    }
+  fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
+    Vec::new()
+  }
 
-    fn field(&self) -> &[String] {
-        &[]
-    }
+  fn field(&self) -> &[String] {
+    &[]
+  }
 }
 
 pub struct CombinedMatch<M>
 where
-    M: Matches,
+  M: Matches,
 {
-    sub: Vec<M>,
+  sub: Vec<M>,
 }
 impl<M> CombinedMatch<M>
 where
-    M: Matches,
+  M: Matches,
 {
-    pub fn new(sub: Vec<M>) -> Self {
-        CombinedMatch { sub }
-    }
+  pub fn new(sub: Vec<M>) -> Self {
+    CombinedMatch { sub }
+  }
 }
 
 impl<M> Matches for CombinedMatch<M>
 where
-    M: Matches,
+  M: Matches,
 {
-    type MatchesIterator = DisjunctionMatchesIterator<M::MatchesIterator>;
-    type Matches = M;
+  type MatchesIterator = DisjunctionMatchesIterator<M::MatchesIterator>;
+  type Matches = M;
 
-    fn get_matches(&self, field: &str) -> Result<Option<Self::MatchesIterator>> {
-        let mut sub_iterators = Vec::new();
-        for m in &self.sub {
-            if let Some(it) = m.get_matches(field)? {
-                sub_iterators.push(it);
-            }
-        }
-        if sub_iterators.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(DisjunctionMatchesIterator::new(sub_iterators)?))
-        }
+  fn get_matches(&self, field: &str) -> Result<Option<Self::MatchesIterator>> {
+    let mut sub_iterators = Vec::new();
+    for m in &self.sub {
+      if let Some(it) = m.get_matches(field)? {
+        sub_iterators.push(it);
+      }
     }
+    if sub_iterators.is_empty() {
+      Ok(None)
+    } else {
+      Ok(Some(DisjunctionMatchesIterator::new(sub_iterators)?))
+    }
+  }
 
-    fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
-        std::mem::take(&mut self.sub)
-    }
+  fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
+    std::mem::take(&mut self.sub)
+  }
 
-    fn field(&self) -> &[String] {
-        todo!()
-    }
+  fn field(&self) -> &[String] {
+    todo!()
+  }
 }

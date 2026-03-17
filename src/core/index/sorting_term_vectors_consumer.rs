@@ -46,246 +46,243 @@ use std::sync::Arc;
 
 pub(crate) struct SortingTermVectorsConsumer<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) writer: Option<
-        DefaultTermVectorsWriter<
-            <TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput,
-        >,
-    >,
-    pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<Arc<D>>,
-    tmp_term_vectors_format: Lucene90CompressingTermVectorsFormat,
+  pub(crate) writer: Option<
+    DefaultTermVectorsWriter<<TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput>,
+  >,
+  pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<Arc<D>>,
+  tmp_term_vectors_format: Lucene90CompressingTermVectorsFormat,
 }
 impl<D> SortingTermVectorsConsumer<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    pub(crate) fn new(dir: Arc<D>) -> Result<Self> {
-        let tmp_term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
-            "TempTermVectors",
-            "",
-            CompressionModeEnum::Impl(NoCompression),
-            8 * 1024,
-            128,
-            10,
-        )?;
-        let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(dir);
-        Ok(Self {
-            writer: None,
-            tmp_directory,
-            tmp_term_vectors_format,
-        })
-    }
+  pub(crate) fn new(dir: Arc<D>) -> Result<Self> {
+    let tmp_term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
+      "TempTermVectors",
+      "",
+      CompressionModeEnum::Impl(NoCompression),
+      8 * 1024,
+      128,
+      10,
+    )?;
+    let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(dir);
+    Ok(Self {
+      writer: None,
+      tmp_directory,
+      tmp_term_vectors_format,
+    })
+  }
 
-    fn write_term_vectors<TVW, F>(
-        writer: &mut TVW,
-        vectors: Option<&F>,
-        field_infos: &Arc<FieldInfos>,
-    ) -> Result<()>
-    where
-        TVW: TermVectorsWriter,
-        F: Fields,
-    {
-        let vectors = match vectors {
-            Some(v) => v,
-            None => {
-                writer.start_document(0)?;
-                writer.finish_document()?;
-                return Ok(());
-            },
-        };
-
-        let mut num_fields = vectors.size()?;
-        if num_fields == -1 {
-            // count manually! TODO: Maybe enforce that Fields.size() returns something valid?
-            let mut iter = vectors.iterator()?;
-            while iter.has_next()? {
-                match iter.next()? {
-                    Some(_) => {
-                        num_fields += 1;
-                    },
-                    None => break,
-                }
-            }
-        }
-        writer.start_document(num_fields)?;
-        let mut last_field_name: Option<String> = None;
-        let mut docs_and_positions = None;
-        let mut field_count = 0;
-        let mut terms_enum;
-        let mut iter = vectors.iterator()?;
-        while iter.has_next()? {
-            match iter.next()? {
-                Some(field_name) => {
-                    field_count += 1;
-                    let field_info = match field_infos.field_info_by_name(field_name) {
-                        Some(fi) => fi,
-                        None => {
-                            return Err(LuceneError::illegal_state(format!(
-                                "Field '{field_name}' not found in FieldInfos"
-                            )));
-                        },
-                    };
-
-                    debug_assert!({
-                        let v = last_field_name.is_none()
-                            || field_name.cmp(last_field_name.as_ref().unwrap()).to_int() > 0;
-                        last_field_name = Some(field_name.clone());
-                        v
-                    });
-
-                    let terms = match vectors.terms(field_name)? {
-                        Some(t) => t,
-                        None => continue,
-                    };
-
-                    let has_positions = terms.has_positions();
-                    let has_offsets = terms.has_offsets();
-                    let has_payloads = terms.has_payloads();
-                    debug_assert!(!has_payloads || has_positions);
-
-                    let mut num_terms = terms.size()?;
-                    if num_terms == -1 {
-                        // count manually. It is stupid, but needed, as Terms.size() is not a mandatory statistics
-                        // function
-                        num_terms = 0;
-                        terms_enum = terms.iterator()?;
-                        while terms_enum.next()?.is_some() {
-                            num_terms += 1;
-                        }
-                    }
-                    writer.start_field(
-                        &field_info,
-                        num_terms as usize,
-                        has_positions,
-                        has_offsets,
-                        has_payloads,
-                    )?;
-                    terms_enum = terms.iterator()?;
-                    let mut term_count = 0;
-                    while terms_enum.next()?.is_some() {
-                        term_count += 1;
-
-                        let freq = terms_enum.total_term_freq()? as i32;
-                        writer.start_term(&*terms_enum.term()?, freq)?;
-
-                        if has_positions || has_offsets {
-                            docs_and_positions = Some(terms_enum.postings_with_flags(
-                                docs_and_positions,
-                                (OFFSETS | PAYLOADS) as i32,
-                            )?);
-                            match docs_and_positions {
-                                Some(ref mut dap) => {
-                                    let doc_id = dap.next_doc()?;
-                                    debug_assert!(doc_id != NO_MORE_DOCS);
-                                    debug_assert!(dap.freq()? == freq);
-
-                                    for _ in 0..freq {
-                                        let pos = dap.next_position()?;
-                                        let start_offset = dap.start_offset()?;
-                                        let end_offset = dap.end_offset()?;
-                                        let payload = dap.get_payload()?;
-                                        debug_assert!(!has_positions || pos >= 0);
-                                        writer.add_position(
-                                            pos,
-                                            start_offset,
-                                            end_offset,
-                                            payload.as_ref().map(Cow::as_ref),
-                                        )?;
-                                    }
-                                },
-                                None => {
-                                    debug_assert!(false, "docs_and_positions is None");
-                                },
-                            }
-                        }
-                        writer.finish_term()?;
-                    }
-                    debug_assert!(term_count == num_terms);
-                    writer.finish_field()?;
-                },
-                None => break,
-            }
-        }
-        debug_assert!(field_count == num_fields);
+  fn write_term_vectors<TVW, F>(
+    writer: &mut TVW,
+    vectors: Option<&F>,
+    field_infos: &Arc<FieldInfos>,
+  ) -> Result<()>
+  where
+    TVW: TermVectorsWriter,
+    F: Fields,
+  {
+    let vectors = match vectors {
+      Some(v) => v,
+      None => {
+        writer.start_document(0)?;
         writer.finish_document()?;
-        Ok(())
+        return Ok(());
+      },
+    };
+
+    let mut num_fields = vectors.size()?;
+    if num_fields == -1 {
+      // count manually! TODO: Maybe enforce that Fields.size() returns something valid?
+      let mut iter = vectors.iterator()?;
+      while iter.has_next()? {
+        match iter.next()? {
+          Some(_) => {
+            num_fields += 1;
+          },
+          None => break,
+        }
+      }
     }
+    writer.start_document(num_fields)?;
+    let mut last_field_name: Option<String> = None;
+    let mut docs_and_positions = None;
+    let mut field_count = 0;
+    let mut terms_enum;
+    let mut iter = vectors.iterator()?;
+    while iter.has_next()? {
+      match iter.next()? {
+        Some(field_name) => {
+          field_count += 1;
+          let field_info = match field_infos.field_info_by_name(field_name) {
+            Some(fi) => fi,
+            None => {
+              return Err(LuceneError::illegal_state(format!(
+                "Field '{field_name}' not found in FieldInfos"
+              )));
+            },
+          };
+
+          debug_assert!({
+            let v = last_field_name.is_none()
+              || field_name.cmp(last_field_name.as_ref().unwrap()).to_int() > 0;
+            last_field_name = Some(field_name.clone());
+            v
+          });
+
+          let terms = match vectors.terms(field_name)? {
+            Some(t) => t,
+            None => continue,
+          };
+
+          let has_positions = terms.has_positions();
+          let has_offsets = terms.has_offsets();
+          let has_payloads = terms.has_payloads();
+          debug_assert!(!has_payloads || has_positions);
+
+          let mut num_terms = terms.size()?;
+          if num_terms == -1 {
+            // count manually. It is stupid, but needed, as Terms.size() is not a mandatory statistics
+            // function
+            num_terms = 0;
+            terms_enum = terms.iterator()?;
+            while terms_enum.next()?.is_some() {
+              num_terms += 1;
+            }
+          }
+          writer.start_field(
+            &field_info,
+            num_terms as usize,
+            has_positions,
+            has_offsets,
+            has_payloads,
+          )?;
+          terms_enum = terms.iterator()?;
+          let mut term_count = 0;
+          while terms_enum.next()?.is_some() {
+            term_count += 1;
+
+            let freq = terms_enum.total_term_freq()? as i32;
+            writer.start_term(&*terms_enum.term()?, freq)?;
+
+            if has_positions || has_offsets {
+              docs_and_positions = Some(
+                terms_enum.postings_with_flags(docs_and_positions, (OFFSETS | PAYLOADS) as i32)?,
+              );
+              match docs_and_positions {
+                Some(ref mut dap) => {
+                  let doc_id = dap.next_doc()?;
+                  debug_assert!(doc_id != NO_MORE_DOCS);
+                  debug_assert!(dap.freq()? == freq);
+
+                  for _ in 0..freq {
+                    let pos = dap.next_position()?;
+                    let start_offset = dap.start_offset()?;
+                    let end_offset = dap.end_offset()?;
+                    let payload = dap.get_payload()?;
+                    debug_assert!(!has_positions || pos >= 0);
+                    writer.add_position(
+                      pos,
+                      start_offset,
+                      end_offset,
+                      payload.as_ref().map(Cow::as_ref),
+                    )?;
+                  }
+                },
+                None => {
+                  debug_assert!(false, "docs_and_positions is None");
+                },
+              }
+            }
+            writer.finish_term()?;
+          }
+          debug_assert!(term_count == num_terms);
+          writer.finish_field()?;
+        },
+        None => break,
+      }
+    }
+    debug_assert!(field_count == num_fields);
+    writer.finish_document()?;
+    Ok(())
+  }
 }
 
 impl<D> TermVectorsConsumerBase for SortingTermVectorsConsumer<D>
 where
-    D: Directory,
+  D: Directory,
 {
-    type Directory = D;
+  type Directory = D;
 
-    fn flush<DM, D1>(
-        &mut self,
-        state: &SegmentWriteState<Self::Directory>,
-        sort_map: Option<&DM>,
-        codec: &impl Codec,
-        segment_info: &SegmentInfo<D1>,
-    ) -> Result<()>
-    where
-        DM: DocMap,
-        D1: Directory,
-    {
-        let mut reader = self.tmp_term_vectors_format.vectors_reader(
-            &self.tmp_directory,
-            segment_info,
-            state.field_infos.clone(),
-            &IOContext::default_io_context()?,
-        )?;
-        // Don't pull a merge instance, since merge instances optimize for
-        // sequential access while term vectors will likely be accessed in random
-        // order here.
-        let mut writer = codec.term_vectors_format().vectors_writer(
-            state.directory,
-            segment_info,
-            &state.context.clone(),
-        )?;
-        let result: Result<()> = (|| {
-            reader.check_integrity()?;
-            let max_doc = segment_info.max_doc()?;
-            for doc_id in 0..max_doc {
-                let read_id = match sort_map {
-                    Some(sm) => sm.new_to_old(doc_id)?,
-                    None => doc_id,
-                };
-                let vectors = reader.get(read_id)?;
-                Self::write_term_vectors(&mut writer, vectors.as_ref(), &state.field_infos)?;
-            }
-            writer.finish(max_doc, state.directory)?;
-            Ok(())
-        })();
-        let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
-        IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
-        result
-    }
+  fn flush<DM, D1>(
+    &mut self,
+    state: &SegmentWriteState<Self::Directory>,
+    sort_map: Option<&DM>,
+    codec: &impl Codec,
+    segment_info: &SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    DM: DocMap,
+    D1: Directory,
+  {
+    let mut reader = self.tmp_term_vectors_format.vectors_reader(
+      &self.tmp_directory,
+      segment_info,
+      state.field_infos.clone(),
+      &IOContext::default_io_context()?,
+    )?;
+    // Don't pull a merge instance, since merge instances optimize for
+    // sequential access while term vectors will likely be accessed in random
+    // order here.
+    let mut writer = codec.term_vectors_format().vectors_writer(
+      state.directory,
+      segment_info,
+      &state.context.clone(),
+    )?;
+    let result: Result<()> = (|| {
+      reader.check_integrity()?;
+      let max_doc = segment_info.max_doc()?;
+      for doc_id in 0..max_doc {
+        let read_id = match sort_map {
+          Some(sm) => sm.new_to_old(doc_id)?,
+          None => doc_id,
+        };
+        let vectors = reader.get(read_id)?;
+        Self::write_term_vectors(&mut writer, vectors.as_ref(), &state.field_infos)?;
+      }
+      writer.finish(max_doc, state.directory)?;
+      Ok(())
+    })();
+    let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+    IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
+    result
+  }
 
-    fn init_term_vectors_writer<D1>(
-        &mut self,
-        last_doc_id: i32,
-        info: &SegmentInfo<D1>,
-        bytes_used: i64,
-    ) -> Result<()>
-    where
-        D1: Directory,
-    {
-        if self.writer.is_none() {
-            let context = IOContext::with_flush(FlushInfo::new(last_doc_id, bytes_used))?;
-            self.writer = Option::from(self.tmp_term_vectors_format.vectors_writer(
-                &self.tmp_directory,
-                info,
-                &context,
-            )?);
-        }
-        Ok(())
+  fn init_term_vectors_writer<D1>(
+    &mut self,
+    last_doc_id: i32,
+    info: &SegmentInfo<D1>,
+    bytes_used: i64,
+  ) -> Result<()>
+  where
+    D1: Directory,
+  {
+    if self.writer.is_none() {
+      let context = IOContext::with_flush(FlushInfo::new(last_doc_id, bytes_used))?;
+      self.writer = Option::from(self.tmp_term_vectors_format.vectors_writer(
+        &self.tmp_directory,
+        info,
+        &context,
+      )?);
     }
+    Ok(())
+  }
 
-    fn abort(&mut self) -> Result<()> {
-        let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
-        IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
-        Ok(())
-    }
+  fn abort(&mut self) -> Result<()> {
+    let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+    IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
+    Ok(())
+  }
 }

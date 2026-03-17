@@ -48,391 +48,386 @@ use std::sync::atomic::AtomicI32;
 ///   `DocumentWriterPerThread`, or through synchronized code in the
 ///   `DocumentsWriterDeleteQueue`.
 pub(crate) struct BufferedUpdates {
-    pub(crate) num_field_updates: AtomicI32,
-    pub delete_terms: DeletedTerms,
-    pub(crate) delete_queries: HashMap<Query, i32>,
-    pub(crate) field_updates: HashMap<String, FieldUpdatesBuffer>,
-    bytes_used: SharedCounter,
-    field_updates_bytes_used: SharedCounter,
-    verbose_deletes: bool,
-    r#gen: i64,
+  pub(crate) num_field_updates: AtomicI32,
+  pub delete_terms: DeletedTerms,
+  pub(crate) delete_queries: HashMap<Query, i32>,
+  pub(crate) field_updates: HashMap<String, FieldUpdatesBuffer>,
+  bytes_used: SharedCounter,
+  field_updates_bytes_used: SharedCounter,
+  verbose_deletes: bool,
+  r#gen: i64,
 
-    segment_name: String,
+  segment_name: String,
 }
 
 impl BufferedUpdates {
-    /// Creates a new `BufferedUpdates` instance.
-    pub(crate) fn new(segment_name: &str) -> Self {
-        Self {
-            num_field_updates: AtomicI32::new(0),
-            delete_terms: DeletedTerms::new(),
-            delete_queries: HashMap::new(),
-            field_updates: HashMap::new(),
-            bytes_used: Arc::new(AtomicCounter::new()),
-            field_updates_bytes_used: Arc::new(AtomicCounter::new()),
-            verbose_deletes: false,
-            r#gen: 0,
-            segment_name: segment_name.to_string(),
-        }
+  /// Creates a new `BufferedUpdates` instance.
+  pub(crate) fn new(segment_name: &str) -> Self {
+    Self {
+      num_field_updates: AtomicI32::new(0),
+      delete_terms: DeletedTerms::new(),
+      delete_queries: HashMap::new(),
+      field_updates: HashMap::new(),
+      bytes_used: Arc::new(AtomicCounter::new()),
+      field_updates_bytes_used: Arc::new(AtomicCounter::new()),
+      verbose_deletes: false,
+      r#gen: 0,
+      segment_name: segment_name.to_string(),
     }
-    pub(crate) fn add_binary_update(
-        &mut self,
-        update: &DocValuesUpdate,
-        doc_id_upto: i32,
-    ) -> Result<()> {
-        let buffer = match self.field_updates.entry(update.field.clone()) {
-            Occupied(entry) => entry.into_mut(),
-            Vacant(entry) => {
-                let new_buffer = FieldUpdatesBuffer::from_binary_update(
-                    self.field_updates_bytes_used.clone(),
-                    update,
-                    doc_id_upto,
-                )?;
-                entry.insert(new_buffer)
-            },
-        };
+  }
+  pub(crate) fn add_binary_update(
+    &mut self,
+    update: &DocValuesUpdate,
+    doc_id_upto: i32,
+  ) -> Result<()> {
+    let buffer = match self.field_updates.entry(update.field.clone()) {
+      Occupied(entry) => entry.into_mut(),
+      Vacant(entry) => {
+        let new_buffer = FieldUpdatesBuffer::from_binary_update(
+          self.field_updates_bytes_used.clone(),
+          update,
+          doc_id_upto,
+        )?;
+        entry.insert(new_buffer)
+      },
+    };
 
-        if update.has_value {
-            let binary_update = update.sub_update.get_binary();
-            debug_assert!(binary_update.is_some());
-            buffer.add_update_with_bytes_ref(
-                &update.term,
-                binary_update.unwrap().get_value(),
-                doc_id_upto,
-            )?;
-        } else {
-            buffer.add_no_value(&update.term, doc_id_upto)?;
-        }
+    if update.has_value {
+      let binary_update = update.sub_update.get_binary();
+      debug_assert!(binary_update.is_some());
+      buffer.add_update_with_bytes_ref(
+        &update.term,
+        binary_update.unwrap().get_value(),
+        doc_id_upto,
+      )?;
+    } else {
+      buffer.add_no_value(&update.term, doc_id_upto)?;
+    }
 
-        self.num_field_updates
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        Ok(())
-    }
-    pub(crate) fn add_numeric_update(
-        &mut self,
-        update: &DocValuesUpdate,
-        doc_id_upto: i32,
-    ) -> Result<()> {
-        let buffer = match self.field_updates.entry(update.field.clone()) {
-            Occupied(entry) => entry.into_mut(),
-            Vacant(entry) => {
-                let new_buffer = FieldUpdatesBuffer::from_numeric_update(
-                    self.field_updates_bytes_used.clone(),
-                    update,
-                    doc_id_upto,
-                )?;
-                entry.insert(new_buffer)
-            },
-        };
+    self
+      .num_field_updates
+      .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    Ok(())
+  }
+  pub(crate) fn add_numeric_update(
+    &mut self,
+    update: &DocValuesUpdate,
+    doc_id_upto: i32,
+  ) -> Result<()> {
+    let buffer = match self.field_updates.entry(update.field.clone()) {
+      Occupied(entry) => entry.into_mut(),
+      Vacant(entry) => {
+        let new_buffer = FieldUpdatesBuffer::from_numeric_update(
+          self.field_updates_bytes_used.clone(),
+          update,
+          doc_id_upto,
+        )?;
+        entry.insert(new_buffer)
+      },
+    };
 
-        if update.has_value {
-            let numeric_update = update.sub_update.get_numeric();
-            debug_assert!(numeric_update.is_some());
-            buffer.add_update_with_long(
-                &update.term,
-                numeric_update.unwrap().get_value(),
-                doc_id_upto,
-            )?;
-        } else {
-            buffer.add_no_value(&update.term, doc_id_upto)?;
-        }
+    if update.has_value {
+      let numeric_update = update.sub_update.get_numeric();
+      debug_assert!(numeric_update.is_some());
+      buffer.add_update_with_long(
+        &update.term,
+        numeric_update.unwrap().get_value(),
+        doc_id_upto,
+      )?;
+    } else {
+      buffer.add_no_value(&update.term, doc_id_upto)?;
+    }
 
-        self.num_field_updates
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        Ok(())
+    self
+      .num_field_updates
+      .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    Ok(())
+  }
+  pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<()> {
+    let current = self.delete_terms.get(term);
+    if current != -1 && doc_id_upto < current {
+      // Only record the new number if it's greater than the
+      // current one.
+      // This is important because if multiple
+      // threads are replacing the same doc at nearly the
+      // same time, it's possible that one thread that got a
+      // higher docID is scheduled before the other
+      // threads.
+      // If we blindly replace than we can
+      // incorrectly get both docs indexed.
+      return Ok(());
     }
-    pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<()> {
-        let current = self.delete_terms.get(term);
-        if current != -1 && doc_id_upto < current {
-            // Only record the new number if it's greater than the
-            // current one.
-            // This is important because if multiple
-            // threads are replacing the same doc at nearly the
-            // same time, it's possible that one thread that got a
-            // higher docID is scheduled before the other
-            // threads.
-            // If we blindly replace than we can
-            // incorrectly get both docs indexed.
-            return Ok(());
-        }
-        self.delete_terms.put(term, doc_id_upto)
+    self.delete_terms.put(term, doc_id_upto)
+  }
+  pub(crate) fn add_query(&mut self, query: Query, doc_id_upto: i32) {
+    if self.delete_queries.insert(query, doc_id_upto).is_none() {
+      self.bytes_used.add_and_get(BYTES_PER_DEL_QUERY as i64);
     }
-    pub(crate) fn add_query(&mut self, query: Query, doc_id_upto: i32) {
-        if self.delete_queries.insert(query, doc_id_upto).is_none() {
-            self.bytes_used.add_and_get(BYTES_PER_DEL_QUERY as i64);
-        }
-    }
-    pub(crate) fn clear_delete_terms(&mut self) {
-        self.delete_terms.clear()
-    }
-    pub(crate) fn clear(&mut self) {
-        self.delete_terms.clear();
-        self.delete_queries.clear();
-        self.num_field_updates
-            .store(0, std::sync::atomic::Ordering::SeqCst);
-        self.field_updates.clear();
+  }
+  pub(crate) fn clear_delete_terms(&mut self) {
+    self.delete_terms.clear()
+  }
+  pub(crate) fn clear(&mut self) {
+    self.delete_terms.clear();
+    self.delete_queries.clear();
+    self
+      .num_field_updates
+      .store(0, std::sync::atomic::Ordering::SeqCst);
+    self.field_updates.clear();
 
-        let used = -self.bytes_used.get();
-        self.bytes_used.add_and_get(used);
+    let used = -self.bytes_used.get();
+    self.bytes_used.add_and_get(used);
 
-        let used = -self.field_updates_bytes_used.get();
-        self.field_updates_bytes_used.add_and_get(used);
-    }
-    pub(crate) fn any(&self) -> bool {
-        self.delete_terms.size() > 0
-            || !self.delete_queries.is_empty()
-            || self
-                .num_field_updates
-                .load(std::sync::atomic::Ordering::SeqCst)
-                > 0
-    }
+    let used = -self.field_updates_bytes_used.get();
+    self.field_updates_bytes_used.add_and_get(used);
+  }
+  pub(crate) fn any(&self) -> bool {
+    self.delete_terms.size() > 0
+      || !self.delete_queries.is_empty()
+      || self
+        .num_field_updates
+        .load(std::sync::atomic::Ordering::SeqCst)
+        > 0
+  }
 }
 
 impl Accountable for BufferedUpdates {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        // TODO: memory calculation not implement
-        Ok(0)
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    // TODO: memory calculation not implement
+    Ok(0)
+  }
 }
 impl fmt::Display for BufferedUpdates {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let bytes_used = self.bytes_used.get();
-        if self.verbose_deletes {
-            write!(
-                f,
-                "gen={} deleteTerms={} deleteQueries={} fieldUpdates={} bytesUsed={}",
-                self.r#gen,
-                self.delete_terms,
-                self.delete_queries.len(),
-                self.field_updates.len(),
-                bytes_used
-            )
-        } else {
-            let mut s = format!("gen={}", self.r#gen);
-            if !self.delete_terms.is_empty() {
-                s.push_str(&format!(
-                    " {} unique deleted terms",
-                    self.delete_terms.size()
-                ));
-            }
-            if !self.delete_queries.is_empty() {
-                s.push_str(&format!(" {} deleted queries", self.delete_queries.len()));
-            }
-            if self
-                .num_field_updates
-                .load(std::sync::atomic::Ordering::SeqCst)
-                != 0
-            {
-                s.push_str(&format!(
-                    " {} field updates",
-                    self.num_field_updates
-                        .load(std::sync::atomic::Ordering::SeqCst)
-                ));
-            }
-            if bytes_used != 0 {
-                s.push_str(&format!(" bytesUsed={bytes_used}"));
-            }
-            write!(f, "{s}")
-        }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let bytes_used = self.bytes_used.get();
+    if self.verbose_deletes {
+      write!(
+        f,
+        "gen={} deleteTerms={} deleteQueries={} fieldUpdates={} bytesUsed={}",
+        self.r#gen,
+        self.delete_terms,
+        self.delete_queries.len(),
+        self.field_updates.len(),
+        bytes_used
+      )
+    } else {
+      let mut s = format!("gen={}", self.r#gen);
+      if !self.delete_terms.is_empty() {
+        s.push_str(&format!(
+          " {} unique deleted terms",
+          self.delete_terms.size()
+        ));
+      }
+      if !self.delete_queries.is_empty() {
+        s.push_str(&format!(" {} deleted queries", self.delete_queries.len()));
+      }
+      if self
+        .num_field_updates
+        .load(std::sync::atomic::Ordering::SeqCst)
+        != 0
+      {
+        s.push_str(&format!(
+          " {} field updates",
+          self
+            .num_field_updates
+            .load(std::sync::atomic::Ordering::SeqCst)
+        ));
+      }
+      if bytes_used != 0 {
+        s.push_str(&format!(" bytesUsed={bytes_used}"));
+      }
+      write!(f, "{s}")
     }
+  }
 }
 #[cfg(test)]
 pub type BufferedUpdatesLock = Arc<Mutex<BufferedUpdates>>;
 
 pub(crate) struct DeletedTerms {
-    bytes_used: SharedCounter,
-    pool: ByteBlockPool,
-    delete_terms: HashMap<String, BytesRefIntMap>,
-    terms_size: i32,
+  bytes_used: SharedCounter,
+  pool: ByteBlockPool,
+  delete_terms: HashMap<String, BytesRefIntMap>,
+  terms_size: i32,
 }
 impl DeletedTerms {
-    pub(crate) fn new() -> Self {
-        let bytes_used = Arc::new(AtomicCounter::new());
-        let allocator =
-            AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
-        let pool = ByteBlockPool::new(allocator);
-        Self::new_impl(pool, bytes_used)
+  pub(crate) fn new() -> Self {
+    let bytes_used = Arc::new(AtomicCounter::new());
+    let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
+    let pool = ByteBlockPool::new(allocator);
+    Self::new_impl(pool, bytes_used)
+  }
+  pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<()> {
+    let hash = match self.delete_terms.entry(term.field.clone()) {
+      Vacant(vacant) => {
+        // TODO: memory calculation not implement
+        self.bytes_used.add_and_get(0);
+        let new_map = BytesRefIntMap::new(self.bytes_used.clone());
+        vacant.insert(new_map)
+      },
+      Occupied(occupied) => occupied.into_mut(),
+    };
+    if hash.put(&term.bytes, value, &mut self.pool)? {
+      self.terms_size += 1;
     }
-    pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<()> {
-        let hash = match self.delete_terms.entry(term.field.clone()) {
-            Vacant(vacant) => {
-                // TODO: memory calculation not implement
-                self.bytes_used.add_and_get(0);
-                let new_map = BytesRefIntMap::new(self.bytes_used.clone());
-                vacant.insert(new_map)
-            },
-            Occupied(occupied) => occupied.into_mut(),
-        };
-        if hash.put(&term.bytes, value, &mut self.pool)? {
-            self.terms_size += 1;
-        }
-        Ok(())
+    Ok(())
+  }
+  /// Creates a new instance of `DeletedTerms`.
+  fn new_impl(pool: ByteBlockPool, bytes_used: SharedCounter) -> Self {
+    Self {
+      bytes_used,
+      pool,
+      delete_terms: HashMap::new(),
+      terms_size: 0,
     }
-    /// Creates a new instance of `DeletedTerms`.
-    fn new_impl(pool: ByteBlockPool, bytes_used: SharedCounter) -> Self {
-        Self {
-            bytes_used,
-            pool,
-            delete_terms: HashMap::new(),
-            terms_size: 0,
-        }
+  }
+  /// Gets the newest document ID of the deleted term.
+  ///
+  /// Returns the newest document ID if the term exists, otherwise returns
+  /// `-1`.
+  pub(crate) fn get(&self, term: &Term) -> i32 {
+    if let Some(hash) = self.delete_terms.get(&term.field) {
+      hash.get(&term.bytes, &self.pool)
+    } else {
+      -1
     }
-    /// Gets the newest document ID of the deleted term.
-    ///
-    /// Returns the newest document ID if the term exists, otherwise returns
-    /// `-1`.
-    pub(crate) fn get(&self, term: &Term) -> i32 {
-        if let Some(hash) = self.delete_terms.get(&term.field) {
-            hash.get(&term.bytes, &self.pool)
-        } else {
-            -1
-        }
-    }
-    pub(crate) fn clear(&mut self) {
-        self.pool.reset(false, false);
-        let used = -self.bytes_used.get();
-        self.bytes_used.add_and_get(used);
-        self.delete_terms.clear();
-        self.terms_size = 0;
-    }
+  }
+  pub(crate) fn clear(&mut self) {
+    self.pool.reset(false, false);
+    let used = -self.bytes_used.get();
+    self.bytes_used.add_and_get(used);
+    self.delete_terms.clear();
+    self.terms_size = 0;
+  }
 
-    pub(crate) fn size(&self) -> i32 {
-        self.terms_size
-    }
+  pub(crate) fn size(&self) -> i32 {
+    self.terms_size
+  }
 
-    pub(crate) fn is_empty(&self) -> bool {
-        self.terms_size == 0
+  pub(crate) fn is_empty(&self) -> bool {
+    self.terms_size == 0
+  }
+  /// Just for test, not efficient.
+  pub(crate) fn key_set(&self) -> HashSet<Term> {
+    let mut set = HashSet::new();
+    for (field, hash) in &self.delete_terms {
+      for bytes in hash.key_set(&self.pool) {
+        set.insert(Term::new(field.clone(), bytes));
+      }
     }
-    /// Just for test, not efficient.
-    pub(crate) fn key_set(&self) -> HashSet<Term> {
-        let mut set = HashSet::new();
-        for (field, hash) in &self.delete_terms {
-            for bytes in hash.key_set(&self.pool) {
-                set.insert(Term::new(field.clone(), bytes));
-            }
-        }
-        set
-    }
+    set
+  }
 
-    /// Consume all terms in a sorted order.
-    ///
-    /// Note: This is a destructive operation as it calls
-    /// `BytesRefHash::sort()`.
-    #[allow(clippy::type_complexity)]
-    pub(crate) fn for_each_ordered<F>(&mut self, mut consumer: F) -> Result<()>
-    where
-        F: FnMut(&Term, i32) -> Result<()>,
-    {
-        let mut delete_fields: Vec<(&String, &mut BytesRefIntMap)> =
-            self.delete_terms.iter_mut().collect();
-        delete_fields.sort_by(|a, b| a.0.cmp(b.0));
+  /// Consume all terms in a sorted order.
+  ///
+  /// Note: This is a destructive operation as it calls
+  /// `BytesRefHash::sort()`.
+  #[allow(clippy::type_complexity)]
+  pub(crate) fn for_each_ordered<F>(&mut self, mut consumer: F) -> Result<()>
+  where
+    F: FnMut(&Term, i32) -> Result<()>,
+  {
+    let mut delete_fields: Vec<(&String, &mut BytesRefIntMap)> =
+      self.delete_terms.iter_mut().collect();
+    delete_fields.sort_by(|a, b| a.0.cmp(b.0));
 
-        let mut scratch = Term::new("", BytesRef::new());
-        for (field, terms) in delete_fields {
-            scratch.field = field.clone();
-            terms.bytes_ref_hash.sort(&self.pool)?;
-            let indices = &terms.bytes_ref_hash.ids;
-            for i in 0..terms.bytes_ref_hash.count {
-                let index = indices[i as usize];
-                terms
-                    .bytes_ref_hash
-                    .get(index, &mut scratch.bytes, &self.pool);
-                consumer(&scratch, terms.values[index as usize])?;
-            }
-        }
-        Ok(())
+    let mut scratch = Term::new("", BytesRef::new());
+    for (field, terms) in delete_fields {
+      scratch.field = field.clone();
+      terms.bytes_ref_hash.sort(&self.pool)?;
+      let indices = &terms.bytes_ref_hash.ids;
+      for i in 0..terms.bytes_ref_hash.count {
+        let index = indices[i as usize];
+        terms
+          .bytes_ref_hash
+          .get(index, &mut scratch.bytes, &self.pool);
+        consumer(&scratch, terms.values[index as usize])?;
+      }
     }
-    #[cfg(debug_assertions)]
-    pub(crate) fn get_pool(&self) -> &ByteBlockPool {
-        &self.pool
-    }
+    Ok(())
+  }
+  #[cfg(debug_assertions)]
+  pub(crate) fn get_pool(&self) -> &ByteBlockPool {
+    &self.pool
+  }
 }
 
 pub trait DeletedTermConsumer {
-    fn accept(&mut self, term: &Term, doc_id: i32) -> Result<()>;
+  fn accept(&mut self, term: &Term, doc_id: i32) -> Result<()>;
 }
 impl Accountable for DeletedTerms {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        // TODO: memory calculation not implement
-        Ok(0)
-    }
+  fn ram_bytes_used(&self) -> Result<i64> {
+    // TODO: memory calculation not implement
+    Ok(0)
+  }
 }
 impl fmt::Display for DeletedTerms {
-    /// Used for `BufferedUpdates::VERBOSE_DELETES`.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut entries = Vec::new();
-        for term in self.key_set().iter() {
-            entries.push(format!("{}={}", term, self.get(term)));
-        }
-
-        write!(f, "{{{}}}", entries.join(", "))
+  /// Used for `BufferedUpdates::VERBOSE_DELETES`.
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let mut entries = Vec::new();
+    for term in self.key_set().iter() {
+      entries.push(format!("{}={}", term, self.get(term)));
     }
+
+    write!(f, "{{{}}}", entries.join(", "))
+  }
 }
 
 struct BytesRefIntMap {
-    counter: SharedCounter,
-    pub(crate) bytes_ref_hash: BytesRefHash<DirectBytesStartArray>,
-    values: Vec<i32>,
+  counter: SharedCounter,
+  pub(crate) bytes_ref_hash: BytesRefHash<DirectBytesStartArray>,
+  values: Vec<i32>,
 }
 
 impl BytesRefIntMap {
-    pub fn new(counter: SharedCounter) -> Self {
-        let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
-            DEFAULT_CAPACITY,
-            DirectBytesStartArray::with_counter(DEFAULT_CAPACITY, counter.clone()),
-        );
-        BytesRefIntMap::new_impl(counter, bytes_ref_hash)
-    }
-    fn new_impl(
-        counter: SharedCounter,
-        bytes_ref_hash: BytesRefHash<DirectBytesStartArray>,
-    ) -> Self {
-        let values = vec![0; DEFAULT_CAPACITY as usize];
+  pub fn new(counter: SharedCounter) -> Self {
+    let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
+      DEFAULT_CAPACITY,
+      DirectBytesStartArray::with_counter(DEFAULT_CAPACITY, counter.clone()),
+    );
+    BytesRefIntMap::new_impl(counter, bytes_ref_hash)
+  }
+  fn new_impl(counter: SharedCounter, bytes_ref_hash: BytesRefHash<DirectBytesStartArray>) -> Self {
+    let values = vec![0; DEFAULT_CAPACITY as usize];
 
-        counter.add_and_get(INIT_RAM_BYTES);
+    counter.add_and_get(INIT_RAM_BYTES);
 
-        Self {
-            counter,
-            bytes_ref_hash,
-            values,
-        }
+    Self {
+      counter,
+      bytes_ref_hash,
+      values,
     }
-    fn key_set(&self, pool: &ByteBlockPool) -> HashSet<BytesRef<Vec<u8>>> {
-        let mut scratch = BytesRef::new();
-        let mut set = HashSet::new();
+  }
+  fn key_set(&self, pool: &ByteBlockPool) -> HashSet<BytesRef<Vec<u8>>> {
+    let mut scratch = BytesRef::new();
+    let mut set = HashSet::new();
 
-        for i in 0..self.bytes_ref_hash.size() {
-            self.bytes_ref_hash.get(i, &mut scratch, pool);
-            set.insert(BytesRef::deep_copy_of(&scratch));
-        }
-        set
+    for i in 0..self.bytes_ref_hash.size() {
+      self.bytes_ref_hash.get(i, &mut scratch, pool);
+      set.insert(BytesRef::deep_copy_of(&scratch));
     }
-    fn put(
-        &mut self,
-        key: &BytesRef<Vec<u8>>,
-        value: i32,
-        pool: &mut ByteBlockPool,
-    ) -> Result<bool> {
-        debug_assert!(value >= 0, "Value must be non-negative.");
-        let e = self.bytes_ref_hash.add(key, pool)?;
-        if e < 0 {
-            self.values[(-e - 1) as usize] = value;
-            Ok(false)
-        } else {
-            if e as usize >= self.values.len() {
-                let origin_length = self.values.len();
-                ArrayUtil::grow_with_len(&mut self.values, (e + 1) as usize);
-                // TODO: memory calculation not implement
-                self.counter.add_and_get(origin_length as i64);
-            }
-            self.values[e as usize] = value;
-            Ok(true)
-        }
+    set
+  }
+  fn put(&mut self, key: &BytesRef<Vec<u8>>, value: i32, pool: &mut ByteBlockPool) -> Result<bool> {
+    debug_assert!(value >= 0, "Value must be non-negative.");
+    let e = self.bytes_ref_hash.add(key, pool)?;
+    if e < 0 {
+      self.values[(-e - 1) as usize] = value;
+      Ok(false)
+    } else {
+      if e as usize >= self.values.len() {
+        let origin_length = self.values.len();
+        ArrayUtil::grow_with_len(&mut self.values, (e + 1) as usize);
+        // TODO: memory calculation not implement
+        self.counter.add_and_get(origin_length as i64);
+      }
+      self.values[e as usize] = value;
+      Ok(true)
     }
-    fn get(&self, key: &BytesRef<Vec<u8>>, pool: &ByteBlockPool) -> i32 {
-        let e = self.bytes_ref_hash.find(key, pool);
-        if e == -1 { -1 } else { self.values[e as usize] }
-    }
+  }
+  fn get(&self, key: &BytesRef<Vec<u8>>, pool: &ByteBlockPool) -> i32 {
+    let e = self.bytes_ref_hash.find(key, pool);
+    if e == -1 { -1 } else { self.values[e as usize] }
+  }
 }
 
 // TODO: memory calculation not implement
@@ -446,137 +441,137 @@ pub const MAX_INT: i32 = i32::MAX;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+  use std::collections::HashMap;
 
-    use rand::{Rng, RngExt};
+  use rand::{Rng, RngExt};
 
-    use crate::core::index::BytesRef;
-    use crate::core::index::buffered_updates::{BufferedUpdates, DeletedTerms};
-    use crate::core::index::term::Term;
+  use crate::core::index::BytesRef;
+  use crate::core::index::buffered_updates::{BufferedUpdates, DeletedTerms};
+  use crate::core::index::term::Term;
 
-    use crate::core::search::term_query::TermQuery;
-    use crate::core::util::accountable::Accountable;
-    use crate::core::util::error::lucene_error::Result;
-    use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+  use crate::core::search::term_query::TermQuery;
+  use crate::core::util::accountable::Accountable;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
-    #[allow(dead_code)] // for quick search
-    pub struct TestBufferedUpdates;
+  #[allow(dead_code)] // for quick search
+  pub struct TestBufferedUpdates;
 
-    #[test]
-    fn test_ram_bytes_used() -> Result<()> {
-        let mut random = random();
-        let mut bu = BufferedUpdates::new("seg1");
+  #[test]
+  fn test_ram_bytes_used() -> Result<()> {
+    let mut random = random();
+    let mut bu = BufferedUpdates::new("seg1");
 
-        // TODO
-        // assert_eq!(bu.ram_bytes_used(), 0);
-        assert!(!bu.any());
+    // TODO
+    // assert_eq!(bu.ram_bytes_used(), 0);
+    assert!(!bu.any());
 
-        let queries = at_least(&mut random, 1);
-        for _ in 0..queries {
-            let doc_id_upto = if random.random_bool(0.5) {
-                i32::MAX
-            } else {
-                random.random_range(0..100000)
-            };
-            let value = format!("{}", random.random_range(0..100));
-            let term = Term::new("id", BytesRef::from_string(&value));
-            bu.add_query(TermQuery::new(term.clone()).into(), doc_id_upto);
-        }
-
-        let terms = at_least(&mut random, 1);
-        for _ in 0..terms {
-            let doc_id_upto = if random.random_bool(0.5) {
-                i32::MAX
-            } else {
-                random.random_range(0..100000)
-            };
-            let value = format!("{}", random.random_range(0..100));
-            let term = Term::new("id", BytesRef::from_string(&value));
-            bu.add_term(&term, doc_id_upto)?;
-        }
-
-        assert!(
-            bu.any(),
-            "We have added a lot of docIds, terms, and queries, but `any()` returned false."
-        );
-
-        // TODO
-        // let total_used = bu.ram_bytes_used();
-        // assert!(total_used > 0);
-
-        bu.clear_delete_terms();
-        assert!(
-            bu.any(),
-            "Only terms and docIds are cleaned, the queries should still be in memory."
-        );
-        // TODO
-        // assert!(
-        //     total_used > bu.ram_bytes_used(),
-        //     "Terms are cleaned, so memory usage should decrease."
-        // );
-
-        bu.clear();
-        assert!(!bu.any());
-        // TODO
-        // assert_eq!(bu.ram_bytes_used()?, 0);
-
-        Ok(())
+    let queries = at_least(&mut random, 1);
+    for _ in 0..queries {
+      let doc_id_upto = if random.random_bool(0.5) {
+        i32::MAX
+      } else {
+        random.random_range(0..100000)
+      };
+      let value = format!("{}", random.random_range(0..100));
+      let term = Term::new("id", BytesRef::from_string(&value));
+      bu.add_query(TermQuery::new(term.clone()).into(), doc_id_upto);
     }
-    #[test]
-    fn test_deleted_terms() -> Result<()> {
-        let mut random = random();
-        let iters = at_least(&mut random, 10);
-        let fields = ["a".to_string(), "b".to_string(), "c".to_string()];
-        let mut actual = DeletedTerms::new();
 
-        for _ in 0..iters {
-            let mut expected = HashMap::new();
-            assert!(actual.is_empty());
-
-            let term_count = at_least(&mut random, 5000);
-            let max_bytes_num = random.random_range(1..=3);
-
-            for _ in 0..term_count {
-                let byte_num = random.random_range(1..=max_bytes_num);
-                let mut bytes = vec![0u8; byte_num];
-                random.fill_bytes(&mut bytes);
-
-                let field = &fields[random.random_range(0..fields.len())];
-                let term = Term::new(field.clone(), BytesRef::from_bytes(bytes));
-                let value = random.random_range(0..10_000_000);
-
-                expected.insert(term.clone(), value);
-                actual.put(&term, value)?;
-            }
-
-            assert_eq!(expected.len(), actual.size() as usize);
-
-            for (term, expected_value) in &expected {
-                assert_eq!(*expected_value, actual.get(term));
-            }
-
-            let mut expected_sorted: Vec<(Term, i32)> = expected
-                .iter()
-                .map(|(term, doc_id)| (Term::new(term.field.clone(), term.bytes.clone()), *doc_id))
-                .collect();
-            expected_sorted.sort_by_key(|entry| entry.0.clone());
-
-            let mut actual_sorted: Vec<_> = Vec::new();
-            let _ = actual.for_each_ordered(|term, doc_id| {
-                let copy = Term::new(term.field.clone(), term.bytes.clone());
-                actual_sorted.push((copy, doc_id));
-                Ok(())
-            });
-
-            assert_eq!(expected_sorted, actual_sorted);
-
-            actual.clear();
-            assert_eq!(actual.size(), 0);
-            assert_eq!(actual.ram_bytes_used()?, 0);
-            let pool = actual.get_pool();
-            assert_eq!(pool.buffer_upto, None);
-        }
-
-        Ok(())
+    let terms = at_least(&mut random, 1);
+    for _ in 0..terms {
+      let doc_id_upto = if random.random_bool(0.5) {
+        i32::MAX
+      } else {
+        random.random_range(0..100000)
+      };
+      let value = format!("{}", random.random_range(0..100));
+      let term = Term::new("id", BytesRef::from_string(&value));
+      bu.add_term(&term, doc_id_upto)?;
     }
+
+    assert!(
+      bu.any(),
+      "We have added a lot of docIds, terms, and queries, but `any()` returned false."
+    );
+
+    // TODO
+    // let total_used = bu.ram_bytes_used();
+    // assert!(total_used > 0);
+
+    bu.clear_delete_terms();
+    assert!(
+      bu.any(),
+      "Only terms and docIds are cleaned, the queries should still be in memory."
+    );
+    // TODO
+    // assert!(
+    //     total_used > bu.ram_bytes_used(),
+    //     "Terms are cleaned, so memory usage should decrease."
+    // );
+
+    bu.clear();
+    assert!(!bu.any());
+    // TODO
+    // assert_eq!(bu.ram_bytes_used()?, 0);
+
+    Ok(())
+  }
+  #[test]
+  fn test_deleted_terms() -> Result<()> {
+    let mut random = random();
+    let iters = at_least(&mut random, 10);
+    let fields = ["a".to_string(), "b".to_string(), "c".to_string()];
+    let mut actual = DeletedTerms::new();
+
+    for _ in 0..iters {
+      let mut expected = HashMap::new();
+      assert!(actual.is_empty());
+
+      let term_count = at_least(&mut random, 5000);
+      let max_bytes_num = random.random_range(1..=3);
+
+      for _ in 0..term_count {
+        let byte_num = random.random_range(1..=max_bytes_num);
+        let mut bytes = vec![0u8; byte_num];
+        random.fill_bytes(&mut bytes);
+
+        let field = &fields[random.random_range(0..fields.len())];
+        let term = Term::new(field.clone(), BytesRef::from_bytes(bytes));
+        let value = random.random_range(0..10_000_000);
+
+        expected.insert(term.clone(), value);
+        actual.put(&term, value)?;
+      }
+
+      assert_eq!(expected.len(), actual.size() as usize);
+
+      for (term, expected_value) in &expected {
+        assert_eq!(*expected_value, actual.get(term));
+      }
+
+      let mut expected_sorted: Vec<(Term, i32)> = expected
+        .iter()
+        .map(|(term, doc_id)| (Term::new(term.field.clone(), term.bytes.clone()), *doc_id))
+        .collect();
+      expected_sorted.sort_by_key(|entry| entry.0.clone());
+
+      let mut actual_sorted: Vec<_> = Vec::new();
+      let _ = actual.for_each_ordered(|term, doc_id| {
+        let copy = Term::new(term.field.clone(), term.bytes.clone());
+        actual_sorted.push((copy, doc_id));
+        Ok(())
+      });
+
+      assert_eq!(expected_sorted, actual_sorted);
+
+      actual.clear();
+      assert_eq!(actual.size(), 0);
+      assert_eq!(actual.ram_bytes_used()?, 0);
+      let pool = actual.get_pool();
+      assert_eq!(pool.buffer_upto, None);
+    }
+
+    Ok(())
+  }
 }

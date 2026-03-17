@@ -19,59 +19,59 @@ pub mod parse;
 
 #[macro_export]
 macro_rules! message_error {
-    ($name:ident) => {
-        #[derive(Debug)]
-        pub struct $name {
-            pub message: String,
-            pub source: Option<Box<$crate::core::util::error::lucene_error::LuceneError>>,
-        }
+  ($name:ident) => {
+    #[derive(Debug)]
+    pub struct $name {
+      pub message: String,
+      pub source: Option<Box<$crate::core::util::error::lucene_error::LuceneError>>,
+    }
 
-        impl $name {
-            pub fn new(msg: impl Into<String>) -> Self {
-                Self {
-                    message: msg.into(),
-                    source: None,
-                }
-            }
-
-            pub fn from_error(err: $crate::core::util::error::lucene_error::LuceneError) -> Self {
-                Self {
-                    message: err.to_string(),
-                    source: Some(Box::new(err)),
-                }
-            }
+    impl $name {
+      pub fn new(msg: impl Into<String>) -> Self {
+        Self {
+          message: msg.into(),
+          source: None,
         }
+      }
 
-        impl From<String> for $name {
-            fn from(msg: String) -> Self {
-                Self::new(msg)
-            }
+      pub fn from_error(err: $crate::core::util::error::lucene_error::LuceneError) -> Self {
+        Self {
+          message: err.to_string(),
+          source: Some(Box::new(err)),
         }
+      }
+    }
 
-        impl From<&str> for $name {
-            fn from(msg: &str) -> Self {
-                Self::new(msg)
-            }
-        }
+    impl From<String> for $name {
+      fn from(msg: String) -> Self {
+        Self::new(msg)
+      }
+    }
 
-        impl From<$crate::core::util::error::lucene_error::LuceneError> for $name {
-            fn from(err: $crate::core::util::error::lucene_error::LuceneError) -> Self {
-                Self::from_error(err)
-            }
-        }
+    impl From<&str> for $name {
+      fn from(msg: &str) -> Self {
+        Self::new(msg)
+      }
+    }
 
-        impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{}", self.message)
-            }
-        }
+    impl From<$crate::core::util::error::lucene_error::LuceneError> for $name {
+      fn from(err: $crate::core::util::error::lucene_error::LuceneError) -> Self {
+        Self::from_error(err)
+      }
+    }
 
-        impl std::error::Error for $name {
-            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-                self.source.as_deref().map(|e| e as &dyn std::error::Error)
-            }
-        }
-    };
+    impl std::fmt::Display for $name {
+      fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+      }
+    }
+
+    impl std::error::Error for $name {
+      fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.source.as_deref().map(|e| e as &dyn std::error::Error)
+      }
+    }
+  };
 }
 message_error!(NeedImplementedError);
 message_error!(NotImplementedError);

@@ -38,8 +38,8 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::doc_helper::{DocHelper, TEXT_FIELD_2_KEY};
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config_with_analyzer, new_io_context, new_text_field,
-    random,
+  new_directory_shared, new_index_writer_config_with_analyzer, new_io_context, new_text_field,
+  random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -50,320 +50,320 @@ use std::sync::Arc;
 struct TestSegmentTermDocs;
 
 fn set_up<R: Rng + ?Sized>(
-    random: &mut R,
+  random: &mut R,
 ) -> Result<(Arc<DirEnum>, Document, SegmentCommitInfo<DirEnum>)> {
-    let dir = new_directory_shared(random)?;
-    let mut document = Document::new();
-    DocHelper::setup_doc(&mut document);
-    let info = DocHelper::write_doc(dir.clone(), document.clone())?;
-    Ok((dir, document, info))
+  let dir = new_directory_shared(random)?;
+  let mut document = Document::new();
+  DocHelper::setup_doc(&mut document);
+  let info = DocHelper::write_doc(dir.clone(), document.clone())?;
+  Ok((dir, document, info))
 }
 #[test]
 fn test_term_docs() -> Result<()> {
-    let mut random = random();
-    let (_dir, _doc, info) = set_up(&mut random)?;
+  let mut random = random();
+  let (_dir, _doc, info) = set_up(&mut random)?;
 
-    let reader = SegmentReader::new(&info, LATEST.major, &new_io_context(&mut random)?)?;
-    assert!(reader.max_doc()? >= 0);
+  let reader = SegmentReader::new(&info, LATEST.major, &new_io_context(&mut random)?)?;
+  assert!(reader.max_doc()? >= 0);
 
-    let terms = reader.terms(TEXT_FIELD_2_KEY)?.expect("terms should exist");
-    let mut terms_enum = terms.iterator()?;
-    terms_enum.seek_ceil(&BytesRef::from_string("field"))?;
+  let terms = reader.terms(TEXT_FIELD_2_KEY)?.expect("terms should exist");
+  let mut terms_enum = terms.iterator()?;
+  terms_enum.seek_ceil(&BytesRef::from_string("field"))?;
 
-    let mut term_docs = TestUtil::docs(&mut random, &mut terms_enum, None, FREQS as i32)?;
+  let mut term_docs = TestUtil::docs(&mut random, &mut terms_enum, None, FREQS as i32)?;
 
-    if term_docs.next_doc()? != NO_MORE_DOCS {
-        let doc_id = term_docs.doc_id();
-        assert_eq!(doc_id, 0);
-        let freq = term_docs.freq()?;
-        assert_eq!(freq, 3);
-    }
+  if term_docs.next_doc()? != NO_MORE_DOCS {
+    let doc_id = term_docs.doc_id();
+    assert_eq!(doc_id, 0);
+    let freq = term_docs.freq()?;
+    assert_eq!(freq, 3);
+  }
 
-    reader.close()?;
-    Ok(())
+  reader.close()?;
+  Ok(())
 }
 #[test]
 fn test_bad_seek() -> Result<()> {
-    let mut random = random();
-    let (_dir, _doc, info) = set_up(&mut random)?;
+  let mut random = random();
+  let (_dir, _doc, info) = set_up(&mut random)?;
 
-    {
-        let reader = Arc::new(SegmentReader::new(
-            &info,
-            LATEST.major,
-            &new_io_context(&mut random)?,
-        )?);
-        assert!(reader.max_doc()? >= 0);
-        let multi_readers = MultiReader::with_leaf_reader(vec![reader.clone()])?;
+  {
+    let reader = Arc::new(SegmentReader::new(
+      &info,
+      LATEST.major,
+      &new_io_context(&mut random)?,
+    )?);
+    assert!(reader.max_doc()? >= 0);
+    let multi_readers = MultiReader::with_leaf_reader(vec![reader.clone()])?;
 
-        let term_docs = TestUtil::docs_with_reader(
-            &mut random,
-            &multi_readers,
-            "textField2",
-            &BytesRef::from_string("bad"),
-            None,
-            0,
-        )?;
-        assert!(term_docs.is_none());
+    let term_docs = TestUtil::docs_with_reader(
+      &mut random,
+      &multi_readers,
+      "textField2",
+      &BytesRef::from_string("bad"),
+      None,
+      0,
+    )?;
+    assert!(term_docs.is_none());
 
-        reader.close()?;
-    }
+    reader.close()?;
+  }
 
-    {
-        let reader = Arc::new(SegmentReader::new(
-            &info,
-            LATEST.major,
-            &new_io_context(&mut random)?,
-        )?);
-        assert!(reader.max_doc()? >= 0);
-        let multi_readers = MultiReader::with_leaf_reader(vec![reader.clone()])?;
-        let term_docs = TestUtil::docs_with_reader(
-            &mut random,
-            &multi_readers,
-            "junk",
-            &BytesRef::from_string("bad"),
-            None,
-            0,
-        )?;
-        assert!(term_docs.is_none());
+  {
+    let reader = Arc::new(SegmentReader::new(
+      &info,
+      LATEST.major,
+      &new_io_context(&mut random)?,
+    )?);
+    assert!(reader.max_doc()? >= 0);
+    let multi_readers = MultiReader::with_leaf_reader(vec![reader.clone()])?;
+    let term_docs = TestUtil::docs_with_reader(
+      &mut random,
+      &multi_readers,
+      "junk",
+      &BytesRef::from_string("bad"),
+      None,
+      0,
+    )?;
+    assert!(term_docs.is_none());
 
-        reader.close()?;
-    }
+    reader.close()?;
+  }
 
-    Ok(())
+  Ok(())
 }
 #[test]
 fn test_skip_to() -> Result<()> {
-    let mut random = random();
-    let dir = new_directory_shared(&mut random)?;
-    let mut field_types = HashMap::new();
-    let mock = MockAnalyzer::new(&mut random);
-    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    let mut writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut field_types = HashMap::new();
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut writer = IndexWriter::new(dir.clone(), iwc)?;
 
-    let ta = Term::from_text("content", "aaa");
-    for _ in 0..10 {
-        add_doc(
-            &mut random,
-            &mut writer,
-            "aaa aaa aaa aaa",
-            &mut field_types,
-        )?;
-    }
+  let ta = Term::from_text("content", "aaa");
+  for _ in 0..10 {
+    add_doc(
+      &mut random,
+      &mut writer,
+      "aaa aaa aaa aaa",
+      &mut field_types,
+    )?;
+  }
 
-    let tb = Term::from_text("content", "bbb");
-    for _ in 0..16 {
-        add_doc(
-            &mut random,
-            &mut writer,
-            "bbb bbb bbb bbb",
-            &mut field_types,
-        )?;
-    }
+  let tb = Term::from_text("content", "bbb");
+  for _ in 0..16 {
+    add_doc(
+      &mut random,
+      &mut writer,
+      "bbb bbb bbb bbb",
+      &mut field_types,
+    )?;
+  }
 
-    let tc = Term::from_text("content", "ccc");
-    for _ in 0..50 {
-        add_doc(
-            &mut random,
-            &mut writer,
-            "ccc ccc ccc ccc",
-            &mut field_types,
-        )?;
-    }
-    writer.force_merge(1)?;
-    writer.close()?;
+  let tc = Term::from_text("content", "ccc");
+  for _ in 0..50 {
+    add_doc(
+      &mut random,
+      &mut writer,
+      "ccc ccc ccc ccc",
+      &mut field_types,
+    )?;
+  }
+  writer.force_merge(1)?;
+  writer.close()?;
 
-    let reader = Arc::new(directory_reader_util::open(dir.clone())?);
-    let mut tdocs = TestUtil::docs_with_reader(
-        &mut random,
-        &reader,
-        ta.field(),
-        &BytesRef::from_string(&ta.text()?),
-        None,
-        FREQS as i32,
-    )?
-    .expect("tdocs should exist");
+  let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+  let mut tdocs = TestUtil::docs_with_reader(
+    &mut random,
+    &reader,
+    ta.field(),
+    &BytesRef::from_string(&ta.text()?),
+    None,
+    FREQS as i32,
+  )?
+  .expect("tdocs should exist");
 
-    assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 0);
-    assert_eq!(tdocs.freq()?, 4);
+  assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 0);
+  assert_eq!(tdocs.freq()?, 4);
 
-    assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 1);
-    assert_eq!(tdocs.freq()?, 4);
+  assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 1);
+  assert_eq!(tdocs.freq()?, 4);
 
-    assert_ne!(tdocs.advance(2)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 2);
+  assert_ne!(tdocs.advance(2)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 2);
 
-    assert_ne!(tdocs.advance(4)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 4);
+  assert_ne!(tdocs.advance(4)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 4);
 
-    assert_ne!(tdocs.advance(9)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 9);
+  assert_ne!(tdocs.advance(9)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 9);
 
-    assert_eq!(tdocs.advance(10)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.advance(10)?, NO_MORE_DOCS);
 
-    let mut tdocs = TestUtil::docs_with_reader(
-        &mut random,
-        &reader,
-        ta.field(),
-        &BytesRef::from_string(&ta.text()?),
-        None,
-        0,
-    )?
-    .expect("tdocs should exist");
+  let mut tdocs = TestUtil::docs_with_reader(
+    &mut random,
+    &reader,
+    ta.field(),
+    &BytesRef::from_string(&ta.text()?),
+    None,
+    0,
+  )?
+  .expect("tdocs should exist");
 
-    assert_ne!(tdocs.advance(0)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 0);
+  assert_ne!(tdocs.advance(0)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 0);
 
-    assert_ne!(tdocs.advance(4)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 4);
+  assert_ne!(tdocs.advance(4)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 4);
 
-    assert_ne!(tdocs.advance(9)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 9);
+  assert_ne!(tdocs.advance(9)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 9);
 
-    assert_eq!(tdocs.advance(10)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.advance(10)?, NO_MORE_DOCS);
 
-    // bbb ----------------------------------------------------------
+  // bbb ----------------------------------------------------------
 
-    let mut tdocs = TestUtil::docs_with_reader(
-        &mut random,
-        &reader,
-        tb.field(),
-        &BytesRef::from_string(&tb.text()?),
-        None,
-        FREQS as i32,
-    )?
-    .expect("tdocs should exist");
+  let mut tdocs = TestUtil::docs_with_reader(
+    &mut random,
+    &reader,
+    tb.field(),
+    &BytesRef::from_string(&tb.text()?),
+    None,
+    FREQS as i32,
+  )?
+  .expect("tdocs should exist");
 
-    assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 10);
-    assert_eq!(tdocs.freq()?, 4);
+  assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 10);
+  assert_eq!(tdocs.freq()?, 4);
 
-    assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 11);
-    assert_eq!(tdocs.freq()?, 4);
+  assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 11);
+  assert_eq!(tdocs.freq()?, 4);
 
-    assert_ne!(tdocs.advance(12)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 12);
+  assert_ne!(tdocs.advance(12)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 12);
 
-    assert_ne!(tdocs.advance(15)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 15);
+  assert_ne!(tdocs.advance(15)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 15);
 
-    assert_ne!(tdocs.advance(24)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 24);
+  assert_ne!(tdocs.advance(24)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 24);
 
-    assert_ne!(tdocs.advance(25)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 25);
+  assert_ne!(tdocs.advance(25)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 25);
 
-    assert_eq!(tdocs.advance(26)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.advance(26)?, NO_MORE_DOCS);
 
-    // without next
-    let mut tdocs = TestUtil::docs_with_reader(
-        &mut random,
-        &reader,
-        tb.field(),
-        &BytesRef::from_string(&tb.text()?),
-        None,
-        FREQS as i32,
-    )?
-    .expect("tdocs should exist");
+  // without next
+  let mut tdocs = TestUtil::docs_with_reader(
+    &mut random,
+    &reader,
+    tb.field(),
+    &BytesRef::from_string(&tb.text()?),
+    None,
+    FREQS as i32,
+  )?
+  .expect("tdocs should exist");
 
-    assert_ne!(tdocs.advance(5)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 10);
+  assert_ne!(tdocs.advance(5)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 10);
 
-    assert_ne!(tdocs.advance(15)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 15);
+  assert_ne!(tdocs.advance(15)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 15);
 
-    assert_ne!(tdocs.advance(24)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 24);
+  assert_ne!(tdocs.advance(24)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 24);
 
-    assert_ne!(tdocs.advance(25)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 25);
+  assert_ne!(tdocs.advance(25)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 25);
 
-    assert_eq!(tdocs.advance(26)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.advance(26)?, NO_MORE_DOCS);
 
-    // ccc ----------------------------------------------------------
+  // ccc ----------------------------------------------------------
 
-    let mut tdocs = TestUtil::docs_with_reader(
-        &mut random,
-        &reader,
-        tc.field(),
-        &BytesRef::from_string(&tc.text()?),
-        None,
-        FREQS as i32,
-    )?
-    .expect("tdocs should exist");
+  let mut tdocs = TestUtil::docs_with_reader(
+    &mut random,
+    &reader,
+    tc.field(),
+    &BytesRef::from_string(&tc.text()?),
+    None,
+    FREQS as i32,
+  )?
+  .expect("tdocs should exist");
 
-    assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 26);
-    assert_eq!(tdocs.freq()?, 4);
+  assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 26);
+  assert_eq!(tdocs.freq()?, 4);
 
-    assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 27);
-    assert_eq!(tdocs.freq()?, 4);
+  assert_ne!(tdocs.next_doc()?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 27);
+  assert_eq!(tdocs.freq()?, 4);
 
-    assert_ne!(tdocs.advance(28)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 28);
+  assert_ne!(tdocs.advance(28)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 28);
 
-    assert_ne!(tdocs.advance(40)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 40);
+  assert_ne!(tdocs.advance(40)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 40);
 
-    assert_ne!(tdocs.advance(57)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 57);
+  assert_ne!(tdocs.advance(57)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 57);
 
-    assert_ne!(tdocs.advance(74)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 74);
+  assert_ne!(tdocs.advance(74)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 74);
 
-    assert_ne!(tdocs.advance(75)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 75);
+  assert_ne!(tdocs.advance(75)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 75);
 
-    assert_eq!(tdocs.advance(76)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.advance(76)?, NO_MORE_DOCS);
 
-    // without next
-    let mut tdocs = TestUtil::docs_with_reader(
-        &mut random,
-        &reader,
-        tc.field(),
-        &BytesRef::from_string(&tc.text()?),
-        None,
-        0,
-    )?
-    .expect("tdocs should exist");
+  // without next
+  let mut tdocs = TestUtil::docs_with_reader(
+    &mut random,
+    &reader,
+    tc.field(),
+    &BytesRef::from_string(&tc.text()?),
+    None,
+    0,
+  )?
+  .expect("tdocs should exist");
 
-    assert_ne!(tdocs.advance(5)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 26);
+  assert_ne!(tdocs.advance(5)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 26);
 
-    assert_ne!(tdocs.advance(40)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 40);
+  assert_ne!(tdocs.advance(40)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 40);
 
-    assert_ne!(tdocs.advance(57)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 57);
+  assert_ne!(tdocs.advance(57)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 57);
 
-    assert_ne!(tdocs.advance(74)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 74);
+  assert_ne!(tdocs.advance(74)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 74);
 
-    assert_ne!(tdocs.advance(75)?, NO_MORE_DOCS);
-    assert_eq!(tdocs.doc_id(), 75);
+  assert_ne!(tdocs.advance(75)?, NO_MORE_DOCS);
+  assert_eq!(tdocs.doc_id(), 75);
 
-    assert_eq!(tdocs.advance(76)?, NO_MORE_DOCS);
-    reader.close()?;
-    Ok(())
+  assert_eq!(tdocs.advance(76)?, NO_MORE_DOCS);
+  reader.close()?;
+  Ok(())
 }
 fn add_doc<D, L, B, R>(
-    random: &mut R,
-    writer: &mut IndexWriter<D, L, B>,
-    value: &str,
-    field_types: &mut HashMap<String, FieldType>,
+  random: &mut R,
+  writer: &mut IndexWriter<D, L, B>,
+  value: &str,
+  field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-    D: Directory,
-    L: LiveIndexWriterConfig,
-    B: IndexWriterBase,
-    R: Rng + ?Sized,
+  D: Directory,
+  L: LiveIndexWriterConfig,
+  B: IndexWriterBase,
+  R: Rng + ?Sized,
 {
-    let mut doc = Document::new();
-    doc.add(new_text_field(random, "content", value, No, field_types)?);
-    writer.add_document(doc)?;
-    Ok(())
+  let mut doc = Document::new();
+  doc.add(new_text_field(random, "content", value, No, field_types)?);
+  writer.add_document(doc)?;
+  Ok(())
 }

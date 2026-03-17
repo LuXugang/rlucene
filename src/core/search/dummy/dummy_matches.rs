@@ -21,19 +21,19 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyMatches;
 
 impl Matches for DummyMatches {
-    type MatchesIterator = DummyMatchesIterator;
+  type MatchesIterator = DummyMatchesIterator;
 
-    fn get_matches(&self, _field: &str) -> Result<Option<Self::MatchesIterator>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_matches(&self, _field: &str) -> Result<Option<Self::MatchesIterator>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type Matches = DummyMatches;
+  type Matches = DummyMatches;
 
-    fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn field(&self) -> &[String] {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn field(&self) -> &[String] {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }

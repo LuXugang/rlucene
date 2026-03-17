@@ -21,15 +21,15 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
 pub trait BinaryDocValues: DocValuesIterator {
-    /// Returns the binary value for the current document ID.
-    /// It is illegal to call this method after
-    /// [`advanceExact`](DocValuesIterator::advance_exact) returned `false`.
-    ///
-    /// # Returns
-    /// The binary value for the current document ID.
-    fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        Err(LuceneError::not_implemented("this method need implement"))
-    }
+  /// Returns the binary value for the current document ID.
+  /// It is illegal to call this method after
+  /// [`advanceExact`](DocValuesIterator::advance_exact) returned `false`.
+  ///
+  /// # Returns
+  /// The binary value for the current document ID.
+  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    Err(LuceneError::not_implemented("this method need implement"))
+  }
 }
 
 // BinaryDocValues

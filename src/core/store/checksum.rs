@@ -17,40 +17,40 @@
 use crc32fast::Hasher;
 
 pub trait Checksum {
-    fn update(&mut self, b: u8);
-    fn update_bytes(&mut self, bytes: &[u8], offset: usize, len: usize);
-    fn get_value(&mut self) -> i64;
-    fn reset(&mut self);
+  fn update(&mut self, b: u8);
+  fn update_bytes(&mut self, bytes: &[u8], offset: usize, len: usize);
+  fn get_value(&mut self) -> i64;
+  fn reset(&mut self);
 }
 
 pub struct HasherChecksum {
-    hasher: Hasher,
-    initial_state: Hasher,
+  hasher: Hasher,
+  initial_state: Hasher,
 }
 
 impl HasherChecksum {
-    pub fn new(hasher: Hasher) -> Self {
-        Self {
-            hasher: hasher.clone(),
-            initial_state: hasher,
-        }
+  pub fn new(hasher: Hasher) -> Self {
+    Self {
+      hasher: hasher.clone(),
+      initial_state: hasher,
     }
+  }
 }
 
 impl Checksum for HasherChecksum {
-    fn update(&mut self, b: u8) {
-        self.hasher.update(&[b]);
-    }
+  fn update(&mut self, b: u8) {
+    self.hasher.update(&[b]);
+  }
 
-    fn update_bytes(&mut self, bytes: &[u8], offset: usize, len: usize) {
-        self.hasher.update(&bytes[offset..offset + len]);
-    }
+  fn update_bytes(&mut self, bytes: &[u8], offset: usize, len: usize) {
+    self.hasher.update(&bytes[offset..offset + len]);
+  }
 
-    fn get_value(&mut self) -> i64 {
-        self.hasher.clone().finalize() as i64
-    }
+  fn get_value(&mut self) -> i64 {
+    self.hasher.clone().finalize() as i64
+  }
 
-    fn reset(&mut self) {
-        self.hasher = self.initial_state.clone();
-    }
+  fn reset(&mut self) {
+    self.hasher = self.initial_state.clone();
+  }
 }

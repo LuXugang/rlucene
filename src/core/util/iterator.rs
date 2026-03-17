@@ -16,39 +16,39 @@
  */
 use crate::core::util::error::lucene_error::Result;
 pub trait IteratorExt {
-    type Item;
-    fn next(&mut self) -> Result<Option<Self::Item>>;
-    fn has_next(&self) -> Result<bool> {
-        Ok(true)
-    }
+  type Item;
+  fn next(&mut self) -> Result<Option<Self::Item>>;
+  fn has_next(&self) -> Result<bool> {
+    Ok(true)
+  }
 }
 
 pub struct VecIter<'a> {
-    data: &'a Vec<String>,
-    pos: usize,
+  data: &'a Vec<String>,
+  pos: usize,
 }
 impl<'a> IteratorExt for VecIter<'a> {
-    type Item = &'a String;
+  type Item = &'a String;
 
-    fn next(&mut self) -> Result<Option<Self::Item>> {
-        if self.pos < self.data.len() {
-            let v = &self.data[self.pos];
-            self.pos += 1;
-            Ok(Some(v))
-        } else {
-            Ok(None)
-        }
+  fn next(&mut self) -> Result<Option<Self::Item>> {
+    if self.pos < self.data.len() {
+      let v = &self.data[self.pos];
+      self.pos += 1;
+      Ok(Some(v))
+    } else {
+      Ok(None)
     }
-    fn has_next(&self) -> Result<bool> {
-        Ok(self.pos < self.data.len())
-    }
+  }
+  fn has_next(&self) -> Result<bool> {
+    Ok(self.pos < self.data.len())
+  }
 }
 pub trait VecIteratorExt {
-    fn iter_ext(&self) -> VecIter<'_>;
+  fn iter_ext(&self) -> VecIter<'_>;
 }
 
 impl VecIteratorExt for Vec<String> {
-    fn iter_ext(&self) -> VecIter<'_> {
-        VecIter { data: self, pos: 0 }
-    }
+  fn iter_ext(&self) -> VecIter<'_> {
+    VecIter { data: self, pos: 0 }
+  }
 }

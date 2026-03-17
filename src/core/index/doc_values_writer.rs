@@ -16,25 +16,25 @@
  */
 use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::core::index::binary_doc_values_writer::{
-    BinaryDocValuesWriter, BufferedBinaryDocValues,
+  BinaryDocValuesWriter, BufferedBinaryDocValues,
 };
 use crate::core::index::docs_with_field_set::DocsWithFieldSetDISI;
 use crate::core::index::numeric_doc_values_writer::{
-    BufferedNumericDocValues, NumericDocValuesWriter,
+  BufferedNumericDocValues, NumericDocValuesWriter,
 };
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values_writer::{
-    BufferedSortedDocValues, SortedDocValuesWriter,
+  BufferedSortedDocValues, SortedDocValuesWriter,
 };
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values_writer::{
-    BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
+  BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
 };
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values_writer::{
-    BufferedSortedSetDocValues, SortedSetDocValuesWriter,
+  BufferedSortedSetDocValues, SortedSetDocValuesWriter,
 };
 use crate::core::index::sorter::DocMap;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum5};
@@ -46,113 +46,101 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 pub(crate) trait DocValuesWriter: Display {
-    fn flush<D, DM, DC>(
-        &mut self,
-        sort_map: Option<&DM>,
-        dv_consumer: &mut DC,
-        segment_info: &SegmentInfo<D>,
-    ) -> Result<()>
-    where
-        D: Directory,
-        DM: DocMap,
-        DC: DocValuesConsumer;
+  fn flush<D, DM, DC>(
+    &mut self,
+    sort_map: Option<&DM>,
+    dv_consumer: &mut DC,
+    segment_info: &SegmentInfo<D>,
+  ) -> Result<()>
+  where
+    D: Directory,
+    DM: DocMap,
+    DC: DocValuesConsumer;
 
-    type DocIdSetIterator: DocIdSetIterator;
-    fn get_doc_values(&self) -> Result<Self::DocIdSetIterator>;
-    fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()>;
+  type DocIdSetIterator: DocIdSetIterator;
+  fn get_doc_values(&self) -> Result<Self::DocIdSetIterator>;
+  fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()>;
 }
 
 pub(crate) enum DocValuesWriterEnum {
-    Binary(BinaryDocValuesWriter),
-    Numeric(NumericDocValuesWriter),
-    SortedNumeric(SortedNumericDocValuesWriter),
-    Sorted(SortedDocValuesWriter),
-    SortedSet(SortedSetDocValuesWriter),
+  Binary(BinaryDocValuesWriter),
+  Numeric(NumericDocValuesWriter),
+  SortedNumeric(SortedNumericDocValuesWriter),
+  Sorted(SortedDocValuesWriter),
+  SortedSet(SortedSetDocValuesWriter),
 }
 impl Display for DocValuesWriterEnum {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DocValuesWriterEnum::Binary(writer) => writer.fmt(f),
-            DocValuesWriterEnum::Numeric(writer) => writer.fmt(f),
-            DocValuesWriterEnum::SortedNumeric(writer) => writer.fmt(f),
-            DocValuesWriterEnum::Sorted(writer) => writer.fmt(f),
-            DocValuesWriterEnum::SortedSet(writer) => writer.fmt(f),
-        }
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      DocValuesWriterEnum::Binary(writer) => writer.fmt(f),
+      DocValuesWriterEnum::Numeric(writer) => writer.fmt(f),
+      DocValuesWriterEnum::SortedNumeric(writer) => writer.fmt(f),
+      DocValuesWriterEnum::Sorted(writer) => writer.fmt(f),
+      DocValuesWriterEnum::SortedSet(writer) => writer.fmt(f),
     }
+  }
 }
 impl DocValuesWriter for DocValuesWriterEnum {
-    fn flush<D, DM, DC>(
-        &mut self,
-        sort_map: Option<&DM>,
-        dv_consumer: &mut DC,
-        segment_info: &SegmentInfo<D>,
-    ) -> Result<()>
-    where
-        D: Directory,
-        DM: DocMap,
-        DC: DocValuesConsumer,
-    {
-        match self {
-            DocValuesWriterEnum::Binary(writer) => {
-                writer.flush(sort_map, dv_consumer, segment_info)
-            },
-            DocValuesWriterEnum::Numeric(writer) => {
-                writer.flush(sort_map, dv_consumer, segment_info)
-            },
-            DocValuesWriterEnum::SortedNumeric(writer) => {
-                writer.flush(sort_map, dv_consumer, segment_info)
-            },
-            DocValuesWriterEnum::Sorted(writer) => {
-                writer.flush(sort_map, dv_consumer, segment_info)
-            },
-            DocValuesWriterEnum::SortedSet(writer) => {
-                writer.flush(sort_map, dv_consumer, segment_info)
-            },
-        }
+  fn flush<D, DM, DC>(
+    &mut self,
+    sort_map: Option<&DM>,
+    dv_consumer: &mut DC,
+    segment_info: &SegmentInfo<D>,
+  ) -> Result<()>
+  where
+    D: Directory,
+    DM: DocMap,
+    DC: DocValuesConsumer,
+  {
+    match self {
+      DocValuesWriterEnum::Binary(writer) => writer.flush(sort_map, dv_consumer, segment_info),
+      DocValuesWriterEnum::Numeric(writer) => writer.flush(sort_map, dv_consumer, segment_info),
+      DocValuesWriterEnum::SortedNumeric(writer) => {
+        writer.flush(sort_map, dv_consumer, segment_info)
+      },
+      DocValuesWriterEnum::Sorted(writer) => writer.flush(sort_map, dv_consumer, segment_info),
+      DocValuesWriterEnum::SortedSet(writer) => writer.flush(sort_map, dv_consumer, segment_info),
     }
+  }
 
-    type DocIdSetIterator = DocValuesWriterDISI;
+  type DocIdSetIterator = DocValuesWriterDISI;
 
-    fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
-        match self {
-            DocValuesWriterEnum::Binary(writer) => {
-                Ok(DocIdSetIteratorEnum5::A(writer.get_doc_values()?))
-            },
-            DocValuesWriterEnum::Numeric(writer) => {
-                Ok(DocIdSetIteratorEnum5::B(writer.get_doc_values()?))
-            },
-            DocValuesWriterEnum::SortedNumeric(writer) => {
-                Ok(DocIdSetIteratorEnum5::C(writer.get_doc_values()?))
-            },
-            DocValuesWriterEnum::Sorted(writer) => {
-                Ok(DocIdSetIteratorEnum5::D(writer.get_doc_values()?))
-            },
-            DocValuesWriterEnum::SortedSet(writer) => {
-                Ok(DocIdSetIteratorEnum5::E(writer.get_doc_values()?))
-            },
-        }
+  fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
+    match self {
+      DocValuesWriterEnum::Binary(writer) => Ok(DocIdSetIteratorEnum5::A(writer.get_doc_values()?)),
+      DocValuesWriterEnum::Numeric(writer) => {
+        Ok(DocIdSetIteratorEnum5::B(writer.get_doc_values()?))
+      },
+      DocValuesWriterEnum::SortedNumeric(writer) => {
+        Ok(DocIdSetIteratorEnum5::C(writer.get_doc_values()?))
+      },
+      DocValuesWriterEnum::Sorted(writer) => Ok(DocIdSetIteratorEnum5::D(writer.get_doc_values()?)),
+      DocValuesWriterEnum::SortedSet(writer) => {
+        Ok(DocIdSetIteratorEnum5::E(writer.get_doc_values()?))
+      },
     }
+  }
 
-    fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()> {
-        match self {
-            DocValuesWriterEnum::Binary(writer) => writer.finish(pool),
-            DocValuesWriterEnum::Numeric(writer) => writer.finish(pool),
-            DocValuesWriterEnum::SortedNumeric(writer) => writer.finish(pool),
-            DocValuesWriterEnum::Sorted(writer) => writer.finish(pool),
-            DocValuesWriterEnum::SortedSet(writer) => writer.finish(pool),
-        }
+  fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()> {
+    match self {
+      DocValuesWriterEnum::Binary(writer) => writer.finish(pool),
+      DocValuesWriterEnum::Numeric(writer) => writer.finish(pool),
+      DocValuesWriterEnum::SortedNumeric(writer) => writer.finish(pool),
+      DocValuesWriterEnum::Sorted(writer) => writer.finish(pool),
+      DocValuesWriterEnum::SortedSet(writer) => writer.finish(pool),
     }
+  }
 }
 pub(crate) type DocValuesWriterDISI = DocIdSetIteratorEnum5<
-    BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>,
-    BufferedNumericDocValues,
-    SortedNumericDocValuesEnum2<
-        SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-        BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
-    >,
-    BufferedSortedDocValues<DocsWithFieldSetDISI>,
-    SortedSetDocValuesEnum2<
-        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
-        BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
-    >,
+  BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>,
+  BufferedNumericDocValues,
+  SortedNumericDocValuesEnum2<
+    SingletonSortedNumericDocValues<BufferedNumericDocValues>,
+    BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
+  >,
+  BufferedSortedDocValues<DocsWithFieldSetDISI>,
+  SortedSetDocValuesEnum2<
+    SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
+    BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
+  >,
 >;
