@@ -1444,7 +1444,8 @@ mod tests {
     use crate::test::core::index::random_index_writer::RandomIndexWriter;
     use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
         at_least, get_only_leaf_reader, is_night_mode, new_directory_shared,
-        new_index_writer_config, new_log_merge_policy, random,
+        new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
+        random,
     };
     use crate::test::core::util::test_util::TestUtil;
     use rand::Rng;
@@ -1954,8 +1955,8 @@ mod tests {
 
         let dir = new_directory_shared(&mut random)?;
 
-        let _mock = MockAnalyzer::new(&mut random);
-        let mut iwc = new_index_writer_config(&mut random);
+        let mock = MockAnalyzer::new(&mut random);
+        let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
         iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
         let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);

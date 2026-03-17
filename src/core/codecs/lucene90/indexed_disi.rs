@@ -521,7 +521,7 @@ impl MethodBehavior for SparseMethod {
                     if doc != target_in_block {
                         disi.index -= 1;
                         let fp = slice.get_file_pointer()?;
-                        slice.seek(fp - 2)?;
+                        slice.seek(fp - BitUtil::SHORT_BYTES)?;
                         break;
                     }
 
