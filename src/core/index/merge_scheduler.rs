@@ -23,6 +23,8 @@ use crate::core::store::directory::{Directory, DirectoryEnum2};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::impl_from_for_enum;
+#[cfg(test)]
+use crate::test::core::index::base_merge_policy_test_case::SerialMergeSchedulerImpl;
 
 pub trait MergeScheduler: Closeable {
     fn merge<MS, D, L, B>(
@@ -97,6 +99,8 @@ pub trait MergeSource {
 pub enum MergeSchedulerEnum {
     Serial(SerialMergeScheduler),
     No(NoMergeScheduler),
+    #[cfg(test)]
+    SerialTest(SerialMergeSchedulerImpl),
 }
 impl_from_for_enum!(
     MergeSchedulerEnum,
@@ -114,6 +118,8 @@ impl Closeable for MergeSchedulerEnum {
         match self {
             MergeSchedulerEnum::Serial(s) => s.close(),
             MergeSchedulerEnum::No(n) => n.close(),
+            #[cfg(test)]
+            MergeSchedulerEnum::SerialTest(s) => s.close(),
         }
     }
 }
@@ -134,6 +140,8 @@ impl MergeScheduler for MergeSchedulerEnum {
         match self {
             MergeSchedulerEnum::Serial(s) => s.merge(merge_source, trigger, index_writer),
             MergeSchedulerEnum::No(n) => n.merge(merge_source, trigger, index_writer),
+            #[cfg(test)]
+            MergeSchedulerEnum::SerialTest(s) => s.merge(merge_source, trigger, index_writer),
         }
     }
 
@@ -152,6 +160,8 @@ impl MergeScheduler for MergeSchedulerEnum {
         match self {
             MergeSchedulerEnum::Serial(s) => Ok(DirectoryEnum2::A(s.wrap_for_merge(in_)?)),
             MergeSchedulerEnum::No(n) => Ok(DirectoryEnum2::B(n.wrap_for_merge(in_)?)),
+            #[cfg(test)]
+            MergeSchedulerEnum::SerialTest(s) => Ok(DirectoryEnum2::A(s.wrap_for_merge(in_)?)),
         }
     }
 }
