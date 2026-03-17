@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(test)]
+use rand::{Rng, RngExt};
+
 /// MergeTrigger is passed to `MergePolicy::find_merges(MergeTrigger, SegmentInfos, MergeContext)`
 /// to indicate the event that triggered the merge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,4 +45,20 @@ pub enum MergeTrigger {
 
     /// Merge was triggered by an `IndexWriter::add_indexes(CodecReader...)` operation.
     AddIndexes,
+}
+#[cfg(test)]
+impl MergeTrigger {
+    pub(crate) fn random_trigger<R: Rng + ?Sized>(random: &mut R) -> MergeTrigger {
+        match random.random_range(0..8) {
+            0 => MergeTrigger::SegmentFlush,
+            1 => MergeTrigger::FullFlush,
+            2 => MergeTrigger::Explicit,
+            3 => MergeTrigger::MergeFinished,
+            4 => MergeTrigger::Closing,
+            5 => MergeTrigger::Commit,
+            6 => MergeTrigger::GetReader,
+            7 => MergeTrigger::AddIndexes,
+            _ => unreachable!(),
+        }
+    }
 }

@@ -17,7 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader::directory_reader_util;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_writer::{
     IndexWriter, IndexWriterBase, Inner, SOURCE, SOURCE_FLUSH, SOURCE_MERGE,
 };
@@ -31,11 +31,15 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
+use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
+use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
+use crate::core::store::dummy::dummy_lock::DummyLock;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
-use crate::core::util::{LATEST, LUCENE_11_0_0, StringHelper};
+use crate::core::util::{HasIdentity, LATEST, LUCENE_11_0_0, StringHelper};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_index_writer_config_with_analyzer,
@@ -43,10 +47,11 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use crate::test::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
 /// Base test case for [`MergePolicy`]
 pub trait BaseMergePolicyTestCase {
     type MergePolicy: MergePolicy + Into<MergePolicyEnum>;
@@ -62,15 +67,11 @@ pub trait BaseMergePolicyTestCase {
         D: Directory,
         CR: CodecReader;
 
-    fn test_force_merge_not_needed<D, R>(
-        &self,
-        random: &mut R,
-        fake_directory: Arc<D>,
-    ) -> Result<()>
+    fn test_force_merge_not_needed<R>(&self, random: &mut R) -> Result<()>
     where
-        D: Directory,
         R: Rng + ?Sized,
     {
+        let dir = new_directory_shared(random)?;
         let may_merge = Arc::new(AtomicBool::new(true));
 
         let merge_scheduler = SerialMergeSchedulerImpl::new(may_merge.clone());
@@ -88,7 +89,7 @@ pub trait BaseMergePolicyTestCase {
         iwc.set_merge_scheduler(MergeSchedulerEnum::SerialTest(merge_scheduler));
         iwc.set_merge_policy(mp);
 
-        let writer = IndexWriter::new(fake_directory.clone(), iwc)?;
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
 
         let num_segments = TestUtil::next_int(random, 2, 20);
 
@@ -822,5 +823,111 @@ impl MergeScheduler for SerialMergeSchedulerImpl {
         D: Directory,
     {
         self.base.initialize(directory)
+    }
+}
+
+pub(crate) struct FakeDirectory {
+    id: Identity,
+}
+impl FakeDirectory {
+    pub(crate) fn new() -> Self {
+        Self {
+            id: Identity::new(),
+        }
+    }
+}
+
+impl Display for FakeDirectory {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<Self>())
+    }
+}
+
+impl Closeable for FakeDirectory {
+    fn close(&mut self) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
+
+impl HasIdentity for FakeDirectory {
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
+
+impl Directory for FakeDirectory {
+    fn list_all(&self) -> Result<Vec<String>> {
+        Ok(vec![])
+    }
+
+    fn delete_file(&self, _name: &str) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn file_length(&self, name: &str) -> Result<usize> {
+        if name.ends_with(".liv") {
+            return Ok(0);
+        }
+
+        if !name.ends_with(".fake") {
+            return Err(LuceneError::illegal_argument(name.to_string()));
+        }
+
+        let marker = "_size=";
+        let start_index = name
+            .find(marker)
+            .ok_or_else(|| LuceneError::illegal_argument(name.to_string()))?
+            + marker.len();
+
+        let end_index = name.len() - ".fake".len();
+
+        let size = name[start_index..end_index]
+            .parse::<i64>()
+            .map_err(|_| LuceneError::illegal_argument(name.to_string()))?;
+
+        Ok(size as usize)
+    }
+
+    fn create_output(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type IndexOutput = DummyIndexOutput;
+
+    fn create_temp_output(
+        &self,
+        _prefix: &str,
+        _suffix: &str,
+        _context: &IOContext,
+    ) -> Result<Self::IndexOutput> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn sync(&self, _names: &[String]) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn sync_metadata(&self) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn rename(&self, _source: &str, _dest: &str) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type IndexInput = DummyIndexInput;
+
+    fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexInput> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type Lock = DummyLock;
+
+    fn obtain_lock(&self, _name: &str) -> Result<Self::Lock> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+        Err(LuceneError::unsupported_operation(""))
     }
 }

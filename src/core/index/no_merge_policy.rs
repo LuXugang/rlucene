@@ -122,3 +122,146 @@ impl MergePolicy for NoMergePolicy {
         Ok(i64::MAX)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::core::index::codec_reader::CodecReader;
+    use crate::core::index::dummy::dummy_merge_context::DummyMergeContext;
+    use crate::core::index::index_writer::{SOURCE, SOURCE_FLUSH};
+    use crate::core::index::merge_policy::{MergePolicy, MergeSpecification};
+    use crate::core::index::merge_trigger::MergeTrigger;
+    use crate::core::index::no_merge_policy::NoMergePolicy;
+    use crate::core::index::segment_infos::SegmentInfos;
+    use crate::core::store::directory::Directory;
+    use crate::core::store::dummy::dummy_directory::DummyDirectory;
+    use crate::core::util::LATEST;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::core::index::base_merge_policy_test_case::{
+        BaseMergePolicyTestCase, FakeDirectory,
+    };
+    use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    struct TestNoMergePolicy;
+    impl BaseMergePolicyTestCase for TestNoMergePolicy {
+        type MergePolicy = NoMergePolicy;
+
+        fn merge_policy(&self) -> Self::MergePolicy {
+            NoMergePolicy::default()
+        }
+
+        fn assert_segment_infos<D>(
+            _policy: &Self::MergePolicy,
+            infos: &SegmentInfos<D>,
+        ) -> Result<()>
+        where
+            D: Directory,
+        {
+            for info in infos.segments.iter() {
+                assert_eq!(SOURCE_FLUSH, info.info.get_attribute(SOURCE).unwrap());
+            }
+            Ok(())
+        }
+
+        fn assert_merge<D, CR>(
+            _policy: &Self::MergePolicy,
+            _merge: &MergeSpecification<D, CR>,
+        ) -> Result<()>
+        where
+            D: Directory,
+            CR: CodecReader,
+        {
+            Err(LuceneError::unreachable("should never happen"))
+        }
+    }
+
+    #[test]
+    fn test_no_merge_policy() -> Result<()> {
+        let mut random = random();
+        let case = TestNoMergePolicy;
+        let mp = case.merge_policy();
+        assert!(
+            mp.find_merges(
+                MergeTrigger::random_trigger(&mut random),
+                &SegmentInfos::<DummyDirectory>::new(LATEST.major - 1)?,
+                None,
+                &DummyMergeContext,
+            )?
+            .is_none()
+        );
+        assert!(
+            mp.find_forced_merges(
+                &SegmentInfos::<DummyDirectory>::new(LATEST.major - 1)?,
+                0,
+                &HashMap::new(),
+                None,
+                &DummyMergeContext,
+            )?
+            .is_none()
+        );
+        assert!(
+            mp.find_forced_deletes_merges(
+                &SegmentInfos::<DummyDirectory>::new(LATEST.major - 1)?,
+                None,
+                &DummyMergeContext
+            )?
+            .is_none()
+        );
+        Ok(())
+    }
+    #[test]
+    fn test_final_singleton() -> Result<()> {
+        // this test is not required in Rust Lucene
+        Ok(())
+    }
+    #[test]
+    fn test_methods_overridden() -> Result<()> {
+        // this test is not required in Rust Lucene
+        Ok(())
+    }
+
+    #[test]
+    fn test_force_merge_not_needed() -> Result<()> {
+        let mut random = random();
+        let case = TestNoMergePolicy;
+        case.test_force_merge_not_needed(&mut random)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_find_forced_deletes_merges() -> Result<()> {
+        let mut random = random();
+        let case = TestNoMergePolicy;
+        case.test_find_forced_deletes_merges(&mut random)?;
+        Ok(())
+    }
+    #[test]
+    fn test_simulate_append_only() -> Result<()> {
+        let mut random = random();
+        let case = TestNoMergePolicy;
+        let mp = case.merge_policy();
+        let fake_dir = Arc::new(FakeDirectory::new());
+        case.do_test_simulate_append_only(&mut random, &mp, fake_dir, 1_000_000, 10_000)?;
+        Ok(())
+    }
+    #[test]
+    fn test_simulate_updates() -> Result<()> {
+        let mut random = random();
+        let case = TestNoMergePolicy;
+        let mp = case.merge_policy();
+        let fake_dir = Arc::new(FakeDirectory::new());
+        case.do_test_simulate_updates(&mut random, &mp, fake_dir, 100_000, 10_000)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_pathological_merges() -> Result<()> {
+        let mut random = random();
+        let case = TestNoMergePolicy;
+        let mp = case.merge_policy();
+        let fake_dir = Arc::new(FakeDirectory::new());
+        case.test_no_pathological_merges(&mut random, &mp, fake_dir)?;
+        Ok(())
+    }
+}
