@@ -223,7 +223,7 @@ fn test_no_prx_file() -> Result<()> {
     writer.close()?;
     Ok(())
 }
-
+#[test]
 fn test_basic() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;

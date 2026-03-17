@@ -17,7 +17,7 @@
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::fields::Fields;
 use crate::core::index::BytesRef;
-use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter};
+use crate::core::index::index_writer::{DefaultIndexWriterType, DocStats, IndexWriter};
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::index::term::Term;
@@ -109,5 +109,8 @@ where
         F: Into<String>,
     {
         self.w.update_binary_doc_value(term, field, value)
+    }
+    pub fn get_doc_stats(&self) -> Result<DocStats> {
+        self.w.get_doc_stats()
     }
 }
