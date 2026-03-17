@@ -734,20 +734,26 @@ pub mod lucene_test_case_util {
     pub(crate) fn get_seed_from_env() -> u64 {
         static GLOBAL_SEED: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
 
-        *GLOBAL_SEED.get_or_init(|| {
-            if let Ok(seed_str) = std::env::var(TestSeed.to_string()) {
+        fn current_seed() -> u64 {
+            if let Some(seed) = GLOBAL_SEED.get() {
+                *seed
+            } else if let Ok(seed_str) = std::env::var(TestSeed.to_string()) {
                 if let Ok(seed) = seed_str.parse::<u64>() {
                     println!("Using Global Seed from environment: '{}'", seed);
-                    return seed;
+                    seed
+                } else {
+                    println!("Environment variable tests.seed is invalid: '{}'", seed_str);
+                    let seed = rand::rng().random_range(0..u64::MAX);
+                    println!("Generated random seed: {}", seed);
+                    seed
                 }
-
-                println!("Environment variable tests.seed is invalid: '{}'", seed_str);
+            } else {
+                let seed = rand::rng().random_range(0..u64::MAX);
+                println!("Generated random seed: {}", seed);
+                seed
             }
-
-            let seed = rand::rng().random_range(0..u64::MAX);
-            println!("Generated random seed : {}", seed);
-            seed
-        })
+        }
+        current_seed()
     }
 
     pub(crate) fn random() -> StdRng {
