@@ -138,6 +138,38 @@ pub enum MultiTermQueryEnum {
     Wildcard(WildcardQuery),
     Regexp(RegexpQuery),
 }
+#[cfg(debug_assertions)]
+impl From<MultiTermQueryEnum> for Query {
+    fn from(value: MultiTermQueryEnum) -> Self {
+        match value {
+            MultiTermQueryEnum::Prefix(q) => Query::Prefix(q),
+            MultiTermQueryEnum::TermRange(q) => Query::TermRange(q),
+            MultiTermQueryEnum::Automaton(q) => Query::Automaton(q),
+            MultiTermQueryEnum::Wildcard(q) => Query::Wildcard(q),
+            MultiTermQueryEnum::Regexp(q) => Query::Regexp(q),
+        }
+    }
+}
+
+#[cfg(debug_assertions)]
+impl MultiTermQueryEnum {
+    pub fn from_query(query: &Query) -> Option<Self> {
+        match query {
+            Query::Prefix(q) => Some(Self::Prefix(q.clone())),
+            Query::TermRange(q) => Some(Self::TermRange(q.clone())),
+            Query::Automaton(q) => Some(Self::Automaton(q.clone())),
+            Query::Wildcard(q) => Some(Self::Wildcard(q.clone())),
+            Query::Regexp(q) => Some(Self::Regexp(q.clone())),
+            _ => None,
+        }
+    }
+}
+#[cfg(debug_assertions)]
+impl Query {
+    pub fn is_multi_term_query(&self) -> bool {
+        MultiTermQueryEnum::from_query(self).is_some()
+    }
+}
 
 impl QueryBase for MultiTermQueryEnum {
     fn as_string(&self, field: &str) -> Result<String> {

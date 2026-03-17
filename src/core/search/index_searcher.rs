@@ -37,7 +37,7 @@ use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_cache::QueryCacheEnum;
-use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
+use crate::core::search::query_caching_policy::{QueryCachingPolicyArc, QueryCachingPolicyEnum};
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -740,6 +740,16 @@ where
 
     pub fn set_query_cache(&mut self, query_cache: Option<QueryCacheEnum<IRC>>) {
         self.query_cache = query_cache;
+    }
+    pub fn get_query_cache(&self) -> Option<&QueryCacheEnum<IRC>> {
+        self.query_cache.as_ref()
+    }
+
+    pub fn set_query_caching_policy<T>(&mut self, query_caching_policy: T)
+    where
+        T: QueryCachingPolicyArc,
+    {
+        self.query_caching_policy = query_caching_policy.into_query_cache_policy_arc();
     }
 }
 

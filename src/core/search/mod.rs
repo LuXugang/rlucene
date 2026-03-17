@@ -133,6 +133,7 @@ mod scorer_util;
 pub(crate) mod simple_scorable;
 mod sloppy_phrase_matcher;
 pub mod sort;
+pub mod term_in_set_query;
 pub mod term_range_query;
 pub mod top_field_collector;
 pub mod top_field_collector_manager;

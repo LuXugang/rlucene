@@ -44,8 +44,11 @@ use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_range_query::TermRangeQuery;
+#[cfg(test)]
+use crate::core::search::usage_tracking_query_caching_policy::tests::DummyQuery1;
 #[cfg(test)]
 use crate::core::search::wand_scorer::tests::MaxScoreWrapperQuery;
 #[cfg(test)]
@@ -110,12 +113,15 @@ macro_rules! dispatch_query {
             Query::SortedSetDocValuesRange($inner) => $body,
             Query::Phrase($inner) => $body,
             Query::Term($inner) => $body,
+            Query::TermInSet($inner) => $body,
             Query::TermRange($inner) => $body,
             Query::Wildcard($inner) => $body,
             #[cfg(test)]
             Query::BitSet($inner) => $body,
             #[cfg(test)]
             Query::BlockScoreQueryWrapper($inner) => $body,
+            #[cfg(test)]
+            Query::Dummy1($inner) => $body,
             #[cfg(test)]
             Query::MaxScoreWrapper($inner) => $body,
             #[cfg(test)]
@@ -149,6 +155,7 @@ impl_from_for_enum!(
     SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
     SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
     TermQuery => Term,
+    TermInSetQuery => TermInSet,
     TermRangeQuery => TermRange,
     PhraseQuery=> Phrase,
     WildcardQuery => Wildcard,
@@ -158,6 +165,7 @@ impl_from_for_enum!(
     Query,
     BitSetQuery => BitSet,
     BlockScoreQueryWrapper => BlockScoreQueryWrapper,
+    DummyQuery1=> Dummy1,
     MaxScoreWrapperQuery => MaxScoreWrapper,
     RandomApproximationQuery => RandomApproximation,
     TestRewriteQuery => TestRewrite,
@@ -185,6 +193,7 @@ impl_into_box_query!(
     PhraseQuery,
     PrefixQuery,
     TermQuery,
+    TermInSetQuery,
     TermRangeQuery,
     WildcardQuery,
 );
@@ -235,12 +244,15 @@ pub enum Query {
     Phrase(PhraseQuery),
     Prefix(PrefixQuery),
     Term(TermQuery),
+    TermInSet(TermInSetQuery),
     TermRange(TermRangeQuery),
     Wildcard(WildcardQuery),
     #[cfg(test)]
     BitSet(BitSetQuery),
     #[cfg(test)]
     BlockScoreQueryWrapper(BlockScoreQueryWrapper),
+    #[cfg(test)]
+    Dummy1(DummyQuery1),
     #[cfg(test)]
     MaxScoreWrapper(MaxScoreWrapperQuery),
     #[cfg(test)]
@@ -293,12 +305,14 @@ impl Query {
                 Phrase,
                 Prefix,
                 Term,
+                TermInSet,
                 TermRange,
                 Wildcard,
             ];
             test: [
                 BitSet,
                 BlockScoreQueryWrapper,
+                Dummy1,
                 MaxScoreWrapper,
                 RandomApproximation,
                 TestRewrite,

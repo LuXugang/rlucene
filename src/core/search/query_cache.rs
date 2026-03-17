@@ -18,6 +18,8 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
 use crate::core::search::query::QueryWeight;
 use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
+#[cfg(test)]
+use crate::core::search::usage_tracking_query_caching_policy::tests::PredicateImpl;
 use std::sync::Arc;
 
 /// A cache for queries.
@@ -44,6 +46,8 @@ where
     IRC: IndexReaderContext,
 {
     Lru(Arc<LRUQueryCache<MinSegmentSizePredicate>>),
+    #[cfg(test)]
+    LruImpl(Arc<LRUQueryCache<PredicateImpl>>),
     Custom(BoxQueryCache<IRC>),
 }
 impl<IRC> QueryCacheEnum<IRC>
@@ -71,6 +75,8 @@ where
     {
         match self {
             QueryCacheEnum::Lru(cache) => cache.do_cache(weight, policy),
+            #[cfg(test)]
+            QueryCacheEnum::LruImpl(cache) => cache.do_cache(weight, policy),
             QueryCacheEnum::Custom(cache) => cache.do_cache(weight, policy),
         }
     }

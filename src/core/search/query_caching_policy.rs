@@ -97,3 +97,22 @@ impl QueryCachingPolicy for QueryCachingPolicyEnum {
         }
     }
 }
+
+pub trait QueryCachingPolicyArc {
+    fn into_query_cache_policy_arc(self) -> Arc<QueryCachingPolicyEnum>;
+}
+
+impl QueryCachingPolicyArc for Arc<QueryCachingPolicyEnum> {
+    fn into_query_cache_policy_arc(self) -> Arc<QueryCachingPolicyEnum> {
+        self
+    }
+}
+
+impl<T> QueryCachingPolicyArc for T
+where
+    T: QueryCachingPolicy + Into<QueryCachingPolicyEnum>,
+{
+    fn into_query_cache_policy_arc(self) -> Arc<QueryCachingPolicyEnum> {
+        Arc::new(self.into())
+    }
+}
