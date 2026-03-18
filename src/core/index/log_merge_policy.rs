@@ -1375,7 +1375,9 @@ mod tests {
     let case = TestLogMergePolicy;
     let mp = case.merge_policy(&mut r);
     let fake_dir = Arc::new(FakeDirectory::new());
-    case.test_simulate_append_only(&mut r, &mp, fake_dir)
+    // TODO IMPORTANT 默认的一亿篇文档速度很慢
+    // case.test_simulate_append_only(&mut r, &mp, fake_dir)
+    case.do_test_simulate_append_only(&mut r, &mp, fake_dir, 50_000_000, 10_000)
   }
 
   #[test]
