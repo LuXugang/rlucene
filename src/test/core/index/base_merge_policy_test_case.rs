@@ -55,7 +55,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 /// Base test case for [`MergePolicy`]
 pub trait BaseMergePolicyTestCase {
   type MergePolicy: MergePolicy + Into<MergePolicyEnum>;
-  fn merge_policy(&self) -> Self::MergePolicy;
+  fn merge_policy<R>(&self, random: &mut R) -> Self::MergePolicy
+  where
+    R: Rng + ?Sized;
   fn assert_segment_infos<D>(policy: &Self::MergePolicy, infos: &SegmentInfos<D>) -> Result<()>
   where
     D: Directory;
@@ -76,7 +78,7 @@ pub trait BaseMergePolicyTestCase {
 
     let merge_scheduler = SerialMergeSchedulerImpl::new(may_merge.clone());
 
-    let mut mp = self.merge_policy();
+    let mut mp = self.merge_policy(random);
 
     if random.random_bool(0.5) {
       mp.get_base_mut().set_no_cfs_ratio(0.0)?;
@@ -132,7 +134,7 @@ pub trait BaseMergePolicyTestCase {
   }
 
   fn test_find_forced_deletes_merges<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-    let mp = self.merge_policy();
+    let mp = self.merge_policy(random);
 
     let mut infos = SegmentInfos::new(LATEST.major)?;
     let directory = new_directory_shared(random)?;

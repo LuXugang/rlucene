@@ -1106,7 +1106,7 @@ mod tests {
   use crate::core::util::LATEST;
   use crate::core::util::bytes_ref_iterator::BytesRefIterator;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
-  use rand::RngExt;
+  use rand::{Rng, RngExt};
   use std::collections::{HashMap, HashSet};
   use std::sync::Arc;
   use std::sync::atomic::{AtomicU64, Ordering};
@@ -2074,7 +2074,7 @@ mod tests {
     let fake_directory = Arc::new(FakeDirectory::new());
     let case = TestTieredMergePolicy;
 
-    let merge_policy = case.merge_policy();
+    let merge_policy = case.merge_policy(&mut random);
     let mut infos = SegmentInfos::new(LATEST.major)?;
 
     infos.add(make_segment_commit_info(
@@ -2247,7 +2247,7 @@ mod tests {
   fn test_simulate_append_only() -> Result<()> {
     let mut random = random();
     let case = TestTieredMergePolicy;
-    let mut mp = case.merge_policy();
+    let mut mp = case.merge_policy(&mut random);
     let fake_dir = Arc::new(FakeDirectory::new());
     let v = TestUtil::next_int(&mut random, 1024, 10 * 1024) as f64;
     mp.set_max_merged_segment_mb(v)?;
@@ -2259,7 +2259,7 @@ mod tests {
     let mut random = random();
     let case = TestTieredMergePolicy;
     let v = TestUtil::next_int(&mut random, 1024, 10 * 1024) as f64;
-    let mut mp = case.merge_policy();
+    let mut mp = case.merge_policy(&mut random);
     mp.set_max_merged_segment_mb(v)?;
     let fake_dir = Arc::new(FakeDirectory::new());
     let num_docs = if is_night_mode() {
@@ -2274,7 +2274,7 @@ mod tests {
   fn test_no_pathological_merges() -> Result<()> {
     let mut random = random();
     let case = TestTieredMergePolicy;
-    let mp = case.merge_policy();
+    let mp = case.merge_policy(&mut random);
     let fake_dir = Arc::new(FakeDirectory::new());
     case.test_no_pathological_merges(&mut random, &mp, fake_dir)?;
     Ok(())
@@ -2283,9 +2283,11 @@ mod tests {
   impl BaseMergePolicyTestCase for TestTieredMergePolicy {
     type MergePolicy = TieredMergePolicy;
 
-    fn merge_policy(&self) -> Self::MergePolicy {
-      let mut random = random();
-      new_tiered_merge_policy(&mut random)
+    fn merge_policy<R>(&self, random: &mut R) -> Self::MergePolicy
+    where
+      R: Rng + ?Sized,
+    {
+      new_tiered_merge_policy(random)
     }
 
     fn assert_segment_infos<D>(

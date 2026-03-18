@@ -140,6 +140,7 @@ mod tests {
     BaseMergePolicyTestCase, FakeDirectory,
   };
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use rand::Rng;
   use std::collections::HashMap;
   use std::sync::Arc;
 
@@ -147,7 +148,10 @@ mod tests {
   impl BaseMergePolicyTestCase for TestNoMergePolicy {
     type MergePolicy = NoMergePolicy;
 
-    fn merge_policy(&self) -> Self::MergePolicy {
+    fn merge_policy<R>(&self, _random: &mut R) -> Self::MergePolicy
+    where
+      R: Rng + ?Sized,
+    {
       NoMergePolicy::default()
     }
 
@@ -177,7 +181,7 @@ mod tests {
   fn test_no_merge_policy() -> Result<()> {
     let mut random = random();
     let case = TestNoMergePolicy;
-    let mp = case.merge_policy();
+    let mp = case.merge_policy(&mut random);
     assert!(
       mp.find_merges(
         MergeTrigger::random_trigger(&mut random),
@@ -237,7 +241,7 @@ mod tests {
   fn test_simulate_append_only() -> Result<()> {
     let mut random = random();
     let case = TestNoMergePolicy;
-    let mp = case.merge_policy();
+    let mp = case.merge_policy(&mut random);
     let fake_dir = Arc::new(FakeDirectory::new());
     case.do_test_simulate_append_only(&mut random, &mp, fake_dir, 1_000_000, 10_000)?;
     Ok(())
@@ -246,7 +250,7 @@ mod tests {
   fn test_simulate_updates() -> Result<()> {
     let mut random = random();
     let case = TestNoMergePolicy;
-    let mp = case.merge_policy();
+    let mp = case.merge_policy(&mut random);
     let fake_dir = Arc::new(FakeDirectory::new());
     case.do_test_simulate_updates(&mut random, &mp, fake_dir, 100_000, 10_000)?;
     Ok(())
@@ -256,7 +260,7 @@ mod tests {
   fn test_no_pathological_merges() -> Result<()> {
     let mut random = random();
     let case = TestNoMergePolicy;
-    let mp = case.merge_policy();
+    let mp = case.merge_policy(&mut random);
     let fake_dir = Arc::new(FakeDirectory::new());
     case.test_no_pathological_merges(&mut random, &mp, fake_dir)?;
     Ok(())

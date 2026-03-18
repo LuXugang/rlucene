@@ -877,6 +877,7 @@ mod tests {
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     new_log_merge_policy, random,
   };
+  use rand::Rng;
   use std::sync::Arc;
   use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -885,9 +886,11 @@ mod tests {
   impl BaseMergePolicyTestCase for TestLogMergePolicy {
     type MergePolicy = MergePolicyEnum;
 
-    fn merge_policy(&self) -> Self::MergePolicy {
-      let mut r = random();
-      new_log_merge_policy(&mut r).expect("")
+    fn merge_policy<R>(&self, random: &mut R) -> Self::MergePolicy
+    where
+      R: Rng + ?Sized,
+    {
+      new_log_merge_policy(random).expect("")
     }
 
     fn assert_segment_infos<D>(policy: &Self::MergePolicy, infos: &SegmentInfos<D>) -> Result<()>
@@ -1296,7 +1299,7 @@ mod tests {
   fn test_full_flush_merges() -> Result<()> {
     let mut r = random();
     let case = TestLogMergePolicy;
-    let mp = case.merge_policy();
+    let mp = case.merge_policy(&mut r);
 
     let seg_name_generator = AtomicU64::new(0);
     let mut stats = IOStats::default();
@@ -1370,7 +1373,7 @@ mod tests {
   fn test_simulate_append_only() -> Result<()> {
     let mut r = random();
     let case = TestLogMergePolicy;
-    let mp = case.merge_policy();
+    let mp = case.merge_policy(&mut r);
     let fake_dir = Arc::new(FakeDirectory::new());
     case.test_simulate_append_only(&mut r, &mp, fake_dir)
   }
@@ -1379,7 +1382,7 @@ mod tests {
   fn test_simulate_updates() -> Result<()> {
     let mut r = random();
     let case = TestLogMergePolicy;
-    let mp = case.merge_policy();
+    let mp = case.merge_policy(&mut r);
     let fake_dir = Arc::new(FakeDirectory::new());
     case.test_simulate_updates(&mut r, &mp, fake_dir)
   }
@@ -1388,7 +1391,7 @@ mod tests {
   fn test_no_pathological_merges() -> Result<()> {
     let mut r = random();
     let case = TestLogMergePolicy;
-    let mp = case.merge_policy();
+    let mp = case.merge_policy(&mut r);
     let fake_dir = Arc::new(FakeDirectory::new());
     case.test_no_pathological_merges(&mut r, &mp, fake_dir)
   }
