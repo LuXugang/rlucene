@@ -185,7 +185,7 @@ pub trait BaseMergePolicyTestCase {
     Ok(())
   }
 
-  fn test_simulate_append_only<D, MP, R>(
+  fn test_simulate_append_only<D, R>(
     &self,
     random: &mut R,
     merge_policy: &Self::MergePolicy,
