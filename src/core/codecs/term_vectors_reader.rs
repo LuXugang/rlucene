@@ -224,8 +224,8 @@ mod tests {
 
     let dir = new_directory_shared(&mut random)?;
 
-    // TODO c需要使用带分词器的构造方法
-    let w = RandomIndexWriter::new(&mut random, dir.clone());
+    let mock = MockAnalyzer::new(&mut random);
+    let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), mock);
 
     let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
     ft.set_store_term_vectors(true)?;
@@ -285,8 +285,8 @@ mod tests {
 
     let dir = new_directory_shared(&mut random)?;
 
-    // TODO: 需要使用带分词器的构造方法
-    let w = RandomIndexWriter::new(&mut random, dir.clone());
+    let mock = MockAnalyzer::new(&mut random);
+    let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), mock);
 
     let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
     ft.set_store_term_vectors(false)?;

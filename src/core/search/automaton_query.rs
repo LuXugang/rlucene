@@ -242,6 +242,11 @@ mod tests {
   use std::collections::HashMap;
   use std::rc::Rc;
 
+  use crate::core::search::query::Query;
+  use crate::core::search::regexp_query::RegexpQuery;
+  use crate::core::search::wildcard_query::WildcardQuery;
+  use crate::core::util::CoreHelper;
+
   #[allow(dead_code)] // for quick search
   struct TestAutomatonQuery;
   const FN: &str = "field";
@@ -430,8 +435,47 @@ mod tests {
 
     Ok(())
   }
+  #[test]
   fn test_equals() -> Result<()> {
-    // TODO WildcardQuery RegexpQuery未实现
+    let a1 = AutomatonQuery::from_automaton(new_term("foobar"), Automata::make_string("foobar")?)?;
+    let a2 = a1.clone();
+    let a3 = AutomatonQuery::from_automaton(
+      new_term("foobar"),
+      Operations::concatenate(
+        &Automata::make_string("foo")?,
+        &Automata::make_string("bar")?,
+      )?,
+    )?;
+    let a4 =
+      AutomatonQuery::from_automaton(new_term("foobar"), Automata::make_string("different")?)?;
+    let a5 = AutomatonQuery::from_automaton(new_term("blah"), Automata::make_string("foobar")?)?;
+
+    let a1: Query = a1.into();
+    let a2: Query = a2.into();
+    let a3: Query = a3.into();
+    let a4: Query = a4.into();
+    let a5: Query = a5.into();
+
+    assert_eq!(
+      CoreHelper::calculate_hash(&a1),
+      CoreHelper::calculate_hash(&a2)
+    );
+    assert_eq!(a1, a2);
+    assert_eq!(
+      CoreHelper::calculate_hash(&a1),
+      CoreHelper::calculate_hash(&a3)
+    );
+    assert_eq!(a1, a3);
+
+    let w1: Query = WildcardQuery::new(new_term("foobar"))?.into();
+    let w2: Query = RegexpQuery::new(new_term("foobar"))?.into();
+
+    assert_ne!(a1, w1);
+    assert_ne!(a1, w2);
+    assert_ne!(w1, w2);
+    assert_ne!(a1, a4);
+    assert_ne!(a1, a5);
+
     Ok(())
   }
   #[test]
@@ -441,7 +485,6 @@ mod tests {
 
     let aq = AutomatonQuery::from_automaton(new_term("bogus"), Automata::make_string("piece")?)?;
 
-    let _r = searcher.get_index_reader();
     let terms = Rc::new(get_terms(searcher.get_index_reader(), FN)?.unwrap());
 
     let te = aq.get_terms_enum(terms)?;
