@@ -32,7 +32,6 @@ pub mod dummy_index_sorter;
 pub mod dummy_indexable_field;
 pub mod dummy_indexable_field_type;
 pub mod dummy_leaf_reader;
-pub mod dummy_live_index_writer_config;
 pub mod dummy_merge_context;
 pub mod dummy_merge_policy;
 pub mod dummy_merge_scheduler;

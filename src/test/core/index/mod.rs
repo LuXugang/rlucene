@@ -44,4 +44,5 @@ mod test_omit_positions;
 pub(crate) mod test_omit_tf;
 mod test_segment_term_docs;
 mod test_segment_term_enum;
+mod test_size_bounded_force_merge;
 mod test_sum_doc_freq;

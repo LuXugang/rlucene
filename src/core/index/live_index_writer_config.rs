@@ -124,6 +124,11 @@ pub trait LiveIndexWriterConfig: Display {
     self
   }
 
+  fn set_use_compound_file(&mut self, use_compound_file: bool) -> &mut Self {
+    self.get_base_mut().use_compound_file = use_compound_file;
+    self
+  }
+
   fn set_index_sort<T>(&mut self, sort: T) -> Result<&mut Self>
   where
     T: Into<Arc<Sort>>,
