@@ -1139,6 +1139,26 @@ where
   pub(crate) fn get_num_buffered_documents(&self) -> i32 {
     self.doc_writer.get_num_docs()
   }
+  /// Returns true if this index has deletions (including buffered deletions). Note that this will
+  /// return true if there are buffered Term/Query deletions, even if it turns out those buffered
+  /// deletions don't match any documents.
+  pub fn has_deletions(&self) -> Result<bool> {
+    let inner = self.inner.lock();
+    self.ensure_open()?;
+    if self.buffered_updates_stream.any() || self.doc_writer.any_deletions(None) || {
+      self.reader_pool.any_deletions(&inner.segment_infos)?
+    } {
+      return Ok(true);
+    }
+
+    for info in inner.segment_infos.iter() {
+      if info.has_deletions() {
+        return Ok(true);
+      }
+    }
+
+    Ok(false)
+  }
 
   #[cfg(test)]
   pub(crate) fn max_doc(&self, i: i32) -> i32 {
@@ -1582,6 +1602,90 @@ where
   /// See [`MergePolicy::find_merges`].
   pub fn force_merge(&self, max_num_segments: i32) -> Result<()> {
     self.force_merge_with_wait(max_num_segments, true)
+  }
+
+  /// Forces merging of all segments that have deleted documents. The actual merges to be executed
+  /// are determined by the [`MergePolicy`]. For example, the default [`TieredMergePolicy`]
+  /// will only pick a segment if the percentage of deleted docs is over 10%.
+  ///
+  /// This is often a horribly costly operation; rarely is it warranted.
+  ///
+  /// To see how many deletions you have pending in your index, call [`IndexReader::num_deleted_docs`].
+  ///
+  /// **NOTE**: this method first flushes a new segment (if there are indexed documents), and
+  /// applies all buffered deletes.
+  pub fn force_merge_deletes(&self) -> Result<()> {
+    self.force_merge_deletes_with_wait(true)
+  }
+
+  /// Just like [`Self::force_merge_deletes`], except you can specify whether the call should block
+  /// until the operation completes. This is only meaningful with a [`MergeScheduler`] that is
+  /// able to run merges in background threads.
+  pub fn force_merge_deletes_with_wait(&self, do_wait: bool) -> Result<()> {
+    self.ensure_open()?;
+    self.flush_with_apply_merge_deletes(true, true)?;
+
+    if self.info_stream.enabled("IW") {
+      self.info_stream.message(
+        "IW",
+        &format!("forceMergeDeletes: index now {}", self.seg_string()?),
+      );
+    }
+
+    let merge_policy = self.config.get_merge_policy();
+    let caching_merge_context = CachingMergeContext::new(self);
+    let requested_merges = {
+      let mut inner = self.inner.lock();
+      let spec = merge_policy.find_forced_deletes_merges(
+        &inner.segment_infos,
+        Some(&inner),
+        &caching_merge_context,
+      )?;
+
+      match spec {
+        Some(spec) => {
+          let merge_stats: Vec<MergeStat> = spec.merges.iter().map(|m| m.stat.clone()).collect();
+          for merge in spec.merges {
+            self.register_merge(merge, &mut inner)?;
+          }
+          Some(merge_stats)
+        },
+        None => None,
+      }
+    };
+
+    self
+      .config
+      .get_merge_scheduler()
+      .merge(&self.merge_source, MergeTrigger::Explicit, self)?;
+
+    if let Some(requested_merges) = requested_merges.filter(|_| do_wait) {
+      let mut inner = self.inner.lock();
+      loop {
+        if let Some(t) = &*self.tragedy.lock() {
+          return Err(LuceneError::illegal_state(format!(
+            "this writer hit an unrecoverable error; cannot complete forceMergeDeletes {}",
+            t
+          )));
+        }
+
+        let running = requested_merges.iter().any(|merge_stat| {
+          inner
+            .pending_merges
+            .iter()
+            .any(|merge| merge.stat == *merge_stat)
+            || inner.running_merges.contains(merge_stat)
+        });
+
+        if running {
+          self.do_wait(&mut inner);
+        } else {
+          break;
+        }
+      }
+    }
+
+    Ok(())
   }
   /// Just like `IndexWriter::force_merge`, except you can specify whether the call
   /// should block until all merging completes.

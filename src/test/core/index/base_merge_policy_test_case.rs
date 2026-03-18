@@ -93,7 +93,7 @@ pub trait BaseMergePolicyTestCase {
 
     let num_segments = TestUtil::next_int(random, 2, 20);
 
-    for _ in 0..num_segments {
+    for _i in 0..num_segments {
       let num_docs = TestUtil::next_int(random, 1, 5);
 
       for _ in 0..num_docs {
@@ -512,7 +512,7 @@ pub trait BaseMergePolicyTestCase {
     Ok(())
   }
 }
-fn make_segment_commit_info<R, D>(
+pub(crate) fn make_segment_commit_info<R, D>(
   random: &mut R,
   fake_directory: Arc<D>,
   name: &str,
@@ -793,9 +793,9 @@ impl MergeScheduler for SerialMergeSchedulerImpl {
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
-    if self.may_merge.load(Ordering::SeqCst) {
+    if !self.may_merge.load(Ordering::SeqCst) {
       let merge = merge_source.get_next_merge(writer)?;
-      if let Some(_merge) = merge {
+      if merge.is_some() {
         return Err(LuceneError::illegal_argument(
           "TEST: we should not need any merging, yet merge policy returned merge",
         ));

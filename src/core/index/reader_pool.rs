@@ -136,13 +136,10 @@ where
     bytes
   }
   /// Returns true iff any of the buffered readers and updates has at least one pending delete
-  pub(crate) fn any_deletions(
-    &self,
-    infos: &HashMap<String, SegmentCommitInfo<D>>,
-  ) -> Result<bool> {
+  pub(crate) fn any_deletions(&self, infos: &SegmentInfos<D>) -> Result<bool> {
     let inner = self.inner.lock();
     for rld in inner.reader_map.values() {
-      let info = match infos.get(&rld.info_id) {
+      let info = match infos.info(&rld.info_id) {
         Some(info) => info,
         None => return Err(LuceneError::illegal_state("SegmentCommitInfo missing")),
       };

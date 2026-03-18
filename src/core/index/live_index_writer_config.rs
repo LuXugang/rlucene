@@ -76,6 +76,7 @@ pub trait LiveIndexWriterConfig: Display {
 
   type MergePolicy: MergePolicy;
   fn get_merge_policy(&self) -> &Self::MergePolicy;
+  fn get_merge_policy_mut(&mut self) -> &mut Self::MergePolicy;
 
   type FlushPolicy: FlushPolicy;
   fn get_flush_policy(&self) -> &Self::FlushPolicy;

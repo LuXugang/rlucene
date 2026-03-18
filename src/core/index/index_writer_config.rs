@@ -124,7 +124,9 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
   fn get_merge_policy(&self) -> &Self::MergePolicy {
     &self.base.merge_policy
   }
-
+  fn get_merge_policy_mut(&mut self) -> &mut Self::MergePolicy {
+    &mut self.base.merge_policy
+  }
   type FlushPolicy = FlushByRamOrCountsPolicy;
 
   fn get_flush_policy(&self) -> &Self::FlushPolicy {

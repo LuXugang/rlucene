@@ -125,6 +125,10 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
+  fn get_merge_policy_mut(&mut self) -> &mut Self::MergePolicy {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
   type FlushPolicy = DummyFlushPolicy;
 
   fn get_flush_policy(&self) -> &Self::FlushPolicy {
