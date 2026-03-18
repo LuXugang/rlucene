@@ -658,6 +658,7 @@ mod tests {
   use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
   use crate::core::index::index_reader::IndexReader;
 
+  use crate::core::index::composite_reader::CompositeReader;
   use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::log_merge_policy::LogMergePolicy;
@@ -669,7 +670,7 @@ mod tests {
   use crate::core::index::term::Term;
   use crate::core::index::term_state::TermState;
   use crate::core::index::terms::Terms;
-  use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum};
+  use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum};
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
   use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
   use crate::core::store::directory::{DirEnum, Directory};
@@ -685,6 +686,7 @@ mod tests {
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
     new_index_writer_config_with_analyzer, new_string_field, new_text_field, random,
+    random_multiplier,
   };
   use crate::test::core::util::test_util::TestUtil;
   use rand::Rng;
@@ -1001,7 +1003,6 @@ mod tests {
     // Found, rewind:
     assert_eq!(1, doc_freq(&reader, "bb0")?);
 
-    // reader / dir 由 RAII 自动关闭
     Ok(())
   }
   #[test]
@@ -1063,7 +1064,7 @@ mod tests {
     assert_eq!(Some("aa9".to_string()), next_term(&mut te)?);
     assert_eq!(Some("xx".to_string()), next_term(&mut te)?);
 
-    // test_random_seeks(&mut random, &reader, &terms)?;
+    test_random_seeks(&mut random, reader, &terms)?;
     Ok(())
   }
   fn seek_exact<R: Rng + ?Sized>(
@@ -1099,114 +1100,97 @@ mod tests {
     term: BytesRef<Vec<u8>>,
     state: Option<TS>,
   }
-  // TODO
-  // fn test_random_seeks<R: Rng + ?Sized,CR>(
-  //     random: &mut impl Rng,
-  //     reader: CR,
-  //     valid_term_strings: &[String],
-  // ) -> Result<()>
-  // where
-  //     CR: CompositeReader,
-  // {
-  //     let mut valid_terms: Vec<BytesRef<Vec<u8>>> = valid_term_strings
-  //         .iter()
-  //         .map(|s| new_bytes_ref_from_string(random, s.as_str()))
-  //         .collect::<Result<_>>()?;
-  //     valid_terms.sort();
-  //
-  //     let mut te = get_terms(reader, FIELD)?
-  //         .unwrap()
-  //         .iterator()?;
-  //
-  //     let end_loc: isize = -(valid_terms.len() as isize) - 1;
-  //
-  //     let mut term_states = Vec::new();
-  //
-  //     for _iter in 0..(100 * random_multiplier()) {
-  //         let (t, mut loc, term_state) =
-  //             if random.random_range(0..6) == 4 {
-  //                 // pick non-existing term
-  //                 let t = get_non_exist_term(random, &valid_terms)?;
-  //                 let loc = match valid_terms.binary_search(&t) {
-  //                     Ok(p) => p as isize,
-  //                     Err(p) => -(p as isize) - 1,
-  //                 };
-  //                 (t, loc, None)
-  //             } else if !term_states.is_empty() && random.random_range(0..4) == 1 {
-  //                 let (t, st) = term_states[random.random_range(0..term_states.len())].clone();
-  //                 let loc = valid_terms.binary_search(&t).unwrap() as isize;
-  //
-  //                 (t, loc, Some(st))
-  //             } else {
-  //                 // pick valid term
-  //                 let idx = random.random_range(0..valid_terms.len());
-  //                 let t = valid_terms[idx].clone();
-  //                 (t, idx as isize, None)
-  //             };
-  //
-  //         // seekExact or seekCeil
-  //         let do_seek_exact = random.random_bool(0.5);
-  //         if let Some(state) = term_state {
-  //             te.seek_exact_with_state(&t, &state)?;
-  //         } else if do_seek_exact {
-  //             assert_eq!(loc >= 0, te.seek_exact(&t)?);
-  //         } else {
-  //             let result = te.seek_ceil(&t)?;
-  //
-  //             if loc >= 0 {
-  //                 assert_eq!(SeekStatus::Found, result);
-  //             } else if loc == end_loc {
-  //                 assert_eq!(SeekStatus::End, result);
-  //             } else {
-  //                 assert!(loc >= -(valid_terms.len() as isize));
-  //                 assert_eq!(SeekStatus::NotFound, result);
-  //             }
-  //         }
-  //
-  //         // validate positioning
-  //         if loc >= 0 {
-  //             assert_eq!(&t, te.term()?.unwrap());
-  //         } else if do_seek_exact {
-  //             continue;
-  //         } else if loc == end_loc {
-  //             continue;
-  //         } else {
-  //             loc = -loc - 1;
-  //             assert_eq!(&valid_terms[loc as usize], te.term()?.unwrap());
-  //         }
-  //
-  //         // do a bunch of next()
-  //         let num_next = random.random_range(0..valid_terms.len());
-  //         for _ in 0..num_next {
-  //             if VERBOSE {
-  //                 println!(
-  //                     "\nTEST: next loc={} of {}",
-  //                     loc,
-  //                     valid_terms.len()
-  //                 );
-  //             }
-  //             let t2 = te.next()?;
-  //             loc += 1;
-  //             if loc as usize == valid_terms.len() {
-  //                 assert!(t2.is_none());
-  //                 break;
-  //             } else {
-  //                 assert_eq!(
-  //                     &valid_terms[loc as usize],
-  //                     t2.as_ref().unwrap()
-  //                 );
-  //                 if random.random_range(0..40) == 17 && term_states.len() < 100 {
-  //                     term_states.push((
-  //                         valid_terms[loc as usize].clone(),
-  //                         te.term_state()?,
-  //                     ));
-  //                 }
-  //             }
-  //         }
-  //     }
-  //
-  //     Ok(())
-  // }
+  fn test_random_seeks<R: Rng + ?Sized, CR>(
+    random: &mut R,
+    reader: CR,
+    valid_term_strings: &[String],
+  ) -> Result<()>
+  where
+    CR: CompositeReader,
+  {
+    let mut valid_terms: Vec<BytesRef<Vec<u8>>> = valid_term_strings
+      .iter()
+      .map(|s| new_bytes_ref_from_string(random, s.as_str()))
+      .collect::<Result<_>>()?;
+    valid_terms.sort();
+
+    let mut te = get_terms(reader, FIELD)?.unwrap().iterator()?;
+
+    let end_loc: isize = -(valid_terms.len() as isize) - 1;
+
+    let mut term_states = Vec::new();
+
+    for _iter in 0..(100 * random_multiplier()) {
+      let (t, mut loc, term_state) = if random.random_range(0..6) == 4 {
+        // pick non-existing term
+        let t = get_non_exist_term(random, &valid_terms)?;
+        let loc = match valid_terms.binary_search(&t) {
+          Ok(p) => p as isize,
+          Err(p) => -(p as isize) - 1,
+        };
+        (t, loc, None)
+      } else if !term_states.is_empty() && random.random_range(0..4) == 1 {
+        let (t, st) = &term_states[random.random_range(0..term_states.len())];
+        let loc = valid_terms.binary_search(t).unwrap() as isize;
+
+        (t.clone(), loc, Some(st))
+      } else {
+        // pick valid term
+        let idx = random.random_range(0..valid_terms.len());
+        let t = valid_terms[idx].clone();
+        (t, idx as isize, None)
+      };
+
+      // seekExact or seekCeil
+      let do_seek_exact = random.random_bool(0.5);
+      if let Some(state) = term_state {
+        te.seek_exact_with_state(&t, state)?;
+      } else if do_seek_exact {
+        assert_eq!(loc >= 0, te.seek_exact(&t)?);
+      } else {
+        let result = te.seek_ceil(&t)?;
+
+        if loc >= 0 {
+          assert_eq!(SeekStatus::Found, result);
+        } else if loc == end_loc {
+          assert_eq!(SeekStatus::End, result);
+        } else {
+          assert!(loc >= -(valid_terms.len() as isize));
+          assert_eq!(SeekStatus::NotFound, result);
+        }
+      }
+
+      #[allow(clippy::if_same_then_else)]
+      if loc >= 0 {
+        assert_eq!(&t, te.term()?.as_ref());
+      } else if do_seek_exact {
+        continue;
+      } else if loc == end_loc {
+        continue;
+      } else {
+        loc = -loc - 1;
+        assert_eq!(&valid_terms[loc as usize], te.term()?.as_ref());
+      }
+
+      // do a bunch of next()
+      let num_next = random.random_range(0..valid_terms.len());
+      for _ in 0..num_next {
+        let t2 = te.next()?;
+        loc += 1;
+        if loc as usize == valid_terms.len() {
+          assert!(t2.is_none());
+          break;
+        } else {
+          assert_eq!(&valid_terms[loc as usize], t2.unwrap().as_ref());
+          if random.random_range(0..40) == 17 && term_states.len() < 100 {
+            term_states.push((valid_terms[loc as usize].clone(), te.term_state()?));
+          }
+        }
+      }
+    }
+
+    Ok(())
+  }
 
   #[test]
   fn test_zero_terms() -> Result<()> {
@@ -1257,7 +1241,45 @@ mod tests {
   }
   #[test]
   fn test_random_terms() -> Result<()> {
-    // TODO test_random_seeks未实现
+    let mut random = random();
+    let upper = at_least(&mut random, 1000);
+    let terms_len = TestUtil::next_int(&mut random, 1, upper) as usize;
+    let mut terms: Vec<String> = Vec::with_capacity(terms_len);
+    let mut seen: HashSet<String> = HashSet::with_capacity(terms_len);
+
+    let allow_empty_string = random.random_bool(0.5);
+
+    if random.random_range(0..10) == 7 && terms_len > 2 {
+      // Sometimes add a bunch of terms sharing a long-ish common prefix.
+      let num_terms_same_prefix = random.random_range(0..(terms_len / 2));
+      if num_terms_same_prefix > 0 {
+        let prefix = loop {
+          let p = get_random_string(&mut random);
+          if p.len() >= 5 {
+            break p;
+          }
+        };
+
+        while seen.len() < num_terms_same_prefix {
+          let t = format!("{}{}", prefix, get_random_string(&mut random));
+          if seen.insert(t.clone()) {
+            terms.push(t);
+          }
+        }
+      }
+    }
+
+    while seen.len() < terms_len {
+      let t = get_random_string(&mut random);
+      if !seen.contains(&t) && (allow_empty_string || !t.is_empty()) {
+        seen.insert(t.clone());
+        terms.push(t);
+      }
+    }
+
+    let reader = make_index(&mut random, &terms)?;
+    test_random_seeks(&mut random, &reader, &terms)?;
+    reader.close()?;
     Ok(())
   }
   #[test]

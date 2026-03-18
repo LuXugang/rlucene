@@ -462,7 +462,12 @@ where
       self.current_frame_idx = self.push_frame_with_data(arc, self.fr.root_code.clone(), 0)?;
       SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
     }
-    self.target_before_current_length = self.stack[self.current_frame_idx].ord;
+    let current_frame = if self.current_frame_idx == self.static_frame_idx {
+      &mut self.static_frame
+    } else {
+      &mut self.stack[self.current_frame_idx]
+    };
+    self.target_before_current_length = current_frame.ord;
     debug_assert!(!self.eof);
 
     if self.current_frame_idx == self.static_frame_idx {
@@ -500,7 +505,7 @@ where
           break;
         } else {
           let (next_ent, last_sub_fp, last_fp) = {
-            let mut current_frame = if self.current_frame_idx == self.static_frame_idx {
+            let current_frame = if self.current_frame_idx == self.static_frame_idx {
               &mut self.static_frame
             } else {
               &mut self.stack[self.current_frame_idx]
@@ -516,7 +521,11 @@ where
 
             let last_fp = current_frame.fp_orig;
             self.current_frame_idx = (current_frame.ord - 1) as usize;
-            current_frame = &mut self.stack[self.current_frame_idx];
+            let current_frame = if self.current_frame_idx == self.static_frame_idx {
+              &self.static_frame
+            } else {
+              &self.stack[self.current_frame_idx]
+            };
             (current_frame.next_ent, current_frame.last_sub_fp, last_fp)
           };
 
