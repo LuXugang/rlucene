@@ -317,8 +317,8 @@ mod tests {
     let ft_arc = ft;
 
     let string_fld = Field::from_string("string", binary_val, ft_arc.clone())?;
-    let binary_fld = StoredField::with_binary("binary", binary_val.as_bytes().to_vec())?;
-    let binary_fld2 = StoredField::with_binary("binary", binary_val2.as_bytes().to_vec())?;
+    let binary_fld = StoredField::from_binary("binary", binary_val.as_bytes().to_vec())?;
+    let binary_fld2 = StoredField::from_binary("binary", binary_val2.as_bytes().to_vec())?;
 
     assert!(binary_fld.binary_value()?.is_some());
     assert!(string_fld.field_type().stored());

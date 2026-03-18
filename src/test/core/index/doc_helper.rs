@@ -176,7 +176,7 @@ pub static LAZY_FIELD_BINARY_BYTES: Lazy<Vec<u8>> =
   Lazy::new(|| "These are some binary field bytes".as_bytes().to_vec());
 
 pub static LAZY_FIELD_BINARY: Lazy<StoredField> = Lazy::new(|| {
-  StoredField::with_binary(LAZY_FIELD_BINARY_KEY, LAZY_FIELD_BINARY_BYTES.clone())
+  StoredField::from_binary(LAZY_FIELD_BINARY_KEY, LAZY_FIELD_BINARY_BYTES.clone())
     .expect("should not fail")
 });
 

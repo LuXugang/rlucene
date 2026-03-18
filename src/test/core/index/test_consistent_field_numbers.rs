@@ -148,7 +148,7 @@ fn test_field_number_gaps() -> Result<()> {
 
       let mut d = Document::new();
       d.add(TextField::from_string("f1", "d2 first field", Store::Yes)?);
-      d.add(StoredField::with_binary("f3", vec![1, 2, 3])?);
+      d.add(StoredField::from_binary("f3", vec![1, 2, 3])?);
       writer.add_document(d)?;
       writer.close()?;
 
@@ -169,7 +169,7 @@ fn test_field_number_gaps() -> Result<()> {
       let mut d = Document::new();
       d.add(TextField::from_string("f1", "d3 first field", Store::Yes)?);
       d.add(TextField::from_string("f2", "d3 second field", Store::Yes)?);
-      d.add(StoredField::with_binary("f3", vec![1, 2, 3, 4, 5])?);
+      d.add(StoredField::from_binary("f3", vec![1, 2, 3, 4, 5])?);
       writer.add_document(d)?;
       writer.close()?;
 

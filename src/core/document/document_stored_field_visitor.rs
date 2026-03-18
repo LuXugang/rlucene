@@ -81,7 +81,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
   ) -> Result<()> {
     self
       .doc
-      .add(StoredField::with_binary(&field_info.name, value)?);
+      .add(StoredField::from_binary(&field_info.name, value)?);
     Ok(())
   }
 

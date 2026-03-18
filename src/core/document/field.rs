@@ -2352,9 +2352,9 @@ mod tests {
   fn test_stored_field_bytes() -> Result<()> {
     let mut random = random();
     let fields = vec![
-      StoredField::with_binary("foo", b"bar".to_vec())?,
-      StoredField::with_binary_range("foo", b"bar".to_vec(), 0, 3)?,
-      StoredField::with_bytes_ref("foo", new_bytes_ref_from_string(&mut random, "bar")?)?,
+      StoredField::from_binary("foo", b"bar".to_vec())?,
+      StoredField::from_binary_with_range("foo", b"bar".to_vec(), 0, 3)?,
+      StoredField::from_bytes_ref("foo", new_bytes_ref_from_string(&mut random, "bar")?)?,
     ];
 
     for mut field in fields {

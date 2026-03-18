@@ -60,7 +60,7 @@ impl StoredField {
   /// - `name`: Field name.
   /// - `bytes`: Byte array pointing to binary content (**not copied**).
   /// - `field_type`: Custom [`FieldType`] for this field.
-  pub fn with_bytes_ref_and_type<T>(
+  pub fn from_bytes_ref_and_type<T>(
     name: T,
     bytes: BytesRef<Vec<u8>>,
     file_type: FieldType,
@@ -80,7 +80,7 @@ impl StoredField {
   /// # Parameters
   /// - `name`: Field name.
   /// - `value`: Byte array pointing to binary content.
-  pub fn with_binary<T>(name: T, value: Vec<u8>) -> Result<Self>
+  pub fn from_binary<T>(name: T, value: Vec<u8>) -> Result<Self>
   where
     T: Into<String>,
   {
@@ -101,7 +101,12 @@ impl StoredField {
   /// - `value`: Byte array pointing to binary content .
   /// - `offset`: Starting position in the byte array.
   /// - `length`: Valid length of the byte array.
-  pub fn with_binary_range<T>(name: T, value: Vec<u8>, offset: i32, length: i32) -> Result<Self>
+  pub fn from_binary_with_range<T>(
+    name: T,
+    value: Vec<u8>,
+    offset: i32,
+    length: i32,
+  ) -> Result<Self>
   where
     T: Into<String>,
   {
@@ -118,7 +123,7 @@ impl StoredField {
   /// # Parameters
   /// - `name`: Field name.
   /// - `value`: [`BytesRef`] pointing to binary content (**not copied**).
-  pub fn with_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>) -> Result<Self>
+  pub fn from_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>) -> Result<Self>
   where
     T: Into<String>,
   {
