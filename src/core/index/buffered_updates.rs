@@ -55,7 +55,7 @@ pub(crate) struct BufferedUpdates {
   bytes_used: SharedCounter,
   field_updates_bytes_used: SharedCounter,
   verbose_deletes: bool,
-  r#gen: i64,
+  gen_: i64,
 
   segment_name: String,
 }
@@ -71,7 +71,7 @@ impl BufferedUpdates {
       bytes_used: Arc::new(AtomicCounter::new()),
       field_updates_bytes_used: Arc::new(AtomicCounter::new()),
       verbose_deletes: false,
-      r#gen: 0,
+      gen_: 0,
       segment_name: segment_name.to_string(),
     }
   }
@@ -204,14 +204,14 @@ impl fmt::Display for BufferedUpdates {
       write!(
         f,
         "gen={} deleteTerms={} deleteQueries={} fieldUpdates={} bytesUsed={}",
-        self.r#gen,
+        self.gen_,
         self.delete_terms,
         self.delete_queries.len(),
         self.field_updates.len(),
         bytes_used
       )
     } else {
-      let mut s = format!("gen={}", self.r#gen);
+      let mut s = format!("gen={}", self.gen_);
       if !self.delete_terms.is_empty() {
         s.push_str(&format!(
           " {} unique deleted terms",

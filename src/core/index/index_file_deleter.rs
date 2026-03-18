@@ -730,8 +730,8 @@ where
     } else if file_name.starts_with(IndexFileNames::SEGMENTS) {
       let v = generation_from_segments_file_name(file_name);
       match v {
-        Ok(r#gen) => {
-          max_segment_gen = max_segment_gen.max(r#gen);
+        Ok(gen_) => {
+          max_segment_gen = max_segment_gen.max(gen_);
         },
         Err(e) => {
           // trash file: we have to handle this since we allow anything starting with 'segments'
@@ -744,8 +744,8 @@ where
     } else if file_name.starts_with(IndexFileNames::PENDING_SEGMENTS) {
       let v = generation_from_segments_file_name(&file_name[8..]);
       match v {
-        Ok(r#gen) => {
-          max_segment_gen = max_segment_gen.max(r#gen);
+        Ok(gen_) => {
+          max_segment_gen = max_segment_gen.max(gen_);
         },
         Err(e) => {
           // trash file: we have to handle this since we allow anything starting with
@@ -768,8 +768,8 @@ where
 
       let v = IndexFileNames::parse_generation(file_name);
       match v {
-        Ok(r#gen) => {
-          cur_gen = cur_gen.max(r#gen);
+        Ok(gen_) => {
+          cur_gen = cur_gen.max(gen_);
         },
         Err(e) => {
           // trash file: we have to handle this since codec regex is only so good

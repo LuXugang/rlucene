@@ -59,7 +59,7 @@ where
     &self,
     si: &SegmentCommitInfo<D>,
     dir: Option<&D1>,
-    r#gen: i64,
+    gen_: i64,
     infos: Arc<FieldInfos>,
   ) -> Result<RefCount<Arc<DefaultDocValuesProducer<D1::IndexInput>>>>
   where
@@ -71,10 +71,10 @@ where
     };
     let mut segment_suffix = "".to_string();
 
-    if r#gen != -1 {
+    if gen_ != -1 {
       // gen'd files are written outside CFS, so use SegInfo directory
       dv_dir = CompoundDirectoryEnum::B(si.info.dir.as_ref());
-      let v = BigInt::from(r#gen).to_str_radix(36);
+      let v = BigInt::from(gen_).to_str_radix(36);
       segment_suffix = v.to_string();
     }
 
@@ -91,7 +91,7 @@ where
   /// Returns the [`DocValuesProducer`](crate::core::codecs::doc_values_producer::DocValuesProducer) for the given generation.
   pub(crate) fn get_doc_values_producer<D1>(
     &self,
-    r#gen: i64,
+    gen_: i64,
     si: &SegmentCommitInfo<D>,
     dir: Option<&D1>,
     infos: Arc<FieldInfos>,
@@ -101,13 +101,13 @@ where
   {
     let mut inner = self.inner.lock();
 
-    if let Some(dvp) = inner.gen_dv_producers.get_mut(&r#gen) {
+    if let Some(dvp) = inner.gen_dv_producers.get_mut(&gen_) {
       dvp.inc_ref();
       Ok(dvp.get().clone())
     } else {
-      let dvp = self.new_doc_values_producer(si, dir, r#gen, infos)?;
+      let dvp = self.new_doc_values_producer(si, dir, gen_, infos)?;
       let v = dvp.get().clone();
-      inner.gen_dv_producers.insert(r#gen, dvp);
+      inner.gen_dv_producers.insert(gen_, dvp);
       Ok(v)
     }
   }
@@ -115,13 +115,13 @@ where
   pub(crate) fn dec_ref(&self, gens: &[i64]) -> Result<()> {
     let mut inner = self.inner.lock();
 
-    for &r#gen in gens {
-      if let Some(dvp) = inner.gen_dv_producers.get_mut(&r#gen) {
+    for &gen_ in gens {
+      if let Some(dvp) = inner.gen_dv_producers.get_mut(&gen_) {
         if dvp.dec_ref()? {
-          inner.gen_dv_producers.remove(&r#gen);
+          inner.gen_dv_producers.remove(&gen_);
         }
       } else {
-        debug_assert!(false, "gen={} not found in gen_dv_producers", r#gen);
+        debug_assert!(false, "gen={} not found in gen_dv_producers", gen_);
       }
     }
     Ok(())

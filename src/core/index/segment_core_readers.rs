@@ -45,7 +45,7 @@ pub(crate) struct SegmentCoreReaders<D>
 where
   D: Directory,
 {
-  pub(crate) r#ref: AtomicI32,
+  pub(crate) ref_: AtomicI32,
   pub(crate) fields: Option<Arc<DefaultFieldsProducer<D::IndexInput>>>,
   pub(crate) norms_producer: Option<Arc<DefaultNormProducer<D::IndexInput>>>,
   pub(crate) fields_reader_orig: DefaultStoredFieldsReader<D::IndexInput>,
@@ -133,7 +133,7 @@ where
       };
 
       Ok(SegmentCoreReaders {
-        r#ref: AtomicI32::new(1),
+        ref_: AtomicI32::new(1),
         fields,
         norms_producer,
         fields_reader_orig,
@@ -148,12 +148,12 @@ where
   }
 
   pub(crate) fn get_ref_count(&self) -> i32 {
-    self.r#ref.load(Ordering::Acquire)
+    self.ref_.load(Ordering::Acquire)
   }
 
   pub(crate) fn inc_ref(&self) -> Result<()> {
     loop {
-      let count = self.r#ref.load(Ordering::Acquire);
+      let count = self.ref_.load(Ordering::Acquire);
 
       if count == 0 {
         return Err(LuceneError::already_closed(
@@ -165,7 +165,7 @@ where
       }
 
       match self
-        .r#ref
+        .ref_
         .compare_exchange_weak(count, count + 1, Ordering::AcqRel, Ordering::Acquire)
       {
         Ok(_) => return Ok(()),
@@ -174,7 +174,7 @@ where
     }
   }
   pub(crate) fn dec_ref(&self) -> Result<()> {
-    self.r#ref.load(Ordering::Acquire);
+    self.ref_.load(Ordering::Acquire);
     // TODO
     Ok(())
   }

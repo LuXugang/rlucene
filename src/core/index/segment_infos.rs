@@ -1137,7 +1137,7 @@ pub trait FindSegmentsFile {
   /// Locate the most recent segments file and run doBody on it.
   fn run(&mut self) -> Result<Self::V> {
     let mut last_gen: i64;
-    let mut r#gen: i64 = -1;
+    let mut gen_: i64 = -1;
     let mut exc: Option<LuceneError> = None;
     // Loop until we succeed in calling doBody() without
     // hitting an IOException.  An IOException most likely
@@ -1151,7 +1151,7 @@ pub trait FindSegmentsFile {
     // it.
     let directory = self.get_directory_point();
     loop {
-      last_gen = r#gen;
+      last_gen = gen_;
       let mut files = directory.list_all()?;
       let mut files2 = directory.list_all()?;
       files.sort();
@@ -1159,18 +1159,18 @@ pub trait FindSegmentsFile {
       if files != files2 {
         continue;
       }
-      r#gen = get_last_commit_generation(&files)?;
+      gen_ = get_last_commit_generation(&files)?;
       if get_info_stream()?.is_some() {
-        message(&format!("directory listing gen={gen}"))?;
+        message(&format!("directory listing gen={gen_}"))?;
       }
-      if r#gen == -1 {
+      if gen_ == -1 {
         return Err(LuceneError::index_not_found(format!(
           "No segments* file found in the {}: files: {:?}",
           directory, files
         )));
-      } else if r#gen > last_gen {
+      } else if gen_ > last_gen {
         let segment_file_name =
-          IndexFileNames::file_name_from_generation(IndexFileNames::SEGMENTS, "", r#gen)
+          IndexFileNames::file_name_from_generation(IndexFileNames::SEGMENTS, "", gen_)
             .ok_or_else(|| LuceneError::illegal_state("Failed to generate segment file name."))?;
         match self.do_body(&segment_file_name) {
           Ok(result) => {
@@ -1189,7 +1189,7 @@ pub trait FindSegmentsFile {
                 "primary Exception on '{}': {}; will retry: gen = {}",
                 segment_file_name,
                 exc.as_ref().unwrap(),
-                r#gen
+                gen_
               ))
               .unwrap_or_default();
             }
@@ -1279,9 +1279,9 @@ pub fn get_last_commit_generation(files: &[String]) -> Result<i64> {
                 // skipping this file here helps deliver the right exception when opening an old index
                 && !file.starts_with(OLD_SEGMENTS_GEN)
     {
-      let r#gen = generation_from_segments_file_name(file)?;
-      if r#gen > max {
-        max = r#gen;
+      let gen_ = generation_from_segments_file_name(file)?;
+      if gen_ > max {
+        max = gen_;
       }
     }
   }

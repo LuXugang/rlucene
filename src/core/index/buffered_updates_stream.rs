@@ -287,9 +287,9 @@ impl BufferedUpdatesStream {
 
   pub(crate) fn get_next_gen(&self) -> i64 {
     let mut inner = self.inner.lock();
-    let r#gen = inner.next_gen;
+    let gen_ = inner.next_gen;
     inner.next_gen += 1;
-    r#gen
+    gen_
   }
   // only for assert
   fn check_delete_stats(&self, inner: &BufferedUpdatesStreamInner) -> bool {
