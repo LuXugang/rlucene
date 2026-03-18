@@ -1892,7 +1892,8 @@ mod tests {
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     new_directory_shared, new_index_writer_config_with_analyzer, random,
   };
-
+  #[allow(dead_code)] // for quick search
+  struct TestSortingCodecReader;
   #[test]
   fn test_sort_on_add_indices_ord() -> Result<()> {
     let mut random = random();
