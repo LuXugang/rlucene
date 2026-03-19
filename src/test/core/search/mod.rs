@@ -27,6 +27,7 @@ mod test_boolean_or;
 pub mod test_boolean_rewrites;
 mod test_conjunctions;
 mod test_doc_values_queries;
+pub mod test_doc_values_rewrite_method;
 mod test_early_termination;
 pub(crate) mod test_point_queries;
 mod test_regexp_random;
