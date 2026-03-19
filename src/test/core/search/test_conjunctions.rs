@@ -27,12 +27,12 @@ use crate::core::search::boolean_query::Builder;
 use crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::DefaultIndexSearchCR;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
-  new_searcher_with_reader, random,
+  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_log_merge_policy, new_searcher_with_reader, new_text_field, random,
 };
 use rand::Rng;
 
@@ -100,6 +100,170 @@ fn test_term_conjunctions_with_omit_tf() -> Result<()> {
 }
 #[test]
 fn test_scorer_get_children() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let iwc = new_index_writer_config(&mut random);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut field_to_type = HashMap::new();
+
+  let mut doc = Document::new();
+  doc.add(new_text_field(
+    &mut random,
+    "field",
+    "a b",
+    Store::No,
+    &mut field_to_type,
+  )?);
+
+  w.add_document(doc)?;
+
+  let r = directory_reader_util::open_from_writer(&w)?;
+
+  let mut b = Builder::new();
+  b.add(TermQuery::new(Term::from_text("field", "a")), Occur::Must)?;
+  b.add(TermQuery::new(Term::from_text("field", "b")), Occur::Filter)?;
+  let q = b.build();
+
+  let s = new_searcher_with_reader(r)?;
+
+  let manager = CollectorManagerImpl;
+
+  s.search_with_collector_manager(q, &manager)?;
+
+  w.close()?;
+
   Ok(())
 }
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::collector::Collector;
+use crate::core::search::collector_manager::CollectorManager;
+use crate::core::search::leaf_collector::LeafCollector;
+use crate::core::search::query::Query;
+use crate::core::search::scorable::Scorable;
+use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::simple_collector::SimpleCollector;
+use crate::core::search::weight::Weight;
+use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
+use std::sync::{
+  Arc,
+  atomic::{AtomicBool, Ordering},
+};
+
+struct CollectorManagerImpl;
+
+impl CollectorManager for CollectorManagerImpl {
+  type C = TestCollector;
+  type T = ();
+
+  fn new_collector(&self) -> Result<Self::C> {
+    Ok(TestCollector::new())
+  }
+
+  fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+    for collector in collectors {
+      assert!(collector.set_scorer_called.load(Ordering::SeqCst));
+    }
+    Ok(())
+  }
+}
+
+struct TestCollector {
+  set_scorer_called: Arc<AtomicBool>,
+}
+
+impl TestCollector {
+  fn new() -> Self {
+    Self {
+      set_scorer_called: Arc::new(AtomicBool::new(false)),
+    }
+  }
+}
+
+impl Collector for TestCollector {
+  type LeafCollector<'a, IRC>
+    = &'a mut Self
+  where
+    Self: 'a,
+    IRC: IndexReaderContext;
+
+  fn get_leaf_collector<'a, W, IRC>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC>>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    SimpleCollector::get_leaf_collector(self, context, weight)?;
+    Ok(self)
+  }
+
+  fn score_mode(&self) -> ScoreMode {
+    ScoreMode::Complete
+  }
+
+  fn set_weight<W, IRC>(&self, weight: Option<&W>) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    let weight = weight
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("weight should not None"))?;
+    let query = weight.get_query();
+
+    let bq = match query.as_ref() {
+      Query::Boolean(q) => q,
+      _ => unreachable!("expected BooleanQuery"),
+    };
+
+    let clauses = bq.clauses();
+    assert_eq!(2, clauses.len());
+
+    let mut terms = HashSet::new();
+
+    for clause in clauses {
+      let tq = match &clause.query {
+        Query::Term(q) => q,
+        _ => unreachable!("expected TermQuery"),
+      };
+
+      let term = tq.get_term();
+      assert_eq!("field", term.field());
+      terms.insert(term.text()?.clone());
+    }
+
+    assert_eq!(2, terms.len());
+    assert!(terms.contains("a"));
+    assert!(terms.contains("b"));
+
+    Ok(())
+  }
+}
+
+impl LeafCollector for TestCollector {
+  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+    let _children = scorer.get_children()?;
+    self.set_scorer_called.store(true, Ordering::SeqCst);
+    // TODO IMPORTANT  不支持get_children功能
+    // assert_eq!(2, children.len());
+    Ok(())
+  }
+
+  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+    Ok(())
+  }
+}
+
+impl Display for TestCollector {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
+}
+
+impl SimpleCollector for TestCollector {}

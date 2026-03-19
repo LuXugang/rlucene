@@ -5239,8 +5239,8 @@ where
   L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
-  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-    todo!()
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 enum InfoFrom {
