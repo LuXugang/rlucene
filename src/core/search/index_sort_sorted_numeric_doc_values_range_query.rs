@@ -1668,9 +1668,8 @@ mod tests {
 
     let query = create_query("foo", 2, 4);
 
-    // TODO query rewrite 未实现
-    // let rewritten = searcher.rewrite(&query)?;
-    let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
+    let rewritten = searcher.rewrite(query)?;
+    let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
 
     let leaves = searcher.get_leaf_contexts()?;
     let ctx0 = &leaves[0];
