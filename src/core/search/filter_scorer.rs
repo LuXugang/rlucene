@@ -47,6 +47,8 @@ where
   }
 }
 
+impl<S> crate::core::search::scorable::FixedScore for FilterScorer<S> where S: Scorer {}
+
 impl<S> Scorer for FilterScorer<S>
 where
   S: Scorer,

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::scorable::{ChildScorable, Scorable};
+use crate::core::search::scorable::{ChildScorable, FixedScore, Scorable};
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyScorable;
@@ -40,3 +40,5 @@ impl Scorable for DummyScorable {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 }
+
+impl FixedScore for DummyScorable {}

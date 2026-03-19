@@ -18,7 +18,7 @@ use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::scorer::Scorer;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
@@ -291,3 +291,5 @@ impl Scorable for DocAndScore {
     Err(LuceneError::unsupported_operation(""))
   }
 }
+
+impl FixedScore for DocAndScore {}

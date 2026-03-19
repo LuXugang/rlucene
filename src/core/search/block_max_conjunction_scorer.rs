@@ -115,6 +115,11 @@ where
   }
 }
 
+impl<S> crate::core::search::scorable::FixedScore for BlockMaxConjunctionScorer<S> where
+  S: Scorer + 'static
+{
+}
+
 impl<S> Scorer for BlockMaxConjunctionScorer<S>
 where
   S: Scorer + 'static,

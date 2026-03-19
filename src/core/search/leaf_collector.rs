@@ -64,27 +64,22 @@ pub trait LeafCollector: Display {
   /// # Default
   ///
   /// The default implementation calls `stream.for_each(|doc| self.collect(doc))`.
-  fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
-    self.default_collect_stream(stream)
+  fn collect_stream(
+    &mut self,
+    stream: &mut dyn DocIdStream,
+    scorer: &mut dyn Scorable,
+  ) -> Result<()> {
+    self.default_collect_stream(stream, scorer)
   }
-  fn default_collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
-    struct CollectorConsumer<'a, LC>
-    where
-      LC: LeafCollector + ?Sized,
-    {
-      collector: &'a mut LC,
-    }
-
-    impl<'a, LC> DocIdStreamConsumer for CollectorConsumer<'a, LC>
-    where
-      LC: LeafCollector + ?Sized,
-    {
-      fn visit(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-        self.collector.collect(doc, scorer)
-      }
-    }
-
-    let mut consumer = CollectorConsumer { collector: self };
+  fn default_collect_stream(
+    &mut self,
+    stream: &mut dyn DocIdStream,
+    scorer: &mut dyn Scorable,
+  ) -> Result<()> {
+    let mut consumer = CollectorConsumer {
+      collector: self,
+      scorer,
+    };
     stream.for_each(&mut consumer)
   }
   /// Optionally returns an iterator over competitive documents.
@@ -115,6 +110,7 @@ pub trait LeafCollector: Display {
     Ok(())
   }
 }
+
 impl<T> LeafCollector for &mut T
 where
   T: LeafCollector + ?Sized,
@@ -127,8 +123,12 @@ where
     (**self).collect(doc, scorer)
   }
 
-  fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
-    (**self).collect_stream(stream)
+  fn collect_stream(
+    &mut self,
+    stream: &mut dyn DocIdStream,
+    scorer: &mut dyn Scorable,
+  ) -> Result<()> {
+    (**self).collect_stream(stream, scorer)
   }
 
   fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
@@ -176,9 +176,9 @@ macro_rules! either_leaf_collector {
                 }
             }
 
-            fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
+            fn collect_stream(&mut self, stream: &mut dyn DocIdStream, scorer: &mut dyn Scorable) -> Result<()> {
                 match self {
-                    $( Self::$Variant(inner) => inner.collect_stream(stream), )+
+                    $( Self::$Variant(inner) => inner.collect_stream(stream,scorer), )+
                 }
             }
 
@@ -201,3 +201,27 @@ either_leaf_collector!(
     pub LeafCollectorEnum2
     { A: A, B: B }
 );
+
+struct CollectorConsumer<'a, LC, S>
+where
+  LC: LeafCollector + ?Sized,
+  S: Scorable + ?Sized,
+{
+  collector: &'a mut LC,
+  scorer: &'a mut S,
+}
+
+impl<'a, LC, S> DocIdStreamConsumer for CollectorConsumer<'a, LC, S>
+where
+  LC: LeafCollector + ?Sized,
+  S: Scorable + ?Sized,
+{
+  fn accept(&mut self, doc: i32) -> Result<()> {
+    self.collector.collect(doc, &mut self.scorer)
+  }
+
+  fn accept_with_score(&mut self, doc: i32, score: f32) -> Result<()> {
+    self.scorer.set_score(score)?;
+    self.collector.collect(doc, &mut self.scorer)
+  }
+}

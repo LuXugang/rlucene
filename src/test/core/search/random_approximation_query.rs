@@ -218,6 +218,8 @@ where
   }
 }
 
+impl<S> crate::core::search::scorable::FixedScore for RandomApproximationScorer<S> where S: Scorer {}
+
 impl<S> Scorer for RandomApproximationScorer<S>
 where
   S: Scorer,

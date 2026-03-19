@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::scorable::{ChildScorable, Scorable};
+use crate::core::search::scorable::{ChildScorable, FixedScore, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
@@ -43,6 +43,8 @@ impl Scorable for DummyScorer {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 }
+
+impl FixedScore for DummyScorer {}
 
 impl Scorer for DummyScorer {
   fn doc_id(&mut self) -> Result<i32> {

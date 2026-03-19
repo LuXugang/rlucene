@@ -188,6 +188,15 @@ where
   }
 }
 
+impl<PE, SS, N, IE> crate::core::search::scorable::FixedScore for TermScorer<PE, SS, N, IE>
+where
+  IE: ImpactsEnum + 'static,
+  N: NumericDocValues,
+  PE: PostingsEnum + 'static,
+  SS: SimScorer + 'static,
+{
+}
+
 impl<PE, SS, N, IE> Scorer for TermScorer<PE, SS, N, IE>
 where
   PE: PostingsEnum + 'static,

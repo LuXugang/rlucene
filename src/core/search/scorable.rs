@@ -17,7 +17,7 @@
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Allows access to the score of a query.
-pub trait Scorable {
+pub trait Scorable: FixedScore {
   /// Returns the score of the current document matching the query.
   ///
   /// # Errors
@@ -67,6 +67,21 @@ pub trait Scorable {
   /// and the implementation should delegate to Scorer’s default_cost() method for consistency.
   fn cost(&self) -> Result<i64> {
     Err(LuceneError::unsupported_operation(""))
+  }
+}
+
+pub trait FixedScore {
+  fn set_score(&mut self, _score: f32) -> Result<()> {
+    Ok(())
+  }
+}
+
+impl<T> FixedScore for &mut T
+where
+  T: FixedScore + ?Sized,
+{
+  fn set_score(&mut self, score: f32) -> Result<()> {
+    (**self).set_score(score)
   }
 }
 
@@ -157,6 +172,15 @@ macro_rules! either_scorable {
 
             fn cost(&self) -> Result<i64> {
                 match self { $( Self::$Variant(inner) => inner.cost(), )+ }
+            }
+        }
+
+        impl<$( $T ),+> FixedScore for $name<$( $T ),+>
+        where
+            $( $T: Scorable ),+
+        {
+            fn set_score(&mut self, score: f32) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.set_score(score), )+ }
             }
         }
     };

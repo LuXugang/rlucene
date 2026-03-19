@@ -31,7 +31,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::query::Query;
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::simple_collector::SimpleCollector;
@@ -367,6 +367,8 @@ impl Scorable for ScorerImpl {
     self.iterator().cost()
   }
 }
+
+impl FixedScore for ScorerImpl {}
 
 impl Scorer for ScorerImpl {
   fn doc_id(&mut self) -> Result<i32> {

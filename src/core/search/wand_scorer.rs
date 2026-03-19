@@ -135,6 +135,8 @@ where
   }
 }
 
+impl<S> crate::core::search::scorable::FixedScore for WANDScorer<S> where S: Scorer + 'static {}
+
 impl<S> Scorer for WANDScorer<S>
 where
   S: Scorer + 'static,
@@ -2059,6 +2061,8 @@ pub(crate) mod tests {
       self.iterator().cost()
     }
   }
+
+  impl<S> crate::core::search::scorable::FixedScore for MaxScoreWrapperScorer<S> where S: Scorer {}
 
   impl<S> Scorer for MaxScoreWrapperScorer<S>
   where

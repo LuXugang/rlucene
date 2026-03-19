@@ -133,7 +133,7 @@ mod tests {
   use crate::core::search::disi_wrapper::DisiWrapper;
   use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 
-  use crate::core::search::scorable::Scorable;
+  use crate::core::search::scorable::{FixedScore, Scorable};
   use crate::core::search::scorer::{Scorer, TwoPhaseState};
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
@@ -204,6 +204,8 @@ mod tests {
       self.iterator().cost()
     }
   }
+
+  impl FixedScore for FakeScorer {}
 
   impl Scorer for FakeScorer {
     fn doc_id(&mut self) -> Result<i32> {

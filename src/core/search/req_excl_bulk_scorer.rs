@@ -222,6 +222,11 @@ mod tests {
       unreachable!("")
     }
   }
+
+  impl<DISI> crate::core::search::scorable::FixedScore for ScorerImpl<DISI> where
+    DISI: DocIdSetIterator
+  {
+  }
   impl<DISI> Scorer for ScorerImpl<DISI>
   where
     DISI: DocIdSetIterator + 'static,

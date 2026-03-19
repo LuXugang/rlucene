@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::util::error::lucene_error::Result;
 
 #[derive(Default)]
@@ -38,3 +38,5 @@ impl Scorable for SimpleScorable {
     Ok(())
   }
 }
+
+impl FixedScore for SimpleScorable {}

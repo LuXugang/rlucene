@@ -51,3 +51,8 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 }
+
+impl<S> crate::core::search::scorable::FixedScore for FilterScorable<'_, S> where
+  S: Scorable + ?Sized
+{
+}

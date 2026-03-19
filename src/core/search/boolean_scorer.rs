@@ -168,8 +168,12 @@ where
       debug_assert!(w.doc < max);
       self.score_disi_wrapper_into_bitset(w, accept_docs, min, max)?;
     }
+    // take Ownership
+    let mut score = std::mem::take(&mut self.score);
     let mut stream = DocIdStreamView::new(self, base);
-    collector.collect_stream(&mut stream)?;
+    collector.collect_stream(&mut stream, &mut score)?;
+    // give back Ownership
+    self.score = score;
     for m in self.matching.iter_mut() {
       *m = 0;
     }
@@ -468,12 +472,8 @@ impl<'a, S> DocIdStream for DocIdStreamView<'a, S>
 where
   S: Scorer,
 {
-  fn scorer(&mut self) -> &mut dyn Scorable {
-    &mut self.scorer.score
-  }
-
-  fn for_each(&mut self, f: &mut dyn DocIdStreamConsumer) -> Result<()> {
-    for (idx, bits_ref) in self.scorer.matching.iter_mut().enumerate() {
+  fn for_each(&mut self, consumer: &mut dyn DocIdStreamConsumer) -> Result<()> {
+    for (idx, bits_ref) in self.scorer.matching.iter().enumerate() {
       let mut bits = *bits_ref;
 
       while bits != 0 {
@@ -483,27 +483,25 @@ where
           Some(ref mut buckets) => {
             let bucket = &mut buckets[index_in_window];
             if bucket.freq as usize >= self.scorer.min_should_match {
-              self.scorer.score.score = bucket.score as f32;
-              f.visit(self.base | index_in_window as i32, &mut self.scorer.score)?;
+              consumer
+                .accept_with_score(self.base | index_in_window as i32, bucket.score as f32)?;
             }
             bucket.freq = 0;
             bucket.score = 0.0;
           },
           None => {
-            f.visit(self.base | index_in_window as i32, &mut self.scorer.score)?;
+            consumer.accept(self.base | index_in_window as i32)?;
           },
         }
         bits ^= 1u64 << ntz;
       }
-      *bits_ref = 0;
     }
-
     Ok(())
   }
 
-  fn count(&mut self) -> Result<i32> {
+  fn count(&mut self, scorer: &mut dyn Scorable) -> Result<i32> {
     if self.scorer.min_should_match > 1 {
-      return self.default_count();
+      return self.default_count(scorer);
     }
 
     let count: i32 = self
@@ -614,11 +612,11 @@ mod tests {
     let weight = searcher.create_weight(rewritten, ScoreMode::CompleteNoScores, 1.0)?;
     let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
     let scorer = ss
-            .as_any()
-            .downcast_mut::<BooleanScorerSupplier<
-                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
-            >>()
-            .unwrap();
+        .as_any()
+        .downcast_mut::<BooleanScorerSupplier<
+          CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+        >>()
+        .unwrap();
     let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
     assert!(matches!(bs.kind(), BulkScorerKind::Default));
 
@@ -631,11 +629,11 @@ mod tests {
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
     let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
     let scorer = ss
-            .as_any()
-            .downcast_mut::<BooleanScorerSupplier<
-                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
-            >>()
-            .unwrap();
+        .as_any()
+        .downcast_mut::<BooleanScorerSupplier<
+          CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+        >>()
+        .unwrap();
     let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
     assert!(matches!(bs.kind(), BulkScorerKind::Default));
     w.close()?;
@@ -675,11 +673,11 @@ mod tests {
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
     let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
     let scorer = ss
-            .as_any()
-            .downcast_mut::<BooleanScorerSupplier<
-                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
-            >>()
-            .unwrap();
+        .as_any()
+        .downcast_mut::<BooleanScorerSupplier<
+          CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+        >>()
+        .unwrap();
     let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
     assert!(matches!(bs.kind(), BulkScorerKind::ReqExcl));
 
@@ -696,11 +694,11 @@ mod tests {
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
     let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
     let scorer = ss
-            .as_any()
-            .downcast_mut::<BooleanScorerSupplier<
-                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
-            >>()
-            .unwrap();
+        .as_any()
+        .downcast_mut::<BooleanScorerSupplier<
+          CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+        >>()
+        .unwrap();
     let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
     assert!(matches!(bs.kind(), BulkScorerKind::ReqExcl));
 
@@ -716,11 +714,11 @@ mod tests {
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
     let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
     let scorer = ss
-            .as_any()
-            .downcast_mut::<BooleanScorerSupplier<
-                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
-            >>()
-            .unwrap();
+        .as_any()
+        .downcast_mut::<BooleanScorerSupplier<
+          CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+        >>()
+        .unwrap();
     let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
     assert!(matches!(bs.kind(), BulkScorerKind::ReqExcl));
 
@@ -736,11 +734,11 @@ mod tests {
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
     let mut ss = weight.scorer_supplier(ctx, &searcher)?.unwrap();
     let scorer = ss
-            .as_any()
-            .downcast_mut::<BooleanScorerSupplier<
-                CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
-            >>()
-            .unwrap();
+        .as_any()
+        .downcast_mut::<BooleanScorerSupplier<
+          CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+        >>()
+        .unwrap();
     let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
     assert!(matches!(bs.kind(), BulkScorerKind::ReqExcl));
 

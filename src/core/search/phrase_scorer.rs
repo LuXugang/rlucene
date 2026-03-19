@@ -103,6 +103,14 @@ where
   }
 }
 
+impl<IE, SS, N> crate::core::search::scorable::FixedScore for PhraseScorer<IE, SS, N>
+where
+  IE: ImpactsEnum + 'static,
+  SS: SimScorer + 'static,
+  N: NumericDocValues + 'static,
+{
+}
+
 impl<IE, SS, N> Scorer for PhraseScorer<IE, SS, N>
 where
   IE: ImpactsEnum + 'static,

@@ -963,6 +963,8 @@ where
   }
 }
 
+impl<S> crate::core::search::scorable::FixedScore for FilterScorerImpl<S> where S: Scorer {}
+
 impl<S> Scorer for FilterScorerImpl<S>
 where
   S: Scorer,
@@ -1137,7 +1139,7 @@ mod tests {
   use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
   use crate::core::search::index_searcher::IndexSearcher;
   use crate::core::search::query::{QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer};
-  use crate::core::search::scorable::Scorable;
+  use crate::core::search::scorable::{FixedScore, Scorable};
   use crate::core::search::score_mode::ScoreMode;
   use crate::core::search::scorer::{Scorer, TwoPhaseState};
   use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -1168,6 +1170,8 @@ mod tests {
       self.iterator().cost()
     }
   }
+
+  impl FixedScore for FakeScorer {}
 
   impl Scorer for FakeScorer {
     fn doc_id(&mut self) -> Result<i32> {

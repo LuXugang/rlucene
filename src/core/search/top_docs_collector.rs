@@ -237,7 +237,7 @@ mod tests {
   use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
   use crate::core::search::max_score_accumulator::{DEFAULT_INTERVAL, MaxScoreAccumulator};
   use crate::core::search::query::Query;
-  use crate::core::search::scorable::Scorable;
+  use crate::core::search::scorable::{FixedScore, Scorable};
   use crate::core::search::score_doc::ScoreDoc;
   use crate::core::search::score_mode::ScoreMode;
   use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
@@ -615,6 +615,8 @@ mod tests {
       Err(LuceneError::unsupported_operation(""))
     }
   }
+
+  impl FixedScore for Score {}
   #[test]
   fn test_set_min_competitive_score() -> Result<()> {
     let mut random = random();

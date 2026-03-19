@@ -787,8 +787,12 @@ where
     Ok(())
   }
 
-  fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
-    self.base.collect_stream(stream)
+  fn collect_stream(
+    &mut self,
+    stream: &mut dyn DocIdStream,
+    scorer: &mut dyn Scorable,
+  ) -> Result<()> {
+    self.base.collect_stream(stream, scorer)
   }
   fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
     self.base.competitive_iterator()
@@ -1091,10 +1095,14 @@ where
     }
   }
 
-  fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
+  fn collect_stream(
+    &mut self,
+    stream: &mut dyn DocIdStream,
+    scorer: &mut dyn Scorable,
+  ) -> Result<()> {
     match self {
-      Self::Simple(inner) => inner.collect_stream(stream),
-      Self::Paging(inner) => inner.collect_stream(stream),
+      Self::Simple(inner) => inner.collect_stream(stream, scorer),
+      Self::Paging(inner) => inner.collect_stream(stream, scorer),
     }
   }
 
@@ -1371,7 +1379,7 @@ mod tests {
   use crate::core::search::leaf_collector::LeafCollector;
   use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
   use crate::core::search::max_score_accumulator::{DEFAULT_INTERVAL, MaxScoreAccumulator};
-  use crate::core::search::scorable::{ChildScorable, Scorable};
+  use crate::core::search::scorable::{ChildScorable, FixedScore, Scorable};
   use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
   use crate::core::search::sort_field::{SortField, SortFieldType};
 
@@ -2270,6 +2278,8 @@ mod tests {
     }
   }
 
+  impl FixedScore for Score {}
+
   struct LeafCollectorImpl<LC>
   where
     LC: LeafCollector,
@@ -2423,5 +2433,10 @@ mod tests {
     fn cost(&self) -> Result<i64> {
       self.base.cost()
     }
+  }
+
+  impl<S> crate::core::search::scorable::FixedScore for FilterScorableImpl<'_, S> where
+    S: Scorable + ?Sized
+  {
   }
 }

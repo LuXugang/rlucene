@@ -509,6 +509,8 @@ where
   }
 }
 
+impl<S> crate::core::search::scorable::FixedScore for ScorerDisi<S> where S: Scorer {}
+
 impl<S> Scorer for ScorerDisi<S>
 where
   S: Scorer,
@@ -570,4 +572,10 @@ where
   fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
     self.scorer.approximation_mut()
   }
+}
+
+#[cfg(test)]
+mod tests {
+  #[allow(dead_code)] // for quick search
+  struct TestConjunctionDISI;
 }

@@ -403,8 +403,13 @@ where
     self.in_.collect(doc, &mut v)
   }
 
-  fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
-    self.in_.collect_stream(stream)
+  fn collect_stream(
+    &mut self,
+    stream: &mut dyn DocIdStream,
+    scorer: &mut dyn Scorable,
+  ) -> Result<()> {
+    let mut v = FilterScorableImpl::new(self.the_score, scorer);
+    self.in_.collect_stream(stream, &mut v)
   }
 
   fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
@@ -455,6 +460,11 @@ where
   fn cost(&self) -> Result<i64> {
     self.base.cost()
   }
+}
+
+impl<S> crate::core::search::scorable::FixedScore for FilterScorableImpl<'_, S> where
+  S: Scorable + ?Sized
+{
 }
 pub struct ConstantScoreQueryWeight<IRC>
 where
@@ -546,25 +556,39 @@ where
 mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
+  use crate::core::document::string_field::StringField;
+  use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+  use crate::core::index::leaf_reader_context::LeafReaderContext;
   use crate::core::index::multi_reader::MultiReader;
   use crate::core::index::term::Term;
   use crate::core::search::boolean_clause::Occur;
   use crate::core::search::boolean_query::Builder;
+  use crate::core::search::boost_query::BoostQuery;
+  use crate::core::search::collector::Collector;
+  use crate::core::search::collector_manager::CollectorManager;
   use crate::core::search::constant_score_query::ConstantScoreQuery;
+  use crate::core::search::index_searcher::IndexSearcher;
+  use crate::core::search::leaf_collector::LeafCollector;
   use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
   use crate::core::search::phrase_query::PhraseQuery;
   use crate::core::search::query::{Query, QueryBase};
+  use crate::core::search::scorable::Scorable;
   use crate::core::search::score_mode::ScoreMode;
+
+  use crate::core::search::simple_collector::SimpleCollector;
   use crate::core::search::term_query::TermQuery;
   use crate::core::search::term_range_query::TermRangeQuery;
+  use crate::core::search::weight::Weight;
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
+  use crate::test::core::search::query_utils::QueryUtils;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field, random,
   };
   use std::collections::HashMap;
-
-  use crate::test::core::search::query_utils::QueryUtils;
+  use std::fmt::{Display, Formatter};
+  use std::sync::Arc;
+  use std::sync::atomic::{AtomicI32, Ordering};
 
   #[allow(dead_code)] // for quick search
   struct TestConstantScoreQuery;
@@ -594,9 +618,56 @@ mod tests {
 
     Ok(())
   }
+  fn check_hits<IRC: IndexReaderContext>(
+    searcher: &IndexSearcher<IRC>,
+    q: Query,
+    expected_score: f32,
+  ) -> Result<()> {
+    let count = Arc::new(AtomicI32::new(0));
+    let manager = CollectorManagerImpl::new(expected_score, count.clone());
+    searcher.search_with_collector_manager(q, &manager)?;
+    assert_eq!(1, count.load(Ordering::SeqCst));
+    Ok(())
+  }
   #[test]
   fn test_wrapped_2_times() -> Result<()> {
-    // TODO BooleanQuery未实现
+    let mut random = random();
+    let directory = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, directory);
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("field", "term1", Store::No)?);
+    doc.add(StringField::from_string("field", "term2", Store::No)?);
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut searcher = new_searcher_with_reader(reader)?;
+    searcher.set_query_cache(None);
+
+    let csq1 = BoostQuery::new(
+      ConstantScoreQuery::new(TermQuery::new(Term::from_text("field", "term1"))),
+      2.0,
+    )?;
+    let csq2 = BoostQuery::new(
+      ConstantScoreQuery::new(ConstantScoreQuery::new(TermQuery::new(Term::from_text(
+        "field", "term2",
+      )))),
+      5.0,
+    )?;
+
+    let mut bq = Builder::new();
+    bq.add(csq1.clone(), Occur::Should)?;
+    bq.add(csq2.clone(), Occur::Should)?;
+
+    let csqbq = BoostQuery::new(ConstantScoreQuery::new(bq.build()), 17.0)?;
+
+    check_hits(&searcher, csq1.clone().into(), csq1.get_boost())?;
+    check_hits(&searcher, csq2.clone().into(), csq2.get_boost())?;
+
+    check_hits(&searcher, csqbq.clone().into(), csqbq.get_boost())?;
+
     Ok(())
   }
 
@@ -702,5 +773,90 @@ mod tests {
     let rewritten = searcher.rewrite(query)?;
     assert_eq!(rewritten, Query::MatchNoDocs(MatchNoDocsQuery::new()));
     Ok(())
+  }
+
+  struct CollectorManagerImpl {
+    expected_score: f32,
+    count: Arc<AtomicI32>,
+  }
+  impl CollectorManagerImpl {
+    fn new(expected_score: f32, count: Arc<AtomicI32>) -> Self {
+      Self {
+        expected_score,
+        count,
+      }
+    }
+  }
+
+  impl CollectorManager for CollectorManagerImpl {
+    type C = SimpleCollectorImpl;
+    type T = ();
+
+    fn new_collector(&self) -> Result<Self::C> {
+      Ok(SimpleCollectorImpl {
+        expected_score: self.expected_score,
+        count: self.count.clone(),
+      })
+    }
+
+    fn reduce(&self, _collectors: Vec<Self::C>) -> Result<Self::T> {
+      Ok(())
+    }
+  }
+
+  struct SimpleCollectorImpl {
+    expected_score: f32,
+    count: Arc<AtomicI32>,
+  }
+
+  impl Collector for SimpleCollectorImpl {
+    type LeafCollector<'a, IRC>
+      = &'a mut Self
+    where
+      Self: 'a,
+      IRC: IndexReaderContext;
+
+    fn get_leaf_collector<'a, W, IRC>(
+      &'a mut self,
+      context: &LeafReaderContext<IRCLeafReader<IRC>>,
+      _weight: Option<&W>,
+    ) -> Result<Self::LeafCollector<'a, IRC>>
+    where
+      IRC: IndexReaderContext,
+      W: Weight<IRC> + ?Sized,
+    {
+      SimpleCollector::do_set_next_reader(self, context)?;
+      Ok(self)
+    }
+
+    fn score_mode(&self) -> ScoreMode {
+      ScoreMode::Complete
+    }
+  }
+
+  impl LeafCollector for SimpleCollectorImpl {
+    fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+      Ok(())
+    }
+
+    fn collect(&mut self, _doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+      let score = scorer.score()?;
+      assert!(
+        (score - self.expected_score).abs() <= 0.00001f32,
+        "Score differs from expected: got={}, expected={}",
+        score,
+        self.expected_score
+      );
+      self.count.fetch_add(1, Ordering::SeqCst);
+      Ok(())
+    }
+  }
+
+  impl SimpleCollector for SimpleCollectorImpl {}
+
+  impl Display for SimpleCollectorImpl {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+      write!(f, "{}", std::any::type_name::<Self>())
+    }
   }
 }

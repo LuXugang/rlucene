@@ -18,7 +18,8 @@ use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 /// Consumer for [`DocIdStream`] items.
 pub trait DocIdStreamConsumer {
-  fn visit(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()>;
+  fn accept(&mut self, doc: i32) -> Result<()>;
+  fn accept_with_score(&mut self, doc: i32, score: f32) -> Result<()>;
 }
 
 /// A stream of doc IDs. Most methods on [`DocIdStream`]s are terminal,
@@ -26,7 +27,6 @@ pub trait DocIdStreamConsumer {
 ///
 /// @lucene.experimental
 pub trait DocIdStream {
-  fn scorer(&mut self) -> &mut dyn Scorable;
   /// Iterate over doc IDs contained in this stream in order,
   /// calling the given consumer on them.
   /// This is a terminal operation.
@@ -34,21 +34,33 @@ pub trait DocIdStream {
 
   /// Count the number of entries in this stream.
   /// This is a terminal operation.
-  fn count(&mut self) -> Result<i32>;
-  fn default_count(&mut self) -> Result<i32> {
-    struct CountConsumer {
-      cnt: i32,
-    }
-
-    impl DocIdStreamConsumer for CountConsumer {
-      fn visit(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
-        self.cnt += 1;
-        Ok(())
-      }
-    }
-
-    let mut counter = CountConsumer { cnt: 0 };
+  fn count(&mut self, scorer: &mut dyn Scorable) -> Result<i32>;
+  fn default_count(&mut self, scorer: &mut dyn Scorable) -> Result<i32> {
+    let mut counter = CountConsumer { cnt: 0, scorer };
     self.for_each(&mut counter)?;
     Ok(counter.cnt)
+  }
+}
+struct CountConsumer<'a, S>
+where
+  S: Scorable + ?Sized,
+{
+  cnt: i32,
+  scorer: &'a mut S,
+}
+
+impl<S> DocIdStreamConsumer for CountConsumer<'_, S>
+where
+  S: Scorable + ?Sized,
+{
+  fn accept(&mut self, _doc: i32) -> Result<()> {
+    self.cnt += 1;
+    Ok(())
+  }
+
+  fn accept_with_score(&mut self, _doc: i32, score: f32) -> Result<()> {
+    self.cnt += 1;
+    self.scorer.set_score(score)?;
+    Ok(())
   }
 }

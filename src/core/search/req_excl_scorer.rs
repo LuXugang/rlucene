@@ -92,6 +92,13 @@ where
   }
 }
 
+impl<S1, S2> crate::core::search::scorable::FixedScore for ReqExclScorer<S1, S2>
+where
+  S1: Scorer + 'static,
+  S2: Scorer + 'static,
+{
+}
+
 impl<S1, S2> Scorer for ReqExclScorer<S1, S2>
 where
   S1: Scorer + 'static,

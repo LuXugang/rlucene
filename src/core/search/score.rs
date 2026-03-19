@@ -14,13 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Used by [`BulkScorers`](crate::core::search::bulk_scorer::BulkScorer) that need to pass a
 /// [`Scorable`] to
 /// [`LeafCollector::collect`](crate::core::search::leaf_collector::LeafCollector::collect).
 pub struct Score {
   pub(crate) score: f32,
+}
+// for padding
+impl Default for Score {
+  fn default() -> Score {
+    Self { score: 0.0 }
+  }
 }
 impl Score {
   pub fn new(score: f32) -> Self {
@@ -34,5 +40,12 @@ impl Scorable for Score {
 
   fn cost(&self) -> Result<i64> {
     Err(LuceneError::unsupported_operation(""))
+  }
+}
+
+impl FixedScore for Score {
+  fn set_score(&mut self, score: f32) -> Result<()> {
+    self.score = score;
+    Ok(())
   }
 }

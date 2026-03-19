@@ -262,3 +262,5 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 }
+
+impl<S> crate::core::search::scorable::FixedScore for ScorableImpl<'_, S> where S: Scorer {}

@@ -77,6 +77,9 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 }
+
+impl<S> crate::core::search::scorable::FixedScore for ScoreCachingWrappingScorer<S> where S: Scorable
+{}
 pub struct ScoreCachingWrappingLeafCollector<LC>
 where
   LC: LeafCollector,

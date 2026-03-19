@@ -132,6 +132,13 @@ where
   }
 }
 
+impl<DISI, TPI> crate::core::search::scorable::FixedScore for ConstantScoreScorer<DISI, TPI>
+where
+  DISI: DocIdSetIterator + 'static,
+  TPI: TwoPhaseIterator + 'static,
+{
+}
+
 impl<DISI, TPI> Scorer for ConstantScoreScorer<DISI, TPI>
 where
   DISI: DocIdSetIterator + 'static,

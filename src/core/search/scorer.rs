@@ -16,7 +16,7 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::scorable::{ChildScorable, Scorable};
+use crate::core::search::scorable::{ChildScorable, FixedScore, Scorable};
 #[cfg(test)]
 use crate::core::search::scorer::ScorerKind::Other;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -180,6 +180,15 @@ where
 
   fn cost(&self) -> Result<i64> {
     (**self).cost()
+  }
+}
+
+impl<T> FixedScore for Box<T>
+where
+  T: FixedScore + ?Sized,
+{
+  fn set_score(&mut self, score: f32) -> Result<()> {
+    (**self).set_score(score)
   }
 }
 
@@ -367,6 +376,16 @@ macro_rules! either_scorer {
             #[inline]
             fn cost(&self) -> Result<i64> {
                 match self { $( Self::$Variant(inner) => inner.cost(), )+ }
+            }
+        }
+
+        impl<$( $T ),+> FixedScore for $name<$( $T ),+>
+        where
+            $( $T: Scorer ),+
+        {
+            #[inline]
+            fn set_score(&mut self, score: f32) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.set_score(score), )+ }
             }
         }
 

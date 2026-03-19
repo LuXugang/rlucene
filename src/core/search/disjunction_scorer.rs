@@ -154,6 +154,13 @@ where
   }
 }
 
+impl<S, T> crate::core::search::scorable::FixedScore for DisjunctionScorer<S, T>
+where
+  S: Scorer + 'static,
+  T: DisjunctionScorerBase,
+{
+}
+
 impl<S, T> Scorer for DisjunctionScorer<S, T>
 where
   S: Scorer + 'static,

@@ -21,7 +21,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::util::TryIntoInt;
@@ -825,6 +825,8 @@ impl Scorable for Score {
     Err(LuceneError::unsupported_operation(""))
   }
 }
+
+impl FixedScore for Score {}
 #[cfg(test)]
 mod test {
   use crate::core::document::document::Document;
@@ -1403,6 +1405,8 @@ mod test {
       self.iterator().cost()
     }
   }
+
+  impl crate::core::search::scorable::FixedScore for FakeScorer {}
 
   impl Scorer for FakeScorer {
     fn doc_id(&mut self) -> Result<i32> {

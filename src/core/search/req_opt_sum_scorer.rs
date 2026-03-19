@@ -120,6 +120,13 @@ where
   }
 }
 
+impl<S1, S2> crate::core::search::scorable::FixedScore for ReqOptSumScorer<S1, S2>
+where
+  S1: Scorer + 'static,
+  S2: Scorer + 'static,
+{
+}
+
 impl<S1, S2> Scorer for ReqOptSumScorer<S1, S2>
 where
   S1: Scorer + 'static,
@@ -1044,6 +1051,13 @@ mod tests {
     fn cost(&self) -> Result<i64> {
       self.iterator().cost()
     }
+  }
+
+  impl<S1, S2> crate::core::search::scorable::FixedScore for ReqOptSumScorerWrapper<S1, S2>
+  where
+    S1: Scorer + 'static,
+    S2: Scorer + 'static,
+  {
   }
 
   impl<S1, S2> Scorer for ReqOptSumScorerWrapper<S1, S2>

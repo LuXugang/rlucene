@@ -365,8 +365,12 @@ impl LeafCollector for LeafCollectorImpl {
     Ok(())
   }
 
-  fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
-    self.actual_count += stream.count()?;
+  fn collect_stream(
+    &mut self,
+    stream: &mut dyn DocIdStream,
+    scorer: &mut dyn Scorable,
+  ) -> Result<()> {
+    self.actual_count += stream.count(scorer)?;
     Ok(())
   }
 }
@@ -397,9 +401,13 @@ impl LeafCollector for LeafCollectorImpl2 {
     Ok(())
   }
 
-  fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
+  fn collect_stream(
+    &mut self,
+    stream: &mut dyn DocIdStream,
+    scorer: &mut dyn Scorable,
+  ) -> Result<()> {
     self.doc_id_stream = true;
-    self.default_collect_stream(stream)
+    self.default_collect_stream(stream, scorer)
   }
 }
 struct LeafCollectorImpl3;

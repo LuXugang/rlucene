@@ -100,8 +100,12 @@ impl<'a> LeafCollector for TotalHitCountLeafCollector<'a> {
     Ok(())
   }
 
-  fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
-    self.collector.total_hit += stream.count()?;
+  fn collect_stream(
+    &mut self,
+    stream: &mut dyn DocIdStream,
+    scorer: &mut dyn Scorable,
+  ) -> Result<()> {
+    self.collector.total_hit += stream.count(scorer)?;
     Ok(())
   }
 }

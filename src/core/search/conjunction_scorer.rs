@@ -110,6 +110,8 @@ where
   }
 }
 
+impl<S> crate::core::search::scorable::FixedScore for ConjunctionScorer<S> where S: Scorer + 'static {}
+
 impl<S> Scorer for ConjunctionScorer<S>
 where
   S: Scorer + 'static,
