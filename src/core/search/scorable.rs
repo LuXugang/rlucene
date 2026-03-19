@@ -72,7 +72,7 @@ pub trait Scorable: FixedScore {
 
 pub trait FixedScore {
   fn set_score(&mut self, _score: f32) -> Result<()> {
-    Ok(())
+    Err(LuceneError::need_implemented(""))
   }
 }
 
