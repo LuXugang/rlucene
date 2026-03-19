@@ -52,7 +52,7 @@ impl MatchNoDocsQuery {
     }
   }
   /// Provides a reason explaining why this query was used
-  pub fn with_message<T>(reason: T) -> Self
+  pub fn with_reason<T>(reason: T) -> Self
   where
     T: Into<String>,
   {
@@ -232,7 +232,7 @@ mod tests {
       let mut query = MatchNoDocsQuery::new();
       assert_eq!(query.as_string("")?, "MatchNoDocsQuery(\"\")");
 
-      query = MatchNoDocsQuery::with_message("field 'title' not found");
+      query = MatchNoDocsQuery::with_reason("field 'title' not found");
       assert_eq!(
         query.as_string("")?,
         "MatchNoDocsQuery(\"field 'title' not found\")"
@@ -269,7 +269,7 @@ mod tests {
     let reader = directory_reader_util::open_from_writer(&iw)?;
     let searcher = new_searcher_with_reader(reader)?;
 
-    let mut query: Query = MatchNoDocsQuery::with_message("field not found").into();
+    let mut query: Query = MatchNoDocsQuery::with_reason("field not found").into();
     assert_eq!(searcher.count(query.clone())?, 0);
 
     let hits = searcher.search(MatchNoDocsQuery::new(), 1000)?.score_docs;
@@ -285,7 +285,7 @@ mod tests {
       Occur::Should,
     )?;
     bq.add(
-      MatchNoDocsQuery::with_message("field not found"),
+      MatchNoDocsQuery::with_reason("field not found"),
       Occur::Must,
     )?;
     query = bq.build().into();
@@ -302,7 +302,7 @@ mod tests {
     let mut bq = Builder::new();
     bq.add(TermQuery::new(Term::from_text("key", "one")), Occur::Should)?;
     bq.add(
-      MatchNoDocsQuery::with_message("field not found"),
+      MatchNoDocsQuery::with_reason("field not found"),
       Occur::Should,
     )?;
     query = bq.build().into();

@@ -286,7 +286,7 @@ impl QueryBase for PhraseQuery {
   {
     let len = self.terms.len();
     if len == 0 {
-      Ok(MatchNoDocsQuery::with_message("empty PhraseQuery").into())
+      Ok(MatchNoDocsQuery::with_reason("empty PhraseQuery").into())
     } else if len == 1 {
       Ok(TermQuery::new(self.terms[0].clone()).into())
     } else if let Some(&first_pos) = self.positions.first() {

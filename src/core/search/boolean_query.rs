@@ -334,7 +334,7 @@ impl QueryBase for BooleanQuery {
     Self: Sized,
   {
     if self.clauses.is_empty() {
-      return Ok(MatchNoDocsQuery::with_message("empty BooleanQuery").into());
+      return Ok(MatchNoDocsQuery::with_reason("empty BooleanQuery").into());
     }
     let must_not_len = self
       .clause_sets
@@ -342,7 +342,7 @@ impl QueryBase for BooleanQuery {
       .map(|v| v.len())
       .unwrap_or(0);
     if self.clauses.len() == must_not_len {
-      return Ok(Query::MatchNoDocs(MatchNoDocsQuery::with_message(
+      return Ok(Query::MatchNoDocs(MatchNoDocsQuery::with_reason(
         "pure negative BooleanQuery",
       )));
     }
@@ -467,14 +467,14 @@ impl QueryBase for BooleanQuery {
         must.iter().any(|&m_idx| self.clauses[m_idx].query == *q)
           || filter.iter().any(|&f_idx| self.clauses[f_idx].query == *q)
       }) {
-        return Ok(MatchNoDocsQuery::with_message("FILTER or MUST clause also in MUST_NOT").into());
+        return Ok(MatchNoDocsQuery::with_reason("FILTER or MUST clause also in MUST_NOT").into());
       }
 
       if must_not
         .iter()
         .any(|&idx| matches!(self.clauses[idx].query, Query::MatchAllDocs(_)))
       {
-        return Ok(MatchNoDocsQuery::with_message("MUST_NOT clause is MatchAllDocsQuery").into());
+        return Ok(MatchNoDocsQuery::with_reason("MUST_NOT clause is MatchAllDocsQuery").into());
       }
     }
 
@@ -832,7 +832,7 @@ impl QueryBase for BooleanQuery {
 
       if should_len < self.minimum_number_should_match as usize {
         return Ok(
-          MatchNoDocsQuery::with_message("SHOULD clause count less than minimumNumberShouldMatch")
+          MatchNoDocsQuery::with_reason("SHOULD clause count less than minimumNumberShouldMatch")
             .into(),
         );
       }

@@ -155,7 +155,7 @@ impl QueryBase for DisjunctionMaxQuery {
     Self: Sized,
   {
     if self.ordered_queries.is_empty() {
-      return Ok(MatchNoDocsQuery::with_message("empty DisjunctionMaxQuery").into());
+      return Ok(MatchNoDocsQuery::with_reason("empty DisjunctionMaxQuery").into());
     }
 
     if self.ordered_queries.len() == 1 {
