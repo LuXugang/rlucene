@@ -63,4 +63,12 @@ pub trait Collector {
 
   /// Indicates what features are required from the scorer.
   fn score_mode(&self) -> ScoreMode;
+
+  fn set_weight<W, IRC>(&self, _weight: Option<&W>) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    Ok(())
+  }
 }

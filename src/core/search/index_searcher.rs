@@ -439,6 +439,7 @@ where
     let needs_scores = collector.score_mode().needs_scores();
     let query = self.rewrite_with_needs_scores(query, needs_scores)?;
     let weight = self.create_weight(query, collector.score_mode(), 1.0)?;
+    collector.set_weight(Some(&weight))?;
     let leaves = self.get_leaf_contexts()?;
     for ctx in leaves {
       self.search_leaf(ctx.ord, 0, NO_MORE_DOCS, &weight, collector)?;
@@ -498,8 +499,7 @@ where
     C: Collector,
     W: Weight<IRC> + SegmentCacheable<IRC> + ?Sized,
   {
-    // we pass `Weight` to `Collector` via parameter in Rust Lucene
-    // collector.set_weight(weight)?;
+    collector.set_weight(Some(weight))?;
 
     for partition in partitions {
       self.search_leaf(
