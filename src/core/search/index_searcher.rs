@@ -756,8 +756,12 @@ pub fn get_max_clause_count() -> usize {
   MAX_CLAUSE_COUNT.load(Ordering::Relaxed)
 }
 /// Set the maximum number of clauses permitted per Query. Default value is 1024.
-pub fn set_max_clause_count(value: usize) {
+pub fn set_max_clause_count(value: usize) -> Result<()> {
+  if value < 1 {
+    return Err(LuceneError::illegal_argument("maxClauseCount must be >= 1"));
+  }
   MAX_CLAUSE_COUNT.store(value, Ordering::Relaxed);
+  Ok(())
 }
 pub fn do_slices<LR>(
   leaves: &[LeafReaderContext<LR>],
