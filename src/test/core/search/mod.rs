@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 pub(crate) mod block_score_query_wrapper;
+pub mod bulk_scorer_wrapper_scorer;
 pub mod check_hits;
 pub mod dummy_total_hit_count_collector;
 pub(crate) mod fixed_bit_set_collector;
