@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::{Identity, IndexReader};
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader::{
+  LRNormNumericDocValues, LRNumericDocValues, LRSortedSetDocValues, LeafReader,
+};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -66,6 +68,9 @@ impl IndexReaderContextBase {
 }
 pub type IRCLeafReader<IRC> = <IRC as IndexReaderContext>::LeafReader;
 pub type IRCLeafReaderCacheHelper<IRC> = <IRCLeafReader<IRC> as LeafReader>::CacheHelper;
+pub type IRCSSDV<IRC> = LRSortedSetDocValues<IRCLeafReader<IRC>>;
+pub type IRCNDV<IRC> = LRNumericDocValues<IRCLeafReader<IRC>>;
+pub type IRCNormNDV<IRC> = LRNormNumericDocValues<IRCLeafReader<IRC>>;
 
 impl<IRC> IndexReaderContext for Arc<IRC>
 where

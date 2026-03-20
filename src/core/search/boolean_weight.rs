@@ -154,7 +154,7 @@ where
 
 impl<IRC> Weight<IRC> for BooleanWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   type Matches = MatchWithNoTerms;
 
@@ -358,6 +358,11 @@ where
     } else {
       Ok(-1)
     }
+  }
+
+  #[cfg(test)]
+  fn as_any(&mut self) -> &mut dyn std::any::Any {
+    self
   }
 }
 pub(crate) struct WeightedBooleanClause<IRC>

@@ -31,6 +31,7 @@ mod test_doc_values_queries;
 pub mod test_doc_values_rewrite_method;
 mod test_early_termination;
 pub mod test_max_clause_limit;
+pub mod test_min_should_match2;
 pub(crate) mod test_point_queries;
 mod test_regexp_random;
 pub(crate) mod test_scorer_perf;

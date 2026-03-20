@@ -230,6 +230,11 @@ pub trait Weight<IRC: IndexReaderContext>: SegmentCacheable<IRC> {
   fn default_count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
     Ok(-1)
   }
+
+  #[cfg(test)]
+  fn as_any(&mut self) -> &mut dyn std::any::Any {
+    unreachable!("")
+  }
 }
 impl<IRC, T> Weight<IRC> for Box<T>
 where
@@ -302,68 +307,9 @@ where
   fn default_count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
     (**self).default_count(_context)
   }
-}
-
-impl<IRC, T> Weight<IRC> for Arc<T>
-where
-  IRC: IndexReaderContext,
-  T: Weight<IRC>,
-{
-  type Matches = T::Matches;
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    (**self).matches(context, doc, searcher)
-  }
-
-  fn explain(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
-    (**self).explain(context, doc, searcher)
-  }
-
-  fn get_query(&self) -> Arc<Query> {
-    (**self).get_query()
-  }
-
-  fn scorer(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::Scorer>> {
-    (**self).scorer(context, searcher)
-  }
-
-  type ScorerSupplier = T::ScorerSupplier;
-
-  fn scorer_supplier(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
-    (**self).scorer_supplier(context, searcher)
-  }
-
-  fn bulk_scorer(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>> {
-    (**self).bulk_scorer(context, searcher)
-  }
-
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-    (**self).count(context)
-  }
-
-  fn default_count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-    (**self).default_count(context)
+  #[cfg(test)]
+  fn as_any(&mut self) -> &mut dyn std::any::Any {
+    (**self).as_any()
   }
 }
 
