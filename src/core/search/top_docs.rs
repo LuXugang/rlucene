@@ -147,13 +147,13 @@ pub mod top_docs_util {
   /// belong to the same searcher).
   pub fn merge_top_docs_with_start<S>(
     start: usize,
-    size: usize,
+    top_n: usize,
     shard_hits: Vec<TopDocs<S>>,
   ) -> Result<TopDocs<S>>
   where
     S: ScoreDocLike,
   {
-    merge_top_docs_with_comparator(start, size, shard_hits, DefaultTieBreaker::default())
+    merge_top_docs_with_comparator(start, top_n, shard_hits, DefaultTieBreaker::default())
   }
   /// Same as above, but accepts the passed in tie breaker.
   ///
