@@ -14,7 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod flat_field_vectors_writer;
-pub mod flat_vectors_scorer;
-pub mod flat_vectors_writer;
-pub mod hnsw_graph_provider;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::hnsw::hnsw_graph::HnswGraph;
+
+/// An interface that provides an HNSW graph. This interface is useful when gathering multiple HNSW
+/// graphs to bootstrap segment merging. The graph may be off the JVM heap.
+///
+/// @lucene.experimental
+pub trait HnswGraphProvider {
+  type Graph: HnswGraph;
+
+  /// Return the stored HnswGraph for the given field.
+  ///
+  /// # Arguments
+  /// * `field` - the field containing the graph
+  ///
+  /// # Returns
+  /// the HnswGraph for the given field if found
+  ///
+  /// # Errors
+  /// when reading potentially off-heap graph fails
+  fn get_graph(&self, field: &str) -> Result<Self::Graph>;
+}
