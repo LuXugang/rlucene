@@ -14,6 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod quantized_byte_vector_values;
-pub mod quantized_vectors_reader;
-pub mod scalar_quantizer;
+use crate::core::util::accountable::Accountable;
+use crate::core::util::close::Closeable;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
+use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
+
+/// Quantized vector reader
+pub trait QuantizedVectorsReader: Accountable + Closeable {
+  type QuantizedByteVectorValues: QuantizedByteVectorValues;
+
+  fn get_quantized_vector_values(
+    &self,
+    field_name: &str,
+  ) -> Result<Self::QuantizedByteVectorValues>;
+
+  fn get_quantization_state(&self, field_name: &str) -> ScalarQuantizer;
+}
