@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::bits::MatchNoBits;
+use crate::core::util::bits::Bits;
+use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 
@@ -33,10 +34,12 @@ impl RandomVectorScorer for DummyRandomVectorScorer {
     0
   }
 
-  type Bits = MatchNoBits;
-  type BitsR = MatchNoBits;
+  type Bits = DummyBits;
 
-  fn get_accept_ords(&self, _accept_docs: Self::Bits) -> Self::Bits {
-    MatchNoBits::default()
+  fn get_accept_ords<B>(&self, _accept_docs: B) -> Result<Self::Bits>
+  where
+    B: Bits,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 }

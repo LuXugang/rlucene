@@ -48,7 +48,6 @@ pub trait RandomVectorScorer {
   }
 
   type Bits: Bits;
-  type BitsR: Bits;
   /// Returns the [`Bits`] representing live documents.  
   /// By default, this is an identity function.
   ///
@@ -59,5 +58,7 @@ pub trait RandomVectorScorer {
   /// # Returns
   ///
   /// The accept docs.
-  fn get_accept_ords(&self, accept_docs: Self::Bits) -> Self::Bits;
+  fn get_accept_ords<B>(&self, accept_docs: B) -> Result<Self::Bits>
+  where
+    B: Bits;
 }
