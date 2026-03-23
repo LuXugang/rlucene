@@ -16,6 +16,7 @@
  */
 use crate::core::internal::vectorization::default_vector_util_support::DefaultVectorization;
 use crate::core::internal::vectorization::vector_util_support::VectorUtilSupport;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use once_cell::sync::Lazy;
 
 pub static VECTOR_UTIL: Lazy<VectorUtil> = Lazy::new(VectorUtil::default);
@@ -24,6 +25,30 @@ pub struct VectorUtil {
   impl_: DefaultVectorization,
 }
 impl VectorUtil {
+  /// Checks if a float vector only has finite components.
+  ///
+  /// # Arguments
+  ///
+  /// * `v` - bytes containing a vector
+  ///
+  /// # Returns
+  ///
+  /// the vector for call-chaining
+  ///
+  /// # Errors
+  ///
+  /// returns [`LuceneError::IllegalArgument`] if any component of vector is not finite
+  pub fn check_finite(v: &[f32]) -> Result<()> {
+    for (i, &value) in v.iter().enumerate() {
+      if !value.is_finite() {
+        return Err(LuceneError::illegal_argument(format!(
+          "non-finite value at vector[{}]={}",
+          i, value
+        )));
+      }
+    }
+    Ok(())
+  }
   pub fn find_next_geq(&self, buffer: &[i32], target: i32, from: usize, to: usize) -> usize {
     debug_assert!({
       let mut ok = true;

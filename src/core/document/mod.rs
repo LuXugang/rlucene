@@ -35,6 +35,8 @@ pub mod int_point;
 pub mod int_range;
 pub mod invertable_field;
 pub mod keyword_field;
+pub mod knn_byte_vector_field;
+pub mod knn_float_vector_field;
 pub mod long_field;
 pub mod long_point;
 pub mod numeric_doc_values_field;

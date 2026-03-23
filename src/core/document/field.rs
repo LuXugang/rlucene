@@ -773,6 +773,8 @@ pub enum FieldDataEnum {
   TokenStream(TokenStreamEnum),
   // used to std::mem::replace(FieldDataEnum)
   Dummy(()),
+  FloatArray(Vec<f32>),
+  ByteArray(Vec<u8>),
 }
 
 impl From<i32> for FieldDataEnum {
@@ -816,6 +818,8 @@ impl_from_for_enum!(
     String => String,
     ReaderEnum => Reader,
     TokenStreamEnum => TokenStream,
+     Vec<f32> => FloatArray,
+     Vec<u8> => ByteArray,
 );
 
 impl From<&str> for FieldDataEnum {
@@ -833,6 +837,8 @@ impl Display for FieldDataEnum {
       FieldDataEnum::Reader(r) => write!(f, "{:?}", r),
       FieldDataEnum::TokenStream(t) => write!(f, "{:?}", t),
       FieldDataEnum::Dummy(s) => write!(f, "{:?}", s),
+      FieldDataEnum::FloatArray(a) => write!(f, "{:?}", a),
+      FieldDataEnum::ByteArray(a) => write!(f, "{:?}", a),
     }
   }
 }
