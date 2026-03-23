@@ -14,14 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::document::field::{Field, FieldDataEnum};
+use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::reader::ReaderEnum;
+use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
+use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::invertable_field::InvertableType;
+use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::number::Number;
+use std::borrow::Cow;
+use std::fmt::{Display, Formatter};
+
 /// A field that contains a single byte numeric vector (or none) for each document. Vectors are dense
 /// that is, every dimension of a vector contains an explicit value, stored packed into an array
 /// (of type `byte[]`) whose length is the vector dimension. Values can be retrieved using
@@ -194,5 +203,85 @@ impl KnnByteVectorField {
 
     self.parent_field.fields_data = value.into();
     Ok(())
+  }
+}
+
+impl FieldBase for KnnByteVectorField {}
+
+impl Display for KnnByteVectorField {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    self.parent_field.fmt(f)
+  }
+}
+
+impl IndexableField for KnnByteVectorField {
+  fn name(&self) -> &str {
+    self.parent_field.name()
+  }
+
+  type FieldType = FieldType;
+
+  fn field_type(&self) -> &Self::FieldType {
+    self.parent_field.field_type()
+  }
+
+  type TokenStream = <Field as IndexableField>::TokenStream;
+
+  fn token_stream<'a>(
+    &'a mut self,
+    token_stream: Option<&'a mut InnerTokenStreams>,
+  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
+    self.parent_field.token_stream(token_stream)
+  }
+
+  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    self.parent_field.binary_value()
+  }
+
+  fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+    self.binary_value().map(|v| v.map(|c| c.into_owned()))
+  }
+
+  fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.parent_field.string_value()
+  }
+
+  fn take_string_value(&mut self) -> Result<Option<String>> {
+    self.parent_field.take_string_value()
+  }
+
+  fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
+    self.parent_field.take_reader_value()
+  }
+
+  fn numeric_value(&self) -> Result<Option<Number>> {
+    self.parent_field.numeric_value()
+  }
+
+  fn stored_value(&self) -> Option<&FieldDataEnum> {
+    self.parent_field.stored_value()
+  }
+
+  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
+    self.parent_field.take_stored_value()
+  }
+
+  fn invertable_type(&self) -> &InvertableType {
+    self.parent_field.invertable_type()
+  }
+
+  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
+  where
+    A: Analyzer,
+  {
+    self.parent_field.init_token_stream(analyzer)
+  }
+}
+#[cfg(test)]
+impl Clone for KnnByteVectorField {
+  fn clone(&self) -> Self {
+    Self {
+      parent_field: self.parent_field.clone(),
+    }
   }
 }
