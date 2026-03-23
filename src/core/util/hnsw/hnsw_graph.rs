@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::SliceCopyOps;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 /// Hierarchical Navigable Small World (HNSW) graph.
 ///
@@ -131,28 +131,28 @@ pub trait NodesIterator: Iterator<Item = usize> {
   /// # Returns
   ///
   /// The number of integers written to `dest`.
-  fn consume(&mut self, dest: &mut [usize]) -> Option<usize>;
+  fn consume(&mut self, dest: &mut [usize]) -> Result<usize>;
 
-  fn get_sorted_nodes<I: NodesIterator>(nodes: &mut I) -> Vec<usize> {
-    let mut sorted = Vec::with_capacity(nodes.size());
-    for v in nodes.by_ref() {
-      sorted.push(v);
-    }
-    sorted.sort_unstable();
-    sorted
-  }
   fn has_next(&self) -> bool;
+}
+pub fn get_sorted_nodes<I: NodesIterator>(nodes: &mut I) -> Vec<usize> {
+  let mut sorted = Vec::with_capacity(nodes.size());
+  for v in nodes.by_ref() {
+    sorted.push(v);
+  }
+  sorted.sort_unstable();
+  sorted
 }
 /// NodesIterator that accepts nodes as an integer array.
 pub struct ArrayNodesIterator {
-  nodes: Option<Vec<usize>>,
+  nodes: Option<Arc<Vec<usize>>>,
   cur: usize,
   size: usize,
 }
 
 impl ArrayNodesIterator {
   /// Constructor for explicit node list (with partial length).
-  pub fn from_nodes(nodes: Option<Vec<usize>>, size: usize) -> Self {
+  pub fn from_nodes(nodes: Option<Arc<Vec<usize>>>, size: usize) -> Self {
     debug_assert!(nodes.is_some());
     debug_assert!(size <= nodes.as_ref().unwrap().len());
     Self {
@@ -199,22 +199,22 @@ impl NodesIterator for ArrayNodesIterator {
     self.size
   }
 
-  fn consume(&mut self, dest: &mut [usize]) -> Option<usize> {
+  fn consume(&mut self, dest: &mut [usize]) -> Result<usize> {
     if !self.has_next() {
-      return None;
+      return Err(LuceneError::no_such_element(""));
     }
     let num_to_copy = std::cmp::min(dest.len(), self.size - self.cur);
     match &self.nodes {
       Some(vec) => {
         dest.copy_from(&vec[self.cur..self.cur + num_to_copy], 0);
         self.cur += num_to_copy;
-        Some(num_to_copy)
+        Ok(num_to_copy)
       },
       None => {
         for (i, slot) in dest.iter_mut().enumerate().take(num_to_copy) {
           *slot = self.cur + i;
         }
-        Some(num_to_copy)
+        Ok(num_to_copy)
       },
     }
   }
@@ -266,16 +266,16 @@ impl NodesIterator for CollectionNodesIterator {
     self.size
   }
 
-  fn consume(&mut self, dest: &mut [usize]) -> Option<usize> {
+  fn consume(&mut self, dest: &mut [usize]) -> Result<usize> {
     if !self.has_next() {
-      return None;
+      return Err(LuceneError::no_such_element(""));
     }
     let mut dest_index = 0;
     while self.has_next() && dest_index < dest.len() {
       dest[dest_index] = self.next().unwrap();
       dest_index += 1;
     }
-    Some(dest_index)
+    Ok(dest_index)
   }
 
   fn has_next(&self) -> bool {
@@ -306,7 +306,7 @@ impl NodesIterator for NodesIteratorEnums {
     }
   }
 
-  fn consume(&mut self, dest: &mut [usize]) -> Option<usize> {
+  fn consume(&mut self, dest: &mut [usize]) -> Result<usize> {
     match self {
       NodesIteratorEnums::Array(iter) => iter.consume(dest),
       NodesIteratorEnums::Collection(iter) => iter.consume(dest),

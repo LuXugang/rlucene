@@ -61,6 +61,7 @@ pub mod function;
 pub mod group_vint_util;
 pub mod hnsw;
 pub mod in_place_merge_sorter;
+pub mod incremental_hnsw_graph_merger;
 pub mod info_stream;
 pub mod int_array_doc_id_set;
 pub mod int_block_pool;

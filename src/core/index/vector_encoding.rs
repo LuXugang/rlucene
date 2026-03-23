@@ -42,6 +42,12 @@ impl VectorEncoding {
       VectorEncoding::FLOAT32(size) => *size,
     }
   }
+  pub fn ordinal(&self) -> i32 {
+    match self {
+      VectorEncoding::BYTE(_) => 0,
+      VectorEncoding::FLOAT32(_) => 1,
+    }
+  }
 }
 
 impl Default for VectorEncoding {

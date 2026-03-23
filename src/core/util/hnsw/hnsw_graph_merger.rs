@@ -14,4 +14,60 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub trait HnswGraphMerger {}
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReaderEnum;
+use crate::core::index::knn_vector_values::KnnVectorValues;
+use crate::core::index::merge_state::DocMap;
+use crate::core::util::bits::Bits;
+use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
+use crate::core::util::incremental_hnsw_graph_merger::IncrementalHnswGraphMerger;
+use crate::core::util::info_stream::InfoStreamMT;
+
+/// Abstraction of merging multiple graphs into one on-heap graph
+pub trait HnswGraphMerger {
+  /// Adds a reader to the graph merger to record the state
+  ///
+  /// # Arguments
+  /// * `reader` - KnnVectorsReader to add to the merger
+  /// * `doc_map` - MergeState.DocMap for the reader
+  /// * `live_docs` - Bits representing live docs, can be null
+  ///
+  /// # Returns
+  /// this
+  ///
+  /// # Errors
+  /// If an error occurs while reading from the merge state
+  fn add_reader<D, B>(
+    &mut self,
+    reader: KnnVectorsReaderEnum,
+    doc_map: D,
+    live_docs: Option<B>,
+  ) -> crate::core::util::error::lucene_error::Result<()>
+  where
+    D: DocMap,
+    B: Bits;
+
+  /// Merge and produce the on heap graph
+  ///
+  /// # Arguments
+  /// * `merged_vector_values` - view of the vectors in the merged segment
+  /// * `info_stream` - optional info stream to set to builder
+  /// * `max_ord` - max number of vectors that will be added to the graph
+  ///
+  /// # Returns
+  /// merged graph
+  ///
+  /// # Errors
+  /// during merge
+  fn merge<KV, IS>(
+    &mut self,
+    merged_vector_values: KV,
+    info_stream: Option<InfoStreamMT>,
+    max_ord: i32,
+  ) -> crate::core::util::error::lucene_error::Result<OnHeapHnswGraph>
+  where
+    KV: KnnVectorValues;
+}
+
+pub enum HnswGraphMergerEnum {
+  Incremental(IncrementalHnswGraphMerger),
+}

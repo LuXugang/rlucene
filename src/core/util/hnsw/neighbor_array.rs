@@ -219,11 +219,14 @@ impl NeighborArray {
   /// irect access to the internal list of node ids; provided for efficient
   /// writing of the graph
   pub fn nodes(&self) -> &[usize] {
-    &self.nodes[..self.size]
+    &self.nodes
+  }
+  pub fn nodes_mut(&mut self) -> &mut [usize] {
+    &mut self.nodes
   }
 
   pub fn scores(&self) -> &[f32] {
-    &self.scores[..self.size]
+    &self.scores
   }
 
   pub fn clear(&mut self) {

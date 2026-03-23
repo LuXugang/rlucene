@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::VecDeque;
-
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
@@ -24,6 +22,8 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_graph::{
   ArrayNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnums,
 };
+use std::collections::VecDeque;
+use std::sync::Arc;
 /// Utilities for use in tests involving HNSW graphs
 pub struct HnswUtil;
 impl HnswUtil {
@@ -109,7 +109,7 @@ impl HnswUtil {
     }
 
     let mut total = if level == hnsw.num_levels()? - 1 {
-      let v = hnsw.entry_node()?.map(|ep| vec![ep; 1]);
+      let v = hnsw.entry_node()?.map(|ep| Arc::new(vec![ep; 1]));
       let iter = NodesIteratorEnums::Array(ArrayNodesIterator::from_nodes(v, 1));
       Self::get_total(
         iter,
@@ -676,7 +676,7 @@ mod tests {
       self.size
     }
 
-    fn consume(&mut self, _dest: &mut [usize]) -> Option<usize> {
+    fn consume(&mut self, _dest: &mut [usize]) -> Result<usize> {
       unreachable!()
     }
 
