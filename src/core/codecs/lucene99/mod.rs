@@ -14,5 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod lucene99_flat_vectors_writer;
+pub mod lucene99_flat_vectors_writer;
+pub mod lucene99_hnsw_vectors_reader;
 pub mod lucene99_hnsw_vectors_writer;

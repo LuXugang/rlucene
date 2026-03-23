@@ -14,18 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod blocking_float_heap;
-pub(crate) mod dummy;
-pub(crate) mod float_heap;
-pub(crate) mod hnsw_builder;
-pub(crate) mod hnsw_graph;
-pub(crate) mod hnsw_graph_builder;
-pub mod hnsw_graph_merger;
-pub(crate) mod hnsw_graph_searcher;
-pub(crate) mod hnsw_lock;
-pub(crate) mod hnsw_util;
-pub(crate) mod neighbor_array;
-pub(crate) mod neighbor_queue;
-pub(crate) mod on_heap_hnsw_graph;
-pub(crate) mod random_vector_scorer;
-pub(crate) mod random_vector_scorer_supplier;
+use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+
+pub struct Lucene99HnswVectorsReader;
+
+pub const SIMILARITY_FUNCTIONS: &[VectorSimilarityFunction] = &[
+  VectorSimilarityFunction::Euclidean,
+  VectorSimilarityFunction::DotProduct,
+  VectorSimilarityFunction::Cosine,
+  VectorSimilarityFunction::MaximumInnerProduct,
+];
