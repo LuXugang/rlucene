@@ -72,14 +72,7 @@ where
   // TODO IMPORTANT 多线程未实现
   finished: bool,
   info_stream: InfoStreamMT,
-  fields: Vec<
-    FieldWriter<
-      FlatVectorsWriterSs<F>,
-      FixedBitSet,
-      HnswGraphSearcherBaseDefault,
-      F::FlatFieldVectorsWriter,
-    >,
-  >,
+  fields: Vec<FieldWriterType<FlatVectorsWriterSs<F>, F::FlatFieldVectorsWriter>>,
   _marker: PhantomData<V>,
 }
 
@@ -552,12 +545,7 @@ where
   O: IndexOutput,
   F::FlatFieldVectorsWriter: KnnFieldVectorsWriter<V = Vec<u8>>,
 {
-  type KnnFieldVectorsWriter = FieldWriter<
-    FlatVectorsWriterSs<F>,
-    FixedBitSet,
-    HnswGraphSearcherBaseDefault,
-    F::FlatFieldVectorsWriter,
-  >;
+  type KnnFieldVectorsWriter = FieldWriterType<FlatVectorsWriterSs<F>, F::FlatFieldVectorsWriter>;
 
   fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<&Self::KnnFieldVectorsWriter> {
     let flat_field_vectors_writer =
@@ -592,12 +580,7 @@ where
   O: IndexOutput,
   F::FlatFieldVectorsWriter: KnnFieldVectorsWriter<V = Vec<f32>>,
 {
-  type KnnFieldVectorsWriter = FieldWriter<
-    FlatVectorsWriterSs<F>,
-    FixedBitSet,
-    HnswGraphSearcherBaseDefault,
-    F::FlatFieldVectorsWriter,
-  >;
+  type KnnFieldVectorsWriter = FieldWriterType<FlatVectorsWriterSs<F>, F::FlatFieldVectorsWriter>;
 
   fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<&Self::KnnFieldVectorsWriter> {
     let flat_field_vectors_writer =
@@ -646,7 +629,7 @@ pub(crate) fn create_field_writer_byte<F, S>(
   m: usize,
   beam_width: usize,
   info_stream: InfoStreamMT,
-) -> Result<FieldWriter<S::RandomVectorScorerSupplier, FixedBitSet, HnswGraphSearcherBaseDefault, F>>
+) -> Result<FieldWriterType<S::RandomVectorScorerSupplier, F>>
 where
   F: FlatFieldVectorsWriter<V = Vec<u8>>,
   S: FlatVectorsScorer,
@@ -667,7 +650,7 @@ pub(crate) fn create_field_writer_float<F, S>(
   m: usize,
   beam_width: usize,
   info_stream: InfoStreamMT,
-) -> Result<FieldWriter<S::RandomVectorScorerSupplier, FixedBitSet, HnswGraphSearcherBaseDefault, F>>
+) -> Result<FieldWriterType<S::RandomVectorScorerSupplier, F>>
 where
   F: FlatFieldVectorsWriter<V = Vec<f32>>,
   S: FlatVectorsScorer,
@@ -681,7 +664,7 @@ where
     info_stream,
   )
 }
-
+pub type FieldWriterType<S, F> = FieldWriter<S, FixedBitSet, HnswGraphSearcherBaseDefault, F>;
 pub struct FieldWriter<S, B, H, F>
 where
   S: RandomVectorScorerSupplier,
@@ -695,7 +678,7 @@ where
   node: usize,
   flat_field_vectors_writer: F,
 }
-impl<S, F> FieldWriter<S, FixedBitSet, HnswGraphSearcherBaseDefault, F>
+impl<S, F> FieldWriterType<S, F>
 where
   S: RandomVectorScorerSupplier,
   F: FlatFieldVectorsWriter<V = Vec<u8>>,
@@ -726,7 +709,7 @@ where
     )
   }
 }
-impl<S, F> FieldWriter<S, FixedBitSet, HnswGraphSearcherBaseDefault, F>
+impl<S, F> FieldWriterType<S, F>
 where
   S: RandomVectorScorerSupplier,
   F: FlatFieldVectorsWriter<V = Vec<f32>>,
@@ -757,7 +740,7 @@ where
     )
   }
 }
-impl<S, F> FieldWriter<S, FixedBitSet, HnswGraphSearcherBaseDefault, F>
+impl<S, F> FieldWriterType<S, F>
 where
   S: RandomVectorScorerSupplier,
   F: FlatFieldVectorsWriter,
