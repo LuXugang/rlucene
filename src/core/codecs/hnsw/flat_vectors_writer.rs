@@ -14,6 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
+use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
+use crate::core::index::field_info::FieldInfo;
+use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
-pub trait FlatVectorsWriter: KnnVectorsWriter {}
+pub trait FlatVectorsWriter: KnnVectorsWriter {
+  type FlatVectorsScorer: FlatVectorsScorer;
+  fn get_flat_vector_scorer(&self) -> &Self::FlatVectorsScorer;
+
+  type FlatFieldVectorsWriter: FlatFieldVectorsWriter;
+  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<Self::FlatFieldVectorsWriter>;
+}
+
+pub type FlatVectorsWriterSs<F> =
+  <<F as FlatVectorsWriter>::FlatVectorsScorer as FlatVectorsScorer>::RandomVectorScorerSupplier;

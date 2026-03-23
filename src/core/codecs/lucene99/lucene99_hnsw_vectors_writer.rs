@@ -14,18 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::CodecUtil;
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
-use crate::core::codecs::hnsw::flat_vectors_writer::FlatVectorsWriter;
+use crate::core::codecs::hnsw::flat_vectors_writer::{FlatVectorsWriter, FlatVectorsWriterSs};
 use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
+use crate::core::codecs::knn_vectors_writer::{KnnVectorsWriter, map_old_ord_to_new_ord};
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_reader::SIMILARITY_FUNCTIONS;
+use crate::core::index::IndexFileNames;
 use crate::core::index::byte_vector_values::from_bytes;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::float_vector_values::from_floats;
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_write_state::SegmentWriteState;
+use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::store::IndexOutput;
+use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::BitSet;
@@ -45,11 +52,13 @@ use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 //TODO: memory calculation not implement
 const SHALLOW_RAM_BYTES_USED: i64 = 0;
-pub struct Lucene99HnswVectorsWriter<F, O>
+/// Writes vector values and knn graphs to index segments.
+pub struct Lucene99HnswVectorsWriter<F, O, V>
 where
   F: FlatVectorsWriter,
   O: IndexOutput,
@@ -62,21 +71,262 @@ where
   num_merge_workers: usize,
   // TODO IMPORTANT 多线程未实现
   finished: bool,
+  info_stream: InfoStreamMT,
+  fields: Vec<
+    FieldWriter<
+      FlatVectorsWriterSs<F>,
+      FixedBitSet,
+      HnswGraphSearcherBaseDefault,
+      F::FlatFieldVectorsWriter,
+    >,
+  >,
+  _marker: PhantomData<V>,
 }
 
-impl<F, O> Lucene99HnswVectorsWriter<F, O>
+impl<F, O, V> Lucene99HnswVectorsWriter<F, O, V>
 where
   F: FlatVectorsWriter,
   O: IndexOutput,
 {
+  pub fn new<D1, D2>(
+    state: &SegmentWriteState<D1>,
+    m: usize,
+    beam_width: usize,
+    flat_vector_writer: F,
+    num_merge_workers: usize,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self>
+  where
+    D1: Directory<IndexOutput = O>,
+    D2: Directory,
+  {
+    let meta_file_name = IndexFileNames::segment_file_name(
+      &segment_info.name,
+      &state.segment_suffix,
+      Lucene99HnswVectorsFormat::META_EXTENSION,
+    );
+
+    let index_data_file_name = IndexFileNames::segment_file_name(
+      &segment_info.name,
+      &state.segment_suffix,
+      Lucene99HnswVectorsFormat::VECTOR_INDEX_EXTENSION,
+    );
+    let mut meta = state
+      .directory
+      .create_output(&meta_file_name, state.context)?;
+
+    let mut vector_index = state
+      .directory
+      .create_output(&index_data_file_name, state.context)?;
+    let result = (|| -> Result<()> {
+      CodecUtil::write_index_header(
+        &mut meta,
+        Lucene99HnswVectorsFormat::META_CODEC_NAME,
+        Lucene99HnswVectorsFormat::VERSION_CURRENT,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )?;
+
+      CodecUtil::write_index_header(
+        &mut vector_index,
+        Lucene99HnswVectorsFormat::VECTOR_INDEX_CODEC_NAME,
+        Lucene99HnswVectorsFormat::VERSION_CURRENT,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )?;
+      Ok(())
+    })();
+
+    result?;
+
+    Ok(Self {
+      meta,
+      vector_index,
+      m,
+      beam_width,
+      flat_vector_writer,
+      num_merge_workers,
+      finished: false,
+      info_stream: state.info_stream.clone(),
+      fields: Vec::new(),
+      _marker: PhantomData,
+    })
+  }
+  fn write_field(&mut self, field_data: usize) -> Result<()> {
+    let field_data = self.fields.get_mut(field_data).unwrap();
+    let vector_index_offset = self.vector_index.get_file_pointer();
+
+    let cardinality = field_data.get_docs_with_field_set().cardinality();
+    let field_info = field_data.field_info.clone();
+    let graph_level_node_offsets = {
+      let graph = field_data.get_graph()?;
+      Self::write_graph(&mut self.vector_index, graph)?
+    };
+
+    let vector_index_length = self.vector_index.get_file_pointer() - vector_index_offset;
+    let graph = field_data.get_graph()?;
+    Self::write_meta(
+      &mut self.vector_index,
+      &mut self.meta,
+      self.m,
+      &field_info,
+      vector_index_offset.try_convert()?,
+      vector_index_length.try_convert()?,
+      cardinality,
+      graph,
+      &graph_level_node_offsets,
+    )?;
+
+    Ok(())
+  }
+  fn write_sorting_field<DM>(&mut self, field_data_idx: usize, sort_map: &DM) -> Result<()>
+  where
+    DM: DocMap,
+  {
+    let field_data = self.fields.get_mut(field_data_idx).unwrap();
+    let cardinality = field_data.get_docs_with_field_set().cardinality() as usize;
+
+    let mut ord_map = vec![0; cardinality];
+    let mut old_ord_map = vec![0; cardinality];
+
+    map_old_ord_to_new_ord(
+      field_data.get_docs_with_field_set(),
+      sort_map,
+      Some(&mut old_ord_map),
+      Some(&mut ord_map),
+      None,
+    )?;
+
+    let vector_index_offset = self.vector_index.get_file_pointer();
+
+    let field_info = field_data.field_info.clone();
+
+    let count = field_data.get_docs_with_field_set().cardinality();
+    let graph = field_data.get_graph()?;
+
+    let mut graph_level_node_offsets = if let Some(ref g) = graph {
+      vec![Vec::new(); g.num_levels()?]
+    } else {
+      Vec::new()
+    };
+
+    let mut mock_graph = Self::reconstruct_and_write_graph(
+      &mut self.vector_index,
+      graph,
+      ord_map.as_ref(),
+      old_ord_map.as_ref(),
+      &mut graph_level_node_offsets,
+    )?;
+
+    let vector_index_length = self.vector_index.get_file_pointer() - vector_index_offset;
+
+    Self::write_meta(
+      &mut self.vector_index,
+      &mut self.meta,
+      self.m,
+      &field_info,
+      vector_index_offset.try_convert()?,
+      vector_index_length.try_convert()?,
+      count,
+      mock_graph.as_mut(),
+      &graph_level_node_offsets,
+    )?;
+
+    Ok(())
+  }
+  /// Reconstructs the graph given the old and new node ids.
+  ///
+  /// Additionally, the graph node connections are written to the vectorIndex.
+  ///
+  /// # Arguments
+  /// * `graph` - The current on heap graph
+  /// * `new_to_old_map` - the new node ids indexed to the old node ids
+  /// * `old_to_new_map` - the old node ids indexed to the new node ids
+  /// * `level_node_offsets` - where to place the new offsets for the nodes in the vector index.
+  ///
+  /// # Returns
+  /// The graph
+  ///
+  /// # Errors
+  /// if writing to vectorIndex fails
+  fn reconstruct_and_write_graph<'a>(
+    vector_index: &mut O,
+    graph: Option<&'a mut OnHeapHnswGraph>,
+    new_to_old_map: &[usize],
+    old_to_new_map: &[usize],
+    level_node_offsets: &mut [Vec<i32>],
+  ) -> Result<Option<HnswGraphImpl<'a>>> {
+    let Some(graph) = graph else {
+      return Ok(None);
+    };
+    let num_levels = graph.num_levels()?;
+    let mut nodes_by_level = Vec::with_capacity(num_levels);
+    nodes_by_level.push(Arc::new(Vec::new()));
+
+    let max_ord = graph.size();
+    let mut nodes_on_level0 = graph.get_nodes_on_level(0)?;
+    level_node_offsets[0] = vec![0i32; nodes_on_level0.size()];
+
+    while nodes_on_level0.has_next() {
+      let node = nodes_on_level0
+        .next()
+        .ok_or_else(|| LuceneError::illegal_state("Expected more nodes on level 0"))?;
+      let neighbors = graph.get_neighbors(0, new_to_old_map[node]);
+
+      let offset = vector_index.get_file_pointer();
+
+      Self::reconstruct_and_write_neighbours(vector_index, neighbors, old_to_new_map, max_ord)?;
+
+      let delta = (vector_index.get_file_pointer() - offset).try_convert()?;
+
+      level_node_offsets[0][node] = delta;
+    }
+
+    for (level, level_offsets) in level_node_offsets
+      .iter_mut()
+      .enumerate()
+      .take(num_levels)
+      .skip(1)
+    {
+      let mut nodes_on_level = graph.get_nodes_on_level(level)?;
+      let mut new_nodes = vec![0usize; nodes_on_level.size()];
+
+      let mut n = 0;
+      while nodes_on_level.has_next() {
+        new_nodes[n] = old_to_new_map[nodes_on_level
+          .next()
+          .ok_or_else(|| LuceneError::illegal_state("Expected more nodes on level"))?];
+        n += 1;
+      }
+
+      new_nodes.sort();
+
+      *level_offsets = vec![0i32; new_nodes.len()];
+
+      for (node_offset_index, &node) in new_nodes.iter().enumerate() {
+        let neighbors = graph.get_neighbors(level, new_to_old_map[node]);
+
+        let offset = vector_index.get_file_pointer();
+
+        Self::reconstruct_and_write_neighbours(vector_index, neighbors, old_to_new_map, max_ord)?;
+
+        let delta = (vector_index.get_file_pointer() - offset).try_convert()?;
+
+        level_offsets[node_offset_index] = delta;
+      }
+      nodes_by_level.push(Arc::new(new_nodes));
+    }
+
+    Ok(Some(HnswGraphImpl::new(graph, nodes_by_level)))
+  }
   fn reconstruct_and_write_neighbours(
-    &mut self,
+    vector_index: &mut O,
     neighbors: &mut NeighborArray,
     old_to_new_map: &[usize],
     max_ord: usize,
   ) -> Result<()> {
     let size = neighbors.size();
-    self.vector_index.write_vint(size as i32)?;
+    vector_index.write_vint(size as i32)?;
 
     let nnodes = neighbors.nodes_mut();
 
@@ -97,7 +347,7 @@ where
     }
 
     for &node in nnodes.iter().take(size) {
-      self.vector_index.write_vint(node as i32)?;
+      vector_index.write_vint(node as i32)?;
     }
 
     Ok(())
@@ -106,7 +356,10 @@ where
   /// @param graph Write the graph in a compressed format
   /// @return The non-cumulative offsets for the nodes. Should be used to create cumulative offsets.
   /// @throws IOException if writing to vectorIndex fails
-  fn write_graph(&mut self, graph: Option<&mut OnHeapHnswGraph>) -> Result<Vec<Vec<i32>>> {
+  fn write_graph(
+    vector_index: &mut O,
+    graph: Option<&mut OnHeapHnswGraph>,
+  ) -> Result<Vec<Vec<i32>>> {
     let Some(graph) = graph else {
       return Ok(Vec::new());
     };
@@ -125,9 +378,9 @@ where
         let neighbors = graph.get_neighbors(level, node);
         let size = neighbors.size();
 
-        let offset_start = self.vector_index.get_file_pointer();
+        let offset_start = vector_index.get_file_pointer();
 
-        self.vector_index.write_vint(size as i32)?;
+        vector_index.write_vint(size as i32)?;
 
         let nnodes = neighbors.nodes();
         let mut nnodes = nnodes[..size].to_vec();
@@ -144,10 +397,10 @@ where
         }
 
         for &n in &nnodes {
-          self.vector_index.write_vint(n as i32)?;
+          vector_index.write_vint(n as i32)?;
         }
 
-        let offset = (self.vector_index.get_file_pointer() - offset_start).try_convert()?;
+        let offset = (vector_index.get_file_pointer() - offset_start).try_convert()?;
 
         current_level_offsets[node_offset_id] = offset;
       }
@@ -157,9 +410,11 @@ where
 
     Ok(offsets)
   }
-
+  #[allow(clippy::too_many_arguments)]
   fn write_meta<H>(
-    &mut self,
+    meta: &mut O,
+    vector_index: &mut O,
+    m: usize,
     field: &FieldInfo,
     vector_index_offset: i64,
     vector_index_length: i64,
@@ -170,23 +425,21 @@ where
   where
     H: HnswGraph,
   {
-    self.meta.write_int(field.number)?;
-    self.meta.write_int(field.get_vector_encoding().ordinal())?;
-    self
-      .meta
-      .write_int(dist_func_to_ord(field.get_vector_similarity_function())? as i32)?;
-    self.meta.write_vlong(vector_index_offset)?;
-    self.meta.write_vlong(vector_index_length)?;
-    self.meta.write_vint(field.get_vector_dimension())?;
-    self.meta.write_int(count)?;
-    self.meta.write_vint(self.m as i32)?;
+    meta.write_int(field.number)?;
+    meta.write_int(field.get_vector_encoding().ordinal())?;
+    meta.write_int(dist_func_to_ord(field.get_vector_similarity_function())? as i32)?;
+    meta.write_vlong(vector_index_offset)?;
+    meta.write_vlong(vector_index_length)?;
+    meta.write_vint(field.get_vector_dimension())?;
+    meta.write_int(count)?;
+    meta.write_vint(m as i32)?;
 
     let Some(graph) = graph else {
-      self.meta.write_vint(0)?;
+      meta.write_vint(0)?;
       return Ok(());
     };
 
-    self.meta.write_vint(graph.num_levels()? as i32)?;
+    meta.write_vint(graph.num_levels()? as i32)?;
     let mut value_count: i64 = 0;
 
     for level in 0..graph.num_levels()? {
@@ -200,14 +453,14 @@ where
 
         debug_assert_eq!(number_consumed, nodes_on_level.size());
 
-        self.meta.write_vint(nol.len() as i32)?;
+        meta.write_vint(nol.len() as i32)?;
 
         for i in (1..nol.len()).rev() {
           nol[i] -= nol[i - 1];
         }
 
         for &n in &nol {
-          self.meta.write_vint(n as i32)?;
+          meta.write_vint(n as i32)?;
         }
       } else {
         debug_assert_eq!(
@@ -218,16 +471,14 @@ where
       }
     }
 
-    let start = self.vector_index.get_file_pointer();
-    self.meta.write_long(start as i64)?;
+    let start = vector_index.get_file_pointer();
+    meta.write_long(start as i64)?;
 
-    self
-      .meta
-      .write_vint(Lucene99HnswVectorsFormat::DIRECT_MONOTONIC_BLOCK_SHIFT)?;
+    meta.write_vint(Lucene99HnswVectorsFormat::DIRECT_MONOTONIC_BLOCK_SHIFT)?;
 
     let mut memory_offsets_writer = DirectMonotonicWriter::get_instance(
-      &mut self.meta,
-      &mut self.vector_index,
+      meta,
+      vector_index,
       value_count,
       Lucene99HnswVectorsFormat::DIRECT_MONOTONIC_BLOCK_SHIFT,
     )?;
@@ -243,13 +494,136 @@ where
 
     memory_offsets_writer.finish()?;
 
-    let end = self.vector_index.get_file_pointer();
-    self.meta.write_long((end - start) as i64)?;
+    let end = vector_index.get_file_pointer();
+    meta.write_long((end - start) as i64)?;
 
     Ok(())
   }
   fn create_graph_merger(&self) -> HnswGraphMergerEnum {
     todo!()
+  }
+  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
+  where
+    DM: DocMap,
+  {
+    self.flat_vector_writer.flush(max_doc, sort_map)?;
+
+    for field_idx in 0..self.fields.len() {
+      if let Some(sm) = sort_map {
+        self.write_sorting_field(field_idx, sm)?;
+      } else {
+        self.write_field(field_idx)?;
+      }
+    }
+
+    Ok(())
+  }
+  fn finish(&mut self) -> Result<()> {
+    if self.finished {
+      return Err(LuceneError::illegal_state("already finished"));
+    }
+    self.finished = true;
+
+    self.flat_vector_writer.finish()?;
+    // write end of fields marker
+    self.meta.write_int(-1)?;
+    CodecUtil::write_footer(&mut self.meta)?;
+
+    CodecUtil::write_footer(&mut self.vector_index)?;
+
+    Ok(())
+  }
+}
+
+impl<F, O, V> Accountable for Lucene99HnswVectorsWriter<F, O, V>
+where
+  F: FlatVectorsWriter,
+  O: IndexOutput,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    // TODO: memory calculation not implement
+    Ok(0)
+  }
+}
+
+impl<F, O> KnnVectorsWriter for Lucene99HnswVectorsWriter<F, O, Vec<u8>>
+where
+  F: FlatVectorsWriter,
+  O: IndexOutput,
+  F::FlatFieldVectorsWriter: KnnFieldVectorsWriter<V = Vec<u8>>,
+{
+  type KnnFieldVectorsWriter = FieldWriter<
+    FlatVectorsWriterSs<F>,
+    FixedBitSet,
+    HnswGraphSearcherBaseDefault,
+    F::FlatFieldVectorsWriter,
+  >;
+
+  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<&Self::KnnFieldVectorsWriter> {
+    let flat_field_vectors_writer =
+      FlatVectorsWriter::add_field(&mut self.flat_vector_writer, field_info.clone())?;
+    let scorer = self.flat_vector_writer.get_flat_vector_scorer();
+    let v = create_field_writer_byte(
+      scorer,
+      flat_field_vectors_writer,
+      field_info,
+      self.m,
+      self.beam_width,
+      self.info_stream.clone(),
+    )?;
+    self.fields.push(v);
+    Ok(self.fields.last().unwrap())
+  }
+
+  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
+  where
+    DM: DocMap,
+  {
+    self.flush(max_doc, sort_map)
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    self.finish()
+  }
+}
+impl<F, O> KnnVectorsWriter for Lucene99HnswVectorsWriter<F, O, Vec<f32>>
+where
+  F: FlatVectorsWriter,
+  O: IndexOutput,
+  F::FlatFieldVectorsWriter: KnnFieldVectorsWriter<V = Vec<f32>>,
+{
+  type KnnFieldVectorsWriter = FieldWriter<
+    FlatVectorsWriterSs<F>,
+    FixedBitSet,
+    HnswGraphSearcherBaseDefault,
+    F::FlatFieldVectorsWriter,
+  >;
+
+  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<&Self::KnnFieldVectorsWriter> {
+    let flat_field_vectors_writer =
+      FlatVectorsWriter::add_field(&mut self.flat_vector_writer, field_info.clone())?;
+    let scorer = self.flat_vector_writer.get_flat_vector_scorer();
+    let v = create_field_writer_float(
+      scorer,
+      flat_field_vectors_writer,
+      field_info,
+      self.m,
+      self.beam_width,
+      self.info_stream.clone(),
+    )?;
+    self.fields.push(v);
+    Ok(self.fields.last().unwrap())
+  }
+
+  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
+  where
+    DM: DocMap,
+  {
+    self.flush(max_doc, sort_map)
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    self.finish()
   }
 }
 
@@ -308,7 +682,7 @@ where
   )
 }
 
-pub(crate) struct FieldWriter<S, B, H, F>
+pub struct FieldWriter<S, B, H, F>
 where
   S: RandomVectorScorerSupplier,
   B: BitSet,

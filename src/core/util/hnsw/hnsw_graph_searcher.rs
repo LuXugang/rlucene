@@ -292,7 +292,7 @@ pub trait HnswGraphSearcherBase {
   }
 }
 #[derive(Default)]
-pub(crate) struct HnswGraphSearcherBaseDefault;
+pub struct HnswGraphSearcherBaseDefault;
 impl HnswGraphSearcherBase for HnswGraphSearcherBaseDefault {}
 
 /// This struct allows [`OnHeapHnswGraph`] to be searched in a thread-safe
