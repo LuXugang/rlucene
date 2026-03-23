@@ -14,5 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod flat_vectors_scorer;
-pub mod flat_vectors_writer;
+use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
+
+pub trait FlatVectorsWriter: KnnVectorsWriter {}
