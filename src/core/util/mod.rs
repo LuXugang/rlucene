@@ -93,6 +93,7 @@ pub mod packed;
 pub(crate) mod paged_bytes;
 pub mod predicate;
 pub mod priority_queue;
+pub mod quantization;
 mod radix_selector;
 pub mod ram_usage_estimator;
 pub(crate) mod ref_count;

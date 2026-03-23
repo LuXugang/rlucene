@@ -32,6 +32,12 @@ pub trait ByteVectorValues: KnnVectorValues {
   /// the vector value
   fn vector_value(&self, ord: usize) -> &[u8];
 
+  type ByteVectorValues: ByteVectorValues;
+  /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
+  /// need to access different values at once, to avoid overwriting the
+  /// underlying vector returned.
+  fn copy(&self) -> Result<&Self::ByteVectorValues>;
+
   type VectorScorer: VectorScorer;
   fn scorer(&self, _query: &[u8]) -> Result<Self::VectorScorer> {
     Err(LuceneError::unsupported_operation(""))
@@ -112,9 +118,15 @@ impl<'a> KnnVectorValues for ByteVectorValuesImpl<'a> {
   type DocIndexIterator = DummyDocIndexIterator;
 }
 
-impl ByteVectorValues for ByteVectorValuesImpl<'_> {
+impl<'a> ByteVectorValues for ByteVectorValuesImpl<'a> {
   fn vector_value(&self, target_ord: usize) -> &[u8] {
     self.vectors[target_ord].as_slice()
+  }
+
+  type ByteVectorValues = ByteVectorValuesImpl<'a>;
+
+  fn copy(&self) -> Result<&Self::ByteVectorValues> {
+    Ok(self)
   }
 
   type VectorScorer = DummyVectorScorer;

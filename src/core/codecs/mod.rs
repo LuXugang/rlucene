@@ -38,6 +38,7 @@ pub mod lucene101_codec;
 pub mod lucene90;
 pub mod lucene90_live_docs_format;
 pub mod lucene94;
+pub mod lucene95;
 pub mod lucene99;
 pub mod lucene99_segment_info_format;
 mod multi_level_skip_list_reader;

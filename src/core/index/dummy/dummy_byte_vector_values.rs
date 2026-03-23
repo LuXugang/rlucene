@@ -64,6 +64,12 @@ impl ByteVectorValues for DummyByteVectorValues {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
+  type ByteVectorValues = DummyByteVectorValues;
+
+  fn copy(&self) -> crate::core::util::error::lucene_error::Result<&Self::ByteVectorValues> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
   type VectorScorer = DummyVectorScorer;
 
   fn scorer(
