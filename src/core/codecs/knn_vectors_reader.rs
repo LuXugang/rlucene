@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
+use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
@@ -125,5 +127,62 @@ pub trait KnnVectorsReader {
   /// The default implementation is empty
   fn finish_merge(&mut self) -> Result<()> {
     Ok(())
+  }
+}
+pub enum KnnVectorsReaderEnum {}
+impl KnnVectorsReader for KnnVectorsReaderEnum {
+  fn check_integrity(&self) -> Result<()> {
+    todo!()
+  }
+
+  type FloatVectorValues = DummyFloatVectorValues;
+
+  fn get_float_vector_values(&self, _field: &str) -> Result<Self::FloatVectorValues> {
+    todo!()
+  }
+
+  type ByteVectorValues = DummyByteVectorValues;
+
+  fn get_byte_vector_values(&self, _field: &str) -> Result<Self::ByteVectorValues> {
+    todo!()
+  }
+
+  fn search_f32<B, K>(
+    &self,
+    _field: &str,
+    _target: &[f32],
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    todo!()
+  }
+
+  fn search_u8<B, K>(
+    &self,
+    _field: &str,
+    _target: &[u8],
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    todo!()
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    todo!()
+  }
+
+  fn finish_merge(&mut self) -> Result<()> {
+    todo!()
   }
 }

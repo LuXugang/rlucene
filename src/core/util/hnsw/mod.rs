@@ -24,6 +24,7 @@ pub mod hnsw_graph_merger;
 pub(crate) mod hnsw_graph_searcher;
 pub(crate) mod hnsw_lock;
 pub(crate) mod hnsw_util;
+pub mod knn_vectors_reader;
 pub(crate) mod neighbor_array;
 pub(crate) mod neighbor_queue;
 pub(crate) mod on_heap_hnsw_graph;

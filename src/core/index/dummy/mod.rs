@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 pub mod doc_comparator;
+pub mod dummy_byte_vector_values;
 pub mod dummy_cache_helper;
 pub mod dummy_codec_reader;
 pub mod dummy_comparable_provider;
@@ -24,6 +25,7 @@ pub mod dummy_doc_index_iterator;
 pub mod dummy_doc_map;
 pub mod dummy_doc_map_sorter;
 pub mod dummy_fields;
+pub mod dummy_float_vector_values;
 pub mod dummy_flush_policy;
 pub mod dummy_impacts;
 pub mod dummy_impacts_enum;
@@ -32,6 +34,7 @@ pub mod dummy_index_reader;
 pub mod dummy_index_sorter;
 pub mod dummy_indexable_field;
 pub mod dummy_indexable_field_type;
+pub mod dummy_knn_vector_values;
 pub mod dummy_leaf_reader;
 pub mod dummy_merge_context;
 pub mod dummy_merge_policy;
