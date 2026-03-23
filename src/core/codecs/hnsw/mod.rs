@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 pub mod flat_field_vectors_writer;
+pub mod flat_vectors_reader;
 pub mod flat_vectors_scorer;
 pub mod flat_vectors_writer;
 pub mod hnsw_graph_provider;
