@@ -29,4 +29,5 @@ pub mod dummy_scorer_supplier;
 pub mod dummy_sim_scorer;
 pub mod dummy_similarity;
 pub mod dummy_two_phase_iterator;
+pub mod dummy_vector_scorer;
 pub mod dummy_weight;

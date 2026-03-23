@@ -14,5 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod lucene99_flat_vectors_writer;
-pub mod lucene99_hnsw_vectors_writer;
+use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::vector_scorer::VectorScorer;
+
+pub struct DummyVectorScorer;
+impl VectorScorer for DummyVectorScorer {
+  fn score(&mut self) -> crate::core::util::error::lucene_error::Result<f32> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  type DocIdSetIterator = DummyDISI;
+
+  fn iterator(&self) -> &Self::DocIdSetIterator {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+}

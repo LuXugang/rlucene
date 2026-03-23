@@ -14,5 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod flat_field_vectors_writer;
 pub mod flat_vectors_scorer;
 pub mod flat_vectors_writer;

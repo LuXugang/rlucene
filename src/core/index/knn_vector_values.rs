@@ -26,43 +26,92 @@ use crate::core::util::{HasIdentity, TryIntoInt};
 /// `KnnFloatVectorField` or `KnnByteVectorField`.
 pub trait KnnVectorValues {
   /// Return the dimension of the vectors
-  fn dimension(&self) -> i32;
+  fn dimension(&self) -> usize;
   /// Return the number of vectors for this field.
   ///
   /// # Returns
   /// The number of vectors returned by this iterator.
-  fn size(&self) -> i32;
+  fn size(&self) -> usize;
   /// Return the docid of the document indexed with the given vector ordinal.
   /// This default implementation returns the argument and is appropriate for
   /// dense values implementations where every doc has a single value.
   fn ord_to_doc(&self, ord: i32) -> i32 {
     ord
   }
+  type KnnVectorValues: KnnVectorValues;
   /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
   /// need to access different values at once, to avoid overwriting the
   /// underlying vector returned.
-  fn copy(&self) -> Result<Self>
-  where
-    Self: Sized;
+  fn copy(&self) -> Result<&Self::KnnVectorValues>;
   /// Returns the vector byte length, defaults to dimension multiplied by
   /// float byte size
   fn get_vector_byte_length(&self) -> usize {
-    (self.dimension() * self.get_encoding().byte_size()) as usize
+    self.dimension() * self.get_encoding().byte_size() as usize
   }
   /// The vector encoding of these values.
   fn get_encoding(&self) -> VectorEncoding;
 
-  type Bits: Bits;
-  /// Returns a Bits accepting docs accepted by the argument and having a
-  /// vector value
-  fn get_accept_ords<B>(&self, accept_docs: B) -> Self::Bits
+  type Bits<B>: Bits
   where
     B: Bits;
+  /// Returns a Bits accepting docs accepted by the argument and having a
+  /// vector value
+  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  where
+    B: Bits;
+  fn default_get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<BitsImpl1<B>>
+  where
+    B: Bits,
+  {
+    accept_docs.map(|accept_docs| BitsImpl1::new(accept_docs, self.size()))
+  }
 
   type DocIndexIterator: DocIndexIterator;
   ///  Create an iterator for this instance.
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
     Err(LuceneError::unsupported_operation(""))
+  }
+}
+pub struct BitsImpl1<B>
+where
+  B: Bits,
+{
+  accept_docs: B,
+  id: Identity,
+  length: usize,
+}
+impl<B> BitsImpl1<B>
+where
+  B: Bits,
+{
+  pub(crate) fn new(accept_docs: B, length: usize) -> Self {
+    Self {
+      accept_docs,
+      id: Identity::new(),
+      length,
+    }
+  }
+}
+
+impl<B> HasIdentity for BitsImpl1<B>
+where
+  B: Bits,
+{
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
+}
+
+impl<B> Bits for BitsImpl1<B>
+where
+  B: Bits,
+{
+  fn get(&self, index: usize) -> Result<bool> {
+    self.accept_docs.get(index)
+  }
+
+  fn length(&self) -> usize {
+    self.length
   }
 }
 

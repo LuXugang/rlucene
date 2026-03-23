@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use rand::SeedableRng;
+use rand::prelude::SmallRng;
+use rand_chacha::rand_core::Rng;
 use std::sync::Arc;
 use std::time::Instant;
-
-use rand_chacha::ChaCha20Rng;
-use rand_chacha::rand_core::Rng;
 
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_score_doc_like::DummyScoreDocLike;
@@ -51,7 +51,7 @@ where
 {
   m: usize,
   ml: f64,
-  random: ChaCha20Rng,
+  random: SmallRng,
   scorer_supplier: S,
   graph_searcher: HnswGraphSearcher<B, H>,
   entry_candidates: GraphBuilderKnnCollector,
@@ -84,7 +84,7 @@ where
     scorer_supplier: S,
     m: usize,
     beam_width: usize,
-    random: ChaCha20Rng,
+    random: u64,
     graph_size: i32,
   ) -> Result<Self> {
     let hnsw = HnswGraphEnums::OnHeap(OnHeapHnswGraph::new(m, graph_size));
@@ -95,7 +95,7 @@ where
     scorer_supplier: S,
     m: usize,
     beam_width: usize,
-    random: ChaCha20Rng,
+    random: u64,
     hnsw: HnswGraphEnums,
   ) -> Result<Self> {
     let size = hnsw.size();
@@ -133,7 +133,7 @@ where
     scorer_supplier: S,
     m: usize,
     beam_width: usize,
-    random: ChaCha20Rng,
+    seed: u64,
     hnsw: HnswGraphEnums,
     hnsw_lock: Option<HnswLock>,
     graph_searcher: HnswGraphSearcher<B, H>,
@@ -148,6 +148,8 @@ where
     }
 
     let ml = if m == 1 { 1.0 } else { 1.0 / (m as f64).ln() };
+
+    let random = SmallRng::seed_from_u64(seed);
 
     Ok(Self {
       m,
@@ -339,7 +341,7 @@ where
     }
     Ok(true)
   }
-  fn get_random_graph_level(ml: f64, random: &mut ChaCha20Rng) -> usize {
+  fn get_random_graph_level(ml: f64, random: &mut impl Rng) -> usize {
     loop {
       let rand_double: f64 = random.next_u64() as f64;
       if rand_double > 0.0 {
@@ -791,11 +793,14 @@ pub const DEFAULT_RAND_SEED: u64 = 42;
 /// Name for the HNSW component used in the info stream.
 pub const HNSW_COMPONENT: &str = "HNSW";
 
+/// Random seed for level generation; public to expose for testing *
+pub const RAND_SEED: u64 = DEFAULT_RAND_SEED;
+
 pub fn create<S>(
   scorer_supplier: S,
   m: usize,
   beam_width: usize,
-  random: ChaCha20Rng,
+  random: u64,
 ) -> Result<HnswGraphBuilder<S, FixedBitSet, HnswGraphSearcherBaseDefault>>
 where
   S: RandomVectorScorerSupplier,
@@ -809,7 +814,7 @@ pub fn create_with_graph_size<S>(
   scorer_supplier: S,
   m: usize,
   beam_width: usize,
-  random: ChaCha20Rng,
+  random: u64,
   graph_size: i32,
 ) -> Result<HnswGraphBuilder<S, FixedBitSet, HnswGraphSearcherBaseDefault>>
 where

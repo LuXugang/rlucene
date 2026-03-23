@@ -14,5 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod lucene99_flat_vectors_writer;
-pub mod lucene99_hnsw_vectors_writer;
+use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
+use crate::core::index::docs_with_field_set::DocsWithFieldSet;
+use crate::core::util::error::lucene_error::Result;
+
+/// Vectors' writer for a field
+pub trait FlatFieldVectorsWriter: KnnFieldVectorsWriter {
+  /// Returns a list of vectors to be written.
+  fn get_vectors(&self) -> &Vec<Self::V>;
+
+  /// Returns the DocsWithFieldSet for the field writer.
+  fn get_docs_with_field_set(&self) -> &DocsWithFieldSet;
+
+  /// Indicates that this writer is done and no new vectors are allowed to be added.
+  fn finish(&mut self) -> Result<()>;
+
+  /// Returns true if the writer is done and no new vectors are allowed to be added.
+  fn is_finished(&self) -> bool;
+}
