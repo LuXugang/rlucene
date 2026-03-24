@@ -32,6 +32,11 @@ pub trait FloatVectorValues: KnnVectorValues {
   /// the vector value
   fn vector_value(&self, ord: usize) -> &[f32];
 
+  type FloatVectorValues: FloatVectorValues;
+  fn copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    Ok(None)
+  }
+
   type VectorScorer: VectorScorer;
   fn scorer(&self, _target: &[f32]) -> Result<Self::VectorScorer> {
     Err(LuceneError::unsupported_operation(""))
@@ -92,10 +97,6 @@ impl<'a> KnnVectorValues for FloatVectorValuesImpl<'a> {
 
   type KnnVectorValues = FloatVectorValuesImpl<'a>;
 
-  fn copy(&self) -> Result<&Self::KnnVectorValues> {
-    Ok(self)
-  }
-
   fn get_encoding(&self) -> VectorEncoding {
     FloatVectorValues::get_encoding(self)
   }
@@ -119,6 +120,8 @@ impl FloatVectorValues for FloatVectorValuesImpl<'_> {
   fn vector_value(&self, target_ord: usize) -> &[f32] {
     self.vectors[target_ord].as_slice()
   }
+
+  type FloatVectorValues = Self;
 
   type VectorScorer = DummyVectorScorer;
 }

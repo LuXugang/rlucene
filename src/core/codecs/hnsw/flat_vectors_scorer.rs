@@ -14,17 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
+use std::fmt::Display;
 
 /// Provides mechanisms to score vectors that are stored in a flat file The purpose of this class is
 /// for providing flexibility to the codec utilizing the vectors
 ///
 /// @lucene.experimental
-pub trait FlatVectorsScorer {
+pub trait FlatVectorsScorer: Display {
   type RandomVectorScorerSupplier: RandomVectorScorerSupplier;
   /// Returns a [`RandomVectorScorerSupplier`] that can be used to score vectors
   ///
@@ -45,7 +48,9 @@ pub trait FlatVectorsScorer {
   where
     K: KnnVectorValues;
 
-  type RandomVectorScorer: RandomVectorScorer;
+  type RandomVectorScorerF32<T>: RandomVectorScorer
+  where
+    T: FloatVectorValues;
   /// Returns a [`RandomVectorScorer`] for the given set of vectors and target vector.
   ///
   /// # Parameters
@@ -61,12 +66,15 @@ pub trait FlatVectorsScorer {
   fn get_random_vector_scorer_f32<K>(
     &self,
     similarity_function: VectorSimilarityFunction,
-    vector_values: &K,
-    target: &[f32],
-  ) -> Result<Self::RandomVectorScorer>
+    vector_values: K,
+    target: Vec<f32>,
+  ) -> Result<Self::RandomVectorScorerF32<K>>
   where
-    K: KnnVectorValues;
+    K: FloatVectorValues;
 
+  type RandomVectorScorerU8<T>: RandomVectorScorer
+  where
+    T: ByteVectorValues;
   /// Returns a [`RandomVectorScorer`] for the given set of vectors and target vector.
   ///
   /// # Parameters
@@ -82,9 +90,9 @@ pub trait FlatVectorsScorer {
   fn get_random_vector_scorer_u8<K>(
     &self,
     similarity_function: VectorSimilarityFunction,
-    vector_values: &K,
-    target: &[u8],
-  ) -> Result<Self::RandomVectorScorer>
+    vector_values: K,
+    target: Vec<u8>,
+  ) -> Result<Self::RandomVectorScorerU8<K>>
   where
-    K: KnnVectorValues;
+    K: ByteVectorValues;
 }

@@ -30,3 +30,12 @@ impl Default for VectorSimilarityFunction {
     VectorSimilarityFunction::Euclidean
   }
 }
+impl VectorSimilarityFunction {
+  pub fn compare_f32(&self, _v1: &[f32], _v2: &[f32]) -> f32 {
+    todo!()
+  }
+
+  pub fn compare_u8(&self, _v1: &[u8], _v2: &[u8]) -> f32 {
+    todo!()
+  }
+}

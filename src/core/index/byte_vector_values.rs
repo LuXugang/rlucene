@@ -36,7 +36,9 @@ pub trait ByteVectorValues: KnnVectorValues {
   /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
   /// need to access different values at once, to avoid overwriting the
   /// underlying vector returned.
-  fn copy(&self) -> Result<&Self::ByteVectorValues>;
+  fn copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    Ok(None)
+  }
 
   type VectorScorer: VectorScorer;
   fn scorer(&self, _query: &[u8]) -> Result<Self::VectorScorer> {
@@ -95,10 +97,6 @@ impl<'a> KnnVectorValues for ByteVectorValuesImpl<'a> {
 
   type KnnVectorValues = ByteVectorValuesImpl<'a>;
 
-  fn copy(&self) -> Result<&Self::KnnVectorValues> {
-    Ok(self)
-  }
-
   fn get_encoding(&self) -> VectorEncoding {
     ByteVectorValues::get_encoding(self)
   }
@@ -123,11 +121,7 @@ impl<'a> ByteVectorValues for ByteVectorValuesImpl<'a> {
     self.vectors[target_ord].as_slice()
   }
 
-  type ByteVectorValues = ByteVectorValuesImpl<'a>;
-
-  fn copy(&self) -> Result<&Self::ByteVectorValues> {
-    Ok(self)
-  }
+  type ByteVectorValues = Self;
 
   type VectorScorer = DummyVectorScorer;
 }

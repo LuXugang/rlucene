@@ -35,14 +35,16 @@ pub trait KnnVectorValues {
   /// Return the docid of the document indexed with the given vector ordinal.
   /// This default implementation returns the argument and is appropriate for
   /// dense values implementations where every doc has a single value.
-  fn ord_to_doc(&self, ord: i32) -> i32 {
+  fn ord_to_doc(&self, ord: usize) -> usize {
     ord
   }
   type KnnVectorValues: KnnVectorValues;
   /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
   /// need to access different values at once, to avoid overwriting the
   /// underlying vector returned.
-  fn copy(&self) -> Result<&Self::KnnVectorValues>;
+  fn copy(&self) -> Result<Option<Self::KnnVectorValues>> {
+    Ok(None)
+  }
   /// Returns the vector byte length, defaults to dimension multiplied by
   /// float byte size
   fn get_vector_byte_length(&self) -> usize {

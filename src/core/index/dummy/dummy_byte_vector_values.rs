@@ -36,7 +36,7 @@ impl KnnVectorValues for DummyByteVectorValues {
 
   type KnnVectorValues = DummyKnnVectorsWriter;
 
-  fn copy(&self) -> crate::core::util::error::lucene_error::Result<&Self::KnnVectorValues> {
+  fn copy(&self) -> crate::core::util::error::lucene_error::Result<Option<Self::KnnVectorValues>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
@@ -66,7 +66,7 @@ impl ByteVectorValues for DummyByteVectorValues {
 
   type ByteVectorValues = DummyByteVectorValues;
 
-  fn copy(&self) -> crate::core::util::error::lucene_error::Result<&Self::ByteVectorValues> {
+  fn copy(&self) -> crate::core::util::error::lucene_error::Result<Option<Self::ByteVectorValues>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
