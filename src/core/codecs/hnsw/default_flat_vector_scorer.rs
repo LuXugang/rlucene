@@ -16,17 +16,17 @@
  */
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::index::byte_vector_values::ByteVectorValues;
-use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::knn_vector_values::KnnVectorValues;
+use crate::core::index::knn_vector_values::{KnnVectorValues, KnnVectorValuesEnum};
+use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::bits::Bits;
-use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
+use crate::core::util::hnsw::random_vector_scorer::{RandomVectorScorer, RandomVectorScorerEnum2};
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use std::fmt::{Display, Formatter};
 
+/// Default implementation of [`FlatVectorsScorer`].
 #[derive(Default)]
 pub struct DefaultFlatVectorScorer;
 
@@ -37,17 +37,32 @@ impl Display for DefaultFlatVectorScorer {
 }
 
 impl FlatVectorsScorer for DefaultFlatVectorScorer {
-  type RandomVectorScorerSupplier = FloatScoringSupplier<DummyFloatVectorValues>;
-
-  fn get_random_vector_scorer_supplier<K>(
-    &self,
-    _similarity_function: VectorSimilarityFunction,
-    _vector_values: &K,
-  ) -> Result<Self::RandomVectorScorerSupplier>
+  type RandomVectorScorerSupplier<B, F>
+    = RandomVectorScorerSupplierEnum<B, F>
   where
-    K: KnnVectorValues,
+    B: ByteVectorValues + Clone,
+    F: FloatVectorValues + Clone;
+
+  fn get_random_vector_scorer_supplier<B, F>(
+    &self,
+    similarity_function: VectorSimilarityFunction,
+    vector_values: KnnVectorValuesEnum<B, F>,
+  ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
+  where
+    B: ByteVectorValues + Clone,
+    F: FloatVectorValues + Clone,
   {
-    todo!()
+    let v = match vector_values {
+      KnnVectorValuesEnum::Byte(b) => {
+        debug_assert!(KnnVectorValues::get_encoding(&b) == VectorEncoding::BYTE(1));
+        RandomVectorScorerSupplierEnum::Byte(ByteScoringSupplier::new(b, similarity_function)?)
+      },
+      KnnVectorValuesEnum::Float(f) => {
+        debug_assert!(KnnVectorValues::get_encoding(&f) == VectorEncoding::FLOAT32(4));
+        RandomVectorScorerSupplierEnum::Float(FloatScoringSupplier::new(f, similarity_function)?)
+      },
+    };
+    Ok(v)
   }
 
   type RandomVectorScorerF32<T>
@@ -108,95 +123,276 @@ impl FlatVectorsScorer for DefaultFlatVectorScorer {
     ))
   }
 }
-
-pub struct FloatScoringSupplier<FV>
+pub enum RandomVectorScorerSupplierEnum<BV, FV>
 where
-  FV: FloatVectorValues,
+  BV: ByteVectorValues + Clone,
+  FV: FloatVectorValues + Clone,
 {
-  vectors: FV,
-  vectors1: Option<<FV as FloatVectorValues>::FloatVectorValues>,
-  similarity_function: VectorSimilarityFunction,
+  Byte(ByteScoringSupplier<BV>),
+  Float(FloatScoringSupplier<FV>),
 }
-impl<FV> FloatScoringSupplier<FV>
+impl<BV, FV> RandomVectorScorerSupplier for RandomVectorScorerSupplierEnum<BV, FV>
 where
-  FV: FloatVectorValues,
+  BV: ByteVectorValues + Clone,
+  FV: FloatVectorValues + Clone,
 {
-  pub(crate) fn new(vectors: FV, similarity_function: VectorSimilarityFunction) -> Result<Self> {
-    let vectors1 = FloatVectorValues::copy(&vectors)?;
-    Ok(Self {
-      vectors,
-      vectors1,
-      similarity_function,
-    })
-  }
-}
-impl<FV> RandomVectorScorerSupplier for FloatScoringSupplier<FV>
-where
-  FV: FloatVectorValues,
-{
-  type Scorer = RandomVectorScorerF32Impl<FV>;
+  type Scorer<'a>
+    = RandomVectorScorerEnum2<RandomVectorScorerByteImpl<'a, BV>, RandomVectorScorerF32Impl<'a, FV>>
+  where
+    Self: 'a;
 
-  fn scorer(&self, _ord: usize) -> Result<Self::Scorer> {
-    todo!()
+  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
+    match self {
+      RandomVectorScorerSupplierEnum::Byte(supplier) => {
+        Ok(RandomVectorScorerEnum2::A(supplier.scorer(ord)?))
+      },
+      RandomVectorScorerSupplierEnum::Float(supplier) => {
+        Ok(RandomVectorScorerEnum2::B(supplier.scorer(ord)?))
+      },
+    }
   }
 
   fn copy(&self) -> Result<Self>
   where
     Self: Sized,
   {
-    todo!()
+    match self {
+      RandomVectorScorerSupplierEnum::Byte(supplier) => {
+        Ok(RandomVectorScorerSupplierEnum::Byte(supplier.copy()?))
+      },
+      RandomVectorScorerSupplierEnum::Float(supplier) => {
+        Ok(RandomVectorScorerSupplierEnum::Float(supplier.copy()?))
+      },
+    }
   }
 }
-pub struct RandomVectorScorerF32Impl<FV>
+/// RandomVectorScorerSupplier for bytes vector
+pub struct ByteScoringSupplier<BV>
 where
-  FV: FloatVectorValues,
+  BV: ByteVectorValues + Clone,
 {
-  vectors: FV,
-  vectors1: Option<<FV as FloatVectorValues>::FloatVectorValues>,
+  vectors: BV,
+  vectors1: <BV as ByteVectorValues>::ByteVectorValues,
+  vectors2: <BV as ByteVectorValues>::ByteVectorValues,
   similarity_function: VectorSimilarityFunction,
 }
-impl<FV> RandomVectorScorerF32Impl<FV>
+
+impl<BV> ByteScoringSupplier<BV>
 where
-  FV: FloatVectorValues,
+  BV: ByteVectorValues + Clone,
+{
+  pub(crate) fn new(vectors: BV, similarity_function: VectorSimilarityFunction) -> Result<Self> {
+    let vectors1 = ByteVectorValues::copy(&vectors)?;
+    let vectors2 = ByteVectorValues::copy(&vectors)?;
+    Ok(Self {
+      vectors,
+      vectors1,
+      vectors2,
+      similarity_function,
+    })
+  }
+}
+
+impl<BV> RandomVectorScorerSupplier for ByteScoringSupplier<BV>
+where
+  BV: ByteVectorValues + Clone,
+{
+  type Scorer<'a>
+    = RandomVectorScorerByteImpl<'a, BV>
+  where
+    Self: 'a;
+
+  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
+    Ok(RandomVectorScorerByteImpl::new(
+      &self.vectors,
+      &self.vectors1,
+      &self.vectors2,
+      self.similarity_function,
+      ord,
+    ))
+  }
+
+  fn copy(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    ByteScoringSupplier::new(self.vectors.clone(), self.similarity_function)
+  }
+}
+
+pub struct RandomVectorScorerByteImpl<'a, BV>
+where
+  BV: ByteVectorValues,
+{
+  vectors: &'a BV,
+  vectors1: &'a <BV as ByteVectorValues>::ByteVectorValues,
+  vectors2: &'a <BV as ByteVectorValues>::ByteVectorValues,
+  similarity_function: VectorSimilarityFunction,
+  ord: usize,
+}
+
+impl<'a, BV> RandomVectorScorerByteImpl<'a, BV>
+where
+  BV: ByteVectorValues,
 {
   pub(crate) fn new(
-    vectors: FV,
-    vectors1: Option<<FV as FloatVectorValues>::FloatVectorValues>,
+    vectors: &'a BV,
+    vectors1: &'a <BV as ByteVectorValues>::ByteVectorValues,
+    vectors2: &'a <BV as ByteVectorValues>::ByteVectorValues,
     similarity_function: VectorSimilarityFunction,
+    ord: usize,
   ) -> Self {
     Self {
       vectors,
       vectors1,
+      vectors2,
       similarity_function,
+      ord,
     }
   }
 }
-impl<FV> RandomVectorScorer for RandomVectorScorerF32Impl<FV>
+
+impl<BV> RandomVectorScorer for RandomVectorScorerByteImpl<'_, BV>
 where
-  FV: FloatVectorValues,
+  BV: ByteVectorValues,
 {
-  fn score(&self, _node: usize) -> Result<f32> {
-    todo!()
+  fn score(&self, node: usize) -> Result<f32> {
+    Ok(self.similarity_function.compare_u8(
+      self.vectors1.vector_value(self.ord),
+      self.vectors2.vector_value(node),
+    ))
   }
 
   fn max_ord(&self) -> usize {
-    todo!()
+    self.vectors.size()
   }
 
-  fn ord_to_doc(&self, _ord: usize) -> usize {
-    todo!()
+  fn ord_to_doc(&self, ord: usize) -> usize {
+    self.vectors.ord_to_doc(ord)
   }
 
   type Bits<B>
-    = DummyBits
+    = <BV as KnnVectorValues>::Bits<B>
   where
     B: Bits;
 
-  fn get_accept_ords<B>(&self, _accept_docs: Option<B>) -> Result<Option<Self::Bits<B>>>
+  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Result<Option<Self::Bits<B>>>
   where
     B: Bits,
   {
-    todo!()
+    Ok(self.vectors.get_accept_ords(accept_docs))
+  }
+}
+/// RandomVectorScorerSupplier for Float vector
+pub struct FloatScoringSupplier<FV>
+where
+  FV: FloatVectorValues + Clone,
+{
+  vectors: FV,
+  vectors1: <FV as FloatVectorValues>::FloatVectorValues,
+  vectors2: <FV as FloatVectorValues>::FloatVectorValues,
+  similarity_function: VectorSimilarityFunction,
+}
+impl<FV> FloatScoringSupplier<FV>
+where
+  FV: FloatVectorValues + Clone,
+{
+  pub(crate) fn new(vectors: FV, similarity_function: VectorSimilarityFunction) -> Result<Self> {
+    let vectors1 = FloatVectorValues::copy(&vectors)?;
+    let vectors2 = FloatVectorValues::copy(&vectors)?;
+    Ok(Self {
+      vectors,
+      vectors1,
+      vectors2,
+      similarity_function,
+    })
+  }
+}
+impl<FV> RandomVectorScorerSupplier for FloatScoringSupplier<FV>
+where
+  FV: FloatVectorValues + Clone,
+{
+  type Scorer<'a>
+    = RandomVectorScorerF32Impl<'a, FV>
+  where
+    Self: 'a;
+
+  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
+    Ok(RandomVectorScorerF32Impl::new(
+      &self.vectors,
+      &self.vectors1,
+      &self.vectors2,
+      self.similarity_function,
+      ord,
+    ))
+  }
+
+  fn copy(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    FloatScoringSupplier::new(self.vectors.clone(), self.similarity_function)
+  }
+}
+pub struct RandomVectorScorerF32Impl<'a, FV>
+where
+  FV: FloatVectorValues,
+{
+  vectors: &'a FV,
+  vectors1: &'a <FV as FloatVectorValues>::FloatVectorValues,
+  vectors2: &'a <FV as FloatVectorValues>::FloatVectorValues,
+  similarity_function: VectorSimilarityFunction,
+  ord: usize,
+}
+impl<'a, FV> RandomVectorScorerF32Impl<'a, FV>
+where
+  FV: FloatVectorValues,
+{
+  pub(crate) fn new(
+    vectors: &'a FV,
+    vectors1: &'a <FV as FloatVectorValues>::FloatVectorValues,
+    vectors2: &'a <FV as FloatVectorValues>::FloatVectorValues,
+    similarity_function: VectorSimilarityFunction,
+    ord: usize,
+  ) -> Self {
+    Self {
+      vectors,
+      vectors1,
+      vectors2,
+      similarity_function,
+      ord,
+    }
+  }
+}
+impl<FV> RandomVectorScorer for RandomVectorScorerF32Impl<'_, FV>
+where
+  FV: FloatVectorValues,
+{
+  fn score(&self, node: usize) -> Result<f32> {
+    Ok(self.similarity_function.compare_f32(
+      self.vectors1.vector_value(self.ord),
+      self.vectors2.vector_value(node),
+    ))
+  }
+
+  fn max_ord(&self) -> usize {
+    self.vectors.size()
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> usize {
+    self.vectors.ord_to_doc(ord)
+  }
+
+  type Bits<B>
+    = <FV as KnnVectorValues>::Bits<B>
+  where
+    B: Bits;
+
+  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Result<Option<Self::Bits<B>>>
+  where
+    B: Bits,
+  {
+    Ok(self.vectors.get_accept_ords(accept_docs))
   }
 }
 

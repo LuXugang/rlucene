@@ -23,10 +23,11 @@ use crate::core::codecs::knn_vectors_writer::{KnnVectorsWriter, map_old_ord_to_n
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_reader::SIMILARITY_FUNCTIONS;
 use crate::core::index::IndexFileNames;
-use crate::core::index::byte_vector_values::from_bytes;
+use crate::core::index::byte_vector_values::{ByteVectorValuesImpl, from_bytes};
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::float_vector_values::from_floats;
+use crate::core::index::float_vector_values::{FloatVectorValuesImpl, from_floats};
+use crate::core::index::knn_vector_values::KnnVectorValuesEnum;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
@@ -72,7 +73,12 @@ where
   // TODO IMPORTANT 多线程未实现
   finished: bool,
   info_stream: InfoStreamMT,
-  fields: Vec<FieldWriterType<FlatVectorsWriterSs<F>, F::FlatFieldVectorsWriter>>,
+  fields: Vec<
+    FieldWriterType<
+      FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>,
+      F::FlatFieldVectorsWriter,
+    >,
+  >,
   _marker: PhantomData<V>,
 }
 
@@ -264,7 +270,7 @@ where
       let node = nodes_on_level0
         .next()
         .ok_or_else(|| LuceneError::illegal_state("Expected more nodes on level 0"))?;
-      let neighbors = graph.get_neighbors(0, new_to_old_map[node])?;
+      let neighbors = graph.get_neighbors_mut(0, new_to_old_map[node])?;
 
       let offset = vector_index.get_file_pointer();
 
@@ -297,7 +303,7 @@ where
       *level_offsets = vec![0i32; new_nodes.len()];
 
       for (node_offset_index, &node) in new_nodes.iter().enumerate() {
-        let neighbors = graph.get_neighbors(level, new_to_old_map[node])?;
+        let neighbors = graph.get_neighbors_mut(level, new_to_old_map[node])?;
 
         let offset = vector_index.get_file_pointer();
 
@@ -368,7 +374,7 @@ where
       let mut current_level_offsets = vec![0i32; sorted_nodes.len()];
 
       for (node_offset_id, &node) in sorted_nodes.iter().enumerate() {
-        let neighbors = graph.get_neighbors(level, node)?;
+        let neighbors = graph.get_neighbors_mut(level, node)?;
         let size = neighbors.size();
 
         let offset_start = vector_index.get_file_pointer();
@@ -545,7 +551,10 @@ where
   O: IndexOutput,
   F::FlatFieldVectorsWriter: KnnFieldVectorsWriter<V = Vec<u8>>,
 {
-  type KnnFieldVectorsWriter = FieldWriterType<FlatVectorsWriterSs<F>, F::FlatFieldVectorsWriter>;
+  type KnnFieldVectorsWriter = FieldWriterType<
+    FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>,
+    F::FlatFieldVectorsWriter,
+  >;
 
   fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<&Self::KnnFieldVectorsWriter> {
     let flat_field_vectors_writer =
@@ -580,7 +589,10 @@ where
   O: IndexOutput,
   F::FlatFieldVectorsWriter: KnnFieldVectorsWriter<V = Vec<f32>>,
 {
-  type KnnFieldVectorsWriter = FieldWriterType<FlatVectorsWriterSs<F>, F::FlatFieldVectorsWriter>;
+  type KnnFieldVectorsWriter = FieldWriterType<
+    FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>,
+    F::FlatFieldVectorsWriter,
+  >;
 
   fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<&Self::KnnFieldVectorsWriter> {
     let flat_field_vectors_writer =
@@ -629,7 +641,9 @@ pub(crate) fn create_field_writer_byte<F, S>(
   m: usize,
   beam_width: usize,
   info_stream: InfoStreamMT,
-) -> Result<FieldWriterType<S::RandomVectorScorerSupplier, F>>
+) -> Result<
+  FieldWriterType<S::RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl>, F>,
+>
 where
   F: FlatFieldVectorsWriter<V = Vec<u8>>,
   S: FlatVectorsScorer,
@@ -650,7 +664,9 @@ pub(crate) fn create_field_writer_float<F, S>(
   m: usize,
   beam_width: usize,
   info_stream: InfoStreamMT,
-) -> Result<FieldWriterType<S::RandomVectorScorerSupplier, F>>
+) -> Result<
+  FieldWriterType<S::RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl>, F>,
+>
 where
   F: FlatFieldVectorsWriter<V = Vec<f32>>,
   S: FlatVectorsScorer,
@@ -684,7 +700,9 @@ where
   F: FlatFieldVectorsWriter<V = Vec<u8>>,
 {
   fn from_byte(
-    scorer: &impl FlatVectorsScorer<RandomVectorScorerSupplier = S>,
+    scorer: &impl FlatVectorsScorer<
+      RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl> = S,
+    >,
     flat_field_vectors_writer: F,
     field_info: Arc<FieldInfo>,
     m: usize,
@@ -692,12 +710,14 @@ where
     info_stream: InfoStreamMT,
   ) -> Result<Self> {
     let random_vector_scorer_supplier = from_bytes(
-      flat_field_vectors_writer.get_vectors().as_slice(),
+      flat_field_vectors_writer.get_vectors().clone(),
       field_info.get_vector_dimension() as usize,
     );
     let scorer_supplier = scorer.get_random_vector_scorer_supplier(
       *field_info.get_vector_similarity_function(),
-      &random_vector_scorer_supplier,
+      KnnVectorValuesEnum::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Byte(
+        random_vector_scorer_supplier,
+      ),
     )?;
     Self::new(
       scorer_supplier,
@@ -715,7 +735,9 @@ where
   F: FlatFieldVectorsWriter<V = Vec<f32>>,
 {
   fn from_float(
-    scorer: &impl FlatVectorsScorer<RandomVectorScorerSupplier = S>,
+    scorer: &impl FlatVectorsScorer<
+      RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl> = S,
+    >,
     flat_field_vectors_writer: F,
     field_info: Arc<FieldInfo>,
     m: usize,
@@ -723,12 +745,14 @@ where
     info_stream: InfoStreamMT,
   ) -> Result<Self> {
     let random_vector_scorer_supplier = from_floats(
-      flat_field_vectors_writer.get_vectors().as_slice(),
+      flat_field_vectors_writer.get_vectors().clone(),
       field_info.get_vector_dimension() as usize,
     );
     let scorer_supplier = scorer.get_random_vector_scorer_supplier(
       *field_info.get_vector_similarity_function(),
-      &random_vector_scorer_supplier,
+      KnnVectorValuesEnum::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Float(
+        random_vector_scorer_supplier,
+      ),
     )?;
     Self::new(
       scorer_supplier,

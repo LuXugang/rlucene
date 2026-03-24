@@ -29,5 +29,8 @@ pub trait FlatVectorsWriter: KnnVectorsWriter {
   fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<Self::FlatFieldVectorsWriter>;
 }
 
-pub type FlatVectorsWriterSs<F> =
-  <<F as FlatVectorsWriter>::FlatVectorsScorer as FlatVectorsScorer>::RandomVectorScorerSupplier;
+pub type FlatVectorsWriterSs<F, BV, FV> =
+  <<F as FlatVectorsWriter>::FlatVectorsScorer as FlatVectorsScorer>::RandomVectorScorerSupplier<
+    BV,
+    FV,
+  >;

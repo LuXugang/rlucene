@@ -23,6 +23,7 @@ use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 
+#[derive(Clone)]
 pub struct DummyByteVectorValues;
 
 impl KnnVectorValues for DummyByteVectorValues {
@@ -35,10 +36,6 @@ impl KnnVectorValues for DummyByteVectorValues {
   }
 
   type KnnVectorValues = DummyKnnVectorsWriter;
-
-  fn copy(&self) -> crate::core::util::error::lucene_error::Result<Option<Self::KnnVectorValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
-  }
 
   fn get_encoding(&self) -> VectorEncoding {
     unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -65,10 +62,6 @@ impl ByteVectorValues for DummyByteVectorValues {
   }
 
   type ByteVectorValues = DummyByteVectorValues;
-
-  fn copy(&self) -> crate::core::util::error::lucene_error::Result<Option<Self::ByteVectorValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
-  }
 
   type VectorScorer = DummyVectorScorer;
 

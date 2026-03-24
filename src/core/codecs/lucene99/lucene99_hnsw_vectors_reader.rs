@@ -411,7 +411,14 @@ where
     }
   }
 
-  fn get_neighbors(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
+  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
+    match self {
+      HnswGraphEnum::OffHeap(g) => g.get_neighbors_mut(level, node),
+      HnswGraphEnum::Empty(g) => g.get_neighbors_mut(level, node),
+    }
+  }
+
+  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
     match self {
       HnswGraphEnum::OffHeap(g) => g.get_neighbors(level, node),
       HnswGraphEnum::Empty(g) => g.get_neighbors(level, node),

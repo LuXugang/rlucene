@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::bits::Bits;
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::Result;
 
 /// A trait for scoring random nodes in batches against an abstract query.
@@ -63,4 +63,49 @@ pub trait RandomVectorScorer {
   fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Result<Option<Self::Bits<B>>>
   where
     B: Bits;
+}
+pub enum RandomVectorScorerEnum2<A, B> {
+  A(A),
+  B(B),
+}
+impl<A, B> RandomVectorScorer for RandomVectorScorerEnum2<A, B>
+where
+  A: RandomVectorScorer,
+  B: RandomVectorScorer,
+{
+  fn score(&self, node: usize) -> Result<f32> {
+    match self {
+      RandomVectorScorerEnum2::A(t) => t.score(node),
+      RandomVectorScorerEnum2::B(s) => s.score(node),
+    }
+  }
+
+  fn max_ord(&self) -> usize {
+    match self {
+      RandomVectorScorerEnum2::A(t) => t.max_ord(),
+      RandomVectorScorerEnum2::B(s) => s.max_ord(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> usize {
+    match self {
+      RandomVectorScorerEnum2::A(t) => t.ord_to_doc(ord),
+      RandomVectorScorerEnum2::B(s) => s.ord_to_doc(ord),
+    }
+  }
+
+  type Bits<C>
+    = BitsEnum2<A::Bits<C>, B::Bits<C>>
+  where
+    C: Bits;
+
+  fn get_accept_ords<C>(&self, accept_docs: Option<C>) -> Result<Option<Self::Bits<C>>>
+  where
+    C: Bits,
+  {
+    Ok(match self {
+      RandomVectorScorerEnum2::A(t) => t.get_accept_ords(accept_docs)?.map(BitsEnum2::A),
+      RandomVectorScorerEnum2::B(t) => t.get_accept_ords(accept_docs)?.map(BitsEnum2::B),
+    })
+  }
 }

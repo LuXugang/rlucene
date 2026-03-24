@@ -22,6 +22,7 @@ use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::sync::Arc;
 
 /// This class provides access to per-document floating point vector values indexed as KnnFloatVectorField
 pub trait FloatVectorValues: KnnVectorValues {
@@ -33,8 +34,8 @@ pub trait FloatVectorValues: KnnVectorValues {
   fn vector_value(&self, ord: usize) -> &[f32];
 
   type FloatVectorValues: FloatVectorValues;
-  fn copy(&self) -> Result<Option<Self::FloatVectorValues>> {
-    Ok(None)
+  fn copy(&self) -> Result<Self::FloatVectorValues> {
+    Err(LuceneError::unsupported_operation(""))
   }
 
   type VectorScorer: VectorScorer;
@@ -46,7 +47,30 @@ pub trait FloatVectorValues: KnnVectorValues {
     VectorEncoding::FLOAT32(4)
   }
 }
+impl<T> FloatVectorValues for Arc<T>
+where
+  T: FloatVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> &[f32] {
+    (**self).vector_value(ord)
+  }
 
+  type FloatVectorValues = T::FloatVectorValues;
+
+  fn copy(&self) -> Result<Self::FloatVectorValues> {
+    FloatVectorValues::copy(&**self)
+  }
+
+  type VectorScorer = T::VectorScorer;
+
+  fn scorer(&self, _target: &[f32]) -> Result<Self::VectorScorer> {
+    (**self).scorer(_target)
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    FloatVectorValues::get_encoding(&**self)
+  }
+}
 /// Checks the Vector Encoding of a field
 pub fn check_field<LR: LeafReader>(reader: &LR, field: &str) -> Result<()> {
   if let Some(fi) = reader.get_field_infos()?.field_info_by_name(field)
@@ -71,22 +95,23 @@ pub fn check_field<LR: LeafReader>(reader: &LR, field: &str) -> Result<()> {
 ///
 /// # Returns
 /// a [`FloatVectorValues`] instance
-pub fn from_floats(vectors: &[Vec<f32>], dim: usize) -> FloatVectorValuesImpl<'_> {
+pub fn from_floats(vectors: Arc<Vec<Vec<f32>>>, dim: usize) -> FloatVectorValuesImpl {
   FloatVectorValuesImpl::new(vectors, dim)
 }
 
-pub struct FloatVectorValuesImpl<'a> {
-  vectors: &'a [Vec<f32>],
+#[derive(Clone)]
+pub struct FloatVectorValuesImpl {
+  vectors: Arc<Vec<Vec<f32>>>,
   dim: usize,
 }
 
-impl<'a> FloatVectorValuesImpl<'a> {
-  pub(crate) fn new(vectors: &'a [Vec<f32>], dim: usize) -> Self {
+impl FloatVectorValuesImpl {
+  pub(crate) fn new(vectors: Arc<Vec<Vec<f32>>>, dim: usize) -> Self {
     Self { vectors, dim }
   }
 }
 
-impl<'a> KnnVectorValues for FloatVectorValuesImpl<'a> {
+impl KnnVectorValues for FloatVectorValuesImpl {
   fn dimension(&self) -> usize {
     self.dim
   }
@@ -95,7 +120,7 @@ impl<'a> KnnVectorValues for FloatVectorValuesImpl<'a> {
     self.vectors.len()
   }
 
-  type KnnVectorValues = FloatVectorValuesImpl<'a>;
+  type KnnVectorValues = FloatVectorValuesImpl;
 
   fn get_encoding(&self) -> VectorEncoding {
     FloatVectorValues::get_encoding(self)
@@ -116,7 +141,7 @@ impl<'a> KnnVectorValues for FloatVectorValuesImpl<'a> {
   type DocIndexIterator = DummyDocIndexIterator;
 }
 
-impl FloatVectorValues for FloatVectorValuesImpl<'_> {
+impl FloatVectorValues for FloatVectorValuesImpl {
   fn vector_value(&self, target_ord: usize) -> &[f32] {
     self.vectors[target_ord].as_slice()
   }

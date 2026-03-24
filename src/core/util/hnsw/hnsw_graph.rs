@@ -94,7 +94,10 @@ pub trait HnswGraph {
   /// * `level` - The level of the graph.
   /// * `node` - The node whose neighbors are returned, represented as an
   ///   ordinal on level 0.
-  fn get_neighbors(&mut self, _level: usize, _node: usize) -> Result<&mut NeighborArray> {
+  fn get_neighbors_mut(&mut self, _level: usize, _node: usize) -> Result<&mut NeighborArray> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn get_neighbors(&self, _level: usize, _node: usize) -> Result<&NeighborArray> {
     Err(LuceneError::unsupported_operation(""))
   }
 }

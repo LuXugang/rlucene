@@ -19,7 +19,9 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 
 /// A supplier that creates  [`RandomVectorScorer`] from an ordinal.
 pub trait RandomVectorScorerSupplier {
-  type Scorer: RandomVectorScorer;
+  type Scorer<'a>: RandomVectorScorer
+  where
+    Self: 'a;
   /// This creates a [`RandomVectorScorer`] for scoring random nodes in
   /// batches against the given ordinal.
   ///
@@ -30,7 +32,7 @@ pub trait RandomVectorScorerSupplier {
   /// # Returns
   ///
   /// A new [`RandomVectorScorer`].
-  fn scorer(&self, ord: usize) -> Result<Self::Scorer>;
+  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>>;
 
   /// Make a copy of the supplier, which will copy the underlying
   /// `vectorValues` so the copy is safe to be used in other threads.

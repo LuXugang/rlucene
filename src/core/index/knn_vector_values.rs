@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -21,6 +23,7 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, TryIntoInt};
+use std::sync::Arc;
 
 /// This struct abstracts addressing of document vector values indexed as
 /// `KnnFloatVectorField` or `KnnByteVectorField`.
@@ -42,8 +45,8 @@ pub trait KnnVectorValues {
   /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
   /// need to access different values at once, to avoid overwriting the
   /// underlying vector returned.
-  fn copy(&self) -> Result<Option<Self::KnnVectorValues>> {
-    Ok(None)
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    Err(LuceneError::unsupported_operation(""))
   }
   /// Returns the vector byte length, defaults to dimension multiplied by
   /// float byte size
@@ -356,4 +359,69 @@ where
   T: OrdToDoc,
 {
   DocIndexIteratorImpl3::new(size, map)
+}
+
+impl<T> KnnVectorValues for Arc<T>
+where
+  T: KnnVectorValues,
+{
+  fn dimension(&self) -> usize {
+    (**self).dimension()
+  }
+
+  fn size(&self) -> usize {
+    (**self).size()
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> usize {
+    (**self).ord_to_doc(ord)
+  }
+
+  type KnnVectorValues = T::KnnVectorValues;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    (**self).copy()
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    (**self).get_vector_byte_length()
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    (**self).get_encoding()
+  }
+
+  type Bits<B>
+    = T::Bits<B>
+  where
+    B: Bits;
+
+  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  where
+    B: Bits,
+  {
+    (**self).get_accept_ords(accept_docs)
+  }
+
+  fn default_get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<BitsImpl1<B>>
+  where
+    B: Bits,
+  {
+    (**self).default_get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = T::DocIndexIterator;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    (**self).iterator()
+  }
+}
+
+pub enum KnnVectorValuesEnum<B, F>
+where
+  B: ByteVectorValues,
+  F: FloatVectorValues,
+{
+  Byte(B),
+  Float(F),
 }

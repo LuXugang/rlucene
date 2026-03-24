@@ -116,7 +116,7 @@ impl NeighborArray {
     node_id: usize,
     scorer_supplier: &impl RandomVectorScorerSupplier,
   ) -> Result<()> {
-    let neighbor_array = hnsw.get_neighbors(level, node_id)?;
+    let neighbor_array = hnsw.get_neighbors_mut(level, node_id)?;
     neighbor_array.add_out_of_order(new_node, new_score)?;
 
     if neighbor_array.size < neighbor_array.nodes.len() {
@@ -289,8 +289,10 @@ impl NeighborArray {
   where
     S: RandomVectorScorerSupplier,
   {
-    let scorer = scorer_supplier.scorer(node_ord)?;
-    let unchecked_indexes = self.sort(&scorer)?;
+    let unchecked_indexes = {
+      let scorer = scorer_supplier.scorer(node_ord)?;
+      self.sort(&scorer)?
+    };
 
     debug_assert!(
       !unchecked_indexes.is_empty(),

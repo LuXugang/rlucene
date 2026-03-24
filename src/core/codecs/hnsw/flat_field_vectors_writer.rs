@@ -17,11 +17,12 @@
 use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 /// Vectors' writer for a field
 pub trait FlatFieldVectorsWriter: KnnFieldVectorsWriter {
   /// Returns a list of vectors to be written.
-  fn get_vectors(&self) -> &Vec<Self::V>;
+  fn get_vectors(&self) -> Arc<Vec<Self::V>>;
 
   /// Returns the DocsWithFieldSet for the field writer.
   fn get_docs_with_field_set(&self) -> &DocsWithFieldSet;

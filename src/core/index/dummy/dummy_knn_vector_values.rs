@@ -33,10 +33,6 @@ impl KnnVectorValues for DummyKnnVectorsWriter {
 
   type KnnVectorValues = DummyKnnVectorsWriter;
 
-  fn copy(&self) -> crate::core::util::error::lucene_error::Result<Option<Self::KnnVectorValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
-  }
-
   fn get_encoding(&self) -> VectorEncoding {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }

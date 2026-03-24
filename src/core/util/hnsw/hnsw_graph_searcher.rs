@@ -328,7 +328,7 @@ impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
   }
 
   fn graph_next_neighbor(&mut self, graph: &mut impl HnswGraph) -> Result<usize> {
-    let neighbors = graph.get_neighbors(self.cur_level, self.cur_node)?;
+    let neighbors = graph.get_neighbors_mut(self.cur_level, self.cur_node)?;
     self.upto += 1;
     if (self.upto as usize) < neighbors.size() {
       Ok(neighbors.nodes()[self.upto as usize])

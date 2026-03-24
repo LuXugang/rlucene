@@ -212,7 +212,10 @@ where
     now
   }
   fn add_diverse_neighbors(
-    &mut self,
+    hnsw: &mut OnHeapHnswGraph,
+    scorer_supplier: &impl RandomVectorScorerSupplier,
+    m: usize,
+    hnsw_lock: Option<&HnswLock>,
     level: usize,
     node: usize,
     candidates: &NeighborArray,
@@ -222,10 +225,17 @@ where
      * already-selected neighbors (ie selected in this method,
      * since the node is new and has no prior neighbors).
      */
-    let neighbors = self.hnsw.get_neighbors(level, node)?;
+    let neighbors = hnsw.get_neighbors(level, node)?;
     debug_assert_eq!(neighbors.size(), 0); // new node
-    let max_conn_on_level = if level == 0 { self.m * 2 } else { self.m };
-    let mask = Self::select_and_link_diverse(candidates, max_conn_on_level, self, level, node)?;
+    let max_conn_on_level = if level == 0 { m * 2 } else { m };
+    let mask = Self::select_and_link_diverse(
+      hnsw,
+      scorer_supplier,
+      candidates,
+      max_conn_on_level,
+      level,
+      node,
+    )?;
 
     // Link the selected nodes to the new node, and the new node to the selected
     // nodes (again applying diversity heuristic)
@@ -241,26 +251,12 @@ where
       let nbr = candidates.nodes()[i];
       let score = candidates.scores()[i];
 
-      if let Some(lock) = &self.hnsw_lock {
+      if let Some(lock) = hnsw_lock {
         let guard = lock.write(level, nbr);
-        NeighborArray::add_and_ensure_diversity(
-          &mut self.hnsw,
-          level,
-          node,
-          score,
-          nbr,
-          &self.scorer_supplier,
-        )?;
+        NeighborArray::add_and_ensure_diversity(hnsw, level, node, score, nbr, scorer_supplier)?;
         drop(guard);
       } else {
-        NeighborArray::add_and_ensure_diversity(
-          &mut self.hnsw,
-          level,
-          node,
-          score,
-          nbr,
-          &self.scorer_supplier,
-        )?;
+        NeighborArray::add_and_ensure_diversity(hnsw, level, node, score, nbr, scorer_supplier)?;
       }
     }
 
@@ -269,17 +265,17 @@ where
   ///  This method will select neighbors to add and return a mask telling the
   /// caller which candidates are selected
   fn select_and_link_diverse(
+    hnsw: &mut OnHeapHnswGraph,
+    scorer_supplier: &impl RandomVectorScorerSupplier,
     candidates: &NeighborArray,
     max_conn_on_level: usize,
-    builder: &mut HnswGraphBuilder<S, B, H>,
     level: usize,
     node: usize,
   ) -> Result<Vec<bool>> {
     let mut mask = vec![false; candidates.size()];
     let mut i = candidates.size();
-    let hnsw = &mut builder.hnsw;
     let max_node_id = hnsw.max_node_id();
-    let neighbors = hnsw.get_neighbors(level, node)?;
+    let neighbors = hnsw.get_neighbors_mut(level, node)?;
     // Select the best maxConnOnLevel neighbors of the new node, applying the
     // diversity heuristic
     while neighbors.size() < max_conn_on_level && i > 0 {
@@ -295,7 +291,7 @@ where
           None => false,
         }
       });
-      let v = builder.scorer_supplier.scorer(c_node)?;
+      let v = scorer_supplier.scorer(c_node)?;
       if Self::diversity_check(c_score, &v, neighbors)? {
         mask[i] = true;
         // here we don't need to lock, because there's no incoming link so no others is
@@ -464,7 +460,8 @@ where
           let score = beam.minimum_score();
           debug_assert!(not_fully_connected.as_ref().unwrap().get(c0node)?);
           // link the nodes
-          self.link(
+          Self::link(
+            &mut self.hnsw,
             level,
             c0node,
             c.start,
@@ -498,14 +495,14 @@ where
   // Try to link two nodes bidirectionally; the forward connection will always be
   // made. Update notFullyConnected.
   fn link(
-    &mut self,
+    hnsw: &mut OnHeapHnswGraph,
     level: usize,
     n0: usize,
     n1: usize,
     score: f32,
     not_fully_connected: &mut FixedBitSet,
   ) -> Result<()> {
-    let nbr0 = self.hnsw.get_neighbors(level, n0)?;
+    let nbr0 = hnsw.get_neighbors_mut(level, n0)?;
     // must subtract 1 here since the nodes array is one larger than the configured
     // max neighbors (M / 2M).
     // We should have taken care of this check by searching for not-full nodes
@@ -525,7 +522,7 @@ where
       not_fully_connected.clear_with_index(n0);
     }
 
-    let nbr1 = self.hnsw.get_neighbors(level, n1)?;
+    let nbr1 = hnsw.get_neighbors_mut(level, n1)?;
     if nbr1.size() < max_conn {
       nbr1.add_out_of_order(n0, score)?;
       if nbr1.size() == max_conn {
@@ -661,11 +658,20 @@ where
       }
 
       // then do connections from bottom up
-      for (i, scratch) in scratch_per_level.iter_mut().enumerate() {
-        self.add_diverse_neighbors(i + lowest_unset_level, node, scratch)?;
+      let len = scratch_per_level.len();
+      for (i, scratch) in scratch_per_level.into_iter().enumerate() {
+        Self::add_diverse_neighbors(
+          &mut self.hnsw,
+          &self.scorer_supplier,
+          self.m,
+          self.hnsw_lock.as_ref(),
+          i + lowest_unset_level,
+          node,
+          &scratch,
+        )?;
       }
 
-      lowest_unset_level = scratch_per_level.len() + 1;
+      lowest_unset_level = len + 1;
       debug_assert!(lowest_unset_level == (std::cmp::min(cur_max_level, node_level) + 1));
       if lowest_unset_level > node_level {
         return Ok(());

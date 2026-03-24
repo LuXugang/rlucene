@@ -335,19 +335,29 @@ impl HnswGraph for OnHeapHnswGraph {
     }
   }
 
-  fn get_neighbors(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
-    debug_assert!(node < self.graph.len(),);
-
-    debug_assert!(
-      level < self.graph[node].len(),
-      "level={} exceeds available levels ({}) for node={}",
-      level,
-      self.graph[node].len(),
-      node
-    );
-    debug_assert!(self.graph[node][level].is_some());
+  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
+    #[cfg(debug_assertions)]
+    check_graph(&self.graph, level, node);
     Ok(self.graph[node][level].as_mut().unwrap())
   }
+
+  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
+    #[cfg(debug_assertions)]
+    check_graph(&self.graph, level, node);
+    Ok(self.graph[node][level].as_ref().unwrap())
+  }
+}
+#[cfg(debug_assertions)]
+fn check_graph(graph: &[Vec<Option<NeighborArray>>], level: usize, node: usize) {
+  debug_assert!(node < graph.len(),);
+  debug_assert!(
+    level < graph[node].len(),
+    "level={} exceeds available levels ({}) for node={}",
+    level,
+    graph[node].len(),
+    node
+  );
+  debug_assert!(graph[node][level].is_some());
 }
 impl fmt::Display for OnHeapHnswGraph {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

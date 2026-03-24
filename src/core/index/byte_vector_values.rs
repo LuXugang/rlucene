@@ -22,6 +22,7 @@ use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::sync::Arc;
 
 /// This class provides access to per-document floating point vector values indexed as KnnByteVectorField
 pub trait ByteVectorValues: KnnVectorValues {
@@ -36,8 +37,8 @@ pub trait ByteVectorValues: KnnVectorValues {
   /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
   /// need to access different values at once, to avoid overwriting the
   /// underlying vector returned.
-  fn copy(&self) -> Result<Option<Self::ByteVectorValues>> {
-    Ok(None)
+  fn copy(&self) -> Result<Self::ByteVectorValues> {
+    Err(LuceneError::unsupported_operation(""))
   }
 
   type VectorScorer: VectorScorer;
@@ -47,6 +48,30 @@ pub trait ByteVectorValues: KnnVectorValues {
 
   fn get_encoding(&self) -> VectorEncoding {
     VectorEncoding::BYTE(1)
+  }
+}
+impl<T> ByteVectorValues for Arc<T>
+where
+  T: ByteVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> &[u8] {
+    (**self).vector_value(ord)
+  }
+
+  type ByteVectorValues = T::ByteVectorValues;
+
+  fn copy(&self) -> Result<Self::ByteVectorValues> {
+    ByteVectorValues::copy(&**self)
+  }
+
+  type VectorScorer = T::VectorScorer;
+
+  fn scorer(&self, query: &[u8]) -> Result<Self::VectorScorer> {
+    (**self).scorer(query)
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    ByteVectorValues::get_encoding(&**self)
   }
 }
 /// Checks the Vector Encoding of a field
@@ -72,21 +97,22 @@ pub fn check_field<LR: LeafReader>(reader: &LR, field: &str) -> Result<()> {
 ///
 /// # Returns
 /// a [`ByteVectorValues`] instance
-pub fn from_bytes(vectors: &[Vec<u8>], dim: usize) -> ByteVectorValuesImpl<'_> {
+pub fn from_bytes(vectors: Arc<Vec<Vec<u8>>>, dim: usize) -> ByteVectorValuesImpl {
   ByteVectorValuesImpl::new(vectors, dim)
 }
 
-pub struct ByteVectorValuesImpl<'a> {
-  vectors: &'a [Vec<u8>],
+#[derive(Clone)]
+pub struct ByteVectorValuesImpl {
+  vectors: Arc<Vec<Vec<u8>>>,
   dim: usize,
 }
-impl<'a> ByteVectorValuesImpl<'a> {
-  pub(crate) fn new(vectors: &'a [Vec<u8>], dim: usize) -> Self {
+impl ByteVectorValuesImpl {
+  pub(crate) fn new(vectors: Arc<Vec<Vec<u8>>>, dim: usize) -> Self {
     Self { vectors, dim }
   }
 }
 
-impl<'a> KnnVectorValues for ByteVectorValuesImpl<'a> {
+impl KnnVectorValues for ByteVectorValuesImpl {
   fn dimension(&self) -> usize {
     self.dim
   }
@@ -95,7 +121,7 @@ impl<'a> KnnVectorValues for ByteVectorValuesImpl<'a> {
     self.vectors.len()
   }
 
-  type KnnVectorValues = ByteVectorValuesImpl<'a>;
+  type KnnVectorValues = ByteVectorValuesImpl;
 
   fn get_encoding(&self) -> VectorEncoding {
     ByteVectorValues::get_encoding(self)
@@ -116,12 +142,16 @@ impl<'a> KnnVectorValues for ByteVectorValuesImpl<'a> {
   type DocIndexIterator = DummyDocIndexIterator;
 }
 
-impl<'a> ByteVectorValues for ByteVectorValuesImpl<'a> {
+impl ByteVectorValues for ByteVectorValuesImpl {
   fn vector_value(&self, target_ord: usize) -> &[u8] {
     self.vectors[target_ord].as_slice()
   }
 
   type ByteVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::ByteVectorValues> {
+    todo!()
+  }
 
   type VectorScorer = DummyVectorScorer;
 }
