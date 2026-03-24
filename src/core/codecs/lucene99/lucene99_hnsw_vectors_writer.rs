@@ -73,15 +73,11 @@ where
   // TODO IMPORTANT 多线程未实现
   finished: bool,
   info_stream: InfoStreamMT,
-  fields: Vec<
-    FieldWriterType<
-      FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>,
-      F::FlatFieldVectorsWriter,
-    >,
-  >,
+  fields: Vec<FieldWriterType<DefaultRandomVectorScorerSupplier<F>, F::FlatFieldVectorsWriter>>,
   _marker: PhantomData<V>,
 }
-
+pub type DefaultRandomVectorScorerSupplier<F> =
+  FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>;
 impl<F, O, V> Lucene99HnswVectorsWriter<F, O, V>
 where
   F: FlatVectorsWriter,
@@ -544,17 +540,14 @@ where
     Ok(0)
   }
 }
-
 impl<F, O> KnnVectorsWriter for Lucene99HnswVectorsWriter<F, O, Vec<u8>>
 where
   F: FlatVectorsWriter,
   O: IndexOutput,
   F::FlatFieldVectorsWriter: KnnFieldVectorsWriter<V = Vec<u8>>,
 {
-  type KnnFieldVectorsWriter = FieldWriterType<
-    FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>,
-    F::FlatFieldVectorsWriter,
-  >;
+  type KnnFieldVectorsWriter =
+    FieldWriterType<DefaultRandomVectorScorerSupplier<F>, F::FlatFieldVectorsWriter>;
 
   fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<&Self::KnnFieldVectorsWriter> {
     let flat_field_vectors_writer =
@@ -589,10 +582,8 @@ where
   O: IndexOutput,
   F::FlatFieldVectorsWriter: KnnFieldVectorsWriter<V = Vec<f32>>,
 {
-  type KnnFieldVectorsWriter = FieldWriterType<
-    FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>,
-    F::FlatFieldVectorsWriter,
-  >;
+  type KnnFieldVectorsWriter =
+    FieldWriterType<DefaultRandomVectorScorerSupplier<F>, F::FlatFieldVectorsWriter>;
 
   fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<&Self::KnnFieldVectorsWriter> {
     let flat_field_vectors_writer =
