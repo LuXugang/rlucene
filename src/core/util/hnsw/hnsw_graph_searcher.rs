@@ -20,7 +20,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::hnsw::hnsw_graph::{HnswGraph, HnswGraphEnums};
+use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::hnsw_graph_builder::GraphBuilderKnnCollector;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
@@ -83,7 +83,7 @@ where
     top_k: usize,
     level: usize,
     eps: &[usize],
-    graph: &mut HnswGraphEnums,
+    graph: &mut impl HnswGraph,
   ) -> Result<GraphBuilderKnnCollector>
   where
     S: RandomVectorScorer,
@@ -115,7 +115,7 @@ where
   fn find_best_entry_point<S>(
     &mut self,
     scorer: &mut S,
-    graph: &mut HnswGraphEnums,
+    graph: &mut impl HnswGraph,
     collector: &mut impl KnnCollector,
   ) -> Result<Option<usize>>
   where
@@ -185,7 +185,7 @@ where
     scorer: &mut S,
     level: usize,
     eps: &[usize],
-    graph: &mut HnswGraphEnums,
+    graph: &mut impl HnswGraph,
     accept_ords: Option<&mut impl Bits>,
   ) -> Result<()>
   where
@@ -274,7 +274,7 @@ pub trait HnswGraphSearcherBase {
   /// Returns an error if seeking the graph fails.
   fn graph_seek(
     &mut self,
-    graph: &mut HnswGraphEnums,
+    graph: &mut impl HnswGraph,
     level: usize,
     target_node: usize,
   ) -> Result<()> {
@@ -292,7 +292,7 @@ pub trait HnswGraphSearcherBase {
   /// # Errors
   ///
   /// Returns an error if advancing to the next neighbor fails.
-  fn graph_next_neighbor(&mut self, graph: &mut HnswGraphEnums) -> Result<usize> {
+  fn graph_next_neighbor(&mut self, graph: &mut impl HnswGraph) -> Result<usize> {
     graph.next_neighbor()
   }
 }
@@ -317,7 +317,7 @@ pub(crate) struct OnHeapHnswGraphSearcher {
 impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
   fn graph_seek(
     &mut self,
-    _graph: &mut HnswGraphEnums,
+    _graph: &mut impl HnswGraph,
     level: usize,
     target_node: usize,
   ) -> Result<()> {
@@ -327,21 +327,18 @@ impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
     Ok(())
   }
 
-  fn graph_next_neighbor(&mut self, graph: &mut HnswGraphEnums) -> Result<usize> {
-    match graph {
-      HnswGraphEnums::OnHeap(graph) => {
-        let neighbors = graph.get_neighbors(self.cur_level, self.cur_node);
-        self.upto += 1;
-        if (self.upto as usize) < neighbors.size() {
-          Ok(neighbors.nodes()[self.upto as usize])
-        } else {
-          Ok(NO_MORE_DOCS as usize)
-        }
-      },
+  fn graph_next_neighbor(&mut self, graph: &mut impl HnswGraph) -> Result<usize> {
+    let neighbors = graph.get_neighbors(self.cur_level, self.cur_node)?;
+    self.upto += 1;
+    if (self.upto as usize) < neighbors.size() {
+      Ok(neighbors.nodes()[self.upto as usize])
+    } else {
+      Ok(NO_MORE_DOCS as usize)
     }
   }
 }
 use crate::core::search::top_knn_collector::TopKnnCollector;
+use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 /// Searches HNSW graph for the nearest neighbors of a query vector.
 ///
@@ -356,7 +353,7 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 pub fn search<S>(
   scorer: &mut S,
   knn_collector: &mut impl KnnCollector,
-  graph: &mut HnswGraphEnums,
+  graph: &mut impl HnswGraph,
   accept_ords: Option<&mut impl Bits>,
 ) -> Result<()>
 where
@@ -394,7 +391,7 @@ where
 pub fn search_with_top_k<S>(
   scorer: &mut S,
   top_k: usize,
-  graph: &mut HnswGraphEnums,
+  graph: &mut OnHeapHnswGraph,
   accept_ords: Option<&mut impl Bits>,
   visited_limit: usize,
 ) -> Result<TopKnnCollector>
@@ -406,7 +403,6 @@ where
   let neighbor_queue = NeighborQueue::new(top_k, true)?;
   let mut graph_searcher =
     HnswGraphSearcher::new(neighbor_queue, bitset, OnHeapHnswGraphSearcher::default());
-  debug_assert!(matches!(graph, HnswGraphEnums::OnHeap(_)));
   search_with_searcher(
     scorer,
     &mut knn_collector,
@@ -420,7 +416,7 @@ where
 fn search_with_searcher<H, S, B>(
   scorer: &mut S,
   knn_collector: &mut impl KnnCollector,
-  graph: &mut HnswGraphEnums,
+  graph: &mut impl HnswGraph,
   graph_searcher: &mut HnswGraphSearcher<B, H>,
   accept_ords: Option<&mut impl Bits>,
 ) -> Result<()>

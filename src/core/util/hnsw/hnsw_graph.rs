@@ -19,7 +19,7 @@ use std::sync::Arc;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::SliceCopyOps;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
+use crate::core::util::hnsw::neighbor_array::NeighborArray;
 /// Hierarchical Navigable Small World (HNSW) graph.
 ///
 /// Provides efficient approximate nearest neighbor search for high-dimensional
@@ -87,6 +87,10 @@ pub trait HnswGraph {
   /// An iterator over nodes where `next_int()` returns the next node on the
   /// level.
   fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator>;
+
+  fn get_neighbors(&mut self, _level: usize, _node: usize) -> Result<&mut NeighborArray> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }
 pub struct EmptyHnswGraph;
 impl HnswGraph for EmptyHnswGraph {
@@ -317,49 +321,6 @@ impl NodesIterator for NodesIteratorEnums {
     match self {
       NodesIteratorEnums::Array(iter) => iter.has_next(),
       NodesIteratorEnums::Collection(iter) => iter.has_next(),
-    }
-  }
-}
-
-pub enum HnswGraphEnums {
-  OnHeap(OnHeapHnswGraph),
-}
-impl HnswGraph for HnswGraphEnums {
-  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
-    match self {
-      HnswGraphEnums::OnHeap(graph) => graph.seek(level, target),
-    }
-  }
-
-  fn size(&self) -> usize {
-    match self {
-      HnswGraphEnums::OnHeap(graph) => graph.size(),
-    }
-  }
-
-  fn next_neighbor(&mut self) -> Result<usize> {
-    match self {
-      HnswGraphEnums::OnHeap(graph) => graph.next_neighbor(),
-    }
-  }
-
-  fn num_levels(&self) -> Result<usize> {
-    match self {
-      HnswGraphEnums::OnHeap(graph) => graph.num_levels(),
-    }
-  }
-
-  fn entry_node(&self) -> Result<Option<usize>> {
-    match self {
-      HnswGraphEnums::OnHeap(graph) => graph.entry_node(),
-    }
-  }
-
-  type NodeIterator = NodesIteratorEnums;
-
-  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
-    match self {
-      HnswGraphEnums::OnHeap(on_heap) => on_heap.get_nodes_on_level(level),
     }
   }
 }

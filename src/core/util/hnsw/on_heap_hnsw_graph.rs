@@ -101,26 +101,7 @@ impl OnHeapHnswGraph {
       cur_level: 0,
     }
   }
-  /// Returns the [`NeighborQueue`] connected to the given node.
-  ///
-  /// # Arguments
-  ///
-  /// * `level` - The level of the graph.
-  /// * `node` - The node whose neighbors are returned, represented as an
-  ///   ordinal on level 0.
-  pub fn get_neighbors(&mut self, level: usize, node: usize) -> &mut NeighborArray {
-    debug_assert!(node < self.graph.len(),);
 
-    debug_assert!(
-      level < self.graph[node].len(),
-      "level={} exceeds available levels ({}) for node={}",
-      level,
-      self.graph[node].len(),
-      node
-    );
-    debug_assert!(self.graph[node][level].is_some());
-    self.graph[node][level].as_mut().unwrap()
-  }
   /// Add node on the given level. Nodes can be inserted out of order, but it
   /// requires that the nodes preceding the inserted out-of-order node are
   /// eventually added.
@@ -352,6 +333,20 @@ impl HnswGraph for OnHeapHnswGraph {
         CollectionNodesIterator::new(self.level_to_nodes[level].clone()),
       ))
     }
+  }
+
+  fn get_neighbors(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
+    debug_assert!(node < self.graph.len(),);
+
+    debug_assert!(
+      level < self.graph[node].len(),
+      "level={} exceeds available levels ({}) for node={}",
+      level,
+      self.graph[node].len(),
+      node
+    );
+    debug_assert!(self.graph[node][level].is_some());
+    Ok(self.graph[node][level].as_mut().unwrap())
   }
 }
 impl fmt::Display for OnHeapHnswGraph {

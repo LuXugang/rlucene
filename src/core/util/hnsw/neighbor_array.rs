@@ -18,7 +18,8 @@ use std::fmt;
 
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVectorScorer;
-use crate::core::util::hnsw::hnsw_graph::HnswGraphEnums;
+use crate::core::util::hnsw::hnsw_graph::HnswGraph;
+use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 /// `NeighborArray` encodes the neighbors of a node and their mutual scores in
@@ -108,15 +109,14 @@ impl NeighborArray {
   ///
   /// * `node_id` - Node ID of the owner of this `NeighborArray`.
   pub fn add_and_ensure_diversity(
-    hnsw: &mut HnswGraphEnums,
+    hnsw: &mut OnHeapHnswGraph,
     level: usize,
     new_node: usize,
     new_score: f32,
     node_id: usize,
     scorer_supplier: &impl RandomVectorScorerSupplier,
   ) -> Result<()> {
-    let HnswGraphEnums::OnHeap(hnsw) = hnsw;
-    let neighbor_array = hnsw.get_neighbors(level, node_id);
+    let neighbor_array = hnsw.get_neighbors(level, node_id)?;
     neighbor_array.add_out_of_order(new_node, new_score)?;
 
     if neighbor_array.size < neighbor_array.nodes.len() {

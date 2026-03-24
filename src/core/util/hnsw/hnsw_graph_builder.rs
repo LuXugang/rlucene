@@ -29,7 +29,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
-use crate::core::util::hnsw::hnsw_graph::{HnswGraph, HnswGraphEnums};
+use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::hnsw_graph_searcher::{
   HnswGraphSearcher, HnswGraphSearcherBase, HnswGraphSearcherBaseDefault,
 };
@@ -56,7 +56,7 @@ where
   graph_searcher: HnswGraphSearcher<B, H>,
   entry_candidates: GraphBuilderKnnCollector,
   beam_candidates: GraphBuilderKnnCollector,
-  hnsw: HnswGraphEnums,
+  hnsw: OnHeapHnswGraph,
   hnsw_lock: Option<HnswLock>,
   info_stream: InfoStreamMT,
   frozen: bool,
@@ -87,8 +87,13 @@ where
     random: u64,
     graph_size: i32,
   ) -> Result<Self> {
-    let hnsw = HnswGraphEnums::OnHeap(OnHeapHnswGraph::new(m, graph_size));
-    Self::from_hnsw(scorer_supplier, m, beam_width, random, hnsw)
+    Self::from_hnsw(
+      scorer_supplier,
+      m,
+      beam_width,
+      random,
+      OnHeapHnswGraph::new(m, graph_size),
+    )
   }
 
   pub fn from_hnsw(
@@ -96,7 +101,7 @@ where
     m: usize,
     beam_width: usize,
     random: u64,
-    hnsw: HnswGraphEnums,
+    hnsw: OnHeapHnswGraph,
   ) -> Result<Self> {
     let size = hnsw.size();
     let searcher = HnswGraphSearcher::new(
@@ -134,7 +139,7 @@ where
     m: usize,
     beam_width: usize,
     seed: u64,
-    hnsw: HnswGraphEnums,
+    hnsw: OnHeapHnswGraph,
     hnsw_lock: Option<HnswLock>,
     graph_searcher: HnswGraphSearcher<B, H>,
   ) -> Result<Self> {
@@ -212,13 +217,12 @@ where
     node: usize,
     candidates: &NeighborArray,
   ) -> Result<()> {
-    let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
     /* For each of the beamWidth nearest candidates (going from best to worst),
      * select it only if it is closer to target than it is to any of the
      * already-selected neighbors (ie selected in this method,
      * since the node is new and has no prior neighbors).
      */
-    let neighbors = hnsw.get_neighbors(level, node);
+    let neighbors = self.hnsw.get_neighbors(level, node)?;
     debug_assert_eq!(neighbors.size(), 0); // new node
     let max_conn_on_level = if level == 0 { self.m * 2 } else { self.m };
     let mask = Self::select_and_link_diverse(candidates, max_conn_on_level, self, level, node)?;
@@ -273,9 +277,9 @@ where
   ) -> Result<Vec<bool>> {
     let mut mask = vec![false; candidates.size()];
     let mut i = candidates.size();
-    let HnswGraphEnums::OnHeap(hnsw) = &mut builder.hnsw;
+    let hnsw = &mut builder.hnsw;
     let max_node_id = hnsw.max_node_id();
-    let neighbors = hnsw.get_neighbors(level, node);
+    let neighbors = hnsw.get_neighbors(level, node)?;
     // Select the best maxConnOnLevel neighbors of the new node, applying the
     // diversity heuristic
     while neighbors.size() < max_conn_on_level && i > 0 {
@@ -501,8 +505,7 @@ where
     score: f32,
     not_fully_connected: &mut FixedBitSet,
   ) -> Result<()> {
-    let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
-    let nbr0 = hnsw.get_neighbors(level, n0);
+    let nbr0 = self.hnsw.get_neighbors(level, n0)?;
     // must subtract 1 here since the nodes array is one larger than the configured
     // max neighbors (M / 2M).
     // We should have taken care of this check by searching for not-full nodes
@@ -522,7 +525,7 @@ where
       not_fully_connected.clear_with_index(n0);
     }
 
-    let nbr1 = hnsw.get_neighbors(level, n1);
+    let nbr1 = self.hnsw.get_neighbors(level, n1)?;
     if nbr1.size() < max_conn {
       nbr1.add_out_of_order(n0, score)?;
       if nbr1.size() == max_conn {
@@ -587,13 +590,12 @@ where
     let node_level = Self::get_random_graph_level(self.ml, &mut self.random);
 
     {
-      let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
       // first add nodes to all levels
       for level in (0..=node_level).rev() {
-        hnsw.add_node(level, node)?;
+        self.hnsw.add_node(level, node)?;
       }
       // then promote itself as entry node if entry node is not set
-      if hnsw.try_set_new_entry_node(node, node_level) {
+      if self.hnsw.try_set_new_entry_node(node, node_level) {
         return Ok(());
       }
     }
@@ -605,12 +607,11 @@ where
     let mut cur_max_level;
     loop {
       let mut eps = {
-        let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
-        cur_max_level = hnsw.num_levels()? - 1;
+        cur_max_level = self.hnsw.num_levels()? - 1;
         // NOTE: the entry node and max level may not be paired, but because we get the
         // level first we ensure that the entry node we get later will
         // always exist on the curMaxLevel
-        match hnsw.entry_node()? {
+        match self.hnsw.entry_node()? {
           Some(v) => {
             vec![v]
           },
@@ -671,12 +672,14 @@ where
       }
 
       debug_assert!(lowest_unset_level == (cur_max_level + 1) && node_level > cur_max_level);
-      let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
-      if hnsw.try_promote_new_entry_node(node, node_level, cur_max_level) {
+      if self
+        .hnsw
+        .try_promote_new_entry_node(node, node_level, cur_max_level)
+      {
         return Ok(());
       }
 
-      if hnsw.num_levels()? == cur_max_level + 1 {
+      if self.hnsw.num_levels()? == cur_max_level + 1 {
         // This should never happen if all the calculations are correct
         return Err(LuceneError::illegal_state(format!(
           "Unable to promote node {node} at level {node_level} as entry. Graph level {cur_max_level} has not changed."
@@ -690,9 +693,7 @@ where
   }
 
   fn get_graph(&mut self) -> &mut OnHeapHnswGraph {
-    match &mut self.hnsw {
-      HnswGraphEnums::OnHeap(graph) => graph,
-    }
+    &mut self.hnsw
   }
 
   fn get_completed_graph(&mut self) -> Result<&mut OnHeapHnswGraph> {

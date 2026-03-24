@@ -264,7 +264,7 @@ where
       let node = nodes_on_level0
         .next()
         .ok_or_else(|| LuceneError::illegal_state("Expected more nodes on level 0"))?;
-      let neighbors = graph.get_neighbors(0, new_to_old_map[node]);
+      let neighbors = graph.get_neighbors(0, new_to_old_map[node])?;
 
       let offset = vector_index.get_file_pointer();
 
@@ -297,7 +297,7 @@ where
       *level_offsets = vec![0i32; new_nodes.len()];
 
       for (node_offset_index, &node) in new_nodes.iter().enumerate() {
-        let neighbors = graph.get_neighbors(level, new_to_old_map[node]);
+        let neighbors = graph.get_neighbors(level, new_to_old_map[node])?;
 
         let offset = vector_index.get_file_pointer();
 
@@ -368,7 +368,7 @@ where
       let mut current_level_offsets = vec![0i32; sorted_nodes.len()];
 
       for (node_offset_id, &node) in sorted_nodes.iter().enumerate() {
-        let neighbors = graph.get_neighbors(level, node);
+        let neighbors = graph.get_neighbors(level, node)?;
         let size = neighbors.size();
 
         let offset_start = vector_index.get_file_pointer();
