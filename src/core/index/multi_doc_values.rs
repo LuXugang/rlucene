@@ -1939,7 +1939,7 @@ mod tests {
     Ok(())
   }
 
-  #[test] // TODO IMPORTANT tests.seed=1206516831717484712 测试未通过
+  #[test] // TODO IMPORTANT tests.seed=1206516831717484712/5439472325689081422测试未通过
   fn test_sorted_numeric() -> Result<()> {
     let mut random = random();
 
