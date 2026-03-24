@@ -16,6 +16,8 @@
  */
 pub mod default_flat_vector_scorer;
 pub mod flat_field_vectors_writer;
+pub mod flat_vector_scorer_util;
+pub mod flat_vectors_format;
 pub mod flat_vectors_reader;
 pub mod flat_vectors_scorer;
 pub mod flat_vectors_writer;

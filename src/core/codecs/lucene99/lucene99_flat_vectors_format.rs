@@ -14,8 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod lucene99_flat_vectors_format;
-pub mod lucene99_flat_vectors_writer;
-pub mod lucene99_hnsw_vectors_format;
-pub mod lucene99_hnsw_vectors_reader;
-pub mod lucene99_hnsw_vectors_writer;
+use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+
+pub struct Lucene99FlatVectorsFormat<T>
+where
+  T: FlatVectorsScorer,
+{
+  vectors_scorer: T,
+}
+impl<T: FlatVectorsScorer> Lucene99FlatVectorsFormat<T> {
+  pub fn new(vectors_scorer: T) -> Self {
+    Self { vectors_scorer }
+  }
+}

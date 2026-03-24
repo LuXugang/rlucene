@@ -14,8 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod lucene99_flat_vectors_format;
-pub mod lucene99_flat_vectors_writer;
-pub mod lucene99_hnsw_vectors_format;
-pub mod lucene99_hnsw_vectors_reader;
-pub mod lucene99_hnsw_vectors_writer;
+use crate::core::internal::vectorization::default_vectorization_provider::DefaultVectorizationProvider;
+use crate::core::internal::vectorization::vectorization_provider::{
+  DEFAULT_VECTORIZATION_PROVIDER, VectorizationProvider,
+};
+
+#[derive(Default)]
+pub struct FlatVectorScorerUtil;
+impl FlatVectorScorerUtil {
+  pub fn get_lucene99_flat_vectors_scorer(
+    &self,
+  ) -> <DefaultVectorizationProvider as VectorizationProvider>::FlatVectorsScorer {
+    DEFAULT_VECTORIZATION_PROVIDER.get_lucene99_flat_vectors_scorer()
+  }
+}

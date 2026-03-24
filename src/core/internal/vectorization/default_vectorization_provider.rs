@@ -14,20 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
-use crate::core::internal::vectorization::default_vectorization_provider::DefaultVectorizationProvider;
+use crate::core::codecs::hnsw::default_flat_vector_scorer::DefaultFlatVectorScorer;
+use crate::core::internal::vectorization::default_vector_util_support::DefaultVectorUtilSupport;
 use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
-use crate::core::internal::vectorization::vector_util_support::VectorUtilSupport;
+use crate::core::internal::vectorization::vectorization_provider::VectorizationProvider;
 use crate::core::store::IndexInput;
-use once_cell::sync::Lazy;
 
-pub trait VectorizationProvider {
-  type VectorUtilSupport: VectorUtilSupport;
-  fn get_vector_util_support(&self) -> Self::VectorUtilSupport;
-  type FlatVectorsScorer: FlatVectorsScorer;
-  fn get_lucene99_flat_vectors_scorer(&self) -> Self::FlatVectorsScorer;
-  fn new_posting_decoding_util<I: IndexInput>(&self, input: I) -> PostingDecodingUtil<I>;
+#[derive(Default)]
+pub struct DefaultVectorizationProvider;
+impl VectorizationProvider for DefaultVectorizationProvider {
+  type VectorUtilSupport = DefaultVectorUtilSupport;
+
+  fn get_vector_util_support(&self) -> Self::VectorUtilSupport {
+    DefaultVectorUtilSupport
+  }
+
+  type FlatVectorsScorer = DefaultFlatVectorScorer;
+
+  fn get_lucene99_flat_vectors_scorer(&self) -> Self::FlatVectorsScorer {
+    DefaultFlatVectorScorer
+  }
+
+  fn new_posting_decoding_util<I: IndexInput>(&self, input: I) -> PostingDecodingUtil<I> {
+    PostingDecodingUtil::new(input)
+  }
 }
-
-pub static DEFAULT_VECTORIZATION_PROVIDER: Lazy<DefaultVectorizationProvider> =
-  Lazy::new(|| DefaultVectorizationProvider);

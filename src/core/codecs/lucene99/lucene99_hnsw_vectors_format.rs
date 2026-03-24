@@ -16,7 +16,11 @@
  */
 use crate::core::util::hnsw::hnsw_graph_builder::DEFAULT_MAX_CONN;
 
-pub struct Lucene99HnswVectorsFormat;
+pub struct Lucene99HnswVectorsFormat {
+  max_conn: usize,
+  beam_width: usize,
+  num_merge_workers: usize,
+}
 
 impl Lucene99HnswVectorsFormat {
   pub const META_CODEC_NAME: &'static str = "Lucene99HnswVectorsFormatMeta";

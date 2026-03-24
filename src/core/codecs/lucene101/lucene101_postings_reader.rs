@@ -36,8 +36,11 @@ use crate::core::index::postings_enum::{
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::{BytesRef, IndexFileNames};
+use crate::core::internal::vectorization::default_vectorization_provider::DefaultVectorizationProvider;
 use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
-use crate::core::internal::vectorization::vectorization_provider::new_posting_decoding_util;
+use crate::core::internal::vectorization::vectorization_provider::{
+  DEFAULT_VECTORIZATION_PROVIDER, VectorizationProvider,
+};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
@@ -63,6 +66,7 @@ where
   max_impact_num_bytes_at_level0: i32,
   max_num_impacts_at_level1: i32,
   max_impact_num_bytes_at_level1: i32,
+  vectorization_provider: DefaultVectorizationProvider,
 }
 impl<I> Lucene101PostingsReader<I>
 where
@@ -202,6 +206,7 @@ where
       max_impact_num_bytes_at_level0,
       max_num_impacts_at_level1,
       max_impact_num_bytes_at_level1,
+      vectorization_provider: DefaultVectorizationProvider,
     })
   }
 }
@@ -516,7 +521,7 @@ where
 
     let (pos_in_util, pos_delta_buffer) = if needs_pos {
       let pi = reader.pos_in.as_ref().unwrap().try_clone()?;
-      let util = new_posting_decoding_util(pi);
+      let util = DEFAULT_VECTORIZATION_PROVIDER.new_posting_decoding_util(pi);
       (Some(util), vec![0; ForUtil::BLOCK_SIZE])
     } else {
       (None, vec![])
@@ -524,7 +529,7 @@ where
 
     let pay_in_util = if needs_offsets_or_payloads {
       let pi = reader.pay_in.as_ref().unwrap().try_clone()?;
-      let util = new_posting_decoding_util(pi);
+      let util = DEFAULT_VECTORIZATION_PROVIDER.new_posting_decoding_util(pi);
       Some(util)
     } else {
       None
@@ -667,7 +672,7 @@ where
     if self.doc_freq > 1 {
       if self.doc_in_util.is_none() {
         let doc_in = reader.doc_in.try_clone()?;
-        self.doc_in_util = Some(new_posting_decoding_util(doc_in));
+        self.doc_in_util = Some(DEFAULT_VECTORIZATION_PROVIDER.new_posting_decoding_util(doc_in));
       }
       prefetch_postings(&mut self.doc_in_util.as_mut().unwrap().input, term_state)?;
     }

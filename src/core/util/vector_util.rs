@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::internal::vectorization::default_vector_util_support::DefaultVectorization;
+use crate::core::internal::vectorization::default_vector_util_support::DefaultVectorUtilSupport;
 use crate::core::internal::vectorization::vector_util_support::VectorUtilSupport;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use once_cell::sync::Lazy;
@@ -22,7 +22,7 @@ use once_cell::sync::Lazy;
 pub static VECTOR_UTIL: Lazy<VectorUtil> = Lazy::new(VectorUtil::default);
 #[derive(Default)]
 pub struct VectorUtil {
-  impl_: DefaultVectorization,
+  impl_: DefaultVectorUtilSupport,
 }
 impl VectorUtil {
   /// Checks if a float vector only has finite components.

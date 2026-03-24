@@ -30,6 +30,7 @@ pub mod fields_consumer;
 pub mod fields_producer;
 pub mod hnsw;
 pub mod knn_field_vectors_writer;
+pub mod knn_vectors_format;
 pub mod knn_vectors_reader;
 pub mod knn_vectors_writer;
 pub mod live_docs_format;
