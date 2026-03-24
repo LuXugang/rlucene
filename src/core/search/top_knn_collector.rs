@@ -72,21 +72,21 @@ impl KnnCollector for TopKnnCollector {
     self.base.k()
   }
 
-  fn collect(&mut self, doc_id: usize, similarity: f32) -> bool {
-    self.queue.insert_with_overflow(doc_id, similarity)
+  fn collect(&mut self, doc_id: usize, similarity: f32) -> Result<bool> {
+    Ok(self.queue.insert_with_overflow(doc_id, similarity))
   }
 
-  fn min_competitive_similarity(&self) -> f32 {
+  fn min_competitive_similarity(&self) -> Result<f32> {
     if self.queue.size() >= self.k() {
-      self.queue.top_score()
+      Ok(self.queue.top_score())
     } else {
-      f32::NEG_INFINITY
+      Ok(f32::NEG_INFINITY)
     }
   }
 
-  type Item = ScoreDoc;
+  type ScoreDocLike = ScoreDoc;
 
-  fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
+  fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>> {
     debug_assert!(
       self.queue.size() <= self.k(),
       "Tried to collect more results than the maximum number allowed"
@@ -138,7 +138,7 @@ mod tests {
     let scores = [1.0, 0.5, 0.6, 2.0, 2.0, 1.2, 4.0];
 
     for (node, score) in nodes.iter().zip(scores.iter()) {
-      results.collect(*node, *score);
+      results.collect(*node, *score)?;
     }
 
     let top_docs = results.top_docs()?;

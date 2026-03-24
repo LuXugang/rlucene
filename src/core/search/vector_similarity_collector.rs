@@ -86,7 +86,7 @@ impl KnnCollector for VectorSimilarityCollector {
     self.base.k()
   }
 
-  fn collect(&mut self, doc_id: usize, similarity: f32) -> bool {
+  fn collect(&mut self, doc_id: usize, similarity: f32) -> Result<bool> {
     self.max_similarity = self.max_similarity.max(similarity);
     if similarity >= self.result_similarity {
       debug_assert!(doc_id <= i32::MAX as usize);
@@ -94,16 +94,16 @@ impl KnnCollector for VectorSimilarityCollector {
         .score_doc_list
         .push(ScoreDoc::new(doc_id as i32, similarity));
     }
-    true
+    Ok(true)
   }
 
-  fn min_competitive_similarity(&self) -> f32 {
-    self.traversal_similarity.min(self.max_similarity)
+  fn min_competitive_similarity(&self) -> Result<f32> {
+    Ok(self.traversal_similarity.min(self.max_similarity))
   }
 
-  type Item = ScoreDoc;
+  type ScoreDocLike = ScoreDoc;
 
-  fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
+  fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>> {
     // Results are not returned in a sorted order to prevent unnecessary
     // calculations (because we do not need to maintain the topK)
     let relation = if self.early_terminated() {
@@ -146,8 +146,8 @@ mod tests {
     let mut min_competitive_similarities = vec![];
 
     for (&node, &score) in nodes.iter().zip(scores.iter()) {
-      collector.collect(node, score);
-      min_competitive_similarities.push(collector.min_competitive_similarity());
+      collector.collect(node, score)?;
+      min_competitive_similarities.push(collector.min_competitive_similarity()?);
     }
 
     let top_docs = collector.top_docs()?;

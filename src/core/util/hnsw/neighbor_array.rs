@@ -674,7 +674,7 @@ mod tests {
 
     type Bits = DummyBits;
 
-    fn get_accept_ords<B>(&self, _accept_docs: B) -> Result<Self::Bits>
+    fn get_accept_ords<B>(&self, _accept_docs: Option<B>) -> Result<Option<Self::Bits>>
     where
       B: Bits,
     {
@@ -694,7 +694,7 @@ mod tests {
 
     type Bits = DummyBits;
 
-    fn get_accept_ords<B>(&self, _accept_docs: B) -> Result<Self::Bits>
+    fn get_accept_ords<B>(&self, _accept_docs: Option<B>) -> Result<Option<Self::Bits>>
     where
       B: Bits,
     {

@@ -14,26 +14,531 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::CodecUtil;
+use crate::core::codecs::hnsw::flat_vectors_reader::FlatVectorsReader;
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
+use crate::core::index::IndexFileNames;
+use crate::core::index::field_info::FieldInfo;
+use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::store::IndexInput;
+use crate::core::search::knn_collector::KnnCollector;
+use crate::core::store::check_sum_index_input::ChecksumIndexInput;
+use crate::core::store::directory::Directory;
+use crate::core::store::{DataInput, IOContext, IndexInput, ReadAdvice};
 use crate::core::util::TryIntoInt;
+use crate::core::util::accountable::Accountable;
+use crate::core::util::bits::Bits;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::hnsw_graph::{ArrayNodesIterator, HnswGraph};
+use crate::core::util::hnsw::hnsw_graph::{ArrayNodesIterator, EmptyHnswGraph, HnswGraph};
+use crate::core::util::hnsw::hnsw_graph_searcher::search;
+use crate::core::util::hnsw::neighbor_array::NeighborArray;
+use crate::core::util::hnsw::ordinal_translated_knn_collector::OrdinalTranslatedKnnCollector;
+use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
+use crate::core::util::quantization::quantized_vectors_reader::QuantizedVectorsReader;
+use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
+use std::collections::HashMap;
 use std::sync::Arc;
 
-pub struct Lucene99HnswVectorsReader;
+/// Reads vectors from the index segments along with index data structures supporting KNN search.
+pub struct Lucene99HnswVectorsReader<F, I>
+where
+  F: FlatVectorsReader,
+  I: IndexInput,
+{
+  flat_vectors_reader: F,
+  field_infos: Arc<FieldInfos>,
+  fields: HashMap<i32, FieldEntry>,
+  vector_index: I,
+}
+impl<F, I> Lucene99HnswVectorsReader<F, I>
+where
+  F: FlatVectorsReader,
+  I: IndexInput<IndexInput = I>,
+{
+  pub fn new<D1, D2>(
+    state: &SegmentReadState<D1>,
+    flat_vectors_reader: F,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self>
+  where
+    D1: Directory<IndexInput = I>,
+    D2: Directory,
+  {
+    let mut fields = HashMap::new();
+    let field_infos = state.field_infos.clone();
 
+    let meta_file_name = IndexFileNames::segment_file_name(
+      &segment_info.name,
+      &state.segment_suffix,
+      Lucene99HnswVectorsFormat::META_EXTENSION,
+    );
+
+    let mut version_meta = -1;
+
+    let mut meta = state.directory.open_checksum_input(&meta_file_name)?;
+
+    let result = (|| -> Result<()> {
+      let mut prior_e: Option<LuceneError> = None;
+      let inner = (|| -> Result<()> {
+        version_meta = CodecUtil::check_index_header(
+          &mut meta,
+          Lucene99HnswVectorsFormat::META_CODEC_NAME,
+          Lucene99HnswVectorsFormat::VERSION_START,
+          Lucene99HnswVectorsFormat::VERSION_CURRENT,
+          segment_info.get_id(),
+          &state.segment_suffix,
+        )?;
+        read_fields(&mut meta, field_infos.as_ref(), &mut fields)?;
+        Ok(())
+      })();
+
+      if let Err(e) = inner {
+        prior_e = Some(e);
+      }
+      match prior_e {
+        Some(e) => {
+          let new_error = CodecUtil::check_footer_with_error(&mut meta, e);
+          return Err(new_error);
+        },
+        None => {
+          CodecUtil::check_footer(&mut meta)?;
+        },
+      }
+      Ok(())
+    })();
+    result?;
+
+    let vector_index = Self::open_data_input(
+      state,
+      version_meta,
+      Lucene99HnswVectorsFormat::VECTOR_INDEX_EXTENSION,
+      Lucene99HnswVectorsFormat::VECTOR_INDEX_CODEC_NAME,
+      &state.context.with_read_advice_self(ReadAdvice::Random)?,
+      segment_info,
+    )?;
+
+    Ok(Self {
+      flat_vectors_reader,
+      field_infos,
+      fields,
+      vector_index,
+    })
+  }
+  fn open_data_input<D1, D2>(
+    state: &SegmentReadState<D1>,
+    version_meta: i32,
+    file_extension: &str,
+    codec_name: &str,
+    context: &IOContext,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<D1::IndexInput>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    let file_name =
+      IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, file_extension);
+
+    let mut input = state.directory.open_input(&file_name, context)?;
+
+    let result = (|| -> Result<()> {
+      let version_vector_data = CodecUtil::check_index_header(
+        &mut input,
+        codec_name,
+        Lucene99HnswVectorsFormat::VERSION_START,
+        Lucene99HnswVectorsFormat::VERSION_CURRENT,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )?;
+
+      if version_meta != version_vector_data {
+        return Err(LuceneError::corrupt_index(format!(
+          "Format versions mismatch: meta={}, {}={}",
+          version_meta, codec_name, version_vector_data
+        )));
+      }
+
+      CodecUtil::retrieve_checksum(&mut input)?;
+      Ok(())
+    })();
+    result?;
+    Ok(input)
+  }
+
+  fn search<RS, KC, B, S>(
+    &self,
+    field_entry: &FieldEntry,
+    knn_collector: &mut KC,
+    accept_docs: Option<B>,
+    scorer_supplier: S,
+  ) -> Result<()>
+  where
+    RS: RandomVectorScorer,
+    KC: KnnCollector,
+    B: Bits,
+    S: FnOnce() -> Result<RS>,
+  {
+    if field_entry.size() == 0 || knn_collector.k() == 0 {
+      return Ok(());
+    }
+
+    let scorer = scorer_supplier()?;
+
+    let k = knn_collector.k();
+    let mut collector =
+      OrdinalTranslatedKnnCollector::new(knn_collector, |ord| Ok(scorer.ord_to_doc(ord)));
+
+    let mut accepted_ords = scorer.get_accept_ords(accept_docs)?;
+
+    if k < scorer.max_ord() {
+      search(
+        &scorer,
+        &mut collector,
+        &mut self.get_graph_from_entry(field_entry)?,
+        accepted_ords.as_mut(),
+      )?;
+    } else {
+      for i in 0..scorer.max_ord() {
+        let accept = match accepted_ords {
+          Some(ref bits) => bits.get(i)?,
+          None => true,
+        };
+        if accept {
+          if knn_collector.early_terminated() {
+            break;
+          }
+          knn_collector.inc_visited_count(1);
+          knn_collector.collect(scorer.ord_to_doc(i), scorer.score(i)?)?;
+        }
+      }
+    }
+
+    Ok(())
+  }
+  fn get_graph_from_entry(&self, entry: &FieldEntry) -> Result<OffHeapHnswGraph<I>> {
+    OffHeapHnswGraph::new(entry, &self.vector_index)
+  }
+  fn get_field_entry(&self, field: &str, expected_encoding: VectorEncoding) -> Result<&FieldEntry> {
+    let info = self
+      .field_infos
+      .field_info_by_name(field)
+      .ok_or_else(|| LuceneError::illegal_argument(format!("field=\"{}\" not found", field)))?;
+
+    let field_entry = self
+      .fields
+      .get(&info.number)
+      .ok_or_else(|| LuceneError::illegal_argument(format!("field=\"{}\" not found", field)))?;
+
+    if field_entry.vector_encoding != expected_encoding {
+      return Err(LuceneError::illegal_argument(format!(
+        "field=\"{}\" is encoded as: {:?} expected: {:?}",
+        field, field_entry.vector_encoding, expected_encoding
+      )));
+    }
+
+    Ok(field_entry)
+  }
+}
+fn read_fields<M>(
+  meta: &mut M,
+  field_infos: &FieldInfos,
+  fields: &mut HashMap<i32, FieldEntry>,
+) -> Result<()>
+where
+  M: ChecksumIndexInput,
+{
+  let mut field_number = meta.read_int()?;
+  while field_number != -1 {
+    let info = field_infos
+      .field_info_by_number(field_number)?
+      .ok_or_else(|| {
+        LuceneError::corrupt_index(format!("Invalid field number: {}", field_number))
+      })?;
+
+    let field_entry = read_field(meta, info.as_ref())?;
+    validate_field_entry(info.as_ref(), &field_entry)?;
+
+    fields.insert(info.number, field_entry);
+
+    field_number = meta.read_int()?;
+  }
+
+  Ok(())
+}
+fn validate_field_entry(info: &FieldInfo, field_entry: &FieldEntry) -> Result<()> {
+  let dimension = info.get_vector_dimension();
+  if dimension != field_entry.dimension {
+    return Err(LuceneError::illegal_state(format!(
+      "Inconsistent vector dimension for field=\"{}\"; {} != {}",
+      info.name, dimension, field_entry.dimension
+    )));
+  }
+  Ok(())
+}
+
+impl<F, I> Accountable for Lucene99HnswVectorsReader<F, I>
+where
+  F: FlatVectorsReader,
+  I: IndexInput,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    // TODO: memory calculation not implement
+    Ok(0)
+  }
+}
+
+impl<F, I> Closeable for Lucene99HnswVectorsReader<F, I>
+where
+  F: FlatVectorsReader,
+  I: IndexInput,
+{
+  fn close(&mut self) -> Result<()> {
+    Ok(())
+  }
+}
+
+impl<F, I> QuantizedVectorsReader for Lucene99HnswVectorsReader<F, I>
+where
+  F: FlatVectorsReader + QuantizedVectorsReader,
+  I: IndexInput,
+{
+  type QuantizedByteVectorValues = <F as QuantizedVectorsReader>::QuantizedByteVectorValues;
+
+  fn get_quantized_vector_values(&self, field: &str) -> Result<Self::QuantizedByteVectorValues> {
+    self.flat_vectors_reader.get_quantized_vector_values(field)
+  }
+
+  fn get_quantization_state(&self, field: &str) -> ScalarQuantizer {
+    self.flat_vectors_reader.get_quantization_state(field)
+  }
+}
+impl<F, I> HnswGraphProvider for Lucene99HnswVectorsReader<F, I>
+where
+  F: FlatVectorsReader,
+  I: IndexInput<IndexInput = I>,
+{
+  type Graph = HnswGraphEnum<I>;
+
+  fn get_graph(&self, field: &str) -> Result<Self::Graph> {
+    let info = self
+      .field_infos
+      .field_info_by_name(field)
+      .ok_or_else(|| LuceneError::illegal_argument(format!("field=\"{}\" not found", field)))?;
+
+    let entry = self
+      .fields
+      .get(&info.number)
+      .ok_or_else(|| LuceneError::illegal_argument(format!("field=\"{}\" not found", field)))?;
+
+    if entry.vector_index_length > 0 {
+      Ok(HnswGraphEnum::OffHeap(Box::new(
+        self.get_graph_from_entry(entry)?,
+      )))
+    } else {
+      Ok(HnswGraphEnum::Empty(EmptyHnswGraph))
+    }
+  }
+}
+pub enum HnswGraphEnum<I>
+where
+  I: IndexInput,
+{
+  OffHeap(Box<OffHeapHnswGraph<I>>),
+  Empty(EmptyHnswGraph),
+}
+impl<I> HnswGraph for HnswGraphEnum<I>
+where
+  I: IndexInput,
+{
+  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+    match self {
+      HnswGraphEnum::OffHeap(g) => g.seek(level, target),
+      HnswGraphEnum::Empty(g) => g.seek(level, target),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      HnswGraphEnum::OffHeap(g) => g.size(),
+      HnswGraphEnum::Empty(g) => g.size(),
+    }
+  }
+
+  fn max_node_id(&self) -> Option<usize> {
+    match self {
+      HnswGraphEnum::OffHeap(g) => g.max_node_id(),
+      HnswGraphEnum::Empty(g) => g.max_node_id(),
+    }
+  }
+
+  fn next_neighbor(&mut self) -> Result<usize> {
+    match self {
+      HnswGraphEnum::OffHeap(g) => g.next_neighbor(),
+      HnswGraphEnum::Empty(g) => g.next_neighbor(),
+    }
+  }
+
+  fn num_levels(&self) -> Result<usize> {
+    match self {
+      HnswGraphEnum::OffHeap(g) => g.num_levels(),
+      HnswGraphEnum::Empty(g) => g.num_levels(),
+    }
+  }
+
+  fn entry_node(&self) -> Result<Option<usize>> {
+    match self {
+      HnswGraphEnum::OffHeap(g) => g.entry_node(),
+      HnswGraphEnum::Empty(g) => g.entry_node(),
+    }
+  }
+
+  type NodeIterator = ArrayNodesIterator;
+
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+    match self {
+      HnswGraphEnum::OffHeap(g) => g.get_nodes_on_level(level),
+      HnswGraphEnum::Empty(g) => g.get_nodes_on_level(level),
+    }
+  }
+
+  fn get_neighbors(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
+    match self {
+      HnswGraphEnum::OffHeap(g) => g.get_neighbors(level, node),
+      HnswGraphEnum::Empty(g) => g.get_neighbors(level, node),
+    }
+  }
+}
+impl<F, I> KnnVectorsReader for Lucene99HnswVectorsReader<F, I>
+where
+  F: FlatVectorsReader,
+  I: IndexInput<IndexInput = I>,
+{
+  fn check_integrity(&self) -> Result<()> {
+    self.flat_vectors_reader.check_integrity()?;
+    CodecUtil::checksum_entire_file(&self.vector_index)?;
+    Ok(())
+  }
+
+  type FloatVectorValues = <F as KnnVectorsReader>::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
+    self.flat_vectors_reader.get_float_vector_values(field)
+  }
+
+  type ByteVectorValues = <F as KnnVectorsReader>::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
+    self.flat_vectors_reader.get_byte_vector_values(field)
+  }
+
+  fn search_f32<B, K>(
+    &self,
+    field: &str,
+    target: &[f32],
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    let field_entry = self.get_field_entry(field, VectorEncoding::FLOAT32(4))?;
+    self.search(field_entry, knn_collector, accept_docs, || {
+      self
+        .flat_vectors_reader
+        .get_random_vector_scorer_f32(field, target)
+    })
+  }
+
+  fn search_u8<B, K>(
+    &self,
+    field: &str,
+    target: &[u8],
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    let field_entry = self.get_field_entry(field, VectorEncoding::BYTE(1))?;
+    self.search(field_entry, knn_collector, accept_docs, || {
+      self
+        .flat_vectors_reader
+        .get_random_vector_scorer_u8(field, target)
+    })
+  }
+
+  fn finish_merge(&mut self) -> Result<()> {
+    self.flat_vectors_reader.finish_merge()
+  }
+}
+
+// List of vector similarity functions. This list is defined here, in order
+// to avoid an undesirable dependency on the declaration and order of values
+// in VectorSimilarityFunction. The list values and order must be identical
+// to that of {@link o.a.l.c.l.Lucene94FieldInfosFormat#SIMILARITY_FUNCTIONS}.
 pub const SIMILARITY_FUNCTIONS: &[VectorSimilarityFunction] = &[
   VectorSimilarityFunction::Euclidean,
   VectorSimilarityFunction::DotProduct,
   VectorSimilarityFunction::Cosine,
   VectorSimilarityFunction::MaximumInnerProduct,
 ];
+pub fn read_similarity_function<I: DataInput>(input: &mut I) -> Result<VectorSimilarityFunction> {
+  let i = input.read_int()?;
+  if i < 0 || (i as usize) >= SIMILARITY_FUNCTIONS.len() {
+    return Err(LuceneError::illegal_argument(format!(
+      "invalid distance function: {}",
+      i
+    )));
+  }
+  Ok(SIMILARITY_FUNCTIONS[i as usize])
+}
+
+pub fn read_vector_encoding<I: DataInput>(input: &mut I) -> Result<VectorEncoding> {
+  let encoding_id = input.read_int()?;
+  let values = VectorEncoding::values();
+  if encoding_id < 0 || (encoding_id as usize) >= values.len() {
+    return Err(LuceneError::corrupt_index(format!(
+      "Invalid vector encoding id: {}",
+      encoding_id
+    )));
+  }
+  Ok(values[encoding_id as usize])
+}
+fn read_field<I>(input: &mut I, info: &FieldInfo) -> Result<FieldEntry>
+where
+  I: IndexInput,
+{
+  let vector_encoding = read_vector_encoding(input)?;
+  let similarity_function = read_similarity_function(input)?;
+
+  if similarity_function != *info.get_vector_similarity_function() {
+    return Err(LuceneError::illegal_state(format!(
+      "Inconsistent vector similarity function for field=\"{}\"; {:?} != {:?}",
+      info.name,
+      similarity_function,
+      info.get_vector_similarity_function()
+    )));
+  }
+
+  FieldEntry::create(
+    input,
+    vector_encoding,
+    *info.get_vector_similarity_function(),
+  )
+}
+
 pub struct FieldEntry {
   similarity_function: VectorSimilarityFunction,
   vector_encoding: VectorEncoding,

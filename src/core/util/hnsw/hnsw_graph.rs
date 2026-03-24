@@ -87,7 +87,13 @@ pub trait HnswGraph {
   /// An iterator over nodes where `next_int()` returns the next node on the
   /// level.
   fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator>;
-
+  /// Returns the [`NeighborQueue`] connected to the given node.
+  ///
+  /// # Arguments
+  ///
+  /// * `level` - The level of the graph.
+  /// * `node` - The node whose neighbors are returned, represented as an
+  ///   ordinal on level 0.
   fn get_neighbors(&mut self, _level: usize, _node: usize) -> Result<&mut NeighborArray> {
     Err(LuceneError::unsupported_operation(""))
   }

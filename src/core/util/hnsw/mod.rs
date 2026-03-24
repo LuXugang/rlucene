@@ -27,5 +27,6 @@ pub(crate) mod hnsw_util;
 pub(crate) mod neighbor_array;
 pub(crate) mod neighbor_queue;
 pub(crate) mod on_heap_hnsw_graph;
+pub mod ordinal_translated_knn_collector;
 pub(crate) mod random_vector_scorer;
 pub(crate) mod random_vector_scorer_supplier;

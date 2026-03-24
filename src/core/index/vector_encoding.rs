@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use strum_macros::{Display, EnumCount, FromRepr};
+
 /// The numeric datatype of the vector values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, EnumCount, Display)]
 #[repr(u8)]
@@ -47,6 +48,9 @@ impl VectorEncoding {
       VectorEncoding::BYTE(_) => 0,
       VectorEncoding::FLOAT32(_) => 1,
     }
+  }
+  pub const fn values() -> &'static [VectorEncoding] {
+    &[VectorEncoding::BYTE(1), VectorEncoding::FLOAT32(4)]
   }
 }
 

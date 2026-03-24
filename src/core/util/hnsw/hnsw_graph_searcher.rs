@@ -114,7 +114,7 @@ where
   /// the visitation limit was exceeded.
   fn find_best_entry_point<S>(
     &mut self,
-    scorer: &mut S,
+    scorer: &S,
     graph: &mut impl HnswGraph,
     collector: &mut impl KnnCollector,
   ) -> Result<Option<usize>>
@@ -182,7 +182,7 @@ where
   pub(crate) fn search_level_with_collector<S>(
     &mut self,
     results: &mut impl KnnCollector,
-    scorer: &mut S,
+    scorer: &S,
     level: usize,
     eps: &[usize],
     graph: &mut impl HnswGraph,
@@ -206,13 +206,13 @@ where
           None => true,
           Some(bits) => bits.get(ep)?,
         } {
-          results.collect(ep, score);
+          results.collect(ep, score)?;
         }
       }
     }
     // A bound that holds the minimum similarity to the query vector that a
     // candidate vector must have to be considered.
-    let mut min_accepted_similarity = results.min_competitive_similarity();
+    let mut min_accepted_similarity = results.min_competitive_similarity()?;
     while self.candidates.size() > 0 && !results.early_terminated() {
       let top_candidate_similarity = self.candidates.top_score();
       if top_candidate_similarity < min_accepted_similarity {
@@ -244,9 +244,9 @@ where
           if (match accept_ords.as_ref() {
             None => true,
             Some(bits) => bits.get(friend_ord)?,
-          }) && results.collect(friend_ord, friend_similarity)
+          }) && results.collect(friend_ord, friend_similarity)?
           {
-            min_accepted_similarity = results.min_competitive_similarity();
+            min_accepted_similarity = results.min_competitive_similarity()?;
           }
         }
       }
@@ -351,7 +351,7 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 /// * `accept_ords` - a [`Bits`] instance that represents the allowed
 ///   document ordinals to match, or `None` if all are allowed to match
 pub fn search<S>(
-  scorer: &mut S,
+  scorer: &S,
   knn_collector: &mut impl KnnCollector,
   graph: &mut impl HnswGraph,
   accept_ords: Option<&mut impl Bits>,
@@ -414,7 +414,7 @@ where
   Ok(knn_collector)
 }
 fn search_with_searcher<H, S, B>(
-  scorer: &mut S,
+  scorer: &S,
   knn_collector: &mut impl KnnCollector,
   graph: &mut impl HnswGraph,
   graph_searcher: &mut HnswGraphSearcher<B, H>,

@@ -17,7 +17,7 @@
 use crate::core::search::dummy::dummy_score_doc_like::DummyScoreDocLike;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::top_docs::TopDocs;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///  AbstractKnnCollector is the default implementation for a knn collector used
 ///  for gathering kNN results and providing topDocs from the gathered neighbors
 pub struct AbstractKnnCollector {
@@ -56,18 +56,18 @@ impl KnnCollector for AbstractKnnCollector {
     self.k
   }
 
-  fn collect(&mut self, _doc_id: usize, _similarity: f32) -> bool {
-    unimplemented!()
+  fn collect(&mut self, _doc_id: usize, _similarity: f32) -> Result<bool> {
+    Err(LuceneError::unreachable(""))
   }
 
-  fn min_competitive_similarity(&self) -> f32 {
-    unimplemented!()
+  fn min_competitive_similarity(&self) -> Result<f32> {
+    Err(LuceneError::unreachable(""))
   }
 
-  type Item = DummyScoreDocLike;
+  type ScoreDocLike = DummyScoreDocLike;
 
-  fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
-    unimplemented!()
+  fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>> {
+    Err(LuceneError::unreachable(""))
   }
 }
 

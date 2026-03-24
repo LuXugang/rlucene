@@ -441,12 +441,12 @@ where
 
         beam.clear();
         eps[0] = c0.start;
-        let mut scorer = self.scorer_supplier.scorer(c.start)?;
+        let scorer = self.scorer_supplier.scorer(c.start)?;
         // find the closest node in the largest component to the lowest-numbered node in
         // this component that has room to make a connection
         self.graph_searcher.search_level_with_collector(
           &mut beam,
-          &mut scorer,
+          &scorer,
           level,
           &eps,
           &mut self.hnsw,
@@ -585,7 +585,7 @@ where
       ));
     }
 
-    let mut scorer = self.scorer_supplier.scorer(node)?;
+    let scorer = self.scorer_supplier.scorer(node)?;
 
     let node_level = Self::get_random_graph_level(self.ml, &mut self.random);
 
@@ -629,7 +629,7 @@ where
         candidates.clear();
         self.graph_searcher.search_level_with_collector(
           candidates,
-          &mut scorer,
+          &scorer,
           level,
           &eps,
           &mut self.hnsw,
@@ -648,7 +648,7 @@ where
         candidates.clear();
         self.graph_searcher.search_level_with_collector(
           candidates,
-          &mut scorer,
+          &scorer,
           level,
           &eps,
           &mut self.hnsw,
@@ -767,21 +767,21 @@ impl KnnCollector for GraphBuilderKnnCollector {
     self.k
   }
 
-  fn collect(&mut self, doc_id: usize, similarity: f32) -> bool {
-    self.queue.insert_with_overflow(doc_id, similarity)
+  fn collect(&mut self, doc_id: usize, similarity: f32) -> Result<bool> {
+    Ok(self.queue.insert_with_overflow(doc_id, similarity))
   }
 
-  fn min_competitive_similarity(&self) -> f32 {
+  fn min_competitive_similarity(&self) -> Result<f32> {
     if self.queue.size() >= self.k {
-      self.queue.top_score()
+      Ok(self.queue.top_score())
     } else {
-      f32::NEG_INFINITY
+      Ok(f32::NEG_INFINITY)
     }
   }
 
-  type Item = DummyScoreDocLike;
+  type ScoreDocLike = DummyScoreDocLike;
 
-  fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
+  fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>> {
     Err(LuceneError::illegal_state(""))
   }
 }

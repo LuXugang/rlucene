@@ -43,7 +43,7 @@ pub trait RandomVectorScorer {
   /// # Returns
   ///
   /// The document ID for the given vector ordinal.
-  fn ord_to_doc(&self, ord: i32) -> i32 {
+  fn ord_to_doc(&self, ord: usize) -> usize {
     ord
   }
 
@@ -58,7 +58,7 @@ pub trait RandomVectorScorer {
   /// # Returns
   ///
   /// The accept docs.
-  fn get_accept_ords<B>(&self, accept_docs: B) -> Result<Self::Bits>
+  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Result<Option<Self::Bits>>
   where
     B: Bits;
 }

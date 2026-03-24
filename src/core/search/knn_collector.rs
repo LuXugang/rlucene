@@ -60,7 +60,7 @@ pub trait KnnCollector {
   /// # Returns
   ///
   /// `true` if the vector is collected.
-  fn collect(&mut self, doc_id: usize, similarity: f32) -> bool;
+  fn collect(&mut self, doc_id: usize, similarity: f32) -> Result<bool>;
 
   /// This method is utilized during search to ensure only competitive results
   /// are explored.
@@ -72,7 +72,7 @@ pub trait KnnCollector {
   /// # Returns
   ///
   /// The current minimum competitive similarity in the collection.
-  fn min_competitive_similarity(&self) -> f32;
+  fn min_competitive_similarity(&self) -> Result<f32>;
 
   /// This drains the collected nearest kNN results and returns them as a
   /// [`TopDocs`] collection, ordered by score descending.
@@ -83,6 +83,6 @@ pub trait KnnCollector {
   /// # Returns
   ///
   /// The collected top documents.
-  type Item: ScoreDocLike;
-  fn top_docs(&mut self) -> Result<TopDocs<Self::Item>>;
+  type ScoreDocLike: ScoreDocLike;
+  fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>>;
 }
