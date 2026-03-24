@@ -481,7 +481,7 @@ where
     let global_updates = self
       .state
       .delete_queue
-      .freeze_global_buffer(&mut self.delete_slice)?;
+      .freeze_global_buffer(self.delete_slice.as_mut())?;
     // deleteSlice can possibly be null if we have hit non-aborting exceptions during indexing and never succeeded adding a document
     if let Some(delete_slice) = self.delete_slice.as_mut() {
       // apply all deletes before we flush and release the delete slice

@@ -76,8 +76,8 @@ pub trait TermVectorsWriter: Accountable {
   fn default_add_prox(
     &mut self,
     num_prox: usize,
-    positions: &mut Option<&mut impl DataInput>,
-    offsets: &mut Option<&mut impl DataInput>,
+    mut positions: Option<&mut impl DataInput>,
+    mut offsets: Option<&mut impl DataInput>,
   ) -> Result<()> {
     let mut position = 0;
     let mut last_offset = 0;

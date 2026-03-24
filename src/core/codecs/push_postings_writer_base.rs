@@ -153,7 +153,7 @@ where
 
       self
         .sub
-        .start_doc::<N>(&mut norm_values, doc_id, freq, &self.options)?;
+        .start_doc::<N>(norm_values.as_mut(), doc_id, freq, &self.options)?;
 
       if self.options.write_positions {
         for _ in 0..freq {
@@ -252,7 +252,7 @@ pub trait PushPostingsWriterBaseAbstract {
   /// frequencies are omitted for the field.
   fn start_doc<N: NormsProducer>(
     &mut self,
-    norms: &mut Option<N::NumericDocValues>,
+    norms: Option<&mut N::NumericDocValues>,
     doc_id: i32,
     freq: i32,
     options: &FieldWriteOptions,

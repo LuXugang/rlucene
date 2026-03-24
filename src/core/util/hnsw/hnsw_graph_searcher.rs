@@ -95,7 +95,7 @@ where
       level,
       eps,
       graph,
-      &mut None::<FixedBitSet>,
+      None::<&mut FixedBitSet>,
     )?;
     Ok(results)
   }
@@ -186,7 +186,7 @@ where
     level: usize,
     eps: &[usize],
     graph: &mut HnswGraphEnums,
-    accept_ords: &mut Option<impl Bits>,
+    accept_ords: Option<&mut impl Bits>,
   ) -> Result<()>
   where
     S: RandomVectorScorer,
@@ -202,7 +202,10 @@ where
         let score = scorer.score(ep)?;
         results.inc_visited_count(1);
         self.candidates.add(ep, score);
-        if accept_ords.is_none() || accept_ords.as_ref().unwrap().get(ep)? {
+        if match accept_ords.as_ref() {
+          None => true,
+          Some(bits) => bits.get(ep)?,
+        } {
           results.collect(ep, score);
         }
       }
@@ -238,8 +241,10 @@ where
 
         if friend_similarity > min_accepted_similarity {
           self.candidates.add(friend_ord, friend_similarity);
-          if (accept_ords.is_none() || accept_ords.as_ref().unwrap().get(friend_ord)?)
-            && results.collect(friend_ord, friend_similarity)
+          if (match accept_ords.as_ref() {
+            None => true,
+            Some(bits) => bits.get(friend_ord)?,
+          }) && results.collect(friend_ord, friend_similarity)
           {
             min_accepted_similarity = results.min_competitive_similarity();
           }
@@ -352,7 +357,7 @@ pub fn search<S>(
   scorer: &mut S,
   knn_collector: &mut impl KnnCollector,
   graph: &mut HnswGraphEnums,
-  accept_ords: &mut Option<impl Bits>,
+  accept_ords: Option<&mut impl Bits>,
 ) -> Result<()>
 where
   S: RandomVectorScorer,
@@ -390,7 +395,7 @@ pub fn search_with_top_k<S>(
   scorer: &mut S,
   top_k: usize,
   graph: &mut HnswGraphEnums,
-  accept_ords: &mut Option<impl Bits>,
+  accept_ords: Option<&mut impl Bits>,
   visited_limit: usize,
 ) -> Result<TopKnnCollector>
 where
@@ -417,7 +422,7 @@ fn search_with_searcher<H, S, B>(
   knn_collector: &mut impl KnnCollector,
   graph: &mut HnswGraphEnums,
   graph_searcher: &mut HnswGraphSearcher<B, H>,
-  accept_ords: &mut Option<impl Bits>,
+  accept_ords: Option<&mut impl Bits>,
 ) -> Result<()>
 where
   H: HnswGraphSearcherBase,

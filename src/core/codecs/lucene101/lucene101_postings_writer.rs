@@ -643,7 +643,7 @@ where
 
   fn start_doc<N: NormsProducer>(
     &mut self,
-    norms: &mut Option<N::NumericDocValues>,
+    norms: Option<&mut N::NumericDocValues>,
     doc_id: i32,
     term_doc_freq: i32,
     options: &FieldWriteOptions,
@@ -673,12 +673,12 @@ where
 
     if options.write_freqs {
       let norm = if self.field_has_norms {
-        debug_assert!(norms.is_some(), "norms should not be None");
-        let found = norms.as_mut().unwrap().advance_exact(doc_id)?;
+        let norms = norms.ok_or_else(|| LuceneError::illegal_state("norms should not be None"))?;
+        let found = norms.advance_exact(doc_id)?;
         if !found {
           1
         } else {
-          let n = norms.as_mut().unwrap().long_value()?;
+          let n = norms.long_value()?;
           debug_assert!(n != 0, "norm for doc {doc_id} is zero");
           n
         }

@@ -38,7 +38,7 @@ impl HnswUtil {
   /// Returns true if every node on every level is reachable from node 0.
   pub(crate) fn is_rooted<G: HnswGraph>(hnsw: &mut G) -> Result<bool> {
     for level in 0..hnsw.num_levels()? {
-      let comps = Self::components(hnsw, level, &mut None, 0)?;
+      let comps = Self::components(hnsw, level, None, 0)?;
       if comps.len() > 1 {
         return Ok(false);
       }
@@ -61,7 +61,7 @@ impl HnswUtil {
     hnsw: &mut G,
     level: usize,
   ) -> Result<Vec<usize>> {
-    let comps = Self::components(hnsw, level, &mut None, 0)?;
+    let comps = Self::components(hnsw, level, None, 0)?;
     Ok(comps.into_iter().map(|c| c.size).collect())
   }
 
@@ -69,7 +69,7 @@ impl HnswUtil {
     nodes_iter: N,
     hnsw: &mut G,
     level: usize,
-    not_fully_connected: &mut Option<FixedBitSet>,
+    mut not_fully_connected: Option<&mut FixedBitSet>,
     connected_nodes: &mut FixedBitSet,
     max_conn: usize,
   ) -> Result<usize> {
@@ -79,7 +79,7 @@ impl HnswUtil {
         hnsw,
         level,
         connected_nodes,
-        not_fully_connected,
+        not_fully_connected.as_deref_mut(),
         max_conn,
         entry_point,
       )?;
@@ -91,7 +91,7 @@ impl HnswUtil {
   pub(crate) fn components<G: HnswGraph>(
     hnsw: &mut G,
     level: usize,
-    not_fully_connected: &mut Option<FixedBitSet>,
+    mut not_fully_connected: Option<&mut FixedBitSet>,
     max_conn: usize,
   ) -> Result<Vec<Component>> {
     let mut components = Vec::new();
@@ -115,7 +115,7 @@ impl HnswUtil {
         iter,
         hnsw,
         level,
-        not_fully_connected,
+        not_fully_connected.as_deref_mut(),
         &mut connected_nodes,
         max_conn,
       )?
@@ -125,13 +125,13 @@ impl HnswUtil {
         iter,
         hnsw,
         level,
-        not_fully_connected,
+        not_fully_connected.as_deref_mut(),
         &mut connected_nodes,
         max_conn,
       )?
     };
 
-    let entry_point = if let Some(nfc) = &not_fully_connected {
+    let entry_point = if let Some(nfc) = not_fully_connected.as_ref() {
       nfc.next_set_bit(0)
     } else {
       connected_nodes.next_set_bit(0)
@@ -149,7 +149,7 @@ impl HnswUtil {
           hnsw,
           level,
           &mut connected_nodes,
-          not_fully_connected,
+          not_fully_connected.as_deref_mut(),
           max_conn,
           next_clear,
         )?;
@@ -168,7 +168,7 @@ impl HnswUtil {
           hnsw,
           level,
           &mut connected_nodes,
-          not_fully_connected,
+          not_fully_connected.as_deref_mut(),
           max_conn,
           node,
         )?;
@@ -205,7 +205,7 @@ impl HnswUtil {
     hnsw_graph: &mut G,
     level: usize,
     connected_nodes: &mut FixedBitSet,
-    not_fully_connected: &mut Option<FixedBitSet>,
+    mut not_fully_connected: Option<&mut FixedBitSet>,
     max_conn: usize,
     entry_point: usize,
   ) -> Result<Component> {
@@ -233,7 +233,7 @@ impl HnswUtil {
       }
 
       if friend_count < max_conn
-        && let Some(nfc) = not_fully_connected
+        && let Some(nfc) = not_fully_connected.as_deref_mut()
       {
         nfc.set(node);
       }

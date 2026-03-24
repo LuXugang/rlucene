@@ -390,8 +390,12 @@ where
       max_conn *= 2;
     }
 
-    let components =
-      HnswUtil::components(&mut self.hnsw, level, &mut not_fully_connected, max_conn)?;
+    let components = HnswUtil::components(
+      &mut self.hnsw,
+      level,
+      not_fully_connected.as_mut(),
+      max_conn,
+    )?;
 
     if self.info_stream.enabled(HNSW_COMPONENT) {
       self.info_stream.message(
@@ -442,7 +446,7 @@ where
           level,
           &eps,
           &mut self.hnsw,
-          &mut not_fully_connected,
+          not_fully_connected.as_mut(),
         )?;
 
         let mut linked = false;
@@ -628,7 +632,7 @@ where
           level,
           &eps,
           &mut self.hnsw,
-          &mut None::<B>,
+          None::<&mut B>,
         )?;
         eps[0] = candidates.pop_node()?;
       }
@@ -647,7 +651,7 @@ where
           level,
           &eps,
           &mut self.hnsw,
-          &mut None::<B>,
+          None::<&mut B>,
         )?;
         eps = candidates.pop_until_nearest_k_nodes()?;
         let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), self.m + 1), false);
