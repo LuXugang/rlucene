@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::sorter::DocMap;
@@ -27,9 +26,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 pub trait KnnVectorsWriter: Accountable {
-  type KnnFieldVectorsWriter: KnnFieldVectorsWriter;
   /// Adds a new field for indexing.
-  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<&Self::KnnFieldVectorsWriter>;
+  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize>;
 
   /// Flushes all buffered data on disk.
   fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>

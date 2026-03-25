@@ -95,19 +95,22 @@ pub fn check_field<LR: LeafReader>(reader: &LR, field: &str) -> Result<()> {
 ///
 /// # Returns
 /// a [`FloatVectorValues`] instance
-pub fn from_floats(vectors: Arc<Vec<Vec<f32>>>, dim: usize) -> FloatVectorValuesImpl {
-  FloatVectorValuesImpl::new(vectors, dim)
+pub fn from_floats(dim: usize) -> FloatVectorValuesImpl {
+  FloatVectorValuesImpl::new(dim)
 }
 
 #[derive(Clone)]
 pub struct FloatVectorValuesImpl {
-  vectors: Arc<Vec<Vec<f32>>>,
+  vectors: Vec<Vec<f32>>,
   dim: usize,
 }
 
 impl FloatVectorValuesImpl {
-  pub(crate) fn new(vectors: Arc<Vec<Vec<f32>>>, dim: usize) -> Self {
-    Self { vectors, dim }
+  pub(crate) fn new(dim: usize) -> Self {
+    Self {
+      vectors: Vec::new(),
+      dim,
+    }
   }
 }
 

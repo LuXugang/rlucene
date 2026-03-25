@@ -22,7 +22,7 @@ use std::sync::Arc;
 /// Vectors' writer for a field
 pub trait FlatFieldVectorsWriter: KnnFieldVectorsWriter {
   /// Returns a list of vectors to be written.
-  fn get_vectors(&self) -> Arc<Vec<Self::V>>;
+  fn get_vectors(&self) -> Result<Arc<Vec<Self::V>>>;
 
   /// Returns the DocsWithFieldSet for the field writer.
   fn get_docs_with_field_set(&self) -> &DocsWithFieldSet;
@@ -32,4 +32,6 @@ pub trait FlatFieldVectorsWriter: KnnFieldVectorsWriter {
 
   /// Returns true if the writer is done and no new vectors are allowed to be added.
   fn is_finished(&self) -> bool;
+
+  fn add_value<F>(&mut self, doc_id: i32, vector_value: Self::V) -> Result<()>;
 }

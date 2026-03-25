@@ -63,6 +63,7 @@ pub struct Lucene99HnswVectorsWriter<F, O, V>
 where
   F: FlatVectorsWriter,
   O: IndexOutput,
+  V: Clone,
 {
   meta: O,
   vector_index: O,
@@ -73,8 +74,7 @@ where
   // TODO IMPORTANT 多线程未实现
   finished: bool,
   info_stream: InfoStreamMT,
-  fields: Vec<FieldWriterType<DefaultRandomVectorScorerSupplier<F>, F::FlatFieldVectorsWriter>>,
-  _marker: PhantomData<V>,
+  fields: Vec<FieldWriterType<DefaultRandomVectorScorerSupplier<F>, V>>,
 }
 pub type DefaultRandomVectorScorerSupplier<F> =
   FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>;
@@ -82,6 +82,7 @@ impl<F, O, V> Lucene99HnswVectorsWriter<F, O, V>
 where
   F: FlatVectorsWriter,
   O: IndexOutput,
+  V: Clone,
 {
   pub fn new<D1, D2>(
     state: &SegmentWriteState<D1>,
@@ -144,22 +145,24 @@ where
       finished: false,
       info_stream: state.info_stream.clone(),
       fields: Vec::new(),
-      _marker: PhantomData,
     })
   }
   fn write_field(&mut self, field_data: usize) -> Result<()> {
     let field_data = self.fields.get_mut(field_data).unwrap();
     let vector_index_offset = self.vector_index.get_file_pointer();
 
-    let cardinality = field_data.get_docs_with_field_set().cardinality();
+    let flat_field_vectors_writers = self.flat_vector_writer.get_fields_mut();
+    let cardinality = field_data
+      .get_docs_with_field_set(flat_field_vectors_writers)?
+      .cardinality();
     let field_info = field_data.field_info.clone();
     let graph_level_node_offsets = {
-      let graph = field_data.get_graph()?;
+      let graph = field_data.get_graph(flat_field_vectors_writers)?;
       Self::write_graph(&mut self.vector_index, graph)?
     };
 
     let vector_index_length = self.vector_index.get_file_pointer() - vector_index_offset;
-    let graph = field_data.get_graph()?;
+    let graph = field_data.get_graph(flat_field_vectors_writers)?;
     Self::write_meta(
       &mut self.vector_index,
       &mut self.meta,
@@ -178,14 +181,17 @@ where
   where
     DM: DocMap,
   {
+    let flat_field_vectors_writers = self.flat_vector_writer.get_fields_mut();
     let field_data = self.fields.get_mut(field_data_idx).unwrap();
-    let cardinality = field_data.get_docs_with_field_set().cardinality() as usize;
+    let cardinality = field_data
+      .get_docs_with_field_set(flat_field_vectors_writers)?
+      .cardinality() as usize;
 
     let mut ord_map = vec![0; cardinality];
     let mut old_ord_map = vec![0; cardinality];
 
     map_old_ord_to_new_ord(
-      field_data.get_docs_with_field_set(),
+      field_data.get_docs_with_field_set(flat_field_vectors_writers)?,
       sort_map,
       Some(&mut old_ord_map),
       Some(&mut ord_map),
@@ -196,8 +202,10 @@ where
 
     let field_info = field_data.field_info.clone();
 
-    let count = field_data.get_docs_with_field_set().cardinality();
-    let graph = field_data.get_graph()?;
+    let count = field_data
+      .get_docs_with_field_set(flat_field_vectors_writers)?
+      .cardinality();
+    let graph = field_data.get_graph(flat_field_vectors_writers)?;
 
     let mut graph_level_node_offsets = if let Some(ref g) = graph {
       vec![Vec::new(); g.num_levels()?]
@@ -534,22 +542,19 @@ impl<F, O, V> Accountable for Lucene99HnswVectorsWriter<F, O, V>
 where
   F: FlatVectorsWriter,
   O: IndexOutput,
+  V: Clone,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     // TODO: memory calculation not implement
     Ok(0)
   }
 }
-impl<F, O> KnnVectorsWriter for Lucene99HnswVectorsWriter<F, O, Vec<u8>>
+impl<F, O> KnnVectorsWriter for Lucene99HnswVectorsWriter<F, O, u8>
 where
   F: FlatVectorsWriter,
   O: IndexOutput,
-  F::FlatFieldVectorsWriter: KnnFieldVectorsWriter<V = Vec<u8>>,
 {
-  type KnnFieldVectorsWriter =
-    FieldWriterType<DefaultRandomVectorScorerSupplier<F>, F::FlatFieldVectorsWriter>;
-
-  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<&Self::KnnFieldVectorsWriter> {
+  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
     let flat_field_vectors_writer =
       FlatVectorsWriter::add_field(&mut self.flat_vector_writer, field_info.clone())?;
     let scorer = self.flat_vector_writer.get_flat_vector_scorer();
@@ -562,7 +567,7 @@ where
       self.info_stream.clone(),
     )?;
     self.fields.push(v);
-    Ok(self.fields.last().unwrap())
+    Ok(self.fields.len() - 1)
   }
 
   fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
@@ -576,16 +581,12 @@ where
     self.finish()
   }
 }
-impl<F, O> KnnVectorsWriter for Lucene99HnswVectorsWriter<F, O, Vec<f32>>
+impl<F, O> KnnVectorsWriter for Lucene99HnswVectorsWriter<F, O, f32>
 where
   F: FlatVectorsWriter,
   O: IndexOutput,
-  F::FlatFieldVectorsWriter: KnnFieldVectorsWriter<V = Vec<f32>>,
 {
-  type KnnFieldVectorsWriter =
-    FieldWriterType<DefaultRandomVectorScorerSupplier<F>, F::FlatFieldVectorsWriter>;
-
-  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<&Self::KnnFieldVectorsWriter> {
+  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
     let flat_field_vectors_writer =
       FlatVectorsWriter::add_field(&mut self.flat_vector_writer, field_info.clone())?;
     let scorer = self.flat_vector_writer.get_flat_vector_scorer();
@@ -598,7 +599,7 @@ where
       self.info_stream.clone(),
     )?;
     self.fields.push(v);
-    Ok(self.fields.last().unwrap())
+    Ok(self.fields.len() - 1)
   }
 
   fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
@@ -625,85 +626,81 @@ pub(crate) fn dist_func_to_ord(func: &VectorSimilarityFunction) -> Result<u8> {
   )))
 }
 
-pub(crate) fn create_field_writer_byte<F, S>(
+pub(crate) fn create_field_writer_byte<S>(
   scorer: &S,
-  flat_field_vectors_writer: F,
+  flat_field_vectors_writer_idx: usize,
   field_info: Arc<FieldInfo>,
   m: usize,
   beam_width: usize,
   info_stream: InfoStreamMT,
 ) -> Result<
-  FieldWriterType<S::RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl>, F>,
+  FieldWriterType<S::RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl>, u8>,
 >
 where
-  F: FlatFieldVectorsWriter<V = Vec<u8>>,
   S: FlatVectorsScorer,
 {
   FieldWriter::from_byte(
     scorer,
-    flat_field_vectors_writer,
+    flat_field_vectors_writer_idx,
     field_info,
     m,
     beam_width,
     info_stream,
   )
 }
-pub(crate) fn create_field_writer_float<F, S>(
+pub(crate) fn create_field_writer_float<S>(
   scorer: &S,
-  flat_field_vectors_writer: F,
+  flat_field_vectors_writer_idx: usize,
   field_info: Arc<FieldInfo>,
   m: usize,
   beam_width: usize,
   info_stream: InfoStreamMT,
 ) -> Result<
-  FieldWriterType<S::RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl>, F>,
+  FieldWriterType<S::RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl>, f32>,
 >
 where
-  F: FlatFieldVectorsWriter<V = Vec<f32>>,
   S: FlatVectorsScorer,
 {
   FieldWriter::from_float(
     scorer,
-    flat_field_vectors_writer,
+    flat_field_vectors_writer_idx,
     field_info,
     m,
     beam_width,
     info_stream,
   )
 }
-pub type FieldWriterType<S, F> = FieldWriter<S, FixedBitSet, HnswGraphSearcherBaseDefault, F>;
-pub struct FieldWriter<S, B, H, F>
+pub type FieldWriterType<S, V> = FieldWriter<S, FixedBitSet, HnswGraphSearcherBaseDefault, V>;
+pub struct FieldWriter<S, B, H, V>
 where
   S: RandomVectorScorerSupplier,
   B: BitSet,
   H: HnswGraphSearcherBase,
-  F: FlatFieldVectorsWriter,
+  V: Clone,
 {
   field_info: Arc<FieldInfo>,
   hnsw_graph_builder: HnswGraphBuilder<S, B, H>,
   last_doc_id: i32,
   node: usize,
-  flat_field_vectors_writer: F,
+  flat_field_vectors_writer_idx: usize,
+  _marker: PhantomData<V>,
 }
-impl<S, F> FieldWriterType<S, F>
+impl<S, V> FieldWriterType<S, V>
 where
   S: RandomVectorScorerSupplier,
-  F: FlatFieldVectorsWriter<V = Vec<u8>>,
+  V: Clone,
 {
   fn from_byte(
     scorer: &impl FlatVectorsScorer<
       RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl> = S,
     >,
-    flat_field_vectors_writer: F,
+    flat_field_vectors_writer_idx: usize,
     field_info: Arc<FieldInfo>,
     m: usize,
     beam_width: usize,
     info_stream: InfoStreamMT,
   ) -> Result<Self> {
-    let random_vector_scorer_supplier = from_bytes(
-      flat_field_vectors_writer.get_vectors().clone(),
-      field_info.get_vector_dimension() as usize,
-    );
+    let random_vector_scorer_supplier = from_bytes(field_info.get_vector_dimension() as usize);
     let scorer_supplier = scorer.get_random_vector_scorer_supplier(
       *field_info.get_vector_similarity_function(),
       KnnVectorValuesEnum::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Byte(
@@ -712,7 +709,7 @@ where
     )?;
     Self::new(
       scorer_supplier,
-      flat_field_vectors_writer,
+      flat_field_vectors_writer_idx,
       field_info,
       m,
       beam_width,
@@ -720,25 +717,22 @@ where
     )
   }
 }
-impl<S, F> FieldWriterType<S, F>
+impl<S, V> FieldWriterType<S, V>
 where
   S: RandomVectorScorerSupplier,
-  F: FlatFieldVectorsWriter<V = Vec<f32>>,
+  V: Clone,
 {
   fn from_float(
     scorer: &impl FlatVectorsScorer<
       RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl> = S,
     >,
-    flat_field_vectors_writer: F,
+    flat_field_vectors_writer_idx: usize,
     field_info: Arc<FieldInfo>,
     m: usize,
     beam_width: usize,
     info_stream: InfoStreamMT,
   ) -> Result<Self> {
-    let random_vector_scorer_supplier = from_floats(
-      flat_field_vectors_writer.get_vectors().clone(),
-      field_info.get_vector_dimension() as usize,
-    );
+    let random_vector_scorer_supplier = from_floats(field_info.get_vector_dimension() as usize);
     let scorer_supplier = scorer.get_random_vector_scorer_supplier(
       *field_info.get_vector_similarity_function(),
       KnnVectorValuesEnum::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Float(
@@ -747,7 +741,7 @@ where
     )?;
     Self::new(
       scorer_supplier,
-      flat_field_vectors_writer,
+      flat_field_vectors_writer_idx,
       field_info,
       m,
       beam_width,
@@ -755,14 +749,14 @@ where
     )
   }
 }
-impl<S, F> FieldWriterType<S, F>
+impl<S, V> FieldWriterType<S, V>
 where
   S: RandomVectorScorerSupplier,
-  F: FlatFieldVectorsWriter,
+  V: Clone,
 {
   fn new(
     scorer_supplier: S,
-    flat_field_vectors_writer: F,
+    flat_field_vectors_writer_idx: usize,
     field_info: Arc<FieldInfo>,
     m: usize,
     beam_width: usize,
@@ -777,22 +771,43 @@ where
       hnsw_graph_builder,
       last_doc_id: 0,
       node: 0,
-      flat_field_vectors_writer,
+      flat_field_vectors_writer_idx,
+      _marker: PhantomData,
     })
   }
 }
-impl<S, B, H, F> FieldWriter<S, B, H, F>
+impl<S, B, H, V> FieldWriter<S, B, H, V>
 where
   B: BitSet,
-  F: FlatFieldVectorsWriter,
   H: HnswGraphSearcherBase,
   S: RandomVectorScorerSupplier,
+  V: Clone,
 {
-  pub fn get_docs_with_field_set(&self) -> &DocsWithFieldSet {
-    self.flat_field_vectors_writer.get_docs_with_field_set()
+  pub fn get_docs_with_field_set<'a, F>(
+    &self,
+    flat_field_vectors_writers: &'a mut [F],
+  ) -> Result<&'a DocsWithFieldSet>
+  where
+    F: FlatFieldVectorsWriter,
+  {
+    let v = flat_field_vectors_writers
+      .get(self.flat_field_vectors_writer_idx)
+      .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
+    Ok(v.get_docs_with_field_set())
   }
-  pub(crate) fn get_graph(&mut self) -> Result<Option<&mut OnHeapHnswGraph>> {
-    debug_assert!(self.flat_field_vectors_writer.is_finished());
+  pub(crate) fn get_graph<F>(
+    &mut self,
+    flat_field_vectors_writers: &mut [F],
+  ) -> Result<Option<&mut OnHeapHnswGraph>>
+  where
+    F: FlatFieldVectorsWriter,
+  {
+    debug_assert!({
+      let v = flat_field_vectors_writers
+        .get(self.flat_field_vectors_writer_idx)
+        .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
+      v.is_finished()
+    });
 
     if self.node > 0 {
       Ok(Some(self.hnsw_graph_builder.get_completed_graph()?))
@@ -801,12 +816,12 @@ where
     }
   }
 }
-impl<S, B, H, F> Accountable for FieldWriter<S, B, H, F>
+impl<S, B, H, V> Accountable for FieldWriter<S, B, H, V>
 where
   B: BitSet,
-  F: FlatFieldVectorsWriter,
   H: HnswGraphSearcherBase,
   S: RandomVectorScorerSupplier,
+  V: Clone,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     //TODO: memory calculation not implement
@@ -814,34 +829,38 @@ where
   }
 }
 
-impl<S, B, H, F> KnnFieldVectorsWriter for FieldWriter<S, B, H, F>
+impl<S, B, H, V> KnnFieldVectorsWriter for FieldWriter<S, B, H, V>
 where
   S: RandomVectorScorerSupplier,
   B: BitSet,
   H: HnswGraphSearcherBase,
-  F: FlatFieldVectorsWriter,
+  V: Clone,
 {
-  type V = F::V;
+  type V = Vec<V>;
 
-  fn add_value(&mut self, doc_id: i32, vector_value: Self::V) -> Result<()> {
+  fn add_value<F>(
+    &mut self,
+    doc_id: i32,
+    vector_value: Self::V,
+    flat_field_vectors_writers: &mut [F],
+  ) -> Result<()>
+  where
+    F: FlatFieldVectorsWriter<V = Self::V>,
+  {
     if doc_id == self.last_doc_id {
       return Err(LuceneError::illegal_argument(format!(
         "VectorValuesField \"{}\" appears more than once in this document (only one value is allowed per field)",
         self.field_info.name
       )));
     }
-
-    self
-      .flat_field_vectors_writer
-      .add_value(doc_id, vector_value)?;
+    let flat_field_vectors_writer = flat_field_vectors_writers
+      .get_mut(self.flat_field_vectors_writer_idx)
+      .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
+    FlatFieldVectorsWriter::add_value::<F>(flat_field_vectors_writer, doc_id, vector_value)?;
     self.hnsw_graph_builder.add_graph_node(self.node)?;
     self.node += 1;
     self.last_doc_id = doc_id;
     Ok(())
-  }
-
-  fn copy_value(&self, _vector_value: Self::V) -> Result<Self::V> {
-    Err(LuceneError::unsupported_operation(""))
   }
 }
 

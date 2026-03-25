@@ -97,18 +97,21 @@ pub fn check_field<LR: LeafReader>(reader: &LR, field: &str) -> Result<()> {
 ///
 /// # Returns
 /// a [`ByteVectorValues`] instance
-pub fn from_bytes(vectors: Arc<Vec<Vec<u8>>>, dim: usize) -> ByteVectorValuesImpl {
-  ByteVectorValuesImpl::new(vectors, dim)
+pub fn from_bytes(dim: usize) -> ByteVectorValuesImpl {
+  ByteVectorValuesImpl::new(dim)
 }
 
 #[derive(Clone)]
 pub struct ByteVectorValuesImpl {
-  vectors: Arc<Vec<Vec<u8>>>,
+  vectors: Vec<Vec<u8>>,
   dim: usize,
 }
 impl ByteVectorValuesImpl {
-  pub(crate) fn new(vectors: Arc<Vec<Vec<u8>>>, dim: usize) -> Self {
-    Self { vectors, dim }
+  pub(crate) fn new(dim: usize) -> Self {
+    Self {
+      vectors: Vec::new(),
+      dim,
+    }
   }
 }
 

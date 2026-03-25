@@ -24,6 +24,16 @@ pub enum VectorSimilarityFunction {
   Cosine,
   MaximumInnerProduct,
 }
+impl VectorSimilarityFunction {
+  pub fn ordinal(&self) -> i32 {
+    match self {
+      VectorSimilarityFunction::Euclidean => 0,
+      VectorSimilarityFunction::DotProduct => 1,
+      VectorSimilarityFunction::Cosine => 1,
+      VectorSimilarityFunction::MaximumInnerProduct => 1,
+    }
+  }
+}
 /// Use Default for padding
 impl Default for VectorSimilarityFunction {
   fn default() -> Self {

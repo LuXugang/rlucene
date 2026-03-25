@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Vectors’ writer for a field.
 ///
 /// # Parameters
@@ -25,7 +26,17 @@ pub trait KnnFieldVectorsWriter: Accountable {
   type V;
   /// Adds a new doc ID with its vector value to the given field for indexing.
   /// Doc IDs must be added in increasing order.
-  fn add_value(&mut self, doc_id: i32, vector_value: Self::V) -> Result<()>;
+  fn add_value<F>(
+    &mut self,
+    _doc_id: i32,
+    _vector_value: Self::V,
+    _flat_field_vectors_writers: &mut [F],
+  ) -> Result<()>
+  where
+    F: FlatFieldVectorsWriter<V = Self::V>,
+  {
+    Err(LuceneError::unsupported_operation(""))
+  }
   /// Used to copy values being indexed to internal storage.
   ///
   /// # Arguments
@@ -35,5 +46,7 @@ pub trait KnnFieldVectorsWriter: Accountable {
   /// # Returns
   ///
   /// A copy of the value; a new array.
-  fn copy_value(&self, vector_value: Self::V) -> Result<Self::V>;
+  fn copy_value(&self, _vector_value: &Self::V) -> Result<Self::V> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }

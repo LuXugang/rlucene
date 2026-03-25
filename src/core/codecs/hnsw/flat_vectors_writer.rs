@@ -25,8 +25,10 @@ pub trait FlatVectorsWriter: KnnVectorsWriter {
   type FlatVectorsScorer: FlatVectorsScorer;
   fn get_flat_vector_scorer(&self) -> &Self::FlatVectorsScorer;
 
+  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize>;
+
   type FlatFieldVectorsWriter: FlatFieldVectorsWriter;
-  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<Self::FlatFieldVectorsWriter>;
+  fn get_fields_mut(&mut self) -> &mut [Self::FlatFieldVectorsWriter];
 }
 
 pub type FlatVectorsWriterSs<F, BV, FV> =

@@ -27,17 +27,17 @@ pub enum VectorEncoding {
    * storage savings and faster searches, at the cost of some possible
    * loss of precision.
    */
-  BYTE(i32),
+  BYTE(usize),
 
   /// Encodes vector using 32 bits of precision per sample in IEEE floating
   /// point format.
-  FLOAT32(i32),
+  FLOAT32(usize),
 }
 
 impl VectorEncoding {
   /// The number of bytes required to encode a scalar in this format.
   /// A vector will nominally require dimension * byteSize bytes of storage.
-  pub fn byte_size(&self) -> i32 {
+  pub fn byte_size(&self) -> usize {
     match self {
       VectorEncoding::BYTE(size) => *size,
       VectorEncoding::FLOAT32(size) => *size,

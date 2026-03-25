@@ -51,7 +51,7 @@ pub trait KnnVectorValues {
   /// Returns the vector byte length, defaults to dimension multiplied by
   /// float byte size
   fn get_vector_byte_length(&self) -> usize {
-    self.dimension() * self.get_encoding().byte_size() as usize
+    self.dimension() * self.get_encoding().byte_size()
   }
   /// The vector encoding of these values.
   fn get_encoding(&self) -> VectorEncoding;
