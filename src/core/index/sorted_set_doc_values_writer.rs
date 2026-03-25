@@ -61,7 +61,7 @@ use std::sync::Arc;
 /// Buffers up pending `[u8]`s per doc, deref and sorting via int ord, then flushes when segment flushes.
 pub(crate) struct SortedSetDocValuesWriter {
   hash: DirectBytesRefHash,
-  hash_rc: Option<Arc<DirectBytesRefHash>>,
+  frozen_hash: Option<Arc<DirectBytesRefHash>>,
   pending: PackedLongValuesBuilder, // stream of all termIDs
   pending_counts: Option<PackedLongValuesBuilder>, // termIDs per doc
   docs_with_field: DocsWithFieldSet,
@@ -97,7 +97,7 @@ impl SortedSetDocValuesWriter {
     iw_bytes_used.add_and_get(bytes_used);
     Ok(Self {
       hash,
-      hash_rc: None,
+      frozen_hash: None,
       pending,
       pending_counts: None,
       docs_with_field,
@@ -270,7 +270,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     if ord_counts.is_none() {
       let single_value_producer = get_doc_values_producer(
         self.field_info.clone(),
-        self.hash_rc.clone().unwrap(),
+        self.frozen_hash.clone().unwrap(),
         self.pool.clone(),
         ords.clone(),
         ord_map.clone(),
@@ -288,7 +288,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         map,
         &mut SortedSetDocValuesWriter::get_values(
           ord_map.clone(),
-          self.hash_rc.clone().unwrap(),
+          self.frozen_hash.clone().unwrap(),
           self.pool.clone(),
           &ords,
           ord_counts.clone(),
@@ -304,7 +304,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     let producer = DocValuesProducerImpl1::new(
       self.field_info.clone(),
       ord_map,
-      self.hash_rc.clone().unwrap(),
+      self.frozen_hash.clone().unwrap(),
       self.pool.clone(),
       ords,
       ord_counts,
@@ -329,7 +329,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     }
     SortedSetDocValuesWriter::get_values(
       self.final_ord_map.as_ref().unwrap().clone(),
-      self.hash_rc.clone().unwrap(),
+      self.frozen_hash.clone().unwrap(),
       self.pool.clone(),
       self.final_ords.as_ref().unwrap(),
       self.final_ord_counts.clone(),
@@ -358,7 +358,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         let index = self.hash.ids[ord] as usize;
         ord_map[index] = ord as i32;
       }
-      self.hash_rc = Some(Arc::new(std::mem::take(&mut self.hash)));
+      self.frozen_hash = Some(Arc::new(std::mem::take(&mut self.hash)));
       self.final_ord_map = Some(Arc::new(ord_map));
     } else {
       debug_assert!(self.is_sorted);

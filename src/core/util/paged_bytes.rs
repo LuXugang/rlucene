@@ -32,7 +32,7 @@ use std::sync::Arc;
 #[derive(Default)]
 pub struct PagedBytes {
   blocks: Vec<Vec<u8>>,
-  blocks_rc: Option<Vec<Arc<Vec<u8>>>>,
+  frozen_blocks: Option<Vec<Arc<Vec<u8>>>>,
   num_blocks: usize,
   block_size: usize,
   block_bits: usize,
@@ -57,7 +57,7 @@ impl PagedBytes {
 
     PagedBytes {
       blocks: Vec::with_capacity(16),
-      blocks_rc: None,
+      frozen_blocks: None,
       num_blocks: 0,
       block_size,
       block_bits,
@@ -143,7 +143,7 @@ impl PagedBytes {
     for i in 0..self.num_blocks {
       block.push(Arc::new(std::mem::take(&mut self.blocks[i])));
     }
-    self.blocks_rc = Some(block);
+    self.frozen_blocks = Some(block);
 
     PagedBytesReader::new(self)
   }
@@ -181,7 +181,7 @@ impl PagedBytesReader {
   pub fn new(paged_bytes: &PagedBytes) -> Result<Self> {
     Ok(PagedBytesReader {
       blocks: paged_bytes
-        .blocks_rc
+        .frozen_blocks
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("blocks_rc not initialized"))?
         .clone(),
@@ -266,7 +266,7 @@ pub struct PagedBytesDataInput {
 
 impl PagedBytesDataInput {
   fn new(blocks: &PagedBytes) -> Result<Self> {
-    debug_assert!(blocks.blocks_rc.is_some());
+    debug_assert!(blocks.frozen_blocks.is_some());
     Ok(Self {
       current_block_index: 0,
       current_block_upto: 0,
@@ -274,7 +274,7 @@ impl PagedBytesDataInput {
       block_bits: blocks.block_bits,
       block_mask: blocks.block_mask,
       blocks: blocks
-        .blocks_rc
+        .frozen_blocks
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("blocks_rc not initialized"))?
         .clone(),

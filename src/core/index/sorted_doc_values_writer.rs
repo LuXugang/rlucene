@@ -54,7 +54,7 @@ use std::sync::Arc;
 ///  Buffers up pending `[u8]` per doc, deref and sorting via int ord, then flushes when segment flushes.
 pub(crate) struct SortedDocValuesWriter {
   hash: DirectBytesRefHash,
-  hash_rc: Option<Arc<DirectBytesRefHash>>,
+  frozen_hash: Option<Arc<DirectBytesRefHash>>,
   pending: PackedLongValuesBuilder,
   docs_with_field: DocsWithFieldSet,
   iw_bytes_used: SharedCounter,
@@ -85,7 +85,7 @@ impl SortedDocValuesWriter {
 
     Ok(Self {
       hash,
-      hash_rc: None,
+      frozen_hash: None,
       pending,
       docs_with_field,
       iw_bytes_used,
@@ -202,7 +202,7 @@ impl DocValuesWriter for SortedDocValuesWriter {
       &self.field_info,
       &get_doc_values_producer(
         self.field_info.clone(),
-        self.hash_rc.clone().unwrap(),
+        self.frozen_hash.clone().unwrap(),
         self.pool.clone(),
         self.final_ords.take().unwrap(),
         self.final_ord_map.take().unwrap(),
@@ -222,7 +222,7 @@ impl DocValuesWriter for SortedDocValuesWriter {
       ));
     }
     Ok(BufferedSortedDocValues::new(
-      self.hash_rc.as_ref().unwrap().clone(),
+      self.frozen_hash.as_ref().unwrap().clone(),
       self.pool.clone(),
       self.final_ords.as_ref().unwrap(),
       self.final_ord_map.as_ref().unwrap().clone(),
@@ -247,7 +247,7 @@ impl DocValuesWriter for SortedDocValuesWriter {
         let index = self.hash.ids[ord] as usize;
         ord_map[index] = ord as i32;
       }
-      self.hash_rc = Some(Arc::new(std::mem::take(&mut self.hash)));
+      self.frozen_hash = Some(Arc::new(std::mem::take(&mut self.hash)));
       self.final_ords = Some(ords);
       self.final_ord_map = Some(Arc::new(ord_map));
     }
