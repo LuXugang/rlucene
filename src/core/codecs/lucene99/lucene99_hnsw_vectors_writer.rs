@@ -829,14 +829,13 @@ where
   }
 }
 
-impl<S, B, H, V> KnnFieldVectorsWriter for FieldWriter<S, B, H, V>
+impl<S, B, H> KnnFieldVectorsWriter for FieldWriter<S, B, H, u8>
 where
   S: RandomVectorScorerSupplier,
   B: BitSet,
   H: HnswGraphSearcherBase,
-  V: Clone,
 {
-  type V = Vec<V>;
+  type V = Vec<u8>;
 
   fn add_value<F>(
     &mut self,
@@ -857,7 +856,47 @@ where
       .get_mut(self.flat_field_vectors_writer_idx)
       .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
     let ss = self.hnsw_graph_builder.get_scorer_supplier();
-    let vectors = ss.get_vector()?;
+    let vectors = ss.get_vector_byte()?;
+    FlatFieldVectorsWriter::add_value::<F>(
+      flat_field_vectors_writer,
+      doc_id,
+      vector_value,
+      vectors,
+    )?;
+    self.hnsw_graph_builder.add_graph_node(self.node)?;
+    self.node += 1;
+    self.last_doc_id = doc_id;
+    Ok(())
+  }
+}
+impl<S, B, H> KnnFieldVectorsWriter for FieldWriter<S, B, H, f32>
+where
+  S: RandomVectorScorerSupplier,
+  B: BitSet,
+  H: HnswGraphSearcherBase,
+{
+  type V = Vec<f32>;
+
+  fn add_value<F>(
+    &mut self,
+    doc_id: i32,
+    vector_value: Self::V,
+    flat_field_vectors_writers: &mut [F],
+  ) -> Result<()>
+  where
+    F: FlatFieldVectorsWriter<V = Self::V>,
+  {
+    if doc_id == self.last_doc_id {
+      return Err(LuceneError::illegal_argument(format!(
+        "VectorValuesField \"{}\" appears more than once in this document (only one value is allowed per field)",
+        self.field_info.name
+      )));
+    }
+    let flat_field_vectors_writer = flat_field_vectors_writers
+      .get_mut(self.flat_field_vectors_writer_idx)
+      .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
+    let ss = self.hnsw_graph_builder.get_scorer_supplier();
+    let vectors = ss.get_vector_float()?;
     FlatFieldVectorsWriter::add_value::<F>(
       flat_field_vectors_writer,
       doc_id,

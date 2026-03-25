@@ -48,6 +48,10 @@ pub trait ByteVectorValues: KnnVectorValues {
   fn get_encoding(&self) -> VectorEncoding {
     VectorEncoding::BYTE(1)
   }
+
+  fn get_vectors(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }
 /// Checks the Vector Encoding of a field
 pub fn check_field<LR: LeafReader>(reader: &LR, field: &str) -> Result<()> {
@@ -132,4 +136,8 @@ impl ByteVectorValues for ByteVectorValuesImpl {
   }
 
   type VectorScorer = DummyVectorScorer;
+
+  fn get_vectors(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+    Ok(&mut self.vectors)
+  }
 }

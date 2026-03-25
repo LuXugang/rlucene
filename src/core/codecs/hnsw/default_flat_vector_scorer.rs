@@ -166,14 +166,17 @@ where
     }
   }
 
-  fn get_vector<F>(&mut self) -> Result<&mut Vec<F>> {
+  fn get_vector_byte(&mut self) -> Result<&mut Vec<Vec<u8>>> {
     match self {
-      RandomVectorScorerSupplierEnum::Byte(_supplier) => {
-        todo!()
-      },
-      RandomVectorScorerSupplierEnum::Float(_supplier) => {
-        todo!()
-      },
+      RandomVectorScorerSupplierEnum::Byte(supplier) => supplier.get_vector_byte(),
+      _ => Err(LuceneError::illegal_state("should byte here")),
+    }
+  }
+
+  fn get_vector_float(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+    match self {
+      RandomVectorScorerSupplierEnum::Float(supplier) => supplier.get_vector_float(),
+      _ => Err(LuceneError::illegal_state("should float here")),
     }
   }
 }
@@ -228,6 +231,10 @@ where
     Self: Sized,
   {
     ByteScoringSupplier::new(self.vectors.clone(), self.similarity_function)
+  }
+
+  fn get_vector_byte(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+    self.vectors.get_vectors()
   }
 }
 
@@ -343,6 +350,10 @@ where
     Self: Sized,
   {
     FloatScoringSupplier::new(self.vectors.clone(), self.similarity_function)
+  }
+
+  fn get_vector_float(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+    self.vectors.get_vectors()
   }
 }
 pub struct RandomVectorScorerF32Impl<'a, FV>
