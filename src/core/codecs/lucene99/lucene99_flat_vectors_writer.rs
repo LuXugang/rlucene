@@ -34,6 +34,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Writes vector values to index segments.
@@ -216,9 +217,10 @@ where
   }
 
   fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
-    let new_field = create_from_byte(field_info);
+    let idx = self.fields.len();
+    let new_field = create_from_byte(field_info, idx);
     self.fields.push(new_field);
-    Ok(self.fields.len() - 1)
+    Ok(idx)
   }
 
   type FlatFieldVectorsWriter = FlatFieldWriter<u8>;
@@ -239,9 +241,10 @@ where
   }
 
   fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
-    let new_field = create_from_float(field_info);
+    let len = self.fields.len();
+    let new_field = create_from_float(field_info, len);
     self.fields.push(new_field);
-    Ok(self.fields.len() - 1)
+    Ok(len)
   }
 
   type FlatFieldVectorsWriter = FlatFieldWriter<f32>;
@@ -498,22 +501,22 @@ pub struct FlatFieldWriter<T> {
   field_info: Arc<FieldInfo>,
   dim: usize,
   docs_with_field: DocsWithFieldSet,
-  vectors: Vec<Vec<T>>,
-  frozen_vectors: Option<Arc<Vec<Vec<T>>>>,
   finished: bool,
   last_doc_id: i32,
+  _marker: PhantomData<T>,
+  idx: usize,
 }
 impl<T> FlatFieldWriter<T> {
-  pub fn new(field_info: Arc<FieldInfo>) -> Self {
+  pub fn new(field_info: Arc<FieldInfo>, idx: usize) -> Self {
     let dim = field_info.get_vector_dimension() as usize;
     Self {
       field_info,
       dim,
       docs_with_field: DocsWithFieldSet::new(),
-      vectors: Vec::new(),
-      frozen_vectors: None,
       finished: false,
       last_doc_id: -1,
+      _marker: PhantomData,
+      idx,
     }
   }
 }
@@ -543,11 +546,7 @@ where
   T: Clone,
 {
   fn get_vectors(&self) -> Result<Arc<Vec<Self::V>>> {
-    self.frozen_vectors.clone().ok_or_else(|| {
-      LuceneError::illegal_state(
-        "Vectors are not frozen yet. Call finish() before getting vectors.",
-      )
-    })
+    todo!()
   }
 
   fn get_docs_with_field_set(&self) -> &DocsWithFieldSet {
@@ -558,8 +557,6 @@ where
     if self.finished {
       return Ok(());
     }
-    let vec = std::mem::take(&mut self.vectors);
-    self.frozen_vectors = Some(Arc::new(vec));
     self.finished = true;
     Ok(())
   }
@@ -568,7 +565,12 @@ where
     self.finished
   }
 
-  fn add_value<F>(&mut self, doc_id: i32, vector_value: Self::V) -> Result<()> {
+  fn add_value<F>(
+    &mut self,
+    doc_id: i32,
+    vector_value: Self::V,
+    vector: &mut Vec<Self::V>,
+  ) -> Result<()> {
     if self.finished {
       return Err(LuceneError::illegal_state(
         "already finished, cannot add more values",
@@ -587,16 +589,16 @@ where
     let copy = self.copy_value(&vector_value)?;
 
     self.docs_with_field.add(doc_id)?;
-    self.vectors.push(copy);
+    vector.push(copy);
 
     self.last_doc_id = doc_id;
 
     Ok(())
   }
 }
-fn create_from_byte(field_info: Arc<FieldInfo>) -> FlatFieldWriter<u8> {
-  FlatFieldWriter::new(field_info)
+fn create_from_byte(field_info: Arc<FieldInfo>, idx: usize) -> FlatFieldWriter<u8> {
+  FlatFieldWriter::new(field_info, idx)
 }
-fn create_from_float(field_info: Arc<FieldInfo>) -> FlatFieldWriter<f32> {
-  FlatFieldWriter::new(field_info)
+fn create_from_float(field_info: Arc<FieldInfo>, idx: usize) -> FlatFieldWriter<f32> {
+  FlatFieldWriter::new(field_info, idx)
 }

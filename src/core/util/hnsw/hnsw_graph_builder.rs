@@ -532,6 +532,9 @@ where
 
     Ok(())
   }
+  pub(crate) fn get_scorer_supplier(&mut self) -> &mut S {
+    &mut self.scorer_supplier
+  }
 }
 impl<S, B, H> HnswBuilder for HnswGraphBuilder<S, B, H>
 where

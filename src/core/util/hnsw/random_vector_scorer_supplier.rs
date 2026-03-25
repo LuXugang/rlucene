@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 
 /// A supplier that creates  [`RandomVectorScorer`] from an ordinal.
@@ -39,4 +39,8 @@ pub trait RandomVectorScorerSupplier {
   fn copy(&self) -> Result<Self>
   where
     Self: Sized;
+
+  fn get_vector<F>(&mut self) -> Result<&mut Vec<F>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }

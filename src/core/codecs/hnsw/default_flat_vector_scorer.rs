@@ -165,6 +165,17 @@ where
       },
     }
   }
+
+  fn get_vector<F>(&mut self) -> Result<&mut Vec<F>> {
+    match self {
+      RandomVectorScorerSupplierEnum::Byte(_supplier) => {
+        todo!()
+      },
+      RandomVectorScorerSupplierEnum::Float(_supplier) => {
+        todo!()
+      },
+    }
+  }
 }
 /// RandomVectorScorerSupplier for bytes vector
 pub struct ByteScoringSupplier<BV>

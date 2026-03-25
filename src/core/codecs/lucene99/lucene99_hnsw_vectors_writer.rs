@@ -856,7 +856,14 @@ where
     let flat_field_vectors_writer = flat_field_vectors_writers
       .get_mut(self.flat_field_vectors_writer_idx)
       .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
-    FlatFieldVectorsWriter::add_value::<F>(flat_field_vectors_writer, doc_id, vector_value)?;
+    let ss = self.hnsw_graph_builder.get_scorer_supplier();
+    let vectors = ss.get_vector()?;
+    FlatFieldVectorsWriter::add_value::<F>(
+      flat_field_vectors_writer,
+      doc_id,
+      vector_value,
+      vectors,
+    )?;
     self.hnsw_graph_builder.add_graph_node(self.node)?;
     self.node += 1;
     self.last_doc_id = doc_id;

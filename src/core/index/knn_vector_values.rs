@@ -23,7 +23,6 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, TryIntoInt};
-use std::sync::Arc;
 
 /// This struct abstracts addressing of document vector values indexed as
 /// `KnnFloatVectorField` or `KnnByteVectorField`.
@@ -359,62 +358,6 @@ where
   T: OrdToDoc,
 {
   DocIndexIteratorImpl3::new(size, map)
-}
-
-impl<T> KnnVectorValues for Arc<T>
-where
-  T: KnnVectorValues,
-{
-  fn dimension(&self) -> usize {
-    (**self).dimension()
-  }
-
-  fn size(&self) -> usize {
-    (**self).size()
-  }
-
-  fn ord_to_doc(&self, ord: usize) -> usize {
-    (**self).ord_to_doc(ord)
-  }
-
-  type KnnVectorValues = T::KnnVectorValues;
-
-  fn copy(&self) -> Result<Self::KnnVectorValues> {
-    (**self).copy()
-  }
-
-  fn get_vector_byte_length(&self) -> usize {
-    (**self).get_vector_byte_length()
-  }
-
-  fn get_encoding(&self) -> VectorEncoding {
-    (**self).get_encoding()
-  }
-
-  type Bits<B>
-    = T::Bits<B>
-  where
-    B: Bits;
-
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
-  where
-    B: Bits,
-  {
-    (**self).get_accept_ords(accept_docs)
-  }
-
-  fn default_get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<BitsImpl1<B>>
-  where
-    B: Bits,
-  {
-    (**self).default_get_accept_ords(accept_docs)
-  }
-
-  type DocIndexIterator = T::DocIndexIterator;
-
-  fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    (**self).iterator()
-  }
 }
 
 pub enum KnnVectorValuesEnum<B, F>

@@ -22,7 +22,6 @@ use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::sync::Arc;
 
 /// This class provides access to per-document floating point vector values indexed as KnnFloatVectorField
 pub trait FloatVectorValues: KnnVectorValues {
@@ -47,30 +46,7 @@ pub trait FloatVectorValues: KnnVectorValues {
     VectorEncoding::FLOAT32(4)
   }
 }
-impl<T> FloatVectorValues for Arc<T>
-where
-  T: FloatVectorValues,
-{
-  fn vector_value(&self, ord: usize) -> &[f32] {
-    (**self).vector_value(ord)
-  }
 
-  type FloatVectorValues = T::FloatVectorValues;
-
-  fn copy(&self) -> Result<Self::FloatVectorValues> {
-    FloatVectorValues::copy(&**self)
-  }
-
-  type VectorScorer = T::VectorScorer;
-
-  fn scorer(&self, _target: &[f32]) -> Result<Self::VectorScorer> {
-    (**self).scorer(_target)
-  }
-
-  fn get_encoding(&self) -> VectorEncoding {
-    FloatVectorValues::get_encoding(&**self)
-  }
-}
 /// Checks the Vector Encoding of a field
 pub fn check_field<LR: LeafReader>(reader: &LR, field: &str) -> Result<()> {
   if let Some(fi) = reader.get_field_infos()?.field_info_by_name(field)

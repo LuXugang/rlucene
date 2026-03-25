@@ -22,7 +22,6 @@ use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::sync::Arc;
 
 /// This class provides access to per-document floating point vector values indexed as KnnByteVectorField
 pub trait ByteVectorValues: KnnVectorValues {
@@ -48,30 +47,6 @@ pub trait ByteVectorValues: KnnVectorValues {
 
   fn get_encoding(&self) -> VectorEncoding {
     VectorEncoding::BYTE(1)
-  }
-}
-impl<T> ByteVectorValues for Arc<T>
-where
-  T: ByteVectorValues,
-{
-  fn vector_value(&self, ord: usize) -> &[u8] {
-    (**self).vector_value(ord)
-  }
-
-  type ByteVectorValues = T::ByteVectorValues;
-
-  fn copy(&self) -> Result<Self::ByteVectorValues> {
-    ByteVectorValues::copy(&**self)
-  }
-
-  type VectorScorer = T::VectorScorer;
-
-  fn scorer(&self, query: &[u8]) -> Result<Self::VectorScorer> {
-    (**self).scorer(query)
-  }
-
-  fn get_encoding(&self) -> VectorEncoding {
-    ByteVectorValues::get_encoding(&**self)
   }
 }
 /// Checks the Vector Encoding of a field
