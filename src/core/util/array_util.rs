@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::selector::Selector;
 use crate::core::util::{
   ArrayIntroSorter, Comparator, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault,
-  NaturalOrder, SliceCopyOps, Sorter, ToInt,
+  NaturalOrder, Sorter, ToInt,
 };
 
 pub struct ArrayUtil;
@@ -369,24 +369,7 @@ impl ArrayUtil {
   {
     Self::copy_of_sub_array(array, 0, array.len())
   }
-  /// Clone a slice into a new vector.
-  pub fn clone_array<T>(array: &[T]) -> Vec<T>
-  where
-    T: Clone,
-  {
-    Self::clone_of_sub_array(array, 0, array.len())
-  }
   pub fn copy_of_sub_array<T>(array: &[T], from: usize, to: usize) -> Vec<T>
-  where
-    T: Clone + Default,
-  {
-    debug_assert!(to >= from && to <= array.len());
-    let mut copy = vec![Default::default(); to - from];
-    copy.copy_from(&array[from..to], 0);
-    copy
-  }
-
-  pub fn clone_of_sub_array<T>(array: &[T], from: usize, to: usize) -> Vec<T>
   where
     T: Clone,
   {
@@ -1165,15 +1148,15 @@ mod tests {
     let object_array: Vec<String> = vec!["a1".to_string(), "b2".to_string(), "c3".to_string()];
     assert_eq!(
       vec!["a1".to_string()],
-      ArrayUtil::clone_of_sub_array(&object_array, 0, 1)
+      ArrayUtil::copy_of_sub_array(&object_array, 0, 1)
     );
     assert_eq!(
       vec!["a1".to_string(), "b2".to_string(), "c3".to_string()],
-      ArrayUtil::clone_of_sub_array(&object_array, 0, 3)
+      ArrayUtil::copy_of_sub_array(&object_array, 0, 3)
     );
     assert_eq!(
       Vec::<String>::new(),
-      ArrayUtil::clone_of_sub_array(&object_array, 1, 1)
+      ArrayUtil::copy_of_sub_array(&object_array, 1, 1)
     );
   }
   #[test]
