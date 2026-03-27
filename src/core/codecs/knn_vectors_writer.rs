@@ -27,14 +27,21 @@ use std::sync::Arc;
 
 pub trait KnnVectorsWriter: Accountable {
   /// Adds a new field for indexing.
-  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize>;
+  fn add_field(&mut self, _field_info: Arc<FieldInfo>) -> Result<usize> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
   /// Flushes all buffered data on disk.
-  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
+  fn flush<DM>(&mut self, _max_doc: i32, _sort_map: Option<&DM>) -> Result<()>
   where
-    DM: DocMap;
+    DM: DocMap,
+  {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
-  fn finish(&mut self) -> Result<()>;
+  fn finish(&mut self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }
 
 /// Given old doc ids and an id mapping, maps old ordinal to new ordinal. Note: this method return

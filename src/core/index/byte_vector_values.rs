@@ -49,7 +49,10 @@ pub trait ByteVectorValues: KnnVectorValues {
     VectorEncoding::BYTE(1)
   }
 
-  fn get_vectors(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
@@ -137,7 +140,11 @@ impl ByteVectorValues for ByteVectorValuesImpl {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn get_vectors(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
     Ok(&mut self.vectors)
+  }
+
+  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+    Ok(&self.vectors)
   }
 }

@@ -509,7 +509,9 @@ where
   where
     DM: DocMap,
   {
-    self.flat_vector_writer.flush(max_doc, sort_map)?;
+    self
+      .flat_vector_writer
+      .flat_flush::<DM, F, V>(max_doc, sort_map, &self.fields)?;
 
     for field_idx in 0..self.fields.len() {
       if let Some(sm) = sort_map {
@@ -556,7 +558,7 @@ where
 {
   fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
     let flat_field_vectors_writer =
-      FlatVectorsWriter::add_field(&mut self.flat_vector_writer, field_info.clone())?;
+      FlatVectorsWriter::flat_add_field(&mut self.flat_vector_writer, field_info.clone())?;
     let scorer = self.flat_vector_writer.get_flat_vector_scorer();
     let v = create_field_writer_byte(
       scorer,
@@ -588,7 +590,7 @@ where
 {
   fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
     let flat_field_vectors_writer =
-      FlatVectorsWriter::add_field(&mut self.flat_vector_writer, field_info.clone())?;
+      FlatVectorsWriter::flat_add_field(&mut self.flat_vector_writer, field_info.clone())?;
     let scorer = self.flat_vector_writer.get_flat_vector_scorer();
     let v = create_field_writer_float(
       scorer,
@@ -679,7 +681,7 @@ where
   V: Clone,
 {
   field_info: Arc<FieldInfo>,
-  hnsw_graph_builder: HnswGraphBuilder<S, B, H>,
+  pub(crate) hnsw_graph_builder: HnswGraphBuilder<S, B, H>,
   last_doc_id: i32,
   node: usize,
   flat_field_vectors_writer_idx: usize,
@@ -716,12 +718,6 @@ where
       info_stream,
     )
   }
-}
-impl<S, V> FieldWriterType<S, V>
-where
-  S: RandomVectorScorerSupplier,
-  V: Clone,
-{
   fn from_float(
     scorer: &impl FlatVectorsScorer<
       RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl> = S,
@@ -855,9 +851,9 @@ where
     let flat_field_vectors_writer = flat_field_vectors_writers
       .get_mut(self.flat_field_vectors_writer_idx)
       .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
-    let ss = self.hnsw_graph_builder.get_scorer_supplier();
-    let vectors = ss.get_vector_byte()?;
-    FlatFieldVectorsWriter::add_value::<F>(
+    let ss = self.hnsw_graph_builder.get_scorer_supplier_mut();
+    let vectors = ss.get_vector_byte_mut()?;
+    FlatFieldVectorsWriter::flat_add_value::<F>(
       flat_field_vectors_writer,
       doc_id,
       vector_value,
@@ -895,9 +891,9 @@ where
     let flat_field_vectors_writer = flat_field_vectors_writers
       .get_mut(self.flat_field_vectors_writer_idx)
       .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
-    let ss = self.hnsw_graph_builder.get_scorer_supplier();
-    let vectors = ss.get_vector_float()?;
-    FlatFieldVectorsWriter::add_value::<F>(
+    let ss = self.hnsw_graph_builder.get_scorer_supplier_mut();
+    let vectors = ss.get_vector_float_mut()?;
+    FlatFieldVectorsWriter::flat_add_value::<F>(
       flat_field_vectors_writer,
       doc_id,
       vector_value,

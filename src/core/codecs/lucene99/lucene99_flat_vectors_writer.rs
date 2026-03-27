@@ -20,6 +20,11 @@ use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::FlatVectorsWriter;
 use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
 use crate::core::codecs::knn_vectors_writer::{KnnVectorsWriter, map_old_ord_to_new_ord};
+use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
+use crate::core::codecs::lucene99::lucene99_flat_vectors_format::DIRECT_MONOTONIC_BLOCK_SHIFT;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::{
+  DefaultRandomVectorScorerSupplier, FieldWriterType,
+};
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
@@ -34,6 +39,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -51,12 +57,9 @@ where
   F: FlatVectorsScorer,
   T: Clone,
 {
-  fn write_float32_vectors(vector_data: &mut O, field_data: &FlatFieldWriter<f32>) -> Result<()> {
-    let dim = field_data.dim;
+  fn write_float32_vectors(vector_data: &mut O, dim: usize, vectors: &[Vec<u8>]) -> Result<()> {
     let byte_size = BitUtil::FLOAT_BYTES;
     let mut buffer = vec![0u8; dim * byte_size];
-
-    let vectors = field_data.get_vectors()?;
 
     for vector in vectors.iter() {
       debug_assert_eq!(vector.len(), dim);
@@ -71,9 +74,7 @@ where
     Ok(())
   }
 
-  fn write_byte_vectors(vector_data: &mut O, field_data: &FlatFieldWriter<u8>) -> Result<()> {
-    let vectors = field_data.get_vectors()?;
-
+  fn write_byte_vectors(vector_data: &mut O, vectors: &[Vec<u8>]) -> Result<()> {
     for vector in vectors.iter() {
       vector_data.write_bytes_range(vector, 0, vector.len())?;
     }
@@ -84,6 +85,7 @@ where
     vector_data: &mut O,
     field_data: &FlatFieldWriter<f32>,
     ord_map: &[usize],
+    vectors: &[Vec<u8>],
   ) -> Result<usize>
   where
     O: IndexOutput,
@@ -93,8 +95,6 @@ where
     let dim = field_data.dim;
     let byte_size = BitUtil::FLOAT_BYTES;
     let mut buffer = vec![0u8; dim * byte_size];
-
-    let vectors = field_data.get_vectors()?;
 
     for &ord in ord_map {
       let vector = &vectors[ord];
@@ -109,14 +109,13 @@ where
   }
   fn write_sorted_byte_vectors(
     vector_data: &mut O,
-    field_data: &FlatFieldWriter<u8>,
     ord_map: &[usize],
+    vectors: &[Vec<u8>],
   ) -> Result<usize>
   where
     O: IndexOutput,
   {
     let vector_data_offset = vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
-    let vectors = field_data.get_vectors()?;
     for &ord in ord_map {
       let vector = &vectors[ord];
       vector_data.write_bytes_range(vector, 0, vector.len())?;
@@ -153,56 +152,12 @@ where
   O: IndexOutput,
   F: FlatVectorsScorer,
 {
-  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
-    FlatVectorsWriter::add_field(self, field_info)
-  }
-
-  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
-  where
-    DM: DocMap,
-  {
-    for idx in 0..self.fields.len() {
-      if let Some(sm) = sort_map {
-        self.write_sorting_field(idx, max_doc, sm)?;
-      } else {
-        self.write_field(idx, max_doc)?;
-      }
-      self.fields[idx].finish()?;
-    }
-    Ok(())
-  }
-
-  fn finish(&mut self) -> Result<()> {
-    self.finish()
-  }
 }
 impl<O, F> KnnVectorsWriter for Lucene99FlatVectorsWriter<O, F, f32>
 where
   O: IndexOutput,
   F: FlatVectorsScorer,
 {
-  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
-    FlatVectorsWriter::add_field(self, field_info)
-  }
-
-  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
-  where
-    DM: DocMap,
-  {
-    for idx in 0..self.fields.len() {
-      if let Some(sm) = sort_map {
-        self.write_sorting_field(idx, max_doc, sm)?;
-      } else {
-        self.write_field(idx, max_doc)?;
-      }
-      self.fields[idx].finish()?;
-    }
-    Ok(())
-  }
-
-  fn finish(&mut self) -> Result<()> {
-    self.finish()
-  }
 }
 
 impl<O, F> FlatVectorsWriter for Lucene99FlatVectorsWriter<O, F, u8>
@@ -216,11 +171,36 @@ where
     &self.flat_vectors_scorer
   }
 
-  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
+  fn flat_add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
     let idx = self.fields.len();
     let new_field = create_from_byte(field_info, idx);
     self.fields.push(new_field);
     Ok(idx)
+  }
+
+  fn flat_flush<DM, F1, V>(
+    &mut self,
+    max_doc: i32,
+    sort_map: Option<&DM>,
+    fields: &[FieldWriterType<DefaultRandomVectorScorerSupplier<F1>, V>],
+  ) -> Result<()>
+  where
+    DM: DocMap,
+    F1: FlatVectorsWriter,
+    V: Clone,
+  {
+    for idx in 0..self.fields.len() {
+      let fields = &fields[idx];
+      let ss = fields.hnsw_graph_builder.get_scorer_supplier();
+      let vectors = ss.get_vector_byte()?;
+      if let Some(sm) = sort_map {
+        self.write_sorting_field(idx, max_doc, sm, vectors)?;
+      } else {
+        self.write_field(idx, max_doc, vectors)?;
+      }
+      self.fields[idx].finish()?;
+    }
+    Ok(())
   }
 
   type FlatFieldVectorsWriter = FlatFieldWriter<u8>;
@@ -240,11 +220,36 @@ where
     &self.flat_vectors_scorer
   }
 
-  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
+  fn flat_add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
     let len = self.fields.len();
     let new_field = create_from_float(field_info, len);
     self.fields.push(new_field);
     Ok(len)
+  }
+
+  fn flat_flush<DM, F1, V>(
+    &mut self,
+    max_doc: i32,
+    sort_map: Option<&DM>,
+    fields: &[FieldWriterType<DefaultRandomVectorScorerSupplier<F1>, V>],
+  ) -> Result<()>
+  where
+    DM: DocMap,
+    F1: FlatVectorsWriter,
+    V: Clone,
+  {
+    for idx in 0..self.fields.len() {
+      let fields = &fields[idx];
+      let ss = fields.hnsw_graph_builder.get_scorer_supplier();
+      let vectors = ss.get_vector_byte()?;
+      if let Some(sm) = sort_map {
+        self.write_sorting_field(idx, max_doc, sm, vectors)?;
+      } else {
+        self.write_field(idx, max_doc, vectors)?;
+      }
+      self.fields[idx].finish()?;
+    }
+    Ok(())
   }
 
   type FlatFieldVectorsWriter = FlatFieldWriter<f32>;
@@ -263,6 +268,7 @@ where
     field_data_idx: usize,
     max_doc: i32,
     sort_map: &DM,
+    vectors: &[Vec<u8>],
   ) -> Result<()>
   where
     DM: DocMap,
@@ -288,7 +294,7 @@ where
 
     // write vector values
     let vector_data_offset =
-      Self::write_sorted_byte_vectors(&mut self.vector_data, field_data, &ord_map)?;
+      Self::write_sorted_byte_vectors(&mut self.vector_data, &ord_map, vectors)?;
 
     let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
 
@@ -304,7 +310,7 @@ where
 
     Ok(())
   }
-  fn write_field(&mut self, field_data_idx: usize, max_doc: i32) -> Result<()>
+  fn write_field(&mut self, field_data_idx: usize, max_doc: i32, vectors: &[Vec<u8>]) -> Result<()>
   where
     O: IndexOutput,
   {
@@ -313,7 +319,7 @@ where
     })?;
     let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
 
-    Self::write_byte_vectors(&mut self.vector_data, field_data)?;
+    Self::write_byte_vectors(&mut self.vector_data, vectors)?;
 
     let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
 
@@ -335,7 +341,7 @@ where
   O: IndexOutput,
   F: FlatVectorsScorer,
 {
-  fn write_field(&mut self, field_data_idx: usize, max_doc: i32) -> Result<()>
+  fn write_field(&mut self, field_data_idx: usize, max_doc: i32, vectors: &[Vec<u8>]) -> Result<()>
   where
     O: IndexOutput,
   {
@@ -344,7 +350,7 @@ where
     })?;
     let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
 
-    Self::write_float32_vectors(&mut self.vector_data, field_data)?;
+    Self::write_float32_vectors(&mut self.vector_data, field_data.dim, vectors)?;
 
     let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
 
@@ -365,6 +371,7 @@ where
     field_data_idx: usize,
     max_doc: i32,
     sort_map: &DM,
+    vectors: &[Vec<u8>],
   ) -> Result<()>
   where
     DM: DocMap,
@@ -390,7 +397,7 @@ where
 
     // write vector values
     let vector_data_offset =
-      Self::write_sorted_float32_vectors(&mut self.vector_data, field_data, &ord_map)?;
+      Self::write_sorted_float32_vectors(&mut self.vector_data, field_data, &ord_map, vectors)?;
     let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
 
     write_meta(
@@ -409,9 +416,9 @@ where
 
 fn write_meta<O>(
   meta: &mut O,
-  _vector_data: &mut O,
+  vector_data: &mut O,
   field: &FieldInfo,
-  _max_doc: i32,
+  max_doc: i32,
   vector_data_offset: i64,
   vector_data_length: i64,
   docs_with_field: &DocsWithFieldSet,
@@ -430,15 +437,14 @@ where
   // write docIDs
   let count = docs_with_field.cardinality();
   meta.write_int(count)?;
-  // TODO
-  // OrdToDocDISIReaderConfiguration::write_stored_meta(
-  //     DIRECT_MONOTONIC_BLOCK_SHIFT,
-  //     meta,
-  //     vector_data,
-  //     count,
-  //     max_doc,
-  //     docs_with_field,
-  // )?;
+  OrdToDocDISIReaderConfiguration::write_stored_meta(
+    DIRECT_MONOTONIC_BLOCK_SHIFT,
+    meta,
+    vector_data,
+    count,
+    max_doc,
+    docs_with_field,
+  )?;
 
   Ok(())
 }
@@ -545,10 +551,6 @@ impl<T> FlatFieldVectorsWriter for FlatFieldWriter<T>
 where
   T: Clone,
 {
-  fn get_vectors(&self) -> Result<Arc<Vec<Self::V>>> {
-    todo!()
-  }
-
   fn get_docs_with_field_set(&self) -> &DocsWithFieldSet {
     &self.docs_with_field
   }
@@ -565,7 +567,7 @@ where
     self.finished
   }
 
-  fn add_value<F>(
+  fn flat_add_value<F>(
     &mut self,
     doc_id: i32,
     vector_value: Self::V,

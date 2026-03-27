@@ -46,7 +46,10 @@ pub trait FloatVectorValues: KnnVectorValues {
     VectorEncoding::FLOAT32(4)
   }
 
-  fn get_vectors(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
@@ -133,7 +136,11 @@ impl FloatVectorValues for FloatVectorValuesImpl {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn get_vectors(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
     Ok(&mut self.vectors)
+  }
+
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
+    Ok(&self.vectors)
   }
 }

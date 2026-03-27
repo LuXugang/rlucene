@@ -166,14 +166,28 @@ where
     }
   }
 
-  fn get_vector_byte(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vector_byte_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+    match self {
+      RandomVectorScorerSupplierEnum::Byte(supplier) => supplier.get_vector_byte_mut(),
+      _ => Err(LuceneError::illegal_state("should byte here")),
+    }
+  }
+
+  fn get_vector_byte(&self) -> Result<&[Vec<u8>]> {
     match self {
       RandomVectorScorerSupplierEnum::Byte(supplier) => supplier.get_vector_byte(),
       _ => Err(LuceneError::illegal_state("should byte here")),
     }
   }
 
-  fn get_vector_float(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vector_float_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+    match self {
+      RandomVectorScorerSupplierEnum::Float(supplier) => supplier.get_vector_float_mut(),
+      _ => Err(LuceneError::illegal_state("should float here")),
+    }
+  }
+
+  fn get_vector_float(&self) -> Result<&[Vec<f32>]> {
     match self {
       RandomVectorScorerSupplierEnum::Float(supplier) => supplier.get_vector_float(),
       _ => Err(LuceneError::illegal_state("should float here")),
@@ -233,7 +247,11 @@ where
     ByteScoringSupplier::new(self.vectors.clone(), self.similarity_function)
   }
 
-  fn get_vector_byte(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vector_byte_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+    self.vectors.get_vectors_mut()
+  }
+
+  fn get_vector_byte(&self) -> Result<&[Vec<u8>]> {
     self.vectors.get_vectors()
   }
 }
@@ -352,7 +370,11 @@ where
     FloatScoringSupplier::new(self.vectors.clone(), self.similarity_function)
   }
 
-  fn get_vector_float(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vector_float_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+    self.vectors.get_vectors_mut()
+  }
+
+  fn get_vector_float(&self) -> Result<&[Vec<f32>]> {
     self.vectors.get_vectors()
   }
 }

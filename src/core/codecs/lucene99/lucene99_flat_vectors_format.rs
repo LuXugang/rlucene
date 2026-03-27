@@ -15,7 +15,16 @@
  * limitations under the License.
  */
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+pub(crate) const NAME: &str = "Lucene99FlatVectorsFormat";
+pub(crate) const META_CODEC_NAME: &str = "Lucene99FlatVectorsFormatMeta";
+pub(crate) const VECTOR_DATA_CODEC_NAME: &str = "Lucene99FlatVectorsFormatData";
+pub(crate) const META_EXTENSION: &str = "vemf";
+pub(crate) const VECTOR_DATA_EXTENSION: &str = "vec";
 
+pub(crate) const VERSION_START: i32 = 0;
+pub(crate) const VERSION_CURRENT: i32 = VERSION_START;
+
+pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 pub struct Lucene99FlatVectorsFormat<T>
 where
   T: FlatVectorsScorer,
