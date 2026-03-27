@@ -18,6 +18,7 @@ use std::ptr;
 
 pub struct BitUtil {}
 impl BitUtil {
+  pub const BYTE_BYTES: usize = size_of::<i8>();
   pub const SHORT_BYTES: usize = size_of::<i16>();
   pub const INT_BYTES: usize = size_of::<i32>();
   pub const LONG_BYTES: usize = size_of::<i64>();
