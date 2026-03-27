@@ -492,7 +492,7 @@ where
     if doc == NO_MORE_DOCS {
       break;
     }
-    let value = float_vector_values.vector_value(iter.index()? as usize);
+    let value = float_vector_values.vector_value(iter.index()? as usize)?;
     for (i, &v) in value.iter().enumerate() {
       let bytes = v.to_le_bytes();
       let start = i * byte_size;

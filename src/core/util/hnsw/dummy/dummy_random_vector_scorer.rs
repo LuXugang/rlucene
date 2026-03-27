@@ -22,7 +22,7 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 #[derive(Default)]
 pub struct DummyRandomVectorScorer;
 impl RandomVectorScorer for DummyRandomVectorScorer {
-  fn score(&self, _node: usize) -> Result<f32> {
+  fn score(&mut self, _node: usize) -> Result<f32> {
     Ok(0f32)
   }
 

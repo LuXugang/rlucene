@@ -192,17 +192,20 @@ where
       return Ok(());
     }
 
-    let scorer = scorer_supplier()?;
+    let mut scorer = scorer_supplier()?;
 
     let k = knn_collector.k();
+    let ord_to_doc = (0..scorer.max_ord())
+      .map(|ord| scorer.ord_to_doc(ord))
+      .collect::<Result<Vec<_>>>()?;
     let mut collector =
-      OrdinalTranslatedKnnCollector::new(knn_collector, |ord| scorer.ord_to_doc(ord));
+      OrdinalTranslatedKnnCollector::new(knn_collector, |ord| Ok(ord_to_doc[ord]));
 
     let mut accepted_ords = scorer.get_accept_ords(accept_docs)?;
 
     if k < scorer.max_ord() {
       search(
-        &scorer,
+        &mut scorer,
         &mut collector,
         &mut self.get_graph_from_entry(field_entry)?,
         accepted_ords.as_mut(),

@@ -54,7 +54,7 @@ where
   pub(crate) size: usize,
   pub(crate) slice: I,
   pub(crate) byte_size: usize,
-  pub(crate) last_ord: i32,
+  pub(crate) last_ord: Option<usize>,
   pub(crate) value: Vec<f32>,
   pub(crate) similarity_function: VectorSimilarityFunction,
   pub(crate) flat_vectors_scorer: F,
@@ -77,7 +77,7 @@ where
       size,
       slice,
       byte_size,
-      last_ord: -1,
+      last_ord: None,
       value: vec![0.0; dimension],
       similarity_function,
       flat_vectors_scorer,
@@ -139,8 +139,26 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  fn vector_value(&self, _ord: usize) -> &[f32] {
-    todo!()
+  fn vector_value(&mut self, target_ord: usize) -> Result<&[f32]> {
+    let same_ord = match self.last_ord {
+      Some(last_ord) => last_ord == target_ord,
+      None => false,
+    };
+    if same_ord {
+      return Ok(self.value.as_slice());
+    }
+
+    let pos = (target_ord)
+      .checked_mul(self.byte_size)
+      .ok_or_else(|| LuceneError::illegal_state("seek overflow"))?;
+
+    self.slice.seek(pos)?;
+    let len = self.value.len();
+    self.slice.read_floats(&mut self.value, 0, len)?;
+
+    self.last_ord = Some(target_ord);
+
+    Ok(self.value.as_slice())
   }
 
   type FloatVectorValues = DummyFloatVectorValues;
@@ -248,7 +266,7 @@ where
   I: IndexInput,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&self, ord: usize) -> &[f32] {
+  fn vector_value(&mut self, ord: usize) -> Result<&[f32]> {
     self.base.vector_value(ord)
   }
 
@@ -448,7 +466,7 @@ where
   I: IndexInput,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&self, ord: usize) -> &[f32] {
+  fn vector_value(&mut self, ord: usize) -> Result<&[f32]> {
     self.base.vector_value(ord)
   }
 
@@ -643,9 +661,9 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
 }
 
 impl FloatVectorValues for EmptyOffHeapVectorValues {
-  fn vector_value(&self, _ord: usize) -> &[f32] {
+  fn vector_value(&mut self, _ord: usize) -> Result<&[f32]> {
     debug_assert!(self.vectors.is_empty());
-    self.vectors.as_slice()
+    Ok(self.vectors.as_slice())
   }
 
   type FloatVectorValues = DummyFloatVectorValues;

@@ -141,7 +141,7 @@ where
   where
     Self: 'a;
 
-  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
+  fn scorer(&mut self, ord: usize) -> Result<Self::Scorer<'_>> {
     match self {
       RandomVectorScorerSupplierEnum::Byte(supplier) => {
         Ok(RandomVectorScorerEnum2::A(supplier.scorer(ord)?))
@@ -230,11 +230,11 @@ where
   where
     Self: 'a;
 
-  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
+  fn scorer(&mut self, ord: usize) -> Result<Self::Scorer<'_>> {
     Ok(RandomVectorScorerByteImpl::new(
       &self.vectors,
-      &self.vectors1,
-      &self.vectors2,
+      &mut self.vectors1,
+      &mut self.vectors2,
       self.similarity_function,
       ord,
     ))
@@ -261,8 +261,8 @@ where
   BV: ByteVectorValues,
 {
   vectors: &'a BV,
-  vectors1: &'a <BV as ByteVectorValues>::ByteVectorValues,
-  vectors2: &'a <BV as ByteVectorValues>::ByteVectorValues,
+  vectors1: &'a mut <BV as ByteVectorValues>::ByteVectorValues,
+  vectors2: &'a mut <BV as ByteVectorValues>::ByteVectorValues,
   similarity_function: VectorSimilarityFunction,
   ord: usize,
 }
@@ -273,8 +273,8 @@ where
 {
   pub(crate) fn new(
     vectors: &'a BV,
-    vectors1: &'a <BV as ByteVectorValues>::ByteVectorValues,
-    vectors2: &'a <BV as ByteVectorValues>::ByteVectorValues,
+    vectors1: &'a mut <BV as ByteVectorValues>::ByteVectorValues,
+    vectors2: &'a mut <BV as ByteVectorValues>::ByteVectorValues,
     similarity_function: VectorSimilarityFunction,
     ord: usize,
   ) -> Self {
@@ -292,7 +292,7 @@ impl<BV> RandomVectorScorer for RandomVectorScorerByteImpl<'_, BV>
 where
   BV: ByteVectorValues,
 {
-  fn score(&self, node: usize) -> Result<f32> {
+  fn score(&mut self, node: usize) -> Result<f32> {
     Ok(self.similarity_function.compare_u8(
       self.vectors1.vector_value(self.ord),
       self.vectors2.vector_value(node),
@@ -353,11 +353,11 @@ where
   where
     Self: 'a;
 
-  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
+  fn scorer(&mut self, ord: usize) -> Result<Self::Scorer<'_>> {
     Ok(RandomVectorScorerF32Impl::new(
       &self.vectors,
-      &self.vectors1,
-      &self.vectors2,
+      &mut self.vectors1,
+      &mut self.vectors2,
       self.similarity_function,
       ord,
     ))
@@ -383,8 +383,8 @@ where
   FV: FloatVectorValues,
 {
   vectors: &'a FV,
-  vectors1: &'a <FV as FloatVectorValues>::FloatVectorValues,
-  vectors2: &'a <FV as FloatVectorValues>::FloatVectorValues,
+  vectors1: &'a mut <FV as FloatVectorValues>::FloatVectorValues,
+  vectors2: &'a mut <FV as FloatVectorValues>::FloatVectorValues,
   similarity_function: VectorSimilarityFunction,
   ord: usize,
 }
@@ -394,8 +394,8 @@ where
 {
   pub(crate) fn new(
     vectors: &'a FV,
-    vectors1: &'a <FV as FloatVectorValues>::FloatVectorValues,
-    vectors2: &'a <FV as FloatVectorValues>::FloatVectorValues,
+    vectors1: &'a mut <FV as FloatVectorValues>::FloatVectorValues,
+    vectors2: &'a mut <FV as FloatVectorValues>::FloatVectorValues,
     similarity_function: VectorSimilarityFunction,
     ord: usize,
   ) -> Self {
@@ -412,10 +412,10 @@ impl<FV> RandomVectorScorer for RandomVectorScorerF32Impl<'_, FV>
 where
   FV: FloatVectorValues,
 {
-  fn score(&self, node: usize) -> Result<f32> {
+  fn score(&mut self, node: usize) -> Result<f32> {
     Ok(self.similarity_function.compare_f32(
-      self.vectors1.vector_value(self.ord),
-      self.vectors2.vector_value(node),
+      self.vectors1.vector_value(self.ord)?,
+      self.vectors2.vector_value(node)?,
     ))
   }
 
@@ -470,11 +470,11 @@ impl<FV> RandomVectorScorer for FloatVectorScorer<FV>
 where
   FV: FloatVectorValues,
 {
-  fn score(&self, node: usize) -> Result<f32> {
+  fn score(&mut self, node: usize) -> Result<f32> {
     Ok(
       self
         .similarity_function
-        .compare_f32(self.query.as_slice(), self.values.vector_value(node)),
+        .compare_f32(self.query.as_slice(), self.values.vector_value(node)?),
     )
   }
 
@@ -526,7 +526,7 @@ impl<BV> RandomVectorScorer for ByteVectorScorer<BV>
 where
   BV: ByteVectorValues,
 {
-  fn score(&self, node: usize) -> Result<f32> {
+  fn score(&mut self, node: usize) -> Result<f32> {
     Ok(
       self
         .similarity_function

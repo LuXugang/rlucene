@@ -57,7 +57,7 @@ impl KnnVectorValues for DummyByteVectorValues {
 }
 
 impl ByteVectorValues for DummyByteVectorValues {
-  fn vector_value(&self, _ord: usize) -> &[u8] {
+  fn vector_value(&mut self, _ord: usize) -> &[u8] {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

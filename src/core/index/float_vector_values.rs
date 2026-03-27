@@ -30,7 +30,7 @@ pub trait FloatVectorValues: KnnVectorValues {
   ///
   /// # Returns
   /// the vector value
-  fn vector_value(&self, ord: usize) -> &[f32];
+  fn vector_value(&mut self, ord: usize) -> Result<&[f32]>;
 
   type FloatVectorValues: FloatVectorValues;
   fn float_copy(&self) -> Result<Self::FloatVectorValues> {
@@ -128,8 +128,8 @@ impl KnnVectorValues for FloatVectorValuesImpl {
 }
 
 impl FloatVectorValues for FloatVectorValuesImpl {
-  fn vector_value(&self, target_ord: usize) -> &[f32] {
-    self.vectors[target_ord].as_slice()
+  fn vector_value(&mut self, target_ord: usize) -> Result<&[f32]> {
+    Ok(self.vectors[target_ord].as_slice())
   }
 
   type FloatVectorValues = Self;

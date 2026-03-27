@@ -213,7 +213,7 @@ where
   }
   fn add_diverse_neighbors(
     hnsw: &mut OnHeapHnswGraph,
-    scorer_supplier: &impl RandomVectorScorerSupplier,
+    scorer_supplier: &mut impl RandomVectorScorerSupplier,
     m: usize,
     hnsw_lock: Option<&HnswLock>,
     level: usize,
@@ -266,7 +266,7 @@ where
   /// caller which candidates are selected
   fn select_and_link_diverse(
     hnsw: &mut OnHeapHnswGraph,
-    scorer_supplier: &impl RandomVectorScorerSupplier,
+    scorer_supplier: &mut impl RandomVectorScorerSupplier,
     candidates: &NeighborArray,
     max_conn_on_level: usize,
     level: usize,
@@ -291,8 +291,8 @@ where
           None => false,
         }
       });
-      let v = scorer_supplier.scorer(c_node)?;
-      if Self::diversity_check(c_score, &v, neighbors)? {
+      let mut v = scorer_supplier.scorer(c_node)?;
+      if Self::diversity_check(c_score, &mut v, neighbors)? {
         mask[i] = true;
         // here we don't need to lock, because there's no incoming link so no others is
         // able to discover this node such that no others will modify
@@ -330,7 +330,7 @@ where
   /// Whether the candidate is diverse given the existing neighbors.
   fn diversity_check(
     score: f32,
-    scorer: &impl RandomVectorScorer,
+    scorer: &mut impl RandomVectorScorer,
     neighbors: &NeighborArray,
   ) -> Result<bool> {
     for i in 0..neighbors.size() {
@@ -437,12 +437,12 @@ where
 
         beam.clear();
         eps[0] = c0.start;
-        let scorer = self.scorer_supplier.scorer(c.start)?;
+        let mut scorer = self.scorer_supplier.scorer(c.start)?;
         // find the closest node in the largest component to the lowest-numbered node in
         // this component that has room to make a connection
         self.graph_searcher.search_level_with_collector(
           &mut beam,
-          &scorer,
+          &mut scorer,
           level,
           &eps,
           &mut self.hnsw,
@@ -588,8 +588,6 @@ where
       ));
     }
 
-    let scorer = self.scorer_supplier.scorer(node)?;
-
     let node_level = Self::get_random_graph_level(self.ml, &mut self.random);
 
     {
@@ -625,42 +623,44 @@ where
           },
         }
       };
-      // we first do the search from top to bottom
-      // for levels > nodeLevel search with topk = 1
-      let candidates = &mut self.entry_candidates;
-      for level in (node_level + 1..=cur_max_level).rev() {
-        candidates.clear();
-        self.graph_searcher.search_level_with_collector(
-          candidates,
-          &scorer,
-          level,
-          &eps,
-          &mut self.hnsw,
-          None::<&mut B>,
-        )?;
-        eps[0] = candidates.pop_node()?;
-      }
-
-      // for levels <= nodeLevel search with topk = beamWidth, and add connections
-      let candidates = &mut self.beam_candidates;
       let top = std::cmp::min(node_level, cur_max_level);
       let mut scratch_per_level = vec![NeighborArray::default(); top - lowest_unset_level + 1];
+      {
+        let mut scorer = self.scorer_supplier.scorer(node)?;
+        // we first do the search from top to bottom
+        // for levels > nodeLevel search with topk = 1
+        let candidates = &mut self.entry_candidates;
+        for level in (node_level + 1..=cur_max_level).rev() {
+          candidates.clear();
+          self.graph_searcher.search_level_with_collector(
+            candidates,
+            &mut scorer,
+            level,
+            &eps,
+            &mut self.hnsw,
+            None::<&mut B>,
+          )?;
+          eps[0] = candidates.pop_node()?;
+        }
 
-      for i in (0..scratch_per_level.len()).rev() {
-        let level = i + lowest_unset_level;
-        candidates.clear();
-        self.graph_searcher.search_level_with_collector(
-          candidates,
-          &scorer,
-          level,
-          &eps,
-          &mut self.hnsw,
-          None::<&mut B>,
-        )?;
-        eps = candidates.pop_until_nearest_k_nodes()?;
-        let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), self.m + 1), false);
-        Self::pop_to_scratch(candidates, &mut scratch)?;
-        scratch_per_level[i] = scratch;
+        // for levels <= nodeLevel search with topk = beamWidth, and add connections
+        let candidates = &mut self.beam_candidates;
+        for i in (0..scratch_per_level.len()).rev() {
+          let level = i + lowest_unset_level;
+          candidates.clear();
+          self.graph_searcher.search_level_with_collector(
+            candidates,
+            &mut scorer,
+            level,
+            &eps,
+            &mut self.hnsw,
+            None::<&mut B>,
+          )?;
+          eps = candidates.pop_until_nearest_k_nodes()?;
+          let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), self.m + 1), false);
+          Self::pop_to_scratch(candidates, &mut scratch)?;
+          scratch_per_level[i] = scratch;
+        }
       }
 
       // then do connections from bottom up
@@ -668,7 +668,7 @@ where
       for (i, scratch) in scratch_per_level.into_iter().enumerate() {
         Self::add_diverse_neighbors(
           &mut self.hnsw,
-          &self.scorer_supplier,
+          &mut self.scorer_supplier,
           self.m,
           self.hnsw_lock.as_ref(),
           i + lowest_unset_level,

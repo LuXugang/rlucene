@@ -114,7 +114,7 @@ impl NeighborArray {
     new_node: usize,
     new_score: f32,
     node_id: usize,
-    scorer_supplier: &impl RandomVectorScorerSupplier,
+    scorer_supplier: &mut impl RandomVectorScorerSupplier,
   ) -> Result<()> {
     let neighbor_array = hnsw.get_neighbors_mut(level, node_id)?;
     neighbor_array.add_out_of_order(new_node, new_score)?;
@@ -138,7 +138,7 @@ impl NeighborArray {
   ///
   /// Indexes of newly sorted (unchecked) nodes, in ascending order, or `None`
   /// if the array is already fully sorted.
-  pub(crate) fn sort<S>(&mut self, scorer: &S) -> Result<Vec<usize>>
+  pub(crate) fn sort<S>(&mut self, scorer: &mut S) -> Result<Vec<usize>>
   where
     S: RandomVectorScorer,
   {
@@ -169,7 +169,7 @@ impl NeighborArray {
     Ok(unchecked_indexes)
   }
   /// insert the first unsorted node into its sorted position
-  fn insert_sorted_internal<S>(&mut self, scorer: &S) -> Result<usize>
+  fn insert_sorted_internal<S>(&mut self, scorer: &mut S) -> Result<usize>
   where
     S: RandomVectorScorer,
   {
@@ -209,8 +209,8 @@ impl NeighborArray {
   #[cfg(debug_assertions)]
   pub(crate) fn insert_sorted(&mut self, new_node: usize, new_score: f32) -> Result<()> {
     self.add_out_of_order(new_node, new_score)?;
-    let v = DummyRandomVectorScorer;
-    self.insert_sorted_internal(&v)?;
+    let mut v = DummyRandomVectorScorer;
+    self.insert_sorted_internal(&mut v)?;
     Ok(())
   }
   pub fn size(&self) -> usize {
@@ -285,13 +285,13 @@ impl NeighborArray {
   }
   /// Find first non-diverse neighbour among the list of neighbors starting
   /// from the most distant neighbours
-  fn find_worst_non_diverse<S>(&mut self, node_ord: usize, scorer_supplier: &S) -> Result<usize>
+  fn find_worst_non_diverse<S>(&mut self, node_ord: usize, scorer_supplier: &mut S) -> Result<usize>
   where
     S: RandomVectorScorerSupplier,
   {
     let unchecked_indexes = {
-      let scorer = scorer_supplier.scorer(node_ord)?;
-      self.sort(&scorer)?
+      let mut scorer = scorer_supplier.scorer(node_ord)?;
+      self.sort(&mut scorer)?
     };
 
     debug_assert!(
@@ -328,14 +328,14 @@ impl NeighborArray {
     candidate_index: usize,
     unchecked_indexes: &[usize],
     unchecked_cursor: usize,
-    scorer_supplier: &S,
+    scorer_supplier: &mut S,
   ) -> Result<bool>
   where
     S: RandomVectorScorerSupplier,
   {
     let min_accepted_similarity = self.scores[candidate_index];
     let candidate_node = self.nodes[candidate_index];
-    let scorer = scorer_supplier.scorer(candidate_node)?;
+    let mut scorer = scorer_supplier.scorer(candidate_node)?;
 
     if candidate_index == unchecked_indexes[unchecked_cursor] {
       // the candidate itself is unchecked
@@ -528,7 +528,7 @@ mod tests {
     neighbors.add_out_of_order(6, 7.0)?;
     neighbors.add_out_of_order(4, 5.0)?;
 
-    let unchecked = neighbors.sort(&DummyRandomVectorScorer)?;
+    let unchecked = neighbors.sort(&mut DummyRandomVectorScorer)?;
     assert_eq!(unchecked, vec![0, 1, 2, 3, 4, 5, 6]);
     assert_nodes_equal(&[1, 2, 3, 4, 5, 6, 7], &neighbors);
     assert_scores_equal(&[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], &neighbors);
@@ -542,7 +542,7 @@ mod tests {
     neighbors2.add_out_of_order(5, 6.0)?;
     neighbors2.add_out_of_order(3, 4.0)?;
 
-    let unchecked = neighbors2.sort(&DummyRandomVectorScorer)?;
+    let unchecked = neighbors2.sort(&mut DummyRandomVectorScorer)?;
     assert_eq!(unchecked, vec![2, 3, 5, 6]);
     assert_nodes_equal(&[0, 1, 2, 3, 4, 5, 6], &neighbors2);
     assert_scores_equal(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0], &neighbors2);
@@ -566,7 +566,7 @@ mod tests {
     neighbors.add_out_of_order(6, 2.0)?;
     neighbors.add_out_of_order(4, 4.0)?;
 
-    let unchecked = neighbors.sort(&DummyRandomVectorScorer)?;
+    let unchecked = neighbors.sort(&mut DummyRandomVectorScorer)?;
     assert_eq!(unchecked, vec![0, 1, 2, 3, 4, 5, 6]);
     assert_nodes_equal(&[1, 2, 3, 4, 5, 6, 7], &neighbors);
     assert_scores_equal(&[7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0], &neighbors);
@@ -580,7 +580,7 @@ mod tests {
     neighbors2.add_out_of_order(6, 2.0)?;
     neighbors2.add_out_of_order(4, 4.0)?;
 
-    let unchecked = neighbors2.sort(&DummyRandomVectorScorer)?;
+    let unchecked = neighbors2.sort(&mut DummyRandomVectorScorer)?;
     assert_eq!(unchecked, vec![2, 3, 5, 6]);
     assert_nodes_equal(&[1, 2, 3, 4, 5, 6, 7], &neighbors2);
     assert_scores_equal(&[7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0], &neighbors2);
@@ -604,8 +604,8 @@ mod tests {
     neighbors.add_out_of_order(6, f32::NAN)?;
     neighbors.add_out_of_order(4, f32::NAN)?;
 
-    let scorer = TestRandomVectorScorer;
-    let unchecked = neighbors.sort(&scorer)?;
+    let mut scorer = TestRandomVectorScorer;
+    let unchecked = neighbors.sort(&mut scorer)?;
     assert_eq!(unchecked, vec![0, 1, 2, 3, 4, 5, 6]);
     assert_nodes_equal(&[1, 2, 3, 4, 5, 6, 7], &neighbors);
     assert_scores_equal(&[7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0], &neighbors);
@@ -629,8 +629,8 @@ mod tests {
     neighbors.add_out_of_order(16, f32::NAN)?;
     neighbors.add_out_of_order(14, f32::NAN)?;
 
-    let scorer = TestRandomVectorScorer1;
-    let unchecked = neighbors.sort(&scorer)?;
+    let mut scorer = TestRandomVectorScorer1;
+    let unchecked = neighbors.sort(&mut scorer)?;
     assert_eq!(unchecked, vec![0, 1, 2, 3, 4, 5, 6]);
     assert_nodes_equal(&[11, 12, 13, 14, 15, 16, 17], &neighbors);
     assert_scores_equal(&[7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0], &neighbors);
@@ -666,7 +666,7 @@ mod tests {
   #[derive(Default)]
   struct TestRandomVectorScorer;
   impl RandomVectorScorer for TestRandomVectorScorer {
-    fn score(&self, node: usize) -> Result<f32> {
+    fn score(&mut self, node: usize) -> Result<f32> {
       Ok((7 - node + 1) as f32)
     }
 
@@ -689,7 +689,7 @@ mod tests {
   #[derive(Default)]
   struct TestRandomVectorScorer1;
   impl RandomVectorScorer for TestRandomVectorScorer1 {
-    fn score(&self, node: usize) -> Result<f32> {
+    fn score(&mut self, node: usize) -> Result<f32> {
       Ok((7 - node + 11) as f32)
     }
 
