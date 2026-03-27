@@ -33,7 +33,7 @@ impl KnnVectorValues for DummyFloatVectorValues {
   fn size(&self) -> usize {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
-  fn ord_to_doc(&self, _ord: usize) -> usize {
+  fn ord_to_doc(&self, _ord: usize) -> crate::core::util::error::lucene_error::Result<usize> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
@@ -65,7 +65,7 @@ impl FloatVectorValues for DummyFloatVectorValues {
 
   type FloatVectorValues = Self;
 
-  fn copy(&self) -> crate::core::util::error::lucene_error::Result<Self::FloatVectorValues> {
+  fn float_copy(&self) -> crate::core::util::error::lucene_error::Result<Self::FloatVectorValues> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
@@ -73,8 +73,8 @@ impl FloatVectorValues for DummyFloatVectorValues {
 
   fn scorer(
     &self,
-    _target: &[f32],
-  ) -> crate::core::util::error::lucene_error::Result<Self::VectorScorer> {
+    _target: Vec<f32>,
+  ) -> crate::core::util::error::lucene_error::Result<Option<Self::VectorScorer>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

@@ -67,7 +67,7 @@ impl ByteVectorValues for DummyByteVectorValues {
 
   fn scorer(
     &self,
-    _query: &[u8],
+    _query: Vec<u8>,
   ) -> crate::core::util::error::lucene_error::Result<Self::VectorScorer> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }

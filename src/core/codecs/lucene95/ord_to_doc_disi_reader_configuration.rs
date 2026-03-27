@@ -23,13 +23,15 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::TryIntoInt;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
+use std::sync::Arc;
 /// Configuration for [`DirectMonotonicReader`] and [`IndexedDISI`] for reading sparse
 /// vectors. The format in the static writing methods adheres to the
 /// Lucene95HnswVectorsFormat
+#[derive(Clone)]
 pub struct OrdToDocDISIReaderConfiguration {
   pub size: i32,
 
@@ -40,14 +42,14 @@ pub struct OrdToDocDISIReaderConfiguration {
   // other: sparse
   pub jump_table_entry_count: i16,
   pub docs_with_field_offset: i64,
-  pub docs_with_field_length: i64,
+  pub docs_with_field_length: usize,
   pub dense_rank_power: i8,
 
   // the following four variables used to read ordToDoc encoded by DirectMonotonicWriter
   // note that only spare case needs to store ordToDoc
-  pub addresses_offset: i64,
-  pub addresses_length: i64,
-  pub meta: Meta,
+  pub addresses_offset: usize,
+  pub addresses_length: usize,
+  pub meta: Option<Arc<Meta>>,
 }
 impl OrdToDocDISIReaderConfiguration {
   /// Writes out the docsWithField and ordToDoc mapping to the outputMeta and vectorData
@@ -157,19 +159,19 @@ impl OrdToDocDISIReaderConfiguration {
   /// Returns an error when reading data fails
   pub fn from_stored_meta(input_meta: &mut impl IndexInput, size: i32) -> Result<Self> {
     let docs_with_field_offset = input_meta.read_long()?;
-    let docs_with_field_length = input_meta.read_long()?;
+    let docs_with_field_length = input_meta.read_long()?.try_convert()?;
     let jump_table_entry_count = input_meta.read_short()?;
     let dense_rank_power = input_meta.read_byte()? as i8;
 
-    let mut addresses_offset = 0i64;
+    let mut addresses_offset = 0;
     let mut meta = None;
-    let mut addresses_length = 0i64;
+    let mut addresses_length = 0;
 
     if docs_with_field_offset > -1 {
-      addresses_offset = input_meta.read_long()?;
+      addresses_offset = input_meta.read_long()?.try_convert()?;
       let block_shift = input_meta.read_vint()?;
-      meta = Some(load_meta(input_meta, size as i64, block_shift)?);
-      addresses_length = input_meta.read_long()?;
+      meta = Some(Arc::new(load_meta(input_meta, size as i64, block_shift)?));
+      addresses_length = input_meta.read_long()?.try_convert()?;
     }
 
     Ok(Self::new(
@@ -180,19 +182,19 @@ impl OrdToDocDISIReaderConfiguration {
       docs_with_field_offset,
       docs_with_field_length,
       dense_rank_power,
-      meta.unwrap(),
+      meta,
     ))
   }
   #[allow(clippy::too_many_arguments)]
   pub fn new(
     size: i32,
     jump_table_entry_count: i16,
-    addresses_offset: i64,
-    addresses_length: i64,
+    addresses_offset: usize,
+    addresses_length: usize,
     docs_with_field_offset: i64,
-    docs_with_field_length: i64,
+    docs_with_field_length: usize,
     dense_rank_power: i8,
-    meta: Meta,
+    meta: Option<Arc<Meta>>,
   ) -> Self {
     Self {
       size,
@@ -225,7 +227,7 @@ impl OrdToDocDISIReaderConfiguration {
     IndexedDISI::new(
       data_in,
       self.docs_with_field_offset as usize,
-      self.docs_with_field_length as usize,
+      self.docs_with_field_length,
       self.jump_table_entry_count as i32,
       self.dense_rank_power,
       self.size as i64,
@@ -252,12 +254,14 @@ impl OrdToDocDISIReaderConfiguration {
   {
     debug_assert!(self.docs_with_field_offset > -1);
 
-    let addresses_data = data_in.random_access_slice(
-      self.addresses_offset as usize,
-      self.addresses_length as usize,
-    )?;
-
-    DirectMonotonicReader::get_instance(&self.meta, addresses_data)
+    let addresses_data =
+      data_in.random_access_slice(self.addresses_offset, self.addresses_length)?;
+    match self.meta.as_ref() {
+      Some(meta) => DirectMonotonicReader::get_instance(meta, addresses_data),
+      None => Err(LuceneError::illegal_state(
+        "docs_with_field_offset > -1 but meta is None",
+      )),
+    }
   }
   /// # Returns
   ///

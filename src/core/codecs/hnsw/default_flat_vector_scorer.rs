@@ -210,8 +210,8 @@ where
   BV: ByteVectorValues + Clone,
 {
   pub(crate) fn new(vectors: BV, similarity_function: VectorSimilarityFunction) -> Result<Self> {
-    let vectors1 = ByteVectorValues::copy(&vectors)?;
-    let vectors2 = ByteVectorValues::copy(&vectors)?;
+    let vectors1 = ByteVectorValues::byte_copy(&vectors)?;
+    let vectors2 = ByteVectorValues::byte_copy(&vectors)?;
     Ok(Self {
       vectors,
       vectors1,
@@ -303,7 +303,7 @@ where
     self.vectors.size()
   }
 
-  fn ord_to_doc(&self, ord: usize) -> usize {
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
     self.vectors.ord_to_doc(ord)
   }
 
@@ -334,8 +334,8 @@ where
   FV: FloatVectorValues + Clone,
 {
   pub(crate) fn new(vectors: FV, similarity_function: VectorSimilarityFunction) -> Result<Self> {
-    let vectors1 = FloatVectorValues::copy(&vectors)?;
-    let vectors2 = FloatVectorValues::copy(&vectors)?;
+    let vectors1 = FloatVectorValues::float_copy(&vectors)?;
+    let vectors2 = FloatVectorValues::float_copy(&vectors)?;
     Ok(Self {
       vectors,
       vectors1,
@@ -423,7 +423,7 @@ where
     self.vectors.size()
   }
 
-  fn ord_to_doc(&self, ord: usize) -> usize {
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
     self.vectors.ord_to_doc(ord)
   }
 
@@ -482,7 +482,7 @@ where
     self.values.size()
   }
 
-  fn ord_to_doc(&self, ord: usize) -> usize {
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
     self.values.ord_to_doc(ord)
   }
 
@@ -538,7 +538,7 @@ where
     self.values.size()
   }
 
-  fn ord_to_doc(&self, ord: usize) -> usize {
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
     self.values.ord_to_doc(ord)
   }
 

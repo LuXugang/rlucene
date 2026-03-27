@@ -43,8 +43,8 @@ pub trait RandomVectorScorer {
   /// # Returns
   ///
   /// The document ID for the given vector ordinal.
-  fn ord_to_doc(&self, ord: usize) -> usize {
-    ord
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    Ok(ord)
   }
 
   type Bits<B>: Bits
@@ -87,7 +87,7 @@ where
     }
   }
 
-  fn ord_to_doc(&self, ord: usize) -> usize {
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
     match self {
       RandomVectorScorerEnum2::A(t) => t.ord_to_doc(ord),
       RandomVectorScorerEnum2::B(s) => s.ord_to_doc(ord),

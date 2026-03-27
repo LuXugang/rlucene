@@ -35,7 +35,6 @@ use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, ReadAdvice};
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::sync::Arc;

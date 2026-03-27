@@ -37,8 +37,8 @@ pub trait KnnVectorValues {
   /// Return the docid of the document indexed with the given vector ordinal.
   /// This default implementation returns the argument and is appropriate for
   /// dense values implementations where every doc has a single value.
-  fn ord_to_doc(&self, ord: usize) -> usize {
-    ord
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    Ok(ord)
   }
   type KnnVectorValues: KnnVectorValues;
   /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
@@ -72,7 +72,7 @@ pub trait KnnVectorValues {
 
   type DocIndexIterator: DocIndexIterator;
   ///  Create an iterator for this instance.
-  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
@@ -176,17 +176,17 @@ pub trait DocIndexIterator: DocIdSetIterator {
   fn index(&self) -> Result<i32>;
 }
 
-pub(crate) struct DocIndexIteratorImpl1 {
+pub struct DenseDocIndexIterator {
   doc: i32,
   size: i32,
 }
-impl DocIndexIteratorImpl1 {
+impl DenseDocIndexIterator {
   pub(crate) fn new(size: i32) -> Self {
     Self { doc: -1, size }
   }
 }
 
-impl DocIdSetIterator for DocIndexIteratorImpl1 {
+impl DocIdSetIterator for DenseDocIndexIterator {
   fn doc_id(&self) -> i32 {
     self.doc
   }
@@ -214,7 +214,7 @@ impl DocIdSetIterator for DocIndexIteratorImpl1 {
   }
 }
 
-impl DocIndexIterator for DocIndexIteratorImpl1 {
+impl DocIndexIterator for DenseDocIndexIterator {
   fn index(&self) -> Result<i32> {
     Ok(self.doc)
   }
@@ -271,7 +271,7 @@ where
   }
 }
 
-pub(crate) struct DocIndexIteratorImpl3<T>
+pub(crate) struct SparseDocIndexIterator<T>
 where
   T: OrdToDoc,
 {
@@ -280,7 +280,7 @@ where
   map: T,
 }
 
-impl<T> DocIndexIteratorImpl3<T>
+impl<T> SparseDocIndexIterator<T>
 where
   T: OrdToDoc,
 {
@@ -293,7 +293,7 @@ where
   }
 }
 
-impl<T> DocIdSetIterator for DocIndexIteratorImpl3<T>
+impl<T> DocIdSetIterator for SparseDocIndexIterator<T>
 where
   T: OrdToDoc,
 {
@@ -325,7 +325,7 @@ where
   }
 }
 
-impl<T> DocIndexIterator for DocIndexIteratorImpl3<T>
+impl<T> DocIndexIterator for SparseDocIndexIterator<T>
 where
   T: OrdToDoc,
 {
@@ -338,8 +338,8 @@ pub trait OrdToDoc {
   fn ord_to_doc(&self, ord: usize) -> i32;
 }
 
-pub(crate) fn create_dense_iterator(size: i32) -> DocIndexIteratorImpl1 {
-  DocIndexIteratorImpl1::new(size)
+pub(crate) fn create_dense_iterator(size: i32) -> DenseDocIndexIterator {
+  DenseDocIndexIterator::new(size)
 }
 
 /// creates an iterator from a docidsetiterator indicating which docs have
@@ -353,11 +353,11 @@ where
 
 ///  Creates an iterator from this instance's ordinal-to-docid mapping which
 /// must be monotonic (docid increases when ordinal does).
-pub(crate) fn create_sparse_iterator<T>(size: usize, map: T) -> DocIndexIteratorImpl3<T>
+pub(crate) fn create_sparse_iterator<T>(size: usize, map: T) -> SparseDocIndexIterator<T>
 where
   T: OrdToDoc,
 {
-  DocIndexIteratorImpl3::new(size, map)
+  SparseDocIndexIterator::new(size, map)
 }
 
 pub enum KnnVectorValuesEnum<B, F>

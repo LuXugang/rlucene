@@ -22,7 +22,7 @@ pub trait HasIndexSlice {
   type Input: IndexInput;
 
   /// Returns an IndexInput from which to read this instance's values.
-  fn get_slice(&self) -> Option<Self::Input> {
+  fn get_slice(&mut self) -> Option<&mut Self::Input> {
     None
   }
 }

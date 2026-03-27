@@ -30,8 +30,8 @@ impl RandomVectorScorer for DummyRandomVectorScorer {
     0
   }
 
-  fn ord_to_doc(&self, _ord: usize) -> usize {
-    0
+  fn ord_to_doc(&self, _ord: usize) -> Result<usize> {
+    Ok(0)
   }
 
   type Bits<B>

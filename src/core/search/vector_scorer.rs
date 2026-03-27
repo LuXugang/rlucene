@@ -32,4 +32,5 @@ pub trait VectorScorer {
   type DocIdSetIterator: DocIdSetIterator;
   /// Returns an iterator over the document IDs.
   fn iterator(&self) -> &Self::DocIdSetIterator;
+  fn iterator_mut(&mut self) -> &mut Self::DocIdSetIterator;
 }

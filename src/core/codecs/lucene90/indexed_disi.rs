@@ -645,26 +645,23 @@ impl MethodBehavior for All {
   }
 }
 
-pub struct DocIndexIteratorImpl<'a, I, P>
+pub struct DocIndexIteratorImpl<I>
 where
   I: IndexInput,
-  P: IndexedDISIPolicy<I>,
 {
-  disi: &'a mut IndexedDISI<I, P>,
+  pub(crate) disi: IndexedDISI<I, Owned>,
 }
-impl<'a, I, P> DocIndexIteratorImpl<'a, I, P>
+impl<I> DocIndexIteratorImpl<I>
 where
   I: IndexInput,
-  P: IndexedDISIPolicy<I>,
 {
-  pub fn new(disi: &'a mut IndexedDISI<I, P>) -> Self {
+  pub fn new(disi: IndexedDISI<I, Owned>) -> Self {
     DocIndexIteratorImpl { disi }
   }
 }
-impl<I, P> DocIdSetIterator for DocIndexIteratorImpl<'_, I, P>
+impl<I> DocIdSetIterator for DocIndexIteratorImpl<I>
 where
   I: IndexInput,
-  P: IndexedDISIPolicy<I>,
 {
   fn doc_id(&self) -> i32 {
     self.disi.doc_id()
@@ -682,10 +679,9 @@ where
     self.disi.cost()
   }
 }
-impl<I, P> DocIndexIterator for DocIndexIteratorImpl<'_, I, P>
+impl<I> DocIndexIterator for DocIndexIteratorImpl<I>
 where
   I: IndexInput,
-  P: IndexedDISIPolicy<I>,
 {
   fn index(&self) -> Result<i32> {
     Ok(self.disi.index())
@@ -1125,12 +1121,9 @@ where
 }
 ///  Returns an iterator that delegates to the IndexedDISI. Advancing this
 /// iterator will advance the underlying IndexedDISI, and vice-versa.
-pub fn get_doc_index_iterator<D, I, P>(
-  disi: &mut IndexedDISI<I, P>,
-) -> DocIndexIteratorImpl<'_, I, P>
+pub fn get_doc_index_iterator<I>(disi: IndexedDISI<I, Owned>) -> DocIndexIteratorImpl<I>
 where
   I: IndexInput,
-  P: IndexedDISIPolicy<I>,
 {
   DocIndexIteratorImpl::new(disi)
 }

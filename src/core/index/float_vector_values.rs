@@ -33,12 +33,12 @@ pub trait FloatVectorValues: KnnVectorValues {
   fn vector_value(&self, ord: usize) -> &[f32];
 
   type FloatVectorValues: FloatVectorValues;
-  fn copy(&self) -> Result<Self::FloatVectorValues> {
+  fn float_copy(&self) -> Result<Self::FloatVectorValues> {
     Err(LuceneError::unsupported_operation(""))
   }
 
   type VectorScorer: VectorScorer;
-  fn scorer(&self, _target: &[f32]) -> Result<Self::VectorScorer> {
+  fn scorer(&self, _target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
     Err(LuceneError::unsupported_operation(""))
   }
 

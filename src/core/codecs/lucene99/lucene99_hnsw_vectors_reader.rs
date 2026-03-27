@@ -196,7 +196,7 @@ where
 
     let k = knn_collector.k();
     let mut collector =
-      OrdinalTranslatedKnnCollector::new(knn_collector, |ord| Ok(scorer.ord_to_doc(ord)));
+      OrdinalTranslatedKnnCollector::new(knn_collector, |ord| scorer.ord_to_doc(ord));
 
     let mut accepted_ords = scorer.get_accept_ords(accept_docs)?;
 
@@ -218,7 +218,7 @@ where
             break;
           }
           knn_collector.inc_visited_count(1);
-          knn_collector.collect(scorer.ord_to_doc(i), scorer.score(i)?)?;
+          knn_collector.collect(scorer.ord_to_doc(i)?, scorer.score(i)?)?;
         }
       }
     }

@@ -28,4 +28,8 @@ impl VectorScorer for DummyVectorScorer {
   fn iterator(&self) -> &Self::DocIdSetIterator {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
+
+  fn iterator_mut(&mut self) -> &mut Self::DocIdSetIterator {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
 }
