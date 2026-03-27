@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 pub mod has_index_slice;
+pub mod ord_to_doc_disi_reader_configuration;
