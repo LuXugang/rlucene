@@ -24,6 +24,7 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 /// Provides random-access input operations for files within a
 /// [`Directory`](crate::core::store::directory::Directory).
@@ -740,6 +741,190 @@ macro_rules! either_index_input {
 
         }
     };
+}
+
+impl<I> DataInput for Arc<I>
+where
+  I: IndexInput,
+{
+  fn read_byte(&mut self) -> Result<u8> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_bytes_with_buffer(
+    &mut self,
+    _b: &mut [u8],
+    _offset: usize,
+    _len: usize,
+    _use_buffer: bool,
+  ) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_short(&mut self) -> Result<i16> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_int(&mut self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_group_vint(&mut self, _dst: &mut [i32], _offset: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_vint(&mut self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_zint(&mut self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_long(&mut self) -> Result<i64> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_longs(&mut self, _dst: &mut [i64], _offset: usize, _len: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_ints(&mut self, _dst: &mut [i32], _offset: usize, _len: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_floats(&mut self, _dst: &mut [f32], _offset: usize, _len: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_vlong(&mut self) -> Result<i64> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_zlong(&mut self) -> Result<i64> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_string(&mut self) -> Result<String> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn is_index_input(&self) -> bool {
+    self.as_ref().is_index_input()
+  }
+
+  fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
+    self.as_ref().get_file_pointer_in_data_input()
+  }
+}
+
+impl<I> TryClone for Arc<I>
+where
+  I: IndexInput,
+{
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(Arc::clone(self))
+  }
+}
+
+impl<I> IndexInput for Arc<I>
+where
+  I: IndexInput,
+{
+  type IndexInput = I::IndexInput;
+
+  fn get_file_pointer(&self) -> Result<usize> {
+    self.as_ref().get_file_pointer()
+  }
+
+  fn seek(&mut self, _pos: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn length(&self) -> usize {
+    self.as_ref().length()
+  }
+
+  fn slice(
+    &self,
+    _slice_description: &str,
+    _offset: usize,
+    _length: usize,
+  ) -> Result<Self::IndexInput> {
+    self.as_ref().slice(_slice_description, _offset, _length)
+  }
+
+  fn slice_with_read_advice(
+    &self,
+    description: &str,
+    offset: usize,
+    length: usize,
+    _read_advice: &ReadAdvice,
+  ) -> Result<Self::IndexInput> {
+    self
+      .as_ref()
+      .slice_with_read_advice(description, offset, length, _read_advice)
+  }
+
+  type RandomAccessSlice = I::RandomAccessSlice;
+
+  fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
+    self.as_ref().random_access_slice(offset, length)
+  }
+
+  fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn slice_dyn(
+    &self,
+    _slice_description: &str,
+    _offset: usize,
+    _length: usize,
+  ) -> Result<CustomIndexInput> {
+    self
+      .as_ref()
+      .slice_dyn(_slice_description, _offset, _length)
+  }
+
+  fn slice_with_read_advice_dyn(
+    &self,
+    description: &str,
+    offset: usize,
+    length: usize,
+    _read_advice: &ReadAdvice,
+  ) -> Result<CustomIndexInput> {
+    self
+      .as_ref()
+      .slice_with_read_advice_dyn(description, offset, length, _read_advice)
+  }
 }
 either_index_input!(pub IndexInputEnum2, RandomAccessInputEnum2 { A: A, B: B });
 either_index_input!(pub IndexInputEnum3, RandomAccessInputEnum3 { A: A, B: B, C: C });
