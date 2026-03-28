@@ -71,7 +71,6 @@ pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 pub struct Lucene99FlatVectorsFormat<F, V>
 where
   F: FlatVectorsScorer,
-  V: Clone,
 {
   vectors_scorer: F,
   _marker: PhantomData<V>,
@@ -79,7 +78,6 @@ where
 impl<F, V> Lucene99FlatVectorsFormat<F, V>
 where
   F: FlatVectorsScorer + Clone,
-  V: Clone,
 {
   pub fn new(vectors_scorer: F) -> Self {
     Self {

@@ -62,7 +62,6 @@ impl<O, F, T> Lucene99FlatVectorsWriter<O, F, T>
 where
   O: IndexOutput,
   F: FlatVectorsScorer,
-  T: Clone,
 {
   pub fn new<D1, D2>(
     state: &SegmentWriteState<D1>,
@@ -243,7 +242,6 @@ where
   where
     DM: DocMap,
     F1: FlatVectorsWriter,
-    V: Clone,
   {
     for idx in 0..self.fields.len() {
       let fields = &fields[idx];
@@ -292,7 +290,6 @@ where
   where
     DM: DocMap,
     F1: FlatVectorsWriter,
-    V: Clone,
   {
     for idx in 0..self.fields.len() {
       let fields = &fields[idx];
@@ -583,10 +580,7 @@ impl<T> FlatFieldWriter<T> {
   }
 }
 
-impl<T> Accountable for FlatFieldWriter<T>
-where
-  T: Clone,
-{
+impl<T> Accountable for FlatFieldWriter<T> {
   fn ram_bytes_used(&self) -> Result<i64> {
     // TODO: memory calculation not implement
     Ok(0)

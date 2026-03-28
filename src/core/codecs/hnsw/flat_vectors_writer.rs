@@ -40,8 +40,7 @@ pub trait FlatVectorsWriter: KnnVectorsWriter {
   ) -> Result<()>
   where
     DM: DocMap,
-    F: FlatVectorsWriter,
-    V: Clone;
+    F: FlatVectorsWriter;
 
   type FlatFieldVectorsWriter: FlatFieldVectorsWriter;
   fn get_fields_mut(&mut self) -> &mut [Self::FlatFieldVectorsWriter];

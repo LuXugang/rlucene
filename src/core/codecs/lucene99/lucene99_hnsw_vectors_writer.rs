@@ -66,7 +66,6 @@ pub struct Lucene99HnswVectorsWriter<F, O, V>
 where
   F: FlatVectorsWriter,
   O: IndexOutput,
-  V: Clone,
 {
   meta: O,
   vector_index: O,
@@ -85,7 +84,6 @@ impl<F, O, V> Lucene99HnswVectorsWriter<F, O, V>
 where
   F: FlatVectorsWriter,
   O: IndexOutput,
-  V: Clone,
 {
   pub fn new<D1, D2>(
     state: &SegmentWriteState<D1>,
@@ -544,7 +542,6 @@ impl<F, O, V> Accountable for Lucene99HnswVectorsWriter<F, O, V>
 where
   F: FlatVectorsWriter,
   O: IndexOutput,
-  V: Clone,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     // TODO: memory calculation not implement
@@ -678,7 +675,6 @@ where
   S: RandomVectorScorerSupplier,
   B: BitSet,
   H: HnswGraphSearcherBase,
-  V: Clone,
 {
   field_info: Arc<FieldInfo>,
   pub(crate) hnsw_graph_builder: HnswGraphBuilder<S, B, H>,
@@ -690,7 +686,6 @@ where
 impl<S, V> FieldWriterType<S, V>
 where
   S: RandomVectorScorerSupplier,
-  V: Clone,
 {
   fn from_byte(
     scorer: &impl FlatVectorsScorer<
@@ -748,7 +743,6 @@ where
 impl<S, V> FieldWriterType<S, V>
 where
   S: RandomVectorScorerSupplier,
-  V: Clone,
 {
   fn new(
     scorer_supplier: S,
@@ -777,7 +771,6 @@ where
   B: BitSet,
   H: HnswGraphSearcherBase,
   S: RandomVectorScorerSupplier,
-  V: Clone,
 {
   pub fn get_docs_with_field_set<'a, F>(
     &self,
@@ -817,7 +810,6 @@ where
   B: BitSet,
   H: HnswGraphSearcherBase,
   S: RandomVectorScorerSupplier,
-  V: Clone,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     //TODO: memory calculation not implement
