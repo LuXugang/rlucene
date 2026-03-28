@@ -15,7 +15,11 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
+use crate::core::codecs::hnsw::flat_vectors_reader::FlatVectorsReader;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
+use crate::core::codecs::lucene95::off_heap_byte_vector_values::OffHeapByteVectorValuesEnum;
+use crate::core::codecs::lucene95::off_heap_float_vector_values::OffHeapFloatVectorValuesEnum;
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::{
   META_CODEC_NAME, META_EXTENSION, VECTOR_DATA_CODEC_NAME, VECTOR_DATA_EXTENSION, VERSION_CURRENT,
@@ -31,10 +35,13 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, ReadAdvice};
+use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -47,13 +54,13 @@ where
 {
   field_infos: Arc<FieldInfos>,
   fields: HashMap<i32, FieldEntry>,
-  vector_data: I,
+  vector_data: Arc<I>,
   vector_scorer: F,
 }
 impl<I, F> Lucene99FlatVectorsReader<I, F>
 where
   I: IndexInput,
-  F: FlatVectorsScorer,
+  F: FlatVectorsScorer + Clone,
 {
   pub fn new<D1, D2>(
     state: &SegmentReadState<D1>,
@@ -79,7 +86,7 @@ where
     Ok(Self {
       field_infos: state.field_infos.clone(),
       fields,
-      vector_data: vector_index,
+      vector_data: Arc::new(vector_index),
       vector_scorer: scorer,
     })
   }
@@ -220,6 +227,150 @@ where
   }
 }
 
+impl<I, F> KnnVectorsReader for Lucene99FlatVectorsReader<I, F>
+where
+  F: FlatVectorsScorer + Clone,
+  I: IndexInput<IndexInput = Arc<I>>,
+{
+  fn check_integrity(&self) -> Result<()> {
+    CodecUtil::checksum_entire_file(self.vector_data.as_ref())?;
+    Ok(())
+  }
+
+  type FloatVectorValues = OffHeapFloatVectorValuesEnum<Arc<I>, F>;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
+    let field_entry = self.get_field_entry(field, VectorEncoding::FLOAT32(4))?;
+    OffHeapFloatVectorValuesEnum::load(
+      field_entry.similarity_function,
+      self.vector_scorer.clone(),
+      field_entry.ord_to_doc.clone(),
+      field_entry.vector_encoding,
+      field_entry.dimension,
+      field_entry.vector_data_offset,
+      field_entry.vector_data_length,
+      self.vector_data.clone(),
+    )
+  }
+
+  type ByteVectorValues = OffHeapByteVectorValuesEnum<Arc<I>, F>;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
+    let field_entry = self.get_field_entry(field, VectorEncoding::BYTE(1))?;
+    OffHeapByteVectorValuesEnum::load(
+      field_entry.similarity_function,
+      self.vector_scorer.clone(),
+      field_entry.ord_to_doc.clone(),
+      field_entry.vector_encoding,
+      field_entry.dimension,
+      field_entry.vector_data_offset,
+      field_entry.vector_data_length,
+      self.vector_data.clone(),
+    )
+  }
+
+  fn search_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    FlatVectorsReader::search_f32(self, field, target, knn_collector, accept_docs)
+  }
+
+  fn search_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    FlatVectorsReader::search_u8(self, field, target, knn_collector, accept_docs)
+  }
+}
+
+impl<I, F> Accountable for Lucene99FlatVectorsReader<I, F>
+where
+  F: FlatVectorsScorer + Clone,
+  I: IndexInput,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    // TODO memory calculation not implement
+    Ok(0)
+  }
+}
+
+impl<I, F> FlatVectorsReader for Lucene99FlatVectorsReader<I, F>
+where
+  I: IndexInput<IndexInput = std::sync::Arc<I>>,
+  F: FlatVectorsScorer + Clone,
+{
+  type FlatVectorsScorer = F;
+
+  fn get_flat_vector_scorer(&self) -> &Self::FlatVectorsScorer {
+    &self.vector_scorer
+  }
+
+  type RandomVectorScorerF32 = F::RandomVectorScorerF32<OffHeapFloatVectorValuesEnum<Arc<I>, F>>;
+
+  fn get_random_vector_scorer_f32(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+  ) -> Result<Self::RandomVectorScorerF32> {
+    let field_entry = self.get_field_entry(field, VectorEncoding::FLOAT32(4))?;
+    let off_heap_float_vector_values = OffHeapFloatVectorValuesEnum::load(
+      field_entry.similarity_function,
+      self.vector_scorer.clone(),
+      field_entry.ord_to_doc.clone(),
+      field_entry.vector_encoding,
+      field_entry.dimension,
+      field_entry.vector_data_offset,
+      field_entry.vector_data_length,
+      self.vector_data.clone(),
+    )?;
+    self.vector_scorer.get_random_vector_scorer_f32(
+      field_entry.similarity_function,
+      off_heap_float_vector_values,
+      target,
+    )
+  }
+
+  type RandomVectorScorerU8 = F::RandomVectorScorerU8<OffHeapByteVectorValuesEnum<Arc<I>, F>>;
+
+  fn get_random_vector_scorer_u8(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+  ) -> Result<Self::RandomVectorScorerU8> {
+    let field_entry = self.get_field_entry(field, VectorEncoding::BYTE(1))?;
+    let off_heap_float_vector_values = OffHeapByteVectorValuesEnum::load(
+      field_entry.similarity_function,
+      self.vector_scorer.clone(),
+      field_entry.ord_to_doc.clone(),
+      field_entry.vector_encoding,
+      field_entry.dimension,
+      field_entry.vector_data_offset,
+      field_entry.vector_data_length,
+      self.vector_data.clone(),
+    )?;
+    self.vector_scorer.get_random_vector_scorer_u8(
+      field_entry.similarity_function,
+      off_heap_float_vector_values,
+      target,
+    )
+  }
+}
+
 struct FieldEntry {
   similarity_function: VectorSimilarityFunction,
   vector_encoding: VectorEncoding,
@@ -227,7 +378,7 @@ struct FieldEntry {
   vector_data_length: usize,
   size: usize,
   dimension: usize,
-  ord_to_doc: OrdToDocDISIReaderConfiguration,
+  ord_to_doc: Arc<OrdToDocDISIReaderConfiguration>,
 }
 impl FieldEntry {
   pub fn create(input: &mut impl IndexInput, info: &FieldInfo) -> Result<Self> {
@@ -246,7 +397,7 @@ impl FieldEntry {
       vector_data_length,
       size,
       dimension,
-      ord_to_doc,
+      ord_to_doc: Arc::new(ord_to_doc),
     };
 
     entry.validate(info)?;

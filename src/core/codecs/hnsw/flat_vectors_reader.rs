@@ -36,10 +36,10 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
   /// @return the [`FlatVectorsScorer`] for this reader.
   fn get_flat_vector_scorer(&self) -> &Self::FlatVectorsScorer;
 
-  fn search_float<B, K>(
+  fn search_f32<B, K>(
     &self,
     _field: &str,
-    _target: &[f32],
+    _target: Vec<f32>,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> Result<()>
@@ -51,10 +51,10 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
     Ok(())
   }
 
-  fn search_byte<B, K>(
+  fn search_u8<B, K>(
     &self,
     _field: &str,
-    _target: &[u8],
+    _target: Vec<u8>,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> Result<()>
@@ -66,7 +66,7 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
     Ok(())
   }
 
-  type RandomVectorScorer: RandomVectorScorer;
+  type RandomVectorScorerF32: RandomVectorScorer;
   /// Returns a [`RandomVectorScorer`] for the given field and target vector.
   ///
   /// # Arguments
@@ -81,9 +81,10 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
   fn get_random_vector_scorer_f32(
     &self,
     field: &str,
-    target: &[f32],
-  ) -> Result<Self::RandomVectorScorer>;
+    target: Vec<f32>,
+  ) -> Result<Self::RandomVectorScorerF32>;
 
+  type RandomVectorScorerU8: RandomVectorScorer;
   /// Returns a [`RandomVectorScorer`] for the given field and target vector.
   ///
   /// # Arguments
@@ -98,8 +99,8 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
   fn get_random_vector_scorer_u8(
     &self,
     field: &str,
-    target: &[u8],
-  ) -> Result<Self::RandomVectorScorer>;
+    target: Vec<u8>,
+  ) -> Result<Self::RandomVectorScorerU8>;
 
   /// Returns an instance optimized for merging. This instance may only be consumed in the thread
   /// that called `get_merge_instance`.

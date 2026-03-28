@@ -27,11 +27,9 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
-use std::sync::Arc;
 /// Configuration for [`DirectMonotonicReader`] and [`IndexedDISI`] for reading sparse
 /// vectors. The format in the static writing methods adheres to the
 /// Lucene95HnswVectorsFormat
-#[derive(Clone)]
 pub struct OrdToDocDISIReaderConfiguration {
   pub size: i32,
 
@@ -49,7 +47,7 @@ pub struct OrdToDocDISIReaderConfiguration {
   // note that only spare case needs to store ordToDoc
   pub addresses_offset: usize,
   pub addresses_length: usize,
-  pub meta: Option<Arc<Meta>>,
+  pub meta: Option<Meta>,
 }
 impl OrdToDocDISIReaderConfiguration {
   /// Writes out the docsWithField and ordToDoc mapping to the outputMeta and vectorData
@@ -170,7 +168,7 @@ impl OrdToDocDISIReaderConfiguration {
     if docs_with_field_offset > -1 {
       addresses_offset = input_meta.read_long()?.try_convert()?;
       let block_shift = input_meta.read_vint()?;
-      meta = Some(Arc::new(load_meta(input_meta, size as i64, block_shift)?));
+      meta = Some(load_meta(input_meta, size as i64, block_shift)?);
       addresses_length = input_meta.read_long()?.try_convert()?;
     }
 
@@ -194,7 +192,7 @@ impl OrdToDocDISIReaderConfiguration {
     docs_with_field_offset: i64,
     docs_with_field_length: usize,
     dense_rank_power: i8,
-    meta: Option<Arc<Meta>>,
+    meta: Option<Meta>,
   ) -> Self {
     Self {
       size,

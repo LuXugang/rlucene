@@ -454,7 +454,7 @@ where
   fn search_f32<B, K>(
     &self,
     field: &str,
-    target: &[f32],
+    target: Vec<f32>,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
@@ -473,7 +473,7 @@ where
   fn search_u8<B, K>(
     &self,
     field: &str,
-    target: &[u8],
+    target: Vec<u8>,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>

@@ -344,7 +344,7 @@ where
   base: OffHeapByteVectorValues<I, F>,
   ord_to_doc: Arc<DirectMonotonicReader<I::RandomAccessSlice>>,
   data_in: Arc<I>,
-  configuration: OrdToDocDISIReaderConfiguration,
+  configuration: Arc<OrdToDocDISIReaderConfiguration>,
   disi: Option<DocIndexIteratorImpl<I>>,
 }
 
@@ -354,7 +354,7 @@ where
   F: FlatVectorsScorer,
 {
   pub fn new<T>(
-    configuration: OrdToDocDISIReaderConfiguration,
+    configuration: Arc<OrdToDocDISIReaderConfiguration>,
     data_in: T,
     slice: I,
     dimension: usize,
@@ -1016,7 +1016,7 @@ where
   pub fn load(
     vector_similarity_function: VectorSimilarityFunction,
     flat_vectors_scorer: F,
-    configuration: OrdToDocDISIReaderConfiguration,
+    configuration: Arc<OrdToDocDISIReaderConfiguration>,
     vector_encoding: VectorEncoding,
     dimension: usize,
     vector_data_offset: usize,
