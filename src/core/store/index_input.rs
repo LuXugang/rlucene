@@ -826,7 +826,7 @@ where
   }
 
   fn is_index_input(&self) -> bool {
-    self.as_ref().is_index_input()
+    (**self).is_index_input()
   }
 
   fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
@@ -834,7 +834,7 @@ where
   }
 
   fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    self.as_ref().get_file_pointer_in_data_input()
+    (**self).get_file_pointer_in_data_input()
   }
 }
 
@@ -857,7 +857,7 @@ where
   type IndexInput = I::IndexInput;
 
   fn get_file_pointer(&self) -> Result<usize> {
-    self.as_ref().get_file_pointer()
+    (**self).get_file_pointer()
   }
 
   fn seek(&mut self, _pos: usize) -> Result<()> {
@@ -869,7 +869,7 @@ where
   }
 
   fn length(&self) -> usize {
-    self.as_ref().length()
+    (**self).length()
   }
 
   fn slice(
@@ -878,7 +878,7 @@ where
     _offset: usize,
     _length: usize,
   ) -> Result<Self::IndexInput> {
-    self.as_ref().slice(_slice_description, _offset, _length)
+    (**self).slice(_slice_description, _offset, _length)
   }
 
   fn slice_with_read_advice(
@@ -896,7 +896,7 @@ where
   type RandomAccessSlice = I::RandomAccessSlice;
 
   fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
-    self.as_ref().random_access_slice(offset, length)
+    (**self).random_access_slice(offset, length)
   }
 
   fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {

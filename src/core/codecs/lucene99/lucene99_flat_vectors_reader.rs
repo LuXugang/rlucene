@@ -96,7 +96,7 @@ where
     fields: &mut HashMap<i32, FieldEntry>,
   ) -> Result<i32>
   where
-    D1: Directory<IndexInput = I>,
+    D1: Directory,
     D2: Directory,
   {
     let meta_file_name =
@@ -230,7 +230,7 @@ where
 impl<I, F> KnnVectorsReader for Lucene99FlatVectorsReader<I, F>
 where
   F: FlatVectorsScorer + Clone,
-  I: IndexInput<IndexInput = Arc<I>>,
+  I: IndexInput,
 {
   fn check_integrity(&self) -> Result<()> {
     CodecUtil::checksum_entire_file(self.vector_data.as_ref())?;
@@ -311,7 +311,7 @@ where
 
 impl<I, F> FlatVectorsReader for Lucene99FlatVectorsReader<I, F>
 where
-  I: IndexInput<IndexInput = std::sync::Arc<I>>,
+  I: IndexInput,
   F: FlatVectorsScorer + Clone,
 {
   type FlatVectorsScorer = F;

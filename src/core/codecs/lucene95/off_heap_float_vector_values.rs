@@ -36,6 +36,7 @@ use crate::core::store::IndexInput;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::bits::Bits;
+use crate::core::util::clone::TryClone;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -344,30 +345,27 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  base: OffHeapFloatVectorValues<I, F>,
+  base: OffHeapFloatVectorValues<I::IndexInput, F>,
   ord_to_doc: Arc<DirectMonotonicReader<I::RandomAccessSlice>>,
-  data_in: Arc<I>,
+  data_in: I,
   configuration: Arc<OrdToDocDISIReaderConfiguration>,
   disi: Option<DocIndexIteratorImpl<I>>,
 }
 
 impl<I, F> SparseOffHeapVectorValues<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer,
 {
-  pub fn new<T>(
+  pub fn new(
     configuration: Arc<OrdToDocDISIReaderConfiguration>,
-    data_in: T,
-    slice: I,
+    data_in: I,
+    slice: I::IndexInput,
     dimension: usize,
     byte_size: usize,
     flat_vectors_scorer: F,
     similarity_function: VectorSimilarityFunction,
-  ) -> Result<Self>
-  where
-    T: Into<Arc<I>>,
-  {
+  ) -> Result<Self> {
     let base = OffHeapFloatVectorValues::new(
       dimension,
       configuration.size as usize,
@@ -376,7 +374,6 @@ where
       flat_vectors_scorer,
       similarity_function,
     );
-    let data_in = data_in.into();
     let addresses_data = data_in.random_access_slice(
       configuration.addresses_offset,
       configuration.addresses_length,
@@ -388,7 +385,7 @@ where
     };
 
     let disi = IndexedDISI::new(
-      data_in.as_ref(),
+      &data_in,
       configuration.docs_with_field_offset.try_convert()?,
       configuration.docs_with_field_length,
       configuration.jump_table_entry_count as i32,
@@ -411,7 +408,7 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  type Input = I;
+  type Input = I::IndexInput;
 
   fn get_slice(&mut self) -> Option<&mut Self::Input> {
     self.base.get_slice()
@@ -419,7 +416,7 @@ where
 }
 impl<I, F> KnnVectorValues for SparseOffHeapVectorValues<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
   fn dimension(&self) -> usize {
@@ -464,7 +461,7 @@ where
 
 impl<I, F> FloatVectorValues for SparseOffHeapVectorValues<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
   fn vector_value(&mut self, ord: usize) -> Result<&[f32]> {
@@ -682,18 +679,18 @@ impl FloatVectorValues for EmptyOffHeapVectorValues {
 
 pub enum OffHeapFloatVectorValuesEnum<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer,
 {
   Empty(EmptyOffHeapVectorValues),
-  Dense(DenseOffHeapVectorValues<I, F>),
+  Dense(DenseOffHeapVectorValues<I::IndexInput, F>),
   Sparse(SparseOffHeapVectorValues<I, F>),
 }
 
 impl<I, F> KnnVectorValues for OffHeapFloatVectorValuesEnum<I, F>
 where
   F: FlatVectorsScorer + Clone,
-  I: IndexInput,
+  I: IndexInput + Clone,
 {
   fn dimension(&self) -> usize {
     match self {
@@ -754,7 +751,7 @@ where
 
 impl<I, F> FloatVectorValues for OffHeapFloatVectorValuesEnum<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
   fn vector_value(&mut self, ord: usize) -> Result<&[f32]> {
@@ -783,7 +780,7 @@ where
 
   type VectorScorer = VectorScorerEnum<
     I,
-    <F as FlatVectorsScorer>::RandomVectorScorerF32<DenseOffHeapVectorValues<I, F>>,
+    <F as FlatVectorsScorer>::RandomVectorScorerF32<DenseOffHeapVectorValues<I::IndexInput, F>>,
     <F as FlatVectorsScorer>::RandomVectorScorerF32<SparseOffHeapVectorValues<I, F>>,
   >;
 
@@ -1036,7 +1033,7 @@ where
 
 impl<I, F> OffHeapFloatVectorValuesEnum<I, F>
 where
-  I: IndexInput<IndexInput = I>,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer,
 {
   #[allow(clippy::too_many_arguments)]

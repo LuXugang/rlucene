@@ -16,35 +16,32 @@
  */
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
-use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
-use std::sync::Arc;
+use std::fmt::Display;
 
-pub trait KnnVectorsFormat {
-  type KnnVectorsWriter<T: IndexInput>: KnnVectorsWriter;
+pub trait KnnVectorsFormat: Display {
+  type KnnVectorsWriter<T: IndexOutput>: KnnVectorsWriter;
   /// Returns a [`KnnVectorsWriter`] to write the vectors to the index.
   fn fields_writer<D1, D2>(
     &self,
     state: &SegmentWriteState<D1>,
     segment_info: &SegmentInfo<D2>,
-    field_infos: Arc<FieldInfos>,
-    context: &IOContext,
-  ) -> Result<Self::KnnVectorsWriter<D1::IndexInput>>
+  ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
     D2: Directory;
-  type KnnVectorsReader<T: IndexOutput>: KnnVectorsReader;
+  type KnnVectorsReader<T: IndexInput>: KnnVectorsReader;
   /// Returns a [`KnnVectorsReader`] to write the vectors to the index.
   fn fields_reader<D1, D2>(
     &self,
     state: &SegmentReadState<D1>,
     segment_info: &mut SegmentInfo<D2>,
-  ) -> Result<Self::KnnVectorsReader<D1::IndexOutput>>
+  ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
     D2: Directory;

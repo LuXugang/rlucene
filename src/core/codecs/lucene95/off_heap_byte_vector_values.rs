@@ -36,6 +36,7 @@ use crate::core::store::IndexInput;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::bits::Bits;
+use crate::core::util::clone::TryClone;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -340,31 +341,29 @@ pub struct SparseOffHeapVectorValues<I, F>
 where
   I: IndexInput,
   F: FlatVectorsScorer,
+  I: Clone,
 {
-  base: OffHeapByteVectorValues<I, F>,
+  base: OffHeapByteVectorValues<I::IndexInput, F>,
   ord_to_doc: Arc<DirectMonotonicReader<I::RandomAccessSlice>>,
-  data_in: Arc<I>,
+  data_in: I,
   configuration: Arc<OrdToDocDISIReaderConfiguration>,
   disi: Option<DocIndexIteratorImpl<I>>,
 }
 
 impl<I, F> SparseOffHeapVectorValues<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer,
 {
-  pub fn new<T>(
+  pub fn new(
     configuration: Arc<OrdToDocDISIReaderConfiguration>,
-    data_in: T,
-    slice: I,
+    data_in: I,
+    slice: I::IndexInput,
     dimension: usize,
     byte_size: usize,
     flat_vectors_scorer: F,
     similarity_function: VectorSimilarityFunction,
-  ) -> Result<Self>
-  where
-    T: Into<Arc<I>>,
-  {
+  ) -> Result<Self> {
     let base = OffHeapByteVectorValues::new(
       dimension,
       configuration.size as usize,
@@ -373,7 +372,6 @@ where
       flat_vectors_scorer,
       similarity_function,
     );
-    let data_in = data_in.into();
     let addresses_data = data_in.random_access_slice(
       configuration.addresses_offset,
       configuration.addresses_length,
@@ -385,7 +383,7 @@ where
     };
 
     let disi = IndexedDISI::new(
-      data_in.as_ref(),
+      &data_in,
       configuration.docs_with_field_offset.try_convert()?,
       configuration.docs_with_field_length,
       configuration.jump_table_entry_count as i32,
@@ -406,10 +404,10 @@ where
 
 impl<I, F> HasIndexSlice for SparseOffHeapVectorValues<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer,
 {
-  type Input = I;
+  type Input = I::IndexInput;
 
   fn get_slice(&mut self) -> Option<&mut Self::Input> {
     self.base.get_slice()
@@ -418,7 +416,7 @@ where
 
 impl<I, F> KnnVectorValues for SparseOffHeapVectorValues<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
   fn dimension(&self) -> usize {
@@ -463,7 +461,7 @@ where
 
 impl<I, F> ByteVectorValues for SparseOffHeapVectorValues<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
   fn vector_value(&mut self, ord: usize) -> Result<&[u8]> {
@@ -680,17 +678,17 @@ impl ByteVectorValues for EmptyOffHeapVectorValues {
 
 pub enum OffHeapByteVectorValuesEnum<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer,
 {
   Empty(EmptyOffHeapVectorValues),
-  Dense(DenseOffHeapVectorValues<I, F>),
+  Dense(DenseOffHeapVectorValues<I::IndexInput, F>),
   Sparse(SparseOffHeapVectorValues<I, F>),
 }
 
 impl<I, F> KnnVectorValues for OffHeapByteVectorValuesEnum<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
   fn dimension(&self) -> usize {
@@ -752,7 +750,7 @@ where
 
 impl<I, F> ByteVectorValues for OffHeapByteVectorValuesEnum<I, F>
 where
-  I: IndexInput,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
   fn vector_value(&mut self, ord: usize) -> Result<&[u8]> {
@@ -775,7 +773,7 @@ where
 
   type VectorScorer = VectorScorerEnum<
     I,
-    <F as FlatVectorsScorer>::RandomVectorScorerU8<DenseOffHeapVectorValues<I, F>>,
+    <F as FlatVectorsScorer>::RandomVectorScorerU8<DenseOffHeapVectorValues<I::IndexInput, F>>,
     <F as FlatVectorsScorer>::RandomVectorScorerU8<SparseOffHeapVectorValues<I, F>>,
   >;
 
@@ -1009,7 +1007,7 @@ where
 
 impl<I, F> OffHeapByteVectorValuesEnum<I, F>
 where
-  I: IndexInput<IndexInput = I>,
+  I: IndexInput + Clone,
   F: FlatVectorsScorer,
 {
   #[allow(clippy::too_many_arguments)]

@@ -45,4 +45,7 @@ pub trait FlatVectorsFormat: KnnVectorsFormat {
   where
     D1: Directory,
     D2: Directory;
+  fn get_max_dimensions(&self, _field_name: &str) -> usize {
+    1024
+  }
 }
