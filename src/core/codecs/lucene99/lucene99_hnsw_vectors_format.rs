@@ -112,6 +112,10 @@ pub struct Lucene99HnswVectorsFormat<V> {
   _marker: PhantomData<V>,
 }
 impl<V> Lucene99HnswVectorsFormat<V> {
+  /// Constructs a format using default graph construction parameters
+  pub fn new() -> Result<Self> {
+    Self::with_graph_para(DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, DEFAULT_BEAM_WIDTH)
+  }
   /// Constructs a format using the given graph construction parameters and scalar quantization.
   ///
   /// # Arguments
@@ -124,7 +128,7 @@ impl<V> Lucene99HnswVectorsFormat<V> {
   /// # Errors
   ///
   /// Returns an error if the parameters are invalid.
-  pub fn new(
+  pub fn with_graph_para(
     max_conn: usize,
     beam_width: usize,
     num_merge_workers: usize,
