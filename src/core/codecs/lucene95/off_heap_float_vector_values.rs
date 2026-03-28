@@ -29,7 +29,7 @@ use crate::core::index::knn_vector_values::{
 };
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::store::IndexInput;
@@ -38,13 +38,14 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use crate::core::util::{HasIdentity, TryIntoInt};
 use std::sync::Arc;
 
-/// Read the vector values from the index input. This supports both iterated and random access.
+/// Read the vector values froGm the index input. This supports both iterated and random access.
 struct OffHeapFloatVectorValues<I, F>
 where
   I: IndexInput,
@@ -168,7 +169,7 @@ where
 pub struct DenseOffHeapVectorValues<I, F>
 where
   I: IndexInput,
-  F: FlatVectorsScorer + Clone,
+  F: FlatVectorsScorer,
 {
   base: OffHeapFloatVectorValues<I, F>,
   #[cfg(debug_assertions)]
@@ -178,7 +179,7 @@ where
 impl<I, F> DenseOffHeapVectorValues<I, F>
 where
   I: IndexInput,
-  F: FlatVectorsScorer + Clone,
+  F: FlatVectorsScorer,
 {
   pub fn new(
     dimension: usize,
@@ -219,7 +220,7 @@ where
     self.base.size
   }
 
-  type KnnVectorValues = Self;
+  type KnnVectorValues = DummyKnnVectorsWriter;
 
   fn get_encoding(&self) -> VectorEncoding {
     FloatVectorValues::get_encoding(self)
@@ -252,7 +253,7 @@ where
 impl<I, F> HasIndexSlice for DenseOffHeapVectorValues<I, F>
 where
   I: IndexInput,
-  F: FlatVectorsScorer + Clone,
+  F: FlatVectorsScorer,
 {
   type Input = I;
 
@@ -341,7 +342,7 @@ where
 pub struct SparseOffHeapVectorValues<I, F>
 where
   I: IndexInput,
-  F: FlatVectorsScorer + Clone,
+  F: FlatVectorsScorer,
 {
   base: OffHeapFloatVectorValues<I, F>,
   ord_to_doc: Arc<DirectMonotonicReader<I::RandomAccessSlice>>,
@@ -353,7 +354,7 @@ where
 impl<I, F> SparseOffHeapVectorValues<I, F>
 where
   I: IndexInput,
-  F: FlatVectorsScorer + Clone,
+  F: FlatVectorsScorer,
 {
   pub fn new<T>(
     configuration: OrdToDocDISIReaderConfiguration,
@@ -408,7 +409,7 @@ where
 impl<I, F> HasIndexSlice for SparseOffHeapVectorValues<I, F>
 where
   I: IndexInput,
-  F: FlatVectorsScorer + Clone,
+  F: FlatVectorsScorer,
 {
   type Input = I;
 
@@ -433,7 +434,7 @@ where
     Ok(self.ord_to_doc.get(ord)? as usize)
   }
 
-  type KnnVectorValues = Self;
+  type KnnVectorValues = DummyKnnVectorsWriter;
 
   fn get_encoding(&self) -> VectorEncoding {
     FloatVectorValues::get_encoding(self)
@@ -666,7 +667,7 @@ impl FloatVectorValues for EmptyOffHeapVectorValues {
     Ok(self.vectors.as_slice())
   }
 
-  type FloatVectorValues = DummyFloatVectorValues;
+  type FloatVectorValues = Self;
 
   fn float_copy(&self) -> Result<Self::FloatVectorValues> {
     Err(LuceneError::unsupported_operation(""))
@@ -676,5 +677,407 @@ impl FloatVectorValues for EmptyOffHeapVectorValues {
 
   fn scorer(&self, _target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
     Ok(None)
+  }
+}
+
+pub enum OffHeapFloatVectorValuesEnum<I, F>
+where
+  I: IndexInput,
+  F: FlatVectorsScorer,
+{
+  Empty(EmptyOffHeapVectorValues),
+  Dense(DenseOffHeapVectorValues<I, F>),
+  Sparse(SparseOffHeapVectorValues<I, F>),
+}
+
+impl<I, F> KnnVectorValues for OffHeapFloatVectorValuesEnum<I, F>
+where
+  F: FlatVectorsScorer + Clone,
+  I: IndexInput,
+{
+  fn dimension(&self) -> usize {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(e) => e.dimension(),
+      OffHeapFloatVectorValuesEnum::Dense(e) => e.dimension(),
+      OffHeapFloatVectorValuesEnum::Sparse(e) => e.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(e) => e.size(),
+      OffHeapFloatVectorValuesEnum::Dense(e) => e.size(),
+      OffHeapFloatVectorValuesEnum::Sparse(e) => e.size(),
+    }
+  }
+
+  type KnnVectorValues = DummyKnnVectorsWriter;
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(e) => FloatVectorValues::get_encoding(e),
+      OffHeapFloatVectorValuesEnum::Dense(e) => FloatVectorValues::get_encoding(e),
+      OffHeapFloatVectorValuesEnum::Sparse(e) => FloatVectorValues::get_encoding(e),
+    }
+  }
+
+  type Bits<B>
+    = OffHeapFloatVectorValueBitsEnum<I::RandomAccessSlice, B>
+  where
+    B: Bits;
+
+  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  where
+    B: Bits,
+  {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(_) => None,
+      OffHeapFloatVectorValuesEnum::Dense(e) => e
+        .get_accept_ords(accept_docs)
+        .map(OffHeapFloatVectorValueBitsEnum::Dense),
+      OffHeapFloatVectorValuesEnum::Sparse(e) => e
+        .get_accept_ords(accept_docs)
+        .map(OffHeapFloatVectorValueBitsEnum::Sparse),
+    }
+  }
+
+  type DocIndexIterator = IterEnum<I>;
+
+  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(e) => e.iterator().map(IterEnum::Empty),
+      OffHeapFloatVectorValuesEnum::Dense(e) => e.iterator().map(IterEnum::Dense),
+      OffHeapFloatVectorValuesEnum::Sparse(e) => e.iterator().map(IterEnum::Sparse),
+    }
+  }
+}
+
+impl<I, F> FloatVectorValues for OffHeapFloatVectorValuesEnum<I, F>
+where
+  I: IndexInput,
+  F: FlatVectorsScorer + Clone,
+{
+  fn vector_value(&mut self, ord: usize) -> Result<&[f32]> {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(e) => e.vector_value(ord),
+      OffHeapFloatVectorValuesEnum::Dense(e) => e.vector_value(ord),
+      OffHeapFloatVectorValuesEnum::Sparse(e) => e.vector_value(ord),
+    }
+  }
+
+  type FloatVectorValues = Self;
+
+  fn float_copy(&self) -> Result<Self::FloatVectorValues> {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(e) => {
+        e.float_copy().map(OffHeapFloatVectorValuesEnum::Empty)
+      },
+      OffHeapFloatVectorValuesEnum::Dense(e) => {
+        e.float_copy().map(OffHeapFloatVectorValuesEnum::Dense)
+      },
+      OffHeapFloatVectorValuesEnum::Sparse(e) => {
+        e.float_copy().map(OffHeapFloatVectorValuesEnum::Sparse)
+      },
+    }
+  }
+
+  type VectorScorer = VectorScorerEnum<
+    I,
+    <F as FlatVectorsScorer>::RandomVectorScorerF32<DenseOffHeapVectorValues<I, F>>,
+    <F as FlatVectorsScorer>::RandomVectorScorerF32<SparseOffHeapVectorValues<I, F>>,
+  >;
+
+  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(_) => Ok(None),
+
+      OffHeapFloatVectorValuesEnum::Dense(e) => Ok(
+        e.scorer(target)?
+          .map(|scorer| VectorScorerEnum::new_dense(scorer.iterator, scorer.random_vector_scorer)),
+      ),
+
+      OffHeapFloatVectorValuesEnum::Sparse(e) => Ok(
+        e.scorer(target)?
+          .map(|scorer| VectorScorerEnum::new_sparse(scorer.iterator, scorer.random_vector_scorer)),
+      ),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(e) => FloatVectorValues::get_encoding(e),
+      OffHeapFloatVectorValuesEnum::Dense(e) => FloatVectorValues::get_encoding(e),
+      OffHeapFloatVectorValuesEnum::Sparse(e) => FloatVectorValues::get_encoding(e),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(e) => e.get_vectors_mut(),
+      OffHeapFloatVectorValuesEnum::Dense(e) => e.get_vectors_mut(),
+      OffHeapFloatVectorValuesEnum::Sparse(e) => e.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(e) => e.get_vectors(),
+      OffHeapFloatVectorValuesEnum::Dense(e) => e.get_vectors(),
+      OffHeapFloatVectorValuesEnum::Sparse(e) => e.get_vectors(),
+    }
+  }
+}
+
+pub enum OffHeapFloatVectorValueBitsEnum<R, B>
+where
+  R: RandomAccessInput,
+  B: Bits,
+{
+  Dense(B),
+  Sparse(SparseBits<B, R>),
+}
+
+impl<R, B> HasIdentity for OffHeapFloatVectorValueBitsEnum<R, B>
+where
+  B: Bits,
+  R: RandomAccessInput,
+{
+  fn identity(&self) -> &Identity {
+    match self {
+      OffHeapFloatVectorValueBitsEnum::Dense(e) => e.identity(),
+      OffHeapFloatVectorValueBitsEnum::Sparse(e) => e.identity(),
+    }
+  }
+}
+
+impl<R, B> Bits for OffHeapFloatVectorValueBitsEnum<R, B>
+where
+  R: RandomAccessInput,
+  B: Bits,
+{
+  fn get(&self, index: usize) -> Result<bool> {
+    match self {
+      OffHeapFloatVectorValueBitsEnum::Dense(e) => e.get(index),
+      OffHeapFloatVectorValueBitsEnum::Sparse(e) => e.get(index),
+    }
+  }
+
+  fn length(&self) -> usize {
+    match self {
+      OffHeapFloatVectorValueBitsEnum::Dense(e) => e.length(),
+      OffHeapFloatVectorValueBitsEnum::Sparse(e) => e.length(),
+    }
+  }
+
+  fn copy_of(&self) -> Result<FixedBitSet> {
+    match self {
+      OffHeapFloatVectorValueBitsEnum::Dense(e) => e.copy_of(),
+      OffHeapFloatVectorValueBitsEnum::Sparse(e) => e.copy_of(),
+    }
+  }
+
+  fn as_string(&self) -> String {
+    match self {
+      OffHeapFloatVectorValueBitsEnum::Dense(e) => e.as_string(),
+      OffHeapFloatVectorValueBitsEnum::Sparse(e) => e.as_string(),
+    }
+  }
+}
+
+pub enum IterEnum<I>
+where
+  I: IndexInput,
+{
+  Empty(DenseDocIndexIterator),
+  Dense(DenseDocIndexIterator),
+  Sparse(DocIndexIteratorImpl<I>),
+}
+
+impl<I> DocIdSetIterator for IterEnum<I>
+where
+  I: IndexInput,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      IterEnum::Empty(e) => e.doc_id(),
+      IterEnum::Dense(e) => e.doc_id(),
+      IterEnum::Sparse(e) => e.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      IterEnum::Empty(e) => e.next_doc(),
+      IterEnum::Dense(e) => e.next_doc(),
+      IterEnum::Sparse(e) => e.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    match self {
+      IterEnum::Empty(e) => e.advance(_target),
+      IterEnum::Dense(e) => e.advance(_target),
+      IterEnum::Sparse(e) => e.advance(_target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      IterEnum::Empty(e) => e.slow_advance(target),
+      IterEnum::Dense(e) => e.slow_advance(target),
+      IterEnum::Sparse(e) => e.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      IterEnum::Empty(e) => e.cost(),
+      IterEnum::Dense(e) => e.cost(),
+      IterEnum::Sparse(e) => e.cost(),
+    }
+  }
+}
+
+impl<I> DocIndexIterator for IterEnum<I>
+where
+  I: IndexInput,
+{
+  fn index(&self) -> Result<i32> {
+    match self {
+      IterEnum::Empty(e) => e.index(),
+      IterEnum::Dense(e) => e.index(),
+      IterEnum::Sparse(e) => e.index(),
+    }
+  }
+}
+
+pub enum VectorScorerEnum<I, R1, R2>
+where
+  I: IndexInput,
+  R1: RandomVectorScorer,
+  R2: RandomVectorScorer,
+{
+  Dense {
+    iterator: DocIdSetIteratorEnum2<DenseDocIndexIterator, DocIndexIteratorImpl<I>>,
+    random_vector_scorer: R1,
+  },
+  Sparse {
+    iterator: DocIdSetIteratorEnum2<DenseDocIndexIterator, DocIndexIteratorImpl<I>>,
+    random_vector_scorer: R2,
+  },
+}
+
+impl<I, R1, R2> VectorScorerEnum<I, R1, R2>
+where
+  I: IndexInput,
+  R1: RandomVectorScorer,
+  R2: RandomVectorScorer,
+{
+  fn new_dense(iterator: DenseDocIndexIterator, random_vector_scorer: R1) -> Self {
+    Self::Dense {
+      iterator: DocIdSetIteratorEnum2::A(iterator),
+      random_vector_scorer,
+    }
+  }
+
+  fn new_sparse(iterator: DocIndexIteratorImpl<I>, random_vector_scorer: R2) -> Self {
+    Self::Sparse {
+      iterator: DocIdSetIteratorEnum2::B(iterator),
+      random_vector_scorer,
+    }
+  }
+}
+impl<I, R1, R2> VectorScorer for VectorScorerEnum<I, R1, R2>
+where
+  I: IndexInput,
+  R1: RandomVectorScorer,
+  R2: RandomVectorScorer,
+{
+  fn score(&mut self) -> Result<f32> {
+    match self {
+      VectorScorerEnum::Dense {
+        iterator,
+        random_vector_scorer,
+      } => {
+        let doc_id = iterator.doc_id().try_convert()?;
+        random_vector_scorer.score(doc_id)
+      },
+      VectorScorerEnum::Sparse {
+        iterator,
+        random_vector_scorer,
+      } => {
+        let index = match iterator {
+          DocIdSetIteratorEnum2::B(iterator) => iterator.index()?,
+          DocIdSetIteratorEnum2::A(_) => {
+            unreachable!("sparse vector scorer must use sparse iterator")
+          },
+        };
+        random_vector_scorer.score(index as usize)
+      },
+    }
+  }
+
+  type DocIdSetIterator = DocIdSetIteratorEnum2<DenseDocIndexIterator, DocIndexIteratorImpl<I>>;
+
+  fn iterator(&self) -> &Self::DocIdSetIterator {
+    match self {
+      VectorScorerEnum::Dense { iterator, .. } => iterator,
+      VectorScorerEnum::Sparse { iterator, .. } => iterator,
+    }
+  }
+
+  fn iterator_mut(&mut self) -> &mut Self::DocIdSetIterator {
+    match self {
+      VectorScorerEnum::Dense { iterator, .. } => iterator,
+      VectorScorerEnum::Sparse { iterator, .. } => iterator,
+    }
+  }
+}
+
+impl<I, F> OffHeapFloatVectorValuesEnum<I, F>
+where
+  I: IndexInput<IndexInput = I>,
+  F: FlatVectorsScorer,
+{
+  #[allow(clippy::too_many_arguments)]
+  pub fn load(
+    vector_similarity_function: VectorSimilarityFunction,
+    flat_vectors_scorer: F,
+    configuration: OrdToDocDISIReaderConfiguration,
+    vector_encoding: VectorEncoding,
+    dimension: usize,
+    vector_data_offset: usize,
+    vector_data_length: usize,
+    vector_data: I,
+  ) -> Result<Self> {
+    if configuration.docs_with_field_offset == -2 || vector_encoding != VectorEncoding::FLOAT32(4) {
+      return Ok(Self::Empty(EmptyOffHeapVectorValues::new(dimension)));
+    }
+
+    let bytes_slice = vector_data.slice("vector-data", vector_data_offset, vector_data_length)?;
+    let byte_size = dimension
+      .checked_mul(vector_encoding.byte_size())
+      .ok_or_else(|| LuceneError::illegal_state("vector byte size overflow"))?;
+
+    if configuration.docs_with_field_offset == -1 {
+      Ok(Self::Dense(DenseOffHeapVectorValues::new(
+        dimension,
+        configuration.size.try_convert()?,
+        bytes_slice,
+        byte_size,
+        flat_vectors_scorer,
+        vector_similarity_function,
+      )?))
+    } else {
+      Ok(Self::Sparse(SparseOffHeapVectorValues::new(
+        configuration,
+        vector_data,
+        bytes_slice,
+        dimension,
+        byte_size,
+        flat_vectors_scorer,
+        vector_similarity_function,
+      )?))
+    }
   }
 }
