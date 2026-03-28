@@ -27,7 +27,7 @@ use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSu
 use std::fmt::{Display, Formatter};
 
 /// Default implementation of [`FlatVectorsScorer`].
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct DefaultFlatVectorScorer;
 
 impl Display for DefaultFlatVectorScorer {

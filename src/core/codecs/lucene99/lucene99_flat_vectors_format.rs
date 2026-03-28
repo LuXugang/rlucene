@@ -67,6 +67,7 @@ pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 /// - DocIds were encoded by [`IndexedDISI::write_bit_set`]
 /// - OrdToDoc was encoded by [`DirectMonotonicWriter`], note
 ///   that only in sparse case
+#[derive(Debug)]
 pub struct Lucene99FlatVectorsFormat<F, V>
 where
   F: FlatVectorsScorer,
@@ -87,6 +88,7 @@ where
     }
   }
 }
+
 // Float
 impl<F> Display for Lucene99FlatVectorsFormat<F, f32>
 where
