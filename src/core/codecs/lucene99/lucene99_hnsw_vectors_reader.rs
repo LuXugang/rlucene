@@ -63,7 +63,7 @@ where
 impl<F, I> Lucene99HnswVectorsReader<F, I>
 where
   F: FlatVectorsReader,
-  I: IndexInput<IndexInput = I>,
+  I: IndexInput,
 {
   pub fn new<D1, D2>(
     state: &SegmentReadState<D1>,
@@ -328,7 +328,7 @@ where
 impl<F, I> HnswGraphProvider for Lucene99HnswVectorsReader<F, I>
 where
   F: FlatVectorsReader,
-  I: IndexInput<IndexInput = I>,
+  I: IndexInput,
 {
   type Graph = HnswGraphEnum<I>;
 
@@ -431,7 +431,7 @@ where
 impl<F, I> KnnVectorsReader for Lucene99HnswVectorsReader<F, I>
 where
   F: FlatVectorsReader,
-  I: IndexInput<IndexInput = I>,
+  I: IndexInput,
 {
   fn check_integrity(&self) -> Result<()> {
     self.flat_vectors_reader.check_integrity()?;
@@ -645,7 +645,7 @@ pub struct OffHeapHnswGraph<I>
 where
   I: IndexInput,
 {
-  data_in: I,
+  data_in: I::IndexInput,
   nodes_by_level: Arc<Vec<Arc<Vec<usize>>>>,
   num_levels: usize,
   entry_node: usize,
@@ -660,7 +660,7 @@ where
 }
 impl<I> OffHeapHnswGraph<I>
 where
-  I: IndexInput<IndexInput = I>,
+  I: IndexInput,
 {
   pub fn new(entry: &FieldEntry, vector_index: &I) -> Result<Self> {
     let data_in = vector_index.slice(
