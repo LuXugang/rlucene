@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Vectors’ writer for a field.
 ///
@@ -23,17 +24,16 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///
 /// - `T`: an array type; the type of vectors to be written.
 pub trait KnnFieldVectorsWriter: Accountable {
-  type V;
   /// Adds a new doc ID with its vector value to the given field for indexing.
   /// Doc IDs must be added in increasing order.
   fn add_value<F>(
     &mut self,
     _doc_id: i32,
-    _vector_value: Self::V,
+    _vector_value: VectorValueEnum,
     _flat_field_vectors_writers: &mut [F],
   ) -> Result<()>
   where
-    F: FlatFieldVectorsWriter<V = Self::V>,
+    F: FlatFieldVectorsWriter,
   {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -46,7 +46,55 @@ pub trait KnnFieldVectorsWriter: Accountable {
   /// # Returns
   ///
   /// A copy of the value; a new array.
-  fn copy_value(&self, _vector_value: &Self::V) -> Result<Self::V> {
+  fn copy_value(&self, _vector_value: &VectorValueEnum) -> Result<VectorValueEnum> {
     Err(LuceneError::unsupported_operation(""))
+  }
+}
+#[derive(Clone)]
+pub enum VectorValueEnum {
+  Byte(Vec<u8>),
+  Float(Vec<f32>),
+}
+impl VectorValueEnum {
+  pub(crate) fn copy_value(&self, offset: usize, dim: usize) -> VectorValueEnum {
+    match self {
+      Self::Byte(v) => {
+        let v = ArrayUtil::copy_of_sub_array(v, offset, offset + dim);
+        VectorValueEnum::Byte(v)
+      },
+      Self::Float(v) => {
+        let v = ArrayUtil::copy_of_sub_array(v, offset, offset + dim);
+        VectorValueEnum::Float(v)
+      },
+    }
+  }
+  pub(crate) fn len(&self) -> usize {
+    match self {
+      Self::Byte(v) => v.len(),
+      Self::Float(v) => v.len(),
+    }
+  }
+  pub(crate) fn as_bytes(&self) -> Result<&[u8]> {
+    match self {
+      Self::Byte(v) => Ok(v),
+      Self::Float(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+  pub(crate) fn write_float(&self, chunk: &mut [u8]) -> Result<()> {
+    match self {
+      Self::Byte(_) => Err(LuceneError::unsupported_operation("")),
+      Self::Float(v) => {
+        let byte_len = v.len() * 4;
+        debug_assert!(chunk.len() == byte_len);
+
+        let mut offset = 0;
+        for f in v {
+          let bytes = f.to_le_bytes();
+          chunk[offset..offset + 4].copy_from_slice(&bytes);
+          offset += 4;
+        }
+        Ok(())
+      },
+    }
   }
 }

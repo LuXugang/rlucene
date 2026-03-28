@@ -26,7 +26,6 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
-use std::marker::PhantomData;
 
 pub(crate) const NAME: &str = "Lucene99FlatVectorsFormat";
 pub(crate) const META_CODEC_NAME: &str = "Lucene99FlatVectorsFormatMeta";
@@ -68,27 +67,22 @@ pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 /// - OrdToDoc was encoded by [`DirectMonotonicWriter`], note
 ///   that only in sparse case
 #[derive(Debug)]
-pub struct Lucene99FlatVectorsFormat<F, V>
+pub struct Lucene99FlatVectorsFormat<F>
 where
   F: FlatVectorsScorer,
 {
   vectors_scorer: F,
-  _marker: PhantomData<V>,
 }
-impl<F, V> Lucene99FlatVectorsFormat<F, V>
+impl<F> Lucene99FlatVectorsFormat<F>
 where
   F: FlatVectorsScorer + Clone,
 {
   pub fn new(vectors_scorer: F) -> Self {
-    Self {
-      vectors_scorer,
-      _marker: PhantomData,
-    }
+    Self { vectors_scorer }
   }
 }
 
-// Float
-impl<F> Display for Lucene99FlatVectorsFormat<F, f32>
+impl<F> Display for Lucene99FlatVectorsFormat<F>
 where
   F: Clone + FlatVectorsScorer,
 {
@@ -101,11 +95,11 @@ where
   }
 }
 
-impl<F> KnnVectorsFormat for Lucene99FlatVectorsFormat<F, f32>
+impl<F> KnnVectorsFormat for Lucene99FlatVectorsFormat<F>
 where
   F: Clone + FlatVectorsScorer,
 {
-  type KnnVectorsWriter<T: IndexOutput> = Lucene99FlatVectorsWriter<T, F, f32>;
+  type KnnVectorsWriter<T: IndexOutput> = Lucene99FlatVectorsWriter<T, F>;
 
   fn fields_writer<D1, D2>(
     &self,
@@ -138,95 +132,11 @@ where
   }
 }
 
-impl<F> FlatVectorsFormat for Lucene99FlatVectorsFormat<F, f32>
+impl<F> FlatVectorsFormat for Lucene99FlatVectorsFormat<F>
 where
   F: FlatVectorsScorer + Clone,
 {
-  type FlatVectorsWriter<T: IndexOutput> = Lucene99FlatVectorsWriter<T, F, f32>;
-
-  fn fields_writer<D1, D2>(
-    &self,
-    state: &SegmentWriteState<D1>,
-    segment_info: &SegmentInfo<D2>,
-  ) -> Result<Self::FlatVectorsWriter<D1::IndexOutput>>
-  where
-    D1: Directory,
-    D2: Directory,
-  {
-    Lucene99FlatVectorsWriter::new(state, self.vectors_scorer.clone(), segment_info)
-  }
-
-  type FlatVectorsReader<T: IndexInput> = Lucene99FlatVectorsReader<T, F>;
-
-  fn fields_reader<D1, D2>(
-    &self,
-    state: &SegmentReadState<D1>,
-    segment_info: &mut SegmentInfo<D2>,
-  ) -> Result<Self::FlatVectorsReader<D1::IndexInput>>
-  where
-    D1: Directory,
-    D2: Directory,
-  {
-    Lucene99FlatVectorsReader::new(state, self.vectors_scorer.clone(), segment_info)
-  }
-}
-
-// Byte
-impl<F> Display for Lucene99FlatVectorsFormat<F, u8>
-where
-  F: Clone + FlatVectorsScorer,
-{
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(
-      f,
-      "Lucene99FlatVectorsFormat(vectorsScorer={})",
-      self.vectors_scorer
-    )
-  }
-}
-
-impl<F> KnnVectorsFormat for Lucene99FlatVectorsFormat<F, u8>
-where
-  F: Clone + FlatVectorsScorer,
-{
-  type KnnVectorsWriter<T: IndexOutput> = Lucene99FlatVectorsWriter<T, F, u8>;
-
-  fn fields_writer<D1, D2>(
-    &self,
-    state: &SegmentWriteState<D1>,
-    segment_info: &SegmentInfo<D2>,
-  ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
-  where
-    D1: Directory,
-    D2: Directory,
-  {
-    FlatVectorsFormat::fields_writer(self, state, segment_info)
-  }
-
-  type KnnVectorsReader<T: IndexInput> = Lucene99FlatVectorsReader<T, F>;
-
-  fn fields_reader<D1, D2>(
-    &self,
-    state: &SegmentReadState<D1>,
-    segment_info: &mut SegmentInfo<D2>,
-  ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
-  where
-    D1: Directory,
-    D2: Directory,
-  {
-    FlatVectorsFormat::fields_reader(self, state, segment_info)
-  }
-
-  fn get_max_dimensions(&self, field_name: &str) -> usize {
-    FlatVectorsFormat::get_max_dimensions(self, field_name)
-  }
-}
-
-impl<F> FlatVectorsFormat for Lucene99FlatVectorsFormat<F, u8>
-where
-  F: FlatVectorsScorer + Clone,
-{
-  type FlatVectorsWriter<T: IndexOutput> = Lucene99FlatVectorsWriter<T, F, u8>;
+  type FlatVectorsWriter<T: IndexOutput> = Lucene99FlatVectorsWriter<T, F>;
 
   fn fields_writer<D1, D2>(
     &self,

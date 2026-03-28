@@ -18,7 +18,7 @@ use crate::core::codecs::CodecUtil;
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::{FlatVectorsWriter, FlatVectorsWriterSs};
-use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
+use crate::core::codecs::knn_field_vectors_writer::{KnnFieldVectorsWriter, VectorValueEnum};
 use crate::core::codecs::knn_vectors_writer::{KnnVectorsWriter, map_old_ord_to_new_ord};
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::{
   DIRECT_MONOTONIC_BLOCK_SHIFT, META_CODEC_NAME, META_EXTENSION, VECTOR_INDEX_CODEC_NAME,
@@ -823,16 +823,14 @@ where
   B: BitSet,
   H: HnswGraphSearcherBase,
 {
-  type V = Vec<u8>;
-
   fn add_value<F>(
     &mut self,
     doc_id: i32,
-    vector_value: Self::V,
+    vector_value: VectorValueEnum,
     flat_field_vectors_writers: &mut [F],
   ) -> Result<()>
   where
-    F: FlatFieldVectorsWriter<V = Self::V>,
+    F: FlatFieldVectorsWriter,
   {
     if doc_id == self.last_doc_id {
       return Err(LuceneError::illegal_argument(format!(
@@ -844,7 +842,7 @@ where
       .get_mut(self.flat_field_vectors_writer_idx)
       .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
     let ss = self.hnsw_graph_builder.get_scorer_supplier_mut();
-    let vectors = ss.get_vector_byte_mut()?;
+    let vectors = ss.get_vector_mut()?;
     FlatFieldVectorsWriter::flat_add_value::<F>(
       flat_field_vectors_writer,
       doc_id,
@@ -863,16 +861,14 @@ where
   B: BitSet,
   H: HnswGraphSearcherBase,
 {
-  type V = Vec<f32>;
-
   fn add_value<F>(
     &mut self,
     doc_id: i32,
-    vector_value: Self::V,
+    vector_value: VectorValueEnum,
     flat_field_vectors_writers: &mut [F],
   ) -> Result<()>
   where
-    F: FlatFieldVectorsWriter<V = Self::V>,
+    F: FlatFieldVectorsWriter,
   {
     if doc_id == self.last_doc_id {
       return Err(LuceneError::illegal_argument(format!(
@@ -884,7 +880,7 @@ where
       .get_mut(self.flat_field_vectors_writer_idx)
       .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
     let ss = self.hnsw_graph_builder.get_scorer_supplier_mut();
-    let vectors = ss.get_vector_float_mut()?;
+    let vectors = ss.get_vector_mut()?;
     FlatFieldVectorsWriter::flat_add_value::<F>(
       flat_field_vectors_writer,
       doc_id,

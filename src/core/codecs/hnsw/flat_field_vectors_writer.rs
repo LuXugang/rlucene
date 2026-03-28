@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
+use crate::core::codecs::knn_field_vectors_writer::{KnnFieldVectorsWriter, VectorValueEnum};
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
@@ -22,7 +22,7 @@ use std::sync::Arc;
 /// Vectors' writer for a field
 pub trait FlatFieldVectorsWriter: KnnFieldVectorsWriter {
   /// Returns a list of vectors to be written.
-  fn get_vectors(&self) -> Result<Arc<Vec<Self::V>>> {
+  fn get_vectors(&self) -> Result<Arc<Vec<VectorValueEnum>>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -38,7 +38,7 @@ pub trait FlatFieldVectorsWriter: KnnFieldVectorsWriter {
   fn flat_add_value<F>(
     &mut self,
     doc_id: i32,
-    vector_value: Self::V,
-    vector: &mut Vec<Self::V>,
+    vector_value: VectorValueEnum,
+    vector: &mut Vec<VectorValueEnum>,
   ) -> Result<()>;
 }

@@ -31,7 +31,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::hnsw_graph_builder::DEFAULT_MAX_CONN as OtherDEFAULT_MAX_CONN;
 use once_cell::sync::Lazy;
 use std::fmt::{Display, Formatter};
-use std::marker::PhantomData;
 
 pub(crate) const META_CODEC_NAME: &str = "Lucene99HnswVectorsFormatMeta";
 pub(crate) const VECTOR_INDEX_CODEC_NAME: &str = "Lucene99HnswVectorsFormatIndex";
@@ -60,17 +59,11 @@ pub const DEFAULT_BEAM_WIDTH: usize = DEFAULT_MAX_CONN;
 /// Default to use single thread merge
 pub const DEFAULT_NUM_MERGE_WORKER: i32 = 1;
 
-pub static FLAT_VECTORS_FORMAT_U8: Lazy<Lucene99FlatVectorsFormat<DefaultFlatVectorScorer, u8>> =
+pub static FLAT_VECTORS_FORMAT: Lazy<Lucene99FlatVectorsFormat<DefaultFlatVectorScorer>> =
   Lazy::new(|| {
     let scorer = LUCENE99_FLAT_VECTORS_SCORER.clone();
     Lucene99FlatVectorsFormat::new(scorer)
   });
-pub static FLAT_VECTORS_FORMAT_FLOAT: Lazy<
-  Lucene99FlatVectorsFormat<DefaultFlatVectorScorer, f32>,
-> = Lazy::new(|| {
-  let scorer = LUCENE99_FLAT_VECTORS_SCORER.clone();
-  Lucene99FlatVectorsFormat::new(scorer)
-});
 
 pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 /// Lucene 9.9 vector format, which encodes numeric vector values into an associated graph connecting
@@ -105,13 +98,12 @@ pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 ///   - **[vint]** the number of nodes on this level
 ///   - **array[vint]** for levels greater than 0 list of nodes on this level, stored as
 ///     the level 0th delta encoded nodes' ordinals.
-pub struct Lucene99HnswVectorsFormat<V> {
+pub struct Lucene99HnswVectorsFormat {
   max_conn: usize,
   beam_width: usize,
   num_merge_workers: usize,
-  _marker: PhantomData<V>,
 }
-impl<V> Lucene99HnswVectorsFormat<V> {
+impl Lucene99HnswVectorsFormat {
   /// Constructs a format using default graph construction parameters
   pub fn new() -> Result<Self> {
     Self::with_graph_para(DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, DEFAULT_BEAM_WIDTH)
@@ -151,23 +143,22 @@ impl<V> Lucene99HnswVectorsFormat<V> {
       max_conn,
       beam_width,
       num_merge_workers,
-      _marker: std::marker::PhantomData,
     })
   }
 }
-impl Display for Lucene99HnswVectorsFormat<u8> {
+impl Display for Lucene99HnswVectorsFormat {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
       "Lucene99HnswVectorsFormat(name=Lucene99HnswVectorsFormat, maxConn={}, beamWidth={}, flatVectorFormat={:?})",
-      self.max_conn, self.beam_width, FLAT_VECTORS_FORMAT_U8,
+      self.max_conn, self.beam_width, FLAT_VECTORS_FORMAT,
     )
   }
 }
 
-impl KnnVectorsFormat for Lucene99HnswVectorsFormat<u8> {
+impl KnnVectorsFormat for Lucene99HnswVectorsFormat {
   type KnnVectorsWriter<T: IndexOutput> =
-    Lucene99HnswVectorsWriter<Lucene99FlatVectorsWriter<T, DefaultFlatVectorScorer, u8>, T, u8>;
+    Lucene99HnswVectorsWriter<Lucene99FlatVectorsWriter<T, DefaultFlatVectorScorer>, T, u8>;
 
   fn fields_writer<D1, D2>(
     &self,
@@ -178,7 +169,7 @@ impl KnnVectorsFormat for Lucene99HnswVectorsFormat<u8> {
     D1: Directory,
     D2: Directory,
   {
-    let flat_writer = FLAT_VECTORS_FORMAT_U8.fields_writer(state, segment_info)?;
+    let flat_writer = FLAT_VECTORS_FORMAT.fields_writer(state, segment_info)?;
     Lucene99HnswVectorsWriter::new(
       state,
       self.max_conn,
@@ -201,62 +192,7 @@ impl KnnVectorsFormat for Lucene99HnswVectorsFormat<u8> {
     D1: Directory,
     D2: Directory,
   {
-    let flat_reader = FLAT_VECTORS_FORMAT_U8.fields_reader(state, segment_info)?;
-    Lucene99HnswVectorsReader::new(state, flat_reader, segment_info)
-  }
-
-  fn get_max_dimensions(&self, _field_name: &str) -> usize {
-    1024
-  }
-}
-
-impl Display for Lucene99HnswVectorsFormat<f32> {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(
-      f,
-      "Lucene99HnswVectorsFormat(name=Lucene99HnswVectorsFormat, maxConn={}, beamWidth={}, flatVectorFormat={:?})",
-      self.max_conn, self.beam_width, FLAT_VECTORS_FORMAT_FLOAT,
-    )
-  }
-}
-
-impl KnnVectorsFormat for Lucene99HnswVectorsFormat<f32> {
-  type KnnVectorsWriter<T: IndexOutput> =
-    Lucene99HnswVectorsWriter<Lucene99FlatVectorsWriter<T, DefaultFlatVectorScorer, f32>, T, f32>;
-
-  fn fields_writer<D1, D2>(
-    &self,
-    state: &SegmentWriteState<D1>,
-    segment_info: &SegmentInfo<D2>,
-  ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
-  where
-    D1: Directory,
-    D2: Directory,
-  {
-    let flat_writer = FLAT_VECTORS_FORMAT_FLOAT.fields_writer(state, segment_info)?;
-    Lucene99HnswVectorsWriter::new(
-      state,
-      self.max_conn,
-      self.beam_width,
-      flat_writer,
-      self.num_merge_workers,
-      segment_info,
-    )
-  }
-
-  type KnnVectorsReader<T: IndexInput> =
-    Lucene99HnswVectorsReader<Lucene99FlatVectorsReader<T, DefaultFlatVectorScorer>, T>;
-
-  fn fields_reader<D1, D2>(
-    &self,
-    state: &SegmentReadState<D1>,
-    segment_info: &mut SegmentInfo<D2>,
-  ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
-  where
-    D1: Directory,
-    D2: Directory,
-  {
-    let flat_reader = FLAT_VECTORS_FORMAT_FLOAT.fields_reader(state, segment_info)?;
+    let flat_reader = FLAT_VECTORS_FORMAT.fields_reader(state, segment_info)?;
     Lucene99HnswVectorsReader::new(state, flat_reader, segment_info)
   }
 

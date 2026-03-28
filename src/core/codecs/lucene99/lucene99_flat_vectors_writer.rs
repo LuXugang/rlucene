@@ -18,7 +18,7 @@ use crate::core::codecs::CodecUtil;
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::FlatVectorsWriter;
-use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
+use crate::core::codecs::knn_field_vectors_writer::{KnnFieldVectorsWriter, VectorValueEnum};
 use crate::core::codecs::knn_vectors_writer::{KnnVectorsWriter, map_old_ord_to_new_ord};
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::DIRECT_MONOTONIC_BLOCK_SHIFT;
@@ -43,22 +43,20 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Writes vector values to index segments.
-pub struct Lucene99FlatVectorsWriter<O, F, T> {
+pub struct Lucene99FlatVectorsWriter<O, F> {
   meta: O,
   vector_data: O,
-  fields: Vec<FlatFieldWriter<T>>,
+  fields: Vec<FlatFieldWriter>,
   finished: bool,
   flat_vectors_scorer: F,
 }
-impl<O, F, T> Lucene99FlatVectorsWriter<O, F, T>
+impl<O, F> Lucene99FlatVectorsWriter<O, F>
 where
   O: IndexOutput,
   F: FlatVectorsScorer,
@@ -112,35 +110,35 @@ where
     })
   }
 
-  fn write_float32_vectors(vector_data: &mut O, dim: usize, vectors: &[Vec<f32>]) -> Result<()> {
+  fn write_float32_vectors(
+    vector_data: &mut O,
+    dim: usize,
+    vectors: &[VectorValueEnum],
+  ) -> Result<()> {
     let byte_size = BitUtil::FLOAT_BYTES;
     let mut buffer = vec![0u8; dim * byte_size];
 
     for vector in vectors.iter() {
       debug_assert_eq!(vector.len(), dim);
-
-      for (chunk, &v) in buffer.chunks_exact_mut(byte_size).zip(vector.iter()) {
-        chunk.copy_from_slice(&v.to_le_bytes());
-      }
-
+      vector.write_float(&mut buffer)?;
       vector_data.write_bytes_range(&buffer, 0, buffer.len())?;
     }
 
     Ok(())
   }
 
-  fn write_byte_vectors(vector_data: &mut O, vectors: &[Vec<u8>]) -> Result<()> {
+  fn write_byte_vectors(vector_data: &mut O, vectors: &[VectorValueEnum]) -> Result<()> {
     for vector in vectors.iter() {
-      vector_data.write_bytes_range(vector, 0, vector.len())?;
+      vector_data.write_bytes_range(vector.as_bytes()?, 0, vector.len())?;
     }
 
     Ok(())
   }
   fn write_sorted_float32_vectors(
     vector_data: &mut O,
-    field_data: &FlatFieldWriter<f32>,
+    field_data: &FlatFieldWriter,
     ord_map: &[usize],
-    vectors: &[Vec<f32>],
+    vectors: &[VectorValueEnum],
   ) -> Result<usize>
   where
     O: IndexOutput,
@@ -154,9 +152,7 @@ where
     for &ord in ord_map {
       let vector = &vectors[ord];
       debug_assert_eq!(vector.len(), dim);
-      for (chunk, &v) in buffer.chunks_exact_mut(byte_size).zip(vector.iter()) {
-        chunk.copy_from_slice(&v.to_le_bytes());
-      }
+      vector.write_float(&mut buffer)?;
       vector_data.write_bytes_range(&buffer, 0, buffer.len())?;
     }
 
@@ -165,7 +161,7 @@ where
   fn write_sorted_byte_vectors(
     vector_data: &mut O,
     ord_map: &[usize],
-    vectors: &[Vec<u8>],
+    vectors: &[VectorValueEnum],
   ) -> Result<usize>
   where
     O: IndexOutput,
@@ -173,7 +169,7 @@ where
     let vector_data_offset = vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
     for &ord in ord_map {
       let vector = &vectors[ord];
-      vector_data.write_bytes_range(vector, 0, vector.len())?;
+      vector_data.write_bytes_range(vector.as_bytes()?, 0, vector.len())?;
     }
     Ok(vector_data_offset)
   }
@@ -191,8 +187,97 @@ where
 
     Ok(())
   }
+  fn write_field(
+    &mut self,
+    field_data_idx: usize,
+    max_doc: i32,
+    vectors: &[VectorValueEnum],
+  ) -> Result<()>
+  where
+    O: IndexOutput,
+  {
+    let field_data = self.fields.get(field_data_idx).ok_or_else(|| {
+      LuceneError::illegal_argument(format!("Invalid field_data_idx: {}", field_data_idx))
+    })?;
+    let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
+
+    match field_data.field_info.get_vector_encoding() {
+      VectorEncoding::BYTE(_) => {
+        Self::write_byte_vectors(&mut self.vector_data, vectors)?;
+      },
+      VectorEncoding::FLOAT32(_) => {
+        Self::write_float32_vectors(&mut self.vector_data, field_data.dim, vectors)?;
+      },
+    }
+
+    let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
+
+    write_meta(
+      &mut self.meta,
+      &mut self.vector_data,
+      &field_data.field_info,
+      max_doc,
+      vector_data_offset as i64,
+      vector_data_length as i64,
+      field_data.get_docs_with_field_set(),
+    )?;
+
+    Ok(())
+  }
+  fn write_sorting_field<DM>(
+    &mut self,
+    field_data_idx: usize,
+    max_doc: i32,
+    sort_map: &DM,
+    vectors: &[VectorValueEnum],
+  ) -> Result<()>
+  where
+    DM: DocMap,
+  {
+    let field_data = self.fields.get(field_data_idx).ok_or_else(|| {
+      LuceneError::illegal_argument(format!("Invalid field_data_idx: {}", field_data_idx))
+    })?;
+
+    let cardinality = field_data.get_docs_with_field_set().cardinality() as usize;
+
+    // new ord -> old ord
+    let mut ord_map = vec![0usize; cardinality];
+
+    let mut new_docs_with_field = DocsWithFieldSet::new();
+
+    map_old_ord_to_new_ord(
+      field_data.get_docs_with_field_set(),
+      sort_map,
+      None,
+      Some(&mut ord_map),
+      Some(&mut new_docs_with_field),
+    )?;
+
+    // write vector values
+    let vector_data_offset = match field_data.field_info.get_vector_encoding() {
+      VectorEncoding::BYTE(_) => {
+        Self::write_sorted_byte_vectors(&mut self.vector_data, &ord_map, vectors)?
+      },
+      VectorEncoding::FLOAT32(_) => {
+        Self::write_sorted_float32_vectors(&mut self.vector_data, field_data, &ord_map, vectors)?
+      },
+    };
+    let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
+
+    write_meta(
+      &mut self.meta,
+      &mut self.vector_data,
+      &field_data.field_info,
+      max_doc,
+      vector_data_offset as i64,
+      vector_data_length as i64,
+      &new_docs_with_field,
+    )?;
+
+    Ok(())
+  }
 }
-impl<O, F, T> Accountable for Lucene99FlatVectorsWriter<O, F, T>
+impl<O, F> Accountable for Lucene99FlatVectorsWriter<O, F>
 where
   F: FlatVectorsScorer,
   O: IndexOutput,
@@ -202,68 +287,14 @@ where
   }
 }
 
-impl<O, F> KnnVectorsWriter for Lucene99FlatVectorsWriter<O, F, u8>
-where
-  O: IndexOutput,
-  F: FlatVectorsScorer,
-{
-}
-impl<O, F> KnnVectorsWriter for Lucene99FlatVectorsWriter<O, F, f32>
+impl<O, F> KnnVectorsWriter for Lucene99FlatVectorsWriter<O, F>
 where
   O: IndexOutput,
   F: FlatVectorsScorer,
 {
 }
 
-impl<O, F> FlatVectorsWriter for Lucene99FlatVectorsWriter<O, F, u8>
-where
-  O: IndexOutput,
-  F: FlatVectorsScorer,
-{
-  type FlatVectorsScorer = F;
-
-  fn get_flat_vector_scorer(&self) -> &Self::FlatVectorsScorer {
-    &self.flat_vectors_scorer
-  }
-
-  fn flat_add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
-    let idx = self.fields.len();
-    let new_field = create_from_byte(field_info, idx);
-    self.fields.push(new_field);
-    Ok(idx)
-  }
-
-  fn flat_flush<DM, F1, V>(
-    &mut self,
-    max_doc: i32,
-    sort_map: Option<&DM>,
-    fields: &[FieldWriterType<DefaultRandomVectorScorerSupplier<F1>, V>],
-  ) -> Result<()>
-  where
-    DM: DocMap,
-    F1: FlatVectorsWriter,
-  {
-    for idx in 0..self.fields.len() {
-      let fields = &fields[idx];
-      let ss = fields.hnsw_graph_builder.get_scorer_supplier();
-      let vectors = ss.get_vector_byte()?;
-      if let Some(sm) = sort_map {
-        self.write_sorting_field(idx, max_doc, sm, vectors)?;
-      } else {
-        self.write_field(idx, max_doc, vectors)?;
-      }
-      self.fields[idx].finish()?;
-    }
-    Ok(())
-  }
-
-  type FlatFieldVectorsWriter = FlatFieldWriter<u8>;
-
-  fn get_fields_mut(&mut self) -> &mut [Self::FlatFieldVectorsWriter] {
-    self.fields.as_mut()
-  }
-}
-impl<O, F> FlatVectorsWriter for Lucene99FlatVectorsWriter<O, F, f32>
+impl<O, F> FlatVectorsWriter for Lucene99FlatVectorsWriter<O, F>
 where
   O: IndexOutput,
   F: FlatVectorsScorer,
@@ -276,7 +307,7 @@ where
 
   fn flat_add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
     let len = self.fields.len();
-    let new_field = create_from_float(field_info, len);
+    let new_field = FlatFieldWriter::new(field_info, len);
     self.fields.push(new_field);
     Ok(len)
   }
@@ -294,7 +325,7 @@ where
     for idx in 0..self.fields.len() {
       let fields = &fields[idx];
       let ss = fields.hnsw_graph_builder.get_scorer_supplier();
-      let vectors = ss.get_vector_float()?;
+      let vectors = ss.get_vector()?;
       if let Some(sm) = sort_map {
         self.write_sorting_field(idx, max_doc, sm, vectors)?;
       } else {
@@ -305,165 +336,10 @@ where
     Ok(())
   }
 
-  type FlatFieldVectorsWriter = FlatFieldWriter<f32>;
+  type FlatFieldVectorsWriter = FlatFieldWriter;
 
   fn get_fields_mut(&mut self) -> &mut [Self::FlatFieldVectorsWriter] {
     self.fields.as_mut()
-  }
-}
-impl<O, F> Lucene99FlatVectorsWriter<O, F, u8>
-where
-  O: IndexOutput,
-  F: FlatVectorsScorer,
-{
-  fn write_sorting_field<DM>(
-    &mut self,
-    field_data_idx: usize,
-    max_doc: i32,
-    sort_map: &DM,
-    vectors: &[Vec<u8>],
-  ) -> Result<()>
-  where
-    DM: DocMap,
-  {
-    let field_data = self.fields.get(field_data_idx).ok_or_else(|| {
-      LuceneError::illegal_argument(format!("Invalid field_data_idx: {}", field_data_idx))
-    })?;
-
-    let cardinality = field_data.get_docs_with_field_set().cardinality() as usize;
-
-    // new ord -> old ord
-    let mut ord_map = vec![0usize; cardinality];
-
-    let mut new_docs_with_field = DocsWithFieldSet::new();
-
-    map_old_ord_to_new_ord(
-      field_data.get_docs_with_field_set(),
-      sort_map,
-      None,
-      Some(&mut ord_map),
-      Some(&mut new_docs_with_field),
-    )?;
-
-    // write vector values
-    let vector_data_offset =
-      Self::write_sorted_byte_vectors(&mut self.vector_data, &ord_map, vectors)?;
-
-    let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
-
-    write_meta(
-      &mut self.meta,
-      &mut self.vector_data,
-      &field_data.field_info,
-      max_doc,
-      vector_data_offset as i64,
-      vector_data_length as i64,
-      &new_docs_with_field,
-    )?;
-
-    Ok(())
-  }
-  fn write_field(&mut self, field_data_idx: usize, max_doc: i32, vectors: &[Vec<u8>]) -> Result<()>
-  where
-    O: IndexOutput,
-  {
-    let field_data = self.fields.get(field_data_idx).ok_or_else(|| {
-      LuceneError::illegal_argument(format!("Invalid field_data_idx: {}", field_data_idx))
-    })?;
-    let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
-
-    Self::write_byte_vectors(&mut self.vector_data, vectors)?;
-
-    let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
-
-    write_meta(
-      &mut self.meta,
-      &mut self.vector_data,
-      &field_data.field_info,
-      max_doc,
-      vector_data_offset as i64,
-      vector_data_length as i64,
-      field_data.get_docs_with_field_set(),
-    )?;
-
-    Ok(())
-  }
-}
-impl<O, F> Lucene99FlatVectorsWriter<O, F, f32>
-where
-  O: IndexOutput,
-  F: FlatVectorsScorer,
-{
-  fn write_field(&mut self, field_data_idx: usize, max_doc: i32, vectors: &[Vec<f32>]) -> Result<()>
-  where
-    O: IndexOutput,
-  {
-    let field_data = self.fields.get(field_data_idx).ok_or_else(|| {
-      LuceneError::illegal_argument(format!("Invalid field_data_idx: {}", field_data_idx))
-    })?;
-    let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
-
-    Self::write_float32_vectors(&mut self.vector_data, field_data.dim, vectors)?;
-
-    let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
-
-    write_meta(
-      &mut self.meta,
-      &mut self.vector_data,
-      &field_data.field_info,
-      max_doc,
-      vector_data_offset as i64,
-      vector_data_length as i64,
-      field_data.get_docs_with_field_set(),
-    )?;
-
-    Ok(())
-  }
-  fn write_sorting_field<DM>(
-    &mut self,
-    field_data_idx: usize,
-    max_doc: i32,
-    sort_map: &DM,
-    vectors: &[Vec<f32>],
-  ) -> Result<()>
-  where
-    DM: DocMap,
-  {
-    let field_data = self.fields.get(field_data_idx).ok_or_else(|| {
-      LuceneError::illegal_argument(format!("Invalid field_data_idx: {}", field_data_idx))
-    })?;
-
-    let cardinality = field_data.get_docs_with_field_set().cardinality() as usize;
-
-    // new ord -> old ord
-    let mut ord_map = vec![0usize; cardinality];
-
-    let mut new_docs_with_field = DocsWithFieldSet::new();
-
-    map_old_ord_to_new_ord(
-      field_data.get_docs_with_field_set(),
-      sort_map,
-      None,
-      Some(&mut ord_map),
-      Some(&mut new_docs_with_field),
-    )?;
-
-    // write vector values
-    let vector_data_offset =
-      Self::write_sorted_float32_vectors(&mut self.vector_data, field_data, &ord_map, vectors)?;
-    let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
-
-    write_meta(
-      &mut self.meta,
-      &mut self.vector_data,
-      &field_data.field_info,
-      max_doc,
-      vector_data_offset as i64,
-      vector_data_length as i64,
-      &new_docs_with_field,
-    )?;
-
-    Ok(())
   }
 }
 
@@ -556,16 +432,15 @@ where
   }
   Ok(docs_with_field)
 }
-pub struct FlatFieldWriter<T> {
+pub struct FlatFieldWriter {
   field_info: Arc<FieldInfo>,
   dim: usize,
   docs_with_field: DocsWithFieldSet,
   finished: bool,
   last_doc_id: i32,
-  _marker: PhantomData<T>,
   idx: usize,
 }
-impl<T> FlatFieldWriter<T> {
+impl FlatFieldWriter {
   pub fn new(field_info: Arc<FieldInfo>, idx: usize) -> Self {
     let dim = field_info.get_vector_dimension() as usize;
     Self {
@@ -574,33 +449,24 @@ impl<T> FlatFieldWriter<T> {
       docs_with_field: DocsWithFieldSet::new(),
       finished: false,
       last_doc_id: -1,
-      _marker: PhantomData,
       idx,
     }
   }
 }
 
-impl<T> Accountable for FlatFieldWriter<T> {
+impl Accountable for FlatFieldWriter {
   fn ram_bytes_used(&self) -> Result<i64> {
     // TODO: memory calculation not implement
     Ok(0)
   }
 }
 
-impl<T> KnnFieldVectorsWriter for FlatFieldWriter<T>
-where
-  T: Clone,
-{
-  type V = Vec<T>;
-
-  fn copy_value(&self, value: &Self::V) -> Result<Self::V> {
-    Ok(ArrayUtil::copy_of_sub_array(value, 0, self.dim))
+impl KnnFieldVectorsWriter for FlatFieldWriter {
+  fn copy_value(&self, vector_value: &VectorValueEnum) -> Result<VectorValueEnum> {
+    Ok(vector_value.copy_value(0, self.dim))
   }
 }
-impl<T> FlatFieldVectorsWriter for FlatFieldWriter<T>
-where
-  T: Clone,
-{
+impl FlatFieldVectorsWriter for FlatFieldWriter {
   fn get_docs_with_field_set(&self) -> &DocsWithFieldSet {
     &self.docs_with_field
   }
@@ -620,8 +486,8 @@ where
   fn flat_add_value<F>(
     &mut self,
     doc_id: i32,
-    vector_value: Self::V,
-    vector: &mut Vec<Self::V>,
+    vector_value: VectorValueEnum,
+    vector: &mut Vec<VectorValueEnum>,
   ) -> Result<()> {
     if self.finished {
       return Err(LuceneError::illegal_state(
@@ -647,10 +513,4 @@ where
 
     Ok(())
   }
-}
-fn create_from_byte(field_info: Arc<FieldInfo>, idx: usize) -> FlatFieldWriter<u8> {
-  FlatFieldWriter::new(field_info, idx)
-}
-fn create_from_float(field_info: Arc<FieldInfo>, idx: usize) -> FlatFieldWriter<f32> {
-  FlatFieldWriter::new(field_info, idx)
 }

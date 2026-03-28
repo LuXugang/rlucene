@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 
@@ -50,6 +51,12 @@ pub trait RandomVectorScorerSupplier {
     Err(LuceneError::unsupported_operation(""))
   }
   fn get_vector_float(&self) -> Result<&[Vec<f32>]> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
