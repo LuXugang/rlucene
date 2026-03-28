@@ -294,8 +294,8 @@ where
 {
   fn score(&mut self, node: usize) -> Result<f32> {
     Ok(self.similarity_function.compare_u8(
-      self.vectors1.vector_value(self.ord),
-      self.vectors2.vector_value(node),
+      self.vectors1.vector_value(self.ord)?,
+      self.vectors2.vector_value(node)?,
     ))
   }
 
@@ -530,7 +530,7 @@ where
     Ok(
       self
         .similarity_function
-        .compare_u8(self.query.as_slice(), self.values.vector_value(node)),
+        .compare_u8(self.query.as_slice(), self.values.vector_value(node)?),
     )
   }
 

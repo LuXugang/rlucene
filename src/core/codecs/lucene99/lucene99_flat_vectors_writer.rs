@@ -467,7 +467,7 @@ where
     if doc == NO_MORE_DOCS {
       break;
     }
-    let value = byte_vector_values.vector_value(iter.index()? as usize);
+    let value = byte_vector_values.vector_value(iter.index()? as usize)?;
     debug_assert_eq!(value.len(), dim);
     output.write_bytes_range(value, 0, value.len())?;
     docs_with_field.add(doc)?;

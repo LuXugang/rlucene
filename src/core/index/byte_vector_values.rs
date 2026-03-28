@@ -30,7 +30,7 @@ pub trait ByteVectorValues: KnnVectorValues {
   ///
   /// # Returns
   /// the vector value
-  fn vector_value(&mut self, ord: usize) -> &[u8];
+  fn vector_value(&mut self, ord: usize) -> Result<&[u8]>;
 
   type ByteVectorValues: ByteVectorValues;
   /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
@@ -128,8 +128,8 @@ impl KnnVectorValues for ByteVectorValuesImpl {
 }
 
 impl ByteVectorValues for ByteVectorValuesImpl {
-  fn vector_value(&mut self, target_ord: usize) -> &[u8] {
-    self.vectors[target_ord].as_slice()
+  fn vector_value(&mut self, target_ord: usize) -> Result<&[u8]> {
+    Ok(self.vectors[target_ord].as_slice())
   }
 
   type ByteVectorValues = Self;

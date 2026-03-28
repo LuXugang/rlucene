@@ -15,5 +15,6 @@
  * limitations under the License.
  */
 pub mod has_index_slice;
+pub mod off_heap_byte_vector_values;
 pub mod off_heap_float_vector_values;
 pub mod ord_to_doc_disi_reader_configuration;
