@@ -14,17 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::internal::vectorization::default_vectorization_provider::DefaultVectorizationProvider;
+use crate::core::codecs::hnsw::default_flat_vector_scorer::DefaultFlatVectorScorer;
 use crate::core::internal::vectorization::vectorization_provider::{
   DEFAULT_VECTORIZATION_PROVIDER, VectorizationProvider,
 };
+use once_cell::sync::Lazy;
 
-#[derive(Default)]
+#[allow(dead_code)] // for quick search
 pub struct FlatVectorScorerUtil;
-impl FlatVectorScorerUtil {
-  pub fn get_lucene99_flat_vectors_scorer(
-    &self,
-  ) -> <DefaultVectorizationProvider as VectorizationProvider>::FlatVectorsScorer {
-    DEFAULT_VECTORIZATION_PROVIDER.get_lucene99_flat_vectors_scorer()
-  }
-}
+
+pub static LUCENE99_FLAT_VECTORS_SCORER: Lazy<DefaultFlatVectorScorer> =
+  Lazy::new(|| DEFAULT_VECTORIZATION_PROVIDER.get_lucene99_flat_vectors_scorer());

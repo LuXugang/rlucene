@@ -22,6 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use std::fmt::Display;
+use std::sync::Arc;
 
 /// Provides mechanisms to score vectors that are stored in a flat file The purpose of this class is
 /// for providing flexibility to the codec utilizing the vectors
@@ -99,4 +100,61 @@ pub trait FlatVectorsScorer: Display {
   ) -> Result<Self::RandomVectorScorerU8<K>>
   where
     K: ByteVectorValues;
+}
+
+impl<FV> FlatVectorsScorer for Arc<FV>
+where
+  FV: FlatVectorsScorer,
+{
+  type RandomVectorScorerSupplier<B, F>
+    = FV::RandomVectorScorerSupplier<B, F>
+  where
+    B: ByteVectorValues + Clone,
+    F: FloatVectorValues + Clone;
+
+  fn get_random_vector_scorer_supplier<B, F>(
+    &self,
+    similarity_function: VectorSimilarityFunction,
+    vector_values: KnnVectorValuesEnum<B, F>,
+  ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
+  where
+    B: ByteVectorValues + Clone,
+    F: FloatVectorValues + Clone,
+  {
+    (**self).get_random_vector_scorer_supplier(similarity_function, vector_values)
+  }
+
+  type RandomVectorScorerF32<T>
+    = FV::RandomVectorScorerF32<T>
+  where
+    T: FloatVectorValues;
+
+  fn get_random_vector_scorer_f32<K>(
+    &self,
+    similarity_function: VectorSimilarityFunction,
+    vector_values: K,
+    target: Vec<f32>,
+  ) -> Result<Self::RandomVectorScorerF32<K>>
+  where
+    K: FloatVectorValues,
+  {
+    (**self).get_random_vector_scorer_f32(similarity_function, vector_values, target)
+  }
+
+  type RandomVectorScorerU8<T>
+    = FV::RandomVectorScorerU8<T>
+  where
+    T: ByteVectorValues;
+
+  fn get_random_vector_scorer_u8<K>(
+    &self,
+    similarity_function: VectorSimilarityFunction,
+    vector_values: K,
+    target: Vec<u8>,
+  ) -> Result<Self::RandomVectorScorerU8<K>>
+  where
+    K: ByteVectorValues,
+  {
+    (**self).get_random_vector_scorer_u8(similarity_function, vector_values, target)
+  }
 }

@@ -18,7 +18,10 @@ use crate::core::codecs::CodecUtil;
 use crate::core::codecs::hnsw::flat_vectors_reader::FlatVectorsReader;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
-use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::{
+  META_CODEC_NAME, META_EXTENSION, VECTOR_INDEX_CODEC_NAME, VECTOR_INDEX_EXTENSION,
+  VERSION_CURRENT, VERSION_START,
+};
 use crate::core::index::IndexFileNames;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
@@ -77,11 +80,8 @@ where
     let mut fields = HashMap::new();
     let field_infos = state.field_infos.clone();
 
-    let meta_file_name = IndexFileNames::segment_file_name(
-      &segment_info.name,
-      &state.segment_suffix,
-      Lucene99HnswVectorsFormat::META_EXTENSION,
-    );
+    let meta_file_name =
+      IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
 
     let mut version_meta = -1;
 
@@ -92,9 +92,9 @@ where
       let inner = (|| -> Result<()> {
         version_meta = CodecUtil::check_index_header(
           &mut meta,
-          Lucene99HnswVectorsFormat::META_CODEC_NAME,
-          Lucene99HnswVectorsFormat::VERSION_START,
-          Lucene99HnswVectorsFormat::VERSION_CURRENT,
+          META_CODEC_NAME,
+          VERSION_START,
+          VERSION_CURRENT,
           segment_info.get_id(),
           &state.segment_suffix,
         )?;
@@ -121,8 +121,8 @@ where
     let vector_index = Self::open_data_input(
       state,
       version_meta,
-      Lucene99HnswVectorsFormat::VECTOR_INDEX_EXTENSION,
-      Lucene99HnswVectorsFormat::VECTOR_INDEX_CODEC_NAME,
+      VECTOR_INDEX_EXTENSION,
+      VECTOR_INDEX_CODEC_NAME,
       &state.context.with_read_advice_self(ReadAdvice::Random)?,
       segment_info,
     )?;
@@ -155,8 +155,8 @@ where
       let version_vector_data = CodecUtil::check_index_header(
         &mut input,
         codec_name,
-        Lucene99HnswVectorsFormat::VERSION_START,
-        Lucene99HnswVectorsFormat::VERSION_CURRENT,
+        VERSION_START,
+        VERSION_CURRENT,
         segment_info.get_id(),
         &state.segment_suffix,
       )?;

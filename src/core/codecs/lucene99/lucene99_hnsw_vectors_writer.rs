@@ -20,7 +20,10 @@ use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::{FlatVectorsWriter, FlatVectorsWriterSs};
 use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
 use crate::core::codecs::knn_vectors_writer::{KnnVectorsWriter, map_old_ord_to_new_ord};
-use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::{
+  DIRECT_MONOTONIC_BLOCK_SHIFT, META_CODEC_NAME, META_EXTENSION, VECTOR_INDEX_CODEC_NAME,
+  VECTOR_INDEX_EXTENSION, VERSION_CURRENT,
+};
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_reader::SIMILARITY_FUNCTIONS;
 use crate::core::index::IndexFileNames;
 use crate::core::index::byte_vector_values::{ByteVectorValuesImpl, from_bytes};
@@ -96,16 +99,13 @@ where
     D1: Directory<IndexOutput = O>,
     D2: Directory,
   {
-    let meta_file_name = IndexFileNames::segment_file_name(
-      &segment_info.name,
-      &state.segment_suffix,
-      Lucene99HnswVectorsFormat::META_EXTENSION,
-    );
+    let meta_file_name =
+      IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
 
     let index_data_file_name = IndexFileNames::segment_file_name(
       &segment_info.name,
       &state.segment_suffix,
-      Lucene99HnswVectorsFormat::VECTOR_INDEX_EXTENSION,
+      VECTOR_INDEX_EXTENSION,
     );
     let mut meta = state
       .directory
@@ -117,16 +117,16 @@ where
     let result = (|| -> Result<()> {
       CodecUtil::write_index_header(
         &mut meta,
-        Lucene99HnswVectorsFormat::META_CODEC_NAME,
-        Lucene99HnswVectorsFormat::VERSION_CURRENT,
+        META_CODEC_NAME,
+        VERSION_CURRENT,
         segment_info.get_id(),
         &state.segment_suffix,
       )?;
 
       CodecUtil::write_index_header(
         &mut vector_index,
-        Lucene99HnswVectorsFormat::VECTOR_INDEX_CODEC_NAME,
-        Lucene99HnswVectorsFormat::VERSION_CURRENT,
+        VECTOR_INDEX_CODEC_NAME,
+        VERSION_CURRENT,
         segment_info.get_id(),
         &state.segment_suffix,
       )?;
@@ -477,13 +477,13 @@ where
     let start = vector_index.get_file_pointer();
     meta.write_long(start as i64)?;
 
-    meta.write_vint(Lucene99HnswVectorsFormat::DIRECT_MONOTONIC_BLOCK_SHIFT)?;
+    meta.write_vint(DIRECT_MONOTONIC_BLOCK_SHIFT)?;
 
     let mut memory_offsets_writer = DirectMonotonicWriter::get_instance(
       meta,
       vector_index,
       value_count,
-      Lucene99HnswVectorsFormat::DIRECT_MONOTONIC_BLOCK_SHIFT,
+      DIRECT_MONOTONIC_BLOCK_SHIFT,
     )?;
 
     let mut cumulative_offset_sum: i64 = 0;
