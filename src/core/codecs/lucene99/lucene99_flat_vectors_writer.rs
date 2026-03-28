@@ -22,19 +22,26 @@ use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
 use crate::core::codecs::knn_vectors_writer::{KnnVectorsWriter, map_old_ord_to_new_ord};
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::DIRECT_MONOTONIC_BLOCK_SHIFT;
+use crate::core::codecs::lucene99::lucene99_flat_vectors_format::{
+  META_CODEC_NAME, META_EXTENSION, VECTOR_DATA_CODEC_NAME, VECTOR_DATA_EXTENSION, VERSION_CURRENT,
+};
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::{
   DefaultRandomVectorScorerSupplier, FieldWriterType,
 };
+use crate::core::index::IndexFileNames;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::DocIndexIterator;
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::IndexOutput;
+use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
@@ -57,7 +64,56 @@ where
   F: FlatVectorsScorer,
   T: Clone,
 {
-  fn write_float32_vectors(vector_data: &mut O, dim: usize, vectors: &[Vec<u8>]) -> Result<()> {
+  pub fn new<D1, D2>(
+    state: &SegmentWriteState<D1>,
+    scorer: F,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self>
+  where
+    D1: Directory<IndexOutput = O>,
+    D2: Directory,
+  {
+    let meta_file_name =
+      IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
+
+    let vector_data_file_name = IndexFileNames::segment_file_name(
+      &segment_info.name,
+      &state.segment_suffix,
+      VECTOR_DATA_EXTENSION,
+    );
+
+    let mut meta = state
+      .directory
+      .create_output(&meta_file_name, state.context)?;
+    let mut vector_data = state
+      .directory
+      .create_output(&vector_data_file_name, state.context)?;
+
+    CodecUtil::write_index_header(
+      &mut meta,
+      META_CODEC_NAME,
+      VERSION_CURRENT,
+      segment_info.get_id(),
+      &state.segment_suffix,
+    )?;
+    CodecUtil::write_index_header(
+      &mut vector_data,
+      VECTOR_DATA_CODEC_NAME,
+      VERSION_CURRENT,
+      segment_info.get_id(),
+      &state.segment_suffix,
+    )?;
+
+    Ok(Self {
+      meta,
+      vector_data,
+      fields: Vec::new(),
+      finished: false,
+      flat_vectors_scorer: scorer,
+    })
+  }
+
+  fn write_float32_vectors(vector_data: &mut O, dim: usize, vectors: &[Vec<f32>]) -> Result<()> {
     let byte_size = BitUtil::FLOAT_BYTES;
     let mut buffer = vec![0u8; dim * byte_size];
 
@@ -85,7 +141,7 @@ where
     vector_data: &mut O,
     field_data: &FlatFieldWriter<f32>,
     ord_map: &[usize],
-    vectors: &[Vec<u8>],
+    vectors: &[Vec<f32>],
   ) -> Result<usize>
   where
     O: IndexOutput,
@@ -241,7 +297,7 @@ where
     for idx in 0..self.fields.len() {
       let fields = &fields[idx];
       let ss = fields.hnsw_graph_builder.get_scorer_supplier();
-      let vectors = ss.get_vector_byte()?;
+      let vectors = ss.get_vector_float()?;
       if let Some(sm) = sort_map {
         self.write_sorting_field(idx, max_doc, sm, vectors)?;
       } else {
@@ -341,7 +397,7 @@ where
   O: IndexOutput,
   F: FlatVectorsScorer,
 {
-  fn write_field(&mut self, field_data_idx: usize, max_doc: i32, vectors: &[Vec<u8>]) -> Result<()>
+  fn write_field(&mut self, field_data_idx: usize, max_doc: i32, vectors: &[Vec<f32>]) -> Result<()>
   where
     O: IndexOutput,
   {
@@ -371,7 +427,7 @@ where
     field_data_idx: usize,
     max_doc: i32,
     sort_map: &DM,
-    vectors: &[Vec<u8>],
+    vectors: &[Vec<f32>],
   ) -> Result<()>
   where
     DM: DocMap,

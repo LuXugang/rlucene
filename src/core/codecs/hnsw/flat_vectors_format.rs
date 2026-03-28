@@ -17,35 +17,31 @@
 use crate::core::codecs::hnsw::flat_vectors_reader::FlatVectorsReader;
 use crate::core::codecs::hnsw::flat_vectors_writer::FlatVectorsWriter;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
-use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
-use std::sync::Arc;
 /// Encodes/decodes per-document vectors and provides a scoring interface for the flat stored vectors
 pub trait FlatVectorsFormat: KnnVectorsFormat {
-  type FlatVectorsWriter<T: IndexInput>: FlatVectorsWriter;
+  type FlatVectorsWriter<T: IndexOutput>: FlatVectorsWriter;
   /// Returns a [`KnnVectorsWriter`] to write the vectors to the index.
   fn fields_writer<D1, D2>(
     &self,
     state: &SegmentWriteState<D1>,
     segment_info: &SegmentInfo<D2>,
-    field_infos: Arc<FieldInfos>,
-    context: &IOContext,
-  ) -> Result<Self::FlatVectorsWriter<D1::IndexInput>>
+  ) -> Result<Self::FlatVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
     D2: Directory;
-  type FlatVectorsReader<T: IndexOutput>: FlatVectorsReader;
+  type FlatVectorsReader<T: IndexInput>: FlatVectorsReader;
   /// Returns a [`KnnVectorsReader`] to write the vectors to the index.
   fn fields_reader<D1, D2>(
     &self,
     state: &SegmentReadState<D1>,
     segment_info: &mut SegmentInfo<D2>,
-  ) -> Result<Self::FlatVectorsReader<D1::IndexOutput>>
+  ) -> Result<Self::FlatVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
     D2: Directory;
