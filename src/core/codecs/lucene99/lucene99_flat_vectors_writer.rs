@@ -312,11 +312,11 @@ where
     Ok(len)
   }
 
-  fn flat_flush<DM, F1, V>(
+  fn flat_flush<DM, F1>(
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[FieldWriterType<DefaultRandomVectorScorerSupplier<F1>, V>],
+    fields: &[FieldWriterType<DefaultRandomVectorScorerSupplier<F1>>],
   ) -> Result<()>
   where
     DM: DocMap,

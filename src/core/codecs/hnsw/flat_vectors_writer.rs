@@ -32,11 +32,11 @@ pub trait FlatVectorsWriter: KnnVectorsWriter {
   fn flat_add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize>;
 
   /// Flushes all buffered data on disk.
-  fn flat_flush<DM, F, V>(
+  fn flat_flush<DM, F>(
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[FieldWriterType<DefaultRandomVectorScorerSupplier<F>, V>],
+    fields: &[FieldWriterType<DefaultRandomVectorScorerSupplier<F>>],
   ) -> Result<()>
   where
     DM: DocMap,
