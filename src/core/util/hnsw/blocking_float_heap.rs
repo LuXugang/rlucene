@@ -56,7 +56,7 @@ impl BlockingFloatHeap {
   /// # Returns
   ///
   /// The new 'top' element in the queue.
-  pub fn offer(&mut self, value: f32) -> Result<f32> {
+  pub fn offer(&mut self, value: f32) -> f32 {
     let _guard = self.lock.lock();
 
     if self.size < self.max_size {
@@ -65,7 +65,7 @@ impl BlockingFloatHeap {
       Self::update_top(&mut self.heap, value, self.size);
     }
 
-    Ok(self.heap[1])
+    self.heap[1]
   }
   /// Inserts an array of values into this heap.
   ///
@@ -80,7 +80,7 @@ impl BlockingFloatHeap {
   /// # Returns
   ///
   /// The new 'top' element in the queue.
-  pub fn offer_array(&mut self, values: &[f32], len: usize) -> Result<f32> {
+  pub fn offer_array(&mut self, values: &[f32], len: usize) -> f32 {
     let _guard = self.lock.lock();
 
     for i in (0..len).rev() {
@@ -93,7 +93,7 @@ impl BlockingFloatHeap {
       }
     }
 
-    Ok(self.heap[1])
+    self.heap[1]
   }
   /// Removes and returns the head of the heap.
   ///
@@ -200,10 +200,10 @@ mod tests {
   fn test_basic_operations() -> Result<()> {
     let mut heap = BlockingFloatHeap::new(3);
 
-    heap.offer(2.0)?;
-    heap.offer(4.0)?;
-    heap.offer(1.0)?;
-    heap.offer(3.0)?;
+    heap.offer(2.0);
+    heap.offer(4.0);
+    heap.offer(1.0);
+    heap.offer(3.0);
 
     assert_eq!(heap.size(), 3);
     assert_eq!(heap.peek(), 2.0);
@@ -225,7 +225,7 @@ mod tests {
     for _ in 0..size {
       let next = random.random_range(0.0..100.0);
       sum += next;
-      heap.offer(next)?;
+      heap.offer(next);
     }
 
     let mut last = f32::NEG_INFINITY;

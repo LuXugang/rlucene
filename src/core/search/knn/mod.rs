@@ -15,4 +15,5 @@
  * limitations under the License.
  */
 pub mod knn_collector_manager;
+pub mod multi_leaf_knn_collector;
 pub mod top_knn_collector_manager;
