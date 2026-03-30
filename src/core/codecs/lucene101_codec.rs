@@ -23,8 +23,10 @@ use crate::core::codecs::lucene90_points_format::Lucene90PointsFormat;
 use crate::core::codecs::lucene90_stored_fields_format::Lucene90StoredFieldsFormat;
 use crate::core::codecs::lucene90_term_vectors_format::Lucene90TermVectorsFormat;
 use crate::core::codecs::lucene94::lucene94_field_infos_format::Lucene94FieldInfosFormat;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
 use crate::core::codecs::lucene99_segment_info_format::Lucene99SegmentInfoFormat;
 use crate::core::codecs::lucene101::lucene101_postings_format::Lucene101PostingsFormat;
+use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
@@ -46,6 +48,7 @@ impl Codec for Lucene101Codec {
   type LiveDocsFormat = Lucene90LiveDocsFormat;
   type CompoundFormat = Lucene90CompoundFormat;
   type PointsFormat = Lucene90PointsFormat;
+  type KnnVectorsFormat = Lucene99HnswVectorsFormat;
 
   fn postings_format(&self) -> Self::PostingsFormat {
     Lucene101PostingsFormat::new()
@@ -85,6 +88,10 @@ impl Codec for Lucene101Codec {
 
   fn points_format(&self) -> Self::PointsFormat {
     Lucene90PointsFormat
+  }
+
+  fn knn_vectors_format(&self) -> Result<Self::KnnVectorsFormat> {
+    Lucene99HnswVectorsFormat::new()
   }
 
   fn get_name(&self) -> &str {

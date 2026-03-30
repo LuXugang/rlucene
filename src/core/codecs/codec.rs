@@ -20,6 +20,7 @@ use std::fmt::Display;
 use crate::core::codecs::compound_format::CompoundFormat;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
+use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::codecs::norms_format::NormsFormat;
@@ -28,6 +29,7 @@ use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
+use crate::core::util::error::lucene_error::Result;
 
 pub static LATEST_CODEC: Lazy<Lucene101Codec> = Lazy::new(|| Lucene101Codec);
 pub trait Codec: Display {
@@ -41,6 +43,7 @@ pub trait Codec: Display {
   type LiveDocsFormat: LiveDocsFormat;
   type CompoundFormat: CompoundFormat;
   type PointsFormat: PointsFormat;
+  type KnnVectorsFormat: KnnVectorsFormat;
   // type KnnVectorsFormat;
   /// Encodes/decodes postings
   fn postings_format(&self) -> Self::PostingsFormat;
@@ -71,8 +74,8 @@ pub trait Codec: Display {
   /// Encodes/decodes points index
   fn points_format(&self) -> Self::PointsFormat;
 
-  // /// Encodes/decodes numeric vector fields
-  // fn knn_vectors_format(&self) -> &Self::KnnVectorsFormat;
+  /// Encodes/decodes numeric vector fields
+  fn knn_vectors_format(&self) -> Result<Self::KnnVectorsFormat>;
 
   fn get_name(&self) -> &str;
 }
@@ -93,3 +96,4 @@ pub type DefaultNormsFormat = <DefaultCodec as Codec>::NormsFormat;
 pub type DefaultLiveDocsFormat = <DefaultCodec as Codec>::LiveDocsFormat;
 pub type DefaultCompoundFormat = <DefaultCodec as Codec>::CompoundFormat;
 pub type DefaultPointsFormat = <DefaultCodec as Codec>::PointsFormat;
+pub type DefaultKnnVectorsFormat = <DefaultCodec as Codec>::KnnVectorsFormat;

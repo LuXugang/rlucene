@@ -187,6 +187,7 @@ pub mod tiered_merge_policy;
 pub mod tracking_tmp_output_directory_wrapper;
 pub mod vector_encoding;
 pub mod vector_similarity_function;
+pub(crate) mod vector_values_consumer;
 
 pub use doc_id_merger::*;
 pub use index_file_names::*;
