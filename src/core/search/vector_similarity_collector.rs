@@ -27,7 +27,7 @@ pub struct VectorSimilarityCollector {
   result_similarity: f32,
   max_similarity: f32,
   score_doc_list: Vec<ScoreDoc>,
-  base: AbstractKnnCollector,
+  base: AbstractKnnCollectorBase,
 }
 
 impl VectorSimilarityCollector {
@@ -49,7 +49,7 @@ impl VectorSimilarityCollector {
     result_similarity: f32,
     visit_limit: usize,
   ) -> Result<Self> {
-    let base = AbstractKnnCollector::new(1, visit_limit);
+    let base = AbstractKnnCollectorBase::new(1, visit_limit);
     if traversal_similarity > result_similarity {
       return Err(LuceneError::illegal_argument(
         "traversalSimilarity should be <= resultSimilarity",
@@ -67,23 +67,23 @@ impl VectorSimilarityCollector {
 
 impl KnnCollector for VectorSimilarityCollector {
   fn early_terminated(&self) -> bool {
-    self.base.early_terminated()
+    AbstractKnnCollector::early_terminated(self)
   }
 
   fn inc_visited_count(&mut self, count: usize) {
-    self.base.inc_visited_count(count);
+    AbstractKnnCollector::inc_visited_count(self, count)
   }
 
   fn visited_count(&self) -> usize {
-    self.base.visited_count()
+    AbstractKnnCollector::visited_count(self)
   }
 
   fn visit_limit(&self) -> usize {
-    self.base.visit_limit()
+    AbstractKnnCollector::visit_limit(self)
   }
 
   fn k(&self) -> usize {
-    self.base.k()
+    AbstractKnnCollector::k(self)
   }
 
   fn collect(&mut self, doc_id: usize, similarity: f32) -> Result<bool> {
@@ -106,21 +106,28 @@ impl KnnCollector for VectorSimilarityCollector {
   fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>> {
     // Results are not returned in a sorted order to prevent unnecessary
     // calculations (because we do not need to maintain the topK)
-    let relation = if self.early_terminated() {
+    let relation = if AbstractKnnCollector::early_terminated(self) {
       Relation::GreaterThanOrEqualTo
     } else {
       Relation::EqualTo
     };
     Ok(TopDocs::new(
-      TotalHits::new(self.visited_count(), relation),
+      TotalHits::new(AbstractKnnCollector::visited_count(self), relation),
       std::mem::take(&mut self.score_doc_list),
     ))
   }
 }
-
-impl AbstractKnnCollectorBase for VectorSimilarityCollector {
+impl AbstractKnnCollector for VectorSimilarityCollector {
   fn num_collected(&self) -> usize {
     self.score_doc_list.len()
+  }
+
+  fn base(&self) -> &AbstractKnnCollectorBase {
+    &self.base
+  }
+
+  fn base_mut(&mut self) -> &mut AbstractKnnCollectorBase {
+    &mut self.base
   }
 }
 

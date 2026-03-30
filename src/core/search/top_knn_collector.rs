@@ -30,7 +30,7 @@ use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 /// allowing for efficient updates as better vectors are collected.
 pub struct TopKnnCollector {
   queue: NeighborQueue,
-  base: AbstractKnnCollector,
+  base: AbstractKnnCollectorBase,
 }
 
 impl TopKnnCollector {
@@ -39,37 +39,33 @@ impl TopKnnCollector {
   /// * `k` - the number of neighbors to collect
   /// * `visit_limit` - how many vector nodes the results are allowed to visit
   pub fn new(k: usize, visit_limit: usize) -> Result<Self> {
-    let base = AbstractKnnCollector::new(k, visit_limit);
+    let base = AbstractKnnCollectorBase::new(k, visit_limit);
     Ok(Self {
       queue: NeighborQueue::new(k, false)?,
       base,
     })
   }
 }
-impl AbstractKnnCollectorBase for TopKnnCollector {
-  fn num_collected(&self) -> usize {
-    self.queue.size()
-  }
-}
+
 impl KnnCollector for TopKnnCollector {
   fn early_terminated(&self) -> bool {
-    self.base.early_terminated()
+    AbstractKnnCollector::early_terminated(self)
   }
 
   fn inc_visited_count(&mut self, count: usize) {
-    self.base.inc_visited_count(count);
+    AbstractKnnCollector::inc_visited_count(self, count)
   }
 
   fn visited_count(&self) -> usize {
-    self.base.visited_count()
+    AbstractKnnCollector::visited_count(self)
   }
 
   fn visit_limit(&self) -> usize {
-    self.base.visit_limit()
+    AbstractKnnCollector::visit_limit(self)
   }
 
   fn k(&self) -> usize {
-    self.base.k()
+    AbstractKnnCollector::k(self)
   }
 
   fn collect(&mut self, doc_id: usize, similarity: f32) -> Result<bool> {
@@ -77,7 +73,7 @@ impl KnnCollector for TopKnnCollector {
   }
 
   fn min_competitive_similarity(&self) -> Result<f32> {
-    if self.queue.size() >= self.k() {
+    if self.queue.size() >= AbstractKnnCollector::k(self) {
       Ok(self.queue.top_score())
     } else {
       Ok(f32::NEG_INFINITY)
@@ -88,7 +84,7 @@ impl KnnCollector for TopKnnCollector {
 
   fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>> {
     debug_assert!(
-      self.queue.size() <= self.k(),
+      self.queue.size() <= AbstractKnnCollector::k(self),
       "Tried to collect more results than the maximum number allowed"
     );
 
@@ -101,14 +97,27 @@ impl KnnCollector for TopKnnCollector {
       self.queue.pop()?;
     }
 
-    let relation = if self.early_terminated() {
+    let relation = if AbstractKnnCollector::early_terminated(self) {
       Relation::GreaterThanOrEqualTo
     } else {
       Relation::EqualTo
     };
 
-    let total_hits = TotalHits::new(self.visited_count(), relation);
+    let total_hits = TotalHits::new(AbstractKnnCollector::visited_count(self), relation);
     Ok(TopDocs::new(total_hits, score_docs))
+  }
+}
+impl AbstractKnnCollector for TopKnnCollector {
+  fn num_collected(&self) -> usize {
+    self.queue.size()
+  }
+
+  fn base(&self) -> &AbstractKnnCollectorBase {
+    &self.base
+  }
+
+  fn base_mut(&mut self) -> &mut AbstractKnnCollectorBase {
+    &mut self.base
   }
 }
 
@@ -117,7 +126,7 @@ impl fmt::Display for TopKnnCollector {
     write!(
       f,
       "TopKnnCollector[k={}, size={}]",
-      self.k(),
+      AbstractKnnCollector::k(self),
       self.queue.size()
     )
   }
