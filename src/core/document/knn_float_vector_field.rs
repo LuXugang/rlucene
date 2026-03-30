@@ -109,7 +109,7 @@ impl KnnFloatVectorField {
   ///
   /// returns [`LuceneError::IllegalArgument`] if any parameter is null, or the vector is empty or has
   /// dimension > 1024.
-  pub fn new_with_similarity_function(
+  pub fn with_similarity_function(
     name: &str,
     vector: Vec<f32>,
     similarity_function: VectorSimilarityFunction,
@@ -137,7 +137,7 @@ impl KnnFloatVectorField {
   /// returns [`LuceneError::IllegalArgument`] if any parameter is null, or the vector is empty or has
   /// dimension > 1024.
   pub fn new(name: &str, vector: Vec<f32>) -> Result<Self> {
-    Self::new_with_similarity_function(name, vector, VectorSimilarityFunction::Euclidean)
+    Self::with_similarity_function(name, vector, VectorSimilarityFunction::Euclidean)
   }
 
   /// Creates a numeric vector field. Fields are single-valued: each document has either one value or
@@ -153,7 +153,7 @@ impl KnnFloatVectorField {
   ///
   /// returns [`LuceneError::IllegalArgument`] if any parameter is null, or the vector is empty or has
   /// dimension > 1024.
-  pub fn new_with_type(name: &str, vector: Vec<f32>, field_type: FieldType) -> Result<Self> {
+  pub fn with_type(name: &str, vector: Vec<f32>, field_type: FieldType) -> Result<Self> {
     if *field_type.vector_encoding() != VectorEncoding::FLOAT32(4) {
       return Err(LuceneError::illegal_argument(format!(
         "Attempt to create a vector for field {} using float[] but the field encoding is {:?}",
