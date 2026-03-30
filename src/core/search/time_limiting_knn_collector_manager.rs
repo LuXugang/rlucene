@@ -17,8 +17,8 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
-use crate::core::search::knn::knn_collector_manager::{KnnCollectorEnum, KnnCollectorManager};
-use crate::core::search::knn_collector::KnnCollector;
+use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
+use crate::core::search::knn_collector::{KnnCollector, KnnCollectorEnum};
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::Relation::GreaterThanOrEqualTo;
 use crate::core::search::total_hits::TotalHits;
@@ -56,7 +56,7 @@ where
     Self: 'a;
 
   fn new_collector<LR>(
-    &self,
+    &mut self,
     visited_limit: usize,
     context: LeafReaderContext<LR>,
   ) -> Result<Self::KnnCollector<'_>>

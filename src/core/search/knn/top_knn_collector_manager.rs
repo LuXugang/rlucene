@@ -15,10 +15,18 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
+use crate::core::search::knn::multi_leaf_knn_collector::MultiLeafKnnCollector;
+use crate::core::search::knn_collector::KnnCollectorEnum;
+use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::blocking_float_heap::BlockingFloatHeap;
-
+/// TopKnnCollectorManager responsible for creating [`TopKnnCollector`] instances. When
+/// concurrency is supported, the [`BlockingFloatHeap`] is used to track the global top scores
+/// collected across all leaves.
 pub struct TopKnnCollectorManager {
   k: usize,
   global_score_queue: Option<BlockingFloatHeap>,
@@ -38,5 +46,35 @@ impl TopKnnCollectorManager {
       k,
       global_score_queue,
     })
+  }
+}
+impl KnnCollectorManager for TopKnnCollectorManager {
+  type KnnCollector<'a>
+    = KnnCollectorEnum<MultiLeafKnnCollector<'a, TopKnnCollector>, TopKnnCollector>
+  where
+    Self: 'a;
+  /// Return a new [`TopKnnCollector`] instance.
+  ///
+  /// # Arguments
+  ///
+  /// * `visited_limit` - the maximum number of nodes that the search is allowed to visit
+  /// * `context` - the leaf reader context
+  fn new_collector<LR>(
+    &mut self,
+    visited_limit: usize,
+    _context: LeafReaderContext<LR>,
+  ) -> Result<Self::KnnCollector<'_>>
+  where
+    LR: LeafReader,
+  {
+    let top_knn_collector = TopKnnCollector::new(self.k, visited_limit)?;
+    match self.global_score_queue {
+      Some(ref mut global_score_queue) => Ok(KnnCollectorEnum::A(MultiLeafKnnCollector::new(
+        self.k,
+        global_score_queue,
+        top_knn_collector,
+      )?)),
+      None => Ok(KnnCollectorEnum::B(top_knn_collector)),
+    }
   }
 }

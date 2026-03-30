@@ -23,14 +23,14 @@ use crate::core::util::hnsw::float_heap::FloatHeap;
 
 /// MultiLeafKnnCollector is a specific KnnCollector that can exchange the top collected results
 /// across segments through a shared global queue.
-pub struct MultiLeafKnnCollector<A>
+pub struct MultiLeafKnnCollector<'a, A>
 where
   A: AbstractKnnCollector,
 {
   /// interval to synchronize the local and global queues, as a number of visited vectors
   pub(crate) interval: usize,
   /// the global queue of the highest similarities collected so far across all segments
-  pub(crate) global_similarity_queue: BlockingFloatHeap,
+  pub(crate) global_similarity_queue: &'a mut BlockingFloatHeap,
   /// the local queue of the highest similarities if we are not competitive globally
   /// the size of this queue is defined by greediness
   pub(crate) non_competitive_queue: FloatHeap,
@@ -42,7 +42,7 @@ where
   pub(crate) sub_collector: A,
 }
 
-impl<A> MultiLeafKnnCollector<A>
+impl<'a, A> MultiLeafKnnCollector<'a, A>
 where
   A: AbstractKnnCollector,
 {
@@ -60,7 +60,7 @@ where
   /// * `sub_collector` - the local collector
   pub fn new(
     k: usize,
-    global_similarity_queue: BlockingFloatHeap,
+    global_similarity_queue: &'a mut BlockingFloatHeap,
     sub_collector: A,
   ) -> Result<Self> {
     Self::with_params(
@@ -86,7 +86,7 @@ where
     k: usize,
     greediness: f32,
     interval: usize,
-    global_similarity_queue: BlockingFloatHeap,
+    global_similarity_queue: &'a mut BlockingFloatHeap,
     sub_collector: A,
   ) -> Result<Self> {
     if !(0.0..=1.0).contains(&greediness) {
@@ -112,7 +112,7 @@ where
   }
 }
 
-impl<A> KnnCollector for MultiLeafKnnCollector<A>
+impl<A> KnnCollector for MultiLeafKnnCollector<'_, A>
 where
   A: AbstractKnnCollector,
 {
@@ -195,7 +195,7 @@ where
     self.sub_collector.top_docs()
   }
 }
-impl<A> std::fmt::Display for MultiLeafKnnCollector<A>
+impl<A> std::fmt::Display for MultiLeafKnnCollector<'_, A>
 where
   A: AbstractKnnCollector + std::fmt::Display,
 {
