@@ -23,6 +23,7 @@ use crate::core::analysis::token_attributes::packed_token_and_binary::BinaryToke
 use crate::core::analysis::token_stream::{
   InnerTokenStreams, TokenStream, TokenStreamBase, TokenStreamEnum2,
 };
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::TokenStreamEnum;
 use crate::core::document::invertable_field::InvertableType;
@@ -686,6 +687,14 @@ impl IndexableField for Field {
     }
     Ok(())
   }
+
+  fn vector_value(&self) -> Result<&VectorValueEnum> {
+    if let FieldDataEnum::VectorValue(v) = &self.fields_data {
+      Ok(v)
+    } else {
+      Err(LuceneError::unsupported_operation(""))
+    }
+  }
 }
 impl FieldBase for Field {}
 impl Display for Field {
@@ -773,8 +782,7 @@ pub enum FieldDataEnum {
   TokenStream(TokenStreamEnum),
   // used to std::mem::replace(FieldDataEnum)
   Dummy(()),
-  FloatArray(Vec<f32>),
-  ByteArray(Vec<u8>),
+  VectorValue(VectorValueEnum),
 }
 
 impl From<i32> for FieldDataEnum {
@@ -818,8 +826,7 @@ impl_from_for_enum!(
     String => String,
     ReaderEnum => Reader,
     TokenStreamEnum => TokenStream,
-     Vec<f32> => FloatArray,
-     Vec<u8> => ByteArray,
+     VectorValueEnum => VectorValue,
 );
 
 impl From<&str> for FieldDataEnum {
@@ -837,8 +844,7 @@ impl Display for FieldDataEnum {
       FieldDataEnum::Reader(r) => write!(f, "{:?}", r),
       FieldDataEnum::TokenStream(t) => write!(f, "{:?}", t),
       FieldDataEnum::Dummy(s) => write!(f, "{:?}", s),
-      FieldDataEnum::FloatArray(a) => write!(f, "{:?}", a),
-      FieldDataEnum::ByteArray(a) => write!(f, "{:?}", a),
+      FieldDataEnum::VectorValue(v) => write!(f, "{:?}", v),
     }
   }
 }

@@ -22,37 +22,34 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
+use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
 use std::sync::Arc;
 /// Streams vector values for indexing to the given codec's vectors writer.
 /// The codec's vectors writer is responsible for buffering and processing vectors
-pub(crate) struct VectorValuesConsumer<O>
+pub(crate) struct VectorValuesConsumer<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
-  writer: Option<DefaultKnnVectorsWriter<O>>,
+  pub(crate) writer: Option<DefaultKnnVectorsWriter<D::IndexOutput>>,
   info_stream: InfoStreamMT,
+  dir: Arc<D>,
 }
-impl<O> VectorValuesConsumer<O>
+impl<D> VectorValuesConsumer<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
-  pub(crate) fn new(info_stream: InfoStreamMT) -> Self {
+  pub(crate) fn new(dir: Arc<D>, info_stream: InfoStreamMT) -> Self {
     Self {
       writer: None,
       info_stream,
+      dir,
     }
   }
-  fn init_knn_vectors_writer<D1, D2>(
-    &mut self,
-    dir: &D1,
-    segment_info: &SegmentInfo<D2>,
-  ) -> Result<()>
+  fn init_knn_vectors_writer<D2>(&mut self, segment_info: &SegmentInfo<D2>) -> Result<()>
   where
-    D1: Directory<IndexOutput = O>,
     D2: Directory,
   {
     if self.writer.is_none() {
@@ -60,29 +57,27 @@ where
       let context = IOContext::default_io_context()?;
       let padding_fi = Arc::new(FieldInfos::default());
       let initial_write_state =
-        SegmentWriteState::new(self.info_stream.clone(), dir, padding_fi, &context);
+        SegmentWriteState::new(self.info_stream.clone(), &self.dir, padding_fi, &context);
       self.writer = Some(fmt.fields_writer(&initial_write_state, segment_info)?);
     }
     Ok(())
   }
-  pub(crate) fn add_field<D1, D2>(
+  pub(crate) fn add_field<D2>(
     &mut self,
     field_info: Arc<FieldInfo>,
-    dir: &D1,
     segment_info: &SegmentInfo<D2>,
   ) -> Result<usize>
   where
-    D1: Directory<IndexOutput = O>,
     D2: Directory,
   {
-    self.init_knn_vectors_writer(dir, segment_info)?;
+    self.init_knn_vectors_writer(segment_info)?;
     let writer = self
       .writer
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
     writer.add_field(field_info)
   }
-  pub(crate) fn finish<DM, D2>(
+  pub(crate) fn flush<DM, D2>(
     &mut self,
     segment_info: &mut SegmentInfo<D2>,
     sort_map: Option<&DM>,

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
+use crate::core::codecs::dummy::dummy_knn_field_vectors_writer::DummyKnnFieldVectorsWriter;
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::FlatVectorsWriter;
@@ -292,6 +293,7 @@ where
   O: IndexOutput,
   F: FlatVectorsScorer,
 {
+  type KnnFieldVectorsWriter = DummyKnnFieldVectorsWriter;
 }
 
 impl<O, F> FlatVectorsWriter for Lucene99FlatVectorsWriter<O, F>
@@ -486,7 +488,7 @@ impl FlatFieldVectorsWriter for FlatFieldWriter {
   fn flat_add_value<F>(
     &mut self,
     doc_id: i32,
-    vector_value: VectorValueEnum,
+    vector_value: &VectorValueEnum,
     vector: &mut Vec<VectorValueEnum>,
   ) -> Result<()> {
     if self.finished {
@@ -504,7 +506,7 @@ impl FlatFieldVectorsWriter for FlatFieldWriter {
 
     debug_assert!(doc_id > self.last_doc_id);
 
-    let copy = self.copy_value(&vector_value)?;
+    let copy = self.copy_value(vector_value)?;
 
     self.docs_with_field.add(doc_id)?;
     vector.push(copy);

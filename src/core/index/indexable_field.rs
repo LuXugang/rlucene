@@ -19,11 +19,12 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream, TokenStreamEnum2};
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field::FieldDataEnum;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field_type::IndexableFieldType;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use std::borrow::Cow;
 use std::fmt::Display;
@@ -94,6 +95,10 @@ pub trait IndexableField: Display {
   fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
   where
     A: Analyzer;
+
+  fn vector_value(&self) -> Result<&VectorValueEnum> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }
 
 #[cfg(test)]

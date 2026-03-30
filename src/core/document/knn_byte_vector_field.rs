@@ -17,6 +17,7 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
@@ -114,7 +115,8 @@ impl KnnByteVectorField {
     similarity_function: VectorSimilarityFunction,
   ) -> Result<Self> {
     let field_type = Self::create_type(vector.as_ref(), similarity_function)?;
-    let field = Field::new(name, vector, field_type);
+    let v: VectorValueEnum = vector.into();
+    let field = Field::new(name, v, field_type);
 
     Ok(Self {
       parent_field: field,
@@ -166,7 +168,8 @@ impl KnnByteVectorField {
       ));
     }
 
-    let field = Field::new(name, vector, field_type);
+    let v: VectorValueEnum = vector.into();
+    let field = Field::new(name, v, field_type);
 
     Ok(Self {
       parent_field: field,
@@ -174,9 +177,9 @@ impl KnnByteVectorField {
   }
 
   /// Return the vector value of this field
-  pub fn vector_value(&self) -> Result<&[u8]> {
+  pub fn vector_value(&self) -> Result<&VectorValueEnum> {
     match self.parent_field.fields_data {
-      FieldDataEnum::ByteArray(ref v) => Ok(v.as_ref()),
+      FieldDataEnum::VectorValue(ref v) => Ok(v),
       _ => Err(LuceneError::illegal_state(
         "field value is not a byte vector",
       )),
@@ -200,8 +203,8 @@ impl KnnByteVectorField {
         self.parent_field.field_type().vector_dimension()
       )));
     }
-
-    self.parent_field.fields_data = value.into();
+    let v: VectorValueEnum = value.into();
+    self.parent_field.fields_data = v.into();
     Ok(())
   }
 }
@@ -275,6 +278,10 @@ impl IndexableField for KnnByteVectorField {
     A: Analyzer,
   {
     self.parent_field.init_token_stream(analyzer)
+  }
+
+  fn vector_value(&self) -> Result<&VectorValueEnum> {
+    self.parent_field.vector_value()
   }
 }
 #[cfg(test)]

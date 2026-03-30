@@ -17,6 +17,7 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
@@ -30,6 +31,7 @@ use crate::core::util::number::Number;
 use crate::core::util::vector_util::VectorUtil;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
+
 /// A field that contains a single floating-point numeric vector (or none) for each document. Vectors
 /// are dense - that is, every dimension of a vector contains an explicit value, stored packed into
 /// an array (of type `float[]`) whose length is the vector dimension. Values can be retrieved using
@@ -114,7 +116,8 @@ impl KnnFloatVectorField {
   ) -> Result<Self> {
     let field_type = Self::create_type(vector.as_ref(), similarity_function)?;
     VectorUtil::check_finite(vector.as_ref())?;
-    let field = Field::new(name, vector, field_type);
+    let v: VectorValueEnum = vector.into();
+    let field = Field::new(name, v, field_type);
     Ok(Self {
       parent_field: field,
     })
@@ -166,8 +169,8 @@ impl KnnFloatVectorField {
     }
 
     VectorUtil::check_finite(vector.as_ref())?;
-
-    let field = Field::new(name, vector, field_type);
+    let v: VectorValueEnum = vector.into();
+    let field = Field::new(name, v, field_type);
 
     Ok(Self {
       parent_field: field,
@@ -175,9 +178,9 @@ impl KnnFloatVectorField {
   }
 
   /// Return the vector value of this field
-  pub fn vector_value(&self) -> Result<&[f32]> {
+  pub fn vector_value(&self) -> Result<&VectorValueEnum> {
     match self.parent_field.fields_data {
-      FieldDataEnum::FloatArray(ref v) => Ok(v.as_ref()),
+      FieldDataEnum::VectorValue(ref v) => Ok(v),
       _ => Err(LuceneError::illegal_state(
         "field value is not a float vector",
       )),
@@ -201,7 +204,8 @@ impl KnnFloatVectorField {
         self.parent_field.field_type().vector_dimension()
       )));
     }
-    self.parent_field.fields_data = value.into();
+    let v: VectorValueEnum = value.into();
+    self.parent_field.fields_data = v.into();
     Ok(())
   }
 }
@@ -275,6 +279,10 @@ impl IndexableField for KnnFloatVectorField {
     A: Analyzer,
   {
     self.parent_field.init_token_stream(analyzer)
+  }
+
+  fn vector_value(&self) -> Result<&VectorValueEnum> {
+    self.parent_field.vector_value()
   }
 }
 #[cfg(test)]

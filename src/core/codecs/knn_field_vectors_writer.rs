@@ -18,6 +18,8 @@ use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::impl_from_for_enum;
+
 /// Vectors’ writer for a field.
 ///
 /// # Parameters
@@ -29,7 +31,7 @@ pub trait KnnFieldVectorsWriter: Accountable {
   fn add_value<F>(
     &mut self,
     _doc_id: i32,
-    _vector_value: VectorValueEnum,
+    _vector_value: &VectorValueEnum,
     _flat_field_vectors_writers: &mut [F],
   ) -> Result<()>
   where
@@ -50,11 +52,16 @@ pub trait KnnFieldVectorsWriter: Accountable {
     Err(LuceneError::unsupported_operation(""))
   }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum VectorValueEnum {
   Byte(Vec<u8>),
   Float(Vec<f32>),
 }
+impl_from_for_enum!(
+    VectorValueEnum,
+    Vec<u8> => Byte,
+    Vec<f32> => Float,
+);
 impl VectorValueEnum {
   pub(crate) fn copy_value(&self, offset: usize, dim: usize) -> VectorValueEnum {
     match self {

@@ -38,7 +38,7 @@ pub trait FlatFieldVectorsWriter: KnnFieldVectorsWriter {
   fn flat_add_value<F>(
     &mut self,
     doc_id: i32,
-    vector_value: VectorValueEnum,
+    vector_value: &VectorValueEnum,
     vector: &mut Vec<VectorValueEnum>,
   ) -> Result<()>;
 }

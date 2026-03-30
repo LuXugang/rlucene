@@ -71,7 +71,7 @@ where
   vector_index: O,
   m: usize,
   beam_width: usize,
-  flat_vector_writer: F,
+  pub(crate) flat_vector_writer: F,
   num_merge_workers: usize,
   // TODO IMPORTANT 多线程未实现
   finished: bool,
@@ -570,6 +570,12 @@ where
 
     Ok(())
   }
+
+  type KnnFieldVectorsWriter = FieldWriterType<DefaultRandomVectorScorerSupplier<F>>;
+
+  fn field_vectors_writer(&mut self, idx: usize) -> Result<&mut Self::KnnFieldVectorsWriter> {
+    Ok(&mut self.fields[idx])
+  }
 }
 
 pub(crate) fn dist_func_to_ord(func: &VectorSimilarityFunction) -> Result<u8> {
@@ -726,7 +732,7 @@ where
   fn add_value<F>(
     &mut self,
     doc_id: i32,
-    vector_value: VectorValueEnum,
+    vector_value: &VectorValueEnum,
     flat_field_vectors_writers: &mut [F],
   ) -> Result<()>
   where

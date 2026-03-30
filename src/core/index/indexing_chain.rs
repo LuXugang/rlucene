@@ -16,13 +16,13 @@
  */
 use crate::core::analysis::analyzer::{Analyzer, REUSE_STRATEGY, ReuseStrategy};
 use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream, TokenStreamEnum2};
-use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_writer::PointsWriter;
+use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::document::fields::Fields;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
@@ -53,6 +53,7 @@ use crate::core::index::index_sorter::{DocComparator, IndexSorter};
 use std::borrow::Cow;
 
 use crate::core::analysis::reader::ReaderEnum;
+use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::document::field::FieldDataEnum;
 use crate::core::index::index_writer::{MAX_POSITION, MAX_STORED_STRING_LENGTH, MAX_TERM_LENGTH};
 use crate::core::index::indexable_field::IndexableField;
@@ -88,6 +89,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_vectors_consumer::{PerFieldMeta, TermVectorsConsumer};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::index::vector_values_consumer::VectorValuesConsumer;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
@@ -128,6 +130,7 @@ where
   terms_hash: FreqProxTermsWriter<D>,
   doc_values_byte_pool: ByteBlockPool,
   stored_fields_consumer: StoredFieldsConsumer<D>,
+  vector_values_consumer: VectorValuesConsumer<D>,
   field_hash: Vec<i32>,
   hash_mask: usize,
   total_field_count: usize,
@@ -198,11 +201,13 @@ where
       freq_prox_term_int_pool,
       byte_pool,
     };
+    let vector_values_consumer = VectorValuesConsumer::new(directory.clone(), info_stream.clone());
     Ok(IndexingChain {
       bytes_used,
       terms_hash,
       doc_values_byte_pool,
       stored_fields_consumer,
+      vector_values_consumer,
       field_hash: vec![-1; 2],
       hash_mask: 1,
       total_field_count: 0,
@@ -330,12 +335,16 @@ where
       );
     }
 
-    // write vectors
-    // let t0 = Instant::now();
-    // self.vector_values_consumer.flush(state, sort_map.as_ref(),segment_info)?;
-    // if self.info_stream.enabled("IW") {
-    //     self.info_stream.message("IW", &format!("{} ms to write vectors", t0.elapsed().as_millis()));
-    // }
+    let t0 = Instant::now();
+    self
+      .vector_values_consumer
+      .flush(segment_info, sort_map.as_ref())?;
+    if self.info_stream.enabled("IW") {
+      self.info_stream.message(
+        "IW",
+        &format!("{} ms to write vectors", t0.elapsed().as_millis()),
+      );
+    }
 
     // finish & flush stored fields
     let t0 = Instant::now();
@@ -601,6 +610,7 @@ where
     self.context.reset();
     self.terms_hash.abort()?;
     self.stored_fields_consumer.abort()?;
+    self.vector_values_consumer.abort();
     Ok(())
   }
 
@@ -730,7 +740,7 @@ where
         if let Some(field_info) = pf.field_info.as_ref() {
           pf.schema.assert_same_schema(field_info)?;
         } else {
-          self.initialize_field_info(idx, field_infos, index_writer_config)?;
+          self.initialize_field_info(idx, field_infos, index_writer_config, info)?;
         }
       }
 
@@ -778,12 +788,16 @@ where
     let new_len = ArrayUtil::oversize(required, 1);
     ArrayUtil::grow_with_len(&mut self.doc_fields, new_len);
   }
-  pub(crate) fn initialize_field_info(
+  pub(crate) fn initialize_field_info<D1>(
     &mut self,
     per_field_index: usize,
     field_infos: &mut Builder,
     index_writer_config: &impl LiveIndexWriterConfig,
-  ) -> Result<()> {
+    segment_info: &SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+  {
     // Create and add a new fieldInfo to fieldInfos for this segment.
     // During the creation of FieldInfo there is also verification of the correctness of all its
     // parameters.
@@ -801,15 +815,12 @@ where
     {
       Self::validate_index_sort_dv_type(index_sort, &pf.field_name, &s.doc_values_type)?;
     }
-    // TODO
-    // if s.vector_dimension != 0 {
-    //     let max_dim = self
-    //         .index_writer_config
-    //         .get_codec()
-    //         .knn_vectors_format()
-    //         .get_max_dimensions(&pf.field_name)?;
-    //     Self::validate_max_vector_dimension(&pf.field_name, s.vector_dimension, max_dim)?;
-    // }
+    if s.vector_dimension != 0 {
+      let max_dim = LATEST_CODEC
+        .knn_vectors_format()?
+        .get_max_dimensions(&pf.field_name);
+      Self::validate_max_vector_dimension(&pf.field_name, s.vector_dimension, max_dim)?;
+    }
     let soft_deletes_field = field_infos.is_soft_deletes_field_name(&pf.field_name);
     let is_parent_field = field_infos.is_parent_field_name(&pf.field_name);
     let field_info = FieldInfo::new(
@@ -826,7 +837,7 @@ where
       s.point_dimension_count,
       s.point_index_dimension_count,
       s.point_num_bytes,
-      s.vector_dimension,
+      s.vector_dimension as i32,
       s.vector_encoding,
       s.vector_similarity_function,
       soft_deletes_field,
@@ -876,14 +887,13 @@ where
       pf.point_values_writer = Some(PointValuesWriter::new(self.bytes_used.clone(), fi.clone())?);
     }
 
-    // TODO
-    // if fi.get_vector_dimension() != 0 {
-    //     pf.knn_field_vectors_writer =
-    //         Some(self.vector_values_consumer.add_field(&fi).map_err(|e| {
-    //             self.has_hit_aborting_exception = true;
-    //             e
-    //         })?);
-    // }
+    if fi.get_vector_dimension() != 0 {
+      pf.knn_field_vectors_writer = Some(
+        self
+          .vector_values_consumer
+          .add_field(fi.clone(), segment_info)?,
+      );
+    }
 
     Ok(())
   }
@@ -963,15 +973,12 @@ where
         .add_packed_value(doc_id, binary_value.as_ref())?;
     }
 
-    // TODO:
-    // if field_type.vector_dimension() != 0 {
-    //     self.index_vector_value(
-    //         doc_id,
-    //         pf,
-    //         field_type.vector_encoding(),
-    //         field,
-    //     )?;
-    // }
+    if field_type.vector_dimension() != 0 {
+      let field_writer_idx = pf
+        .knn_field_vectors_writer
+        .ok_or_else(|| LuceneError::illegal_state("field writer idx not initialized"))?;
+      self.index_vector_value(doc_id, field_writer_idx, field)?;
+    }
 
     Ok(indexed_field)
   }
@@ -1066,7 +1073,7 @@ where
       schema.set_vectors(
         *field_type.vector_encoding(),
         *field_type.vector_similarity_function(),
-        field_type.vector_dimension(),
+        field_type.vector_dimension() as usize,
       )?;
     }
 
@@ -1108,8 +1115,8 @@ where
 
   fn validate_max_vector_dimension(
     field_name: &str,
-    vector_dim: i32,
-    max_vector_dim: i32,
+    vector_dim: usize,
+    max_vector_dim: usize,
   ) -> Result<()> {
     if vector_dim > max_vector_dim {
       return Err(LuceneError::illegal_argument(format!(
@@ -1233,6 +1240,24 @@ where
     Ok(())
   }
 
+  fn index_vector_value(
+    &mut self,
+    _doc_id: i32,
+    _field_writer_idx: usize,
+    _field: &impl IndexableField,
+  ) -> Result<()> {
+    // let writer = self
+    //     .vector_values_consumer
+    //     .writer
+    //     .as_mut()
+    //     .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
+    // let field_writer = writer.field_vectors_writer(field_writer_idx)?;
+    // let flat_writer = writer.flat_vector_writer.get_fields_mut();
+    // let vector_value = field.vector_value()?;
+    // field_writer.add_value(doc_id, vector_value, flat_writer)
+    Ok(())
+  }
+
   fn get_per_field(&self, name: &str) -> Option<usize> {
     let hash_pos = CoreHelper::calculate_hash(&name.to_string()) as usize & self.hash_mask;
     let mut per_field_index = self.field_hash[hash_pos];
@@ -1285,7 +1310,7 @@ pub(crate) struct PerField {
   pub(crate) terms_hash_per_field: Option<FreqProxTermsWriterPerField>,
   pub(crate) doc_values_writer: Option<DocValuesWriterEnum>,
   pub(crate) point_values_writer: Option<PointValuesWriter>,
-  // pub(crate) knn_field_vectors_writer: Option<KnnFieldVectorsWriter>,
+  pub(crate) knn_field_vectors_writer: Option<usize>,
   pub(crate) field_gen: i64,
   pub(crate) next: i32,
   pub(crate) norms: Option<NormValuesWriter>,
@@ -1310,6 +1335,7 @@ impl PerField {
       terms_hash_per_field: None,
       doc_values_writer: None,
       point_values_writer: None,
+      knn_field_vectors_writer: None,
       field_gen: -1,
       next: -1,
       norms: None,
@@ -1756,7 +1782,7 @@ pub(crate) struct FieldSchema {
   point_dimension_count: usize,
   point_index_dimension_count: usize,
   point_num_bytes: usize,
-  vector_dimension: i32,
+  vector_dimension: usize,
   vector_encoding: VectorEncoding,
   vector_similarity_function: VectorSimilarityFunction,
 }
@@ -1876,7 +1902,7 @@ impl FieldSchema {
     &mut self,
     encoding: VectorEncoding,
     similarity_function: VectorSimilarityFunction,
-    dimension: i32,
+    dimension: usize,
   ) -> Result<()> {
     if self.vector_dimension == 0 {
       self.vector_encoding = encoding;
@@ -1938,7 +1964,7 @@ impl FieldSchema {
     )?;
     self.assert_same(
       "vector dimension",
-      &fi.get_vector_dimension(),
+      &(fi.get_vector_dimension() as usize),
       &self.vector_dimension,
     )?;
     self.assert_same(
