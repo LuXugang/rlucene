@@ -14,5 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod knn_collector_manager;
-pub mod top_knn_collector_manager;
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::hnsw::blocking_float_heap::BlockingFloatHeap;
+
+pub struct TopKnnCollectorManager {
+  k: usize,
+  global_score_queue: Option<BlockingFloatHeap>,
+}
+impl TopKnnCollectorManager {
+  pub fn new<IRC>(k: usize, index_searcher: &IndexSearcher<IRC>) -> Result<TopKnnCollectorManager>
+  where
+    IRC: IndexReaderContext,
+  {
+    let is_multi_segments = index_searcher.get_leaf_contexts()?.len() > 1;
+    let global_score_queue = if is_multi_segments {
+      Some(BlockingFloatHeap::new(k))
+    } else {
+      None
+    };
+    Ok(Self {
+      k,
+      global_score_queue,
+    })
+  }
+}

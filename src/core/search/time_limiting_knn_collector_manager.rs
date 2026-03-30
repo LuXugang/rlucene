@@ -17,7 +17,7 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
-use crate::core::search::knn::{KnnCollectorEnum, KnnCollectorManager};
+use crate::core::search::knn::knn_collector_manager::{KnnCollectorEnum, KnnCollectorManager};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::Relation::GreaterThanOrEqualTo;

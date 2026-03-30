@@ -16,26 +16,208 @@
  */
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::filtered_doc_id_set_iterator::{
+  FilteredDocIdSetIterator, FilteredDocIdSetIteratorBase,
+};
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{FixedScore, Scorable};
+use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::top_docs::TopDocs;
+use crate::core::search::top_docs::top_docs_util::merge_top_docs;
+use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::HasIdentity;
+use crate::core::util::bit_set::{SparseFixedBitSetBitSet, of};
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub trait AbstractKnnVectorQuery {}
+pub trait AbstractKnnVectorQuery: QueryBase {
+  type KnnCollectorManager: KnnCollectorManager;
+  fn get_knn_collector_manager(&self) -> Result<Self::KnnCollectorManager>;
+  fn default_get_knn_collector_manager(&self) -> Result<Self::KnnCollectorManager> {
+    todo!()
+  }
+
+  type VectorScorer: VectorScorer;
+  fn create_vector_scorer(&self) -> Result<Self::VectorScorer>;
+}
+pub struct AbstractKnnVectorQueryBase {
+  field: String,
+  k: usize,
+  filter: Query,
+}
+
+fn create_bit_set<D, B>(
+  iterator: D,
+  live_docs: Option<&B>,
+  max_doc: i32,
+) -> Result<SparseFixedBitSetBitSet>
+where
+  D: DocIdSetIterator,
+  B: Bits,
+{
+  // TODO IMPORTANT 复用 Bitset 未实现
+  let mut filter_iterator = FilteredDocIdSetIteratorImpl::new(live_docs, iterator);
+  of(&mut filter_iterator, max_doc as usize)
+}
+/// Merges all segment-level kNN results to get the index-level kNN results.
+///
+/// The default implementation delegates to [`TopDocs::merge`] to find the
+/// overall top `k`, which requires input results to be sorted.
+///
+/// This method is useful for reading and / or modifying the final results as needed.
+///
+/// # Arguments
+///
+/// * `per_leaf_results` - array of segment-level kNN results.
+///
+/// # Returns
+///
+/// index-level kNN results (no constraint on their ordering).
+fn merge_leaf_results<S>(k: usize, per_leaf_results: Vec<TopDocs<S>>) -> Result<TopDocs<S>>
+where
+  S: ScoreDocLike,
+{
+  merge_top_docs(k, per_leaf_results)
+}
+fn create_rewritten_query<LR, S>(
+  reader: &[LeafReaderContext<LR>],
+  id: Identity,
+  mut top_k: TopDocs<S>,
+) -> Result<Query>
+where
+  LR: LeafReader,
+  S: ScoreDocLike,
+{
+  let len = top_k.score_docs.len();
+  assert!(len > 0);
+
+  let max_score = top_k.score_docs[0].score();
+
+  top_k.score_docs.sort_by_key(|a| a.doc());
+
+  let mut docs = Vec::with_capacity(len);
+  let mut scores = Vec::with_capacity(len);
+
+  for sd in top_k.score_docs.iter() {
+    docs.push(sd.doc());
+    scores.push(sd.score());
+  }
+
+  let segment_starts = find_segment_starts(reader, &docs)?;
+
+  Ok(DocAndScoreQuery::new(docs, scores, max_score, segment_starts, id).into())
+}
+fn find_segment_starts<LR>(leaves: &[LeafReaderContext<LR>], docs: &[i32]) -> Result<Vec<usize>>
+where
+  LR: LeafReader,
+{
+  let mut starts = vec![0usize; leaves.len() + 1];
+  let starts_len = starts.len();
+  starts[starts_len - 1] = docs.len();
+
+  if starts.len() == 2 {
+    return Ok(starts);
+  }
+
+  let mut result_index: usize = 0;
+
+  for i in 1..starts_len - 1 {
+    let upper = leaves[i].doc_base as i32;
+
+    match docs[result_index..].binary_search(&upper) {
+      Ok(pos) => {
+        result_index += pos;
+      },
+      Err(pos) => {
+        result_index += pos;
+      },
+    }
+
+    starts[i] = result_index;
+  }
+
+  Ok(starts)
+}
+
+pub struct FilteredDocIdSetIteratorImpl<'a, B, D>
+where
+  B: Bits,
+  D: DocIdSetIterator,
+{
+  live_docs: Option<&'a B>,
+  base: FilteredDocIdSetIteratorBase<D>,
+}
+impl<'a, B, D> FilteredDocIdSetIteratorImpl<'a, B, D>
+where
+  B: Bits,
+  D: DocIdSetIterator,
+{
+  fn new(live_docs: Option<&'a B>, iterator: D) -> FilteredDocIdSetIteratorImpl<'a, B, D> {
+    let base = FilteredDocIdSetIteratorBase::new(iterator);
+    Self { live_docs, base }
+  }
+}
+
+impl<B, D> DocIdSetIterator for FilteredDocIdSetIteratorImpl<'_, B, D>
+where
+  B: Bits,
+  D: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    FilteredDocIdSetIterator::doc_id(self)
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    FilteredDocIdSetIterator::next_doc(self)
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    FilteredDocIdSetIterator::advance(self, target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    FilteredDocIdSetIterator::cost(self)
+  }
+}
+
+impl<B, D> FilteredDocIdSetIterator for FilteredDocIdSetIteratorImpl<'_, B, D>
+where
+  B: Bits,
+  D: DocIdSetIterator,
+{
+  type DocIdSetIterator = D;
+
+  fn base(&self) -> &FilteredDocIdSetIteratorBase<Self::DocIdSetIterator> {
+    &self.base
+  }
+
+  fn base_mut(&mut self) -> &mut FilteredDocIdSetIteratorBase<Self::DocIdSetIterator> {
+    &mut self.base
+  }
+
+  fn match_(&self, doc: i32) -> Result<bool> {
+    match self.live_docs {
+      Some(ref v) => v.get(doc as usize),
+      None => Ok(true),
+    }
+  }
+}
 /// Caches the results of a KnnVector search: a list of docs and their scores
 #[derive(Clone, Debug)]
 pub struct DocAndScoreQuery {
@@ -61,17 +243,17 @@ impl DocAndScoreQuery {
   /// * `context_identity` - an object identifying the reader context that was used to build this
   ///   query
   pub fn new(
-    docs: Arc<Vec<i32>>,
-    scores: Arc<Vec<f32>>,
+    docs: Vec<i32>,
+    scores: Vec<f32>,
     max_score: f32,
-    segment_starts: Arc<Vec<usize>>,
+    segment_starts: Vec<usize>,
     context_identity: Identity,
   ) -> Self {
     Self {
-      docs,
-      scores,
+      docs: Arc::new(docs),
+      scores: Arc::new(scores),
       max_score,
-      segment_starts,
+      segment_starts: Arc::new(segment_starts),
       context_identity,
       id: Identity::new(),
     }

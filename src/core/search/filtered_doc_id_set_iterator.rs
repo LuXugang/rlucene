@@ -35,7 +35,7 @@ pub trait FilteredDocIdSetIterator: DocIdSetIterator {
   /// # See also
   ///
   /// [`FilteredDocIdSetIterator`]
-  fn match_(&self) -> bool;
+  fn match_(&self, doc: i32) -> Result<bool>;
 
   fn doc_id(&self) -> i32 {
     self.base().doc
@@ -44,11 +44,12 @@ pub trait FilteredDocIdSetIterator: DocIdSetIterator {
   fn next_doc(&mut self) -> Result<i32> {
     loop {
       let base = self.base_mut();
-      base.doc = base.inner_iter.next_doc()?;
-      if base.doc == NO_MORE_DOCS {
-        return Ok(base.doc);
+      let doc = base.inner_iter.next_doc()?;
+      base.doc = doc;
+      if doc == NO_MORE_DOCS {
+        return Ok(doc);
       }
-      if self.match_() {
+      if self.match_(doc)? {
         return Ok(self.base().doc);
       }
     }
@@ -57,27 +58,25 @@ pub trait FilteredDocIdSetIterator: DocIdSetIterator {
   fn advance(&mut self, target: i32) -> Result<i32> {
     {
       let base = self.base_mut();
-
       base.doc = base.inner_iter.advance(target)?;
       if base.doc == NO_MORE_DOCS {
         return Ok(base.doc);
       }
     }
 
-    if self.match_() {
+    if self.match_(self.base().doc)? {
       return Ok(self.base().doc);
     }
 
     loop {
-      {
-        let base = self.base_mut();
-        base.doc = base.inner_iter.next_doc()?;
-        if base.doc == NO_MORE_DOCS {
-          return Ok(base.doc);
-        }
+      let base = self.base_mut();
+      let doc = base.inner_iter.next_doc()?;
+      base.doc = doc;
+      if doc == NO_MORE_DOCS {
+        return Ok(doc);
       }
-      if self.match_() {
-        return Ok(self.base().doc);
+      if self.match_(doc)? {
+        return Ok(doc);
       }
     }
   }
@@ -97,7 +96,10 @@ impl<D> FilteredDocIdSetIteratorBase<D>
 where
   D: DocIdSetIterator,
 {
-  pub(crate) fn new(doc: i32, inner_iter: D) -> FilteredDocIdSetIteratorBase<D> {
-    FilteredDocIdSetIteratorBase { doc, inner_iter }
+  pub(crate) fn new(inner_iter: D) -> FilteredDocIdSetIteratorBase<D> {
+    FilteredDocIdSetIteratorBase {
+      doc: -1,
+      inner_iter,
+    }
   }
 }
