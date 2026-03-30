@@ -571,10 +571,16 @@ where
     Ok(())
   }
 
-  type KnnFieldVectorsWriter = FieldWriterType<DefaultRandomVectorScorerSupplier<F>>;
-
-  fn field_vectors_writer(&mut self, idx: usize) -> Result<&mut Self::KnnFieldVectorsWriter> {
-    Ok(&mut self.fields[idx])
+  fn add_value(
+    &mut self,
+    doc_id: i32,
+    vector_value: &VectorValueEnum,
+    field_vectors_writers_idx: usize,
+  ) -> Result<()> {
+    debug_assert!(field_vectors_writers_idx <= self.fields.len());
+    let field_writer = &mut self.fields[field_vectors_writers_idx];
+    let flat_field_vectors_writer = self.flat_vector_writer.get_fields_mut();
+    field_writer.add_value(doc_id, vector_value, flat_field_vectors_writer)
   }
 }
 

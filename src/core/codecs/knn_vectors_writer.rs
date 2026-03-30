@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::sorter::DocMap;
@@ -43,8 +43,12 @@ pub trait KnnVectorsWriter: Accountable {
   fn finish(&mut self) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
-  type KnnFieldVectorsWriter: KnnFieldVectorsWriter;
-  fn field_vectors_writer(&mut self, _idx: usize) -> Result<&mut Self::KnnFieldVectorsWriter> {
+  fn add_value(
+    &mut self,
+    _doc_id: i32,
+    _vector_value: &VectorValueEnum,
+    _field_vectors_writers_idx: usize,
+  ) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
 }

@@ -54,6 +54,7 @@ use std::borrow::Cow;
 
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
+use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::document::field::FieldDataEnum;
 use crate::core::index::index_writer::{MAX_POSITION, MAX_STORED_STRING_LENGTH, MAX_TERM_LENGTH};
 use crate::core::index::indexable_field::IndexableField;
@@ -1242,20 +1243,17 @@ where
 
   fn index_vector_value(
     &mut self,
-    _doc_id: i32,
-    _field_writer_idx: usize,
-    _field: &impl IndexableField,
+    doc_id: i32,
+    field_writer_idx: usize,
+    field: &impl IndexableField,
   ) -> Result<()> {
-    // let writer = self
-    //     .vector_values_consumer
-    //     .writer
-    //     .as_mut()
-    //     .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-    // let field_writer = writer.field_vectors_writer(field_writer_idx)?;
-    // let flat_writer = writer.flat_vector_writer.get_fields_mut();
-    // let vector_value = field.vector_value()?;
-    // field_writer.add_value(doc_id, vector_value, flat_writer)
-    Ok(())
+    let writer = self
+      .vector_values_consumer
+      .writer
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
+    let vector_value = field.vector_value()?;
+    writer.add_value(doc_id, vector_value, field_writer_idx)
   }
 
   fn get_per_field(&self, name: &str) -> Option<usize> {

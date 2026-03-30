@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
-use crate::core::codecs::dummy::dummy_knn_field_vectors_writer::DummyKnnFieldVectorsWriter;
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::FlatVectorsWriter;
@@ -293,7 +292,6 @@ where
   O: IndexOutput,
   F: FlatVectorsScorer,
 {
-  type KnnFieldVectorsWriter = DummyKnnFieldVectorsWriter;
 }
 
 impl<O, F> FlatVectorsWriter for Lucene99FlatVectorsWriter<O, F>
