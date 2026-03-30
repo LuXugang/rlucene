@@ -26,6 +26,7 @@ use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 
+use crate::core::search::abstract_knn_vector_query::DocAndScoreQuery;
 use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
@@ -97,6 +98,7 @@ macro_rules! dispatch_query {
       Query::ConstantScore($inner) => $body,
       Query::Dummy($inner) => $body,
       Query::DisjunctionMax($inner) => $body,
+      Query::DocAndScore($inner) => $body,
       Query::FieldExists($inner) => $body,
       Query::IndexOrDocValues($inner) => $body,
       Query::IndexSortSortedNumericDocValuesRange($inner) => $body,
@@ -140,6 +142,7 @@ impl_from_for_enum!(
     ConstantScoreQuery => ConstantScore,
     DummyQuery => Dummy,
     DisjunctionMaxQuery => DisjunctionMax,
+    DocAndScoreQuery => DocAndScore,
     FieldExistsQuery => FieldExists,
     IndexOrDocValuesQuery => IndexOrDocValues,
     IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
@@ -177,6 +180,7 @@ impl_into_box_query!(
   ConstantScoreQuery,
   DummyQuery,
   DisjunctionMaxQuery,
+  DocAndScoreQuery,
   FieldExistsQuery,
   IndexOrDocValuesQuery,
   IndexSortSortedNumericDocValuesRangeQuery,
@@ -228,6 +232,7 @@ pub enum Query {
   ConstantScore(ConstantScoreQuery),
   Dummy(DummyQuery),
   DisjunctionMax(DisjunctionMaxQuery),
+  DocAndScore(DocAndScoreQuery),
   FieldExists(FieldExistsQuery),
   IndexOrDocValues(IndexOrDocValuesQuery),
   IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
@@ -289,6 +294,7 @@ impl Query {
             ConstantScore,
             Dummy,
             DisjunctionMax,
+            DocAndScore,
             FieldExists,
             IndexOrDocValues,
             IndexSortSortedNumericDocValuesRange,

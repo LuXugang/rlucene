@@ -80,6 +80,7 @@ pub mod top_docs;
 pub mod top_docs_collector;
 
 pub use query_cache::QueryCache;
+pub mod abstract_knn_vector_query;
 pub(crate) mod abstract_multi_term_query_constant_score_wrapper;
 pub mod automaton_query;
 pub(crate) mod block_max_conjunction_bulk_scorer;
