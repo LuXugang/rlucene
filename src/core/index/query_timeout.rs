@@ -16,6 +16,7 @@
  */
 use crate::core::index::query_timeout_impl::QueryTimeoutImpl;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 /// Query timeout abstraction that controls whether a query should continue or be stopped.
 ///
@@ -62,5 +63,14 @@ impl QueryTimeout for QueryTimeoutEnum {
       Self::Builtin(inner) => inner.should_exit(),
       Self::Custom(inner) => inner.should_exit(),
     }
+  }
+}
+
+impl<T> QueryTimeout for Arc<T>
+where
+  T: QueryTimeout,
+{
+  fn should_exit(&self) -> bool {
+    (**self).should_exit()
   }
 }

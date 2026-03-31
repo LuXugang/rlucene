@@ -26,6 +26,7 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{Comparator, ToInt};
 
 /// Represents hits returned.
+#[derive(Clone)]
 pub struct TopDocs<S>
 where
   S: ScoreDocLike,
@@ -36,19 +37,6 @@ where
   /// The top hits for the query.
   pub score_docs: Vec<S>,
 }
-#[cfg(test)]
-impl<S> Clone for TopDocs<S>
-where
-  S: ScoreDocLike,
-{
-  fn clone(&self) -> Self {
-    Self {
-      total_hits: self.total_hits.clone(),
-      score_docs: self.score_docs.clone(),
-    }
-  }
-}
-
 impl<S> TopDocs<S>
 where
   S: ScoreDocLike,

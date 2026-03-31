@@ -44,6 +44,9 @@ where
       query_timeout,
     }
   }
+  pub fn get_query_timeout(&self) -> Option<&Q> {
+    self.query_timeout.as_ref()
+  }
 }
 impl<K, Q> KnnCollectorManager for TimeLimitingKnnCollectorManager<K, Q>
 where

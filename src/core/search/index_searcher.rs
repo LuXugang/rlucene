@@ -87,7 +87,7 @@ where
   pub reader_context: IRC,
   similarity: Arc<SimilarityEnum>,
   inner: Mutex<Inner>,
-  query_timeout: Option<QueryTimeoutEnum>,
+  query_timeout: Option<Arc<QueryTimeoutEnum>>,
   query_caching_policy: Arc<QueryCachingPolicyEnum>,
   query_cache: Option<QueryCacheEnum<IRC>>,
   // partialResult may be set on one of the threads of the executor. It may be correct to not make
@@ -251,15 +251,15 @@ where
   }
   /// Get the configured [`QueryTimeout`] for all searches that run through this [`IndexSearcher`],
   /// or `None` if not set.
-  pub fn get_timeout<T>(&self) -> Option<&QueryTimeoutEnum> {
-    self.query_timeout.as_ref()
+  pub fn get_timeout<T>(&self) -> Option<Arc<QueryTimeoutEnum>> {
+    self.query_timeout.clone()
   }
   /// Set a [`QueryTimeout`] for all searches that run through this [`IndexSearcher`].
   pub fn set_timeout<T>(&mut self, query_timeout: T)
   where
     T: Into<QueryTimeoutEnum>,
   {
-    self.query_timeout = Some(query_timeout.into())
+    self.query_timeout = Some(Arc::new(query_timeout.into()))
   }
   pub fn search(&self, query: impl Into<Query>, n: usize) -> Result<TopDocs<ScoreDoc>> {
     self.search_after_score(None, query, n)

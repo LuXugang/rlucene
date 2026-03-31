@@ -14,52 +14,356 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::Identity;
+use crate::core::index::field_info::FieldInfo;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::query_timeout::QueryTimeout;
+use crate::core::search::boolean_clause::Occur;
+use crate::core::search::boolean_query::Builder;
+use crate::core::search::conjunction_disi::{ConjunctionDISI, VectorScorerDisi};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::filtered_doc_id_set_iterator::{
   FilteredDocIdSetIterator, FilteredDocIdSetIteratorBase,
 };
+use crate::core::search::hit_queue::HitQueue;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
+use crate::core::search::knn::knn_collector_manager::{
+  KnnCollectorManager, KnnCollectorManagerScoreDocLike,
+};
+use crate::core::search::knn::top_knn_collector_manager::TopKnnCollectorManager;
+use crate::core::search::knn_collector::KnnCollector;
+use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{FixedScore, Scorable};
-use crate::core::search::score_doc::ScoreDocLike;
+use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::time_limiting_knn_collector_manager::TimeLimitingKnnCollectorManager;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::top_docs::top_docs_util::merge_top_docs;
+use crate::core::search::top_docs_collector::EMPTY_TOP_DOCS;
+use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
+use crate::core::search::total_hits::TotalHits;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::HasIdentity;
-use crate::core::util::bit_set::{SparseFixedBitSetBitSet, of};
+use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet, of};
+use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use once_cell::sync::Lazy;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub trait AbstractKnnVectorQuery: QueryBase {
-  type KnnCollectorManager: KnnCollectorManager;
-  fn get_knn_collector_manager(&self) -> Result<Self::KnnCollectorManager>;
-  fn default_get_knn_collector_manager(&self) -> Result<Self::KnnCollectorManager> {
-    todo!()
+pub static NO_RESULTS: Lazy<TopDocs<ScoreDoc>> = Lazy::new(|| EMPTY_TOP_DOCS.clone());
+/// Uses [`KnnVectorsReader::search`] to perform nearest neighbour search.
+///
+/// This query also allows for performing a kNN search subject to a filter. In this case, it first
+/// executes the filter for each leaf, then chooses a strategy dynamically:
+///
+/// - If the filter cost is less than `k`, just execute an exact search
+/// - Otherwise run a kNN search subject to the filter
+/// - If the kNN search visits too many vectors without completing, stop and run an exact search
+pub trait AbstractKnnVectorQuery: QueryBase
+where
+  for<'a> <Self::KnnCollectorManager as KnnCollectorManager>::KnnCollector<'a>:
+    KnnCollector<ScoreDocLike = ScoreDoc>,
+{
+  fn base(&self) -> &AbstractKnnVectorQueryBase;
+  fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+  {
+    let filter = self.base().filter.clone();
+    let filter_weight = if let Some(filter) = filter {
+      let mut builder = Builder::new();
+      builder.add(filter.clone(), Occur::Filter)?;
+      builder.add(FieldExistsQuery::new(&self.base().field), Occur::Filter)?;
+      let rewritten = index_searcher.rewrite(builder.build())?;
+      Some(index_searcher.create_weight(rewritten, ScoreMode::CompleteNoScores, 1.0)?)
+    } else {
+      None
+    };
+
+    let kcm = self.get_knn_collector_manager(self.base().k, index_searcher)?;
+    let knn_collector_manager =
+      TimeLimitingKnnCollectorManager::new(kcm, index_searcher.get_timeout::<()>());
+
+    // TODO IMPORTANT 多线程未支持
+    let leaf_reader_contexts = index_searcher.get_leaf_contexts()?;
+
+    let mut per_leaf_results = Vec::with_capacity(leaf_reader_contexts.len());
+    for ctx in leaf_reader_contexts {
+      let filter_weight = filter_weight.as_ref();
+      per_leaf_results.push(self.search_leaf(
+        ctx,
+        filter_weight,
+        &knn_collector_manager,
+        index_searcher,
+      )?)
+    }
+
+    let top_k = merge_leaf_results(self.base().k, per_leaf_results)?;
+
+    if top_k.score_docs.is_empty() {
+      return Ok(MatchNoDocsQuery::new().into());
+    }
+    let id = index_searcher.get_top_reader_context().base().id().clone();
+    create_rewritten_query(leaf_reader_contexts, top_k, id)
+  }
+  fn search_leaf<IRC, K, Q, W>(
+    &self,
+    ctx: &LeafReaderContext<IRCLeafReader<IRC>>,
+    filter_weight: Option<&W>,
+    time_limiting_knn_collector_manager: &TimeLimitingKnnCollectorManager<K, Q>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    IRC: IndexReaderContext,
+    K: KnnCollectorManager,
+    Q: QueryTimeout,
+    W: Weight<IRC>,
+    for<'a> K::KnnCollector<'a>: KnnCollector<ScoreDocLike = ScoreDoc>,
+  {
+    let mut results = self.get_leaf_results(
+      ctx,
+      filter_weight,
+      time_limiting_knn_collector_manager,
+      searcher,
+    )?;
+
+    if ctx.doc_base > 0 {
+      for score_doc in &mut results.score_docs {
+        score_doc.doc += ctx.doc_base as i32;
+      }
+    }
+
+    Ok(results)
+  }
+  fn get_leaf_results<IRC, K, Q, W>(
+    &self,
+    ctx: &LeafReaderContext<IRCLeafReader<IRC>>,
+    filter_weight: Option<&W>,
+    time_limiting_knn_collector_manager: &TimeLimitingKnnCollectorManager<K, Q>,
+    search: &IndexSearcher<IRC>,
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    IRC: IndexReaderContext,
+    K: KnnCollectorManager,
+    Q: QueryTimeout,
+    W: Weight<IRC>,
+    for<'a> K::KnnCollector<'a>: KnnCollector<ScoreDocLike = ScoreDoc>,
+  {
+    let reader = ctx.reader();
+    let live_docs = reader.get_live_docs()?;
+
+    let filter_weight = match filter_weight {
+      None => {
+        return self.approximate_search(
+          ctx,
+          live_docs.as_ref(),
+          i32::MAX as usize,
+          time_limiting_knn_collector_manager,
+        );
+      },
+      Some(filter_weight) => filter_weight,
+    };
+
+    let mut scorer = match filter_weight.scorer(ctx, search)? {
+      Some(scorer) => scorer,
+      None => return Ok(NO_RESULTS.clone()),
+    };
+
+    let accept_docs = create_bit_set(scorer.iterator_mut(), live_docs.as_ref(), reader.max_doc()?)?;
+    let cost = accept_docs.cardinality();
+    let query_timeout = time_limiting_knn_collector_manager.get_query_timeout();
+
+    if cost <= self.base().k {
+      // If there are <= k possible matches, short-circuit and perform exact search, since HNSW
+      // must always visit at least k documents
+      return self.exact_search(
+        ctx,
+        BitSetIterator::new(accept_docs, cost as i64)?,
+        query_timeout,
+      );
+    }
+    // Perform the approximate kNN search
+    // We pass cost + 1 here to account for the edge case when we explore exactly cost vectors
+    let results = self.approximate_search(
+      ctx,
+      Some(&accept_docs),
+      cost + 1,
+      time_limiting_knn_collector_manager,
+    )?;
+
+    if results.total_hits.relation() == EqualTo || query_timeout.is_some_and(|qt| qt.should_exit())
+    {
+      Ok(results)
+    } else {
+      self.exact_search(
+        ctx,
+        BitSetIterator::new(accept_docs, cost as i64)?,
+        query_timeout,
+      )
+    }
   }
 
+  type KnnCollectorManager: KnnCollectorManager;
+
+  fn get_knn_collector_manager<IRC>(
+    &self,
+    k: usize,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Self::KnnCollectorManager>
+  where
+    IRC: IndexReaderContext;
+  fn default_get_knn_collector_manager<IRC>(
+    &self,
+    k: usize,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<TopKnnCollectorManager>
+  where
+    IRC: IndexReaderContext,
+  {
+    TopKnnCollectorManager::new(k, searcher)
+  }
+
+  fn approximate_search<'a, LR, B, K>(
+    &self,
+    context: &LeafReaderContext<LR>,
+    accept_docs: Option<B>,
+    visited_limit: usize,
+    knn_collector_manager: &K,
+  ) -> Result<TopDocs<KnnCollectorManagerScoreDocLike<'a, K>>>
+  where
+    LR: LeafReader,
+    B: Bits,
+    K: KnnCollectorManager;
+
   type VectorScorer: VectorScorer;
-  fn create_vector_scorer(&self) -> Result<Self::VectorScorer>;
+  fn create_vector_scorer<LR>(
+    &self,
+    context: &LeafReaderContext<LR>,
+    fi: &FieldInfo,
+  ) -> Result<Option<Self::VectorScorer>>
+  where
+    LR: LeafReader;
+  fn exact_search<LR, T, Q>(
+    &self,
+    context: &LeafReaderContext<LR>,
+    accept_iterator: BitSetIterator<T>,
+    query_timeout: Option<&Q>,
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    LR: LeafReader,
+    T: BitSet,
+    Q: QueryTimeout,
+  {
+    let field_infos = context.reader().get_field_infos()?;
+    let fi = match field_infos.field_info_by_name(&self.base().field) {
+      Some(fi) => fi,
+      None => {
+        // The field does not exist or does not index vectors
+        return Ok(NO_RESULTS.clone());
+      },
+    };
+    if fi.get_vector_dimension() == 0 {
+      return Ok(NO_RESULTS.clone());
+    }
+
+    let vector_scorer = match self.create_vector_scorer(context, fi.as_ref())? {
+      Some(vector_scorer) => vector_scorer,
+      None => {
+        return Ok(NO_RESULTS.clone());
+      },
+    };
+
+    let cost = accept_iterator.cost()? as usize;
+    let queue_size = self.base().k.min(cost);
+    let mut queue = HitQueue::new(queue_size, true)?;
+    let mut relation = EqualTo;
+    let mut top_doc = queue
+      .top_mut()
+      .ok_or_else(|| LuceneError::illegal_state("top is None"))?;
+
+    let vector_iterator = VectorScorerDisi::new(vector_scorer);
+    let mut conjunction = ConjunctionDISI::from_disi(vec![
+      ConjunctionDISIEnum::VectorScorer(vector_iterator),
+      ConjunctionDISIEnum::Bit(accept_iterator),
+    ])?;
+
+    loop {
+      let doc = conjunction.next_doc()?;
+      if doc == NO_MORE_DOCS {
+        break;
+      }
+
+      if query_timeout.is_some_and(|qt| qt.should_exit()) {
+        relation = GreaterThanOrEqualTo;
+        break;
+      }
+      debug_assert!(conjunction.all_disi[0].doc_id() == doc);
+      let vector_scorer = match &mut conjunction.all_disi[0] {
+        ConjunctionDISIEnum::VectorScorer(vs) => vs,
+        _ => {
+          return Err(LuceneError::illegal_state(
+            "expected vector scorer to be first in conjunction",
+          ));
+        },
+      };
+      let score = vector_scorer.score()?;
+      if score > top_doc.score {
+        top_doc.score = score;
+        top_doc.doc = doc;
+        top_doc = queue.update_top()?;
+      }
+    }
+
+    while queue.size() > 0
+      && queue
+        .top()
+        .ok_or_else(|| LuceneError::illegal_state("top is None"))?
+        .score
+        < 0.0
+    {
+      queue.pop()?;
+    }
+
+    let mut top_score_docs = vec![ScoreDoc::default(); queue.size()];
+    for i in (0..top_score_docs.len()).rev() {
+      top_score_docs[i] = queue
+        .pop()?
+        .ok_or_else(|| LuceneError::illegal_state("top is None"))?;
+    }
+
+    let total_hits = TotalHits::new(cost, relation);
+    Ok(TopDocs::new(total_hits, top_score_docs))
+  }
 }
 pub struct AbstractKnnVectorQueryBase {
   field: String,
   k: usize,
-  filter: Query,
+  filter: Option<Query>,
+}
+impl AbstractKnnVectorQueryBase {
+  pub fn new(field: String, k: usize, filter: Option<Query>) -> Result<Self> {
+    if k < 1 {
+      return Err(LuceneError::illegal_argument(format!(
+        "k must be at least 1, got: {}",
+        k
+      )));
+    }
+    Ok(Self { field, k, filter })
+  }
 }
 
 fn create_bit_set<D, B>(
@@ -97,8 +401,8 @@ where
 }
 fn create_rewritten_query<LR, S>(
   reader: &[LeafReaderContext<LR>],
-  id: Identity,
   mut top_k: TopDocs<S>,
+  id: Identity,
 ) -> Result<Query>
 where
   LR: LeafReader,
@@ -544,5 +848,54 @@ impl Scorer for ScorerImpl {
 
   fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
     Box::new(&mut self.disi)
+  }
+}
+// TODO IMPORTANT 应该优化为 BitSetConjunctionDISI
+pub enum ConjunctionDISIEnum<T, V>
+where
+  T: BitSet,
+  V: VectorScorer,
+{
+  Bit(BitSetIterator<T>),
+  VectorScorer(VectorScorerDisi<V>),
+}
+impl<T, V> DocIdSetIterator for ConjunctionDISIEnum<T, V>
+where
+  T: BitSet,
+  V: VectorScorer,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      ConjunctionDISIEnum::Bit(it) => it.doc_id(),
+      ConjunctionDISIEnum::VectorScorer(it) => it.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      ConjunctionDISIEnum::Bit(it) => it.next_doc(),
+      ConjunctionDISIEnum::VectorScorer(it) => it.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      ConjunctionDISIEnum::Bit(it) => it.advance(target),
+      ConjunctionDISIEnum::VectorScorer(it) => it.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      ConjunctionDISIEnum::Bit(it) => it.slow_advance(target),
+      ConjunctionDISIEnum::VectorScorer(it) => it.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      ConjunctionDISIEnum::Bit(it) => it.cost(),
+      ConjunctionDISIEnum::VectorScorer(it) => it.cost(),
+    }
   }
 }

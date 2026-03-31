@@ -20,6 +20,7 @@ use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
@@ -442,6 +443,63 @@ where
       .partial_cmp(&r.match_cost())
       .ok_or_else(|| LuceneError::illegal_state("can compare float?, match_cost is NaN"))?;
     Ok(ord.to_int())
+  }
+}
+
+pub struct VectorScorerDisi<V>
+where
+  V: VectorScorer,
+{
+  vector_scorer: V,
+}
+impl<V> VectorScorerDisi<V>
+where
+  V: VectorScorer,
+{
+  pub fn new(vector_scorer: V) -> Self {
+    Self { vector_scorer }
+  }
+}
+impl<V> DocIdSetIterator for VectorScorerDisi<V>
+where
+  V: VectorScorer,
+{
+  fn doc_id(&self) -> i32 {
+    self.vector_scorer.iterator().doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.vector_scorer.iterator_mut().next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.vector_scorer.iterator_mut().advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.vector_scorer.iterator_mut().slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.vector_scorer.iterator().cost()
+  }
+}
+impl<V> VectorScorer for VectorScorerDisi<V>
+where
+  V: VectorScorer,
+{
+  fn score(&mut self) -> Result<f32> {
+    self.vector_scorer.score()
+  }
+
+  type DocIdSetIterator = V::DocIdSetIterator;
+
+  fn iterator(&self) -> &Self::DocIdSetIterator {
+    self.vector_scorer.iterator()
+  }
+
+  fn iterator_mut(&mut self) -> &mut Self::DocIdSetIterator {
+    self.vector_scorer.iterator_mut()
   }
 }
 

@@ -41,3 +41,5 @@ pub trait KnnCollectorManager {
   where
     LR: LeafReader;
 }
+pub type KnnCollectorManagerScoreDocLike<'a, K> =
+  <<K as KnnCollectorManager>::KnnCollector<'a> as KnnCollector>::ScoreDocLike;
