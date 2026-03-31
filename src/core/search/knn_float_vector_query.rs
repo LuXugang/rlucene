@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::byte_vector_values::{ByteVectorValues, check_field};
+use crate::core::index::byte_vector_values::check_field;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::knn_vector_values::KnnVectorValues;
-use crate::core::index::leaf_reader::{LRByteVectorValues, LeafReader};
+use crate::core::index::leaf_reader::{LRFloatVectorValues, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::abstract_knn_vector_query::{
   AbstractKnnVectorQuery, AbstractKnnVectorQueryBase, NO_RESULTS,
@@ -36,6 +37,7 @@ use crate::core::search::top_docs::TopDocs;
 use crate::core::util::HasIdentity;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::vector_util::VectorUtil;
 use std::hash::{Hash, Hasher};
 
 /// Uses [`KnnVectorsReader::search`] to perform nearest neighbour search.
@@ -47,26 +49,26 @@ use std::hash::{Hash, Hasher};
 /// - Otherwise run a kNN search subject to the filter
 /// - If the kNN search visits too many vectors without completing, stop and run an exact search
 #[derive(Clone, Debug)]
-pub struct KnnByteVectorQuery {
+pub struct KnnFloatVectorQuery {
   base: AbstractKnnVectorQueryBase,
-  target: Vec<u8>,
+  target: Vec<f32>,
   id: Identity,
 }
 
-impl KnnByteVectorQuery {
+impl KnnFloatVectorQuery {
   /// Find the `k` nearest documents to the target vector according to the vectors in the
   /// given field. `target` vector.
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a [`KnnByteVectorField`].
+  /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`].
   /// * `target` - the target of the search
   /// * `k` - the number of documents to find
   ///
   /// # Errors
   ///
   /// Returns an error if `k` is less than `1`.
-  pub fn new<T>(field: T, target: Vec<u8>, k: usize) -> Result<Self>
+  pub fn new<T>(field: T, target: Vec<f32>, k: usize) -> Result<Self>
   where
     T: Into<String>,
   {
@@ -78,7 +80,7 @@ impl KnnByteVectorQuery {
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a [`KnnByteVectorField`].
+  /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`].
   /// * `target` - the target of the search
   /// * `k` - the number of documents to find
   /// * `filter` - a filter applied before the vector search
@@ -86,42 +88,54 @@ impl KnnByteVectorQuery {
   /// # Errors
   ///
   /// Returns an error if `k` is less than `1`.
-  pub fn with_filter<T>(field: T, target: Vec<u8>, k: usize, filter: Option<Query>) -> Result<Self>
+  pub fn with_filter<T>(field: T, target: Vec<f32>, k: usize, filter: Option<Query>) -> Result<Self>
   where
     T: Into<String>,
   {
     let field = field.into();
+    VectorUtil::check_finite(target.as_ref())?;
     Ok(Self {
       base: AbstractKnnVectorQueryBase::new(field, k, filter)?,
       target,
       id: Identity::new(),
     })
   }
+
   /// Returns the target query vector of the search. Each vector element is a float.
-  pub fn get_target_copy(&self) -> Vec<u8> {
+  pub fn get_target_copy(&self) -> Vec<f32> {
     self.target.clone()
   }
 }
-impl PartialEq for KnnByteVectorQuery {
+
+impl PartialEq for KnnFloatVectorQuery {
   fn eq(&self, other: &Self) -> bool {
     self.target == other.target && self.base == other.base
   }
 }
-impl Eq for KnnByteVectorQuery {}
-impl Hash for KnnByteVectorQuery {
+
+impl Eq for KnnFloatVectorQuery {}
+
+impl Hash for KnnFloatVectorQuery {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.base.hash(state);
-    self.target.hash(state);
+    for &v in &self.target {
+      let bits = if v == 0.0 {
+        0.0f32.to_bits()
+      } else {
+        v.to_bits()
+      };
+      bits.hash(state);
+    }
   }
 }
 
-impl HasIdentity for KnnByteVectorQuery {
+impl HasIdentity for KnnFloatVectorQuery {
   fn identity(&self) -> &Identity {
     &self.id
   }
 }
 
-impl QueryBase for KnnByteVectorQuery {
+impl QueryBase for KnnFloatVectorQuery {
   fn as_string(&self, _field: &str) -> Result<String> {
     let mut buffer = String::new();
     buffer.push_str(std::any::type_name::<Self>().rsplit("::").next().unwrap());
@@ -169,7 +183,8 @@ impl QueryBase for KnnByteVectorQuery {
     todo!()
   }
 }
-impl AbstractKnnVectorQuery for KnnByteVectorQuery {
+
+impl AbstractKnnVectorQuery for KnnFloatVectorQuery {
   fn base(&self) -> &AbstractKnnVectorQueryBase {
     &self.base
   }
@@ -202,8 +217,8 @@ impl AbstractKnnVectorQuery for KnnByteVectorQuery {
     let mut knn_collector = knn_collector_manager.new_collector(visited_limit, context)?;
     let reader = context.reader();
 
-    let byte_vector_values = reader.get_byte_vector_values(&self.base.field)?;
-    let byte_vector_values = match byte_vector_values {
+    let float_vector_values = reader.get_float_vector_values(&self.base.field)?;
+    let float_vector_values = match float_vector_values {
       Some(v) => v,
       None => {
         check_field(reader, &self.base.field)?;
@@ -211,11 +226,11 @@ impl AbstractKnnVectorQuery for KnnByteVectorQuery {
       },
     };
 
-    if std::cmp::min(knn_collector.k(), byte_vector_values.size()) == 0 {
+    if std::cmp::min(knn_collector.k(), float_vector_values.size()) == 0 {
       return Ok(NO_RESULTS.clone());
     }
 
-    reader.search_nearest_vectors_u8(
+    reader.search_nearest_vectors_f32(
       &self.base.field,
       self.target.clone(),
       &mut knn_collector,
@@ -225,7 +240,7 @@ impl AbstractKnnVectorQuery for KnnByteVectorQuery {
   }
 
   type VectorScorer<LR>
-    = <LRByteVectorValues<LR> as ByteVectorValues>::VectorScorer
+    = <LRFloatVectorValues<LR> as FloatVectorValues>::VectorScorer
   where
     LR: LeafReader;
 
@@ -238,13 +253,13 @@ impl AbstractKnnVectorQuery for KnnByteVectorQuery {
     LR: LeafReader,
   {
     let reader = context.reader();
-    let vector_values = match reader.get_byte_vector_values(&self.base.field)? {
+    let vector_values = match reader.get_float_vector_values(&self.base.field)? {
       Some(vector_values) => vector_values,
       None => {
         check_field(reader, &self.base.field)?;
         return Ok(None);
       },
     };
-    Ok(Some(vector_values.scorer(self.target.clone())?))
+    vector_values.scorer(self.target.clone())
   }
 }

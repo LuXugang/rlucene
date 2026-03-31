@@ -117,6 +117,7 @@ pub mod index_or_doc_values_query;
 pub mod index_sort_sorted_numeric_doc_values_range_query;
 pub mod knn;
 pub mod knn_byte_vector_query;
+pub mod knn_float_vector_query;
 mod max_score_bulk_scorer;
 pub mod multi_term_query;
 mod multi_term_query_constant_score_blended_wrapper;
