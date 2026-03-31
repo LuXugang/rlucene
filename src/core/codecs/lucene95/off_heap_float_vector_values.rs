@@ -329,13 +329,21 @@ where
     self.random_vector_scorer.score(doc_id)
   }
 
-  type DocIdSetIterator = DenseDocIndexIterator;
+  type DocIdSetIteratorRef<'a>
+    = &'a DenseDocIndexIterator
+  where
+    Self: 'a;
 
-  fn iterator(&self) -> &Self::DocIdSetIterator {
+  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
     &self.iterator
   }
 
-  fn iterator_mut(&mut self) -> &mut Self::DocIdSetIterator {
+  type DocIdSetIteratorMut<'a>
+    = &'a mut DenseDocIndexIterator
+  where
+    Self: 'a;
+
+  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
     &mut self.iterator
   }
 }
@@ -534,13 +542,21 @@ where
     self.random_vector_scorer.score(index as usize)
   }
 
-  type DocIdSetIterator = DocIndexIteratorImpl<I>;
+  type DocIdSetIteratorRef<'a>
+    = &'a DocIndexIteratorImpl<I>
+  where
+    Self: 'a;
 
-  fn iterator(&self) -> &Self::DocIdSetIterator {
+  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
     &self.iterator
   }
 
-  fn iterator_mut(&mut self) -> &mut Self::DocIdSetIterator {
+  type DocIdSetIteratorMut<'a>
+    = &'a mut DocIndexIteratorImpl<I>
+  where
+    Self: 'a;
+
+  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
     &mut self.iterator
   }
 }
@@ -1014,19 +1030,39 @@ where
     }
   }
 
-  type DocIdSetIterator = DocIdSetIteratorEnum2<DenseDocIndexIterator, DocIndexIteratorImpl<I>>;
+  type DocIdSetIteratorRef<'a>
+    = DocIdSetIteratorEnum2<&'a DenseDocIndexIterator, &'a DocIndexIteratorImpl<I>>
+  where
+    Self: 'a;
 
-  fn iterator(&self) -> &Self::DocIdSetIterator {
+  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
     match self {
-      VectorScorerEnum::Dense { iterator, .. } => iterator,
-      VectorScorerEnum::Sparse { iterator, .. } => iterator,
+      VectorScorerEnum::Dense { iterator, .. } => match iterator {
+        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
+        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
+      },
+      VectorScorerEnum::Sparse { iterator, .. } => match iterator {
+        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
+        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
+      },
     }
   }
 
-  fn iterator_mut(&mut self) -> &mut Self::DocIdSetIterator {
+  type DocIdSetIteratorMut<'a>
+    = DocIdSetIteratorEnum2<&'a mut DenseDocIndexIterator, &'a mut DocIndexIteratorImpl<I>>
+  where
+    Self: 'a;
+
+  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
     match self {
-      VectorScorerEnum::Dense { iterator, .. } => iterator,
-      VectorScorerEnum::Sparse { iterator, .. } => iterator,
+      VectorScorerEnum::Dense { iterator, .. } => match iterator {
+        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
+        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
+      },
+      VectorScorerEnum::Sparse { iterator, .. } => match iterator {
+        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
+        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
+      },
     }
   }
 }

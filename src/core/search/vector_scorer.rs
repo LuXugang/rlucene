@@ -29,8 +29,13 @@ pub trait VectorScorer {
   /// Returns an error if an exception occurs during score computation.
   fn score(&mut self) -> Result<f32>;
 
-  type DocIdSetIterator: DocIdSetIterator;
+  type DocIdSetIteratorRef<'a>: DocIdSetIterator
+  where
+    Self: 'a;
   /// Returns an iterator over the document IDs.
-  fn iterator(&self) -> &Self::DocIdSetIterator;
-  fn iterator_mut(&mut self) -> &mut Self::DocIdSetIterator;
+  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_>;
+  type DocIdSetIteratorMut<'a>: DocIdSetIterator
+  where
+    Self: 'a;
+  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_>;
 }

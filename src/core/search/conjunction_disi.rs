@@ -492,13 +492,21 @@ where
     self.vector_scorer.score()
   }
 
-  type DocIdSetIterator = V::DocIdSetIterator;
+  type DocIdSetIteratorRef<'a>
+    = V::DocIdSetIteratorRef<'a>
+  where
+    Self: 'a;
 
-  fn iterator(&self) -> &Self::DocIdSetIterator {
+  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
     self.vector_scorer.iterator()
   }
 
-  fn iterator_mut(&mut self) -> &mut Self::DocIdSetIterator {
+  type DocIdSetIteratorMut<'a>
+    = V::DocIdSetIteratorMut<'a>
+  where
+    Self: 'a;
+
+  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
     self.vector_scorer.iterator_mut()
   }
 }

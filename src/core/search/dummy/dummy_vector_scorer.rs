@@ -23,13 +23,21 @@ impl VectorScorer for DummyVectorScorer {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
-  type DocIdSetIterator = DummyDISI;
+  type DocIdSetIteratorRef<'a>
+    = DummyDISI
+  where
+    Self: 'a;
 
-  fn iterator(&self) -> &Self::DocIdSetIterator {
+  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
-  fn iterator_mut(&mut self) -> &mut Self::DocIdSetIterator {
+  type DocIdSetIteratorMut<'a>
+    = DummyDISI
+  where
+    Self: 'a;
+
+  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 }
