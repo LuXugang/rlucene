@@ -79,7 +79,7 @@ impl KnnVectorsReader for DummyKnnVectorsReader {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
-  fn finish_merge(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+  fn finish_merge(&self) -> crate::core::util::error::lucene_error::Result<()> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 }

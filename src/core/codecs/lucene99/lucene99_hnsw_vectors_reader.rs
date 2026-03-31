@@ -489,7 +489,7 @@ where
     })
   }
 
-  fn finish_merge(&mut self) -> Result<()> {
+  fn finish_merge(&self) -> Result<()> {
     self.flat_vectors_reader.finish_merge()
   }
 }

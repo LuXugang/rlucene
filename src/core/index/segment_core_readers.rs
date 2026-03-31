@@ -33,6 +33,8 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
+use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
+use crate::core::codecs::knn_vectors_reader::DefaultKnnVectorsReader;
 use crate::core::codecs::points_reader::DefaultPointsReader;
 use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
@@ -51,6 +53,7 @@ where
   pub(crate) fields_reader_orig: DefaultStoredFieldsReader<D::IndexInput>,
   pub(crate) term_vectors_reader_orig: Option<DefaultTermVectorsReader<D::IndexInput>>,
   pub(crate) points_reader: Option<Arc<DefaultPointsReader<D::IndexInput>>>,
+  pub(crate) knn_vectors_reader: Option<Arc<DefaultKnnVectorsReader<D::IndexInput>>>,
   pub(crate) cfs_reader: Option<DefaultCompoundReader<D>>,
   pub(crate) segment: String,
   /// fieldinfos for this core: means gen=-1. this is the exact fieldinfos these codec components saw at write.
@@ -131,6 +134,15 @@ where
       } else {
         None
       };
+      let knn_vectors_reader = if core_field_infos.has_vector_values() {
+        Some(Arc::new(
+          codec
+            .knn_vectors_format()?
+            .fields_reader(&read_state, &si.info)?,
+        ))
+      } else {
+        None
+      };
 
       Ok(SegmentCoreReaders {
         ref_: AtomicI32::new(1),
@@ -139,6 +151,7 @@ where
         fields_reader_orig,
         term_vectors_reader_orig,
         points_reader,
+        knn_vectors_reader,
         cfs_reader,
         segment,
         core_field_infos,

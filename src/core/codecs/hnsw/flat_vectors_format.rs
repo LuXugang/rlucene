@@ -40,7 +40,7 @@ pub trait FlatVectorsFormat: KnnVectorsFormat {
   fn fields_reader<D1, D2>(
     &self,
     state: &SegmentReadState<D1>,
-    segment_info: &mut SegmentInfo<D2>,
+    segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::FlatVectorsReader<D1::IndexInput>>
   where
     D1: Directory,

@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::DefaultKnnVectorsFormat;
+use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::byte_vector_values::ByteVectorValuesEnum2;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
@@ -23,6 +25,7 @@ use crate::core::index::float_vector_values::FloatVectorValuesEnum2;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 /// Reads vectors from an index.
 pub trait KnnVectorsReader {
   /// Checks consistency of this reader.
@@ -127,10 +130,13 @@ pub trait KnnVectorsReader {
   /// Optional: reset or close merge resources used in the reader
   ///
   /// The default implementation is empty
-  fn finish_merge(&mut self) -> Result<()> {
+  fn finish_merge(&self) -> Result<()> {
     Ok(())
   }
 }
+
+pub type DefaultKnnVectorsReader<T> =
+  <DefaultKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<T>;
 
 #[macro_export]
 macro_rules! either_knn_vectors_reader {
@@ -221,7 +227,7 @@ macro_rules! either_knn_vectors_reader {
             }
 
             #[inline]
-            fn finish_merge(&mut self) -> $crate::core::util::error::lucene_error::Result<()> {
+            fn finish_merge(&self) -> $crate::core::util::error::lucene_error::Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.finish_merge(), )+
                 }
@@ -291,7 +297,71 @@ impl KnnVectorsReader for KnnVectorsReaderEnum {
     todo!()
   }
 
-  fn finish_merge(&mut self) -> Result<()> {
+  fn finish_merge(&self) -> Result<()> {
     todo!()
+  }
+}
+
+impl<T> KnnVectorsReader for Arc<T>
+where
+  T: KnnVectorsReader,
+{
+  fn check_integrity(&self) -> Result<()> {
+    (**self).check_integrity()
+  }
+
+  type FloatVectorValues = T::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
+    (**self).get_float_vector_values(field)
+  }
+
+  type ByteVectorValues = T::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
+    (**self).get_byte_vector_values(field)
+  }
+
+  fn search_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    (**self).search_f32(field, target, knn_collector, accept_docs)
+  }
+
+  fn search_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    (**self).search_u8(field, target, knn_collector, accept_docs)
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    let v = match (**self).get_merge_instance()? {
+      Some(v) => Arc::new(v),
+      None => return Ok(None),
+    };
+    Ok(Some(v))
+  }
+
+  fn finish_merge(&self) -> Result<()> {
+    (**self).finish_merge()
   }
 }
