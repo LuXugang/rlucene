@@ -23,12 +23,13 @@ pub trait IteratorExt {
   }
 }
 
-pub struct VecIter<'a> {
-  data: &'a Vec<String>,
+pub struct VecIter<'a, T> {
+  data: &'a Vec<T>,
   pos: usize,
 }
-impl<'a> IteratorExt for VecIter<'a> {
-  type Item = &'a String;
+
+impl<'a, T> IteratorExt for VecIter<'a, T> {
+  type Item = &'a T;
 
   fn next(&mut self) -> Result<Option<Self::Item>> {
     if self.pos < self.data.len() {
@@ -39,16 +40,22 @@ impl<'a> IteratorExt for VecIter<'a> {
       Ok(None)
     }
   }
+
   fn has_next(&self) -> Result<bool> {
     Ok(self.pos < self.data.len())
   }
 }
-pub trait VecIteratorExt {
-  fn iter_ext(&self) -> VecIter<'_>;
+pub trait VecIteratorExt<T> {
+  fn iter_ext(&self) -> VecIter<'_, T>;
 }
 
-impl VecIteratorExt for Vec<String> {
-  fn iter_ext(&self) -> VecIter<'_> {
+impl VecIteratorExt<String> for Vec<String> {
+  fn iter_ext(&self) -> VecIter<'_, String> {
+    VecIter { data: self, pos: 0 }
+  }
+}
+impl VecIteratorExt<usize> for Vec<usize> {
+  fn iter_ext(&self) -> VecIter<'_, usize> {
     VecIter { data: self, pos: 0 }
   }
 }

@@ -1069,7 +1069,7 @@ impl TVFields {
   }
 }
 impl Fields for TVFields {
-  type FieldIter<'a> = VecIter<'a>;
+  type FieldIter<'a> = VecIter<'a, String>;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
     Ok(self.names.iter_ext())

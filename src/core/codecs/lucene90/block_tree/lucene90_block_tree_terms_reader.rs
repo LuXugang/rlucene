@@ -282,7 +282,7 @@ where
   PR: PostingsReaderBase,
 {
   type FieldIter<'a>
-    = VecIter<'a>
+    = VecIter<'a, String>
   where
     I: 'a,
     PR: 'a;

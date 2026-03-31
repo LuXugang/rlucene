@@ -634,7 +634,7 @@ where
   LR: LeafReader,
 {
   type FieldIter<'a>
-    = VecIter<'a>
+    = VecIter<'a, String>
   where
     LR: 'a;
 

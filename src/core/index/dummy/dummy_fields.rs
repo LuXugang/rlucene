@@ -21,7 +21,7 @@ use crate::core::util::iterator::VecIter;
 
 pub struct DummyFields;
 impl Fields for DummyFields {
-  type FieldIter<'a> = VecIter<'a>;
+  type FieldIter<'a> = VecIter<'a, String>;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")

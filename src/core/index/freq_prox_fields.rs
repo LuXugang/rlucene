@@ -78,7 +78,7 @@ impl FreqProxFields {
 }
 impl Fields for FreqProxFields {
   type FieldIter<'a>
-    = VecIter<'a>
+    = VecIter<'a, String>
   where
     Self: 'a;
 
