@@ -32,6 +32,8 @@ use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
+use crate::core::search::knn_byte_vector_query::KnnByteVectorQuery;
+use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
@@ -102,6 +104,8 @@ macro_rules! dispatch_query {
       Query::FieldExists($inner) => $body,
       Query::IndexOrDocValues($inner) => $body,
       Query::IndexSortSortedNumericDocValuesRange($inner) => $body,
+      Query::KnnByteVector($inner) => $body,
+      Query::KnnFloatVector($inner) => $body,
       Query::MatchAllDocs($inner) => $body,
       Query::MatchNoDocs($inner) => $body,
       Query::MultiTermQueryConstantScoreBlendedWrapper($inner) => $body,
@@ -146,6 +150,8 @@ impl_from_for_enum!(
     FieldExistsQuery => FieldExists,
     IndexOrDocValuesQuery => IndexOrDocValues,
     IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
+    KnnByteVectorQuery => KnnByteVector,
+    KnnFloatVectorQuery => KnnFloatVector,
     MatchAllDocsQuery => MatchAllDocs,
     MatchNoDocsQuery => MatchNoDocs,
     MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
@@ -184,6 +190,8 @@ impl_into_box_query!(
   FieldExistsQuery,
   IndexOrDocValuesQuery,
   IndexSortSortedNumericDocValuesRangeQuery,
+  KnnByteVectorQuery,
+  KnnFloatVectorQuery,
   MatchAllDocsQuery,
   MatchNoDocsQuery,
   MultiTermQueryConstantScoreBlendedWrapper,
@@ -236,6 +244,8 @@ pub enum Query {
   FieldExists(FieldExistsQuery),
   IndexOrDocValues(IndexOrDocValuesQuery),
   IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
+  KnnByteVector(KnnByteVectorQuery),
+  KnnFloatVector(KnnFloatVectorQuery),
   MatchAllDocs(MatchAllDocsQuery),
   MatchNoDocs(MatchNoDocsQuery),
   MultiTermQueryConstantScoreBlendedWrapper(MultiTermQueryConstantScoreBlendedWrapper),
@@ -298,6 +308,8 @@ impl Query {
             FieldExists,
             IndexOrDocValues,
             IndexSortSortedNumericDocValuesRange,
+            KnnByteVector,
+            KnnFloatVector,
             MatchAllDocs,
             MatchNoDocs,
             MultiTermQueryConstantScoreBlendedWrapper,

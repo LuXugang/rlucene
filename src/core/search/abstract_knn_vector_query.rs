@@ -80,7 +80,7 @@ pub trait AbstractKnnVectorQuery: QueryBase {
     let filter = self.base().filter.clone();
     let filter_weight = if let Some(filter) = filter {
       let mut builder = Builder::new();
-      builder.add(filter.clone(), Occur::Filter)?;
+      builder.add(*filter.clone(), Occur::Filter)?;
       builder.add(FieldExistsQuery::new(&self.base().field), Occur::Filter)?;
       let rewritten = index_searcher.rewrite(builder.build())?;
       Some(index_searcher.create_weight(rewritten, ScoreMode::CompleteNoScores, 1.0)?)
@@ -347,7 +347,7 @@ pub trait AbstractKnnVectorQuery: QueryBase {
 pub struct AbstractKnnVectorQueryBase {
   pub(crate) field: String,
   pub(crate) k: usize,
-  pub(crate) filter: Option<Query>,
+  pub(crate) filter: Option<Box<Query>>,
 }
 impl AbstractKnnVectorQueryBase {
   pub fn new(field: String, k: usize, filter: Option<Query>) -> Result<Self> {
@@ -357,6 +357,7 @@ impl AbstractKnnVectorQueryBase {
         k
       )));
     }
+    let filter = filter.map(Box::new);
     Ok(Self { field, k, filter })
   }
 }
