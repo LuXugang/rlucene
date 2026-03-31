@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 pub(crate) mod base_compound_format_test_case;
+pub mod base_compressing_doc_values_format_test_case;
+pub mod base_doc_values_format_test_case;
 pub(crate) mod base_field_info_format_test_case;
 pub(crate) mod base_index_file_format_test_case;
 pub(crate) mod base_live_docs_format_test_case;
@@ -37,6 +39,7 @@ pub(crate) mod test_index_writer;
 mod test_index_writer_commit;
 mod test_index_writer_delete;
 mod test_index_writer_max_docs;
+pub mod test_lucene90_doc_values_format;
 mod test_many_fields;
 mod test_non_flex;
 mod test_norms;

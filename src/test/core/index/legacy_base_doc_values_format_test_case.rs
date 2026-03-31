@@ -298,9 +298,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     let vocab_range = 1 + random.random_range(0..(u8::MAX as usize - 1));
 
+    let mut field_to_type = HashMap::new();
     for i in 0..num_docs {
       let mut doc = Document::new();
-      let mut field_to_type = HashMap::new();
 
       let mut value = vec![0u8; 500 + random.random_range(0..1024)];
       for b in &mut value {
@@ -614,7 +614,6 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.commit()?;
 
     let mut doc = Document::new();
-    let mut field_to_type = HashMap::new();
     doc.add(new_string_field(
       random,
       "id",
@@ -794,7 +793,6 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.commit()?;
 
     let mut doc = Document::new();
-    let mut field_to_type = HashMap::new();
     doc.add(new_string_field(
       random,
       "id",
@@ -850,7 +848,6 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.add_document(doc)?;
 
     let mut doc = Document::new();
-    let mut field_to_type = HashMap::new();
     doc.add(new_string_field(
       random,
       "id",
@@ -1046,7 +1043,6 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.commit()?;
 
     let mut doc = Document::new();
-    let mut field_to_type = HashMap::new();
     doc.add(new_string_field(
       random,
       "id",
@@ -1116,7 +1112,6 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.add_document(doc)?;
 
     let mut doc = Document::new();
-    let mut field_to_type = HashMap::new();
     doc.add(new_string_field(
       random,
       "id",
@@ -1497,9 +1492,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let writer = IndexWriter::new(dir.clone(), conf)?;
 
+    let mut field_to_type = HashMap::new();
     for i in 0..5 {
       let mut doc = Document::new();
-      let mut field_to_type = HashMap::new();
       doc.add(NumericDocValuesField::new("docId", i as i64));
       doc.add(new_text_field(
         random,
