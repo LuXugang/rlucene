@@ -176,6 +176,63 @@ pub trait DocIndexIterator: DocIdSetIterator {
   fn index(&self) -> Result<i32>;
 }
 
+#[macro_export]
+macro_rules! either_doc_index_iterator_named {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> $crate::core::search::doc_id_set_iterator::DocIdSetIterator for $name<$( $T ),+>
+        where
+            $( $T: $crate::core::index::knn_vector_values::DocIndexIterator ),+
+        {
+            fn doc_id(&self) -> i32 {
+                match self {
+                    $( Self::$Variant(inner) => inner.doc_id(), )+
+                }
+            }
+
+            fn next_doc(&mut self) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.next_doc(), )+
+                }
+            }
+
+            fn advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.advance(target), )+
+                }
+            }
+
+            fn slow_advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.slow_advance(target), )+
+                }
+            }
+
+            fn cost(&self) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.cost(), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> $crate::core::index::knn_vector_values::DocIndexIterator for $name<$( $T ),+>
+        where
+            $( $T: $crate::core::index::knn_vector_values::DocIndexIterator ),+
+        {
+            fn index(&self) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.index(), )+
+                }
+            }
+        }
+    };
+}
+
+either_doc_index_iterator_named!(pub DocIndexIteratorEnum2 { A: A, B: B });
+
 pub struct DenseDocIndexIterator {
   doc: i32,
   size: i32,
