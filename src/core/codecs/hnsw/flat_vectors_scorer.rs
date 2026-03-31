@@ -16,7 +16,7 @@
  */
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::knn_vector_values::KnnVectorValuesEnum;
+use crate::core::index::knn_vector_values::KnnVectorValuesType;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
@@ -47,7 +47,7 @@ pub trait FlatVectorsScorer: Display {
   fn get_random_vector_scorer_supplier<B, F>(
     &self,
     similarity_function: VectorSimilarityFunction,
-    vector_values: KnnVectorValuesEnum<B, F>,
+    vector_values: KnnVectorValuesType<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
     B: ByteVectorValues + Clone,
@@ -115,7 +115,7 @@ where
   fn get_random_vector_scorer_supplier<B, F>(
     &self,
     similarity_function: VectorSimilarityFunction,
-    vector_values: KnnVectorValuesEnum<B, F>,
+    vector_values: KnnVectorValuesType<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
     B: ByteVectorValues + Clone,

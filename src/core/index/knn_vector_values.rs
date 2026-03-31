@@ -360,7 +360,7 @@ where
   SparseDocIndexIterator::new(size, map)
 }
 
-pub enum KnnVectorValuesEnum<B, F>
+pub enum KnnVectorValuesType<B, F>
 where
   B: ByteVectorValues,
   F: FloatVectorValues,

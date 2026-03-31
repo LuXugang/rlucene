@@ -17,7 +17,7 @@
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::knn_vector_values::{KnnVectorValues, KnnVectorValuesEnum};
+use crate::core::index::knn_vector_values::{KnnVectorValues, KnnVectorValuesType};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::bits::Bits;
@@ -46,18 +46,18 @@ impl FlatVectorsScorer for DefaultFlatVectorScorer {
   fn get_random_vector_scorer_supplier<B, F>(
     &self,
     similarity_function: VectorSimilarityFunction,
-    vector_values: KnnVectorValuesEnum<B, F>,
+    vector_values: KnnVectorValuesType<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
     B: ByteVectorValues + Clone,
     F: FloatVectorValues + Clone,
   {
     let v = match vector_values {
-      KnnVectorValuesEnum::Byte(b) => {
+      KnnVectorValuesType::Byte(b) => {
         debug_assert!(KnnVectorValues::get_encoding(&b) == VectorEncoding::BYTE(1));
         RandomVectorScorerSupplierEnum::Byte(ByteScoringSupplier::new(b, similarity_function)?)
       },
-      KnnVectorValuesEnum::Float(f) => {
+      KnnVectorValuesType::Float(f) => {
         debug_assert!(KnnVectorValues::get_encoding(&f) == VectorEncoding::FLOAT32(4));
         RandomVectorScorerSupplierEnum::Float(FloatScoringSupplier::new(f, similarity_function)?)
       },

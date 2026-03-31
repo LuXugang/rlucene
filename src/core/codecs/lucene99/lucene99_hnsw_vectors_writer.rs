@@ -30,7 +30,7 @@ use crate::core::index::byte_vector_values::{ByteVectorValuesImpl, from_bytes};
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::float_vector_values::{FloatVectorValuesImpl, from_floats};
-use crate::core::index::knn_vector_values::KnnVectorValuesEnum;
+use crate::core::index::knn_vector_values::KnnVectorValuesType;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
@@ -650,7 +650,7 @@ where
         let random_vector_scorer_supplier = from_bytes(field_info.get_vector_dimension() as usize);
         scorer.get_random_vector_scorer_supplier(
           *field_info.get_vector_similarity_function(),
-          KnnVectorValuesEnum::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Byte(
+          KnnVectorValuesType::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Byte(
             random_vector_scorer_supplier,
           ),
         )?
@@ -659,7 +659,7 @@ where
         let random_vector_scorer_supplier = from_floats(field_info.get_vector_dimension() as usize);
         scorer.get_random_vector_scorer_supplier(
           *field_info.get_vector_similarity_function(),
-          KnnVectorValuesEnum::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Float(
+          KnnVectorValuesType::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Float(
             random_vector_scorer_supplier,
           ),
         )?
