@@ -205,7 +205,7 @@ pub fn from_bytes(dim: usize) -> ByteVectorValuesImpl {
   ByteVectorValuesImpl::new(dim)
 }
 
-#[derive(Clone)]
+#[derive(Clone)] // TODO IMPORTANT CLone is Ok?
 pub struct ByteVectorValuesImpl {
   vectors: Vec<Vec<u8>>,
   dim: usize,

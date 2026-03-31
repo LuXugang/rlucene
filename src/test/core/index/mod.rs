@@ -22,6 +22,7 @@ pub(crate) mod base_merge_policy_test_case;
 mod base_postings_format_test_case;
 pub(crate) mod base_segment_info_format_test_case;
 pub mod doc_helper;
+pub mod legacy_base_doc_values_format_test_case;
 pub mod random_index_writer;
 mod test_all_file_have_codec_header;
 mod test_binary_terms;

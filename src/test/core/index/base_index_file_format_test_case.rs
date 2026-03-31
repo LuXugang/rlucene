@@ -14,5 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::error::lucene_error::Result;
+use rand::Rng;
 
-pub trait BaseIndexFileFormatTestCase {}
+pub trait BaseIndexFileFormatTestCase {
+  fn add_random_fields<R: Rng + ?Sized>(random: &mut R) -> Result<()>;
+
+  fn maybe_wrap_with_merging_reader<D>(&self, reader: D) -> Result<D> {
+    Ok(reader)
+  }
+}

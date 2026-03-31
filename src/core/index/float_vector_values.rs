@@ -204,7 +204,7 @@ pub fn from_floats(dim: usize) -> FloatVectorValuesImpl {
   FloatVectorValuesImpl::new(dim)
 }
 
-#[derive(Clone)]
+#[derive(Clone)] // TODO IMPORTANT CLone is Ok?
 pub struct FloatVectorValuesImpl {
   vectors: Vec<Vec<f32>>,
   dim: usize,

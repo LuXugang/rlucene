@@ -438,7 +438,7 @@ impl TermState for IntBlockTermState {
 
 #[cfg(test)]
 mod tests {
-  use rand::RngExt;
+  use rand::{Rng, RngExt};
 
   use crate::core::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
   use crate::core::codecs::lucene101::lucene101_postings_reader::{
@@ -460,7 +460,9 @@ mod tests {
 
   struct TestLucene101PostingsFormat;
   impl BaseIndexFileFormatTestCase for TestLucene101PostingsFormat {
-    // TODO
+    fn add_random_fields<R: Rng + ?Sized>(_random: &mut R) -> Result<()> {
+      todo!()
+    }
   }
   #[test]
   fn test_vint15() -> Result<()> {

@@ -334,10 +334,15 @@ mod tests {
   use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
   use crate::test::core::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use rand::Rng;
 
   pub struct TestLucene99SegmentInfoFormat;
 
-  impl BaseIndexFileFormatTestCase for TestLucene99SegmentInfoFormat {}
+  impl BaseIndexFileFormatTestCase for TestLucene99SegmentInfoFormat {
+    fn add_random_fields<R: Rng + ?Sized>(_random: &mut R) -> Result<()> {
+      todo!()
+    }
+  }
 
   impl BaseSegmentInfoFormatTestCase for TestLucene99SegmentInfoFormat {
     fn get_versions(&self) -> Vec<Version> {
