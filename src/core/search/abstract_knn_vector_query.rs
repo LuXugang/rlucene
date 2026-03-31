@@ -32,11 +32,8 @@ use crate::core::search::filtered_doc_id_set_iterator::{
 };
 use crate::core::search::hit_queue::HitQueue;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::knn::knn_collector_manager::{
-  KnnCollectorManager, KnnCollectorManagerScoreDocLike,
-};
+use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::knn::top_knn_collector_manager::TopKnnCollectorManager;
-use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
@@ -73,15 +70,12 @@ pub static NO_RESULTS: Lazy<TopDocs<ScoreDoc>> = Lazy::new(|| EMPTY_TOP_DOCS.clo
 /// - If the filter cost is less than `k`, just execute an exact search
 /// - Otherwise run a kNN search subject to the filter
 /// - If the kNN search visits too many vectors without completing, stop and run an exact search
-pub trait AbstractKnnVectorQuery: QueryBase
-where
-  for<'a> <Self::KnnCollectorManager as KnnCollectorManager>::KnnCollector<'a>:
-    KnnCollector<ScoreDocLike = ScoreDoc>,
-{
+pub trait AbstractKnnVectorQuery: QueryBase {
   fn base(&self) -> &AbstractKnnVectorQueryBase;
-  fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    Self: Sized,
   {
     let filter = self.base().filter.clone();
     let filter_weight = if let Some(filter) = filter {
@@ -132,7 +126,6 @@ where
     K: KnnCollectorManager,
     Q: QueryTimeout,
     W: Weight<IRC>,
-    for<'a> K::KnnCollector<'a>: KnnCollector<ScoreDocLike = ScoreDoc>,
   {
     let mut results = self.get_leaf_results(
       ctx,
@@ -161,7 +154,6 @@ where
     K: KnnCollectorManager,
     Q: QueryTimeout,
     W: Weight<IRC>,
-    for<'a> K::KnnCollector<'a>: KnnCollector<ScoreDocLike = ScoreDoc>,
   {
     let reader = ctx.reader();
     let live_docs = reader.get_live_docs()?;
@@ -237,24 +229,26 @@ where
     TopKnnCollectorManager::new(k, searcher)
   }
 
-  fn approximate_search<'a, LR, B, K>(
+  fn approximate_search<LR, B, K>(
     &self,
     context: &LeafReaderContext<LR>,
     accept_docs: Option<B>,
     visited_limit: usize,
     knn_collector_manager: &K,
-  ) -> Result<TopDocs<KnnCollectorManagerScoreDocLike<'a, K>>>
+  ) -> Result<TopDocs<ScoreDoc>>
   where
     LR: LeafReader,
     B: Bits,
     K: KnnCollectorManager;
 
-  type VectorScorer: VectorScorer;
+  type VectorScorer<LR>: VectorScorer
+  where
+    LR: LeafReader;
   fn create_vector_scorer<LR>(
     &self,
     context: &LeafReaderContext<LR>,
     fi: &FieldInfo,
-  ) -> Result<Option<Self::VectorScorer>>
+  ) -> Result<Option<Self::VectorScorer<LR>>>
   where
     LR: LeafReader;
   fn exact_search<LR, T, Q>(
@@ -349,10 +343,11 @@ where
     Ok(TopDocs::new(total_hits, top_score_docs))
   }
 }
+#[derive(Debug, Clone)]
 pub struct AbstractKnnVectorQueryBase {
-  field: String,
-  k: usize,
-  filter: Option<Query>,
+  pub(crate) field: String,
+  pub(crate) k: usize,
+  pub(crate) filter: Option<Query>,
 }
 impl AbstractKnnVectorQueryBase {
   pub fn new(field: String, k: usize, filter: Option<Query>) -> Result<Self> {
@@ -363,6 +358,19 @@ impl AbstractKnnVectorQueryBase {
       )));
     }
     Ok(Self { field, k, filter })
+  }
+}
+impl Hash for AbstractKnnVectorQueryBase {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.field.hash(state);
+    self.k.hash(state);
+    self.filter.hash(state);
+  }
+}
+impl Eq for AbstractKnnVectorQueryBase {}
+impl PartialEq for AbstractKnnVectorQueryBase {
+  fn eq(&self, other: &Self) -> bool {
+    self.k == other.k && self.field == other.field && self.filter == other.filter
   }
 }
 

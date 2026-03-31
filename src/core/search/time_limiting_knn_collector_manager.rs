@@ -19,6 +19,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::knn_collector::{KnnCollector, KnnCollectorEnum};
+use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::Relation::GreaterThanOrEqualTo;
 use crate::core::search::total_hits::TotalHits;
@@ -59,9 +60,9 @@ where
     Self: 'a;
 
   fn new_collector<LR>(
-    &mut self,
+    &self,
     visited_limit: usize,
-    context: LeafReaderContext<LR>,
+    context: &LeafReaderContext<LR>,
   ) -> Result<Self::KnnCollector<'_>>
   where
     LR: LeafReader,
@@ -130,9 +131,7 @@ where
     self.collector.min_competitive_similarity()
   }
 
-  type ScoreDocLike = <K as KnnCollector>::ScoreDocLike;
-
-  fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>> {
+  fn top_docs(&mut self) -> Result<TopDocs<ScoreDoc>> {
     let docs = self.collector.top_docs()?;
     // Mark results as partial if timeout is met
     let relation = if self.query_timeout.should_exit() {

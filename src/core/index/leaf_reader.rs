@@ -250,7 +250,10 @@ pub type LRDocValuesSkipper<LR> = <LR as LeafReader>::DocValuesSkipper;
 pub type LRPointValues<LR> = <LR as LeafReader>::PointValues;
 // CacherHelp
 pub type LRCacherHelper<LR> = <LR as LeafReader>::CacheHelper;
-
+// ByteVectorValues
+pub type LRByteVectorValues<LR> = <LR as LeafReader>::ByteVectorValues;
+// FloatVectorValues
+pub type LRFloatVectorValues<LR> = <LR as LeafReader>::FloatVectorValues;
 pub type LRDisis<LR> = DocIdSetIteratorEnum5<
   LRNumericDocValues<LR>,
   LRBinaryDocValues<LR>,

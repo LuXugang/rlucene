@@ -21,8 +21,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::dummy::dummy_score_doc_like::DummyScoreDocLike;
 use crate::core::search::knn_collector::KnnCollector;
+use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
@@ -791,9 +791,7 @@ impl KnnCollector for GraphBuilderKnnCollector {
     }
   }
 
-  type ScoreDocLike = DummyScoreDocLike;
-
-  fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>> {
+  fn top_docs(&mut self) -> Result<TopDocs<ScoreDoc>> {
     Err(LuceneError::illegal_state(""))
   }
 }

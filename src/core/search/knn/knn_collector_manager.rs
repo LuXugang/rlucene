@@ -34,12 +34,10 @@ pub trait KnnCollectorManager {
   /// * `visitedLimit` - the maximum number of nodes that the search is allowed to visit
   /// * `context` - the leaf reader context
   fn new_collector<LR>(
-    &mut self,
+    &self,
     visited_limit: usize,
-    context: LeafReaderContext<LR>,
+    context: &LeafReaderContext<LR>,
   ) -> lucene_error::Result<Self::KnnCollector<'_>>
   where
     LR: LeafReader;
 }
-pub type KnnCollectorManagerScoreDocLike<'a, K> =
-  <<K as KnnCollectorManager>::KnnCollector<'a> as KnnCollector>::ScoreDocLike;

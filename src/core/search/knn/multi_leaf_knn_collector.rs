@@ -16,6 +16,7 @@
  */
 use crate::core::search::abstract_knn_collector::AbstractKnnCollector;
 use crate::core::search::knn_collector::KnnCollector;
+use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::blocking_float_heap::BlockingFloatHeap;
@@ -30,7 +31,7 @@ where
   /// interval to synchronize the local and global queues, as a number of visited vectors
   pub(crate) interval: usize,
   /// the global queue of the highest similarities collected so far across all segments
-  pub(crate) global_similarity_queue: &'a mut BlockingFloatHeap,
+  pub(crate) global_similarity_queue: &'a BlockingFloatHeap,
   /// the local queue of the highest similarities if we are not competitive globally
   /// the size of this queue is defined by greediness
   pub(crate) non_competitive_queue: FloatHeap,
@@ -60,7 +61,7 @@ where
   /// * `sub_collector` - the local collector
   pub fn new(
     k: usize,
-    global_similarity_queue: &'a mut BlockingFloatHeap,
+    global_similarity_queue: &'a BlockingFloatHeap,
     sub_collector: A,
   ) -> Result<Self> {
     Self::with_params(
@@ -86,7 +87,7 @@ where
     k: usize,
     greediness: f32,
     interval: usize,
-    global_similarity_queue: &'a mut BlockingFloatHeap,
+    global_similarity_queue: &'a BlockingFloatHeap,
     sub_collector: A,
   ) -> Result<Self> {
     if !(0.0..=1.0).contains(&greediness) {
@@ -189,9 +190,7 @@ where
     ))
   }
 
-  type ScoreDocLike = A::ScoreDocLike;
-
-  fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>> {
+  fn top_docs(&mut self) -> Result<TopDocs<ScoreDoc>> {
     self.sub_collector.top_docs()
   }
 }

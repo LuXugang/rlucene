@@ -80,9 +80,7 @@ impl KnnCollector for TopKnnCollector {
     }
   }
 
-  type ScoreDocLike = ScoreDoc;
-
-  fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>> {
+  fn top_docs(&mut self) -> Result<TopDocs<ScoreDoc>> {
     debug_assert!(
       self.queue.size() <= AbstractKnnCollector::k(self),
       "Tried to collect more results than the maximum number allowed"

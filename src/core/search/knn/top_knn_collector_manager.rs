@@ -60,16 +60,16 @@ impl KnnCollectorManager for TopKnnCollectorManager {
   /// * `visited_limit` - the maximum number of nodes that the search is allowed to visit
   /// * `context` - the leaf reader context
   fn new_collector<LR>(
-    &mut self,
+    &self,
     visited_limit: usize,
-    _context: LeafReaderContext<LR>,
+    _context: &LeafReaderContext<LR>,
   ) -> Result<Self::KnnCollector<'_>>
   where
     LR: LeafReader,
   {
     let top_knn_collector = TopKnnCollector::new(self.k, visited_limit)?;
     match self.global_score_queue {
-      Some(ref mut global_score_queue) => Ok(KnnCollectorEnum::A(MultiLeafKnnCollector::new(
+      Some(ref global_score_queue) => Ok(KnnCollectorEnum::A(MultiLeafKnnCollector::new(
         self.k,
         global_score_queue,
         top_knn_collector,

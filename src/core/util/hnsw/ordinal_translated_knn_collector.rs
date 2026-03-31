@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::knn_collector::KnnCollector;
+use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
 use crate::core::search::total_hits::TotalHits;
@@ -74,9 +75,7 @@ where
     self.in_.min_competitive_similarity()
   }
 
-  type ScoreDocLike = K::ScoreDocLike;
-
-  fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>> {
+  fn top_docs(&mut self) -> Result<TopDocs<ScoreDoc>> {
     let td = self.in_.top_docs()?;
     let relation = if self.early_terminated() {
       GreaterThanOrEqualTo

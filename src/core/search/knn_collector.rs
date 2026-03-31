@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::score_doc::ScoreDocLike;
+use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::error::lucene_error;
 use crate::core::util::error::lucene_error::Result;
@@ -84,8 +84,7 @@ pub trait KnnCollector {
   /// # Returns
   ///
   /// The collected top documents.
-  type ScoreDocLike: ScoreDocLike;
-  fn top_docs(&mut self) -> Result<TopDocs<Self::ScoreDocLike>>;
+  fn top_docs(&mut self) -> Result<TopDocs<ScoreDoc>>;
 }
 
 pub enum KnnCollectorEnum<A, B> {
@@ -96,7 +95,7 @@ pub enum KnnCollectorEnum<A, B> {
 impl<A, B> KnnCollector for KnnCollectorEnum<A, B>
 where
   A: KnnCollector,
-  B: KnnCollector<ScoreDocLike = A::ScoreDocLike>,
+  B: KnnCollector,
 {
   fn early_terminated(&self) -> bool {
     match self {
@@ -148,9 +147,7 @@ where
     }
   }
 
-  type ScoreDocLike = A::ScoreDocLike;
-
-  fn top_docs(&mut self) -> lucene_error::Result<TopDocs<Self::ScoreDocLike>> {
+  fn top_docs(&mut self) -> lucene_error::Result<TopDocs<ScoreDoc>> {
     match self {
       KnnCollectorEnum::A(a) => a.top_docs(),
       KnnCollectorEnum::B(b) => b.top_docs(),
