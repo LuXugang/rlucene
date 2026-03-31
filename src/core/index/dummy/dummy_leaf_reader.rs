@@ -32,6 +32,8 @@ use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
+use crate::core::search::knn_collector::KnnCollector;
+use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
@@ -173,6 +175,34 @@ impl LeafReader for DummyLeafReader {
   type ByteVectorValues = DummyByteVectorValues;
 
   fn get_byte_vector_values(&self, _field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    _field: &str,
+    _target: Vec<f32>,
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    _field: &str,
+    _target: Vec<u8>,
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

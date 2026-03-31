@@ -42,6 +42,7 @@ use crate::core::index::segment_core_readers::{
 use crate::core::index::segment_doc_values::SegmentDocValues;
 use crate::core::index::segment_doc_values_producer::SegmentDocValuesProducer;
 use crate::core::index::term::Term;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::{Bits, BitsEnum2};
@@ -511,6 +512,34 @@ where
 
   fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
     CodecReader::get_byte_vector_values(self, field)
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    CodecReader::search_nearest_vectors_f32(self, field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    CodecReader::search_nearest_vectors_u8(self, field, target, knn_collector, accept_docs)
   }
 
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {

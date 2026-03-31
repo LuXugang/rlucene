@@ -34,6 +34,7 @@ use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, TermsPosting, terms_util};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum5;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
@@ -175,6 +176,28 @@ pub trait LeafReader: IndexReader {
 
   type ByteVectorValues: ByteVectorValues;
   fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>>;
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector;
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector;
 
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>>;
 
@@ -366,6 +389,34 @@ where
 
   fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
     (**self).get_byte_vector_values(field)
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    (**self).search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    (**self).search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
   }
 
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {

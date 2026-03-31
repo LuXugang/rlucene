@@ -224,6 +224,34 @@ where
     LeafReader::get_byte_vector_values(&self.in_, field)
   }
 
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    LeafReader::search_nearest_vectors_f32(&self.in_, field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    LeafReader::search_nearest_vectors_u8(&self.in_, field, target, knn_collector, accept_docs)
+  }
+
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
     self.in_.get_field_infos()
   }
@@ -1628,6 +1656,34 @@ where
     LeafReader::get_byte_vector_values(&self.in_, field)
   }
 
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    LeafReader::search_nearest_vectors_f32(&self.in_, field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    LeafReader::search_nearest_vectors_u8(&self.in_, field, target, knn_collector, accept_docs)
+  }
+
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
     self.in_.get_field_infos()
   }
@@ -1933,6 +1989,48 @@ where
     match self {
       SortingCodecReaderEnum::Filter(reader) => LeafReader::get_byte_vector_values(reader, field),
       SortingCodecReaderEnum::Sorting(reader) => LeafReader::get_byte_vector_values(reader, field),
+    }
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    match self {
+      SortingCodecReaderEnum::Filter(reader) => {
+        LeafReader::search_nearest_vectors_f32(reader, field, target, knn_collector, accept_docs)
+      },
+      SortingCodecReaderEnum::Sorting(reader) => {
+        LeafReader::search_nearest_vectors_f32(reader, field, target, knn_collector, accept_docs)
+      },
+    }
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    match self {
+      SortingCodecReaderEnum::Filter(reader) => {
+        LeafReader::search_nearest_vectors_u8(reader, field, target, knn_collector, accept_docs)
+      },
+      SortingCodecReaderEnum::Sorting(reader) => {
+        LeafReader::search_nearest_vectors_u8(reader, field, target, knn_collector, accept_docs)
+      },
     }
   }
 

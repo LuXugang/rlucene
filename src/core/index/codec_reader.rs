@@ -46,7 +46,8 @@ use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields, Sto
 use crate::core::index::term_vectors::{EmptyTermVectors, RawTermVectors, TermVectorsEnum2};
 use crate::core::index::terms::TermsEnum2;
 use crate::core::index::vector_encoding::VectorEncoding;
-use crate::core::util::bits::BitsEnum2;
+use crate::core::search::knn_collector::KnnCollector;
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, TryIntoInt};
 use std::fmt::{Display, Formatter};
@@ -315,6 +316,60 @@ pub trait CodecReader: LeafReader {
       .ok_or_else(|| LuceneError::illegal_state("vector reader is None"))?;
 
     Ok(Some(reader.get_byte_vector_values(field)?))
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self.ensure_open()?;
+
+    let fi = self.get_field_infos()?.field_info_by_name(field);
+    match fi {
+      Some(f)
+        if f.get_vector_dimension() > 0 && *f.get_vector_encoding() == VectorEncoding::BYTE(1) => {
+      },
+      _ => return Ok(()),
+    };
+
+    let reader = self
+      .get_vector_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("vector reader is None"))?;
+    reader.search_f32(field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self.ensure_open()?;
+
+    let fi = self.get_field_infos()?.field_info_by_name(field);
+    match fi {
+      Some(f)
+        if f.get_vector_dimension() > 0 && *f.get_vector_encoding() == VectorEncoding::BYTE(1) => {
+      },
+      _ => return Ok(()),
+    };
+
+    let reader = self
+      .get_vector_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("vector reader is None"))?;
+    reader.search_u8(field, target, knn_collector, accept_docs)
   }
 
   fn default_check_integrity(&self) -> Result<()> {
@@ -646,6 +701,40 @@ macro_rules! either_codec_reader {
                 }
             }
 
+            fn search_nearest_vectors_f32<BitsT, K>(
+                &self,
+                field: &str,
+                target: Vec<f32>,
+                knn_collector: &mut K,
+                accept_docs: Option<BitsT>,
+            ) -> Result<()>
+            where
+                BitsT: crate::core::util::bits::Bits,
+                K: KnnCollector,
+            {
+                match self {
+                    Self::A(inner) => LeafReader::search_nearest_vectors_f32(inner,field,target,knn_collector,accept_docs),
+                    Self::B(inner) => LeafReader::search_nearest_vectors_f32(inner,field,target,knn_collector,accept_docs),
+                }
+            }
+
+            fn search_nearest_vectors_u8<BitsT, K>(
+                &self,
+                field: &str,
+                target: Vec<u8>,
+                knn_collector: &mut K,
+                accept_docs: Option<BitsT>,
+            ) -> Result<()>
+            where
+                BitsT: crate::core::util::bits::Bits,
+                K: KnnCollector,
+            {
+                match self {
+                    Self::A(inner) => LeafReader::search_nearest_vectors_u8(inner,field,target,knn_collector,accept_docs),
+                    Self::B(inner) => LeafReader::search_nearest_vectors_u8(inner,field,target,knn_collector,accept_docs),
+                }
+            }
+
 
             fn get_field_infos(&self) -> Result<Arc<crate::core::index::field_infos::FieldInfos>> {
                 match self {
@@ -771,6 +860,7 @@ macro_rules! either_codec_reader {
                         .map(|opt| opt.map(PointsReaderEnum2::B)),
                 }
             }
+
             fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
                 match self {
                     Self::A(inner) => inner

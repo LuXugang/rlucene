@@ -258,6 +258,34 @@ where
     CodecReader::get_byte_vector_values(self, field)
   }
 
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    CodecReader::search_nearest_vectors_f32(self, field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    CodecReader::search_nearest_vectors_u8(self, field, target, knn_collector, accept_docs)
+  }
+
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
     Ok(self.field_infos.clone())
   }
@@ -1190,7 +1218,7 @@ where
     B: Bits,
     K: KnnCollector,
   {
-    todo!()
+    Err(LuceneError::unsupported_operation(""))
   }
 
   fn search_u8<B, K>(
@@ -1204,7 +1232,7 @@ where
     B: Bits,
     K: KnnCollector,
   {
-    todo!()
+    Err(LuceneError::unsupported_operation(""))
   }
 }
 pub struct DocValuesSub<T>

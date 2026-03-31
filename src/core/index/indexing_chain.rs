@@ -91,6 +91,7 @@ use crate::core::index::term_vectors_consumer::{PerFieldMeta, TermVectorsConsume
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::index::vector_values_consumer::VectorValuesConsumer;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
@@ -103,6 +104,7 @@ use crate::core::util::attribute_source::{AttributeSource, EmptyAttributeSource}
 use crate::core::util::bit_set::of;
 use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet};
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
 use crate::core::util::int_block_pool::{
@@ -2194,6 +2196,38 @@ where
     }
   }
 
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .base
+      .search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .base
+      .search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
+  }
+
   type SortedSetDocValues = SortedSetDocValuesEnum2<
     SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
     BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
@@ -2452,6 +2486,38 @@ where
 
   fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
     self.base.get_doc_values_skipper(field)
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .base
+      .search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .base
+      .search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
   }
 
   type FloatVectorValues = <DocValuesLeafReader as LeafReader>::FloatVectorValues;

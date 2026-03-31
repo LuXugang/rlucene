@@ -302,6 +302,7 @@ mod tests {
   use crate::core::search::collector::Collector;
   use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
   use crate::core::search::index_searcher::IndexSearcher;
+  use crate::core::search::knn_collector::KnnCollector;
   use crate::core::search::leaf_collector::LeafCollector;
   use crate::core::search::scorable::Scorable;
   use crate::core::search::score_mode::ScoreMode;
@@ -807,6 +808,38 @@ mod tests {
 
     fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
       self.in_.get_byte_vector_values(field)
+    }
+
+    fn search_nearest_vectors_f32<B, K>(
+      &self,
+      field: &str,
+      target: Vec<f32>,
+      knn_collector: &mut K,
+      accept_docs: Option<B>,
+    ) -> Result<()>
+    where
+      B: Bits,
+      K: KnnCollector,
+    {
+      self
+        .in_
+        .search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
+    }
+
+    fn search_nearest_vectors_u8<B, K>(
+      &self,
+      field: &str,
+      target: Vec<u8>,
+      knn_collector: &mut K,
+      accept_docs: Option<B>,
+    ) -> Result<()>
+    where
+      B: Bits,
+      K: KnnCollector,
+    {
+      self
+        .in_
+        .search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
     }
 
     fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
