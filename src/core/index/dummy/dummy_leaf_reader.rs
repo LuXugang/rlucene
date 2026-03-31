@@ -20,7 +20,9 @@ use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
+use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
 use crate::core::index::dummy::dummy_point_value_base::DummyPointValues;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
@@ -159,6 +161,18 @@ impl LeafReader for DummyLeafReader {
   type DocValuesSkipper = DummyDocValuesSkipper;
 
   fn get_doc_values_skipper(&self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  type FloatVectorValues = DummyFloatVectorValues;
+
+  fn get_float_vector_values(&self, _field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  type ByteVectorValues = DummyByteVectorValues;
+
+  fn get_byte_vector_values(&self, _field: &str) -> Result<Option<Self::ByteVectorValues>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

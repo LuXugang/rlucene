@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::fields_producer::FieldsProducer;
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
@@ -33,6 +34,8 @@ use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
+use crate::core::search::knn_collector::KnnCollector;
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
 use std::fmt::{Display, Formatter};
@@ -139,6 +142,20 @@ where
     CodecReader::get_doc_values_skipper(self, field)
   }
 
+  type FloatVectorValues =
+    <<Self as CodecReader>::KnnVectorsReader as KnnVectorsReader>::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    CodecReader::get_float_vector_values(self, field)
+  }
+
+  type ByteVectorValues =
+    <<Self as CodecReader>::KnnVectorsReader as KnnVectorsReader>::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    CodecReader::get_byte_vector_values(self, field)
+  }
+
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
     self.reader.get_field_infos()
   }
@@ -238,6 +255,7 @@ where
   type DocValuesProducer = DocValuesProducerImpl<LR>;
   type FieldsProducer = FieldsProducerImpl<LR>;
   type PointsReader = PointsReaderImpl<LR>;
+  type KnnVectorsReader = KnnVectorsReaderImpl<LR>;
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
     self.reader.ensure_open()?;
@@ -266,6 +284,10 @@ where
 
   fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
     Ok(Some(point_values_to_reader(self.reader.clone())))
+  }
+
+  fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
+    Ok(Some(reader_to_vector_reader(self.reader.clone())))
   }
 }
 
@@ -659,5 +681,84 @@ where
 {
   fn check_integrity(&self) -> Result<()> {
     Ok(())
+  }
+}
+
+pub fn reader_to_vector_reader<LR>(reader: LR) -> KnnVectorsReaderImpl<LR>
+where
+  LR: LeafReader,
+{
+  KnnVectorsReaderImpl::new(reader)
+}
+
+pub struct KnnVectorsReaderImpl<LR> {
+  reader: LR,
+}
+impl<LR> KnnVectorsReaderImpl<LR>
+where
+  LR: LeafReader,
+{
+  fn new(reader: LR) -> Self {
+    Self { reader }
+  }
+}
+impl<LR> KnnVectorsReader for KnnVectorsReaderImpl<LR>
+where
+  LR: LeafReader,
+{
+  fn check_integrity(&self) -> Result<()> {
+    Ok(())
+  }
+
+  type FloatVectorValues = LR::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
+    match self.reader.get_float_vector_values(field)? {
+      Some(v) => Ok(v),
+      None => Err(LuceneError::illegal_state(
+        "FloatVectorValues from leaf reader does not support get_float_vector_values ",
+      )),
+    }
+  }
+
+  type ByteVectorValues = LR::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
+    match self.reader.get_byte_vector_values(field)? {
+      Some(v) => Ok(v),
+      None => Err(LuceneError::illegal_state(
+        "ByteVectorValues from leaf reader does not support get_float_vector_values ",
+      )),
+    }
+  }
+
+  fn search_f32<B, K>(
+    &self,
+    _field: &str,
+    _target: Vec<f32>,
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    // TODO IMPORTANT
+    todo!()
+  }
+
+  fn search_u8<B, K>(
+    &self,
+    _field: &str,
+    _target: Vec<u8>,
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    // TODO IMPORTANT
+    todo!()
   }
 }

@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 use crate::core::index::binary_doc_values::BinaryDocValues;
+use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::doc_values::EmptySorted;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_reader::{CacheHelper, IndexReader};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -167,6 +169,12 @@ pub trait LeafReader: IndexReader {
 
   type DocValuesSkipper: DocValuesSkipper;
   fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>>;
+
+  type FloatVectorValues: FloatVectorValues;
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>>;
+
+  type ByteVectorValues: ByteVectorValues;
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>>;
 
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>>;
 
@@ -346,6 +354,18 @@ where
 
   fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
     (**self).get_doc_values_skipper(field)
+  }
+
+  type FloatVectorValues = LR::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    (**self).get_float_vector_values(field)
+  }
+
+  type ByteVectorValues = LR::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    (**self).get_byte_vector_values(field)
   }
 
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {

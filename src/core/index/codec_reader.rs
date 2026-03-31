@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum2};
 use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
+use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
 use crate::core::codecs::stored_fields_reader::{
@@ -24,12 +25,14 @@ use crate::core::codecs::stored_fields_reader::{
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{TermVectorsReader, TermVectorsReaderEnum2};
 use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
+use crate::core::index::byte_vector_values::ByteVectorValuesEnum2;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::fields::Fields;
+use crate::core::index::float_vector_values::FloatVectorValuesEnum2;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
@@ -42,6 +45,7 @@ use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields, StoredFieldsEnum2};
 use crate::core::index::term_vectors::{EmptyTermVectors, RawTermVectors, TermVectorsEnum2};
 use crate::core::index::terms::TermsEnum2;
+use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::util::bits::BitsEnum2;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, TryIntoInt};
@@ -56,6 +60,7 @@ pub trait CodecReader: LeafReader {
   type DocValuesProducer: DocValuesProducer;
   type FieldsProducer: FieldsProducer;
   type PointsReader: PointsReader;
+  type KnnVectorsReader: KnnVectorsReader;
 
   /// Expert: retrieve underlying StoredFieldsReader
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>>;
@@ -74,6 +79,9 @@ pub trait CodecReader: LeafReader {
 
   /// Expert: retrieve underlying PointsReader
   fn get_points_reader(&self) -> Result<Option<Self::PointsReader>>;
+
+  /// retrieve underlying VectorReader
+  fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>>;
 
   fn stored_fields(&self) -> Result<StoredFieldsType<Self::StoredFieldsReader>> {
     let reader = self.get_fields_reader()?;
@@ -268,6 +276,47 @@ pub trait CodecReader: LeafReader {
     reader.get_values(field)
   }
 
+  fn get_float_vector_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<<Self::KnnVectorsReader as KnnVectorsReader>::FloatVectorValues>> {
+    self.ensure_open()?;
+
+    let fi = self.get_field_infos()?.field_info_by_name(field);
+    match fi {
+      Some(f)
+        if f.get_vector_dimension() > 0
+          && *f.get_vector_encoding() == VectorEncoding::FLOAT32(4) => {},
+      _ => return Ok(None),
+    };
+
+    let reader = self
+      .get_vector_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("vector reader is None"))?;
+
+    Ok(Some(reader.get_float_vector_values(field)?))
+  }
+  fn get_byte_vector_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<<Self::KnnVectorsReader as KnnVectorsReader>::ByteVectorValues>> {
+    self.ensure_open()?;
+
+    let fi = self.get_field_infos()?.field_info_by_name(field);
+    match fi {
+      Some(f)
+        if f.get_vector_dimension() > 0 && *f.get_vector_encoding() == VectorEncoding::BYTE(1) => {
+      },
+      _ => return Ok(None),
+    };
+
+    let reader = self
+      .get_vector_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("vector reader is None"))?;
+
+    Ok(Some(reader.get_byte_vector_values(field)?))
+  }
+
   fn default_check_integrity(&self) -> Result<()> {
     // terms/postings
     if let Some(v) = self.get_postings_reader()? {
@@ -308,6 +357,7 @@ pub type CRFieldsProducer<CR> = <CR as CodecReader>::FieldsProducer;
 pub type CRDocValuesProducer<CR> = <CR as CodecReader>::DocValuesProducer;
 pub type CRNormsProducer<CR> = <CR as CodecReader>::NormsProducer;
 pub type CRPointsReader<CR> = <CR as CodecReader>::PointsReader;
+pub type CRKnnVectorReader<CR> = <CR as CodecReader>::KnnVectorsReader;
 pub type CRTermVectorsReader<CR> = <CR as CodecReader>::TermVectorsReader;
 pub type CRStoredFieldsReader<CR> = <CR as CodecReader>::StoredFieldsReader;
 pub type CRBits<CR> = <CR as LeafReader>::Bits;
@@ -578,6 +628,25 @@ macro_rules! either_codec_reader {
                 }
             }
 
+            type FloatVectorValues = FloatVectorValuesEnum2<<$A as LeafReader>::FloatVectorValues, <$B as LeafReader>::FloatVectorValues>;
+
+            fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+                match self {
+                    Self::A(inner) => LeafReader::get_float_vector_values(inner,field).map(|opt| opt.map(FloatVectorValuesEnum2::A)),
+                    Self::B(inner) => LeafReader::get_float_vector_values(inner,field).map(|opt| opt.map(FloatVectorValuesEnum2::B)),
+                }
+            }
+
+           type ByteVectorValues = ByteVectorValuesEnum2<<$A as LeafReader>::ByteVectorValues, <$B as LeafReader>::ByteVectorValues>;
+
+            fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+                match self {
+                    Self::A(inner) => LeafReader::get_byte_vector_values(inner,field).map(|opt| opt.map(ByteVectorValuesEnum2::A)),
+                    Self::B(inner) => LeafReader::get_byte_vector_values(inner,field).map(|opt| opt.map(ByteVectorValuesEnum2::B)),
+                }
+            }
+
+
             fn get_field_infos(&self) -> Result<Arc<crate::core::index::field_infos::FieldInfos>> {
                 match self {
                     Self::A(inner) => inner.get_field_infos(),
@@ -635,6 +704,7 @@ macro_rules! either_codec_reader {
                 FieldsProducerEnum2<<$A as CodecReader>::FieldsProducer, <$B as CodecReader>::FieldsProducer>;
             type PointsReader =
                 PointsReaderEnum2<<$A as CodecReader>::PointsReader, <$B as CodecReader>::PointsReader>;
+            type KnnVectorsReader = KnnVectorsReaderEnum2<<$A as CodecReader>::KnnVectorsReader, <$B as CodecReader>::KnnVectorsReader>;
 
             fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
                 match self {
@@ -701,6 +771,16 @@ macro_rules! either_codec_reader {
                         .map(|opt| opt.map(PointsReaderEnum2::B)),
                 }
             }
+            fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
+                match self {
+                    Self::A(inner) => inner
+                    .get_vector_reader()
+                    .map(|opt| opt.map(KnnVectorsReaderEnum2::A)),
+                    Self::B(inner) => inner
+                    .get_vector_reader()
+                    .map(|opt| opt.map(KnnVectorsReaderEnum2::B)),
+                }
+            }
         }
     };
 }
@@ -717,6 +797,7 @@ where
   type DocValuesProducer = CR::DocValuesProducer;
   type FieldsProducer = CR::FieldsProducer;
   type PointsReader = CR::PointsReader;
+  type KnnVectorsReader = CR::KnnVectorsReader;
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
     (**self).get_fields_reader()
@@ -740,5 +821,9 @@ where
 
   fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
     (**self).get_points_reader()
+  }
+
+  fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
+    (**self).get_vector_reader()
   }
 }

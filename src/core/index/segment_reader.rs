@@ -23,7 +23,9 @@ use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::norms_producer::{DefaultNormProducer, NormsProducer};
 use crate::core::codecs::points_reader::{DefaultPointsReader, PointsReader};
 
+use crate::core::codecs::dummy::dummy_knn_vectors_reader::DummyKnnVectorsReader;
 use crate::core::codecs::fields_producer::DefaultFieldsProducer;
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::codecs::{Codec, get_default_code};
@@ -498,6 +500,20 @@ where
     CodecReader::get_doc_values_skipper(self, field)
   }
 
+  type FloatVectorValues =
+    <<Self as CodecReader>::KnnVectorsReader as KnnVectorsReader>::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    CodecReader::get_float_vector_values(self, field)
+  }
+
+  type ByteVectorValues =
+    <<Self as CodecReader>::KnnVectorsReader as KnnVectorsReader>::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    CodecReader::get_byte_vector_values(self, field)
+  }
+
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
     Ok(self.field_infos.clone())
   }
@@ -545,6 +561,7 @@ where
   type DocValuesProducer = Arc<DocValuesProducers<D>>;
   type FieldsProducer = Arc<DefaultFieldsProducer<D::IndexInput>>;
   type PointsReader = Arc<DefaultPointsReader<D::IndexInput>>;
+  type KnnVectorsReader = DummyKnnVectorsReader;
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
     self.ensure_open()?;
@@ -574,6 +591,10 @@ where
   fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
     self.ensure_open()?;
     Ok(self.core.points_reader.clone())
+  }
+
+  fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
+    todo!()
   }
 }
 #[derive(Clone)]

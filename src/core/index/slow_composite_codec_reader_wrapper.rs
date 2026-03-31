@@ -18,21 +18,25 @@ use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::fields_producer::FieldsProducer;
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::index::codec_reader::{
-  CRDocValuesProducer, CRFieldsProducer, CRNormsProducer, CRPointsReader, CRStoredFieldsReader,
-  CRTermVectorsReader, CodecReader, CodecReaderEnum2,
+  CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer, CRPointsReader,
+  CRStoredFieldsReader, CRTermVectorsReader, CodecReader, CodecReaderEnum2,
 };
 use crate::core::index::doc_values::{DocValues, EmptySorted};
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
+use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::{FieldInfos, get_merged_field_infos};
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::knn_vector_values::{DocIndexIterator, KnnVectorValues};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::{LRSortedDocValuesEmpty, LRSortedSetDocValues, LeafReader};
 use crate::core::index::multi_bits::{BitsType, get_live_docs};
@@ -58,7 +62,10 @@ use crate::core::index::term_vectors::{
   EmptyTermVectors, RawTermVectors, TermVectors, TermVectorsEnum2,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
+use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::merged_iterator::MergedIterator;
@@ -237,6 +244,20 @@ where
     CodecReader::get_doc_values_skipper(self, field)
   }
 
+  type FloatVectorValues =
+    <<Self as CodecReader>::KnnVectorsReader as KnnVectorsReader>::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    CodecReader::get_float_vector_values(self, field)
+  }
+
+  type ByteVectorValues =
+    <<Self as CodecReader>::KnnVectorsReader as KnnVectorsReader>::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    CodecReader::get_byte_vector_values(self, field)
+  }
+
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
     Ok(self.field_infos.clone())
   }
@@ -353,6 +374,7 @@ where
   type DocValuesProducer = SlowCompositeDocValuesProducerWrapper<CR>;
   type FieldsProducer = SlowCompositeFieldsProducerWrapper<CRFieldsProducer<CR>>;
   type PointsReader = SlowCompositePointsReaderWrapper<CR>;
+  type KnnVectorsReader = SlowCompositeKnnVectorsReaderWrapper<CR>;
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
     let mut readers = Vec::with_capacity(self.codec_readers.len());
@@ -406,6 +428,24 @@ where
       self.codec_readers.clone(),
       self.doc_stats.clone(),
     )?))
+  }
+
+  fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
+    todo!()
+  }
+
+  fn get_float_vector_values(
+    &self,
+    _field: &str,
+  ) -> Result<Option<<Self::KnnVectorsReader as KnnVectorsReader>::FloatVectorValues>> {
+    todo!()
+  }
+
+  fn get_byte_vector_values(
+    &self,
+    _field: &str,
+  ) -> Result<Option<<Self::KnnVectorsReader as KnnVectorsReader>::ByteVectorValues>> {
+    todo!()
   }
 }
 
@@ -1094,6 +1134,192 @@ where
     Self { sub, doc_base }
   }
 }
+
+pub struct SlowCompositeKnnVectorsReaderWrapper<CR>
+where
+  CR: CodecReader + Clone,
+{
+  codec_readers: Vec<CR>,
+  readers: Vec<Option<CRKnnVectorReader<CR>>>,
+  doc_starts: Arc<Vec<usize>>,
+}
+impl<CR> SlowCompositeKnnVectorsReaderWrapper<CR>
+where
+  CR: CodecReader + Clone,
+{
+  fn new(codec_readers: Vec<CR>, doc_starts: Arc<Vec<usize>>) -> Result<Self> {
+    let mut readers = Vec::with_capacity(codec_readers.len());
+    for reader in &codec_readers {
+      readers.push(reader.get_vector_reader()?);
+    }
+    Ok(Self {
+      codec_readers,
+      readers,
+      doc_starts,
+    })
+  }
+}
+impl<CR> KnnVectorsReader for SlowCompositeKnnVectorsReaderWrapper<CR>
+where
+  CR: CodecReader + Clone,
+{
+  fn check_integrity(&self) -> Result<()> {
+    todo!()
+  }
+
+  type FloatVectorValues = DummyFloatVectorValues;
+
+  fn get_float_vector_values(&self, _field: &str) -> Result<Self::FloatVectorValues> {
+    todo!()
+  }
+
+  type ByteVectorValues = DummyByteVectorValues;
+
+  fn get_byte_vector_values(&self, _field: &str) -> Result<Self::ByteVectorValues> {
+    todo!()
+  }
+
+  fn search_f32<B, K>(
+    &self,
+    _field: &str,
+    _target: Vec<f32>,
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    todo!()
+  }
+
+  fn search_u8<B, K>(
+    &self,
+    _field: &str,
+    _target: Vec<u8>,
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    todo!()
+  }
+}
+pub struct DocValuesSub<T>
+where
+  T: KnnVectorValues,
+{
+  pub sub: Option<T>,
+  pub doc_start: i32,
+  pub ord_start: i32,
+}
+
+impl<T> DocValuesSub<T>
+where
+  T: KnnVectorValues,
+{
+  pub fn new(sub: Option<T>, doc_start: i32, ord_start: i32) -> Self {
+    Self {
+      sub,
+      doc_start,
+      ord_start,
+    }
+  }
+}
+pub struct MergedDocIterator<T>
+where
+  T: KnnVectorValues,
+{
+  subs: Vec<DocValuesSub<T>>,
+  current: usize,
+  current_iter: Option<T::DocIndexIterator>,
+  ord: i32,
+  doc: i32,
+}
+
+impl<T> MergedDocIterator<T>
+where
+  T: KnnVectorValues,
+{
+  pub fn new(mut subs: Vec<DocValuesSub<T>>) -> Result<Self> {
+    if subs.is_empty() {
+      return Err(LuceneError::illegal_argument(
+        "at least one document must be supplied",
+      ));
+    }
+
+    let current = 0;
+    let current_iter = Self::current_iterator(&mut subs, current)?;
+
+    Ok(Self {
+      subs,
+      current,
+      current_iter,
+      ord: -1,
+      doc: -1,
+    })
+  }
+  fn current_iterator(
+    subs: &mut [DocValuesSub<T>],
+    current_idx: usize,
+  ) -> Result<Option<T::DocIndexIterator>> {
+    match subs[current_idx].sub.take() {
+      Some(mut v) => Ok(Some(v.iterator()?)),
+      None => Ok(None),
+    }
+  }
+}
+
+impl<T> DocIdSetIterator for MergedDocIterator<T>
+where
+  T: KnnVectorValues,
+{
+  fn doc_id(&self) -> i32 {
+    self.doc
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    loop {
+      if let Some(ref mut it) = self.current_iter {
+        let next = it.next_doc()?;
+        if next != NO_MORE_DOCS {
+          self.ord += 1;
+          self.doc = self.subs[self.current].doc_start + next;
+          return Ok(self.doc);
+        }
+      }
+
+      if self.current >= self.subs.len() {
+        self.ord = NO_MORE_DOCS;
+        self.doc = NO_MORE_DOCS;
+        return Ok(NO_MORE_DOCS);
+      }
+      self.current += 1;
+      self.current_iter = Self::current_iterator(&mut self.subs, self.current)?;
+      self.ord = self.subs[self.current].ord_start - 1;
+    }
+  }
+
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn cost(&self) -> Result<i64> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
+
+impl<T> DocIndexIterator for MergedDocIterator<T>
+where
+  T: KnnVectorValues,
+{
+  fn index(&self) -> Result<i32> {
+    Ok(self.ord)
+  }
+}
+
 pub struct SlowCompositePointsReaderWrapper<CR>
 where
   CR: CodecReader + Clone,

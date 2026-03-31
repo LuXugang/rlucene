@@ -797,6 +797,18 @@ mod tests {
       self.in_.get_doc_values_skipper(field)
     }
 
+    type FloatVectorValues = LR::FloatVectorValues;
+
+    fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+      self.in_.get_float_vector_values(field)
+    }
+
+    type ByteVectorValues = LR::ByteVectorValues;
+
+    fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+      self.in_.get_byte_vector_values(field)
+    }
+
     fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
       self.in_.get_field_infos()
     }

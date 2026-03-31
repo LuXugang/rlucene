@@ -17,6 +17,7 @@
 pub mod dummy_binary_doc_values;
 pub mod dummy_doc_values_skipper;
 pub mod dummy_knn_field_vectors_writer;
+pub mod dummy_knn_vectors_reader;
 pub mod dummy_mutable_point_tree;
 pub mod dummy_norms_producer;
 pub mod dummy_numeric_doc_values;

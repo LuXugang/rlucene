@@ -19,6 +19,7 @@ use crate::core::codecs::compressing::lucene90_compressing_stored_fields_reader:
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_reader::Lucene90CompressingTermVectorsReader;
 use crate::core::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
+use crate::core::codecs::dummy::dummy_knn_vectors_reader::DummyKnnVectorsReader;
 use crate::core::codecs::dummy::dummy_norms_producer::DummyNormsProducer;
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
@@ -28,7 +29,9 @@ use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer
 use crate::core::codecs::lucene90_points_reader::Lucene90PointsReader;
 use crate::core::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
 use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
+use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
 use crate::core::index::dummy::dummy_point_value_base::DummyPointValues;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
@@ -105,6 +108,18 @@ impl LeafReader for DummyCodecReader {
   type DocValuesSkipper = DummyDocValuesSkipper;
 
   fn get_doc_values_skipper(&self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  type FloatVectorValues = DummyFloatVectorValues;
+
+  fn get_float_vector_values(&self, _field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  type ByteVectorValues = DummyByteVectorValues;
+
+  fn get_byte_vector_values(&self, _field: &str) -> Result<Option<Self::ByteVectorValues>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
@@ -199,6 +214,7 @@ impl CodecReader for DummyCodecReader {
   type FieldsProducer =
     Lucene90BlockTreeTermsReader<DummyIndexInput, Lucene101PostingsReader<DummyIndexInput>>;
   type PointsReader = Lucene90PointsReader<DummyIndexInput>;
+  type KnnVectorsReader = DummyKnnVectorsReader;
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -222,5 +238,9 @@ impl CodecReader for DummyCodecReader {
 
   fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
+    todo!()
   }
 }

@@ -2233,6 +2233,18 @@ where
     self.base.get_doc_values_skipper(field)
   }
 
+  type FloatVectorValues = <DocValuesLeafReader as LeafReader>::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    self.base.get_float_vector_values(field)
+  }
+
+  type ByteVectorValues = <DocValuesLeafReader as LeafReader>::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    self.base.get_byte_vector_values(field)
+  }
+
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
     Ok(Arc::new(self.field_info.finish()?))
   }
@@ -2440,6 +2452,18 @@ where
 
   fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
     self.base.get_doc_values_skipper(field)
+  }
+
+  type FloatVectorValues = <DocValuesLeafReader as LeafReader>::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    self.base.get_float_vector_values(field)
+  }
+
+  type ByteVectorValues = <DocValuesLeafReader as LeafReader>::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    self.base.get_byte_vector_values(field)
   }
 
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {

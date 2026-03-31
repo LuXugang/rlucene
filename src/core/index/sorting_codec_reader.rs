@@ -18,6 +18,7 @@ use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProdu
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
+use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
 use crate::core::codecs::stored_fields_reader::{
@@ -28,16 +29,22 @@ use crate::core::codecs::term_vectors_reader::{
   DefaultTermVectorsReader, TermVectorsReader, TermVectorsReaderEnum2,
 };
 use crate::core::index::binary_doc_values_writer::{BinaryDVs, SortingBinaryDocValues};
+use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::{
-  CRBits, CRDocValuesProducer, CRFieldsProducer, CRNormsProducer, CRPointsReader,
-  CRStoredFieldsReader, CRTermVectorsReader, CodecReader,
+  CRBits, CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer,
+  CRPointsReader, CRStoredFieldsReader, CRTermVectorsReader, CodecReader,
 };
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
+use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
+use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
+use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::freq_prox_terms_writer::SortingTerms;
 use crate::core::index::index_reader::{Identity, IndexReader, IndexReaderBase};
+use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -58,16 +65,21 @@ use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
+use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::sort::Sort;
 use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::BitSet;
+use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::packed::PackedInts;
+use crate::core::util::supplier::Supplier;
 use parking_lot::{Mutex, MutexGuard};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -200,6 +212,18 @@ where
     LeafReader::get_doc_values_skipper(&self.in_, field)
   }
 
+  type FloatVectorValues = <CR as LeafReader>::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    LeafReader::get_float_vector_values(&self.in_, field)
+  }
+
+  type ByteVectorValues = <CR as LeafReader>::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    LeafReader::get_byte_vector_values(&self.in_, field)
+  }
+
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
     self.in_.get_field_infos()
   }
@@ -306,6 +330,7 @@ where
   type DocValuesProducer = DocValuesProducerImpl<CRDocValuesProducer<CR>, DM>;
   type FieldsProducer = FieldsProducerImpl<CRFieldsProducer<CR>, DM>;
   type PointsReader = PointsReaderImpl<CRPointsReader<CR>, DM>;
+  type KnnVectorsReader = KnnVectorsReaderImpl<CRKnnVectorReader<CR>, DM>;
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
     Ok(
@@ -372,6 +397,17 @@ where
       .get_points_reader()?
       .ok_or_else(|| LuceneError::illegal_state("points reader was None"))?;
     Ok(Some(PointsReaderImpl::new(delegate, self.doc_map.clone())))
+  }
+
+  fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
+    let delegate = self
+      .in_
+      .get_vector_reader()?
+      .ok_or_else(|| LuceneError::illegal_state("vector reader was None"))?;
+    Ok(Some(KnnVectorsReaderImpl::new(
+      delegate,
+      self.doc_map.clone(),
+    )))
   }
 }
 
@@ -868,6 +904,228 @@ where
   }
 }
 
+pub struct KnnVectorsReaderImpl<KVR, DM>
+where
+  KVR: KnnVectorsReader,
+  DM: DocMap,
+{
+  delegate: KVR,
+  doc_map: DM,
+}
+impl<KVR, DM> KnnVectorsReaderImpl<KVR, DM>
+where
+  KVR: KnnVectorsReader,
+  DM: DocMap,
+{
+  fn new(delegate: KVR, doc_map: DM) -> Self {
+    Self { delegate, doc_map }
+  }
+}
+impl<KVR, DM> KnnVectorsReader for KnnVectorsReaderImpl<KVR, DM>
+where
+  KVR: KnnVectorsReader,
+  DM: DocMap,
+{
+  fn check_integrity(&self) -> Result<()> {
+    self.delegate.check_integrity()
+  }
+
+  type FloatVectorValues = SortingFloatVectorValues<<KVR as KnnVectorsReader>::FloatVectorValues>;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
+    SortingFloatVectorValues::new(self.delegate.get_float_vector_values(field)?, &self.doc_map)
+  }
+
+  type ByteVectorValues = SortingByteVectorValues<<KVR as KnnVectorsReader>::ByteVectorValues>;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
+    SortingByteVectorValues::new(self.delegate.get_byte_vector_values(field)?, &self.doc_map)
+  }
+
+  fn search_f32<B, K>(
+    &self,
+    _field: &str,
+    _target: Vec<f32>,
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn search_u8<B, K>(
+    &self,
+    _field: &str,
+    _target: Vec<u8>,
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
+pub struct SortingByteVectorValues<B>
+where
+  B: ByteVectorValues,
+{
+  delegate: B,
+  iterator_supplier: SortingIteratorSupplier,
+}
+impl<B> SortingByteVectorValues<B>
+where
+  B: ByteVectorValues,
+{
+  fn new<DM>(mut delegate: B, doc_map: &DM) -> Result<Self>
+  where
+    DM: DocMap,
+  {
+    let iterator_supplier = iterator_supplier(&mut delegate, doc_map)?;
+    // SortingValuesIterator consumes the iterator and records the docs and ord mapping
+    Ok(Self {
+      delegate,
+      iterator_supplier,
+    })
+  }
+}
+
+impl<B> KnnVectorValues for SortingByteVectorValues<B>
+where
+  B: ByteVectorValues,
+{
+  fn dimension(&self) -> usize {
+    self.delegate.dimension()
+  }
+
+  fn size(&self) -> usize {
+    self.iterator_supplier.size()
+  }
+
+  type KnnVectorValues = DummyKnnVectorsWriter;
+
+  fn get_encoding(&self) -> VectorEncoding {
+    ByteVectorValues::get_encoding(self)
+  }
+
+  type Bits<B1>
+    = BitsImpl1<B1>
+  where
+    B1: Bits;
+
+  fn get_accept_ords<B1>(&self, accept_docs: Option<B1>) -> Option<Self::Bits<B1>>
+  where
+    B1: Bits,
+  {
+    self.default_get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = SortingValuesIterator;
+
+  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+    self.iterator_supplier.get()
+  }
+}
+
+impl<B> ByteVectorValues for SortingByteVectorValues<B>
+where
+  B: ByteVectorValues,
+{
+  fn vector_value(&mut self, ord: usize) -> Result<&[u8]> {
+    self.delegate.vector_value(ord)
+  }
+
+  type ByteVectorValues = DummyByteVectorValues;
+
+  fn byte_copy(&self) -> Result<Self::ByteVectorValues> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type VectorScorer = DummyVectorScorer;
+}
+/// Sorting FloatVectorValues that maps ordinals using the provided sortMap
+pub struct SortingFloatVectorValues<B>
+where
+  B: FloatVectorValues,
+{
+  delegate: B,
+  iterator_supplier: SortingIteratorSupplier,
+}
+impl<B> SortingFloatVectorValues<B>
+where
+  B: FloatVectorValues,
+{
+  fn new<DM>(mut delegate: B, doc_map: &DM) -> Result<Self>
+  where
+    DM: DocMap,
+  {
+    let iterator_supplier = iterator_supplier(&mut delegate, doc_map)?;
+    // SortingValuesIterator consumes the iterator and records the docs and ord mapping
+    Ok(Self {
+      delegate,
+      iterator_supplier,
+    })
+  }
+}
+
+impl<B> KnnVectorValues for SortingFloatVectorValues<B>
+where
+  B: FloatVectorValues,
+{
+  fn dimension(&self) -> usize {
+    self.delegate.dimension()
+  }
+
+  fn size(&self) -> usize {
+    self.iterator_supplier.size()
+  }
+
+  type KnnVectorValues = DummyKnnVectorsWriter;
+
+  fn get_encoding(&self) -> VectorEncoding {
+    FloatVectorValues::get_encoding(self)
+  }
+
+  type Bits<B1>
+    = BitsImpl1<B1>
+  where
+    B1: Bits;
+
+  fn get_accept_ords<B1>(&self, accept_docs: Option<B1>) -> Option<Self::Bits<B1>>
+  where
+    B1: Bits,
+  {
+    self.default_get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = SortingValuesIterator;
+
+  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+    self.iterator_supplier.get()
+  }
+}
+
+impl<B> FloatVectorValues for SortingFloatVectorValues<B>
+where
+  B: FloatVectorValues,
+{
+  fn vector_value(&mut self, ord: usize) -> Result<&[f32]> {
+    self.delegate.vector_value(ord)
+  }
+
+  type FloatVectorValues = DummyFloatVectorValues;
+
+  fn float_copy(&self) -> Result<Self::FloatVectorValues> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type VectorScorer = DummyVectorScorer;
+}
+
 pub struct SortingPointValues<PV, DM>
 where
   PV: PointValues,
@@ -1358,6 +1616,18 @@ where
     LeafReader::get_doc_values_skipper(&self.in_, field)
   }
 
+  type FloatVectorValues = <CR as LeafReader>::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    LeafReader::get_float_vector_values(&self.in_, field)
+  }
+
+  type ByteVectorValues = <CR as LeafReader>::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    LeafReader::get_byte_vector_values(&self.in_, field)
+  }
+
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
     self.in_.get_field_infos()
   }
@@ -1457,6 +1727,7 @@ where
   type DocValuesProducer = <CR as CodecReader>::DocValuesProducer;
   type FieldsProducer = <CR as CodecReader>::FieldsProducer;
   type PointsReader = <CR as CodecReader>::PointsReader;
+  type KnnVectorsReader = <CR as CodecReader>::KnnVectorsReader;
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
     self.in_.get_fields_reader()
@@ -1480,6 +1751,10 @@ where
 
   fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
     self.in_.get_points_reader()
+  }
+
+  fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
+    self.in_.get_vector_reader()
   }
 }
 /// Returns a sorted view of `reader` according to the order defined by `sort`.
@@ -1640,6 +1915,24 @@ where
     match self {
       SortingCodecReaderEnum::Filter(reader) => LeafReader::get_doc_values_skipper(reader, field),
       SortingCodecReaderEnum::Sorting(reader) => LeafReader::get_doc_values_skipper(reader, field),
+    }
+  }
+
+  type FloatVectorValues = <CR as LeafReader>::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    match self {
+      SortingCodecReaderEnum::Filter(reader) => LeafReader::get_float_vector_values(reader, field),
+      SortingCodecReaderEnum::Sorting(reader) => LeafReader::get_float_vector_values(reader, field),
+    }
+  }
+
+  type ByteVectorValues = <CR as LeafReader>::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    match self {
+      SortingCodecReaderEnum::Filter(reader) => LeafReader::get_byte_vector_values(reader, field),
+      SortingCodecReaderEnum::Sorting(reader) => LeafReader::get_byte_vector_values(reader, field),
     }
   }
 
@@ -1814,6 +2107,10 @@ where
     <CR as CodecReader>::PointsReader,
     <SortingCodecReader<CR, DM> as CodecReader>::PointsReader,
   >;
+  type KnnVectorsReader = KnnVectorsReaderEnum2<
+    <CR as CodecReader>::KnnVectorsReader,
+    <SortingCodecReader<CR, DM> as CodecReader>::KnnVectorsReader,
+  >;
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
     Ok(match self {
@@ -1863,6 +2160,120 @@ where
       SortingCodecReaderEnum::Filter(f) => f.get_points_reader()?.map(PointsReaderEnum2::A),
       SortingCodecReaderEnum::Sorting(s) => s.get_points_reader()?.map(PointsReaderEnum2::B),
     })
+  }
+
+  fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
+    Ok(match self {
+      SortingCodecReaderEnum::Filter(f) => f.get_vector_reader()?.map(KnnVectorsReaderEnum2::A),
+      SortingCodecReaderEnum::Sorting(s) => s.get_vector_reader()?.map(KnnVectorsReaderEnum2::B),
+    })
+  }
+}
+/// Creates a factory for [`SortingValuesIterator`]. Does the work of computing the
+/// (new docId to old ordinal) mapping, and caches the result, enabling it to create
+/// new iterators cheaply.
+///
+/// # Arguments
+///
+/// * `values` - the values over which to iterate
+/// * `doc_map` - the mapping from "old" docIds to "new" (sorted) docIds.
+pub fn iterator_supplier<V, D>(values: &mut V, doc_map: &D) -> Result<SortingIteratorSupplier>
+where
+  V: KnnVectorValues,
+  D: DocMap,
+{
+  let doc_map_size = doc_map.size() as usize;
+  let mut doc_to_ord = vec![0usize; doc_map_size];
+  let mut doc_bits = FixedBitSet::new(doc_map_size);
+  let mut count = 0usize;
+
+  // Note: doc_to_ord will contain zero for docids that have no vector. This is OK though
+  // because the iterator cannot be positioned on such docs
+  let mut iter = values.iterator()?;
+  let mut doc = iter.next_doc()?;
+  while doc != NO_MORE_DOCS {
+    let new_doc_id = doc_map.old_to_new(doc)?;
+    if new_doc_id != -1 {
+      let new_doc_id = new_doc_id as usize;
+      doc_to_ord[new_doc_id] = iter.index()? as usize;
+      doc_bits.set(new_doc_id);
+      count += 1;
+    }
+    doc = iter.next_doc()?;
+  }
+
+  Ok(SortingIteratorSupplier::new(doc_bits, doc_to_ord, count))
+}
+pub struct SortingValuesIterator {
+  docs_with_values: BitSetIterator<Arc<FixedBitSet>>,
+  doc_to_ord: Arc<Vec<usize>>,
+  doc: i32,
+}
+
+impl SortingValuesIterator {
+  pub fn new(doc_bits: Arc<FixedBitSet>, doc_to_ord: Arc<Vec<usize>>, size: i32) -> Result<Self> {
+    let docs_with_values = BitSetIterator::new(doc_bits, size as i64)?;
+    Ok(Self {
+      docs_with_values,
+      doc_to_ord,
+      doc: -1,
+    })
+  }
+}
+
+impl DocIdSetIterator for SortingValuesIterator {
+  fn doc_id(&self) -> i32 {
+    self.doc
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    if self.doc != NO_MORE_DOCS {
+      self.doc = self.docs_with_values.next_doc()?;
+    }
+    Ok(self.doc)
+  }
+
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn cost(&self) -> Result<i64> {
+    Ok(self.docs_with_values.bits.cardinality() as i64)
+  }
+}
+
+impl DocIndexIterator for SortingValuesIterator {
+  fn index(&self) -> Result<i32> {
+    debug_assert!(self.docs_with_values.bits.get(self.doc as usize)?);
+    Ok(self.doc_to_ord[self.doc as usize] as i32)
+  }
+}
+pub struct SortingIteratorSupplier {
+  doc_bits: Arc<FixedBitSet>,
+  doc_to_ord: Arc<Vec<usize>>,
+  size: usize,
+}
+
+impl SortingIteratorSupplier {
+  pub fn new(doc_bits: FixedBitSet, doc_to_ord: Vec<usize>, size: usize) -> Self {
+    Self {
+      doc_bits: Arc::new(doc_bits),
+      doc_to_ord: Arc::new(doc_to_ord),
+      size,
+    }
+  }
+
+  pub fn size(&self) -> usize {
+    self.size
+  }
+}
+impl Supplier<SortingValuesIterator> for SortingIteratorSupplier {
+  fn get(&self) -> Result<SortingValuesIterator> {
+    SortingValuesIterator::new(
+      self.doc_bits.clone(),
+      self.doc_to_ord.clone(),
+      self.size as i32,
+    )
   }
 }
 
