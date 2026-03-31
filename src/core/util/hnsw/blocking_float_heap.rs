@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use parking_lot::Mutex;
+use parking_lot::{Mutex, MutexGuard};
 
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -29,19 +29,20 @@ use crate::core::util::error::lucene_error::Result;
 /// from Lucene.
 pub struct BlockingFloatHeap {
   max_size: usize,
+  lock: Mutex<Inner>,
+}
+pub struct Inner {
   heap: Vec<f32>,
   size: usize,
-  lock: Mutex<()>,
 }
 impl BlockingFloatHeap {
   pub fn new(max_size: usize) -> Self {
     let mut heap = vec![0f32; max_size + 1];
     heap.push(0.0);
+    let inner = Inner { heap, size: 0 };
     Self {
       max_size,
-      heap,
-      size: 0,
-      lock: Mutex::new(()),
+      lock: Mutex::new(inner),
     }
   }
   /// Inserts a value into this heap.
@@ -56,16 +57,16 @@ impl BlockingFloatHeap {
   /// # Returns
   ///
   /// The new 'top' element in the queue.
-  pub fn offer(&mut self, value: f32) -> f32 {
-    let _guard = self.lock.lock();
+  pub fn offer(&self, value: f32) -> f32 {
+    let mut inner = self.lock.lock();
 
-    if self.size < self.max_size {
-      Self::push(&mut self.heap, value, &mut self.size);
-    } else if value >= self.heap[1] {
-      Self::update_top(&mut self.heap, value, self.size);
+    if inner.size < self.max_size {
+      Self::push(&mut inner, value);
+    } else if value >= inner.heap[1] {
+      Self::update_top(&mut inner, value);
     }
 
-    self.heap[1]
+    inner.heap[1]
   }
   /// Inserts an array of values into this heap.
   ///
@@ -80,20 +81,20 @@ impl BlockingFloatHeap {
   /// # Returns
   ///
   /// The new 'top' element in the queue.
-  pub fn offer_array(&mut self, values: &[f32], len: usize) -> f32 {
-    let _guard = self.lock.lock();
+  pub fn offer_array(&self, values: &[f32], len: usize) -> f32 {
+    let mut inner = self.lock.lock();
 
     for i in (0..len).rev() {
-      if self.size < self.max_size {
-        Self::push(&mut self.heap, values[i], &mut self.size);
-      } else if values[i] >= self.heap[1] {
-        Self::update_top(&mut self.heap, values[i], self.size);
+      if inner.size < self.max_size {
+        Self::push(&mut inner, values[i]);
+      } else if values[i] >= inner.heap[1] {
+        Self::update_top(&mut inner, values[i]);
       } else {
         break;
       }
     }
 
-    self.heap[1]
+    inner.heap[1]
   }
   /// Removes and returns the head of the heap.
   ///
@@ -104,16 +105,16 @@ impl BlockingFloatHeap {
   /// # Error
   ///
   /// Error if the heap is empty.
-  pub fn poll(&mut self) -> Result<f32> {
-    if self.size == 0 {
+  pub fn poll(&self) -> Result<f32> {
+    let mut inner = self.lock.lock();
+    if inner.size == 0 {
       return Err(LuceneError::illegal_state("The heap is empty"));
     }
-    let _guard = self.lock.lock();
 
-    let result = self.heap[1];
-    self.heap[1] = self.heap[self.size];
-    self.size -= 1;
-    Self::down_heap(&mut self.heap, 1, self.size);
+    let result = inner.heap[1];
+    inner.heap[1] = inner.heap[inner.size];
+    inner.size -= 1;
+    Self::down_heap(&mut inner, 1);
     Ok(result)
   }
 
@@ -123,8 +124,8 @@ impl BlockingFloatHeap {
   ///
   /// The head of the heap, the smallest value.
   pub fn peek(&self) -> f32 {
-    let _guard = self.lock.lock();
-    self.heap[1]
+    let inner = self.lock.lock();
+    inner.heap[1]
   }
   /// Returns the number of elements in this heap.
   ///
@@ -132,51 +133,52 @@ impl BlockingFloatHeap {
   ///
   /// The number of elements in this heap.
   pub fn size(&self) -> usize {
-    let _guard = self.lock.lock();
-    self.size
+    let inner = self.lock.lock();
+    inner.size
   }
-  fn push(heap: &mut [f32], element: f32, size: &mut usize) {
-    *size += 1;
-    heap[*size] = element;
-    Self::up_heap(heap, *size)
+  fn push(inner: &mut MutexGuard<'_, Inner>, element: f32) {
+    inner.size += 1;
+    let size = inner.size;
+    inner.heap[size] = element;
+    Self::up_heap(inner, size)
   }
 
-  fn update_top(heap: &mut [f32], value: f32, size: usize) -> f32 {
-    heap[1] = value;
-    Self::down_heap(heap, 1, size);
-    heap[1]
+  fn update_top(inner: &mut MutexGuard<'_, Inner>, value: f32) -> f32 {
+    inner.heap[1] = value;
+    Self::down_heap(inner, 1);
+    inner.heap[1]
   }
-  fn down_heap(heap: &mut [f32], mut i: usize, size: usize) {
-    let value = heap[i]; // save top value
+  fn down_heap(inner: &mut MutexGuard<'_, Inner>, mut i: usize) {
+    let value = inner.heap[i]; // save top value
     let mut j = i << 1; // find smaller child
     let mut k = j + 1;
 
-    if k <= size && heap[k] < heap[j] {
+    if k <= inner.size && inner.heap[k] < inner.heap[j] {
       j = k;
     }
 
-    while j <= size && heap[j] < value {
-      heap[i] = heap[j]; // shift up child
+    while j <= inner.size && inner.heap[j] < value {
+      inner.heap[i] = inner.heap[j]; // shift up child
       i = j;
       j = i << 1;
       k = j + 1;
-      if k <= size && heap[k] < heap[j] {
+      if k <= inner.size && inner.heap[k] < inner.heap[j] {
         j = k;
       }
     }
 
-    heap[i] = value; // install saved value
+    inner.heap[i] = value; // install saved value
   }
-  fn up_heap(heap: &mut [f32], orig_pos: usize) {
+  fn up_heap(inner: &mut MutexGuard<'_, Inner>, orig_pos: usize) {
     let mut i = orig_pos;
-    let value = heap[i];
+    let value = inner.heap[i];
     let mut j = i >> 1;
-    while j > 0 && value < heap[j] {
-      heap[i] = heap[j];
+    while j > 0 && value < inner.heap[j] {
+      inner.heap[i] = inner.heap[j];
       i = j;
       j >>= 1;
     }
-    heap[i] = value;
+    inner.heap[i] = value;
   }
 }
 #[cfg(test)]
@@ -198,7 +200,7 @@ mod tests {
 
   #[test]
   fn test_basic_operations() -> Result<()> {
-    let mut heap = BlockingFloatHeap::new(3);
+    let heap = BlockingFloatHeap::new(3);
 
     heap.offer(2.0);
     heap.offer(4.0);
@@ -219,7 +221,7 @@ mod tests {
   fn test_basic_operations2() -> Result<()> {
     let mut random = random();
     let size = at_least(&mut random, 10);
-    let mut heap = BlockingFloatHeap::new(size as usize);
+    let heap = BlockingFloatHeap::new(size as usize);
 
     let mut sum = 0.0;
     for _ in 0..size {
@@ -261,7 +263,7 @@ mod tests {
         for _ in 0..rng.random_range(10..100) {
           bottom_value += rng.random_range(0..=5) as f32;
           {
-            let mut heap = heap.lock();
+            let heap = heap.lock();
             let _ = heap.offer(bottom_value);
           }
           thread::sleep(Duration::from_millis(rng.random_range(0..50)));
