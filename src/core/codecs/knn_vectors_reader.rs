@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::byte_vector_values::ByteVectorValuesEnum2;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::FloatVectorValuesEnum2;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
@@ -129,6 +131,113 @@ pub trait KnnVectorsReader {
     Ok(())
   }
 }
+
+#[macro_export]
+macro_rules! either_knn_vectors_reader {
+    (
+        $vis:vis $name:ident {
+            float = $float_ty:ident,
+            byte = $byte_ty:ident;
+            $( $Variant:ident : $T:ident ),+ $(,)?
+        }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> $crate::core::codecs::knn_vectors_reader::KnnVectorsReader for $name<$( $T ),+>
+        where
+            $( $T: $crate::core::codecs::knn_vectors_reader::KnnVectorsReader ),+
+        {
+            #[inline]
+            fn check_integrity(&self) -> $crate::core::util::error::lucene_error::Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.check_integrity(), )+
+                }
+            }
+
+            type FloatVectorValues =
+                $float_ty<$( < $T as $crate::core::codecs::knn_vectors_reader::KnnVectorsReader >::FloatVectorValues ),+>;
+
+            #[inline]
+            fn get_float_vector_values(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Self::FloatVectorValues> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_float_vector_values(field).map($float_ty::$Variant), )+
+                }
+            }
+
+            type ByteVectorValues =
+                $byte_ty<$( < $T as $crate::core::codecs::knn_vectors_reader::KnnVectorsReader >::ByteVectorValues ),+>;
+
+            #[inline]
+            fn get_byte_vector_values(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Self::ByteVectorValues> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_byte_vector_values(field).map($byte_ty::$Variant), )+
+                }
+            }
+
+            #[inline]
+            fn search_f32<AcceptDocs, K>(
+                &self,
+                field: &str,
+                target: Vec<f32>,
+                knn_collector: &mut K,
+                accept_docs: Option<AcceptDocs>,
+            ) -> $crate::core::util::error::lucene_error::Result<()>
+            where
+                AcceptDocs: $crate::core::util::bits::Bits,
+                K: $crate::core::search::knn_collector::KnnCollector,
+            {
+                match self {
+                    $( Self::$Variant(inner) => inner.search_f32(field, target, knn_collector, accept_docs), )+
+                }
+            }
+
+            #[inline]
+            fn search_u8<AcceptDocs, K>(
+                &self,
+                field: &str,
+                target: Vec<u8>,
+                knn_collector: &mut K,
+                accept_docs: Option<AcceptDocs>,
+            ) -> $crate::core::util::error::lucene_error::Result<()>
+            where
+                AcceptDocs: $crate::core::util::bits::Bits,
+                K: $crate::core::search::knn_collector::KnnCollector,
+            {
+                match self {
+                    $( Self::$Variant(inner) => inner.search_u8(field, target, knn_collector, accept_docs), )+
+                }
+            }
+
+            #[inline]
+            fn get_merge_instance(&self) -> $crate::core::util::error::lucene_error::Result<Option<Self>>
+            where
+                Self: Sized,
+            {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_merge_instance().map(|opt| opt.map($name::$Variant)), )+
+                }
+            }
+
+            #[inline]
+            fn finish_merge(&mut self) -> $crate::core::util::error::lucene_error::Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.finish_merge(), )+
+                }
+            }
+        }
+    };
+}
+
+either_knn_vectors_reader!(
+    pub KnnVectorsReaderEnum2 {
+        float = FloatVectorValuesEnum2,
+        byte = ByteVectorValuesEnum2;
+        A: A, B: B,
+    }
+);
+
 pub enum KnnVectorsReaderEnum {}
 impl KnnVectorsReader for KnnVectorsReaderEnum {
   fn check_integrity(&self) -> Result<()> {
