@@ -108,7 +108,7 @@ impl FieldInvertState {
     self.position
   }
   /// Get total number of terms in this field.
-  pub fn length(&self) -> i32 {
+  pub fn get_length(&self) -> i32 {
     self.length
   }
 

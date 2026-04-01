@@ -125,9 +125,9 @@ pub trait Similarity: Display {
     let num_terms = if state.get_index_options() == IndexOptions::Docs {
       state.get_unique_term_count()
     } else if self.get_discount_overlaps() {
-      state.length() - state.num_overlap()
+      state.get_length() - state.num_overlap()
     } else {
-      state.length()
+      state.get_length()
     };
     Ok(SmallFloat::int_to_byte4(num_terms)? as i64)
   }

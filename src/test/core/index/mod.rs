@@ -21,6 +21,7 @@ pub(crate) mod base_field_info_format_test_case;
 pub(crate) mod base_index_file_format_test_case;
 pub(crate) mod base_live_docs_format_test_case;
 pub(crate) mod base_merge_policy_test_case;
+pub mod base_norms_format_test_case;
 mod base_postings_format_test_case;
 pub(crate) mod base_segment_info_format_test_case;
 pub mod doc_helper;

@@ -167,7 +167,7 @@ impl Display for ByteEncodingBoostSimilarity {
 
 impl Similarity for ByteEncodingBoostSimilarity {
   fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
-    Ok(state.length() as i64)
+    Ok(state.get_length() as i64)
   }
 
   type SimScorer = BoxSimScorer;

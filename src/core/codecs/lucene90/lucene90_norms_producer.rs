@@ -207,7 +207,7 @@ where
         },
       }
 
-      let norms_offset = meta.read_long()?.try_convert()?;
+      let norms_offset = meta.read_long()?;
 
       norms.insert(
         info_number,
@@ -236,7 +236,9 @@ where
     }
 
     let length = entry.num_docs_with_field * entry.bytes_per_norm as usize;
-    let mut slice = self.data.random_access_slice(entry.norms_offset, length)?;
+    let mut slice = self
+      .data
+      .random_access_slice(entry.norms_offset.try_convert()?, length)?;
     // Prefetch the first page of data. Following pages are expected to get
     // prefetched through read-ahead.
     if slice.length() > 0 {
@@ -647,7 +649,7 @@ struct NormsEntry {
   pub docs_with_field_length: i64,
   pub jump_table_entry_count: i16,
   pub num_docs_with_field: usize,
-  pub norms_offset: usize,
+  pub norms_offset: i64,
 }
 pub struct DenseNormsIterator<R>
 where
@@ -718,11 +720,11 @@ trait DenseNormsIteratorBase {
   fn long_value(&mut self, doc: i32) -> Result<i64>;
 }
 struct DenseNormsIteratorBaseImpl {
-  norms_offset: usize,
+  norms_offset: i64,
 }
 impl DenseNormsIteratorBase for DenseNormsIteratorBaseImpl {
   fn long_value(&mut self, _doc: i32) -> Result<i64> {
-    self.norms_offset.try_convert()
+    Ok(self.norms_offset)
   }
 }
 // case 1
@@ -738,8 +740,12 @@ where
 {
   fn long_value(&mut self, doc: i32) -> Result<i64> {
     match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_byte(doc.try_convert()?)? as i64),
-      RandomAccessSliceEnum::Shared(ref v) => Ok(v.lock().read_byte(doc.try_convert()?)? as i64),
+      RandomAccessSliceEnum::Owned(ref mut v) => {
+        Ok((v.read_byte(doc.try_convert()?)? as i8) as i64)
+      },
+      RandomAccessSliceEnum::Shared(ref v) => {
+        Ok((v.lock().read_byte(doc.try_convert()?)? as i8) as i64)
+      },
     }
   }
 }
@@ -901,10 +907,10 @@ where
     P: IndexedDISIPolicy<I>;
 }
 struct SparseNormsIteratorBaseImpl {
-  norms_offset: usize,
+  norms_offset: i64,
 }
 impl SparseNormsIteratorBaseImpl {
-  fn new(norms_offset: usize) -> Self {
+  fn new(norms_offset: i64) -> Self {
     Self { norms_offset }
   }
 }
@@ -916,7 +922,7 @@ where
   where
     P: IndexedDISIPolicy<I>,
   {
-    self.norms_offset.try_convert()
+    Ok(self.norms_offset)
   }
 }
 // case 1
@@ -935,8 +941,10 @@ where
     P: IndexedDISIPolicy<I>,
   {
     match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_byte(disi.index_u())? as i64),
-      RandomAccessSliceEnum::Shared(ref v) => Ok(v.lock().read_byte(disi.index_u())? as i64),
+      RandomAccessSliceEnum::Owned(ref mut v) => Ok((v.read_byte(disi.index_u())? as i8) as i64),
+      RandomAccessSliceEnum::Shared(ref v) => {
+        Ok((v.lock().read_byte(disi.index_u())? as i8) as i64)
+      },
     }
   }
 }
