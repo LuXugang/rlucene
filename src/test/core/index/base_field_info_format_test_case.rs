@@ -38,6 +38,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{LATEST, StringHelper};
+use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::util::index_package_access::{
   FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
 };
@@ -46,7 +47,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 };
 use crate::test::core::util::test_util::TestUtil;
 
-pub trait BaseFieldInfoFormatTestCase {
+pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
   fn support_doc_values_skip_index(&self) -> bool {
     true
   }

@@ -421,9 +421,18 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
 mod tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCase;
+  use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use rand::Rng;
 
   pub struct TestLucene94FieldInfosFormat;
+
+  impl BaseIndexFileFormatTestCase for TestLucene94FieldInfosFormat {
+    fn add_random_fields<R: Rng + ?Sized>(_random: &mut R) -> Result<()> {
+      todo!()
+    }
+  }
+
   impl BaseFieldInfoFormatTestCase for TestLucene94FieldInfosFormat {}
   #[test]
   fn test_one_field() -> Result<()> {
