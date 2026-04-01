@@ -10,3 +10,5 @@ ci = "xtask ci"
 check-uncommitted = "xtask check-uncommitted"
 # Check License header
 license-check = "xtask license-check"
+# Using Cargo nexttest instead of Cargo test
+nextest-run = "xtask nextest-run"
