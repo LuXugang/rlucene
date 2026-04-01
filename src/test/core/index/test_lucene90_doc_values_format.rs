@@ -25,16 +25,14 @@ use rand::prelude::StdRng;
 
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90DocValuesFormat;
-
-impl BaseDocValuesFormatTestCase for TestLucene90DocValuesFormat {}
-
-impl LegacyBaseDocValuesFormatTestCase for TestLucene90DocValuesFormat {}
-
 impl BaseIndexFileFormatTestCase for TestLucene90DocValuesFormat {
   fn add_random_fields<R: Rng + ?Sized>(_random: &mut R) -> Result<()> {
     todo!()
   }
 }
+impl LegacyBaseDocValuesFormatTestCase for TestLucene90DocValuesFormat {}
+impl BaseDocValuesFormatTestCase for TestLucene90DocValuesFormat {}
+impl BaseCompressingDocValuesFormatTestCase for TestLucene90DocValuesFormat {}
 fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestLucene90DocValuesFormat, &mut StdRng) -> Result<()>,
@@ -43,6 +41,28 @@ where
   let case = TestLucene90DocValuesFormat;
   f(&case, &mut random)
 }
+
+mod base_compressing_doc_values_format_test_case_tests {
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::index::base_compressing_doc_values_format_test_case::BaseCompressingDocValuesFormatTestCase;
+  use crate::test::core::index::test_lucene90_doc_values_format::run_case;
+
+  #[test]
+  fn test_unique_values_compression() -> Result<()> {
+    run_case(|case, random| case.test_unique_values_compression(random))
+  }
+
+  #[test]
+  fn test_date_compression() -> Result<()> {
+    run_case(|case, random| case.test_date_compression(random))
+  }
+
+  #[test]
+  fn test_single_big_value_compression() -> Result<()> {
+    run_case(|case, random| case.test_single_big_value_compression(random))
+  }
+}
+
 mod base_doc_values_format_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::index::base_doc_values_format_test_case::BaseDocValuesFormatTestCase;
@@ -162,8 +182,6 @@ mod base_doc_values_format_test_case_tests {
     run_case(|case, random| case.test_mismatched_fields(random))
   }
 }
-
-impl BaseCompressingDocValuesFormatTestCase for TestLucene90DocValuesFormat {}
 
 mod legacy_base_doc_values_format_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
