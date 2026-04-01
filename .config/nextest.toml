@@ -1,0 +1,6 @@
+[profile.default]
+fail-fast = false
+slow-timeout = { period = "60s", terminate-after = 2 }
+junit = { path = "target/nextest/ci-junit.xml" }
+test-threads = "num-cpus"
+failure-output = "final"
