@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 pub mod test_lucene90_norms_format;
+pub mod test_lucene90_stored_fields_format;
