@@ -200,4 +200,97 @@ mod legacy_base_doc_values_format_test_case_tests {
   fn test_doc_values_simple() -> Result<()> {
     run_case(|case, random| case.test_doc_values_simple(random))
   }
+  #[test]
+  fn test_random_sorted_bytes() -> Result<()> {
+    run_case(|case, random| case.test_random_sorted_bytes(random))
+  }
+  #[test]
+  fn test_boolean_numerics_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_boolean_numerics_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sparse_boolean_numerics_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sparse_boolean_numerics_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_byte_numerics_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_byte_numerics_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sparse_byte_numerics_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sparse_byte_numerics_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_short_numerics_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_short_numerics_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sparse_short_numerics_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sparse_short_numerics_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_int_numerics_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_int_numerics_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sparse_int_numerics_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sparse_int_numerics_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_long_numerics_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_long_numerics_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sparse_long_numerics_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sparse_long_numerics_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_binary_fixed_length_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_binary_fixed_length_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sparse_binary_fixed_length_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sparse_binary_fixed_length_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_binary_variable_length_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_binary_variable_length_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sparse_binary_variable_length_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sparse_binary_variable_length_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sorted_fixed_length_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sorted_fixed_length_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sparse_sorted_fixed_length_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sparse_sorted_fixed_length_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sorted_variable_length_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sorted_variable_length_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sparse_sorted_variable_length_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sparse_sorted_variable_length_vs_stored_fields(random))
+  }
 }
