@@ -1825,6 +1825,10 @@ pub struct LongValuesImpl {
   min_values: i64,
 }
 impl LongValues for LongValuesImpl {
+  fn get_mut(&mut self, index: usize) -> Result<i64> {
+    self.get(index)
+  }
+
   fn get(&self, _index: usize) -> Result<i64> {
     Ok(self.min_values)
   }

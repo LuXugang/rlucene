@@ -293,4 +293,300 @@ mod legacy_base_doc_values_format_test_case_tests {
   fn test_sparse_sorted_variable_length_vs_stored_fields() -> Result<()> {
     run_case(|case, random| case.test_sparse_sorted_variable_length_vs_stored_fields(random))
   }
+
+  #[test]
+  fn test_sorted_set_one_value() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_one_value(random))
+  }
+
+  #[test]
+  fn test_sorted_set_two_fields() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_two_fields(random))
+  }
+
+  #[test]
+  fn test_sorted_set_two_documents_merged() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_two_documents_merged(random))
+  }
+
+  #[test]
+  fn test_sorted_set_two_values() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_two_values(random))
+  }
+
+  #[test]
+  fn test_sorted_set_two_values_unordered() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_two_values_unordered(random))
+  }
+
+  #[test]
+  fn test_sorted_set_three_values_two_docs() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_three_values_two_docs(random))
+  }
+
+  #[test]
+  fn test_sorted_set_two_documents_last_missing() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_two_documents_last_missing(random))
+  }
+
+  #[test]
+  fn test_sorted_set_two_documents_last_missing_merge() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_two_documents_last_missing_merge(random))
+  }
+
+  #[test]
+  fn test_sorted_set_two_documents_first_missing() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_two_documents_first_missing(random))
+  }
+
+  #[test]
+  fn test_sorted_set_two_documents_first_missing_merge() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_two_documents_first_missing_merge(random))
+  }
+
+  #[test]
+  fn test_sorted_set_merge_away_all_values() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_merge_away_all_values(random))
+  }
+
+  #[test]
+  fn test_sorted_set_terms_enum() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_terms_enum(random))
+  }
+
+  #[test]
+  fn test_sorted_set_fixed_length_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_fixed_length_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sorted_numerics_single_valued_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sorted_numerics_single_valued_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sorted_numerics_single_valued_missing_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| {
+      case.test_sorted_numerics_single_valued_missing_vs_stored_fields(random)
+    })
+  }
+
+  #[test]
+  fn test_sorted_numerics_multiple_values_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sorted_numerics_multiple_values_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sorted_numerics_few_unique_sets_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sorted_numerics_few_unique_sets_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sorted_set_variable_length_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_variable_length_vs_stored_fields(random))
+  }
+
+  #[test]
+  fn test_sorted_set_fixed_length_single_valued_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| {
+      case.test_sorted_set_fixed_length_single_valued_vs_stored_fields(random)
+    })
+  }
+
+  #[test]
+  fn test_sorted_set_variable_length_single_valued_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| {
+      case.test_sorted_set_variable_length_single_valued_vs_stored_fields(random)
+    })
+  }
+
+  #[test]
+  fn test_sorted_set_fixed_length_few_unique_sets_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| {
+      case.test_sorted_set_fixed_length_few_unique_sets_vs_stored_fields(random)
+    })
+  }
+
+  #[test]
+  fn test_sorted_set_variable_length_few_unique_sets_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| {
+      case.test_sorted_set_variable_length_few_unique_sets_vs_stored_fields(random)
+    })
+  }
+
+  #[test]
+  fn test_sorted_set_variable_length_many_values_per_doc_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| {
+      case.test_sorted_set_variable_length_many_values_per_doc_vs_stored_fields(random)
+    })
+  }
+
+  #[test]
+  fn test_sorted_set_fixed_length_many_values_per_doc_vs_stored_fields() -> Result<()> {
+    run_case(|case, random| {
+      case.test_sorted_set_fixed_length_many_values_per_doc_vs_stored_fields(random)
+    })
+  }
+
+  #[test]
+  fn test_gcd_compression() -> Result<()> {
+    run_case(|case, random| case.test_gcd_compression(random))
+  }
+
+  #[test]
+  fn test_sparse_gcd_compression() -> Result<()> {
+    run_case(|case, random| case.test_sparse_gcd_compression(random))
+  }
+
+  #[test]
+  fn test_zeros() -> Result<()> {
+    run_case(|case, random| case.test_zeros(random))
+  }
+
+  #[test]
+  fn test_sparse_zeros() -> Result<()> {
+    run_case(|case, random| case.test_sparse_zeros(random))
+  }
+
+  #[test]
+  fn test_zero_or_min() -> Result<()> {
+    run_case(|case, random| case.test_zero_or_min(random))
+  }
+
+  #[test]
+  fn test_two_numbers_one_missing() -> Result<()> {
+    run_case(|case, random| case.test_two_numbers_one_missing(random))
+  }
+
+  #[test]
+  fn test_two_numbers_one_missing_with_merging() -> Result<()> {
+    run_case(|case, random| case.test_two_numbers_one_missing_with_merging(random))
+  }
+
+  #[test]
+  fn test_three_numbers_one_missing_with_merging() -> Result<()> {
+    run_case(|case, random| case.test_three_numbers_one_missing_with_merging(random))
+  }
+
+  #[test]
+  fn test_two_bytes_one_missing() -> Result<()> {
+    run_case(|case, random| case.test_two_bytes_one_missing(random))
+  }
+
+  #[test]
+  fn test_two_bytes_one_missing_with_merging() -> Result<()> {
+    run_case(|case, random| case.test_two_bytes_one_missing_with_merging(random))
+  }
+
+  #[test]
+  fn test_three_bytes_one_missing_with_merging() -> Result<()> {
+    run_case(|case, random| case.test_three_bytes_one_missing_with_merging(random))
+  }
+  #[test]
+  fn test_threads() -> Result<()> {
+    run_case(|case, random| case.test_threads(random))
+  }
+  #[test]
+  fn test_threads2() -> Result<()> {
+    run_case(|case, random| case.test_threads2(random))
+  }
+  #[test]
+  fn test_threads3() -> Result<()> {
+    run_case(|case, random| case.test_threads3(random))
+  }
+  #[test]
+  fn test_empty_binary_value_on_page_sizes() -> Result<()> {
+    run_case(|case, random| case.test_empty_binary_value_on_page_sizes(random))
+  }
+
+  #[test]
+  fn test_one_sorted_number() -> Result<()> {
+    run_case(|case, random| case.test_one_sorted_number(random))
+  }
+
+  #[test]
+  fn test_one_sorted_number_one_missing() -> Result<()> {
+    run_case(|case, random| case.test_one_sorted_number_one_missing(random))
+  }
+
+  #[test]
+  fn test_number_merge_away_all_values() -> Result<()> {
+    run_case(|case, random| case.test_number_merge_away_all_values(random))
+  }
+
+  #[test]
+  fn test_two_sorted_number() -> Result<()> {
+    run_case(|case, random| case.test_two_sorted_number(random))
+  }
+
+  #[test]
+  fn test_two_sorted_number_same_value() -> Result<()> {
+    run_case(|case, random| case.test_two_sorted_number_same_value(random))
+  }
+
+  #[test]
+  fn test_two_sorted_number_one_missing() -> Result<()> {
+    run_case(|case, random| case.test_two_sorted_number_one_missing(random))
+  }
+
+  #[test]
+  fn test_sorted_number_merge() -> Result<()> {
+    run_case(|case, random| case.test_sorted_number_merge(random))
+  }
+
+  #[test]
+  fn test_sorted_number_merge_away_all_values() -> Result<()> {
+    run_case(|case, random| case.test_sorted_number_merge_away_all_values(random))
+  }
+
+  #[test]
+  fn test_sorted_enum_advance_independently() -> Result<()> {
+    run_case(|case, random| case.test_sorted_enum_advance_independently(random))
+  }
+
+  #[test]
+  fn test_sorted_set_enum_advance_independently() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_enum_advance_independently(random))
+  }
+
+  #[test]
+  fn test_sorted_merge_away_all_values_large_segment() -> Result<()> {
+    run_case(|case, random| case.test_sorted_merge_away_all_values_large_segment(random))
+  }
+
+  #[test]
+  fn test_sorted_set_merge_away_all_values_large_segment() -> Result<()> {
+    run_case(|case, random| case.test_sorted_set_merge_away_all_values_large_segment(random))
+  }
+
+  #[test]
+  fn test_numeric_merge_away_all_values_large_segment() -> Result<()> {
+    run_case(|case, random| case.test_numeric_merge_away_all_values_large_segment(random))
+  }
+
+  #[test]
+  fn test_sorted_numeric_merge_away_all_values_large_segment() -> Result<()> {
+    run_case(|case, random| case.test_sorted_numeric_merge_away_all_values_large_segment(random))
+  }
+
+  #[test]
+  fn test_binary_merge_away_all_values_large_segment() -> Result<()> {
+    run_case(|case, random| case.test_binary_merge_away_all_values_large_segment(random))
+  }
+
+  #[test]
+  fn test_random_advance_numeric() -> Result<()> {
+    run_case(|case, random| case.test_random_advance_numeric(random))
+  }
+
+  #[test]
+  fn test_random_advance_binary() -> Result<()> {
+    run_case(|case, random| case.test_random_advance_binary(random))
+  }
+
+  #[ignore]
+  #[test]
+  fn test_high_ords_sorted_set_dv() -> Result<()> {
+    run_case(|case, random| case.test_high_ords_sorted_set_dv(random))
+  }
 }

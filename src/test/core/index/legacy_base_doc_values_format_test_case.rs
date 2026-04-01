@@ -17,26 +17,32 @@
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::document::fields::Fields;
 use crate::core::document::float_doc_values_field::FloatDocValuesField;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
-use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
+use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
-use crate::core::index::composite_reader::get_context;
+use crate::core::index::composite_reader::{CompositeReader, get_context};
+use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::multi_doc_values::{
+  MultiBinaryDocValues, MultiDocValues, MultiNumericDocValues,
+};
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
@@ -45,6 +51,7 @@ use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::term_query::TermQuery;
+use crate::core::store::directory::Directory;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
@@ -57,10 +64,10 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_string_field, new_text_field,
 };
 use crate::test::core::util::test_util::TestUtil;
+use rand::prelude::{IndexedRandom, SliceRandom};
 use rand::{Rng, RngExt};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
-use crate::core::store::directory::Directory;
 
 pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   fn add_random_fields<R: Rng + ?Sized>(_random: &mut R) -> Result<()> {
@@ -1632,8 +1639,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       let hits = searcher.search(TermQuery::new(Term::from_text("id", id)), 2)?;
       assert_eq!(1, hits.total_hits.value());
       let doc_id = hits.score_docs[0].doc;
-      let mut doc_values = MultiDocValues::get_sorted_values(searcher.reader_context.reader(), "field")?
-        .unwrap();
+      let mut doc_values =
+        MultiDocValues::get_sorted_values(searcher.reader_context.reader(), "field")?.unwrap();
       assert_eq!(doc_id, doc_values.advance(doc_id)?);
       let ord = doc_values.ord_value()?;
       let actual = doc_values.lookup_ord(ord)?;
@@ -1715,7 +1722,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   where
     D: Directory,
   {
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir)? )?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir)?)?;
     let context = get_context(&reader)?;
 
     for leaf in context.leaves()? {
@@ -1726,10 +1733,16 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       let max_doc = leaf_reader.max_doc()?;
 
       for i in 0..max_doc {
-        let stored_value = stored_fields.document(i)?.get("stored")?.map(|s| s.into_owned());
+        let stored_value = stored_fields
+          .document(i)?
+          .get("stored")?
+          .map(|s| s.into_owned());
         if let Some(stored_value) = stored_value {
           assert_eq!(i, doc_values.doc_id());
-          assert_eq!(stored_value.parse::<i64>().unwrap(), doc_values.long_value()?);
+          assert_eq!(
+            stored_value.parse::<i64>().unwrap(),
+            doc_values.long_value()?
+          );
           doc_values.next_doc()?;
         } else {
           assert!(doc_values.doc_id() > i);
@@ -1762,7 +1775,12 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         Some(values) => values,
         None => {
           for doc in 0..max_doc {
-            assert!(stored_fields.document(doc)?.get_values(stored_field)?.is_empty());
+            assert!(
+              stored_fields
+                .document(doc)?
+                .get_values(stored_field)?
+                .is_empty()
+            );
           }
           continue;
         },
@@ -1839,8 +1857,17 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         let mut doc = random.random_range(0..max_doc);
         while doc != NO_MORE_DOCS {
           let next_doc = doc_values.advance(doc)?;
-          for d in doc..if next_doc == NO_MORE_DOCS { max_doc } else { next_doc } {
-            assert!(stored_fields.document(d)?.get_values(stored_field)?.is_empty());
+          for d in doc..if next_doc == NO_MORE_DOCS {
+            max_doc
+          } else {
+            next_doc
+          } {
+            assert!(
+              stored_fields
+                .document(d)?
+                .get_values(stored_field)?
+                .is_empty()
+            );
           }
 
           doc = next_doc;
@@ -1932,14 +1959,16 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     {
-      let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir.clone())?)?;
+      let reader =
+        self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir.clone())?)?;
       self.compare_stored_field_with_sorted_numerics_dv(random, &reader, "stored", "dv")?;
     }
 
     writer.force_merge((num_docs / 256).max(1))?;
 
     {
-      let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir.clone())?)?;
+      let reader =
+        self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir.clone())?)?;
       self.compare_stored_field_with_sorted_numerics_dv(random, &reader, "stored", "dv")?;
     }
 
@@ -1947,10 +1976,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_boolean_numerics_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_boolean_numerics_vs_stored_fields<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self.do_test_numerics_vs_stored_fields(random, 1.0, &mut |r| r.random_range(0..2) as i64)?;
@@ -1965,7 +1991,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let density = random.random::<f64>();
-      self.do_test_numerics_vs_stored_fields(random, density, &mut |r| r.random_range(0..2) as i64)?;
+      self
+        .do_test_numerics_vs_stored_fields(random, density, &mut |r| r.random_range(0..2) as i64)?;
     }
     Ok(())
   }
@@ -2334,13 +2361,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     for _ in 0..num_iterations {
       let fixed_length = TestUtil::next_int(random, 1, 10);
       let num_docs = at_least(random, 300);
-      self.do_test_sorted_vs_stored_fields(
-        random,
-        num_docs,
-        1.0,
-        fixed_length,
-        fixed_length,
-      )?;
+      self.do_test_sorted_vs_stored_fields(random, num_docs, 1.0, fixed_length, fixed_length)?;
     }
     Ok(())
   }
@@ -2405,4 +2426,2210 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     })
   }
 
+  fn test_sorted_set_one_value<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let writer = RandomIndexWriter::new(random, directory.clone());
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(0, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "hello")?,
+      dv.lookup_ord(0)?.as_ref()
+    );
+    Ok(())
+  }
+
+  fn test_sorted_set_two_fields<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let writer = RandomIndexWriter::new(random, directory.clone());
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "field2",
+      new_bytes_ref_from_string(random, "world")?,
+    ));
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let leaf = get_only_leaf_reader(&reader)?;
+    let mut dv = leaf.get_sorted_set_doc_values("field")?.unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(0, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "hello")?,
+      dv.lookup_ord(0)?.as_ref()
+    );
+
+    let mut dv = leaf.get_sorted_set_doc_values("field2")?.unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(0, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "world")?,
+      dv.lookup_ord(0)?.as_ref()
+    );
+    Ok(())
+  }
+
+  fn test_sorted_set_two_documents_merged<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "world")?,
+    ));
+    writer.add_document(doc)?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(2, dv.get_value_count()?);
+
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(0, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "hello")?,
+      dv.lookup_ord(0)?.as_ref()
+    );
+
+    assert_eq!(1, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(1, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "world")?,
+      dv.lookup_ord(1)?.as_ref()
+    );
+    Ok(())
+  }
+
+  fn test_sorted_set_two_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let writer = RandomIndexWriter::new(random, directory.clone());
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "world")?,
+    ));
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(2, dv.doc_value_count()?);
+    assert_eq!(0, dv.next_ord()?);
+    assert_eq!(1, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "hello")?,
+      dv.lookup_ord(0)?.as_ref()
+    );
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "world")?,
+      dv.lookup_ord(1)?.as_ref()
+    );
+    Ok(())
+  }
+
+  fn test_sorted_set_two_values_unordered<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let writer = RandomIndexWriter::new(random, directory.clone());
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "world")?,
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(2, dv.doc_value_count()?);
+    assert_eq!(0, dv.next_ord()?);
+    assert_eq!(1, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "hello")?,
+      dv.lookup_ord(0)?.as_ref()
+    );
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "world")?,
+      dv.lookup_ord(1)?.as_ref()
+    );
+    Ok(())
+  }
+
+  fn test_sorted_set_three_values_two_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "world")?,
+    ));
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "beer")?,
+    ));
+    writer.add_document(doc)?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(3, dv.get_value_count()?);
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(2, dv.doc_value_count()?);
+    assert_eq!(1, dv.next_ord()?);
+    assert_eq!(2, dv.next_ord()?);
+    assert_eq!(1, dv.next_doc()?);
+    assert_eq!(2, dv.doc_value_count()?);
+    assert_eq!(0, dv.next_ord()?);
+    assert_eq!(1, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "beer")?,
+      dv.lookup_ord(0)?.as_ref()
+    );
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "hello")?,
+      dv.lookup_ord(1)?.as_ref()
+    );
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "world")?,
+      dv.lookup_ord(2)?.as_ref()
+    );
+    Ok(())
+  }
+
+  fn test_sorted_set_two_documents_last_missing<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    writer.add_document(doc)?;
+    writer.add_document(Document::new())?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(1, dv.get_value_count()?);
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(0, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "hello")?,
+      dv.lookup_ord(0)?.as_ref()
+    );
+    Ok(())
+  }
+
+  fn test_sorted_set_two_documents_last_missing_merge<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    writer.add_document(doc)?;
+    writer.commit()?;
+    writer.add_document(Document::new())?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(1, dv.get_value_count()?);
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(0, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "hello")?,
+      dv.lookup_ord(0)?.as_ref()
+    );
+    Ok(())
+  }
+
+  fn test_sorted_set_two_documents_first_missing<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+
+    writer.add_document(Document::new())?;
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    writer.add_document(doc)?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(1, dv.get_value_count()?);
+    assert_eq!(1, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(0, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "hello")?,
+      dv.lookup_ord(0)?.as_ref()
+    );
+    Ok(())
+  }
+
+  fn test_sorted_set_two_documents_first_missing_merge<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+
+    writer.add_document(Document::new())?;
+    writer.commit()?;
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    writer.add_document(doc)?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(1, dv.get_value_count()?);
+    assert_eq!(1, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(0, dv.next_ord()?);
+    assert_eq!(
+      &new_bytes_ref_from_string(random, "hello")?,
+      dv.lookup_ord(0)?.as_ref()
+    );
+    Ok(())
+  }
+
+  fn test_sorted_set_merge_away_all_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "0",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    writer.add_document(doc)?;
+    writer.commit()?;
+    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(0, dv.get_value_count()?);
+    let mut terms_enum = dv.terms_enum()?;
+    let lucene = new_bytes_ref_from_string(random, "lucene")?;
+    assert!(!terms_enum.seek_exact(&lucene)?);
+    assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
+    assert_eq!(-1, dv.lookup_term(&lucene)?);
+    Ok(())
+  }
+
+  fn test_sorted_set_terms_enum<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "world")?,
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "beer")?,
+    ));
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(3, dv.get_value_count()?);
+    let mut terms_enum = dv.terms_enum()?;
+
+    assert_eq!("beer", terms_enum.next()?.unwrap().utf8_to_string()?);
+    assert_eq!(0, terms_enum.ord()?);
+    assert_eq!("hello", terms_enum.next()?.unwrap().utf8_to_string()?);
+    assert_eq!(1, terms_enum.ord()?);
+    assert_eq!("world", terms_enum.next()?.unwrap().utf8_to_string()?);
+    assert_eq!(2, terms_enum.ord()?);
+
+    assert_eq!(
+      SeekStatus::NotFound,
+      terms_enum.seek_ceil(&new_bytes_ref_from_string(random, "ha!")?)?
+    );
+    assert_eq!("hello", terms_enum.term()?.utf8_to_string()?);
+    assert_eq!(1, terms_enum.ord()?);
+    assert_eq!(
+      SeekStatus::Found,
+      terms_enum.seek_ceil(&new_bytes_ref_from_string(random, "beer")?)?
+    );
+    assert_eq!("beer", terms_enum.term()?.utf8_to_string()?);
+    assert_eq!(0, terms_enum.ord()?);
+    assert_eq!(
+      SeekStatus::End,
+      terms_enum.seek_ceil(&new_bytes_ref_from_string(random, "zzz")?)?
+    );
+
+    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string(random, "beer")?)?);
+    assert_eq!("beer", terms_enum.term()?.utf8_to_string()?);
+    assert_eq!(0, terms_enum.ord()?);
+    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string(random, "hello")?)?);
+    assert_eq!("hello", terms_enum.term()?.utf8_to_string()?);
+    assert_eq!(1, terms_enum.ord()?);
+    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string(random, "world")?)?);
+    assert_eq!("world", terms_enum.term()?.utf8_to_string()?);
+    assert_eq!(2, terms_enum.ord()?);
+    assert!(!terms_enum.seek_exact(&new_bytes_ref_from_string(random, "bogus")?)?);
+
+    terms_enum.seek_exact_with_ord(0)?;
+    assert_eq!("beer", terms_enum.term()?.utf8_to_string()?);
+    assert_eq!(0, terms_enum.ord()?);
+    terms_enum.seek_exact_with_ord(1)?;
+    assert_eq!("hello", terms_enum.term()?.utf8_to_string()?);
+    assert_eq!(1, terms_enum.ord()?);
+    terms_enum.seek_exact_with_ord(2)?;
+    assert_eq!("world", terms_enum.term()?.utf8_to_string()?);
+    assert_eq!(2, terms_enum.ord()?);
+
+    // TODO IMPORTANT SortedDocValues#intersect 未实现
+    Ok(())
+  }
+
+  fn compare_stored_field_with_sorted_set_dv<R, CR>(
+    &self,
+    random: &mut R,
+    directory_reader: &CR,
+    stored_field: &str,
+    dv_field: &str,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+    CR: crate::core::index::composite_reader::CompositeReader,
+  {
+    let context = get_context(directory_reader)?;
+    for leaf in context.leaves()? {
+      let reader = leaf.reader();
+      let mut stored_fields = reader.stored_fields()?;
+      let max_doc = reader.max_doc()?;
+      let mut doc_values = match reader.get_sorted_set_doc_values(dv_field)? {
+        Some(values) => values,
+        None => {
+          for doc in 0..max_doc {
+            assert!(
+              stored_fields
+                .document(doc)?
+                .get_values(stored_field)?
+                .is_empty()
+            );
+          }
+          continue;
+        },
+      };
+
+      for doc in 0..max_doc {
+        let stored_values = stored_fields
+          .document(doc)?
+          .get_values(stored_field)?
+          .into_iter()
+          .map(|v| v.into_owned())
+          .collect::<Vec<_>>();
+        if stored_values.is_empty() {
+          assert!(!doc_values.advance_exact(doc)?);
+          continue;
+        }
+        match random.random_range(0..3) {
+          0 => assert_eq!(doc, doc_values.next_doc()?),
+          1 => assert_eq!(doc, doc_values.advance(doc)?),
+          _ => assert!(doc_values.advance_exact(doc)?),
+        }
+        assert_eq!(doc, doc_values.doc_id());
+        assert_eq!(stored_values.len() as i32, doc_values.doc_value_count()?);
+        let repeats = 1 + random.random_range(0..3);
+        for r in 0..repeats {
+          if r > 0 || random.random_bool(0.5) {
+            assert!(doc_values.advance_exact(doc)?);
+          }
+          let count = doc_values.doc_value_count()?;
+          for expected in stored_values.iter().take(count as usize) {
+            let ord = doc_values.next_ord()?;
+            assert_eq!(
+              expected.as_str(),
+              doc_values.lookup_ord(ord)?.utf8_to_string()?
+            );
+          }
+        }
+      }
+
+      let iters = 1 + random.random_range(0..3);
+      for _ in 0..iters {
+        let mut doc_values = reader.get_sorted_set_doc_values(dv_field)?.unwrap();
+        let mut doc = random.random_range(0..max_doc);
+        while doc < max_doc {
+          let stored_values = stored_fields
+            .document(doc)?
+            .get_values(stored_field)?
+            .into_iter()
+            .map(|v| v.into_owned())
+            .collect::<Vec<_>>();
+          if doc_values.advance_exact(doc)? {
+            assert_eq!(doc, doc_values.doc_id());
+            assert_eq!(stored_values.len() as i32, doc_values.doc_value_count()?);
+            let repeats = 1 + random.random_range(0..3);
+            for r in 0..repeats {
+              if r > 0 || random.random_bool(0.5) {
+                assert!(doc_values.advance_exact(doc)?);
+              }
+              let count = doc_values.doc_value_count()?;
+              for expected in stored_values.iter().take(count as usize) {
+                let ord = doc_values.next_ord()?;
+                assert_eq!(
+                  expected.as_str(),
+                  doc_values.lookup_ord(ord)?.utf8_to_string()?
+                );
+              }
+            }
+          } else {
+            assert!(stored_values.is_empty());
+          }
+          doc += 1 + random.random_range(0..5);
+        }
+      }
+
+      for _ in 0..iters {
+        let mut doc_values = reader.get_sorted_set_doc_values(dv_field)?.unwrap();
+        let mut doc = random.random_range(0..max_doc);
+        while doc != NO_MORE_DOCS {
+          let next_doc = doc_values.advance(doc)?;
+          for d in doc..if next_doc == NO_MORE_DOCS {
+            max_doc
+          } else {
+            next_doc
+          } {
+            assert!(
+              stored_fields
+                .document(d)?
+                .get_values(stored_field)?
+                .is_empty()
+            );
+          }
+          doc = next_doc;
+          if doc != NO_MORE_DOCS {
+            let stored_values = stored_fields
+              .document(doc)?
+              .get_values(stored_field)?
+              .into_iter()
+              .map(|v| v.into_owned())
+              .collect::<Vec<_>>();
+            let repeats = 1 + random.random_range(0..3);
+            for r in 0..repeats {
+              if r > 0 || random.random_bool(0.5) {
+                assert!(doc_values.advance_exact(doc)?);
+              }
+              let count = doc_values.doc_value_count()?;
+              for expected in stored_values.iter().take(count as usize) {
+                let ord = doc_values.next_ord()?;
+                assert_eq!(
+                  expected.as_str(),
+                  doc_values.lookup_ord(ord)?.utf8_to_string()?
+                );
+              }
+            }
+            let step = 1 + random.random_range(0..5);
+            doc = if next_doc >= max_doc - step {
+              NO_MORE_DOCS
+            } else {
+              next_doc + step
+            };
+          }
+        }
+      }
+    }
+    Ok(())
+  }
+
+  fn do_test_sorted_set_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+    num_docs: i32,
+    min_length: i32,
+    max_length: i32,
+    max_values_per_doc: i32,
+    max_unique_values: usize,
+  ) -> Result<()> {
+    let dir = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
+
+    let mut value_set = HashSet::new();
+    for _ in 0..10_000 {
+      if value_set.len() >= max_unique_values {
+        break;
+      }
+      let length = TestUtil::next_int(random, min_length, max_length) as usize;
+      value_set.insert(TestUtil::random_simple_string_range(random, length, length));
+    }
+    let unique_values = value_set.into_iter().collect::<Vec<_>>();
+
+    let mut field_to_type = HashMap::new();
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(new_string_field(
+        random,
+        "id",
+        i.to_string(),
+        Store::No,
+        &mut field_to_type,
+      )?);
+      let num_values = TestUtil::next_int(random, 0, max_values_per_doc) as usize;
+      let mut values = BTreeSet::new();
+      for _ in 0..num_values {
+        values.insert(unique_values.choose(random).unwrap().clone());
+      }
+
+      for value in &values {
+        doc.add(StoredField::from_string("stored", value)?);
+      }
+
+      let mut unordered = values.iter().cloned().collect::<Vec<_>>();
+      unordered.shuffle(random);
+      for value in unordered {
+        doc.add(SortedSetDocValuesField::new(
+          "dv",
+          new_bytes_ref_from_string(random, &value)?,
+        ));
+      }
+
+      writer.add_document(doc)?;
+      if random.random_range(0..31) == 0 {
+        writer.commit()?;
+      }
+    }
+
+    let num_deletions = random.random_range(0..=(num_docs / 10).max(0));
+    for _ in 0..num_deletions {
+      let id = random.random_range(0..num_docs);
+      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+    }
+
+    {
+      let reader = writer.get_reader()?;
+      self.compare_stored_field_with_sorted_set_dv(random, &reader, "stored", "dv")?;
+    }
+    writer.force_merge(1)?;
+    {
+      let reader = writer.get_reader()?;
+      self.compare_stored_field_with_sorted_set_dv(random, &reader, "stored", "dv")?;
+    }
+    writer.close()?;
+    Ok(())
+  }
+
+  fn test_sorted_set_fixed_length_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      let fixed_length = TestUtil::next_int(random, 1, 10);
+      let num_docs = at_least(random, 300);
+      self.do_test_sorted_set_vs_stored_fields(
+        random,
+        num_docs,
+        fixed_length,
+        fixed_length,
+        16,
+        100,
+      )?;
+    }
+    Ok(())
+  }
+
+  fn test_sorted_numerics_single_valued_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      self
+        .do_test_sorted_numerics_vs_stored_fields(random, &mut |_| 1, &mut |r| r.random::<i64>())?;
+    }
+    Ok(())
+  }
+
+  fn test_sorted_numerics_single_valued_missing_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      self.do_test_sorted_numerics_vs_stored_fields(
+        random,
+        &mut |r| if r.random_bool(0.5) { 0 } else { 1 },
+        &mut |r| r.random::<i64>(),
+      )?;
+    }
+    Ok(())
+  }
+
+  fn test_sorted_numerics_multiple_values_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      self.do_test_sorted_numerics_vs_stored_fields(
+        random,
+        &mut |r| TestUtil::next_long(r, 0, 50),
+        &mut |r| r.random::<i64>(),
+      )?;
+    }
+    Ok(())
+  }
+
+  fn test_sorted_numerics_few_unique_sets_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let values_len = TestUtil::next_int(random, 2, 6) as usize;
+    let mut values = vec![0_i64; values_len];
+    for value in &mut values {
+      *value = random.random::<i64>();
+    }
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      self.do_test_sorted_numerics_vs_stored_fields(
+        random,
+        &mut |r| TestUtil::next_long(r, 0, 6),
+        &mut |r| values[r.random_range(0..values.len())],
+      )?;
+    }
+    Ok(())
+  }
+
+  fn test_sorted_set_variable_length_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      let num_docs = at_least(random, 300);
+      self.do_test_sorted_set_vs_stored_fields(random, num_docs, 1, 10, 16, 100)?;
+    }
+    Ok(())
+  }
+
+  fn test_sorted_set_fixed_length_single_valued_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      let fixed_length = TestUtil::next_int(random, 1, 10);
+      let num_docs = at_least(random, 300);
+      self.do_test_sorted_set_vs_stored_fields(
+        random,
+        num_docs,
+        fixed_length,
+        fixed_length,
+        1,
+        100,
+      )?;
+    }
+    Ok(())
+  }
+
+  fn test_sorted_set_variable_length_single_valued_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      let num_docs = at_least(random, 300);
+      self.do_test_sorted_set_vs_stored_fields(random, num_docs, 1, 10, 1, 100)?;
+    }
+    Ok(())
+  }
+
+  fn test_sorted_set_fixed_length_few_unique_sets_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      let num_docs = at_least(random, 300);
+      self.do_test_sorted_set_vs_stored_fields(random, num_docs, 10, 10, 6, 6)?;
+    }
+    Ok(())
+  }
+
+  fn test_sorted_set_variable_length_few_unique_sets_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      let num_docs = at_least(random, 300);
+      self.do_test_sorted_set_vs_stored_fields(random, num_docs, 1, 10, 6, 6)?;
+    }
+    Ok(())
+  }
+
+  fn test_sorted_set_variable_length_many_values_per_doc_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      let num_docs = at_least(random, 20);
+      self.do_test_sorted_set_vs_stored_fields(random, num_docs, 1, 10, 500, 1000)?;
+    }
+    Ok(())
+  }
+
+  fn test_sorted_set_fixed_length_many_values_per_doc_vs_stored_fields<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      let num_docs = at_least(random, 20);
+      self.do_test_sorted_set_vs_stored_fields(random, num_docs, 10, 10, 500, 1000)?;
+    }
+    Ok(())
+  }
+
+  fn test_gcd_compression<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    self.do_test_gcd_compression(random, 1.0)
+  }
+
+  fn test_sparse_gcd_compression<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let density = random.random::<f64>();
+    self.do_test_gcd_compression(random, density)
+  }
+  fn do_test_gcd_compression<R: Rng + ?Sized>(&self, random: &mut R, density: f64) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      let min = -((random.random_range(0..(1_i32 << 30)) as i64) << 32);
+      let mul = (random.random::<u32>()) as i64;
+      self.do_test_numerics_vs_stored_fields(random, density, &mut |r| {
+        min + mul * (r.random_range(0..(1_i32 << 20)) as i64)
+      })?;
+    }
+    Ok(())
+  }
+
+  fn test_zeros<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    self.do_test_numerics_vs_stored_fields(random, 1.0, &mut |_| 0)
+  }
+
+  fn test_sparse_zeros<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let density = random.random::<f64>();
+    self.do_test_numerics_vs_stored_fields(random, density, &mut |_| 0)
+  }
+
+  fn test_zero_or_min<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let num_iterations = at_least(random, 1);
+    for _ in 0..num_iterations {
+      self.do_test_numerics_vs_stored_fields(random, 1.0, &mut |r| {
+        if r.random_bool(0.5) { 0 } else { i64::MIN }
+      })?;
+    }
+    Ok(())
+  }
+
+  fn test_two_numbers_one_missing<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    conf.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "0",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    doc.add(NumericDocValuesField::new("dv1", 0));
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+    writer.force_merge(1)?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    assert_eq!(1, get_context(&reader)?.leaves()?.len());
+    let context = get_context(&reader)?;
+    let leaf = context.leaves()?[0].reader();
+    let mut dv = leaf.get_numeric_doc_values("dv1")?.unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(0, dv.long_value()?);
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+
+  fn test_two_numbers_one_missing_with_merging<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    conf.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "0",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    doc.add(NumericDocValuesField::new("dv1", 0));
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+    writer.force_merge(1)?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    assert_eq!(1, get_context(&reader)?.leaves()?.len());
+    let context = get_context(&reader)?;
+    let leaf = context.leaves()?[0].reader();
+    let mut dv = leaf.get_numeric_doc_values("dv1")?.unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(0, dv.long_value()?);
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+
+  fn test_three_numbers_one_missing_with_merging<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    conf.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "0",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    doc.add(NumericDocValuesField::new("dv1", 0));
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    doc.add(NumericDocValuesField::new("dv1", 5));
+    writer.add_document(doc)?;
+    writer.force_merge(1)?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    assert_eq!(1, get_context(&reader)?.leaves()?.len());
+    let context = get_context(&reader)?;
+    let leaf = context.leaves()?[0].reader();
+    let mut dv = leaf.get_numeric_doc_values("dv1")?.unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(0, dv.long_value()?);
+    assert_eq!(2, dv.next_doc()?);
+    assert_eq!(5, dv.long_value()?);
+    Ok(())
+  }
+
+  fn test_two_bytes_one_missing<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    conf.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "0",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    doc.add(BinaryDocValuesField::new(
+      "dv1",
+      BytesRef::from_slice(vec![], 0, 0),
+    ));
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+    writer.force_merge(1)?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    assert_eq!(1, get_context(&reader)?.leaves()?.len());
+    let context = get_context(&reader)?;
+    let leaf = context.leaves()?[0].reader();
+    let mut dv = leaf.get_binary_doc_values("dv1")?.unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(
+      BytesRef::from_slice(vec![], 0, 0),
+      dv.binary_value()?.into_owned()
+    );
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+
+  fn test_two_bytes_one_missing_with_merging<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    conf.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "0",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    doc.add(BinaryDocValuesField::new(
+      "dv1",
+      BytesRef::from_slice(vec![], 0, 0),
+    ));
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+    writer.force_merge(1)?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    assert_eq!(1, get_context(&reader)?.leaves()?.len());
+    let context = get_context(&reader)?;
+    let leaf = context.leaves()?[0].reader();
+    let mut dv = leaf.get_binary_doc_values("dv1")?.unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(
+      BytesRef::from_slice(vec![], 0, 0),
+      dv.binary_value()?.into_owned()
+    );
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+
+  fn test_three_bytes_one_missing_with_merging<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    conf.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "0",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    doc.add(BinaryDocValuesField::new(
+      "dv1",
+      BytesRef::from_slice(vec![], 0, 0),
+    ));
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "2",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    doc.add(BinaryDocValuesField::new(
+      "dv1",
+      new_bytes_ref_from_string(random, "boo")?,
+    ));
+    writer.add_document(doc)?;
+    writer.force_merge(1)?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    assert_eq!(1, get_context(&reader)?.leaves()?.len());
+    let context = get_context(&reader)?;
+    let leaf = context.leaves()?[0].reader();
+    let mut dv = leaf.get_binary_doc_values("dv1")?.unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(
+      BytesRef::from_slice(vec![], 0, 0),
+      dv.binary_value()?.into_owned()
+    );
+    assert_eq!(2, dv.next_doc()?);
+    assert_eq!(
+      new_bytes_ref_from_string(random, "boo")?,
+      dv.binary_value()?.into_owned()
+    );
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+  fn test_threads<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+    // TODO 多线程未实现
+    Ok(())
+  }
+  fn test_threads2<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+    // TODO 多线程未实现
+    Ok(())
+  }
+  fn test_threads3<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+    // TODO 多线程未实现
+    Ok(())
+  }
+  fn test_empty_binary_value_on_page_sizes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    for i in 0..20 {
+      if i > 14 && self.codec_accepts_huge_binary_values("field") {
+        break;
+      }
+      let directory = new_directory_shared(random)?;
+      let writer = RandomIndexWriter::new(random, directory.clone());
+      let bytes = BytesRef::from_slice(vec![0u8; 1usize << i], 0, 1usize << i);
+
+      for _ in 0..4 {
+        let mut doc = Document::new();
+        doc.add(BinaryDocValuesField::new("field", bytes.clone()));
+        writer.add_document(doc)?;
+      }
+
+      let mut doc = Document::new();
+      doc.add(StoredField::from_string("id", "5")?);
+      doc.add(BinaryDocValuesField::new("field", BytesRef::new()));
+      writer.add_document(doc)?;
+
+      let reader = writer.get_reader()?;
+      writer.close()?;
+
+      let mut values = MultiDocValues::get_binary_values(&reader, "field")?.unwrap();
+      for j in 0..5 {
+        assert_eq!(j, values.next_doc()?);
+        let result = values.binary_value()?;
+        assert!(result.length == 0 || result.length == (1usize << i));
+      }
+    }
+    Ok(())
+  }
+
+  fn test_one_sorted_number<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let writer = RandomIndexWriter::new(random, directory.clone());
+
+    let mut doc = Document::new();
+    doc.add(SortedNumericDocValuesField::new("dv", 5));
+    writer.add_document(doc)?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let context = get_context(&reader)?;
+    assert_eq!(1, context.leaves()?.len());
+    let mut dv = context.leaves()?[0]
+      .reader()
+      .get_sorted_numeric_doc_values("dv")?
+      .unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(5, dv.next_value()?);
+    Ok(())
+  }
+
+  fn test_one_sorted_number_one_missing<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let writer = IndexWriter::new(directory.clone(), conf)?;
+
+    let mut doc = Document::new();
+    doc.add(SortedNumericDocValuesField::new("dv", 5));
+    writer.add_document(doc)?;
+    writer.add_document(Document::new())?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let context = get_context(&reader)?;
+    assert_eq!(1, context.leaves()?.len());
+    let mut dv = context.leaves()?[0]
+      .reader()
+      .get_sorted_numeric_doc_values("dv")?
+      .unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(5, dv.next_value()?);
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+
+  fn test_number_merge_away_all_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "0",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    doc.add(NumericDocValuesField::new("field", 5));
+    writer.add_document(doc)?;
+    writer.commit()?;
+    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_numeric_doc_values("field")?
+      .unwrap();
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+
+  fn test_two_sorted_number<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let writer = RandomIndexWriter::new(random, directory.clone());
+
+    let mut doc = Document::new();
+    doc.add(SortedNumericDocValuesField::new("dv", 11));
+    doc.add(SortedNumericDocValuesField::new("dv", -5));
+    writer.add_document(doc)?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let context = get_context(&reader)?;
+    assert_eq!(1, context.leaves()?.len());
+    let mut dv = context.leaves()?[0]
+      .reader()
+      .get_sorted_numeric_doc_values("dv")?
+      .unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(2, dv.doc_value_count()?);
+    assert_eq!(-5, dv.next_value()?);
+    assert_eq!(11, dv.next_value()?);
+    Ok(())
+  }
+
+  fn test_two_sorted_number_same_value<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let writer = RandomIndexWriter::new(random, directory.clone());
+
+    let mut doc = Document::new();
+    doc.add(SortedNumericDocValuesField::new("dv", 11));
+    doc.add(SortedNumericDocValuesField::new("dv", 11));
+    writer.add_document(doc)?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let context = get_context(&reader)?;
+    assert_eq!(1, context.leaves()?.len());
+    let mut dv = context.leaves()?[0]
+      .reader()
+      .get_sorted_numeric_doc_values("dv")?
+      .unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(2, dv.doc_value_count()?);
+    assert_eq!(11, dv.next_value()?);
+    assert_eq!(11, dv.next_value()?);
+    Ok(())
+  }
+
+  fn test_two_sorted_number_one_missing<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let writer = IndexWriter::new(directory.clone(), conf)?;
+
+    let mut doc = Document::new();
+    doc.add(SortedNumericDocValuesField::new("dv", 11));
+    doc.add(SortedNumericDocValuesField::new("dv", -5));
+    writer.add_document(doc)?;
+    writer.add_document(Document::new())?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let context = get_context(&reader)?;
+    assert_eq!(1, context.leaves()?.len());
+    let mut dv = context.leaves()?[0]
+      .reader()
+      .get_sorted_numeric_doc_values("dv")?
+      .unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(2, dv.doc_value_count()?);
+    assert_eq!(-5, dv.next_value()?);
+    assert_eq!(11, dv.next_value()?);
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+
+  fn test_sorted_number_merge<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = IndexWriter::new(directory.clone(), iwconfig)?;
+
+    let mut doc = Document::new();
+    doc.add(SortedNumericDocValuesField::new("dv", 11));
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let mut doc = Document::new();
+    doc.add(SortedNumericDocValuesField::new("dv", -5));
+    writer.add_document(doc)?;
+    writer.force_merge_with_wait(1, true)?;
+    writer.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let context = get_context(&reader)?;
+    assert_eq!(1, context.leaves()?.len());
+    let mut dv = context.leaves()?[0]
+      .reader()
+      .get_sorted_numeric_doc_values("dv")?
+      .unwrap();
+    assert_eq!(0, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(11, dv.next_value()?);
+    assert_eq!(1, dv.next_doc()?);
+    assert_eq!(1, dv.doc_value_count()?);
+    assert_eq!(-5, dv.next_value()?);
+    Ok(())
+  }
+
+  fn test_sorted_number_merge_away_all_values<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "0",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    doc.add(SortedNumericDocValuesField::new("field", 5));
+    writer.add_document(doc)?;
+    writer.commit()?;
+    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_numeric_doc_values("field")?
+      .unwrap();
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+
+  fn test_sorted_enum_advance_independently<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+
+    let mut doc = Document::new();
+    doc.add(SortedDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "2")?,
+    ));
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(SortedDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "1")?,
+    ));
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(SortedDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "3")?,
+    ));
+    writer.add_document(doc)?;
+
+    writer.commit()?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let leaf = get_only_leaf_reader(&reader)?;
+    self.do_test_sorted_set_enum_advance_independently(&mut || {
+      let dv = leaf.get_sorted_doc_values("field")?.unwrap();
+      DocValues::singleton_sorted(dv)
+    })?;
+    Ok(())
+  }
+
+  fn test_sorted_set_enum_advance_independently<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "2")?,
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "3")?,
+    ));
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "1")?,
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "3")?,
+    ));
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "1")?,
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "2")?,
+    ));
+    writer.add_document(doc)?;
+
+    writer.commit()?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let leaf = get_only_leaf_reader(&reader)?;
+    self.do_test_sorted_set_enum_advance_independently(&mut || {
+      leaf.get_sorted_set_doc_values("field")?.ok_or_else(|| {
+        crate::core::util::error::lucene_error::LuceneError::illegal_state(
+          "sorted set doc values should exist",
+        )
+      })
+    })?;
+    Ok(())
+  }
+
+  fn do_test_sorted_set_enum_advance_independently<DV, F>(&self, make_dv: &mut F) -> Result<()>
+  where
+    DV: SortedSetDocValues,
+    F: FnMut() -> Result<DV>,
+  {
+    if make_dv()?.get_value_count()? < 2 {
+      return Ok(());
+    }
+
+    let mut terms = Vec::new();
+    {
+      let mut dv = make_dv()?;
+      let mut te = dv.terms_enum()?;
+      terms.push(BytesRef::deep_copy_of(te.next()?.unwrap().as_ref()));
+      terms.push(BytesRef::deep_copy_of(te.next()?.unwrap().as_ref()));
+    }
+
+    {
+      let mut dv1 = make_dv()?;
+      let mut dv2 = make_dv()?;
+      let mut enum1 = dv1.terms_enum()?;
+      let mut enum2 = dv2.terms_enum()?;
+      let _ = enum1.next()?;
+      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref());
+      let term1 = BytesRef::deep_copy_of(enum1.next()?.unwrap().as_ref());
+      assert_eq!(term1, enum1.term()?.into_owned());
+      assert_eq!(term2, enum2.term()?.into_owned());
+    }
+
+    {
+      let mut dv1 = make_dv()?;
+      let mut dv2 = make_dv()?;
+      let mut enum1 = dv1.terms_enum()?;
+      let mut enum2 = dv2.terms_enum()?;
+      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref());
+      let mut seek_term_bytes =
+        terms[0].bytes[terms[0].offset..(terms[0].offset + terms[0].length)].to_vec();
+      seek_term_bytes.push(0);
+      let seek_term = BytesRef::from_bytes(seek_term_bytes);
+      enum1.seek_ceil(&seek_term)?;
+      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref());
+      assert_eq!(term1, enum1.term()?.into_owned());
+      assert_eq!(term2, enum2.term()?.into_owned());
+    }
+
+    {
+      let mut dv1 = make_dv()?;
+      let mut dv2 = make_dv()?;
+      let mut enum1 = dv1.terms_enum()?;
+      let mut enum2 = dv2.terms_enum()?;
+      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref());
+      enum1.seek_ceil(&terms[1])?;
+      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref());
+      assert_eq!(term1, enum1.term()?.into_owned());
+      assert_eq!(term2, enum2.term()?.into_owned());
+    }
+
+    {
+      let mut dv1 = make_dv()?;
+      let mut dv2 = make_dv()?;
+      let mut enum1 = dv1.terms_enum()?;
+      let mut enum2 = dv2.terms_enum()?;
+      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref());
+      assert!(enum1.seek_exact(&terms[1])?);
+      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref());
+      assert_eq!(term1, enum1.term()?.into_owned());
+      assert_eq!(term2, enum2.term()?.into_owned());
+    }
+
+    {
+      let mut dv1 = make_dv()?;
+      let mut dv2 = make_dv()?;
+      let mut enum1 = dv1.terms_enum()?;
+      let mut enum2 = dv2.terms_enum()?;
+      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref());
+      enum1.seek_exact_with_ord(1)?;
+      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref());
+      assert_eq!(term1, enum1.term()?.into_owned());
+      assert_eq!(term2, enum2.term()?.into_owned());
+    }
+    Ok(())
+  }
+
+  fn test_sorted_merge_away_all_values_large_segment<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    doc.add(SortedDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    writer.add_document(doc)?;
+
+    let num_empty_docs = at_least(random, 1024);
+    for _ in 0..num_empty_docs {
+      writer.add_document(Document::new())?;
+    }
+
+    writer.commit()?;
+    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_doc_values("field")?
+      .unwrap();
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+
+    let mut terms_enum = dv.terms_enum()?;
+    let lucene = new_bytes_ref_from_string(random, "lucene")?;
+    assert!(!terms_enum.seek_exact(&lucene)?);
+    assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
+    assert_eq!(-1, dv.lookup_term(&lucene)?);
+    Ok(())
+  }
+
+  fn test_sorted_set_merge_away_all_values_large_segment<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    doc.add(SortedSetDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    writer.add_document(doc)?;
+
+    let num_empty_docs = at_least(random, 1024);
+    for _ in 0..num_empty_docs {
+      writer.add_document(Document::new())?;
+    }
+
+    writer.commit()?;
+    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_set_doc_values("field")?
+      .unwrap();
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+
+    let mut terms_enum = dv.terms_enum()?;
+    let lucene = new_bytes_ref_from_string(random, "lucene")?;
+    assert!(!terms_enum.seek_exact(&lucene)?);
+    assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
+    assert_eq!(-1, dv.lookup_term(&lucene)?);
+    Ok(())
+  }
+
+  fn test_numeric_merge_away_all_values_large_segment<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    doc.add(NumericDocValuesField::new("field", 42));
+    writer.add_document(doc)?;
+
+    let num_empty_docs = at_least(random, 1024);
+    for _ in 0..num_empty_docs {
+      writer.add_document(Document::new())?;
+    }
+
+    writer.commit()?;
+    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_numeric_doc_values("field")?
+      .unwrap();
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+
+  fn test_sorted_numeric_merge_away_all_values_large_segment<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    doc.add(SortedNumericDocValuesField::new("field", 42));
+    writer.add_document(doc)?;
+
+    let num_empty_docs = at_least(random, 1024);
+    for _ in 0..num_empty_docs {
+      writer.add_document(Document::new())?;
+    }
+
+    writer.commit()?;
+    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_sorted_numeric_doc_values("field")?
+      .unwrap();
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+
+  fn test_binary_merge_away_all_values_large_segment<R: Rng + ?Sized>(
+    &self,
+    random: &mut R,
+  ) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    iwconfig.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
+    let mut field_to_type = HashMap::new();
+
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "id",
+      "1",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    doc.add(BinaryDocValuesField::new(
+      "field",
+      new_bytes_ref_from_string(random, "hello")?,
+    ));
+    writer.add_document(doc)?;
+
+    let num_empty_docs = at_least(random, 1024);
+    for _ in 0..num_empty_docs {
+      writer.add_document(Document::new())?;
+    }
+
+    writer.commit()?;
+    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+    writer.force_merge(1)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+
+    let mut dv = get_only_leaf_reader(&reader)?
+      .get_binary_doc_values("field")?
+      .unwrap();
+    assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    Ok(())
+  }
+
+  fn test_random_advance_numeric<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let long_range = if random.random_bool(0.5) {
+      TestUtil::next_int(random, 1, 1024) as i64
+    } else {
+      TestUtil::next_long(random, 1, i64::MAX)
+    };
+    let fc = FieldCreatorNumeric::new(long_range);
+    Self::do_test_random_advance(random, fc)
+  }
+
+  fn test_random_advance_binary<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let fc = FieldCreatorBinary;
+    Self::do_test_random_advance(random, fc)
+  }
+
+  fn test_high_ords_sorted_set_dv<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    iwc.set_ram_buffer_size_mb((8 + random.random_range(0..64)) as f64);
+    let writer = IndexWriter::new(directory, iwc)?;
+
+    let num_docs = 20_000 + random.random_range(0..10_000);
+    for _ in 1..num_docs {
+      let num_ords = if random.random_range(0..100) <= 5 {
+        1000 + random.random_range(0..500)
+      } else {
+        random.random_range(0..10)
+      };
+
+      let mut doc = Document::new();
+      for _ in 0..num_ords {
+        doc.add(SortedSetDocValuesField::new(
+          "sorted_set_dv",
+          TestUtil::random_binary_term_with_len(random, 2),
+        ));
+      }
+      writer.add_document(doc)?;
+    }
+
+    writer.force_merge(1)?;
+
+    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let leaf = get_only_leaf_reader(&reader)?;
+    let mut dv = leaf
+      .get_sorted_set_doc_values("sorted_set_dv")?
+      .expect("sorted set doc values should exist");
+
+    let mut visited_docs = 0_i32;
+    while dv.next_doc()? != NO_MORE_DOCS {
+      visited_docs += 1;
+      let count = dv.doc_value_count()?;
+      assert!(count > 0);
+      let mut previous = None;
+      for _ in 0..count {
+        let ord = dv.next_ord()?;
+        if let Some(prev) = previous {
+          assert!(ord > prev);
+        }
+        previous = Some(ord);
+      }
+    }
+
+    assert!(visited_docs > 0);
+    assert!(dv.get_value_count()? > 0);
+
+    reader.close()?;
+    writer.close()?;
+    Ok(())
+  }
+  fn do_test_random_advance<T, R: Rng + ?Sized>(random: &mut R, field_creator: T) -> Result<()>
+  where
+    T: FieldCreator,
+  {
+    let analyzer = MockAnalyzer::new(random);
+    let directory = new_directory_shared(random)?;
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    conf.set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, directory, conf);
+
+    let num_chunks = at_least(random, 10);
+    let mut id = 0_i64;
+    let mut missing_ids = HashSet::new();
+
+    for _ in 0..num_chunks {
+      let sparse_chance = random.random::<f64>();
+      let doc_count = at_least(random, 1000);
+      for _ in 0..doc_count {
+        let mut doc = Document::new();
+        doc.add(StoredField::from_i64("id", id)?);
+        if random.random::<f64>() > sparse_chance {
+          doc.add(field_creator.next(random)?);
+        } else {
+          missing_ids.insert(id);
+        }
+        id += 1;
+        writer.add_document(doc)?;
+      }
+    }
+
+    if random.random_bool(0.5) {
+      writer.force_merge(1)?;
+    }
+
+    let reader = writer.get_reader()?;
+    let max_doc = reader.max_doc()?;
+    let mut stored_fields = reader.stored_fields()?;
+    let mut missing = vec![false; max_doc as usize];
+    for doc_id in 0..max_doc {
+      let doc = stored_fields.document(doc_id)?;
+      let stored_id = doc
+        .get_field("id")
+        .expect("stored id should exist")
+        .numeric_value()?
+        .expect("stored id should exist")
+        .to_i64()
+        .expect("stored id should be i64");
+      if missing_ids.contains(&stored_id) {
+        missing[doc_id as usize] = true;
+      }
+    }
+
+    let num_iters = at_least(random, 10);
+    for _ in 0..num_iters {
+      let mut values = field_creator.iterator(&reader, random)?;
+
+      assert_eq!(-1, values.doc_id());
+
+      loop {
+        let doc_id = if random.random_bool(0.5) {
+          values.next_doc()?
+        } else {
+          let current = values.doc_id();
+          let range = if random.random_range(0..10) == 7 {
+            max_doc - current
+          } else {
+            25
+          };
+          let inc = TestUtil::next_int(random, 1, range);
+          values.advance(current + inc)?
+        };
+
+        if doc_id == NO_MORE_DOCS {
+          break;
+        }
+        assert!(!missing[doc_id as usize]);
+      }
+    }
+
+    reader.close()?;
+    writer.close()?;
+    Ok(())
+  }
+  fn codec_accepts_huge_binary_values(&self, _field: &str) -> bool {
+    true
+  }
+}
+
+pub trait FieldCreator {
+  fn next<R: Rng + ?Sized>(&self, random: &mut R) -> Result<Fields>;
+  type DocIdSetIterator<CR>: DocIdSetIterator
+  where
+    CR: CompositeReader;
+  fn iterator<R: Rng + ?Sized, CR>(
+    &self,
+    reader: CR,
+    random: &mut R,
+  ) -> Result<Self::DocIdSetIterator<CR>>
+  where
+    CR: CompositeReader;
+}
+pub struct FieldCreatorBinary;
+impl FieldCreator for FieldCreatorBinary {
+  fn next<R: Rng + ?Sized>(&self, random: &mut R) -> Result<Fields> {
+    let mut bytes = vec![0_u8; random.random_range(0..10)];
+    random.fill(&mut bytes[..]);
+    Ok(BinaryDocValuesField::new("field", new_bytes_ref_from_bytes(random, &bytes)?).into())
+  }
+
+  type DocIdSetIterator<CR>
+    = MultiBinaryDocValues<CR>
+  where
+    CR: CompositeReader;
+
+  fn iterator<R: Rng + ?Sized, CR>(
+    &self,
+    reader: CR,
+    _random: &mut R,
+  ) -> Result<Self::DocIdSetIterator<CR>>
+  where
+    CR: CompositeReader,
+  {
+    Ok(MultiDocValues::get_binary_values(reader, "field")?.expect("doc values should exist"))
+  }
+}
+
+pub struct FieldCreatorNumeric {
+  long_range: i64,
+}
+impl FieldCreatorNumeric {
+  fn new(long_range: i64) -> FieldCreatorNumeric {
+    Self { long_range }
+  }
+}
+impl FieldCreator for FieldCreatorNumeric {
+  fn next<R: Rng + ?Sized>(&self, random: &mut R) -> Result<Fields> {
+    Ok(NumericDocValuesField::new("field", TestUtil::next_long(random, 0, self.long_range)).into())
+  }
+
+  type DocIdSetIterator<CR>
+    = MultiNumericDocValues<CR>
+  where
+    CR: CompositeReader;
+
+  fn iterator<R: Rng + ?Sized, CR>(
+    &self,
+    reader: CR,
+    _random: &mut R,
+  ) -> Result<Self::DocIdSetIterator<CR>>
+  where
+    CR: CompositeReader,
+  {
+    Ok(MultiDocValues::get_numeric_values(reader, "field")?.expect("doc values should exist"))
+  }
 }
