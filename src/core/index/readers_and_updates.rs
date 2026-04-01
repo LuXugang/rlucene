@@ -24,7 +24,7 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
-use crate::core::codecs::{Codec, get_default_code};
+use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_field_updates::merged_iterator;
@@ -592,7 +592,7 @@ where
 
     let is_reader_none = inner.reader.is_none();
     let result = (|| -> Result<()> {
-      let codec = get_default_code();
+      let codec = &*LATEST_CODEC;
 
       if is_reader_none {
         let reader = SegmentReader::new(

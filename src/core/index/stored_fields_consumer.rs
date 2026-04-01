@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_writer::{DefaultStoredFieldsWriter, StoredFieldsWriter};
-use crate::core::codecs::{Codec, get_default_code};
+use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::document::field::FieldDataEnum;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::segment_info::SegmentInfo;
@@ -62,7 +62,7 @@ where
       },
       None => {
         if self.writer.is_none() {
-          let writer = get_default_code().stored_fields_format().fields_writer(
+          let writer = LATEST_CODEC.stored_fields_format().fields_writer(
             self.directory.as_ref(),
             info,
             &IOContext::default_io_context()?,

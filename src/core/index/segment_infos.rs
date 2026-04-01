@@ -23,7 +23,7 @@ use parking_lot::Mutex;
 
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
-use crate::core::codecs::{Codec, CodecUtil, LATEST_CODEC, get_default_code};
+use crate::core::codecs::{Codec, CodecUtil, LATEST_CODEC};
 use crate::core::index::IndexFileNames;
 use crate::core::index::index_commit::IndexCommit;
 
@@ -532,16 +532,14 @@ where
 
   pub fn read_codec(input: &mut impl DataInput) -> Result<Lucene101Codec> {
     let name = input.read_string()?;
-    let codec = get_default_code();
-    if codec.get_name() != name {
+    if LATEST_CODEC.get_name() != name {
       return Err(LuceneError::corrupt_index(format!(
         "codec name mismatch: {} != {}",
-        codec.get_name(),
+        LATEST_CODEC.get_name(),
         name
       )));
     }
-    debug_assert!(LATEST_CODEC.get_name() == codec.get_name());
-    Ok(codec)
+    Ok(Lucene101Codec)
   }
   /// Find the latest commit (`segments_N` file) and load all
   /// `SegmentCommitInfo`s.
@@ -1349,7 +1347,7 @@ mod tests {
   use rand::RngExt;
 
   use crate::core::codecs::segment_info_format::SegmentInfoFormat;
-  use crate::core::codecs::{Codec, CodecUtil, get_default_code};
+  use crate::core::codecs::{Codec, CodecUtil, LATEST_CODEC};
   use crate::core::index::IndexFileNames;
   use crate::core::index::segment_commit_info::SegmentCommitInfo;
   use crate::core::index::segment_info::SegmentInfo;
@@ -1412,7 +1410,7 @@ mod tests {
     let mut random = random();
     let dir = new_directory(&mut random)?;
     let directory = Arc::new(dir);
-    let codec = get_default_code();
+    let codec = &*LATEST_CODEC;
     let io_context = IOContext::default_io_context()?;
     let mut sis = SegmentInfos::new(LATEST.major)?;
     let mut info = SegmentInfo::new(
@@ -1454,7 +1452,7 @@ mod tests {
     let mut random = random();
     let dir = new_directory(&mut random)?;
     let directory = Arc::new(dir);
-    let codec = get_default_code();
+    let codec = &*LATEST_CODEC;
     let mut sis = SegmentInfos::new(LATEST.major)?;
     let io_context = IOContext::default_io_context()?;
     // First Segment
@@ -1713,7 +1711,7 @@ mod tests {
   fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let codec = get_default_code();
+    let codec = &*LATEST_CODEC;
     let mut sis = SegmentInfos::new(LATEST.major)?;
     let io_context = IOContext::default_io_context()?;
     let mut info_0 = SegmentInfo::new(

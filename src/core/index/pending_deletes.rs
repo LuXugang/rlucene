@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
-use crate::core::codecs::{Codec, get_default_code};
+use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedIterator};
 use crate::core::index::field_info::FieldInfo;
@@ -282,7 +282,7 @@ impl PendingDeletesBase for PendingDeletes {
     // .tmp & renaming it) because the file is not live
     // until segments file is written:
     let write_res = (|| -> Result<()> {
-      let codec = get_default_code();
+      let codec = &*LATEST_CODEC;
       codec.live_docs_format().write_live_docs(
         live_docs,
         &tracking_dir,
@@ -682,7 +682,7 @@ where
 mod tests {
   use crate::core::codecs::field_infos_format::FieldInfosFormat;
   use crate::core::codecs::live_docs_format::LiveDocsFormat;
-  use crate::core::codecs::{Codec, get_default_code};
+  use crate::core::codecs::{Codec, LATEST_CODEC};
   use crate::core::index::field_infos::FieldInfos;
   use crate::core::index::pending_deletes::{
     PendingDeletes, PendingDeletesBase, PendingDeletesEnum2,
@@ -811,7 +811,7 @@ mod tests {
     // contain "writer_lock"
     assert_eq!(dir.list_all()?.len(), 2);
 
-    let codec = get_default_code();
+    let codec = &*LATEST_CODEC;
     let live_docs = codec.live_docs_format().read_live_docs(
       dir.as_ref(),
       &commit_info,
@@ -880,7 +880,7 @@ mod tests {
     let mut commit_info =
       SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
 
-    let codec = get_default_code();
+    let codec = &*LATEST_CODEC;
     let field_infos = FieldInfos::new(Vec::new())?;
     codec.field_infos_format().write(
       dir.as_ref(),

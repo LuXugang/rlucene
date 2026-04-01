@@ -24,7 +24,7 @@ use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::{DefaultStoredFieldsWriter, StoredFieldsWriter};
-use crate::core::codecs::{Codec, get_default_code};
+use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::segment_info::SegmentInfo;
@@ -116,11 +116,10 @@ where
     )?;
     // Don't pull a merge instance, since merge instances optimize for
     // sequential access while we consume stored fields in random order here.
-    let mut sort_writer = get_default_code().stored_fields_format().fields_writer(
-      state.directory,
-      info,
-      state.context,
-    )?;
+    let mut sort_writer =
+      LATEST_CODEC
+        .stored_fields_format()
+        .fields_writer(state.directory, info, state.context)?;
 
     let result: Result<()> = (|| {
       reader.check_integrity()?;

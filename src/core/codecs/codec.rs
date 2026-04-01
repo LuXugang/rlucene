@@ -79,11 +79,6 @@ pub trait Codec: Display {
 
   fn get_name(&self) -> &str;
 }
-pub fn get_default_code() -> Lucene101Codec {
-  let codec = Lucene101Codec;
-  debug_assert!(LATEST_CODEC.get_name() == codec.get_name());
-  codec
-}
 
 pub type DefaultCodec = Lucene101Codec;
 pub type DefaultPostingsFormat = <DefaultCodec as Codec>::PostingsFormat;

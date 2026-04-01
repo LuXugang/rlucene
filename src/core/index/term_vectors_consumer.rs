@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::codecs::term_vectors_writer::{DefaultTermVectorsWriter, TermVectorsWriter};
-use crate::core::codecs::{Codec, get_default_code};
+use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::indexing_chain::PerField;
 use crate::core::index::segment_info::SegmentInfo;
@@ -279,7 +279,7 @@ where
           let flush_info = FlushInfo::new(self.last_doc_id, self.base.bytes_used.get());
           let context = IOContext::with_flush(flush_info)?;
 
-          self.writer = Option::from(get_default_code().term_vectors_format().vectors_writer(
+          self.writer = Option::from(LATEST_CODEC.term_vectors_format().vectors_writer(
             self.directory.as_ref(),
             info,
             &context,

@@ -18,7 +18,7 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::fields_consumer::FieldsConsumer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_format::PostingsFormat;
-use crate::core::codecs::{Codec, get_default_code};
+use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::BytesRef;
 use crate::core::index::buffered_updates::BufferedUpdates;
 use crate::core::index::field_info::FieldInfo;
@@ -167,7 +167,7 @@ where
     let mut fields = FreqProxFields::new(all_fields, int_pool, byte_pool);
     self.apply_deletes(state, &fields, info, seg_updates)?;
 
-    let mut consumer = get_default_code()
+    let mut consumer = LATEST_CODEC
       .postings_format()
       .fields_consumer(state, info)?;
     if let Some(doc_map) = sort_map {

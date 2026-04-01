@@ -22,7 +22,7 @@ use rand::RngExt;
 
 use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
-use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC, get_default_code};
+use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
 use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::string_field::StringField;
@@ -175,7 +175,7 @@ pub trait BaseCompoundFormatTestCase {
 
     for si in infos.iter() {
       if si.info.get_use_compound_file() {
-        let cfs_dir = get_default_code()
+        let cfs_dir = LATEST_CODEC
           .compound_format()
           .get_compound_reader(dir.as_ref(), &si.info)?;
         let files = cfs_dir.list_all()?;

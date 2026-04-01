@@ -22,7 +22,7 @@ use rand::RngExt;
 use strum::EnumCount;
 
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
-use crate::core::codecs::{Codec, get_default_code};
+use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::document::field_type::FieldType;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -53,7 +53,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
   }
   fn test_one_field<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
     let dir = new_directory_shared(random)?;
-    let codec = get_default_code();
+    let codec = &*LATEST_CODEC;
     let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
 
     let fi = Arc::new(Self::create_field_info());
@@ -125,7 +125,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
   // Test field infos read/write with random fields, with different values.
   fn test_random<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
     let dir = new_directory_shared(random)?;
-    let codec = get_default_code();
+    let codec = &*LATEST_CODEC;
     let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
     let num_fields = at_least(random, 2000);
     let mut field_names = HashSet::new();

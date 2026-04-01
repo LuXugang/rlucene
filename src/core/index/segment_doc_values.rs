@@ -17,7 +17,7 @@
 use crate::core::codecs::compound_directory::CompoundDirectoryEnum;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DefaultDocValuesProducer;
-use crate::core::codecs::{Codec, get_default_code};
+use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -82,7 +82,7 @@ where
     // set SegmentReadState to list only the fields that are relevant to that gen
     let srs = SegmentReadState::with_suffix(&dv_dir, infos, &io_context, &segment_suffix);
 
-    let dv_format = get_default_code().doc_values_format();
+    let dv_format = LATEST_CODEC.doc_values_format();
 
     Ok(RefCount::new(Arc::new(
       dv_format.fields_producer(&srs, &si.info)?,

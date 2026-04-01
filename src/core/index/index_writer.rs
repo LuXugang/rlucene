@@ -1498,7 +1498,7 @@ where
           let segment_info = Arc::get_mut(&mut sci.info)
             .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
 
-          get_default_code().segment_info_format().write(
+          LATEST_CODEC.segment_info_format().write(
             self.directory.as_ref(),
             segment_info,
             &context,
@@ -5378,7 +5378,7 @@ impl LongSupplier for LongSupplierImpl {
 
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
-use crate::core::codecs::{Codec, CompoundFormat, LATEST_CODEC, get_default_code};
+use crate::core::codecs::{Codec, CompoundFormat, LATEST_CODEC};
 use crate::core::document::fields::Fields;
 use crate::core::index::binary_doc_values_field_updates::BinaryDocValuesFieldUpdates;
 use crate::core::index::buffered_updates::MAX_INT;
@@ -5523,7 +5523,7 @@ pub(crate) fn read_field_infos<D>(si: &SegmentCommitInfo<D>) -> Result<FieldInfo
 where
   D: Directory,
 {
-  let codec = get_default_code();
+  let codec = &*LATEST_CODEC;
   let reader = codec.field_infos_format();
 
   if si.has_field_updates() {

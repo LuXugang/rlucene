@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
-use crate::core::codecs::{Codec, CompoundFormat, get_default_code};
+use crate::core::codecs::{Codec, CompoundFormat, LATEST_CODEC};
 use crate::core::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedIterator};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
@@ -91,7 +91,7 @@ impl PendingSoftDeletes {
     D: Directory,
   {
     let seg_info = &info.info;
-    let codec = get_default_code();
+    let codec = &*LATEST_CODEC;
     if !info.has_field_updates() {
       // updates always outside of CFS
       if seg_info.get_use_compound_file() {
