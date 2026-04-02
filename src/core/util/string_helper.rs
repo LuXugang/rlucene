@@ -18,8 +18,8 @@ use std::env;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::SystemTime;
 
-use once_cell::sync::Lazy;
 use rand::RngExt;
+use std::sync::LazyLock;
 
 use crate::core::index::BytesRef;
 use crate::core::util::CoreHelper;
@@ -327,7 +327,7 @@ impl StringHelper {
 /// This seed is based on a system property `tests.seed` if present, or the
 /// current system time if not. It's used as a seed for the MurmurHash3
 /// algorithm to ensure a different salt/seed for each run.
-pub static GOOD_FAST_HASH_SEED: Lazy<i32> = Lazy::new(|| {
+pub static GOOD_FAST_HASH_SEED: LazyLock<i32> = LazyLock::new(|| {
   if let Ok(prop) = env::var("tests.seed") {
     // If the system property `tests.seed` is set, use it as the seed.
     let mut hasher = DefaultHasher::new();

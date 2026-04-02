@@ -366,9 +366,9 @@ impl UTF8Sequence {
   }
 }
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
-static MASKS: Lazy<[u8; 8]> = Lazy::new(|| {
+static MASKS: LazyLock<[u8; 8]> = LazyLock::new(|| {
   let mut masks = [0u8; 8];
   for i in 0..7 {
     masks[i + 1] = ((2 << i) - 1) as u8;

@@ -17,26 +17,26 @@
 use std::fmt::{Display, Formatter};
 use std::num::ParseIntError;
 
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock;
 use thiserror::Error;
 
 use crate::core::util::error::parse::Parse;
 use crate::core::util::error::{IllegalArgumentError, IllegalStateError};
 use crate::core::util::strict_string_tokenizer::StrictStringTokenizer;
-pub static LUCENE_9_0_0: Lazy<Version> =
-  Lazy::new(|| Version::new(9, 0, 0).expect("should not fail"));
+pub static LUCENE_9_0_0: LazyLock<Version> =
+  LazyLock::new(|| Version::new(9, 0, 0).expect("should not fail"));
 
-pub static LUCENE_10_0_0: Lazy<Version> =
-  Lazy::new(|| Version::new(10, 0, 0).expect("should not fail"));
+pub static LUCENE_10_0_0: LazyLock<Version> =
+  LazyLock::new(|| Version::new(10, 0, 0).expect("should not fail"));
 
 /// Match settings and bugs in Lucene's 10.1.0 release.
-pub static LUCENE_10_1_0: Lazy<Version> =
-  Lazy::new(|| Version::new(10, 1, 0).expect("should not fail"));
+pub static LUCENE_10_1_0: LazyLock<Version> =
+  LazyLock::new(|| Version::new(10, 1, 0).expect("should not fail"));
 
 /// Match settings and bugs in Lucene's 11.0.0 release.
-pub static LUCENE_10_1_1: Lazy<Version> =
-  Lazy::new(|| Version::new(10, 1, 1).expect("should not fail"));
+pub static LUCENE_10_1_1: LazyLock<Version> =
+  LazyLock::new(|| Version::new(10, 1, 1).expect("should not fail"));
 
 /// # Warning
 /// If you use this setting, and then upgrade to a newer release of Lucene,
@@ -48,9 +48,9 @@ pub static LUCENE_10_1_1: Lazy<Version> =
 /// Additionally, you may need to **re-test your entire application** to ensure
 /// it behaves as expected, as some defaults may have changed and may break
 /// functionality in your application.
-pub static LATEST: Lazy<Version> = Lazy::new(|| LUCENE_10_1_1.clone());
-pub static LUCENE_CURRENT: Lazy<Version> = Lazy::new(|| LATEST.clone());
-pub static MIN_SUPPORTED_MAJOR: Lazy<i32> = Lazy::new(|| LATEST.major - 1);
+pub static LATEST: LazyLock<Version> = LazyLock::new(|| LUCENE_10_1_1.clone());
+pub static LUCENE_CURRENT: LazyLock<Version> = LazyLock::new(|| LATEST.clone());
+pub static MIN_SUPPORTED_MAJOR: LazyLock<i32> = LazyLock::new(|| LATEST.major - 1);
 /// Used by certain classes to match version compatibility across releases of
 /// Lucene.
 ///

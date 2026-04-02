@@ -21,8 +21,8 @@ use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::core::util::small_float::SmallFloat;
-use once_cell::sync::Lazy;
 use std::fmt;
+use std::sync::LazyLock;
 
 /// BM25 Similarity. Introduced in Stephen E. Robertson, Steve Walker, Susan Jones, Micheline
 /// Hancock-Beaulieu, and Mike Gatford. Okapi at TREC-3. In Proceedings of the Third
@@ -188,7 +188,7 @@ impl Similarity for BM25Similarity {
   }
 }
 
-pub static LENGTH_TABLE: Lazy<[f32; 256]> = Lazy::new(|| {
+pub static LENGTH_TABLE: LazyLock<[f32; 256]> = LazyLock::new(|| {
   let mut table = [0.0; 256];
   for (i, out) in table.iter_mut().take(256).enumerate() {
     *out = SmallFloat::byte4_to_int(i as u8).expect("should not fail") as f32;

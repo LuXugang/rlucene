@@ -436,9 +436,9 @@ mod tests {
   use crate::core::search::total_hits::Relation::GreaterThanOrEqualTo;
   use crate::core::search::two_phase_iterator::TwoPhaseIterator;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
-  use once_cell::sync::Lazy;
   use rand::Rng;
   use std::collections::HashMap;
+  use std::sync::LazyLock;
 
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
@@ -451,7 +451,7 @@ mod tests {
   struct TestConstantScoreScorer;
   pub static FIELD: &str = "f";
 
-  pub static VALUES: Lazy<Vec<String>> = Lazy::new(|| {
+  pub static VALUES: LazyLock<Vec<String>> = LazyLock::new(|| {
     vec![
       "foo".to_string(),
       "bar".to_string(),
@@ -463,7 +463,7 @@ mod tests {
     ]
   });
 
-  pub static TERM_QUERY: Lazy<BooleanQuery> = Lazy::new(|| {
+  pub static TERM_QUERY: LazyLock<BooleanQuery> = LazyLock::new(|| {
     let mut builder = Builder::new();
     builder
       .add(TermQuery::new(Term::from_text(FIELD, "foo")), Occur::Must)
@@ -474,8 +474,8 @@ mod tests {
     builder.build()
   });
 
-  pub static PHRASE_QUERY: Lazy<PhraseQuery> =
-    Lazy::new(|| PhraseQuery::from_terms_no_slop(FIELD, &["foo", "bar"]).unwrap());
+  pub static PHRASE_QUERY: LazyLock<PhraseQuery> =
+    LazyLock::new(|| PhraseQuery::from_terms_no_slop(FIELD, &["foo", "bar"]).unwrap());
   #[test]
   fn test_matching_score_mode_complete() -> Result<()> {
     let mut random = random();

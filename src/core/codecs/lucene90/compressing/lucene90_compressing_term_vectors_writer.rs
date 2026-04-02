@@ -46,12 +46,12 @@ use crate::core::util::packed::block_packed_writer::BlockPackedWriter;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, Writer};
 use crate::core::util::{SliceCopyOps, StringHelper, TryIntoInt};
-use once_cell::sync::Lazy;
 use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
+use std::sync::LazyLock;
 
-pub(crate) static FLAGS_BITS: Lazy<i32> =
-  Lazy::new(|| bits_required((POSITIONS | OFFSETS | PAYLOADS) as i64).unwrap());
+pub(crate) static FLAGS_BITS: LazyLock<i32> =
+  LazyLock::new(|| bits_required((POSITIONS | OFFSETS | PAYLOADS) as i64).unwrap());
 /// [`TermVectorsWriter`] for [`Lucene90CompressingTermVectorsFormat`](crate::core::codecs::lucene90::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat).
 pub struct Lucene90CompressingTermVectorsWriter<O>
 where

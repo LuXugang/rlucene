@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use once_cell::sync::Lazy;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use crate::core::index::BytesRef;
 use crate::core::store::{DataInput, DataOutput};
@@ -27,7 +27,7 @@ use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper, TryIntoInt};
 thread_local! {
     static NO_OUTPUT:BytesRef<Arc<Vec<u8>>> = BytesRef::default();
 }
-pub static SINGLETON: Lazy<ByteSequenceOutputs> = Lazy::new(|| ByteSequenceOutputs);
+pub static SINGLETON: LazyLock<ByteSequenceOutputs> = LazyLock::new(|| ByteSequenceOutputs);
 /// An FST Outputs implementation where each output is a sequence of bytes.
 ///
 /// lucene.experimental

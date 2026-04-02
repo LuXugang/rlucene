@@ -56,12 +56,12 @@ use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet, of};
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use once_cell::sync::Lazy;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use std::sync::LazyLock;
 
-pub static NO_RESULTS: Lazy<TopDocs<ScoreDoc>> = Lazy::new(|| EMPTY_TOP_DOCS.clone());
+pub static NO_RESULTS: LazyLock<TopDocs<ScoreDoc>> = LazyLock::new(|| EMPTY_TOP_DOCS.clone());
 /// Uses [`KnnVectorsReader::search`] to perform nearest neighbour search.
 ///
 /// This query also allows for performing a kNN search subject to a filter. In this case, it first

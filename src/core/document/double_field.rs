@@ -37,9 +37,9 @@ pub mod double_field_type {
   use crate::core::document::field_type::FieldType;
   use crate::core::index::doc_values_type::DocValuesType;
   use crate::core::util::bit_util::BitUtil;
-  use once_cell::sync::Lazy;
+  use std::sync::LazyLock;
 
-  pub static FIELD_TYPE: Lazy<FieldType> = Lazy::new(|| {
+  pub static FIELD_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
     let mut ft = FieldType::new();
     ft.set_dimensions(1, BitUtil::DOUBLE_BYTES)
       .expect("set_dimensions should not fail");
@@ -50,7 +50,7 @@ pub mod double_field_type {
   });
 
   /// Indexed as SortedNumeric DocValue, and stored.
-  pub static FIELD_TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
+  pub static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
     let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("should not fail");
     ft.set_stored(true)
       .expect("set_stored(true) should not fail");

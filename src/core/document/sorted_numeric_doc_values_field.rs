@@ -28,15 +28,15 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
-use once_cell::sync::Lazy;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
+use std::sync::LazyLock;
 
 /// Field that stores per-document `long` values for scoring, sorting, or value retrieval.
 /// Note that if you want to encode `f64` or `f32` values with proper sort order,  
 /// you should encode them using [`NumericUtils`](crate::core::util::numeric_utils::NumericUtils):
 /// If you also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
-static TYPE: Lazy<FieldType> = Lazy::new(|| {
+static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
   ft.set_doc_values_type(DocValuesType::SortedNumeric)
     .expect("set_doc_values_type should never fail in this context");
@@ -44,7 +44,7 @@ static TYPE: Lazy<FieldType> = Lazy::new(|| {
   ft
 });
 
-static INDEXED_TYPE: Lazy<FieldType> = Lazy::new(|| {
+static INDEXED_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft =
     FieldType::from_ref(&*TYPE).expect("FieldType::from_ref should never fail in this context");
   ft.set_doc_values_skip_index_type(DocValuesSkipIndexType::Range)

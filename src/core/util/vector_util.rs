@@ -17,9 +17,9 @@
 use crate::core::internal::vectorization::default_vector_util_support::DefaultVectorUtilSupport;
 use crate::core::internal::vectorization::vector_util_support::VectorUtilSupport;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
-pub static VECTOR_UTIL: Lazy<VectorUtil> = Lazy::new(VectorUtil::default);
+pub static VECTOR_UTIL: LazyLock<VectorUtil> = LazyLock::new(VectorUtil::default);
 #[derive(Default)]
 pub struct VectorUtil {
   impl_: DefaultVectorUtilSupport,

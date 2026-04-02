@@ -18,8 +18,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
+use std::sync::LazyLock;
 
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
@@ -39,7 +39,8 @@ use crate::core::util::{IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper, Vers
 use num_bigint::BigInt;
 use std::io::Write;
 
-static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| Mutex::new(None));
+static INFO_STREAM: LazyLock<Mutex<Option<Arc<Mutex<OutputEnum>>>>> =
+  LazyLock::new(|| Mutex::new(None));
 
 /// A collection of `SegmentInfo` objects with methods for operating on those
 /// segments in relation to the file system.

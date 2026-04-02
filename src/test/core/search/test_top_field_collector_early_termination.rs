@@ -47,11 +47,11 @@ use crate::test::core::util::test_util::TestUtil;
 use rand::prelude::IndexedRandom;
 use rand::{Rng, RngExt};
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 struct TestTopFieldCollectorEarlyTermination;
-static SORT: once_cell::sync::Lazy<Arc<Sort>> = once_cell::sync::Lazy::new(|| {
+static SORT: LazyLock<Arc<Sort>> = LazyLock::new(|| {
   Arc::from(
     Sort::with_fields(vec![
       SortField::new(Some("ndv1"), SortFieldType::Long).unwrap(),

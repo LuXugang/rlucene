@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -158,9 +158,9 @@ impl SmallFloat {
   }
 }
 
-static MAX_INT4: Lazy<i32> =
-  Lazy::new(|| SmallFloat::long_to_int4(i32::MAX as i64).expect("should not fail"));
-static NUM_FREE_VALUES: Lazy<i32> = Lazy::new(|| 255 - *MAX_INT4);
+static MAX_INT4: LazyLock<i32> =
+  LazyLock::new(|| SmallFloat::long_to_int4(i32::MAX as i64).expect("should not fail"));
+static NUM_FREE_VALUES: LazyLock<i32> = LazyLock::new(|| 255 - *MAX_INT4);
 
 #[cfg(test)]
 mod tests {

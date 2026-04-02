@@ -18,7 +18,7 @@ use std::env;
 use std::mem::discriminant;
 use std::rc::Rc;
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_reader::Lucene90CompressingStoredFieldsReader;
@@ -51,10 +51,10 @@ use crate::core::util::packed::PackedInts;
 
 /// [`StoredFieldsWriter`] implementation for
 /// [`Lucene90CompressingStoredFieldsFormat`](crate::core::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat).
-pub(crate) static TYPE_BITS: Lazy<i32> =
-  Lazy::new(|| PackedInts::bits_required(NUMERIC_DOUBLE as i64).unwrap());
+pub(crate) static TYPE_BITS: LazyLock<i32> =
+  LazyLock::new(|| PackedInts::bits_required(NUMERIC_DOUBLE as i64).unwrap());
 
-pub(crate) static TYPE_MASK: Lazy<i64> = Lazy::new(|| PackedInts::max_value(*TYPE_BITS));
+pub(crate) static TYPE_MASK: LazyLock<i64> = LazyLock::new(|| PackedInts::max_value(*TYPE_BITS));
 pub struct Lucene90CompressingStoredFieldsWriter<O>
 where
   O: IndexOutput,
@@ -462,7 +462,7 @@ where
 pub static BULK_MERGE_ENABLED_SYSPROP: &str =
   "lucene90.compressing.stored.fields.writer.enableBulkMerge";
 
-pub static BULK_MERGE_ENABLED: Lazy<bool> = Lazy::new(|| {
+pub static BULK_MERGE_ENABLED: LazyLock<bool> = LazyLock::new(|| {
   env::var(BULK_MERGE_ENABLED_SYSPROP)
     .ok()
     .map(|v| v.parse::<bool>().unwrap_or(true))

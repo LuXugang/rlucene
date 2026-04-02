@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use derive_getters::Getters;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::core::store::ReadAdvice;
 use crate::core::store::flush_info::FlushInfo;
@@ -29,15 +29,15 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// # Note
 /// It will use [`ReadAdvice::Random`] by default, unless set by the system
 /// property `defaultReadAdvice`.
-pub static IO_CONTEXT_DEFAULT: Lazy<IOContext> =
-  Lazy::new(|| IOContext::default_io_context().unwrap());
+pub static IO_CONTEXT_DEFAULT: LazyLock<IOContext> =
+  LazyLock::new(|| IOContext::default_io_context().unwrap());
 /// A default context for reads with [`ReadAdvice::Sequential`].
 ///
 /// # Note
 /// This context should only be used when the read operations will be performed
 /// in the same thread as the thread that opens the underlying storage.
-pub static IO_CONTEXT_READ_ONCE: Lazy<IOContext> =
-  Lazy::new(|| IOContext::read_once_io_context().unwrap());
+pub static IO_CONTEXT_READ_ONCE: LazyLock<IOContext> =
+  LazyLock::new(|| IOContext::read_once_io_context().unwrap());
 /// `IOContext` holds additional details on the merge/search context. An
 /// `IOContext` object can never be passed as a `None` parameter to either
 /// [`Directory::open_input`](crate::core::store::directory::Directory::open_input) or

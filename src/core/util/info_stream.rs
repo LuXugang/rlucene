@@ -17,7 +17,7 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 /// Debugging API for Lucene classes such as
 /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter)
@@ -35,8 +35,8 @@ pub trait InfoStream: Send + Sync {
 
 /// A global, thread-safe reference to a default `InfoStream`,
 /// mirroring `private static InfoStream defaultInfoStream` in Java.
-static DEFAULT_INFO_STREAM: Lazy<Arc<InfoStreamEnum>> =
-  Lazy::new(|| Arc::new(InfoStreamEnum::NoOutput(NoOutput)));
+static DEFAULT_INFO_STREAM: LazyLock<Arc<InfoStreamEnum>> =
+  LazyLock::new(|| Arc::new(InfoStreamEnum::NoOutput(NoOutput)));
 
 /// Instance of InfoStream that does no logging at all.
 #[derive(Clone, Debug, Default)]

@@ -31,9 +31,9 @@ pub mod keyword {
   use crate::core::document::field_type::FieldType;
   use crate::core::index::doc_values_type::DocValuesType;
   use crate::core::index::index_options::IndexOptions;
-  use once_cell::sync::Lazy;
+  use std::sync::LazyLock;
 
-  pub(crate) static FIELD_TYPE: Lazy<FieldType> = Lazy::new(|| {
+  pub(crate) static FIELD_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
     let mut ft = FieldType::new();
     ft.set_index_options(IndexOptions::Docs)
       .expect("set_index_options");
@@ -45,7 +45,7 @@ pub mod keyword {
     ft
   });
 
-  pub(crate) static FIELD_TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
+  pub(crate) static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
     let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("Invalid field type");
     ft.set_stored(true).expect("set_stored");
     ft.freeze();

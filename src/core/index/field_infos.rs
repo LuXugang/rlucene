@@ -27,10 +27,10 @@ use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 /// Collection of FieldInfos (accessible by number or by name).
 ///
@@ -284,8 +284,8 @@ impl FieldInfos {
     )
   }
 }
-pub(crate) static EMPTY: Lazy<Arc<FieldInfos>> =
-  Lazy::new(|| Arc::new(FieldInfos::new(vec![]).expect("should not fail")));
+pub(crate) static EMPTY: LazyLock<Arc<FieldInfos>> =
+  LazyLock::new(|| Arc::new(FieldInfos::new(vec![]).expect("should not fail")));
 
 pub fn get_merged_field_infos<CR>(reader: CR) -> Result<Arc<FieldInfos>>
 where

@@ -53,10 +53,10 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   random,
 };
 use crate::test::core::util::test_util::TestUtil;
-use once_cell::sync::Lazy;
 use rand::Rng;
 use rand::prelude::SliceRandom;
 use std::fmt::{Display, Formatter};
+use std::sync::LazyLock;
 
 #[allow(dead_code)]
 pub struct TestBooleanOr;
@@ -64,7 +64,7 @@ pub struct TestBooleanOr;
 const FIELD_T: &str = "T";
 const FIELD_C: &str = "C";
 
-static QUERYS: Lazy<(TermQuery, TermQuery, TermQuery, TermQuery)> = Lazy::new(|| {
+static QUERYS: LazyLock<(TermQuery, TermQuery, TermQuery, TermQuery)> = LazyLock::new(|| {
   let t1 = TermQuery::new(Term::from_text(FIELD_T, "files"));
   let t2 = TermQuery::new(Term::from_text(FIELD_T, "deleting"));
   let c1 = TermQuery::new(Term::from_text(FIELD_C, "production"));

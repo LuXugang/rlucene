@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use once_cell::sync::Lazy;
 use os_info::Info;
+use std::sync::LazyLock;
 /// Some useful constants.
 pub struct Constants;
 
@@ -36,4 +36,4 @@ impl Constants {
     OS_INFO.version().to_string()
   }
 }
-pub(crate) static OS_INFO: Lazy<Info> = Lazy::new(os_info::get);
+pub(crate) static OS_INFO: LazyLock<Info> = LazyLock::new(os_info::get);

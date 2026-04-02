@@ -19,7 +19,7 @@ use crate::core::internal::vectorization::default_vectorization_provider::Defaul
 use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::core::internal::vectorization::vector_util_support::VectorUtilSupport;
 use crate::core::store::IndexInput;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 pub trait VectorizationProvider {
   type VectorUtilSupport: VectorUtilSupport;
@@ -29,5 +29,5 @@ pub trait VectorizationProvider {
   fn new_posting_decoding_util<I: IndexInput>(&self, input: I) -> PostingDecodingUtil<I>;
 }
 
-pub static DEFAULT_VECTORIZATION_PROVIDER: Lazy<DefaultVectorizationProvider> =
-  Lazy::new(|| DefaultVectorizationProvider);
+pub static DEFAULT_VECTORIZATION_PROVIDER: LazyLock<DefaultVectorizationProvider> =
+  LazyLock::new(|| DefaultVectorizationProvider);

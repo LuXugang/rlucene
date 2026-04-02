@@ -31,10 +31,10 @@ use crate::core::util::number::Number;
 pub mod string_field_type {
   use crate::core::document::field_type::FieldType;
   use crate::core::index::index_options::IndexOptions;
-  use once_cell::sync::Lazy;
+  use std::sync::LazyLock;
 
   /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, not stored.
-  pub(crate) static TYPE_NOT_STORED: Lazy<FieldType> = Lazy::new(|| {
+  pub(crate) static TYPE_NOT_STORED: LazyLock<FieldType> = LazyLock::new(|| {
     let mut ft = FieldType::new();
     ft.set_omit_norms(true)
       .expect("set_omit_norms(true) should never fail in this context");
@@ -46,7 +46,7 @@ pub mod string_field_type {
     ft
   });
   /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, stored.
-  pub(crate) static TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
+  pub(crate) static TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
     let mut ft = FieldType::new();
     ft.set_omit_norms(true)
       .expect("set_omit_norms(true) should never fail in this context");

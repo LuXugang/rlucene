@@ -17,10 +17,10 @@
 
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
-use once_cell::sync::Lazy;
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::IndexedRandom;
+use std::sync::LazyLock;
 
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::CompositeReader;
@@ -518,7 +518,7 @@ impl TestUtil {
     terms_enum.postings_with_flags(reuse, flags)
   }
 }
-static OPS: Lazy<Vec<String>> = Lazy::new(|| {
+static OPS: LazyLock<Vec<String>> = LazyLock::new(|| {
   vec![
     ".".to_string(),
     "?".to_string(),
@@ -532,7 +532,7 @@ static OPS: Lazy<Vec<String>> = Lazy::new(|| {
     "|".to_string(),
   ]
 });
-static HTML_CHAR_ENTITIES: Lazy<Vec<&'static str>> = Lazy::new(|| {
+static HTML_CHAR_ENTITIES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
   vec![
     "AElig", "Aacute", "Acirc", "Agrave", "Alpha", "AMP", "Aring", "Atilde", "Auml", "Beta",
     "COPY", "Ccedil", "Chi", "Dagger", "Delta", "ETH", "Eacute", "Ecirc", "Egrave", "Epsilon",

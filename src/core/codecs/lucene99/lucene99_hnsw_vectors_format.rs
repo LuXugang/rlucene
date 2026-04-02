@@ -29,8 +29,8 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::hnsw_graph_builder::DEFAULT_MAX_CONN as OtherDEFAULT_MAX_CONN;
-use once_cell::sync::Lazy;
 use std::fmt::{Display, Formatter};
+use std::sync::LazyLock;
 
 pub(crate) const META_CODEC_NAME: &str = "Lucene99HnswVectorsFormatMeta";
 pub(crate) const VECTOR_INDEX_CODEC_NAME: &str = "Lucene99HnswVectorsFormatIndex";
@@ -59,8 +59,8 @@ pub const DEFAULT_BEAM_WIDTH: usize = DEFAULT_MAX_CONN;
 /// Default to use single thread merge
 pub const DEFAULT_NUM_MERGE_WORKER: i32 = 1;
 
-pub static FLAT_VECTORS_FORMAT: Lazy<Lucene99FlatVectorsFormat<DefaultFlatVectorScorer>> =
-  Lazy::new(|| {
+pub static FLAT_VECTORS_FORMAT: LazyLock<Lucene99FlatVectorsFormat<DefaultFlatVectorScorer>> =
+  LazyLock::new(|| {
     let scorer = LUCENE99_FLAT_VECTORS_SCORER.clone();
     Lucene99FlatVectorsFormat::new(scorer)
   });

@@ -196,8 +196,8 @@ impl IndexFileNames {
   }
 }
 
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock;
 
-pub static CODEC_FILE_PATTERN: Lazy<Regex> =
-  Lazy::new(|| Regex::new(r"_[a-z0-9]+(_.*)?\..*").unwrap());
+pub static CODEC_FILE_PATTERN: LazyLock<Regex> =
+  LazyLock::new(|| Regex::new(r"_[a-z0-9]+(_.*)?\..*").unwrap());

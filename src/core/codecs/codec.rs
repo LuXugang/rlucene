@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use once_cell::sync::Lazy;
-use std::fmt::Display;
-
 use crate::core::codecs::compound_format::CompoundFormat;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
@@ -30,8 +27,10 @@ use crate::core::codecs::segment_info_format::SegmentInfoFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::Display;
+use std::sync::LazyLock;
 
-pub static LATEST_CODEC: Lazy<Lucene101Codec> = Lazy::new(|| Lucene101Codec);
+pub static LATEST_CODEC: LazyLock<Lucene101Codec> = LazyLock::new(|| Lucene101Codec);
 pub trait Codec: Display {
   type PostingsFormat: PostingsFormat;
   type DocValuesFormat: DocValuesFormat;

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::codecs::lucene101::pfor_util::PForUtil;
@@ -24,7 +24,8 @@ use crate::core::util::SliceCopyOps;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
 
-static IDENTITY_PLUS_ONE: Lazy<Vec<i32>> = Lazy::new(|| (1..=ForUtil::BLOCK_SIZE as i32).collect());
+static IDENTITY_PLUS_ONE: LazyLock<Vec<i32>> =
+  LazyLock::new(|| (1..=ForUtil::BLOCK_SIZE as i32).collect());
 
 /// Inspired from <https://fulmicoton.com/posts/bitpacking/>
 /// Encodes multiple integers in a long to get SIMD-like speedups.

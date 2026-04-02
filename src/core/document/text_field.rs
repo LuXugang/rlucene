@@ -31,13 +31,13 @@ use std::fmt::Formatter;
 
 pub mod text_field_type {
 
-  use once_cell::sync::Lazy;
+  use std::sync::LazyLock;
 
   use crate::core::document::field_type::FieldType;
   use crate::core::index::index_options::IndexOptions;
 
   /// Indexed, tokenized, not stored.
-  pub(crate) static TYPE_NOT_STORED: Lazy<FieldType> = Lazy::new(|| {
+  pub(crate) static TYPE_NOT_STORED: LazyLock<FieldType> = LazyLock::new(|| {
     let mut ft = FieldType::new();
     ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
       .expect("set_index_options should never fail in this context");
@@ -47,7 +47,7 @@ pub mod text_field_type {
     ft
   });
   /// Indexed, tokenized, stored.
-  pub(crate) static TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
+  pub(crate) static TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
     let mut ft = FieldType::new();
     ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
       .expect("set_index_options should never fail in this context");

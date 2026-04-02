@@ -16,7 +16,7 @@
  */
 use std::fmt::{Display, Formatter};
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::lucene90_doc_values_consumer::Lucene90DocValuesConsumer;
@@ -265,9 +265,9 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
 }
 /// Number of bytes to skip when skipping a level. It does not take into account
 /// the current interval that is being read.
-pub static SKIP_INDEX_JUMP_LENGTH_PER_LEVEL: Lazy<
+pub static SKIP_INDEX_JUMP_LENGTH_PER_LEVEL: LazyLock<
   [i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
-> = Lazy::new(|| {
+> = LazyLock::new(|| {
   let mut arr = [0i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL];
   // Size of the interval minus read bytes (1 byte for level and 4 bytes for
   // maxDocID)

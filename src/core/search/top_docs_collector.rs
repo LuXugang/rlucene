@@ -21,9 +21,9 @@ use crate::core::search::total_hits::Relation::EqualTo;
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use once_cell::sync::Lazy;
-pub static EMPTY_TOP_DOCS: Lazy<TopDocs<ScoreDoc>> =
-  Lazy::new(|| TopDocs::new(TotalHits::new(0, EqualTo), vec![]));
+use std::sync::LazyLock;
+pub static EMPTY_TOP_DOCS: LazyLock<TopDocs<ScoreDoc>> =
+  LazyLock::new(|| TopDocs::new(TotalHits::new(0, EqualTo), vec![]));
 /// A base trait for all collectors that return a [`TopDocs`] output.
 ///
 /// This collector allows easy extension by providing a constructor that accepts a [`PriorityQueue`],

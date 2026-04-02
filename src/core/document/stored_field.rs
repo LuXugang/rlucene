@@ -31,8 +31,8 @@ use crate::core::util::number::Number;
 /// Type for a stored-only field.
 pub mod stored_field_type {
   use crate::core::document::field_type::FieldType;
-  use once_cell::sync::Lazy;
-  pub static TYPE: Lazy<FieldType> = Lazy::new(|| {
+  use std::sync::LazyLock;
+  pub static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
     let mut ft = FieldType::new();
     ft.set_stored(true)
       .expect("set_stored(true) should never fail in this context");

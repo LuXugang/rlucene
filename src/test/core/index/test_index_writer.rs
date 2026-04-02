@@ -36,17 +36,18 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_directory_shared, new_field, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_text_field, random,
 };
-use once_cell::sync::Lazy;
 use rand::RngExt;
 use rand_xoshiro::rand_core::Rng;
 use std::clone::Clone;
 use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
 use std::vec;
 
-static STORED_TEXT_TYPE: Lazy<FieldType> =
-  Lazy::new(|| FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED).expect("should not fail"));
+static STORED_TEXT_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
+  FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED).expect("should not fail")
+});
 pub(crate) struct TestIndexWriter;
 #[test]
 fn test_doc_count() -> Result<()> {

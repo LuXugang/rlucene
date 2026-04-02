@@ -27,14 +27,14 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
-use once_cell::sync::Lazy;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
+use std::sync::LazyLock;
 
 /// Field that stores a per-document [`BytesRef`] value, indexed for sorting.
 /// If you also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 /// This value can be at most **32766 bytes** long.
-static TYPE: Lazy<FieldType> = Lazy::new(|| {
+static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
   ft.set_doc_values_type(DocValuesType::Sorted)
     .expect("set_doc_values_type should never fail in this context");
@@ -42,7 +42,7 @@ static TYPE: Lazy<FieldType> = Lazy::new(|| {
   ft
 });
 
-static INDEXED_TYPE: Lazy<FieldType> = Lazy::new(|| {
+static INDEXED_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft =
     FieldType::from_ref(&*TYPE).expect("FieldType::from_ref should never fail in this context");
   ft.set_doc_values_skip_index_type(DocValuesSkipIndexType::Range)

@@ -18,7 +18,7 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::thread_local;
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::Result;
@@ -28,7 +28,7 @@ thread_local! {
     static NO_OUTPUT: Arc<i64> = Arc::new(0);
 }
 
-pub static SINGLETON: Lazy<PositiveIntOutputs> = Lazy::new(|| PositiveIntOutputs);
+pub static SINGLETON: LazyLock<PositiveIntOutputs> = LazyLock::new(|| PositiveIntOutputs);
 /// An FST `Outputs` implementation where each output is a non-negative long
 /// value.
 #[derive(Clone, Default)]

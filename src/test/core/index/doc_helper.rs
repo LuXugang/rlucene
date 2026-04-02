@@ -30,9 +30,9 @@ use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 pub static FIELD_1_TEXT: &str = "field one text";
 pub static TEXT_FIELD_1_KEY: &str = "textField1";
@@ -41,16 +41,16 @@ pub static FIELD_2_TEXT: &str = "field field field two text";
 pub static FIELD_2_FREQS: [i32; 3] = [3, 1, 1];
 pub static TEXT_FIELD_2_KEY: &str = "textField2";
 
-pub static CUSTOM_TYPE: Lazy<FieldType> = Lazy::new(|| {
+pub static CUSTOM_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED).expect("should not fail");
   ft.freeze();
   ft
 });
 
-pub static TEXT_FIELD_1: Lazy<Field> =
-  Lazy::new(|| Field::new(TEXT_FIELD_1_KEY, FIELD_1_TEXT, CUSTOM_TYPE.clone()));
+pub static TEXT_FIELD_1: LazyLock<Field> =
+  LazyLock::new(|| Field::new(TEXT_FIELD_1_KEY, FIELD_1_TEXT, CUSTOM_TYPE.clone()));
 
-pub static TEXT_TYPE_STORED_WITH_TVS: Lazy<FieldType> = Lazy::new(|| {
+pub static TEXT_TYPE_STORED_WITH_TVS: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED).expect("should not fail");
   ft.set_store_term_vectors(true).expect("should not fail");
   ft.set_store_term_vector_positions(true)
@@ -61,7 +61,7 @@ pub static TEXT_TYPE_STORED_WITH_TVS: Lazy<FieldType> = Lazy::new(|| {
   ft
 });
 
-pub static TEXT_FIELD_2: Lazy<Field> = Lazy::new(|| {
+pub static TEXT_FIELD_2: LazyLock<Field> = LazyLock::new(|| {
   Field::new(
     TEXT_FIELD_2_KEY,
     FIELD_2_TEXT,
@@ -72,27 +72,27 @@ pub static TEXT_FIELD_2: Lazy<Field> = Lazy::new(|| {
 pub static FIELD_3_TEXT: &str = "aaaNoNorms aaaNoNorms bbbNoNorms";
 pub static TEXT_FIELD_3_KEY: &str = "textField3";
 
-pub static CUSTOM_TYPE3: Lazy<FieldType> = Lazy::new(|| {
+pub static CUSTOM_TYPE3: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED).expect("should not fail");
   ft.set_omit_norms(true).expect("should not fail");
   ft.freeze();
   ft
 });
 
-pub static TEXT_FIELD_3: Lazy<Field> =
-  Lazy::new(|| Field::new(TEXT_FIELD_3_KEY, FIELD_3_TEXT, CUSTOM_TYPE3.clone()));
+pub static TEXT_FIELD_3: LazyLock<Field> =
+  LazyLock::new(|| Field::new(TEXT_FIELD_3_KEY, FIELD_3_TEXT, CUSTOM_TYPE3.clone()));
 
 pub static KEYWORD_TEXT: &str = "Keyword";
 pub static KEYWORD_FIELD_KEY: &str = "keyField";
 
-pub static KEY_FIELD: Lazy<StringField> = Lazy::new(|| {
+pub static KEY_FIELD: LazyLock<StringField> = LazyLock::new(|| {
   StringField::from_string(KEYWORD_FIELD_KEY, KEYWORD_TEXT, Yes).expect("should not fail")
 });
 
 pub static NO_NORMS_TEXT: &str = "omitNormsText";
 pub static NO_NORMS_KEY: &str = "omitNorms";
 
-pub static CUSTOM_TYPE5: Lazy<FieldType> = Lazy::new(|| {
+pub static CUSTOM_TYPE5: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED).expect("should not fail");
   ft.set_omit_norms(true).expect("should not fail");
   ft.set_tokenized(false).expect("should not fail");
@@ -100,13 +100,13 @@ pub static CUSTOM_TYPE5: Lazy<FieldType> = Lazy::new(|| {
   ft
 });
 
-pub static NO_NORMS_FIELD: Lazy<Field> =
-  Lazy::new(|| Field::new(NO_NORMS_KEY, NO_NORMS_TEXT, CUSTOM_TYPE5.clone()));
+pub static NO_NORMS_FIELD: LazyLock<Field> =
+  LazyLock::new(|| Field::new(NO_NORMS_KEY, NO_NORMS_TEXT, CUSTOM_TYPE5.clone()));
 
 pub static NO_TF_TEXT: &str = "analyzed with no tf and positions";
 pub static NO_TF_KEY: &str = "omitTermFreqAndPositions";
 
-pub static CUSTOM_TYPE6: Lazy<FieldType> = Lazy::new(|| {
+pub static CUSTOM_TYPE6: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED).expect("should not fail");
   ft.set_index_options(IndexOptions::Docs)
     .expect("should not fail");
@@ -114,20 +114,20 @@ pub static CUSTOM_TYPE6: Lazy<FieldType> = Lazy::new(|| {
   ft
 });
 
-pub static NO_TF_FIELD: Lazy<Field> =
-  Lazy::new(|| Field::new(NO_TF_KEY, NO_TF_TEXT, CUSTOM_TYPE6.clone()));
+pub static NO_TF_FIELD: LazyLock<Field> =
+  LazyLock::new(|| Field::new(NO_TF_KEY, NO_TF_TEXT, CUSTOM_TYPE6.clone()));
 
 pub static UNINDEXED_FIELD_TEXT: &str = "unindexed field text";
 pub static UNINDEXED_FIELD_KEY: &str = "unIndField";
 
-pub static CUSTOM_TYPE7: Lazy<FieldType> = Lazy::new(|| {
+pub static CUSTOM_TYPE7: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
   ft.set_stored(true).expect("should not fail");
   ft.freeze();
   ft
 });
 
-pub static UNINDEXED_FIELD: Lazy<Field> = Lazy::new(|| {
+pub static UNINDEXED_FIELD: LazyLock<Field> = LazyLock::new(|| {
   Field::new(
     UNINDEXED_FIELD_KEY,
     UNINDEXED_FIELD_TEXT,
@@ -135,7 +135,7 @@ pub static UNINDEXED_FIELD: Lazy<Field> = Lazy::new(|| {
   )
 });
 
-pub static STRING_TYPE_STORED_WITH_TVS: Lazy<FieldType> = Lazy::new(|| {
+pub static STRING_TYPE_STORED_WITH_TVS: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::from_ref(&*string_field_type::TYPE_STORED).expect("should not fail");
   ft.set_store_term_vectors(true).expect("should not fail");
   ft.set_store_term_vector_positions(true)
@@ -149,21 +149,21 @@ pub static STRING_TYPE_STORED_WITH_TVS: Lazy<FieldType> = Lazy::new(|| {
 pub static UNSTORED_1_FIELD_TEXT: &str = "unstored field text";
 pub static UNSTORED_FIELD_1_KEY: &str = "unStoredField1";
 
-pub static UNSTORED_FIELD_1: Lazy<TextField> = Lazy::new(|| {
+pub static UNSTORED_FIELD_1: LazyLock<TextField> = LazyLock::new(|| {
   TextField::from_string(UNSTORED_FIELD_1_KEY, UNSTORED_1_FIELD_TEXT, No).expect("should not fail")
 });
 
 pub static UNSTORED_2_FIELD_TEXT: &str = "unstored field text";
 pub static UNSTORED_FIELD_2_KEY: &str = "unStoredField2";
 
-pub static CUSTOM_TYPE8: Lazy<FieldType> = Lazy::new(|| {
+pub static CUSTOM_TYPE8: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED).expect("should not fail");
   ft.set_store_term_vectors(true).expect("should not fail");
   ft.freeze();
   ft
 });
 
-pub static UNSTORED_FIELD_2: Lazy<Field> = Lazy::new(|| {
+pub static UNSTORED_FIELD_2: LazyLock<Field> = LazyLock::new(|| {
   Field::new(
     UNSTORED_FIELD_2_KEY,
     UNSTORED_2_FIELD_TEXT,
@@ -172,10 +172,10 @@ pub static UNSTORED_FIELD_2: Lazy<Field> = Lazy::new(|| {
 });
 
 pub static LAZY_FIELD_BINARY_KEY: &str = "lazyFieldBinary";
-pub static LAZY_FIELD_BINARY_BYTES: Lazy<Vec<u8>> =
-  Lazy::new(|| "These are some binary field bytes".as_bytes().to_vec());
+pub static LAZY_FIELD_BINARY_BYTES: LazyLock<Vec<u8>> =
+  LazyLock::new(|| "These are some binary field bytes".as_bytes().to_vec());
 
-pub static LAZY_FIELD_BINARY: Lazy<StoredField> = Lazy::new(|| {
+pub static LAZY_FIELD_BINARY: LazyLock<StoredField> = LazyLock::new(|| {
   StoredField::from_binary(LAZY_FIELD_BINARY_KEY, LAZY_FIELD_BINARY_BYTES.clone())
     .expect("should not fail")
 });
@@ -183,12 +183,12 @@ pub static LAZY_FIELD_BINARY: Lazy<StoredField> = Lazy::new(|| {
 pub static LAZY_FIELD_KEY: &str = "lazyField";
 pub static LAZY_FIELD_TEXT: &str = "These are some field bytes";
 
-pub static LAZY_FIELD: Lazy<Field> =
-  Lazy::new(|| Field::new(LAZY_FIELD_KEY, LAZY_FIELD_TEXT, CUSTOM_TYPE.clone()));
+pub static LAZY_FIELD: LazyLock<Field> =
+  LazyLock::new(|| Field::new(LAZY_FIELD_KEY, LAZY_FIELD_TEXT, CUSTOM_TYPE.clone()));
 
 pub static LARGE_LAZY_FIELD_KEY: &str = "largeLazyField";
 
-pub static LARGE_LAZY_FIELD_TEXT: Lazy<String> = Lazy::new(|| {
+pub static LARGE_LAZY_FIELD_TEXT: LazyLock<String> = LazyLock::new(|| {
   let mut s = String::with_capacity(10000 * 55);
   for _ in 0..10000 {
     s.push_str("Lazily loading lengths of language in lieu of laughing ");
@@ -196,7 +196,7 @@ pub static LARGE_LAZY_FIELD_TEXT: Lazy<String> = Lazy::new(|| {
   s
 });
 
-pub static LARGE_LAZY_FIELD: Lazy<Field> = Lazy::new(|| {
+pub static LARGE_LAZY_FIELD: LazyLock<Field> = LazyLock::new(|| {
   Field::new(
     LARGE_LAZY_FIELD_KEY,
     LARGE_LAZY_FIELD_TEXT.clone(),
@@ -207,14 +207,14 @@ pub static LARGE_LAZY_FIELD: Lazy<Field> = Lazy::new(|| {
 pub static FIELD_UTF1_TEXT: &str = "field one 一text";
 pub static TEXT_FIELD_UTF1_KEY: &str = "textField1Utf8";
 
-pub static TEXT_UTF_FIELD_1: Lazy<Field> =
-  Lazy::new(|| Field::new(TEXT_FIELD_UTF1_KEY, FIELD_UTF1_TEXT, CUSTOM_TYPE.clone()));
+pub static TEXT_UTF_FIELD_1: LazyLock<Field> =
+  LazyLock::new(|| Field::new(TEXT_FIELD_UTF1_KEY, FIELD_UTF1_TEXT, CUSTOM_TYPE.clone()));
 
 pub static FIELD_UTF2_TEXT: &str = "field field field 一two text";
 pub static FIELD_UTF2_FREQS: [i32; 3] = [3, 1, 1];
 pub static TEXT_FIELD_UTF2_KEY: &str = "textField2Utf8";
 
-pub static TEXT_UTF_FIELD_2: Lazy<Field> = Lazy::new(|| {
+pub static TEXT_UTF_FIELD_2: LazyLock<Field> = LazyLock::new(|| {
   Field::new(
     TEXT_FIELD_UTF2_KEY,
     FIELD_UTF2_TEXT,
@@ -227,7 +227,7 @@ pub enum NameValue {
   Bytes(Vec<u8>),
   String(String),
 }
-pub static NAME_VALUES: Lazy<HashMap<String, NameValue>> = Lazy::new(|| {
+pub static NAME_VALUES: LazyLock<HashMap<String, NameValue>> = LazyLock::new(|| {
   let mut m = HashMap::new();
 
   m.insert(TEXT_FIELD_1_KEY.to_string(), NameValue::Str(FIELD_1_TEXT));
@@ -268,7 +268,7 @@ pub static NAME_VALUES: Lazy<HashMap<String, NameValue>> = Lazy::new(|| {
 
   m
 });
-pub static FIELDS: Lazy<Vec<Fields>> = Lazy::new(|| {
+pub static FIELDS: LazyLock<Vec<Fields>> = LazyLock::new(|| {
   vec![
     TEXT_FIELD_1.clone().into(),
     TEXT_FIELD_2.clone().into(),
@@ -286,7 +286,7 @@ pub static FIELDS: Lazy<Vec<Fields>> = Lazy::new(|| {
     LARGE_LAZY_FIELD.clone().into(),
   ]
 });
-pub static DATA: Lazy<Data> = Lazy::new(|| {
+pub static DATA: LazyLock<Data> = LazyLock::new(|| {
   let mut data = Data::default();
 
   for f in FIELDS.iter() {

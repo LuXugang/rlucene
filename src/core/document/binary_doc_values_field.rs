@@ -25,9 +25,9 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
-use once_cell::sync::Lazy;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
+use std::sync::LazyLock;
 /// Field that stores a per-document [`BytesRef`] value.
 ///
 /// The values are stored directly with no sharing, which is a good fit when the fields don't
@@ -36,7 +36,7 @@ use std::fmt::{Display, Formatter};
 /// If you also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 ///
 /// See also [`BinaryDocValues`](crate::core::index::binary_doc_values::BinaryDocValues).
-static TYPE: Lazy<FieldType> = Lazy::new(|| {
+static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
   ft.set_doc_values_type(DocValuesType::Binary)
     .expect("set_doc_values_type should never fail in this context");

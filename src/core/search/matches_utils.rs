@@ -19,12 +19,12 @@ use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_matches_iterator::DummyMatchesIterator;
 use crate::core::search::matches::Matches;
 use crate::core::util::error::lucene_error::Result;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
 pub struct MatchesUtils;
 
-pub static MATCH_WITH_NO_TERMS: Lazy<MatchWithNoTerms> = Lazy::new(|| MatchWithNoTerms);
+pub static MATCH_WITH_NO_TERMS: LazyLock<MatchWithNoTerms> = LazyLock::new(|| MatchWithNoTerms);
 pub struct MatchWithNoTerms;
 impl Matches for MatchWithNoTerms {
   type MatchesIterator = DummyMatchesIterator;

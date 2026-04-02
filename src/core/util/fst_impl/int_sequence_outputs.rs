@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use once_cell::sync::Lazy;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::Result;
@@ -29,7 +29,7 @@ thread_local! {
     static NO_OUTPUT: IntsRef<Arc<Vec<i32>>> = IntsRef::new();
 }
 
-pub static SINGLETON: Lazy<IntSequenceOutputs> = Lazy::new(|| IntSequenceOutputs);
+pub static SINGLETON: LazyLock<IntSequenceOutputs> = LazyLock::new(|| IntSequenceOutputs);
 
 /// An FST `Outputs` implementation where each output is a sequence of ints.
 #[derive(Clone, Default)]
