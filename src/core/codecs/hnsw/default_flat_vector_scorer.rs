@@ -293,11 +293,9 @@ where
       _ => return Err(LuceneError::illegal_state("should not here")),
     };
 
-    Ok(
-      self
-        .similarity_function
-        .compare_u8(ord_vector.as_bytes()?, node_vector.as_bytes()?),
-    )
+    self
+      .similarity_function
+      .compare_u8(ord_vector.as_bytes()?, node_vector.as_bytes()?)
   }
 
   fn max_ord(&self) -> usize {
@@ -425,11 +423,9 @@ where
       _ => return Err(LuceneError::illegal_state("should not here")),
     };
 
-    Ok(
-      self
-        .similarity_function
-        .compare_f32(ord_vector.as_floats()?, node_vector.as_floats()?),
-    )
+    self
+      .similarity_function
+      .compare_f32(ord_vector.as_floats()?, node_vector.as_floats()?)
   }
 
   fn max_ord(&self) -> usize {
@@ -485,11 +481,10 @@ where
 {
   fn score(&self, node: usize) -> Result<f32> {
     let value = self.values.vector_value(node)?;
-    Ok(
-      self
-        .similarity_function
-        .compare_f32(self.query.as_slice(), value.as_floats()?),
-    )
+
+    self
+      .similarity_function
+      .compare_f32(self.query.as_slice(), value.as_floats()?)
   }
 
   fn max_ord(&self) -> usize {
@@ -542,11 +537,9 @@ where
 {
   fn score(&self, node: usize) -> Result<f32> {
     let value = self.values.vector_value(node)?;
-    Ok(
-      self
-        .similarity_function
-        .compare_u8(self.query.as_slice(), value.as_bytes()?),
-    )
+    self
+      .similarity_function
+      .compare_u8(self.query.as_slice(), value.as_bytes()?)
   }
 
   fn max_ord(&self) -> usize {
