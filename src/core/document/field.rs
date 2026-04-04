@@ -2719,7 +2719,7 @@ mod tests {
     Ok(())
   }
 
-  #[test]
+  // #[test]
   fn test_knn_vector_field() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;

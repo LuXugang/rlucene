@@ -18,6 +18,7 @@ use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::double_doc_values_field::DoubleDocValuesField;
@@ -575,6 +576,38 @@ impl IndexableField for Fields {
     }
   }
 
+  fn is_reserved(&self) -> bool {
+    match self {
+      Fields::Binary(f) => f.is_reserved(),
+      Fields::BinaryDocValues(f) => f.is_reserved(),
+      Fields::DoubleDocValues(f) => f.is_reserved(),
+      Fields::DoubleField(f) => f.is_reserved(),
+      Fields::DoublePoint(f) => f.is_reserved(),
+      Fields::Field(f) => f.is_reserved(),
+      #[cfg(test)]
+      Fields::FieldImpl(f) => f.is_reserved(),
+      Fields::FloatDocValues(f) => f.is_reserved(),
+      Fields::FloatField(f) => f.is_reserved(),
+      Fields::FloatPoint(f) => f.is_reserved(),
+      Fields::Int(f) => f.is_reserved(),
+      Fields::IntField(f) => f.is_reserved(),
+      Fields::IntPoint(f) => f.is_reserved(),
+      Fields::Keyword(f) => f.is_reserved(),
+      Fields::KnnByteVector(f) => f.is_reserved(),
+      Fields::KnnFloatVector(f) => f.is_reserved(),
+      Fields::LongField(f) => f.is_reserved(),
+      Fields::LongPoint(f) => f.is_reserved(),
+      Fields::NumericDocValues(f) => f.is_reserved(),
+      Fields::Reverse(f) => f.is_reserved(),
+      Fields::SortedDocValues(f) => f.is_reserved(),
+      Fields::SortedNumericDocValues(f) => f.is_reserved(),
+      Fields::SortedSetDocValues(f) => f.is_reserved(),
+      Fields::Stored(f) => f.is_reserved(),
+      Fields::String(f) => f.is_reserved(),
+      Fields::Text(f) => f.is_reserved(),
+    }
+  }
+
   fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
   where
     A: Analyzer,
@@ -607,6 +640,38 @@ impl IndexableField for Fields {
       Fields::Stored(f) => f.init_token_stream(analyzer),
       Fields::String(f) => f.init_token_stream(analyzer),
       Fields::Text(f) => f.init_token_stream(analyzer),
+    }
+  }
+
+  fn vector_value(&self) -> Result<&VectorValueEnum> {
+    match self {
+      Fields::Binary(f) => f.vector_value(),
+      Fields::BinaryDocValues(f) => f.vector_value(),
+      Fields::DoubleDocValues(f) => f.vector_value(),
+      Fields::DoubleField(f) => f.vector_value(),
+      Fields::DoublePoint(f) => f.vector_value(),
+      Fields::Field(f) => f.vector_value(),
+      #[cfg(test)]
+      Fields::FieldImpl(f) => f.vector_value(),
+      Fields::FloatDocValues(f) => f.vector_value(),
+      Fields::FloatField(f) => f.vector_value(),
+      Fields::FloatPoint(f) => f.vector_value(),
+      Fields::Int(f) => f.vector_value(),
+      Fields::IntField(f) => f.vector_value(),
+      Fields::IntPoint(f) => f.vector_value(),
+      Fields::Keyword(f) => f.vector_value(),
+      Fields::KnnByteVector(f) => f.vector_value(),
+      Fields::KnnFloatVector(f) => f.vector_value(),
+      Fields::LongField(f) => f.vector_value(),
+      Fields::LongPoint(f) => f.vector_value(),
+      Fields::NumericDocValues(f) => f.vector_value(),
+      Fields::Reverse(f) => f.vector_value(),
+      Fields::SortedDocValues(f) => f.vector_value(),
+      Fields::SortedNumericDocValues(f) => f.vector_value(),
+      Fields::SortedSetDocValues(f) => f.vector_value(),
+      Fields::Stored(f) => f.vector_value(),
+      Fields::String(f) => f.vector_value(),
+      Fields::Text(f) => f.vector_value(),
     }
   }
 }

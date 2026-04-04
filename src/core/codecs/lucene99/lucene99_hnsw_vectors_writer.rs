@@ -671,7 +671,7 @@ where
     Ok(Self {
       field_info,
       hnsw_graph_builder,
-      last_doc_id: 0,
+      last_doc_id: -1,
       node: 0,
       flat_field_vectors_writer_idx,
     })

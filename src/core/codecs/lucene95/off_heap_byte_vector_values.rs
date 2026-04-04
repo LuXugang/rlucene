@@ -282,15 +282,15 @@ where
 
   type ByteVectorValues = Self;
 
-  fn byte_copy(&self) -> Result<Self::ByteVectorValues> {
-    Ok(Self::new(
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    Ok(Some(Self::new(
       self.base.dimension,
       self.base.size,
       self.base.inner.lock().slice.try_clone()?,
       self.base.byte_size,
       self.base.flat_vectors_scorer.clone(),
       self.base.similarity_function,
-    ))
+    )))
   }
 
   type VectorScorer = DenseVectorScorer<
@@ -298,7 +298,9 @@ where
   >;
 
   fn scorer(&self, query: Vec<u8>) -> Result<Self::VectorScorer> {
-    let mut copy = self.byte_copy()?;
+    let mut copy = self.byte_copy()?.ok_or_else(|| {
+      LuceneError::illegal_state("DenseOffHeapVectorValues should support byte_copy()")
+    })?;
     let iterator = copy.iterator()?;
     let sf = copy.base.similarity_function;
     let random_vector_scorer = self
@@ -492,8 +494,8 @@ where
 
   type ByteVectorValues = Self;
 
-  fn byte_copy(&self) -> Result<Self::ByteVectorValues> {
-    Self::new(
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    Ok(Some(Self::new(
       self.configuration.clone(),
       self.data_in.clone(),
       self.base.inner.lock().slice.try_clone()?,
@@ -501,7 +503,7 @@ where
       self.base.byte_size,
       self.base.flat_vectors_scorer.clone(),
       self.base.similarity_function,
-    )
+    )?))
   }
 
   type VectorScorer = SparseVectorScorer<
@@ -510,7 +512,9 @@ where
   >;
 
   fn scorer(&self, query: Vec<u8>) -> Result<Self::VectorScorer> {
-    let mut copy = self.byte_copy()?;
+    let mut copy = self.byte_copy()?.ok_or_else(|| {
+      LuceneError::illegal_state("SparseOffHeapVectorValues should support byte_copy()")
+    })?;
     let iterator = copy.iterator()?;
     let sf = copy.base.similarity_function;
     let random_vector_scorer = self
@@ -689,7 +693,7 @@ impl ByteVectorValues for EmptyOffHeapVectorValues {
 
   type ByteVectorValues = Self;
 
-  fn byte_copy(&self) -> Result<Self::ByteVectorValues> {
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -787,11 +791,11 @@ where
 
   type ByteVectorValues = Self;
 
-  fn byte_copy(&self) -> Result<Self::ByteVectorValues> {
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     match self {
-      Self::Empty(e) => e.byte_copy().map(Self::Empty),
-      Self::Dense(e) => e.byte_copy().map(Self::Dense),
-      Self::Sparse(e) => e.byte_copy().map(Self::Sparse),
+      Self::Empty(e) => Ok(e.byte_copy()?.map(Self::Empty)),
+      Self::Dense(e) => Ok(e.byte_copy()?.map(Self::Dense)),
+      Self::Sparse(e) => Ok(e.byte_copy()?.map(Self::Sparse)),
     }
   }
 

@@ -69,7 +69,9 @@ impl FloatVectorValues for DummyFloatVectorValues {
 
   type FloatVectorValues = Self;
 
-  fn float_copy(&self) -> crate::core::util::error::lucene_error::Result<Self::FloatVectorValues> {
+  fn float_copy(
+    &self,
+  ) -> crate::core::util::error::lucene_error::Result<Option<Self::FloatVectorValues>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

@@ -285,15 +285,15 @@ where
 
   type FloatVectorValues = Self;
 
-  fn float_copy(&self) -> Result<Self::FloatVectorValues> {
-    Self::new(
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    Ok(Some(Self::new(
       self.base.dimension,
       self.base.size,
       self.base.inner.lock().slice.try_clone()?,
       self.base.byte_size,
       self.base.flat_vectors_scorer.clone(),
       self.base.similarity_function,
-    )
+    )?))
   }
 
   type VectorScorer = DenseVectorScorer<
@@ -301,7 +301,9 @@ where
   >;
 
   fn scorer(&self, query: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
-    let mut copy = self.float_copy()?;
+    let mut copy = self.float_copy()?.ok_or_else(|| {
+      LuceneError::illegal_state("DenseOffHeapVectorValues should support float_copy()")
+    })?;
     let iterator = copy.iterator()?;
 
     let sf = copy.base.similarity_function;
@@ -491,8 +493,8 @@ where
 
   type FloatVectorValues = Self;
 
-  fn float_copy(&self) -> Result<Self::FloatVectorValues> {
-    Self::new(
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    Ok(Some(Self::new(
       self.configuration.clone(),
       self.data_in.clone(),
       self.base.inner.lock().slice.try_clone()?,
@@ -500,7 +502,7 @@ where
       self.base.byte_size,
       self.base.flat_vectors_scorer.clone(),
       self.base.similarity_function,
-    )
+    )?))
   }
 
   type VectorScorer = SparseVectorScorer<
@@ -509,7 +511,9 @@ where
   >;
 
   fn scorer(&self, query: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
-    let mut copy = self.float_copy()?;
+    let mut copy = self.float_copy()?.ok_or_else(|| {
+      LuceneError::illegal_state("DenseOffHeapVectorValues should support float_copy()")
+    })?;
     let iterator = copy.iterator()?;
 
     let sf = copy.base.similarity_function;
@@ -689,7 +693,7 @@ impl FloatVectorValues for EmptyOffHeapVectorValues {
 
   type FloatVectorValues = Self;
 
-  fn float_copy(&self) -> Result<Self::FloatVectorValues> {
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -787,16 +791,16 @@ where
 
   type FloatVectorValues = Self;
 
-  fn float_copy(&self) -> Result<Self::FloatVectorValues> {
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
     match self {
       OffHeapFloatVectorValuesEnum::Empty(e) => {
-        e.float_copy().map(OffHeapFloatVectorValuesEnum::Empty)
+        Ok(e.float_copy()?.map(OffHeapFloatVectorValuesEnum::Empty))
       },
       OffHeapFloatVectorValuesEnum::Dense(e) => {
-        e.float_copy().map(OffHeapFloatVectorValuesEnum::Dense)
+        Ok(e.float_copy()?.map(OffHeapFloatVectorValuesEnum::Dense))
       },
       OffHeapFloatVectorValuesEnum::Sparse(e) => {
-        e.float_copy().map(OffHeapFloatVectorValuesEnum::Sparse)
+        Ok(e.float_copy()?.map(OffHeapFloatVectorValuesEnum::Sparse))
       },
     }
   }

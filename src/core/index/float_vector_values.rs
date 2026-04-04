@@ -36,7 +36,18 @@ pub trait FloatVectorValues: KnnVectorValues {
   fn vector_value(&self, ord: usize) -> Result<Cow<'_, [f32]>>;
 
   type FloatVectorValues: FloatVectorValues;
-  fn float_copy(&self) -> Result<Self::FloatVectorValues> {
+  /// Creates a copy of this [`KnnVectorValues`] when an independent instance is
+  /// needed.
+  ///
+  /// This is useful when multiple vector values need to be accessed at the same
+  /// time, in order to avoid overwriting the underlying vector buffer returned by
+  /// a single instance.
+  ///
+  /// Returning `Some(...)` means that a new independent object was created.
+  ///
+  /// Returning `None` means that no new object was created, and callers should
+  /// continue using `self` directly.
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -134,9 +145,9 @@ macro_rules! either_float_vector_values {
                 $name<$( < $T as $crate::core::index::float_vector_values::FloatVectorValues >::FloatVectorValues ),+>;
 
             #[inline]
-            fn float_copy(&self) -> $crate::core::util::error::lucene_error::Result<Self::FloatVectorValues> {
+            fn float_copy(&self) -> $crate::core::util::error::lucene_error::Result<Option<Self::FloatVectorValues>> {
                 match self {
-                    $( Self::$Variant(inner) => inner.float_copy().map($name::$Variant), )+
+                    $( Self::$Variant(inner) => inner.float_copy().map(|opt| opt.map($name::$Variant)), )+
                 }
             }
 
@@ -256,6 +267,10 @@ impl FloatVectorValues for FloatVectorValuesImpl {
   }
 
   type FloatVectorValues = Self;
+
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    Ok(None)
+  }
 
   type VectorScorer = DummyVectorScorer;
 

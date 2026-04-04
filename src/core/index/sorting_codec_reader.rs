@@ -1069,7 +1069,7 @@ where
 
   type ByteVectorValues = DummyByteVectorValues;
 
-  fn byte_copy(&self) -> Result<Self::ByteVectorValues> {
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -1147,7 +1147,7 @@ where
 
   type FloatVectorValues = DummyFloatVectorValues;
 
-  fn float_copy(&self) -> Result<Self::FloatVectorValues> {
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
     Err(LuceneError::unsupported_operation(""))
   }
 

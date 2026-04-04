@@ -36,10 +36,18 @@ pub trait ByteVectorValues: KnnVectorValues {
   fn vector_value(&self, ord: usize) -> Result<Cow<'_, [u8]>>;
 
   type ByteVectorValues: ByteVectorValues;
-  /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
-  /// need to access different values at once, to avoid overwriting the
-  /// underlying vector returned.
-  fn byte_copy(&self) -> Result<Self::ByteVectorValues> {
+  /// Creates a copy of this [`KnnVectorValues`] when an independent instance is
+  /// needed.
+  ///
+  /// This is useful when multiple vector values need to be accessed at the same
+  /// time, in order to avoid overwriting the underlying vector buffer returned by
+  /// a single instance.
+  ///
+  /// Returning `Some(...)` means that a new independent object was created.
+  ///
+  /// Returning `None` means that no new object was created, and callers should
+  /// continue using `self` directly.
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -137,9 +145,9 @@ macro_rules! either_byte_vector_values {
                 $name<$( < $T as $crate::core::index::byte_vector_values::ByteVectorValues >::ByteVectorValues ),+>;
 
             #[inline]
-            fn byte_copy(&self) -> $crate::core::util::error::lucene_error::Result<Self::ByteVectorValues> {
+            fn byte_copy(&self) -> $crate::core::util::error::lucene_error::Result<Option<Self::ByteVectorValues>> {
                 match self {
-                    $( Self::$Variant(inner) => inner.byte_copy().map($name::$Variant), )+
+                    $( Self::$Variant(inner) => inner.byte_copy().map(|opt| opt.map($name::$Variant)), )+
                 }
             }
 
@@ -257,8 +265,8 @@ impl ByteVectorValues for ByteVectorValuesImpl {
 
   type ByteVectorValues = Self;
 
-  fn byte_copy(&self) -> Result<Self::ByteVectorValues> {
-    todo!()
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    Ok(None)
   }
 
   type VectorScorer = DummyVectorScorer;
