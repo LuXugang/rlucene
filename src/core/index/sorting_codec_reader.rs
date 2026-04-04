@@ -1063,7 +1063,7 @@ impl<B> ByteVectorValues for SortingByteVectorValues<B>
 where
   B: ByteVectorValues,
 {
-  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [u8]>> {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, [u8]>> {
     self.delegate.vector_value(ord)
   }
 
@@ -1141,7 +1141,7 @@ impl<B> FloatVectorValues for SortingFloatVectorValues<B>
 where
   B: FloatVectorValues,
 {
-  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [f32]>> {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, [f32]>> {
     self.delegate.vector_value(ord)
   }
 

@@ -161,7 +161,7 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  fn vector_value(&mut self, target_ord: usize) -> Result<Cow<'_, [f32]>> {
+  fn vector_value(&self, target_ord: usize) -> Result<Cow<'_, [f32]>> {
     let mut inner = self.inner.lock();
     let same_ord = matches!(inner.last_ord, Some(last_ord) if last_ord == target_ord);
     if !same_ord {
@@ -279,7 +279,7 @@ where
   I: IndexInput,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [f32]>> {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, [f32]>> {
     self.base.vector_value(ord)
   }
 
@@ -485,7 +485,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [f32]>> {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, [f32]>> {
     self.base.vector_value(ord)
   }
 
@@ -682,7 +682,7 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
 }
 
 impl FloatVectorValues for EmptyOffHeapVectorValues {
-  fn vector_value(&mut self, _ord: usize) -> Result<Cow<'_, [f32]>> {
+  fn vector_value(&self, _ord: usize) -> Result<Cow<'_, [f32]>> {
     debug_assert!(self.vectors.is_empty());
     Ok(Cow::Borrowed(self.vectors.as_slice()))
   }
@@ -777,7 +777,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [f32]>> {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, [f32]>> {
     match self {
       OffHeapFloatVectorValuesEnum::Empty(e) => e.vector_value(ord),
       OffHeapFloatVectorValuesEnum::Dense(e) => e.vector_value(ord),

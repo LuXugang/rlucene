@@ -61,7 +61,7 @@ impl KnnVectorValues for DummyFloatVectorValues {
 
 impl FloatVectorValues for DummyFloatVectorValues {
   fn vector_value(
-    &mut self,
+    &self,
     _ord: usize,
   ) -> crate::core::util::error::lucene_error::Result<Cow<'_, [f32]>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
