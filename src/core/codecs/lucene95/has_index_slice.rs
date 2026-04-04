@@ -14,15 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::store::IndexInput;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Implementors can return the IndexInput from which their values are read. For use by vector
 /// quantizers.
 pub trait HasIndexSlice {
-  type Input: IndexInput;
-
-  /// Returns an IndexInput from which to read this instance's values.
-  fn get_slice(&mut self) -> Option<&mut Self::Input> {
-    None
+  fn seek(&mut self, _pos: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
   }
 }

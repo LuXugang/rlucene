@@ -33,7 +33,6 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::store::IndexInput;
-use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
@@ -44,6 +43,7 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use crate::core::util::{HasIdentity, TryIntoInt};
+use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -54,12 +54,15 @@ where
 {
   pub(crate) dimension: usize,
   pub(crate) size: usize,
-  pub(crate) slice: I,
-  pub(crate) last_ord: Option<usize>,
-  pub(crate) binary_value: Vec<u8>,
   pub(crate) byte_size: usize,
   pub(crate) similarity_function: VectorSimilarityFunction,
   pub(crate) flat_vectors_scorer: F,
+  pub(crate) inner: Mutex<Inner<I>>,
+}
+pub struct Inner<I> {
+  pub(crate) slice: I,
+  pub(crate) last_ord: Option<usize>,
+  pub(crate) binary_value: Vec<u8>,
 }
 
 impl<I, F> OffHeapByteVectorValues<I, F>
@@ -75,26 +78,29 @@ where
     flat_vectors_scorer: F,
     similarity_function: VectorSimilarityFunction,
   ) -> Self {
-    Self {
-      dimension,
-      size,
+    let inner = Mutex::new(Inner {
       slice,
       last_ord: None,
       binary_value: vec![0; byte_size],
+    });
+    Self {
+      dimension,
+      size,
       byte_size,
       similarity_function,
       flat_vectors_scorer,
+      inner,
     }
   }
 
-  fn read_value(&mut self, target_ord: usize) -> Result<()> {
+  fn read_value(&self, target_ord: usize, inner: &mut Inner<I>) -> Result<()> {
     let pos = target_ord
       .checked_mul(self.byte_size)
       .ok_or_else(|| LuceneError::illegal_state("seek overflow"))?;
-    self.slice.seek(pos)?;
-    self
+    inner.slice.seek(pos)?;
+    inner
       .slice
-      .read_bytes(&mut self.binary_value, 0, self.byte_size)?;
+      .read_bytes(&mut inner.binary_value, 0, self.byte_size)?;
     Ok(())
   }
 }
@@ -104,10 +110,12 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  type Input = I;
+  fn seek(&mut self, pos: usize) -> Result<()> {
+    self.inner.lock().slice.seek(pos)
+  }
 
-  fn get_slice(&mut self) -> Option<&mut Self::Input> {
-    Some(&mut self.slice)
+  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.inner.lock().slice.read_bytes(b, offset, len)
   }
 }
 
@@ -155,12 +163,13 @@ where
   F: FlatVectorsScorer,
 {
   fn vector_value(&mut self, target_ord: usize) -> Result<Cow<'_, [u8]>> {
-    let same_ord = matches!(self.last_ord, Some(last_ord) if last_ord == target_ord);
+    let mut inner = self.inner.lock();
+    let same_ord = matches!(inner.last_ord, Some(last_ord) if last_ord == target_ord);
     if !same_ord {
-      self.read_value(target_ord)?;
-      self.last_ord = Some(target_ord);
+      self.read_value(target_ord, &mut inner)?;
+      inner.last_ord = Some(target_ord);
     }
-    Ok(Cow::Borrowed(self.binary_value.as_slice()))
+    Ok(Cow::Owned(inner.binary_value.clone()))
   }
 
   type ByteVectorValues = DummyByteVectorValues;
@@ -209,10 +218,12 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  type Input = I;
+  fn seek(&mut self, pos: usize) -> Result<()> {
+    self.base.seek(pos)
+  }
 
-  fn get_slice(&mut self) -> Option<&mut Self::Input> {
-    self.base.get_slice()
+  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.base.read_bytes(b, offset, len)
   }
 }
 
@@ -275,7 +286,7 @@ where
     Ok(Self::new(
       self.base.dimension,
       self.base.size,
-      self.base.slice.try_clone()?,
+      self.base.inner.lock().slice.try_clone()?,
       self.base.byte_size,
       self.base.flat_vectors_scorer.clone(),
       self.base.similarity_function,
@@ -416,10 +427,12 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer,
 {
-  type Input = I::IndexInput;
+  fn seek(&mut self, pos: usize) -> Result<()> {
+    self.base.seek(pos)
+  }
 
-  fn get_slice(&mut self) -> Option<&mut Self::Input> {
-    self.base.get_slice()
+  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.base.read_bytes(b, offset, len)
   }
 }
 
@@ -483,7 +496,7 @@ where
     Self::new(
       self.configuration.clone(),
       self.data_in.clone(),
-      self.base.slice.try_clone()?,
+      self.base.inner.lock().slice.try_clone()?,
       self.base.dimension,
       self.base.byte_size,
       self.base.flat_vectors_scorer.clone(),
@@ -627,13 +640,7 @@ impl EmptyOffHeapVectorValues {
   }
 }
 
-impl HasIndexSlice for EmptyOffHeapVectorValues {
-  type Input = DummyIndexInput;
-
-  fn get_slice(&mut self) -> Option<&mut Self::Input> {
-    None
-  }
-}
+impl HasIndexSlice for EmptyOffHeapVectorValues {}
 
 impl KnnVectorValues for EmptyOffHeapVectorValues {
   fn dimension(&self) -> usize {
