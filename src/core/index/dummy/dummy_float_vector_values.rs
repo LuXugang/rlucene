@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::float_vector_values::FloatVectorValues;
@@ -63,7 +64,7 @@ impl FloatVectorValues for DummyFloatVectorValues {
   fn vector_value(
     &self,
     _ord: usize,
-  ) -> crate::core::util::error::lucene_error::Result<Cow<'_, [f32]>> {
+  ) -> crate::core::util::error::lucene_error::Result<Cow<'_, VectorValueEnum>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

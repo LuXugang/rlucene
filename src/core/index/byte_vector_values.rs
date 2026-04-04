@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
 use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIteratorEnum2, KnnVectorValues};
 use crate::core::index::leaf_reader::LeafReader;
@@ -33,7 +34,7 @@ pub trait ByteVectorValues: KnnVectorValues {
   ///
   /// # Returns
   /// the vector value
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, [u8]>>;
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>>;
 
   type ByteVectorValues: ByteVectorValues;
   /// Creates a copy of this [`KnnVectorValues`] when an independent instance is
@@ -60,10 +61,10 @@ pub trait ByteVectorValues: KnnVectorValues {
     VectorEncoding::BYTE(1)
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
     Err(LuceneError::unsupported_operation(""))
   }
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
@@ -137,7 +138,7 @@ macro_rules! either_byte_vector_values {
             $( $T: $crate::core::index::byte_vector_values::ByteVectorValues ),+
         {
             #[inline]
-            fn vector_value(&self, ord: usize) -> $crate::core::util::error::lucene_error::Result<std::borrow::Cow<'_, [u8]>> {
+            fn vector_value(&self, ord: usize) -> $crate::core::util::error::lucene_error::Result<std::borrow::Cow<'_, $crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>> {
                 match self { $( Self::$Variant(inner) => inner.vector_value(ord), )+ }
             }
 
@@ -167,12 +168,12 @@ macro_rules! either_byte_vector_values {
             }
 
             #[inline]
-            fn get_vectors_mut(&mut self) -> $crate::core::util::error::lucene_error::Result<&mut Vec<Vec<u8>>> {
+            fn get_vectors_mut(&mut self) -> $crate::core::util::error::lucene_error::Result<&mut Vec<$crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>> {
                 match self { $( Self::$Variant(inner) => inner.get_vectors_mut(), )+ }
             }
 
             #[inline]
-            fn get_vectors(&self) -> $crate::core::util::error::lucene_error::Result<&[Vec<u8>]> {
+            fn get_vectors(&self) -> $crate::core::util::error::lucene_error::Result<&[$crate::core::codecs::knn_field_vectors_writer::VectorValueEnum]> {
                 match self { $( Self::$Variant(inner) => inner.get_vectors(), )+ }
             }
         }
@@ -216,7 +217,7 @@ pub fn from_bytes(dim: usize) -> ByteVectorValuesImpl {
 
 #[derive(Clone)] // TODO IMPORTANT CLone is Ok?
 pub struct ByteVectorValuesImpl {
-  vectors: Vec<Vec<u8>>,
+  vectors: Vec<VectorValueEnum>,
   dim: usize,
 }
 impl ByteVectorValuesImpl {
@@ -259,8 +260,8 @@ impl KnnVectorValues for ByteVectorValuesImpl {
 }
 
 impl ByteVectorValues for ByteVectorValuesImpl {
-  fn vector_value(&self, target_ord: usize) -> Result<Cow<'_, [u8]>> {
-    Ok(Cow::Borrowed(self.vectors[target_ord].as_slice()))
+  fn vector_value(&self, target_ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    Ok(Cow::Borrowed(&self.vectors[target_ord]))
   }
 
   type ByteVectorValues = Self;
@@ -271,11 +272,11 @@ impl ByteVectorValues for ByteVectorValuesImpl {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
     Ok(&mut self.vectors)
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
     Ok(&self.vectors)
   }
 }

@@ -41,18 +41,6 @@ pub trait RandomVectorScorerSupplier {
   where
     Self: Sized;
 
-  fn get_vector_byte_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-  fn get_vector_byte(&self) -> Result<&[Vec<u8>]> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-  fn get_vector_float_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-  fn get_vector_float(&self) -> Result<&[Vec<f32>]> {
-    Err(LuceneError::unsupported_operation(""))
-  }
   fn get_vector(&self) -> Result<&[VectorValueEnum]> {
     Err(LuceneError::unsupported_operation(""))
   }

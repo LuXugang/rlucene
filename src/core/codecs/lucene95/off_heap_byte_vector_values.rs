@@ -18,6 +18,7 @@ use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::indexed_disi::{
   DocIndexIteratorImpl, IndexedDISI, get_doc_index_iterator,
 };
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::index::byte_vector_values::ByteVectorValues;
@@ -162,14 +163,16 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  fn vector_value(&self, target_ord: usize) -> Result<Cow<'_, [u8]>> {
+  fn vector_value(&self, target_ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     let mut inner = self.inner.lock();
     let same_ord = matches!(inner.last_ord, Some(last_ord) if last_ord == target_ord);
     if !same_ord {
       self.read_value(target_ord, &mut inner)?;
       inner.last_ord = Some(target_ord);
     }
-    Ok(Cow::Owned(inner.binary_value.clone()))
+    Ok(Cow::Owned(VectorValueEnum::Byte(
+      inner.binary_value.clone(),
+    )))
   }
 
   type ByteVectorValues = DummyByteVectorValues;
@@ -276,7 +279,7 @@ where
   I: IndexInput,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, [u8]>> {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     self.base.vector_value(ord)
   }
 
@@ -488,7 +491,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, [u8]>> {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     self.base.vector_value(ord)
   }
 
@@ -687,7 +690,7 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
 }
 
 impl ByteVectorValues for EmptyOffHeapVectorValues {
-  fn vector_value(&self, _ord: usize) -> Result<Cow<'_, [u8]>> {
+  fn vector_value(&self, _ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -781,7 +784,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, [u8]>> {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     match self {
       Self::Empty(e) => e.vector_value(ord),
       Self::Dense(e) => e.vector_value(ord),

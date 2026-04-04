@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::{KnnVectorValues, KnnVectorValuesType};
@@ -166,31 +167,17 @@ where
     }
   }
 
-  fn get_vector_byte_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
     match self {
-      RandomVectorScorerSupplierEnum::Byte(supplier) => supplier.get_vector_byte_mut(),
-      _ => Err(LuceneError::illegal_state("should byte here")),
+      RandomVectorScorerSupplierEnum::Byte(supplier) => supplier.get_vector(),
+      RandomVectorScorerSupplierEnum::Float(supplier) => supplier.get_vector(),
     }
   }
 
-  fn get_vector_byte(&self) -> Result<&[Vec<u8>]> {
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
     match self {
-      RandomVectorScorerSupplierEnum::Byte(supplier) => supplier.get_vector_byte(),
-      _ => Err(LuceneError::illegal_state("should byte here")),
-    }
-  }
-
-  fn get_vector_float_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
-    match self {
-      RandomVectorScorerSupplierEnum::Float(supplier) => supplier.get_vector_float_mut(),
-      _ => Err(LuceneError::illegal_state("should float here")),
-    }
-  }
-
-  fn get_vector_float(&self) -> Result<&[Vec<f32>]> {
-    match self {
-      RandomVectorScorerSupplierEnum::Float(supplier) => supplier.get_vector_float(),
-      _ => Err(LuceneError::illegal_state("should float here")),
+      RandomVectorScorerSupplierEnum::Byte(supplier) => supplier.get_vector_mut(),
+      RandomVectorScorerSupplierEnum::Float(supplier) => supplier.get_vector_mut(),
     }
   }
 }
@@ -248,11 +235,11 @@ where
     ByteScoringSupplier::new(self.vectors.clone(), self.similarity_function)
   }
 
-  fn get_vector_byte_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
     self.vectors.get_vectors_mut()
   }
 
-  fn get_vector_byte(&self) -> Result<&[Vec<u8>]> {
+  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
     self.vectors.get_vectors()
   }
 }
@@ -309,7 +296,7 @@ where
     Ok(
       self
         .similarity_function
-        .compare_u8(ord_vector.as_ref(), node_vector.as_ref()),
+        .compare_u8(ord_vector.as_bytes()?, node_vector.as_bytes()?),
     )
   }
 
@@ -384,11 +371,11 @@ where
     FloatScoringSupplier::new(self.vectors.clone(), self.similarity_function)
   }
 
-  fn get_vector_float_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
     self.vectors.get_vectors_mut()
   }
 
-  fn get_vector_float(&self) -> Result<&[Vec<f32>]> {
+  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
     self.vectors.get_vectors()
   }
 }
@@ -441,7 +428,7 @@ where
     Ok(
       self
         .similarity_function
-        .compare_f32(ord_vector.as_ref(), node_vector.as_ref()),
+        .compare_f32(ord_vector.as_floats()?, node_vector.as_floats()?),
     )
   }
 
@@ -501,7 +488,7 @@ where
     Ok(
       self
         .similarity_function
-        .compare_f32(self.query.as_slice(), value.as_ref()),
+        .compare_f32(self.query.as_slice(), value.as_floats()?),
     )
   }
 
@@ -558,7 +545,7 @@ where
     Ok(
       self
         .similarity_function
-        .compare_u8(self.query.as_slice(), value.as_ref()),
+        .compare_u8(self.query.as_slice(), value.as_bytes()?),
     )
   }
 

@@ -87,6 +87,12 @@ impl VectorValueEnum {
       Self::Float(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
+  pub(crate) fn as_floats(&self) -> Result<&[f32]> {
+    match self {
+      Self::Byte(_) => Err(LuceneError::unsupported_operation("")),
+      Self::Float(v) => Ok(v),
+    }
+  }
   pub(crate) fn write_float(&self, chunk: &mut [u8]) -> Result<()> {
     match self {
       Self::Byte(_) => Err(LuceneError::unsupported_operation("")),

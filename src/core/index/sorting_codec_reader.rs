@@ -18,6 +18,7 @@ use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProdu
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
@@ -1063,7 +1064,7 @@ impl<B> ByteVectorValues for SortingByteVectorValues<B>
 where
   B: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, [u8]>> {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     self.delegate.vector_value(ord)
   }
 
@@ -1141,7 +1142,7 @@ impl<B> FloatVectorValues for SortingFloatVectorValues<B>
 where
   B: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, [f32]>> {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     self.delegate.vector_value(ord)
   }
 

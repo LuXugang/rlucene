@@ -2719,7 +2719,7 @@ mod tests {
     Ok(())
   }
 
-  // #[test]
+  #[test]
   fn test_knn_vector_field() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
@@ -2764,7 +2764,7 @@ mod tests {
     assert_eq!(1, binary.size());
     let mut byte_iterator = binary.iterator()?;
     assert_ne!(NO_MORE_DOCS, byte_iterator.next_doc()?);
-    assert_eq!(byte_vector.as_slice(), binary.vector_value(0)?.as_ref());
+    assert_eq!(byte_vector.as_slice(), binary.vector_value(0)?.as_bytes()?);
     assert_eq!(NO_MORE_DOCS, byte_iterator.next_doc()?);
     assert!(binary.vector_value(1).is_err());
 
@@ -2774,7 +2774,7 @@ mod tests {
     assert_ne!(NO_MORE_DOCS, float_iterator.next_doc()?);
     let stored_float_vector = float_values.vector_value(0)?;
     assert_eq!(float_vector.len(), stored_float_vector.len());
-    assert_eq!(float_vector[0], stored_float_vector.as_ref()[0]);
+    assert_eq!(float_vector[0], stored_float_vector.as_floats()?[0]);
     assert_eq!(NO_MORE_DOCS, float_iterator.next_doc()?);
     assert!(float_values.vector_value(1).is_err());
 
