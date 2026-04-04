@@ -33,7 +33,7 @@ pub trait RandomVectorScorerSupplier {
   /// # Returns
   ///
   /// A new [`RandomVectorScorer`].
-  fn scorer(&mut self, ord: usize) -> Result<Self::Scorer<'_>>;
+  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>>;
 
   /// Make a copy of the supplier, which will copy the underlying
   /// `vectorValues` so the copy is safe to be used in other threads.

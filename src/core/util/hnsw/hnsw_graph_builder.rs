@@ -213,7 +213,7 @@ where
   }
   fn add_diverse_neighbors(
     hnsw: &mut OnHeapHnswGraph,
-    scorer_supplier: &mut impl RandomVectorScorerSupplier,
+    scorer_supplier: &impl RandomVectorScorerSupplier,
     m: usize,
     hnsw_lock: Option<&HnswLock>,
     level: usize,
@@ -266,7 +266,7 @@ where
   /// caller which candidates are selected
   fn select_and_link_diverse(
     hnsw: &mut OnHeapHnswGraph,
-    scorer_supplier: &mut impl RandomVectorScorerSupplier,
+    scorer_supplier: &impl RandomVectorScorerSupplier,
     candidates: &NeighborArray,
     max_conn_on_level: usize,
     level: usize,
@@ -668,7 +668,7 @@ where
       for (i, scratch) in scratch_per_level.into_iter().enumerate() {
         Self::add_diverse_neighbors(
           &mut self.hnsw,
-          &mut self.scorer_supplier,
+          &self.scorer_supplier,
           self.m,
           self.hnsw_lock.as_ref(),
           i + lowest_unset_level,

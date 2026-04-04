@@ -335,7 +335,7 @@ impl<R> VectorScorer for DenseVectorScorer<R>
 where
   R: RandomVectorScorer,
 {
-  fn score(&mut self) -> Result<f32> {
+  fn score(&self) -> Result<f32> {
     let doc_id = self.iterator.doc_id().try_convert()?;
     self.random_vector_scorer.score(doc_id)
   }
@@ -550,7 +550,7 @@ where
   I: IndexInput,
   R: RandomVectorScorer,
 {
-  fn score(&mut self) -> Result<f32> {
+  fn score(&self) -> Result<f32> {
     let index = self.iterator.index()?;
     self.random_vector_scorer.score(index as usize)
   }
@@ -1013,7 +1013,7 @@ where
   R1: RandomVectorScorer,
   R2: RandomVectorScorer,
 {
-  fn score(&mut self) -> Result<f32> {
+  fn score(&self) -> Result<f32> {
     match self {
       VectorScorerEnum::Dense {
         iterator,

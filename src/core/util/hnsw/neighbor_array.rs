@@ -114,7 +114,7 @@ impl NeighborArray {
     new_node: usize,
     new_score: f32,
     node_id: usize,
-    scorer_supplier: &mut impl RandomVectorScorerSupplier,
+    scorer_supplier: &impl RandomVectorScorerSupplier,
   ) -> Result<()> {
     let neighbor_array = hnsw.get_neighbors_mut(level, node_id)?;
     neighbor_array.add_out_of_order(new_node, new_score)?;
@@ -285,7 +285,7 @@ impl NeighborArray {
   }
   /// Find first non-diverse neighbour among the list of neighbors starting
   /// from the most distant neighbours
-  fn find_worst_non_diverse<S>(&mut self, node_ord: usize, scorer_supplier: &mut S) -> Result<usize>
+  fn find_worst_non_diverse<S>(&mut self, node_ord: usize, scorer_supplier: &S) -> Result<usize>
   where
     S: RandomVectorScorerSupplier,
   {
@@ -328,14 +328,14 @@ impl NeighborArray {
     candidate_index: usize,
     unchecked_indexes: &[usize],
     unchecked_cursor: usize,
-    scorer_supplier: &mut S,
+    scorer_supplier: &S,
   ) -> Result<bool>
   where
     S: RandomVectorScorerSupplier,
   {
     let min_accepted_similarity = self.scores[candidate_index];
     let candidate_node = self.nodes[candidate_index];
-    let mut scorer = scorer_supplier.scorer(candidate_node)?;
+    let scorer = scorer_supplier.scorer(candidate_node)?;
 
     if candidate_index == unchecked_indexes[unchecked_cursor] {
       // the candidate itself is unchecked
@@ -666,7 +666,7 @@ mod tests {
   #[derive(Default)]
   struct TestRandomVectorScorer;
   impl RandomVectorScorer for TestRandomVectorScorer {
-    fn score(&mut self, node: usize) -> Result<f32> {
+    fn score(&self, node: usize) -> Result<f32> {
       Ok((7 - node + 1) as f32)
     }
 
@@ -689,7 +689,7 @@ mod tests {
   #[derive(Default)]
   struct TestRandomVectorScorer1;
   impl RandomVectorScorer for TestRandomVectorScorer1 {
-    fn score(&mut self, node: usize) -> Result<f32> {
+    fn score(&self, node: usize) -> Result<f32> {
       Ok((7 - node + 11) as f32)
     }
 

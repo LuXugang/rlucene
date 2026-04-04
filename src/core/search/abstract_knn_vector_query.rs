@@ -306,7 +306,7 @@ pub trait AbstractKnnVectorQuery: QueryBase {
         break;
       }
       debug_assert!(conjunction.all_disi[0].doc_id() == doc);
-      let vector_scorer = match &mut conjunction.all_disi[0] {
+      let vector_scorer = match &conjunction.all_disi[0] {
         ConjunctionDISIEnum::VectorScorer(vs) => vs,
         _ => {
           return Err(LuceneError::illegal_state(

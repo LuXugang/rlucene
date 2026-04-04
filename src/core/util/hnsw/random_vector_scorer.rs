@@ -28,7 +28,7 @@ pub trait RandomVectorScorer {
   /// # Errors
   ///
   /// Returns an error if the scoring fails (e.g., I/O error).
-  fn score(&mut self, node: usize) -> Result<f32>;
+  fn score(&self, node: usize) -> Result<f32>;
 
   /// Returns the maximum possible ordinal for this scorer.
   fn max_ord(&self) -> usize;
@@ -73,7 +73,7 @@ where
   A: RandomVectorScorer,
   B: RandomVectorScorer,
 {
-  fn score(&mut self, node: usize) -> Result<f32> {
+  fn score(&self, node: usize) -> Result<f32> {
     match self {
       RandomVectorScorerEnum2::A(t) => t.score(node),
       RandomVectorScorerEnum2::B(s) => s.score(node),

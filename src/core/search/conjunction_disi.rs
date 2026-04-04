@@ -488,7 +488,7 @@ impl<V> VectorScorer for VectorScorerDisi<V>
 where
   V: VectorScorer,
 {
-  fn score(&mut self) -> Result<f32> {
+  fn score(&self) -> Result<f32> {
     self.vector_scorer.score()
   }
 

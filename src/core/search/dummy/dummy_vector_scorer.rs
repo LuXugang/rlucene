@@ -19,7 +19,7 @@ use crate::core::search::vector_scorer::VectorScorer;
 
 pub struct DummyVectorScorer;
 impl VectorScorer for DummyVectorScorer {
-  fn score(&mut self) -> crate::core::util::error::lucene_error::Result<f32> {
+  fn score(&self) -> crate::core::util::error::lucene_error::Result<f32> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

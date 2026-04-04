@@ -27,7 +27,7 @@ pub trait VectorScorer {
   ///
   /// # Errors
   /// Returns an error if an exception occurs during score computation.
-  fn score(&mut self) -> Result<f32>;
+  fn score(&self) -> Result<f32>;
 
   type DocIdSetIteratorRef<'a>: DocIdSetIterator
   where
@@ -58,7 +58,7 @@ macro_rules! either_vector_scorer {
             $( $T: $crate::core::search::vector_scorer::VectorScorer ),+
         {
             #[inline]
-            fn score(&mut self) -> $crate::core::util::error::lucene_error::Result<f32> {
+            fn score(&self) -> $crate::core::util::error::lucene_error::Result<f32> {
                 match self {
                     $( Self::$Variant(inner) => inner.score(), )+
                 }
