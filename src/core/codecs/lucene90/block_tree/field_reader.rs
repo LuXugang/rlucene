@@ -68,7 +68,7 @@ where
   PR: PostingsReaderBase,
 {
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn new<I1: IndexInput>(
+  pub(crate) fn new<I1>(
     field_info: Arc<FieldInfo>,
     num_terms: i64,
     root_code: BytesRef<Vec<u8>>,
@@ -79,7 +79,10 @@ where
     meta_in: &mut I1,
     min_term: Arc<BytesRef<Vec<u8>>>,
     max_term: Arc<BytesRef<Vec<u8>>>,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    I1: IndexInput,
+  {
     debug_assert!(num_terms > 0);
     // Read FST metadata and build the index
     let metadata = read_metadata(meta_in, ByteSequenceOutputs)?;

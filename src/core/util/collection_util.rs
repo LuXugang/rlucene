@@ -29,7 +29,10 @@ impl CollectionUtil {
     HashMap::with_capacity(capacity)
   }
   /// Sorts the given random access `List` using the `Comparator`.
-  pub fn intro_sort_with_comparator<T, C: Comparator<T>>(list: &mut [T], comp: C) -> Result<()> {
+  pub fn intro_sort_with_comparator<T, C>(list: &mut [T], comp: C) -> Result<()>
+  where
+    C: Comparator<T>,
+  {
     let size = list.len();
     if size <= 1 {
       return Ok(());
@@ -48,8 +51,9 @@ impl CollectionUtil {
     Self::intro_sort_with_comparator(list, NaturalOrder::new())
   }
 
-  pub fn tim_sort_with_comparator<T, C: Comparator<T>>(list: &mut [T], comp: C) -> Result<()>
+  pub fn tim_sort_with_comparator<T, C>(list: &mut [T], comp: C) -> Result<()>
   where
+    C: Comparator<T>,
     T: Copy,
   {
     let size = list.len();
@@ -216,7 +220,10 @@ mod tests {
   use rand::Rng;
   use rand::RngExt;
 
-  fn create_random_list<R: Rng + ?Sized>(random: &mut R, max_size: usize) -> Vec<i32> {
+  fn create_random_list<R>(random: &mut R, max_size: usize) -> Vec<i32>
+  where
+    R: Rng + ?Sized,
+  {
     let len = random.random_range(1..=max_size);
     (0..len)
       .map(|_| random.random_range(0..len as i32))

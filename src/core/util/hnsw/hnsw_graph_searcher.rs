@@ -437,7 +437,10 @@ where
   }
   Ok(())
 }
-pub(crate) fn get_graph_size<G: HnswGraph>(graph: &G) -> usize {
+pub(crate) fn get_graph_size<G>(graph: &G) -> usize
+where
+  G: HnswGraph,
+{
   match graph.max_node_id() {
     Some(v) => v + 1,
     None => 0,

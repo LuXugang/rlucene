@@ -207,7 +207,10 @@ impl<AV> Hash for IntsRef<AV>
 where
   AV: SharedAccessVec<i32>,
 {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.ints.access(|ints| {
       let slice = &ints[self.offset..(self.offset + self.length)];
       slice.hash(state);

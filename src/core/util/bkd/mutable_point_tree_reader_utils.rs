@@ -445,7 +445,10 @@ pub(crate) mod tests {
     Ok(())
   }
 
-  fn do_test_sort<R: Rng + ?Sized>(random: &mut R, is_doc_id_incremental: bool) -> Result<()> {
+  fn do_test_sort<R>(random: &mut R, is_doc_id_incremental: bool) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let bytes_per_dim = TestUtil::next_usize(random, 1, 16);
     let end = 1 << random.random_range(0..30);
     let max_doc = TestUtil::next_int(random, 1, end);
@@ -502,7 +505,10 @@ pub(crate) mod tests {
     Ok(())
   }
 
-  fn do_test_sort_by_dim<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
+  fn do_test_sort_by_dim<R>(random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let config = Rc::new(create_random_config(random)?);
     let end = 1 << random.random_range(0..30);
     let max_doc = TestUtil::next_int(random, 1, end);
@@ -564,7 +570,10 @@ pub(crate) mod tests {
     }
     Ok(())
   }
-  fn do_test_partition<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
+  fn do_test_partition<R>(random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let config = Rc::new(create_random_config(random)?);
     let mut common_prefix_lengths = vec![0; config.num_dims];
     let end = 1 << random.random_range(0..30);
@@ -635,7 +644,10 @@ pub(crate) mod tests {
     a.cmp(b).to_int()
   }
 
-  fn create_random_config<R: Rng + ?Sized>(random: &mut R) -> Result<BKDConfig> {
+  fn create_random_config<R>(random: &mut R) -> Result<BKDConfig>
+  where
+    R: Rng + ?Sized,
+  {
     let num_index_dims = TestUtil::next_usize(random, 1, BKDConfig::MAX_INDEX_DIMS);
     let num_dims = TestUtil::next_usize(random, num_index_dims, BKDConfig::MAX_DIMS);
     let bytes_per_dim = TestUtil::next_usize(random, 1, 16);
@@ -647,13 +659,16 @@ pub(crate) mod tests {
       max_points_in_leaf_node,
     )
   }
-  fn create_random_points<R: Rng + ?Sized>(
+  fn create_random_points<R>(
     random: &mut R,
     config: &BKDConfig,
     max_doc: i32,
     common_prefix_lengths: &mut [usize],
     is_doc_id_incremental: bool,
-  ) -> Vec<Point> {
+  ) -> Vec<Point>
+  where
+    R: Rng + ?Sized,
+  {
     assert_eq!(common_prefix_lengths.len(), config.num_dims);
     let num_points = TestUtil::next_int(random, 1, 100000);
     let mut points: Vec<Point> = Vec::with_capacity(num_points as usize);
@@ -746,7 +761,10 @@ pub(crate) mod tests {
   }
 
   impl Point {
-    fn new<R: Rng + ?Sized>(random: &mut R, packed_value: &[u8], doc: i32) -> Self {
+    fn new<R>(random: &mut R, packed_value: &[u8], doc: i32) -> Self
+    where
+      R: Rng + ?Sized,
+    {
       let mut vec = vec![0u8; packed_value.len() + 1];
       vec[0] = random.random_range(0..255u8);
       vec.copy_from(packed_value, 1);

@@ -313,7 +313,10 @@ impl MultiTermQuery for TermRangeQuery {
   }
 }
 impl Hash for TermRangeQuery {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     self.base.hash(state);
     if self.include_lower {
       1231.hash(state);
@@ -666,13 +669,14 @@ mod tests {
 
     Ok(())
   }
-  fn initialize_index<D, R: Rng + ?Sized>(
+  fn initialize_index<D, R>(
     random: &mut R,
     dir: Arc<D>,
     values: &[&str],
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
+    R: Rng + ?Sized,
     D: Directory,
   {
     // TODO IMPORTANT 这里没有指定分词器
@@ -689,7 +693,7 @@ mod tests {
     writer.close()?;
     Ok(())
   }
-  fn add_doc<D, R: Rng + ?Sized>(
+  fn add_doc<D, R>(
     random: &mut R,
     dir: Arc<D>,
     content: &str,
@@ -697,6 +701,7 @@ mod tests {
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
+    R: Rng + ?Sized,
     D: Directory,
   {
     let mut config = new_index_writer_config(random);

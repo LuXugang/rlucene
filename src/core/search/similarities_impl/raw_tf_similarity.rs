@@ -94,7 +94,10 @@ mod tests {
 
   #[allow(dead_code)]
   struct TestRawTFSimilarity;
-  fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
+  fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
 
     {
@@ -196,7 +199,10 @@ mod tests {
   impl BaseSimilarityTestCase for TestRawTFSimilarity {
     type Similarity = RawTFSimilarity;
 
-    fn get_similarity<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<Self::Similarity> {
+    fn get_similarity<R>(&self, _random: &mut R) -> Result<Self::Similarity>
+    where
+      R: Rng + ?Sized,
+    {
       Ok(RawTFSimilarity::default())
     }
   }

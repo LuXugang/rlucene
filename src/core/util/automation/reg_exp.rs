@@ -1407,7 +1407,10 @@ mod tests {
     case_sensitive_query: bool,
   }
   impl TestRegExp {
-    fn random_doc_value<R: Rng + ?Sized>(random: &mut R, min_length: usize) -> String {
+    fn random_doc_value<R>(random: &mut R, min_length: usize) -> String
+    where
+      R: Rng + ?Sized,
+    {
       let char_palette = "AAAaaaBbbCccc123456 \t".chars().collect::<Vec<_>>();
       (0..min_length)
         .map(|_| {
@@ -1416,18 +1419,20 @@ mod tests {
         })
         .collect()
     }
-    fn random_int<R: Rng + ?Sized>(random: &mut R, bound: usize) -> usize {
+    fn random_int<R>(random: &mut R, bound: usize) -> usize
+    where
+      R: Rng + ?Sized,
+    {
       if bound == 0 {
         0
       } else {
         random.random_range(0..bound)
       }
     }
-    fn check_random_expression<R: Rng + ?Sized>(
-      &mut self,
-      random: &mut R,
-      doc_value: &str,
-    ) -> Result<String> {
+    fn check_random_expression<R>(&mut self, random: &mut R, doc_value: &str) -> Result<String>
+    where
+      R: Rng + ?Sized,
+    {
       use std::fmt::Write;
       // Generate and test a random regular expression which should match the given
       // docValue

@@ -219,7 +219,10 @@ mod tests {
     test_pq_with_random(10_000, &mut random)
   }
 
-  fn test_pq_with_random<R: Rng + ?Sized>(count: usize, random: &mut R) -> Result<()> {
+  fn test_pq_with_random<R>(count: usize, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut pq = LongHeap::new(count)?;
     let mut sum: i64 = 0;
     let mut sum2: i64 = 0;

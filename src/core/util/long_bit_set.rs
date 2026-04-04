@@ -514,7 +514,10 @@ impl PartialEq for LongBitSet {
 }
 impl Eq for LongBitSet {}
 impl Hash for LongBitSet {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     self.bits.hash(state);
     self.num_bits.hash(state);
   }
@@ -571,7 +574,10 @@ mod tests {
     }
   }
 
-  fn do_prev_set_bit<R: Rng + ?Sized>(random: &mut R, a: &BitSet, b: &LongBitSet) {
+  fn do_prev_set_bit<R>(random: &mut R, a: &BitSet, b: &LongBitSet)
+  where
+    R: Rng + ?Sized,
+  {
     assert_eq!(a.len(), b.cardinality());
 
     let mut aa = a.get_ref().len() as i64 + random.random_range(0..100);
@@ -604,12 +610,10 @@ mod tests {
       }
     }
   }
-  fn do_random_sets<R: Rng + ?Sized>(
-    max_size: usize,
-    iter: i32,
-    _mode: i32,
-    random: &mut R,
-  ) -> Result<()> {
+  fn do_random_sets<R>(max_size: usize, iter: i32, _mode: i32, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut a0: Option<BitSet> = None;
     let mut b0: Option<LongBitSet> = None;
 
@@ -817,11 +821,10 @@ mod tests {
     }
     Ok(())
   }
-  fn make_long_bitset<R: Rng + ?Sized>(
-    random: &mut R,
-    a: &Vec<usize>,
-    num_bits: usize,
-  ) -> Result<LongBitSet> {
+  fn make_long_bitset<R>(random: &mut R, a: &Vec<usize>, num_bits: usize) -> Result<LongBitSet>
+  where
+    R: Rng + ?Sized,
+  {
     let mut bs: LongBitSet;
     if random.random_bool(0.5) {
       let bits_2_words = LongBitSet::bits2words(num_bits)?;
@@ -845,11 +848,10 @@ mod tests {
     bs
   }
 
-  fn check_prev_set_bit_array<R: Rng + ?Sized>(
-    random: &mut R,
-    a: Vec<usize>,
-    num_bits: usize,
-  ) -> Result<()> {
+  fn check_prev_set_bit_array<R>(random: &mut R, a: Vec<usize>, num_bits: usize) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let obs = make_long_bitset(random, &a, num_bits)?;
     let bs = make_bitset(&a);
     do_prev_set_bit(random, &bs, &obs);
@@ -866,11 +868,10 @@ mod tests {
     Ok(())
   }
 
-  fn check_next_set_bit_array<R: Rng + ?Sized>(
-    random: &mut R,
-    a: Vec<usize>,
-    num_bits: usize,
-  ) -> Result<()> {
+  fn check_next_set_bit_array<R>(random: &mut R, a: Vec<usize>, num_bits: usize) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let obs = make_long_bitset(random, &a, num_bits)?;
     let bs = make_bitset(&a);
     do_next_set_bit(&bs, &obs);

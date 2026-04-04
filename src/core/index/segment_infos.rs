@@ -1288,7 +1288,10 @@ pub fn get_last_commit_generation(files: &[String]) -> Result<i64> {
 }
 
 /// Get the generation of the most recent commit to the index in this directory.
-pub fn get_last_commit_generation_from_directory<D: Directory>(directory: &D) -> Result<i64> {
+pub fn get_last_commit_generation_from_directory<D>(directory: &D) -> Result<i64>
+where
+  D: Directory,
+{
   let files = directory.list_all()?;
   get_last_commit_generation(&files)
 }
@@ -1306,9 +1309,10 @@ pub fn get_last_commit_segments_file_name(files: &[String]) -> Result<Option<Str
 
 /// Get the filename of the segments_N file for the most recent commit to the
 /// index in this Directory.
-pub fn get_last_commit_segments_file_name_from_directory<D: Directory>(
-  directory: &D,
-) -> Result<Option<String>> {
+pub fn get_last_commit_segments_file_name_from_directory<D>(directory: &D) -> Result<Option<String>>
+where
+  D: Directory,
+{
   let last_gen = get_last_commit_generation_from_directory(directory)?;
   Ok(IndexFileNames::file_name_from_generation(
     IndexFileNames::SEGMENTS,

@@ -2153,7 +2153,10 @@ pub(crate) mod tests {
     }
   }
   impl Hash for MaxScoreWrapperQuery {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+      H: Hasher,
+    {
       self.query.hash(state);
       self.max_range.hash(state);
       self.max_score.to_bits().hash(state);

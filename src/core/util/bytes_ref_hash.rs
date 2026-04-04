@@ -815,7 +815,10 @@ mod tests {
     let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
     ByteBlockPool::new(allocator)
   }
-  fn new_hash<R: Rng + ?Sized>(random: &mut R) -> DirectBytesRefHash {
+  fn new_hash<R>(random: &mut R) -> DirectBytesRefHash
+  where
+    R: Rng + ?Sized,
+  {
     let init_size = 2 << (1 + random.random_range(0..5));
     if random.random_bool(0.5) {
       BytesRefHash::new()

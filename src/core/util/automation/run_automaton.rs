@@ -186,7 +186,10 @@ impl Accountable for RunAutomaton {
   }
 }
 impl Hash for RunAutomaton {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.alphabet_size.hash(state);
     self.size.hash(state);
     self.points.hash(state);

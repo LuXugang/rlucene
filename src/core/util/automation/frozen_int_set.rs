@@ -61,7 +61,10 @@ impl fmt::Display for FrozenIntSet {
   }
 }
 impl Hash for FrozenIntSet {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.hash_code.hash(state);
   }
 }

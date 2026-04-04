@@ -644,7 +644,10 @@ impl PartialEq for FrozenBufferedUpdates {
 impl Eq for FrozenBufferedUpdates {}
 
 impl Hash for FrozenBufferedUpdates {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.id.hash(state);
   }
 }

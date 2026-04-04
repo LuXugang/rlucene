@@ -42,7 +42,10 @@ pub struct TestConjunctions;
 const F1: &str = "title";
 const F2: &str = "body";
 
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
+fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+where
+  R: Rng + ?Sized,
+{
   let dir = new_directory_shared(random)?;
   let mock = MockAnalyzer::new(random);
   let mut config = new_index_writer_config_with_analyzer(random, mock);

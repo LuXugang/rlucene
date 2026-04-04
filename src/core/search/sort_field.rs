@@ -660,7 +660,10 @@ impl PartialEq for SortField {
 }
 impl Eq for SortField {}
 impl Hash for SortField {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     self.field.hash(state);
     self.type_.hash(state);
     self.reverse.hash(state);
@@ -945,7 +948,10 @@ impl Display for MissingValueEnum {
   }
 }
 impl Hash for MissingValueEnum {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     match self {
       MissingValueEnum::StringFirst => "SortField.STRING_FIRST".hash(state),
       MissingValueEnum::StringLast => "SortField.STRING_LAST".hash(state),

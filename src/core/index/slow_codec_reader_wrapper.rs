@@ -510,12 +510,15 @@ where
     self.stored_fields.prefetch(doc_id)
   }
 
-  fn document_with_visitor<S: StoredFieldsWriter>(
+  fn document_with_visitor<S>(
     &mut self,
     doc_id: i32,
     visitor: &mut impl StoredFieldVisitor,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     self
       .stored_fields
       .document_with_visitor(doc_id, visitor, writer)

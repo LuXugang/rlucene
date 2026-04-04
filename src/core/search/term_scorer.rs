@@ -336,7 +336,10 @@ mod tests {
   const FIELD: &str = "field";
 
   const VALUES: &[&str] = &["all", "dogs dogs", "like", "playing", "fetch", "all"];
-  fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchLR> {
+  fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
 
     let analyzer = MockAnalyzer::new(random);

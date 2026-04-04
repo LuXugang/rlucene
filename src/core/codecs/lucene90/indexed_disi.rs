@@ -903,13 +903,16 @@ where
 /// # Errors
 /// Returns an error if a `RandomAccessInput` could not be created from the
 /// slice.
-pub fn create_block_slice<I: IndexInput>(
+pub fn create_block_slice<I>(
   slice: &I,
   slice_description: &str,
   offset: usize,
   length: usize,
   jump_table_entry_count: i32,
-) -> Result<I::IndexInput> {
+) -> Result<I::IndexInput>
+where
+  I: IndexInput,
+{
   let jump_table_bytes = if jump_table_entry_count < 0 {
     0
   } else {
@@ -935,12 +938,15 @@ pub fn create_block_slice<I: IndexInput>(
 /// # Errors
 /// Returns an error if a `RandomAccessInput` could not be created from the
 /// slice.
-pub fn create_jump_table<I: IndexInput>(
+pub fn create_jump_table<I>(
   slice: &I,
   offset: usize,
   length: usize,
   jump_table_entry_count: i32,
-) -> Result<Option<I::RandomAccessSlice>> {
+) -> Result<Option<I::RandomAccessSlice>>
+where
+  I: IndexInput,
+{
   if jump_table_entry_count <= 0 {
     Ok(None)
   } else {
@@ -1043,11 +1049,10 @@ fn add_jumps(
 // Flushes the offset & index jump-table for blocks. This should be the last
 // data written to out This method returns the blockCount for the blocks
 // reachable for the jump_table or -1 for no jump-table
-fn flush_block_jumps<O: IndexOutput>(
-  jumps: &[i32],
-  mut block_count: usize,
-  out: &mut O,
-) -> Result<i16> {
+fn flush_block_jumps<O>(jumps: &[i32], mut block_count: usize, out: &mut O) -> Result<i16>
+where
+  O: IndexOutput,
+{
   // Jumps with a single real entry + NO_MORE_DOCS is just wasted space so
   // we ignore that
   if block_count == 2 {
@@ -1277,7 +1282,10 @@ mod tests {
     assert_advance_beyond_end(set, &dir)
   }
 
-  fn assert_advance_beyond_end<B: BitSet>(set: B, dir: &impl Directory) -> Result<()> {
+  fn assert_advance_beyond_end<B>(set: B, dir: &impl Directory) -> Result<()>
+  where
+    B: BitSet,
+  {
     let cardinality = set.cardinality();
     let dense_rank_power = 9;
     let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
@@ -1358,7 +1366,7 @@ mod tests {
       BLOCKS as i32,
     )
   }
-  fn test_position_not_zero_extra<I: IndexInput, R: Rng + ?Sized>(
+  fn test_position_not_zero_extra<I, R>(
     random: &mut R,
     full_input: &I,
     dense_rank_power: i8,
@@ -1366,7 +1374,11 @@ mod tests {
     jump_table_entry_count: i32,
     cardinality: i64,
     blocks: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+    R: Rng + ?Sized,
+  {
     let mut block_data =
       create_block_slice(full_input, "blocks", 0, length, jump_table_entry_count)?;
     block_data.seek(random.random_range(0..block_data.length()))?;
@@ -1382,10 +1394,13 @@ mod tests {
     Ok(())
   }
 
-  fn create_set_with_random_blocks<R: Rng + ?Sized>(
+  fn create_set_with_random_blocks<R>(
     random: &mut R,
     block_count: usize,
-  ) -> Result<SparseFixedBitSet> {
+  ) -> Result<SparseFixedBitSet>
+  where
+    R: Rng + ?Sized,
+  {
     const B: usize = 65536;
     let mut set = SparseFixedBitSet::new(block_count * B)?;
     for block in 0..block_count {
@@ -1412,11 +1427,11 @@ mod tests {
     Ok(set)
   }
 
-  fn do_test_all_single_jump<R: Rng + ?Sized, B: BitSet>(
-    random: &mut R,
-    set: B,
-    dir: &impl Directory,
-  ) -> Result<B> {
+  fn do_test_all_single_jump<R, B>(random: &mut R, set: B, dir: &impl Directory) -> Result<B>
+  where
+    R: Rng + ?Sized,
+    B: BitSet,
+  {
     let cardinality = set.cardinality();
     let dense_rank_power = if rarely(random) {
       -1
@@ -1730,7 +1745,10 @@ mod tests {
     Ok(())
   }
 
-  fn do_test_random<R: Rng + ?Sized>(dir: &impl Directory, random: &mut R) -> Result<()> {
+  fn do_test_random<R>(dir: &impl Directory, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let end = TestUtil::next_int(random, 2, 20);
     let max_step = TestUtil::next_int(random, 1, 1 << end);
     let num_docs = TestUtil::next_int(random, 1, std::cmp::min(100_000, (i32::MAX - 1) / max_step));
@@ -1754,11 +1772,11 @@ mod tests {
     Ok(())
   }
 
-  fn do_test<R: Rng + ?Sized, B: BitSet>(
-    set: B,
-    dir: &impl Directory,
-    random: &mut R,
-  ) -> Result<B> {
+  fn do_test<R, B>(set: B, dir: &impl Directory, random: &mut R) -> Result<B>
+  where
+    R: Rng + ?Sized,
+    B: BitSet,
+  {
     let cardinality = set.cardinality() as i64;
     let dense_rank_power = if rarely(random) {
       -1
@@ -1828,13 +1846,18 @@ mod tests {
     Ok(set)
   }
 
-  fn assert_advance_exact_randomized<I: IndexInput, T: BitSet, R: Rng + ?Sized>(
+  fn assert_advance_exact_randomized<I, T, R>(
     random: &mut R,
     disi: &mut IndexedDISI<I, Owned>,
     disi2: &mut BitSetIterator<T>,
     disi2_length: i32,
     step: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+    T: BitSet,
+    R: Rng + ?Sized,
+  {
     let mut index = -1;
     let mut target = 0;
 
@@ -1862,10 +1885,14 @@ mod tests {
 
     Ok(())
   }
-  fn assert_single_step_equality<I: IndexInput, T: BitSet>(
+  fn assert_single_step_equality<I, T>(
     disi: &mut IndexedDISI<I, Owned>,
     disi2: &mut BitSetIterator<T>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+    T: BitSet,
+  {
     let mut i = 0;
     let mut doc = disi2.next_doc()?;
 
@@ -1879,11 +1906,15 @@ mod tests {
     assert_eq!(NO_MORE_DOCS, disi.next_doc()?);
     Ok(())
   }
-  fn assert_advance_equality<I: IndexInput, T: BitSet>(
+  fn assert_advance_equality<I, T>(
     disi: &mut IndexedDISI<I, Owned>,
     disi2: &mut BitSetIterator<T>,
     step: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+    T: BitSet,
+  {
     let mut index = -1;
 
     loop {

@@ -179,10 +179,10 @@ impl<'a> TopScoreDocLeafCollector<'a> {
       after_score,
     }
   }
-  fn update_global_min_competitive_score<S: Scorable + ?Sized>(
-    &mut self,
-    scorer: &mut S,
-  ) -> Result<()> {
+  fn update_global_min_competitive_score<S>(&mut self, scorer: &mut S) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
     debug_assert!(self.base.min_score_acc.is_some());
     let max_min_score = self.base.min_score_acc.as_ref().unwrap().get_raw();
     if max_min_score != i64::MIN {
@@ -202,12 +202,10 @@ impl<'a> TopScoreDocLeafCollector<'a> {
     }
     Ok(())
   }
-  fn collect_competitive_hit<S: Scorable + ?Sized>(
-    &mut self,
-    scorer: &mut S,
-    doc: i32,
-    score: f32,
-  ) -> Result<()> {
+  fn collect_competitive_hit<S>(&mut self, scorer: &mut S, doc: i32, score: f32) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
     match self.base.base.pq.top_mut() {
       None => return Err(LuceneError::illegal_state("Priority queue is empty")),
       Some(pq_top) => {
@@ -220,7 +218,10 @@ impl<'a> TopScoreDocLeafCollector<'a> {
     Ok(())
   }
 
-  fn update_min_competitive_score<S: Scorable + ?Sized>(&mut self, scorer: &mut S) -> Result<()> {
+  fn update_min_competitive_score<S>(&mut self, scorer: &mut S) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
     if self.base.base.total_hits > self.base.total_hits_threshold
       && let Some(pq_top) = self.base.base.pq.top()
     {

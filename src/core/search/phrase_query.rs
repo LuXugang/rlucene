@@ -185,7 +185,10 @@ impl PhraseQuery {
 }
 
 impl Hash for PhraseQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.slop.hash(state);
     self.terms.hash(state);
     self.positions.hash(state);
@@ -752,7 +755,10 @@ mod tests {
   struct TestPhraseQuery;
   pub const SCORE_COMP_THRESH: f32 = 1e-6;
 
-  fn before_class<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
+  fn before_class<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     // TODO IMPORTANT 这里需要自定义分词器
     let writer = RandomIndexWriter::new(random, dir.clone());

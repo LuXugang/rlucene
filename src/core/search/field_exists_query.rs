@@ -88,7 +88,10 @@ impl PartialEq for FieldExistsQuery {
 impl Eq for FieldExistsQuery {}
 
 impl Hash for FieldExistsQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.field.hash(state);
   }
 }
@@ -1197,11 +1200,14 @@ mod test {
 
     Ok(())
   }
-  fn assert_norms_count_without_shortcut<IRC: IndexReaderContext>(
+  fn assert_norms_count_without_shortcut<IRC>(
     searcher: &IndexSearcher<IRC>,
     field: &str,
     expected_count: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+  {
     let q = FieldExistsQuery::new(field);
     let weight = searcher.create_weight(q.clone(), ScoreMode::Complete, 1.0)?;
 
@@ -1212,11 +1218,14 @@ mod test {
     Ok(())
   }
 
-  fn assert_norms_count_with_shortcut<IRC: IndexReaderContext>(
+  fn assert_norms_count_with_shortcut<IRC>(
     searcher: &IndexSearcher<IRC>,
     field: &str,
     num_matching_docs: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+  {
     let q = FieldExistsQuery::new(field);
 
     assert_eq!(num_matching_docs, searcher.count(q.clone())?);

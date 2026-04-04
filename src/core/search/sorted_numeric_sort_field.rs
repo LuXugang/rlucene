@@ -339,7 +339,10 @@ impl Display for SortedNumericSortField {
   }
 }
 impl Hash for SortedNumericSortField {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.type_.hash(state);
     self.selector.hash(state);
     self.base.hash(state);

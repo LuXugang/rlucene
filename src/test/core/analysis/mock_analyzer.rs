@@ -28,7 +28,10 @@ pub struct MockAnalyzer {
   in_: WhitespaceAnalyzer,
 }
 impl MockAnalyzer {
-  pub fn new<R: Rng + ?Sized>(_random: &mut R) -> MockAnalyzer {
+  pub fn new<R>(_random: &mut R) -> MockAnalyzer
+  where
+    R: Rng + ?Sized,
+  {
     // TODO IMPORTANT only support WhitespaceAnalyzer now
     MockAnalyzer {
       in_: WhitespaceAnalyzer::new(),

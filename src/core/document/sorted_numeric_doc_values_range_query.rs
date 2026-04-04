@@ -72,7 +72,10 @@ impl PartialEq for SortedNumericDocValuesRangeQuery {
 impl Eq for SortedNumericDocValuesRangeQuery {}
 
 impl Hash for SortedNumericDocValuesRangeQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.field.hash(state);
     self.lower_value.hash(state);
     self.upper_value.hash(state);

@@ -31,13 +31,19 @@ pub trait BaseDocIdSetTestCase {
   type DocIdSet: DocIdSet;
   fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> Result<Self::DocIdSet>;
   /// Test length=0.
-  fn test_bit_0<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_bit_0<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let bs = bit_set::BitSet::with_capacity(1);
     let copy = self.copy_of(&bs, 1)?;
     self.assert_equals(random, 1, &bs, copy)
   }
   /// Test length=1.
-  fn test_bit_1<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_bit_1<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut bs = bit_set::BitSet::with_capacity(1);
     if random.random_bool(0.5) {
       bs.insert(0);
@@ -46,7 +52,10 @@ pub trait BaseDocIdSetTestCase {
     self.assert_equals(random, 1, &bs, copy)
   }
   /// Test length=2.
-  fn test_bit_2<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_bit_2<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut bs = bit_set::BitSet::with_capacity(2);
     if random.random_bool(0.5) {
       bs.insert(0);
@@ -58,7 +67,10 @@ pub trait BaseDocIdSetTestCase {
     self.assert_equals(random, 2, &bs, copy)
   }
   /// Compare the content of the set against a {@link BitSet}.
-  fn test_against_bit_set<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_against_bit_set<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_bits = random.random_range(100..1 << 20) as usize;
     let random_float: f32 = random.random();
     for percent_set in [0f32, 0.0001f32, random_float, 0.9f32, 1f32] {
@@ -99,14 +111,20 @@ pub trait BaseDocIdSetTestCase {
   }
   //TODO
   /// Test ram usage estimation.
-  fn test_ram_bytes_used<R: Rng + ?Sized>(&self, _random: &mut R) {}
-  fn assert_equals<R: Rng + ?Sized>(
+  fn test_ram_bytes_used<R>(&self, _random: &mut R)
+  where
+    R: Rng + ?Sized,
+  {
+  }
+  fn assert_equals<R>(
     &self,
     random: &mut R,
     num_bits: usize,
     ds1: &bit_set::BitSet,
     ds2: impl DocIdSet,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized;
 }
 // todo
 
@@ -114,13 +132,16 @@ fn ram_bytes_used(_set: impl DocIdSet, _length: i32) -> i64 {
   0
 }
 pub trait BaseDocIdSetTestCaseSupperImpl {
-  fn assert_equals<R: Rng + ?Sized>(
+  fn assert_equals<R>(
     &self,
     random: &mut R,
     num_bits: usize,
     ds1: &bit_set::BitSet,
     ds2: impl DocIdSet,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // nextDoc
     let it2 = ds2.iterator()?;
     assert_eq!(-1, it2.doc_id());

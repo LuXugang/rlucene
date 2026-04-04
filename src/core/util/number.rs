@@ -121,7 +121,10 @@ impl fmt::Display for Number {
   }
 }
 impl Hash for Number {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     match self {
       Number::U8(v) => v.hash(state),
       Number::I16(v) => v.hash(state),

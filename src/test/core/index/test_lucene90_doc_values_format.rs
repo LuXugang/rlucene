@@ -68,7 +68,10 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90DocValuesFormat;
 impl BaseIndexFileFormatTestCase for TestLucene90DocValuesFormat {
-  fn add_random_fields<R: Rng + ?Sized>(_random: &mut R) -> Result<()> {
+  fn add_random_fields<R>(_random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     todo!()
   }
 }
@@ -900,10 +903,10 @@ mod legacy_base_doc_values_format_test_case_tests {
 }
 
 trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
-  fn test_sorted_set_variable_length_big_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_variable_length_big_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = at_least(random, 10);
@@ -912,10 +915,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_variable_length_many_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_variable_length_many_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = TestUtil::next_int(random, 1024, 2049);
@@ -924,10 +927,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_variable_length_big_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_variable_length_big_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = at_least(random, 100);
@@ -936,10 +939,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_variable_length_many_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_variable_length_many_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = TestUtil::next_int(random, 1024, 2049);
@@ -948,7 +951,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_terms_enum_fixed_width<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_terms_enum_fixed_width<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = TestUtil::next_int(random, 1025, 5121);
@@ -959,7 +965,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_terms_enum_variable_width<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_terms_enum_variable_width<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = TestUtil::next_int(random, 1025, 5121);
@@ -970,7 +979,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_terms_enum_random_many<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_terms_enum_random_many<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = TestUtil::next_int(random, 1025, 8121);
@@ -981,7 +993,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_terms_enum_long_shared_prefixes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_terms_enum_long_shared_prefixes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = TestUtil::next_int(random, 1025, 5121);
@@ -998,7 +1013,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_doc_values_vs_stored_fields<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_doc_values_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self.do_test_sparse_doc_values_vs_stored_fields(random)?;
@@ -1006,10 +1024,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn do_test_sparse_doc_values_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn do_test_sparse_doc_values_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let values_len = TestUtil::next_int(random, 1, 500) as usize;
     let mut values = vec![0_i64; values_len];
     for value in &mut values {
@@ -1170,7 +1188,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     // 自定义 Codec 未实现
     Ok(())
   }
-  fn test_sorted_set_around_block_size<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_set_around_block_size<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let frontier = 1 << Lucene90DocValuesFormat::DIRECT_MONOTONIC_BLOCK_SHIFT;
     for max_doc in (frontier - 1)..=(frontier + 1) {
       let dir = new_directory_shared(random)?;
@@ -1235,7 +1256,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_numeric_around_block_size<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_numeric_around_block_size<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let frontier = 1 << Lucene90DocValuesFormat::DIRECT_MONOTONIC_BLOCK_SHIFT;
     for max_doc in (frontier - 1)..=(frontier + 1) {
       let dir = new_directory_shared(random)?;
@@ -1276,39 +1300,45 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_numeric_blocks_of_various_bits_per_value<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_numeric_blocks_of_various_bits_per_value<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.do_test_sorted_numeric_blocks_of_various_bits_per_value(random, |r| {
       TestUtil::next_int(r, 1, 3) as i64
     })
   }
 
-  fn test_sparse_sorted_numeric_blocks_of_various_bits_per_value<R: Rng + ?Sized>(
+  fn test_sparse_sorted_numeric_blocks_of_various_bits_per_value<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.do_test_sorted_numeric_blocks_of_various_bits_per_value(random, |r| {
       TestUtil::next_int(r, 0, 2) as i64
     })
   }
 
-  fn test_numeric_blocks_of_various_bits_per_value<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_numeric_blocks_of_various_bits_per_value<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.do_test_sparse_numeric_blocks_of_various_bits_per_value(random, 1.0)
   }
 
-  fn test_sparse_numeric_blocks_of_various_bits_per_value<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sparse_numeric_blocks_of_various_bits_per_value<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let density = random.random::<f64>();
     self.do_test_sparse_numeric_blocks_of_various_bits_per_value(random, density)
   }
-  fn test_numeric_field_jump_tables<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_numeric_field_jump_tables<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // IndexedDISI block skipping only activates if target >= current + 2, so
     // we need at least 5 blocks to trigger consecutive block skips.
     let max_doc = at_least(random, 5 * 65_536);
@@ -1438,11 +1468,14 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn do_test_sparse_numeric_blocks_of_various_bits_per_value<R: Rng + ?Sized>(
+  fn do_test_sparse_numeric_blocks_of_various_bits_per_value<R>(
     &self,
     random: &mut R,
     density: f64,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -1529,7 +1562,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_reseek_after_skip_decompression<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_reseek_after_skip_decompression<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let cardinality = (Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SIZE << 1) + 11;
     let mut value_set = HashSet::with_capacity(cardinality as usize);
     while value_set.len() < cardinality as usize {
@@ -1592,7 +1628,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_large_terms_compression<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_large_terms_compression<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let cardinality = 64;
     let mut values_set = HashSet::with_capacity(cardinality);
     while values_set.len() < cardinality {
@@ -1640,7 +1679,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_terms_dict_lookup_ord<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_terms_dict_lookup_ord<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let config = new_index_writer_config_with_analyzer(random, analyzer);
@@ -1673,7 +1715,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_terms_dict_lookup_ord<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_set_terms_dict_lookup_ord<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let config = new_index_writer_config_with_analyzer(random, analyzer);
@@ -1736,7 +1781,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_terms_enum_dictionary<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_terms_enum_dictionary<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -1785,7 +1833,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_terms_enum_consistency<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_terms_enum_consistency<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_terms = Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SIZE + 10;
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
@@ -1855,7 +1906,10 @@ struct BlocksOfVariousBPV {
 }
 
 impl BlocksOfVariousBPV {
-  fn new<R: Rng + ?Sized>(random: &mut R) -> Self {
+  fn new<R>(random: &mut R) -> Self
+  where
+    R: Rng + ?Sized,
+  {
     Self {
       rng: RefCell::new(StdRng::seed_from_u64(random.random::<u64>())),
       mul: TestUtil::next_int(random, 1, 100) as i64,

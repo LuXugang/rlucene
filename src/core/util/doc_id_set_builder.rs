@@ -284,10 +284,11 @@ mod tests {
     assert_equals(doc_id_set, Some(DocIdSetBuilder::new(max_doc).build()?))?;
     Ok(())
   }
-  fn assert_equals<T1: DocIdSet, T2: DocIdSet>(
-    mut d1: Option<T1>,
-    mut d2: Option<T2>,
-  ) -> Result<()> {
+  fn assert_equals<T1, T2>(mut d1: Option<T1>, mut d2: Option<T2>) -> Result<()>
+  where
+    T1: DocIdSet,
+    T2: DocIdSet,
+  {
     match (d1.as_mut(), d2.as_mut()) {
       (None, None) => {
         unreachable!("")

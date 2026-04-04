@@ -186,12 +186,15 @@ impl ForUtil {
     bits_per_value << (Self::BLOCK_SIZE_LOG2 - 3)
   }
 
-  pub(crate) fn decode_slow<I: IndexInput>(
+  pub(crate) fn decode_slow<I>(
     bits_per_value: i32,
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     let num_ints = bits_per_value << 2;
     let mask = Self::MASKS32[bits_per_value as usize];
     pdu.split_ints_diff(num_ints, ints, 32 - bits_per_value, 32, mask, tmp, 0, -1)?;
@@ -299,12 +302,15 @@ impl ForUtil {
   pub const MASK32_15: i32 = Self::MASKS32[15];
   pub const MASK32_16: i32 = Self::MASKS32[16];
   /// Decode 128 integers into `[i32]`.
-  pub(crate) fn decode<I: IndexInput>(
+  pub(crate) fn decode<I>(
     &mut self,
     bits_per_value: i32,
     pdu: &mut PostingDecodingUtil<I>,
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     match bits_per_value {
       1 => {
         Self::decode1(pdu, ints)?;
@@ -377,24 +383,27 @@ impl ForUtil {
     Ok(())
   }
 
-  pub(crate) fn decode1<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    ints: &mut [i32],
-  ) -> Result<()> {
+  pub(crate) fn decode1<I>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_same(4, ints, 7, 1, Self::MASK8_1, 28, Self::MASK8_1)
   }
-  pub(crate) fn decode2<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    ints: &mut [i32],
-  ) -> Result<()> {
+  pub(crate) fn decode2<I>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_same(8, ints, 6, 2, Self::MASK8_2, 24, Self::MASK8_2)
   }
 
-  pub(crate) fn decode3<I: IndexInput>(
+  pub(crate) fn decode3<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(12, ints, 5, 3, Self::MASK8_3, tmp, 0, Self::MASK8_2)?;
 
     let mut iter = 0;
@@ -414,17 +423,16 @@ impl ForUtil {
     }
     Ok(())
   }
-  pub(crate) fn decode4<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    ints: &mut [i32],
-  ) -> Result<()> {
+  pub(crate) fn decode4<I>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_same(16, ints, 4, 4, Self::MASK8_4, 16, Self::MASK8_4)
   }
-  fn decode5<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    tmp: &mut [i32],
-    ints: &mut [i32],
-  ) -> Result<()> {
+  fn decode5<I>(pdu: &mut PostingDecodingUtil<I>, tmp: &mut [i32], ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(20, ints, 3, 5, Self::MASK8_5, tmp, 0, Self::MASK8_3)?;
     let mut tmp_idx = 0;
     let mut ints_idx = 20;
@@ -447,11 +455,10 @@ impl ForUtil {
     }
     Ok(())
   }
-  fn decode6<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    tmp: &mut [i32],
-    ints: &mut [i32],
-  ) -> Result<()> {
+  fn decode6<I>(pdu: &mut PostingDecodingUtil<I>, tmp: &mut [i32], ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(24, ints, 2, 6, Self::MASK8_6, tmp, 0, Self::MASK8_2)?;
     let mut tmp_idx = 0;
     let mut ints_idx = 24;
@@ -467,11 +474,10 @@ impl ForUtil {
     Ok(())
   }
 
-  fn decode7<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    tmp: &mut [i32],
-    ints: &mut [i32],
-  ) -> Result<()> {
+  fn decode7<I>(pdu: &mut PostingDecodingUtil<I>, tmp: &mut [i32], ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(28, ints, 1, 7, Self::MASK8_7, tmp, 0, Self::MASK8_1)?;
     let mut tmp_idx = 0;
     let mut ints_idx = 28;
@@ -490,15 +496,21 @@ impl ForUtil {
     }
     Ok(())
   }
-  fn decode8<I: IndexInput>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()> {
+  fn decode8<I>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.input.read_ints(ints, 0, 32)
   }
 
-  pub(crate) fn decode9<I: IndexInput>(
+  pub(crate) fn decode9<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(36, ints, 7, 9, Self::MASK16_9, tmp, 0, Self::MASK16_7)?;
     let mut tmp_idx = 0;
     let mut ints_idx = 36;
@@ -538,11 +550,14 @@ impl ForUtil {
     Ok(())
   }
 
-  pub(crate) fn decode10<I: IndexInput>(
+  pub(crate) fn decode10<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(40, ints, 6, 10, Self::MASK16_10, tmp, 0, Self::MASK16_6)?;
     let mut tmp_idx = 0;
     let mut ints_idx = 40;
@@ -566,11 +581,14 @@ impl ForUtil {
     Ok(())
   }
 
-  pub(crate) fn decode11<I: IndexInput>(
+  pub(crate) fn decode11<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(44, ints, 5, 11, Self::MASK16_11, tmp, 0, Self::MASK16_5)?;
     let mut tmp_idx = 0;
     let mut ints_idx = 44;
@@ -605,11 +623,10 @@ impl ForUtil {
     }
     Ok(())
   }
-  fn decode12<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    tmp: &mut [i32],
-    ints: &mut [i32],
-  ) -> Result<()> {
+  fn decode12<I>(pdu: &mut PostingDecodingUtil<I>, tmp: &mut [i32], ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(48, ints, 4, 12, Self::MASK16_12, tmp, 0, Self::MASK16_4)?;
     let mut tmp_idx = 0;
     let mut ints_idx = 48;
@@ -622,11 +639,10 @@ impl ForUtil {
     Ok(())
   }
 
-  fn decode13<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    tmp: &mut [i32],
-    ints: &mut [i32],
-  ) -> Result<()> {
+  fn decode13<I>(pdu: &mut PostingDecodingUtil<I>, tmp: &mut [i32], ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(52, ints, 3, 13, Self::MASK16_13, tmp, 0, Self::MASK16_3)?;
     let mut tmp_idx = 0;
     let mut ints_idx = 52;
@@ -658,11 +674,10 @@ impl ForUtil {
     Ok(())
   }
 
-  fn decode14<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    tmp: &mut [i32],
-    ints: &mut [i32],
-  ) -> Result<()> {
+  fn decode14<I>(pdu: &mut PostingDecodingUtil<I>, tmp: &mut [i32], ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(56, ints, 2, 14, Self::MASK16_14, tmp, 0, Self::MASK16_2)?;
     let mut tmp_idx = 0;
     let mut ints_idx = 56;
@@ -681,11 +696,10 @@ impl ForUtil {
     Ok(())
   }
 
-  fn decode15<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    tmp: &mut [i32],
-    ints: &mut [i32],
-  ) -> Result<()> {
+  fn decode15<I>(pdu: &mut PostingDecodingUtil<I>, tmp: &mut [i32], ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(60, ints, 1, 15, Self::MASK16_15, tmp, 0, Self::MASK16_1)?;
     let mut tmp_idx = 0;
     let mut ints_idx = 60;
@@ -712,7 +726,10 @@ impl ForUtil {
     Ok(())
   }
 
-  fn decode16<I: IndexInput>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()> {
+  fn decode16<I>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.input.read_ints(ints, 0, 64)
   }
 }

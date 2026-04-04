@@ -92,22 +92,24 @@ impl Util {
       Ok(None)
     }
   }
-  pub fn get_utf32<AV: SharedAccessVec<i32> + WritableVec<i32>>(
-    s: &str,
-    scratch: &mut IntsRefBuilder<AV>,
-  ) {
+  pub fn get_utf32<AV>(s: &str, scratch: &mut IntsRefBuilder<AV>)
+  where
+    AV: SharedAccessVec<i32> + WritableVec<i32>,
+  {
     let len = s.len();
     Self::get_utf32_with_slice(s, 0, len, scratch);
   }
   /// Decodes the Unicode codepoints from the provided `char[]` and places
   /// them into the provided scratch `IntsRef`, which must not be `None`,
   /// and returns it.
-  pub fn get_utf32_with_slice<AV: SharedAccessVec<i32> + WritableVec<i32>>(
+  pub fn get_utf32_with_slice<AV>(
     s: &str,
     offset: usize,
     length: usize,
     scratch: &mut IntsRefBuilder<AV>,
-  ) {
+  ) where
+    AV: SharedAccessVec<i32> + WritableVec<i32>,
+  {
     let mut int_idx = 0;
     for c in s[offset..offset + length].chars() {
       scratch.grow(int_idx + 1);
@@ -118,10 +120,11 @@ impl Util {
   }
   /// Just takes unsigned byte values from the BytesRef and converts into an
   /// IntsRef.
-  pub fn get_ints_ref<AV1: SharedAccessVec<u8>, AV2: SharedAccessVec<i32> + WritableVec<i32>>(
-    input: &BytesRef<AV1>,
-    scratch: &mut IntsRefBuilder<AV2>,
-  ) {
+  pub fn get_ints_ref<AV1, AV2>(input: &BytesRef<AV1>, scratch: &mut IntsRefBuilder<AV2>)
+  where
+    AV1: SharedAccessVec<u8>,
+    AV2: SharedAccessVec<i32> + WritableVec<i32>,
+  {
     scratch.grow_no_copy(input.length);
     for i in 0..input.length {
       input.bytes.access(|bytes| {
@@ -133,10 +136,14 @@ impl Util {
   }
   /// Just converts IntsRef to BytesRef; you must ensure the int values fit
   /// into a byte.
-  pub fn get_bytes_ref<AV1: SharedAccessVec<i32>, AV2: SharedAccessVec<u8> + WritableVec<u8>>(
+  pub fn get_bytes_ref<AV1, AV2>(
     input: &IntsRef<AV1>,
     scratch: &mut BytesRefBuilder<AV2>,
-  ) -> Result<BytesRef<AV2>> {
+  ) -> Result<BytesRef<AV2>>
+  where
+    AV1: SharedAccessVec<i32>,
+    AV2: SharedAccessVec<u8> + WritableVec<u8>,
+  {
     scratch.grow(input.length);
     for i in 0..input.length {
       input.ints.access(|v| {

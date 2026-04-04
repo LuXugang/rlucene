@@ -219,7 +219,10 @@ pub fn test_random_merging() -> Result<()> {
   do_test_random(&mut random, true)
 }
 
-fn do_test_random<R: Rng + ?Sized>(random: &mut R, merging: bool) -> Result<()> {
+fn do_test_random<R>(random: &mut R, merging: bool) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   let iters = at_least(random, 3);
   for _ in 0..iters {
     let dir = new_directory_shared(random)?;
@@ -308,12 +311,15 @@ pub fn test_monotonic_binary_search_random() -> Result<()> {
   Ok(())
 }
 
-fn do_test_monotonic_binary_search_against_long_array<R: Rng + ?Sized>(
+fn do_test_monotonic_binary_search_against_long_array<R>(
   random: &mut R,
   dir: &impl Directory,
   array: &[i64],
   block_shift: i32,
-) -> Result<()> {
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   {
     let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
     let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;

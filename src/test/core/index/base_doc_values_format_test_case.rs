@@ -61,10 +61,10 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     true
   }
 
-  fn test_sorted_merge_away_all_values_with_skipper<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_merge_away_all_values_with_skipper<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -121,10 +121,10 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_merge_away_all_values_with_skipper<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_merge_away_all_values_with_skipper<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -181,10 +181,10 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_number_merge_away_all_values_with_skipper<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_number_merge_away_all_values_with_skipper<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -232,10 +232,10 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_number_merge_away_all_values_with_skipper<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_number_merge_away_all_values_with_skipper<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -283,10 +283,13 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_merge_away_all_values_large_segment_with_skipper<R: Rng + ?Sized>(
+  fn test_sorted_merge_away_all_values_large_segment_with_skipper<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -339,10 +342,13 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_merge_away_all_values_large_segment_with_skipper<R: Rng + ?Sized>(
+  fn test_sorted_set_merge_away_all_values_large_segment_with_skipper<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -395,10 +401,13 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_numeric_merge_away_all_values_large_segment_with_skipper<R: Rng + ?Sized>(
+  fn test_numeric_merge_away_all_values_large_segment_with_skipper<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -442,10 +451,13 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_numeric_merge_away_all_values_large_segment_with_skipper<R: Rng + ?Sized>(
+  fn test_sorted_numeric_merge_away_all_values_large_segment_with_skipper<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -488,138 +500,150 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     ireader.close()?;
     Ok(())
   }
-  fn test_numeric_doc_values_with_skipper_small<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_numeric_doc_values_with_skipper_small<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(1..1000);
     self.do_test_numeric_doc_values_with_skipper(random, total_docs)
   }
 
-  fn test_numeric_doc_values_with_skipper_medium<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_numeric_doc_values_with_skipper_medium<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(1000..20000);
     self.do_test_numeric_doc_values_with_skipper(random, total_docs)
   }
 
-  fn test_numeric_doc_values_with_skipper_big<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_numeric_doc_values_with_skipper_big<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(50000..100000);
     self.do_test_numeric_doc_values_with_skipper(random, total_docs)
   }
 
-  fn do_test_numeric_doc_values_with_skipper<R: Rng + ?Sized>(
+  fn do_test_numeric_doc_values_with_skipper<R>(
     &self,
     random: &mut R,
     total_docs: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.assert_doc_values_with_skipper(random, total_docs, NumericTestDocValueSkipper)
   }
 
-  fn test_sorted_numeric_doc_values_with_skipper_small<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_numeric_doc_values_with_skipper_small<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(1..1000);
     self.do_test_sorted_numeric_doc_values_with_skipper(random, total_docs)
   }
 
-  fn test_sorted_numeric_doc_values_with_skipper_medium<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_numeric_doc_values_with_skipper_medium<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(1000..20000);
     self.do_test_sorted_numeric_doc_values_with_skipper(random, total_docs)
   }
 
-  fn test_sorted_numeric_doc_values_with_skipper_big<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_numeric_doc_values_with_skipper_big<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(50000..100000);
     self.do_test_sorted_numeric_doc_values_with_skipper(random, total_docs)
   }
 
-  fn do_test_sorted_numeric_doc_values_with_skipper<R: Rng + ?Sized>(
+  fn do_test_sorted_numeric_doc_values_with_skipper<R>(
     &self,
     random: &mut R,
     total_docs: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.assert_doc_values_with_skipper(random, total_docs, SortedNumericTestDocValueSkipper)
   }
 
-  fn test_sorted_doc_values_with_skipper_small<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_doc_values_with_skipper_small<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(1..1000);
     self.do_test_sorted_doc_values_with_skipper(random, total_docs)
   }
 
-  fn test_sorted_doc_values_with_skipper_medium<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_doc_values_with_skipper_medium<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(1000..20000);
     self.do_test_sorted_doc_values_with_skipper(random, total_docs)
   }
 
-  fn test_sorted_doc_values_with_skipper_big<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_doc_values_with_skipper_big<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(50000..100000);
     self.do_test_sorted_doc_values_with_skipper(random, total_docs)
   }
 
-  fn do_test_sorted_doc_values_with_skipper<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-    total_docs: i32,
-  ) -> Result<()> {
+  fn do_test_sorted_doc_values_with_skipper<R>(&self, random: &mut R, total_docs: i32) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.assert_doc_values_with_skipper(random, total_docs, SortedTestDocValueSkipper)
   }
 
-  fn test_sorted_set_doc_values_with_skipper_small<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_doc_values_with_skipper_small<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(1..1000);
     self.do_test_sorted_set_doc_values_with_skipper(random, total_docs)
   }
 
-  fn test_sorted_set_doc_values_with_skipper_medium<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_doc_values_with_skipper_medium<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(10000..20000);
     self.do_test_sorted_set_doc_values_with_skipper(random, total_docs)
   }
 
-  fn test_sorted_set_doc_values_with_skipper_big<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_doc_values_with_skipper_big<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let total_docs = random.random_range(50000..100000);
     self.do_test_sorted_set_doc_values_with_skipper(random, total_docs)
   }
 
-  fn do_test_sorted_set_doc_values_with_skipper<R: Rng + ?Sized>(
+  fn do_test_sorted_set_doc_values_with_skipper<R>(
     &self,
     random: &mut R,
     total_docs: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.assert_doc_values_with_skipper(random, total_docs, SortedSetTestDocValueSkipper)
   }
 
-  fn assert_doc_values_with_skipper<T, R: Rng + ?Sized>(
+  fn assert_doc_values_with_skipper<T, R>(
     &self,
     random: &mut R,
     total_docs: i32,
     test_doc_value_skipper: T,
   ) -> Result<()>
   where
+    R: Rng + ?Sized,
     T: TestDocValueSkipper,
   {
     let directory = new_directory_shared(random)?;
@@ -750,7 +774,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     Ok(doc_count)
   }
 
-  fn assert_doc_values_skip_random<I, SK, R: Rng + ?Sized>(
+  fn assert_doc_values_skip_random<I, SK, R>(
     &self,
     random: &mut R,
     mut iterator: I,
@@ -758,6 +782,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     max_doc: i32,
   ) -> Result<()>
   where
+    R: Rng + ?Sized,
     I: DocValuesWrapper,
     SK: DocValuesSkipper,
   {
@@ -785,13 +810,18 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       next_level = random.random_range(0..skipper.num_levels());
     }
   }
-  fn test_mismatched_fields<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_mismatched_fields<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO MismatchedCodecReader未实现
     Ok(())
   }
 }
 pub trait TestDocValueSkipper {
-  fn populate_doc<R: Rng + ?Sized>(&self, random: &mut R, doc: &mut Document) -> Result<()>;
+  fn populate_doc<R>(&self, random: &mut R, doc: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized;
 
   type DocValuesWrapper<LR>: DocValuesWrapper
   where
@@ -866,7 +896,10 @@ where
 pub struct NumericTestDocValueSkipper;
 
 impl TestDocValueSkipper for NumericTestDocValueSkipper {
-  fn populate_doc<R: Rng + ?Sized>(&self, random: &mut R, doc: &mut Document) -> Result<()> {
+  fn populate_doc<R>(&self, random: &mut R, doc: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     doc.add(NumericDocValuesField::indexed_field(
       "test",
       random.random::<i64>(),
@@ -970,7 +1003,10 @@ where
 pub struct SortedNumericTestDocValueSkipper;
 
 impl TestDocValueSkipper for SortedNumericTestDocValueSkipper {
-  fn populate_doc<R: Rng + ?Sized>(&self, random: &mut R, doc: &mut Document) -> Result<()> {
+  fn populate_doc<R>(&self, random: &mut R, doc: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     for _ in 0..random.random_range(1..5) {
       doc.add(SortedNumericDocValuesField::indexed_field(
         "test",
@@ -1052,7 +1088,10 @@ where
 pub struct SortedTestDocValueSkipper;
 
 impl TestDocValueSkipper for SortedTestDocValueSkipper {
-  fn populate_doc<R: Rng + ?Sized>(&self, random: &mut R, doc: &mut Document) -> Result<()> {
+  fn populate_doc<R>(&self, random: &mut R, doc: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     doc.add(SortedDocValuesField::indexed_field(
       "test",
       TestUtil::random_binary_term(random),
@@ -1156,7 +1195,10 @@ where
 pub struct SortedSetTestDocValueSkipper;
 
 impl TestDocValueSkipper for SortedSetTestDocValueSkipper {
-  fn populate_doc<R: Rng + ?Sized>(&self, random: &mut R, doc: &mut Document) -> Result<()> {
+  fn populate_doc<R>(&self, random: &mut R, doc: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     for _ in 0..random.random_range(1..5) {
       doc.add(SortedSetDocValuesField::indexed_field(
         "test",

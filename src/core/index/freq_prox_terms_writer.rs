@@ -946,7 +946,10 @@ mod tests {
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
   use crate::test::core::util::test_util::TestUtil;
 
-  fn generate_doc_offset_data<R: Rng + ?Sized>(random: &mut R, len: usize) -> (Vec<i32>, Vec<i64>) {
+  fn generate_doc_offset_data<R>(random: &mut R, len: usize) -> (Vec<i32>, Vec<i64>)
+  where
+    R: Rng + ?Sized,
+  {
     let mut docs = Vec::with_capacity(len);
     let mut offsets = Vec::with_capacity(len);
 

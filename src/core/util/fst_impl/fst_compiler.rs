@@ -1416,12 +1416,15 @@ where
     arc.is_final = is_final;
   }
 
-  pub(crate) fn set_last_output<O: Outputs, D: Directory>(
+  pub(crate) fn set_last_output<O, D>(
     label_to_match: i32,
     new_output: O::V,
     compiler: &mut FSTCompiler<O, D>,
     node_idx: usize,
-  ) {
+  ) where
+    O: Outputs,
+    D: Directory,
+  {
     debug_assert!(compiler.valid_output(&new_output));
     let un_compile_node = compiler.frontier[node_idx].as_mut().unwrap();
     debug_assert!(un_compile_node.num_arcs > 0);
@@ -1431,11 +1434,14 @@ where
   }
 
   /// Pushes an output prefix forward onto all arcs.
-  pub(crate) fn prepend_output<O: Outputs, D: Directory>(
+  pub(crate) fn prepend_output<O, D>(
     output_prefix: &O::V,
     compiler: &mut FSTCompiler<O, D>,
     node_index: usize,
-  ) {
+  ) where
+    O: Outputs,
+    D: Directory,
+  {
     debug_assert!(compiler.valid_output(output_prefix));
     let un_compiled_node = compiler.frontier[node_index].as_mut().unwrap();
     for i in 0..un_compiled_node.num_arcs as usize {

@@ -33,12 +33,15 @@ impl StoredFields for DummyStoredFields {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
-  fn document_with_visitor<S: StoredFieldsWriter>(
+  fn document_with_visitor<S>(
     &mut self,
     _doc_id: i32,
     _visitor: &mut impl StoredFieldVisitor,
     _writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

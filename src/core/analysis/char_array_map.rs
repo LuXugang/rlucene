@@ -179,7 +179,10 @@ mod tests {
   #[allow(dead_code)]
   struct TestCharArrayMap;
 
-  fn do_random<R: Rng + ?Sized>(random: &mut R, iter: i32, ignore_case: bool) {
+  fn do_random<R>(random: &mut R, iter: i32, ignore_case: bool)
+  where
+    R: Rng + ?Sized,
+  {
     let mut cmap = CharArrayMap::new(ignore_case);
     let mut hmap: HashMap<String, i32> = HashMap::new();
 

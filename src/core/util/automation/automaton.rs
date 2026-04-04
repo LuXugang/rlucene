@@ -1900,10 +1900,10 @@ mod tests {
     Ok(())
   }
 
-  fn random_no_op<'a, R: Rng + ?Sized>(
-    a: &'a Automaton,
-    random: &mut R,
-  ) -> Result<Cow<'a, Automaton>> {
+  fn random_no_op<'a, R>(a: &'a Automaton, random: &mut R) -> Result<Cow<'a, Automaton>>
+  where
+    R: Rng + ?Sized,
+  {
     match random.random_range(0..7) {
       0 => Ok(Operations::determinize(a, i32::MAX as usize)?),
       1 => {
@@ -1943,7 +1943,10 @@ mod tests {
     }
     false
   }
-  fn union_terms<R: Rng + ?Sized>(terms: &[BytesRef<Vec<u8>>], rng: &mut R) -> Result<Automaton> {
+  fn union_terms<R>(terms: &[BytesRef<Vec<u8>>], rng: &mut R) -> Result<Automaton>
+  where
+    R: Rng + ?Sized,
+  {
     let a = if rng.random_bool(0.5) || has_massive_term(terms) {
       let owned_automata: Vec<Automaton> = terms
         .iter()
@@ -1958,7 +1961,10 @@ mod tests {
     };
     Ok(random_no_op(&a, rng)?.into_owned())
   }
-  fn get_random_string<R: Rng + ?Sized>(random: &mut R) -> String {
+  fn get_random_string<R>(random: &mut R) -> String
+  where
+    R: Rng + ?Sized,
+  {
     TestUtil::random_realistic_unicode_string(random)
   }
   #[test]
@@ -2339,11 +2345,10 @@ mod tests {
     Ok(a2)
   }
 
-  pub fn assert_same<R: Rng + ?Sized>(
-    terms: &[BytesRef<Vec<u8>>],
-    a: &Automaton,
-    random: &mut R,
-  ) -> Result<()> {
+  pub fn assert_same<R>(terms: &[BytesRef<Vec<u8>>], a: &Automaton, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(AutomatonTestUtil::is_finite(a)?);
     assert!(!Operations::is_total(a)?);
 
@@ -2672,7 +2677,10 @@ mod tests {
 
     Ok(())
   }
-  fn ints_ref<R: Rng + ?Sized>(s: &str, random: &mut R) -> Result<IntsRef<Vec<i32>>> {
+  fn ints_ref<R>(s: &str, random: &mut R) -> Result<IntsRef<Vec<i32>>>
+  where
+    R: Rng + ?Sized,
+  {
     let mut builder = IntsRefBuilder::new();
     let b: BytesRef<Vec<u8>> = new_bytes_ref_from_string(random, s)?;
     Util::get_ints_ref(&b, &mut builder);

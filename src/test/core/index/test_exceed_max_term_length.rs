@@ -34,7 +34,10 @@ pub struct TestExceedMaxTermLength;
 
 const MIN_TEST_TERM_LENGTH: i32 = MAX_TERM_LENGTH + 1;
 const MAX_TEST_TERM_LENGTH: i32 = MAX_TERM_LENGTH * 2;
-fn create_dir<R: Rng + ?Sized>(random: &mut R) -> DirEnum {
+fn create_dir<R>(random: &mut R) -> DirEnum
+where
+  R: Rng + ?Sized,
+{
   new_directory(random).unwrap()
 }
 

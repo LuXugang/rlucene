@@ -32,7 +32,10 @@ use rand::RngExt;
 use rand::prelude::IndexedRandom;
 
 pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
-  fn dir_size<D: Directory>(&self, directory: &D) -> Result<usize> {
+  fn dir_size<D>(&self, directory: &D) -> Result<usize>
+  where
+    D: Directory,
+  {
     let mut size = 0;
     for file in directory.list_all()? {
       size += directory.file_length(&file)?;
@@ -40,7 +43,10 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
     Ok(size)
   }
 
-  fn test_unique_values_compression<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_unique_values_compression<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO ByteBuffersDirectory 未实现
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
@@ -78,7 +84,10 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_date_compression<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_date_compression<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO ByteBuffersDirectory 未实现
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
@@ -110,7 +119,10 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
     Ok(())
   }
 
-  fn test_single_big_value_compression<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_single_big_value_compression<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO ByteBuffersDirectory 未实现
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);

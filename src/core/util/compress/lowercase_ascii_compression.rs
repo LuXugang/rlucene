@@ -180,15 +180,17 @@ mod tests {
     at_least, at_least_usize, random,
   };
   use crate::test::core::util::test_util::TestUtil;
-  fn do_test_compress<R: Rng + ?Sized>(random: &mut R, bytes: &[u8]) -> Result<bool> {
+  fn do_test_compress<R>(random: &mut R, bytes: &[u8]) -> Result<bool>
+  where
+    R: Rng + ?Sized,
+  {
     do_test_compress_with_len(random, bytes, bytes.len())
   }
 
-  fn do_test_compress_with_len<R: Rng + ?Sized>(
-    random: &mut R,
-    bytes: &[u8],
-    len: usize,
-  ) -> Result<bool> {
+  fn do_test_compress_with_len<R>(random: &mut R, bytes: &[u8], len: usize) -> Result<bool>
+  where
+    R: Rng + ?Sized,
+  {
     let mut compressed = ByteBuffersDataOutput::new();
     let mut tmp = vec![0u8; len + random.random_range(0..10)];
     random.fill(&mut tmp[..]);

@@ -2782,49 +2782,82 @@ mod tests {
     Ok(())
   }
 
-  fn try_set_byte_value<F: FieldBase>(f: &mut F) -> Result<()> {
+  fn try_set_byte_value<F>(f: &mut F) -> Result<()>
+  where
+    F: FieldBase,
+  {
     f.set_byte_value(10)
   }
-  fn try_set_bytes_value<F: FieldBase>(f: &mut F) -> Result<()> {
+  fn try_set_bytes_value<F>(f: &mut F) -> Result<()>
+  where
+    F: FieldBase,
+  {
     f.set_bytes_value(BytesRef::from_bytes(vec![5, 5]))
   }
 
-  fn try_set_bytes_ref_value<F: FieldBase>(f: &mut F) -> Result<()> {
+  fn try_set_bytes_ref_value<F>(f: &mut F) -> Result<()>
+  where
+    F: FieldBase,
+  {
     f.set_bytes_value(BytesRef::from_string("bogus"))
   }
 
-  fn try_set_double_value<F: FieldBase>(f: &mut F) -> Result<()> {
+  fn try_set_double_value<F>(f: &mut F) -> Result<()>
+  where
+    F: FieldBase,
+  {
     f.set_double_value(f64::MAX)
   }
 
-  fn try_set_int_value<F: FieldBase>(f: &mut F) -> Result<()> {
+  fn try_set_int_value<F>(f: &mut F) -> Result<()>
+  where
+    F: FieldBase,
+  {
     f.set_int_value(i32::MAX)
   }
 
-  fn try_set_long_value<F: FieldBase>(f: &mut F) -> Result<()> {
+  fn try_set_long_value<F>(f: &mut F) -> Result<()>
+  where
+    F: FieldBase,
+  {
     f.set_long_value(i64::MAX)
   }
 
-  fn try_set_float_value<F: FieldBase>(f: &mut F) -> Result<()> {
+  fn try_set_float_value<F>(f: &mut F) -> Result<()>
+  where
+    F: FieldBase,
+  {
     f.set_float_value(f32::MAX)
   }
 
-  fn try_set_reader_value<F: FieldBase>(f: &mut F) -> Result<()> {
+  fn try_set_reader_value<F>(f: &mut F) -> Result<()>
+  where
+    F: FieldBase,
+  {
     let mut reader = ReusableStringReader::new();
     reader.set_value("BOO!");
     let read = ReaderEnum::ReusedString(reader);
     f.set_reader_value(Arc::from(read))
   }
 
-  fn try_set_short_value<F: FieldBase>(f: &mut F) -> Result<()> {
+  fn try_set_short_value<F>(f: &mut F) -> Result<()>
+  where
+    F: FieldBase,
+  {
     f.set_short_value(i16::MAX)
   }
 
-  fn try_set_string_value<F: FieldBase>(f: &mut F) -> Result<()> {
+  fn try_set_string_value<F>(f: &mut F) -> Result<()>
+  where
+    F: FieldBase,
+  {
     f.set_string_value("BOO!")
   }
 
-  fn try_set_token_stream_value<F: FieldBase>(f: &mut F) -> Result<()> {
+  fn try_set_token_stream_value<F>(f: &mut F) -> Result<()>
+  where
+    F: FieldBase,
+  {
     let token_stream = TokenStreamEnum::Dummy(Arc::new(DummyTokenStream));
     f.set_token_stream(Arc::new(token_stream))
   }

@@ -281,7 +281,10 @@ mod tests {
   #[allow(dead_code)] // for quick search
   struct TestStableMSBRadixSorter;
 
-  fn test<R: Rng + ?Sized>(refs: &[BytesRef<Vec<u8>>], len: usize, random: &mut R) -> Result<()> {
+  fn test<R>(refs: &[BytesRef<Vec<u8>>], len: usize, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
     expected.sort();
 
@@ -329,11 +332,10 @@ mod tests {
     test(&refs, 2, &mut random)
   }
 
-  fn test_random_impl<R: Rng + ?Sized>(
-    common_prefix_len: usize,
-    max_len: usize,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_random_impl<R>(common_prefix_len: usize, max_len: usize, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut common_prefix = vec![0u8; common_prefix_len];
     random.fill_bytes(&mut common_prefix);
     let len = random.random_range(0..100_000);

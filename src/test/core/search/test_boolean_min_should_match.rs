@@ -41,7 +41,10 @@ use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search
 pub struct TestBooleanMinShouldMatch;
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
+fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+where
+  R: Rng + ?Sized,
+{
   let data = vec![
     Some("A 1 2 3 4 5 6"),
     Some("Z       4 5 6"),
@@ -521,7 +524,9 @@ where
   Ok(())
 }
 pub(crate) trait Callback {
-  fn post_create<R: Rng + ?Sized>(&self, random: &mut R, q: &mut Builder) -> Result<()>;
+  fn post_create<R>(&self, random: &mut R, q: &mut Builder) -> Result<()>
+  where
+    R: Rng + ?Sized;
 }
 pub(crate) struct CallbackImpl<'a> {
   field: String,
@@ -533,7 +538,10 @@ impl<'a> CallbackImpl<'a> {
   }
 }
 impl Callback for CallbackImpl<'_> {
-  fn post_create<R: Rng + ?Sized>(&self, random: &mut R, q: &mut Builder) -> Result<()> {
+  fn post_create<R>(&self, random: &mut R, q: &mut Builder) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut opt = 0;
     for clause in &q.clauses {
       if *clause.occur() == Occur::Should {

@@ -71,11 +71,10 @@ static QUERYS: LazyLock<(TermQuery, TermQuery, TermQuery, TermQuery)> = LazyLock
   let c2 = TermQuery::new(Term::from_text(FIELD_C, "optimize"));
   (t1, t2, c1, c2)
 });
-fn search<R: Rng + ?Sized>(
-  random: &mut R,
-  searcher: &DefaultIndexSearchCR,
-  q: impl Into<Query>,
-) -> Result<usize> {
+fn search<R>(random: &mut R, searcher: &DefaultIndexSearchCR, q: impl Into<Query>) -> Result<usize>
+where
+  R: Rng + ?Sized,
+{
   let q = q.into();
   QueryUtils::check_from_searcher(random, q.clone(), searcher)?;
   let v = searcher.search(q, 1000)?.total_hits.value();
@@ -169,7 +168,10 @@ fn test_parenthesis_should() -> Result<()> {
 
   Ok(())
 }
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
+fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+where
+  R: Rng + ?Sized,
+{
   let dir = new_directory_shared(random)?;
   let writer = RandomIndexWriter::new(random, dir.clone());
 

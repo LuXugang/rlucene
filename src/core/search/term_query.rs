@@ -95,7 +95,10 @@ impl PartialEq for TermQuery {
 }
 
 impl Hash for TermQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.term.hash(state);
   }
 }

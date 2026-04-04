@@ -339,7 +339,10 @@ mod tests {
   pub struct TestLucene99SegmentInfoFormat;
 
   impl BaseIndexFileFormatTestCase for TestLucene99SegmentInfoFormat {
-    fn add_random_fields<R: Rng + ?Sized>(_random: &mut R) -> Result<()> {
+    fn add_random_fields<R>(_random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       todo!()
     }
   }

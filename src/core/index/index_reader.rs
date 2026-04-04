@@ -678,7 +678,10 @@ impl PartialEq for Identity {
 impl Eq for Identity {}
 
 impl Hash for Identity {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     (self.ptr() as usize).hash(state);
   }
 }

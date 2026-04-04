@@ -322,7 +322,10 @@ pub(crate) mod tests {
   }
   impl Eq for DummyQuery1 {}
   impl Hash for DummyQuery1 {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+      H: Hasher,
+    {
       self.id.hash(state);
     }
   }

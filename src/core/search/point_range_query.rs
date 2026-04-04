@@ -189,7 +189,10 @@ impl PartialEq<Self> for PointRangeQuery {
 }
 
 impl Hash for PointRangeQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.field.hash(state);
     self.num_dims.hash(state);
     self.bytes_per_dim.hash(state);

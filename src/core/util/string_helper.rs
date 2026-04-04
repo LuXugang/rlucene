@@ -47,10 +47,13 @@ impl StringHelper {
   /// # Returns
   ///
   /// The number of common elements (from the start of each).
-  pub fn bytes_difference<AV: SharedAccessVec<u8>>(
+  pub fn bytes_difference<AV>(
     prior_term: &BytesRef<AV>,
     current_term: &BytesRef<AV>,
-  ) -> Result<usize> {
+  ) -> Result<usize>
+  where
+    AV: SharedAccessVec<u8>,
+  {
     with_other!(
       prior_term.bytes,
       current_term.bytes,
@@ -81,10 +84,13 @@ impl StringHelper {
   /// # Returns
   ///
   /// The length needed for the sort key.
-  pub fn sort_key_length<AV: SharedAccessVec<u8>>(
+  pub fn sort_key_length<AV>(
     prior_term: &BytesRef<AV>,
     current_term: &BytesRef<AV>,
-  ) -> Result<usize> {
+  ) -> Result<usize>
+  where
+    AV: SharedAccessVec<u8>,
+  {
     let difference = Self::bytes_difference(prior_term, current_term)?;
     Ok(difference + 1)
   }
@@ -296,12 +302,11 @@ impl StringHelper {
   ///
   /// Throws an [`IllegalArgument`](crate::core::util::error::IllegalArgumentError)
   /// if any int value is out of bounds for a byte.
-  pub fn ints_ref_to_bytes_ref<
+  pub fn ints_ref_to_bytes_ref<AV, AV1>(ints: &IntsRef<AV>) -> Result<BytesRef<AV1>>
+  where
     AV: SharedAccessVec<i32>,
     AV1: SharedAccessVec<u8> + WritableVec<u8>,
-  >(
-    ints: &IntsRef<AV>,
-  ) -> Result<BytesRef<AV1>> {
+  {
     let mut bytes = AV1::with_capacity(ints.length);
     for i in 0..ints.length {
       ints.ints.access(|v| {

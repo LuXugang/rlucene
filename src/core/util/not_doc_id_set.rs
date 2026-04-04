@@ -204,13 +204,16 @@ mod tests {
       Ok(NotDocIdSet::new(length as i32, bit_doc_id_set))
     }
 
-    fn assert_equals<R: Rng + ?Sized>(
+    fn assert_equals<R>(
       &self,
       random: &mut R,
       num_bits: usize,
       ds1: &bit_set::BitSet,
       ds2: impl DocIdSet,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let bits = ds2.bits().ok_or_else(|| LuceneError::illegal_state(""))?;
       assert_eq!(num_bits, bits.length());
       for i in 0..num_bits {

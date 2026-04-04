@@ -30,10 +30,11 @@ pub trait BaseDataOutputTestCase {
   fn new_instance(&self) -> Result<Self::DO>;
   fn get_bytes(&mut self, instance: Self::DO) -> Vec<u8>;
 
-  fn test_randomized_writes<DI: DataInput, R: Rng + ?Sized>(
-    &mut self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_randomized_writes<DI, R>(&mut self, random: &mut R) -> Result<()>
+  where
+    DI: DataInput,
+    R: Rng + ?Sized,
+  {
     let seed: u64 = random.random();
     let mut instance = self.new_instance()?;
     let mut buffer = Vec::new();
@@ -68,7 +69,10 @@ pub enum DataInputAction {
 }
 
 impl DataInputAction {
-  pub fn verify<DI: DataInput>(&self, src: &mut DI) {
+  pub fn verify<DI>(&self, src: &mut DI)
+  where
+    DI: DataInput,
+  {
     match self {
       DataInputAction::ReadByte(value) => {
         assert_eq!(src.read_byte().unwrap(), *value, "Condition failed for DI");

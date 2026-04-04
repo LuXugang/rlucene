@@ -2029,12 +2029,9 @@ mod tests {
 
     Ok(())
   }
-  fn test_random_advance<I1, I2, R: Rng + ?Sized>(
-    random: &mut R,
-    iter1: &mut I1,
-    iter2: &mut I2,
-  ) -> Result<()>
+  fn test_random_advance<I1, I2, R>(random: &mut R, iter1: &mut I1, iter2: &mut I2) -> Result<()>
   where
+    R: Rng + ?Sized,
     I1: DocIdSetIterator,
     I2: DocIdSetIterator,
   {

@@ -909,12 +909,11 @@ mod tests {
     }
     s
   }
-  fn copy_file<D: Directory, R: Rng + ?Sized>(
-    random: &mut R,
-    dir: &D,
-    src: &str,
-    dest: &str,
-  ) -> Result<()> {
+  fn copy_file<D, R>(random: &mut R, dir: &D, src: &str, dest: &str) -> Result<()>
+  where
+    D: Directory,
+    R: Rng + ?Sized,
+  {
     let mut input = dir.open_input(src, &new_io_context(random)?)?;
     let mut output = dir.create_output(dest, &new_io_context(random)?)?;
     let mut buffer = [0u8; 1024];
@@ -929,13 +928,14 @@ mod tests {
 
     Ok(())
   }
-  fn add_doc<D, L, B, R: Rng + ?Sized>(
+  fn add_doc<D, L, B, R>(
     random: &mut R,
     writer: &mut IndexWriter<D, L, B>,
     id: i32,
     field_types: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
+    R: Rng + ?Sized,
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,

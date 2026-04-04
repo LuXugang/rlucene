@@ -793,18 +793,21 @@ use crate::core::index::BytesRef;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::test::core::util::test_util::TestUtil;
 
-pub fn input_to_string<AV: SharedAccessVec<i32> + WritableVec<i32>>(
-  input_mode: i32,
-  term: &IntsRef<AV>,
-) -> Result<String> {
+pub fn input_to_string<AV>(input_mode: i32, term: &IntsRef<AV>) -> Result<String>
+where
+  AV: SharedAccessVec<i32> + WritableVec<i32>,
+{
   input_to_string_with_flag(input_mode, term, true)
 }
 
-pub fn input_to_string_with_flag<AV: SharedAccessVec<i32> + WritableVec<i32>>(
+pub fn input_to_string_with_flag<AV>(
   input_mode: i32,
   term: &IntsRef<AV>,
   is_valid_unicode: bool,
-) -> Result<String> {
+) -> Result<String>
+where
+  AV: SharedAccessVec<i32> + WritableVec<i32>,
+{
   if !is_valid_unicode {
     Ok(term.to_string())
   } else if input_mode == 0 {
@@ -819,9 +822,10 @@ pub fn input_to_string_with_flag<AV: SharedAccessVec<i32> + WritableVec<i32>>(
   }
 }
 
-pub fn get_bytes_ref<AV: SharedAccessVec<i32> + WritableVec<i32>>(
-  ir: &IntsRef<AV>,
-) -> BytesRef<Vec<u8>> {
+pub fn get_bytes_ref<AV>(ir: &IntsRef<AV>) -> BytesRef<Vec<u8>>
+where
+  AV: SharedAccessVec<i32> + WritableVec<i32>,
+{
   let len = ir.length;
   let mut bytes = vec![0u8; len];
 
@@ -839,14 +843,20 @@ pub fn get_bytes_ref<AV: SharedAccessVec<i32> + WritableVec<i32>>(
     length: len,
   }
 }
-pub fn get_random_string<R: Rng + ?Sized>(random: &mut R) -> String {
+pub fn get_random_string<R>(random: &mut R) -> String
+where
+  R: Rng + ?Sized,
+{
   if random.random_bool(0.5) {
     TestUtil::random_realistic_unicode_string(random)
   } else {
     simple_random_string(random)
   }
 }
-pub fn simple_random_string<R: Rng + ?Sized>(rng: &mut R) -> String {
+pub fn simple_random_string<R>(rng: &mut R) -> String
+where
+  R: Rng + ?Sized,
+{
   let end = rng.random_range(0..11);
   if end == 10 {
     // allow 0 length
@@ -861,19 +871,22 @@ pub fn simple_random_string<R: Rng + ?Sized>(rng: &mut R) -> String {
 
   buffer
 }
-pub fn to_ints_ref_from_string<AV: SharedAccessVec<i32> + WritableVec<i32>>(
-  s: &str,
-  input_mode: i32,
-) -> IntsRef<AV> {
+pub fn to_ints_ref_from_string<AV>(s: &str, input_mode: i32) -> IntsRef<AV>
+where
+  AV: SharedAccessVec<i32> + WritableVec<i32>,
+{
   let mut ir = IntsRefBuilder::default();
   to_ints_ref_from_string_with_builder(s, input_mode, &mut ir)
 }
 
-pub fn to_ints_ref_from_string_with_builder<AV: SharedAccessVec<i32> + WritableVec<i32>>(
+pub fn to_ints_ref_from_string_with_builder<AV>(
   s: &str,
   input_mode: i32,
   ir: &mut IntsRefBuilder<AV>,
-) -> IntsRef<AV> {
+) -> IntsRef<AV>
+where
+  AV: SharedAccessVec<i32> + WritableVec<i32>,
+{
   if input_mode == 0 {
     // utf8
     let br: BytesRef<Vec<u8>> = BytesRef::from_string(s);
@@ -884,10 +897,10 @@ pub fn to_ints_ref_from_string_with_builder<AV: SharedAccessVec<i32> + WritableV
   }
 }
 
-pub fn to_ints_ref_utf32<AV: SharedAccessVec<i32> + WritableVec<i32>>(
-  s: &str,
-  ir: &mut IntsRefBuilder<AV>,
-) -> IntsRef<AV> {
+pub fn to_ints_ref_utf32<AV>(s: &str, ir: &mut IntsRefBuilder<AV>) -> IntsRef<AV>
+where
+  AV: SharedAccessVec<i32> + WritableVec<i32>,
+{
   ir.clear();
   for c in s.chars() {
     ir.append(c as i32);
@@ -895,10 +908,13 @@ pub fn to_ints_ref_utf32<AV: SharedAccessVec<i32> + WritableVec<i32>>(
   ir.get().clone()
 }
 
-pub fn to_ints_ref_from_bytes<AV: SharedAccessVec<i32> + WritableVec<i32>>(
+pub fn to_ints_ref_from_bytes<AV>(
   br: &BytesRef<Vec<u8>>,
   ir: &mut IntsRefBuilder<AV>,
-) -> IntsRef<AV> {
+) -> IntsRef<AV>
+where
+  AV: SharedAccessVec<i32> + WritableVec<i32>,
+{
   ir.clear();
   ir.grow_no_copy(br.length);
   for i in 0..br.length {
@@ -907,10 +923,11 @@ pub fn to_ints_ref_from_bytes<AV: SharedAccessVec<i32> + WritableVec<i32>>(
   }
   ir.get_owner()
 }
-pub fn to_ints_ref<AV1: SharedAccessVec<u8>, AV2: SharedAccessVec<i32> + WritableVec<i32>>(
-  br: &BytesRef<AV1>,
-  ir: &mut IntsRefBuilder<AV2>,
-) -> IntsRef<AV2> {
+pub fn to_ints_ref<AV1, AV2>(br: &BytesRef<AV1>, ir: &mut IntsRefBuilder<AV2>) -> IntsRef<AV2>
+where
+  AV1: SharedAccessVec<u8>,
+  AV2: SharedAccessVec<i32> + WritableVec<i32>,
+{
   ir.grow_no_copy(br.length);
   ir.clear();
   br.bytes.access(|bytes| {

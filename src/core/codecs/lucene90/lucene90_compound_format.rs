@@ -80,13 +80,16 @@ impl Lucene90CompoundFormat {
   pub fn new() -> Lucene90CompoundFormat {
     Lucene90CompoundFormat {}
   }
-  pub fn write_compound_file<D: Directory>(
+  pub fn write_compound_file<D>(
     &self,
     entries: &mut impl IndexOutput,
     data: &mut impl IndexOutput,
     directory: &impl Directory,
     si: &SegmentInfo<D>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
     let mut pq;
     {
       // write number of files

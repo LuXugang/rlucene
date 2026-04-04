@@ -349,7 +349,10 @@ mod tests {
   impl BaseSimilarityTestCase for TestBM25Similarity {
     type Similarity = BM25Similarity;
 
-    fn get_similarity<R: Rng + ?Sized>(&self, random: &mut R) -> Result<Self::Similarity> {
+    fn get_similarity<R>(&self, random: &mut R) -> Result<Self::Similarity>
+    where
+      R: Rng + ?Sized,
+    {
       let k1: f32 = match random.random_range(0..4) {
         0 => 0.0,
         1 => f32::MIN_POSITIVE,

@@ -127,7 +127,10 @@ impl PartialEq for Explanation {
   }
 }
 impl Hash for Explanation {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     self.matched.hash(state);
     self.value.hash(state);
     self.description.hash(state);

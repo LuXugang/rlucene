@@ -85,7 +85,10 @@ impl PrefixCodedTerms {
   }
 }
 impl Hash for PrefixCodedTerms {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     for cursor in &self.content {
       cursor.get_ref().hash(state);
     }

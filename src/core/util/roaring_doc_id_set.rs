@@ -174,7 +174,10 @@ pub mod builder {
       Ok(())
     }
     /// Add the content of the provided DocIdSetIterator.
-    pub fn add_disi<T: DocIdSetIterator>(&mut self, mut disi: T) -> Result<()> {
+    pub fn add_disi<T>(&mut self, mut disi: T) -> Result<()>
+    where
+      T: DocIdSetIterator,
+    {
       let mut doc = disi.next_doc()?;
       while doc != NO_MORE_DOCS {
         let _ = self.add(doc);
@@ -517,13 +520,16 @@ mod tests {
       Ok(builder.build())
     }
 
-    fn assert_equals<R: Rng + ?Sized>(
+    fn assert_equals<R>(
       &self,
       random: &mut R,
       num_bits: usize,
       ds1: &bit_set::BitSet,
       ds2: impl DocIdSet,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
     }
   }

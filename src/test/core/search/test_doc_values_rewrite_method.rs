@@ -34,7 +34,10 @@ use rand::{Rng, RngExt};
 #[allow(dead_code)] // for quick search
 pub struct TestDocValuesRewriteMethod;
 
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(String, DefaultIndexSearchCR)> {
+fn set_up<R>(random: &mut R) -> Result<(String, DefaultIndexSearchCR)>
+where
+  R: Rng + ?Sized,
+{
   let dir = new_directory_shared(random)?;
 
   let field_name = if random.random_bool(0.5) {

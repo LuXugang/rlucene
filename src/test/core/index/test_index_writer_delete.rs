@@ -349,7 +349,10 @@ where
   Ok(())
 }
 
-fn get_hit_count<D: Directory + 'static>(dir: Arc<D>, term: Term) -> Result<i64> {
+fn get_hit_count<D>(dir: Arc<D>, term: Term) -> Result<i64>
+where
+  D: Directory + 'static,
+{
   let reader = directory_reader_util::open(dir)?;
   let searcher = new_searcher_with_reader(reader)?;
   let top_docs = searcher.search(TermQuery::new(term.clone()), 1000)?;

@@ -485,14 +485,18 @@ where
     Ok(())
   }
 
-  fn write_term<N: NormsProducer, PE: PostingsEnum>(
+  fn write_term<N, PE>(
     &mut self,
     _term: &BytesRef<Vec<u8>>,
     _terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
     _docs_seen: &mut FixedBitSet,
     _norms: Option<&N>,
     _postings_enum: Option<PE>,
-  ) -> Result<(Option<PE>, Option<TermStateEnum>)> {
+  ) -> Result<(Option<PE>, Option<TermStateEnum>)>
+  where
+    N: NormsProducer,
+    PE: PostingsEnum,
+  {
     Err(LuceneError::not_implemented(""))
   }
 
@@ -641,13 +645,16 @@ where
     Ok(())
   }
 
-  fn start_doc<N: NormsProducer>(
+  fn start_doc<N>(
     &mut self,
     norms: Option<&mut N::NumericDocValues>,
     doc_id: i32,
     term_doc_freq: i32,
     options: &FieldWriteOptions,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    N: NormsProducer,
+  {
     if self.doc_buffer_upto as usize == Lucene101PostingsFormat::BLOCK_SIZE {
       self.flush_doc_block(false, options)?;
       self.doc_buffer_upto = 0;

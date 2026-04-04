@@ -671,11 +671,15 @@ mod tests {
   #[allow(dead_code)] // for quick search
   struct TestConjunctionDISI;
 
-  fn approximation<D: DocIdSetIterator, R: Rng + ?Sized>(
+  fn approximation<D, R>(
     random: &mut R,
     iterator: D,
     confirmed: Arc<FixedBitSet>,
-  ) -> TwoPhaseIteratorImpl<DocIdSetIteratorEnum2<DocIdSetIteratorImpl<D>, D>> {
+  ) -> TwoPhaseIteratorImpl<DocIdSetIteratorEnum2<DocIdSetIteratorImpl<D>, D>>
+  where
+    D: DocIdSetIterator,
+    R: Rng + ?Sized,
+  {
     let v = if random.random_bool(0.5) {
       DocIdSetIteratorEnum2::A(anonymize_iterator(iterator))
     } else {
@@ -698,7 +702,10 @@ mod tests {
   {
     ScorerImpl::new(two_phase_iterator)
   }
-  fn random_set<R: Rng + ?Sized>(random: &mut R, max_doc: usize) -> FixedBitSet {
+  fn random_set<R>(random: &mut R, max_doc: usize) -> FixedBitSet
+  where
+    R: Rng + ?Sized,
+  {
     let step = TestUtil::next_usize(random, 1, 10);
     let mut set = FixedBitSet::new(max_doc);
 
@@ -710,7 +717,10 @@ mod tests {
 
     set
   }
-  fn clear_random_bits<R: Rng + ?Sized>(random: &mut R, other: &FixedBitSet) -> FixedBitSet {
+  fn clear_random_bits<R>(random: &mut R, other: &FixedBitSet) -> FixedBitSet
+  where
+    R: Rng + ?Sized,
+  {
     let mut set = FixedBitSet::new(other.length());
 
     set.or(other);

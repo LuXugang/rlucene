@@ -1439,12 +1439,15 @@ where
     self.delegate.prefetch(self.doc_map.new_to_old(doc_id)?)
   }
 
-  fn document_with_visitor<S: StoredFieldsWriter>(
+  fn document_with_visitor<S>(
     &mut self,
     doc_id: i32,
     visitor: &mut impl StoredFieldVisitor,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     self
       .delegate
       .document_with_visitor(self.doc_map.new_to_old(doc_id)?, visitor, writer)

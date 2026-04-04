@@ -404,7 +404,10 @@ mod tests {
     Ok(())
   }
 
-  fn do_test_select<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
+  fn do_test_select<R>(random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let from = random.random_range(0..5) as usize;
     let to = from + TestUtil::next_usize(random, 1, 10000);
     let max_len = TestUtil::next_usize(random, 1, 12);
@@ -428,7 +431,10 @@ mod tests {
     Ok(())
   }
 
-  pub fn do_test_shared_prefixes<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
+  pub fn do_test_shared_prefixes<R>(random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let from = random.random_range(0..5);
     let to = from + TestUtil::next_usize(random, 1, 10000);
     let max_len = TestUtil::next_usize(random, 1, 12);
@@ -452,13 +458,16 @@ mod tests {
     do_test(random, &arr, from, to, max_len)
   }
 
-  pub fn do_test<R: Rng + ?Sized>(
+  pub fn do_test<R>(
     random: &mut R,
     arr: &[BytesRef<Vec<u8>>],
     from: usize,
     to: usize,
     max_len: usize,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let k = TestUtil::next_usize(random, from, to - 1);
 
     let mut expected = arr.to_vec();

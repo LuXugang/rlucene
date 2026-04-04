@@ -56,7 +56,10 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 pub struct TestScorerPerf;
 
-fn rand_bit_set<R: Rng + ?Sized>(random: &mut R, sz: usize, num_bits_to_set: usize) -> FixedBitSet {
+fn rand_bit_set<R>(random: &mut R, sz: usize, num_bits_to_set: usize) -> FixedBitSet
+where
+  R: Rng + ?Sized,
+{
   let mut set = FixedBitSet::new(sz);
   for _ in 0..num_bits_to_set {
     set.set(random.random_range(0..sz));
@@ -64,11 +67,10 @@ fn rand_bit_set<R: Rng + ?Sized>(random: &mut R, sz: usize, num_bits_to_set: usi
   set
 }
 
-fn rand_bit_sets<R: Rng + ?Sized>(
-  random: &mut R,
-  num_sets: usize,
-  set_size: usize,
-) -> Vec<Arc<FixedBitSet>> {
+fn rand_bit_sets<R>(random: &mut R, num_sets: usize, set_size: usize) -> Vec<Arc<FixedBitSet>>
+where
+  R: Rng + ?Sized,
+{
   let mut sets = Vec::with_capacity(num_sets);
   for _ in 0..num_sets {
     let num_bits_to_set = random.random_range(0..set_size);
@@ -77,13 +79,16 @@ fn rand_bit_sets<R: Rng + ?Sized>(
   sets
 }
 
-fn add_clause<R: Rng + ?Sized>(
+fn add_clause<R>(
   random: &mut R,
   sets: &[Arc<FixedBitSet>],
   bq: &mut Builder,
   result: Option<FixedBitSet>,
   validate: bool,
-) -> Result<Option<FixedBitSet>> {
+) -> Result<Option<FixedBitSet>>
+where
+  R: Rng + ?Sized,
+{
   let rnd = sets[random.random_range(0..sets.len())].clone();
   let q = BitSetQuery::new(rnd.clone());
   bq.add(q, Occur::Must)?;
@@ -101,14 +106,18 @@ fn add_clause<R: Rng + ?Sized>(
   }
 }
 
-fn do_conjunctions<R: Rng + ?Sized, IRC: IndexReaderContext>(
+fn do_conjunctions<R, IRC>(
   random: &mut R,
   s: &IndexSearcher<IRC>,
   sets: &[Arc<FixedBitSet>],
   iter: usize,
   max_clauses: usize,
   validate: bool,
-) -> Result<()> {
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+  IRC: IndexReaderContext,
+{
   for _ in 0..iter {
     let n_clauses = random.random_range(2..=max_clauses);
     let mut bq = Builder::new();
@@ -126,7 +135,7 @@ fn do_conjunctions<R: Rng + ?Sized, IRC: IndexReaderContext>(
   }
   Ok(())
 }
-fn do_nested_conjunctions<R: Rng + ?Sized, IRC: IndexReaderContext>(
+fn do_nested_conjunctions<R, IRC>(
   random: &mut R,
   s: &IndexSearcher<IRC>,
   sets: &[Arc<FixedBitSet>],
@@ -134,7 +143,11 @@ fn do_nested_conjunctions<R: Rng + ?Sized, IRC: IndexReaderContext>(
   max_outer_clauses: usize,
   max_clauses: usize,
   validate: bool,
-) -> Result<()> {
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+  IRC: IndexReaderContext,
+{
   let mut n_matches = 0i64;
 
   for _ in 0..iter {
@@ -357,7 +370,10 @@ impl PartialEq for BitSetQuery {
   }
 }
 impl Hash for BitSetQuery {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     self.docs.hash(state);
   }
 }

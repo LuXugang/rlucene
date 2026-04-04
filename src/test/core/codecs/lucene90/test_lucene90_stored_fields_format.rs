@@ -47,9 +47,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub struct TestLucene90StoredFieldsFormat;
 
 impl BaseIndexFileFormatTestCase for TestLucene90StoredFieldsFormat {
-  fn add_random_fields<R: Rng + ?Sized>(
-    _random: &mut R,
-  ) -> crate::core::util::error::lucene_error::Result<()> {
+  fn add_random_fields<R>(_random: &mut R) -> crate::core::util::error::lucene_error::Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     todo!()
   }
 }
@@ -122,7 +123,10 @@ mod base_stored_fields_format_test_case_test {
 }
 
 pub trait TestLucene90StoredFields {
-  fn test_skip_redundant_prefetches<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_skip_redundant_prefetches<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let orig_dir = new_directory(random)?;
     let counter = Arc::new(AtomicUsize::new(0));
     let dir = Arc::new(CountingPrefetchDirectory::new(orig_dir, counter.clone()));

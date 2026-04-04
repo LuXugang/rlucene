@@ -286,7 +286,10 @@ mod tests {
     Ok(())
   }
 
-  fn test<R: Rng + ?Sized>(random: &mut R, dir: &impl Directory, ints: &[i32]) -> Result<()> {
+  fn test<R>(random: &mut R, dir: &impl Directory, ints: &[i32]) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let len;
     {
       let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;

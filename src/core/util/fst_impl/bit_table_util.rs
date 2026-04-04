@@ -330,7 +330,10 @@ mod tests {
     Ok(())
   }
 
-  fn build_random_bits<R: Rng + ?Sized>(random: &mut R) -> Vec<u8> {
+  fn build_random_bits<R>(random: &mut R) -> Vec<u8>
+  where
+    R: Rng + ?Sized,
+  {
     let len = random.random_range(2..26);
     let mut bits = vec![0; len];
 

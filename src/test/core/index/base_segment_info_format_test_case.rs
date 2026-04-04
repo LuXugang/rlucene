@@ -44,7 +44,10 @@ use crate::test::core::util::test_util::TestUtil;
 
 pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
   /// Test files map
-  fn test_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_files<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let id = StringHelper::random_id();
     let io_context = IOContext::default_io_context()?;
@@ -71,7 +74,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     assert_eq!(*info.files()?, *info2.files()?);
     Ok(())
   }
-  fn test_has_blocks<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_has_blocks<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.supports_has_blocks());
     let dir = new_directory_shared(random)?;
     let id = StringHelper::random_id();
@@ -102,7 +108,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
   }
 
   /// Tests SI writer adds itself to files...
-  fn test_adds_self_to_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_adds_self_to_files<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let id = StringHelper::random_id();
     let io_context = IOContext::default_io_context()?;
@@ -146,7 +155,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
   /// Test diagnostics map
-  fn test_diagnostics<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_diagnostics<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let id = StringHelper::random_id();
     let mut diagnostics: HashMap<String, String> = HashMap::new();
@@ -186,7 +198,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
   /// Test attributes map
-  fn test_attributes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_attributes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let id = StringHelper::random_id();
     let mut attributes: HashMap<String, String> = HashMap::new();
@@ -229,7 +244,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
   }
 
   /// Test unique ID
-  fn test_unique_id<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_unique_id<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let id = StringHelper::random_id();
     let io_context = IOContext::default_io_context()?;
@@ -259,7 +277,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
   /// Test versions
-  fn test_versions<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_versions<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let io_context = IOContext::default_io_context()?;
 
     for version in self.get_versions() {
@@ -307,7 +328,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn random_index_sort_field<R: Rng + ?Sized>(random: &mut R) -> Result<Option<SortFieldEnum>> {
+  fn random_index_sort_field<R>(random: &mut R) -> Result<Option<SortFieldEnum>>
+  where
+    R: Rng + ?Sized,
+  {
     let reversed = random.random_bool(0.5);
     let case = random.random_range(0..10);
     match case {
@@ -422,7 +446,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
   }
   /// Test sort
-  fn test_sort<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sort<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(
       self.supports_index_sort(),
       "test requires a codec that can read/write index sort"
@@ -494,7 +521,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
   /// Sets some otherwise hard-to-test properties: random segment names, ID
   /// values, document count, etc. and round-trips
-  fn test_random<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_random<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let versions = self.get_versions();
     let io_context = IOContext::default_io_context()?;
 
@@ -559,7 +589,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     Ok(())
   }
-  fn assert_equals<D: Directory>(expected: &SegmentInfo<D>, actual: &SegmentInfo<D>) -> Result<()> {
+  fn assert_equals<D>(expected: &SegmentInfo<D>, actual: &SegmentInfo<D>) -> Result<()>
+  where
+    D: Directory,
+  {
     assert!(
       Arc::ptr_eq(&expected.dir, &actual.dir),
       "Directory references are not the same"

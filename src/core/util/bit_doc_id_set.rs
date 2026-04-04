@@ -112,13 +112,16 @@ mod tests {
       BitDocIdSet::new(Some(set))
     }
 
-    fn assert_equals<R: Rng + ?Sized>(
+    fn assert_equals<R>(
       &self,
       random: &mut R,
       num_bits: usize,
       ds1: &bit_set::BitSet,
       ds2: impl DocIdSet,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
     }
   }

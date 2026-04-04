@@ -401,7 +401,10 @@ where {
     let s = weight.scorer(&lrc, &dummy_s)?.unwrap();
     DisiWrapper::new(s)
   }
-  fn random_disi<R: Rng + ?Sized>(random: &mut R) -> DocIdSetIteratorImpl {
+  fn random_disi<R>(random: &mut R) -> DocIdSetIteratorImpl
+  where
+    R: Rng + ?Sized,
+  {
     let max_size = random.random_range(0..50);
     let upper_exclusive = NO_MORE_DOCS - 1;
     let mut v: Vec<i32> = (0..max_size)

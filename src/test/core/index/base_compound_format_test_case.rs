@@ -43,7 +43,10 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use crate::test::core::util::test_util::TestUtil;
 
 pub trait BaseCompoundFormatTestCase {
-  fn test_empty<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_empty<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
@@ -58,7 +61,10 @@ pub trait BaseCompoundFormatTestCase {
   }
   /// This test creates compound file based on a single file. Files of
   /// different sizes are tested: 0, 1, 10, 100 bytes.
-  fn test_single_file<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_single_file<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let data = [0, 1, 10, 100];
     for (i, &size) in data.iter().enumerate() {
       let test_file = format!("_{}.test", i);
@@ -92,7 +98,10 @@ pub trait BaseCompoundFormatTestCase {
     Ok(())
   }
   /// This test creates compound file based on two files.
-  fn test_two_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_files<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let files = ["_123.d1", "_123.d2"];
     let dir = new_directory_shared(random)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
@@ -190,7 +199,10 @@ pub trait BaseCompoundFormatTestCase {
   }
   /// Test that the compound file system (CFS) reader is read-only by
   /// attempting to create an output.
-  fn test_create_output_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_create_output_disabled<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
@@ -207,7 +219,10 @@ pub trait BaseCompoundFormatTestCase {
   }
   /// Test that the CFS reader is read-only, and that `deleteFile` is
   /// disabled.
-  fn test_delete_file_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_delete_file_disabled<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let testfile = "_123.test";
     let dir = new_directory_shared(random)?;
     let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
@@ -225,7 +240,10 @@ pub trait BaseCompoundFormatTestCase {
     Ok(())
   }
   /// Test that the CFS reader is read-only, and that `rename` is disabled.
-  fn test_rename_file_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_rename_file_disabled<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let testfile = "_123.test";
     let dir = new_directory_shared(random)?;
     let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
@@ -243,7 +261,10 @@ pub trait BaseCompoundFormatTestCase {
     Ok(())
   }
   /// Test that the CFS reader is read-only, and that `sync` is disabled.
-  fn test_sync_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sync_disabled<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let testfile = "_123.test";
     let dir = new_directory_shared(random)?;
     let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
@@ -264,7 +285,10 @@ pub trait BaseCompoundFormatTestCase {
 
   /// Test that the CFS reader is read-only, and that obtaining locks is
   /// disabled.
-  fn test_make_lock_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_make_lock_disabled<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let testfile = "_123.test";
     let dir = new_directory_shared(random)?;
     let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
@@ -287,7 +311,10 @@ pub trait BaseCompoundFormatTestCase {
   /// buffering logic in the file reading code. For this, the chunk
   /// variable is set to the length of the buffer used internally by the
   /// compound file logic.
-  fn test_random_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_random_files<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let segment = "_123";
     let chunk = 1024; // internal buffer size used by the stream
@@ -388,7 +415,10 @@ pub trait BaseCompoundFormatTestCase {
     Ok(())
   }
 
-  fn test_many_sub_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_many_sub_files<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO: should enhance after implementing the newMockFSDirectory
     let dir = new_directory_shared(random)?;
     let file_count = at_least_usize(random, 500);
@@ -429,7 +459,10 @@ pub trait BaseCompoundFormatTestCase {
     // }
     Ok(())
   }
-  fn test_cloned_streams_closing<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_cloned_streams_closing<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let cr = create_large_cfs(random, dir.clone())?;
 
@@ -444,7 +477,10 @@ pub trait BaseCompoundFormatTestCase {
   }
   /// This test opens two files from a compound stream and verifies that their
   /// file positions are independent of each other.
-  fn test_random_access<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_random_access<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let cr = create_large_cfs(random, dir.clone())?;
 
@@ -515,7 +551,10 @@ pub trait BaseCompoundFormatTestCase {
   }
   /// This test opens two files from a compound stream and verifies that their
   /// file positions are independent of each other.
-  fn test_random_access_clones<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_random_access_clones<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let cr = create_large_cfs(random, dir.clone())?;
 
@@ -592,7 +631,10 @@ pub trait BaseCompoundFormatTestCase {
 
     Ok(())
   }
-  fn test_file_not_found<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_file_not_found<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let cr = create_large_cfs(random, dir.clone())?;
 
@@ -600,7 +642,10 @@ pub trait BaseCompoundFormatTestCase {
     assert!(matches!(result, Err(LuceneError::NotFound(_))));
     Ok(())
   }
-  fn test_read_past_eof<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_read_past_eof<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let cr = create_large_cfs(random, dir.clone())?;
     let mut is = cr.open_input("_123.f2", &new_io_context(random)?)?;
@@ -614,7 +659,10 @@ pub trait BaseCompoundFormatTestCase {
     assert!(matches!(result, Err(LuceneError::Eof(_))));
     Ok(())
   }
-  fn test_resource_name_inside_compound_file<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_resource_name_inside_compound_file<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let sub_file = "_123.xyz";
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
@@ -637,7 +685,10 @@ pub trait BaseCompoundFormatTestCase {
     );
     Ok(())
   }
-  fn test_missing_codec_headers_are_caught<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_missing_codec_headers_are_caught<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let sub_file = "_123.xyz";
 
@@ -666,7 +717,10 @@ pub trait BaseCompoundFormatTestCase {
       },
     }
   }
-  fn test_corrupt_files_are_caught<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_corrupt_files_are_caught<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let sub_file = "_123.xyz";
 
@@ -708,17 +762,24 @@ pub trait BaseCompoundFormatTestCase {
       },
     }
   }
-  fn test_check_integrity<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_check_integrity<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODD: waiting for FileTrackingDirectoryWrapper implement
     Ok(())
   }
 }
 
-pub(crate) fn new_segment_info<D: Directory, R: Rng + ?Sized>(
+pub(crate) fn new_segment_info<D, R>(
   random: &mut R,
   dir: Arc<D>,
   name: &str,
-) -> Result<SegmentInfo<D>> {
+) -> Result<SegmentInfo<D>>
+where
+  D: Directory,
+  R: Rng + ?Sized,
+{
   let min_version = if random.random_bool(0.5) {
     None
   } else {
@@ -741,13 +802,16 @@ pub(crate) fn new_segment_info<D: Directory, R: Rng + ?Sized>(
   Ok(value)
 }
 /// Creates a file of the specified size with random data.
-pub(crate) fn create_random_file<R: Rng + ?Sized>(
+pub(crate) fn create_random_file<R>(
   random: &mut R,
   dir: &impl Directory,
   name: &str,
   size: i32,
   seg_id: &[u8; StringHelper::ID_LENGTH],
-) -> Result<()> {
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   let mut os = dir.create_output(name, &new_io_context(random)?)?;
   CodecUtil::write_index_header(&mut os, "Foo", 0, seg_id, "suffix")?;
 
@@ -762,7 +826,7 @@ pub(crate) fn create_random_file<R: Rng + ?Sized>(
 /// Creates a file of the specified size with sequential data. The first byte is
 /// written as the start byte provided. All subsequent bytes are computed as
 /// start + offset where offset is the number of the byte.
-fn create_sequence_file<R: Rng + ?Sized>(
+fn create_sequence_file<R>(
   random: &mut R,
   dir: &impl Directory,
   name: &str,
@@ -770,7 +834,10 @@ fn create_sequence_file<R: Rng + ?Sized>(
   size: i32,
   seg_id: &[u8; StringHelper::ID_LENGTH],
   seg_suffix: &str,
-) -> Result<()> {
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   let mut os = dir.create_output(name, &new_io_context(random)?)?;
   CodecUtil::write_index_header(&mut os, "Foo", 0, seg_id, seg_suffix)?;
   for _ in 0..size {
@@ -865,11 +932,12 @@ fn assert_equal_arrays(msg: &str, expected: &[u8], test: &[u8], start: usize, le
 }
 /// Creates a large compound file with 20 sequential files, each of which is
 /// 1000 bytes.
-fn create_large_cfs<D, R: Rng + ?Sized>(
+fn create_large_cfs<D, R>(
   random: &mut R,
   dir: Arc<D>,
 ) -> Result<CompoundDirectory<Lucene90CompoundReader<D>>>
 where
+  R: Rng + ?Sized,
   D: Directory,
 {
   let mut files = HashSet::new();

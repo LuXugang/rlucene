@@ -116,7 +116,10 @@ impl PartialEq for KnnFloatVectorQuery {
 impl Eq for KnnFloatVectorQuery {}
 
 impl Hash for KnnFloatVectorQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.base.hash(state);
     for &v in &self.target {
       let bits = if v == 0.0 {

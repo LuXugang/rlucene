@@ -34,7 +34,10 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use rand::{Rng, RngExt};
 #[allow(dead_code)] // for quick search
 pub struct TestMultiSliceMerge;
-fn set_up_readers<R: Rng + ?Sized>(random: &mut R) -> Result<(DefaultCRReader, DefaultCRReader)> {
+fn set_up_readers<R>(random: &mut R) -> Result<(DefaultCRReader, DefaultCRReader)>
+where
+  R: Rng + ?Sized,
+{
   let dir1 = new_directory_shared(random)?;
   let dir2 = new_directory_shared(random)?;
 

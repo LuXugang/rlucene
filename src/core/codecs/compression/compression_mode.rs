@@ -466,7 +466,10 @@ mod tests {
 
   trait AbstractTestCompressionMode {
     fn get_mode(&self) -> CompressionModeEnum;
-    fn random_array<R: Rng + ?Sized>(random: &mut R) -> (Vec<u8>, i32) {
+    fn random_array<R>(random: &mut R) -> (Vec<u8>, i32)
+    where
+      R: Rng + ?Sized,
+    {
       let bigsize = if is_night_mode() {
         192 * 1024
       } else {
@@ -484,7 +487,10 @@ mod tests {
       };
       (Self::random_array_impl(random, length, max), length)
     }
-    fn random_array_impl<R: Rng + ?Sized>(random: &mut R, length: i32, max: i32) -> Vec<u8> {
+    fn random_array_impl<R>(random: &mut R, length: i32, max: i32) -> Vec<u8>
+    where
+      R: Rng + ?Sized,
+    {
       let remainder = length % 1024;
       let new_length = if remainder == 0 {
         length
@@ -568,7 +574,10 @@ mod tests {
       Ok(BytesRef::deep_copy_of(&bytes).bytes)
     }
 
-    fn test_decompress<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_decompress<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let iterations = at_least(random, 3);
       for _ in 0..iterations {
         let (decompressed, limit) = Self::random_array(random);
@@ -595,7 +604,10 @@ mod tests {
       Ok(())
     }
 
-    fn test_partial_decompress<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_partial_decompress<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let iterations = at_least(random, 3);
       for _ in 0..iterations {
         let (decompressed, limit) = Self::random_array(random);
@@ -657,7 +669,10 @@ mod tests {
       Ok(())
     }
 
-    fn test_short_sequence<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_short_sequence<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let limit = random.random_range(0..256);
       let mut bytes = vec![0u8; 1024];
       for byte in bytes.iter_mut().take(limit) {
@@ -667,7 +682,10 @@ mod tests {
       Ok(())
     }
 
-    fn test_incompressible<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_incompressible<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let limit = random.random_range(20..=256);
       let mut decompressed = vec![0; 1024];
       for byte in decompressed.iter_mut().take(limit) {
@@ -677,7 +695,10 @@ mod tests {
       Ok(())
     }
 
-    fn test_constant<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_constant<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let limit = TestUtil::next_int(random, 1, 10000);
       let mut decompressed = vec![0; 10240];
       for byte in decompressed.iter_mut().take(limit as usize) {

@@ -51,7 +51,10 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
   fn support_doc_values_skip_index(&self) -> bool {
     true
   }
-  fn test_one_field<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_one_field<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let codec = &*LATEST_CODEC;
     let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
@@ -97,33 +100,51 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
   /// Test field infos attributes coming back are not mutable.
-  fn test_immutable_attributes<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_immutable_attributes<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // no necessary to implement
     Ok(())
   }
 
-  fn test_exception_on_create_output<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_exception_on_create_output<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO
     // no necessary to implement
     Ok(())
   }
-  fn test_exception_on_close_output<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_exception_on_close_output<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO
     // no necessary to implement
     Ok(())
   }
-  fn test_exception_on_open_input<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_exception_on_open_input<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO
     // no necessary to implement
     Ok(())
   }
-  fn test_exception_on_close_input<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_exception_on_close_input<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO
     // no necessary to implement
     Ok(())
   }
   // Test field infos read/write with random fields, with different values.
-  fn test_random<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_random<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let codec = &*LATEST_CODEC;
     let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
@@ -245,11 +266,10 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     1024
   }
 
-  fn random_field_type<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-    field_name: &str,
-  ) -> Result<FieldType> {
+  fn random_field_type<R>(&self, random: &mut R, field_name: &str) -> Result<FieldType>
+  where
+    R: Rng + ?Sized,
+  {
     let mut field_type = FieldType::new();
 
     if random.random_bool(0.5) {
@@ -350,11 +370,11 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     assert_eq!(expected.get_doc_values_gen(), actual.get_doc_values_gen());
   }
 
-  fn new_segment_info<D: Directory, R: Rng + ?Sized>(
-    random: &mut R,
-    dir: Arc<D>,
-    name: &str,
-  ) -> Result<SegmentInfo<D>> {
+  fn new_segment_info<D, R>(random: &mut R, dir: Arc<D>, name: &str) -> Result<SegmentInfo<D>>
+  where
+    D: Directory,
+    R: Rng + ?Sized,
+  {
     let min_version = if random.random_bool(0.5) {
       None
     } else {

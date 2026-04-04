@@ -164,7 +164,10 @@ fn test_mixed_ram() -> Result<()> {
 
   Ok(())
 }
-fn assert_no_nrm<D: Directory>(dir: Arc<D>) -> Result<()> {
+fn assert_no_nrm<D>(dir: Arc<D>) -> Result<()>
+where
+  D: Directory,
+{
   let files = dir.list_all()?;
   for file in files {
     assert!(!file.ends_with(".nrm") && !file.ends_with(".len"));

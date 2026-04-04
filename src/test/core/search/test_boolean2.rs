@@ -35,7 +35,7 @@ pub struct TestBoolean2;
 //     "w1 xx w2 yy w3",
 //     "w1 w3 xx w2 yy mm",
 // ];
-// fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
+// fn set_up<R>(random: &mut R) -> Result<()> where R: Rng + ?Sized{
 //     let num_filler_docs = if random.random_bool(0.5) { 0 } else { SIZE };
 //     let pre_filler_docs = TestUtil::next_usize(random, 0, num_filler_docs / 2);
 //
@@ -180,10 +180,8 @@ pub struct TestBoolean2;
 //
 //     Ok(())
 // }
-// fn copy_of<R: Rng + ?Sized, D>(random: &mut R, dir: &D) -> Result<Arc<DirEnum>>
-// where
-//     D: Directory,
-// {
+// fn copy_of<R, D>(random: &mut R, dir: &D) -> Result<Arc<DirEnum>>
+// where R: Rng + ?Sized, //     D: Directory, //{
 //     let copy = new_fs_directory(random, create_temp_dir()?)?;
 //
 //     for name in dir.list_all()? {
@@ -195,14 +193,18 @@ pub struct TestBoolean2;
 //     }
 //     Ok(copy)
 // }
-pub(crate) fn rand_bool_query<R: Rng + ?Sized, C: Callback>(
+pub(crate) fn rand_bool_query<R, C>(
   rnd: &mut R,
   allow_must: bool,
   level: i32,
   field: &str,
   vals: &[String],
   cb: Option<&C>,
-) -> Result<Builder> {
+) -> Result<Builder>
+where
+  R: Rng + ?Sized,
+  C: Callback,
+{
   let mut current = Builder::new();
 
   for _ in 0..(rnd.random_range(0..vals.len()) + 1) {

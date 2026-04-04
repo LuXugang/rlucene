@@ -90,11 +90,10 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
     ))
   }
 
-  fn add_iterator<I: DocValuesFieldIterator>(
-    &mut self,
-    doc_id: i32,
-    iterator: &mut I,
-  ) -> Result<()> {
+  fn add_iterator<I>(&mut self, doc_id: i32, iterator: &mut I) -> Result<()>
+  where
+    I: DocValuesFieldIterator,
+  {
     self.add_value(doc_id, iterator.long_value()?, 0)
   }
 

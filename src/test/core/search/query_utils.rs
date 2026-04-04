@@ -53,12 +53,9 @@ impl QueryUtils {
   /// - [`Self::check_explanations`]
   /// - [`Self::check_equal`]
   /// - [`CheckHits::check_matches`]
-  pub fn check_from_searcher<T, IRC, R: Rng + ?Sized>(
-    random: &mut R,
-    q1: T,
-    s: &IndexSearcher<IRC>,
-  ) -> Result<()>
+  pub fn check_from_searcher<T, IRC, R>(random: &mut R, q1: T, s: &IndexSearcher<IRC>) -> Result<()>
   where
+    R: Rng + ?Sized,
     IRC: IndexReaderContext,
     IRC::LeafReader: Clone,
     T: Into<Query>,
@@ -66,13 +63,14 @@ impl QueryUtils {
     Self::check_from_searcher_with_wrap(random, q1, s, true)
   }
 
-  pub fn check_from_searcher_with_wrap<T, IRC, R: Rng + ?Sized>(
+  pub fn check_from_searcher_with_wrap<T, IRC, R>(
     random: &mut R,
     q: T,
     s: &IndexSearcher<IRC>,
     wrap: bool,
   ) -> Result<()>
   where
+    R: Rng + ?Sized,
     IRC: IndexReaderContext,
     IRC::LeafReader: Clone,
     T: Into<Query>,

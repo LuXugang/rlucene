@@ -55,11 +55,14 @@ mod tests {
     Ok(())
   }
 
-  fn assert_lexicon<R: Rng + ?Sized>(
+  fn assert_lexicon<R>(
     random: &mut R,
     terms: Vec<String>,
     mut automata: Vec<Automaton>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     automata.shuffle(random);
     let lex = Operations::union_list(&automata.iter().collect::<Vec<_>>())?;
     let lex = Operations::determinize(&lex, 1_000_000)?;

@@ -1620,11 +1620,14 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     Ok(())
   }
 
-  fn random_binary_value<R: Rng + ?Sized>(
+  fn random_binary_value<R>(
     random: &mut R,
     num_dims: usize,
     num_bytes_per_dim: usize,
-  ) -> Vec<Vec<u8>> {
+  ) -> Vec<Vec<u8>>
+  where
+    R: Rng + ?Sized,
+  {
     let mut values = Vec::with_capacity(num_dims);
     for _ in 0..num_dims {
       let mut bytes = vec![0u8; num_bytes_per_dim];
@@ -1633,7 +1636,10 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     }
     values
   }
-  fn do_test_merged_stats<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
+  fn do_test_merged_stats<R>(random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_dims = TestUtil::next_int(random, 1, 8);
     let num_bytes_per_dim = TestUtil::next_int(random, 1, 16);
 

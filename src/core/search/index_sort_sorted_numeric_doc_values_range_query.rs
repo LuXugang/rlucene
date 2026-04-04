@@ -93,7 +93,10 @@ impl PartialEq for IndexSortSortedNumericDocValuesRangeQuery {
 impl Eq for IndexSortSortedNumericDocValuesRangeQuery {}
 
 impl Hash for IndexSortSortedNumericDocValuesRangeQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.field.hash(state);
     self.lower_value.hash(state);
     self.upper_value.hash(state);
@@ -2021,7 +2024,10 @@ mod tests {
     Ok(doc)
   }
 
-  fn create_sndv_and_point_document<S: Into<String>>(field: S, value: i64) -> Result<Document> {
+  fn create_sndv_and_point_document<S>(field: S, value: i64) -> Result<Document>
+  where
+    S: Into<String>,
+  {
     let field = field.into();
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new(&field, value));
@@ -2029,18 +2035,24 @@ mod tests {
     Ok(doc)
   }
 
-  fn create_document<S: Into<String>>(field: S, value: i64) -> Document {
+  fn create_document<S>(field: S, value: i64) -> Document
+  where
+    S: Into<String>,
+  {
     let field = field.into();
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new(&field, value));
     doc
   }
 
-  fn create_query<S: Into<String>>(
+  fn create_query<S>(
     field: S,
     lower_value: i64,
     upper_value: i64,
-  ) -> IndexSortSortedNumericDocValuesRangeQuery {
+  ) -> IndexSortSortedNumericDocValuesRangeQuery
+  where
+    S: Into<String>,
+  {
     let field_str = field.into();
 
     let fallback_query = SortedNumericDocValuesField::new_slow_range_query(

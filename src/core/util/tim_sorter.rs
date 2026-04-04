@@ -496,7 +496,10 @@ mod tests {
   }
 
   impl BaseSortTestCase for TestTimSorter {
-    fn new_sorter<R: Rng + ?Sized>(&self, random: &mut R, arr: &mut Vec<Entry>) -> impl Sorter {
+    fn new_sorter<R>(&self, random: &mut R, arr: &mut Vec<Entry>) -> impl Sorter
+    where
+      R: Rng + ?Sized,
+    {
       let arr_len = arr.len();
       let max_temp_slots = TestUtil::next_usize(random, 0, arr_len);
       ArrayTimSorter::new(arr, NaturalOrder::new(), max_temp_slots)

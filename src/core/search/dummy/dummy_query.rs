@@ -49,7 +49,10 @@ impl PartialEq for DummyQuery {
 impl Eq for DummyQuery {}
 
 impl std::hash::Hash for DummyQuery {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     0usize.hash(state);
   }
 }

@@ -85,12 +85,14 @@ pub trait StoredFields: RawStoredFieldsReader {
   /// processing/loading of each field. If you simply want to load all
   /// fields, use [`document`](Document). If you want to load a subset,
   /// use [`DocumentStoredFieldVisitor`].
-  fn document_with_visitor<S: StoredFieldsWriter>(
+  fn document_with_visitor<S>(
     &mut self,
     doc_id: i32,
     visitor: &mut impl StoredFieldVisitor,
     writer: Option<&mut S>,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter;
 
   /// Like [`document`](Document) but only loads the specified fields. Note
   /// that this is simply sugar
@@ -132,12 +134,12 @@ macro_rules! either_stored_fields {
                 }
             }
 
-            fn document_with_visitor<S: StoredFieldsWriter>(
+            fn document_with_visitor<S>(
                 &mut self,
                 doc_id: i32,
                 visitor: &mut impl StoredFieldVisitor,
                 writer: Option<&mut S>,
-            ) -> Result<()> {
+            ) -> Result<()> where S: StoredFieldsWriter{
                 match self {
                     $( Self::$Variant(inner) => inner.document_with_visitor(doc_id, visitor, writer), )+
                 }

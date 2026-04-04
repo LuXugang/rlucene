@@ -111,12 +111,15 @@ impl BytesRefArray {
   /// Used only by the sorting function below to set a [`BytesRef`] with the
   /// specified slice, avoiding copying bytes in the common case when the
   /// slice is contained in a single block in the byte block pool.
-  fn set_bytes_ref<AV: SharedAccessVec<u8> + WritableVec<u8>>(
+  fn set_bytes_ref<AV>(
     &self,
     spare: &mut BytesRefBuilder<AV>,
     result: &mut BytesRef<AV>,
     index: usize,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AV: SharedAccessVec<u8> + WritableVec<u8>,
+  {
     if index >= self.last_element {
       return Err(LuceneError::array_index_out_of_bounds(format!(
         "index: {}, last_element: {}",

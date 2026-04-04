@@ -172,7 +172,10 @@ impl PartialEq for IndexOrDocValuesQuery {
 }
 impl Eq for IndexOrDocValuesQuery {}
 impl Hash for IndexOrDocValuesQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.index_query.hash(state);
     self.dv_query.hash(state);
   }

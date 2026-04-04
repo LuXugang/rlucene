@@ -126,10 +126,10 @@ impl TopFieldCollector {
       score_mode,
     })
   }
-  pub(crate) fn update_global_min_competitive_score<S: Scorable + ?Sized>(
-    &mut self,
-    scorer: &mut S,
-  ) -> Result<()> {
+  pub(crate) fn update_global_min_competitive_score<S>(&mut self, scorer: &mut S) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
     match &self.min_score_acc {
       Some(acc) if self.can_set_min_score => {
         // we can start checking the global maximum score even if the local queue
@@ -152,10 +152,10 @@ impl TopFieldCollector {
     }
   }
 
-  pub(crate) fn update_min_competitive_score<S: Scorable + ?Sized>(
-    &mut self,
-    scorer: &mut S,
-  ) -> Result<()> {
+  pub(crate) fn update_min_competitive_score<S>(&mut self, scorer: &mut S) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
     if self.can_set_min_score && self.queue_full && self.base.total_hits > self.total_hits_threshold
     {
       let bottom = self.bottom()?;
@@ -433,11 +433,10 @@ where
       comparator,
     })
   }
-  pub(crate) fn count_hit<S: Scorable + ?Sized>(
-    &mut self,
-    scorer: &mut S,
-    _doc: i32,
-  ) -> Result<()> {
+  pub(crate) fn count_hit<S>(&mut self, scorer: &mut S, _doc: i32) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
     self.base.base.total_hits += 1;
     debug_assert!(self.base.base.total_hits <= i32::MAX as usize);
     let hit_count_so_far = self.base.base.total_hits;

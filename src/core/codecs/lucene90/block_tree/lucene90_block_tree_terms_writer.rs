@@ -1140,13 +1140,17 @@ where
       sub_indices,
     ))
   }
-  pub fn write<N: NormsProducer, PE: PostingsEnum>(
+  pub fn write<N, PE>(
     &mut self,
     text: BytesRef<Vec<u8>>,
     terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
     norms: Option<&N>,
     postings_enum: Option<PE>,
-  ) -> Result<Option<PE>> {
+  ) -> Result<Option<PE>>
+  where
+    N: NormsProducer,
+    PE: PostingsEnum,
+  {
     let (reuse, state_opt) = self.postings_writer.write_term(
       &text,
       terms_enum,
@@ -1291,11 +1295,10 @@ where
 
     Ok(())
   }
-  fn write_bytes_ref<AV: SharedAccessVec<u8>>(
-    &self,
-    out: &mut impl DataOutput,
-    bytes: &BytesRef<AV>,
-  ) -> Result<()> {
+  fn write_bytes_ref<AV>(&self, out: &mut impl DataOutput, bytes: &BytesRef<AV>) -> Result<()>
+  where
+    AV: SharedAccessVec<u8>,
+  {
     debug_assert!(bytes.length <= i32::MAX as usize);
     out.write_vint(bytes.length as i32)?;
     debug_assert!(bytes.offset <= i32::MAX as usize);

@@ -1064,11 +1064,10 @@ mod tests {
     test(vec![bytes1, bytes2], 2)
   }
 
-  fn test_random_impl<R: Rng + ?Sized>(
-    common_prefix_len: usize,
-    max_len: usize,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_random_impl<R>(common_prefix_len: usize, max_len: usize, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut common_prefix = vec![0u8; common_prefix_len];
     random.fill_bytes(&mut common_prefix);
     let len = random.random_range(0..100000);

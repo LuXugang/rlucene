@@ -210,7 +210,10 @@ impl<AV> Hash for BytesRef<AV>
 where
   AV: SharedAccessVec<u8>,
 {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     let hash = StringHelper::murmurhash3_x86_32(self, *GOOD_FAST_HASH_SEED);
     hash.hash(state)
   }

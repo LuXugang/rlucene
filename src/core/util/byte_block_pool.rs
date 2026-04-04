@@ -142,13 +142,16 @@ impl ByteBlockPool {
   /// However, we still retain the interface definitions from Java Lucene to
   /// maintain consistency with the original implementation as much as
   /// possible.
-  pub fn set_bytes_ref<AV: SharedAccessVec<u8> + WritableVec<u8>>(
+  pub fn set_bytes_ref<AV>(
     &self,
     _builder: &mut BytesRefBuilder<AV>,
     result: &mut BytesRef<AV>,
     offset: i64,
     length: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AV: SharedAccessVec<u8> + WritableVec<u8>,
+  {
     if result.length < length as usize {
       result.bytes = AV::from_vec(vec![0; length as usize]);
     }
@@ -175,7 +178,10 @@ impl ByteBlockPool {
     Ok(())
   }
   /// Appends the bytes in the provided BytesRef at the current position.
-  pub fn append_bytes_ref<AV: SharedAccessVec<u8>>(&mut self, bytes: &BytesRef<AV>) -> Result<()> {
+  pub fn append_bytes_ref<AV>(&mut self, bytes: &BytesRef<AV>) -> Result<()>
+  where
+    AV: SharedAccessVec<u8>,
+  {
     bytes
       .bytes
       .access(|bytes_ref| self.append_range(bytes_ref, bytes.offset as i32, bytes.length as i32))

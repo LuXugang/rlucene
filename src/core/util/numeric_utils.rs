@@ -1110,7 +1110,10 @@ mod tests {
     Ok(())
   }
 
-  fn to_positive_nan<T: Float>(value: T) -> T {
+  fn to_positive_nan<T>(value: T) -> T
+  where
+    T: Float,
+  {
     if value.is_nan() { Float::nan() } else { value }
   }
 }

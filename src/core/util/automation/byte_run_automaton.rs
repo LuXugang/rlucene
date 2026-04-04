@@ -90,7 +90,10 @@ impl PartialEq for ByteRunAutomaton {
 }
 impl Eq for ByteRunAutomaton {}
 impl Hash for ByteRunAutomaton {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.base.hash(state)
   }
 }

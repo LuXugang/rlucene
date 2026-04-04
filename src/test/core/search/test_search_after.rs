@@ -60,7 +60,10 @@ use std::collections::HashMap;
 #[allow(dead_code)] // for quick search
 pub struct TestSearchAfter;
 
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(Vec<SortField>, DefaultIndexSearchCR)> {
+fn set_up<R>(random: &mut R) -> Result<(Vec<SortField>, DefaultIndexSearchCR)>
+where
+  R: Rng + ?Sized,
+{
   let mut all_sort_fields = vec![
     SortField::with_reverse(Some("int"), SortFieldType::Int, false)?,
     SortField::with_reverse(Some("long"), SortFieldType::Long, false)?,
@@ -237,13 +240,16 @@ fn test_queries() -> Result<()> {
   Ok(())
 }
 
-fn assert_query<IRC: IndexReaderContext>(
+fn assert_query<IRC>(
   random: &mut impl Rng,
   searcher: &IndexSearcher<IRC>,
   query: Query,
   sort: Option<Sort>,
   is_relevance: bool,
-) -> Result<()> {
+) -> Result<()>
+where
+  IRC: IndexReaderContext,
+{
   let max_doc = searcher.get_index_reader().max_doc()? as usize;
   let page_size = TestUtil::next_usize(random, 1, max_doc * 2);
 
@@ -339,12 +345,15 @@ fn assert_query<IRC: IndexReaderContext>(
   assert_eq!(all.score_docs().len(), page_start);
   Ok(())
 }
-fn assert_page<IRC: IndexReaderContext>(
+fn assert_page<IRC>(
   searcher: &IndexSearcher<IRC>,
   page_start: usize,
   all: &TopDocEnum,
   paged: &TopDocEnum,
-) -> Result<()> {
+) -> Result<()>
+where
+  IRC: IndexReaderContext,
+{
   assert_eq!(all.total_hits().value(), paged.total_hits().value());
 
   let mut stored_fields = searcher.stored_fields()?;

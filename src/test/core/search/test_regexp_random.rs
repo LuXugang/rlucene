@@ -36,7 +36,10 @@ use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search
 pub struct TestRegexpRandom;
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
+fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+where
+  R: Rng + ?Sized,
+{
   let dir = new_directory_shared(random)?;
 
   let mut config = new_index_writer_config(random);
@@ -63,11 +66,17 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
   writer.close()?;
   new_searcher_with_reader(reader)
 }
-fn n<R: Rng + ?Sized>(random: &mut R) -> char {
+fn n<R>(random: &mut R) -> char
+where
+  R: Rng + ?Sized,
+{
   (0x30u8 + random.random_range(0..10) as u8) as char
 }
 
-fn fill_pattern<R: Rng + ?Sized>(random: &mut R, wildcard_pattern: &str) -> String {
+fn fill_pattern<R>(random: &mut R, wildcard_pattern: &str) -> String
+where
+  R: Rng + ?Sized,
+{
   let mut sb = String::new();
   for ch in wildcard_pattern.chars() {
     match ch {
@@ -78,13 +87,14 @@ fn fill_pattern<R: Rng + ?Sized>(random: &mut R, wildcard_pattern: &str) -> Stri
   sb
 }
 
-fn assert_pattern_hits<IRC, R: Rng + ?Sized>(
+fn assert_pattern_hits<IRC, R>(
   random: &mut R,
   searcher: &IndexSearcher<IRC>,
   pattern: &str,
   num_hits: usize,
 ) -> Result<()>
 where
+  R: Rng + ?Sized,
   IRC: IndexReaderContext,
 {
   let wq = RegexpQuery::new(Term::from_text("field", fill_pattern(random, pattern)))?;

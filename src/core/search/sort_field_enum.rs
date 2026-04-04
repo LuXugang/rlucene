@@ -148,7 +148,10 @@ impl Display for SortFieldEnum {
 }
 
 impl Hash for SortFieldEnum {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     match self {
       SortFieldEnum::SortedNumeric(sort_field) => sort_field.hash(state),
       SortFieldEnum::SortedSet(sort_field) => sort_field.hash(state),

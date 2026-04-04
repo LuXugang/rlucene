@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
-pub fn assert_vecs_equal<T: PartialEq + std::fmt::Debug>(expected: &[T], actual: &[T]) {
+pub fn assert_vecs_equal<T>(expected: &[T], actual: &[T])
+where
+  T: PartialEq + std::fmt::Debug,
+{
   if expected.len() != actual.len() {
     assert_eq!(expected.len(), actual.len(),);
   }

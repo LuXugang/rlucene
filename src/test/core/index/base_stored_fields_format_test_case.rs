@@ -56,7 +56,10 @@ use std::collections::{HashMap, HashSet};
 ///
 /// @lucene.experimental
 pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
-  fn test_random_stored_fields<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_random_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
@@ -141,7 +144,10 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_stored_fields_order<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_stored_fields_order<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let iwc = new_index_writer_config(random);
     let writer = RandomIndexWriter::with_config(random, directory, iwc);
@@ -182,7 +188,10 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_binary_field_offset_length<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_binary_field_offset_length<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let iwc = new_index_writer_config(random);
     let writer = RandomIndexWriter::with_config(random, directory, iwc);
@@ -214,7 +223,10 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_numeric_field<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_numeric_field<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, directory);
     let num_docs = at_least(random, 500) as usize;
@@ -295,7 +307,10 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_indexed_bit<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_indexed_bit<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, directory);
 
@@ -328,7 +343,10 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_read_skip<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_read_skip<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
@@ -400,7 +418,10 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_empty_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_empty_docs<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
@@ -429,7 +450,10 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.close()?;
     Ok(())
   }
-  fn test_concurrent_reads<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_concurrent_reads<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO 多线程未实现
     Ok(())
   }

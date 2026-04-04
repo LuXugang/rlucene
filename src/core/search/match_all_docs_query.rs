@@ -69,7 +69,10 @@ impl PartialEq for MatchAllDocsQuery {
 impl Eq for MatchAllDocsQuery {}
 
 impl Hash for MatchAllDocsQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     0usize.hash(state);
   }
 }

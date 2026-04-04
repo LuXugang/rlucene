@@ -109,7 +109,10 @@ impl PartialEq for KnnByteVectorQuery {
 }
 impl Eq for KnnByteVectorQuery {}
 impl Hash for KnnByteVectorQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.base.hash(state);
     self.target.hash(state);
   }

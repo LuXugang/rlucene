@@ -322,11 +322,9 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
   fn finish(&mut self);
   fn add_value(&mut self, doc: i32, value: i64, index: usize) -> Result<()>;
   fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: usize) -> Result<()>;
-  fn add_iterator<T: DocValuesFieldIterator>(
-    &mut self,
-    doc_id: i32,
-    iterator: &mut T,
-  ) -> Result<()>;
+  fn add_iterator<T>(&mut self, doc_id: i32, iterator: &mut T) -> Result<()>
+  where
+    T: DocValuesFieldIterator;
   /// This method could be called once
   fn iterator(
     &self,
@@ -415,11 +413,10 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
     }
   }
 
-  fn add_iterator<T: DocValuesFieldIterator>(
-    &mut self,
-    doc_id: i32,
-    iterator: &mut T,
-  ) -> Result<()> {
+  fn add_iterator<T>(&mut self, doc_id: i32, iterator: &mut T) -> Result<()>
+  where
+    T: DocValuesFieldIterator,
+  {
     match self {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_iterator(doc_id, iterator),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_iterator(doc_id, iterator),
@@ -1094,11 +1091,10 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
     Ok(())
   }
 
-  fn add_iterator<T: DocValuesFieldIterator>(
-    &mut self,
-    _doc_id: i32,
-    _iterator: &mut T,
-  ) -> Result<()> {
+  fn add_iterator<T>(&mut self, _doc_id: i32, _iterator: &mut T) -> Result<()>
+  where
+    T: DocValuesFieldIterator,
+  {
     unreachable!("add_iterator is not supported")
   }
 
@@ -1257,11 +1253,17 @@ where
   Ok(Some(value))
 }
 /// Wraps the given iterator as a BinaryDocValues instance.
-fn get_binary_doc_values<T: DocValuesFieldIterator>(iterator: T) {
+fn get_binary_doc_values<T>(iterator: T)
+where
+  T: DocValuesFieldIterator,
+{
   BinaryDocValuesDVFU::new(iterator);
 }
 /// Wraps the given iterator as a NumericDocValues instance.
-fn get_numeric_doc_values<T: DocValuesFieldIterator>(iterator: T) {
+fn get_numeric_doc_values<T>(iterator: T)
+where
+  T: DocValuesFieldIterator,
+{
   NumericDocValuesDVFU::new(iterator);
 }
 

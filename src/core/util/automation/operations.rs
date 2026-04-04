@@ -1335,7 +1335,10 @@ impl Ord for PointTransitions {
 }
 
 impl std::hash::Hash for PointTransitions {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     self.point.hash(state);
   }
 }
@@ -1772,10 +1775,10 @@ pub(crate) mod tests {
   ///
   /// Returns:
   /// - A randomly generated [`Automaton`] instance.
-  pub(crate) fn generate_random_automaton<R: Rng + ?Sized>(
-    has_cycle: bool,
-    random: &mut R,
-  ) -> Result<Automaton> {
+  pub(crate) fn generate_random_automaton<R>(has_cycle: bool, random: &mut R) -> Result<Automaton>
+  where
+    R: Rng + ?Sized,
+  {
     let mut a = Automaton::new();
     let mut last_level_states = vec![];
     let initial_state = a.create_state();

@@ -619,7 +619,10 @@ mod tests {
     do_test_basics(&mut random, Occur::Filter)
   }
 
-  fn do_test_basics<R: Rng + ?Sized>(random: &mut R, req_occur: Occur) -> Result<()> {
+  fn do_test_basics<R>(random: &mut R, req_occur: Occur) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
 
     let mut iwc = new_index_writer_config(random);

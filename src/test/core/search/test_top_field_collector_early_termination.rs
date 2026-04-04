@@ -60,7 +60,10 @@ static SORT: LazyLock<Arc<Sort>> = LazyLock::new(|| {
   )
 });
 const FORCE_MERGE_MAX_SEGMENT_COUNT: i32 = 5;
-fn random_document<R: Rng + ?Sized>(random: &mut R, terms: &[String]) -> Result<Document> {
+fn random_document<R>(random: &mut R, terms: &[String]) -> Result<Document>
+where
+  R: Rng + ?Sized,
+{
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new(
     "ndv1",
@@ -77,10 +80,13 @@ fn random_document<R: Rng + ?Sized>(random: &mut R, terms: &[String]) -> Result<
   )?);
   Ok(doc)
 }
-fn create_random_index<R: Rng + ?Sized>(
+fn create_random_index<R>(
   random: &mut R,
   single_sorted_segment: bool,
-) -> Result<(DefaultCRReader, Vec<String>)> {
+) -> Result<(DefaultCRReader, Vec<String>)>
+where
+  R: Rng + ?Sized,
+{
   let dir = new_directory_shared(random)?;
 
   let num_docs = at_least_usize(random, 150);
@@ -147,7 +153,10 @@ fn test_early_termination_when_paging() -> Result<()> {
   let mut random = random();
   do_test_early_termination(&mut random, true)
 }
-fn do_test_early_termination<R: Rng + ?Sized>(random: &mut R, paging: bool) -> Result<()> {
+fn do_test_early_termination<R>(random: &mut R, paging: bool) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   let iters = at_least_usize(random, 1);
 
   for _ in 0..iters {

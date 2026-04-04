@@ -438,7 +438,10 @@ impl CompiledAutomaton {
   }
 }
 impl Hash for CompiledAutomaton {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.type_.hash(state);
     match self.type_ {
       AutomatonType::Single => {
@@ -452,7 +455,10 @@ impl Hash for CompiledAutomaton {
     }
   }
 }
-fn hash_opt_rc_identity<T, H: Hasher>(v: &Option<Arc<T>>, state: &mut H) {
+fn hash_opt_rc_identity<T, H>(v: &Option<Arc<T>>, state: &mut H)
+where
+  H: Hasher,
+{
   match v.as_ref() {
     None => 0usize.hash(state),
     Some(rc) => {
@@ -748,11 +754,10 @@ mod tests {
 
     Ok(())
   }
-  fn test_terms<R: Rng + ?Sized>(
-    random: &mut R,
-    determinize_work_limit: i32,
-    terms: &[&str],
-  ) -> Result<()> {
+  fn test_terms<R>(random: &mut R, determinize_work_limit: i32, terms: &[&str]) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut compiled = build(determinize_work_limit, terms)?;
     let mut term_bytes: Vec<BytesRef<Vec<u8>>> =
       terms.iter().map(|s| BytesRef::from_string(s)).collect();
@@ -815,7 +820,10 @@ mod tests {
     Ok(())
   }
 
-  fn random_string<R: Rng + ?Sized>(random: &mut R) -> String {
+  fn random_string<R>(random: &mut R) -> String
+  where
+    R: Rng + ?Sized,
+  {
     TestUtil::random_realistic_unicode_string(random)
   }
   #[test]

@@ -154,7 +154,10 @@ impl PartialOrd for Term {
   }
 }
 impl Hash for Term {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.field.hash(state);
     self.bytes.hash(state);
   }

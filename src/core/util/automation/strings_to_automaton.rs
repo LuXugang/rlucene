@@ -354,7 +354,10 @@ impl PartialEq for StateKey {
 impl Eq for StateKey {}
 
 impl Hash for StateKey {
-  fn hash<H: Hasher>(&self, hasher: &mut H) {
+  fn hash<H>(&self, hasher: &mut H)
+  where
+    H: Hasher,
+  {
     let sb = self.state.borrow();
     let mut h: usize = if sb.is_final { 1 } else { 0 };
     h ^= h.wrapping_mul(31).wrapping_add(sb.labels.len());
@@ -492,7 +495,10 @@ mod tests {
     Ok(())
   }
 
-  fn test_random<R: Rng + ?Sized>(random: &mut R, allow_binary: bool) -> Result<()> {
+  fn test_random<R>(random: &mut R, allow_binary: bool) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iters = if is_night_mode() { 50 } else { 10 };
 
     for _ in 0..iters {
@@ -569,7 +575,10 @@ mod tests {
     Ok(())
   }
 
-  fn basic_terms<R: Rng + ?Sized>(random: &mut R) -> Result<Vec<BytesRef<Vec<u8>>>> {
+  fn basic_terms<R>(random: &mut R) -> Result<Vec<BytesRef<Vec<u8>>>>
+  where
+    R: Rng + ?Sized,
+  {
     Ok(vec![
       new_bytes_ref_from_string(random, "dog")?,
       new_bytes_ref_from_string(random, "day")?,
@@ -579,11 +588,10 @@ mod tests {
     ])
   }
 
-  fn build<R: Rng + ?Sized>(
-    random: &mut R,
-    terms: Vec<BytesRef<Vec<u8>>>,
-    as_binary: bool,
-  ) -> Result<Automaton> {
+  fn build<R>(random: &mut R, terms: Vec<BytesRef<Vec<u8>>>, as_binary: bool) -> Result<Automaton>
+  where
+    R: Rng + ?Sized,
+  {
     if random.random_bool(0.5) {
       StringsToAutomaton::build(terms.as_slice(), as_binary)
     } else {

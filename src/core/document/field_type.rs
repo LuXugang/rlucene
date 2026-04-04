@@ -468,7 +468,10 @@ impl PartialEq for FieldType {
 impl Eq for FieldType {}
 
 impl Hash for FieldType {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.dimension_count.hash(state);
     self.index_dimension_count.hash(state);
     self.dimension_num_bytes.hash(state);
@@ -632,12 +635,18 @@ mod tests {
     Ok(())
   }
 
-  fn random_value_bool<R: Rng + ?Sized>(random: &mut R) -> bool {
+  fn random_value_bool<R>(random: &mut R) -> bool
+  where
+    R: Rng + ?Sized,
+  {
     random.random_bool(0.5)
   }
 
   // Generates a random FieldType.
-  fn random_field_type<R: Rng + ?Sized>(random: &mut R) -> Result<FieldType> {
+  fn random_field_type<R>(random: &mut R) -> Result<FieldType>
+  where
+    R: Rng + ?Sized,
+  {
     let mut ft = FieldType::new();
     let max_idx_dims = MAX_INDEX_DIMENSIONS;
     let max_dims = MAX_DIMENSIONS;

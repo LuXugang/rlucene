@@ -36,7 +36,10 @@ impl HnswUtil {
   limit the search to include non-full nodes only.
   */
   /// Returns true if every node on every level is reachable from node 0.
-  pub(crate) fn is_rooted<G: HnswGraph>(hnsw: &mut G) -> Result<bool> {
+  pub(crate) fn is_rooted<G>(hnsw: &mut G) -> Result<bool>
+  where
+    G: HnswGraph,
+  {
     for level in 0..hnsw.num_levels()? {
       let comps = Self::components(hnsw, level, None, 0)?;
       if comps.len() > 1 {
@@ -48,7 +51,10 @@ impl HnswUtil {
   /// Returns the sizes of the distinct graph components on level 0. If the
   /// graph is fully-rooted the list will have one entry. If it is empty, the
   /// returned list will be empty.
-  pub(crate) fn component_sizes<G: HnswGraph>(hnsw: &mut G) -> Result<Vec<usize>> {
+  pub(crate) fn component_sizes<G>(hnsw: &mut G) -> Result<Vec<usize>>
+  where
+    G: HnswGraph,
+  {
     Self::component_sizes_on_level(hnsw, 0)
   }
   /// Returns the sizes of the distinct graph components on the given level.
@@ -57,22 +63,26 @@ impl HnswUtil {
   /// rooted in the entry points--that is, every node is reachable from at
   /// least one entry point--the returned list will have a single entry. If
   /// the graph is empty, the returned list will be empty.
-  pub(crate) fn component_sizes_on_level<G: HnswGraph>(
-    hnsw: &mut G,
-    level: usize,
-  ) -> Result<Vec<usize>> {
+  pub(crate) fn component_sizes_on_level<G>(hnsw: &mut G, level: usize) -> Result<Vec<usize>>
+  where
+    G: HnswGraph,
+  {
     let comps = Self::components(hnsw, level, None, 0)?;
     Ok(comps.into_iter().map(|c| c.size).collect())
   }
 
-  fn get_total<N: NodesIterator, G: HnswGraph>(
+  fn get_total<N, G>(
     nodes_iter: N,
     hnsw: &mut G,
     level: usize,
     mut not_fully_connected: Option<&mut FixedBitSet>,
     connected_nodes: &mut FixedBitSet,
     max_conn: usize,
-  ) -> Result<usize> {
+  ) -> Result<usize>
+  where
+    N: NodesIterator,
+    G: HnswGraph,
+  {
     let mut total = 0;
     for entry_point in nodes_iter {
       let component = Self::mark_rooted(
@@ -88,12 +98,15 @@ impl HnswUtil {
     Ok(total)
   }
 
-  pub(crate) fn components<G: HnswGraph>(
+  pub(crate) fn components<G>(
     hnsw: &mut G,
     level: usize,
     mut not_fully_connected: Option<&mut FixedBitSet>,
     max_conn: usize,
-  ) -> Result<Vec<Component>> {
+  ) -> Result<Vec<Component>>
+  where
+    G: HnswGraph,
+  {
     let mut components = Vec::new();
     debug_assert!(hnsw.size() <= i32::MAX as usize);
     let mut connected_nodes = FixedBitSet::new(hnsw.size());
@@ -201,14 +214,17 @@ impl HnswUtil {
   ///   nodes that have fewer than `max_conn` connections
   /// - `max_conn`: the maximum number of neighbors a node can have (i.e., M)
   /// - `entry_point`: the node ID from which traversal begins
-  fn mark_rooted<G: HnswGraph>(
+  fn mark_rooted<G>(
     hnsw_graph: &mut G,
     level: usize,
     connected_nodes: &mut FixedBitSet,
     mut not_fully_connected: Option<&mut FixedBitSet>,
     max_conn: usize,
     entry_point: usize,
-  ) -> Result<Component> {
+  ) -> Result<Component>
+  where
+    G: HnswGraph,
+  {
     // Start at entry point and search all nodes on this level
     let mut stack = VecDeque::new();
     stack.push_back(entry_point);

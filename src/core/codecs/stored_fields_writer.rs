@@ -256,24 +256,30 @@ impl MergeVisitor {
   }
 }
 impl StoredFieldVisitor for MergeVisitor {
-  fn binary_field_with_input<S: StoredFieldsWriter>(
+  fn binary_field_with_input<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     input: &mut impl DataInput,
     length: i32,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
     writer.write_field_with_input(self.remap(field_info)?.as_ref(), input, length)
   }
 
-  fn binary_field<S: StoredFieldsWriter>(
+  fn binary_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: Vec<u8>,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
     writer.write_field_bytes(
@@ -282,66 +288,84 @@ impl StoredFieldVisitor for MergeVisitor {
     )
   }
 
-  fn string_field<S: StoredFieldsWriter>(
+  fn string_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: String,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
     writer.write_field_str(self.remap(field_info)?.as_ref(), &value)
   }
 
-  fn int_field<S: StoredFieldsWriter>(
+  fn int_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: i32,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
     writer.write_field_i32(self.remap(field_info)?.as_ref(), value)
   }
 
-  fn long_field<S: StoredFieldsWriter>(
+  fn long_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: i64,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
     writer.write_field_i64(self.remap(field_info)?.as_ref(), value)
   }
 
-  fn float_field<S: StoredFieldsWriter>(
+  fn float_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: f32,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
     writer.write_field_f32(self.remap(field_info)?.as_ref(), value)
   }
 
-  fn double_field<S: StoredFieldsWriter>(
+  fn double_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: f64,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
     writer.write_field_f64(self.remap(field_info)?.as_ref(), value)
   }
 
-  fn needs_field<S: StoredFieldsWriter>(
+  fn needs_field<S>(
     &mut self,
     _field_info: Arc<FieldInfo>,
     _writer: Option<&mut S>,
-  ) -> Result<Status> {
+  ) -> Result<Status>
+  where
+    S: StoredFieldsWriter,
+  {
     Ok(Status::Yes)
   }
 }

@@ -631,7 +631,10 @@ fn verify_binary(
   Ok(())
 }
 // TODO: port bytesToString
-fn bytes_to_string<R: Rng + ?Sized>(_random: &mut R, _bytes: Option<&[u8]>) -> Result<String> {
+fn bytes_to_string<R>(_random: &mut R, _bytes: Option<&[u8]>) -> Result<String>
+where
+  R: Rng + ?Sized,
+{
   // TODO
   Ok("".to_string())
 }
@@ -648,7 +651,10 @@ fn matches(
 }
 
 // TODO: port randomValue
-fn random_value<R: Rng + ?Sized>(_random: &mut R) -> i64 {
+fn random_value<R>(_random: &mut R) -> i64
+where
+  R: Rng + ?Sized,
+{
   // TODO
   0
 }

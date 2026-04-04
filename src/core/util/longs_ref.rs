@@ -159,7 +159,10 @@ impl Clone for LongsRef {
   }
 }
 impl Hash for LongsRef {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     const PRIME: u64 = 31;
     let mut result: u64 = 0;
     let end = self.offset + self.length;

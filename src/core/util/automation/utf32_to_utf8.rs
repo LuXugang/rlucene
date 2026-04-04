@@ -415,13 +415,16 @@ mod tests {
     let _ = ch.encode_utf8(&mut buf);
     a.run(buf.as_slice(), 0, len)
   }
-  fn test_one<R: Rng + ?Sized>(
+  fn test_one<R>(
     random: &mut R,
     a: &ByteRunAutomaton,
     start_code: i32,
     end_code: i32,
     iters: usize,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let sur_start = UnicodeUtil::UNI_SUR_HIGH_START;
     let sur_end = UnicodeUtil::UNI_SUR_LOW_END;
 
@@ -494,7 +497,10 @@ mod tests {
     }
     Ok(())
   }
-  fn get_code_start<R: Rng + ?Sized>(random: &mut R) -> i32 {
+  fn get_code_start<R>(random: &mut R) -> i32
+  where
+    R: Rng + ?Sized,
+  {
     match random.random_range(0..4) {
       0 => random.random_range(0..128),
       1 => random.random_range(128..2048),
@@ -646,7 +652,10 @@ mod tests {
     Ok(())
   }
 
-  fn assert_automaton<R: Rng + ?Sized>(random: &mut R, a: &Automaton) -> Result<()> {
+  fn assert_automaton<R>(random: &mut R, a: &Automaton) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let cra = CharacterRunAutomaton::new(a.clone())?;
     let bra = ByteRunAutomaton::new(a.clone())?;
     let ras = RandomAcceptedStrings::new(a)?;

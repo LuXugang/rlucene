@@ -604,7 +604,10 @@ mod tests {
       assert!(v >= min_target_size);
     }
   }
-  fn parse_int<R: Rng + ?Sized>(random: &mut R, s: &str) -> Result<i32> {
+  fn parse_int<R>(random: &mut R, s: &str) -> Result<i32>
+  where
+    R: Rng + ?Sized,
+  {
     let start = random.random_range(0..5);
     let extra_length = random.random_range(0..4);
     let mut chars: Vec<char> = vec![' '; s.len() + start + extra_length];
@@ -653,7 +656,10 @@ mod tests {
     assert_eq!(value, 1923, "{} does not equal: 1923", value);
     Ok(())
   }
-  fn create_random_array<R: Rng + ?Sized>(random: &mut R, max_size: i32) -> Vec<i32> {
+  fn create_random_array<R>(random: &mut R, max_size: i32) -> Vec<i32>
+  where
+    R: Rng + ?Sized,
+  {
     let size = random.random_range(1..=max_size);
     let mut array = Vec::with_capacity(size as usize);
 
@@ -686,7 +692,10 @@ mod tests {
     }
     Ok(())
   }
-  fn create_sparse_random_array<R: Rng + ?Sized>(random: &mut R, max_size: i32) -> Vec<i32> {
+  fn create_sparse_random_array<R>(random: &mut R, max_size: i32) -> Vec<i32>
+  where
+    R: Rng + ?Sized,
+  {
     let size = random.random_range(0..=max_size);
     let mut array = Vec::with_capacity(size as usize);
 
@@ -873,7 +882,10 @@ mod tests {
     Ok(())
   }
 
-  fn do_test_select<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
+  fn do_test_select<R>(random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let from = random.random_range(0..5) as usize;
     let to = from + TestUtil::next_usize(random, 1, 10_000);
     let max = if random.random_bool(0.5) {

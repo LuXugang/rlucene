@@ -37,7 +37,10 @@ impl PForUtil {
     arr.iter().skip(1).all(|&v| v == arr[0])
   }
   /// Encode 128 integers from `ints` into `out`.
-  pub(crate) fn encode<O: DataOutput>(&mut self, ints: &mut [i32], out: &mut O) -> Result<()> {
+  pub(crate) fn encode<O>(&mut self, ints: &mut [i32], out: &mut O) -> Result<()>
+  where
+    O: DataOutput,
+  {
     let mut top = LongHeap::new(Self::MAX_EXCEPTIONS + 1)?;
     for &v in &ints[..=Self::MAX_EXCEPTIONS] {
       top.push(v as i64);
@@ -102,11 +105,14 @@ impl PForUtil {
   }
 
   /// Decode 128 integers into `ints`.
-  pub(crate) fn decode<I: IndexInput>(
+  pub(crate) fn decode<I>(
     &mut self,
     pdu: &mut PostingDecodingUtil<I>,
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     let token = pdu.input.read_byte()?;
     let bits_per_value = token & 0x1f;
 
@@ -128,7 +134,10 @@ impl PForUtil {
   }
 
   /// Skip 128 integers.
-  pub(crate) fn skip<I: DataInput>(input: &mut I) -> Result<()> {
+  pub(crate) fn skip<I>(input: &mut I) -> Result<()>
+  where
+    I: DataInput,
+  {
     let token = input.read_byte()? as i32;
     let bits_per_value = token & 0x1f;
     let num_exceptions = (token as u32 >> 5) as i32;
@@ -193,11 +202,10 @@ mod tests {
     assert_eq!(end_pointer as usize, pdu.input.get_file_pointer()?);
     Ok(())
   }
-  fn create_test_data<R: Rng + ?Sized>(
-    iterations: usize,
-    max_bpv: i32,
-    random: &mut R,
-  ) -> Vec<i32> {
+  fn create_test_data<R>(iterations: usize, max_bpv: i32, random: &mut R) -> Vec<i32>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(max_bpv > 0 && max_bpv <= 31);
     let mut values = vec![0i32; iterations * ForUtil::BLOCK_SIZE];
     for i in 0..iterations {

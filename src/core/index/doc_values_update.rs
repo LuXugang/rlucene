@@ -102,7 +102,10 @@ pub trait DocValuesUpdateBase {
   }
   fn value_to_string(&self) -> String;
   #[allow(dead_code)]
-  fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef<Vec<u8>>) -> Result<()> {
+  fn write_to<D>(&self, _bytes: &mut BytesRef<Vec<u8>>) -> Result<()>
+  where
+    D: DataOutput,
+  {
     unimplemented!("Not used in Java Lucene, so we did not implement it")
   }
   fn has_value(&self) -> bool;

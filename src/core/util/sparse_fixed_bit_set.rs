@@ -597,7 +597,10 @@ impl BitSet for SparseFixedBitSet {
     }
   }
 
-  fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
+  fn or<T>(&mut self, iter: &mut T) -> Result<()>
+  where
+    T: DocIdSetIterator,
+  {
     //TODO: this is a naive implementation, we can optimize it from Java
     // Lucene
     check_unpositioned(iter)?;

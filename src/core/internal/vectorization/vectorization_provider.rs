@@ -26,7 +26,9 @@ pub trait VectorizationProvider {
   fn get_vector_util_support(&self) -> Self::VectorUtilSupport;
   type FlatVectorsScorer: FlatVectorsScorer;
   fn get_lucene99_flat_vectors_scorer(&self) -> Self::FlatVectorsScorer;
-  fn new_posting_decoding_util<I: IndexInput>(&self, input: I) -> PostingDecodingUtil<I>;
+  fn new_posting_decoding_util<I>(&self, input: I) -> PostingDecodingUtil<I>
+  where
+    I: IndexInput;
 }
 
 pub static DEFAULT_VECTORIZATION_PROVIDER: LazyLock<DefaultVectorizationProvider> =

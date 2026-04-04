@@ -653,12 +653,18 @@ mod tests {
       .sum()
   }
 
-  fn random_vector<R: Rng + ?Sized>(random: &mut R) -> Vec<f32> {
+  fn random_vector<R>(random: &mut R) -> Vec<f32>
+  where
+    R: Rng + ?Sized,
+  {
     let dim = random.random_range(1..=100);
     random_vector_dim(random, dim)
   }
 
-  fn random_vector_dim<R: Rng + ?Sized>(random: &mut R, dim: usize) -> Vec<f32> {
+  fn random_vector_dim<R>(random: &mut R, dim: usize) -> Vec<f32>
+  where
+    R: Rng + ?Sized,
+  {
     (0..dim).map(|_| random.random::<f32>()).collect()
   }
 

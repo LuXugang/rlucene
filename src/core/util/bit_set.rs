@@ -78,9 +78,14 @@ pub trait BitSet: Bits + Accountable {
 
   /// Performs in-place OR of the bits provided by the iterator. The state of
   /// the iterator after this operation terminates is undefined.
-  fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()>;
+  fn or<T>(&mut self, iter: &mut T) -> Result<()>
+  where
+    T: DocIdSetIterator;
 
-  fn default_or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
+  fn default_or<T>(&mut self, iter: &mut T) -> Result<()>
+  where
+    T: DocIdSetIterator,
+  {
     check_unpositioned(iter)?;
     loop {
       let doc = iter.next_doc()?.try_convert()?;
@@ -229,7 +234,10 @@ where
     }
   }
 
-  fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
+  fn or<T>(&mut self, iter: &mut T) -> Result<()>
+  where
+    T: DocIdSetIterator,
+  {
     match self {
       BitSetEnum2::A(t) => t.or(iter),
       BitSetEnum2::B(s) => s.or(iter),
@@ -297,11 +305,17 @@ where
     (**self).next_set_bit_range(start, end)
   }
 
-  fn or<T1: DocIdSetIterator>(&mut self, _iter: &mut T1) -> Result<()> {
+  fn or<T1>(&mut self, _iter: &mut T1) -> Result<()>
+  where
+    T1: DocIdSetIterator,
+  {
     unreachable!()
   }
 
-  fn default_or<T1: DocIdSetIterator>(&mut self, _iter: &mut T1) -> Result<()> {
+  fn default_or<T1>(&mut self, _iter: &mut T1) -> Result<()>
+  where
+    T1: DocIdSetIterator,
+  {
     unreachable!()
   }
 
@@ -385,11 +399,17 @@ where
     (**self).next_set_bit_range(start, end)
   }
 
-  fn or<T1: DocIdSetIterator>(&mut self, _iter: &mut T1) -> Result<()> {
+  fn or<T1>(&mut self, _iter: &mut T1) -> Result<()>
+  where
+    T1: DocIdSetIterator,
+  {
     unreachable!()
   }
 
-  fn default_or<T1: DocIdSetIterator>(&mut self, _iter: &mut T1) -> Result<()> {
+  fn default_or<T1>(&mut self, _iter: &mut T1) -> Result<()>
+  where
+    T1: DocIdSetIterator,
+  {
     unreachable!()
   }
 

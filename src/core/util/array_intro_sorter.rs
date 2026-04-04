@@ -103,7 +103,10 @@ mod tests {
   }
 
   impl<T, C: Comparator<T>> BaseSortTestCase for TestIntroSorter<T, C> {
-    fn new_sorter<R: Rng + ?Sized>(&self, _random: &mut R, arr: &mut Vec<Entry>) -> impl Sorter {
+    fn new_sorter<R>(&self, _random: &mut R, arr: &mut Vec<Entry>) -> impl Sorter
+    where
+      R: Rng + ?Sized,
+    {
       ArrayIntroSorter::new(arr, NaturalOrder::new())
     }
 

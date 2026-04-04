@@ -62,13 +62,16 @@ pub trait KnnVectorsWriter: Accountable {
 /// * `old2new_ord` - maps from old ord to new ord
 /// * `new2old_ord` - maps from new ord to old ord
 /// * `new_docs_with_field` - set of new doc ids which has the value
-pub fn map_old_ord_to_new_ord<DM: DocMap>(
+pub fn map_old_ord_to_new_ord<DM>(
   old_doc_ids: &DocsWithFieldSet,
   sort_map: &DM,
   mut old2new_ord: Option<&mut [usize]>,
   mut new2old_ord: Option<&mut [usize]>,
   mut new_docs_with_field: Option<&mut DocsWithFieldSet>,
-) -> Result<()> {
+) -> Result<()>
+where
+  DM: DocMap,
+{
   debug_assert!(old2new_ord.is_some() || new2old_ord.is_some() || new_docs_with_field.is_some());
 
   debug_assert!({

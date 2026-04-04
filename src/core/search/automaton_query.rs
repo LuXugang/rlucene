@@ -185,7 +185,10 @@ impl PartialEq for AutomatonQuery {
 }
 impl Eq for AutomatonQuery {}
 impl Hash for AutomatonQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.compiled.hash(state);
     self.term.hash(state);
   }
@@ -251,7 +254,10 @@ mod tests {
   struct TestAutomatonQuery;
   const FN: &str = "field";
 
-  fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
+  fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let mut field_to_type = HashMap::new();
 

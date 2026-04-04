@@ -142,7 +142,10 @@ impl Lucene94FieldInfosFormat {
     }
   }
 
-  fn get_doc_values_type<I: IndexInput>(input: &I, b: u8) -> Result<DocValuesType> {
+  fn get_doc_values_type<I>(input: &I, b: u8) -> Result<DocValuesType>
+  where
+    I: IndexInput,
+  {
     match DocValuesType::from_repr(b) {
       Some(dv) => Ok(dv),
       None => Err(LuceneError::corrupt_index(format!(
@@ -151,10 +154,10 @@ impl Lucene94FieldInfosFormat {
     }
   }
 
-  fn get_doc_values_skip_index_type<I: IndexInput>(
-    input: &I,
-    b: u8,
-  ) -> Result<DocValuesSkipIndexType> {
+  fn get_doc_values_skip_index_type<I>(input: &I, b: u8) -> Result<DocValuesSkipIndexType>
+  where
+    I: IndexInput,
+  {
     match DocValuesSkipIndexType::from_repr(b) {
       Some(dv) => Ok(dv),
       None => Err(LuceneError::corrupt_index(format!(
@@ -163,7 +166,10 @@ impl Lucene94FieldInfosFormat {
     }
   }
 
-  fn get_vector_encoding<I: IndexInput>(input: &I, b: u8) -> Result<VectorEncoding> {
+  fn get_vector_encoding<I>(input: &I, b: u8) -> Result<VectorEncoding>
+  where
+    I: IndexInput,
+  {
     match VectorEncoding::from_repr(b) {
       Some(ve) => match ve {
         VectorEncoding::BYTE(_) => Ok(VectorEncoding::BYTE(1)),
@@ -175,7 +181,10 @@ impl Lucene94FieldInfosFormat {
     }
   }
 
-  fn get_dist_func<I: IndexInput>(input: &I, b: u8) -> Result<VectorSimilarityFunction> {
+  fn get_dist_func<I>(input: &I, b: u8) -> Result<VectorSimilarityFunction>
+  where
+    I: IndexInput,
+  {
     match VectorSimilarityFunction::from_repr(b) {
       Some(func) => Ok(func),
       None => Err(LuceneError::corrupt_index(format!(
@@ -202,7 +211,10 @@ impl Lucene94FieldInfosFormat {
     }
   }
 
-  fn get_index_options<I: IndexInput>(input: &I, b: u8) -> Result<IndexOptions> {
+  fn get_index_options<I>(input: &I, b: u8) -> Result<IndexOptions>
+  where
+    I: IndexInput,
+  {
     match IndexOptions::from_repr(b) {
       Some(opt) => Ok(opt),
       None => Err(LuceneError::corrupt_index(format!(
@@ -428,7 +440,10 @@ mod tests {
   pub struct TestLucene94FieldInfosFormat;
 
   impl BaseIndexFileFormatTestCase for TestLucene94FieldInfosFormat {
-    fn add_random_fields<R: Rng + ?Sized>(_random: &mut R) -> Result<()> {
+    fn add_random_fields<R>(_random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       todo!()
     }
   }

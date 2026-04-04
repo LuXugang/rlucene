@@ -78,7 +78,10 @@ impl PartialEq<Self> for ConstantScoreQuery {
 }
 
 impl Hash for ConstantScoreQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     std::any::type_name::<Self>().to_string().hash(state);
     self.query.hash(state);
   }
@@ -618,11 +621,10 @@ mod tests {
 
     Ok(())
   }
-  fn check_hits<IRC: IndexReaderContext>(
-    searcher: &IndexSearcher<IRC>,
-    q: Query,
-    expected_score: f32,
-  ) -> Result<()> {
+  fn check_hits<IRC>(searcher: &IndexSearcher<IRC>, q: Query, expected_score: f32) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+  {
     let count = Arc::new(AtomicI32::new(0));
     let manager = CollectorManagerImpl::new(expected_score, count.clone());
     searcher.search_with_collector_manager(q, &manager)?;

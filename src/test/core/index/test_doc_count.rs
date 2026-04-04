@@ -65,10 +65,10 @@ fn test_simple() -> Result<()> {
   iw.close()?;
   Ok(())
 }
-fn doc<R: Rng + ?Sized>(
-  random: &mut R,
-  field_to_type: &mut HashMap<String, FieldType>,
-) -> Result<Document> {
+fn doc<R>(random: &mut R, field_to_type: &mut HashMap<String, FieldType>) -> Result<Document>
+where
+  R: Rng + ?Sized,
+{
   let mut doc = Document::new();
   let num_fields = TestUtil::next_int(random, 1, 10);
   for _ in 0..num_fields {
@@ -90,8 +90,9 @@ fn doc<R: Rng + ?Sized>(
   Ok(doc)
 }
 
-fn verify_count<CR, R: Rng + ?Sized>(reader: &CR, random: &mut R) -> Result<()>
+fn verify_count<CR, R>(reader: &CR, random: &mut R) -> Result<()>
 where
+  R: Rng + ?Sized,
   CR: CompositeReader,
 {
   let max_doc = reader.max_doc()?;

@@ -68,13 +68,16 @@ where
     })
   }
 
-  pub fn get_reader_with_buffer<D: Directory>(
+  pub fn get_reader_with_buffer<D>(
     &self,
     start: usize,
     length: usize,
     reusable_buffer: Vec<u8>,
     temp_dir: &D,
-  ) -> Result<OfflinePointReader<D::IndexInput>> {
+  ) -> Result<OfflinePointReader<D::IndexInput>>
+  where
+    D: Directory,
+  {
     debug_assert!(
       self.closed && self.out.is_none(),
       "point writer is still open and trying to get a reader"

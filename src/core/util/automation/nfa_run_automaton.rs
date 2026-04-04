@@ -549,7 +549,10 @@ impl PartialEq for DStateKey {
 }
 impl Eq for DStateKey {}
 impl Hash for DStateKey {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.hash_code.hash(state);
   }
 }
@@ -652,13 +655,16 @@ mod tests {
     Ok(())
   }
 
-  fn assert_random_access_transition<R: Rng + ?Sized>(
+  fn assert_random_access_transition<R>(
     random: &mut R,
     automaton1: &mut NFARunAutomaton,
     automaton2: &mut NFARunAutomaton,
     state: i32,
     visited: &mut HashSet<i32>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     if !visited.insert(state) {
       return Ok(());
     }

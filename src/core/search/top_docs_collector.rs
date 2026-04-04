@@ -424,7 +424,10 @@ mod tests {
     writer.close()?;
     Ok(reader)
   }
-  fn do_search<R: Rng + ?Sized>(random: &mut R, num_results: i32) -> Result<MyTopDocsCollector> {
+  fn do_search<R>(random: &mut R, num_results: i32) -> Result<MyTopDocsCollector>
+  where
+    R: Rng + ?Sized,
+  {
     let query = MatchAllDocsQuery::new();
     let dir = new_directory_shared(random)?;
     let reader = get_reader(dir)?;

@@ -148,7 +148,10 @@ pub trait NodesIterator: Iterator<Item = usize> {
 
   fn has_next(&self) -> bool;
 }
-pub fn get_sorted_nodes<I: NodesIterator>(nodes: &mut I) -> Vec<usize> {
+pub fn get_sorted_nodes<I>(nodes: &mut I) -> Vec<usize>
+where
+  I: NodesIterator,
+{
   let mut sorted = Vec::with_capacity(nodes.size());
   for v in nodes.by_ref() {
     sorted.push(v);

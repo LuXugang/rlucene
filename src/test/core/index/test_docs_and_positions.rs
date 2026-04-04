@@ -50,7 +50,10 @@ use std::collections::HashMap;
 #[allow(dead_code)] // for quick search
 pub struct TestDocsAndPositions;
 
-fn field_name<R: Rng + ?Sized>(random: &mut R) -> String {
+fn field_name<R>(random: &mut R) -> String
+where
+  R: Rng + ?Sized,
+{
   let v: i32 = random.random();
   format!("field{}", v)
 }

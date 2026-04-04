@@ -26,7 +26,10 @@ use rand::prelude::StdRng;
 pub struct TestLucene90NormsFormat;
 
 impl BaseIndexFileFormatTestCase for TestLucene90NormsFormat {
-  fn add_random_fields<R: Rng + ?Sized>(_random: &mut R) -> Result<()> {
+  fn add_random_fields<R>(_random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     todo!()
   }
 }

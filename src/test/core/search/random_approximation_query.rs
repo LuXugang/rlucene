@@ -62,7 +62,10 @@ impl RandomApproximationQuery {
   }
 }
 impl Hash for RandomApproximationQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.query.hash(state);
   }
 }
@@ -269,7 +272,10 @@ impl<DISI> RandomTwoPhaseView<DISI>
 where
   DISI: DocIdSetIterator,
 {
-  pub fn new<R: Rng + ?Sized>(random: &mut R, disi: DISI) -> Self {
+  pub fn new<R>(random: &mut R, disi: DISI) -> Self
+  where
+    R: Rng + ?Sized,
+  {
     let seed = random.random();
     let new_random = random_from_seed(seed);
     let random_approximation = RandomApproximation::new(new_random, disi);

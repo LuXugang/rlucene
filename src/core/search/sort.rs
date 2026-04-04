@@ -122,7 +122,10 @@ impl PartialEq for Sort {
 impl Eq for Sort {}
 
 impl Hash for Sort {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     self.fields.hash(state);
   }
 }
@@ -1467,7 +1470,10 @@ mod tests {
     Ok(())
   }
 
-  fn do_test_string_ghost<R: Rng + ?Sized>(random: &mut R, indexed: bool) -> Result<()> {
+  fn do_test_string_ghost<R>(random: &mut R, indexed: bool) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
 
     let iwc = IndexWriterConfig::new();
@@ -1538,7 +1544,10 @@ mod tests {
     Ok(())
   }
 
-  fn do_test_int_ghost<R: Rng + ?Sized>(random: &mut R, indexed: bool) -> Result<()> {
+  fn do_test_int_ghost<R>(random: &mut R, indexed: bool) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
 
     let iwc = IndexWriterConfig::new();
@@ -1599,7 +1608,10 @@ mod tests {
     Ok(())
   }
 
-  fn do_test_long_ghost<R: Rng + ?Sized>(random: &mut R, indexed: bool) -> Result<()> {
+  fn do_test_long_ghost<R>(random: &mut R, indexed: bool) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
 
     let iwc = IndexWriterConfig::new();
@@ -1660,7 +1672,10 @@ mod tests {
     Ok(())
   }
 
-  fn do_test_double_ghost<R: Rng + ?Sized>(random: &mut R, indexed: bool) -> Result<()> {
+  fn do_test_double_ghost<R>(random: &mut R, indexed: bool) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
 
     let iwc = IndexWriterConfig::new();
@@ -1721,7 +1736,10 @@ mod tests {
     Ok(())
   }
 
-  fn do_test_float_ghost<R: Rng + ?Sized>(random: &mut R, indexed: bool) -> Result<()> {
+  fn do_test_float_ghost<R>(random: &mut R, indexed: bool) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
 
     let iwc = IndexWriterConfig::new();

@@ -49,9 +49,10 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 struct TestSegmentTermDocs;
 
-fn set_up<R: Rng + ?Sized>(
-  random: &mut R,
-) -> Result<(Arc<DirEnum>, Document, SegmentCommitInfo<DirEnum>)> {
+fn set_up<R>(random: &mut R) -> Result<(Arc<DirEnum>, Document, SegmentCommitInfo<DirEnum>)>
+where
+  R: Rng + ?Sized,
+{
   let dir = new_directory_shared(random)?;
   let mut document = Document::new();
   DocHelper::setup_doc(&mut document);

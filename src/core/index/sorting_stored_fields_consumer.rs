@@ -176,79 +176,103 @@ impl<S> StoredFieldVisitor for CopyVisitor<'_, S>
 where
   S: StoredFieldsWriter,
 {
-  fn binary_field_with_input<S1: StoredFieldsWriter>(
+  fn binary_field_with_input<S1>(
     &mut self,
     field_info: Arc<FieldInfo>,
     input: &mut impl DataInput,
     length: i32,
     _writer: Option<&mut S1>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S1: StoredFieldsWriter,
+  {
     self
       .writer
       .write_field_with_input(&field_info, input, length)
   }
 
-  fn binary_field<S1: StoredFieldsWriter>(
+  fn binary_field<S1>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: Vec<u8>,
     _writer: Option<&mut S1>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S1: StoredFieldsWriter,
+  {
     self
       .writer
       .write_field_bytes(&field_info, &BytesRef::from_bytes(value))
   }
 
-  fn string_field<S1: StoredFieldsWriter>(
+  fn string_field<S1>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: String,
     _writer: Option<&mut S1>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S1: StoredFieldsWriter,
+  {
     self.writer.write_field_str(&field_info, &value)
   }
 
-  fn int_field<S1: StoredFieldsWriter>(
+  fn int_field<S1>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: i32,
     _writer: Option<&mut S1>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S1: StoredFieldsWriter,
+  {
     self.writer.write_field_i32(&field_info, value)
   }
 
-  fn long_field<S1: StoredFieldsWriter>(
+  fn long_field<S1>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: i64,
     _writer: Option<&mut S1>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S1: StoredFieldsWriter,
+  {
     self.writer.write_field_i64(&field_info, value)
   }
 
-  fn float_field<S1: StoredFieldsWriter>(
+  fn float_field<S1>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: f32,
     _writer: Option<&mut S1>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S1: StoredFieldsWriter,
+  {
     self.writer.write_field_f32(&field_info, value)
   }
 
-  fn double_field<S1: StoredFieldsWriter>(
+  fn double_field<S1>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: f64,
     _writer: Option<&mut S1>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S1: StoredFieldsWriter,
+  {
     self.writer.write_field_f64(&field_info, value)
   }
 
-  fn needs_field<S1: StoredFieldsWriter>(
+  fn needs_field<S1>(
     &mut self,
     _field_info: Arc<FieldInfo>,
     _writer: Option<&mut S1>,
-  ) -> Result<Status> {
+  ) -> Result<Status>
+  where
+    S1: StoredFieldsWriter,
+  {
     Ok(Status::Yes)
   }
 }

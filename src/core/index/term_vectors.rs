@@ -199,8 +199,9 @@ mod tests {
   #[allow(dead_code)] // for quick search
   struct TestTermVectors;
 
-  pub fn create_dir<D, R: Rng + ?Sized>(random: &mut R, dir: Arc<D>) -> Result<()>
+  pub fn create_dir<D, R>(random: &mut R, dir: Arc<D>) -> Result<()>
   where
+    R: Rng + ?Sized,
     D: Directory,
   {
     let mock = MockAnalyzer::new(random);

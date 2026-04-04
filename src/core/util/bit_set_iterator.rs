@@ -91,38 +91,49 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::any::TypeId;
 
-fn equal_disi_type<T1: DocIdSetIterator + 'static, T2: DocIdSetIterator + 'static>(
-  _it1: &T1,
-  _it2: &T2,
-) -> bool {
+fn equal_disi_type<T1, T2>(_it1: &T1, _it2: &T2) -> bool
+where
+  T1: DocIdSetIterator + 'static,
+  T2: DocIdSetIterator + 'static,
+{
   TypeId::of::<T1>() == TypeId::of::<T2>()
 }
 
-fn equal_bit_set_type<T1: BitSet + 'static, T2: BitSet + 'static>(_it1: &T1, _it2: &T2) -> bool {
+fn equal_bit_set_type<T1, T2>(_it1: &T1, _it2: &T2) -> bool
+where
+  T1: BitSet + 'static,
+  T2: BitSet + 'static,
+{
   TypeId::of::<T1>() == TypeId::of::<T2>()
 }
 //TODO
-pub fn try_get_bit_set<B: BitSet + 'static>(
-  _iterator: impl DocIdSetIterator + 'static,
-  _bit_set: B,
-) -> Option<B> {
+pub fn try_get_bit_set<B>(_iterator: impl DocIdSetIterator + 'static, _bit_set: B) -> Option<B>
+where
+  B: BitSet + 'static,
+{
   todo!()
 }
 
 // todo
 /// If the provided iterator wraps a [`FixedBitSet`], returns it, otherwise
 /// returns `None`.
-pub fn get_fixed_bit_set_or_null<B: BitSet>(
+pub fn get_fixed_bit_set_or_null<B>(
   _iterator: impl DocIdSetIterator + 'static,
-) -> Option<FixedBitSet> {
+) -> Option<FixedBitSet>
+where
+  B: BitSet,
+{
   todo!()
 }
 
 // todo
 /// If the provided iterator wraps a [`SparseFixedBitSet`] returns it,
 /// otherwise returns `None`.
-pub fn get_sparse_fixed_bit_set_or_null<B: BitSet>(
+pub fn get_sparse_fixed_bit_set_or_null<B>(
   _iterator: impl DocIdSetIterator + 'static,
-) -> Option<SparseFixedBitSet> {
+) -> Option<SparseFixedBitSet>
+where
+  B: BitSet,
+{
   todo!()
 }

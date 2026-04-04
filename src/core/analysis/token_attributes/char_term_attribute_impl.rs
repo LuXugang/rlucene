@@ -201,7 +201,10 @@ impl AttributeImpl for CharTermAttributeImpl {
   }
 }
 impl Hash for CharTermAttributeImpl {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     self.term_length.hash(state);
     self.term_buffer.hash(state);
   }

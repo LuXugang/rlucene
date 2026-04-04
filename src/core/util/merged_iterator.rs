@@ -369,12 +369,15 @@ mod tests {
     Ok(())
   }
 
-  fn test_case<R: Rng + ?Sized>(
+  fn test_case<R>(
     random: &mut R,
     itrs_with_val: usize,
     specified_vals_on_itr: i32,
     remove_dups: bool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // Build a random number of lists
     let mut expected: Vec<i32> = Vec::new();
     let num_lists = itrs_with_val + random.random_range(0..(1000 - itrs_with_val));

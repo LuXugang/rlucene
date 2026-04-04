@@ -707,9 +707,10 @@ pub(crate) mod tests {
     }
   }
 
-  fn set_up<R: Rng + ?Sized>(
-    random: &mut R,
-  ) -> Result<(Arc<DirEnum>, Document, SegmentReader<DirEnum>)> {
+  fn set_up<R>(random: &mut R) -> Result<(Arc<DirEnum>, Document, SegmentReader<DirEnum>)>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let mut documnet = Document::new();
     DocHelper::setup_doc(&mut documnet);

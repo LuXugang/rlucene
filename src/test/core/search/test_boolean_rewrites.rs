@@ -1411,7 +1411,10 @@ impl PartialEq for TestRewriteQuery {
 }
 impl Eq for TestRewriteQuery {}
 impl Hash for TestRewriteQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     1.hash(state)
   }
 }

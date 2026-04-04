@@ -32,7 +32,10 @@ pub(crate) const MAXDOC_FORTESTING: i64 = 1 << 48;
 pub(crate) const MAXTOKENS_FORTESTING: i64 = 1 << 49;
 pub trait BaseSimilarityTestCase {
   /// returns a random corpus that is at least possible given the norm value for a single document.
-  fn new_corpus<R: Rng + ?Sized>(random: &mut R, norm: i32) -> Result<CollectionStatistics> {
+  fn new_corpus<R>(random: &mut R, norm: i32) -> Result<CollectionStatistics>
+  where
+    R: Rng + ?Sized,
+  {
     // lower bound of tokens in the collection (you produced this norm somehow)
     let lower_bound = if norm == 0 {
       // norms are omitted, but there must have been at least one token to produce that norm
@@ -133,10 +136,10 @@ pub trait BaseSimilarityTestCase {
       sum_doc_freq,
     )
   }
-  fn new_term<R: Rng + ?Sized>(
-    random: &mut R,
-    corpus: &CollectionStatistics,
-  ) -> Result<TermStatistics> {
+  fn new_term<R>(random: &mut R, corpus: &CollectionStatistics) -> Result<TermStatistics>
+  where
+    R: Rng + ?Sized,
+  {
     let doc_freq: i64 = match random.random_range(0..3) {
       0 => {
         // rare term
@@ -181,7 +184,7 @@ pub trait BaseSimilarityTestCase {
     TermStatistics::new(Term::from_text("term", "term"), doc_freq, total_term_freq)
   }
   /// runs for a single test case, so that if you hit a test failure you can write a reproducer just for that scenario
-  fn do_test_scoring<S: Similarity, R: Rng + ?Sized>(
+  fn do_test_scoring<S, R>(
     similarity: &S,
     corpus: &CollectionStatistics,
     term: &[TermStatistics],
@@ -189,7 +192,11 @@ pub trait BaseSimilarityTestCase {
     freq: f32,
     norm: i32,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: Similarity,
+    R: Rng + ?Sized,
+  {
     let scorer = similarity.scorer(boost, corpus, term)?;
 
     let max_score = scorer.score(f32::MAX, 1);
@@ -373,9 +380,14 @@ pub trait BaseSimilarityTestCase {
     Ok(())
   }
   type Similarity: Similarity;
-  fn get_similarity<R: Rng + ?Sized>(&self, random: &mut R) -> Result<Self::Similarity>;
+  fn get_similarity<R>(&self, random: &mut R) -> Result<Self::Similarity>
+  where
+    R: Rng + ?Sized;
 
-  fn test_random_scoring<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_random_scoring<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
 
     for _i in 0..iterations {

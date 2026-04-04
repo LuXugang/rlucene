@@ -316,7 +316,10 @@ impl MultiTermQuery for RegexpQuery {
 }
 
 impl Hash for RegexpQuery {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     self.base.hash(state);
     self.syntax_flags.hash(state);
     self.match_flags.hash(state);
@@ -384,7 +387,10 @@ mod tests {
   #[allow(dead_code)] // for quick search
   struct TestRegexpQuery;
   const FN: &str = "field";
-  fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
+  fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
 
     let writer = RandomIndexWriter::new(random, directory.clone());
@@ -417,12 +423,13 @@ mod tests {
     let query = RegexpQuery::new(new_term(regex))?;
     Ok(searcher.count(query)? as i64)
   }
-  fn case_insensitive_regex_query_nr_hits<IRC, R: Rng + ?Sized>(
+  fn case_insensitive_regex_query_nr_hits<IRC, R>(
     random: &mut R,
     searcher: &IndexSearcher<IRC>,
     regex: &str,
   ) -> Result<i64>
   where
+    R: Rng + ?Sized,
     IRC: IndexReaderContext,
   {
     let query = RegexpQuery::with_all_and_determinization(

@@ -172,11 +172,10 @@ mod tests {
   use rand::RngExt;
   use std::collections::HashSet;
 
-  fn assert_eq_set<R: Rng + ?Sized>(
-    random: &mut R,
-    set1: &HashSet<i64>,
-    long_hash_set: &DocValuesLongHashSet,
-  ) {
+  fn assert_eq_set<R>(random: &mut R, set1: &HashSet<i64>, long_hash_set: &DocValuesLongHashSet)
+  where
+    R: Rng + ?Sized,
+  {
     assert_eq!(set1.len() as i32, long_hash_set.size);
     let set2 = long_hash_set.stream();
     assert_eq!(set1, &set2);

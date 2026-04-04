@@ -102,7 +102,10 @@ mod tests {
     do_test_integer_overflow(&mut random, random_size2)?;
     Ok(())
   }
-  fn do_test_integer_overflow<R: Rng + ?Sized>(random: &mut R, size: usize) -> Result<()> {
+  fn do_test_integer_overflow<R>(random: &mut R, size: usize) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut doc_delta_buffer = vec![0i32; size];
     let freq_buffer = vec![0i32; size];
 

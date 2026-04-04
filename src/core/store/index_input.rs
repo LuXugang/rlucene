@@ -959,7 +959,10 @@ mod tests {
     0x84, 0x9E, 0xF0, 0x9D, 0x85, 0xA0, 0x0E, b'L', b'u', 0xF0, 0x9D, 0x84, 0x9E, b'c', b'e', 0xF0,
     0x9D, 0x85, 0xA0, b'n', b'e', 0x01, 0x00, 0x08, b'L', b'u', 0x00, b'c', b'e', 0x00, b'n', b'e',
   ];
-  pub fn before_class<R: Rng + ?Sized>(random: &mut R) -> Result<(Vec<i32>, Vec<i64>, Vec<u8>)> {
+  pub fn before_class<R>(random: &mut R) -> Result<(Vec<i32>, Vec<i64>, Vec<u8>)>
+  where
+    R: Rng + ?Sized,
+  {
     let count = random_multiplier() as usize * 65536;
 
     let mut ints: Vec<i32> = vec![0; count];

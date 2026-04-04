@@ -999,11 +999,14 @@ where
 pub(crate) struct BitTable;
 impl BitTable {
   /// See [`BitTableUtil::is_bit_set`].
-  pub(crate) fn is_bit_set<T: OutputsBound>(
+  pub(crate) fn is_bit_set<T>(
     bit_index: i32,
     arc: &Arc<T>,
     reader: &mut impl BytesReader,
-  ) -> Result<bool> {
+  ) -> Result<bool>
+  where
+    T: OutputsBound,
+  {
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
     reader.set_position(arc.bit_table_start as usize);
     BitTableUtil::is_bit_set(bit_index, reader)
@@ -1011,32 +1014,39 @@ impl BitTable {
 
   /// See [`BitTableUtil::count_bits`]. The count of bit set is the number of
   /// arcs of a direct addressing node.
-  pub(crate) fn count_bits<R: BytesReader, T: OutputsBound>(
-    arc: &Arc<T>,
-    reader: &mut R,
-  ) -> Result<i32> {
+  pub(crate) fn count_bits<R, T>(arc: &Arc<T>, reader: &mut R) -> Result<i32>
+  where
+    R: BytesReader,
+    T: OutputsBound,
+  {
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
     reader.set_position(arc.bit_table_start as usize);
     let num_presence_bytes = get_num_presence_bytes(arc.num_arcs());
     BitTableUtil::count_bits(num_presence_bytes, reader)
   }
   /// See [`BitTableUtil::count_bits_upto`].
-  pub(crate) fn count_bits_upto<T: OutputsBound>(
+  pub(crate) fn count_bits_upto<T>(
     bit_index: i32,
     arc: &Arc<T>,
     reader: &mut impl BytesReader,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    T: OutputsBound,
+  {
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
     reader.set_position(arc.bit_table_start as usize);
     BitTableUtil::count_bits_upto(bit_index, reader)
   }
 
   /// See [`BitTableUtil::next_bit_set`].
-  pub(crate) fn next_bit_set<T: OutputsBound>(
+  pub(crate) fn next_bit_set<T>(
     bit_index: i32,
     arc: &Arc<T>,
     reader: &mut impl BytesReader,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    T: OutputsBound,
+  {
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
     reader.set_position(arc.bit_table_start as usize);
     let num_bytes = get_num_presence_bytes(arc.num_arcs());
@@ -1044,21 +1054,24 @@ impl BitTable {
   }
 
   /// See [`BitTableUtil::previous_bit_set`].
-  pub(crate) fn previous_bit_set<T: OutputsBound>(
+  pub(crate) fn previous_bit_set<T>(
     bit_index: i32,
     arc: &Arc<T>,
     reader: &mut impl BytesReader,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    T: OutputsBound,
+  {
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
     reader.set_position(arc.bit_table_start as usize);
     BitTableUtil::previous_bit_set(bit_index, reader)
   }
 
   /// Asserts the bit-table of the provided [`Arc`] is valid.
-  pub(crate) fn assert_is_valid<T: OutputsBound>(
-    arc: &Arc<T>,
-    reader: &mut impl BytesReader,
-  ) -> Result<bool> {
+  pub(crate) fn assert_is_valid<T>(arc: &Arc<T>, reader: &mut impl BytesReader) -> Result<bool>
+  where
+    T: OutputsBound,
+  {
     debug_assert!(arc.bytes_per_arc() > 0);
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
 
@@ -1397,7 +1410,10 @@ where
 }
 
 /// Returns `true` if the node at this address has any outgoing arcs.
-pub fn target_has_arcs<T: OutputsBound>(arc: &Arc<T>) -> bool {
+pub fn target_has_arcs<T>(arc: &Arc<T>) -> bool
+where
+  T: OutputsBound,
+{
   arc.target() > 0
 }
 /// Gets the number of bytes required to flag the presence of each arc in
@@ -1409,10 +1425,10 @@ pub(crate) fn get_num_presence_bytes(label_range: i32) -> i32 {
 /// Reads the presence bits of a direct-addressing node. Actually we don't
 /// read them here, we just keep the pointer to the bit-table start and
 /// we skip them.
-pub(crate) fn read_presence_bytes<T: OutputsBound>(
-  arc: &mut Arc<T>,
-  reader: &mut impl BytesReader,
-) -> Result<()> {
+pub(crate) fn read_presence_bytes<T>(arc: &mut Arc<T>, reader: &mut impl BytesReader) -> Result<()>
+where
+  T: OutputsBound,
+{
   debug_assert!(arc.bytes_per_arc() > 0);
   debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
   arc.bit_table_start = reader.get_position() as i64;
@@ -1431,7 +1447,10 @@ pub(crate) fn read_presence_bytes<T: OutputsBound>(
 /// # Returns
 ///
 /// The updated `arc` if `follow` is final, otherwise `None`
-pub(crate) fn read_end_arc<T: OutputsBound>(follow: &Arc<T>, arc: &mut Arc<T>) -> Option<()> {
+pub(crate) fn read_end_arc<T>(follow: &Arc<T>, arc: &mut Arc<T>) -> Option<()>
+where
+  T: OutputsBound + Clone,
+{
   if follow.is_final() {
     if follow.target() <= 0 {
       arc.flags = BIT_LAST_ARC;
@@ -1498,16 +1517,22 @@ mod tests {
     dir: Rc<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>,
   }
   impl TestFSTs {
-    fn new<R: Rng + ?Sized>(random: &mut R) -> Result<Self> {
+    fn new<R>(random: &mut R) -> Result<Self>
+    where
+      R: Rng + ?Sized,
+    {
       let dir = new_directory(random)?;
       Ok(Self { dir: Rc::new(dir) })
     }
-    fn do_test<R: Rng + ?Sized>(
+    fn do_test<R>(
       &self,
       random: &mut R,
       input_mode: i32,
       mut terms: Vec<IntsRef<Vec<i32>>>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       terms.sort();
       let random_seed = random.random();
       // terms.sort();
@@ -1643,12 +1668,15 @@ mod tests {
 
       Ok(())
     }
-    fn test_random_words_impl<R: Rng + ?Sized>(
+    fn test_random_words_impl<R>(
       &self,
       random: &mut R,
       max_num_words: usize,
       num_iter: usize,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       for iter in 0..num_iter {
         if cfg!(feature = "test_log_verbose") {
           println!("\nTEST: iter {iter}");
@@ -1785,11 +1813,10 @@ mod tests {
       test.test_random_words_impl(&mut random, 100, 1)
     }
   }
-  fn test_random_words_limit<R: Rng + ?Sized>(
-    random: &mut R,
-    max_num_words: usize,
-    num_iter: usize,
-  ) -> Result<()> {
+  fn test_random_words_limit<R>(random: &mut R, max_num_words: usize, num_iter: usize) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let case = TestFSTs::new(random)?;
     for iter in 0..num_iter {
       if cfg!(feature = "test_log_verbose") {
@@ -2008,8 +2035,8 @@ mod tests {
   // fn test_expanded_close_to_root() -> Result<()> {
   //     struct SyntheticData;
   //     impl SyntheticData {
-  //         fn compile_terms<T: AsRef<str>>(lines: &[T]) -> Result<FST<O, F>>
-  // {
+  //         fn compile_terms<T>(lines: &[T]) -> Result<FST<O, F>>
+  // where T: AsRef<str>{
   //
   //             let outputs = NoOutputs::get_singleton();
   //             let nothing = outputs.get_no_output();

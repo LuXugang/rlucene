@@ -58,7 +58,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     true
   }
 
-  fn test_byte_range<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_byte_range<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       self.do_test_norms_versus_doc_values(random, 1.0, |random| {
@@ -68,7 +71,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_byte_range<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_byte_range<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.codec_supports_sparsity());
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
@@ -80,7 +86,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_short_range<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_short_range<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       self.do_test_norms_versus_doc_values(random, 1.0, |random| {
@@ -90,7 +99,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_short_range<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_short_range<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.codec_supports_sparsity());
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
@@ -102,7 +114,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_long_range<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_long_range<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       self.do_test_norms_versus_doc_values(random, 1.0, |random| {
@@ -112,7 +127,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_long_range<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_long_range<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.codec_supports_sparsity());
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
@@ -124,7 +142,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_full_long_range<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_full_long_range<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       self.do_test_norms_versus_doc_values(random, 1.0, |random| {
@@ -138,7 +159,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_full_long_range<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_full_long_range<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.codec_supports_sparsity());
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
@@ -154,7 +178,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_few_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_few_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       self.do_test_norms_versus_doc_values(random, 1.0, |random| {
@@ -164,7 +191,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_few_sparse_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_few_sparse_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.codec_supports_sparsity());
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
@@ -176,7 +206,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_few_large_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_few_large_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       self.do_test_norms_versus_doc_values(random, 1.0, |random| {
@@ -190,7 +223,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_few_sparse_large_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_few_sparse_large_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.codec_supports_sparsity());
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
@@ -206,7 +242,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_all_zeros<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_all_zeros<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       self.do_test_norms_versus_doc_values(random, 1.0, |_| 0)?;
@@ -214,7 +253,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_all_zeros<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_all_zeros<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.codec_supports_sparsity());
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
@@ -224,7 +266,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_most_zeros<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_most_zeros<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       self.do_test_norms_versus_doc_values(random, 1.0, |random| {
@@ -238,7 +283,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_outliers<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_outliers<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       let common_value = TestUtil::next_long(random, i8::MIN as i64, i8::MAX as i64);
@@ -253,7 +301,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_outliers<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_outliers<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.codec_supports_sparsity());
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
@@ -270,7 +321,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_outliers2<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_outliers2<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       let common_value = TestUtil::next_long(random, i8::MIN as i64, i8::MAX as i64);
@@ -286,7 +340,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_outliers2<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_outliers2<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.codec_supports_sparsity());
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
@@ -304,7 +361,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_n_common<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_n_common<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let n = TestUtil::next_int(random, 2, 15) as usize;
     let common_values = build_random_values(random, n);
     let num_other_values = TestUtil::next_int(random, 2, 256 - n as i32) as usize;
@@ -318,7 +378,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     })
   }
 
-  fn test_sparse_n_common<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_n_common<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.codec_supports_sparsity());
     let n = TestUtil::next_int(random, 2, 15) as usize;
     let common_values = build_random_values(random, n);
@@ -334,7 +397,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     })
   }
 
-  fn test_n_common_big<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_n_common_big<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       for n in 2..16 {
@@ -353,7 +419,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_n_common_big<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_n_common_big<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert!(self.codec_supports_sparsity());
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
@@ -482,7 +551,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     }
     Ok(())
   }
-  fn test_undead_norms<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_undead_norms<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = Arc::new(self.apply_created_version_major(new_directory(random)?)?);
     let writer = RandomIndexWriter::new(random, dir.clone());
     let num_docs = at_least(random, 500);
@@ -526,11 +598,17 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
   // TODO 多线程未实现
-  fn test_threads<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_threads<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     Ok(())
   }
 
-  fn test_independant_iterators<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_independant_iterators<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = Arc::new(new_directory(random)?);
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -576,7 +654,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_independant_sparse_iterators<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_independant_sparse_iterators<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = Arc::new(new_directory(random)?);
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -625,7 +706,10 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
   }
 }
 
-fn build_random_values<R: Rng + ?Sized>(random: &mut R, count: usize) -> Vec<i64> {
+fn build_random_values<R>(random: &mut R, count: usize) -> Vec<i64>
+where
+  R: Rng + ?Sized,
+{
   let mut values = Vec::with_capacity(count);
   for _ in 0..count {
     values.push(TestUtil::next_long(random, i8::MIN as i64, i8::MAX as i64));

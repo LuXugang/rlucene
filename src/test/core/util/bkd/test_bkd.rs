@@ -53,7 +53,10 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 struct TestBKD;
 
-fn get_point_values<I: IndexInput>(index_input: Arc<Mutex<I>>) -> Result<BKDReader<I>> {
+fn get_point_values<I>(index_input: Arc<Mutex<I>>) -> Result<BKDReader<I>>
+where
+  I: IndexInput,
+{
   let meta_in = &mut *index_input.lock();
   let (mut reader, version) = BKDReader::init_with_meta(meta_in, index_input.clone())?;
   let (min_leaf_block_fp, index_start_pointer) = if version >= VERSION_META_FILE {
@@ -422,7 +425,10 @@ fn test_too_little_heap() -> Result<()> {
   }
   Ok(())
 }
-fn do_test_random_binary<R: Rng + ?Sized>(random: &mut R, count: usize) -> Result<()> {
+fn do_test_random_binary<R>(random: &mut R, count: usize) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   let num_docs = TestUtil::next_usize(random, count, count * 2);
   let num_bytes_per_dim = TestUtil::next_usize(random, 2, 30);
 
@@ -771,14 +777,17 @@ fn test_multi_valued() -> Result<()> {
 
 /// `doc_ids` can be `None` for the single-valued case; otherwise, it maps value
 /// to `doc_id`.
-fn verify<R: Rng + ?Sized>(
+fn verify<R>(
   random: &mut R,
   doc_values: &[Vec<Vec<u8>>],
   doc_ids: Option<Vec<i32>>,
   num_data_dims: usize,
   num_index_dims: usize,
   num_bytes_per_dim: usize,
-) -> Result<()> {
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   let max_points_in_leaf_node = TestUtil::next_usize(random, 50, 1000);
   verify_full(
     random,
@@ -791,7 +800,7 @@ fn verify<R: Rng + ?Sized>(
   )
 }
 #[allow(clippy::too_many_arguments)]
-fn verify_full<R: Rng + ?Sized>(
+fn verify_full<R>(
   random: &mut R,
   doc_values: &[Vec<Vec<u8>>],
   doc_ids: Option<Vec<i32>>,
@@ -799,7 +808,10 @@ fn verify_full<R: Rng + ?Sized>(
   num_index_dims: usize,
   num_bytes_per_dim: usize,
   max_points_in_leaf_node: usize,
-) -> Result<()> {
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   let dir = new_directory(random)?;
   let max_mb: f64 = 3.0 + (3.0 * random.random::<f64>());
   verify_with_max_mb(
@@ -815,7 +827,7 @@ fn verify_full<R: Rng + ?Sized>(
   )
 }
 #[allow(clippy::too_many_arguments)]
-fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
+fn verify_with_max_mb<D, R>(
   random: &mut R,
   dir: &D,
   doc_values: &[Vec<Vec<u8>>],
@@ -825,7 +837,11 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
   num_bytes_per_dim: usize,
   mut max_points_in_leaf_node: usize,
   mut max_mb: f64,
-) -> Result<()> {
+) -> Result<()>
+where
+  D: Directory,
+  R: Rng + ?Sized,
+{
   let num_values = doc_values.len();
 
   if cfg!(feature = "test_log_verbose") {
@@ -1064,7 +1080,10 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
   Ok(())
 }
-fn assert_size<R: Rng + ?Sized>(tree: &mut impl PointTree, random: &mut R) -> Result<()> {
+fn assert_size<R>(tree: &mut impl PointTree, random: &mut R) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   // TODO:do we need clone?
   // let mut clone = tree.clone();
   // assert_eq!(clone.size()?, tree.size()?);
@@ -1123,10 +1142,10 @@ impl IntersectVisitor for IntersectVisitorMock1<'_> {
     Ok(Relation::CellCrossesQuery)
   }
 }
-fn random_point_tree_navigation<R: Rng + ?Sized>(
-  tree: &mut impl PointTree,
-  random: &mut R,
-) -> Result<()> {
+fn random_point_tree_navigation<R>(tree: &mut impl PointTree, random: &mut R) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   let min_packed_value = tree.get_min_packed_value()?.as_ref().to_vec();
   let max_packed_value = tree.get_max_packed_value()?.as_ref().to_vec();
   let size = tree.size()?;
@@ -1165,7 +1184,10 @@ fn assert_hits(hits: &BitSet, expected: &BitSet) {
   }
 }
 
-fn random_big_int<R: Rng + ?Sized>(num_bytes: usize, random: &mut R) -> BigInt {
+fn random_big_int<R>(num_bytes: usize, random: &mut R) -> BigInt
+where
+  R: Rng + ?Sized,
+{
   let num_bits = num_bytes * 8 - 1;
   let mut bytes = vec![0u8; num_bits.div_ceil(8)];
 
@@ -1181,7 +1203,7 @@ fn random_big_int<R: Rng + ?Sized>(num_bytes: usize, random: &mut R) -> BigInt {
 }
 
 // TODO:
-// fn get_directory(num_points: i32) {
+// fn get_directory(num_points: i32) where R: Rng + ?Sized{
 // }
 struct IntersectVisitorImpl<'a, R>
 where

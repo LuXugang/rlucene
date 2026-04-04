@@ -35,7 +35,10 @@ impl VectorizationProvider for DefaultVectorizationProvider {
     DefaultFlatVectorScorer
   }
 
-  fn new_posting_decoding_util<I: IndexInput>(&self, input: I) -> PostingDecodingUtil<I> {
+  fn new_posting_decoding_util<I>(&self, input: I) -> PostingDecodingUtil<I>
+  where
+    I: IndexInput,
+  {
     PostingDecodingUtil::new(input)
   }
 }

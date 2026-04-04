@@ -167,7 +167,10 @@ impl MultiTermQuery for WildcardQuery {
 }
 
 impl Hash for WildcardQuery {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     self.base.hash(state);
   }
 }
@@ -491,11 +494,10 @@ mod tests {
 
     Ok(())
   }
-  fn get_index_store<R: Rng + ?Sized>(
-    random: &mut R,
-    field: &str,
-    contents: &[&str],
-  ) -> Result<Arc<DirEnum>> {
+  fn get_index_store<R>(random: &mut R, field: &str, contents: &[&str]) -> Result<Arc<DirEnum>>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, dir.clone());
     let mut field_to_type = HashMap::new();

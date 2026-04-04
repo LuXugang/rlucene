@@ -328,7 +328,10 @@ mod tests {
     Ok(())
   }
 
-  pub fn do_test_select<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
+  pub fn do_test_select<R>(random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let from = random.random_range(0..5);
     let to = from + TestUtil::next_usize(random, 1, 10000);
     let max = if random.random_bool(0.5) {

@@ -52,7 +52,10 @@ The purpose of implementing the Clone trait is to make it could be used with Cow
     }
     Ok(index)
   }
-  pub fn miss_match<T: PartialEq>(a: &[T], b: &[T]) -> i32 {
+  pub fn miss_match<T>(a: &[T], b: &[T]) -> i32
+  where
+    T: PartialEq,
+  {
     let miss_match = a.iter().zip(b.iter()).position(|(x, y)| x != y);
     match miss_match {
       Some(i) => i as i32,
@@ -225,7 +228,10 @@ impl<T> PartialEq for IdentityArc<T> {
 impl<T> Eq for IdentityArc<T> {}
 
 impl<T> Hash for IdentityArc<T> {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     Arc::as_ptr(&self.object).hash(state)
   }
 }

@@ -22,7 +22,9 @@ use rand::Rng;
 /// that if this test passes, then all Lucene tests should also pass. Ie, if there is some bug in a
 /// given NormsFormat that this test fails to catch then this test needs to be improved!
 pub trait BaseIndexFileFormatTestCase {
-  fn add_random_fields<R: Rng + ?Sized>(random: &mut R) -> Result<()>;
+  fn add_random_fields<R>(random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized;
 
   fn maybe_wrap_with_merging_reader<D>(&self, reader: D) -> Result<D> {
     Ok(reader)

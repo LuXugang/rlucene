@@ -66,7 +66,10 @@ where
   Ok(())
 }
 
-fn new_writer_config<R: Rng + ?Sized>(random: &mut R) -> IndexWriterConfig {
+fn new_writer_config<R>(random: &mut R) -> IndexWriterConfig
+where
+  R: Rng + ?Sized,
+{
   let mut conf = new_index_writer_config(random);
   conf.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
   conf.set_ram_buffer_size_mb(DEFAULT_RAM_BUFFER_SIZE_MB);

@@ -46,7 +46,10 @@ impl PartialEq for StatePair {
 impl Eq for StatePair {}
 
 impl Hash for StatePair {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.s1.hash(state);
     self.s2.hash(state);
   }

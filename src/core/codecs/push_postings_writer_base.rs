@@ -110,14 +110,18 @@ where
     self.sub.init(terms_out, state, segment_info)
   }
 
-  fn write_term<N: NormsProducer, PE: PostingsEnum>(
+  fn write_term<N, PE>(
     &mut self,
     _term: &BytesRef<Vec<u8>>,
     terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
     docs_seen: &mut FixedBitSet,
     norms: Option<&N>,
     postings_enum: Option<PE>,
-  ) -> Result<(Option<PE>, Option<TermStateEnum>)> {
+  ) -> Result<(Option<PE>, Option<TermStateEnum>)>
+  where
+    N: NormsProducer,
+    PE: PostingsEnum,
+  {
     let mut norm_values = if self.field_info.as_ref().unwrap().has_norms() {
       Some(
         norms
@@ -250,13 +254,15 @@ pub trait PushPostingsWriterBaseAbstract {
 
   /// Adds a new doc in this term. `freq` will be -1 when term
   /// frequencies are omitted for the field.
-  fn start_doc<N: NormsProducer>(
+  fn start_doc<N>(
     &mut self,
     norms: Option<&mut N::NumericDocValues>,
     doc_id: i32,
     freq: i32,
     options: &FieldWriteOptions,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    N: NormsProducer;
 
   /// Add a new position and payload, and start/end offset.
   /// A null payload means no payload; a non-null payload with zero length

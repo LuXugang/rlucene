@@ -250,7 +250,10 @@ impl AttributeImpl for PackedTokenAttributeImpl {
   }
 }
 impl Hash for PackedTokenAttributeImpl {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.start_offset.hash(state);
     self.end_offset.hash(state);
     self.type_.hash(state);

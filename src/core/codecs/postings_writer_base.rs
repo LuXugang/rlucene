@@ -58,14 +58,18 @@ pub trait PostingsWriterBase {
   /// bit in the provided [`FixedBitSet`] for every docID written. If no
   /// docs were written, this method should return `None`, and the terms
   /// dict will skip the term.
-  fn write_term<N: NormsProducer, PE: PostingsEnum>(
+  fn write_term<N, PE>(
     &mut self,
     _term: &BytesRef<Vec<u8>>,
     _terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
     _docs_seen: &mut FixedBitSet,
     _norms: Option<&N>,
     _postings_enum: Option<PE>,
-  ) -> Result<(Option<PE>, Option<TermStateEnum>)> {
+  ) -> Result<(Option<PE>, Option<TermStateEnum>)>
+  where
+    N: NormsProducer,
+    PE: PostingsEnum,
+  {
     unimplemented!()
   }
 

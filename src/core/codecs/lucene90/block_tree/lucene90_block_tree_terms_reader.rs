@@ -361,7 +361,10 @@ pub(crate) const TERMS_META_CODEC_NAME: &str = "BlockTreeTermsMeta";
 thread_local! {
     pub(crate) static NO_OUTPUT:BytesRef<Arc<Vec<u8>>> ={let v = ByteSequenceOutputs::get_singleton(); v.get_no_output()};
 }
-fn read_bytes_ref<I: IndexInput>(input: &mut I) -> Result<BytesRef<Vec<u8>>> {
+fn read_bytes_ref<I>(input: &mut I) -> Result<BytesRef<Vec<u8>>>
+where
+  I: IndexInput,
+{
   let num_bytes = input.read_vint()?;
   if num_bytes < 0 {
     return Err(LuceneError::corrupt_index(format!(

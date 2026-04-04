@@ -28,7 +28,9 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::rarely;
 use crate::test::core::util::test_util::TestUtil;
 
 pub trait BaseSortTestCase {
-  fn new_sorter<R: Rng + ?Sized>(&self, random: &mut R, arr: &mut Vec<Entry>) -> impl Sorter;
+  fn new_sorter<R>(&self, random: &mut R, arr: &mut Vec<Entry>) -> impl Sorter
+  where
+    R: Rng + ?Sized;
   fn get_stable(&self) -> bool {
     false
   }
@@ -43,7 +45,10 @@ pub trait BaseSortTestCase {
       }
     }
   }
-  fn test_impl<R: Rng + ?Sized>(&self, random: &mut R, mut arr: Vec<Entry>) {
+  fn test_impl<R>(&self, random: &mut R, mut arr: Vec<Entry>)
+  where
+    R: Rng + ?Sized,
+  {
     let o = random.random_range(0..1000);
     let value = random.random_range(0..3);
     let mut to_sort = vec![Entry::default(); o + arr.len() + value];
@@ -56,7 +61,10 @@ pub trait BaseSortTestCase {
     }
     self.assert_sorted(&mut arr, &to_sort[o..o + arr_len]);
   }
-  fn test<R: Rng + ?Sized>(&self, random: &mut R, strategy: Strategy, length: i32) {
+  fn test<R>(&self, random: &mut R, strategy: Strategy, length: i32)
+  where
+    R: Rng + ?Sized,
+  {
     let mut arr = vec![Entry::default(); length as usize];
     let arr_length = arr.len();
     for i in 0..arr_length {
@@ -64,37 +72,67 @@ pub trait BaseSortTestCase {
     }
     self.test_impl(random, arr);
   }
-  fn test_with_strategy<R: Rng + ?Sized>(&self, random: &mut R, strategy: Strategy) {
+  fn test_with_strategy<R>(&self, random: &mut R, strategy: Strategy)
+  where
+    R: Rng + ?Sized,
+  {
     let length = random.random_range(0..20000);
     self.test(random, strategy, length);
   }
-  fn test_empty<R: Rng + ?Sized>(&self, random: &mut R) {
+  fn test_empty<R>(&self, random: &mut R)
+  where
+    R: Rng + ?Sized,
+  {
     let arr = vec![];
     self.test_impl(random, arr);
   }
 
-  fn test_one<R: Rng + ?Sized>(&self, random: &mut R) {
+  fn test_one<R>(&self, random: &mut R)
+  where
+    R: Rng + ?Sized,
+  {
     self.test(random, Random(), 1);
   }
-  fn test_two<R: Rng + ?Sized>(&self, random: &mut R) {
+  fn test_two<R>(&self, random: &mut R)
+  where
+    R: Rng + ?Sized,
+  {
     self.test(random, RandomLowCardinality(), 2);
   }
-  fn test_random<R: Rng + ?Sized>(&self, random: &mut R) {
+  fn test_random<R>(&self, random: &mut R)
+  where
+    R: Rng + ?Sized,
+  {
     self.test_with_strategy(random, Random());
   }
-  fn test_random_low_cardinality<R: Rng + ?Sized>(&self, random: &mut R) {
+  fn test_random_low_cardinality<R>(&self, random: &mut R)
+  where
+    R: Rng + ?Sized,
+  {
     self.test_with_strategy(random, RandomLowCardinality());
   }
-  fn test_ascending<R: Rng + ?Sized>(&self, random: &mut R) {
+  fn test_ascending<R>(&self, random: &mut R)
+  where
+    R: Rng + ?Sized,
+  {
     self.test_with_strategy(random, Strategy::Ascending());
   }
-  fn test_ascending_sequences<R: Rng + ?Sized>(&self, random: &mut R) {
+  fn test_ascending_sequences<R>(&self, random: &mut R)
+  where
+    R: Rng + ?Sized,
+  {
     self.test_with_strategy(random, Strategy::AscendingSequences());
   }
-  fn test_descending<R: Rng + ?Sized>(&self, random: &mut R) {
+  fn test_descending<R>(&self, random: &mut R)
+  where
+    R: Rng + ?Sized,
+  {
     self.test_with_strategy(random, Strategy::Descending());
   }
-  fn test_strictly_descending<R: Rng + ?Sized>(&self, random: &mut R) {
+  fn test_strictly_descending<R>(&self, random: &mut R)
+  where
+    R: Rng + ?Sized,
+  {
     self.test_with_strategy(random, Strategy::StrictlyDescending());
   }
 }
@@ -112,7 +150,10 @@ pub enum Strategy {
   MostlyAscending(),
 }
 impl Strategy {
-  fn set<R: Rng + ?Sized>(&self, arr: &mut [Entry], i: i32, random: &mut R) {
+  fn set<R>(&self, arr: &mut [Entry], i: i32, random: &mut R)
+  where
+    R: Rng + ?Sized,
+  {
     match self {
       Random() => {
         arr[i as usize] = Entry::new(random.random(), i);

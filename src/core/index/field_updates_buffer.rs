@@ -788,10 +788,10 @@ mod tests {
     let index = rng.random_range(0..items.len());
     items[index].clone()
   }
-  pub fn get_random_binary_update<R: Rng + ?Sized>(
-    random: &mut R,
-    doc_id_upto: i32,
-  ) -> DocValuesUpdate {
+  pub fn get_random_binary_update<R>(random: &mut R, doc_id_upto: i32) -> DocValuesUpdate
+  where
+    R: Rng + ?Sized,
+  {
     let term_field = random_from(vec!["id", "_id", "some_other_field"]);
     let doc_id = random.random_range(0..10).to_string();
 
@@ -818,10 +818,10 @@ mod tests {
       update
     }
   }
-  pub fn get_random_numeric_update<R: Rng + ?Sized>(
-    random: &mut R,
-    doc_id_upto: i32,
-  ) -> DocValuesUpdate {
+  pub fn get_random_numeric_update<R>(random: &mut R, doc_id_upto: i32) -> DocValuesUpdate
+  where
+    R: Rng + ?Sized,
+  {
     let term_field = random_from(vec!["id", "_id", "some_other_field"]);
     let doc_id = random.random_range(0..10).to_string();
 

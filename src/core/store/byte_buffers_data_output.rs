@@ -206,7 +206,10 @@ impl ByteBuffersDataOutput {
     Ok(())
   }
   /// Copies the current content of this object into another [`DataOutput`].
-  pub(crate) fn copy_to<DA: DataOutput>(&self, output: &mut DA) -> Result<()> {
+  pub(crate) fn copy_to<DA>(&self, output: &mut DA) -> Result<()>
+  where
+    DA: DataOutput,
+  {
     debug_assert!(!self.blocks.is_empty());
     for (index, block) in self.blocks.iter().enumerate() {
       if index == self.current_block_index {

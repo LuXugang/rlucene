@@ -487,7 +487,10 @@ mod tests {
     let mut random = random();
     test_matching(&mut random, ScoreMode::CompleteNoScores)
   }
-  fn test_matching<R: Rng + ?Sized>(random: &mut R, score_mode: ScoreMode) -> Result<()> {
+  fn test_matching<R>(random: &mut R, score_mode: ScoreMode) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut scorer = constant_score_scorer(random, TERM_QUERY.clone(), 1.0, score_mode)?;
 
     let mut doc;
@@ -554,7 +557,10 @@ mod tests {
     test_two_phase_matching(&mut random, ScoreMode::CompleteNoScores)
   }
 
-  fn test_two_phase_matching<R: Rng + ?Sized>(random: &mut R, score_mode: ScoreMode) -> Result<()> {
+  fn test_two_phase_matching<R>(random: &mut R, score_mode: ScoreMode) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut scorer = constant_score_scorer(random, PHRASE_QUERY.clone(), 1.0, score_mode)?;
 
     let mut doc;
@@ -600,12 +606,16 @@ mod tests {
 
     Ok(())
   }
-  fn constant_score_scorer<R: Rng + ?Sized, T: Into<Query>>(
+  fn constant_score_scorer<R, T>(
     random: &mut R,
     query: T,
     score: f32,
     score_mode: ScoreMode,
-  ) -> Result<Scorers> {
+  ) -> Result<Scorers>
+  where
+    R: Rng + ?Sized,
+    T: Into<Query>,
+  {
     let query = query.into();
     let directory = new_directory_shared(random)?;
 

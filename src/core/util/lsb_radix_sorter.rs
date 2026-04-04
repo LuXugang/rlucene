@@ -138,11 +138,10 @@ mod tests {
 
   #[allow(dead_code)] // for quick search
   struct TestLSBRadixSorter;
-  fn test<R: Rng + ?Sized>(
-    random: &mut R,
-    sorter: &mut LSBRadixSorter,
-    max_len: usize,
-  ) -> Result<()> {
+  fn test<R>(random: &mut R, sorter: &mut LSBRadixSorter, max_len: usize) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     for _ in 0..10 {
       let len = TestUtil::next_usize(random, 0, max_len);
       let tail = random.random_range(0..10);
@@ -161,12 +160,15 @@ mod tests {
     Ok(())
   }
 
-  fn test_with_range<R: Rng + ?Sized>(
+  fn test_with_range<R>(
     random: &mut R,
     sorter: &mut LSBRadixSorter,
     arr: &mut [i32],
     len: usize,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut expected = arr[..len].to_vec();
     expected.sort_unstable();
 

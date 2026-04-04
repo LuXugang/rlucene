@@ -41,13 +41,15 @@ pub trait FieldComparatorSource: Display + Clone {
   /// # Errors
   /// Returns an error if the comparator could not be created due to I/O
   /// issues or invalid parameters.
-  fn new_comparator<F: FieldComparator>(
+  fn new_comparator<F>(
     &self,
     field_name: &str,
     num_hits: usize,
     pruning: Pruning,
     reversed: bool,
-  ) -> Result<F>;
+  ) -> Result<F>
+  where
+    F: FieldComparator;
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]

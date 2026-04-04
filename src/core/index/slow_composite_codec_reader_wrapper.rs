@@ -501,12 +501,15 @@ where
     self.reader.prefetch(doc_id)
   }
 
-  fn document_with_visitor<S: StoredFieldsWriter>(
+  fn document_with_visitor<S>(
     &mut self,
     doc_id: i32,
     visitor: &mut impl StoredFieldVisitor,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     CoreHelper::check_index(doc_id as usize, self.max_doc as usize)?;
     self.reader.document_with_visitor(doc_id, visitor, writer)
   }
@@ -572,12 +575,15 @@ where
     reader.prefetch(doc_id - self.doc_starts[reader_id] as i32)
   }
 
-  fn document_with_visitor<S: StoredFieldsWriter>(
+  fn document_with_visitor<S>(
     &mut self,
     doc_id: i32,
     visitor: &mut impl StoredFieldVisitor,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     let reader_id = doc_id_to_reader_id(doc_id, self.doc_starts.as_slice())?;
     let mut sf_visitor = StoredFieldVisitorImpl::new(visitor, self.field_infos.clone());
     let reader = &mut self.readers[reader_id]
@@ -664,77 +670,94 @@ impl<'a, SFV> StoredFieldVisitor for StoredFieldVisitorImpl<'a, SFV>
 where
   SFV: StoredFieldVisitor,
 {
-  fn binary_field<S: StoredFieldsWriter>(
+  fn binary_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: Vec<u8>,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     self
       .visitor
       .binary_field(self.remap(&field_info)?, value, writer)
   }
 
-  fn string_field<S: StoredFieldsWriter>(
+  fn string_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: String,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     self
       .visitor
       .string_field(self.remap(&field_info)?, value, writer)
   }
 
-  fn int_field<S: StoredFieldsWriter>(
+  fn int_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: i32,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     self
       .visitor
       .int_field(self.remap(&field_info)?, value, writer)
   }
 
-  fn long_field<S: StoredFieldsWriter>(
+  fn long_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: i64,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     self
       .visitor
       .long_field(self.remap(&field_info)?, value, writer)
   }
 
-  fn float_field<S: StoredFieldsWriter>(
+  fn float_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: f32,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     self
       .visitor
       .float_field(self.remap(&field_info)?, value, writer)
   }
 
-  fn double_field<S: StoredFieldsWriter>(
+  fn double_field<S>(
     &mut self,
     field_info: Arc<FieldInfo>,
     value: f64,
     writer: Option<&mut S>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+  {
     self
       .visitor
       .double_field(self.remap(&field_info)?, value, writer)
   }
 
-  fn needs_field<S: StoredFieldsWriter>(
-    &mut self,
-    field_info: Arc<FieldInfo>,
-    writer: Option<&mut S>,
-  ) -> Result<Status> {
+  fn needs_field<S>(&mut self, field_info: Arc<FieldInfo>, writer: Option<&mut S>) -> Result<Status>
+  where
+    S: StoredFieldsWriter,
+  {
     self.visitor.needs_field(self.remap(&field_info)?, writer)
   }
 }

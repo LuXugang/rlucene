@@ -871,8 +871,9 @@ mod test {
   #[allow(dead_code)] // for quick search
   struct TestMaxScoreBulkScorer;
 
-  fn write_documents<R: Rng + ?Sized, D>(random: &mut R, dir: Arc<D>) -> Result<()>
+  fn write_documents<R, D>(random: &mut R, dir: Arc<D>) -> Result<()>
   where
+    R: Rng + ?Sized,
     D: Directory,
   {
     let mut iwc = IndexWriterConfig::new();

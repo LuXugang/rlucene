@@ -1060,7 +1060,10 @@ mod tests {
     Ok(())
   }
 
-  fn do_test_mixup<R: Rng + ?Sized>(random: &mut R, ft1: FieldType, ft2: FieldType) -> Result<()> {
+  fn do_test_mixup<R>(random: &mut R, ft1: FieldType, ft2: FieldType) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let iw = RandomIndexWriter::new(random, dir.clone());
 

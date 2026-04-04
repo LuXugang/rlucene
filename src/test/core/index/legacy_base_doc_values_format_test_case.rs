@@ -70,10 +70,16 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
-  fn add_random_fields<R: Rng + ?Sized>(_random: &mut R) -> Result<()> {
+  fn add_random_fields<R>(_random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     todo!()
   }
-  fn test_one_number<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_one_number<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let iwriter = RandomIndexWriter::new(random, directory.clone());
 
@@ -125,7 +131,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_one_float<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_one_float<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let iwriter = RandomIndexWriter::new(random, directory.clone());
 
@@ -177,7 +186,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_numbers<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_numbers<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let iwriter = RandomIndexWriter::new(random, directory.clone());
 
@@ -234,7 +246,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_binary_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_binary_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let iwriter = RandomIndexWriter::new(random, directory.clone());
 
@@ -303,10 +318,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_variously_compressible_binary_values<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_variously_compressible_binary_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let iwriter = RandomIndexWriter::new(random, directory.clone());
     let num_docs = 1 + random.random_range(0..100);
@@ -367,7 +382,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_fields_mixed<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_fields_mixed<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let iwriter = RandomIndexWriter::new(random, directory.clone());
 
@@ -430,7 +448,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_three_fields_mixed<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_three_fields_mixed<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let iwriter = RandomIndexWriter::new(random, directory.clone());
 
@@ -504,7 +525,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_three_fields_mixed2<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_three_fields_mixed2<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let iwriter = RandomIndexWriter::new(random, directory.clone());
 
@@ -578,7 +602,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_documents_numeric<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_documents_numeric<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -609,7 +636,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_documents_merged<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_documents_merged<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -665,7 +695,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_big_numeric_range<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_big_numeric_range<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -696,7 +729,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_big_numeric_range2<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_big_numeric_range2<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -727,7 +763,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_bytes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_bytes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -785,7 +824,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_bytes_two_documents_merged<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_bytes_two_documents_merged<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -846,7 +888,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_bytes_merge_away_all_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_bytes_merge_away_all_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -891,7 +936,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_bytes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_bytes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -947,7 +995,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_bytes_two_documents<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_bytes_two_documents<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -986,7 +1037,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_bytes_three_documents<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_bytes_three_documents<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -1035,7 +1089,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_bytes_two_documents_merged<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_bytes_two_documents_merged<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -1110,7 +1167,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_merge_away_all_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_merge_away_all_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -1161,7 +1221,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_bytes_with_newline<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_bytes_with_newline<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -1191,7 +1254,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_missing_sorted_bytes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_missing_sorted_bytes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -1224,7 +1290,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_terms_enum<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_terms_enum<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -1317,7 +1386,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_empty_sorted_bytes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_empty_sorted_bytes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -1355,7 +1427,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_empty_bytes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_empty_bytes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -1392,7 +1467,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_very_large_but_legal_bytes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_very_large_but_legal_bytes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -1419,7 +1497,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_very_large_but_legal_sorted_bytes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_very_large_but_legal_sorted_bytes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -1447,7 +1528,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_codec_uses_own_bytes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_codec_uses_own_bytes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -1474,7 +1558,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_codec_uses_own_sorted_bytes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_codec_uses_own_sorted_bytes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
@@ -1502,7 +1589,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_doc_values_simple<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_doc_values_simple<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -1551,7 +1641,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_random_sorted_bytes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_random_sorted_bytes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let cfg = new_index_writer_config_with_analyzer(random, analyzer);
@@ -1976,7 +2069,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_boolean_numerics_vs_stored_fields<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_boolean_numerics_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self.do_test_numerics_vs_stored_fields(random, 1.0, &mut |r| r.random_range(0..2) as i64)?;
@@ -1984,10 +2080,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_boolean_numerics_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sparse_boolean_numerics_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let density = random.random::<f64>();
@@ -1997,7 +2093,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_byte_numerics_vs_stored_fields<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_byte_numerics_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self.do_test_numerics_vs_stored_fields(random, 1.0, &mut |r| {
@@ -2007,10 +2106,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_byte_numerics_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sparse_byte_numerics_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let density = random.random::<f64>();
@@ -2021,7 +2120,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_short_numerics_vs_stored_fields<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_short_numerics_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self.do_test_numerics_vs_stored_fields(random, 1.0, &mut |r| {
@@ -2031,10 +2133,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_short_numerics_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sparse_short_numerics_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let density = random.random::<f64>();
@@ -2045,7 +2147,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_int_numerics_vs_stored_fields<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_int_numerics_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self.do_test_numerics_vs_stored_fields(random, 1.0, &mut |r| r.random::<i32>() as i64)?;
@@ -2053,10 +2158,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_int_numerics_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sparse_int_numerics_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let density = random.random::<f64>();
@@ -2065,7 +2170,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_long_numerics_vs_stored_fields<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_long_numerics_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self.do_test_numerics_vs_stored_fields(random, 1.0, &mut |r| r.random::<i64>())?;
@@ -2073,10 +2181,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_long_numerics_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sparse_long_numerics_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let density = random.random::<f64>();
@@ -2186,26 +2294,29 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_binary_fixed_length_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_binary_fixed_length_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.do_test_binary_fixed_length_vs_stored_fields(random, 1.0)
   }
 
-  fn test_sparse_binary_fixed_length_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sparse_binary_fixed_length_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let density = random.random::<f64>();
     self.do_test_binary_fixed_length_vs_stored_fields(random, density)
   }
 
-  fn do_test_binary_fixed_length_vs_stored_fields<R: Rng + ?Sized>(
+  fn do_test_binary_fixed_length_vs_stored_fields<R>(
     &self,
     random: &mut R,
     density: f64,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let fixed_length = TestUtil::next_int(random, 0, 10) as usize;
@@ -2218,26 +2329,29 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_binary_variable_length_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_binary_variable_length_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.do_test_binary_variable_length_vs_stored_fields(random, 1.0)
   }
 
-  fn test_sparse_binary_variable_length_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sparse_binary_variable_length_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let density = random.random::<f64>();
     self.do_test_binary_variable_length_vs_stored_fields(random, density)
   }
 
-  fn do_test_binary_variable_length_vs_stored_fields<R: Rng + ?Sized>(
+  fn do_test_binary_variable_length_vs_stored_fields<R>(
     &self,
     random: &mut R,
     density: f64,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self.do_test_binary_vs_stored_fields(random, density, &mut |r| {
@@ -2353,10 +2467,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_fixed_length_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_fixed_length_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let fixed_length = TestUtil::next_int(random, 1, 10);
@@ -2366,10 +2480,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_sorted_fixed_length_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sparse_sorted_fixed_length_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let fixed_length = TestUtil::next_int(random, 1, 10);
@@ -2386,10 +2500,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_variable_length_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_variable_length_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = at_least(random, 300);
@@ -2398,10 +2512,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sparse_sorted_variable_length_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sparse_sorted_variable_length_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let density = random.random::<f64>();
@@ -2410,14 +2524,17 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     }
     Ok(())
   }
-  fn do_test_sorted_vs_stored_fields<R: Rng + ?Sized>(
+  fn do_test_sorted_vs_stored_fields<R>(
     &self,
     random: &mut R,
     num_docs: i32,
     density: f64,
     min_length: i32,
     max_length: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.do_test_sorted_vs_stored_fields_bytes(random, num_docs, density, &mut |r| {
       let length = TestUtil::next_int(r, min_length, max_length) as usize;
       let mut buffer = vec![0u8; length];
@@ -2426,7 +2543,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     })
   }
 
-  fn test_sorted_set_one_value<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_set_one_value<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, directory.clone());
 
@@ -2453,7 +2573,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_two_fields<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_set_two_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, directory.clone());
 
@@ -2492,7 +2615,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_two_documents_merged<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_set_two_documents_merged<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -2541,7 +2667,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_two_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_set_two_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, directory.clone());
 
@@ -2577,7 +2706,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_two_values_unordered<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_set_two_values_unordered<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, directory.clone());
 
@@ -2613,7 +2745,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_three_values_two_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_set_three_values_two_docs<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -2674,10 +2809,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_two_documents_last_missing<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_two_documents_last_missing<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -2710,10 +2845,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_two_documents_last_missing_merge<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_two_documents_last_missing_merge<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -2747,10 +2882,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_two_documents_first_missing<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_two_documents_first_missing<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -2784,10 +2919,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_two_documents_first_missing_merge<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_two_documents_first_missing_merge<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -2822,7 +2957,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_merge_away_all_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_set_merge_away_all_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -2871,7 +3009,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_terms_enum<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_set_terms_enum<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3103,7 +3244,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn do_test_sorted_set_vs_stored_fields<R: Rng + ?Sized>(
+  fn do_test_sorted_set_vs_stored_fields<R>(
     &self,
     random: &mut R,
     num_docs: i32,
@@ -3111,7 +3252,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     max_length: i32,
     max_values_per_doc: i32,
     max_unique_values: usize,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3181,10 +3325,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_fixed_length_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_fixed_length_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let fixed_length = TestUtil::next_int(random, 1, 10);
@@ -3201,10 +3345,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_numerics_single_valued_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_numerics_single_valued_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self
@@ -3213,10 +3357,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_numerics_single_valued_missing_vs_stored_fields<R: Rng + ?Sized>(
+  fn test_sorted_numerics_single_valued_missing_vs_stored_fields<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self.do_test_sorted_numerics_vs_stored_fields(
@@ -3228,10 +3375,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_numerics_multiple_values_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_numerics_multiple_values_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self.do_test_sorted_numerics_vs_stored_fields(
@@ -3243,10 +3390,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_numerics_few_unique_sets_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_numerics_few_unique_sets_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let values_len = TestUtil::next_int(random, 2, 6) as usize;
     let mut values = vec![0_i64; values_len];
     for value in &mut values {
@@ -3263,10 +3410,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_variable_length_vs_stored_fields<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_variable_length_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = at_least(random, 300);
@@ -3275,10 +3422,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_fixed_length_single_valued_vs_stored_fields<R: Rng + ?Sized>(
+  fn test_sorted_set_fixed_length_single_valued_vs_stored_fields<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let fixed_length = TestUtil::next_int(random, 1, 10);
@@ -3295,10 +3445,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_variable_length_single_valued_vs_stored_fields<R: Rng + ?Sized>(
+  fn test_sorted_set_variable_length_single_valued_vs_stored_fields<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = at_least(random, 300);
@@ -3307,10 +3460,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_fixed_length_few_unique_sets_vs_stored_fields<R: Rng + ?Sized>(
+  fn test_sorted_set_fixed_length_few_unique_sets_vs_stored_fields<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = at_least(random, 300);
@@ -3319,10 +3475,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_variable_length_few_unique_sets_vs_stored_fields<R: Rng + ?Sized>(
+  fn test_sorted_set_variable_length_few_unique_sets_vs_stored_fields<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = at_least(random, 300);
@@ -3331,10 +3490,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_variable_length_many_values_per_doc_vs_stored_fields<R: Rng + ?Sized>(
+  fn test_sorted_set_variable_length_many_values_per_doc_vs_stored_fields<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = at_least(random, 20);
@@ -3343,10 +3505,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_fixed_length_many_values_per_doc_vs_stored_fields<R: Rng + ?Sized>(
+  fn test_sorted_set_fixed_length_many_values_per_doc_vs_stored_fields<R>(
     &self,
     random: &mut R,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let num_docs = at_least(random, 20);
@@ -3355,15 +3520,24 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_gcd_compression<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_gcd_compression<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.do_test_gcd_compression(random, 1.0)
   }
 
-  fn test_sparse_gcd_compression<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_gcd_compression<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let density = random.random::<f64>();
     self.do_test_gcd_compression(random, density)
   }
-  fn do_test_gcd_compression<R: Rng + ?Sized>(&self, random: &mut R, density: f64) -> Result<()> {
+  fn do_test_gcd_compression<R>(&self, random: &mut R, density: f64) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       let min = -((random.random_range(0..(1_i32 << 30)) as i64) << 32);
@@ -3375,16 +3549,25 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_zeros<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_zeros<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     self.do_test_numerics_vs_stored_fields(random, 1.0, &mut |_| 0)
   }
 
-  fn test_sparse_zeros<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sparse_zeros<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let density = random.random::<f64>();
     self.do_test_numerics_vs_stored_fields(random, density, &mut |_| 0)
   }
 
-  fn test_zero_or_min<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_zero_or_min<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
       self.do_test_numerics_vs_stored_fields(random, 1.0, &mut |r| {
@@ -3394,7 +3577,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_numbers_one_missing<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_numbers_one_missing<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3436,10 +3622,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_numbers_one_missing_with_merging<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_two_numbers_one_missing_with_merging<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3482,10 +3668,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_three_numbers_one_missing_with_merging<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_three_numbers_one_missing_with_merging<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3540,7 +3726,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_bytes_one_missing<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_bytes_one_missing<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3588,7 +3777,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_bytes_one_missing_with_merging<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_bytes_one_missing_with_merging<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3637,10 +3829,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_three_bytes_one_missing_with_merging<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_three_bytes_one_missing_with_merging<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3707,19 +3899,28 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
     Ok(())
   }
-  fn test_threads<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_threads<R>(&self, _random: &mut R) -> Result<()> {
     // TODO 多线程未实现
     Ok(())
   }
-  fn test_threads2<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_threads2<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO 多线程未实现
     Ok(())
   }
-  fn test_threads3<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
+  fn test_threads3<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO 多线程未实现
     Ok(())
   }
-  fn test_empty_binary_value_on_page_sizes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_empty_binary_value_on_page_sizes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     for i in 0..20 {
       if i > 14 && self.codec_accepts_huge_binary_values("field") {
         break;
@@ -3752,7 +3953,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_one_sorted_number<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_one_sorted_number<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, directory.clone());
 
@@ -3774,7 +3978,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_one_sorted_number_one_missing<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_one_sorted_number_one_missing<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3800,7 +4007,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_number_merge_away_all_values<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_number_merge_away_all_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3842,7 +4052,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_sorted_number<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_sorted_number<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, directory.clone());
 
@@ -3866,7 +4079,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_sorted_number_same_value<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_sorted_number_same_value<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, directory.clone());
 
@@ -3890,7 +4106,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_two_sorted_number_one_missing<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_two_sorted_number_one_missing<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3918,7 +4137,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_number_merge<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_number_merge<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3952,10 +4174,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_number_merge_away_all_values<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_number_merge_away_all_values<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -3997,7 +4219,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_enum_advance_independently<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_sorted_enum_advance_independently<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -4039,10 +4264,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_enum_advance_independently<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_enum_advance_independently<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -4182,10 +4407,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_merge_away_all_values_large_segment<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_merge_away_all_values_large_segment<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -4232,10 +4457,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_set_merge_away_all_values_large_segment<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_set_merge_away_all_values_large_segment<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -4282,10 +4507,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_numeric_merge_away_all_values_large_segment<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_numeric_merge_away_all_values_large_segment<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -4323,10 +4548,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_sorted_numeric_merge_away_all_values_large_segment<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_sorted_numeric_merge_away_all_values_large_segment<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -4364,10 +4589,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_binary_merge_away_all_values_large_segment<R: Rng + ?Sized>(
-    &self,
-    random: &mut R,
-  ) -> Result<()> {
+  fn test_binary_merge_away_all_values_large_segment<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
@@ -4408,7 +4633,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_random_advance_numeric<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_random_advance_numeric<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let long_range = if random.random_bool(0.5) {
       TestUtil::next_int(random, 1, 1024) as i64
     } else {
@@ -4418,12 +4646,18 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     Self::do_test_random_advance(random, fc)
   }
 
-  fn test_random_advance_binary<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_random_advance_binary<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let fc = FieldCreatorBinary;
     Self::do_test_random_advance(random, fc)
   }
 
-  fn test_high_ords_sorted_set_dv<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_high_ords_sorted_set_dv<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
@@ -4478,8 +4712,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.close()?;
     Ok(())
   }
-  fn do_test_random_advance<T, R: Rng + ?Sized>(random: &mut R, field_creator: T) -> Result<()>
+  fn do_test_random_advance<T, R>(random: &mut R, field_creator: T) -> Result<()>
   where
+    R: Rng + ?Sized,
     T: FieldCreator,
   {
     let analyzer = MockAnalyzer::new(random);
@@ -4567,21 +4802,23 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 }
 
 pub trait FieldCreator {
-  fn next<R: Rng + ?Sized>(&self, random: &mut R) -> Result<Fields>;
+  fn next<R>(&self, random: &mut R) -> Result<Fields>
+  where
+    R: Rng + ?Sized;
   type DocIdSetIterator<CR>: DocIdSetIterator
   where
     CR: CompositeReader;
-  fn iterator<R: Rng + ?Sized, CR>(
-    &self,
-    reader: CR,
-    random: &mut R,
-  ) -> Result<Self::DocIdSetIterator<CR>>
+  fn iterator<R, CR>(&self, reader: CR, random: &mut R) -> Result<Self::DocIdSetIterator<CR>>
   where
+    R: Rng + ?Sized,
     CR: CompositeReader;
 }
 pub struct FieldCreatorBinary;
 impl FieldCreator for FieldCreatorBinary {
-  fn next<R: Rng + ?Sized>(&self, random: &mut R) -> Result<Fields> {
+  fn next<R>(&self, random: &mut R) -> Result<Fields>
+  where
+    R: Rng + ?Sized,
+  {
     let mut bytes = vec![0_u8; random.random_range(0..10)];
     random.fill(&mut bytes[..]);
     Ok(BinaryDocValuesField::new("field", new_bytes_ref_from_bytes(random, &bytes)?).into())
@@ -4592,12 +4829,9 @@ impl FieldCreator for FieldCreatorBinary {
   where
     CR: CompositeReader;
 
-  fn iterator<R: Rng + ?Sized, CR>(
-    &self,
-    reader: CR,
-    _random: &mut R,
-  ) -> Result<Self::DocIdSetIterator<CR>>
+  fn iterator<R, CR>(&self, reader: CR, _random: &mut R) -> Result<Self::DocIdSetIterator<CR>>
   where
+    R: Rng + ?Sized,
     CR: CompositeReader,
   {
     Ok(MultiDocValues::get_binary_values(reader, "field")?.expect("doc values should exist"))
@@ -4613,7 +4847,10 @@ impl FieldCreatorNumeric {
   }
 }
 impl FieldCreator for FieldCreatorNumeric {
-  fn next<R: Rng + ?Sized>(&self, random: &mut R) -> Result<Fields> {
+  fn next<R>(&self, random: &mut R) -> Result<Fields>
+  where
+    R: Rng + ?Sized,
+  {
     Ok(NumericDocValuesField::new("field", TestUtil::next_long(random, 0, self.long_range)).into())
   }
 
@@ -4622,12 +4859,9 @@ impl FieldCreator for FieldCreatorNumeric {
   where
     CR: CompositeReader;
 
-  fn iterator<R: Rng + ?Sized, CR>(
-    &self,
-    reader: CR,
-    _random: &mut R,
-  ) -> Result<Self::DocIdSetIterator<CR>>
+  fn iterator<R, CR>(&self, reader: CR, _random: &mut R) -> Result<Self::DocIdSetIterator<CR>>
   where
+    R: Rng + ?Sized,
     CR: CompositeReader,
   {
     Ok(MultiDocValues::get_numeric_values(reader, "field")?.expect("doc values should exist"))

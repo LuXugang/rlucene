@@ -73,7 +73,10 @@ impl PartialEq for MatchNoDocsQuery {
 impl Eq for MatchNoDocsQuery {}
 
 impl Hash for MatchNoDocsQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.reason.hash(state);
   }
 }
@@ -222,7 +225,10 @@ mod tests {
 
   #[allow(dead_code)] // for quick search
   struct TestMatchNoDocsQuery;
-  fn set_up<R: Rng + ?Sized>(random: &mut R) -> MockAnalyzer {
+  fn set_up<R>(random: &mut R) -> MockAnalyzer
+  where
+    R: Rng + ?Sized,
+  {
     MockAnalyzer::new(random)
   }
 

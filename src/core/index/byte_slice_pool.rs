@@ -260,7 +260,10 @@ mod tests {
 
   impl SliceWriter {
     /// Creates a new `SliceWriter` instance.
-    pub fn new<R: Rng + ?Sized>(random: &mut R) -> Self {
+    pub fn new<R>(random: &mut R) -> Self
+    where
+      R: Rng + ?Sized,
+    {
       let size: i32 = if random.random_bool(0.5) {
         // size < ByteBlockPool.BYTE_BLOCK_SIZE
         random.random_range(100..1000)

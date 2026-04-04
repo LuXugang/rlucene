@@ -48,7 +48,10 @@ pub enum MergeTrigger {
 }
 #[cfg(test)]
 impl MergeTrigger {
-  pub(crate) fn random_trigger<R: Rng + ?Sized>(random: &mut R) -> MergeTrigger {
+  pub(crate) fn random_trigger<R>(random: &mut R) -> MergeTrigger
+  where
+    R: Rng + ?Sized,
+  {
     match random.random_range(0..8) {
       0 => MergeTrigger::SegmentFlush,
       1 => MergeTrigger::FullFlush,

@@ -39,24 +39,27 @@ impl<D> RandomIndexWriter<D>
 where
   D: Directory,
 {
-  pub fn new<R: Rng + ?Sized>(_r: &mut R, dir: Arc<D>) -> Self
+  pub fn new<R>(_r: &mut R, dir: Arc<D>) -> Self
   where
+    R: Rng + ?Sized,
     D: Directory,
   {
     Self {
       w: IndexWriter::new(dir, IndexWriterConfig::new()).expect("should not fail"),
     }
   }
-  pub fn with_analyzer<R: Rng + ?Sized, T>(r: &mut R, dir: Arc<D>, analyzer: T) -> Self
+  pub fn with_analyzer<R, T>(r: &mut R, dir: Arc<D>, analyzer: T) -> Self
   where
+    R: Rng + ?Sized,
     D: Directory,
     T: Into<AnalyzerEnum>,
   {
     let config = new_index_writer_config_with_analyzer(r, analyzer);
     Self::with_config(r, dir, config)
   }
-  pub fn with_config<R: Rng + ?Sized>(_r: &mut R, dir: Arc<D>, config: IndexWriterConfig) -> Self
+  pub fn with_config<R>(_r: &mut R, dir: Arc<D>, config: IndexWriterConfig) -> Self
   where
+    R: Rng + ?Sized,
     D: Directory,
   {
     Self {

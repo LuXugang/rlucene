@@ -987,10 +987,11 @@ mod tests {
     Ok(())
   }
 
-  fn build_index<D: Directory, R: Rng + ?Sized>(
-    directory: Arc<D>,
-    random: &mut R,
-  ) -> Result<(FieldNumbersLock, i32)> {
+  fn build_index<D, R>(directory: Arc<D>, random: &mut R) -> Result<(FieldNumbersLock, i32)>
+  where
+    D: Directory,
+    R: Rng + ?Sized,
+  {
     let writer = IndexWriter::new(directory, new_index_writer_config(random))?;
     for i in 0..10 {
       let mut document = Document::new();

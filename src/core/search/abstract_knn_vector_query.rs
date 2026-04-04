@@ -362,7 +362,10 @@ impl AbstractKnnVectorQueryBase {
   }
 }
 impl Hash for AbstractKnnVectorQueryBase {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.field.hash(state);
     self.k.hash(state);
     self.filter.hash(state);
@@ -628,7 +631,10 @@ impl PartialEq for DocAndScoreQuery {
   }
 }
 impl Hash for DocAndScoreQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.context_identity.hash(state);
     self.docs.hash(state);
     for f in self.scores.iter() {

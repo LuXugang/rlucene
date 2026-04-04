@@ -111,7 +111,10 @@ pub mod lucene_test_case_util {
     }
     Ok(sub_readers[0].reader().clone())
   }
-  pub(crate) fn at_least_usize<R: Rng + ?Sized>(random: &mut R, i: usize) -> usize {
+  pub(crate) fn at_least_usize<R>(random: &mut R, i: usize) -> usize
+  where
+    R: Rng + ?Sized,
+  {
     debug_assert!(i <= i32::MAX as usize);
     at_least(random, i as i32) as usize
   }
@@ -119,29 +122,39 @@ pub mod lucene_test_case_util {
   ///
   /// The actual number returned will be influenced by whether `TEST_NIGHTLY` is
   /// active and `RANDOM_MULTIPLIER`, but also with some random fudge.
-  pub(crate) fn at_least<R: Rng + ?Sized>(random: &mut R, i: i32) -> i32 {
+  pub(crate) fn at_least<R>(random: &mut R, i: i32) -> i32
+  where
+    R: Rng + ?Sized,
+  {
     let min = i * random_multiplier();
     let max = min + (min / 2);
     TestUtil::next_int(random, min, max)
   }
 
-  pub(crate) fn rarely<R: Rng + ?Sized>(random: &mut R) -> bool {
+  pub(crate) fn rarely<R>(random: &mut R) -> bool
+  where
+    R: Rng + ?Sized,
+  {
     let mut p = if is_night_mode() { 5 } else { 1 };
     p += (p as f64 * (random_multiplier() as f64).ln()).round() as i32;
     let min = 100 - p.min(20); // Never more than 20% chance
     random.random_range(0..100) >= min
   }
 
-  pub(crate) fn new_index_writer_config<R: Rng + ?Sized>(random: &mut R) -> IndexWriterConfig {
+  pub(crate) fn new_index_writer_config<R>(random: &mut R) -> IndexWriterConfig
+  where
+    R: Rng + ?Sized,
+  {
     // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
     let mock = MockAnalyzer::new(random);
     new_index_writer_config_with_analyzer(random, mock)
   }
-  pub(crate) fn new_index_writer_config_with_analyzer<T, R: Rng + ?Sized>(
+  pub(crate) fn new_index_writer_config_with_analyzer<T, R>(
     _random: &mut R,
     analyzer: T,
   ) -> IndexWriterConfig
   where
+    R: Rng + ?Sized,
     T: Into<AnalyzerEnum>,
   {
     // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
@@ -246,26 +259,32 @@ pub mod lucene_test_case_util {
 
   // TODO: When we have implemented multiple directories, we need to select one
   // randomly. Currently, we choose NIOFSDirectory.
-  pub(crate) fn new_directory_shared<R: Rng + ?Sized>(random: &mut R) -> Result<Arc<DirEnum>> {
+  pub(crate) fn new_directory_shared<R>(random: &mut R) -> Result<Arc<DirEnum>>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory(random)?;
     Ok(Arc::new(dir))
   }
-  pub(crate) fn new_directory<R: Rng + ?Sized>(_random: &mut R) -> Result<DirEnum> {
+  pub(crate) fn new_directory<R>(_random: &mut R) -> Result<DirEnum>
+  where
+    R: Rng + ?Sized,
+  {
     let temp_dir = TempDir::new()?;
     let sub_directory = NIOFSDirectory::new();
     FSDirectory::new(temp_dir.keep(), sub_directory)
   }
 
-  pub(crate) fn new_fs_directory<R: Rng + ?Sized>(
-    _random: &mut R,
-    temp_dir: TempDir,
-  ) -> Result<Arc<DirEnum>> {
+  pub(crate) fn new_fs_directory<R>(_random: &mut R, temp_dir: TempDir) -> Result<Arc<DirEnum>>
+  where
+    R: Rng + ?Sized,
+  {
     // TODO 这里简单返回FSDirectory
     let sub_directory = NIOFSDirectory::new();
     Ok(Arc::new(FSDirectory::new(temp_dir.keep(), sub_directory)?))
   }
 
-  pub(crate) fn new_string_field<S1, S2, R: Rng + ?Sized>(
+  pub(crate) fn new_string_field<S1, S2, R>(
     random: &mut R,
     name: S1,
     value: S2,
@@ -273,6 +292,7 @@ pub mod lucene_test_case_util {
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<Field>
   where
+    R: Rng + ?Sized,
     S1: Into<String>,
     S2: Into<String>,
   {
@@ -290,7 +310,7 @@ pub mod lucene_test_case_util {
     )
   }
 
-  pub(crate) fn new_string_field_binary<S, R: Rng + ?Sized>(
+  pub(crate) fn new_string_field_binary<S, R>(
     random: &mut R,
     name: S,
     value: BytesRef<Vec<u8>>,
@@ -298,6 +318,7 @@ pub mod lucene_test_case_util {
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<Field>
   where
+    R: Rng + ?Sized,
     S: Into<String>,
   {
     let field_type = match stored {
@@ -313,7 +334,7 @@ pub mod lucene_test_case_util {
       field_to_type,
     )
   }
-  pub(crate) fn new_text_field<S1, S2, R: Rng + ?Sized>(
+  pub(crate) fn new_text_field<S1, S2, R>(
     random: &mut R,
     name: S1,
     value: S2,
@@ -321,6 +342,7 @@ pub mod lucene_test_case_util {
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<Field>
   where
+    R: Rng + ?Sized,
     S1: Into<String>,
     S2: Into<String>,
   {
@@ -337,7 +359,7 @@ pub mod lucene_test_case_util {
       field_to_type,
     )
   }
-  pub(crate) fn new_string_field_string_with_random<S1, S2, R: Rng + ?Sized>(
+  pub(crate) fn new_string_field_string_with_random<S1, S2, R>(
     random: &mut R,
     name: S1,
     value: S2,
@@ -345,6 +367,7 @@ pub mod lucene_test_case_util {
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<Field>
   where
+    R: Rng + ?Sized,
     S1: Into<String>,
     S2: Into<String>,
   {
@@ -361,7 +384,7 @@ pub mod lucene_test_case_util {
       field_to_type,
     )
   }
-  pub(crate) fn new_string_field_binary_with_random<S, R: Rng + ?Sized>(
+  pub(crate) fn new_string_field_binary_with_random<S, R>(
     random: &mut R,
     name: S,
     value: BytesRef<Vec<u8>>,
@@ -369,6 +392,7 @@ pub mod lucene_test_case_util {
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<Field>
   where
+    R: Rng + ?Sized,
     S: Into<String>,
   {
     let field_type = match stored {
@@ -384,7 +408,7 @@ pub mod lucene_test_case_util {
     )
   }
 
-  pub(crate) fn new_field<S, V, R: Rng + ?Sized>(
+  pub(crate) fn new_field<S, V, R>(
     random: &mut R,
     name: S,
     value: V,
@@ -392,6 +416,7 @@ pub mod lucene_test_case_util {
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<Field>
   where
+    R: Rng + ?Sized,
     S: Into<String>,
     V: Into<FieldDataEnum>,
   {
@@ -402,7 +427,7 @@ pub mod lucene_test_case_util {
   // write-once schema sort of helper class then we can
   // remove the sync here.  We can also fold the random
   // "enable norms" (now commented out, below) into that:
-  pub(crate) fn new_field_with_random<S, R: Rng + ?Sized>(
+  pub(crate) fn new_field_with_random<S, R>(
     random: &mut R,
     name: S,
     value: FieldDataEnum,
@@ -410,6 +435,7 @@ pub mod lucene_test_case_util {
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<Field>
   where
+    R: Rng + ?Sized,
     S: Into<String>,
   {
     let name = name.into();
@@ -470,14 +496,20 @@ pub mod lucene_test_case_util {
     }
   }
 
-  pub(crate) fn new_io_context<R: Rng + ?Sized>(random: &mut R) -> Result<IOContext> {
+  pub(crate) fn new_io_context<R>(random: &mut R) -> Result<IOContext>
+  where
+    R: Rng + ?Sized,
+  {
     new_io_context_with_default(random, &IO_CONTEXT_DEFAULT)
   }
 
-  pub(crate) fn new_io_context_with_default<R: Rng + ?Sized>(
+  pub(crate) fn new_io_context_with_default<R>(
     random: &mut R,
     old_context: &IOContext,
-  ) -> Result<IOContext> {
+  ) -> Result<IOContext>
+  where
+    R: Rng + ?Sized,
+  {
     if *old_context == *IO_CONTEXT_READ_ONCE {
       // Don't modify the READONCE SINGLETON
       return Ok(old_context.clone());
@@ -621,10 +653,11 @@ pub mod lucene_test_case_util {
   /// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
   /// that sometimes uses a non-zero offset and non-zero end-padding to
   /// tickle latent bugs that fail to look at `BytesRef.offset`.
-  pub(crate) fn new_bytes_ref_from_string<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
-    random: &mut R,
-    s: &str,
-  ) -> Result<BytesRef<AV>> {
+  pub(crate) fn new_bytes_ref_from_string<R, AV>(random: &mut R, s: &str) -> Result<BytesRef<AV>>
+  where
+    R: Rng + ?Sized,
+    AV: SharedAccessVec<u8>,
+  {
     let bytes = s.as_bytes();
     new_bytes_ref(random, bytes, 0, bytes.len() as i32)
   }
@@ -632,10 +665,14 @@ pub mod lucene_test_case_util {
   /// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero
   /// offset, and non-zero end-padding, to tickle latent bugs that fail to look at
   /// `BytesRef.offset`.
-  pub(crate) fn new_bytes_ref_from_bytes_ref<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
+  pub(crate) fn new_bytes_ref_from_bytes_ref<R, AV>(
     random: &mut R,
     b: &BytesRef<AV>,
-  ) -> Result<BytesRef<AV>> {
+  ) -> Result<BytesRef<AV>>
+  where
+    R: Rng + ?Sized,
+    AV: SharedAccessVec<u8>,
+  {
     assert!(b.is_valid()?);
     b.bytes
       .access(|bytes| new_bytes_ref(random, bytes, b.offset as i32, b.length as i32))
@@ -644,19 +681,25 @@ pub mod lucene_test_case_util {
   /// Creates a random `BytesRef` from the incoming bytes, sometimes using a
   /// non-zero offset, and non-zero end-padding, to tickle latent bugs that fail
   /// to look at `BytesRef.offset`.
-  pub(crate) fn new_bytes_ref_from_bytes<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
+  pub(crate) fn new_bytes_ref_from_bytes<R, AV>(
     random: &mut R,
     bytes_in: &[u8],
-  ) -> Result<BytesRef<AV>> {
+  ) -> Result<BytesRef<AV>>
+  where
+    R: Rng + ?Sized,
+    AV: SharedAccessVec<u8>,
+  {
     new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
   }
 
   /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and
   /// non-zero end-padding, to tickle latent bugs that fail to look at
   /// `BytesRef.offset`.
-  pub(crate) fn new_bytes_ref_empty<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
-    random: &mut R,
-  ) -> Result<BytesRef<AV>> {
+  pub(crate) fn new_bytes_ref_empty<R, AV>(random: &mut R) -> Result<BytesRef<AV>>
+  where
+    R: Rng + ?Sized,
+    AV: SharedAccessVec<u8>,
+  {
     // Calling the existing `new_bytes_ref` function
     new_bytes_ref(random, &[], 0, 0)
   }
@@ -664,10 +707,14 @@ pub mod lucene_test_case_util {
   /// Creates a random empty `BytesRef`, with at least the requested length of
   /// bytes free, that sometimes uses a non-zero offset and non-zero end-padding
   /// to tickle latent bugs that fail to look at `BytesRef.offset`.
-  pub(crate) fn new_bytes_ref_with_length<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
+  pub(crate) fn new_bytes_ref_with_length<R, AV>(
     byte_length: i32,
     random: &mut R,
-  ) -> Result<BytesRef<AV>> {
+  ) -> Result<BytesRef<AV>>
+  where
+    R: Rng + ?Sized,
+    AV: SharedAccessVec<u8>,
+  {
     let bytes_in = vec![0u8; byte_length as usize];
     new_bytes_ref(random, &bytes_in, 0, byte_length)
   }
@@ -675,12 +722,16 @@ pub mod lucene_test_case_util {
   /// Creates a copy of the incoming bytes slice that sometimes uses a non-zero
   /// {@code offset}, and non-zero end-padding, to tickle latent bugs that fail to
   /// look at {@code BytesRef.offset}.
-  pub(crate) fn new_bytes_ref<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
+  pub(crate) fn new_bytes_ref<R, AV>(
     random: &mut R,
     bytes_in: &[u8],
     offset: i32,
     length: i32,
-  ) -> Result<BytesRef<AV>> {
+  ) -> Result<BytesRef<AV>>
+  where
+    R: Rng + ?Sized,
+    AV: SharedAccessVec<u8>,
+  {
     assert!(
       bytes_in.len() >= (offset + length) as usize,
       "got offset={} length={} bytesIn.length={}",

@@ -144,7 +144,10 @@ impl QueryBase for BoostQuery {
 }
 
 impl Hash for BoostQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.query.hash(state);
     self.boost.to_bits().hash(state);
   }

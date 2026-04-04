@@ -156,7 +156,10 @@ mod tests {
 
   /// Generates a random `i64` value following the logic in the original Java
   /// function.
-  fn random_long<R: Rng + ?Sized>(random: &mut R) -> i64 {
+  fn random_long<R>(random: &mut R) -> i64
+  where
+    R: Rng + ?Sized,
+  {
     if random.random_bool(0.5) {
       let mut l = 1;
       if random.random_bool(0.5) {

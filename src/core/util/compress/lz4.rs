@@ -860,11 +860,10 @@ mod tests {
   trait LZ4TestCase {
     fn new_hash_table(&self) -> AssertingHashTable;
 
-    fn do_test<R: Rng + ?Sized>(
-      random: &mut R,
-      data: &[u8],
-      hash_table: &mut AssertingHashTable,
-    ) -> Result<()> {
+    fn do_test<R>(random: &mut R, data: &[u8], hash_table: &mut AssertingHashTable) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       // this triggers special reset logic for high compression
       let offset = if data.len() >= (1 << 16) || random.random_bool(0.5) {
         random.random_range(0..10)
@@ -883,13 +882,16 @@ mod tests {
       )
     }
 
-    fn do_test_with_offset<R: Rng + ?Sized>(
+    fn do_test_with_offset<R>(
       random: &mut R,
       data: &[u8],
       offset: i32,
       length: i32,
       hash_table: &mut AssertingHashTable,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let mut out = ByteBuffersDataOutput::new();
       LZ4::compress(data, offset, length, &mut out, &mut hash_table.ht)?;
 
@@ -987,11 +989,14 @@ mod tests {
       Ok(())
     }
 
-    fn do_test_with_dictionary<R: Rng + ?Sized>(
+    fn do_test_with_dictionary<R>(
       random: &mut R,
       data: &[u8],
       hash_table: &mut AssertingHashTable,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let mut copy = ByteBuffersDataOutput::new();
       let dict_off = random.random_range(0..10);
       copy.write_bytes(&vec![0u8; dict_off as usize])?;
@@ -1025,14 +1030,17 @@ mod tests {
       )
     }
 
-    fn do_test_with_dictionary_inner<R: Rng + ?Sized>(
+    fn do_test_with_dictionary_inner<R>(
       random: &mut R,
       data: &[u8],
       dict_off: i32,
       dict_len: i32,
       length: i32,
       hash_table: &mut AssertingHashTable,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let mut out = ByteBuffersDataOutput::new();
       LZ4::compress_with_dictionary(
         data,
@@ -1082,13 +1090,19 @@ mod tests {
 
       Ok(())
     }
-    fn test_empty<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_empty<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       // literals and match lengths <= 15
       let data: Vec<u8> = "".to_string().into_bytes();
       Self::do_test(random, &data, &mut self.new_hash_table())
     }
 
-    fn test_short_literals_and_matches<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_short_literals_and_matches<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       // literals and match lengths <= 15
       let data: Vec<u8> = "1234562345673456745678910123".to_string().into_bytes();
       Self::do_test(random, data.as_slice(), &mut self.new_hash_table())?;
@@ -1096,7 +1110,10 @@ mod tests {
       Ok(())
     }
 
-    fn test_long_matches<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_long_matches<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       // match length >= 20
       let len = random.random_range(300..1024);
       let mut data = vec![0u8; len];
@@ -1106,7 +1123,10 @@ mod tests {
       Self::do_test(random, data.as_slice(), &mut self.new_hash_table())?;
       Ok(())
     }
-    fn test_long_literals<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_long_literals<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       // long literals (length >= 16) which are not the last literals
       let len = random.random_range(400..1024);
       let mut data = vec![0u8; len];
@@ -1119,13 +1139,19 @@ mod tests {
       Ok(())
     }
 
-    fn test_match_right_before_last_literals<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_match_right_before_last_literals<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let data = vec![1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 5];
       Self::do_test(random, data.as_slice(), &mut self.new_hash_table())?;
       Ok(())
     }
 
-    fn test_incompressible_random<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_incompressible_random<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let len = random.random_range(1..1 << 18);
       let mut b = vec![0u8; len];
       random.fill_bytes(&mut b);
@@ -1134,7 +1160,10 @@ mod tests {
       Ok(())
     }
 
-    fn test_compressible_random<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_compressible_random<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let len = TestUtil::next_usize(random, 1, 1 << 18);
       let mut b = vec![0u8; len];
       let base = random.random_range(0..256);
@@ -1146,7 +1175,10 @@ mod tests {
       Self::do_test_with_dictionary(random, b.as_slice(), &mut self.new_hash_table())?;
       Ok(())
     }
-    fn test_lucene5201<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_lucene5201<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let data: Vec<i8> = vec![
         14, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 72, 14, 72, 14, 85, 3, 72, 14, 72, 14, 72, 14,
         72, 14, 72, 14, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 85, 3,
@@ -1183,7 +1215,10 @@ mod tests {
       )
     }
 
-    fn test_use_dictionary<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+    fn test_use_dictionary<R>(&self, random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       let b: Vec<i8> = vec![1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
       let dict_off = 0;
       let dict_len = 6;

@@ -89,7 +89,10 @@ impl PartialEq for SortedSetDocValuesRangeQuery {
 impl Eq for SortedSetDocValuesRangeQuery {}
 
 impl Hash for SortedSetDocValuesRangeQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.field.hash(state);
     self.lower_value.hash(state);
     self.upper_value.hash(state);

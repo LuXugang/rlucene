@@ -57,7 +57,10 @@ impl PartialEq for BlockScoreQueryWrapper {
 }
 impl Eq for BlockScoreQueryWrapper {}
 impl Hash for BlockScoreQueryWrapper {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.query.hash(state);
     self.block_length.hash(state);
   }

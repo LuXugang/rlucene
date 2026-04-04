@@ -704,7 +704,7 @@ mod tests {
     // TODO LineFileDocs未实现
     Ok(())
   }
-  fn add_doc<D, R: Rng + ?Sized>(
+  fn add_doc<D, R>(
     random: &mut R,
     writer: &RandomIndexWriter<D>,
     terms: &mut Vec<String>,
@@ -713,6 +713,7 @@ mod tests {
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
+    R: Rng + ?Sized,
     D: Directory,
   {
     let mut doc = Document::new();
@@ -907,10 +908,10 @@ mod tests {
     Ok(())
   }
 
-  fn make_index<R: Rng + ?Sized>(
-    random: &mut R,
-    terms: &[String],
-  ) -> Result<StandardDirectoryReaderType<DirEnum>> {
+  fn make_index<R>(random: &mut R, terms: &[String]) -> Result<StandardDirectoryReaderType<DirEnum>>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = new_directory_shared(random)?;
     let mock = MockAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, mock);
@@ -1067,11 +1068,10 @@ mod tests {
     test_random_seeks(&mut random, reader, &terms)?;
     Ok(())
   }
-  fn seek_exact<R: Rng + ?Sized>(
-    random: &mut R,
-    te: &mut impl TermsEnum,
-    term: &str,
-  ) -> Result<bool> {
+  fn seek_exact<R>(random: &mut R, te: &mut impl TermsEnum, term: &str) -> Result<bool>
+  where
+    R: Rng + ?Sized,
+  {
     te.seek_exact(&new_bytes_ref_from_string(random, term)?)
   }
   fn next_term(te: &mut impl TermsEnum) -> Result<Option<String>> {
@@ -1081,10 +1081,10 @@ mod tests {
     }
   }
 
-  fn get_non_exist_term<R: Rng + ?Sized>(
-    random: &mut R,
-    terms: &[BytesRef<Vec<u8>>],
-  ) -> Result<BytesRef<Vec<u8>>> {
+  fn get_non_exist_term<R>(random: &mut R, terms: &[BytesRef<Vec<u8>>]) -> Result<BytesRef<Vec<u8>>>
+  where
+    R: Rng + ?Sized,
+  {
     loop {
       let ts = get_random_string(random);
       let t = new_bytes_ref_from_string(random, &ts)?;
@@ -1100,12 +1100,13 @@ mod tests {
     term: BytesRef<Vec<u8>>,
     state: Option<TS>,
   }
-  fn test_random_seeks<R: Rng + ?Sized, CR>(
+  fn test_random_seeks<R, CR>(
     random: &mut R,
     reader: CR,
     valid_term_strings: &[String],
   ) -> Result<()>
   where
+    R: Rng + ?Sized,
     CR: CompositeReader,
   {
     let mut valid_terms: Vec<BytesRef<Vec<u8>>> = valid_term_strings
@@ -1236,7 +1237,10 @@ mod tests {
 
     Ok(())
   }
-  fn get_random_string<R: Rng + ?Sized>(random: &mut R) -> String {
+  fn get_random_string<R>(random: &mut R) -> String
+  where
+    R: Rng + ?Sized,
+  {
     TestUtil::random_realistic_unicode_string(random)
   }
   // TODO 14049251577398709107 测试未通过
@@ -1632,7 +1636,7 @@ mod tests2 {
   struct TestTermsEnum2;
 
   #[allow(clippy::type_complexity)]
-  fn set_up<R: Rng + ?Sized>(
+  fn set_up<R>(
     random: &mut R,
   ) -> Result<(
     i32,
@@ -1641,7 +1645,10 @@ mod tests2 {
     Automaton,
     Arc<StandardDirectoryReaderType<DirEnum>>,
     DefaultIndexSearcher<CompositeReaderContext<Arc<StandardDirectoryReaderType<DirEnum>>>>,
-  )> {
+  )>
+  where
+    R: Rng + ?Sized,
+  {
     let num_iterations = at_least(random, 50);
 
     let dir = new_directory_shared(random)?;

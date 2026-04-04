@@ -191,7 +191,7 @@ where
     abort_result
   }
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn new<L: LiveIndexWriterConfig>(
+  pub(crate) fn new<L>(
     index_major_version_created: i32,
     segment_name: &str,
     directory_orig: Arc<D>,
@@ -201,7 +201,10 @@ where
     field_infos: Builder,
     pending_num_docs: Arc<AtomicI64>,
     enable_test_points: bool,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    L: LiveIndexWriterConfig,
+  {
     let info_stream = index_writer_config.get_info_stream();
     let tracking_dir = TrackingDirectoryWrapper::new(directory);
     let directory_wrapped = Arc::new(tracking_dir);

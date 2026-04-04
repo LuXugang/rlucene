@@ -119,13 +119,16 @@ fn test_random_merge_with_offset() -> Result<()> {
   Ok(())
 }
 
-fn do_test_bpv<R: Rng + ?Sized>(
+fn do_test_bpv<R>(
   random: &mut R,
   directory: &impl Directory,
   bpv: i32,
   offset: usize,
   merge: bool,
-) -> Result<()> {
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   let num_iters = if is_night_mode() { 100 } else { 10 };
   for i in 0..num_iters {
     let original = random_longs(random, bpv);
@@ -167,7 +170,10 @@ fn do_test_bpv<R: Rng + ?Sized>(
   Ok(())
 }
 
-fn random_longs<R: Rng + ?Sized>(random: &mut R, bpv: i32) -> Vec<i64> {
+fn random_longs<R>(random: &mut R, bpv: i32) -> Vec<i64>
+where
+  R: Rng + ?Sized,
+{
   let amount = random.random_range(0..5000);
   let max = PackedInts::max_value(bpv);
   (0..amount).map(|_| random.random_range(0..=max)).collect()

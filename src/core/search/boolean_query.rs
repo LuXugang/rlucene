@@ -253,7 +253,10 @@ impl BooleanQuery {
 }
 
 impl Hash for BooleanQuery {
-  fn hash<H: Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
     self.minimum_number_should_match.hash(state);
     let mut hs = Vec::new();
     for (&occur, indices) in &self.clause_sets {

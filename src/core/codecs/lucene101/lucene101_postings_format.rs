@@ -347,11 +347,15 @@ impl PostingsFormat for Lucene101PostingsFormat {
 
   type FieldsProducer<I: IndexInput> = Lucene90BlockTreeTermsReader<I, Lucene101PostingsReader<I>>;
 
-  fn fields_producer<D1: Directory, D2: Directory>(
+  fn fields_producer<D1, D2>(
     &self,
     state: &SegmentReadState<D1>,
     segment_info: &SegmentInfo<D2>,
-  ) -> Result<Self::FieldsProducer<D1::IndexInput>> {
+  ) -> Result<Self::FieldsProducer<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
     let postings_reader = Lucene101PostingsReader::new(state, segment_info)?;
     let ret = Lucene90BlockTreeTermsReader::new(postings_reader, state, segment_info)?;
     Ok(ret)
@@ -460,7 +464,10 @@ mod tests {
 
   struct TestLucene101PostingsFormat;
   impl BaseIndexFileFormatTestCase for TestLucene101PostingsFormat {
-    fn add_random_fields<R: Rng + ?Sized>(_random: &mut R) -> Result<()> {
+    fn add_random_fields<R>(_random: &mut R) -> Result<()>
+    where
+      R: Rng + ?Sized,
+    {
       todo!()
     }
   }

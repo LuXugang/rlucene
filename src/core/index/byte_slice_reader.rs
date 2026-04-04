@@ -205,7 +205,10 @@ mod tests {
   struct TestByteSliceReader;
 
   #[allow(clippy::type_complexity)]
-  pub fn before_class<R: Rng + ?Sized>(random: &mut R) -> Result<(Vec<u8>, ByteBlockPool, i32)> {
+  pub fn before_class<R>(random: &mut R) -> Result<(Vec<u8>, ByteBlockPool, i32)>
+  where
+    R: Rng + ?Sized,
+  {
     let len = 100; // You can adjust this value if needed
     let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 

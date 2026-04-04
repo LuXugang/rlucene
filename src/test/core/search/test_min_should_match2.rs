@@ -71,7 +71,10 @@ enum Mode {
   BulkScorer,
   DocValues,
 }
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchLR> {
+fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
+where
+  R: Rng + ?Sized,
+{
   let dir = new_directory_shared(random)?;
   let iw = RandomIndexWriter::new(random, dir.clone());
   let num_docs = at_least(random, 300);
@@ -102,7 +105,10 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchLR> {
   searcher.set_similarity(ClassicSimilarity::new());
   Ok(searcher)
 }
-fn add_some<R: Rng + ?Sized>(random: &mut R, doc: &mut Document, values: &[&str]) -> Result<()> {
+fn add_some<R>(random: &mut R, doc: &mut Document, values: &[&str]) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
   let mut list: Vec<&str> = values.to_vec();
   list.shuffle(random);
   let how_many = TestUtil::next_usize(random, 1, list.len());

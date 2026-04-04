@@ -118,7 +118,10 @@ mod tests {
   #[allow(dead_code)] // for quick search
   struct TestClassicSimilarity;
 
-  fn test_set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchCR> {
+  fn test_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+  where
+    R: Rng + ?Sized,
+  {
     let directory = new_directory_shared(random)?;
 
     let index_writer = IndexWriter::new(directory.clone(), new_index_writer_config(random))?;
@@ -346,7 +349,10 @@ mod tests {
   impl BaseSimilarityTestCase for TestClassicSimilarity {
     type Similarity = TFIDFSimilarity;
 
-    fn get_similarity<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<Self::Similarity> {
+    fn get_similarity<R>(&self, _random: &mut R) -> Result<Self::Similarity>
+    where
+      R: Rng + ?Sized,
+    {
       Ok(ClassicSimilarity::new())
     }
   }

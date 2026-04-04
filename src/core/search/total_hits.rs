@@ -132,7 +132,10 @@ mod tests {
       );
     }
   }
-  fn random_total_hits<R: Rng + ?Sized>(random: &mut R) -> TotalHits {
+  fn random_total_hits<R>(random: &mut R) -> TotalHits
+  where
+    R: Rng + ?Sized,
+  {
     let value = random.random_range(0..i64::MAX) as usize;
     let relation = *[EqualTo, GreaterThanOrEqualTo].choose(random).unwrap();
 

@@ -344,11 +344,14 @@ where
 }
 
 /// Construct this from the provided subs, specifying the maximum sub count.
-pub(crate) fn of_with_max_count<S: SubBase>(
+pub(crate) fn of_with_max_count<S>(
   subs: Vec<Sub<S>>,
   max_count: usize,
   index_is_sorted: bool,
-) -> Result<DocIDMergerEnum<S>> {
+) -> Result<DocIDMergerEnum<S>>
+where
+  S: SubBase,
+{
   if index_is_sorted && max_count > 1 {
     Ok(DocIDMergerEnum::Sorted(SortedDocIDMerger::new(
       subs, max_count,
@@ -360,10 +363,10 @@ pub(crate) fn of_with_max_count<S: SubBase>(
   }
 }
 /// Construct this from the provided subs.
-pub(crate) fn of<S: SubBase>(
-  subs: Vec<Sub<S>>,
-  index_is_sorted: bool,
-) -> Result<DocIDMergerEnum<S>> {
+pub(crate) fn of<S>(subs: Vec<Sub<S>>, index_is_sorted: bool) -> Result<DocIDMergerEnum<S>>
+where
+  S: SubBase,
+{
   let max_count = subs.len();
   of_with_max_count(subs, max_count, index_is_sorted)
 }

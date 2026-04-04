@@ -823,10 +823,10 @@ where
   /// A segment is considered *dirty* only if:
   /// - it has enough dirty documents to fill at least one full chunk, **and**
   /// - more than 1% of its chunks are dirty.
-  fn too_dirty<I: IndexInput>(
-    &self,
-    candidate: &Lucene90CompressingTermVectorsReader<I>,
-  ) -> Result<bool> {
+  fn too_dirty<I>(&self, candidate: &Lucene90CompressingTermVectorsReader<I>) -> Result<bool>
+  where
+    I: IndexInput,
+  {
     Ok(
       candidate.get_num_dirty_docs()? > self.max_docs_per_chunk as i64
         && candidate.get_num_dirty_chunks()? * 100 > candidate.get_num_chunks()?,

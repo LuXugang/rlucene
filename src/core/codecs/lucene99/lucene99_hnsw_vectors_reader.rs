@@ -504,7 +504,10 @@ pub const SIMILARITY_FUNCTIONS: &[VectorSimilarityFunction] = &[
   VectorSimilarityFunction::Cosine,
   VectorSimilarityFunction::MaximumInnerProduct,
 ];
-pub fn read_similarity_function<I: DataInput>(input: &mut I) -> Result<VectorSimilarityFunction> {
+pub fn read_similarity_function<I>(input: &mut I) -> Result<VectorSimilarityFunction>
+where
+  I: DataInput,
+{
   let i = input.read_int()?;
   if i < 0 || (i as usize) >= SIMILARITY_FUNCTIONS.len() {
     return Err(LuceneError::illegal_argument(format!(
@@ -515,7 +518,10 @@ pub fn read_similarity_function<I: DataInput>(input: &mut I) -> Result<VectorSim
   Ok(SIMILARITY_FUNCTIONS[i as usize])
 }
 
-pub fn read_vector_encoding<I: DataInput>(input: &mut I) -> Result<VectorEncoding> {
+pub fn read_vector_encoding<I>(input: &mut I) -> Result<VectorEncoding>
+where
+  I: DataInput,
+{
   let encoding_id = input.read_int()?;
   let values = VectorEncoding::values();
   if encoding_id < 0 || (encoding_id as usize) >= values.len() {
@@ -567,11 +573,14 @@ pub struct FieldEntry {
 }
 
 impl FieldEntry {
-  pub fn create<I: IndexInput>(
+  pub fn create<I>(
     input: &mut I,
     vector_encoding: VectorEncoding,
     similarity_function: VectorSimilarityFunction,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    I: IndexInput,
+  {
     let vector_index_offset = input.read_vlong()?.try_convert()?;
     let vector_index_length = input.read_vlong()?.try_convert()?;
     let dimension = input.read_vint()?;

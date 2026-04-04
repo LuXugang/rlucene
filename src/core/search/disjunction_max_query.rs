@@ -203,7 +203,10 @@ impl PartialEq for DisjunctionMaxQuery {
 impl Eq for DisjunctionMaxQuery {}
 
 impl Hash for DisjunctionMaxQuery {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: std::hash::Hasher,
+  {
     self.tie_breaker_multiplier.to_bits().hash(state);
 
     let mut entries: Vec<_> = self.disjuncts.iter().collect();
@@ -537,7 +540,10 @@ pub(crate) mod tests {
   #[allow(dead_code)] //for quick search
   struct TestDisjunctionMaxQuery;
   const SCORE_COMP_THRESH: f32 = 0.0000f32;
-  fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<DefaultIndexSearchLR> {
+  fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
+  where
+    R: Rng + ?Sized,
+  {
     let index = new_directory_shared(random)?;
 
     let analyzer = MockAnalyzer::new(random);
@@ -1319,11 +1325,10 @@ pub(crate) mod tests {
 
     Ok(())
   }
-  fn do_test_random_top_docs<R: Rng + ?Sized>(
-    random: &mut R,
-    num_fields: usize,
-    freqs: &[f64],
-  ) -> Result<()> {
+  fn do_test_random_top_docs<R>(random: &mut R, num_fields: usize, freqs: &[f64]) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     assert_eq!(num_fields, freqs.len());
 
     let dir = new_directory_shared(random)?;

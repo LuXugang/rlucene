@@ -133,7 +133,10 @@ pub trait BaseMergePolicyTestCase {
     Ok(())
   }
 
-  fn test_find_forced_deletes_merges<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
+  fn test_find_forced_deletes_merges<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mp = self.merge_policy(random);
 
     let mut infos = SegmentInfos::new(LATEST.major)?;

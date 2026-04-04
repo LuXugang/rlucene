@@ -190,7 +190,10 @@ either_float_vector_values!(
 );
 
 /// Checks the Vector Encoding of a field
-pub fn check_field<LR: LeafReader>(reader: &LR, field: &str) -> Result<()> {
+pub fn check_field<LR>(reader: &LR, field: &str) -> Result<()>
+where
+  LR: LeafReader,
+{
   if let Some(fi) = reader.get_field_infos()?.field_info_by_name(field)
     && fi.has_vector_values()
     && *fi.get_vector_encoding() != VectorEncoding::FLOAT32(4)

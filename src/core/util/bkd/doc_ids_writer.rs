@@ -580,7 +580,10 @@ mod tests {
     Ok(())
   }
 
-  fn test<R: Rng + ?Sized>(random: &mut R, dir: &impl Directory, ints: &[i32]) -> Result<()> {
+  fn test<R>(random: &mut R, dir: &impl Directory, ints: &[i32]) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let len;
     let mut doc_ids_writer = DocIdsWriter::new(ints.len());
     {

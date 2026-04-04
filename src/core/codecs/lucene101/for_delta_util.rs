@@ -234,12 +234,15 @@ impl ForDeltaUtil {
   }
   /// Decode deltas, compute the prefix sum and add `base` to all decoded
   /// ints.
-  pub(crate) fn decode_and_prefix_sum<I: IndexInput>(
+  pub(crate) fn decode_and_prefix_sum<I>(
     &mut self,
     pdu: &mut PostingDecodingUtil<I>,
     base: i32,
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     let bits_per_value = pdu.input.read_byte()? as i32;
     if bits_per_value == 0 {
       Self::prefix_sum_of_ones(ints, base);
@@ -249,13 +252,16 @@ impl ForDeltaUtil {
     Ok(())
   }
   /// Delta-decode 128 integers into `ints`.
-  fn decode_and_prefix_sum_with_bits<I: IndexInput>(
+  fn decode_and_prefix_sum_with_bits<I>(
     &mut self,
     bits_per_value: i32,
     pdu: &mut PostingDecodingUtil<I>,
     base: i32,
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     match bits_per_value {
       1 => {
         ForUtil::decode1(pdu, ints)?;
@@ -328,17 +334,20 @@ impl ForDeltaUtil {
     }
     Ok(())
   }
-  fn decode_4_to_16<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    ints: &mut [i32],
-  ) -> Result<()> {
+  fn decode_4_to_16<I>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_same(16, ints, 12, 4, ForUtil::MASK16_4, 48, ForUtil::MASK16_4)
   }
-  fn decode_5_to_16<I: IndexInput>(
+  fn decode_5_to_16<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(
       20,
       ints,
@@ -364,11 +373,14 @@ impl ForDeltaUtil {
     Ok(())
   }
 
-  fn decode_6_to_16<I: IndexInput>(
+  fn decode_6_to_16<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(
       24,
       ints,
@@ -395,11 +407,14 @@ impl ForDeltaUtil {
     }
     Ok(())
   }
-  fn decode_7_to_16<I: IndexInput>(
+  fn decode_7_to_16<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(28, ints, 9, 7, ForUtil::MASK16_7, tmp, 0, ForUtil::MASK16_2)?;
     let mut tmp_idx = 0;
     let mut ints_idx = 56;
@@ -421,17 +436,20 @@ impl ForDeltaUtil {
     }
     Ok(())
   }
-  fn decode_8_to_16<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    ints: &mut [i32],
-  ) -> Result<()> {
+  fn decode_8_to_16<I>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_same(32, ints, 8, 8, ForUtil::MASK16_8, 32, ForUtil::MASK16_8)
   }
-  fn decode_11_to_32<I: IndexInput>(
+  fn decode_11_to_32<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(
       44,
       ints,
@@ -492,11 +510,14 @@ impl ForDeltaUtil {
 
     Ok(())
   }
-  fn decode_12_to_32<I: IndexInput>(
+  fn decode_12_to_32<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(
       48,
       ints,
@@ -523,11 +544,14 @@ impl ForDeltaUtil {
     }
     Ok(())
   }
-  fn decode_13_to_32<I: IndexInput>(
+  fn decode_13_to_32<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(
       52,
       ints,
@@ -576,11 +600,14 @@ impl ForDeltaUtil {
     }
     Ok(())
   }
-  fn decode_14_to_32<I: IndexInput>(
+  fn decode_14_to_32<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(
       56,
       ints,
@@ -611,11 +638,14 @@ impl ForDeltaUtil {
     }
     Ok(())
   }
-  fn decode_15_to_32<I: IndexInput>(
+  fn decode_15_to_32<I>(
     pdu: &mut PostingDecodingUtil<I>,
     tmp: &mut [i32],
     ints: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_diff(
       60,
       ints,
@@ -654,10 +684,10 @@ impl ForDeltaUtil {
     }
     Ok(())
   }
-  fn decode_16_to_32<I: IndexInput>(
-    pdu: &mut PostingDecodingUtil<I>,
-    ints: &mut [i32],
-  ) -> Result<()> {
+  fn decode_16_to_32<I>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()>
+  where
+    I: IndexInput,
+  {
     pdu.split_ints_same(64, ints, 16, 16, ForUtil::MASK32_16, 64, ForUtil::MASK32_16)
   }
 }
