@@ -44,6 +44,7 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use crate::core::util::{HasIdentity, TryIntoInt};
+use std::borrow::Cow;
 use std::sync::Arc;
 
 struct OffHeapByteVectorValues<I, F>
@@ -153,13 +154,13 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  fn vector_value(&mut self, target_ord: usize) -> Result<&[u8]> {
+  fn vector_value(&mut self, target_ord: usize) -> Result<Cow<'_, [u8]>> {
     let same_ord = matches!(self.last_ord, Some(last_ord) if last_ord == target_ord);
     if !same_ord {
       self.read_value(target_ord)?;
       self.last_ord = Some(target_ord);
     }
-    Ok(self.binary_value.as_slice())
+    Ok(Cow::Borrowed(self.binary_value.as_slice()))
   }
 
   type ByteVectorValues = DummyByteVectorValues;
@@ -264,7 +265,7 @@ where
   I: IndexInput,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&mut self, ord: usize) -> Result<&[u8]> {
+  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [u8]>> {
     self.base.vector_value(ord)
   }
 
@@ -472,7 +473,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&mut self, ord: usize) -> Result<&[u8]> {
+  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [u8]>> {
     self.base.vector_value(ord)
   }
 
@@ -675,7 +676,7 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
 }
 
 impl ByteVectorValues for EmptyOffHeapVectorValues {
-  fn vector_value(&mut self, _ord: usize) -> Result<&[u8]> {
+  fn vector_value(&mut self, _ord: usize) -> Result<Cow<'_, [u8]>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -769,7 +770,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&mut self, ord: usize) -> Result<&[u8]> {
+  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [u8]>> {
     match self {
       Self::Empty(e) => e.vector_value(ord),
       Self::Dense(e) => e.vector_value(ord),

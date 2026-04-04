@@ -24,6 +24,7 @@ use crate::core::search::vector_scorer::VectorScorerEnum2;
 use crate::core::util::bits::Bits;
 use crate::core::util::bits::BitsEnum2;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 
 /// This class provides access to per-document floating point vector values indexed as KnnFloatVectorField
 pub trait FloatVectorValues: KnnVectorValues {
@@ -32,7 +33,7 @@ pub trait FloatVectorValues: KnnVectorValues {
   ///
   /// # Returns
   /// the vector value
-  fn vector_value(&mut self, ord: usize) -> Result<&[f32]>;
+  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [f32]>>;
 
   type FloatVectorValues: FloatVectorValues;
   fn float_copy(&self) -> Result<Self::FloatVectorValues> {
@@ -125,7 +126,7 @@ macro_rules! either_float_vector_values {
             $( $T: $crate::core::index::float_vector_values::FloatVectorValues ),+
         {
             #[inline]
-            fn vector_value(&mut self, ord: usize) -> $crate::core::util::error::lucene_error::Result<&[f32]> {
+            fn vector_value(&mut self, ord: usize) -> $crate::core::util::error::lucene_error::Result<std::borrow::Cow<'_, [f32]>> {
                 match self { $( Self::$Variant(inner) => inner.vector_value(ord), )+ }
             }
 
@@ -250,8 +251,8 @@ impl KnnVectorValues for FloatVectorValuesImpl {
 }
 
 impl FloatVectorValues for FloatVectorValuesImpl {
-  fn vector_value(&mut self, target_ord: usize) -> Result<&[f32]> {
-    Ok(self.vectors[target_ord].as_slice())
+  fn vector_value(&mut self, target_ord: usize) -> Result<Cow<'_, [f32]>> {
+    Ok(Cow::Borrowed(self.vectors[target_ord].as_slice()))
   }
 
   type FloatVectorValues = Self;

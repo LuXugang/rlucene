@@ -22,6 +22,7 @@ use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_bits::DummyBits;
+use std::borrow::Cow;
 
 #[derive(Clone)]
 pub struct DummyByteVectorValues;
@@ -57,7 +58,10 @@ impl KnnVectorValues for DummyByteVectorValues {
 }
 
 impl ByteVectorValues for DummyByteVectorValues {
-  fn vector_value(&mut self, _ord: usize) -> crate::core::util::error::lucene_error::Result<&[u8]> {
+  fn vector_value(
+    &mut self,
+    _ord: usize,
+  ) -> crate::core::util::error::lucene_error::Result<Cow<'_, [u8]>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

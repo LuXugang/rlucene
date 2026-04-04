@@ -1006,6 +1006,8 @@ mod tests {
   use crate::core::document::float_point::FloatPoint;
   use crate::core::document::int_field::IntField;
   use crate::core::document::int_point::IntPoint;
+  use crate::core::document::knn_byte_vector_field::KnnByteVectorField;
+  use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
   use crate::core::document::long_field::LongField;
   use crate::core::document::long_point::LongPoint;
   use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
@@ -1014,12 +1016,21 @@ mod tests {
   use crate::core::document::string_field::StringField;
   use crate::core::document::text_field::TextField;
   use crate::core::index::BytesRef;
+  use crate::core::index::byte_vector_values::ByteVectorValues;
+  use crate::core::index::composite_reader::get_context;
+  use crate::core::index::float_vector_values::FloatVectorValues;
   use crate::core::index::index_options::IndexOptions;
 
+  use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::indexable_field::IndexableField;
   use crate::core::index::indexable_field_type::IndexableFieldType;
+  use crate::core::index::knn_vector_values::KnnVectorValues;
+  use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::stored_fields::StoredFields;
   use crate::core::index::term::Term;
+  use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+  use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
   use crate::core::search::term_query::TermQuery;
   use crate::core::search::top_docs::TopDocsLike;
   use crate::core::util::TryIntoInt;
@@ -2710,7 +2721,64 @@ mod tests {
 
   #[test]
   fn test_knn_vector_field() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir);
+
+    let mut doc = Document::new();
+    let byte_vector = vec![0u8; 5];
+    let byte_field = KnnByteVectorField::with_similarity_function(
+      "binary",
+      byte_vector.clone(),
+      VectorSimilarityFunction::Euclidean,
+    )?;
+    assert!(byte_field.binary_value()?.is_none());
+    match byte_field.vector_value()? {
+      crate::core::codecs::knn_field_vectors_writer::VectorValueEnum::Byte(value) => {
+        assert_eq!(value, &byte_vector)
+      },
+      _ => unreachable!("expected byte vector"),
+    }
+
+    let mismatched_float_field =
+      KnnFloatVectorField::with_type("bogus", vec![1.0], byte_field.field_type().clone());
+    assert!(matches!(
+      mismatched_float_field,
+      Err(LuceneError::IllegalArgument(_))
+    ));
+
+    let float_vector = vec![1.0f32, 2.0f32];
+    let float_field = KnnFloatVectorField::new("float", float_vector.clone())?;
+    assert!(float_field.binary_value()?.is_none());
+
+    doc.add(byte_field);
+    doc.add(float_field);
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    let context = get_context(&reader)?;
+    assert_eq!(1, context.leaves()?.len());
+    let leaf = context.leaves()?[0].reader();
+
+    let mut binary = leaf.get_byte_vector_values("binary")?.unwrap();
+    assert_eq!(1, binary.size());
+    let mut byte_iterator = binary.iterator()?;
+    assert_ne!(NO_MORE_DOCS, byte_iterator.next_doc()?);
+    assert_eq!(byte_vector.as_slice(), binary.vector_value(0)?.as_ref());
+    assert_eq!(NO_MORE_DOCS, byte_iterator.next_doc()?);
+    assert!(binary.vector_value(1).is_err());
+
+    let mut float_values = leaf.get_float_vector_values("float")?.unwrap();
+    assert_eq!(1, float_values.size());
+    let mut float_iterator = float_values.iterator()?;
+    assert_ne!(NO_MORE_DOCS, float_iterator.next_doc()?);
+    let stored_float_vector = float_values.vector_value(0)?;
+    assert_eq!(float_vector.len(), stored_float_vector.len());
+    assert_eq!(float_vector[0], stored_float_vector.as_ref()[0]);
+    assert_eq!(NO_MORE_DOCS, float_iterator.next_doc()?);
+    assert!(float_values.vector_value(1).is_err());
+
+    writer.close()?;
     Ok(())
   }
 

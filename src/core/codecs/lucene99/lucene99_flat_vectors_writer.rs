@@ -398,7 +398,7 @@ where
     }
     let value = byte_vector_values.vector_value(iter.index()? as usize)?;
     debug_assert_eq!(value.len(), dim);
-    output.write_bytes_range(value, 0, value.len())?;
+    output.write_bytes_range(value.as_ref(), 0, value.len())?;
     docs_with_field.add(doc)?;
   }
   Ok(docs_with_field)
@@ -422,7 +422,7 @@ where
       break;
     }
     let value = float_vector_values.vector_value(iter.index()? as usize)?;
-    for (i, &v) in value.iter().enumerate() {
+    for (i, &v) in value.as_ref().iter().enumerate() {
       let bytes = v.to_le_bytes();
       let start = i * byte_size;
       buffer[start..start + byte_size].copy_from_slice(&bytes);

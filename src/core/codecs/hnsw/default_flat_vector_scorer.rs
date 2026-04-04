@@ -293,10 +293,13 @@ where
   BV: ByteVectorValues,
 {
   fn score(&mut self, node: usize) -> Result<f32> {
-    Ok(self.similarity_function.compare_u8(
-      self.vectors1.vector_value(self.ord)?,
-      self.vectors2.vector_value(node)?,
-    ))
+    let ord_vector = self.vectors1.vector_value(self.ord)?;
+    let node_vector = self.vectors2.vector_value(node)?;
+    Ok(
+      self
+        .similarity_function
+        .compare_u8(ord_vector.as_ref(), node_vector.as_ref()),
+    )
   }
 
   fn max_ord(&self) -> usize {
@@ -413,10 +416,13 @@ where
   FV: FloatVectorValues,
 {
   fn score(&mut self, node: usize) -> Result<f32> {
-    Ok(self.similarity_function.compare_f32(
-      self.vectors1.vector_value(self.ord)?,
-      self.vectors2.vector_value(node)?,
-    ))
+    let ord_vector = self.vectors1.vector_value(self.ord)?;
+    let node_vector = self.vectors2.vector_value(node)?;
+    Ok(
+      self
+        .similarity_function
+        .compare_f32(ord_vector.as_ref(), node_vector.as_ref()),
+    )
   }
 
   fn max_ord(&self) -> usize {
@@ -471,10 +477,11 @@ where
   FV: FloatVectorValues,
 {
   fn score(&mut self, node: usize) -> Result<f32> {
+    let value = self.values.vector_value(node)?;
     Ok(
       self
         .similarity_function
-        .compare_f32(self.query.as_slice(), self.values.vector_value(node)?),
+        .compare_f32(self.query.as_slice(), value.as_ref()),
     )
   }
 
@@ -527,10 +534,11 @@ where
   BV: ByteVectorValues,
 {
   fn score(&mut self, node: usize) -> Result<f32> {
+    let value = self.values.vector_value(node)?;
     Ok(
       self
         .similarity_function
-        .compare_u8(self.query.as_slice(), self.values.vector_value(node)?),
+        .compare_u8(self.query.as_slice(), value.as_ref()),
     )
   }
 

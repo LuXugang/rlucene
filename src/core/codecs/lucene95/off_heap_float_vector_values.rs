@@ -44,6 +44,7 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use crate::core::util::{HasIdentity, TryIntoInt};
+use std::borrow::Cow;
 use std::sync::Arc;
 
 /// Read the vector values froGm the index input. This supports both iterated and random access.
@@ -141,13 +142,13 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  fn vector_value(&mut self, target_ord: usize) -> Result<&[f32]> {
+  fn vector_value(&mut self, target_ord: usize) -> Result<Cow<'_, [f32]>> {
     let same_ord = match self.last_ord {
       Some(last_ord) => last_ord == target_ord,
       None => false,
     };
     if same_ord {
-      return Ok(self.value.as_slice());
+      return Ok(Cow::Borrowed(self.value.as_slice()));
     }
 
     let pos = (target_ord)
@@ -160,7 +161,7 @@ where
 
     self.last_ord = Some(target_ord);
 
-    Ok(self.value.as_slice())
+    Ok(Cow::Borrowed(self.value.as_slice()))
   }
 
   type FloatVectorValues = DummyFloatVectorValues;
@@ -268,7 +269,7 @@ where
   I: IndexInput,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&mut self, ord: usize) -> Result<&[f32]> {
+  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [f32]>> {
     self.base.vector_value(ord)
   }
 
@@ -472,7 +473,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&mut self, ord: usize) -> Result<&[f32]> {
+  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [f32]>> {
     self.base.vector_value(ord)
   }
 
@@ -675,9 +676,9 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
 }
 
 impl FloatVectorValues for EmptyOffHeapVectorValues {
-  fn vector_value(&mut self, _ord: usize) -> Result<&[f32]> {
+  fn vector_value(&mut self, _ord: usize) -> Result<Cow<'_, [f32]>> {
     debug_assert!(self.vectors.is_empty());
-    Ok(self.vectors.as_slice())
+    Ok(Cow::Borrowed(self.vectors.as_slice()))
   }
 
   type FloatVectorValues = Self;
@@ -770,7 +771,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&mut self, ord: usize) -> Result<&[f32]> {
+  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [f32]>> {
     match self {
       OffHeapFloatVectorValuesEnum::Empty(e) => e.vector_value(ord),
       OffHeapFloatVectorValuesEnum::Dense(e) => e.vector_value(ord),

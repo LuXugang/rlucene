@@ -24,6 +24,7 @@ use crate::core::search::vector_scorer::VectorScorerEnum2;
 use crate::core::util::bits::Bits;
 use crate::core::util::bits::BitsEnum2;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 
 /// This class provides access to per-document floating point vector values indexed as KnnByteVectorField
 pub trait ByteVectorValues: KnnVectorValues {
@@ -32,7 +33,7 @@ pub trait ByteVectorValues: KnnVectorValues {
   ///
   /// # Returns
   /// the vector value
-  fn vector_value(&mut self, ord: usize) -> Result<&[u8]>;
+  fn vector_value(&mut self, ord: usize) -> Result<Cow<'_, [u8]>>;
 
   type ByteVectorValues: ByteVectorValues;
   /// Creates a new copy of this [`KnnVectorValues`]. This is helpful when you
@@ -128,7 +129,7 @@ macro_rules! either_byte_vector_values {
             $( $T: $crate::core::index::byte_vector_values::ByteVectorValues ),+
         {
             #[inline]
-            fn vector_value(&mut self, ord: usize) -> $crate::core::util::error::lucene_error::Result<&[u8]> {
+            fn vector_value(&mut self, ord: usize) -> $crate::core::util::error::lucene_error::Result<std::borrow::Cow<'_, [u8]>> {
                 match self { $( Self::$Variant(inner) => inner.vector_value(ord), )+ }
             }
 
@@ -250,8 +251,8 @@ impl KnnVectorValues for ByteVectorValuesImpl {
 }
 
 impl ByteVectorValues for ByteVectorValuesImpl {
-  fn vector_value(&mut self, target_ord: usize) -> Result<&[u8]> {
-    Ok(self.vectors[target_ord].as_slice())
+  fn vector_value(&mut self, target_ord: usize) -> Result<Cow<'_, [u8]>> {
+    Ok(Cow::Borrowed(self.vectors[target_ord].as_slice()))
   }
 
   type ByteVectorValues = Self;
