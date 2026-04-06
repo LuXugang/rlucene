@@ -14,11 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::hnsw::default_flat_vector_scorer::{ByteVectorScorer, FloatVectorScorer};
+use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field::Field;
 use crate::core::document::knn_byte_vector_field::KnnByteVectorField;
 use crate::core::index::byte_vector_values::ByteVectorValues;
-use crate::core::index::knn_vector_values::KnnVectorValues;
+use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::knn_vector_values::{KnnVectorValues, KnnVectorValuesEnm2};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
@@ -26,24 +29,46 @@ use crate::core::search::knn_byte_vector_query::KnnByteVectorQuery;
 use crate::core::search::query::Query;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorerEnum2;
 use crate::test::core::util::hnsw::hnsw_graph_test_case::{
-  CircularByteVectorValues, HnswGraphTestCase, create_random_byte_vectors, random_vector8,
+  CircularByteVectorValues, HnswGraphTestCase, TestsCircularKnnVectorValues, TestsKnnVectorValues,
+  create_random_byte_vectors, random_vector8,
 };
 use crate::test::core::util::hnsw::mock_byte_vector_values::MockByteVectorValues;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
-use std::borrow::Cow;
 
 #[allow(dead_code)] // for quick search
-pub struct TestHnswByteVectorGraph;
-
-impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
-  fn similarity_function<R>(&self, random: &mut R) -> VectorSimilarityFunction
+pub struct TestHnswByteVectorGraph {
+  pub(crate) similarity_function: VectorSimilarityFunction,
+}
+impl TestHnswByteVectorGraph {
+  pub fn new<R>(random: &mut R) -> Self
   where
     R: Rng + ?Sized,
   {
-    VectorSimilarityFunction::random(random)
+    let similarity_function = VectorSimilarityFunction::random(random);
+    TestHnswByteVectorGraph {
+      similarity_function,
+    }
+  }
+}
+
+impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
+  fn score(&self, query: &Vec<u8>, vector: &Vec<u8>) -> f32 {
+    self
+      .similarity_function()
+      .compare_u8(query, vector)
+      .unwrap()
+  }
+
+  fn set_similarity_function(&mut self, s: VectorSimilarityFunction) {
+    self.similarity_function = s
+  }
+
+  fn similarity_function(&self) -> VectorSimilarityFunction {
+    self.similarity_function
   }
 
   fn get_vector_encoding(&self) -> VectorEncoding {
@@ -61,22 +86,20 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
     random_vector8(random, dim)
   }
 
-  type KnnVectorValues = MockByteVectorValues;
-
-  fn vector_values<R>(&self, size: usize, dimension: usize, random: &mut R) -> Self::KnnVectorValues
+  fn vector_values<R>(&self, size: usize, dimension: usize, random: &mut R) -> TestsKnnVectorValues
   where
     R: Rng + ?Sized,
   {
     let v = create_random_byte_vectors(size, dimension, random);
     let seed = random.random();
-    MockByteVectorValues::from_values(v, seed)
+    TestsKnnVectorValues::A(MockByteVectorValues::from_values(v, seed))
   }
 
   fn vector_values_from_values<R>(
     &self,
     values: Vec<Vec<f32>>,
     random: &mut R,
-  ) -> Self::KnnVectorValues
+  ) -> TestsKnnVectorValues
   where
     R: Rng + ?Sized,
   {
@@ -98,7 +121,10 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
           .collect()
       })
       .collect();
-    MockByteVectorValues::from_values(byte_values, random.random())
+    TestsKnnVectorValues::A(MockByteVectorValues::from_values(
+      byte_values,
+      random.random(),
+    ))
   }
 
   fn vector_values_from_reader<LR, R>(
@@ -106,7 +132,7 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
     reader: &LR,
     field_name: &str,
     random: &mut R,
-  ) -> Result<Self::KnnVectorValues>
+  ) -> Result<TestsKnnVectorValues>
   where
     LR: LeafReader,
     R: Rng + ?Sized,
@@ -121,24 +147,30 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
       let bytes = value.as_ref().as_bytes()?;
       vectors[ord] = ArrayUtil::copy_of_sub_array(bytes, 0, vector_values.dimension());
     }
-    Ok(MockByteVectorValues::from_values(vectors, random.random()))
+    Ok(TestsKnnVectorValues::A(MockByteVectorValues::from_values(
+      vectors,
+      random.random(),
+    )))
   }
 
   fn vector_values_with_pregenerated<R>(
     &self,
     size: usize,
     dimension: usize,
-    pregenerated_vector_values: Self::KnnVectorValues,
+    pregenerated_vector_values: TestsKnnVectorValues,
     pregenerated_offset: usize,
     random: &mut R,
-  ) -> Self::KnnVectorValues
+  ) -> TestsKnnVectorValues
   where
     R: Rng + ?Sized,
   {
     let pregenerated_size = pregenerated_vector_values.size();
     let random_vectors = create_random_byte_vectors(size - pregenerated_size, dimension, random);
     let mut vectors = vec![Vec::new(); size];
-    let pregenerated_values = pregenerated_vector_values.values;
+    let pregenerated_values = match pregenerated_vector_values {
+      KnnVectorValuesEnm2::B(_) => unreachable!("unexpected float vector values"),
+      KnnVectorValuesEnm2::A(byte_vector_values) => byte_vector_values.values,
+    };
 
     vectors[..pregenerated_offset].clone_from_slice(&random_vectors[..pregenerated_offset]);
 
@@ -153,7 +185,7 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
       *dst = value;
     }
 
-    MockByteVectorValues::from_values(vectors, random.random())
+    TestsKnnVectorValues::A(MockByteVectorValues::from_values(vectors, random.random()))
   }
 
   fn knn_vector_field(
@@ -167,22 +199,46 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
     Ok(Field::new(name, VectorValueEnum::Byte(vector), field_type))
   }
 
-  type CircularKnnVectorValues = CircularByteVectorValues;
-
-  fn circular_vector_values(&self, n_doc: usize) -> Self::CircularKnnVectorValues {
-    CircularByteVectorValues::new(n_doc)
+  fn circular_vector_values(&self, n_doc: usize) -> TestsCircularKnnVectorValues {
+    KnnVectorValuesEnm2::A(CircularByteVectorValues::new(n_doc))
   }
 
   fn get_target_vector(&self) -> Vec<u8> {
     vec![1, 0]
   }
 
-  fn vector_value<'a, K>(
+  fn build_scorer<B, F>(
     &self,
-    vectors: &'a Self::KnnVectorValues,
-    ord: usize,
-  ) -> Result<Cow<'a, VectorValueEnum>> {
-    vectors.vector_value(ord)
+    vectors: KnnVectorValuesEnm2<B, F>,
+    query: Vec<u8>,
+  ) -> Result<RandomVectorScorerEnum2<ByteVectorScorer<B>, FloatVectorScorer<F>>>
+  where
+    B: ByteVectorValues,
+    F: FloatVectorValues,
+  {
+    match vectors {
+      KnnVectorValuesEnm2::B(_) => unreachable!("unexpected byte vector values"),
+      KnnVectorValuesEnm2::A(byte_vector_values) => {
+        let v = self.flat_vector_scorer().get_random_vector_scorer_u8(
+          VectorSimilarityFunction::DotProduct,
+          byte_vector_values,
+          query,
+        )?;
+        Ok(RandomVectorScorerEnum2::A(v))
+      },
+    }
+  }
+
+  fn vector_value(&self, vectors: &TestsKnnVectorValues, ord: usize) -> Result<Vec<u8>> {
+    match vectors {
+      KnnVectorValuesEnm2::A(byte_vector_values) => {
+        match byte_vector_values.vector_value(ord)?.into_owned() {
+          VectorValueEnum::Byte(v) => Ok(v),
+          _ => unreachable!("unexpected vector value"),
+        }
+      },
+      KnnVectorValuesEnm2::B(_) => unreachable!("unexpected float vector values"),
+    }
   }
 }
 
@@ -192,11 +248,11 @@ fn fits_in_byte(value: f32) -> bool {
 
 fn run_case<F>(f: F) -> Result<()>
 where
-  F: FnOnce(&TestHnswByteVectorGraph, &mut StdRng) -> Result<()>,
+  F: FnOnce(&mut TestHnswByteVectorGraph, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  let case = TestHnswByteVectorGraph;
-  f(&case, &mut random)
+  let mut case = TestHnswByteVectorGraph::new(&mut random);
+  f(&mut case, &mut random)
 }
 
 mod hnsw_graph_test_case_tests {
@@ -270,6 +326,11 @@ mod hnsw_graph_test_case_tests {
   #[test]
   fn test_diversity_fallback() -> Result<()> {
     run_case(|case, random| case.test_diversity_fallback(random))
+  }
+
+  #[test]
+  fn test_diversity_3d() -> Result<()> {
+    run_case(|case, random| case.test_diversity_3d(random))
   }
 
   #[test]

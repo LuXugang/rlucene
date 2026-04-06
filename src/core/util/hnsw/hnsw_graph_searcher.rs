@@ -79,7 +79,7 @@ where
   /// A set of collected vectors holding the nearest neighbors found
   pub fn search_level<S>(
     &mut self,
-    scorer: &mut S,
+    scorer: &S,
     top_k: usize,
     level: usize,
     eps: &[usize],
@@ -114,7 +114,7 @@ where
   /// the visitation limit was exceeded.
   fn find_best_entry_point<S>(
     &mut self,
-    scorer: &mut S,
+    scorer: &S,
     graph: &mut impl HnswGraph,
     collector: &mut impl KnnCollector,
   ) -> Result<Option<usize>>
@@ -182,7 +182,7 @@ where
   pub(crate) fn search_level_with_collector<S>(
     &mut self,
     results: &mut impl KnnCollector,
-    scorer: &mut S,
+    scorer: &S,
     level: usize,
     eps: &[usize],
     graph: &mut impl HnswGraph,
@@ -351,7 +351,7 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 /// * `accept_ords` - a [`Bits`] instance that represents the allowed
 ///   document ordinals to match, or `None` if all are allowed to match
 pub fn search<S>(
-  scorer: &mut S,
+  scorer: &S,
   knn_collector: &mut impl KnnCollector,
   graph: &mut impl HnswGraph,
   accept_ords: Option<&mut impl Bits>,
@@ -389,7 +389,7 @@ where
 ///
 /// A set of collected vectors holding the nearest neighbors found
 pub fn search_with_top_k<S>(
-  scorer: &mut S,
+  scorer: &S,
   top_k: usize,
   graph: &mut OnHeapHnswGraph,
   accept_ords: Option<&mut impl Bits>,
@@ -414,7 +414,7 @@ where
   Ok(knn_collector)
 }
 fn search_with_searcher<H, S, B>(
-  scorer: &mut S,
+  scorer: &S,
   knn_collector: &mut impl KnnCollector,
   graph: &mut impl HnswGraph,
   graph_searcher: &mut HnswGraphSearcher<B, H>,

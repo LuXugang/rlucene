@@ -192,7 +192,7 @@ where
       return Ok(());
     }
 
-    let mut scorer = scorer_supplier()?;
+    let scorer = scorer_supplier()?;
 
     let k = knn_collector.k();
     let ord_to_doc = (0..scorer.max_ord())
@@ -205,7 +205,7 @@ where
 
     if k < scorer.max_ord() {
       search(
-        &mut scorer,
+        &scorer,
         &mut collector,
         &mut self.get_graph_from_entry(field_entry)?,
         accepted_ords.as_mut(),

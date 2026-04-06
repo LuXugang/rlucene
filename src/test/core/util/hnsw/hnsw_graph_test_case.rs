@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::hnsw::default_flat_vector_scorer::DefaultFlatVectorScorer;
+use crate::core::codecs::hnsw::default_flat_vector_scorer::{
+  ByteVectorScorer, DefaultFlatVectorScorer, FloatVectorScorer,
+};
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field::Field;
@@ -22,31 +24,44 @@ use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::{
-  BitsImpl1, DenseDocIndexIterator, KnnVectorValues, KnnVectorValuesType, create_dense_iterator,
+  BitsImpl1, DenseDocIndexIterator, KnnVectorValues, KnnVectorValuesEnm2, create_dense_iterator,
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, RangeDISI};
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::query::Query;
+use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
+use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
+use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
+use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorerEnum2;
+use crate::core::util::hnsw::{
+  hnsw_graph_builder, hnsw_graph_searcher, initialized_hnsw_graph_builder,
+};
 use crate::core::util::vector_util::VectorUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::hnsw::mock_byte_vector_values::MockByteVectorValues;
+use crate::test::core::util::hnsw::mock_vector_values::MockVectorValues;
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::HashSet;
 
-pub trait HnswGraphTestCase<T> {
-  fn similarity_function<R>(&self, random: &mut R) -> VectorSimilarityFunction
-  where
-    R: Rng + ?Sized;
-
+pub trait HnswGraphTestCase<T>
+where
+  T: Clone,
+{
+  fn score(&self, query: &T, vector: &T) -> f32;
+  fn set_similarity_function(&mut self, s: VectorSimilarityFunction);
+  fn similarity_function(&self) -> VectorSimilarityFunction;
   fn flat_vector_scorer(&self) -> DefaultFlatVectorScorer {
     DefaultFlatVectorScorer
   }
@@ -59,14 +74,7 @@ pub trait HnswGraphTestCase<T> {
   where
     R: Rng + ?Sized;
 
-  type KnnVectorValues: KnnVectorValues;
-
-  fn vector_values<R>(
-    &self,
-    size: usize,
-    dimension: usize,
-    random: &mut R,
-  ) -> Self::KnnVectorValues
+  fn vector_values<R>(&self, size: usize, dimension: usize, random: &mut R) -> TestsKnnVectorValues
   where
     R: Rng + ?Sized;
 
@@ -74,7 +82,7 @@ pub trait HnswGraphTestCase<T> {
     &self,
     values: Vec<Vec<f32>>,
     random: &mut R,
-  ) -> Self::KnnVectorValues
+  ) -> TestsKnnVectorValues
   where
     R: Rng + ?Sized;
 
@@ -83,19 +91,18 @@ pub trait HnswGraphTestCase<T> {
     reader: &LR,
     field_name: &str,
     random: &mut R,
-  ) -> Result<Self::KnnVectorValues>
+  ) -> Result<TestsKnnVectorValues>
   where
     LR: LeafReader,
     R: Rng + ?Sized;
-
   fn vector_values_with_pregenerated<R>(
     &self,
     size: usize,
     dimension: usize,
-    pregenerated_vector_values: Self::KnnVectorValues,
+    pregenerated_vector_values: TestsKnnVectorValues,
     pregenerated_offset: usize,
     random: &mut R,
-  ) -> Self::KnnVectorValues
+  ) -> TestsKnnVectorValues
   where
     R: Rng + ?Sized;
 
@@ -105,25 +112,34 @@ pub trait HnswGraphTestCase<T> {
     vector: T,
     similarity_function: VectorSimilarityFunction,
   ) -> Result<Field>;
-  type CircularKnnVectorValues: KnnVectorValues;
-  fn circular_vector_values(&self, n_doc: usize) -> Self::CircularKnnVectorValues;
+  fn circular_vector_values(&self, n_doc: usize) -> TestsCircularKnnVectorValues;
 
   fn get_target_vector(&self) -> T;
 
   fn build_scorer_supplier<B, F, R>(
     &self,
-    vectors: KnnVectorValuesType<B, F>,
-    random: &mut R,
+    vectors: KnnVectorValuesEnm2<B, F>,
+    _random: &mut R,
   ) -> Result<<DefaultFlatVectorScorer as FlatVectorsScorer>::RandomVectorScorerSupplier<B, F>>
   where
     B: ByteVectorValues + Clone,
     F: FloatVectorValues + Clone,
     R: Rng + ?Sized,
   {
+    let v = self.similarity_function();
     self
       .flat_vector_scorer()
-      .get_random_vector_scorer_supplier(self.similarity_function(random), vectors)
+      .get_random_vector_scorer_supplier(v, vectors)
   }
+
+  fn build_scorer<B, F>(
+    &self,
+    vectors: KnnVectorValuesEnm2<B, F>,
+    query: T,
+  ) -> Result<RandomVectorScorerEnum2<ByteVectorScorer<B>, FloatVectorScorer<F>>>
+  where
+    B: ByteVectorValues,
+    F: FloatVectorValues;
 
   fn test_random_read_write_and_merge<R>(&self, _random: &mut R) -> Result<()>
   where
@@ -132,11 +148,7 @@ pub trait HnswGraphTestCase<T> {
     // TODO Knn 合并未实现
     Ok(())
   }
-  fn vector_value<'a, K>(
-    &self,
-    vectors: &'a Self::KnnVectorValues,
-    ord: usize,
-  ) -> Result<Cow<'a, VectorValueEnum>>;
+  fn vector_value(&self, vectors: &TestsKnnVectorValues, ord: usize) -> Result<T>;
   fn test_read_write<R>(&self, _random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -151,58 +163,326 @@ pub trait HnswGraphTestCase<T> {
     Ok(())
   }
 
-  fn test_aknn_diverse<R>(&self, _random: &mut R) -> Result<()>
+  fn test_aknn_diverse<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let n_doc = 100;
+    self.set_similarity_function(VectorSimilarityFunction::DotProduct);
+    let vectors = self.circular_vector_values(n_doc);
+    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, 10, 100, random.random::<u64>())?;
+    let hnsw = builder.build(vectors.size())?;
+    let scorer = self.build_scorer(vectors, self.get_target_vector())?;
+    let mut nn = hnsw_graph_searcher::search_with_top_k(
+      &scorer,
+      10,
+      hnsw,
+      None::<&mut FixedBitSet>,
+      usize::MAX,
+    )?;
+    let top_docs = nn.top_docs()?;
+    assert_eq!(
+      10,
+      top_docs.score_docs.len(),
+      "Number of found results is not equal to [10]."
+    );
+
+    let mut sum = 0_i32;
+    for node in &top_docs.score_docs {
+      sum += node.doc;
+    }
+    assert!(sum < 75, "sum(result docs)={sum}");
+
+    for i in 0..n_doc {
+      let neighbors = hnsw.get_neighbors(0, i)?;
+      let nnodes = neighbors.nodes();
+      for &neighbor in nnodes.iter().take(neighbors.size()) {
+        assert!(
+          neighbor < n_doc,
+          "neighbor node id {neighbor} is out of range"
+        );
+      }
+    }
+
     Ok(())
   }
 
-  fn test_search_with_accept_ords<R>(&self, _random: &mut R) -> Result<()>
+  fn test_search_with_accept_ords<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let n_doc = 100;
+    let vectors = self.circular_vector_values(n_doc);
+    self.set_similarity_function(VectorSimilarityFunction::DotProduct);
+    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, 16, 100, random.random::<u64>())?;
+    let hnsw = builder.build(vectors.size())?;
+
+    // The first 10 docs must remain accepted to preserve the expected recall.
+    let mut accept_ords = FixedBitSet::new(n_doc);
+    let mut i = 0;
+    while i < n_doc {
+      accept_ords.set(i);
+      i += random.random_range(15..20);
+    }
+    let num_accepted = accept_ords.cardinality();
+
+    let scorer = self.build_scorer(vectors, self.get_target_vector())?;
+    let mut nn = hnsw_graph_searcher::search_with_top_k(
+      &scorer,
+      num_accepted,
+      hnsw,
+      Some(&mut accept_ords),
+      usize::MAX,
+    )?;
+    let top_docs = nn.top_docs()?;
+    assert_eq!(
+      10,
+      top_docs.score_docs.len(),
+      "Number of found results is not equal to [10]."
+    );
+
+    let mut sum = 0_i32;
+    for node in &top_docs.score_docs {
+      assert!(
+        accept_ords.get(node.doc as usize)?,
+        "the results include a deleted document: {node:?}"
+      );
+      sum += node.doc;
+    }
+
+    // We expect to get approximately 100% recall;
+    // the lowest docIds are closest to zero; sum(0,9) = 45.
+    assert!(sum < 75, "sum(result docs)={sum}");
+
     Ok(())
   }
 
-  fn test_search_with_selective_accept_ords<R>(&self, _random: &mut R) -> Result<()>
+  fn test_search_with_selective_accept_ords<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let n_doc = 100;
+    let vectors = self.circular_vector_values(n_doc);
+    self.set_similarity_function(VectorSimilarityFunction::DotProduct);
+    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, 16, 100, random.random::<u64>())?;
+    let hnsw = builder.build(vectors.size())?;
+
+    // Only mark a few vectors as accepted.
+    let mut accept_ords = FixedBitSet::new(n_doc);
+    let mut i = 0;
+    while i < n_doc {
+      accept_ords.set(i);
+      i += random.random_range(15..20);
+    }
+
+    // Check the search finds all accepted vectors.
+    let num_accepted = accept_ords.cardinality();
+    let scorer = self.build_scorer(vectors, self.get_target_vector())?;
+    let mut nn = hnsw_graph_searcher::search_with_top_k(
+      &scorer,
+      num_accepted,
+      hnsw,
+      Some(&mut accept_ords),
+      usize::MAX,
+    )?;
+    let top_docs = nn.top_docs()?;
+    assert_eq!(num_accepted, top_docs.score_docs.len());
+    for node in &top_docs.score_docs {
+      assert!(
+        accept_ords.get(node.doc as usize)?,
+        "the results include a deleted document: {node:?}"
+      );
+    }
+
     Ok(())
   }
 
   fn test_hnsw_graph_builder_initialization_from_graph_with_offset_zero<R>(
     &self,
-    _random: &mut R,
+    random: &mut R,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let total_size = at_least_usize(random, 100);
+    let initializer_size = random.random_range(5..total_size);
+    let doc_id_offset = 0usize;
+    let dim = at_least_usize(random, 10);
+    let seed = random.random::<u64>();
+
+    let initializer_vectors = self.vector_values(initializer_size, dim, random);
+    let initial_scorer_supplier =
+      self.build_scorer_supplier(initializer_vectors.clone(), random)?;
+    let mut initializer_builder =
+      hnsw_graph_builder::create(initial_scorer_supplier, 10, 30, seed)?;
+
+    let initializer_graph = initializer_builder.build(initializer_vectors.size())?;
+    let mut final_vector_values = self.vector_values_with_pregenerated(
+      total_size,
+      dim,
+      initializer_vectors,
+      doc_id_offset,
+      random,
+    );
+    let initializer_ord_map = create_offset_ordinal_map(
+      initializer_size,
+      &mut final_vector_values,
+      doc_id_offset as i32,
+    )?;
+    let _size = final_vector_values.size();
+    let final_scorer_supplier = self.build_scorer_supplier(final_vector_values, random)?;
+
+    // We cannot call get_nodes_on_level before the graph reaches the size it claimed,
+    // so create another graph for the equality assertion.
+    let mut graph_after_init = initialized_hnsw_graph_builder::init_graph(
+      10,
+      initializer_graph,
+      &initializer_ord_map,
+      initializer_graph.size() as i32,
+    )?;
+
+    let mut initialized_nodes_it = RangeDISI::new(
+      doc_id_offset as i32,
+      (initializer_size + doc_id_offset) as i32,
+    )?;
+    let initialized_nodes =
+      crate::core::util::bit_set::of(&mut initialized_nodes_it, total_size + 1)?;
+
+    let mut final_builder = initialized_hnsw_graph_builder::from_graph(
+      final_scorer_supplier,
+      10,
+      30,
+      seed,
+      initializer_graph,
+      &initializer_ord_map,
+      initialized_nodes,
+      total_size as i32,
+    )?;
+
+    assert_graph_equal(initializer_graph, &mut graph_after_init)?;
+
+    let final_graph = final_builder.build(total_size)?;
+    assert_graph_contains_graph(final_graph, initializer_graph, &initializer_ord_map)?;
+
     Ok(())
   }
 
   fn test_hnsw_graph_builder_initialization_from_graph_with_non_zero_offset<R>(
     &self,
-    _random: &mut R,
+    random: &mut R,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let total_size = at_least_usize(random, 100);
+    let initializer_size = random.random_range(5..total_size);
+    let doc_id_offset = random.random_range(1..(total_size - initializer_size + 1));
+    let dim = at_least_usize(random, 10);
+    let seed = random.random::<u64>();
+
+    let initializer_vectors = self.vector_values(initializer_size, dim, random);
+    let initial_scorer_supplier =
+      self.build_scorer_supplier(initializer_vectors.clone(), random)?;
+    let mut initializer_builder =
+      hnsw_graph_builder::create(initial_scorer_supplier, 10, 30, seed)?;
+
+    let initializer_graph = initializer_builder.build(initializer_vectors.size())?;
+    let mut final_vector_values = self.vector_values_with_pregenerated(
+      total_size,
+      dim,
+      initializer_vectors.copy_()?,
+      doc_id_offset,
+      random,
+    );
+    let initializer_ord_map = create_offset_ordinal_map(
+      initializer_size,
+      &mut final_vector_values,
+      doc_id_offset as i32,
+    )?;
+
+    let final_size = final_vector_values.size();
+    let final_scorer_supplier = self.build_scorer_supplier(final_vector_values, random)?;
+    let mut initialized_nodes_it = RangeDISI::new(
+      doc_id_offset as i32,
+      (initializer_size + doc_id_offset) as i32,
+    )?;
+    let initialized_nodes =
+      crate::core::util::bit_set::of(&mut initialized_nodes_it, total_size + 1)?;
+
+    let mut final_builder = initialized_hnsw_graph_builder::from_graph(
+      final_scorer_supplier,
+      10,
+      30,
+      seed,
+      initializer_graph,
+      &initializer_ord_map,
+      initialized_nodes,
+      total_size as i32,
+    )?;
+
+    assert_graph_initialized_from_graph(
+      final_builder.get_graph(),
+      initializer_graph,
+      &initializer_ord_map,
+    )?;
+
+    let final_graph = final_builder.build(final_size)?;
+    assert_graph_contains_graph(final_graph, initializer_graph, &initializer_ord_map)?;
+
     Ok(())
   }
 
-  fn test_visited_limit<R>(&self, _random: &mut R) -> Result<()>
+  fn test_visited_limit<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let n_doc = 500;
+    self.set_similarity_function(VectorSimilarityFunction::DotProduct);
+    let vectors = self.circular_vector_values(n_doc);
+    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, 16, 100, random.random::<u64>())?;
+    let hnsw = builder.build(vectors.size())?;
+
+    let top_k = 50;
+    let visited_limit = top_k + random.random_range(0..5);
+    let scorer = self.build_scorer(vectors, self.get_target_vector())?;
+    let mut accept_ords = create_random_accept_ords(0, n_doc);
+    let nn = hnsw_graph_searcher::search_with_top_k(
+      &scorer,
+      top_k,
+      hnsw,
+      Some(&mut accept_ords),
+      visited_limit,
+    )?;
+    assert!(nn.early_terminated());
+    // The visited count should not exceed the limit.
+    assert!(nn.visited_count() <= visited_limit);
+
     Ok(())
   }
 
-  fn test_hnsw_graph_builder_invalid<R>(&self, _random: &mut R) -> Result<()>
+  fn test_hnsw_graph_builder_invalid<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let vectors = self.vector_values(1, 1, random);
+    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let scorer_supplier2 = self.build_scorer_supplier(vectors, random)?;
+
+    // M must be > 0.
+    assert!(matches!(
+      hnsw_graph_builder::create(scorer_supplier, 0, 10, 0),
+      Err(LuceneError::IllegalArgument(_))
+    ));
+    // beam_width must be > 0.
+    assert!(matches!(
+      hnsw_graph_builder::create(scorer_supplier2, 10, 0, 0),
+      Err(LuceneError::IllegalArgument(_))
+    ));
+
     Ok(())
   }
 
@@ -210,27 +490,202 @@ pub trait HnswGraphTestCase<T> {
   where
     R: Rng + ?Sized,
   {
+    // let size = at_least_usize(random, 2000);
+    // let dim = random.random_range(100..=1024);
+    // let m = random.random_range(4..=96);
+    //
+    // let vectors = self.vector_values(size, dim, random);
+    // let scorer_supplier = self.build_scorer_supplier(vectors, random)?;
+    // let mut builder = hnsw_graph_builder::create(scorer_supplier, m, m * 2, random.random::<u64>())?;
+    // let hnsw = builder.build(size)?;
+    //
+    // // Rust currently exposes graph memory accounting via Accountable::ram_bytes_used.
+    // let actual = hnsw.ram_bytes_used()?;
+    // assert!(actual > 0, "ram_bytes_used should report a positive size");
+
     Ok(())
   }
 
-  fn test_diversity<R>(&self, _random: &mut R) -> Result<()>
+  fn test_diversity<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    self.set_similarity_function(VectorSimilarityFunction::DotProduct);
+    let mut values = Vec::with_capacity(7);
+    for radians in [0.5_f64, 0.75, 0.2, 0.9, 0.8, 0.77, 0.6] {
+      let mut value = [0.0_f32; 2];
+      unit_vector_2d(radians, &mut value);
+      values.push(value.to_vec());
+    }
+    let vectors = self.vector_values_from_values(values, random);
+    let scorer_supplier = self.build_scorer_supplier(vectors, random)?;
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, 2, 10, random.random::<u64>())?;
+
+    builder.add_graph_node(0)?;
+    builder.add_graph_node(1)?;
+    builder.add_graph_node(2)?;
+    assert_level0_neighbors(builder.get_graph(), 0, &[1, 2])?;
+    assert_level0_neighbors(builder.get_graph(), 1, &[0])?;
+    assert_level0_neighbors(builder.get_graph(), 2, &[0])?;
+
+    builder.add_graph_node(3)?;
+    assert_level0_neighbors(builder.get_graph(), 0, &[1, 2])?;
+    assert_level0_neighbors(builder.get_graph(), 1, &[0, 3])?;
+    assert_level0_neighbors(builder.get_graph(), 2, &[0])?;
+    assert_level0_neighbors(builder.get_graph(), 3, &[1])?;
+
+    builder.add_graph_node(4)?;
+    // 4 is the same distance from 0 that 2 is; keep the existing node in place.
+    assert_level0_neighbors(builder.get_graph(), 0, &[1, 2])?;
+    assert_level0_neighbors(builder.get_graph(), 1, &[0, 3, 4])?;
+    assert_level0_neighbors(builder.get_graph(), 2, &[0])?;
+    // 1 survives the diversity check.
+    assert_level0_neighbors(builder.get_graph(), 3, &[1, 4])?;
+    assert_level0_neighbors(builder.get_graph(), 4, &[1, 3])?;
+
+    builder.add_graph_node(5)?;
+    assert_level0_neighbors(builder.get_graph(), 0, &[1, 2])?;
+    assert_level0_neighbors(builder.get_graph(), 1, &[0, 3, 4, 5])?;
+    assert_level0_neighbors(builder.get_graph(), 2, &[0])?;
+    // Even though 5 is closer, 3 is not a neighbor of 5, so no update to its neighbors occurs.
+    assert_level0_neighbors(builder.get_graph(), 3, &[1, 4])?;
+    assert_level0_neighbors(builder.get_graph(), 4, &[1, 3, 5])?;
+    assert_level0_neighbors(builder.get_graph(), 5, &[1, 4])?;
+
     Ok(())
   }
 
-  fn test_diversity_fallback<R>(&self, _random: &mut R) -> Result<()>
+  fn test_diversity_fallback<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    self.set_similarity_function(VectorSimilarityFunction::Euclidean);
+    // Some test cases can't be exercised in two dimensions;
+    // in particular if a new neighbor displaces an existing neighbor
+    // by being closer to the target, yet none of the existing neighbors is closer to the new vector
+    // than to the target -- ie they all remain diverse, so we simply drop the farthest one.
+    let values = vec![
+      vec![0.0, 0.0, 0.0],
+      vec![0.0, 10.0, 0.0],
+      vec![0.0, 0.0, 20.0],
+      vec![10.0, 0.0, 0.0],
+      vec![0.0, 4.0, 0.0],
+    ];
+    let vectors = self.vector_values_from_values(values, random);
+    let scorer_supplier = self.build_scorer_supplier(vectors, random)?;
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, 1, 10, random.random::<u64>())?;
+
+    builder.add_graph_node(0)?;
+    builder.add_graph_node(1)?;
+    builder.add_graph_node(2)?;
+    assert_level0_neighbors(builder.get_graph(), 0, &[1, 2])?;
+    // 2 is closer to 0 than 1, so it is excluded as non-diverse.
+    assert_level0_neighbors(builder.get_graph(), 1, &[0])?;
+    // 1 is closer to 0 than 2, so it is excluded as non-diverse.
+    assert_level0_neighbors(builder.get_graph(), 2, &[0])?;
+
+    builder.add_graph_node(3)?;
+    // This is one case we are testing; 2 has been displaced by 3.
+    assert_level0_neighbors(builder.get_graph(), 0, &[1, 3])?;
+    assert_level0_neighbors(builder.get_graph(), 1, &[0])?;
+    assert_level0_neighbors(builder.get_graph(), 2, &[0])?;
+    assert_level0_neighbors(builder.get_graph(), 3, &[0])?;
+
     Ok(())
   }
 
-  fn test_random<R>(&self, _random: &mut R) -> Result<()>
+  fn test_diversity_3d<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    self.set_similarity_function(VectorSimilarityFunction::Euclidean);
+    let values = vec![
+      vec![0.0, 0.0, 0.0],
+      vec![0.0, 10.0, 0.0],
+      vec![0.0, 0.0, 20.0],
+      vec![0.0, 9.0, 0.0],
+    ];
+    let vectors = self.vector_values_from_values(values, random);
+    let scorer_supplier = self.build_scorer_supplier(vectors, random)?;
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, 1, 10, random.random::<u64>())?;
+
+    builder.add_graph_node(0)?;
+    builder.add_graph_node(1)?;
+    builder.add_graph_node(2)?;
+    assert_level0_neighbors(builder.get_graph(), 0, &[1, 2])?;
+    // 2 is closer to 0 than 1, so it is excluded as non-diverse.
+    assert_level0_neighbors(builder.get_graph(), 1, &[0])?;
+    // 1 is closer to 0 than 2, so it is excluded as non-diverse.
+    assert_level0_neighbors(builder.get_graph(), 2, &[0])?;
+
+    builder.add_graph_node(3)?;
+    // This is one case we are testing; 1 has been displaced by 3.
+    assert_level0_neighbors(builder.get_graph(), 0, &[2, 3])?;
+    assert_level0_neighbors(builder.get_graph(), 1, &[0, 3])?;
+    assert_level0_neighbors(builder.get_graph(), 2, &[0])?;
+    assert_level0_neighbors(builder.get_graph(), 3, &[0, 1])?;
+
+    Ok(())
+  }
+
+  fn test_random<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let size = at_least_usize(random, 100);
+    let dim = at_least_usize(random, 10);
+    let vectors = self.vector_values(size, dim, random);
+    let top_k = 5;
+    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, 10, 30, random.random::<u64>())?;
+    let hnsw = builder.build(vectors.size())?;
+    let mut accept_ords = if random.random_bool(0.5) {
+      None
+    } else {
+      Some(create_random_accept_ords(0, size))
+    };
+
+    let mut total_matches = 0usize;
+    for _ in 0..100 {
+      let query = self.random_vector(random, dim);
+      let scorer = self.build_scorer(vectors.clone(), query.clone())?;
+      let mut actual = hnsw_graph_searcher::search_with_top_k(
+        &scorer,
+        100,
+        hnsw,
+        accept_ords.as_mut(),
+        usize::MAX,
+      )?;
+      let top_docs = actual.top_docs()?;
+
+      let mut expected = NeighborQueue::new(top_k, false)?;
+      for j in 0..size {
+        if accept_ords
+          .as_ref()
+          .is_none_or(|bits| bits.get(j).expect(""))
+        {
+          let v = self.vector_value(&vectors, j)?;
+          let score = self.score(&query, &v);
+          expected.add(j, score);
+          if expected.size() > top_k {
+            let _ = expected.pop()?;
+          }
+        }
+      }
+
+      let actual_top_k_docs = top_docs
+        .score_docs
+        .iter()
+        .take(top_k)
+        .map(|doc| doc.doc as usize)
+        .collect::<Vec<_>>();
+      total_matches += compute_overlap(&actual_top_k_docs, &expected.nodes());
+    }
+
+    let overlap = total_matches as f64 / (100 * top_k) as f64;
+    println!("overlap={overlap} total_matches={total_matches}");
+    assert!(overlap > 0.9, "overlap={overlap}");
+
     Ok(())
   }
 
@@ -238,6 +693,7 @@ pub trait HnswGraphTestCase<T> {
   where
     R: Rng + ?Sized,
   {
+    // TODO 多线程未实现
     Ok(())
   }
 
@@ -245,14 +701,87 @@ pub trait HnswGraphTestCase<T> {
   where
     R: Rng + ?Sized,
   {
+    // TODO 多线程未实现
     Ok(())
   }
 
-  fn test_all_nodes_visited_in_single_level<R>(&self, _random: &mut R) -> Result<()>
+  fn test_all_nodes_visited_in_single_level<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let size = at_least_usize(random, 100);
+    let dim = at_least_usize(random, 50);
+
+    // Search for a large number of results.
+    let top_k = size - 1;
+
+    let doc_vectors = self.vector_values(size, dim, random);
+    let scorer_supplier = self.build_scorer_supplier(doc_vectors.clone(), random)?;
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, 10, 30, random.random::<u64>())?;
+    let graph = builder.build(size)?;
+
+    let mut single_level_graph = DelegateHnswGraph::new(graph);
+
+    let query = self.vector_values(1, dim, random);
+    let v = self.vector_value(&query, 0)?;
+    let query_scorer = self.build_scorer(doc_vectors, v)?;
+
+    let mut collector = TopKnnCollector::new(top_k, usize::MAX)?;
+    hnsw_graph_searcher::search(
+      &query_scorer,
+      &mut collector,
+      &mut single_level_graph,
+      None::<&mut FixedBitSet>,
+    )?;
+
+    // Check that we visit all nodes.
+    assert_eq!(graph.size(), collector.visited_count());
+
     Ok(())
+  }
+}
+struct DelegateHnswGraph<'a, H>
+where
+  H: HnswGraph,
+{
+  delegate: &'a mut H,
+}
+impl<'a, H> DelegateHnswGraph<'a, H>
+where
+  H: HnswGraph,
+{
+  pub fn new(delegate: &'a mut H) -> Self {
+    Self { delegate }
+  }
+}
+impl<H> HnswGraph for DelegateHnswGraph<'_, H>
+where
+  H: HnswGraph,
+{
+  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+    self.delegate.seek(level, target)
+  }
+
+  fn size(&self) -> usize {
+    self.delegate.size()
+  }
+
+  fn next_neighbor(&mut self) -> Result<usize> {
+    self.delegate.next_neighbor()
+  }
+
+  fn num_levels(&self) -> Result<usize> {
+    Ok(1)
+  }
+
+  fn entry_node(&self) -> Result<Option<usize>> {
+    self.delegate.entry_node()
+  }
+
+  type NodeIterator = H::NodeIterator;
+
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+    self.delegate.get_nodes_on_level(level)
   }
 }
 
@@ -526,6 +1055,26 @@ where
   Ok(())
 }
 
+pub fn assert_level0_neighbors(
+  graph: &OnHeapHnswGraph,
+  node: usize,
+  expected: &[usize],
+) -> Result<()> {
+  let mut expected = expected.to_vec();
+  expected.sort_unstable();
+
+  let neighbors = graph.get_neighbors(0, node)?;
+  let mut actual = neighbors.nodes()[..neighbors.size()].to_vec();
+  actual.sort_unstable();
+
+  assert_eq!(
+    expected, actual,
+    "expected: {:?} actual: {:?}",
+    expected, actual
+  );
+  Ok(())
+}
+
 pub fn nodes_iterator_to_array<I>(mut nodes_iterator: I) -> Vec<usize>
 where
   I: NodesIterator,
@@ -721,4 +1270,32 @@ where
     .into_iter()
     .map(|component| (component * 127.0) as u8)
     .collect()
+}
+
+pub type TestsCircularKnnVectorValues =
+  KnnVectorValuesEnm2<CircularByteVectorValues, CircularFloatVectorValues>;
+impl Clone for TestsCircularKnnVectorValues {
+  fn clone(&self) -> Self {
+    match self {
+      KnnVectorValuesEnm2::A(v) => KnnVectorValuesEnm2::A(v.clone()),
+      KnnVectorValuesEnm2::B(v) => KnnVectorValuesEnm2::B(v.clone()),
+    }
+  }
+}
+pub type TestsKnnVectorValues = KnnVectorValuesEnm2<MockByteVectorValues, MockVectorValues>;
+impl Clone for TestsKnnVectorValues {
+  fn clone(&self) -> Self {
+    match self {
+      TestsKnnVectorValues::A(v) => TestsKnnVectorValues::A(v.clone()),
+      TestsKnnVectorValues::B(v) => TestsKnnVectorValues::B(v.clone()),
+    }
+  }
+}
+impl TestsKnnVectorValues {
+  fn copy_(&self) -> Result<TestsKnnVectorValues> {
+    match self {
+      TestsKnnVectorValues::A(v) => Ok(TestsKnnVectorValues::A(v.byte_copy()?.unwrap())),
+      TestsKnnVectorValues::B(v) => Ok(TestsKnnVectorValues::B(v.float_copy()?.unwrap())),
+    }
+  }
 }

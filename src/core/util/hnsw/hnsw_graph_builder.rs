@@ -437,12 +437,12 @@ where
 
         beam.clear();
         eps[0] = c0.start;
-        let mut scorer = self.scorer_supplier.scorer(c.start)?;
+        let scorer = self.scorer_supplier.scorer(c.start)?;
         // find the closest node in the largest component to the lowest-numbered node in
         // this component that has room to make a connection
         self.graph_searcher.search_level_with_collector(
           &mut beam,
-          &mut scorer,
+          &scorer,
           level,
           &eps,
           &mut self.hnsw,
@@ -626,7 +626,7 @@ where
       let top = std::cmp::min(node_level, cur_max_level);
       let mut scratch_per_level = vec![NeighborArray::default(); top - lowest_unset_level + 1];
       {
-        let mut scorer = self.scorer_supplier.scorer(node)?;
+        let scorer = self.scorer_supplier.scorer(node)?;
         // we first do the search from top to bottom
         // for levels > nodeLevel search with topk = 1
         let candidates = &mut self.entry_candidates;
@@ -634,7 +634,7 @@ where
           candidates.clear();
           self.graph_searcher.search_level_with_collector(
             candidates,
-            &mut scorer,
+            &scorer,
             level,
             &eps,
             &mut self.hnsw,
@@ -650,7 +650,7 @@ where
           candidates.clear();
           self.graph_searcher.search_level_with_collector(
             candidates,
-            &mut scorer,
+            &scorer,
             level,
             &eps,
             &mut self.hnsw,

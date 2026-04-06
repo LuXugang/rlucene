@@ -14,30 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
 
+use crate::core::codecs::hnsw::default_flat_vector_scorer::{ByteVectorScorer, FloatVectorScorer};
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field::Field;
 use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
+use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::knn_vector_values::{KnnVectorValues, KnnVectorValuesType};
+use crate::core::index::knn_vector_values::{KnnVectorValues, KnnVectorValuesEnm2};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::query::Query;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::bit_set::BitSet;
-use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
-use crate::core::util::hnsw::hnsw_graph_builder;
-use crate::core::util::hnsw::hnsw_graph_searcher;
+use crate::core::util::hnsw::hnsw_graph::HnswGraph;
+use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorerEnum2;
 use crate::test::core::util::hnsw::hnsw_graph_test_case::{
-  CircularByteVectorValues, CircularFloatVectorValues, HnswGraphTestCase,
+  CircularFloatVectorValues, HnswGraphTestCase, TestsCircularKnnVectorValues, TestsKnnVectorValues,
   create_random_float_vectors, random_vector,
 };
 use crate::test::core::util::hnsw::mock_vector_values::MockVectorValues;
@@ -46,15 +42,28 @@ use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
 
 #[allow(dead_code)] // for quick search
-pub struct TestHnswFloatVectorGraph;
+pub struct TestHnswFloatVectorGraph {
+  pub(crate) similarity_function: VectorSimilarityFunction,
+}
+impl TestHnswFloatVectorGraph {
+  pub fn new<R>(random: &mut R) -> Self
+  where
+    R: Rng + ?Sized,
+  {
+    let similarity_function = VectorSimilarityFunction::random(random);
+    TestHnswFloatVectorGraph {
+      similarity_function,
+    }
+  }
+}
 
 fn run_case<F>(f: F) -> Result<()>
 where
-  F: FnOnce(&TestHnswFloatVectorGraph, &mut StdRng) -> Result<()>,
+  F: FnOnce(&mut TestHnswFloatVectorGraph, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  let case = TestHnswFloatVectorGraph;
-  f(&case, &mut random)
+  let mut case = TestHnswFloatVectorGraph::new(&mut random);
+  f(&mut case, &mut random)
 }
 
 mod hnsw_graph_test_case_tests {
@@ -131,6 +140,11 @@ mod hnsw_graph_test_case_tests {
   }
 
   #[test]
+  fn test_diversity_3d() -> Result<()> {
+    run_case(|case, random| case.test_diversity_3d(random))
+  }
+
+  #[test]
   fn test_random() -> Result<()> {
     run_case(|case, random| case.test_random(random))
   }
@@ -152,11 +166,19 @@ mod hnsw_graph_test_case_tests {
 }
 
 impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
-  fn similarity_function<R>(&self, random: &mut R) -> VectorSimilarityFunction
-  where
-    R: Rng + ?Sized,
-  {
-    VectorSimilarityFunction::random(random)
+  fn score(&self, query: &Vec<f32>, vector: &Vec<f32>) -> f32 {
+    self
+      .similarity_function()
+      .compare_f32(query, vector)
+      .unwrap()
+  }
+
+  fn set_similarity_function(&mut self, s: VectorSimilarityFunction) {
+    self.similarity_function = s
+  }
+
+  fn similarity_function(&self) -> VectorSimilarityFunction {
+    self.similarity_function
   }
 
   fn get_vector_encoding(&self) -> VectorEncoding {
@@ -174,25 +196,23 @@ impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
     random_vector(random, dim)
   }
 
-  type KnnVectorValues = MockVectorValues;
-
-  fn vector_values<R>(&self, size: usize, dimension: usize, random: &mut R) -> Self::KnnVectorValues
+  fn vector_values<R>(&self, size: usize, dimension: usize, random: &mut R) -> TestsKnnVectorValues
   where
     R: Rng + ?Sized,
   {
     let values = create_random_float_vectors(size, dimension, random);
-    MockVectorValues::from_values(values, random.random())
+    TestsKnnVectorValues::B(MockVectorValues::from_values(values, random.random()))
   }
 
   fn vector_values_from_values<R>(
     &self,
     values: Vec<Vec<f32>>,
     random: &mut R,
-  ) -> Self::KnnVectorValues
+  ) -> TestsKnnVectorValues
   where
     R: Rng + ?Sized,
   {
-    MockVectorValues::from_values(values, random.random())
+    TestsKnnVectorValues::B(MockVectorValues::from_values(values, random.random()))
   }
 
   fn vector_values_from_reader<LR, R>(
@@ -200,7 +220,7 @@ impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
     reader: &LR,
     field_name: &str,
     random: &mut R,
-  ) -> Result<Self::KnnVectorValues>
+  ) -> Result<TestsKnnVectorValues>
   where
     LR: LeafReader,
     R: Rng + ?Sized,
@@ -215,24 +235,30 @@ impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
       let floats = value.as_ref().as_floats()?;
       vectors[ord] = ArrayUtil::copy_of_sub_array(floats, 0, vector_values.dimension());
     }
-    Ok(MockVectorValues::from_values(vectors, random.random()))
+    Ok(TestsKnnVectorValues::B(MockVectorValues::from_values(
+      vectors,
+      random.random(),
+    )))
   }
 
   fn vector_values_with_pregenerated<R>(
     &self,
     size: usize,
     dimension: usize,
-    pregenerated_vector_values: Self::KnnVectorValues,
+    pregenerated_vector_values: TestsKnnVectorValues,
     pregenerated_offset: usize,
     random: &mut R,
-  ) -> Self::KnnVectorValues
+  ) -> TestsKnnVectorValues
   where
     R: Rng + ?Sized,
   {
     let pregenerated_size = pregenerated_vector_values.size();
     let random_vectors = create_random_float_vectors(size - pregenerated_size, dimension, random);
     let mut vectors = vec![Vec::new(); size];
-    let pregenerated_values = pregenerated_vector_values.values;
+    let pregenerated_values = match pregenerated_vector_values {
+      KnnVectorValuesEnm2::A(_) => unreachable!("unexpected byte vector values"),
+      KnnVectorValuesEnm2::B(float_vector_values) => float_vector_values.values,
+    };
 
     vectors[..pregenerated_offset].clone_from_slice(&random_vectors[..pregenerated_offset]);
 
@@ -247,7 +273,7 @@ impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
       *dst = value;
     }
 
-    MockVectorValues::from_values(vectors, random.random())
+    TestsKnnVectorValues::B(MockVectorValues::from_values(vectors, random.random()))
   }
 
   fn knn_vector_field(
@@ -261,75 +287,45 @@ impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
     Ok(Field::new(name, VectorValueEnum::Float(vector), field_type))
   }
 
-  type CircularKnnVectorValues = CircularFloatVectorValues;
-
-  fn circular_vector_values(&self, n_doc: usize) -> Self::CircularKnnVectorValues {
-    CircularFloatVectorValues::new(n_doc)
+  fn circular_vector_values(&self, n_doc: usize) -> TestsCircularKnnVectorValues {
+    KnnVectorValuesEnm2::B(CircularFloatVectorValues::new(n_doc))
   }
 
   fn get_target_vector(&self) -> Vec<f32> {
     vec![1.0, 0.0]
   }
 
-  fn vector_value<'a, K>(
+  fn build_scorer<B, F>(
     &self,
-    vectors: &'a Self::KnnVectorValues,
-    ord: usize,
-  ) -> Result<Cow<'a, VectorValueEnum>> {
-    vectors.vector_value(ord)
-  }
-}
-
-// 测试未通过
-fn test_search_with_skewed_accept_ords() -> Result<()> {
-  let case = TestHnswFloatVectorGraph;
-  let mut random = random();
-  let n_doc = 1000;
-  let similarity_function = VectorSimilarityFunction::Euclidean;
-  let vectors = case.circular_vector_values(n_doc);
-  let scorer_supplier = case.build_scorer_supplier(
-    KnnVectorValuesType::<CircularByteVectorValues, CircularFloatVectorValues>::Float(
-      vectors.clone(),
-    ),
-    &mut random,
-  )?;
-  let mut builder = hnsw_graph_builder::create(scorer_supplier, 16, 100, random.random::<u64>())?;
-  let hnsw = builder.build(vectors.size())?;
-
-  let mut accept_ords = FixedBitSet::new(n_doc);
-  for i in 500..n_doc {
-    accept_ords.set(i);
+    vectors: KnnVectorValuesEnm2<B, F>,
+    query: Vec<f32>,
+  ) -> Result<RandomVectorScorerEnum2<ByteVectorScorer<B>, FloatVectorScorer<F>>>
+  where
+    B: ByteVectorValues,
+    F: FloatVectorValues,
+  {
+    match vectors {
+      KnnVectorValuesEnm2::A(_) => unreachable!("unexpected byte vector values"),
+      KnnVectorValuesEnm2::B(float_vector_values) => {
+        let v = self.flat_vector_scorer().get_random_vector_scorer_f32(
+          VectorSimilarityFunction::DotProduct,
+          float_vector_values,
+          query,
+        )?;
+        Ok(RandomVectorScorerEnum2::B(v))
+      },
+    }
   }
 
-  let mut scorer = case.flat_vector_scorer().get_random_vector_scorer_f32(
-    similarity_function,
-    vectors,
-    case.get_target_vector(),
-  )?;
-  let mut nn = hnsw_graph_searcher::search_with_top_k(
-    &mut scorer,
-    10,
-    hnsw,
-    Some(&mut accept_ords),
-    usize::MAX,
-  )?;
-
-  let nodes = nn.top_docs()?;
-  assert_eq!(
-    10,
-    nodes.score_docs.len(),
-    "Number of found results is not equal to [10]."
-  );
-
-  let mut sum = 0_i32;
-  for node in &nodes.score_docs {
-    assert!(
-      accept_ords.get(node.doc as usize)?,
-      "the results include a deleted document: {node}"
-    );
-    sum += node.doc;
+  fn vector_value(&self, vectors: &TestsKnnVectorValues, ord: usize) -> Result<Vec<f32>> {
+    match vectors {
+      KnnVectorValuesEnm2::A(_) => unreachable!("unexpected byte vector values"),
+      KnnVectorValuesEnm2::B(float_vector_values) => {
+        match float_vector_values.vector_value(ord)?.into_owned() {
+          VectorValueEnum::Float(v) => Ok(v),
+          _ => unreachable!("unexpected vector value"),
+        }
+      },
+    }
   }
-
-  assert!(sum < 5100, "sum(result docs)={sum}");
-  Ok(())
 }

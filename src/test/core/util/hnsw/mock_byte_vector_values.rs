@@ -28,6 +28,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::random_fro
 use rand::RngExt;
 use std::borrow::Cow;
 
+#[derive(Clone)]
 pub struct MockByteVectorValues {
   dimension: usize,
   dense_values: Vec<Vec<u8>>,
