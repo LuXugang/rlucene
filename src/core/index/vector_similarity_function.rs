@@ -16,6 +16,10 @@
  */
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::vector_util::{VECTOR_UTIL, VectorUtil};
+#[cfg(test)]
+use rand::{Rng, RngExt};
+#[cfg(test)]
+use strum::EnumCount;
 use strum_macros::{Display, EnumCount, FromRepr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, EnumCount, Display)]
@@ -34,6 +38,11 @@ impl VectorSimilarityFunction {
       VectorSimilarityFunction::Cosine => 2,
       VectorSimilarityFunction::MaximumInnerProduct => 3,
     }
+  }
+  #[cfg(test)]
+  pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
+    let v = rng.random_range(0..Self::COUNT) as u8;
+    Self::from_repr(v).unwrap()
   }
 }
 /// Use Default for padding

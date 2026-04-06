@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-use std::collections::HashSet;
 use crate::core::codecs::hnsw::default_flat_vector_scorer::DefaultFlatVectorScorer;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
@@ -37,13 +35,17 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::hnsw::hnsw_graph::HnswGraph;
+use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
 use crate::core::util::vector_util::VectorUtil;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use rand::{Rng, RngExt};
+use std::borrow::Cow;
+use std::collections::HashSet;
 
 pub trait HnswGraphTestCase<T> {
-  fn similarity_function(&self) -> VectorSimilarityFunction;
+  fn similarity_function<R>(&self, random: &mut R) -> VectorSimilarityFunction
+  where
+    R: Rng + ?Sized;
 
   fn flat_vector_scorer(&self) -> DefaultFlatVectorScorer {
     DefaultFlatVectorScorer
@@ -51,31 +53,51 @@ pub trait HnswGraphTestCase<T> {
 
   fn get_vector_encoding(&self) -> VectorEncoding;
 
-  fn knn_query(&self, field: &str, vector: T, k: usize) -> Query;
+  fn knn_query(&self, field: &str, vector: T, k: usize) -> Result<Query>;
 
-  fn random_vector(&self, dim: usize) -> T;
+  fn random_vector<R>(&self, random: &mut R, dim: usize) -> T
+  where
+    R: Rng + ?Sized;
 
   type KnnVectorValues: KnnVectorValues;
 
-  fn vector_values(&self, size: usize, dimension: usize) -> Self::KnnVectorValues;
+  fn vector_values<R>(
+    &self,
+    size: usize,
+    dimension: usize,
+    random: &mut R,
+  ) -> Self::KnnVectorValues
+  where
+    R: Rng + ?Sized;
 
-  fn vector_values_from_values(&self, values: Vec<Vec<f32>>) -> Self::KnnVectorValues;
+  fn vector_values_from_values<R>(
+    &self,
+    values: Vec<Vec<f32>>,
+    random: &mut R,
+  ) -> Self::KnnVectorValues
+  where
+    R: Rng + ?Sized;
 
-  fn vector_values_from_reader<LR>(
+  fn vector_values_from_reader<LR, R>(
     &self,
     reader: &LR,
     field_name: &str,
+    random: &mut R,
   ) -> Result<Self::KnnVectorValues>
   where
-    LR: LeafReader;
+    LR: LeafReader,
+    R: Rng + ?Sized;
 
-  fn vector_values_with_pregenerated(
+  fn vector_values_with_pregenerated<R>(
     &self,
     size: usize,
     dimension: usize,
     pregenerated_vector_values: Self::KnnVectorValues,
     pregenerated_offset: usize,
-  ) -> Self::KnnVectorValues;
+    random: &mut R,
+  ) -> Self::KnnVectorValues
+  where
+    R: Rng + ?Sized;
 
   fn knn_vector_field(
     &self,
@@ -88,19 +110,152 @@ pub trait HnswGraphTestCase<T> {
 
   fn get_target_vector(&self) -> T;
 
-  fn build_scorer_supplier<B, F>(
+  fn build_scorer_supplier<B, F, R>(
     &self,
     vectors: KnnVectorValuesType<B, F>,
+    random: &mut R,
   ) -> Result<<DefaultFlatVectorScorer as FlatVectorsScorer>::RandomVectorScorerSupplier<B, F>>
   where
     B: ByteVectorValues + Clone,
     F: FloatVectorValues + Clone,
+    R: Rng + ?Sized,
   {
     self
       .flat_vector_scorer()
-      .get_random_vector_scorer_supplier(self.similarity_function(), vectors)
+      .get_random_vector_scorer_supplier(self.similarity_function(random), vectors)
+  }
+
+  fn test_random_read_write_and_merge<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    // TODO Knn 合并未实现
+    Ok(())
+  }
+  fn vector_value<'a, K>(
+    &self,
+    vectors: &'a Self::KnnVectorValues,
+    ord: usize,
+  ) -> Result<Cow<'a, VectorValueEnum>>;
+  fn test_read_write<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_sorted_and_unsorted_indices_return_same_results<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_aknn_diverse<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_search_with_accept_ords<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_search_with_selective_accept_ords<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_hnsw_graph_builder_initialization_from_graph_with_offset_zero<R>(
+    &self,
+    _random: &mut R,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_hnsw_graph_builder_initialization_from_graph_with_non_zero_offset<R>(
+    &self,
+    _random: &mut R,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_visited_limit<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_hnsw_graph_builder_invalid<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_ram_usage_estimate<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_diversity<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_diversity_fallback<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_random<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_on_heap_hnsw_graph_search<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_concurrent_merge_builder<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
+
+  fn test_all_nodes_visited_in_single_level<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
   }
 }
+
 #[derive(Clone)]
 pub struct CircularByteVectorValues {
   size: usize,
@@ -109,9 +264,9 @@ pub struct CircularByteVectorValues {
 
 impl CircularByteVectorValues {
   pub fn new(size: usize) -> Self {
-    Self { size,doc:-1}
+    Self { size, doc: -1 }
   }
-  
+
   fn vector_value(&self) -> Vec<u8> {
     self.vector_value_bytes(self.doc as usize)
   }
@@ -145,11 +300,14 @@ impl KnnVectorValues for CircularByteVectorValues {
     ByteVectorValues::get_encoding(self)
   }
 
-  type Bits<B> = BitsImpl1<B> where B: Bits;
+  type Bits<B>
+    = BitsImpl1<B>
+  where
+    B: Bits;
 
   fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
   where
-      B: Bits
+    B: Bits,
   {
     self.default_get_accept_ords(accept_docs)
   }
@@ -159,7 +317,9 @@ impl KnnVectorValues for CircularByteVectorValues {
 
 impl ByteVectorValues for CircularByteVectorValues {
   fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
-    Ok(Cow::Owned(VectorValueEnum::Byte(self.vector_value_bytes(ord))))
+    Ok(Cow::Owned(VectorValueEnum::Byte(
+      self.vector_value_bytes(ord),
+    )))
   }
 
   type ByteVectorValues = Self;
@@ -212,7 +372,10 @@ impl KnnVectorValues for CircularFloatVectorValues {
     FloatVectorValues::get_encoding(self)
   }
 
-  type Bits<B> = BitsImpl1<B> where B: Bits;
+  type Bits<B>
+    = BitsImpl1<B>
+  where
+    B: Bits;
 
   fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
   where
@@ -242,6 +405,192 @@ impl FloatVectorValues for CircularFloatVectorValues {
   }
 
   type VectorScorer = DummyVectorScorer;
+}
+
+pub fn sorted_nodes_on_level<G>(graph: &mut G, level: usize) -> Result<Vec<usize>>
+where
+  G: HnswGraph,
+{
+  let mut nodes_on_level = graph.get_nodes_on_level(level)?;
+  let mut nodes = Vec::with_capacity(nodes_on_level.size());
+  while nodes_on_level.has_next() {
+    nodes.push(nodes_on_level.next().unwrap());
+  }
+  nodes.sort_unstable();
+  Ok(nodes)
+}
+
+pub fn assert_graph_equal<G, H>(g: &mut G, h: &mut H) -> Result<()>
+where
+  G: HnswGraph,
+  H: HnswGraph,
+{
+  let g_num_levels = g.num_levels()?;
+  let h_num_levels = h.num_levels()?;
+  assert_eq!(
+    g_num_levels, h_num_levels,
+    "the number of levels in the graphs are different"
+  );
+  assert_eq!(
+    g.size(),
+    h.size(),
+    "the number of nodes in the graphs are different"
+  );
+
+  for level in 0..g_num_levels {
+    let h_nodes = sorted_nodes_on_level(h, level)?;
+    let g_nodes = sorted_nodes_on_level(g, level)?;
+    assert_eq!(
+      g_nodes, h_nodes,
+      "nodes in the graphs are different on level {level}"
+    );
+  }
+
+  for level in 0..g_num_levels {
+    let g_nodes = sorted_nodes_on_level(g, level)?;
+    for node in g_nodes {
+      g.seek(level, node)?;
+      h.seek(level, node)?;
+      assert_eq!(
+        get_neighbor_nodes(g)?,
+        get_neighbor_nodes(h)?,
+        "arcs differ for node {node} on level {level}"
+      );
+    }
+  }
+
+  Ok(())
+}
+
+pub fn assert_graph_contains_graph<G, H>(
+  graph: &mut G,
+  initializer: &mut H,
+  new_ordinals: &[usize],
+) -> Result<()>
+where
+  G: HnswGraph,
+  H: HnswGraph,
+{
+  for level in 0..initializer.num_levels()? {
+    let final_graph_nodes_on_level = nodes_iterator_to_array(graph.get_nodes_on_level(level)?);
+    let initializer_graph_nodes_on_level = map_array_and_sort(
+      &nodes_iterator_to_array(initializer.get_nodes_on_level(level)?),
+      new_ordinals,
+    );
+    let overlap = compute_overlap(
+      &final_graph_nodes_on_level,
+      &initializer_graph_nodes_on_level,
+    );
+    assert_eq!(initializer_graph_nodes_on_level.len(), overlap);
+  }
+  Ok(())
+}
+
+pub fn assert_graph_initialized_from_graph<G, H>(
+  graph: &mut G,
+  initializer: &mut H,
+  new_ordinals: &[usize],
+) -> Result<()>
+where
+  G: HnswGraph,
+  H: HnswGraph,
+{
+  assert_eq!(
+    initializer.num_levels()?,
+    graph.num_levels()?,
+    "the number of levels in the graphs are different!"
+  );
+  assert_eq!(
+    initializer.size(),
+    graph.size(),
+    "the number of nodes in the graphs are different!"
+  );
+
+  for level in 0..graph.num_levels()? {
+    let nodes_on_level = nodes_iterator_to_array(initializer.get_nodes_on_level(level)?);
+    for node in nodes_on_level {
+      graph.seek(level, new_ordinals[node])?;
+      initializer.seek(level, node)?;
+      let expected_neighbors: HashSet<usize> = get_neighbor_nodes(initializer)?
+        .into_iter()
+        .map(|neighbor| new_ordinals[neighbor])
+        .collect();
+      assert_eq!(
+        get_neighbor_nodes(graph)?,
+        expected_neighbors,
+        "arcs differ for node {node}"
+      );
+    }
+  }
+
+  Ok(())
+}
+
+pub fn nodes_iterator_to_array<I>(mut nodes_iterator: I) -> Vec<usize>
+where
+  I: NodesIterator,
+{
+  let mut arr = Vec::with_capacity(nodes_iterator.size());
+  while nodes_iterator.has_next() {
+    arr.push(nodes_iterator.next().unwrap());
+  }
+  arr
+}
+
+pub fn map_array_and_sort(arr: &[usize], offset: &[usize]) -> Vec<usize> {
+  let mut mapped = arr.iter().map(|value| offset[*value]).collect::<Vec<_>>();
+  mapped.sort_unstable();
+  mapped
+}
+
+pub fn create_offset_ordinal_map<T>(
+  doc_id_size: usize,
+  total_vector_values: &mut T,
+  doc_id_offset: i32,
+) -> Result<Vec<usize>>
+where
+  T: KnnVectorValues,
+{
+  let mut ordinal_offset = 0usize;
+  let mut iterator = total_vector_values.iterator()?;
+  while iterator.next_doc()? < doc_id_offset {
+    ordinal_offset += 1;
+  }
+
+  let mut offset_ordinal_map = vec![0; doc_id_size];
+  let upper_doc = doc_id_offset + doc_id_size as i32;
+  let mut curr = 0usize;
+  while iterator.doc_id() < upper_doc {
+    offset_ordinal_map[curr] = ordinal_offset + curr;
+    curr += 1;
+    let _ = iterator.next_doc()?;
+  }
+
+  Ok(offset_ordinal_map)
+}
+
+fn compute_overlap(left: &[usize], right: &[usize]) -> usize {
+  let mut left = left.to_vec();
+  let mut right = right.to_vec();
+  left.sort_unstable();
+  right.sort_unstable();
+
+  let mut overlap = 0usize;
+  let mut i = 0usize;
+  let mut j = 0usize;
+  while i < left.len() && j < right.len() {
+    if left[i] == right[j] {
+      overlap += 1;
+      i += 1;
+      j += 1;
+    } else if left[i] > right[j] {
+      j += 1;
+    } else {
+      i += 1;
+    }
+  }
+
+  overlap
 }
 
 pub fn get_neighbor_nodes<G>(graph: &mut G) -> Result<HashSet<usize>>
@@ -311,7 +660,11 @@ where
   Ok(())
 }
 
-pub fn create_random_float_vectors<R>(size: usize, dimension: usize, random: &mut R) -> Vec<Vec<f32>>
+pub fn create_random_float_vectors<R>(
+  size: usize,
+  dimension: usize,
+  random: &mut R,
+) -> Vec<Vec<f32>>
 where
   R: Rng + ?Sized,
 {
