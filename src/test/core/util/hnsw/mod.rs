@@ -15,3 +15,5 @@
  * limitations under the License.
  */
 pub mod hnsw_graph_test_case;
+pub mod mock_byte_vector_values;
+pub mod mock_vector_values;
