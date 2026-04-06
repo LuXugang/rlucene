@@ -33,6 +33,7 @@ pub(crate) mod bkd;
 pub(crate) mod common_method;
 pub mod english;
 pub(crate) mod fst;
+pub mod hnsw;
 pub(crate) mod id_set_common;
 pub(crate) mod index_package_access;
 pub(crate) mod lucene_test_case;
