@@ -20,7 +20,7 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::util::bits::Bits;
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, TryIntoInt};
 
@@ -425,3 +425,94 @@ where
   Byte(B),
   Float(F),
 }
+
+#[macro_export]
+macro_rules! either_knn_vector_values_named {
+    (
+        $vis:vis $name:ident {
+            iter = $iter_ty:ident,
+            bits = $bits_ty:ident;
+            $( $Variant:ident : $T:ident ),+ $(,)?
+        }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> $crate::core::index::knn_vector_values::KnnVectorValues for $name<$( $T ),+>
+        where
+            $( $T: $crate::core::index::knn_vector_values::KnnVectorValues ),+
+        {
+            #[inline]
+            fn dimension(&self) -> usize {
+                match self {
+                    $( Self::$Variant(inner) => inner.dimension(), )+
+                }
+            }
+
+            #[inline]
+            fn size(&self) -> usize {
+                match self {
+                    $( Self::$Variant(inner) => inner.size(), )+
+                }
+            }
+
+            #[inline]
+            fn ord_to_doc(&self, ord: usize) -> $crate::core::util::error::lucene_error::Result<usize> {
+                match self {
+                    $( Self::$Variant(inner) => inner.ord_to_doc(ord), )+
+                }
+            }
+
+            type KnnVectorValues =
+                $name<$( < $T as $crate::core::index::knn_vector_values::KnnVectorValues >::KnnVectorValues ),+>;
+
+            #[inline]
+            fn copy(&self) -> $crate::core::util::error::lucene_error::Result<Self::KnnVectorValues> {
+                match self {
+                    $( Self::$Variant(inner) => inner.copy().map($name::$Variant), )+
+                }
+            }
+
+            #[inline]
+            fn get_encoding(&self) -> $crate::core::index::vector_encoding::VectorEncoding {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_encoding(), )+
+                }
+            }
+
+            type Bits<AcceptDocs> =
+                $bits_ty<$( < $T as $crate::core::index::knn_vector_values::KnnVectorValues >::Bits<AcceptDocs> ),+>
+            where
+                AcceptDocs: $crate::core::util::bits::Bits;
+
+            #[inline]
+            fn get_accept_ords<AcceptDocs>(&self, accept_docs: Option<AcceptDocs>) -> Option<Self::Bits<AcceptDocs>>
+            where
+                AcceptDocs: $crate::core::util::bits::Bits,
+            {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_accept_ords(accept_docs).map($bits_ty::$Variant), )+
+                }
+            }
+
+            type DocIndexIterator =
+                $iter_ty<$( < $T as $crate::core::index::knn_vector_values::KnnVectorValues >::DocIndexIterator ),+>;
+
+            #[inline]
+            fn iterator(&mut self) -> $crate::core::util::error::lucene_error::Result<Self::DocIndexIterator> {
+                match self {
+                    $( Self::$Variant(inner) => inner.iterator().map($iter_ty::$Variant), )+
+                }
+            }
+        }
+    };
+}
+
+either_knn_vector_values_named!(
+    pub KnnVectorValuesEnm2 {
+        iter = DocIndexIteratorEnum2,
+        bits = BitsEnum2;
+        A: A, B: B,
+    }
+);
