@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::borrow::Cow;
+use std::collections::HashSet;
 use crate::core::codecs::hnsw::default_flat_vector_scorer::DefaultFlatVectorScorer;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
@@ -29,12 +30,14 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::query::Query;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::vector_util::VectorUtil;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use rand::{Rng, RngExt};
@@ -239,6 +242,73 @@ impl FloatVectorValues for CircularFloatVectorValues {
   }
 
   type VectorScorer = DummyVectorScorer;
+}
+
+pub fn get_neighbor_nodes<G>(graph: &mut G) -> Result<HashSet<usize>>
+where
+  G: HnswGraph,
+{
+  let mut neighbors = HashSet::new();
+  loop {
+    let neighbor = graph.next_neighbor()?;
+    if neighbor == NO_MORE_DOCS as usize {
+      break;
+    }
+    neighbors.insert(neighbor);
+  }
+  Ok(neighbors)
+}
+
+pub fn assert_byte_vectors_equal<U, V>(u: &U, v: &V) -> Result<()>
+where
+  U: ByteVectorValues,
+  V: ByteVectorValues,
+{
+  assert_eq!(u.size(), v.size());
+  for ord in 0..u.size() {
+    let u_doc = u.ord_to_doc(ord)?;
+    let v_doc = v.ord_to_doc(ord)?;
+    assert_eq!(u_doc, v_doc);
+    assert_ne!(NO_MORE_DOCS, u_doc as i32);
+
+    let u_vec = u.vector_value(ord)?;
+    let v_vec = v.vector_value(ord)?;
+    let u_bytes = u_vec.as_ref().as_bytes()?;
+    let v_bytes = v_vec.as_ref().as_bytes()?;
+    assert_eq!(u_bytes, v_bytes, "vectors do not match for doc={u_doc}");
+  }
+  Ok(())
+}
+
+pub fn assert_float_vectors_equal<U, V>(u: &U, v: &V) -> Result<()>
+where
+  U: FloatVectorValues,
+  V: FloatVectorValues,
+{
+  assert_eq!(u.size(), v.size());
+  for ord in 0..u.size() {
+    let u_doc = u.ord_to_doc(ord)?;
+    let v_doc = v.ord_to_doc(ord)?;
+    assert_eq!(u_doc, v_doc);
+    assert_ne!(NO_MORE_DOCS, u_doc as i32);
+
+    let u_vec = u.vector_value(ord)?;
+    let v_vec = v.vector_value(ord)?;
+    let u_floats = u_vec.as_ref().as_floats()?;
+    let v_floats = v_vec.as_ref().as_floats()?;
+    assert_eq!(
+      u_floats.len(),
+      v_floats.len(),
+      "vectors do not match for doc={u_doc}"
+    );
+    for (lhs, rhs) in u_floats.iter().zip(v_floats.iter()) {
+      assert!(
+        (lhs - rhs).abs() <= 1e-4,
+        "vectors do not match for doc={u_doc}: left={u_floats:?}, right={v_floats:?}"
+      );
+    }
+  }
+  Ok(())
 }
 
 pub fn create_random_float_vectors<R>(size: usize, dimension: usize, random: &mut R) -> Vec<Vec<f32>>
