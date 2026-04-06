@@ -14,4 +14,224 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub trait HnswGraphTestCase {}
+use std::borrow::Cow;
+use crate::core::codecs::hnsw::default_flat_vector_scorer::DefaultFlatVectorScorer;
+use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::document::field::Field;
+use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
+use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::knn_vector_values::{
+  BitsImpl1, DenseDocIndexIterator, KnnVectorValues, KnnVectorValuesType, create_dense_iterator,
+};
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
+use crate::core::search::query::Query;
+use crate::core::util::bits::Bits;
+use crate::core::util::error::lucene_error::Result;
+
+pub trait HnswGraphTestCase<T> {
+  fn similarity_function(&self) -> VectorSimilarityFunction;
+
+  fn flat_vector_scorer(&self) -> DefaultFlatVectorScorer {
+    DefaultFlatVectorScorer
+  }
+
+  fn get_vector_encoding(&self) -> VectorEncoding;
+
+  fn knn_query(&self, field: &str, vector: T, k: usize) -> Query;
+
+  fn random_vector(&self, dim: usize) -> T;
+
+  type KnnVectorValues: KnnVectorValues;
+
+  fn vector_values(&self, size: usize, dimension: usize) -> Self::KnnVectorValues;
+
+  fn vector_values_from_values(&self, values: Vec<Vec<f32>>) -> Self::KnnVectorValues;
+
+  fn vector_values_from_reader<LR>(
+    &self,
+    reader: &LR,
+    field_name: &str,
+  ) -> Result<Self::KnnVectorValues>
+  where
+    LR: LeafReader;
+
+  fn vector_values_with_pregenerated(
+    &self,
+    size: usize,
+    dimension: usize,
+    pregenerated_vector_values: Self::KnnVectorValues,
+    pregenerated_offset: usize,
+  ) -> Self::KnnVectorValues;
+
+  fn knn_vector_field(
+    &self,
+    name: &str,
+    vector: T,
+    similarity_function: VectorSimilarityFunction,
+  ) -> Result<Field>;
+  type CircularKnnVectorValues: KnnVectorValues;
+  fn circular_vector_values(&self, n_doc: usize) -> Self::CircularKnnVectorValues;
+
+  fn get_target_vector(&self) -> T;
+
+  fn build_scorer_supplier<B, F>(
+    &self,
+    vectors: KnnVectorValuesType<B, F>,
+  ) -> Result<<DefaultFlatVectorScorer as FlatVectorsScorer>::RandomVectorScorerSupplier<B, F>>
+  where
+    B: ByteVectorValues + Clone,
+    F: FloatVectorValues + Clone,
+  {
+    self
+      .flat_vector_scorer()
+      .get_random_vector_scorer_supplier(self.similarity_function(), vectors)
+  }
+}
+#[derive(Clone)]
+pub struct CircularByteVectorValues {
+  size: usize,
+  doc: i32,
+}
+
+impl CircularByteVectorValues {
+  pub fn new(size: usize) -> Self {
+    Self { size,doc:-1}
+  }
+  
+  fn vector_value(&self) -> Vec<u8> {
+    self.vector_value_bytes(self.doc as usize)
+  }
+
+  fn vector_value_bytes(&self, ord: usize) -> Vec<u8> {
+    let mut value = [0.0_f32; 2];
+    unit_vector_2d(ord as f64 / self.size as f64, &mut value);
+    value
+      .into_iter()
+      .map(|component| (component * 127.0) as u8)
+      .collect()
+  }
+}
+
+impl KnnVectorValues for CircularByteVectorValues {
+  fn dimension(&self) -> usize {
+    2
+  }
+
+  fn size(&self) -> usize {
+    self.size
+  }
+
+  type KnnVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    Ok(self.clone())
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    ByteVectorValues::get_encoding(self)
+  }
+
+  type Bits<B> = BitsImpl1<B> where B: Bits;
+
+  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  where
+      B: Bits
+  {
+    self.default_get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = DummyDocIndexIterator;
+}
+
+impl ByteVectorValues for CircularByteVectorValues {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    Ok(Cow::Owned(VectorValueEnum::Byte(self.vector_value_bytes(ord))))
+  }
+
+  type ByteVectorValues = Self;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    Ok(Some(self.clone()))
+  }
+
+  type VectorScorer = DummyVectorScorer;
+}
+
+fn unit_vector_2d(pi_radians: f64, value: &mut [f32; 2]) {
+  value[0] = (std::f64::consts::PI * pi_radians).cos() as f32;
+  value[1] = (std::f64::consts::PI * pi_radians).sin() as f32;
+}
+
+#[derive(Clone)]
+pub struct CircularFloatVectorValues {
+  size: usize,
+}
+
+impl CircularFloatVectorValues {
+  pub fn new(size: usize) -> Self {
+    Self { size }
+  }
+
+  fn vector_value_f32(&self, ord: usize) -> Vec<f32> {
+    let mut value = [0.0_f32; 2];
+    unit_vector_2d(ord as f64 / self.size as f64, &mut value);
+    value.to_vec()
+  }
+}
+
+impl KnnVectorValues for CircularFloatVectorValues {
+  fn dimension(&self) -> usize {
+    2
+  }
+
+  fn size(&self) -> usize {
+    self.size
+  }
+
+  type KnnVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    Ok(self.clone())
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    FloatVectorValues::get_encoding(self)
+  }
+
+  type Bits<B> = BitsImpl1<B> where B: Bits;
+
+  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  where
+    B: Bits,
+  {
+    self.default_get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = DenseDocIndexIterator;
+
+  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+    Ok(create_dense_iterator(self.size as i32))
+  }
+}
+
+impl FloatVectorValues for CircularFloatVectorValues {
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    Ok(Cow::Owned(VectorValueEnum::Float(
+      self.vector_value_f32(ord),
+    )))
+  }
+
+  type FloatVectorValues = Self;
+
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    Ok(Some(self.clone()))
+  }
+
+  type VectorScorer = DummyVectorScorer;
+}
