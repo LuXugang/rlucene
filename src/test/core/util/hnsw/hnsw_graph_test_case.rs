@@ -31,8 +31,13 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::query::Query;
+use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::vector_util::VectorUtil;
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use rand::{Rng, RngExt};
 
 pub trait HnswGraphTestCase<T> {
   fn similarity_function(&self) -> VectorSimilarityFunction;
@@ -234,4 +239,63 @@ impl FloatVectorValues for CircularFloatVectorValues {
   }
 
   type VectorScorer = DummyVectorScorer;
+}
+
+pub fn create_random_float_vectors<R>(size: usize, dimension: usize, random: &mut R) -> Vec<Vec<f32>>
+where
+  R: Rng + ?Sized,
+{
+  (0..size)
+    .map(|_| random_vector(random, dimension))
+    .collect()
+}
+
+pub fn create_random_byte_vectors<R>(size: usize, dimension: usize, random: &mut R) -> Vec<Vec<u8>>
+where
+  R: Rng + ?Sized,
+{
+  (0..size)
+    .map(|_| random_vector8(random, dimension))
+    .collect()
+}
+
+pub fn create_random_accept_ords(start_index: usize, length: usize) -> FixedBitSet {
+  let mut bits = FixedBitSet::new(length);
+  for i in 0..start_index.min(length) {
+    bits.set(i);
+  }
+
+  let mut random = random();
+  for i in start_index.min(length)..length {
+    if random.random::<f32>() < 0.667 {
+      bits.set(i);
+    }
+  }
+
+  bits
+}
+
+pub fn random_vector<R>(random: &mut R, dim: usize) -> Vec<f32>
+where
+  R: Rng + ?Sized,
+{
+  let mut vec = vec![0.0; dim];
+  for value in &mut vec {
+    *value = random.random::<f32>();
+    if random.random_bool(0.5) {
+      *value = -*value;
+    }
+  }
+  VectorUtil::l2normalize(&mut vec).expect("random_vector should not generate a zero vector");
+  vec
+}
+
+pub fn random_vector8<R>(random: &mut R, dim: usize) -> Vec<u8>
+where
+  R: Rng + ?Sized,
+{
+  random_vector(random, dim)
+    .into_iter()
+    .map(|component| (component * 127.0) as u8)
+    .collect()
 }
