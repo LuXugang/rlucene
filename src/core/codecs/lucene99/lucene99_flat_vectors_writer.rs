@@ -26,7 +26,7 @@ use crate::core::codecs::lucene99::lucene99_flat_vectors_format::{
   META_CODEC_NAME, META_EXTENSION, VECTOR_DATA_CODEC_NAME, VECTOR_DATA_EXTENSION, VERSION_CURRENT,
 };
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::{
-  DefaultRandomVectorScorerSupplier, FieldWriterType,
+  DefaultRandomVectorScorerSupplier, FieldWriter,
 };
 use crate::core::index::IndexFileNames;
 use crate::core::index::byte_vector_values::ByteVectorValues;
@@ -316,7 +316,7 @@ where
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[FieldWriterType<DefaultRandomVectorScorerSupplier<F1>>],
+    fields: &[FieldWriter<DefaultRandomVectorScorerSupplier<F1>>],
   ) -> Result<()>
   where
     DM: DocMap,

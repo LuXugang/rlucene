@@ -40,18 +40,13 @@ use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::bit_set::BitSet;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::{
   ArrayNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnums, get_sorted_nodes,
 };
-use crate::core::util::hnsw::hnsw_graph_builder::{HnswGraphBuilder, RAND_SEED, create};
+use crate::core::util::hnsw::hnsw_graph_builder::{DefaultHnswGraphBuilder, RAND_SEED, create};
 use crate::core::util::hnsw::hnsw_graph_merger::HnswGraphMergerEnum;
-use crate::core::util::hnsw::hnsw_graph_searcher::{
-  HnswGraphSearcherBase, HnswGraphSearcherBaseDefault,
-};
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
@@ -76,7 +71,7 @@ where
   // TODO IMPORTANT 多线程未实现
   finished: bool,
   info_stream: InfoStreamMT,
-  fields: Vec<FieldWriterType<DefaultRandomVectorScorerSupplier<F>>>,
+  fields: Vec<FieldWriter<DefaultRandomVectorScorerSupplier<F>>>,
 }
 pub type DefaultRandomVectorScorerSupplier<F> =
   FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>;
@@ -603,9 +598,7 @@ pub(crate) fn create_field_writer<S>(
   m: usize,
   beam_width: usize,
   info_stream: InfoStreamMT,
-) -> Result<
-  FieldWriterType<S::RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl>>,
->
+) -> Result<FieldWriter<S::RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl>>>
 where
   S: FlatVectorsScorer,
 {
@@ -618,20 +611,17 @@ where
     info_stream,
   )
 }
-pub type FieldWriterType<S> = FieldWriter<S, FixedBitSet, HnswGraphSearcherBaseDefault>;
-pub struct FieldWriter<S, B, H>
+pub struct FieldWriter<S>
 where
   S: RandomVectorScorerSupplier,
-  B: BitSet,
-  H: HnswGraphSearcherBase,
 {
   field_info: Arc<FieldInfo>,
-  pub(crate) hnsw_graph_builder: HnswGraphBuilder<S, B, H>,
+  pub(crate) hnsw_graph_builder: DefaultHnswGraphBuilder<S>,
   last_doc_id: i32,
   node: usize,
   flat_field_vectors_writer_idx: usize,
 }
-impl<S> FieldWriterType<S>
+impl<S> FieldWriter<S>
 where
   S: RandomVectorScorerSupplier,
 {
@@ -678,10 +668,8 @@ where
   }
 }
 
-impl<S, B, H> FieldWriter<S, B, H>
+impl<S> FieldWriter<S>
 where
-  B: BitSet,
-  H: HnswGraphSearcherBase,
   S: RandomVectorScorerSupplier,
 {
   pub fn get_docs_with_field_set<'a, F>(
@@ -717,10 +705,8 @@ where
     }
   }
 }
-impl<S, B, H> Accountable for FieldWriter<S, B, H>
+impl<S> Accountable for FieldWriter<S>
 where
-  B: BitSet,
-  H: HnswGraphSearcherBase,
   S: RandomVectorScorerSupplier,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
@@ -729,11 +715,9 @@ where
   }
 }
 
-impl<S, B, H> KnnFieldVectorsWriter for FieldWriter<S, B, H>
+impl<S> KnnFieldVectorsWriter for FieldWriter<S>
 where
   S: RandomVectorScorerSupplier,
-  B: BitSet,
-  H: HnswGraphSearcherBase,
 {
   fn add_value<F>(
     &mut self,

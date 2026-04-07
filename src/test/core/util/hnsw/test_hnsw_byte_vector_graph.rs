@@ -116,7 +116,8 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
             } else {
               value * 127.0
             };
-            value as u8
+            let byte_value = value as i8;
+            byte_value as u8
           })
           .collect()
       })

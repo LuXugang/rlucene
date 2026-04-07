@@ -15,72 +15,53 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::util::bit_set::BitSet;
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
-use crate::core::util::hnsw::hnsw_graph_builder::HnswGraphBuilder;
+use crate::core::util::hnsw::hnsw_graph_builder::{
+  HnswGraphBuilder, HnswGraphBuilderBase, HnswGraphBuilderBaseEnum,
+};
 use crate::core::util::hnsw::hnsw_graph_searcher::HnswGraphSearcherBaseDefault;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
-use crate::core::util::info_stream::InfoStreamMT;
 /// This creates a graph builder that is initialized with the provided [`HnswGraph`]. This is useful for
 /// merging HnswGraphs from multiple segments.
-pub struct InitializedHnswGraphBuilder<B, S>
+pub struct InitializedHnswGraphBuilder<B>
 where
-  B: BitSet,
-  S: RandomVectorScorerSupplier,
+  B: Bits,
 {
   initialized_nodes: B,
-  base: HnswGraphBuilder<S, FixedBitSet, HnswGraphSearcherBaseDefault>,
 }
-impl<B, S> InitializedHnswGraphBuilder<B, S>
+impl<B> InitializedHnswGraphBuilder<B>
 where
-  B: BitSet,
-  S: RandomVectorScorerSupplier,
+  B: Bits,
 {
-  pub fn new(
+  #[allow(clippy::new_ret_no_self)]
+  pub fn new<S>(
     scorer_supplier: S,
     m: usize,
     beam_width: usize,
     random: u64,
     hnsw: OnHeapHnswGraph,
     initialized_nodes: B,
-  ) -> Result<Self> {
-    let base = HnswGraphBuilder::from_hnsw(scorer_supplier, m, beam_width, random, hnsw)?;
-    Ok(InitializedHnswGraphBuilder {
+  ) -> Result<HnswGraphBuilder<B, S, FixedBitSet, HnswGraphSearcherBaseDefault>>
+  where
+    S: RandomVectorScorerSupplier,
+  {
+    let sub = Some(HnswGraphBuilderBaseEnum::Initialized(Self {
       initialized_nodes,
-      base,
-    })
+    }));
+    let base = HnswGraphBuilder::from_hnsw(scorer_supplier, m, beam_width, random, hnsw, sub)?;
+    Ok(base)
   }
 }
-impl<B, S> HnswBuilder for InitializedHnswGraphBuilder<B, S>
+impl<B> HnswGraphBuilderBase for InitializedHnswGraphBuilder<B>
 where
-  B: BitSet,
-  S: RandomVectorScorerSupplier,
+  B: Bits,
 {
-  fn build(&mut self, max_ord: usize) -> Result<&mut OnHeapHnswGraph> {
-    self.base.build(max_ord)
-  }
-
-  fn add_graph_node(&mut self, node: usize) -> Result<()> {
-    if self.initialized_nodes.get(node)? {
-      return Ok(());
-    }
-    self.base.add_graph_node(node)
-  }
-
-  fn set_info_stream(&mut self, info_stream: InfoStreamMT) {
-    self.base.set_info_stream(info_stream);
-  }
-
-  fn get_graph(&mut self) -> &mut OnHeapHnswGraph {
-    self.base.get_graph()
-  }
-
-  fn get_completed_graph(&mut self) -> Result<&mut OnHeapHnswGraph> {
-    self.base.get_completed_graph()
+  fn do_add_graph_node(&mut self, node: usize) -> Result<bool> {
+    self.initialized_nodes.get(node)
   }
 }
 /// Create a new [`HnswGraphBuilder`] that is initialized with the provided [`HnswGraph`].
@@ -114,10 +95,10 @@ pub fn from_graph<B, S, G>(
   new_ord_map: &[usize],
   initialized_nodes: B,
   total_number_of_vectors: i32,
-) -> Result<InitializedHnswGraphBuilder<B, S>>
+) -> Result<HnswGraphBuilder<B, S, FixedBitSet, HnswGraphSearcherBaseDefault>>
 where
   G: HnswGraph,
-  B: BitSet,
+  B: Bits,
   S: RandomVectorScorerSupplier,
 {
   InitializedHnswGraphBuilder::new(

@@ -18,7 +18,7 @@ use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::{
-  DefaultRandomVectorScorerSupplier, FieldWriterType,
+  DefaultRandomVectorScorerSupplier, FieldWriter,
 };
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::sorter::DocMap;
@@ -36,7 +36,7 @@ pub trait FlatVectorsWriter: KnnVectorsWriter {
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[FieldWriterType<DefaultRandomVectorScorerSupplier<F>>],
+    fields: &[FieldWriter<DefaultRandomVectorScorerSupplier<F>>],
   ) -> Result<()>
   where
     DM: DocMap,

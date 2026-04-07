@@ -26,11 +26,15 @@ use crate::core::index::knn_vector_values::{KnnVectorValues, KnnVectorValuesEnm2
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::query::Query;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::hnsw::hnsw_graph::HnswGraph;
+use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
+use crate::core::util::hnsw::hnsw_graph_builder::create;
+use crate::core::util::hnsw::hnsw_graph_searcher::search_with_top_k;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorerEnum2;
 use crate::test::core::util::hnsw::hnsw_graph_test_case::{
   CircularFloatVectorValues, HnswGraphTestCase, TestsCircularKnnVectorValues, TestsKnnVectorValues,
@@ -328,4 +332,57 @@ impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
       },
     }
   }
+}
+
+#[test]
+fn test_search_with_skewed_accept_ords() -> Result<()> {
+  run_case(|case, random| {
+    let n_doc = 1000;
+    case.set_similarity_function(VectorSimilarityFunction::Euclidean);
+    let vectors = case.circular_vector_values(n_doc);
+    let scorer_supplier = case.build_scorer_supplier(vectors.clone(), random)?;
+    let mut builder = create(scorer_supplier, 16, 100, random.random::<u64>())?;
+    let hnsw = builder.build(vectors.size())?;
+
+    // Skip over half of the documents that are closest to the query vector.
+    let mut accept_ords = FixedBitSet::new(n_doc);
+    for i in 500..n_doc {
+      crate::core::util::bit_set::BitSet::set(&mut accept_ords, i);
+    }
+
+    let scorer = match vectors {
+      KnnVectorValuesEnm2::A(_) => unreachable!("unexpected byte vector values"),
+      KnnVectorValuesEnm2::B(float_vector_values) => {
+        case.flat_vector_scorer().get_random_vector_scorer_f32(
+          VectorSimilarityFunction::Euclidean,
+          float_vector_values,
+          case.get_target_vector(),
+        )?
+      },
+    };
+
+    let mut nn = search_with_top_k(&scorer, 10, hnsw, Some(&mut accept_ords), usize::MAX)?;
+
+    let top_docs = KnnCollector::top_docs(&mut nn)?;
+    assert_eq!(
+      10,
+      top_docs.score_docs.len(),
+      "Number of found results is not equal to [10]."
+    );
+
+    let mut sum = 0_i32;
+    for node in &top_docs.score_docs {
+      assert!(
+        crate::core::util::bits::Bits::get(&accept_ords, node.doc as usize)?,
+        "the results include a deleted document: {node:?}"
+      );
+      sum += node.doc;
+    }
+
+    // We still expect to get reasonable recall. The lowest non-skipped docIds
+    // are closest to the query vector: sum(500,509) = 5045.
+    assert!(sum < 5100, "sum(result docs)={sum}");
+
+    Ok(())
+  })
 }

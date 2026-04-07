@@ -41,6 +41,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
+use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorerEnum2;
@@ -50,7 +51,7 @@ use crate::core::util::hnsw::{
 use crate::core::util::vector_util::VectorUtil;
 use crate::test::core::util::hnsw::mock_byte_vector_values::MockByteVectorValues;
 use crate::test::core::util::hnsw::mock_vector_values::MockVectorValues;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::at_least_usize;
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -179,7 +180,7 @@ where
       10,
       hnsw,
       None::<&mut FixedBitSet>,
-      usize::MAX,
+      i32::MAX as usize,
     )?;
     let top_docs = nn.top_docs()?;
     assert_eq!(
@@ -220,21 +221,15 @@ where
     let hnsw = builder.build(vectors.size())?;
 
     // The first 10 docs must remain accepted to preserve the expected recall.
-    let mut accept_ords = FixedBitSet::new(n_doc);
-    let mut i = 0;
-    while i < n_doc {
-      accept_ords.set(i);
-      i += random.random_range(15..20);
-    }
-    let num_accepted = accept_ords.cardinality();
+    let mut accept_ords = create_random_accept_ords(10, n_doc, random);
 
     let scorer = self.build_scorer(vectors, self.get_target_vector())?;
     let mut nn = hnsw_graph_searcher::search_with_top_k(
       &scorer,
-      num_accepted,
+      10,
       hnsw,
       Some(&mut accept_ords),
-      usize::MAX,
+      i32::MAX as usize,
     )?;
     let top_docs = nn.top_docs()?;
     assert_eq!(
@@ -286,7 +281,7 @@ where
       num_accepted,
       hnsw,
       Some(&mut accept_ords),
-      usize::MAX,
+      i32::MAX as usize,
     )?;
     let top_docs = nn.top_docs()?;
     assert_eq!(num_accepted, top_docs.score_docs.len());
@@ -449,7 +444,7 @@ where
     let top_k = 50;
     let visited_limit = top_k + random.random_range(0..5);
     let scorer = self.build_scorer(vectors, self.get_target_vector())?;
-    let mut accept_ords = create_random_accept_ords(0, n_doc);
+    let mut accept_ords = create_random_accept_ords(0, n_doc, random);
     let nn = hnsw_graph_searcher::search_with_top_k(
       &scorer,
       top_k,
@@ -642,7 +637,7 @@ where
     let mut accept_ords = if random.random_bool(0.5) {
       None
     } else {
-      Some(create_random_accept_ords(0, size))
+      Some(create_random_accept_ords(0, size, random))
     };
 
     let mut total_matches = 0usize;
@@ -654,7 +649,7 @@ where
         100,
         hnsw,
         accept_ords.as_mut(),
-        usize::MAX,
+        i32::MAX as usize,
       )?;
       let top_docs = actual.top_docs()?;
 
@@ -722,11 +717,11 @@ where
 
     let mut single_level_graph = DelegateHnswGraph::new(graph);
 
-    let query = self.vector_values(1, dim, random);
-    let v = self.vector_value(&query, 0)?;
+    let query_vectors = self.vector_values(1, dim, random);
+    let v = self.vector_value(&query_vectors, 0)?;
     let query_scorer = self.build_scorer(doc_vectors, v)?;
 
-    let mut collector = TopKnnCollector::new(top_k, usize::MAX)?;
+    let mut collector = TopKnnCollector::new(top_k, i32::MAX as usize)?;
     hnsw_graph_searcher::search(
       &query_scorer,
       &mut collector,
@@ -766,6 +761,10 @@ where
     self.delegate.size()
   }
 
+  fn max_node_id(&self) -> Option<usize> {
+    self.delegate.max_node_id()
+  }
+
   fn next_neighbor(&mut self) -> Result<usize> {
     self.delegate.next_neighbor()
   }
@@ -782,6 +781,14 @@ where
 
   fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
     self.delegate.get_nodes_on_level(level)
+  }
+
+  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
+    self.delegate.get_neighbors_mut(level, node)
+  }
+
+  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
+    self.delegate.get_neighbors(level, node)
   }
 }
 
@@ -1063,8 +1070,8 @@ pub fn assert_level0_neighbors(
   let mut expected = expected.to_vec();
   expected.sort_unstable();
 
-  let neighbors = graph.get_neighbors(0, node)?;
-  let mut actual = neighbors.nodes()[..neighbors.size()].to_vec();
+  let nn = graph.get_neighbors(0, node)?;
+  let mut actual = nn.nodes()[..nn.size()].to_vec();
   actual.sort_unstable();
 
   assert_eq!(
@@ -1231,13 +1238,19 @@ where
     .collect()
 }
 
-pub fn create_random_accept_ords(start_index: usize, length: usize) -> FixedBitSet {
+pub fn create_random_accept_ords<R>(
+  start_index: usize,
+  length: usize,
+  random: &mut R,
+) -> FixedBitSet
+where
+  R: Rng + ?Sized,
+{
   let mut bits = FixedBitSet::new(length);
   for i in 0..start_index.min(length) {
     bits.set(i);
   }
 
-  let mut random = random();
   for i in start_index.min(length)..length {
     if random.random::<f32>() < 0.667 {
       bits.set(i);
@@ -1268,7 +1281,7 @@ where
 {
   random_vector(random, dim)
     .into_iter()
-    .map(|component| (component * 127.0) as u8)
+    .map(|component| (component * 127.0) as i8 as u8)
     .collect()
 }
 

@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rand::SeedableRng;
 use rand::prelude::SmallRng;
+use rand::{RngExt, SeedableRng};
 use rand_chacha::rand_core::Rng;
 use std::sync::Arc;
 use std::time::Instant;
@@ -25,7 +25,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::bit_set::BitSet;
-use crate::core::util::bits::Bits;
+use crate::core::util::bits::{Bits, MatchNoBits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
@@ -35,6 +35,7 @@ use crate::core::util::hnsw::hnsw_graph_searcher::{
 };
 use crate::core::util::hnsw::hnsw_lock::HnswLock;
 use crate::core::util::hnsw::hnsw_util::HnswUtil;
+use crate::core::util::hnsw::initialized_hnsw_graph_builder::InitializedHnswGraphBuilder;
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
@@ -43,27 +44,30 @@ use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSu
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT, NoOutput};
 /// Builder for HNSW graph. See [`HnswGraph`] for a gloss on the algorithm and
 /// the meaning of the hyper-parameters.
-pub struct HnswGraphBuilder<S, B, H>
+pub struct HnswGraphBuilder<B, S, BS, H>
 where
   S: RandomVectorScorerSupplier,
-  B: BitSet,
+  BS: BitSet,
   H: HnswGraphSearcherBase,
+  B: Bits,
 {
   m: usize,
   ml: f64,
   random: SmallRng,
   scorer_supplier: S,
-  graph_searcher: HnswGraphSearcher<B, H>,
+  graph_searcher: HnswGraphSearcher<BS, H>,
   entry_candidates: GraphBuilderKnnCollector,
   beam_candidates: GraphBuilderKnnCollector,
   hnsw: OnHeapHnswGraph,
   hnsw_lock: Option<HnswLock>,
   info_stream: InfoStreamMT,
   frozen: bool,
+  sub: Option<HnswGraphBuilderBaseEnum<B>>,
 }
-impl<S> HnswGraphBuilder<S, FixedBitSet, HnswGraphSearcherBaseDefault>
+impl<B, S> HnswGraphBuilder<B, S, FixedBitSet, HnswGraphSearcherBaseDefault>
 where
   S: RandomVectorScorerSupplier,
+  B: Bits,
 {
   /// Reads all the vectors from vector values, builds a graph connecting them
   /// by their dense ordinals, using the given hyperparameter settings,
@@ -86,6 +90,7 @@ where
     beam_width: usize,
     random: u64,
     graph_size: i32,
+    sub: Option<HnswGraphBuilderBaseEnum<B>>,
   ) -> Result<Self> {
     Self::from_hnsw(
       scorer_supplier,
@@ -93,6 +98,7 @@ where
       beam_width,
       random,
       OnHeapHnswGraph::new(m, graph_size),
+      sub,
     )
   }
 
@@ -102,6 +108,7 @@ where
     beam_width: usize,
     random: u64,
     hnsw: OnHeapHnswGraph,
+    sub: Option<HnswGraphBuilderBaseEnum<B>>,
   ) -> Result<Self> {
     let size = hnsw.size();
     let searcher = HnswGraphSearcher::new(
@@ -109,14 +116,24 @@ where
       FixedBitSet::new(size),
       HnswGraphSearcherBaseDefault,
     );
-    Self::new(scorer_supplier, m, beam_width, random, hnsw, None, searcher)
+    Self::new(
+      scorer_supplier,
+      m,
+      beam_width,
+      random,
+      hnsw,
+      None,
+      searcher,
+      sub,
+    )
   }
 }
-impl<S, B, H> HnswGraphBuilder<S, B, H>
+impl<B, S, BS, H> HnswGraphBuilder<B, S, BS, H>
 where
   S: RandomVectorScorerSupplier,
-  B: BitSet,
+  BS: BitSet,
   H: HnswGraphSearcherBase,
+  B: Bits,
 {
   /// Reads all the vectors from vector values, builds a graph connecting them
   /// by their dense ordinals, using the given hyperparameter settings,
@@ -141,7 +158,8 @@ where
     seed: u64,
     hnsw: OnHeapHnswGraph,
     hnsw_lock: Option<HnswLock>,
-    graph_searcher: HnswGraphSearcher<B, H>,
+    graph_searcher: HnswGraphSearcher<BS, H>,
+    sub: Option<HnswGraphBuilderBaseEnum<B>>,
   ) -> Result<Self> {
     if m == 0 {
       return Err(LuceneError::illegal_argument(
@@ -168,10 +186,11 @@ where
       beam_candidates: GraphBuilderKnnCollector::new(beam_width)?,
       info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
       frozen: false,
+      sub,
     })
   }
   /// add vectors in range [minOrd, maxOrd)
-  pub(crate) fn add_vectors(&mut self, min_ord: usize, max_ord: usize) -> Result<()> {
+  pub(crate) fn add_vectors_with_range(&mut self, min_ord: usize, max_ord: usize) -> Result<()> {
     if self.frozen {
       return Err(LuceneError::illegal_state(
         "This HnswGraphBuilder is frozen and cannot be updated",
@@ -196,10 +215,10 @@ where
 
     Ok(())
   }
-  fn add_all_vectors(&mut self, max_ord: usize) -> Result<()> {
-    self.add_vectors(0, max_ord)
+  fn add_vectors(&mut self, max_ord: usize) -> Result<()> {
+    self.add_vectors_with_range(0, max_ord)
   }
-  fn print_graph_build_status(&mut self, node: usize, start: Instant, t: Instant) -> Instant {
+  fn print_graph_build_status(&self, node: usize, start: Instant, t: Instant) -> Instant {
     let now = Instant::now();
     if self.info_stream.enabled(HNSW_COMPONENT) {
       let elapsed_t = now.duration_since(t).as_millis();
@@ -343,9 +362,9 @@ where
   }
   fn get_random_graph_level(ml: f64, random: &mut impl Rng) -> usize {
     loop {
-      let rand_double: f64 = random.next_u64() as f64;
+      let rand_double: f64 = random.random();
       if rand_double > 0.0 {
-        return (-rand_double.ln() * ml).floor() as usize;
+        return (-rand_double.ln() * ml) as usize;
       }
     }
   }
@@ -539,11 +558,12 @@ where
     &self.scorer_supplier
   }
 }
-impl<S, B, H> HnswBuilder for HnswGraphBuilder<S, B, H>
+impl<B, S, BS, H> HnswBuilder for HnswGraphBuilder<B, S, BS, H>
 where
   S: RandomVectorScorerSupplier,
-  B: BitSet,
+  BS: BitSet,
   H: HnswGraphSearcherBase,
+  B: Bits,
 {
   fn build(&mut self, max_ord: usize) -> Result<&mut OnHeapHnswGraph> {
     if self.frozen {
@@ -559,7 +579,7 @@ where
       );
     }
 
-    self.add_all_vectors(max_ord)?;
+    self.add_vectors(max_ord)?;
     self.get_completed_graph()
   }
 
@@ -582,29 +602,34 @@ where
        to the newly introduced levels (repeating step 2,3 for new levels) and again try to
        promote the node to entry node.
      */
+
+    if let Some(sub) = self.sub.as_mut()
+      && sub.do_add_graph_node(node)?
+    {
+      return Ok(());
+    }
+
     if self.frozen {
       return Err(LuceneError::illegal_state(
         "Graph builder is already frozen",
       ));
     }
 
+    let scorer = self.scorer_supplier.scorer(node)?;
     let node_level = Self::get_random_graph_level(self.ml, &mut self.random);
 
-    {
-      // first add nodes to all levels
-      for level in (0..=node_level).rev() {
-        self.hnsw.add_node(level, node)?;
-      }
-      // then promote itself as entry node if entry node is not set
-      if self.hnsw.try_set_new_entry_node(node, node_level) {
-        return Ok(());
-      }
+    // first add nodes to all levels
+    for level in (0..=node_level).rev() {
+      self.hnsw.add_node(level, node)?;
+    }
+    // then promote itself as entry node if entry node is not set
+    if self.hnsw.try_set_new_entry_node(node, node_level) {
+      return Ok(());
     }
 
     // if the entry node is already set, then we have to do all connections first
     // before we can promote ourselves as entry node
     let mut lowest_unset_level = 0;
-
     let mut cur_max_level;
     loop {
       let mut eps = {
@@ -625,42 +650,37 @@ where
       };
       let top = std::cmp::min(node_level, cur_max_level);
       let mut scratch_per_level = vec![NeighborArray::default(); top - lowest_unset_level + 1];
-      {
-        let scorer = self.scorer_supplier.scorer(node)?;
-        // we first do the search from top to bottom
-        // for levels > nodeLevel search with topk = 1
-        let candidates = &mut self.entry_candidates;
-        for level in (node_level + 1..=cur_max_level).rev() {
-          candidates.clear();
-          self.graph_searcher.search_level_with_collector(
-            candidates,
-            &scorer,
-            level,
-            &eps,
-            &mut self.hnsw,
-            None::<&mut B>,
-          )?;
-          eps[0] = candidates.pop_node()?;
-        }
+      let candidates = &mut self.entry_candidates;
+      for level in (node_level + 1..=cur_max_level).rev() {
+        candidates.clear();
+        self.graph_searcher.search_level_with_collector(
+          candidates,
+          &scorer,
+          level,
+          &eps,
+          &mut self.hnsw,
+          None::<&mut B>,
+        )?;
+        eps[0] = candidates.pop_node()?;
+      }
 
-        // for levels <= nodeLevel search with topk = beamWidth, and add connections
-        let candidates = &mut self.beam_candidates;
-        for i in (0..scratch_per_level.len()).rev() {
-          let level = i + lowest_unset_level;
-          candidates.clear();
-          self.graph_searcher.search_level_with_collector(
-            candidates,
-            &scorer,
-            level,
-            &eps,
-            &mut self.hnsw,
-            None::<&mut B>,
-          )?;
-          eps = candidates.pop_until_nearest_k_nodes()?;
-          let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), self.m + 1), false);
-          Self::pop_to_scratch(candidates, &mut scratch)?;
-          scratch_per_level[i] = scratch;
-        }
+      // for levels <= nodeLevel search with topk = beamWidth, and add connections
+      let candidates = &mut self.beam_candidates;
+      for i in (0..scratch_per_level.len()).rev() {
+        let level = i + lowest_unset_level;
+        candidates.clear();
+        self.graph_searcher.search_level_with_collector(
+          candidates,
+          &scorer,
+          level,
+          &eps,
+          &mut self.hnsw,
+          None::<&mut B>,
+        )?;
+        eps = candidates.pop_until_nearest_k_nodes()?;
+        let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), self.m + 1), false);
+        Self::pop_to_scratch(candidates, &mut scratch)?;
+        scratch_per_level[i] = scratch;
       }
 
       // then do connections from bottom up
@@ -677,7 +697,7 @@ where
         )?;
       }
 
-      lowest_unset_level = len + 1;
+      lowest_unset_level += len;
       debug_assert!(lowest_unset_level == (std::cmp::min(cur_max_level, node_level) + 1));
       if lowest_unset_level > node_level {
         return Ok(());
@@ -713,6 +733,33 @@ where
       self.finish()?;
     }
     Ok(self.get_graph())
+  }
+}
+pub trait HnswGraphBuilderBase {
+  fn do_add_graph_node(&mut self, node: usize) -> Result<bool>;
+}
+pub struct EmptyHnswGraphBuilderBase;
+impl HnswGraphBuilderBase for EmptyHnswGraphBuilderBase {
+  fn do_add_graph_node(&mut self, _node: usize) -> Result<bool> {
+    Ok(false)
+  }
+}
+pub enum HnswGraphBuilderBaseEnum<B>
+where
+  B: Bits,
+{
+  Initialized(InitializedHnswGraphBuilder<B>),
+  Empty(EmptyHnswGraphBuilderBase),
+}
+impl<B> HnswGraphBuilderBase for HnswGraphBuilderBaseEnum<B>
+where
+  B: Bits,
+{
+  fn do_add_graph_node(&mut self, node: usize) -> Result<bool> {
+    match self {
+      HnswGraphBuilderBaseEnum::Initialized(builder) => builder.do_add_graph_node(node),
+      HnswGraphBuilderBaseEnum::Empty(builder) => builder.do_add_graph_node(node),
+    }
   }
 }
 
@@ -816,11 +863,11 @@ pub fn create<S>(
   m: usize,
   beam_width: usize,
   random: u64,
-) -> Result<HnswGraphBuilder<S, FixedBitSet, HnswGraphSearcherBaseDefault>>
+) -> Result<DefaultHnswGraphBuilder<S>>
 where
   S: RandomVectorScorerSupplier,
 {
-  HnswGraphBuilder::from_graph_size(scorer_supplier, m, beam_width, random, -1)
+  HnswGraphBuilder::from_graph_size(scorer_supplier, m, beam_width, random, -1, None)
 }
 
 /// Equivalent to `HnswGraphBuilder::create(scorerSupplier, M, beamWidth,
@@ -831,9 +878,11 @@ pub fn create_with_graph_size<S>(
   beam_width: usize,
   random: u64,
   graph_size: i32,
-) -> Result<HnswGraphBuilder<S, FixedBitSet, HnswGraphSearcherBaseDefault>>
+) -> Result<DefaultHnswGraphBuilder<S>>
 where
   S: RandomVectorScorerSupplier,
 {
-  HnswGraphBuilder::from_graph_size(scorer_supplier, m, beam_width, random, graph_size)
+  HnswGraphBuilder::from_graph_size(scorer_supplier, m, beam_width, random, graph_size, None)
 }
+pub type DefaultHnswGraphBuilder<S> =
+  HnswGraphBuilder<MatchNoBits, S, FixedBitSet, HnswGraphSearcherBaseDefault>;
