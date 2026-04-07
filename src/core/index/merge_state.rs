@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::fields_producer::FieldsProducer;
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
@@ -56,6 +57,7 @@ where
   pub(crate) doc_values_producers: Vec<Option<CRDocValuesProducer<CR>>>,
   pub(crate) fields_producers: Vec<Option<CRFieldsProducer<CR>>>,
   pub(crate) points_readers: Vec<Option<CRPointsReader<CR>>>,
+  pub(crate) knn_vectors_readers: Vec<Option<CRKnnVectorReader<CR>>>,
   pub(crate) field_infos: Vec<Arc<FieldInfos>>,
   pub(crate) live_docs: Vec<Option<CRBits<CR>>>,
   pub(crate) needs_index_sort: bool,
@@ -85,6 +87,7 @@ where
     let mut stored_fields_readers = Vec::with_capacity(num_readers);
     let mut term_vectors_readers = Vec::with_capacity(num_readers);
     let mut points_readers = Vec::with_capacity(num_readers);
+    let mut knn_vectors_readers = Vec::with_capacity(num_readers);
     let mut doc_values_producers = Vec::with_capacity(num_readers);
     let mut field_infos = Vec::with_capacity(num_readers);
     let mut live_docs = Vec::with_capacity(num_readers);
@@ -163,9 +166,18 @@ where
       };
       points_readers.push(points);
 
-      num_docs += reader.num_docs()?;
+      let knn_vectors = if let Some(knn_vectors_reader) = reader.get_vector_reader()? {
+        if let Some(v) = knn_vectors_reader.get_merge_instance()? {
+          Some(v)
+        } else {
+          Some(knn_vectors_reader)
+        }
+      } else {
+        None
+      };
+      knn_vectors_readers.push(knn_vectors);
 
-      // TODO IMPORTANT KNN未实现
+      num_docs += reader.num_docs()?;
     }
 
     segment_info.set_max_doc(num_docs)?;
@@ -183,6 +195,7 @@ where
       doc_values_producers,
       fields_producers,
       points_readers,
+      knn_vectors_readers,
       field_infos,
       live_docs,
       needs_index_sort: false,

@@ -338,6 +338,7 @@ impl Query {
     )
   }
 }
+// for padding
 impl Default for Query {
   fn default() -> Self {
     Query::Dummy(DummyQuery::default())
