@@ -21,8 +21,8 @@ use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::index::codec_reader::{
-  CRBits, CRDocValuesProducer, CRFieldsProducer, CRNormsProducer, CRPointsReader,
-  CRStoredFieldsReader, CRTermVectorsReader, CodecReader,
+  CRBits, CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer,
+  CRPointsReader, CRStoredFieldsReader, CRTermVectorsReader, CodecReader,
 };
 
 use crate::core::index::field_infos::FieldInfos;
