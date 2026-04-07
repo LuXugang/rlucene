@@ -15,12 +15,21 @@
  * limitations under the License.
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::index::SubBase;
+use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::knn_vector_values::DocIndexIterator;
+use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::sorter::DocMap;
+use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
@@ -42,6 +51,15 @@ pub trait KnnVectorsWriter: Accountable {
 
   fn finish(&mut self) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn merge<D, CR>(&mut self, _merge_state: &MergeState<D, CR>) -> Result<i32>
+  where
+    D: Directory,
+    CR: CodecReader,
+    Self: Sized,
+  {
+    todo!()
   }
   fn add_value(
     &mut self,
@@ -127,4 +145,120 @@ where
   }
 
   Ok(())
+}
+
+pub struct FloatVectorValuesSub<F, D, CR>
+where
+  F: FloatVectorValues,
+  D: DocIndexIterator,
+  CR: CodecReader,
+{
+  values: F,
+  iterator: D,
+  doc_map: MergeStateDocMap<CR>,
+}
+impl<F, D, CR> FloatVectorValuesSub<F, D, CR>
+where
+  F: FloatVectorValues,
+  D: DocIndexIterator,
+  CR: CodecReader,
+{
+  fn new(values: F, iterator: D, doc_map: MergeStateDocMap<CR>) -> Self {
+    Self {
+      values,
+      iterator,
+      doc_map,
+    }
+  }
+  fn index(&self) -> Result<i32> {
+    self.iterator.index()
+  }
+}
+impl<F, D, CR> SubBase for FloatVectorValuesSub<F, D, CR>
+where
+  F: FloatVectorValues,
+  D: DocIndexIterator,
+  CR: CodecReader,
+{
+  fn next_doc(&mut self) -> Result<i32> {
+    self.iterator.next_doc()
+  }
+
+  type DocMap = MergeStateDocMap<CR>;
+
+  fn get_doc_map(&self) -> Result<&Self::DocMap> {
+    Ok(&self.doc_map)
+  }
+}
+pub struct ByteVectorValuesSub<B, D, CR>
+where
+  B: ByteVectorValues,
+  D: DocIndexIterator,
+  CR: CodecReader,
+{
+  values: B,
+  iterator: D,
+  doc_map: MergeStateDocMap<CR>,
+}
+
+impl<B, D, CR> ByteVectorValuesSub<B, D, CR>
+where
+  B: ByteVectorValues,
+  D: DocIndexIterator,
+  CR: CodecReader,
+{
+  fn new(values: B, iterator: D, doc_map: MergeStateDocMap<CR>) -> Self {
+    Self {
+      values,
+      iterator,
+      doc_map,
+    }
+  }
+
+  fn index(&self) -> Result<i32> {
+    self.iterator.index()
+  }
+}
+
+impl<B, D, CR> SubBase for ByteVectorValuesSub<B, D, CR>
+where
+  B: ByteVectorValues,
+  D: DocIndexIterator,
+  CR: CodecReader,
+{
+  type DocMap = MergeStateDocMap<CR>;
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.iterator.next_doc()
+  }
+
+  fn get_doc_map(&self) -> Result<&Self::DocMap> {
+    Ok(&self.doc_map)
+  }
+}
+
+pub(crate) fn validate_field_encoding(
+  field_info: &FieldInfo,
+  expected: VectorEncoding,
+) -> Result<()> {
+  debug_assert!(field_info.has_vector_values());
+
+  let field_encoding = *field_info.get_vector_encoding();
+  if field_encoding != expected {
+    return Err(LuceneError::unsupported_operation(format!(
+      "Cannot merge vectors encoded as [{field_encoding}] as {expected}"
+    )));
+  }
+
+  Ok(())
+}
+
+pub(crate) fn has_vector_values(field_infos: &FieldInfos, field_name: &str) -> bool {
+  if !field_infos.has_vector_values() {
+    return false;
+  }
+
+  field_infos
+    .field_info_by_name(field_name)
+    .is_some_and(|info| info.has_vector_values())
 }

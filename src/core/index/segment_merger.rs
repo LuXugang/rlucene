@@ -18,6 +18,8 @@ use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::fields_consumer::FieldsConsumer;
+use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
+use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::codecs::norms_consumer::NormsConsumer;
 use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::codecs::norms_producer::NormsProducer;
@@ -44,6 +46,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use std::sync::Arc;
 use std::time::Instant;
+
 /// The `SegmentMerger` class combines two or more segments, represented by
 /// `IndexReader`s, into a single segment. Call the `merge` method to combine
 /// the segments.
@@ -242,13 +245,12 @@ where
 
     Ok(num_merged)
   }
-  fn merge_vector_values(&self, _segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
-    // let mut writer =
-    //     LATEST_CODEC
-    //         .knn_vectors_format()
-    //         .fields_writer(segment_write_state)?;
-    //
-    // writer.merge(&mut self.merge_state)?;
+  fn merge_vector_values(&self, segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
+    let mut writer = LATEST_CODEC
+      .knn_vectors_format()?
+      .fields_writer(segment_write_state, self.merge_state.segment_info)?;
+
+    writer.merge(&self.merge_state)?;
 
     Ok(())
   }
