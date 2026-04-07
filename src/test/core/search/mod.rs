@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod base_knn_vector_query_test_case;
 pub(crate) mod block_score_query_wrapper;
 pub mod bulk_scorer_wrapper_scorer;
 pub mod check_hits;
@@ -30,6 +31,8 @@ mod test_conjunctions;
 mod test_doc_values_queries;
 pub mod test_doc_values_rewrite_method;
 mod test_early_termination;
+mod test_knn_byte_vector_query;
+mod test_knn_float_vector_query;
 pub mod test_max_clause_limit;
 pub mod test_min_should_match2;
 pub mod test_multi_slice_merge;

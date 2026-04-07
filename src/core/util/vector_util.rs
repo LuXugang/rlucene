@@ -273,12 +273,14 @@ impl VectorUtil {
   }
 }
 #[cfg(test)]
-mod tests {
+pub mod tests {
   use super::{VECTOR_UTIL, VectorUtil};
+  use crate::core::index::BytesRef;
   use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
   use crate::core::util::error::lucene_error::LuceneError;
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use crate::test::core::util::test_util::TestUtil;
   use rand::{Rng, RngExt};
 
   const DELTA: f32 = 1e-4;
@@ -477,7 +479,8 @@ mod tests {
 
   #[test]
   fn test_self_dot_product_bytes() {
-    let v = random_vector_bytes();
+    let mut random = random();
+    let v = random_vector_bytes(&mut random);
     assert_approx_eq(
       l2_u8(&v),
       VECTOR_UTIL.dot_product_u8(&v, &v).unwrap() as f32,
@@ -497,7 +500,8 @@ mod tests {
 
   #[test]
   fn test_self_square_distance_bytes() {
-    let v = random_vector_bytes();
+    let mut random = random();
+    let v = random_vector_bytes(&mut random);
     assert_eq!(0, VECTOR_UTIL.square_distance_u8(&v, &v).unwrap());
   }
 
@@ -513,7 +517,8 @@ mod tests {
 
   #[test]
   fn test_random_square_distance_bytes() {
-    let v = random_vector_bytes();
+    let mut random = random();
+    let v = random_vector_bytes(&mut random);
     let u = negative_u8(&v);
     assert_approx_eq(
       4.0 * l2_u8(&v),
@@ -535,9 +540,9 @@ mod tests {
 
   #[test]
   fn test_self_cosine_bytes() {
-    let mut v = random_vector_bytes();
-    let mut rng = random();
-    v[0] = (rng.random_range(1..127) as i8) as u8;
+    let mut random = random();
+    let mut v = random_vector_bytes(&mut random);
+    v[0] = (random.random_range(1..127) as i8) as u8;
     assert_approx_eq(1.0, VECTOR_UTIL.cosine_u8(&v, &v).unwrap(), DELTA);
   }
 
@@ -668,16 +673,32 @@ mod tests {
     (0..dim).map(|_| random.random::<f32>()).collect()
   }
 
-  fn random_vector_bytes() -> Vec<u8> {
-    let mut rng = random();
-    random_vector_bytes_dim(rng.random_range(1..=100))
+  fn random_vector_bytes<R>(random: &mut R) -> Vec<u8>
+  where
+    R: Rng + ?Sized,
+  {
+    let len = TestUtil::next_usize(random, 1, 100);
+    let mut v: BytesRef<Vec<u8>> = TestUtil::random_binary_term_with_len(random, len);
+    for i in v.offset..(v.offset + v.length) {
+      if v.bytes[i] == i8::MIN as u8 {
+        v.bytes[i] = (-127i8) as u8;
+      }
+    }
+    assert_eq!(v.offset, 0);
+    v.bytes
   }
 
-  fn random_vector_bytes_dim(dim: usize) -> Vec<u8> {
-    let mut rng = random();
-    (0..dim)
-      .map(|_| rng.random_range(-127i8..=127i8) as u8)
-      .collect()
+  pub fn random_vector_bytes_dim<R>(random: &mut R, dim: usize) -> Vec<u8>
+  where
+    R: Rng + ?Sized,
+  {
+    let mut v: BytesRef<Vec<u8>> = TestUtil::random_binary_term_with_len(random, dim);
+    for i in v.offset..(v.offset + v.length) {
+      if v.bytes[i] == i8::MIN as u8 {
+        v.bytes[i] = (-127i8) as u8;
+      }
+    }
+    v.bytes
   }
 
   fn slow_xor_bit_count(a: &[u8], b: &[u8]) -> i32 {

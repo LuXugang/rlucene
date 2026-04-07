@@ -38,6 +38,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::IndexOutput;
@@ -182,9 +183,10 @@ where
   where
     O: IndexOutput,
   {
-    let field_data = self.fields.get(field_data_idx).ok_or_else(|| {
+    let field_data = self.fields.get_mut(field_data_idx).ok_or_else(|| {
       LuceneError::illegal_argument(format!("Invalid field_data_idx: {}", field_data_idx))
     })?;
+    field_data.docs_with_field.finish();
     let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
 
     match field_data.field_info.get_vector_encoding() {
