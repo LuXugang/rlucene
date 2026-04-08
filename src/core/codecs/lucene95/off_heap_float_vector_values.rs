@@ -213,9 +213,6 @@ where
       iter_called: false,
     })
   }
-  pub fn ord_to_doc(&self, ord: i32) -> i32 {
-    ord
-  }
 }
 
 impl<I, F> KnnVectorValues for DenseOffHeapVectorValues<I, F>
@@ -229,6 +226,10 @@ where
 
   fn size(&self) -> usize {
     self.base.size
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    Ok(ord)
   }
 
   type KnnVectorValues = DummyKnnVectorsWriter;
@@ -736,7 +737,23 @@ where
     }
   }
 
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(e) => e.ord_to_doc(ord),
+      OffHeapFloatVectorValuesEnum::Dense(e) => e.ord_to_doc(ord),
+      OffHeapFloatVectorValuesEnum::Sparse(e) => e.ord_to_doc(ord),
+    }
+  }
+
   type KnnVectorValues = DummyKnnVectorsWriter;
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(e) => e.get_vector_byte_length(),
+      OffHeapFloatVectorValuesEnum::Dense(e) => e.get_vector_byte_length(),
+      OffHeapFloatVectorValuesEnum::Sparse(e) => e.get_vector_byte_length(),
+    }
+  }
 
   fn get_encoding(&self) -> VectorEncoding {
     match self {

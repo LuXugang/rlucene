@@ -990,7 +990,9 @@ pub trait BaseKnnVectorQueryTestCase {
         Store::Yes,
       )?);
       writer.add_document(doc)?;
-
+      let mut doc = Document::new();
+      doc.add(StringField::from_string("other", "value", Store::No)?);
+      writer.add_document(doc)?;
       // if random.random_bool(0.5) {
       //   for j in 0..TestUtil::next_usize(random, 1, 5) {
       //     let mut doc = Document::new();

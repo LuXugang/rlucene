@@ -592,7 +592,7 @@ impl QueryBase for DocAndScoreQuery {
 
   fn create_weight<IRC>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
   ) -> Result<QueryWeight<IRC>>
@@ -600,6 +600,11 @@ impl QueryBase for DocAndScoreQuery {
     IRC: IndexReaderContext,
     Self: Sized,
   {
+    if searcher.get_top_reader_context().base().id() != &self.context_identity {
+      return Err(LuceneError::illegal_state(
+        "This DocAndScore query was created by a different reader",
+      ));
+    }
     Ok(Box::new(DocAndScoreQueryWeight::new(self, _boost)))
   }
 

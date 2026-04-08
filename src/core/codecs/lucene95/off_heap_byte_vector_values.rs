@@ -738,7 +738,23 @@ where
     }
   }
 
-  type KnnVectorValues = DummyKnnVectorsWriter;
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::Empty(e) => e.ord_to_doc(ord),
+      Self::Dense(e) => e.ord_to_doc(ord),
+      Self::Sparse(e) => e.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = Self;
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      Self::Empty(e) => e.get_vector_byte_length(),
+      Self::Dense(e) => e.get_vector_byte_length(),
+      Self::Sparse(e) => e.get_vector_byte_length(),
+    }
+  }
 
   fn get_encoding(&self) -> VectorEncoding {
     match self {
@@ -825,6 +841,22 @@ where
       Self::Empty(e) => ByteVectorValues::get_encoding(e),
       Self::Dense(e) => ByteVectorValues::get_encoding(e),
       Self::Sparse(e) => ByteVectorValues::get_encoding(e),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    match self {
+      Self::Empty(e) => e.get_vectors_mut(),
+      Self::Dense(e) => e.get_vectors_mut(),
+      Self::Sparse(e) => e.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    match self {
+      Self::Empty(e) => e.get_vectors(),
+      Self::Dense(e) => e.get_vectors(),
+      Self::Sparse(e) => e.get_vectors(),
     }
   }
 }
