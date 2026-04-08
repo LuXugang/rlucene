@@ -88,6 +88,58 @@ mod base_knn_vector_query_test_case_tests {
   fn test_simple_filter() -> Result<()> {
     run_case(|case, _random| case.test_simple_filter())
   }
+
+  #[test]
+  fn test_filter_with_no_vector_matches() -> Result<()> {
+    run_case(|case, _random| case.test_filter_with_no_vector_matches())
+  }
+
+  #[test]
+  fn test_dimension_mismatch() -> Result<()> {
+    run_case(|case, _random| case.test_dimension_mismatch())
+  }
+
+  #[test]
+  fn test_non_vector_field() -> Result<()> {
+    run_case(|case, _random| case.test_non_vector_field())
+  }
+
+  #[test]
+  fn test_illegal_arguments() -> Result<()> {
+    run_case(|case, _random| case.test_illegal_arguments())
+  }
+
+  #[test]
+
+  fn test_score_euclidean() -> Result<()> {
+    run_case(|case, _random| case.test_score_euclidean())
+  }
+
+  #[test]
+
+  fn test_score_cosine() -> Result<()> {
+    run_case(|case, _random| case.test_score_cosine())
+  }
+
+  #[test]
+  fn test_score_mip() -> Result<()> {
+    run_case(|case, _random| case.test_score_mip())
+  }
+
+  #[test]
+  fn test_explain() -> Result<()> {
+    run_case(|case, _random| case.test_explain())
+  }
+
+  #[test]
+  fn test_explain_multiple_segments() -> Result<()> {
+    run_case(|case, _random| case.test_explain_multiple_segments())
+  }
+
+  #[test]
+  fn test_skewed_index() -> Result<()> {
+    run_case(|case, _random| case.test_skewed_index())
+  }
 }
 impl BaseKnnVectorQueryTestCase for TestKnnByteVectorQuery {
   type KnnVectorQuery = KnnByteVectorQuery;
