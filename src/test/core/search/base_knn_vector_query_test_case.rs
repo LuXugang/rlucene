@@ -55,6 +55,7 @@ use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::at_least_usize;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_searcher_with_reader;
+use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::fmt::Debug;
@@ -990,21 +991,18 @@ pub trait BaseKnnVectorQueryTestCase {
         Store::Yes,
       )?);
       writer.add_document(doc)?;
-      let mut doc = Document::new();
-      doc.add(StringField::from_string("other", "value", Store::No)?);
-      writer.add_document(doc)?;
-      // if random.random_bool(0.5) {
-      //   for j in 0..TestUtil::next_usize(random, 1, 5) {
-      //     let mut doc = Document::new();
-      //     doc.add(StringField::from_string("other", "value", Store::No)?);
-      //     doc.add(StringField::from_string(
-      //       "id",
-      //       format!("id{j}"),
-      //       Store::Yes,
-      //     )?);
-      //     writer.add_document(doc)?;
-      //   }
-      // }
+      if random.random_bool(0.5) {
+        for j in 0..TestUtil::next_usize(random, 1, 5) {
+          let mut doc = Document::new();
+          doc.add(StringField::from_string("other", "value", Store::No)?);
+          doc.add(StringField::from_string(
+            "id",
+            format!("id{j}"),
+            Store::Yes,
+          )?);
+          writer.add_document(doc)?;
+        }
+      }
     }
 
     for _ in 0..5 {

@@ -46,6 +46,8 @@ use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use crate::core::util::{HasIdentity, TryIntoInt};
 use parking_lot::Mutex;
 use std::borrow::Cow;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 struct OffHeapByteVectorValues<I, F>
@@ -371,7 +373,7 @@ where
   I: Clone,
 {
   base: OffHeapByteVectorValues<I::IndexInput, F>,
-  ord_to_doc: DirectMonotonicReader<I::RandomAccessSlice>,
+  ord_to_doc: Rc<RefCell<DirectMonotonicReader<I::RandomAccessSlice>>>,
   data_in: I,
   configuration: Arc<OrdToDocDISIReaderConfiguration>,
   disi: Option<DocIndexIteratorImpl<I>>,
@@ -421,7 +423,7 @@ where
 
     Ok(Self {
       base,
-      ord_to_doc,
+      ord_to_doc: Rc::new(RefCell::new(ord_to_doc)),
       data_in,
       configuration,
       disi,
@@ -457,7 +459,7 @@ where
   }
 
   fn ord_to_doc(&self, ord: usize) -> Result<usize> {
-    Ok(self.ord_to_doc.get(ord)? as usize)
+    Ok(self.ord_to_doc.borrow_mut().get_mut(ord)? as usize)
   }
 
   type KnnVectorValues = DummyKnnVectorsWriter;
@@ -467,7 +469,7 @@ where
   }
 
   type Bits<'a, B>
-    = SparseBits<'a, B, I::RandomAccessSlice>
+    = SparseBits<B, I::RandomAccessSlice>
   where
     B: Bits,
     Self: 'a;
@@ -476,7 +478,7 @@ where
   where
     B: Bits,
   {
-    accept_docs.map(|bits| SparseBits::new(bits, self.base.size, &self.ord_to_doc))
+    accept_docs.map(|bits| SparseBits::new(bits, self.base.size, self.ord_to_doc.clone()))
   }
 
   type DocIndexIterator = DocIndexIteratorImpl<I>;
@@ -582,23 +584,23 @@ where
   }
 }
 
-pub struct SparseBits<'a, B, R>
+pub struct SparseBits<B, R>
 where
   B: Bits,
   R: RandomAccessInput,
 {
   accept_docs: B,
   size: usize,
-  map: &'a DirectMonotonicReader<R>,
+  map: Rc<RefCell<DirectMonotonicReader<R>>>,
   id: Identity,
 }
 
-impl<'a, B, R> SparseBits<'a, B, R>
+impl<B, R> SparseBits<B, R>
 where
   B: Bits,
   R: RandomAccessInput,
 {
-  fn new(accept_docs: B, size: usize, map: &'a DirectMonotonicReader<R>) -> Self {
+  fn new(accept_docs: B, size: usize, map: Rc<RefCell<DirectMonotonicReader<R>>>) -> Self {
     Self {
       accept_docs,
       size,
@@ -608,7 +610,7 @@ where
   }
 }
 
-impl<B, R> HasIdentity for SparseBits<'_, B, R>
+impl<B, R> HasIdentity for SparseBits<B, R>
 where
   B: Bits,
   R: RandomAccessInput,
@@ -618,13 +620,13 @@ where
   }
 }
 
-impl<B, R> Bits for SparseBits<'_, B, R>
+impl<B, R> Bits for SparseBits<B, R>
 where
   B: Bits,
   R: RandomAccessInput,
 {
   fn get(&self, index: usize) -> Result<bool> {
-    let index = self.map.get(index)? as usize;
+    let index = self.map.borrow_mut().get_mut(index)? as usize;
     self.accept_docs.get(index)
   }
 
@@ -769,7 +771,7 @@ where
   }
 
   type Bits<'a, B>
-    = OffHeapByteVectorValueBitsEnum<'a, I::RandomAccessSlice, B>
+    = OffHeapByteVectorValueBitsEnum<I::RandomAccessSlice, B>
   where
     B: Bits,
     Self: 'a;
@@ -866,16 +868,16 @@ where
   }
 }
 
-pub enum OffHeapByteVectorValueBitsEnum<'a, R, B>
+pub enum OffHeapByteVectorValueBitsEnum<R, B>
 where
   R: RandomAccessInput,
   B: Bits,
 {
   Dense(B),
-  Sparse(SparseBits<'a, B, R>),
+  Sparse(SparseBits<B, R>),
 }
 
-impl<R, B> HasIdentity for OffHeapByteVectorValueBitsEnum<'_, R, B>
+impl<R, B> HasIdentity for OffHeapByteVectorValueBitsEnum<R, B>
 where
   R: RandomAccessInput,
   B: Bits,
@@ -888,7 +890,7 @@ where
   }
 }
 
-impl<R, B> Bits for OffHeapByteVectorValueBitsEnum<'_, R, B>
+impl<R, B> Bits for OffHeapByteVectorValueBitsEnum<R, B>
 where
   R: RandomAccessInput,
   B: Bits,
