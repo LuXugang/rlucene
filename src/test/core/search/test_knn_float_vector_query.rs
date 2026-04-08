@@ -21,10 +21,10 @@ use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::query::Query;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::vector_util::tests::random_vector_dim;
 use crate::test::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use rand::Rng;
-use rand::RngExt;
 use rand::rngs::StdRng;
 use std::sync::Arc;
 
@@ -72,37 +72,37 @@ mod base_knn_vector_query_test_case_tests {
 
   #[test]
   fn test_find_all() -> Result<()> {
-    run_case(|case, _random| case.test_find_all())
+    run_case(|case, random| case.test_find_all(random))
   }
 
   #[test]
   fn test_find_fewer() -> Result<()> {
-    run_case(|case, _random| case.test_find_fewer())
+    run_case(|case, random| case.test_find_fewer(random))
   }
 
   #[test]
   fn test_search_boost() -> Result<()> {
-    run_case(|case, _random| case.test_search_boost())
+    run_case(|case, random| case.test_search_boost(random))
   }
 
   #[test]
   fn test_simple_filter() -> Result<()> {
-    run_case(|case, _random| case.test_simple_filter())
+    run_case(|case, random| case.test_simple_filter(random))
   }
 
   #[test]
   fn test_filter_with_no_vector_matches() -> Result<()> {
-    run_case(|case, _random| case.test_filter_with_no_vector_matches())
+    run_case(|case, random| case.test_filter_with_no_vector_matches(random))
   }
 
   #[test]
   fn test_dimension_mismatch() -> Result<()> {
-    run_case(|case, _random| case.test_dimension_mismatch())
+    run_case(|case, random| case.test_dimension_mismatch(random))
   }
 
   #[test]
   fn test_non_vector_field() -> Result<()> {
-    run_case(|case, _random| case.test_non_vector_field())
+    run_case(|case, random| case.test_non_vector_field(random))
   }
 
   #[test]
@@ -113,33 +113,33 @@ mod base_knn_vector_query_test_case_tests {
   #[test]
 
   fn test_score_euclidean() -> Result<()> {
-    run_case(|case, _random| case.test_score_euclidean())
+    run_case(|case, random| case.test_score_euclidean(random))
   }
 
   #[test]
 
   fn test_score_cosine() -> Result<()> {
-    run_case(|case, _random| case.test_score_cosine())
+    run_case(|case, random| case.test_score_cosine(random))
   }
 
   #[test]
   fn test_score_mip() -> Result<()> {
-    run_case(|case, _random| case.test_score_mip())
+    run_case(|case, random| case.test_score_mip(random))
   }
 
   #[test]
   fn test_explain() -> Result<()> {
-    run_case(|case, _random| case.test_explain())
+    run_case(|case, random| case.test_explain(random))
   }
 
   #[test]
   fn test_explain_multiple_segments() -> Result<()> {
-    run_case(|case, _random| case.test_explain_multiple_segments())
+    run_case(|case, random| case.test_explain_multiple_segments(random))
   }
 
   #[test]
   fn test_skewed_index() -> Result<()> {
-    run_case(|case, _random| case.test_skewed_index())
+    run_case(|case, random| case.test_skewed_index(random))
   }
 }
 
@@ -180,7 +180,7 @@ impl BaseKnnVectorQueryTestCase for TestKnnFloatVectorQuery {
   where
     R: Rng + ?Sized,
   {
-    (0..dim).map(|_| random.random::<f32>()).collect()
+    random_vector_dim(random, dim)
   }
 
   fn get_knn_vector_field_with_similarity(

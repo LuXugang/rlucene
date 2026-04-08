@@ -748,7 +748,7 @@ where
 
     let offset = self
       .graph_level_node_offsets
-      .get(target_index + self.graph_level_node_index_offsets[level])?;
+      .get_mut(target_index + self.graph_level_node_index_offsets[level])?;
 
     self.data_in.seek(offset as usize)?;
 

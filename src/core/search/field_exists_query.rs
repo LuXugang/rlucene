@@ -20,14 +20,17 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRDisis, LRNormNumericDocValues, LeafReader};
+use crate::core::index::knn_vector_values::KnnVectorValues;
+use crate::core::index::leaf_reader::{
+  IRCByteVectorIter, IRCFloatVectorIter, LRDisis, LRNormNumericDocValues, LeafReader,
+};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::PointValues;
 use crate::core::index::terms::Terms;
+use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum4;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
@@ -37,6 +40,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
+use crate::core::util::TryIntoInt;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Debug;
@@ -72,11 +76,25 @@ impl FieldExistsQuery {
       field_info.name
     )
   }
-  fn get_vector_values_size<LR>(&self, _fi: &FieldInfo, _reader: &LR) -> i32
+  fn get_vector_values_size<LR>(&self, fi: &FieldInfo, reader: &LR) -> Result<usize>
   where
     LR: LeafReader,
   {
-    todo!()
+    debug_assert_eq!(fi.name, self.field);
+    match fi.get_vector_encoding() {
+      VectorEncoding::FLOAT32(_) => match reader.get_float_vector_values(&self.field)? {
+        Some(float_vector_values) => Ok(float_vector_values.size()),
+        None => Err(LuceneError::illegal_state(
+          "unexpected null float vector values",
+        )),
+      },
+      VectorEncoding::BYTE(_) => match reader.get_byte_vector_values(&self.field)? {
+        Some(byte_vector_values) => Ok(byte_vector_values.size()),
+        None => Err(LuceneError::illegal_state(
+          "unexpected null byte vector values",
+        )),
+      },
+    }
   }
 }
 
@@ -149,8 +167,10 @@ impl QueryBase for FieldExistsQuery {
           break;
         }
       } else if field_info.get_vector_dimension() != 0 {
-        // TODO IMPORTANT
-        todo!()
+        if self.get_vector_values_size(&field_info, leaf)? != leaf.max_doc()? as usize {
+          all_readers_rewritable = false;
+          break;
+        }
       } else if *field_info.get_doc_values_type() != DocValuesType::None {
         // This optimization is possible due to LUCENE-9334 enforcing a field to always uses the
         // same data structures (all or nothing). Since there's no index statistic to detect when
@@ -241,7 +261,12 @@ where
     Ok(true)
   }
 }
-pub type Disi<LR> = DocIdSetIteratorEnum3<LRNormNumericDocValues<LR>, DummyDISI, LRDisis<LR>>;
+pub type Disi<LR> = DocIdSetIteratorEnum4<
+  IRCByteVectorIter<LR>,
+  IRCFloatVectorIter<LR>,
+  LRNormNumericDocValues<LR>,
+  LRDisis<LR>,
+>;
 impl<IRC> Weight<IRC> for FieldExistsWeight
 where
   IRC: IndexReaderContext,
@@ -292,34 +317,48 @@ where
       // the field indexes norms
       reader
         .get_norm_values(field)?
-        .map(Disi::<IRCLeafReader<IRC>>::A)
+        .map(Disi::<IRCLeafReader<IRC>>::C)
     } else if fi.get_vector_dimension() != 0 {
-      // TODO IMPORTANT vector未实现
-      unimplemented!();
+      match fi.get_vector_encoding() {
+        VectorEncoding::BYTE(_) => Some(Disi::<IRCLeafReader<IRC>>::A(
+          context
+            .reader()
+            .get_byte_vector_values(field)?
+            .ok_or_else(|| LuceneError::illegal_state("unexpected null byte vector values"))?
+            .iterator()?,
+        )),
+        VectorEncoding::FLOAT32(_) => Some(Disi::<IRCLeafReader<IRC>>::B(
+          context
+            .reader()
+            .get_float_vector_values(field)?
+            .ok_or_else(|| LuceneError::illegal_state("unexpected null float vector values"))?
+            .iterator()?,
+        )),
+      }
     } else if *fi.get_doc_values_type() != DocValuesType::None {
       match *fi.get_doc_values_type() {
         DocValuesType::Numeric => reader
           .get_numeric_doc_values(field)?
-          .map(|numeric| Disi::<IRCLeafReader<IRC>>::C(LRDisis::<IRCLeafReader<IRC>>::A(numeric))),
+          .map(|numeric| Disi::<IRCLeafReader<IRC>>::D(LRDisis::<IRCLeafReader<IRC>>::A(numeric))),
 
         DocValuesType::Binary => reader
           .get_binary_doc_values(field)?
-          .map(|binary| Disi::<IRCLeafReader<IRC>>::C(LRDisis::<IRCLeafReader<IRC>>::B(binary))),
+          .map(|binary| Disi::<IRCLeafReader<IRC>>::D(LRDisis::<IRCLeafReader<IRC>>::B(binary))),
 
         DocValuesType::Sorted => reader
           .get_sorted_doc_values(field)?
-          .map(|sorted| Disi::<IRCLeafReader<IRC>>::C(LRDisis::<IRCLeafReader<IRC>>::C(sorted))),
+          .map(|sorted| Disi::<IRCLeafReader<IRC>>::D(LRDisis::<IRCLeafReader<IRC>>::C(sorted))),
 
         DocValuesType::SortedNumeric => {
           reader
             .get_sorted_numeric_doc_values(field)?
             .map(|sorted_numeric| {
-              Disi::<IRCLeafReader<IRC>>::C(LRDisis::<IRCLeafReader<IRC>>::D(sorted_numeric))
+              Disi::<IRCLeafReader<IRC>>::D(LRDisis::<IRCLeafReader<IRC>>::D(sorted_numeric))
             })
         },
 
         DocValuesType::SortedSet => reader.get_sorted_set_doc_values(field)?.map(|sorted_set| {
-          Disi::<IRCLeafReader<IRC>>::C(LRDisis::<IRCLeafReader<IRC>>::E(sorted_set))
+          Disi::<IRCLeafReader<IRC>>::D(LRDisis::<IRCLeafReader<IRC>>::E(sorted_set))
         }),
         DocValuesType::None => None,
       }
@@ -359,7 +398,10 @@ where
     if fi.has_vector_values() {
       // the field indexes vectors
       if !reader.has_deletions()? {
-        return Ok(self.query.get_vector_values_size(fi.as_ref(), reader));
+        return self
+          .query
+          .get_vector_values_size(fi.as_ref(), reader)?
+          .try_convert();
       }
       return <Self as Weight<IRC>>::default_count(self, ctx);
     }

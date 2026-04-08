@@ -819,7 +819,8 @@ impl Scorable for ScorerImpl {
     let upto = self
       .disi
       .upto
-      .ok_or_else(|| LuceneError::illegal_state("upto is None"))?;
+      .filter(|&upto| upto < self.scorers.len())
+      .ok_or_else(|| LuceneError::array_index_out_of_bounds("upto is out of bounds"))?;
     Ok(self.scorers[upto] * self.boost)
   }
 }

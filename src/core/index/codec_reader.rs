@@ -334,8 +334,8 @@ pub trait CodecReader: LeafReader {
     let fi = self.get_field_infos()?.field_info_by_name(field);
     match fi {
       Some(f)
-        if f.get_vector_dimension() > 0 && *f.get_vector_encoding() == VectorEncoding::BYTE(1) => {
-      },
+        if f.get_vector_dimension() > 0
+          && *f.get_vector_encoding() == VectorEncoding::FLOAT32(4) => {},
       _ => return Ok(()),
     };
 

@@ -22,6 +22,7 @@ use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_reader::{CacheHelper, IndexReader};
+use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -261,6 +262,8 @@ pub type LRDisis<LR> = DocIdSetIteratorEnum5<
   LRSortedNumericDocValues<LR>,
   LRSortedSetDocValues<LR>,
 >;
+pub type IRCByteVectorIter<LR> = <LRByteVectorValues<LR> as KnnVectorValues>::DocIndexIterator;
+pub type IRCFloatVectorIter<LR> = <LRFloatVectorValues<LR> as KnnVectorValues>::DocIndexIterator;
 // Bits
 pub type LRBits<LR> = <LR as LeafReader>::Bits;
 

@@ -666,7 +666,7 @@ pub mod tests {
     random_vector_dim(random, dim)
   }
 
-  fn random_vector_dim<R>(random: &mut R, dim: usize) -> Vec<f32>
+  pub fn random_vector_dim<R>(random: &mut R, dim: usize) -> Vec<f32>
   where
     R: Rng + ?Sized,
   {

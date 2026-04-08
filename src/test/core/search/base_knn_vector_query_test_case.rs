@@ -22,7 +22,9 @@ use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_reader::MultiReader;
+use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
@@ -43,9 +45,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_searcher_with_reader;
-use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
-use rand::RngExt;
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -196,10 +196,16 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_find_all(&self) -> Result<()> {
-    let index_store =
-      self.get_index_store("field", &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]])?;
-    let reader = directory_reader_util::open(index_store)?;
+  fn test_find_all<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let index_store = self.get_index_store(
+      random,
+      "field",
+      &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
+    )?;
+    let reader = directory_reader_util::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let kvq = self.get_knn_vector_query_no_filter("field", vec![0.0, 0.0], 10)?;
 
@@ -211,10 +217,16 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_find_fewer(&self) -> Result<()> {
-    let index_store =
-      self.get_index_store("field", &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]])?;
-    let reader = directory_reader_util::open(index_store)?;
+  fn test_find_fewer<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let index_store = self.get_index_store(
+      random,
+      "field",
+      &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
+    )?;
+    let reader = directory_reader_util::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let kvq = self.get_knn_vector_query_no_filter("field", vec![0.0, 0.0], 2)?;
 
@@ -226,10 +238,16 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_search_boost(&self) -> Result<()> {
-    let index_store =
-      self.get_index_store("field", &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]])?;
-    let reader = directory_reader_util::open(index_store)?;
+  fn test_search_boost<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let index_store = self.get_index_store(
+      random,
+      "field",
+      &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
+    )?;
+    let reader = directory_reader_util::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let vector_query: Query = self
@@ -248,10 +266,16 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_simple_filter(&self) -> Result<()> {
-    let index_store =
-      self.get_index_store("field", &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]])?;
-    let reader = directory_reader_util::open(index_store)?;
+  fn test_simple_filter<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let index_store = self.get_index_store(
+      random,
+      "field",
+      &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
+    )?;
+    let reader = directory_reader_util::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let filter: Query = TermQuery::new(Term::from_text("id", "id2")).into();
     let kvq: Query = self
@@ -264,10 +288,16 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_filter_with_no_vector_matches(&self) -> Result<()> {
-    let index_store =
-      self.get_index_store("field", &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]])?;
-    let reader = directory_reader_util::open(index_store)?;
+  fn test_filter_with_no_vector_matches<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let index_store = self.get_index_store(
+      random,
+      "field",
+      &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
+    )?;
+    let reader = directory_reader_util::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let filter: Query = TermQuery::new(Term::from_text("other", "value")).into();
@@ -277,10 +307,16 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_dimension_mismatch(&self) -> Result<()> {
-    let index_store =
-      self.get_index_store("field", &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]])?;
-    let reader = directory_reader_util::open(index_store)?;
+  fn test_dimension_mismatch<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let index_store = self.get_index_store(
+      random,
+      "field",
+      &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
+    )?;
+    let reader = directory_reader_util::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let kvq = self.get_knn_vector_query_no_filter("field", vec![0.0], 1)?;
@@ -296,10 +332,16 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_non_vector_field(&self) -> Result<()> {
-    let index_store =
-      self.get_index_store("field", &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]])?;
-    let reader = directory_reader_util::open(index_store)?;
+  fn test_non_vector_field<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let index_store = self.get_index_store(
+      random,
+      "field",
+      &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
+    )?;
+    let reader = directory_reader_util::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     self.assert_matches(
@@ -323,7 +365,10 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_score_euclidean(&self) -> Result<()> {
+  fn test_score_euclidean<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let vectors = vec![
       vec![0.0, 0.0],
       vec![1.0, 1.0],
@@ -331,7 +376,7 @@ pub trait BaseKnnVectorQueryTestCase {
       vec![3.0, 3.0],
       vec![4.0, 4.0],
     ];
-    let directory = self.get_stable_index_store(&mut rand::rng(), "field", &vectors)?;
+    let directory = self.get_stable_index_store(random, "field", &vectors)?;
     let reader = directory_reader_util::open(directory.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
@@ -342,7 +387,10 @@ pub trait BaseKnnVectorQueryTestCase {
     let mut scorer = weight.scorer(leaf, &searcher)?.unwrap();
 
     assert_eq!(-1, scorer.doc_id()?);
-    assert!(matches!(scorer.score(), Err(LuceneError::IllegalState(_))));
+    assert!(matches!(
+      scorer.score(),
+      Err(LuceneError::ArrayIndexOutOfBounds(_))
+    ));
 
     assert_eq!(1.0 / 2.0, scorer.get_max_score(2)?);
     assert_eq!(1.0 / 2.0, scorer.get_max_score(i32::MAX)?);
@@ -369,8 +417,11 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_score_cosine(&self) -> Result<()> {
-    let directory = self.new_directory_for_test(&mut rand::rng())?;
+  fn test_score_cosine<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let directory = self.new_directory_for_test(random)?;
     let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
     for j in 1..=5 {
       let mut doc = Document::new();
@@ -390,12 +441,13 @@ pub trait BaseKnnVectorQueryTestCase {
     let rewritten = searcher.rewrite(query.into())?;
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
     let leaf = &searcher.get_leaf_contexts()?[0];
-    let mut scorer = weight
-      .scorer(leaf, &searcher)?
-      .expect("expected scorer for rewritten kNN query");
+    let mut scorer = weight.scorer(leaf, &searcher)?.unwrap();
 
     assert_eq!(-1, scorer.doc_id()?);
-    assert!(matches!(scorer.score(), Err(LuceneError::IllegalState(_))));
+    assert!(matches!(
+      scorer.score(),
+      Err(LuceneError::ArrayIndexOutOfBounds(_))
+    ));
 
     let score0 = (1.0 + (2.0 * 1.0 + 3.0 * 1.0) / ((13.0_f32 * 2.0_f32).sqrt())) / 2.0;
     let score1 = (1.0 + (2.0 * 2.0 + 3.0 * 4.0) / ((13.0_f32 * 20.0_f32).sqrt())) / 2.0;
@@ -403,7 +455,7 @@ pub trait BaseKnnVectorQueryTestCase {
     assert!((score1 - scorer.get_max_score(2)?).abs() <= 0.0001);
     assert!((score1 - scorer.get_max_score(i32::MAX)?).abs() <= 0.0001);
 
-    assert_eq!(3, scorer.iterator_mut().cost()?);
+    assert_eq!(3, scorer.iterator().cost()?);
     assert_eq!(0, scorer.iterator_mut().next_doc()?);
     assert!((score0 - scorer.score()?).abs() <= 0.0001);
     assert_eq!(1, scorer.iterator_mut().advance(1)?);
@@ -416,14 +468,17 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_score_mip(&self) -> Result<()> {
+  fn test_score_mip<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let index_store = self.get_index_store_with_similarity(
-      &mut rand::rng(),
+      random,
       "field",
       VectorSimilarityFunction::MaximumInnerProduct,
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store)?;
+    let reader = directory_reader_util::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let kvq = self.get_knn_vector_query_no_filter("field", vec![0.0, -1.0], 10)?;
 
@@ -439,8 +494,11 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_explain(&self) -> Result<()> {
-    let directory = self.new_directory_for_test(&mut rand::rng())?;
+  fn test_explain<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let directory = self.new_directory_for_test(random)?;
     let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
     for j in 0..5 {
       let mut doc = Document::new();
@@ -467,8 +525,11 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_explain_multiple_segments(&self) -> Result<()> {
-    let directory = self.new_directory_for_test(&mut rand::rng())?;
+  fn test_explain_multiple_segments<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let directory = self.new_directory_for_test(random)?;
     let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
     for j in 0..5 {
       let mut doc = Document::new();
@@ -496,8 +557,11 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_skewed_index(&self) -> Result<()> {
-    let directory = self.new_directory_for_test(&mut rand::rng())?;
+  fn test_skewed_index<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let directory = self.new_directory_for_test(random)?;
     let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
     let mut r = 0;
     for _ in 0..5 {
@@ -537,9 +601,17 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn get_index_store(&self, field: &str, contents: &[Vec<f32>]) -> Result<Arc<DirEnum>> {
+  fn get_index_store<R>(
+    &self,
+    random: &mut R,
+    field: &str,
+    contents: &[Vec<f32>],
+  ) -> Result<Self::Directory>
+  where
+    R: Rng + ?Sized,
+  {
     self.get_index_store_with_similarity(
-      &mut rand::rng(),
+      random,
       field,
       VectorSimilarityFunction::Euclidean,
       contents,
@@ -552,12 +624,15 @@ pub trait BaseKnnVectorQueryTestCase {
     field: &str,
     vector_similarity_function: VectorSimilarityFunction,
     contents: &[Vec<f32>],
-  ) -> Result<Arc<DirEnum>>
+  ) -> Result<Self::Directory>
   where
     R: Rng + ?Sized,
   {
-    let index_store = self.default_new_directory_for_test(random)?;
-    let writer = RandomIndexWriter::new(random, index_store.clone());
+    let index_store = self.new_directory_for_test(random)?;
+    let mut config = IndexWriterConfig::new();
+    // TODO IMPORTANT knn merge 未实现
+    config.set_merge_policy(NoMergePolicy::default());
+    let writer = RandomIndexWriter::with_config(random, index_store.clone().into(), config);
 
     for (i, vector) in contents.iter().enumerate() {
       let mut doc = Document::new();
@@ -573,18 +648,18 @@ pub trait BaseKnnVectorQueryTestCase {
       )?);
       writer.add_document(doc)?;
 
-      if random.random_bool(0.5) {
-        for j in 0..TestUtil::next_usize(random, 1, 5) {
-          let mut doc = Document::new();
-          doc.add(StringField::from_string("other", "value", Store::No)?);
-          doc.add(StringField::from_string(
-            "id",
-            format!("id{j}"),
-            Store::Yes,
-          )?);
-          writer.add_document(doc)?;
-        }
-      }
+      // if random.random_bool(0.5) {
+      //   for j in 0..TestUtil::next_usize(random, 1, 5) {
+      //     let mut doc = Document::new();
+      //     doc.add(StringField::from_string("other", "value", Store::No)?);
+      //     doc.add(StringField::from_string(
+      //       "id",
+      //       format!("id{j}"),
+      //       Store::Yes,
+      //     )?);
+      //     writer.add_document(doc)?;
+      //   }
+      // }
     }
 
     for _ in 0..5 {

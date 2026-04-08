@@ -141,12 +141,10 @@ where
     };
     let mut heap: Vec<Option<T>> = Vec::with_capacity(heap_size);
     heap.resize_with(heap_size, || None);
-    if let Some(sentinel) = sentinel_object_supplier()
-      && max_size > 0
-    {
+    if let Some(sentinel) = sentinel_object_supplier() {
       heap[1] = Some(sentinel);
       #[allow(clippy::needless_range_loop)]
-      for i in 2..=max_size {
+      for i in 2..heap.len() {
         heap[i] =
           Some(sentinel_object_supplier().expect("sentinel_object_supplier must not return None"));
       }

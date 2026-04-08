@@ -149,13 +149,10 @@ where
       .get_docs_with_field_set(flat_field_vectors_writers)?
       .cardinality();
     let field_info = field_data.field_info.clone();
-    let graph_level_node_offsets = {
-      let graph = field_data.get_graph(flat_field_vectors_writers)?;
-      Self::write_graph(&mut self.vector_index, graph)?
-    };
+    let mut graph = field_data.get_graph(flat_field_vectors_writers)?;
+    let graph_level_node_offsets = Self::write_graph(&mut self.vector_index, graph.as_deref_mut())?;
 
     let vector_index_length = self.vector_index.get_file_pointer() - vector_index_offset;
-    let graph = field_data.get_graph(flat_field_vectors_writers)?;
     Self::write_meta(
       &mut self.vector_index,
       &mut self.meta,
@@ -408,8 +405,8 @@ where
   }
   #[allow(clippy::too_many_arguments)]
   fn write_meta<H>(
-    meta: &mut O,
     vector_index: &mut O,
+    meta: &mut O,
     m: usize,
     field: &FieldInfo,
     vector_index_offset: i64,
