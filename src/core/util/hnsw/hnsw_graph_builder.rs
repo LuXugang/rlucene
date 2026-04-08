@@ -465,7 +465,7 @@ where
           level,
           &eps,
           &mut self.hnsw,
-          not_fully_connected.as_mut(),
+          not_fully_connected.as_ref(),
         )?;
 
         let mut linked = false;
@@ -659,7 +659,7 @@ where
           level,
           &eps,
           &mut self.hnsw,
-          None::<&mut B>,
+          None::<&B>,
         )?;
         eps[0] = candidates.pop_node()?;
       }
@@ -675,7 +675,7 @@ where
           level,
           &eps,
           &mut self.hnsw,
-          None::<&mut B>,
+          None::<&B>,
         )?;
         eps = candidates.pop_until_nearest_k_nodes()?;
         let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), self.m + 1), false);

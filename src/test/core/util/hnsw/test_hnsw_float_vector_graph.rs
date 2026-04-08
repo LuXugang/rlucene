@@ -361,7 +361,7 @@ fn test_search_with_skewed_accept_ords() -> Result<()> {
       },
     };
 
-    let mut nn = search_with_top_k(&scorer, 10, hnsw, Some(&mut accept_ords), usize::MAX)?;
+    let mut nn = search_with_top_k(&scorer, 10, hnsw, Some(&accept_ords), usize::MAX)?;
 
     let top_docs = KnnCollector::top_docs(&mut nn)?;
     assert_eq!(

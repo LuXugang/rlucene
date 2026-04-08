@@ -179,7 +179,7 @@ where
       &scorer,
       10,
       hnsw,
-      None::<&mut FixedBitSet>,
+      None::<&FixedBitSet>,
       i32::MAX as usize,
     )?;
     let top_docs = nn.top_docs()?;
@@ -221,14 +221,14 @@ where
     let hnsw = builder.build(vectors.size())?;
 
     // The first 10 docs must remain accepted to preserve the expected recall.
-    let mut accept_ords = create_random_accept_ords(10, n_doc, random);
+    let accept_ords = create_random_accept_ords(10, n_doc, random);
 
     let scorer = self.build_scorer(vectors, self.get_target_vector())?;
     let mut nn = hnsw_graph_searcher::search_with_top_k(
       &scorer,
       10,
       hnsw,
-      Some(&mut accept_ords),
+      Some(&accept_ords),
       i32::MAX as usize,
     )?;
     let top_docs = nn.top_docs()?;
@@ -280,7 +280,7 @@ where
       &scorer,
       num_accepted,
       hnsw,
-      Some(&mut accept_ords),
+      Some(&accept_ords),
       i32::MAX as usize,
     )?;
     let top_docs = nn.top_docs()?;
@@ -444,12 +444,12 @@ where
     let top_k = 50;
     let visited_limit = top_k + random.random_range(0..5);
     let scorer = self.build_scorer(vectors, self.get_target_vector())?;
-    let mut accept_ords = create_random_accept_ords(0, n_doc, random);
+    let accept_ords = create_random_accept_ords(0, n_doc, random);
     let nn = hnsw_graph_searcher::search_with_top_k(
       &scorer,
       top_k,
       hnsw,
-      Some(&mut accept_ords),
+      Some(&accept_ords),
       visited_limit,
     )?;
     assert!(nn.early_terminated());
@@ -467,7 +467,6 @@ where
     let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
     let scorer_supplier2 = self.build_scorer_supplier(vectors, random)?;
 
-    // M must be > 0.
     assert!(matches!(
       hnsw_graph_builder::create(scorer_supplier, 0, 10, 0),
       Err(LuceneError::IllegalArgument(_))
@@ -485,6 +484,7 @@ where
   where
     R: Rng + ?Sized,
   {
+    // TODO: memory calculation not implement
     // let size = at_least_usize(random, 2000);
     // let dim = random.random_range(100..=1024);
     // let m = random.random_range(4..=96);
@@ -634,7 +634,7 @@ where
     let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
     let mut builder = hnsw_graph_builder::create(scorer_supplier, 10, 30, random.random::<u64>())?;
     let hnsw = builder.build(vectors.size())?;
-    let mut accept_ords = if random.random_bool(0.5) {
+    let accept_ords = if random.random_bool(0.5) {
       None
     } else {
       Some(create_random_accept_ords(0, size, random))
@@ -648,7 +648,7 @@ where
         &scorer,
         100,
         hnsw,
-        accept_ords.as_mut(),
+        accept_ords.as_ref(),
         i32::MAX as usize,
       )?;
       let top_docs = actual.top_docs()?;
@@ -726,7 +726,7 @@ where
       &query_scorer,
       &mut collector,
       &mut single_level_graph,
-      None::<&mut FixedBitSet>,
+      None::<&FixedBitSet>,
     )?;
 
     // Check that we visit all nodes.

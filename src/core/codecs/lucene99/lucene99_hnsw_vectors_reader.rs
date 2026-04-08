@@ -201,14 +201,14 @@ where
     let mut collector =
       OrdinalTranslatedKnnCollector::new(knn_collector, |ord| Ok(ord_to_doc[ord]));
 
-    let mut accepted_ords = scorer.get_accept_ords(accept_docs)?;
+    let accepted_ords = scorer.get_accept_ords(accept_docs)?;
 
     if k < scorer.max_ord() {
       search(
         &scorer,
         &mut collector,
         &mut self.get_graph_from_entry(field_entry)?,
-        accepted_ords.as_mut(),
+        accepted_ords.as_ref(),
       )?;
     } else {
       for i in 0..scorer.max_ord() {

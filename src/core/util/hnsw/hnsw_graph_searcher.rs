@@ -95,7 +95,7 @@ where
       level,
       eps,
       graph,
-      None::<&mut FixedBitSet>,
+      None::<&FixedBitSet>,
     )?;
     Ok(results)
   }
@@ -186,7 +186,7 @@ where
     level: usize,
     eps: &[usize],
     graph: &mut impl HnswGraph,
-    accept_ords: Option<&mut impl Bits>,
+    accept_ords: Option<&impl Bits>,
   ) -> Result<()>
   where
     S: RandomVectorScorer,
@@ -354,7 +354,7 @@ pub fn search<S>(
   scorer: &S,
   knn_collector: &mut impl KnnCollector,
   graph: &mut impl HnswGraph,
-  accept_ords: Option<&mut impl Bits>,
+  accept_ords: Option<&impl Bits>,
 ) -> Result<()>
 where
   S: RandomVectorScorer,
@@ -392,7 +392,7 @@ pub fn search_with_top_k<S>(
   scorer: &S,
   top_k: usize,
   graph: &mut OnHeapHnswGraph,
-  accept_ords: Option<&mut impl Bits>,
+  accept_ords: Option<&impl Bits>,
   visited_limit: usize,
 ) -> Result<TopKnnCollector>
 where
@@ -418,7 +418,7 @@ fn search_with_searcher<H, S, B>(
   knn_collector: &mut impl KnnCollector,
   graph: &mut impl HnswGraph,
   graph_searcher: &mut HnswGraphSearcher<B, H>,
-  accept_ords: Option<&mut impl Bits>,
+  accept_ords: Option<&impl Bits>,
 ) -> Result<()>
 where
   H: HnswGraphSearcherBase,
