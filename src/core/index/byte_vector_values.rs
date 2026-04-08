@@ -107,13 +107,14 @@ macro_rules! either_byte_vector_values {
                 }
             }
 
-            type Bits<AcceptDocs> =
-                $bits_ty<$( < $T as $crate::core::index::knn_vector_values::KnnVectorValues >::Bits<AcceptDocs> ),+>
+            type Bits<'a, AcceptDocs> =
+                $bits_ty<$( < $T as $crate::core::index::knn_vector_values::KnnVectorValues >::Bits<'a, AcceptDocs> ),+>
             where
-                AcceptDocs: $crate::core::util::bits::Bits;
+                AcceptDocs: $crate::core::util::bits::Bits,
+                Self: 'a;
 
             #[inline]
-            fn get_accept_ords<AcceptDocs>(&self, accept_docs: Option<AcceptDocs>) -> Option<Self::Bits<AcceptDocs>>
+            fn get_accept_ords<'a, AcceptDocs>(&'a self, accept_docs: Option<AcceptDocs>) -> Option<Self::Bits<'a, AcceptDocs>>
             where
                 AcceptDocs: $crate::core::util::bits::Bits,
             {
@@ -247,12 +248,13 @@ impl KnnVectorValues for ByteVectorValuesImpl {
     ByteVectorValues::get_encoding(self)
   }
 
-  type Bits<B>
+  type Bits<'a, B>
     = BitsImpl1<B>
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
   where
     B: Bits,
   {

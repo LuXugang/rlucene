@@ -55,12 +55,13 @@ pub trait KnnVectorValues {
   /// The vector encoding of these values.
   fn get_encoding(&self) -> VectorEncoding;
 
-  type Bits<B>: Bits
+  type Bits<'a, B>: Bits
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
   /// Returns a Bits accepting docs accepted by the argument and having a
   /// vector value
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
   where
     B: Bits;
   fn default_get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<BitsImpl1<B>>
@@ -480,13 +481,14 @@ macro_rules! either_knn_vector_values_named {
                 }
             }
 
-            type Bits<AcceptDocs> =
-                $bits_ty<$( < $T as $crate::core::index::knn_vector_values::KnnVectorValues >::Bits<AcceptDocs> ),+>
+            type Bits<'a, AcceptDocs> =
+                $bits_ty<$( < $T as $crate::core::index::knn_vector_values::KnnVectorValues >::Bits<'a, AcceptDocs> ),+>
             where
-                AcceptDocs: $crate::core::util::bits::Bits;
+                AcceptDocs: $crate::core::util::bits::Bits,
+                Self: 'a;
 
             #[inline]
-            fn get_accept_ords<AcceptDocs>(&self, accept_docs: Option<AcceptDocs>) -> Option<Self::Bits<AcceptDocs>>
+            fn get_accept_ords<'a, AcceptDocs>(&'a self, accept_docs: Option<AcceptDocs>) -> Option<Self::Bits<'a, AcceptDocs>>
             where
                 AcceptDocs: $crate::core::util::bits::Bits,
             {

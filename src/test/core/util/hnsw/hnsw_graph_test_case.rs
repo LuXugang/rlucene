@@ -836,12 +836,13 @@ impl KnnVectorValues for CircularByteVectorValues {
     ByteVectorValues::get_encoding(self)
   }
 
-  type Bits<B>
+  type Bits<'a, B>
     = BitsImpl1<B>
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
   where
     B: Bits,
   {
@@ -908,12 +909,13 @@ impl KnnVectorValues for CircularFloatVectorValues {
     FloatVectorValues::get_encoding(self)
   }
 
-  type Bits<B>
+  type Bits<'a, B>
     = BitsImpl1<B>
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
   where
     B: Bits,
   {

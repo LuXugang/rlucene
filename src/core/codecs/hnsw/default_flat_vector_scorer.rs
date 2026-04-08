@@ -306,12 +306,13 @@ where
     self.vectors.ord_to_doc(ord)
   }
 
-  type Bits<B>
-    = <BV as KnnVectorValues>::Bits<B>
+  type Bits<'a, B>
+    = <BV as KnnVectorValues>::Bits<'a, B>
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Result<Option<Self::Bits<B>>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Result<Option<Self::Bits<'a, B>>>
   where
     B: Bits,
   {
@@ -436,12 +437,13 @@ where
     self.vectors.ord_to_doc(ord)
   }
 
-  type Bits<B>
-    = <FV as KnnVectorValues>::Bits<B>
+  type Bits<'a, B>
+    = <FV as KnnVectorValues>::Bits<'a, B>
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Result<Option<Self::Bits<B>>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Result<Option<Self::Bits<'a, B>>>
   where
     B: Bits,
   {
@@ -495,12 +497,13 @@ where
     self.values.ord_to_doc(ord)
   }
 
-  type Bits<B>
-    = <FV as KnnVectorValues>::Bits<B>
+  type Bits<'a, B>
+    = <FV as KnnVectorValues>::Bits<'a, B>
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Result<Option<Self::Bits<B>>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Result<Option<Self::Bits<'a, B>>>
   where
     B: Bits,
   {
@@ -550,12 +553,13 @@ where
     self.values.ord_to_doc(ord)
   }
 
-  type Bits<B>
-    = <BV as KnnVectorValues>::Bits<B>
+  type Bits<'a, B>
+    = <BV as KnnVectorValues>::Bits<'a, B>
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Result<Option<Self::Bits<B>>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Result<Option<Self::Bits<'a, B>>>
   where
     B: Bits,
   {

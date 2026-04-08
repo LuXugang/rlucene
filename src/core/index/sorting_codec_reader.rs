@@ -1041,12 +1041,13 @@ where
     ByteVectorValues::get_encoding(self)
   }
 
-  type Bits<B1>
+  type Bits<'a, B1>
     = BitsImpl1<B1>
   where
-    B1: Bits;
+    B1: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B1>(&self, accept_docs: Option<B1>) -> Option<Self::Bits<B1>>
+  fn get_accept_ords<'a, B1>(&'a self, accept_docs: Option<B1>) -> Option<Self::Bits<'a, B1>>
   where
     B1: Bits,
   {
@@ -1119,12 +1120,13 @@ where
     FloatVectorValues::get_encoding(self)
   }
 
-  type Bits<B1>
+  type Bits<'a, B1>
     = BitsImpl1<B1>
   where
-    B1: Bits;
+    B1: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B1>(&self, accept_docs: Option<B1>) -> Option<Self::Bits<B1>>
+  fn get_accept_ords<'a, B1>(&'a self, accept_docs: Option<B1>) -> Option<Self::Bits<'a, B1>>
   where
     B1: Bits,
   {

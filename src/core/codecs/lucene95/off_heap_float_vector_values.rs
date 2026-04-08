@@ -138,12 +138,13 @@ where
     FloatVectorValues::get_encoding(self)
   }
 
-  type Bits<B>
+  type Bits<'a, B>
     = DummyBits
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, _accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  fn get_accept_ords<'a, B>(&'a self, _accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
   where
     B: Bits,
   {
@@ -238,12 +239,13 @@ where
     FloatVectorValues::get_encoding(self)
   }
 
-  type Bits<B>
+  type Bits<'a, B>
     = B
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
   where
     B: Bits,
   {
@@ -462,16 +464,17 @@ where
     FloatVectorValues::get_encoding(self)
   }
 
-  type Bits<B>
-    = SparseBits<B, I::RandomAccessSlice>
+  type Bits<'a, B>
+    = SparseBits<'a, B, I::RandomAccessSlice>
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
   where
     B: Bits,
   {
-    accept_docs.map(|bits| SparseBits::new(bits, self.base.size, self.ord_to_doc.clone()))
+    accept_docs.map(|bits| SparseBits::new(bits, self.base.size, &self.ord_to_doc))
   }
 
   type DocIndexIterator = DocIndexIteratorImpl<I>;
@@ -579,22 +582,22 @@ where
     &mut self.iterator
   }
 }
-pub struct SparseBits<B, R>
+pub struct SparseBits<'a, B, R>
 where
   B: Bits,
   R: RandomAccessInput,
 {
   accept_docs: B,
   size: usize,
-  map: Arc<DirectMonotonicReader<R>>,
+  map: &'a DirectMonotonicReader<R>,
   id: Identity,
 }
-impl<B, R> SparseBits<B, R>
+impl<'a, B, R> SparseBits<'a, B, R>
 where
   B: Bits,
   R: RandomAccessInput,
 {
-  fn new(accept_docs: B, size: usize, map: Arc<DirectMonotonicReader<R>>) -> Self {
+  fn new(accept_docs: B, size: usize, map: &'a DirectMonotonicReader<R>) -> Self {
     Self {
       accept_docs,
       size,
@@ -604,7 +607,7 @@ where
   }
 }
 
-impl<B, R> HasIdentity for SparseBits<B, R>
+impl<B, R> HasIdentity for SparseBits<'_, B, R>
 where
   B: Bits,
   R: RandomAccessInput,
@@ -614,7 +617,7 @@ where
   }
 }
 
-impl<B, R> Bits for SparseBits<B, R>
+impl<B, R> Bits for SparseBits<'_, B, R>
 where
   B: Bits,
   R: RandomAccessInput,
@@ -662,12 +665,13 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
     FloatVectorValues::get_encoding(self)
   }
 
-  type Bits<B>
+  type Bits<'a, B>
     = DummyBits
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, _accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  fn get_accept_ords<'a, B>(&'a self, _accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
   where
     B: Bits,
   {
@@ -763,12 +767,13 @@ where
     }
   }
 
-  type Bits<B>
-    = OffHeapFloatVectorValueBitsEnum<I::RandomAccessSlice, B>
+  type Bits<'a, B>
+    = OffHeapFloatVectorValueBitsEnum<'a, I::RandomAccessSlice, B>
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<Self::Bits<B>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
   where
     B: Bits,
   {
@@ -870,16 +875,16 @@ where
   }
 }
 
-pub enum OffHeapFloatVectorValueBitsEnum<R, B>
+pub enum OffHeapFloatVectorValueBitsEnum<'a, R, B>
 where
   R: RandomAccessInput,
   B: Bits,
 {
   Dense(B),
-  Sparse(SparseBits<B, R>),
+  Sparse(SparseBits<'a, B, R>),
 }
 
-impl<R, B> HasIdentity for OffHeapFloatVectorValueBitsEnum<R, B>
+impl<R, B> HasIdentity for OffHeapFloatVectorValueBitsEnum<'_, R, B>
 where
   B: Bits,
   R: RandomAccessInput,
@@ -892,7 +897,7 @@ where
   }
 }
 
-impl<R, B> Bits for OffHeapFloatVectorValueBitsEnum<R, B>
+impl<R, B> Bits for OffHeapFloatVectorValueBitsEnum<'_, R, B>
 where
   R: RandomAccessInput,
   B: Bits,

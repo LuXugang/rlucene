@@ -47,9 +47,10 @@ pub trait RandomVectorScorer {
     Ok(ord)
   }
 
-  type Bits<B>: Bits
+  type Bits<'a, B>: Bits
   where
-    B: Bits;
+    B: Bits,
+    Self: 'a;
   /// Returns the [`Bits`] representing live documents.  
   /// By default, this is an identity function.
   ///
@@ -60,7 +61,7 @@ pub trait RandomVectorScorer {
   /// # Returns
   ///
   /// The accept docs.
-  fn get_accept_ords<B>(&self, accept_docs: Option<B>) -> Result<Option<Self::Bits<B>>>
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Result<Option<Self::Bits<'a, B>>>
   where
     B: Bits;
 }
@@ -94,12 +95,13 @@ where
     }
   }
 
-  type Bits<C>
-    = BitsEnum2<A::Bits<C>, B::Bits<C>>
+  type Bits<'a, C>
+    = BitsEnum2<A::Bits<'a, C>, B::Bits<'a, C>>
   where
-    C: Bits;
+    C: Bits,
+    Self: 'a;
 
-  fn get_accept_ords<C>(&self, accept_docs: Option<C>) -> Result<Option<Self::Bits<C>>>
+  fn get_accept_ords<'a, C>(&'a self, accept_docs: Option<C>) -> Result<Option<Self::Bits<'a, C>>>
   where
     C: Bits,
   {
