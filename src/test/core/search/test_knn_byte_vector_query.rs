@@ -40,6 +40,7 @@ where
 }
 
 mod base_knn_vector_query_test_case_tests {
+
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
   use crate::test::core::search::test_knn_byte_vector_query::run_case;
@@ -139,6 +140,58 @@ mod base_knn_vector_query_test_case_tests {
   #[test]
   fn test_skewed_index() -> Result<()> {
     run_case(|case, random| case.test_skewed_index(random))
+  }
+
+  #[test]
+  fn test_random() -> Result<()> {
+    run_case(|case, random| case.test_random(random))
+  }
+
+  #[test]
+  fn test_filter_with_same_score() -> Result<()> {
+    run_case(|case, random| case.test_filter_with_same_score(random))
+  }
+
+  #[test]
+  fn test_random_with_filter() -> Result<()> {
+    run_case(|case, random| case.test_random_with_filter(random))
+  }
+
+  #[test]
+  fn test_deletes() -> Result<()> {
+    run_case(|case, random| case.test_deletes(random))
+  }
+
+  #[test]
+  fn test_all_deletes() -> Result<()> {
+    run_case(|case, random| case.test_all_deletes(random))
+  }
+
+  #[test]
+  fn test_merge_away_all_values() -> Result<()> {
+    run_case(|case, random| case.test_merge_away_all_values(random))
+  }
+  #[test]
+  fn test_no_live_docs_reader() -> Result<()> {
+    run_case(|case, random| case.test_no_live_docs_reader(random))
+  }
+  #[test]
+  fn test_bot_set_query() -> Result<()> {
+    run_case(|case, random| case.test_bot_set_query(random))
+  }
+
+  #[test]
+  fn test_time_limiting_knn_collector_manager() -> Result<()> {
+    run_case(|case, random| case.test_time_limiting_knn_collector_manager(random))
+  }
+
+  #[test]
+  fn test_timeout() -> Result<()> {
+    run_case(|case, random| case.test_timeout(random))
+  }
+  #[test]
+  fn test_same_field_different_formats() -> Result<()> {
+    run_case(|case, random| case.test_same_field_different_formats(random))
   }
 }
 impl BaseKnnVectorQueryTestCase for TestKnnByteVectorQuery {
