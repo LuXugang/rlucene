@@ -27,10 +27,12 @@ use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::{
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_reader::SIMILARITY_FUNCTIONS;
 use crate::core::index::IndexFileNames;
 use crate::core::index::byte_vector_values::{ByteVectorValuesImpl, from_bytes};
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::float_vector_values::{FloatVectorValuesImpl, from_floats};
 use crate::core::index::knn_vector_values::KnnVectorValuesEnm2;
+use crate::core::index::merge_state::MergeState;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
@@ -545,6 +547,21 @@ where
     }
 
     Ok(())
+  }
+
+  fn merge_one_field<D1, D2, CR>(
+    &mut self,
+    _field_info: &Arc<FieldInfo>,
+    _merge_state: &MergeState<'_, D1, CR>,
+    _segment_write_state: &SegmentWriteState<&D2>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory,
+    CR: CodecReader,
+    Self: Sized,
+  {
+    todo!()
   }
 
   fn finish(&mut self) -> Result<()> {

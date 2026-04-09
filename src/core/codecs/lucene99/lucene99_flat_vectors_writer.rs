@@ -294,6 +294,42 @@ where
   O: IndexOutput,
   F: FlatVectorsScorer,
 {
+  fn merge_one_field<D1, D2, CR>(
+    &mut self,
+    field_info: &Arc<FieldInfo>,
+    merge_state: &MergeState<'_, D1, CR>,
+    _segment_write_state: &SegmentWriteState<&D2>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory,
+    CR: CodecReader,
+    Self: Sized,
+  {
+    let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
+    let docs_with_field = match field_info.get_vector_encoding() {
+      VectorEncoding::BYTE(_) => {
+        let mut merged_bytes = merge_byte_vector_values(field_info.as_ref(), merge_state)?;
+        write_byte_vector_data(&mut self.vector_data, &mut merged_bytes)?
+      },
+      VectorEncoding::FLOAT32(_) => {
+        let mut merged_floats = merge_float_vector_values(field_info.as_ref(), merge_state)?;
+        write_vector_data(&mut self.vector_data, &mut merged_floats)?
+      },
+    };
+    let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
+    write_meta(
+      &mut self.meta,
+      &mut self.vector_data,
+      field_info.as_ref(),
+      merge_state.segment_info.max_doc()?,
+      vector_data_offset as i64,
+      vector_data_length as i64,
+      &docs_with_field,
+    )?;
+    Ok(())
+  }
+
   fn finish(&mut self) -> Result<()> {
     if self.finished {
       return Err(LuceneError::illegal_state("already finished"));
