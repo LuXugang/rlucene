@@ -439,7 +439,10 @@ where
 
   Ok(DocAndScoreQuery::new(docs, scores, max_score, segment_starts, id).into())
 }
-fn find_segment_starts<LR>(leaves: &[LeafReaderContext<LR>], docs: &[i32]) -> Result<Vec<usize>>
+pub(crate) fn find_segment_starts<LR>(
+  leaves: &[LeafReaderContext<LR>],
+  docs: &[i32],
+) -> Result<Vec<usize>>
 where
   LR: LeafReader,
 {
