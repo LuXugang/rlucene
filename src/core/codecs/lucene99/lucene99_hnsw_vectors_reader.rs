@@ -330,9 +330,9 @@ where
   F: FlatVectorsReader,
   I: IndexInput,
 {
-  type Graph = HnswGraphEnum<I>;
+  type HnswGraph = HnswGraphEnum<I>;
 
-  fn get_graph(&self, field: &str) -> Result<Self::Graph> {
+  fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
     let info = self
       .field_infos
       .field_info_by_name(field)

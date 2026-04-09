@@ -22,7 +22,7 @@ use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 ///
 /// @lucene.experimental
 pub trait HnswGraphProvider {
-  type Graph: HnswGraph;
+  type HnswGraph: HnswGraph;
 
   /// Return the stored HnswGraph for the given field.
   ///
@@ -34,5 +34,5 @@ pub trait HnswGraphProvider {
   ///
   /// # Errors
   /// when reading potentially off-heap graph fails
-  fn get_graph(&self, field: &str) -> Result<Self::Graph>;
+  fn get_graph(&self, field: &str) -> Result<Self::HnswGraph>;
 }

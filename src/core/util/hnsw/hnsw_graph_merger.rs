@@ -14,60 +14,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_vectors_reader::KnnVectorsReaderEnum;
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::merge_state::DocMap;
 use crate::core::util::bits::Bits;
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
-use crate::core::util::incremental_hnsw_graph_merger::IncrementalHnswGraphMerger;
 use crate::core::util::info_stream::InfoStreamMT;
 
-/// Abstraction of merging multiple graphs into one on-heap graph
+/// Abstraction of merging multiple graphs into one on-heap graph.
 pub trait HnswGraphMerger {
-  /// Adds a reader to the graph merger to record the state
+  /// Adds a reader to the graph merger to record the state.
   ///
-  /// # Arguments
-  /// * `reader` - KnnVectorsReader to add to the merger
-  /// * `doc_map` - MergeState.DocMap for the reader
-  /// * `live_docs` - Bits representing live docs, can be null
-  ///
-  /// # Returns
-  /// this
-  ///
-  /// # Errors
-  /// If an error occurs while reading from the merge state
-  fn add_reader<D, B>(
+  /// Readers with deletes are skipped. Among the remaining readers, the merger
+  /// keeps the largest graph as the initializer for the final merged graph.
+  fn add_reader<R, B>(
     &mut self,
-    reader: KnnVectorsReaderEnum,
-    doc_map: D,
-    live_docs: Option<B>,
-  ) -> crate::core::util::error::lucene_error::Result<()>
+    reader_index: usize,
+    reader: &R,
+    doc_map_idx: usize,
+    live_docs: Option<&B>,
+  ) -> Result<()>
   where
-    D: DocMap,
+    R: KnnVectorsReader + HnswGraphProvider,
     B: Bits;
 
-  /// Merge and produce the on heap graph
-  ///
-  /// # Arguments
-  /// * `merged_vector_values` - view of the vectors in the merged segment
-  /// * `info_stream` - optional info stream to set to builder
-  /// * `max_ord` - max number of vectors that will be added to the graph
-  ///
-  /// # Returns
-  /// merged graph
-  ///
-  /// # Errors
-  /// during merge
-  fn merge<KV, IS>(
+  /// Merge and produce the on heap graph.
+  fn merge<KV, R, D>(
     &mut self,
     merged_vector_values: KV,
-    info_stream: Option<InfoStreamMT>,
+    info_stream: InfoStreamMT,
     max_ord: i32,
-  ) -> crate::core::util::error::lucene_error::Result<OnHeapHnswGraph>
+    readers: &[R],
+    doc_map: &[D],
+  ) -> Result<OnHeapHnswGraph>
   where
-    KV: KnnVectorValues;
-}
-
-pub enum HnswGraphMergerEnum {
-  Incremental(IncrementalHnswGraphMerger),
+    KV: KnnVectorValues,
+    R: KnnVectorsReader + HnswGraphProvider,
+    D: DocMap;
 }

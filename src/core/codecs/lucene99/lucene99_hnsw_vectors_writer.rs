@@ -48,7 +48,6 @@ use crate::core::util::hnsw::hnsw_graph::{
   ArrayNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnums, get_sorted_nodes,
 };
 use crate::core::util::hnsw::hnsw_graph_builder::{DefaultHnswGraphBuilder, RAND_SEED, create};
-use crate::core::util::hnsw::hnsw_graph_merger::HnswGraphMergerEnum;
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
@@ -493,9 +492,6 @@ where
     meta.write_long((end - start) as i64)?;
 
     Ok(())
-  }
-  fn create_graph_merger(&self) -> HnswGraphMergerEnum {
-    todo!()
   }
 }
 
