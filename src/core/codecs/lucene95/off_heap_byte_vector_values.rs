@@ -720,7 +720,7 @@ where
 {
   Empty(EmptyOffHeapVectorValues),
   Dense(DenseOffHeapVectorValues<I::IndexInput, F>),
-  Sparse(Box<SparseOffHeapVectorValues<I, F>>),
+  Sparse(SparseOffHeapVectorValues<I, F>),
 }
 
 impl<I, F> KnnVectorValues for OffHeapByteVectorValuesEnum<I, F>
@@ -766,7 +766,7 @@ where
     match self {
       Self::Empty(e) => ByteVectorValues::get_encoding(e),
       Self::Dense(e) => ByteVectorValues::get_encoding(e),
-      Self::Sparse(e) => ByteVectorValues::get_encoding(e.as_ref()),
+      Self::Sparse(e) => ByteVectorValues::get_encoding(e),
     }
   }
 
@@ -821,7 +821,7 @@ where
     match self {
       Self::Empty(e) => Ok(e.byte_copy()?.map(Self::Empty)),
       Self::Dense(e) => Ok(e.byte_copy()?.map(Self::Dense)),
-      Self::Sparse(e) => Ok(e.byte_copy()?.map(Box::new).map(Self::Sparse)),
+      Self::Sparse(e) => Ok(e.byte_copy()?.map(Self::Sparse)),
     }
   }
 
@@ -847,7 +847,7 @@ where
     match self {
       Self::Empty(e) => ByteVectorValues::get_encoding(e),
       Self::Dense(e) => ByteVectorValues::get_encoding(e),
-      Self::Sparse(e) => ByteVectorValues::get_encoding(e.as_ref()),
+      Self::Sparse(e) => ByteVectorValues::get_encoding(e),
     }
   }
 
@@ -1127,7 +1127,7 @@ where
         vector_similarity_function,
       )))
     } else {
-      Ok(Self::Sparse(Box::new(SparseOffHeapVectorValues::new(
+      Ok(Self::Sparse(SparseOffHeapVectorValues::new(
         configuration,
         vector_data,
         bytes_slice,
@@ -1135,7 +1135,7 @@ where
         dimension,
         flat_vectors_scorer,
         vector_similarity_function,
-      )?)))
+      )?))
     }
   }
 }
