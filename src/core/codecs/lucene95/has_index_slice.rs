@@ -19,10 +19,10 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Implementors can return the IndexInput from which their values are read. For use by vector
 /// quantizers.
 pub trait HasIndexSlice {
-  fn seek(&mut self, _pos: usize) -> Result<()> {
+  fn seek(&self, _pos: usize) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
-  fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
+  fn read_bytes(&self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
 }

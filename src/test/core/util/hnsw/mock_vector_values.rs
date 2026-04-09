@@ -23,6 +23,7 @@ use crate::core::index::knn_vector_values::{
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::util::bits::Bits;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::random_from_seed;
 use rand::RngExt;
@@ -36,6 +37,14 @@ pub struct MockVectorValues {
   num_vectors: i32,
   scratch: Vec<f32>,
   seed: u64,
+}
+impl TryClone for MockVectorValues {
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(self.clone())
+  }
 }
 impl MockVectorValues {
   pub fn from_values(values: Vec<Vec<f32>>, seed: u64) -> Self {

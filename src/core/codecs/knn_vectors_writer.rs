@@ -28,6 +28,7 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
 use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
+use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
@@ -60,13 +61,15 @@ pub trait KnnVectorsWriter: Accountable {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn merge_one_field<D, CR>(
+  fn merge_one_field<D1, D2, CR>(
     &mut self,
     field_info: &Arc<FieldInfo>,
-    merge_state: &MergeState<'_, D, CR>,
+    merge_state: &MergeState<'_, D1, CR>,
+    _segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D: Directory,
+    D1: Directory,
+    D2: Directory,
     CR: CodecReader,
     Self: Sized,
   {
@@ -103,9 +106,14 @@ pub trait KnnVectorsWriter: Accountable {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn merge<D, CR>(&mut self, merge_state: &MergeState<'_, D, CR>) -> Result<i32>
+  fn merge<D1, D2, CR>(
+    &mut self,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&D2>,
+  ) -> Result<i32>
   where
-    D: Directory,
+    D1: Directory,
+    D2: Directory,
     CR: CodecReader,
     Self: Sized,
   {
@@ -124,7 +132,7 @@ pub trait KnnVectorsWriter: Accountable {
             .message("VV", &format!("merging {}", merge_state.segment_info));
         }
 
-        self.merge_one_field(field_info, merge_state)?;
+        self.merge_one_field(field_info, merge_state, segment_write_state)?;
 
         if merge_state.info_stream.enabled("VV") {
           merge_state
@@ -768,7 +776,7 @@ where
   }
 }
 
-trait MergeVectorValues {
+pub(crate) trait MergeVectorValues {
   fn vector_value(&self, ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>>;
 }
 

@@ -30,6 +30,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::query::Query;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
@@ -340,7 +341,7 @@ fn test_search_with_skewed_accept_ords() -> Result<()> {
     let n_doc = 1000;
     case.set_similarity_function(VectorSimilarityFunction::Euclidean);
     let vectors = case.circular_vector_values(n_doc);
-    let scorer_supplier = case.build_scorer_supplier(vectors.clone(), random)?;
+    let scorer_supplier = case.build_scorer_supplier(vectors.try_clone()?, random)?;
     let mut builder = create(scorer_supplier, 16, 100, random.random::<u64>())?;
     let hnsw = builder.build(vectors.size())?;
 

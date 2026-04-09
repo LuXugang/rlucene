@@ -112,11 +112,11 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  fn seek(&mut self, pos: usize) -> Result<()> {
+  fn seek(&self, pos: usize) -> Result<()> {
     self.inner.lock().slice.seek(pos)
   }
 
-  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+  fn read_bytes(&self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.inner.lock().slice.read_bytes(b, offset, len)
   }
 }
@@ -219,6 +219,27 @@ where
   }
 }
 
+impl<I, F> TryClone for DenseOffHeapVectorValues<I, F>
+where
+  I: IndexInput,
+  F: FlatVectorsScorer + Clone,
+{
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    let inner = self.base.inner.lock();
+    Self::new(
+      self.base.dimension,
+      self.base.size,
+      inner.slice.try_clone()?,
+      self.base.byte_size,
+      self.base.flat_vectors_scorer.clone(),
+      self.base.similarity_function,
+    )
+  }
+}
+
 impl<I, F> KnnVectorValues for DenseOffHeapVectorValues<I, F>
 where
   I: IndexInput,
@@ -275,11 +296,11 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  fn seek(&mut self, pos: usize) -> Result<()> {
+  fn seek(&self, pos: usize) -> Result<()> {
     self.base.seek(pos)
   }
 
-  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+  fn read_bytes(&self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.base.read_bytes(b, offset, len)
   }
 }
@@ -439,11 +460,11 @@ where
   I: IndexInput,
   F: FlatVectorsScorer,
 {
-  fn seek(&mut self, pos: usize) -> Result<()> {
+  fn seek(&self, pos: usize) -> Result<()> {
     self.base.seek(pos)
   }
 
-  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+  fn read_bytes(&self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.base.read_bytes(b, offset, len)
   }
 }

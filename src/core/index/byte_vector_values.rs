@@ -24,6 +24,7 @@ use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::search::vector_scorer::VectorScorerEnum2;
 use crate::core::util::bits::Bits;
 use crate::core::util::bits::BitsEnum2;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
@@ -219,10 +220,21 @@ pub fn from_bytes(dim: usize) -> ByteVectorValuesImpl {
   ByteVectorValuesImpl::new(dim)
 }
 
-#[derive(Clone)] // TODO IMPORTANT CLone is Ok?
 pub struct ByteVectorValuesImpl {
   vectors: Vec<VectorValueEnum>,
   dim: usize,
+}
+// TODO IMPORTANT avoid CLone ?
+impl TryClone for ByteVectorValuesImpl {
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(Self {
+      vectors: self.vectors.clone(),
+      dim: self.dim,
+    })
+  }
 }
 impl ByteVectorValuesImpl {
   pub(crate) fn new(dim: usize) -> Self {

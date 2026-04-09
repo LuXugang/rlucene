@@ -250,7 +250,7 @@ where
       .knn_vectors_format()?
       .fields_writer(segment_write_state, self.merge_state.segment_info)?;
 
-    writer.merge(&self.merge_state)?;
+    writer.merge(&self.merge_state, segment_write_state)?;
 
     Ok(())
   }

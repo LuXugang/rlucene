@@ -19,7 +19,12 @@ use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::FlatVectorsWriter;
 use crate::core::codecs::knn_field_vectors_writer::{KnnFieldVectorsWriter, VectorValueEnum};
-use crate::core::codecs::knn_vectors_writer::{KnnVectorsWriter, map_old_ord_to_new_ord};
+use crate::core::codecs::knn_vectors_writer::{
+  KnnVectorsWriter, MergeVectorValues, MergedByteVectorValues, MergedFloat32VectorValues,
+  map_old_ord_to_new_ord, merge_byte_vector_values, merge_float_vector_values,
+};
+use crate::core::codecs::lucene95::off_heap_byte_vector_values;
+use crate::core::codecs::lucene95::off_heap_float_vector_values;
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::DIRECT_MONOTONIC_BLOCK_SHIFT;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::{
@@ -30,10 +35,14 @@ use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::{
 };
 use crate::core::index::IndexFileNames;
 use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::knn_vector_values::DocIndexIterator;
+use crate::core::index::knn_vector_values::{
+  DocIndexIterator, KnnVectorValues, KnnVectorValuesEnm2,
+};
+use crate::core::index::merge_state::MergeState;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
@@ -41,14 +50,17 @@ use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
+use crate::core::store::index_input::IndexInput;
+use crate::core::store::{IndexOutput, ReadAdvice};
+use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
+use crate::core::util::io_utils::IOUtils;
 use std::sync::Arc;
 
 /// Writes vector values to index segments.
@@ -301,7 +313,7 @@ where
 impl<O, F> FlatVectorsWriter for Lucene99FlatVectorsWriter<O, F>
 where
   O: IndexOutput,
-  F: FlatVectorsScorer,
+  F: FlatVectorsScorer + Clone,
 {
   type FlatVectorsScorer = F;
 
@@ -345,6 +357,110 @@ where
   fn get_fields_mut(&mut self) -> &mut [Self::FlatFieldVectorsWriter] {
     self.fields.as_mut()
   }
+
+  type CloseableRandomVectorScorerSupplier<I>
+    = FlatCloseableRandomVectorScorerSupplier<
+    <F as FlatVectorsScorer>::RandomVectorScorerSupplier<
+      off_heap_byte_vector_values::DenseOffHeapVectorValues<I, F>,
+      off_heap_float_vector_values::DenseOffHeapVectorValues<I, F>,
+    >,
+  >
+  where
+    I: IndexInput;
+
+  fn merge_one_field_to_index<D1, D2, CR>(
+    &mut self,
+    field_info: &FieldInfo,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&D2>,
+  ) -> Result<Self::CloseableRandomVectorScorerSupplier<D2::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+    CR: CodecReader,
+  {
+    let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
+    let mut temp_vector_data = segment_write_state.directory.create_temp_output(
+      self.vector_data.get_name(),
+      "temp",
+      segment_write_state.context,
+    )?;
+    let temp_vector_name = temp_vector_data.get_name().to_string();
+    let result = (|| -> Result<Self::CloseableRandomVectorScorerSupplier<D2::IndexInput>> {
+      let docs_with_field = match field_info.get_vector_encoding() {
+        VectorEncoding::BYTE(_) => {
+          let mut merged_bytes = merge_byte_vector_values(field_info, merge_state)?;
+          write_byte_vector_data(&mut temp_vector_data, &mut merged_bytes)?
+        },
+        VectorEncoding::FLOAT32(_) => {
+          let mut merged_floats = merge_float_vector_values(field_info, merge_state)?;
+          write_vector_data(&mut temp_vector_data, &mut merged_floats)?
+        },
+      };
+      CodecUtil::write_footer(&mut temp_vector_data)?;
+      temp_vector_data.close()?;
+
+      let random_context = segment_write_state
+        .context
+        .with_read_advice_self(ReadAdvice::Random)?;
+      let mut vector_data_input = segment_write_state
+        .directory
+        .open_input(&temp_vector_name, &random_context)?;
+      let copy_len = vector_data_input.length() - CodecUtil::footer_length();
+      self
+        .vector_data
+        .copy_bytes(&mut vector_data_input, copy_len)?;
+      CodecUtil::retrieve_checksum(&mut vector_data_input)?;
+
+      let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
+      write_meta(
+        &mut self.meta,
+        &mut self.vector_data,
+        field_info,
+        merge_state.segment_info.max_doc()?,
+        vector_data_offset as i64,
+        vector_data_length as i64,
+        &docs_with_field,
+      )?;
+
+      let random_vector_scorer_supplier = match field_info.get_vector_encoding() {
+        VectorEncoding::BYTE(_) => self.flat_vectors_scorer.get_random_vector_scorer_supplier(
+          *field_info.get_vector_similarity_function(),
+          KnnVectorValuesEnm2::A(off_heap_byte_vector_values::DenseOffHeapVectorValues::new(
+            field_info.get_vector_dimension() as usize,
+            docs_with_field.cardinality() as usize,
+            vector_data_input,
+            field_info.get_vector_dimension() as usize * VectorEncoding::BYTE(1).byte_size(),
+            self.flat_vectors_scorer.clone(),
+            *field_info.get_vector_similarity_function(),
+          )),
+        )?,
+        VectorEncoding::FLOAT32(_) => self.flat_vectors_scorer.get_random_vector_scorer_supplier(
+          *field_info.get_vector_similarity_function(),
+          KnnVectorValuesEnm2::B(off_heap_float_vector_values::DenseOffHeapVectorValues::new(
+            field_info.get_vector_dimension() as usize,
+            docs_with_field.cardinality() as usize,
+            vector_data_input,
+            field_info.get_vector_dimension() as usize * VectorEncoding::FLOAT32(4).byte_size(),
+            self.flat_vectors_scorer.clone(),
+            *field_info.get_vector_similarity_function(),
+          )?),
+        )?,
+      };
+      Ok(FlatCloseableRandomVectorScorerSupplier::new(
+        docs_with_field.cardinality(),
+        random_vector_scorer_supplier,
+      ))
+    })();
+
+    if result.is_err() {
+      IOUtils::delete_files_ignoring_exceptions(
+        segment_write_state.directory,
+        std::iter::once(&temp_vector_name),
+      );
+    }
+    result
+  }
 }
 
 fn write_meta<O>(
@@ -382,13 +498,14 @@ where
   Ok(())
 }
 /// Writes the byte vector values to the output and returns a set of documents that contains vectors.
-fn write_byte_vector_data<O, V>(
+fn write_byte_vector_data<O, B, CR>(
   output: &mut O,
-  byte_vector_values: &mut V,
+  byte_vector_values: &mut MergedByteVectorValues<B, CR>,
 ) -> Result<DocsWithFieldSet>
 where
   O: IndexOutput,
-  V: ByteVectorValues,
+  B: ByteVectorValues,
+  CR: CodecReader,
 {
   let mut docs_with_field = DocsWithFieldSet::new();
 
@@ -400,7 +517,8 @@ where
     if doc == NO_MORE_DOCS {
       break;
     }
-    let value = byte_vector_values.vector_value(iter.index()? as usize)?;
+    let ord: usize = iter.index()?.try_convert()?;
+    let value = iter.vector_value(ord)?;
     debug_assert_eq!(value.len(), dim);
     output.write_bytes_range(value.as_bytes()?, 0, value.len())?;
     docs_with_field.add(doc)?;
@@ -408,10 +526,14 @@ where
   Ok(docs_with_field)
 }
 /// Writes the vector values to the output and returns a set of documents that contains vectors.
-fn write_vector_data<O, V>(output: &mut O, float_vector_values: &mut V) -> Result<DocsWithFieldSet>
+fn write_vector_data<O, B, CR>(
+  output: &mut O,
+  float_vector_values: &mut MergedFloat32VectorValues<B, CR>,
+) -> Result<DocsWithFieldSet>
 where
   O: IndexOutput,
-  V: FloatVectorValues,
+  B: FloatVectorValues,
+  CR: CodecReader,
 {
   let mut docs_with_field = DocsWithFieldSet::new();
 
@@ -425,7 +547,8 @@ where
     if doc == NO_MORE_DOCS {
       break;
     }
-    let value = float_vector_values.vector_value(iter.index()? as usize)?;
+    let ord: usize = iter.index()?.try_convert()?;
+    let value = iter.vector_value(ord)?;
     for (i, &v) in value.as_floats()?.iter().enumerate() {
       let bytes = v.to_le_bytes();
       let start = i * byte_size;
@@ -519,33 +642,28 @@ impl FlatFieldVectorsWriter for FlatFieldWriter {
   }
 }
 
-pub(crate) struct FlatCloseableRandomVectorScorerSupplier<C, S>
+pub struct FlatCloseableRandomVectorScorerSupplier<S>
 where
-  C: Closeable,
   S: RandomVectorScorerSupplier,
 {
-  on_close: C,
   supplier: S,
   num_vectors: i32,
 }
 
-impl<C, S> FlatCloseableRandomVectorScorerSupplier<C, S>
+impl<S> FlatCloseableRandomVectorScorerSupplier<S>
 where
-  C: Closeable,
   S: RandomVectorScorerSupplier,
 {
-  pub(crate) fn new(on_close: C, num_vectors: i32, supplier: S) -> Self {
+  pub(crate) fn new(num_vectors: i32, supplier: S) -> Self {
     Self {
-      on_close,
       supplier,
       num_vectors,
     }
   }
 }
 
-impl<C, S> RandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<C, S>
+impl<S> RandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<S>
 where
-  C: Closeable,
   S: RandomVectorScorerSupplier,
 {
   type Scorer<'a>
@@ -575,19 +693,17 @@ where
   }
 }
 
-impl<C, S> Closeable for FlatCloseableRandomVectorScorerSupplier<C, S>
+impl<S> Closeable for FlatCloseableRandomVectorScorerSupplier<S>
 where
-  C: Closeable,
   S: RandomVectorScorerSupplier,
 {
   fn close(&mut self) -> Result<()> {
-    self.on_close.close()
+    Ok(())
   }
 }
 
-impl<C, S> CloseableRandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<C, S>
+impl<S> CloseableRandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<S>
 where
-  C: Closeable,
   S: RandomVectorScorerSupplier,
 {
   fn total_vector_count(&self) -> Result<i32> {

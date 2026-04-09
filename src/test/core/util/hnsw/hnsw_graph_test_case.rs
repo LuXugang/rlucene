@@ -37,6 +37,7 @@ use crate::core::search::query::Query;
 use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
@@ -123,8 +124,8 @@ where
     _random: &mut R,
   ) -> Result<<DefaultFlatVectorScorer as FlatVectorsScorer>::RandomVectorScorerSupplier<B, F>>
   where
-    B: ByteVectorValues + Clone,
-    F: FloatVectorValues + Clone,
+    B: ByteVectorValues + TryClone,
+    F: FloatVectorValues + TryClone,
     R: Rng + ?Sized,
   {
     let v = self.similarity_function();
@@ -171,7 +172,7 @@ where
     let n_doc = 100;
     self.set_similarity_function(VectorSimilarityFunction::DotProduct);
     let vectors = self.circular_vector_values(n_doc);
-    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let scorer_supplier = self.build_scorer_supplier(vectors.try_clone()?, random)?;
     let mut builder = hnsw_graph_builder::create(scorer_supplier, 10, 100, random.random::<u64>())?;
     let hnsw = builder.build(vectors.size())?;
     let scorer = self.build_scorer(vectors, self.get_target_vector())?;
@@ -216,7 +217,7 @@ where
     let n_doc = 100;
     let vectors = self.circular_vector_values(n_doc);
     self.set_similarity_function(VectorSimilarityFunction::DotProduct);
-    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let scorer_supplier = self.build_scorer_supplier(vectors.try_clone()?, random)?;
     let mut builder = hnsw_graph_builder::create(scorer_supplier, 16, 100, random.random::<u64>())?;
     let hnsw = builder.build(vectors.size())?;
 
@@ -260,7 +261,7 @@ where
     let n_doc = 100;
     let vectors = self.circular_vector_values(n_doc);
     self.set_similarity_function(VectorSimilarityFunction::DotProduct);
-    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let scorer_supplier = self.build_scorer_supplier(vectors.try_clone()?, random)?;
     let mut builder = hnsw_graph_builder::create(scorer_supplier, 16, 100, random.random::<u64>())?;
     let hnsw = builder.build(vectors.size())?;
 
@@ -309,7 +310,7 @@ where
 
     let initializer_vectors = self.vector_values(initializer_size, dim, random);
     let initial_scorer_supplier =
-      self.build_scorer_supplier(initializer_vectors.clone(), random)?;
+      self.build_scorer_supplier(initializer_vectors.try_clone()?, random)?;
     let mut initializer_builder =
       hnsw_graph_builder::create(initial_scorer_supplier, 10, 30, seed)?;
 
@@ -379,7 +380,7 @@ where
 
     let initializer_vectors = self.vector_values(initializer_size, dim, random);
     let initial_scorer_supplier =
-      self.build_scorer_supplier(initializer_vectors.clone(), random)?;
+      self.build_scorer_supplier(initializer_vectors.try_clone()?, random)?;
     let mut initializer_builder =
       hnsw_graph_builder::create(initial_scorer_supplier, 10, 30, seed)?;
 
@@ -436,7 +437,7 @@ where
     let n_doc = 500;
     self.set_similarity_function(VectorSimilarityFunction::DotProduct);
     let vectors = self.circular_vector_values(n_doc);
-    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let scorer_supplier = self.build_scorer_supplier(vectors.try_clone()?, random)?;
     let mut builder = hnsw_graph_builder::create(scorer_supplier, 16, 100, random.random::<u64>())?;
     let hnsw = builder.build(vectors.size())?;
 
@@ -463,7 +464,7 @@ where
     R: Rng + ?Sized,
   {
     let vectors = self.vector_values(1, 1, random);
-    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let scorer_supplier = self.build_scorer_supplier(vectors.try_clone()?, random)?;
     let scorer_supplier2 = self.build_scorer_supplier(vectors, random)?;
 
     assert!(matches!(
@@ -630,7 +631,7 @@ where
     let dim = at_least_usize(random, 10);
     let vectors = self.vector_values(size, dim, random);
     let top_k = 5;
-    let scorer_supplier = self.build_scorer_supplier(vectors.clone(), random)?;
+    let scorer_supplier = self.build_scorer_supplier(vectors.try_clone()?, random)?;
     let mut builder = hnsw_graph_builder::create(scorer_supplier, 10, 30, random.random::<u64>())?;
     let hnsw = builder.build(vectors.size())?;
     let accept_ords = if random.random_bool(0.5) {
@@ -642,7 +643,7 @@ where
     let mut total_matches = 0usize;
     for _ in 0..100 {
       let query = self.random_vector(random, dim);
-      let scorer = self.build_scorer(vectors.clone(), query.clone())?;
+      let scorer = self.build_scorer(vectors.try_clone()?, query.clone())?;
       let mut actual = hnsw_graph_searcher::search_with_top_k(
         &scorer,
         100,
@@ -710,7 +711,7 @@ where
     let top_k = size - 1;
 
     let doc_vectors = self.vector_values(size, dim, random);
-    let scorer_supplier = self.build_scorer_supplier(doc_vectors.clone(), random)?;
+    let scorer_supplier = self.build_scorer_supplier(doc_vectors.try_clone()?, random)?;
     let mut builder = hnsw_graph_builder::create(scorer_supplier, 10, 30, random.random::<u64>())?;
     let graph = builder.build(size)?;
 
@@ -790,11 +791,18 @@ where
     self.delegate.get_neighbors(level, node)
   }
 }
-
 #[derive(Clone)]
 pub struct CircularByteVectorValues {
   size: usize,
   doc: i32,
+}
+impl TryClone for CircularByteVectorValues {
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(self.clone())
+  }
 }
 
 impl CircularByteVectorValues {
@@ -867,10 +875,17 @@ fn unit_vector_2d(pi_radians: f64, value: &mut [f32; 2]) {
   value[0] = (std::f64::consts::PI * pi_radians).cos() as f32;
   value[1] = (std::f64::consts::PI * pi_radians).sin() as f32;
 }
-
 #[derive(Clone)]
 pub struct CircularFloatVectorValues {
   size: usize,
+}
+impl TryClone for CircularFloatVectorValues {
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(self.clone())
+  }
 }
 
 impl CircularFloatVectorValues {
@@ -897,7 +912,7 @@ impl KnnVectorValues for CircularFloatVectorValues {
   type KnnVectorValues = Self;
 
   fn copy(&self) -> Result<Self::KnnVectorValues> {
-    Ok(self.clone())
+    self.try_clone()
   }
 
   fn get_encoding(&self) -> VectorEncoding {
@@ -934,7 +949,7 @@ impl FloatVectorValues for CircularFloatVectorValues {
   type FloatVectorValues = Self;
 
   fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
-    Ok(Some(self.clone()))
+    Ok(Some(self.try_clone()?))
   }
 
   type VectorScorer = DummyVectorScorer;
@@ -1284,20 +1299,26 @@ where
 
 pub type TestsCircularKnnVectorValues =
   KnnVectorValuesEnm2<CircularByteVectorValues, CircularFloatVectorValues>;
-impl Clone for TestsCircularKnnVectorValues {
-  fn clone(&self) -> Self {
+impl TryClone for TestsCircularKnnVectorValues {
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
     match self {
-      KnnVectorValuesEnm2::A(v) => KnnVectorValuesEnm2::A(v.clone()),
-      KnnVectorValuesEnm2::B(v) => KnnVectorValuesEnm2::B(v.clone()),
+      KnnVectorValuesEnm2::A(v) => Ok(KnnVectorValuesEnm2::A(v.try_clone()?)),
+      KnnVectorValuesEnm2::B(v) => Ok(KnnVectorValuesEnm2::B(v.try_clone()?)),
     }
   }
 }
 pub type TestsKnnVectorValues = KnnVectorValuesEnm2<MockByteVectorValues, MockVectorValues>;
-impl Clone for TestsKnnVectorValues {
-  fn clone(&self) -> Self {
+impl TryClone for TestsKnnVectorValues {
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
     match self {
-      TestsKnnVectorValues::A(v) => TestsKnnVectorValues::A(v.clone()),
-      TestsKnnVectorValues::B(v) => TestsKnnVectorValues::B(v.clone()),
+      TestsKnnVectorValues::A(v) => Ok(TestsKnnVectorValues::A(v.try_clone()?)),
+      TestsKnnVectorValues::B(v) => Ok(TestsKnnVectorValues::B(v.try_clone()?)),
     }
   }
 }

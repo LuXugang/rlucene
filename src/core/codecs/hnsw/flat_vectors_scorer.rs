@@ -18,6 +18,7 @@ use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::KnnVectorValuesEnm2;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
@@ -31,8 +32,8 @@ use std::sync::Arc;
 pub trait FlatVectorsScorer: Display {
   type RandomVectorScorerSupplier<B, F>: RandomVectorScorerSupplier
   where
-    B: ByteVectorValues + Clone,
-    F: FloatVectorValues + Clone;
+    B: ByteVectorValues + TryClone,
+    F: FloatVectorValues + TryClone;
   /// Returns a [`RandomVectorScorerSupplier`] that can be used to score vectors
   ///
   /// # Parameters
@@ -50,8 +51,8 @@ pub trait FlatVectorsScorer: Display {
     vector_values: KnnVectorValuesEnm2<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
-    B: ByteVectorValues + Clone,
-    F: FloatVectorValues + Clone;
+    B: ByteVectorValues + TryClone,
+    F: FloatVectorValues + TryClone;
 
   type RandomVectorScorerF32<T>: RandomVectorScorer
   where
@@ -109,8 +110,8 @@ where
   type RandomVectorScorerSupplier<B, F>
     = FV::RandomVectorScorerSupplier<B, F>
   where
-    B: ByteVectorValues + Clone,
-    F: FloatVectorValues + Clone;
+    B: ByteVectorValues + TryClone,
+    F: FloatVectorValues + TryClone;
 
   fn get_random_vector_scorer_supplier<B, F>(
     &self,
@@ -118,8 +119,8 @@ where
     vector_values: KnnVectorValuesEnm2<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
-    B: ByteVectorValues + Clone,
-    F: FloatVectorValues + Clone,
+    B: ByteVectorValues + TryClone,
+    F: FloatVectorValues + TryClone,
   {
     (**self).get_random_vector_scorer_supplier(similarity_function, vector_values)
   }

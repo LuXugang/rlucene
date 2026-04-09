@@ -22,6 +22,7 @@ use crate::core::index::knn_vector_values::{KnnVectorValues, KnnVectorValuesEnm2
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::bits::Bits;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::random_vector_scorer::{RandomVectorScorer, RandomVectorScorerEnum2};
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
@@ -30,6 +31,11 @@ use std::fmt::{Display, Formatter};
 /// Default implementation of [`FlatVectorsScorer`].
 #[derive(Default, Clone, Debug)]
 pub struct DefaultFlatVectorScorer;
+impl TryClone for DefaultFlatVectorScorer {
+  fn try_clone(&self) -> Result<Self> {
+    Ok(self.clone())
+  }
+}
 
 impl Display for DefaultFlatVectorScorer {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -41,8 +47,8 @@ impl FlatVectorsScorer for DefaultFlatVectorScorer {
   type RandomVectorScorerSupplier<B, F>
     = RandomVectorScorerSupplierEnum<B, F>
   where
-    B: ByteVectorValues + Clone,
-    F: FloatVectorValues + Clone;
+    B: ByteVectorValues + TryClone,
+    F: FloatVectorValues + TryClone;
 
   fn get_random_vector_scorer_supplier<B, F>(
     &self,
@@ -50,8 +56,8 @@ impl FlatVectorsScorer for DefaultFlatVectorScorer {
     vector_values: KnnVectorValuesEnm2<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
-    B: ByteVectorValues + Clone,
-    F: FloatVectorValues + Clone,
+    B: ByteVectorValues + TryClone,
+    F: FloatVectorValues + TryClone,
   {
     let v = match vector_values {
       KnnVectorValuesEnm2::A(b) => {
@@ -126,16 +132,16 @@ impl FlatVectorsScorer for DefaultFlatVectorScorer {
 }
 pub enum RandomVectorScorerSupplierEnum<BV, FV>
 where
-  BV: ByteVectorValues + Clone,
-  FV: FloatVectorValues + Clone,
+  BV: ByteVectorValues,
+  FV: FloatVectorValues,
 {
   Byte(ByteScoringSupplier<BV>),
   Float(FloatScoringSupplier<FV>),
 }
 impl<BV, FV> RandomVectorScorerSupplier for RandomVectorScorerSupplierEnum<BV, FV>
 where
-  BV: ByteVectorValues + Clone,
-  FV: FloatVectorValues + Clone,
+  BV: ByteVectorValues + TryClone,
+  FV: FloatVectorValues + TryClone,
 {
   type Scorer<'a>
     = RandomVectorScorerEnum2<RandomVectorScorerByteImpl<'a, BV>, RandomVectorScorerF32Impl<'a, FV>>
@@ -186,7 +192,7 @@ where
 /// RandomVectorScorerSupplier for bytes vector
 pub struct ByteScoringSupplier<BV>
 where
-  BV: ByteVectorValues + Clone,
+  BV: ByteVectorValues,
 {
   vectors: BV,
   vectors1: Option<<BV as ByteVectorValues>::ByteVectorValues>,
@@ -196,7 +202,7 @@ where
 
 impl<BV> ByteScoringSupplier<BV>
 where
-  BV: ByteVectorValues + Clone,
+  BV: ByteVectorValues,
 {
   pub(crate) fn new(vectors: BV, similarity_function: VectorSimilarityFunction) -> Result<Self> {
     let vectors1 = ByteVectorValues::byte_copy(&vectors)?;
@@ -213,7 +219,7 @@ where
 
 impl<BV> RandomVectorScorerSupplier for ByteScoringSupplier<BV>
 where
-  BV: ByteVectorValues + Clone,
+  BV: ByteVectorValues + TryClone,
 {
   type Scorer<'a>
     = RandomVectorScorerByteImpl<'a, BV>
@@ -236,7 +242,7 @@ where
   where
     Self: Sized,
   {
-    ByteScoringSupplier::new(self.vectors.clone(), self.similarity_function)
+    ByteScoringSupplier::new(self.vectors.try_clone()?, self.similarity_function)
   }
 
   fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
@@ -326,7 +332,7 @@ where
 /// RandomVectorScorerSupplier for Float vector
 pub struct FloatScoringSupplier<FV>
 where
-  FV: FloatVectorValues + Clone,
+  FV: FloatVectorValues,
 {
   vectors: FV,
   vectors1: Option<<FV as FloatVectorValues>::FloatVectorValues>,
@@ -335,7 +341,7 @@ where
 }
 impl<FV> FloatScoringSupplier<FV>
 where
-  FV: FloatVectorValues + Clone,
+  FV: FloatVectorValues + TryClone,
 {
   pub(crate) fn new(vectors: FV, similarity_function: VectorSimilarityFunction) -> Result<Self> {
     let vectors1 = FloatVectorValues::float_copy(&vectors)?;
@@ -350,7 +356,7 @@ where
 }
 impl<FV> RandomVectorScorerSupplier for FloatScoringSupplier<FV>
 where
-  FV: FloatVectorValues + Clone,
+  FV: FloatVectorValues + TryClone,
 {
   type Scorer<'a>
     = RandomVectorScorerF32Impl<'a, FV>
@@ -373,7 +379,7 @@ where
   where
     Self: Sized,
   {
-    FloatScoringSupplier::new(self.vectors.clone(), self.similarity_function)
+    FloatScoringSupplier::new(self.vectors.try_clone()?, self.similarity_function)
   }
 
   fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
