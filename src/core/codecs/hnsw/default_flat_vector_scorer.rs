@@ -142,6 +142,8 @@ where
   where
     Self: 'a;
 
+  type RandomVectorScorerSupplier = Self;
+
   fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
     match self {
       RandomVectorScorerSupplierEnum::Byte(supplier) => {
@@ -217,6 +219,8 @@ where
     = RandomVectorScorerByteImpl<'a, BV>
   where
     Self: 'a;
+
+  type RandomVectorScorerSupplier = Self;
 
   fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
     Ok(RandomVectorScorerByteImpl::new(
@@ -352,6 +356,8 @@ where
     = RandomVectorScorerF32Impl<'a, FV>
   where
     Self: 'a;
+
+  type RandomVectorScorerSupplier = Self;
 
   fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
     Ok(RandomVectorScorerF32Impl::new(

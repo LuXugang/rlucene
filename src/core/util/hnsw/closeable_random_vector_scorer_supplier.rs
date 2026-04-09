@@ -14,21 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod blocking_float_heap;
-pub mod closeable_random_vector_scorer_supplier;
-pub(crate) mod dummy;
-pub(crate) mod float_heap;
-pub(crate) mod hnsw_builder;
-pub(crate) mod hnsw_graph;
-pub(crate) mod hnsw_graph_builder;
-pub mod hnsw_graph_merger;
-pub(crate) mod hnsw_graph_searcher;
-pub(crate) mod hnsw_lock;
-pub(crate) mod hnsw_util;
-pub mod initialized_hnsw_graph_builder;
-pub(crate) mod neighbor_array;
-pub(crate) mod neighbor_queue;
-pub(crate) mod on_heap_hnsw_graph;
-pub mod ordinal_translated_knn_collector;
-pub(crate) mod random_vector_scorer;
-pub(crate) mod random_vector_scorer_supplier;
+use crate::core::util::close::Closeable;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
+
+pub trait CloseableRandomVectorScorerSupplier: Closeable + RandomVectorScorerSupplier {
+  fn total_vector_count(&self) -> Result<i32>;
+}

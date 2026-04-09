@@ -45,7 +45,9 @@ use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use std::sync::Arc;
 
@@ -514,5 +516,81 @@ impl FlatFieldVectorsWriter for FlatFieldWriter {
     self.last_doc_id = doc_id;
 
     Ok(())
+  }
+}
+
+pub(crate) struct FlatCloseableRandomVectorScorerSupplier<C, S>
+where
+  C: Closeable,
+  S: RandomVectorScorerSupplier,
+{
+  on_close: C,
+  supplier: S,
+  num_vectors: i32,
+}
+
+impl<C, S> FlatCloseableRandomVectorScorerSupplier<C, S>
+where
+  C: Closeable,
+  S: RandomVectorScorerSupplier,
+{
+  pub(crate) fn new(on_close: C, num_vectors: i32, supplier: S) -> Self {
+    Self {
+      on_close,
+      supplier,
+      num_vectors,
+    }
+  }
+}
+
+impl<C, S> RandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<C, S>
+where
+  C: Closeable,
+  S: RandomVectorScorerSupplier,
+{
+  type Scorer<'a>
+    = S::Scorer<'a>
+  where
+    Self: 'a;
+
+  type RandomVectorScorerSupplier = S::RandomVectorScorerSupplier;
+
+  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
+    self.supplier.scorer(ord)
+  }
+
+  fn copy(&self) -> Result<Self::RandomVectorScorerSupplier>
+  where
+    Self: Sized,
+  {
+    self.supplier.copy()
+  }
+
+  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
+    self.supplier.get_vector()
+  }
+
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    self.supplier.get_vector_mut()
+  }
+}
+
+impl<C, S> Closeable for FlatCloseableRandomVectorScorerSupplier<C, S>
+where
+  C: Closeable,
+  S: RandomVectorScorerSupplier,
+{
+  fn close(&mut self) -> Result<()> {
+    self.on_close.close()
+  }
+}
+
+impl<C, S> CloseableRandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<C, S>
+where
+  C: Closeable,
+  S: RandomVectorScorerSupplier,
+{
+  fn total_vector_count(&self) -> Result<i32> {
+    Ok(self.num_vectors)
   }
 }
