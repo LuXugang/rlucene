@@ -57,7 +57,7 @@ pub const MAXIMUM_BEAM_WIDTH: usize = 3200;
 pub const DEFAULT_BEAM_WIDTH: usize = DEFAULT_MAX_CONN;
 
 /// Default to use single thread merge
-pub const DEFAULT_NUM_MERGE_WORKER: i32 = 1;
+pub const DEFAULT_NUM_MERGE_WORKER: usize = 1;
 
 pub static FLAT_VECTORS_FORMAT: LazyLock<Lucene99FlatVectorsFormat<DefaultFlatVectorScorer>> =
   LazyLock::new(|| {
@@ -106,7 +106,10 @@ pub struct Lucene99HnswVectorsFormat {
 impl Lucene99HnswVectorsFormat {
   /// Constructs a format using default graph construction parameters
   pub fn new() -> Result<Self> {
-    Self::with_graph_para(DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, DEFAULT_BEAM_WIDTH)
+    Self::with_graph_para_with_threads(DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, DEFAULT_BEAM_WIDTH)
+  }
+  pub fn with_graph_para(max_conn: usize, beam_width: usize) -> Result<Self> {
+    Self::with_graph_para_with_threads(max_conn, beam_width, DEFAULT_NUM_MERGE_WORKER)
   }
   /// Constructs a format using the given graph construction parameters and scalar quantization.
   ///
@@ -120,7 +123,7 @@ impl Lucene99HnswVectorsFormat {
   /// # Errors
   ///
   /// Returns an error if the parameters are invalid.
-  pub fn with_graph_para(
+  pub fn with_graph_para_with_threads(
     max_conn: usize,
     beam_width: usize,
     num_merge_workers: usize,
