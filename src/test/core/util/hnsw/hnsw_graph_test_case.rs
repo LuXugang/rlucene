@@ -253,7 +253,6 @@ where
 
     Ok(())
   }
-
   fn test_search_with_selective_accept_ords<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -803,16 +802,12 @@ impl CircularByteVectorValues {
     Self { size, doc: -1 }
   }
 
-  fn vector_value(&self) -> Vec<u8> {
-    self.vector_value_bytes(self.doc as usize)
-  }
-
   fn vector_value_bytes(&self, ord: usize) -> Vec<u8> {
     let mut value = [0.0_f32; 2];
     unit_vector_2d(ord as f64 / self.size as f64, &mut value);
     value
       .into_iter()
-      .map(|component| (component * 127.0) as u8)
+      .map(|component| (component * 127.0) as i8 as u8)
       .collect()
   }
 }
