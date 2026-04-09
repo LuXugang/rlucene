@@ -1317,7 +1317,7 @@ where
     current_idx: usize,
   ) -> Result<Option<T::DocIndexIterator>> {
     match subs[current_idx].sub.take() {
-      Some(mut v) => Ok(Some(v.iterator()?)),
+      Some(v) => Ok(Some(v.iterator()?)),
       None => Ok(None),
     }
   }

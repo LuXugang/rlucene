@@ -934,7 +934,7 @@ impl KnnVectorValues for CircularFloatVectorValues {
 
   type DocIndexIterator = DenseDocIndexIterator;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
     Ok(create_dense_iterator(self.size as i32))
   }
 }

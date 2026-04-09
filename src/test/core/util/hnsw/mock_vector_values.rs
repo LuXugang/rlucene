@@ -110,7 +110,7 @@ impl KnnVectorValues for MockVectorValues {
 
   type DocIndexIterator = DenseDocIndexIterator;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
     let size = self.size();
     Ok(create_dense_iterator(size as i32))
   }

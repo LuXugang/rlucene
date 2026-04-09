@@ -128,7 +128,7 @@ macro_rules! either_byte_vector_values {
                 $iter_ty<$( < $T as $crate::core::index::knn_vector_values::KnnVectorValues >::DocIndexIterator ),+>;
 
             #[inline]
-            fn iterator(&mut self) -> $crate::core::util::error::lucene_error::Result<Self::DocIndexIterator> {
+            fn iterator(&self) -> $crate::core::util::error::lucene_error::Result<Self::DocIndexIterator> {
                 match self {
                     $( Self::$Variant(inner) => inner.iterator().map($iter_ty::$Variant), )+
                 }

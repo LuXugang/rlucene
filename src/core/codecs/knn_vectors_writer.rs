@@ -42,10 +42,12 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStream;
+use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub trait KnnVectorsWriter: Accountable {
   /// Adds a new field for indexing.
@@ -76,7 +78,7 @@ pub trait KnnVectorsWriter: Accountable {
     match field_info.get_vector_encoding() {
       VectorEncoding::BYTE(_) => {
         let field_vectors_writer_idx = self.add_field(field_info.clone())?;
-        let mut merged_bytes = merge_byte_vector_values(field_info.as_ref(), merge_state)?;
+        let merged_bytes = merge_byte_vector_values(field_info.as_ref(), merge_state)?;
         let mut iter = merged_bytes.iterator()?;
         let mut doc = iter.next_doc()?;
         while doc != NO_MORE_DOCS {
@@ -88,7 +90,7 @@ pub trait KnnVectorsWriter: Accountable {
       },
       VectorEncoding::FLOAT32(_) => {
         let field_vectors_writer_idx = self.add_field(field_info.clone())?;
-        let mut merged_floats = merge_float_vector_values(field_info.as_ref(), merge_state)?;
+        let merged_floats = merge_float_vector_values(field_info.as_ref(), merge_state)?;
         let mut iter = merged_floats.iterator()?;
         let mut doc = iter.next_doc()?;
         while doc != NO_MORE_DOCS {
@@ -256,7 +258,7 @@ where
   F: FloatVectorValues,
   CR: CodecReader,
 {
-  fn new(mut values: F, doc_map: Rc<MergeStateDocMap<CR>>) -> Result<Self> {
+  fn new(values: F, doc_map: Rc<MergeStateDocMap<CR>>) -> Result<Self> {
     let iterator = values.iterator()?;
     Ok(Self {
       values,
@@ -298,7 +300,7 @@ where
   B: ByteVectorValues,
   CR: CodecReader,
 {
-  fn new(mut values: B, doc_map: Rc<MergeStateDocMap<CR>>) -> Result<Self> {
+  fn new(values: B, doc_map: Rc<MergeStateDocMap<CR>>) -> Result<Self> {
     let iterator = values.iterator()?;
     Ok(Self {
       values,
@@ -371,10 +373,10 @@ where
   CR: CodecReader,
 {
   // for easy taken
-  state: Option<MergedFloat32VectorValuesState<F, CR>>,
+  state: Mutex<Option<MergedFloat32VectorValuesState<F, CR>>>,
   size: usize,
   dimension: usize,
-  iter_called: bool,
+  iter_called: AtomicBool,
 }
 
 impl<F, CR> MergedFloat32VectorValues<F, CR>
@@ -396,15 +398,15 @@ where
     let size = subs.iter().map(|sub| sub.sub.values.size()).sum();
     let doc_id_merger = of(subs, merge_state.needs_index_sort)?;
     Ok(Self {
-      state: Some(MergedFloat32VectorValuesState {
+      state: Mutex::new(Some(MergedFloat32VectorValuesState {
         doc_id: -1,
         last_ord: -1,
         current: None,
         doc_id_merger,
-      }),
+      })),
       size,
       dimension,
-      iter_called: false,
+      iter_called: AtomicBool::new(false),
     })
   }
 }
@@ -447,16 +449,22 @@ where
 
   type DocIndexIterator = MergedFloat32VectorValuesIterator<F, CR>;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
-    if self.iter_called {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    if self
+      .iter_called
+      .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+      .is_err()
+    {
       return Err(LuceneError::illegal_state(
         "iterator() can only be called once on MergedFloat32VectorValues",
       ));
     }
-    self.iter_called = true;
+    let state = self.state.lock().take().ok_or_else(|| {
+      LuceneError::illegal_state("MergedFloat32VectorValues iterator state missing")
+    })?;
 
     Ok(MergedFloat32VectorValuesIterator {
-      state: self.state.take().unwrap(),
+      state,
       index: -1,
       size: self.size,
     })
@@ -581,10 +589,10 @@ where
   B: ByteVectorValues,
   CR: CodecReader,
 {
-  state: Option<MergedByteVectorValuesState<B, CR>>,
+  state: Mutex<Option<MergedByteVectorValuesState<B, CR>>>,
   size: usize,
   dimension: usize,
-  iter_called: bool,
+  iter_called: AtomicBool,
 }
 
 impl<B, CR> MergedByteVectorValues<B, CR>
@@ -606,15 +614,15 @@ where
     let size = subs.iter().map(|sub| sub.sub.values.size()).sum();
     let doc_id_merger = of(subs, merge_state.needs_index_sort)?;
     Ok(Self {
-      state: Some(MergedByteVectorValuesState {
+      state: Mutex::new(Some(MergedByteVectorValuesState {
         doc_id: -1,
         last_ord: -1,
         current: None,
         doc_id_merger,
-      }),
+      })),
       size,
       dimension,
-      iter_called: false,
+      iter_called: AtomicBool::new(false),
     })
   }
 }
@@ -657,16 +665,23 @@ where
 
   type DocIndexIterator = MergedByteVectorValuesIterator<B, CR>;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
-    if self.iter_called {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    if self
+      .iter_called
+      .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+      .is_err()
+    {
       return Err(LuceneError::illegal_state(
         "iterator() can only be called once on MergedByteVectorValues",
       ));
     }
-    self.iter_called = true;
+    let state =
+      self.state.lock().take().ok_or_else(|| {
+        LuceneError::illegal_state("MergedByteVectorValues iterator state missing")
+      })?;
 
     Ok(MergedByteVectorValuesIterator {
-      state: self.state.take().unwrap(),
+      state,
       index: -1,
       size: self.size,
     })

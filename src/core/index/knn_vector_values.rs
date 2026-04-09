@@ -73,7 +73,7 @@ pub trait KnnVectorValues {
 
   type DocIndexIterator: DocIndexIterator;
   ///  Create an iterator for this instance.
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
@@ -501,7 +501,7 @@ macro_rules! either_knn_vector_values_named {
                 $iter_ty<$( < $T as $crate::core::index::knn_vector_values::KnnVectorValues >::DocIndexIterator ),+>;
 
             #[inline]
-            fn iterator(&mut self) -> $crate::core::util::error::lucene_error::Result<Self::DocIndexIterator> {
+            fn iterator(&self) -> $crate::core::util::error::lucene_error::Result<Self::DocIndexIterator> {
                 match self {
                     $( Self::$Variant(inner) => inner.iterator().map($iter_ty::$Variant), )+
                 }

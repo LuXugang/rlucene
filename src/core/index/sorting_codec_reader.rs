@@ -1056,7 +1056,7 @@ where
 
   type DocIndexIterator = SortingValuesIterator;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
     self.iterator_supplier.get()
   }
 }
@@ -1135,7 +1135,7 @@ where
 
   type DocIndexIterator = SortingValuesIterator;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
     self.iterator_supplier.get()
   }
 }

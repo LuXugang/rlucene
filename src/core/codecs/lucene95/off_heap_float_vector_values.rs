@@ -49,6 +49,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Read the vector values froGm the index input. This supports both iterated and random access.
 struct OffHeapFloatVectorValues<I, F>
@@ -187,7 +188,7 @@ where
 {
   base: OffHeapFloatVectorValues<I, F>,
   #[cfg(debug_assertions)]
-  iter_called: bool,
+  iter_called: AtomicBool,
 }
 
 impl<I, F> DenseOffHeapVectorValues<I, F>
@@ -214,7 +215,7 @@ where
     Ok(Self {
       base,
       #[cfg(debug_assertions)]
-      iter_called: false,
+      iter_called: AtomicBool::new(false),
     })
   }
 }
@@ -278,13 +279,11 @@ where
 
   type DocIndexIterator = DenseDocIndexIterator;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
     #[cfg(debug_assertions)]
     {
-      if self.iter_called {
+      if self.iter_called.swap(true, Ordering::AcqRel) {
         unreachable!("iterator should only be called once, otherwise iter will be reset?")
-      } else {
-        self.iter_called = true;
       }
     }
 
@@ -332,7 +331,7 @@ where
   >;
 
   fn scorer(&self, query: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
-    let mut copy = self.float_copy()?.ok_or_else(|| {
+    let copy = self.float_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("DenseOffHeapVectorValues should support float_copy()")
     })?;
     let iterator = copy.iterator()?;
@@ -401,7 +400,7 @@ where
   ord_to_doc: Rc<RefCell<DirectMonotonicReader<I::RandomAccessSlice>>>,
   data_in: I,
   configuration: Arc<OrdToDocDISIReaderConfiguration>,
-  disi: Option<DocIndexIteratorImpl<I>>,
+  disi: RefCell<Option<DocIndexIteratorImpl<I>>>,
 }
 
 impl<I, F> SparseOffHeapVectorValues<I, F>
@@ -451,7 +450,7 @@ where
       ord_to_doc: Rc::new(RefCell::new(ord_to_doc)),
       data_in,
       configuration,
-      disi,
+      disi: RefCell::new(disi),
     })
   }
 }
@@ -506,8 +505,8 @@ where
 
   type DocIndexIterator = DocIndexIteratorImpl<I>;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
-    match self.disi.take() {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self.disi.borrow_mut().take() {
       Some(disi) => Ok(disi),
       None => Err(LuceneError::illegal_state("iterator only called once")),
     }
@@ -543,7 +542,7 @@ where
   >;
 
   fn scorer(&self, query: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
-    let mut copy = self.float_copy()?.ok_or_else(|| {
+    let copy = self.float_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("DenseOffHeapVectorValues should support float_copy()")
     })?;
     let iterator = copy.iterator()?;
@@ -663,7 +662,7 @@ pub struct EmptyOffHeapVectorValues {
   dimension: usize,
   vectors: Vec<f32>,
   #[cfg(debug_assertions)]
-  iter_called: bool,
+  iter_called: AtomicBool,
 }
 impl EmptyOffHeapVectorValues {
   fn new(dimension: usize) -> Self {
@@ -673,7 +672,7 @@ impl EmptyOffHeapVectorValues {
       dimension,
       vectors,
       #[cfg(debug_assertions)]
-      iter_called: false,
+      iter_called: AtomicBool::new(false),
     }
   }
 }
@@ -708,13 +707,11 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
 
   type DocIndexIterator = DenseDocIndexIterator;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
     #[cfg(debug_assertions)]
     {
-      if self.iter_called {
+      if self.iter_called.swap(true, Ordering::AcqRel) {
         unreachable!("iterator should only be called once, otherwise iter will be reset?")
-      } else {
-        self.iter_called = true;
       }
     }
 
@@ -821,7 +818,7 @@ where
 
   type DocIndexIterator = IterEnum<I>;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
     match self {
       OffHeapFloatVectorValuesEnum::Empty(e) => e.iterator().map(IterEnum::Empty),
       OffHeapFloatVectorValuesEnum::Dense(e) => e.iterator().map(IterEnum::Dense),

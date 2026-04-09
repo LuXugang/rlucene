@@ -49,6 +49,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 struct OffHeapByteVectorValues<I, F>
 where
@@ -189,7 +190,7 @@ where
 {
   base: OffHeapByteVectorValues<I, F>,
   #[cfg(debug_assertions)]
-  iter_called: bool,
+  iter_called: AtomicBool,
 }
 
 impl<I, F> DenseOffHeapVectorValues<I, F>
@@ -215,7 +216,7 @@ where
         similarity_function,
       ),
       #[cfg(debug_assertions)]
-      iter_called: false,
+      iter_called: AtomicBool::new(false),
     }
   }
 }
@@ -289,13 +290,11 @@ where
 
   type DocIndexIterator = DenseDocIndexIterator;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
     #[cfg(debug_assertions)]
     {
-      if self.iter_called {
+      if self.iter_called.swap(true, Ordering::AcqRel) {
         unreachable!("iterator should only be called once, otherwise iter will be reset?")
-      } else {
-        self.iter_called = true;
       }
     }
 
@@ -330,7 +329,7 @@ where
   >;
 
   fn scorer(&self, query: Vec<u8>) -> Result<Self::VectorScorer> {
-    let mut copy = self.byte_copy()?.ok_or_else(|| {
+    let copy = self.byte_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("DenseOffHeapVectorValues should support byte_copy()")
     })?;
     let iterator = copy.iterator()?;
@@ -401,7 +400,7 @@ where
   ord_to_doc: Rc<RefCell<DirectMonotonicReader<I::RandomAccessSlice>>>,
   data_in: I,
   configuration: Arc<OrdToDocDISIReaderConfiguration>,
-  disi: Option<DocIndexIteratorImpl<I>>,
+  disi: RefCell<Option<DocIndexIteratorImpl<I>>>,
 }
 
 impl<I, F> SparseOffHeapVectorValues<I, F>
@@ -451,7 +450,7 @@ where
       ord_to_doc: Rc::new(RefCell::new(ord_to_doc)),
       data_in,
       configuration,
-      disi,
+      disi: RefCell::new(disi),
     })
   }
 }
@@ -508,8 +507,8 @@ where
 
   type DocIndexIterator = DocIndexIteratorImpl<I>;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
-    match self.disi.take() {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self.disi.borrow_mut().take() {
       Some(disi) => Ok(disi),
       None => Err(LuceneError::illegal_state("iterator only called once")),
     }
@@ -545,7 +544,7 @@ where
   >;
 
   fn scorer(&self, query: Vec<u8>) -> Result<Self::VectorScorer> {
-    let mut copy = self.byte_copy()?.ok_or_else(|| {
+    let copy = self.byte_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("SparseOffHeapVectorValues should support byte_copy()")
     })?;
     let iterator = copy.iterator()?;
@@ -664,7 +663,7 @@ pub struct EmptyOffHeapVectorValues {
   dimension: usize,
   binary_value: Vec<u8>,
   #[cfg(debug_assertions)]
-  iter_called: bool,
+  iter_called: AtomicBool,
 }
 
 impl EmptyOffHeapVectorValues {
@@ -673,7 +672,7 @@ impl EmptyOffHeapVectorValues {
       dimension,
       binary_value: Vec::new(),
       #[cfg(debug_assertions)]
-      iter_called: false,
+      iter_called: AtomicBool::new(false),
     }
   }
 }
@@ -710,13 +709,11 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
 
   type DocIndexIterator = DenseDocIndexIterator;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
     #[cfg(debug_assertions)]
     {
-      if self.iter_called {
+      if self.iter_called.swap(true, Ordering::AcqRel) {
         unreachable!("iterator should only be called once, otherwise iter will be reset?")
-      } else {
-        self.iter_called = true;
       }
     }
 
@@ -822,7 +819,7 @@ where
 
   type DocIndexIterator = IterEnum<I>;
 
-  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
     match self {
       Self::Empty(e) => e.iterator().map(IterEnum::Empty),
       Self::Dense(e) => e.iterator().map(IterEnum::Dense),

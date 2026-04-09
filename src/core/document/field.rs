@@ -2760,7 +2760,7 @@ mod tests {
     assert_eq!(1, context.leaves()?.len());
     let leaf = context.leaves()?[0].reader();
 
-    let mut binary = leaf.get_byte_vector_values("binary")?.unwrap();
+    let binary = leaf.get_byte_vector_values("binary")?.unwrap();
     assert_eq!(1, binary.size());
     let mut byte_iterator = binary.iterator()?;
     assert_ne!(NO_MORE_DOCS, byte_iterator.next_doc()?);
@@ -2768,7 +2768,7 @@ mod tests {
     assert_eq!(NO_MORE_DOCS, byte_iterator.next_doc()?);
     assert!(binary.vector_value(1).is_err());
 
-    let mut float_values = leaf.get_float_vector_values("float")?.unwrap();
+    let float_values = leaf.get_float_vector_values("float")?.unwrap();
     assert_eq!(1, float_values.size());
     let mut float_iterator = float_values.iterator()?;
     assert_ne!(NO_MORE_DOCS, float_iterator.next_doc()?);
