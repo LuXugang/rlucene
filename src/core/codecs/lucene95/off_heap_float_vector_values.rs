@@ -213,6 +213,7 @@ where
     );
     Ok(Self {
       base,
+      #[cfg(debug_assertions)]
       iter_called: false,
     })
   }
@@ -258,11 +259,14 @@ where
 
   fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
     #[cfg(debug_assertions)]
-    if self.iter_called {
-      unreachable!("iterator should only be called once, otherwise iter will be reset?")
-    } else {
-      self.iter_called = true;
+    {
+      if self.iter_called {
+        unreachable!("iterator should only be called once, otherwise iter will be reset?")
+      } else {
+        self.iter_called = true;
+      }
     }
+
     Ok(create_dense_iterator(self.size() as i32))
   }
 }
@@ -647,6 +651,7 @@ impl EmptyOffHeapVectorValues {
     Self {
       dimension,
       vectors,
+      #[cfg(debug_assertions)]
       iter_called: false,
     }
   }
@@ -684,11 +689,14 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
 
   fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
     #[cfg(debug_assertions)]
-    if self.iter_called {
-      unreachable!("iterator should only be called once, otherwise iter will be reset?")
-    } else {
-      self.iter_called = true;
+    {
+      if self.iter_called {
+        unreachable!("iterator should only be called once, otherwise iter will be reset?")
+      } else {
+        self.iter_called = true;
+      }
     }
+
     Ok(create_dense_iterator(0))
   }
 }

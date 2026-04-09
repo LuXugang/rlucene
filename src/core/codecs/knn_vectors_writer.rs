@@ -15,24 +15,35 @@
  * limitations under the License.
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
-use crate::core::index::SubBase;
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::codec_reader::CRKnnVectorReader;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
+use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
+use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::knn_vector_values::DocIndexIterator;
+use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
 use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::store::directory::Directory;
+use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::info_stream::InfoStream;
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
 
 pub trait KnnVectorsWriter: Accountable {
@@ -49,18 +60,94 @@ pub trait KnnVectorsWriter: Accountable {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn finish(&mut self) -> Result<()> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn merge<D, CR>(&mut self, _merge_state: &MergeState<D, CR>) -> Result<i32>
+  fn merge_one_field<D, CR>(
+    &mut self,
+    field_info: &Arc<FieldInfo>,
+    merge_state: &MergeState<'_, D, CR>,
+  ) -> Result<()>
   where
     D: Directory,
     CR: CodecReader,
     Self: Sized,
   {
-    todo!()
+    match field_info.get_vector_encoding() {
+      VectorEncoding::BYTE(_) => {
+        let field_vectors_writer_idx = self.add_field(field_info.clone())?;
+        let mut merged_bytes = merge_byte_vector_values(field_info.as_ref(), merge_state)?;
+        let mut iter = merged_bytes.iterator()?;
+        let mut doc = iter.next_doc()?;
+        while doc != NO_MORE_DOCS {
+          let ord: usize = iter.index()?.try_convert()?;
+          let vector_value = iter.vector_value(ord)?;
+          self.add_value(doc, &vector_value, field_vectors_writer_idx)?;
+          doc = iter.next_doc()?;
+        }
+      },
+      VectorEncoding::FLOAT32(_) => {
+        let field_vectors_writer_idx = self.add_field(field_info.clone())?;
+        let mut merged_floats = merge_float_vector_values(field_info.as_ref(), merge_state)?;
+        let mut iter = merged_floats.iterator()?;
+        let mut doc = iter.next_doc()?;
+        while doc != NO_MORE_DOCS {
+          let ord: usize = iter.index()?.try_convert()?;
+          let vector_value = iter.vector_value(ord)?;
+          self.add_value(doc, &vector_value, field_vectors_writer_idx)?;
+          doc = iter.next_doc()?;
+        }
+      },
+    }
+    Ok(())
   }
+
+  fn finish(&mut self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn merge<D, CR>(&mut self, merge_state: &MergeState<'_, D, CR>) -> Result<i32>
+  where
+    D: Directory,
+    CR: CodecReader,
+    Self: Sized,
+  {
+    for (i, reader) in merge_state.knn_vectors_readers.iter().enumerate() {
+      debug_assert!(reader.is_some() || !merge_state.field_infos[i].has_vector_values());
+      if let Some(reader) = reader {
+        reader.check_integrity()?;
+      }
+    }
+
+    for field_info in merge_state.merge_field_infos.iter() {
+      if field_info.has_vector_values() {
+        if merge_state.info_stream.enabled("VV") {
+          merge_state
+            .info_stream
+            .message("VV", &format!("merging {}", merge_state.segment_info));
+        }
+
+        self.merge_one_field(field_info, merge_state)?;
+
+        if merge_state.info_stream.enabled("VV") {
+          merge_state
+            .info_stream
+            .message("VV", &format!("merge done {}", merge_state.segment_info));
+        }
+      }
+    }
+    self.finish_merge(merge_state)?;
+    self.finish()?;
+    merge_state.segment_info.max_doc()
+  }
+  fn finish_merge<D, CR>(&self, merge_state: &MergeState<'_, D, CR>) -> Result<()>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    for reader in merge_state.knn_vectors_readers.iter().flatten() {
+      reader.finish_merge()?;
+    }
+    Ok(())
+  }
+
   fn add_value(
     &mut self,
     _doc_id: i32,
@@ -147,72 +234,69 @@ where
   Ok(())
 }
 
-pub struct FloatVectorValuesSub<F, D, CR>
+pub struct FloatVectorValuesSub<F, CR>
 where
   F: FloatVectorValues,
-  D: DocIndexIterator,
   CR: CodecReader,
 {
   values: F,
-  iterator: D,
-  doc_map: MergeStateDocMap<CR>,
+  iterator: <F as KnnVectorValues>::DocIndexIterator,
+  doc_map: Rc<MergeStateDocMap<CR>>,
 }
-impl<F, D, CR> FloatVectorValuesSub<F, D, CR>
+impl<F, CR> FloatVectorValuesSub<F, CR>
 where
   F: FloatVectorValues,
-  D: DocIndexIterator,
   CR: CodecReader,
 {
-  fn new(values: F, iterator: D, doc_map: MergeStateDocMap<CR>) -> Self {
-    Self {
+  fn new(mut values: F, doc_map: Rc<MergeStateDocMap<CR>>) -> Result<Self> {
+    let iterator = values.iterator()?;
+    Ok(Self {
       values,
       iterator,
       doc_map,
-    }
+    })
   }
   fn index(&self) -> Result<i32> {
     self.iterator.index()
   }
 }
-impl<F, D, CR> SubBase for FloatVectorValuesSub<F, D, CR>
+impl<F, CR> SubBase for FloatVectorValuesSub<F, CR>
 where
   F: FloatVectorValues,
-  D: DocIndexIterator,
   CR: CodecReader,
 {
   fn next_doc(&mut self) -> Result<i32> {
     self.iterator.next_doc()
   }
 
-  type DocMap = MergeStateDocMap<CR>;
+  type DocMap = Rc<MergeStateDocMap<CR>>;
 
   fn get_doc_map(&self) -> Result<&Self::DocMap> {
     Ok(&self.doc_map)
   }
 }
-pub struct ByteVectorValuesSub<B, D, CR>
+pub struct ByteVectorValuesSub<B, CR>
 where
   B: ByteVectorValues,
-  D: DocIndexIterator,
   CR: CodecReader,
 {
   values: B,
-  iterator: D,
-  doc_map: MergeStateDocMap<CR>,
+  iterator: <B as KnnVectorValues>::DocIndexIterator,
+  doc_map: Rc<MergeStateDocMap<CR>>,
 }
 
-impl<B, D, CR> ByteVectorValuesSub<B, D, CR>
+impl<B, CR> ByteVectorValuesSub<B, CR>
 where
   B: ByteVectorValues,
-  D: DocIndexIterator,
   CR: CodecReader,
 {
-  fn new(values: B, iterator: D, doc_map: MergeStateDocMap<CR>) -> Self {
-    Self {
+  fn new(mut values: B, doc_map: Rc<MergeStateDocMap<CR>>) -> Result<Self> {
+    let iterator = values.iterator()?;
+    Ok(Self {
       values,
       iterator,
       doc_map,
-    }
+    })
   }
 
   fn index(&self) -> Result<i32> {
@@ -220,13 +304,12 @@ where
   }
 }
 
-impl<B, D, CR> SubBase for ByteVectorValuesSub<B, D, CR>
+impl<B, CR> SubBase for ByteVectorValuesSub<B, CR>
 where
   B: ByteVectorValues,
-  D: DocIndexIterator,
   CR: CodecReader,
 {
-  type DocMap = MergeStateDocMap<CR>;
+  type DocMap = Rc<MergeStateDocMap<CR>>;
 
   fn next_doc(&mut self) -> Result<i32> {
     self.iterator.next_doc()
@@ -261,4 +344,501 @@ pub(crate) fn has_vector_values(field_infos: &FieldInfos, field_name: &str) -> b
   field_infos
     .field_info_by_name(field_name)
     .is_some_and(|info| info.has_vector_values())
+}
+
+struct MergedFloat32VectorValuesState<F, CR>
+where
+  F: FloatVectorValues,
+  CR: CodecReader,
+{
+  doc_id: i32,
+  last_ord: i32,
+  current: Option<usize>,
+  doc_id_merger: DocIDMergerEnum<FloatVectorValuesSub<F, CR>>,
+}
+
+pub struct MergedFloat32VectorValues<F, CR>
+where
+  F: FloatVectorValues,
+  CR: CodecReader,
+{
+  // for easy taken
+  state: Option<MergedFloat32VectorValuesState<F, CR>>,
+  size: usize,
+  dimension: usize,
+  iter_called: bool,
+}
+
+impl<F, CR> MergedFloat32VectorValues<F, CR>
+where
+  F: FloatVectorValues,
+  CR: CodecReader,
+{
+  pub(crate) fn new<Dir>(
+    subs: Vec<Sub<FloatVectorValuesSub<F, CR>>>,
+    merge_state: &MergeState<'_, Dir, CR>,
+  ) -> Result<Self>
+  where
+    Dir: Directory,
+  {
+    let dimension = match subs.first() {
+      Some(v) => v.sub.values.dimension(),
+      None => return Err(LuceneError::illegal_state("no sub-vectors to merge")),
+    };
+    let size = subs.iter().map(|sub| sub.sub.values.size()).sum();
+    let doc_id_merger = of(subs, merge_state.needs_index_sort)?;
+    Ok(Self {
+      state: Some(MergedFloat32VectorValuesState {
+        doc_id: -1,
+        last_ord: -1,
+        current: None,
+        doc_id_merger,
+      }),
+      size,
+      dimension,
+      iter_called: false,
+    })
+  }
+}
+
+impl<F, CR> KnnVectorValues for MergedFloat32VectorValues<F, CR>
+where
+  F: FloatVectorValues,
+  CR: CodecReader,
+{
+  fn dimension(&self) -> usize {
+    self.dimension
+  }
+
+  fn size(&self) -> usize {
+    self.size
+  }
+
+  fn ord_to_doc(&self, _ord: usize) -> Result<usize> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type KnnVectorValues = DummyKnnVectorsWriter;
+
+  fn get_encoding(&self) -> VectorEncoding {
+    FloatVectorValues::get_encoding(self)
+  }
+
+  type Bits<'a, B>
+    = BitsImpl1<B>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    self.default_get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = MergedFloat32VectorValuesIterator<F, CR>;
+
+  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+    if self.iter_called {
+      return Err(LuceneError::illegal_state(
+        "iterator() can only be called once on MergedFloat32VectorValues",
+      ));
+    }
+    self.iter_called = true;
+
+    Ok(MergedFloat32VectorValuesIterator {
+      state: self.state.take().unwrap(),
+      index: -1,
+      size: self.size,
+    })
+  }
+}
+
+impl<F, CR> FloatVectorValues for MergedFloat32VectorValues<F, CR>
+where
+  F: FloatVectorValues,
+  CR: CodecReader,
+{
+  fn vector_value(&self, _ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>> {
+    Err(LuceneError::unsupported_operation(
+      "should use iterator()'s vector_value()",
+    ))
+  }
+
+  type FloatVectorValues = DummyFloatVectorValues;
+
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type VectorScorer = DummyVectorScorer;
+
+  fn scorer(&self, _target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
+
+pub struct MergedFloat32VectorValuesIterator<F, CR>
+where
+  F: FloatVectorValues,
+  CR: CodecReader,
+{
+  state: MergedFloat32VectorValuesState<F, CR>,
+  index: i32,
+  size: usize,
+}
+
+impl<F, CR> DocIdSetIterator for MergedFloat32VectorValuesIterator<F, CR>
+where
+  F: FloatVectorValues,
+  CR: CodecReader,
+{
+  fn doc_id(&self) -> i32 {
+    self.state.doc_id
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.state.current = self.state.doc_id_merger.next()?;
+    match self.state.current {
+      Some(current) => {
+        self.state.doc_id = self.state.doc_id_merger.get_subs()[current].mapped_doc_id;
+        self.state.last_ord += 1;
+        self.index += 1;
+        Ok(self.state.doc_id)
+      },
+      None => {
+        self.state.doc_id = NO_MORE_DOCS;
+        self.index = NO_MORE_DOCS;
+        Ok(NO_MORE_DOCS)
+      },
+    }
+  }
+
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.size.try_convert()
+  }
+}
+
+impl<F, CR> DocIndexIterator for MergedFloat32VectorValuesIterator<F, CR>
+where
+  F: FloatVectorValues,
+  CR: CodecReader,
+{
+  fn index(&self) -> Result<i32> {
+    Ok(self.index)
+  }
+}
+impl<F, CR> MergeVectorValues for MergedFloat32VectorValuesIterator<F, CR>
+where
+  F: FloatVectorValues,
+  CR: CodecReader,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    let ord: i32 = ord.try_convert()?;
+    if ord != self.state.last_ord {
+      return Err(LuceneError::illegal_state(format!(
+        "only supports forward iteration with a single iterator: ord={ord}, lastOrd={}",
+        self.state.last_ord
+      )));
+    }
+
+    let current = self
+      .state
+      .current
+      .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
+    let current_sub = &self.state.doc_id_merger.get_subs()[current].sub;
+    let index: usize = current_sub.index()?.try_convert()?;
+    current_sub.values.vector_value(index)
+  }
+}
+
+struct MergedByteVectorValuesState<B, CR>
+where
+  B: ByteVectorValues,
+  CR: CodecReader,
+{
+  doc_id: i32,
+  last_ord: i32,
+  current: Option<usize>,
+  doc_id_merger: DocIDMergerEnum<ByteVectorValuesSub<B, CR>>,
+}
+
+pub struct MergedByteVectorValues<B, CR>
+where
+  B: ByteVectorValues,
+  CR: CodecReader,
+{
+  state: Option<MergedByteVectorValuesState<B, CR>>,
+  size: usize,
+  dimension: usize,
+  iter_called: bool,
+}
+
+impl<B, CR> MergedByteVectorValues<B, CR>
+where
+  B: ByteVectorValues,
+  CR: CodecReader,
+{
+  pub(crate) fn new<Dir>(
+    subs: Vec<Sub<ByteVectorValuesSub<B, CR>>>,
+    merge_state: &MergeState<'_, Dir, CR>,
+  ) -> Result<Self>
+  where
+    Dir: Directory,
+  {
+    let dimension = match subs.first() {
+      Some(v) => v.sub.values.dimension(),
+      None => return Err(LuceneError::illegal_state("no sub-vectors to merge")),
+    };
+    let size = subs.iter().map(|sub| sub.sub.values.size()).sum();
+    let doc_id_merger = of(subs, merge_state.needs_index_sort)?;
+    Ok(Self {
+      state: Some(MergedByteVectorValuesState {
+        doc_id: -1,
+        last_ord: -1,
+        current: None,
+        doc_id_merger,
+      }),
+      size,
+      dimension,
+      iter_called: false,
+    })
+  }
+}
+
+impl<B, CR> KnnVectorValues for MergedByteVectorValues<B, CR>
+where
+  B: ByteVectorValues,
+  CR: CodecReader,
+{
+  fn dimension(&self) -> usize {
+    self.dimension
+  }
+
+  fn size(&self) -> usize {
+    self.size
+  }
+
+  fn ord_to_doc(&self, _ord: usize) -> Result<usize> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type KnnVectorValues = DummyKnnVectorsWriter;
+
+  fn get_encoding(&self) -> VectorEncoding {
+    ByteVectorValues::get_encoding(self)
+  }
+
+  type Bits<'a, B1>
+    = BitsImpl1<B1>
+  where
+    B1: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B1>(&'a self, accept_docs: Option<B1>) -> Option<Self::Bits<'a, B1>>
+  where
+    B1: Bits,
+  {
+    self.default_get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = MergedByteVectorValuesIterator<B, CR>;
+
+  fn iterator(&mut self) -> Result<Self::DocIndexIterator> {
+    if self.iter_called {
+      return Err(LuceneError::illegal_state(
+        "iterator() can only be called once on MergedByteVectorValues",
+      ));
+    }
+    self.iter_called = true;
+
+    Ok(MergedByteVectorValuesIterator {
+      state: self.state.take().unwrap(),
+      index: -1,
+      size: self.size,
+    })
+  }
+}
+
+impl<B, CR> ByteVectorValues for MergedByteVectorValues<B, CR>
+where
+  B: ByteVectorValues,
+  CR: CodecReader,
+{
+  fn vector_value(&self, _ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    Err(LuceneError::unsupported_operation(
+      "should use iterator()'s vector_value()",
+    ))
+  }
+
+  type ByteVectorValues = DummyByteVectorValues;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type VectorScorer = DummyVectorScorer;
+
+  fn scorer(&self, _query: Vec<u8>) -> Result<Self::VectorScorer> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
+
+pub struct MergedByteVectorValuesIterator<B, CR>
+where
+  B: ByteVectorValues,
+  CR: CodecReader,
+{
+  state: MergedByteVectorValuesState<B, CR>,
+  index: i32,
+  size: usize,
+}
+
+impl<B, CR> DocIdSetIterator for MergedByteVectorValuesIterator<B, CR>
+where
+  B: ByteVectorValues,
+  CR: CodecReader,
+{
+  fn doc_id(&self) -> i32 {
+    self.state.doc_id
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.state.current = self.state.doc_id_merger.next()?;
+    match self.state.current {
+      Some(current) => {
+        self.state.doc_id = self.state.doc_id_merger.get_subs()[current].mapped_doc_id;
+        self.state.last_ord += 1;
+        self.index += 1;
+        Ok(self.state.doc_id)
+      },
+      None => {
+        self.state.doc_id = NO_MORE_DOCS;
+        self.index = NO_MORE_DOCS;
+        Ok(NO_MORE_DOCS)
+      },
+    }
+  }
+
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.size.try_convert()
+  }
+}
+
+impl<B, CR> DocIndexIterator for MergedByteVectorValuesIterator<B, CR>
+where
+  B: ByteVectorValues,
+  CR: CodecReader,
+{
+  fn index(&self) -> Result<i32> {
+    Ok(self.index)
+  }
+}
+
+impl<B, CR> MergeVectorValues for MergedByteVectorValuesIterator<B, CR>
+where
+  B: ByteVectorValues,
+  CR: CodecReader,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    let ord: i32 = ord.try_convert()?;
+    if ord != self.state.last_ord {
+      return Err(LuceneError::illegal_state(format!(
+        "only supports forward iteration with a single iterator: ord={ord}, lastOrd={}",
+        self.state.last_ord
+      )));
+    }
+
+    let current = self
+      .state
+      .current
+      .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
+    let current_sub = &self.state.doc_id_merger.get_subs()[current].sub;
+    let index: usize = current_sub.index()?.try_convert()?;
+    current_sub.values.vector_value(index)
+  }
+}
+
+trait MergeVectorValues {
+  fn vector_value(&self, ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>>;
+}
+
+fn merge_vector_values<D, CR, V, S, VSupplier, NewSub>(
+  merge_state: &MergeState<'_, D, CR>,
+  merging_field: &FieldInfo,
+  mut values_supplier: VSupplier,
+  mut new_sub: NewSub,
+) -> Result<Vec<Sub<S>>>
+where
+  D: Directory,
+  CR: CodecReader,
+  V: KnnVectorValues,
+  S: SubBase<DocMap = Rc<MergeStateDocMap<CR>>>,
+  VSupplier: FnMut(&CRKnnVectorReader<CR>, &str) -> Result<V>,
+  NewSub: FnMut(Rc<MergeStateDocMap<CR>>, V) -> Result<S>,
+{
+  let mut subs = Vec::new();
+  for i in 0..merge_state.knn_vectors_readers.len() {
+    let source_field_info = &merge_state.field_infos[i];
+    if !has_vector_values(source_field_info, &merging_field.name) {
+      continue;
+    }
+
+    if let Some(knn_vectors_reader) = merge_state.knn_vectors_readers[i].as_ref() {
+      let values = values_supplier(knn_vectors_reader, &merging_field.name)?;
+      subs.push(Sub::new(new_sub(merge_state.doc_maps[i].clone(), values)?));
+    }
+  }
+  Ok(subs)
+}
+
+pub(crate) fn merge_float_vector_values<D, CR>(
+  field_info: &FieldInfo,
+  merge_state: &MergeState<'_, D, CR>,
+) -> Result<
+  MergedFloat32VectorValues<<CRKnnVectorReader<CR> as KnnVectorsReader>::FloatVectorValues, CR>,
+>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+  validate_field_encoding(field_info, VectorEncoding::FLOAT32(4))?;
+  MergedFloat32VectorValues::new(
+    merge_vector_values(
+      merge_state,
+      field_info,
+      |knn_vectors_reader, field| knn_vectors_reader.get_float_vector_values(field),
+      |doc_map, values| FloatVectorValuesSub::new(values, doc_map),
+    )?,
+    merge_state,
+  )
+}
+
+pub(crate) fn merge_byte_vector_values<D, CR>(
+  field_info: &FieldInfo,
+  merge_state: &MergeState<'_, D, CR>,
+) -> Result<MergedByteVectorValues<<CRKnnVectorReader<CR> as KnnVectorsReader>::ByteVectorValues, CR>>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+  validate_field_encoding(field_info, VectorEncoding::BYTE(1))?;
+  MergedByteVectorValues::new(
+    merge_vector_values(
+      merge_state,
+      field_info,
+      |knn_vectors_reader, field| knn_vectors_reader.get_byte_vector_values(field),
+      |doc_map, values| ByteVectorValuesSub::new(values, doc_map),
+    )?,
+    merge_state,
+  )
 }
