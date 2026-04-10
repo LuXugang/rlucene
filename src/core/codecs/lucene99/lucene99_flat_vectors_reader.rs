@@ -17,6 +17,7 @@
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::hnsw::flat_vectors_reader::FlatVectorsReader;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::lucene95::off_heap_byte_vector_values::OffHeapByteVectorValuesEnum;
 use crate::core::codecs::lucene95::off_heap_float_vector_values::OffHeapFloatVectorValuesEnum;
@@ -42,6 +43,7 @@ use crate::core::store::{IOContext, IndexInput, ReadAdvice};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
+use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -225,6 +227,14 @@ where
 
     Ok(field_entry)
   }
+}
+
+impl<I, F> HnswGraphProvider for Lucene99FlatVectorsReader<I, F>
+where
+  I: IndexInput,
+  F: FlatVectorsScorer,
+{
+  type HnswGraph = DummyHnswGraph;
 }
 
 impl<I, F> KnnVectorsReader for Lucene99FlatVectorsReader<I, F>

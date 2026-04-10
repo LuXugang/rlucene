@@ -14,13 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
+use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 
 pub struct DummyKnnVectorsReader;
+impl HnswGraphProvider for DummyKnnVectorsReader {
+  type HnswGraph = DummyHnswGraph;
+}
 impl KnnVectorsReader for DummyKnnVectorsReader {
   fn check_integrity(&self) -> crate::core::util::error::lucene_error::Result<()> {
     unreachable!("Dummy implementation: this method should never be called in real usage")

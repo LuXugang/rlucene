@@ -14,27 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::hnsw_graph::HnswGraph;
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
+use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 
-/// An interface that provides an HNSW graph. This interface is useful when gathering multiple HNSW
-/// graphs to bootstrap segment merging. The graph may be off the JVM heap.
-///
-/// @lucene.experimental
-pub trait HnswGraphProvider {
-  type HnswGraph: HnswGraph;
+pub struct DummyHnswGraphProvider;
+impl HnswGraphProvider for DummyHnswGraphProvider {
+    type HnswGraph = DummyHnswGraph;
 
-  /// Return the stored HnswGraph for the given field.
-  ///
-  /// # Arguments
-  /// * `field` - the field containing the graph
-  ///
-  /// # Returns
-  /// the HnswGraph for the given field if found
-  ///
-  /// # Errors
-  /// when reading potentially off-heap graph fails
-  fn get_graph(&self, _field: &str) -> Result<Self::HnswGraph>{
-    Err(LuceneError::unsupported_operation(""))
-  }
+    fn get_graph(&self, _field: &str) -> crate::core::util::error::lucene_error::Result<Self::HnswGraph> {
+        unimplemented!("Dummy implementation: this method should never be called in real usage")
+    }
 }

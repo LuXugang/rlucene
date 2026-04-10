@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::fields_producer::FieldsProducer;
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
@@ -36,6 +37,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
+use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
 use std::fmt::{Display, Formatter};
@@ -732,6 +734,12 @@ where
   fn new(reader: LR) -> Self {
     Self { reader }
   }
+}
+impl<LR> HnswGraphProvider for KnnVectorsReaderImpl<LR>
+where
+  LR: LeafReader,
+{
+  type HnswGraph = DummyHnswGraph;
 }
 impl<LR> KnnVectorsReader for KnnVectorsReaderImpl<LR>
 where

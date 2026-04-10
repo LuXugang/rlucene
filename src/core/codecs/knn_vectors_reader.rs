@@ -24,10 +24,13 @@ use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValuesEnum2;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
+use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
+
 /// Reads vectors from an index.
-pub trait KnnVectorsReader {
+pub trait KnnVectorsReader : HnswGraphProvider {
   /// Checks consistency of this reader.
   ///
   /// Note that this may be costly in terms of I/O, e.g. may involve computing a checksum value
@@ -151,6 +154,13 @@ macro_rules! either_knn_vectors_reader {
             $( $Variant($T), )+
         }
 
+        impl<$( $T ),+> $crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider for $name<$( $T ),+>
+        where
+            $( $T: $crate::core::codecs::knn_vectors_reader::KnnVectorsReader ),+
+        {
+            type HnswGraph = $crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
+        }
+
         impl<$( $T ),+> $crate::core::codecs::knn_vectors_reader::KnnVectorsReader for $name<$( $T ),+>
         where
             $( $T: $crate::core::codecs::knn_vectors_reader::KnnVectorsReader ),+
@@ -245,6 +255,9 @@ either_knn_vectors_reader!(
 );
 
 pub enum KnnVectorsReaderEnum {}
+impl HnswGraphProvider for KnnVectorsReaderEnum {
+  type HnswGraph = DummyHnswGraph;
+}
 impl KnnVectorsReader for KnnVectorsReaderEnum {
   fn check_integrity(&self) -> Result<()> {
     todo!()
@@ -299,6 +312,17 @@ impl KnnVectorsReader for KnnVectorsReaderEnum {
 
   fn finish_merge(&self) -> Result<()> {
     todo!()
+  }
+}
+
+impl<T> HnswGraphProvider for Arc<T>
+where
+  T: HnswGraphProvider,
+{
+  type HnswGraph = T::HnswGraph;
+
+  fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
+    (**self).get_graph(field)
   }
 }
 

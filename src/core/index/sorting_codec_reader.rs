@@ -18,6 +18,7 @@ use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProdu
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
@@ -79,6 +80,7 @@ use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::supplier::Supplier;
 use parking_lot::{Mutex, MutexGuard};
@@ -949,6 +951,13 @@ where
   fn new(delegate: KVR, doc_map: DM) -> Self {
     Self { delegate, doc_map }
   }
+}
+impl<KVR, DM> HnswGraphProvider for KnnVectorsReaderImpl<KVR, DM>
+where
+  KVR: KnnVectorsReader,
+  DM: DocMap,
+{
+  type HnswGraph = DummyHnswGraph;
 }
 impl<KVR, DM> KnnVectorsReader for KnnVectorsReaderImpl<KVR, DM>
 where

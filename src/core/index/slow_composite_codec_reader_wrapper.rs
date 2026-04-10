@@ -18,6 +18,7 @@ use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::fields_producer::FieldsProducer;
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
@@ -67,6 +68,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
+use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::merged_iterator::MergedIterator;
 use crate::core::util::{CoreHelper, SliceCopyOps};
@@ -1209,6 +1211,12 @@ where
       doc_starts,
     })
   }
+}
+impl<CR> HnswGraphProvider for SlowCompositeKnnVectorsReaderWrapper<CR>
+where
+  CR: CodecReader + Clone,
+{
+  type HnswGraph = DummyHnswGraph;
 }
 impl<CR> KnnVectorsReader for SlowCompositeKnnVectorsReaderWrapper<CR>
 where

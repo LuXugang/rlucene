@@ -51,6 +51,7 @@ use crate::core::util::hnsw::hnsw_graph_builder::{DefaultHnswGraphBuilder, RAND_
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
+use crate::core::util::incremental_hnsw_graph_merger::IncrementalHnswGraphMerger;
 use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use std::sync::Arc;
@@ -492,6 +493,18 @@ where
     meta.write_long((end - start) as i64)?;
 
     Ok(())
+  }
+
+  // TODO IMPORTANT 多线程未实现
+  fn create_graph_merger<S>(
+    &self,
+    field_info: Arc<FieldInfo>,
+    scorer_supplier: S,
+  ) -> IncrementalHnswGraphMerger<S>
+  where
+    S: RandomVectorScorerSupplier,
+  {
+    IncrementalHnswGraphMerger::new(field_info.clone(), scorer_supplier, self.m, self.beam_width)
   }
 }
 
