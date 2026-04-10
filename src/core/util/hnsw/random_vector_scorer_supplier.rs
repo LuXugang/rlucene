@@ -49,3 +49,29 @@ pub trait RandomVectorScorerSupplier {
     Err(LuceneError::unsupported_operation(""))
   }
 }
+impl<T> RandomVectorScorerSupplier for &T
+where
+  T: RandomVectorScorerSupplier,
+{
+  type Scorer<'a>
+    = T::Scorer<'a>
+  where
+    Self: 'a;
+
+  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
+    (**self).scorer(ord)
+  }
+
+  type RandomVectorScorerSupplier = T::RandomVectorScorerSupplier;
+
+  fn copy(&self) -> Result<Self::RandomVectorScorerSupplier>
+  where
+    Self: Sized,
+  {
+    (**self).copy()
+  }
+
+  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
+    (**self).get_vector()
+  }
+}

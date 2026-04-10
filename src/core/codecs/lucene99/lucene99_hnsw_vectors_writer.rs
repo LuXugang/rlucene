@@ -502,14 +502,15 @@ where
 
   // TODO IMPORTANT 多线程未实现
   fn create_graph_merger<S>(
-    &self,
     field_info: Arc<FieldInfo>,
     scorer_supplier: S,
+    m: usize,
+    beam_width: usize,
   ) -> IncrementalHnswGraphMerger<S>
   where
     S: RandomVectorScorerSupplier,
   {
-    IncrementalHnswGraphMerger::new(field_info.clone(), scorer_supplier, self.m, self.beam_width)
+    IncrementalHnswGraphMerger::new(field_info.clone(), scorer_supplier, m, beam_width)
   }
 }
 
@@ -586,7 +587,8 @@ where
     let mut vector_index_node_offsets = Vec::new();
 
     if total_vector_count > 0 {
-      let mut merger = self.create_graph_merger(field_info.clone(), scorer_supplier);
+      let mut merger =
+        Self::create_graph_merger(field_info.clone(), scorer_supplier, self.m, self.beam_width);
 
       for i in 0..merge_state.live_docs.len() {
         if !has_vector_values(&merge_state.field_infos[i], &field_info.name) {

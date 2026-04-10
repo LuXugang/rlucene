@@ -23,9 +23,9 @@ use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::knn_vector_values::KnnVectorValues;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::multi_reader::MultiReader;
-use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::query_timeout::{QueryTimeout, QueryTimeoutEnum};
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
@@ -52,12 +52,15 @@ use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::at_least_usize;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_searcher_with_reader;
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+  at_least_usize, get_only_leaf_reader,
+};
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -624,10 +627,7 @@ pub trait BaseKnnVectorQueryTestCase {
     let every_doc_has_a_vector = random.random_bool(0.5);
 
     let directory = self.new_directory_for_test(random)?;
-    let mut config = IndexWriterConfig::new();
-    // TODO IMPORTANT knn merge未实现
-    config.set_merge_policy(NoMergePolicy::default());
-    let writer = RandomIndexWriter::with_config(random, directory.clone().into(), config);
+    let writer = RandomIndexWriter::new(random, directory.clone().into());
     let mut num_docs_with_vectors = 0usize;
     for _ in 0..num_docs {
       let mut doc = Document::new();
@@ -720,135 +720,140 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_deletes<R>(&self, _random: &mut R) -> Result<()>
+  fn test_deletes<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT knn merge 未实现
-    // let directory = self.new_directory_for_test(random)?;
-    // let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
-    // let num_docs = at_least_usize(random, 120);
-    // let dim = 30usize;
-    // for i in 0..num_docs {
-    //   let mut doc = Document::new();
-    //   doc.add(StringField::from_string(
-    //     "index",
-    //     i.to_string(),
-    //     Store::Yes,
-    //   )?);
-    //   if i % 5 != 0 {
-    //     doc.add(self.get_knn_vector_field("vector", self.random_vector(random, dim))?);
-    //   }
-    //   writer.add_document(doc)?;
-    // }
-    // writer.commit()?;
-    //
-    // let mut to_delete = HashSet::new();
-    // for _ in 0..25 {
-    //   let index = random.random_range(0..num_docs);
-    //   to_delete.insert(index.to_string());
-    // }
-    // let delete_terms = to_delete
-    //   .iter()
-    //   .map(|index| Term::from_text("index", index.as_str()))
-    //   .collect::<Vec<_>>();
-    // writer.delete_documents_with_terms(delete_terms)?;
-    // writer.commit()?;
-    // writer.close()?;
-    //
-    // let hits = 50usize;
-    // let reader = directory_reader_util::open(directory.into())?;
-    // let searcher = new_searcher_with_reader(reader)?;
-    // let query = self.get_knn_vector_query_no_filter("vector", self.random_vector(random, dim), hits)?;
-    // let top_docs = searcher.search(query, num_docs)?;
-    // let mut stored_fields = searcher.get_index_reader().stored_fields()?;
-    // let mut all_ids = HashSet::new();
-    // for score_doc in top_docs.score_docs {
-    //   let doc = stored_fields.document(score_doc.doc)?;
-    //   let index = doc
-    //     .get("index")?
-    //     .map(|value| value.into_owned())
-    //     .expect("stored index should exist");
-    //   assert!(
-    //     !to_delete.contains(&index),
-    //     "search returned a deleted document: {index}"
-    //   );
-    //   all_ids.insert(index);
-    // }
-    // assert_eq!(hits, all_ids.len(), "search missed some documents");
+    let directory = self.new_directory_for_test(random)?;
+    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
+    let num_docs = at_least_usize(random, 120);
+    let dim = 30usize;
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(StringField::from_string(
+        "index",
+        i.to_string(),
+        Store::Yes,
+      )?);
+      if i % 5 != 0 {
+        doc.add(self.get_knn_vector_field("vector", self.random_vector(random, dim))?);
+      }
+      writer.add_document(doc)?;
+    }
+    writer.commit()?;
+
+    let mut to_delete = HashSet::new();
+    for _ in 0..25 {
+      let index = random.random_range(0..num_docs);
+      to_delete.insert(index.to_string());
+    }
+    let delete_terms = to_delete
+      .iter()
+      .map(|index| Term::from_text("index", index.as_str()))
+      .collect::<Vec<_>>();
+    writer.delete_documents_with_terms(delete_terms)?;
+    writer.commit()?;
+    writer.close()?;
+
+    let hits = 50usize;
+    let reader = directory_reader_util::open(directory.into())?;
+    let searcher = new_searcher_with_reader(reader)?;
+    let query =
+      self.get_knn_vector_query_no_filter("vector", self.random_vector(random, dim), hits)?;
+    let top_docs = searcher.search(query, num_docs)?;
+    let mut stored_fields = searcher.get_index_reader().stored_fields()?;
+    let mut all_ids = HashSet::new();
+    for score_doc in top_docs.score_docs {
+      let doc = stored_fields.document(score_doc.doc)?;
+      let index = doc
+        .get("index")?
+        .map(|value| value.into_owned())
+        .expect("stored index should exist");
+      assert!(
+        !to_delete.contains(&index),
+        "search returned a deleted document: {index}"
+      );
+      all_ids.insert(index);
+    }
+    assert_eq!(hits, all_ids.len(), "search missed some documents");
     Ok(())
   }
 
-  fn test_all_deletes<R>(&self, _random: &mut R) -> Result<()>
+  fn test_all_deletes<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT knn merge 未实现
-    // let directory = self.new_directory_for_test(random)?;
-    // let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
-    // let num_docs = at_least_usize(random, 100);
-    // let dim = 30usize;
-    // for _ in 0..num_docs {
-    //   let mut doc = Document::new();
-    //   doc.add(self.get_knn_vector_field("vector", self.random_vector(random, dim))?);
-    //   writer.add_document(doc)?;
-    // }
-    // writer.commit()?;
+    let directory = self.new_directory_for_test(random)?;
+    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
+    let num_docs = at_least_usize(random, 100);
+    let dim = 30usize;
+    for _ in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(self.get_knn_vector_field("vector", self.random_vector(random, dim))?);
+      // TODO delete by query 未实现 先用 delete by term 替换
+      doc.add(StringField::from_string("vector", "0", Store::Yes)?);
+      writer.add_document(doc)?;
+    }
+    writer.commit()?;
+    // TODO delete by query 未实现 先用 delete by term 替换
+    writer.delete_documents_with_terms(vec![Term::from_text("vector", "0")])?;
     // writer.delete_documents_with_queries(vec![MatchAllDocsQuery::new().into()])?;
-    // writer.commit()?;
-    // writer.close()?;
-    //
-    // let reader = directory_reader_util::open(directory.into())?;
-    // let searcher = new_searcher_with_reader(reader)?;
-    // let query = self.get_knn_vector_query_no_filter("vector", self.random_vector(random, dim), num_docs)?;
-    // let top_docs = searcher.search(query, num_docs)?;
-    // assert_eq!(0, top_docs.score_docs.len());
+    writer.commit()?;
+    writer.close()?;
+
+    let reader = directory_reader_util::open(directory.into())?;
+    let searcher = new_searcher_with_reader(reader)?;
+    let query =
+      self.get_knn_vector_query_no_filter("vector", self.random_vector(random, dim), num_docs)?;
+    let top_docs = searcher.search(query, num_docs)?;
+    assert_eq!(0, top_docs.score_docs.len());
     Ok(())
   }
 
-  fn test_merge_away_all_values<R>(&self, _random: &mut R) -> Result<()>
+  fn test_merge_away_all_values<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT knn merge 未实现
-    // let dim = 30usize;
-    // let directory = self.new_directory_for_test(random)?;
-    // let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
-    //
-    // let mut doc = Document::new();
-    // doc.add(StringField::from_string("id", "0", Store::No)?);
-    // writer.add_document(doc)?;
-    //
-    // let mut doc = Document::new();
-    // doc.add(StringField::from_string("id", "1", Store::No)?);
-    // doc.add(self.get_knn_vector_field("field", self.random_vector(random, dim))?);
-    // writer.add_document(doc)?;
-    // writer.commit()?;
-    // writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    // writer.force_merge(1)?;
-    // writer.close()?;
-    //
-    // let reader = directory_reader_util::open(directory.into())?;
-    // let leaf_reader = get_only_leaf_reader(&reader)?;
-    // let field_info = leaf_reader
-    //   .get_field_infos()?
-    //   .field_info_by_name("field")
-    //   .clone();
-    // assert!(field_info.is_some());
-    // let field_info = field_info.unwrap();
-    //
-    // match field_info.get_vector_encoding() {
-    //   crate::core::index::vector_encoding::VectorEncoding::BYTE(_) => {
-    //     let mut vector_values = leaf_reader.get_byte_vector_values("field")?.expect("vector values");
-    //     assert_eq!(NO_MORE_DOCS, vector_values.iterator()?.next_doc()?);
-    //   },
-    //   crate::core::index::vector_encoding::VectorEncoding::FLOAT32(_) => {
-    //     let mut vector_values = leaf_reader
-    //       .get_float_vector_values("field")?
-    //       .expect("vector values");
-    //     assert_eq!(NO_MORE_DOCS, vector_values.iterator()?.next_doc()?);
-    //   },
-    // }
+    let dim = 30usize;
+    let directory = self.new_directory_for_test(random)?;
+    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "0", Store::No)?);
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "1", Store::No)?);
+    doc.add(self.get_knn_vector_field("field", self.random_vector(random, dim))?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+    writer.force_merge(1)?;
+    writer.close()?;
+
+    let reader = directory_reader_util::open(directory.into())?;
+    let leaf_reader = get_only_leaf_reader(&reader)?;
+    let field_info = leaf_reader
+      .get_field_infos()?
+      .field_info_by_name("field")
+      .clone();
+    assert!(field_info.is_some());
+    let field_info = field_info.unwrap();
+
+    match field_info.get_vector_encoding() {
+      crate::core::index::vector_encoding::VectorEncoding::BYTE(_) => {
+        let vector_values = leaf_reader
+          .get_byte_vector_values("field")?
+          .expect("vector values");
+        assert_eq!(NO_MORE_DOCS, vector_values.iterator()?.next_doc()?);
+      },
+      crate::core::index::vector_encoding::VectorEncoding::FLOAT32(_) => {
+        let vector_values = leaf_reader
+          .get_float_vector_values("field")?
+          .expect("vector values");
+        assert_eq!(NO_MORE_DOCS, vector_values.iterator()?.next_doc()?);
+      },
+    }
     Ok(())
   }
 
@@ -973,10 +978,7 @@ pub trait BaseKnnVectorQueryTestCase {
     R: Rng + ?Sized,
   {
     let index_store = self.new_directory_for_test(random)?;
-    let mut config = IndexWriterConfig::new();
-    // TODO IMPORTANT knn merge 未实现
-    config.set_merge_policy(NoMergePolicy::default());
-    let writer = RandomIndexWriter::with_config(random, index_store.clone().into(), config);
+    let writer = RandomIndexWriter::new(random, index_store.clone().into());
 
     for (i, vector) in contents.iter().enumerate() {
       let mut doc = Document::new();

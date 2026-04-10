@@ -113,14 +113,7 @@ where
   }
 }
 
-impl<W: Write> Closeable for OutputStreamIndexOutput<W>
-where
-  W: Write,
-{
-  fn close(&mut self) -> Result<()> {
-    todo!()
-  }
-}
+impl<W: Write> Closeable for OutputStreamIndexOutput<W> where W: Write {}
 
 impl<W: Write> IndexOutput for OutputStreamIndexOutput<W>
 where

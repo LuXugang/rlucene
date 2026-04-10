@@ -61,6 +61,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::io_utils::IOUtils;
+use log::warn;
 use std::sync::Arc;
 
 /// Writes vector values to index segments.
@@ -394,22 +395,28 @@ where
     self.fields.as_mut()
   }
 
-  type CloseableRandomVectorScorerSupplier<I>
+  type CloseableRandomVectorScorerSupplier<'a, I, D>
     = FlatCloseableRandomVectorScorerSupplier<
+    'a,
     <F as FlatVectorsScorer>::RandomVectorScorerSupplier<
       off_heap_byte_vector_values::DenseOffHeapVectorValues<I, F>,
       off_heap_float_vector_values::DenseOffHeapVectorValues<I, F>,
     >,
+    D,
   >
   where
-    I: IndexInput;
+    I: IndexInput + 'a,
+    D: Directory,
+    Self: 'a,
+    D: 'a,
+    I: 'a;
 
-  fn merge_one_field_to_index<D1, D2, CR>(
-    &mut self,
+  fn merge_one_field_to_index<'a, D1, D2, CR>(
+    &'a mut self,
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
-    segment_write_state: &SegmentWriteState<&D2>,
-  ) -> Result<Self::CloseableRandomVectorScorerSupplier<D2::IndexInput>>
+    segment_write_state: &SegmentWriteState<&'a D2>,
+  ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2::IndexInput, D2>>
   where
     D1: Directory,
     D2: Directory,
@@ -422,72 +429,77 @@ where
       segment_write_state.context,
     )?;
     let temp_vector_name = temp_vector_data.get_name().to_string();
-    let result = (|| -> Result<Self::CloseableRandomVectorScorerSupplier<D2::IndexInput>> {
-      let docs_with_field = match field_info.get_vector_encoding() {
-        VectorEncoding::BYTE(_) => {
-          let mut merged_bytes = merge_byte_vector_values(field_info, merge_state)?;
-          write_byte_vector_data(&mut temp_vector_data, &mut merged_bytes)?
-        },
-        VectorEncoding::FLOAT32(_) => {
-          let mut merged_floats = merge_float_vector_values(field_info, merge_state)?;
-          write_vector_data(&mut temp_vector_data, &mut merged_floats)?
-        },
-      };
-      CodecUtil::write_footer(&mut temp_vector_data)?;
-      temp_vector_data.close()?;
+    let result =
+      (|| -> Result<Self::CloseableRandomVectorScorerSupplier<'_, D2::IndexInput, D2>> {
+        let docs_with_field = match field_info.get_vector_encoding() {
+          VectorEncoding::BYTE(_) => {
+            let mut merged_bytes = merge_byte_vector_values(field_info, merge_state)?;
+            write_byte_vector_data(&mut temp_vector_data, &mut merged_bytes)?
+          },
+          VectorEncoding::FLOAT32(_) => {
+            let mut merged_floats = merge_float_vector_values(field_info, merge_state)?;
+            write_vector_data(&mut temp_vector_data, &mut merged_floats)?
+          },
+        };
+        CodecUtil::write_footer(&mut temp_vector_data)?;
+        drop(temp_vector_data);
 
-      let random_context = segment_write_state
-        .context
-        .with_read_advice_self(ReadAdvice::Random)?;
-      let mut vector_data_input = segment_write_state
-        .directory
-        .open_input(&temp_vector_name, &random_context)?;
-      let copy_len = vector_data_input.length() - CodecUtil::footer_length();
-      self
-        .vector_data
-        .copy_bytes(&mut vector_data_input, copy_len)?;
-      CodecUtil::retrieve_checksum(&mut vector_data_input)?;
+        let random_context = segment_write_state
+          .context
+          .with_read_advice_self(ReadAdvice::Random)?;
+        let mut vector_data_input = segment_write_state
+          .directory
+          .open_input(&temp_vector_name, &random_context)?;
+        let copy_len = vector_data_input.length() - CodecUtil::footer_length();
+        self
+          .vector_data
+          .copy_bytes(&mut vector_data_input, copy_len)?;
+        CodecUtil::retrieve_checksum(&mut vector_data_input)?;
 
-      let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
-      write_meta(
-        &mut self.meta,
-        &mut self.vector_data,
-        field_info,
-        merge_state.segment_info.max_doc()?,
-        vector_data_offset as i64,
-        vector_data_length as i64,
-        &docs_with_field,
-      )?;
+        let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
+        write_meta(
+          &mut self.meta,
+          &mut self.vector_data,
+          field_info,
+          merge_state.segment_info.max_doc()?,
+          vector_data_offset as i64,
+          vector_data_length as i64,
+          &docs_with_field,
+        )?;
 
-      let random_vector_scorer_supplier = match field_info.get_vector_encoding() {
-        VectorEncoding::BYTE(_) => self.flat_vectors_scorer.get_random_vector_scorer_supplier(
-          *field_info.get_vector_similarity_function(),
-          KnnVectorValuesEnm2::A(off_heap_byte_vector_values::DenseOffHeapVectorValues::new(
-            field_info.get_vector_dimension() as usize,
-            docs_with_field.cardinality() as usize,
-            vector_data_input,
-            field_info.get_vector_dimension() as usize * VectorEncoding::BYTE(1).byte_size(),
-            self.flat_vectors_scorer.clone(),
+        let random_vector_scorer_supplier = match field_info.get_vector_encoding() {
+          VectorEncoding::BYTE(_) => self.flat_vectors_scorer.get_random_vector_scorer_supplier(
             *field_info.get_vector_similarity_function(),
-          )),
-        )?,
-        VectorEncoding::FLOAT32(_) => self.flat_vectors_scorer.get_random_vector_scorer_supplier(
-          *field_info.get_vector_similarity_function(),
-          KnnVectorValuesEnm2::B(off_heap_float_vector_values::DenseOffHeapVectorValues::new(
-            field_info.get_vector_dimension() as usize,
-            docs_with_field.cardinality() as usize,
-            vector_data_input,
-            field_info.get_vector_dimension() as usize * VectorEncoding::FLOAT32(4).byte_size(),
-            self.flat_vectors_scorer.clone(),
-            *field_info.get_vector_similarity_function(),
-          )?),
-        )?,
-      };
-      Ok(FlatCloseableRandomVectorScorerSupplier::new(
-        docs_with_field.cardinality(),
-        random_vector_scorer_supplier,
-      ))
-    })();
+            KnnVectorValuesEnm2::A(off_heap_byte_vector_values::DenseOffHeapVectorValues::new(
+              field_info.get_vector_dimension() as usize,
+              docs_with_field.cardinality() as usize,
+              vector_data_input,
+              field_info.get_vector_dimension() as usize * VectorEncoding::BYTE(1).byte_size(),
+              self.flat_vectors_scorer.clone(),
+              *field_info.get_vector_similarity_function(),
+            )),
+          )?,
+          VectorEncoding::FLOAT32(_) => {
+            self.flat_vectors_scorer.get_random_vector_scorer_supplier(
+              *field_info.get_vector_similarity_function(),
+              KnnVectorValuesEnm2::B(off_heap_float_vector_values::DenseOffHeapVectorValues::new(
+                field_info.get_vector_dimension() as usize,
+                docs_with_field.cardinality() as usize,
+                vector_data_input,
+                field_info.get_vector_dimension() as usize * VectorEncoding::FLOAT32(4).byte_size(),
+                self.flat_vectors_scorer.clone(),
+                *field_info.get_vector_similarity_function(),
+              )?),
+            )?
+          },
+        };
+        Ok(FlatCloseableRandomVectorScorerSupplier::new(
+          docs_with_field.cardinality(),
+          random_vector_scorer_supplier,
+          segment_write_state.directory,
+          temp_vector_name.clone(),
+        ))
+      })();
 
     if result.is_err() {
       IOUtils::delete_files_ignoring_exceptions(
@@ -559,6 +571,7 @@ where
     output.write_bytes_range(value.as_bytes()?, 0, value.len())?;
     docs_with_field.add(doc)?;
   }
+  docs_with_field.finish();
   Ok(docs_with_field)
 }
 /// Writes the vector values to the output and returns a set of documents that contains vectors.
@@ -593,6 +606,7 @@ where
     output.write_bytes_range(&buffer, 0, buffer.len())?;
     docs_with_field.add(doc)?;
   }
+  docs_with_field.finish();
   Ok(docs_with_field)
 }
 pub struct FlatFieldWriter {
@@ -678,29 +692,36 @@ impl FlatFieldVectorsWriter for FlatFieldWriter {
   }
 }
 
-pub struct FlatCloseableRandomVectorScorerSupplier<S>
+pub struct FlatCloseableRandomVectorScorerSupplier<'a, S, D>
 where
   S: RandomVectorScorerSupplier,
+  D: Directory,
 {
   supplier: S,
   num_vectors: i32,
+  dir: &'a D,
+  temp_file: String,
 }
 
-impl<S> FlatCloseableRandomVectorScorerSupplier<S>
+impl<'a, S, D> FlatCloseableRandomVectorScorerSupplier<'a, S, D>
 where
   S: RandomVectorScorerSupplier,
+  D: Directory,
 {
-  pub(crate) fn new(num_vectors: i32, supplier: S) -> Self {
+  pub(crate) fn new(num_vectors: i32, supplier: S, dir: &'a D, temp_file: String) -> Self {
     Self {
       supplier,
       num_vectors,
+      dir,
+      temp_file,
     }
   }
 }
 
-impl<S> RandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<S>
+impl<S, D> RandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<'_, S, D>
 where
   S: RandomVectorScorerSupplier,
+  D: Directory,
 {
   type Scorer<'a>
     = S::Scorer<'a>
@@ -729,20 +750,34 @@ where
   }
 }
 
-impl<S> Closeable for FlatCloseableRandomVectorScorerSupplier<S>
+impl<S, D> Closeable for FlatCloseableRandomVectorScorerSupplier<'_, S, D>
 where
   S: RandomVectorScorerSupplier,
+  D: Directory,
 {
-  fn close(&mut self) -> Result<()> {
-    Ok(())
-  }
 }
 
-impl<S> CloseableRandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<S>
+impl<S, D> CloseableRandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<'_, S, D>
 where
   S: RandomVectorScorerSupplier,
+  D: Directory,
 {
   fn total_vector_count(&self) -> Result<i32> {
     Ok(self.num_vectors)
+  }
+}
+impl<S, D> Drop for FlatCloseableRandomVectorScorerSupplier<'_, S, D>
+where
+  S: RandomVectorScorerSupplier,
+  D: Directory,
+{
+  fn drop(&mut self) {
+    match self.dir.delete_file(&self.temp_file) {
+      Ok(_) => (),
+      Err(e) => {
+        // TODO IMPORTANT 有没有优雅合适的处理方式
+        warn!("Failed to delete temporary file: {}", e);
+      },
+    }
   }
 }

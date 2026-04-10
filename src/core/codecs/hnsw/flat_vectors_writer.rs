@@ -64,9 +64,13 @@ pub trait FlatVectorsWriter: KnnVectorsWriter {
   type FlatFieldVectorsWriter: FlatFieldVectorsWriter;
   fn get_fields_mut(&mut self) -> &mut [Self::FlatFieldVectorsWriter];
 
-  type CloseableRandomVectorScorerSupplier<I>: CloseableRandomVectorScorerSupplier
+  type CloseableRandomVectorScorerSupplier<'a, I, D>: CloseableRandomVectorScorerSupplier
   where
-    I: IndexInput;
+    I: IndexInput,
+    D: Directory,
+    Self: 'a,
+    D: 'a,
+    I: 'a;
   /// Write the field for merging, providing a scorer over the newly merged flat vectors. This way
   /// any additional merging logic can be implemented by the user of this class.
   ///
@@ -83,12 +87,12 @@ pub trait FlatVectorsWriter: KnnVectorsWriter {
   /// # Errors
   ///
   /// Returns an error if an I/O error occurs when merging.
-  fn merge_one_field_to_index<D1, D2, CR>(
-    &mut self,
+  fn merge_one_field_to_index<'a, D1, D2, CR>(
+    &'a mut self,
     _field_info: &FieldInfo,
     _merge_state: &MergeState<'_, D1, CR>,
-    _segment_write_state: &SegmentWriteState<&D2>,
-  ) -> Result<Self::CloseableRandomVectorScorerSupplier<D2::IndexInput>>
+    _segment_write_state: &SegmentWriteState<'a, &D2>,
+  ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2::IndexInput, D2>>
   where
     D1: Directory,
     D2: Directory,

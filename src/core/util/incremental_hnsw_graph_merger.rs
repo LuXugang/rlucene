@@ -36,6 +36,7 @@ use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSu
 use crate::core::util::info_stream::InfoStreamMT;
 use std::collections::HashMap;
 use std::sync::Arc;
+
 /// This selects the biggest Hnsw graph from the provided merge state and initializes a new
 /// HnswGraphBuilder with that graph as a starting point.
 pub struct IncrementalHnswGraphMerger<S>
