@@ -132,6 +132,7 @@ where
           max_ord,
         )?;
         builder.set_info_stream(info_stream);
+        builder.build(max_ord as usize)?;
         Ok(std::mem::replace(
           builder.get_graph(),
           OnHeapHnswGraph::new(self.m, 0),
@@ -146,6 +147,7 @@ where
           max_ord,
         )?;
         builder.set_info_stream(info_stream);
+        builder.build(max_ord as usize)?;
         Ok(std::mem::replace(
           builder.get_graph(),
           OnHeapHnswGraph::new(self.m, 0),
