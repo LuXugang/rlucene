@@ -106,9 +106,8 @@ where
   iwc.set_merge_scheduler(SerialMergeScheduler::new());
   iwc.set_index_sort(SORT.clone())?;
 
-  let iw = RandomIndexWriter::with_config(random, dir.clone(), iwc);
-  // set_do_random_force_merge 未实现
-  // iw.set_do_random_force_merge(false);
+  let mut iw = RandomIndexWriter::with_config(random, dir.clone(), iwc);
+  iw.set_do_random_force_merge(false);
 
   for i in 0..num_docs {
     let doc = random_document(random, &terms)?;

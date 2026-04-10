@@ -116,4 +116,6 @@ where
   pub fn get_doc_stats(&self) -> Result<DocStats> {
     self.w.get_doc_stats()
   }
+
+  pub fn set_do_random_force_merge(&mut self, _v: bool) {}
 }
