@@ -36,6 +36,10 @@ use crate::core::index::terms::{Terms, TermsPosting, terms_util};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum5;
 use crate::core::search::knn_collector::KnnCollector;
+use crate::core::search::score_doc::ScoreDoc;
+use crate::core::search::top_docs::TopDocs;
+use crate::core::search::top_docs_collector::EMPTY_TOP_DOCS;
+use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
@@ -177,6 +181,69 @@ pub trait LeafReader: IndexReader {
 
   type ByteVectorValues: ByteVectorValues;
   fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>>;
+
+  fn search_nearest_vectors_f32_with_limit(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    mut k: usize,
+    accept_docs: Option<impl Bits>,
+    visited_limit: usize,
+  ) -> Result<TopDocs<ScoreDoc>> {
+    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let Some(fi) = fi else {
+      return Ok(EMPTY_TOP_DOCS.clone());
+    };
+
+    if fi.get_vector_dimension() == 0 {
+      return Ok(EMPTY_TOP_DOCS.clone());
+    }
+
+    let float_vector_values = self.get_float_vector_values(&fi.name)?;
+    let Some(float_vector_values) = float_vector_values else {
+      return Ok(EMPTY_TOP_DOCS.clone());
+    };
+
+    k = k.min(float_vector_values.size());
+    if k == 0 {
+      return Ok(EMPTY_TOP_DOCS.clone());
+    }
+
+    let mut collector = TopKnnCollector::new(k, visited_limit)?;
+    self.search_nearest_vectors_f32(field, target, &mut collector, accept_docs)?;
+    collector.top_docs()
+  }
+  fn search_nearest_vectors_u8_with_limit(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    mut k: usize,
+    accept_docs: Option<impl Bits>,
+    visited_limit: usize,
+  ) -> Result<TopDocs<ScoreDoc>> {
+    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let Some(fi) = fi else {
+      return Ok(EMPTY_TOP_DOCS.clone());
+    };
+
+    if fi.get_vector_dimension() == 0 {
+      return Ok(EMPTY_TOP_DOCS.clone());
+    }
+
+    let float_vector_values = self.get_float_vector_values(&fi.name)?;
+    let Some(float_vector_values) = float_vector_values else {
+      return Ok(EMPTY_TOP_DOCS.clone());
+    };
+
+    k = k.min(float_vector_values.size());
+    if k == 0 {
+      return Ok(EMPTY_TOP_DOCS.clone());
+    }
+
+    let mut collector = TopKnnCollector::new(k, visited_limit)?;
+    self.search_nearest_vectors_u8(field, target, &mut collector, accept_docs)?;
+    collector.top_docs()
+  }
 
   fn search_nearest_vectors_f32<B, K>(
     &self,

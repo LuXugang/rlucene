@@ -54,7 +54,7 @@ pub trait ByteVectorValues: KnnVectorValues {
   }
 
   type VectorScorer: VectorScorer;
-  fn scorer(&self, _query: Vec<u8>) -> Result<Self::VectorScorer> {
+  fn scorer(&self, _query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -158,9 +158,9 @@ macro_rules! either_byte_vector_values {
                 $scorer_ty<$( < $T as $crate::core::index::byte_vector_values::ByteVectorValues >::VectorScorer ),+>;
 
             #[inline]
-            fn scorer(&self, query: Vec<u8>) -> $crate::core::util::error::lucene_error::Result<Self::VectorScorer> {
+            fn scorer(&self, target: Vec<u8>) -> $crate::core::util::error::lucene_error::Result<Option<Self::VectorScorer>> {
                 match self {
-                    $( Self::$Variant(inner) => inner.scorer(query).map($scorer_ty::$Variant), )+
+                    $( Self::$Variant(inner) => inner.scorer(target).map(|opt| opt.map($scorer_ty::$Variant)), )+
                 }
             }
 

@@ -705,7 +705,7 @@ where
 
   type VectorScorer = DummyVectorScorer;
 
-  fn scorer(&self, _query: Vec<u8>) -> Result<Self::VectorScorer> {
+  fn scorer(&self, _query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
     Err(LuceneError::unsupported_operation(""))
   }
 }

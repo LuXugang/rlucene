@@ -167,6 +167,93 @@ mod base_knn_vectors_format_test_case_test {
   fn test_knn_vector_field_missing_from_one_segment() -> Result<()> {
     run_case(|case, random| case.test_knn_vector_field_missing_from_one_segment(random))
   }
+
+  #[test]
+  fn test_sparse_vectors() -> Result<()> {
+    run_case(|case, random| case.test_sparse_vectors(random))
+  }
+
+  #[test]
+  fn test_float_vector_scorer_iteration() -> Result<()> {
+    run_case(|case, random| case.test_float_vector_scorer_iteration(random))
+  }
+  #[test]
+  fn test_byte_vector_scorer_iteration() -> Result<()> {
+    run_case(|case, random| case.test_byte_vector_scorer_iteration(random))
+  }
+  #[test]
+  fn test_empty_float_vector_data() -> Result<()> {
+    run_case(|case, random| case.test_empty_float_vector_data(random))
+  }
+  #[test]
+  fn test_empty_byte_vector_data() -> Result<()> {
+    run_case(|case, random| case.test_empty_byte_vector_data(random))
+  }
+  #[test]
+  fn test_indexed_value_not_aliased() -> Result<()> {
+    run_case(|case, random| case.test_indexed_value_not_aliased(random))
+  }
+
+  #[test]
+  fn test_sorted_index() -> Result<()> {
+    run_case(|case, random| case.test_sorted_index(random))
+  }
+
+  #[test]
+  fn test_sorted_index_bytes() -> Result<()> {
+    run_case(|case, random| case.test_sorted_index_bytes(random))
+  }
+
+  #[test]
+  fn test_index_multiple_knn_vector_fields() -> Result<()> {
+    run_case(|case, random| case.test_index_multiple_knn_vector_fields(random))
+  }
+  #[test]
+  fn test_random() -> Result<()> {
+    run_case(|case, random| case.test_random(random))
+  }
+  #[test]
+  fn test_random_bytes() -> Result<()> {
+    run_case(|case, random| case.test_random_bytes(random))
+  }
+
+  #[test]
+  fn test_search_with_visited_limit() -> Result<()> {
+    run_case(|case, random| case.test_search_with_visited_limit(random))
+  }
+
+  #[test]
+  fn test_random_with_updates_and_graph() -> Result<()> {
+    run_case(|case, random| case.test_random_with_updates_and_graph(random))
+  }
+  #[test]
+  fn test_check_index_includes_vectors() -> Result<()> {
+    run_case(|case, random| case.test_check_index_includes_vectors(random))
+  }
+
+  #[test]
+  fn test_similarity_function_identifiers() -> Result<()> {
+    run_case(|case, _random| case.test_similarity_function_identifiers())
+  }
+  #[test]
+  fn test_vector_encoding_ordinals() -> Result<()> {
+    run_case(|case, _random| case.test_vector_encoding_ordinals())
+  }
+
+  #[test]
+  fn test_advance() -> Result<()> {
+    run_case(|case, random| case.test_advance(random))
+  }
+
+  #[test]
+  fn test_vector_values_report_correct_docs() -> Result<()> {
+    run_case(|case, random| case.test_vector_values_report_correct_docs(random))
+  }
+
+  #[test]
+  fn test_mismatched_fields() -> Result<()> {
+    run_case(|case, random| case.test_mismatched_fields(random))
+  }
 }
 
 impl BaseIndexFileFormatTestCase for TestLucene99HnswVectorsFormat {

@@ -328,7 +328,7 @@ where
     <F as FlatVectorsScorer>::RandomVectorScorerU8<DenseOffHeapVectorValues<I, F>>,
   >;
 
-  fn scorer(&self, query: Vec<u8>) -> Result<Self::VectorScorer> {
+  fn scorer(&self, query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
     let copy = self.byte_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("DenseOffHeapVectorValues should support byte_copy()")
     })?;
@@ -338,7 +338,7 @@ where
       .base
       .flat_vectors_scorer
       .get_random_vector_scorer_u8(sf, copy, query)?;
-    Ok(DenseVectorScorer::new(iterator, random_vector_scorer))
+    Ok(Some(DenseVectorScorer::new(iterator, random_vector_scorer)))
   }
 }
 
@@ -543,7 +543,7 @@ where
     <F as FlatVectorsScorer>::RandomVectorScorerU8<SparseOffHeapVectorValues<I, F>>,
   >;
 
-  fn scorer(&self, query: Vec<u8>) -> Result<Self::VectorScorer> {
+  fn scorer(&self, query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
     let copy = self.byte_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("SparseOffHeapVectorValues should support byte_copy()")
     })?;
@@ -553,7 +553,10 @@ where
       .base
       .flat_vectors_scorer
       .get_random_vector_scorer_u8(sf, copy, query)?;
-    Ok(SparseVectorScorer::new(iterator, random_vector_scorer))
+    Ok(Some(SparseVectorScorer::new(
+      iterator,
+      random_vector_scorer,
+    )))
   }
 }
 
@@ -734,8 +737,8 @@ impl ByteVectorValues for EmptyOffHeapVectorValues {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn scorer(&self, _query: Vec<u8>) -> Result<Self::VectorScorer> {
-    Err(LuceneError::unsupported_operation(""))
+  fn scorer(&self, _query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+    Ok(None)
   }
 }
 
@@ -857,15 +860,19 @@ where
     <F as FlatVectorsScorer>::RandomVectorScorerU8<SparseOffHeapVectorValues<I, F>>,
   >;
 
-  fn scorer(&self, target: Vec<u8>) -> Result<Self::VectorScorer> {
+  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
     match self {
-      Self::Empty(_) => Err(LuceneError::unsupported_operation("")),
-      Self::Dense(e) => e
-        .scorer(target)
-        .map(|scorer| VectorScorerEnum::new_dense(scorer.iterator, scorer.random_vector_scorer)),
-      Self::Sparse(e) => e
-        .scorer(target)
-        .map(|scorer| VectorScorerEnum::new_sparse(scorer.iterator, scorer.random_vector_scorer)),
+      Self::Empty(_) => Ok(None),
+
+      Self::Dense(e) => Ok(
+        e.scorer(target)?
+          .map(|scorer| VectorScorerEnum::new_dense(scorer.iterator, scorer.random_vector_scorer)),
+      ),
+
+      Self::Sparse(e) => Ok(
+        e.scorer(target)?
+          .map(|scorer| VectorScorerEnum::new_sparse(scorer.iterator, scorer.random_vector_scorer)),
+      ),
     }
   }
 

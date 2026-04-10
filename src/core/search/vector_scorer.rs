@@ -149,7 +149,7 @@ mod tests {
     match encoding {
       VectorEncoding::BYTE(_) => {
         let vector_values = leaf.get_byte_vector_values("field")?.unwrap();
-        let mut scorer = vector_values.scorer(vec![1_u8, 2_u8])?;
+        let mut scorer = vector_values.scorer(vec![1_u8, 2_u8])?.unwrap();
         let mut iterator = scorer.iterator_mut();
         while iterator.next_doc()? != NO_MORE_DOCS {
           num_docs += 1;

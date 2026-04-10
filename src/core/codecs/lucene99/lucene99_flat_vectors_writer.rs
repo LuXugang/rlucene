@@ -237,9 +237,10 @@ where
   where
     DM: DocMap,
   {
-    let field_data = self.fields.get(field_data_idx).ok_or_else(|| {
+    let field_data = self.fields.get_mut(field_data_idx).ok_or_else(|| {
       LuceneError::illegal_argument(format!("Invalid field_data_idx: {}", field_data_idx))
     })?;
+    field_data.docs_with_field.finish();
 
     let cardinality = field_data.get_docs_with_field_set().cardinality() as usize;
 
@@ -255,6 +256,7 @@ where
       Some(&mut ord_map),
       Some(&mut new_docs_with_field),
     )?;
+    new_docs_with_field.finish();
 
     // write vector values
     let vector_data_offset = match field_data.field_info.get_vector_encoding() {

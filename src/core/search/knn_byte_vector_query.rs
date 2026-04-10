@@ -248,6 +248,6 @@ impl AbstractKnnVectorQuery for KnnByteVectorQuery {
         return Ok(None);
       },
     };
-    Ok(Some(vector_values.scorer(self.target.clone())?))
+    vector_values.scorer(self.target.clone())
   }
 }
