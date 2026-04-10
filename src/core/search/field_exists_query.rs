@@ -482,6 +482,7 @@ where
 mod test {
   use crate::core::document::document::Document;
   use crate::core::document::field::{Field, Store};
+  use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
   use std::cmp::Ordering;
 
   use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
@@ -523,6 +524,9 @@ mod test {
   use crate::core::search::constant_score_query::ConstantScoreQuery;
   use crate::core::search::score_mode::ScoreMode;
   use crate::core::util::TryIntoInt;
+  use crate::core::util::bit_set::BitSet;
+  use crate::core::util::fixed_bit_set::FixedBitSet;
+  use crate::core::util::vector_util::VectorUtil;
   use crate::test::core::util::test_util::TestUtil;
   use rand::RngExt;
   use std::sync::Arc;
@@ -1277,29 +1281,234 @@ mod test {
     assert_eq!(num_matching_docs, weight.count(&ctxs[0])?);
     Ok(())
   }
+  #[test]
   fn test_knn_vector_random() -> Result<()> {
-    // TODO knn 未实现
+    let mut random = random();
+    let iters = at_least(&mut random, 10);
+
+    for _ in 0..iters {
+      let dir = new_directory_shared(&mut random)?;
+      let iw = RandomIndexWriter::new(&mut random, dir.clone());
+      let num_docs = at_least(&mut random, 100);
+
+      for _ in 0..num_docs {
+        let mut doc = Document::new();
+        let has_value = random.random_bool(0.5);
+
+        if has_value {
+          doc.add(KnnFloatVectorField::new(
+            "vector",
+            random_vector(&mut random, 5),
+          )?);
+          doc.add(StringField::from_string("has_value", "yes", Store::No)?);
+        }
+        doc.add(StringField::from_string("field", "value", Store::No)?);
+        iw.add_document(doc)?;
+      }
+
+      // TODO: 通过 Query 删除未实现
+      // if random.random_bool(0.5) {
+      //   iw.delete_documents_with_query(vec![
+      //     TermQuery::new(Term::from_text("f", "no")).into(),
+      //   ])?;
+      // }
+
+      iw.commit()?;
+      let reader = iw.get_reader()?;
+      let searcher = new_searcher_with_reader(reader)?;
+      iw.close()?;
+
+      assert_same_matches(
+        &searcher,
+        TermQuery::new(Term::from_text("has_value", "yes")),
+        FieldExistsQuery::new("vector"),
+        false,
+      )?;
+
+      let boost = random.random::<f32>() * 10.0;
+      let ref_query: Query = BoostQuery::new(
+        ConstantScoreQuery::new(TermQuery::new(Term::from_text("has_value", "yes"))),
+        boost,
+      )?
+      .into();
+      let exists_query: Query = BoostQuery::new(FieldExistsQuery::new("vector"), boost)?.into();
+      assert_same_matches(&searcher, ref_query, exists_query, true)?;
+    }
+
     Ok(())
   }
+
+  #[test]
   fn test_knn_vector_missingfield() -> Result<()> {
-    // TODO knn 未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+    iw.add_document(Document::new())?;
+    iw.commit()?;
+
+    let reader = iw.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
+    iw.close()?;
+
+    assert_eq!(0, searcher.count(FieldExistsQuery::new("f"))?);
+
     Ok(())
   }
+
+  #[test]
   fn test_knn_vector_all_docs_have_field() -> Result<()> {
-    // TODO knn 未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+    for _ in 0..100 {
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::new(
+        "vector",
+        random_vector(&mut random, 5),
+      )?);
+      iw.add_document(doc)?;
+    }
+    iw.commit()?;
+
+    let reader = iw.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
+    iw.close()?;
+
+    let query = FieldExistsQuery::new("vector");
+    let rewritten = query.clone().rewrite(&searcher)?;
+    assert!(matches!(rewritten, Query::MatchAllDocs(_)));
+    assert_eq!(100, searcher.count(query)?);
+
     Ok(())
   }
+
+  #[test]
   fn test_delete_knn_vector() -> Result<()> {
-    // TODO knn 未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+    let num_docs = at_least(&mut random, 100) as usize;
+
+    let all_docs_have_vector = random.random_bool(0.5);
+    let mut docs_with_vector = FixedBitSet::new(num_docs);
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      if all_docs_have_vector || random.random_bool(0.5) {
+        doc.add(KnnFloatVectorField::new(
+          "vector",
+          random_vector(&mut random, 5),
+        )?);
+        docs_with_vector.set(i);
+      }
+      doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+      iw.add_document(doc)?;
+    }
+
+    if random.random_bool(0.5) {
+      let num_deleted = random.random_range(1..=num_docs);
+      for i in 0..num_deleted {
+        iw.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
+        docs_with_vector.clear_with_index(i);
+      }
+    }
+
+    let reader = iw.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
+    iw.close()?;
+
+    let count = searcher.count(FieldExistsQuery::new("vector"))?;
+    assert_eq!(docs_with_vector.cardinality() as i32, count);
+
     Ok(())
   }
+
+  #[test]
   fn test_knn_vector_conjunction() -> Result<()> {
-    // TODO knn 未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+    let num_docs = at_least(&mut random, 100);
+    let mut num_vectors = 0;
+
+    let all_docs_have_vector = random.random_bool(0.5);
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      if all_docs_have_vector || random.random_bool(0.5) {
+        doc.add(KnnFloatVectorField::new(
+          "vector",
+          random_vector(&mut random, 5),
+        )?);
+        num_vectors += 1;
+      }
+      doc.add(StringField::from_string(
+        "field",
+        format!("value{}", i % 2),
+        Store::No,
+      )?);
+      iw.add_document(doc)?;
+    }
+
+    let reader = iw.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
+    iw.close()?;
+
+    let occur = if random.random_bool(0.5) {
+      Occur::Must
+    } else {
+      Occur::Filter
+    };
+    let mut boolean_query = Builder::new();
+    boolean_query
+      .add(TermQuery::new(Term::from_text("field", "value1")), occur)?
+      .add(FieldExistsQuery::new("vector"), Occur::Filter)?;
+
+    let count = searcher.count(boolean_query.build())?;
+    assert!(count <= num_vectors);
+    if all_docs_have_vector {
+      assert_eq!(num_docs / 2, count);
+    }
+
     Ok(())
   }
+
+  #[test]
   fn test_knn_vector_field_exists_but_no_docs_have_field() -> Result<()> {
-    // TODO knn 未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+    doc.add(KnnFloatVectorField::new(
+      "vector",
+      random_vector(&mut random, 3),
+    )?);
+    iw.add_document(doc)?;
+    iw.commit()?;
+
+    iw.add_document(Document::new())?;
+    iw.commit()?;
+
+    let reader = iw.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
+    iw.close()?;
+
+    assert_eq!(1, searcher.count(FieldExistsQuery::new("vector"))?);
+
     Ok(())
+  }
+
+  fn random_vector<R>(random: &mut R, dim: usize) -> Vec<f32>
+  where
+    R: rand::Rng + ?Sized,
+  {
+    let mut vector = vec![0.0; dim];
+    for value in &mut vector {
+      *value = random.random::<f32>();
+    }
+    VectorUtil::l2normalize(&mut vector).expect("random vector should be normalizable");
+    vector
   }
   #[test]
   fn test_delete_all_point_docs() -> Result<()> {
