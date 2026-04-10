@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(test)]
+use rand::{Rng, RngExt};
+#[cfg(test)]
+use strum::EnumCount;
 use strum_macros::{Display, EnumCount, FromRepr};
 
 /// The numeric datatype of the vector values.
@@ -51,6 +55,11 @@ impl VectorEncoding {
   }
   pub const fn values() -> &'static [VectorEncoding] {
     &[VectorEncoding::BYTE(1), VectorEncoding::FLOAT32(4)]
+  }
+  #[cfg(test)]
+  pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
+    let v = rng.random_range(0..Self::COUNT) as u8;
+    Self::from_repr(v).unwrap()
   }
 }
 
