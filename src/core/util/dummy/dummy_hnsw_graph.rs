@@ -14,47 +14,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::hnsw_graph::{ArrayNodesIterator, HnswGraph};
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
-use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyHnswGraph;
 impl HnswGraph for DummyHnswGraph {
-    fn seek(&mut self, _level: usize, _target: usize) -> Result<()> {
-        unimplemented!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn seek(&mut self, _level: usize, _target: usize) -> Result<()> {
+    unimplemented!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn size(&self) -> usize {
-        unimplemented!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn size(&self) -> usize {
+    unimplemented!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn max_node_id(&self) -> Option<usize> {
-        unimplemented!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn max_node_id(&self) -> Option<usize> {
+    unimplemented!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn next_neighbor(&mut self) -> Result<usize> {
-        unimplemented!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn next_neighbor(&mut self) -> Result<usize> {
+    unimplemented!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn num_levels(&self) -> Result<usize> {
-        unimplemented!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn num_levels(&self) -> Result<usize> {
+    unimplemented!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn entry_node(&self) -> Result<Option<usize>> {
-        unimplemented!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn entry_node(&self) -> Result<Option<usize>> {
+    unimplemented!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    type NodeIterator = ArrayNodesIterator;
+  type NodeIterator = ArrayNodesIterator;
 
-    fn get_nodes_on_level(&mut self, _level: usize) -> Result<Self::NodeIterator> {
-        unimplemented!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_nodes_on_level(&mut self, _level: usize) -> Result<Self::NodeIterator> {
+    unimplemented!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_neighbors_mut(&mut self, _level: usize, _node: usize) -> Result<&mut NeighborArray> {
-        unimplemented!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_neighbors_mut(&mut self, _level: usize, _node: usize) -> Result<&mut NeighborArray> {
+    unimplemented!("Dummy implementation: this method should never be called in real usage")
+  }
 
-    fn get_neighbors(&self, _level: usize, _node: usize) -> Result<&NeighborArray> {
-        unimplemented!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_neighbors(&self, _level: usize, _node: usize) -> Result<&NeighborArray> {
+    unimplemented!("Dummy implementation: this method should never be called in real usage")
+  }
 }

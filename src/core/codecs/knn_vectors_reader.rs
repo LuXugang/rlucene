@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::DefaultKnnVectorsFormat;
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::byte_vector_values::ByteVectorValuesEnum2;
@@ -27,10 +28,9 @@ use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
-use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 
 /// Reads vectors from an index.
-pub trait KnnVectorsReader : HnswGraphProvider {
+pub trait KnnVectorsReader: HnswGraphProvider {
   /// Checks consistency of this reader.
   ///
   /// Note that this may be costly in terms of I/O, e.g. may involve computing a checksum value

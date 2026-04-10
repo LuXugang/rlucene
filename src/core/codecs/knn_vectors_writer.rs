@@ -73,7 +73,6 @@ pub trait KnnVectorsWriter: Accountable {
     D1: Directory,
     D2: Directory,
     CR: CodecReader,
-    Self: Sized,
   {
     match field_info.get_vector_encoding() {
       VectorEncoding::BYTE(_) => {
@@ -117,7 +116,6 @@ pub trait KnnVectorsWriter: Accountable {
     D1: Directory,
     D2: Directory,
     CR: CodecReader,
-    Self: Sized,
   {
     for (i, reader) in merge_state.knn_vectors_readers.iter().enumerate() {
       debug_assert!(reader.is_some() || !merge_state.field_infos[i].has_vector_values());

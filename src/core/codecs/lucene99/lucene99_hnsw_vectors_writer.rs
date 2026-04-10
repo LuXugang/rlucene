@@ -19,7 +19,10 @@ use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::{FlatVectorsWriter, FlatVectorsWriterSs};
 use crate::core::codecs::knn_field_vectors_writer::{KnnFieldVectorsWriter, VectorValueEnum};
-use crate::core::codecs::knn_vectors_writer::{KnnVectorsWriter, map_old_ord_to_new_ord};
+use crate::core::codecs::knn_vectors_writer::{
+  KnnVectorsWriter, has_vector_values, map_old_ord_to_new_ord, merge_byte_vector_values,
+  merge_float_vector_values,
+};
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::{
   DIRECT_MONOTONIC_BLOCK_SHIFT, META_CODEC_NAME, META_EXTENSION, VECTOR_INDEX_CODEC_NAME,
   VECTOR_INDEX_EXTENSION, VERSION_CURRENT,
@@ -43,11 +46,13 @@ use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::{
   ArrayNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnums, get_sorted_nodes,
 };
 use crate::core::util::hnsw::hnsw_graph_builder::{DefaultHnswGraphBuilder, RAND_SEED, create};
+use crate::core::util::hnsw::hnsw_graph_merger::HnswGraphMerger;
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
@@ -560,17 +565,71 @@ where
 
   fn merge_one_field<D1, D2, CR>(
     &mut self,
-    _field_info: &Arc<FieldInfo>,
-    _merge_state: &MergeState<'_, D1, CR>,
-    _segment_write_state: &SegmentWriteState<&D2>,
+    field_info: &Arc<FieldInfo>,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
     D1: Directory,
     D2: Directory,
     CR: CodecReader,
-    Self: Sized,
   {
-    todo!()
+    let scorer_supplier = self.flat_vector_writer.merge_one_field_to_index(
+      field_info.as_ref(),
+      merge_state,
+      segment_write_state,
+    )?;
+    let vector_index_offset = self.vector_index.get_file_pointer();
+    let total_vector_count = scorer_supplier.total_vector_count()?;
+
+    let mut graph = None;
+    let mut vector_index_node_offsets = Vec::new();
+
+    if total_vector_count > 0 {
+      let mut merger = self.create_graph_merger(field_info.clone(), scorer_supplier);
+
+      for i in 0..merge_state.live_docs.len() {
+        if !has_vector_values(&merge_state.field_infos[i], &field_info.name) {
+          continue;
+        }
+
+        if let Some(reader) = merge_state.knn_vectors_readers[i].as_ref() {
+          merger.add_reader(i, reader, i, merge_state.live_docs[i].as_ref())?;
+        }
+      }
+      let merged_graph = match field_info.get_vector_encoding() {
+        VectorEncoding::BYTE(_) => merger.merge(
+          merge_byte_vector_values(field_info.as_ref(), merge_state)?,
+          segment_write_state.info_stream.clone(),
+          total_vector_count,
+          merge_state.knn_vectors_readers.as_ref(),
+          merge_state.doc_maps.as_ref(),
+        )?,
+        VectorEncoding::FLOAT32(_) => merger.merge(
+          merge_float_vector_values(field_info.as_ref(), merge_state)?,
+          segment_write_state.info_stream.clone(),
+          total_vector_count,
+          merge_state.knn_vectors_readers.as_ref(),
+          merge_state.doc_maps.as_ref(),
+        )?,
+      };
+
+      graph = Some(merged_graph);
+      vector_index_node_offsets = Self::write_graph(&mut self.vector_index, graph.as_mut())?;
+    }
+
+    let vector_index_length = self.vector_index.get_file_pointer() - vector_index_offset;
+    Self::write_meta(
+      &mut self.vector_index,
+      &mut self.meta,
+      self.m,
+      field_info,
+      vector_index_offset.try_convert()?,
+      vector_index_length.try_convert()?,
+      total_vector_count,
+      graph.as_mut(),
+      &vector_index_node_offsets,
+    )
   }
 
   fn finish(&mut self) -> Result<()> {

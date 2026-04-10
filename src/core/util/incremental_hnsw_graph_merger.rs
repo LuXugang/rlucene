@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::knn_vector_values::{
@@ -26,7 +25,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph_builder::{RAND_SEED, create_with_graph_size};
@@ -86,25 +85,39 @@ where
     &mut self,
     merged_vector_values: &mut KV,
     max_ord: i32,
-    readers: &[R],
-    doc_map: &[D],
+    readers: &[Option<R>],
+    doc_maps: &[D],
     info_stream: InfoStreamMT,
   ) -> Result<OnHeapHnswGraph>
   where
     KV: KnnVectorValues,
-    R: KnnVectorsReader + HnswGraphProvider,
+    R: KnnVectorsReader,
     D: DocMap,
   {
     match self.init_reader.as_ref() {
       Some(init_reader_idx) => {
-        let init_reader = &readers[*init_reader_idx];
+        let init_reader = readers[*init_reader_idx].as_ref().ok_or_else(|| {
+          LuceneError::illegal_state(format!(
+            "Reader at index {} is not available",
+            init_reader_idx
+          ))
+        })?;
         let mut initializer_graph = init_reader.get_graph(self.field_info.name.as_str())?;
 
         let mut initialized_nodes = FixedBitSet::new(max_ord as usize);
+        let doc_map = doc_maps
+          .as_ref()
+          .get(self.init_doc_map.unwrap())
+          .ok_or_else(|| {
+            LuceneError::illegal_state(format!(
+              "DocMap at index {} is not available",
+              self.init_doc_map.unwrap()
+            ))
+          })?;
         let old_to_new_ordinal_map = self.get_new_ord_mapping(
           merged_vector_values,
           &mut initialized_nodes,
-          readers,
+          init_reader,
           doc_map,
         )?;
         let mut builder = from_graph(
@@ -158,22 +171,14 @@ where
     &self,
     merged_vector_values: &mut KV,
     initialized_nodes: &mut FixedBitSet,
-    readers: &[R],
-    doc_maps: &[D],
+    reader: &R,
+    init_doc_map: &D,
   ) -> Result<Vec<usize>>
   where
     KV: KnnVectorValues,
     R: KnnVectorsReader,
     D: DocMap,
   {
-    let Some(init_reader) = self.init_reader else {
-      return Ok(Vec::new());
-    };
-    let Some(init_doc_map_idx) = self.init_doc_map.as_ref() else {
-      return Ok(Vec::new());
-    };
-
-    let reader = &readers[init_reader];
     let mut initializer_iterator = match self.field_info.get_vector_encoding() {
       VectorEncoding::BYTE(_) => DocIndexIteratorEnum2::A(
         reader
@@ -190,7 +195,6 @@ where
     let mut new_id_to_old_ordinal = HashMap::with_capacity(self.init_graph_size);
     let mut max_new_doc_id = -1;
     let mut doc_id = initializer_iterator.next_doc()?;
-    let init_doc_map = &doc_maps[*init_doc_map_idx];
     while doc_id != NO_MORE_DOCS {
       let new_id = init_doc_map.get(doc_id)?;
       max_new_doc_id = max_new_doc_id.max(new_id);
@@ -233,7 +237,7 @@ where
     live_docs: Option<&B>,
   ) -> Result<()>
   where
-    R: KnnVectorsReader + HnswGraphProvider,
+    R: KnnVectorsReader,
     B: Bits,
   {
     // TODO IMPORTANT PerFieldKnnVectorsFormat 未实现
@@ -262,12 +266,12 @@ where
     mut merged_vector_values: KV,
     info_stream: InfoStreamMT,
     max_ord: i32,
-    readers: &[R],
+    readers: &[Option<R>],
     doc_map: &[D],
   ) -> Result<OnHeapHnswGraph>
   where
     KV: KnnVectorValues,
-    R: KnnVectorsReader + HnswGraphProvider,
+    R: KnnVectorsReader,
     D: DocMap,
   {
     self.create_builder(

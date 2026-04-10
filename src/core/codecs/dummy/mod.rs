@@ -16,6 +16,7 @@
  */
 pub mod dummy_binary_doc_values;
 pub mod dummy_doc_values_skipper;
+pub mod dummy_hnsw_graph_provider;
 pub mod dummy_knn_field_vectors_writer;
 pub mod dummy_knn_vectors_reader;
 pub mod dummy_mutable_point_tree;
@@ -25,4 +26,3 @@ pub mod dummy_sorted_doc_values;
 pub mod dummy_sorted_numeric_doc_values;
 pub mod dummy_sorted_set_doc_values;
 pub mod stored_fields_writer;
-pub mod dummy_hnsw_graph_provider;

@@ -19,9 +19,12 @@ use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 
 pub struct DummyHnswGraphProvider;
 impl HnswGraphProvider for DummyHnswGraphProvider {
-    type HnswGraph = DummyHnswGraph;
+  type HnswGraph = DummyHnswGraph;
 
-    fn get_graph(&self, _field: &str) -> crate::core::util::error::lucene_error::Result<Self::HnswGraph> {
-        unimplemented!("Dummy implementation: this method should never be called in real usage")
-    }
+  fn get_graph(
+    &self,
+    _field: &str,
+  ) -> crate::core::util::error::lucene_error::Result<Self::HnswGraph> {
+    unimplemented!("Dummy implementation: this method should never be called in real usage")
+  }
 }

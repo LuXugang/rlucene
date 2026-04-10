@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::merge_state::DocMap;
@@ -37,7 +36,7 @@ pub trait HnswGraphMerger {
     live_docs: Option<&B>,
   ) -> Result<()>
   where
-    R: KnnVectorsReader + HnswGraphProvider,
+    R: KnnVectorsReader,
     B: Bits;
 
   /// Merge and produce the on heap graph.
@@ -46,11 +45,11 @@ pub trait HnswGraphMerger {
     merged_vector_values: KV,
     info_stream: InfoStreamMT,
     max_ord: i32,
-    readers: &[R],
+    readers: &[Option<R>],
     doc_map: &[D],
   ) -> Result<OnHeapHnswGraph>
   where
     KV: KnnVectorValues,
-    R: KnnVectorsReader + HnswGraphProvider,
+    R: KnnVectorsReader,
     D: DocMap;
 }

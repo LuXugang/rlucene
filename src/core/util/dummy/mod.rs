@@ -17,5 +17,5 @@
 pub mod dummy_attribute_source;
 pub mod dummy_bits;
 pub mod dummy_comparator;
-pub mod dummy_read;
 pub mod dummy_hnsw_graph;
+pub mod dummy_read;

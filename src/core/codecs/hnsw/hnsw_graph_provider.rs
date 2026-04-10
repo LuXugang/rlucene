@@ -34,7 +34,7 @@ pub trait HnswGraphProvider {
   ///
   /// # Errors
   /// when reading potentially off-heap graph fails
-  fn get_graph(&self, _field: &str) -> Result<Self::HnswGraph>{
+  fn get_graph(&self, _field: &str) -> Result<Self::HnswGraph> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
