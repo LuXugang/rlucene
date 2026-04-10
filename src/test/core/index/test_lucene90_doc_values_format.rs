@@ -295,7 +295,7 @@ mod base_doc_values_format_test_case_tests {
     run_case(|case, random| case.test_numeric_doc_values_with_skipper_small(random))
   }
 
-  #[test]
+  #[test] // TODO 测试未通过 421744876361577831
   fn test_numeric_doc_values_with_skipper_medium() -> Result<()> {
     run_case(|case, random| case.test_numeric_doc_values_with_skipper_medium(random))
   }
