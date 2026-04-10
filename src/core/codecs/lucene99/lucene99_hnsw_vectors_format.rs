@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::hnsw::default_flat_vector_scorer::DefaultFlatVectorScorer;
-use crate::core::codecs::hnsw::flat_vector_scorer_util::LUCENE99_FLAT_VECTORS_SCORER;
+use crate::core::codecs::hnsw::flat_vector_scorer_util::GET_LUCENE99_FLAT_VECTORS_SCORER;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::Lucene99FlatVectorsFormat;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_reader::Lucene99FlatVectorsReader;
@@ -61,7 +61,7 @@ pub const DEFAULT_NUM_MERGE_WORKER: usize = 1;
 
 pub static FLAT_VECTORS_FORMAT: LazyLock<Lucene99FlatVectorsFormat<DefaultFlatVectorScorer>> =
   LazyLock::new(|| {
-    let scorer = LUCENE99_FLAT_VECTORS_SCORER.clone();
+    let scorer = GET_LUCENE99_FLAT_VECTORS_SCORER.clone();
     Lucene99FlatVectorsFormat::new(scorer)
   });
 

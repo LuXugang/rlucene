@@ -23,5 +23,5 @@ use std::sync::LazyLock;
 #[allow(dead_code)] // for quick search
 pub struct FlatVectorScorerUtil;
 
-pub static LUCENE99_FLAT_VECTORS_SCORER: LazyLock<DefaultFlatVectorScorer> =
+pub static GET_LUCENE99_FLAT_VECTORS_SCORER: LazyLock<DefaultFlatVectorScorer> =
   LazyLock::new(|| DEFAULT_VECTORIZATION_PROVIDER.get_lucene99_flat_vectors_scorer());

@@ -41,7 +41,7 @@ impl TryClone for DefaultFlatVectorScorer {
 
 impl Display for DefaultFlatVectorScorer {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", std::any::type_name::<Self>())
+    write!(f, "DefaultFlatVectorScorer()")
   }
 }
 
