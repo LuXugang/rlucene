@@ -65,49 +65,93 @@ pub trait RandomVectorScorer {
   where
     B: Bits;
 }
-pub enum RandomVectorScorerEnum2<A, B> {
-  A(A),
-  B(B),
+
+macro_rules! either_random_vector_scorer {
+    (
+        $vis:vis $name:ident {
+            bits_param = $bits_param:ident;
+            bits = $bits_ty:ty;
+            accept_ords = |$self_:ident, $accept_docs:ident| $accept_ords_expr:expr;
+            $( $Variant:ident : $T:ident ),+ $(,)?
+        }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> RandomVectorScorer for $name<$( $T ),+>
+        where
+            $( $T: RandomVectorScorer ),+
+        {
+            fn score(&self, node: usize) -> Result<f32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.score(node), )+
+                }
+            }
+
+            fn max_ord(&self) -> usize {
+                match self {
+                    $( Self::$Variant(inner) => inner.max_ord(), )+
+                }
+            }
+
+            fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+                match self {
+                    $( Self::$Variant(inner) => inner.ord_to_doc(ord), )+
+                }
+            }
+
+            type Bits<'a, $bits_param>
+                = $bits_ty
+            where
+                $bits_param: Bits,
+                Self: 'a;
+
+            fn get_accept_ords<'a, $bits_param>(
+                &'a $self_,
+                $accept_docs: Option<$bits_param>,
+            ) -> Result<Option<Self::Bits<'a, $bits_param>>>
+            where
+                $bits_param: Bits,
+            {
+                $accept_ords_expr
+            }
+        }
+    };
 }
-impl<A, B> RandomVectorScorer for RandomVectorScorerEnum2<A, B>
-where
-  A: RandomVectorScorer,
-  B: RandomVectorScorer,
-{
-  fn score(&self, node: usize) -> Result<f32> {
-    match self {
-      RandomVectorScorerEnum2::A(t) => t.score(node),
-      RandomVectorScorerEnum2::B(s) => s.score(node),
+
+either_random_vector_scorer!(
+    pub RandomVectorScorerEnum2 {
+        bits_param = Q;
+        bits = BitsEnum2<A::Bits<'a, Q>, B::Bits<'a, Q>>;
+        accept_ords = |self, accept_docs| {
+            Ok(match self {
+                Self::A(inner) => inner.get_accept_ords(accept_docs)?.map(BitsEnum2::A),
+                Self::B(inner) => inner.get_accept_ords(accept_docs)?.map(BitsEnum2::B),
+            })
+        };
+        A: A,
+        B: B,
     }
-  }
+);
 
-  fn max_ord(&self) -> usize {
-    match self {
-      RandomVectorScorerEnum2::A(t) => t.max_ord(),
-      RandomVectorScorerEnum2::B(s) => s.max_ord(),
+either_random_vector_scorer!(
+    pub RandomVectorScorerEnum3 {
+        bits_param = Q;
+        bits = BitsEnum2<BitsEnum2<A::Bits<'a, Q>, B::Bits<'a, Q>>, C::Bits<'a, Q>>;
+        accept_ords = |self, accept_docs| {
+            Ok(match self {
+                Self::A(inner) => inner
+                    .get_accept_ords(accept_docs)?
+                    .map(|bits| BitsEnum2::A(BitsEnum2::A(bits))),
+                Self::B(inner) => inner
+                    .get_accept_ords(accept_docs)?
+                    .map(|bits| BitsEnum2::A(BitsEnum2::B(bits))),
+                Self::C(inner) => inner.get_accept_ords(accept_docs)?.map(BitsEnum2::B),
+            })
+        };
+        A: A,
+        B: B,
+        C: C,
     }
-  }
-
-  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
-    match self {
-      RandomVectorScorerEnum2::A(t) => t.ord_to_doc(ord),
-      RandomVectorScorerEnum2::B(s) => s.ord_to_doc(ord),
-    }
-  }
-
-  type Bits<'a, C>
-    = BitsEnum2<A::Bits<'a, C>, B::Bits<'a, C>>
-  where
-    C: Bits,
-    Self: 'a;
-
-  fn get_accept_ords<'a, C>(&'a self, accept_docs: Option<C>) -> Result<Option<Self::Bits<'a, C>>>
-  where
-    C: Bits,
-  {
-    Ok(match self {
-      RandomVectorScorerEnum2::A(t) => t.get_accept_ords(accept_docs)?.map(BitsEnum2::A),
-      RandomVectorScorerEnum2::B(t) => t.get_accept_ords(accept_docs)?.map(BitsEnum2::B),
-    })
-  }
-}
+);
