@@ -65,6 +65,7 @@ pub(crate) mod field_updates_buffer;
 pub mod fields;
 pub mod filter_codec_reader;
 pub mod filter_leaf_reader;
+mod filter_merge_policy;
 pub mod filter_numeric_doc_values;
 pub mod filtered_terms_enum;
 pub mod float_vector_values;

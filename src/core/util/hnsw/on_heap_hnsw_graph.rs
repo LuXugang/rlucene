@@ -25,7 +25,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::hnsw_graph::{
-  ArrayNodesIterator, CollectionNodesIterator, HnswGraph, NodesIteratorEnums,
+  ArrayNodesIterator, CollectionNodesIterator, HnswGraph, NodesIteratorEnum2,
 };
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 /// An [`HnswGraph`] where all nodes and connections are held in memory.
@@ -296,7 +296,7 @@ impl HnswGraph for OnHeapHnswGraph {
     Ok(entry.node)
   }
 
-  type NodeIterator = NodesIteratorEnums;
+  type NodeIterator = NodesIteratorEnum2<ArrayNodesIterator, CollectionNodesIterator>;
   /// **WARN**: Calling this method will effectively iterate through all nodes
   /// at level 0, even if you're querying nodes at a different level.
   ///
@@ -324,14 +324,14 @@ impl HnswGraph for OnHeapHnswGraph {
     }
 
     if level == 0 {
-      Ok(NodesIteratorEnums::Array(ArrayNodesIterator::from_size(
+      Ok(NodesIteratorEnum2::A(ArrayNodesIterator::from_size(
         self.size(),
       )))
     } else {
       self.generate_level_to_nodes()?;
-      Ok(NodesIteratorEnums::Collection(
-        CollectionNodesIterator::new(self.level_to_nodes[level].clone()),
-      ))
+      Ok(NodesIteratorEnum2::B(CollectionNodesIterator::new(
+        self.level_to_nodes[level].clone(),
+      )))
     }
   }
 

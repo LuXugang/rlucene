@@ -101,6 +101,48 @@ pub trait HnswGraph {
     Err(LuceneError::unsupported_operation(""))
   }
 }
+impl<T> HnswGraph for Box<T>
+where
+  T: HnswGraph + ?Sized,
+{
+  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+    (**self).seek(level, target)
+  }
+
+  fn size(&self) -> usize {
+    (**self).size()
+  }
+
+  fn max_node_id(&self) -> Option<usize> {
+    (**self).max_node_id()
+  }
+
+  fn next_neighbor(&mut self) -> Result<usize> {
+    (**self).next_neighbor()
+  }
+
+  fn num_levels(&self) -> Result<usize> {
+    (**self).num_levels()
+  }
+
+  fn entry_node(&self) -> Result<Option<usize>> {
+    (**self).entry_node()
+  }
+
+  type NodeIterator = T::NodeIterator;
+
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+    (**self).get_nodes_on_level(level)
+  }
+
+  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
+    (**self).get_neighbors_mut(level, node)
+  }
+
+  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
+    (**self).get_neighbors(level, node)
+  }
+}
 pub struct EmptyHnswGraph;
 impl HnswGraph for EmptyHnswGraph {
   fn seek(&mut self, _level: usize, _target: usize) -> Result<()> {
@@ -148,6 +190,134 @@ pub trait NodesIterator: Iterator<Item = usize> {
 
   fn has_next(&self) -> bool;
 }
+macro_rules! define_nodes_iterator_enum {
+    (
+        $enum_name:ident,
+        [$($V:ident),+ $(,)?]
+    ) => {
+        pub enum $enum_name<$($V),+>
+        where
+            $($V: NodesIterator,)+
+        {
+            $($V($V)),+
+        }
+
+        impl<$($V),+> Iterator for $enum_name<$($V),+>
+        where
+            $($V: NodesIterator,)+
+        {
+            type Item = usize;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                match self {
+                    $(Self::$V(iter) => iter.next(),)+
+                }
+            }
+        }
+
+        impl<$($V),+> NodesIterator for $enum_name<$($V),+>
+        where
+            $($V: NodesIterator,)+
+        {
+            fn size(&self) -> usize {
+                match self {
+                    $(Self::$V(iter) => iter.size(),)+
+                }
+            }
+
+            fn consume(&mut self, dest: &mut [usize]) -> Result<usize> {
+                match self {
+                    $(Self::$V(iter) => iter.consume(dest),)+
+                }
+            }
+
+            fn has_next(&self) -> bool {
+                match self {
+                    $(Self::$V(iter) => iter.has_next(),)+
+                }
+            }
+        }
+    };
+}
+macro_rules! define_hnsw_graph_enum {
+    (
+        $enum_name:ident,
+        $nodes_iterator_enum:ident,
+        [$($V:ident),+ $(,)?]
+    ) => {
+        pub enum $enum_name<$($V),+>
+        where
+            $($V: HnswGraph,)+
+        {
+            $($V($V)),+
+        }
+
+        impl<$($V),+> HnswGraph for $enum_name<$($V),+>
+        where
+            $($V: HnswGraph,)+
+        {
+            fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+                match self {
+                    $(Self::$V(g) => g.seek(level, target),)+
+                }
+            }
+
+            fn size(&self) -> usize {
+                match self {
+                    $(Self::$V(g) => g.size(),)+
+                }
+            }
+
+            fn max_node_id(&self) -> Option<usize> {
+                match self {
+                    $(Self::$V(g) => g.max_node_id(),)+
+                }
+            }
+
+            fn next_neighbor(&mut self) -> Result<usize> {
+                match self {
+                    $(Self::$V(g) => g.next_neighbor(),)+
+                }
+            }
+
+            fn num_levels(&self) -> Result<usize> {
+                match self {
+                    $(Self::$V(g) => g.num_levels(),)+
+                }
+            }
+
+            fn entry_node(&self) -> Result<Option<usize>> {
+                match self {
+                    $(Self::$V(g) => g.entry_node(),)+
+                }
+            }
+
+            type NodeIterator = $nodes_iterator_enum<$($V::NodeIterator),+>;
+
+            fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+                match self {
+                    $(Self::$V(g) => Ok($nodes_iterator_enum::$V(g.get_nodes_on_level(level)?)),)+
+                }
+            }
+
+            fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
+                match self {
+                    $(Self::$V(g) => g.get_neighbors_mut(level, node),)+
+                }
+            }
+
+            fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
+                match self {
+                    $(Self::$V(g) => g.get_neighbors(level, node),)+
+                }
+            }
+        }
+    };
+}
+define_nodes_iterator_enum!(NodesIteratorEnum2, [A, B]);
+define_nodes_iterator_enum!(NodesIteratorEnum3, [A, B, C]);
+define_hnsw_graph_enum!(HnswGraphEnum2, NodesIteratorEnum2, [A, B]);
+define_hnsw_graph_enum!(HnswGraphEnum3, NodesIteratorEnum3, [A, B, C]);
 pub fn get_sorted_nodes<I>(nodes: &mut I) -> Vec<usize>
 where
   I: NodesIterator,
@@ -296,43 +466,5 @@ impl NodesIterator for CollectionNodesIterator {
 
   fn has_next(&self) -> bool {
     self.index < self.size
-  }
-}
-pub enum NodesIteratorEnums {
-  Array(ArrayNodesIterator),
-  Collection(CollectionNodesIterator),
-}
-
-impl Iterator for NodesIteratorEnums {
-  type Item = usize;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    match self {
-      NodesIteratorEnums::Array(iter) => iter.next(),
-      NodesIteratorEnums::Collection(iter) => iter.next(),
-    }
-  }
-}
-
-impl NodesIterator for NodesIteratorEnums {
-  fn size(&self) -> usize {
-    match self {
-      NodesIteratorEnums::Array(iter) => iter.size(),
-      NodesIteratorEnums::Collection(iter) => iter.size(),
-    }
-  }
-
-  fn consume(&mut self, dest: &mut [usize]) -> Result<usize> {
-    match self {
-      NodesIteratorEnums::Array(iter) => iter.consume(dest),
-      NodesIteratorEnums::Collection(iter) => iter.consume(dest),
-    }
-  }
-
-  fn has_next(&self) -> bool {
-    match self {
-      NodesIteratorEnums::Array(iter) => iter.has_next(),
-      NodesIteratorEnums::Collection(iter) => iter.has_next(),
-    }
   }
 }

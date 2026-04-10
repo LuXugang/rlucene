@@ -27,6 +27,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::hnsw::hnsw_graph::HnswGraphEnum2;
 use std::sync::Arc;
 
 /// Reads vectors from an index.
@@ -146,7 +147,8 @@ macro_rules! either_knn_vectors_reader {
     (
         $vis:vis $name:ident {
             float = $float_ty:ident,
-            byte = $byte_ty:ident;
+            byte = $byte_ty:ident,
+            graph = $graph_ty:ident;
             $( $Variant:ident : $T:ident ),+ $(,)?
         }
     ) => {
@@ -158,7 +160,15 @@ macro_rules! either_knn_vectors_reader {
         where
             $( $T: $crate::core::codecs::knn_vectors_reader::KnnVectorsReader ),+
         {
-            type HnswGraph = $crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
+            type HnswGraph =
+                $graph_ty<$( < $T as $crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider >::HnswGraph ),+>;
+
+            #[inline]
+            fn get_graph(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Self::HnswGraph> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_graph(field).map($graph_ty::$Variant), )+
+                }
+            }
         }
 
         impl<$( $T ),+> $crate::core::codecs::knn_vectors_reader::KnnVectorsReader for $name<$( $T ),+>
@@ -249,7 +259,8 @@ macro_rules! either_knn_vectors_reader {
 either_knn_vectors_reader!(
     pub KnnVectorsReaderEnum2 {
         float = FloatVectorValuesEnum2,
-        byte = ByteVectorValuesEnum2;
+        byte = ByteVectorValuesEnum2,
+        graph = HnswGraphEnum2;
         A: A, B: B,
     }
 );

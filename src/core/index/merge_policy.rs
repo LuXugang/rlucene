@@ -38,6 +38,8 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::impl_from_for_enum;
+#[cfg(test)]
+use crate::test::core::index::force_merge_policy::ForceMergePolicy;
 use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -433,12 +435,14 @@ where
     Ok((byte_size as f64 * (1.0 - del_ratio)) as i64)
   }
 }
-
+#[derive(Clone)]
 pub enum MergePolicyEnum {
   No(NoMergePolicy),
   Tiered(TieredMergePolicy),
   LogDoc(LogMergePolicy<LogDocMergePolicy>),
   LogBytesSize(LogMergePolicy<LogByteSizeMergePolicy>),
+  #[cfg(test)]
+  Force(ForceMergePolicy<MergePolicyEnum>),
 }
 impl_from_for_enum!(
     MergePolicyEnum,
@@ -454,6 +458,8 @@ impl Display for MergePolicyEnum {
       MergePolicyEnum::Tiered(mp) => write!(f, "{}", mp),
       MergePolicyEnum::LogDoc(mp) => write!(f, "{}", mp),
       MergePolicyEnum::LogBytesSize(mp) => write!(f, "{}", mp),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => write!(f, "{}", mp),
     }
   }
 }
@@ -465,6 +471,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Tiered(mp) => mp.get_base(),
       MergePolicyEnum::LogDoc(mp) => mp.get_base(),
       MergePolicyEnum::LogBytesSize(mp) => mp.get_base(),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.get_base(),
     }
   }
 
@@ -474,6 +482,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Tiered(mp) => mp.get_base_mut(),
       MergePolicyEnum::LogDoc(mp) => mp.get_base_mut(),
       MergePolicyEnum::LogBytesSize(mp) => mp.get_base_mut(),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.get_base_mut(),
     }
   }
 
@@ -497,6 +507,10 @@ impl MergePolicy for MergePolicyEnum {
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       MergePolicyEnum::LogBytesSize(mp) => {
+        mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => {
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
     }
@@ -543,6 +557,14 @@ impl MergePolicy for MergePolicyEnum {
         inner,
         merge_context,
       ),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.find_forced_merges(
+        segment_infos,
+        max_segment_count,
+        segments_to_merge,
+        inner,
+        merge_context,
+      ),
     }
   }
 
@@ -565,6 +587,10 @@ impl MergePolicy for MergePolicyEnum {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
       MergePolicyEnum::LogBytesSize(mp) => {
+        mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
     }
@@ -594,6 +620,10 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::LogBytesSize(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => {
+        mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
     }
   }
 
@@ -612,6 +642,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Tiered(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       MergePolicyEnum::LogDoc(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.use_compound_file(infos, merged_info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.use_compound_file(infos, merged_info, merge_context),
     }
   }
 
@@ -625,6 +657,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Tiered(mp) => mp.size(info, merge_context),
       MergePolicyEnum::LogDoc(mp) => mp.size(info, merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.size(info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.size(info, merge_context),
     }
   }
 
@@ -634,6 +668,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Tiered(mp) => mp.max_full_flush_merge_size(),
       MergePolicyEnum::LogDoc(mp) => mp.max_full_flush_merge_size(),
       MergePolicyEnum::LogBytesSize(mp) => mp.max_full_flush_merge_size(),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.max_full_flush_merge_size(),
     }
   }
 
@@ -652,6 +688,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Tiered(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::LogDoc(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.has_merged(infos, info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.has_merged(infos, info, merge_context),
     }
   }
 
@@ -665,6 +703,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Tiered(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::LogDoc(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::LogBytesSize(mp) => mp.keep_fully_deleted_segment(reader_supplier),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.keep_fully_deleted_segment(reader_supplier),
     }
   }
 
@@ -685,6 +725,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::LogBytesSize(mp) => {
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.num_deletes_to_merge(info, del_count, reader_supplier),
     }
   }
 
@@ -698,6 +740,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Tiered(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::LogDoc(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::LogBytesSize(mp) => mp.seg_string(merge_context, infos),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.seg_string(merge_context, infos),
     }
   }
 
@@ -711,6 +755,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Tiered(mp) => mp.message(message, merge_context),
       MergePolicyEnum::LogDoc(mp) => mp.message(message, merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.message(message, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.message(message, merge_context),
     }
   }
 
@@ -724,10 +770,12 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Tiered(mp) => mp.verbose(merge_context),
       MergePolicyEnum::LogDoc(mp) => mp.verbose(merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.verbose(merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Force(mp) => mp.verbose(merge_context),
     }
   }
 }
-
+#[derive(Clone)]
 pub struct MergePolicyBase {
   /// If the size of the merge segment exceeds this ratio of the total index size
   /// then it will remain in non-compound format.

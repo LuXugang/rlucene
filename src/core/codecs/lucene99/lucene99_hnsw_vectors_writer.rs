@@ -49,7 +49,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::{
-  ArrayNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnums, get_sorted_nodes,
+  ArrayNodesIterator, CollectionNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnum2,
+  get_sorted_nodes,
 };
 use crate::core::util::hnsw::hnsw_graph_builder::{DefaultHnswGraphBuilder, RAND_SEED, create};
 use crate::core::util::hnsw::hnsw_graph_merger::HnswGraphMerger;
@@ -875,7 +876,7 @@ impl<'a> HnswGraph for HnswGraphImpl<'a> {
     ))
   }
 
-  type NodeIterator = NodesIteratorEnums;
+  type NodeIterator = NodesIteratorEnum2<ArrayNodesIterator, CollectionNodesIterator>;
 
   fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
     if level == 0 {
@@ -885,7 +886,7 @@ impl<'a> HnswGraph for HnswGraphImpl<'a> {
         .nodes_by_level
         .get(level)
         .ok_or_else(|| LuceneError::illegal_argument(format!("Invalid level: {}", level)))?;
-      Ok(NodesIteratorEnums::Array(ArrayNodesIterator::from_nodes(
+      Ok(NodesIteratorEnum2::A(ArrayNodesIterator::from_nodes(
         Option::from(nodes.clone()),
         nodes.len(),
       )))

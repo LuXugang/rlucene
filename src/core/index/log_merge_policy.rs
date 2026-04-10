@@ -43,6 +43,7 @@ use std::fmt::{Display, Formatter};
 ///
 /// **NOTE**: This policy returns natural merges whose size is below the [`LogMergePolicy::min_merge_size`]
 /// minimum merge size for [`LogMergePolicy::find_full_flush_merges`] full-flush merges.
+#[derive(Clone)]
 pub struct LogMergePolicy<T>
 where
   T: LogMergePolicyBase,

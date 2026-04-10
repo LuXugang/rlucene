@@ -22,6 +22,7 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 /// This is a LogMergePolicy that measures size of a segment as the total byte size of the segment's files.
+#[derive(Clone)]
 pub struct LogByteSizeMergePolicy;
 impl LogByteSizeMergePolicy {
   /// Default minimum segment size. @see setMinMergeMB

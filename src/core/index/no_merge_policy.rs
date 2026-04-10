@@ -28,6 +28,7 @@ use std::fmt::{Display, Formatter};
 
 /// A [`MergePolicy`] which never returns any merges to execute.
 /// Use this policy if you want to prevent segment merges entirely.
+#[derive(Clone)]
 pub struct NoMergePolicy {
   base: MergePolicyBase,
 }

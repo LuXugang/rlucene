@@ -39,9 +39,10 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::hnsw_graph::{ArrayNodesIterator, EmptyHnswGraph, HnswGraph};
+use crate::core::util::hnsw::hnsw_graph::{
+  ArrayNodesIterator, EmptyHnswGraph, HnswGraph, HnswGraphEnum2,
+};
 use crate::core::util::hnsw::hnsw_graph_searcher::search;
-use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::ordinal_translated_knn_collector::OrdinalTranslatedKnnCollector;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
@@ -330,7 +331,7 @@ where
   F: FlatVectorsReader,
   I: IndexInput,
 {
-  type HnswGraph = HnswGraphEnum<I>;
+  type HnswGraph = HnswGraphEnum2<Box<OffHeapHnswGraph<I>>, EmptyHnswGraph>;
 
   fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
     let info = self
@@ -344,87 +345,11 @@ where
       .ok_or_else(|| LuceneError::illegal_argument(format!("field=\"{}\" not found", field)))?;
 
     if entry.vector_index_length > 0 {
-      Ok(HnswGraphEnum::OffHeap(Box::new(
+      Ok(HnswGraphEnum2::A(Box::new(
         self.get_graph_from_entry(entry)?,
       )))
     } else {
-      Ok(HnswGraphEnum::Empty(EmptyHnswGraph))
-    }
-  }
-}
-pub enum HnswGraphEnum<I>
-where
-  I: IndexInput,
-{
-  OffHeap(Box<OffHeapHnswGraph<I>>),
-  Empty(EmptyHnswGraph),
-}
-impl<I> HnswGraph for HnswGraphEnum<I>
-where
-  I: IndexInput,
-{
-  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
-    match self {
-      HnswGraphEnum::OffHeap(g) => g.seek(level, target),
-      HnswGraphEnum::Empty(g) => g.seek(level, target),
-    }
-  }
-
-  fn size(&self) -> usize {
-    match self {
-      HnswGraphEnum::OffHeap(g) => g.size(),
-      HnswGraphEnum::Empty(g) => g.size(),
-    }
-  }
-
-  fn max_node_id(&self) -> Option<usize> {
-    match self {
-      HnswGraphEnum::OffHeap(g) => g.max_node_id(),
-      HnswGraphEnum::Empty(g) => g.max_node_id(),
-    }
-  }
-
-  fn next_neighbor(&mut self) -> Result<usize> {
-    match self {
-      HnswGraphEnum::OffHeap(g) => g.next_neighbor(),
-      HnswGraphEnum::Empty(g) => g.next_neighbor(),
-    }
-  }
-
-  fn num_levels(&self) -> Result<usize> {
-    match self {
-      HnswGraphEnum::OffHeap(g) => g.num_levels(),
-      HnswGraphEnum::Empty(g) => g.num_levels(),
-    }
-  }
-
-  fn entry_node(&self) -> Result<Option<usize>> {
-    match self {
-      HnswGraphEnum::OffHeap(g) => g.entry_node(),
-      HnswGraphEnum::Empty(g) => g.entry_node(),
-    }
-  }
-
-  type NodeIterator = ArrayNodesIterator;
-
-  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
-    match self {
-      HnswGraphEnum::OffHeap(g) => g.get_nodes_on_level(level),
-      HnswGraphEnum::Empty(g) => g.get_nodes_on_level(level),
-    }
-  }
-
-  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
-    match self {
-      HnswGraphEnum::OffHeap(g) => g.get_neighbors_mut(level, node),
-      HnswGraphEnum::Empty(g) => g.get_neighbors_mut(level, node),
-    }
-  }
-
-  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
-    match self {
-      HnswGraphEnum::OffHeap(g) => g.get_neighbors(level, node),
-      HnswGraphEnum::Empty(g) => g.get_neighbors(level, node),
+      Ok(HnswGraphEnum2::B(EmptyHnswGraph))
     }
   }
 }

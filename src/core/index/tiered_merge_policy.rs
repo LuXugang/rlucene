@@ -69,6 +69,7 @@ pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
 /// **NOTE**: This policy returns natural merges whose size is below the
 /// [`TieredMergePolicy::set_floor_segment_mb`] floor segment size for
 /// [`TieredMergePolicy::find_full_flush_merges`] full-flush merges.
+#[derive(Clone)]
 pub struct TieredMergePolicy {
   // User-specified maxMergeAtOnce. In practice we always take the min of its
   // value and segsPerTier for segments above the floor size to avoid suboptimal merging.

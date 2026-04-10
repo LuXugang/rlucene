@@ -24,6 +24,7 @@ use crate::core::util::error::lucene_error::Result;
 
 /// This is a [`LogMergePolicy`] that measures size of a segment as the number of documents (not
 /// taking deletions into account).
+#[derive(Clone)]
 pub struct LogDocMergePolicy;
 
 impl LogDocMergePolicy {

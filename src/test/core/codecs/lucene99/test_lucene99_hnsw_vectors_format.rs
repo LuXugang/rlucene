@@ -57,6 +57,116 @@ mod base_knn_vectors_format_test_case_test {
   fn test_illegal_dim_change_two_writers() -> Result<()> {
     run_case(|case, random| case.test_illegal_dim_change_two_writers(random))
   }
+
+  #[test]
+  fn test_merging_with_different_knn_fields() -> Result<()> {
+    run_case(|case, random| case.test_merging_with_different_knn_fields(random))
+  }
+
+  #[test]
+  fn test_merging_with_different_byte_knn_fields() -> Result<()> {
+    run_case(|case, random| case.test_merging_with_different_byte_knn_fields(random))
+  }
+  #[test]
+  fn test_writer_ram_estimate() -> Result<()> {
+    run_case(|case, random| case.test_writer_ram_estimate(random))
+  }
+
+  #[test]
+  fn test_illegal_similarity_function_change_two_writers() -> Result<()> {
+    run_case(|case, random| case.test_illegal_similarity_function_change_two_writers(random))
+  }
+
+  #[test]
+  fn test_add_indexes_directory0() -> Result<()> {
+    run_case(|case, random| case.test_add_indexes_directory0(random))
+  }
+
+  #[test]
+  fn test_add_indexes_directory1() -> Result<()> {
+    run_case(|case, random| case.test_add_indexes_directory1(random))
+  }
+
+  #[test]
+  fn test_add_indexes_directory01() -> Result<()> {
+    run_case(|case, random| case.test_add_indexes_directory01(random))
+  }
+
+  #[test]
+  fn test_illegal_dim_change_via_add_indexes_directory() -> Result<()> {
+    run_case(|case, random| case.test_illegal_dim_change_via_add_indexes_directory(random))
+  }
+
+  #[test]
+  fn test_illegal_similarity_function_change_via_add_indexes_directory() -> Result<()> {
+    run_case(|case, random| {
+      case.test_illegal_similarity_function_change_via_add_indexes_directory(random)
+    })
+  }
+
+  #[test]
+  fn test_illegal_dim_change_via_add_indexes_codec_reader() -> Result<()> {
+    run_case(|case, random| case.test_illegal_dim_change_via_add_indexes_codec_reader(random))
+  }
+
+  #[test]
+  fn test_illegal_similarity_function_change_via_add_indexes_codec_reader() -> Result<()> {
+    run_case(|case, random| {
+      case.test_illegal_similarity_function_change_via_add_indexes_codec_reader(random)
+    })
+  }
+
+  #[test]
+  fn test_illegal_dim_change_via_add_indexes_slow_codec_reader() -> Result<()> {
+    run_case(|case, random| case.test_illegal_dim_change_via_add_indexes_slow_codec_reader(random))
+  }
+
+  #[test]
+  fn test_illegal_similarity_function_change_via_add_indexes_slow_codec_reader() -> Result<()> {
+    run_case(|case, random| {
+      case.test_illegal_similarity_function_change_via_add_indexes_slow_codec_reader(random)
+    })
+  }
+
+  #[test]
+  fn test_illegal_multiple_values() -> Result<()> {
+    run_case(|case, random| case.test_illegal_multiple_values(random))
+  }
+
+  #[test]
+  fn test_illegal_dimension_too_large() -> Result<()> {
+    run_case(|case, random| case.test_illegal_dimension_too_large(random))
+  }
+
+  #[test]
+  fn test_illegal_empty_vector() -> Result<()> {
+    run_case(|case, random| case.test_illegal_empty_vector(random))
+  }
+
+  #[test]
+  fn test_different_codecs1() -> Result<()> {
+    run_case(|case, random| case.test_different_codecs1(random))
+  }
+
+  #[test]
+  fn test_different_codecs2() -> Result<()> {
+    run_case(|case, random| case.test_different_codecs2(random))
+  }
+
+  #[test]
+  fn test_invalid_knn_vector_field_usage() -> Result<()> {
+    run_case(|case, random| case.test_invalid_knn_vector_field_usage(random))
+  }
+
+  #[test]
+  fn test_delete_all_vector_docs() -> Result<()> {
+    run_case(|case, random| case.test_delete_all_vector_docs(random))
+  }
+
+  #[test]
+  fn test_knn_vector_field_missing_from_one_segment() -> Result<()> {
+    run_case(|case, random| case.test_knn_vector_field_missing_from_one_segment(random))
+  }
 }
 
 impl BaseIndexFileFormatTestCase for TestLucene99HnswVectorsFormat {
