@@ -24,8 +24,10 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::random_vector_scorer::{RandomVectorScorer, RandomVectorScorerEnum2};
-use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
+use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
+use crate::core::util::hnsw::random_vector_scorer_supplier::{
+  RandomVectorScorerSupplier, RandomVectorScorerSupplierEnum2,
+};
 use std::fmt::{Display, Formatter};
 
 /// Default implementation of [`FlatVectorsScorer`].
@@ -45,7 +47,7 @@ impl Display for DefaultFlatVectorScorer {
 
 impl FlatVectorsScorer for DefaultFlatVectorScorer {
   type RandomVectorScorerSupplier<B, F>
-    = RandomVectorScorerSupplierEnum<B, F>
+    = RandomVectorScorerSupplierEnum2<ByteScoringSupplier<B>, FloatScoringSupplier<F>>
   where
     B: ByteVectorValues + TryClone,
     F: FloatVectorValues + TryClone;
@@ -62,11 +64,11 @@ impl FlatVectorsScorer for DefaultFlatVectorScorer {
     let v = match vector_values {
       KnnVectorValuesEnm2::A(b) => {
         debug_assert!(KnnVectorValues::get_encoding(&b) == VectorEncoding::BYTE(1));
-        RandomVectorScorerSupplierEnum::Byte(ByteScoringSupplier::new(b, similarity_function)?)
+        RandomVectorScorerSupplierEnum2::A(ByteScoringSupplier::new(b, similarity_function)?)
       },
       KnnVectorValuesEnm2::B(f) => {
         debug_assert!(KnnVectorValues::get_encoding(&f) == VectorEncoding::FLOAT32(4));
-        RandomVectorScorerSupplierEnum::Float(FloatScoringSupplier::new(f, similarity_function)?)
+        RandomVectorScorerSupplierEnum2::B(FloatScoringSupplier::new(f, similarity_function)?)
       },
     };
     Ok(v)
@@ -128,65 +130,6 @@ impl FlatVectorsScorer for DefaultFlatVectorScorer {
       target,
       similarity_function,
     ))
-  }
-}
-pub enum RandomVectorScorerSupplierEnum<BV, FV>
-where
-  BV: ByteVectorValues,
-  FV: FloatVectorValues,
-{
-  Byte(ByteScoringSupplier<BV>),
-  Float(FloatScoringSupplier<FV>),
-}
-impl<BV, FV> RandomVectorScorerSupplier for RandomVectorScorerSupplierEnum<BV, FV>
-where
-  BV: ByteVectorValues + TryClone,
-  FV: FloatVectorValues + TryClone,
-{
-  type Scorer<'a>
-    = RandomVectorScorerEnum2<RandomVectorScorerByteImpl<'a, BV>, RandomVectorScorerF32Impl<'a, FV>>
-  where
-    Self: 'a;
-
-  type RandomVectorScorerSupplier = Self;
-
-  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
-    match self {
-      RandomVectorScorerSupplierEnum::Byte(supplier) => {
-        Ok(RandomVectorScorerEnum2::A(supplier.scorer(ord)?))
-      },
-      RandomVectorScorerSupplierEnum::Float(supplier) => {
-        Ok(RandomVectorScorerEnum2::B(supplier.scorer(ord)?))
-      },
-    }
-  }
-
-  fn copy(&self) -> Result<Self>
-  where
-    Self: Sized,
-  {
-    match self {
-      RandomVectorScorerSupplierEnum::Byte(supplier) => {
-        Ok(RandomVectorScorerSupplierEnum::Byte(supplier.copy()?))
-      },
-      RandomVectorScorerSupplierEnum::Float(supplier) => {
-        Ok(RandomVectorScorerSupplierEnum::Float(supplier.copy()?))
-      },
-    }
-  }
-
-  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
-    match self {
-      RandomVectorScorerSupplierEnum::Byte(supplier) => supplier.get_vector(),
-      RandomVectorScorerSupplierEnum::Float(supplier) => supplier.get_vector(),
-    }
-  }
-
-  fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
-    match self {
-      RandomVectorScorerSupplierEnum::Byte(supplier) => supplier.get_vector_mut(),
-      RandomVectorScorerSupplierEnum::Float(supplier) => supplier.get_vector_mut(),
-    }
   }
 }
 /// RandomVectorScorerSupplier for bytes vector

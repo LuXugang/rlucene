@@ -16,7 +16,9 @@
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
+use crate::core::util::hnsw::random_vector_scorer::{
+  RandomVectorScorer, RandomVectorScorerEnum2, RandomVectorScorerEnum3,
+};
 
 /// A supplier that creates  [`RandomVectorScorer`] from an ordinal.
 pub trait RandomVectorScorerSupplier {
@@ -75,3 +77,73 @@ where
     (**self).get_vector()
   }
 }
+
+macro_rules! either_random_vector_scorer_supplier {
+    (
+        $vis:vis $name:ident {
+            scorer = $scorer_enum:ident;
+            $( $Variant:ident : $T:ident ),+ $(,)?
+        }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> RandomVectorScorerSupplier for $name<$( $T ),+>
+        where
+            $( $T: RandomVectorScorerSupplier ),+
+        {
+            type Scorer<'a> =
+                $scorer_enum<$( < $T as RandomVectorScorerSupplier >::Scorer<'a> ),+>
+            where
+                Self: 'a;
+
+            type RandomVectorScorerSupplier =
+                $name<$( < $T as RandomVectorScorerSupplier >::RandomVectorScorerSupplier ),+>;
+
+            fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
+                match self {
+                    $( Self::$Variant(inner) => inner.scorer(ord).map($scorer_enum::$Variant), )+
+                }
+            }
+
+            fn copy(&self) -> Result<Self::RandomVectorScorerSupplier>
+            where
+                Self: Sized,
+            {
+                match self {
+                    $( Self::$Variant(inner) => inner.copy().map(Self::RandomVectorScorerSupplier::$Variant), )+
+                }
+            }
+
+            fn get_vector(&self) -> Result<&[VectorValueEnum]> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_vector(), )+
+                }
+            }
+
+            fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_vector_mut(), )+
+                }
+            }
+        }
+    };
+}
+
+either_random_vector_scorer_supplier!(
+    pub RandomVectorScorerSupplierEnum2 {
+        scorer = RandomVectorScorerEnum2;
+        A: A,
+        B: B,
+    }
+);
+
+either_random_vector_scorer_supplier!(
+    pub RandomVectorScorerSupplierEnum3 {
+        scorer = RandomVectorScorerEnum3;
+        A: A,
+        B: B,
+        C: C,
+    }
+);
