@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
-use crate::core::index::base_terms_enum::BaseTermsEnum;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2};
 use crate::core::index::{BytesRef, BytesRefBuilder};
@@ -290,10 +289,10 @@ pub type TermsEnum2Type<T> = TermsEnum2<T, EmptyTerms>;
 #[derive(Default)]
 pub struct EmptyTerms;
 impl Terms for EmptyTerms {
-  type TermsEnum = BaseTermsEnum<EmptyTermsEnum>;
+  type TermsEnum = EmptyTermsEnum;
 
   fn iterator(&self) -> Result<Self::TermsEnum> {
-    Ok(EmptyTermsEnum.into())
+    Ok(EmptyTermsEnum)
   }
 
   type IntersectIter

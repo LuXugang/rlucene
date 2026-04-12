@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
@@ -27,7 +28,6 @@ use crate::core::codecs::lucene90::dov_values_inner_enum::{
 use crate::core::codecs::lucene90_doc_values_format::{
   Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
-use crate::core::index::base_terms_enum::BaseTermsEnum;
 use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum3};
 use crate::core::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -2213,7 +2213,7 @@ where
   I: IndexInput,
 {
   entry: Arc<SortedEntry>,
-  terms_enum: BaseTermsEnum<TermsDict<I>>,
+  terms_enum: TermsDict<I>,
   sub: BaseSortedDocValuesEnum<I>,
   data: Arc<I>,
   merging: bool,
@@ -2301,7 +2301,7 @@ where
     }
   }
   type TermsEnum<'a>
-    = BaseTermsEnum<TermsDict<I>>
+    = TermsDict<I>
   where
     I: 'a;
 
@@ -2585,7 +2585,7 @@ where
   I: IndexInput,
 {
   entry: Arc<SortedSetEntry>,
-  terms_enum: BaseTermsEnum<TermsDict<I>>,
+  terms_enum: TermsDict<I>,
   sub: BaseSortedSetDocValuesEnum<I>,
   data: Arc<I>,
   merging: bool,
@@ -2687,7 +2687,7 @@ where
   }
 
   type TermsEnum<'a>
-    = BaseTermsEnum<TermsDict<I>>
+    = TermsDict<I>
   where
     I: 'a;
 
@@ -2731,7 +2731,7 @@ where
 {
   const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
 
-  pub fn new(entry: Arc<TermsDictEntry>, data: &I, merging: bool) -> Result<BaseTermsEnum<Self>> {
+  pub fn new(entry: Arc<TermsDictEntry>, data: &I, merging: bool) -> Result<Self> {
     let addresses_slice =
       data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?;
 
@@ -2793,7 +2793,7 @@ where
       current_compressed_block_start: None,
       current_compressed_block_end: None,
     };
-    Ok(sub.into())
+    Ok(sub)
   }
 
   fn get_term_from_index(&mut self, index: usize) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
@@ -3039,6 +3039,22 @@ where
 {
   type AttributeSource = DummyAttributeSource;
 
+  fn attributes(&self) -> Result<Self::AttributeSource> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Ok(self.seek_ceil(term)? == SeekStatus::Found)
+  }
+
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     let block = self.seek_block(text)?;
     if block == -2 {
@@ -3090,6 +3106,20 @@ where
     Ok(())
   }
 
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    _state: &TermStateEnum,
+  ) -> Result<()> {
+    if !self.seek_exact(term)? {
+      return Err(LuceneError::illegal_state(format!(
+        "term {} does not exist",
+        term
+      )));
+    }
+    Ok(())
+  }
+
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     Ok(Cow::Borrowed(&self.term))
   }
@@ -3120,6 +3150,10 @@ where
 
   fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
     Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    todo!()
   }
 }
 

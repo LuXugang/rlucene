@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::multi_postings_enum::{EnumWithSlice, MultiPostingsEnum};
 use crate::core::index::reader_slice::ReaderSlice;
@@ -32,7 +33,6 @@ use std::rc::Rc;
 
 /// Exposes [`TermsEnum`] API, merged from [`TermsEnum`] API of sub-segments. This does a
 /// merge sort, by term text, of the sub-readers.
-// TODO IMPORTANT 应该继承BaseTermsEnum
 pub struct MultiTermsEnum<TE>
 where
   TE: TermsEnum,
@@ -196,6 +196,10 @@ where
 {
   type AttributeSource = DummyAttributeSource;
 
+  fn attributes(&self) -> Result<Self::AttributeSource> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
     self.queue.q.clear();
     self.num_top = 0;
@@ -266,6 +270,14 @@ where
     // if at least one sub had exact match to the requested
     // term then we found match
     Ok(self.num_top > 0)
+  }
+
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
   }
 
   fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
@@ -352,6 +364,20 @@ where
 
   fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    _state: &TermStateEnum,
+  ) -> Result<()> {
+    if !self.seek_exact(term)? {
+      return Err(LuceneError::illegal_state(format!(
+        "term {} does not exist",
+        term
+      )));
+    }
+    Ok(())
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
@@ -451,6 +477,10 @@ where
 
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
     Ok(SlowImpactsEnum::new(self.postings_with_flags(None, flags)?))
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    todo!()
   }
 }
 struct TopTermsEnumWithSliceCmp<'a, TE>

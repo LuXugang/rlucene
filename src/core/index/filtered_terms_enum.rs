@@ -161,6 +161,18 @@ where
     self.tenum.attributes()
   }
 
+  fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     Err(LuceneError::unsupported_operation(
       "FilteredTermsEnum::seek_ceil",

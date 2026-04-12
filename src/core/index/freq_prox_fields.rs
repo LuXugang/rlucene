@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
-use crate::core::index::base_terms_enum::BaseTermsEnum;
+use crate::core::index::base_terms_enum::BaseTermsEnumTermStateImpl;
 use crate::core::index::byte_slice_reader::ByteSliceReader;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::fields::Fields;
@@ -135,7 +136,7 @@ impl FreqProxTerms {
   }
 }
 impl Terms for FreqProxTerms {
-  type TermsEnum = BaseTermsEnum<FreqProxTermsEnum>;
+  type TermsEnum = FreqProxTermsEnum;
 
   fn iterator(&self) -> Result<Self::TermsEnum> {
     let mut v = FreqProxTermsEnum::new(
@@ -144,7 +145,7 @@ impl Terms for FreqProxTerms {
       self.byte_pool.clone(),
     );
     v.reset();
-    Ok(v.into())
+    Ok(v)
   }
 
   type IntersectIter = FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>;
@@ -284,6 +285,22 @@ impl BytesRefIterator for FreqProxTermsEnum {
 impl TermsEnum for FreqProxTermsEnum {
   type AttributeSource = DummyAttributeSource;
 
+  fn attributes(&self) -> Result<Self::AttributeSource> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Ok(self.seek_ceil(term)? == SeekStatus::Found)
+  }
+
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     let postings_array_enum = &self
       .terms
@@ -370,6 +387,20 @@ impl TermsEnum for FreqProxTermsEnum {
     Ok(())
   }
 
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    _state: &TermStateEnum,
+  ) -> Result<()> {
+    if !self.seek_exact(term)? {
+      return Err(LuceneError::illegal_state(format!(
+        "term {} does not exist",
+        term
+      )));
+    }
+    Ok(())
+  }
+
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     Ok(Cow::Borrowed(&self.scratch))
   }
@@ -452,6 +483,10 @@ impl TermsEnum for FreqProxTermsEnum {
 
   fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
     Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    Ok(BaseTermsEnumTermStateImpl.into())
   }
 }
 

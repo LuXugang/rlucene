@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_writer::FLAGS_BITS;
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_writer::{
   META_VERSION_START, OFFSETS, PACKED_BLOCK_SIZE, PAYLOADS, POSITIONS, VECTORS_EXTENSION,
@@ -29,7 +30,7 @@ use crate::core::codecs::lucene90::fields_index::FieldsIndex;
 use crate::core::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
-use crate::core::index::base_terms_enum::BaseTermsEnum;
+use crate::core::index::base_terms_enum::BaseTermsEnumTermStateImpl;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
@@ -1189,7 +1190,7 @@ impl TVTerms {
   }
 }
 impl Terms for TVTerms {
-  type TermsEnum = BaseTermsEnum<TVTermsEnum>;
+  type TermsEnum = TVTermsEnum;
 
   fn iterator(&self) -> Result<Self::TermsEnum> {
     let terms_enum = TVTermsEnum::new(
@@ -1210,7 +1211,7 @@ impl Terms for TVTerms {
         self.term_bytes.length,
       ),
     );
-    Ok(terms_enum.into())
+    Ok(terms_enum)
   }
 
   type IntersectIter
@@ -1358,6 +1359,22 @@ impl BytesRefIterator for TVTermsEnum {
 impl TermsEnum for TVTermsEnum {
   type AttributeSource = DummyAttributeSource;
 
+  fn attributes(&self) -> Result<Self::AttributeSource> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Ok(self.seek_ceil(term)? == SeekStatus::Found)
+  }
+
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     if let Some(ord) = self.ord
       && ord < self.num_terms
@@ -1389,6 +1406,20 @@ impl TermsEnum for TVTermsEnum {
 
   fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    _state: &TermStateEnum,
+  ) -> Result<()> {
+    if !self.seek_exact(term)? {
+      return Err(LuceneError::illegal_state(format!(
+        "term {} does not exist",
+        term
+      )));
+    }
+    Ok(())
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
@@ -1438,6 +1469,10 @@ impl TermsEnum for TVTermsEnum {
   fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
     let delegate = self.postings_with_flags(None, FREQS as i32)?;
     Ok(SlowImpactsEnum::new(delegate))
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    Ok(BaseTermsEnumTermStateImpl.into())
   }
 }
 

@@ -24,7 +24,6 @@ use crate::core::index::buffered_updates::BufferedUpdates;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
-use crate::core::index::filter_leaf_reader::FilterTermsEnum;
 use crate::core::index::freq_prox_fields::FreqProxFields;
 use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::core::index::frozen_buffered_updates::{TermDocsIterator, TermsProviderImpl1};
@@ -405,7 +404,7 @@ where
   T: TermsEnum,
   DM: DocMap,
 {
-  type AttributeSource = <FilterTermsEnum<T> as TermsEnum>::AttributeSource;
+  type AttributeSource = T::AttributeSource;
 
   fn attributes(&self) -> Result<Self::AttributeSource> {
     self.in_.attributes()
@@ -417,6 +416,10 @@ where
 
   fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
     self.in_.prepare_seek_exact(text)
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    self.in_.get_prepare_seek_exact_status(target)
   }
 
   fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {

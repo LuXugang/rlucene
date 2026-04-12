@@ -39,6 +39,18 @@ impl TermsEnum for DummyTermsEnum {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
+  fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
   fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
@@ -114,6 +126,18 @@ where
   type AttributeSource = DummyAttributeSource;
 
   fn attributes(&self) -> Result<Self::AttributeSource> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

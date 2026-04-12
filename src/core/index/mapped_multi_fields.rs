@@ -19,7 +19,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::fields::Fields;
-use crate::core::index::filter_leaf_reader::{FilterFields, FilterTermsEnum};
+use crate::core::index::filter_leaf_reader::FilterFields;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::core::index::mapping_multi_postings_enum::MappingMultiPostingsEnum;
 use crate::core::index::merge_state::{MergeState, MergeStateMeta};
@@ -247,7 +247,7 @@ where
   TE: TermsEnum,
   CR: CodecReader,
 {
-  type AttributeSource = <FilterTermsEnum<MultiTermsEnum<TE>> as TermsEnum>::AttributeSource;
+  type AttributeSource = <MultiTermsEnum<TE> as TermsEnum>::AttributeSource;
 
   fn attributes(&self) -> Result<Self::AttributeSource> {
     self.in_.attributes()
@@ -320,7 +320,7 @@ where
     Ok(mapping_docs_and_positions_enum)
   }
 
-  type ImpactsEnum = <FilterTermsEnum<MultiTermsEnum<TE>> as TermsEnum>::ImpactsEnum;
+  type ImpactsEnum = <MultiTermsEnum<TE> as TermsEnum>::ImpactsEnum;
 
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
     self.in_.impacts(flags)

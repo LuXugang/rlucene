@@ -14,4 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub trait BasePostingsFormatTestCase {}
+use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+
+pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {}

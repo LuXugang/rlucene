@@ -14,17 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::fields::Fields;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 pub trait FilterLeafReader {}
 
@@ -153,93 +150,4 @@ where
 /// # Note
 /// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 #[allow(dead_code)]
-pub struct FilterTermsEnum<T>
-where
-  T: TermsEnum,
-{
-  pub(crate) in_: T,
-}
-impl<T> FilterTermsEnum<T>
-where
-  T: TermsEnum,
-{
-  pub fn new(terms_enum: T) -> Self {
-    Self { in_: terms_enum }
-  }
-}
-
-impl<T> BytesRefIterator for FilterTermsEnum<T>
-where
-  T: TermsEnum,
-{
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    self.in_.next()
-  }
-}
-
-impl<T> TermsEnum for FilterTermsEnum<T>
-where
-  T: TermsEnum,
-{
-  type AttributeSource = T::AttributeSource;
-
-  fn attributes(&self) -> Result<Self::AttributeSource> {
-    self.in_.attributes()
-  }
-
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
-    self.in_.seek_exact(term)
-  }
-
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-    self.in_.seek_ceil(term)
-  }
-
-  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-    self.in_.seek_exact_with_ord(ord)
-  }
-
-  fn seek_exact_with_state(
-    &mut self,
-    term: &BytesRef<Vec<u8>>,
-    state: &TermStateEnum,
-  ) -> Result<()> {
-    self.in_.seek_exact_with_state(term, state)
-  }
-
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    self.in_.term()
-  }
-
-  fn ord(&self) -> Result<i64> {
-    self.in_.ord()
-  }
-
-  fn doc_freq(&mut self) -> Result<i32> {
-    self.in_.doc_freq()
-  }
-
-  fn total_term_freq(&mut self) -> Result<i64> {
-    self.in_.total_term_freq()
-  }
-
-  type PostingsEnum = T::PostingsEnum;
-
-  fn postings_with_flags(
-    &mut self,
-    reuse: Option<Self::PostingsEnum>,
-    flags: i32,
-  ) -> Result<Self::PostingsEnum> {
-    self.in_.postings_with_flags(reuse, flags)
-  }
-
-  type ImpactsEnum = T::ImpactsEnum;
-
-  fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
-    self.in_.impacts(flags)
-  }
-
-  fn term_state(&mut self) -> Result<TermStateEnum> {
-    self.in_.term_state()
-  }
-}
+pub struct FilterTermsEnum;

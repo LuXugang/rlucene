@@ -153,6 +153,14 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
+  fn postings_with_flags(
+    &mut self,
+    _reuse: Option<Self::PostingsEnum>,
+    _flags: i32,
+  ) -> Result<Self::PostingsEnum> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   type ImpactsEnum = DummyImpactsEnum;
 
   fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {

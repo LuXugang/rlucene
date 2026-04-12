@@ -1198,11 +1198,31 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Ok(self.seek_ceil(term)? == SeekStatus::Found)
+  }
+
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     Err(LuceneError::unsupported_operation(""))
   }
 
   fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    _term: &BytesRef<Vec<u8>>,
+    _state: &TermStateEnum,
+  ) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -1215,6 +1235,10 @@ where
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn total_term_freq(&mut self) -> Result<i64> {
     Err(LuceneError::unsupported_operation(""))
   }
 

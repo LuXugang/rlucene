@@ -619,7 +619,19 @@ where
 {
   type AttributeSource = DummyAttributeSource;
 
+  fn attributes(&self) -> Result<Self::AttributeSource> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -629,6 +641,19 @@ where
 
   fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    _state: &TermStateEnum,
+  ) -> Result<()> {
+    if !self.seek_exact(term)? {
+      return Err(LuceneError::illegal_argument(format!(
+        "term= {term} does not exist"
+      )));
+    }
+    Ok(())
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {

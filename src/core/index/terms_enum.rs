@@ -46,16 +46,12 @@ use std::borrow::Cow;
 pub trait TermsEnum: BytesRefIterator {
   type AttributeSource: AttributeSource;
   /// Returns the related attribute source.
-  fn attributes(&self) -> Result<Self::AttributeSource> {
-    Err(LuceneError::not_implemented(""))
-  }
+  fn attributes(&self) -> Result<Self::AttributeSource>;
   /// Attempts to seek to the exact term.
   ///
   /// Returns `true` if the term is found; `false` if the enum is
   /// unpositioned.
-  fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
-    Err(LuceneError::not_implemented(""))
-  }
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool>;
   /// Two-phase [`seek_exact`](TermsEnum::seek_exact). The first phase
   /// typically calls [`IndexInput::prefetch`](crate::core::store::index_input::IndexInput) on the right range of bytes
   /// under the hood, while the second phase
@@ -71,28 +67,20 @@ pub trait TermsEnum: BytesRefIterator {
   /// ⚠️ **Warning:** After calling this method, you **must** call
   /// [`Self::get_prepare_seek_exact_status`] to retrieve the final result,
   /// otherwise the state remains incomplete.
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-    Err(LuceneError::not_implemented(""))
-  }
-  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
-    Err(LuceneError::not_implemented(""))
-  }
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>>;
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool>;
 
   /// Seeks to the specified term, if it exists, or to the next (ceiling)
   /// term. Returns `SeekStatus` to indicate whether the exact term was
   /// found, a different term was found, or EOF was hit.
   /// The target term may be before or after the current term.
   /// If this returns `SeekStatus::End`, the enum is unpositioned.
-  fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-    Err(LuceneError::not_implemented(""))
-  }
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus>;
 
   /// Seeks to the specified term by ordinal (position) as previously returned
   /// by [`ord()`](TermsEnum::ord). The target ordinal may be before or
   /// after the current ordinal, and must be within bounds.
-  fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
-    Err(LuceneError::not_implemented(""))
-  }
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()>;
   /// Expert: Seeks a specific position by [`TermState`] previously obtained
   /// from [`term_state()`](TermsEnum::term_state). Callers should
   /// maintain the [`TermState`] to use this method.
@@ -116,38 +104,28 @@ pub trait TermsEnum: BytesRefIterator {
   /// - `state`: the [`TermState`]
   fn seek_exact_with_state(
     &mut self,
-    _term: &BytesRef<Vec<u8>>,
-    _state: &TermStateEnum,
-  ) -> Result<()> {
-    Err(LuceneError::not_implemented(""))
-  }
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()>;
 
   /// Returns current term. Do not call this when the enum is unpositioned.
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Err(LuceneError::not_implemented(""))
-  }
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
   /// Returns ordinal position for the current term.
   /// This is an optional method (the codec may return an error or indicate
   /// unsupported). Do not call this when the enum is unpositioned.
-  fn ord(&self) -> Result<i64> {
-    Err(LuceneError::not_implemented(""))
-  }
+  fn ord(&self) -> Result<i64>;
 
   /// Returns the number of documents containing the current term.
   /// Do not call this when the enum is unpositioned.
   /// Equivalent to [`SeekStatus::End`] when exhausted.
-  fn doc_freq(&mut self) -> Result<i32> {
-    Err(LuceneError::not_implemented(""))
-  }
+  fn doc_freq(&mut self) -> Result<i32>;
 
   /// Returns the total number of occurrences of this term across all
   /// documents (the sum of `freq()` for each doc that has this term).
   ///
   /// Note: like other term measures, this does not take deleted documents
   /// into account.
-  fn total_term_freq(&mut self) -> Result<i64> {
-    Err(LuceneError::not_implemented(""))
-  }
+  fn total_term_freq(&mut self) -> Result<i64>;
 
   type PostingsEnum: PostingsEnum;
   /// Get [`PostingsEnum`] for the current term. Do not call this when the
@@ -181,16 +159,12 @@ pub trait TermsEnum: BytesRefIterator {
     &mut self,
     _reuse: Option<Self::PostingsEnum>,
     _flags: i32,
-  ) -> Result<Self::PostingsEnum> {
-    Err(LuceneError::not_implemented(""))
-  }
+  ) -> Result<Self::PostingsEnum>;
   type ImpactsEnum: ImpactsEnum;
   /// Return an `ImpactsEnum`.
   ///
   /// See also: [`postings_with_flags`](TermsEnum::postings_with_flags).
-  fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
-    Err(LuceneError::not_implemented(""))
-  }
+  fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum>;
 
   /// Expert: Returns the [`TermsEnum`]'s internal state to position the enum
   /// without re-seeking the term dictionary.
@@ -201,9 +175,7 @@ pub trait TermsEnum: BytesRefIterator {
   ///
   /// See also: [`TermState`],
   /// [`seek_exact_with_state`](TermsEnum::seek_exact_with_state).
-  fn term_state(&mut self) -> Result<TermStateEnum> {
-    Err(LuceneError::not_implemented(""))
-  }
+  fn term_state(&mut self) -> Result<TermStateEnum>;
 }
 /// Represents returned result from `seek_ceil`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -232,11 +204,40 @@ impl BytesRefIterator for EmptyTermsEnum {
 impl TermsEnum for EmptyTermsEnum {
   type AttributeSource = DummyAttributeSource;
 
+  fn attributes(&self) -> Result<Self::AttributeSource> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Ok(self.seek_ceil(term)? == SeekStatus::Found)
+  }
+
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     Ok(SeekStatus::End)
   }
 
   fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
+    Ok(())
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    _state: &TermStateEnum,
+  ) -> Result<()> {
+    if !self.seek_exact(term)? {
+      return Err(LuceneError::illegal_argument(format!(
+        "term= {term} does not exist"
+      )));
+    }
     Ok(())
   }
 
@@ -320,12 +321,38 @@ where
 {
   type AttributeSource = DummyAttributeSource;
 
+  fn attributes(&self) -> Result<Self::AttributeSource> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Ok(self.seek_ceil(term)? == SeekStatus::Found)
+  }
+
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     Ok(SeekStatus::End)
   }
 
   fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
     Ok(())
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    _term: &BytesRef<Vec<u8>>,
+    _state: &TermStateEnum,
+  ) -> Result<()> {
+    Err(LuceneError::illegal_state(
+      "this method should never be called",
+    ))
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {

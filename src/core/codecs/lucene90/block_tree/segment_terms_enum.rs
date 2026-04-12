@@ -24,7 +24,6 @@ use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::{
 use crate::core::codecs::lucene90::block_tree::field_reader::FieldReader;
 use crate::core::codecs::lucene90::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
-use crate::core::index::base_terms_enum::BaseTermsEnum;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{PrepareSeekStatus, SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefBuilder};
@@ -69,7 +68,7 @@ where
   I: IndexInput,
   PR: PostingsReaderBase,
 {
-  pub fn new(fr: FieldReader<I, PR>) -> Result<BaseTermsEnum<Self>> {
+  pub fn new(fr: FieldReader<I, PR>) -> Result<Self> {
     // Construct SegmentTerms first
     let fst_reader = match &fr.index {
       Some(index) => Some(index.get_bytes_reader()?),
@@ -89,7 +88,7 @@ where
     // Build Frame
     let stack = Vec::new();
     let stack_len = stack.len();
-    let sub = Self {
+    Ok(Self {
       input: None,
       stack,
       static_frame,
@@ -106,8 +105,7 @@ where
       fst_reader,
       arcs,
       prepare_seek_status: PrepareSeekStatus::NotFound,
-    };
-    Ok(sub.into())
+    })
   }
   pub(crate) fn init_index_input(&mut self) -> Result<()> {
     if self.input.is_none() {
@@ -547,6 +545,10 @@ where
   PR: PostingsReaderBase,
 {
   type AttributeSource = DummyAttributeSource;
+
+  fn attributes(&self) -> Result<Self::AttributeSource> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
   fn seek_exact(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
     match self.prepare_seek_exact(target, false)? {

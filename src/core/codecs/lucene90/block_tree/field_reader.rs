@@ -22,7 +22,6 @@ use crate::core::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader:
 use crate::core::codecs::lucene90::block_tree::segment_terms_enum::SegmentTermsEnum;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::BytesRef;
-use crate::core::index::base_terms_enum::BaseTermsEnum;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::terms::Terms;
@@ -177,7 +176,7 @@ where
   I: IndexInput,
   PR: PostingsReaderBase,
 {
-  type TermsEnum = BaseTermsEnum<SegmentTermsEnum<I, PR>>;
+  type TermsEnum = SegmentTermsEnum<I, PR>;
 
   fn iterator(&self) -> Result<Self::TermsEnum> {
     SegmentTermsEnum::new(self.clone())
