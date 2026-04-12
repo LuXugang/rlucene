@@ -19,7 +19,6 @@ use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::fields::Fields;
-use crate::core::index::filter_leaf_reader::FilterFields;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::core::index::mapping_multi_postings_enum::MappingMultiPostingsEnum;
 use crate::core::index::merge_state::{MergeState, MergeStateMeta};
@@ -70,7 +69,7 @@ where
   CR: CodecReader,
 {
   type FieldIter<'a>
-    = <FilterFields<MultiFields<F>> as Fields>::FieldIter<'a>
+    = <MultiFields<F> as Fields>::FieldIter<'a>
   where
     Self: 'a;
 

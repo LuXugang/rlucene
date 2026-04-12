@@ -16,7 +16,6 @@
  */
 use crate::core::index::index_reader::Identity;
 use crate::core::store::directory::Directory;
-use crate::core::store::filter_directory::FilterDirectory;
 use crate::core::store::{IOContext, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
@@ -116,7 +115,7 @@ where
     Ok(output)
   }
 
-  type IndexOutput = <FilterDirectory<D> as Directory>::IndexOutput;
+  type IndexOutput = D::IndexOutput;
 
   fn create_temp_output(
     &self,
@@ -147,13 +146,13 @@ where
     Ok(())
   }
 
-  type IndexInput = <FilterDirectory<D> as Directory>::IndexInput;
+  type IndexInput = D::IndexInput;
 
   fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
     self.in_.open_input(name, context)
   }
 
-  type Lock = <FilterDirectory<D> as Directory>::Lock;
+  type Lock = D::Lock;
 
   fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
     self.in_.obtain_lock(name)

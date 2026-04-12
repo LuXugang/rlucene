@@ -14,13 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::codec_reader::CodecReader;
 /// # Note
 /// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 #[allow(dead_code)]
-pub struct FilterCodecReader<CR>
-where
-  CR: CodecReader,
-{
-  pub(crate) in_: CR,
-}
+pub struct FilterCodecReader;
