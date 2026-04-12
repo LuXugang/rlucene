@@ -1332,8 +1332,7 @@ mod tests {
     QueryUtils::check_from_searcher(&mut random, query.clone(), &searcher)?;
 
     // just make sure no exc:
-    // TODO IMPORTANT IndexSearch explain 未实现
-    // let _ = searcher.explain(query.clone(), 0)?;
+    searcher.explain(query.clone(), 0)?;
 
     // search on non palyndrome, find phrase with slop 3, though no slop required here.
     // slop=4 to use sloppy scorer
@@ -1355,8 +1354,7 @@ mod tests {
     let hits = top_docs.score_docs();
 
     // just make sure no exc:
-    // TODO IMPORTANT IndexSearch explain 未实现
-    // let _ = searcher.explain(query.clone(), 0)?;
+    let _ = searcher.explain(query.clone(), 0)?;
 
     assert_eq!(1, hits.len(), "just sloppy enough");
     QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
