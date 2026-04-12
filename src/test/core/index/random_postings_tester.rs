@@ -18,6 +18,7 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::fields_consumer::FieldsConsumer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_format::PostingsFormat;
+use crate::core::index::impact::Impact;
 use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -28,10 +29,14 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::core::index::impacts::Impacts;
+use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::PostingsEnum;
-use crate::core::index::postings_enum::{FREQS, OFFSETS, PAYLOADS, POSITIONS, feature_requested};
+use crate::core::index::postings_enum::{
+  feature_requested, FREQS, NONE, OFFSETS, PAYLOADS, POSITIONS,
+};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -92,6 +97,13 @@ pub enum Option_ {
   /// Test w/ multiple threads.
   Threads,
 }
+
+#[derive(Default)]
+pub struct ThreadState<P> {
+  // Only used with REUSE option:
+  pub reuse_postings_enum: Option<P>,
+}
+
 /// Helper class extracted from BasePostingsFormatTestCase to exercise a postings format.
 pub struct RandomPostingsTester {
   fields: HashMap<String, BTreeMap<BytesRef<Vec<u8>>, SeedAndOrd>>,
@@ -335,6 +347,592 @@ impl RandomPostingsTester {
     codec
       .postings_format()
       .fields_producer(&read_state, &segment_info)
+  }
+
+  #[allow(clippy::too_many_arguments)]
+  pub fn verify_enum<R, TE>(
+    &self,
+    random: &mut R,
+    thread_state: &mut ThreadState<TE::PostingsEnum>,
+    field: &str,
+    term: &BytesRef<Vec<u8>>,
+    terms_enum: &mut TE,
+    max_test_options: IndexOptions,
+    max_index_options: IndexOptions,
+    options: &std::collections::HashSet<Option_>,
+    always_test_max: bool,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+    TE: TermsEnum,
+    TE::PostingsEnum: PostingsEnum,
+  {
+    let verbose = cfg!(feature = "test_log_verbose");
+
+    if verbose {
+      println!("  verifyEnum: options={options:?} maxTestOptions={max_test_options:?}");
+    }
+
+    assert_eq!(term, terms_enum.term()?.as_ref());
+
+    let field_infos = self
+      .current_field_infos
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("current_field_infos not set"))?;
+    let field_info = field_infos
+      .field_info_by_name(field)
+      .ok_or_else(|| LuceneError::illegal_state(format!("missing FieldInfo for field {field}")))?;
+
+    let expected = get_seed_postings(
+      &term.utf8_to_string()?,
+      self.fields
+        .get(field)
+        .and_then(|terms| terms.get(term))
+        .ok_or_else(|| {
+          LuceneError::illegal_state(format!("missing seed postings for field={field} term={term}"))
+        })?
+        .seed,
+      max_index_options,
+      true,
+    );
+    assert_eq!(expected.doc_freq, terms_enum.doc_freq()?);
+
+    let allow_freqs = *field_info.get_index_options() >= IndexOptions::DocsAndFreqs
+      && max_test_options >= IndexOptions::DocsAndFreqs;
+    let do_check_freqs = allow_freqs && (always_test_max || random.random_range(0..3) <= 2);
+
+    let allow_positions = *field_info.get_index_options()
+      >= IndexOptions::DocsAndFreqsAndPositions
+      && max_test_options >= IndexOptions::DocsAndFreqsAndPositions;
+    let do_check_positions = allow_positions && (always_test_max || random.random_range(0..3) <= 2);
+
+    let allow_offsets = *field_info.get_index_options()
+      >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets
+      && max_test_options >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
+    let do_check_offsets = allow_offsets && (always_test_max || random.random_range(0..3) <= 2);
+
+    let do_check_payloads = options.contains(&Option_::Payloads)
+      && allow_positions
+      && field_info.has_payloads()
+      && (always_test_max || random.random_range(0..3) <= 2);
+
+    let reuse_postings_enum = if options.contains(&Option_::ReuseEnums)
+      && random.random_range(0..10) < 9
+    {
+      thread_state.reuse_postings_enum.take()
+    } else {
+      None
+    };
+
+    let postings_enum = if !do_check_positions {
+      if allow_positions && random.random_range(0..10) == 7 {
+        let mut flags = POSITIONS as i32;
+        if always_test_max || random.random_bool(0.5) {
+          flags |= OFFSETS as i32;
+        }
+        if always_test_max || random.random_bool(0.5) {
+          flags |= PAYLOADS as i32;
+        }
+        if verbose {
+          println!("  get DocsEnum (but we won't check positions) flags={flags}");
+        }
+        let postings_enum = terms_enum.postings_with_flags(reuse_postings_enum, flags)?;
+        thread_state.reuse_postings_enum = Some(postings_enum);
+        thread_state
+          .reuse_postings_enum
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("missing reused postings enum"))?
+      } else {
+        if verbose {
+          println!("  get DocsEnum");
+        }
+        let flags = if do_check_freqs {
+          FREQS as i32
+        } else {
+          NONE as i32
+        };
+        let postings_enum = terms_enum.postings_with_flags(reuse_postings_enum, flags)?;
+        thread_state.reuse_postings_enum = Some(postings_enum);
+        thread_state
+          .reuse_postings_enum
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("missing reused postings enum"))?
+      }
+    } else {
+      let mut flags = POSITIONS as i32;
+      if always_test_max || do_check_offsets || random.random_range(0..3) == 1 {
+        flags |= OFFSETS as i32;
+      }
+      if always_test_max || do_check_payloads || random.random_range(0..3) == 1 {
+        flags |= PAYLOADS as i32;
+      }
+      if verbose {
+        println!("  get DocsEnum flags={flags}");
+      }
+      let postings_enum = terms_enum.postings_with_flags(reuse_postings_enum, flags)?;
+      thread_state.reuse_postings_enum = Some(postings_enum);
+      thread_state
+        .reuse_postings_enum
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("missing reused postings enum"))?
+    };
+
+    assert_eq!(-1, postings_enum.doc_id());
+
+    let stop_at = if !always_test_max
+      && options.contains(&Option_::PartialDocConsume)
+      && expected.doc_freq > 1
+      && random.random_range(0..10) == 7
+    {
+      let stop_at = random.random_range(0..(expected.doc_freq - 1));
+      if verbose {
+        println!("  will not consume all docs ({stop_at} vs {})", expected.doc_freq);
+      }
+      stop_at
+    } else {
+      if verbose {
+        println!("  consume all docs");
+      }
+      expected.doc_freq
+    };
+
+    let skip_chance: f64 = if always_test_max {
+      0.5
+    } else {
+      random.random::<f64>()
+    };
+    let num_skips = if expected.doc_freq < 3 {
+      1
+    } else {
+      TestUtil::next_int(random, 1, std::cmp::min(20, expected.doc_freq / 3))
+    };
+    let skip_inc = expected.doc_freq / num_skips;
+    let skip_doc_inc = self.max_doc / num_skips;
+    let do_all_skipping = options.contains(&Option_::Skipping) && random.random_range(0..7) == 1;
+
+    let freq_ask_chance: f64 = if always_test_max { 1.0 } else { random.random::<f64>() };
+    let payload_check_chance: f64 = if always_test_max {
+      1.0
+    } else {
+      random.random::<f64>()
+    };
+    let offset_check_chance: f64 = if always_test_max {
+      1.0
+    } else {
+      random.random::<f64>()
+    };
+
+    if verbose {
+      if options.contains(&Option_::Skipping) {
+        println!("  skipChance={skip_chance} numSkips={num_skips}");
+      } else {
+        println!("  no skipping");
+      }
+      if do_check_freqs {
+        println!("  freqAskChance={freq_ask_chance}");
+      }
+      if do_check_payloads {
+        println!("  payloadCheckChance={payload_check_chance}");
+      }
+      if do_check_offsets {
+        println!("  offsetCheckChance={offset_check_chance}");
+      }
+    }
+
+    let mut expected = expected;
+    while expected.upto <= stop_at {
+        if expected.upto == stop_at {
+          if stop_at == expected.doc_freq {
+            assert_eq!(
+              NO_MORE_DOCS,
+              postings_enum.next_doc()?,
+              "DocsEnum should have ended but didn't"
+            );
+            assert_eq!(
+              NO_MORE_DOCS,
+              postings_enum.doc_id(),
+              "DocsEnum should have ended but didn't"
+            );
+          }
+          break;
+        }
+
+      if options.contains(&Option_::Skipping)
+        && (do_all_skipping || random.random::<f64>() <= skip_chance)
+      {
+        let mut target_doc_id = None;
+        if expected.upto < stop_at && random.random_bool(0.5) {
+          let skip_count = TestUtil::next_int(random, 1, skip_inc);
+          for _ in 0..skip_count {
+            if expected.next_doc()? == NO_MORE_DOCS {
+              break;
+            }
+          }
+        } else {
+          let skip_doc_ids = TestUtil::next_int(random, 1, skip_doc_inc);
+          if skip_doc_ids > 0 {
+            let target = expected.doc_id() + skip_doc_ids;
+            expected.advance(target)?;
+            target_doc_id = Some(target);
+          }
+        }
+
+        if expected.upto >= stop_at {
+          let target = if random.random_bool(0.5) {
+            self.max_doc
+          } else {
+            NO_MORE_DOCS
+          };
+          if verbose {
+            println!("  now advance to end (target={target})");
+          }
+          assert_eq!(
+            NO_MORE_DOCS,
+            postings_enum.advance(target)?,
+            "DocsEnum should have ended but didn't"
+          );
+          break;
+        } else {
+          if verbose {
+            match target_doc_id {
+              Some(target_doc_id) => println!(
+                "  now advance to random target={target_doc_id} ({} of {}) current={}",
+                expected.upto,
+                stop_at,
+                postings_enum.doc_id()
+              ),
+              None => println!(
+                "  now advance to known-exists target={} ({} of {}) current={}",
+                expected.doc_id(),
+                expected.upto,
+                stop_at,
+                postings_enum.doc_id()
+              ),
+            }
+          }
+          let doc_id = postings_enum.advance(target_doc_id.unwrap_or_else(|| expected.doc_id()))?;
+          assert_eq!(expected.doc_id(), doc_id);
+        }
+      } else {
+        expected.next_doc()?;
+        if verbose {
+          println!(
+            "  now nextDoc to {} ({} of {})",
+            expected.doc_id(),
+            expected.upto,
+            stop_at
+          );
+        }
+        let doc_id = postings_enum.next_doc()?;
+        assert_eq!(expected.doc_id(), doc_id);
+        if doc_id == NO_MORE_DOCS {
+          break;
+        }
+      }
+
+        if do_check_freqs && random.random::<f64>() <= freq_ask_chance {
+        if verbose {
+          println!("    now freq()={}", expected.freq()?);
+        }
+        let expected_freq = expected.freq()?;
+        assert_eq!(expected_freq, postings_enum.freq()?, "freq is wrong");
+      }
+
+      if do_check_positions {
+        let freq = postings_enum.freq()?;
+        let num_pos_to_consume = if !always_test_max
+          && options.contains(&Option_::PartialPosConsume)
+          && random.random_range(0..5) == 1
+        {
+          random.random_range(0..freq)
+        } else {
+          freq
+        };
+
+        for _ in 0..num_pos_to_consume {
+          let pos = expected.next_position()?;
+          if verbose {
+            println!("    now nextPosition to {pos}");
+          }
+          assert_eq!(pos, postings_enum.next_position()?);
+
+          if do_check_payloads {
+            let expected_payload = expected.get_payload()?;
+            if random.random::<f64>() <= payload_check_chance {
+              if verbose {
+                println!(
+                  "      now check expectedPayload length={}",
+                  expected_payload.as_ref().map_or(0, |p| p.length)
+                );
+              }
+              match expected_payload {
+                None => {
+                  assert!(postings_enum.get_payload()?.is_none(), "should not have payload");
+                }
+                Some(expected_payload) if expected_payload.length == 0 => {
+                  assert!(postings_enum.get_payload()?.is_none(), "should not have payload");
+                }
+                Some(expected_payload) => {
+                  let payload = postings_enum.get_payload()?;
+                  let payload = payload
+                    .as_ref()
+                    .ok_or_else(|| LuceneError::illegal_state("should have payload but doesn't"))?;
+                  assert_eq!(
+                    expected_payload.length,
+                    payload.length,
+                  );
+                  for byte_upto in 0..expected_payload.length {
+                    assert_eq!(
+                      expected_payload.bytes[expected_payload.offset + byte_upto as usize],
+                      payload.bytes[payload.offset + byte_upto as usize],
+                      "payload bytes are wrong"
+                    );
+                  }
+
+                  let payload_copy = BytesRef::deep_copy_of(payload.as_ref());
+                  assert_eq!(
+                    payload_copy,
+                    BytesRef::deep_copy_of(
+                      postings_enum
+                        .get_payload()?
+                        .as_ref()
+                        .ok_or_else(|| LuceneError::illegal_state("missing payload"))?
+                        .as_ref()
+                    ),
+                    "2nd call to getPayload returns something different!"
+                  );
+                }
+              }
+            } else if verbose {
+              println!(
+                "      skip check payload length={}",
+                expected_payload.as_ref().map_or(0, |p| p.length)
+              );
+            }
+          }
+
+          if do_check_offsets {
+            if random.random::<f64>() <= offset_check_chance {
+              if verbose {
+                println!(
+                  "      now check offsets: startOff={} endOffset={}",
+                  expected.start_offset()?,
+                  expected.end_offset()?
+                );
+              }
+              let expected_start = expected.start_offset()?;
+              let expected_end = expected.end_offset()?;
+              assert_eq!(
+                expected_start,
+                postings_enum.start_offset()?,
+                "startOffset is wrong"
+              );
+              assert_eq!(
+                expected_end,
+                postings_enum.end_offset()?,
+                "endOffset is wrong"
+              );
+            } else if verbose {
+              println!("      skip check offsets");
+            }
+          } else if *field_info.get_index_options() < IndexOptions::DocsAndFreqsAndPositionsAndOffsets
+          {
+            if verbose {
+              println!("      now check offsets are -1");
+            }
+            assert_eq!(-1, postings_enum.start_offset()?);
+            assert_eq!(-1, postings_enum.end_offset()?);
+          }
+        }
+      }
+    }
+
+    if options.contains(&Option_::Skipping) {
+      let mut impacts_enum = terms_enum.impacts(if do_check_positions {
+        let mut flags = POSITIONS as i32;
+        if do_check_offsets {
+          flags |= OFFSETS as i32;
+        }
+        if do_check_payloads {
+          flags |= PAYLOADS as i32;
+        }
+        flags
+      } else {
+        FREQS as i32
+      })?;
+      let mut postings = terms_enum.postings_with_flags(None, if do_check_positions {
+        let mut flags = POSITIONS as i32;
+        if do_check_offsets {
+          flags |= OFFSETS as i32;
+        }
+        if do_check_payloads {
+          flags |= PAYLOADS as i32;
+        }
+        flags
+      } else {
+        FREQS as i32
+      })?;
+
+      let doc_to_norm = |doc: i32| -> i64 {
+        if field_info.has_norms() {
+          ((1 + doc) & 0x0f) as i64
+        } else {
+          1
+        }
+      };
+
+      let mut max = -1;
+      let mut impacts_copy: Option<Vec<Impact>> = None;
+      let flags = if do_check_positions {
+        let mut flags = FREQS as i32 | POSITIONS as i32;
+        if do_check_offsets {
+          flags |= OFFSETS as i32;
+        }
+        if do_check_payloads {
+          flags |= PAYLOADS as i32;
+        }
+        flags
+      } else {
+        FREQS as i32
+      };
+
+      loop {
+        let doc = impacts_enum.next_doc()?;
+        assert_eq!(postings.next_doc()?, doc);
+        if doc == NO_MORE_DOCS {
+          break;
+        }
+        let freq = postings.freq()?;
+        let impacts_freq = impacts_enum.freq()?;
+        assert_eq!(freq, impacts_freq, "freq is wrong");
+        for _ in 0..freq {
+          let pos = postings.next_position()?;
+          assert_eq!(pos, impacts_enum.next_position()?);
+          if do_check_offsets {
+            assert_eq!(
+              postings.start_offset()?,
+              impacts_enum.start_offset()?,
+            );
+            assert_eq!(
+              postings.end_offset()?,
+              impacts_enum.end_offset()?,
+            );
+          }
+          if do_check_payloads {
+            assert_eq!(
+              postings.get_payload()?,
+              impacts_enum.get_payload()?,
+            );
+          }
+        }
+
+        if doc > max {
+          impacts_enum.advance_shallow(doc)?;
+          let impacts = impacts_enum.get_impacts()?;
+          let impacts_vec = impacts.get_impacts(0)?;
+          impacts_copy = Some(impacts_vec);
+        }
+        let freq = impacts_enum.freq()?;
+        let norm = doc_to_norm(doc);
+        let impacts_copy = impacts_copy.as_ref().ok_or_else(|| {
+          LuceneError::illegal_state("impacts copy should have been initialized")
+        })?;
+        let idx = match impacts_copy.binary_search_by(|impact| impact.freq.cmp(&freq)) {
+          Ok(idx) | Err(idx) => idx,
+        };
+        assert!(
+          idx < impacts_copy.len() && impacts_copy[idx].norm <= norm,
+          "Got {} in postings, but no impact triggers equal or better scores in {:?}",
+          Impact::new(freq, norm),
+          impacts_copy
+        );
+      }
+
+      impacts_enum = terms_enum.impacts(flags)?;
+      postings = terms_enum.postings_with_flags(Some(postings), flags)?;
+
+      max = -1;
+      loop {
+        let doc = impacts_enum.doc_id();
+        let advance = random.random_bool(0.5);
+        let target = if advance {
+          let delta = std::cmp::min(1 + random.random_range(0..512), NO_MORE_DOCS - doc);
+          doc + delta
+        } else {
+          doc + 1
+        };
+
+        if target > max && random.random_bool(0.5) {
+          let delta = std::cmp::min(random.random_range(0..512), NO_MORE_DOCS - target);
+          max = target + delta;
+
+          impacts_enum.advance_shallow(target)?;
+          let impacts = impacts_enum.get_impacts()?;
+          let impacts_vec = impacts.get_impacts(0)?;
+          impacts_copy = Some(impacts_vec);
+        }
+
+        let doc = if advance {
+          impacts_enum.advance(target)?
+        } else {
+          impacts_enum.next_doc()?
+        };
+
+        assert_eq!(postings.advance(target)?, doc);
+        if doc == NO_MORE_DOCS {
+          break;
+        }
+
+        let freq = postings.freq()?;
+        let impacts_freq = impacts_enum.freq()?;
+        assert_eq!(freq, impacts_freq, "freq is wrong");
+        for _ in 0..postings.freq()? {
+          let pos = postings.next_position()?;
+          assert_eq!(pos, impacts_enum.next_position()?);
+          if do_check_offsets {
+            assert_eq!(
+              postings.start_offset()?,
+              impacts_enum.start_offset()?,
+            );
+            assert_eq!(
+              postings.end_offset()?,
+              impacts_enum.end_offset()?,
+            );
+          }
+          if do_check_payloads {
+            assert_eq!(
+              postings.get_payload()?,
+              impacts_enum.get_payload()?,
+            );
+          }
+        }
+
+        if doc > max {
+          let delta = std::cmp::min(1 + random.random_range(0..512), NO_MORE_DOCS - doc);
+          max = doc + delta;
+          let impacts = impacts_enum.get_impacts()?;
+          let impacts_vec = impacts.get_impacts(0)?;
+          impacts_copy = Some(impacts_vec);
+        }
+
+        let freq = impacts_enum.freq()?;
+        let norm = doc_to_norm(doc);
+        let impacts_copy = impacts_copy.as_ref().ok_or_else(|| {
+          LuceneError::illegal_state("impacts copy should have been initialized")
+        })?;
+        let idx = match impacts_copy.binary_search_by(|impact| impact.freq.cmp(&freq)) {
+          Ok(idx) | Err(idx) => idx,
+        };
+        assert!(
+          idx < impacts_copy.len() && impacts_copy[idx].norm <= norm,
+          "Got {} in postings, but no impact triggers equal or better scores in {:?}",
+          Impact::new(freq, norm),
+          impacts_copy
+        );
+      }
+    }
+
+    Ok(())
   }
 }
 #[derive(Clone)]
@@ -1002,23 +1600,5 @@ struct DocToNorm;
 impl IntToLongFunction for DocToNorm {
   fn apply_as_long(self, doc: i32) -> i64 {
     ((1 + doc) & 0x0f) as i64
-  }
-}
-struct FixedDocToNorm;
-impl IntToLongFunction for FixedDocToNorm {
-  fn apply_as_long(self, _doc: i32) -> i64 {
-    1
-  }
-}
-enum IntToLongFunctionEnum {
-  DocToNorm(DocToNorm),
-  FixedDocToNorm(FixedDocToNorm),
-}
-impl IntToLongFunctionEnum {
-  fn apply_as_long(self, i: i32) -> i64 {
-    match self {
-      IntToLongFunctionEnum::DocToNorm(f) => f.apply_as_long(i),
-      IntToLongFunctionEnum::FixedDocToNorm(f) => f.apply_as_long(i),
-    }
   }
 }
