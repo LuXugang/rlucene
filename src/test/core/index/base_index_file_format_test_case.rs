@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
+
 /// Abstract class to do basic tests for a norms format. NOTE: This test focuses on the norms impl,
 /// nothing else. The [stretch] goal is for this test to be so thorough in testing a new NormsFormat
 /// that if this test passes, then all Lucene tests should also pass. Ie, if there is some bug in a
@@ -39,5 +41,8 @@ pub trait BaseIndexFileFormatTestCase {
   }
   fn test_merge_stability(&self) -> Result<()> {
     Ok(())
+  }
+  fn get_codec(&self) -> Result<Lucene101Codec> {
+    Ok(Lucene101Codec)
   }
 }

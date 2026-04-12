@@ -60,7 +60,6 @@ use crate::core::util::to_string_utils::ToStringUtils;
 use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper, ToInt, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt;
-use std::rc::Rc;
 use std::sync::Arc;
 /*
  TODO:
@@ -445,13 +444,13 @@ trait PendingEntry {
   fn is_term(&self) -> bool;
 }
 pub struct PendingTerm {
-  pub term_bytes: Rc<Vec<u8>>,
+  pub term_bytes: Arc<Vec<u8>>,
   pub state: TermStateEnum,
 }
 impl Default for PendingTerm {
   fn default() -> Self {
     Self {
-      term_bytes: Rc::new(vec![]),
+      term_bytes: Arc::new(vec![]),
       state: TermStateEnum::Int(Default::default()),
     }
   }
@@ -468,7 +467,7 @@ impl PendingTerm {
     debug_assert!(term.offset == 0);
     debug_assert!(term.length == term.bytes.len());
     Self {
-      term_bytes: Rc::new(std::mem::take(&mut term.bytes)),
+      term_bytes: Arc::new(std::mem::take(&mut term.bytes)),
       state,
     }
   }
@@ -694,8 +693,8 @@ where
   scratch_bytes: ByteBuffersDataOutput,
   scratch_ints_ref: IntsRefBuilder<Vec<i32>>,
   version: i32,
-  first_pending_term_bytes: Option<Rc<Vec<u8>>>,
-  last_pending_term_bytes: Rc<Vec<u8>>,
+  first_pending_term_bytes: Option<Arc<Vec<u8>>>,
+  last_pending_term_bytes: Arc<Vec<u8>>,
   terms_out: &'a mut O,
   postings_writer: &'a mut PW,
 }
@@ -740,7 +739,7 @@ where
       scratch_ints_ref: IntsRefBuilder::new(),
       version,
       first_pending_term_bytes: None,
-      last_pending_term_bytes: Rc::new(vec![]),
+      last_pending_term_bytes: Arc::new(vec![]),
       terms_out,
       postings_writer,
     };

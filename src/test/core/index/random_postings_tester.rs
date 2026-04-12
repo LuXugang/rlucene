@@ -18,7 +18,6 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::fields_consumer::FieldsConsumer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_format::PostingsFormat;
-use crate::core::index::impact::Impact;
 use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -29,13 +28,14 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::postings_enum::{
-  feature_requested, FREQS, NONE, OFFSETS, PAYLOADS, POSITIONS,
+  FREQS, NONE, OFFSETS, PAYLOADS, POSITIONS, feature_requested,
 };
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -47,27 +47,39 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::IOContext;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::ToInt;
+use crate::core::util::automation::byte_runnable::ByteRunnable;
+use crate::core::util::automation::compiled_automaton::AutomatonType;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
+use crate::core::util::automation::operations::Operations;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::get_default_info_stream;
-use crate::core::util::iterator::{VecIter, VecIteratorExt};
+use crate::core::util::iterator::{IteratorExt, VecIter, VecIteratorExt};
 use crate::core::util::string_helper::StringHelper;
+use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::version::LATEST;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random_from_seed;
+use crate::test::core::util::automaton::automaton_test_util::{
+  AutomatonTestUtil, RandomAcceptedStrings,
+};
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::random_multiplier;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, is_night_mode};
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+  new_fs_directory, random_from_seed,
+};
 use crate::test::core::util::test_util::TestUtil;
+use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
+use std::thread;
+use tempfile::TempDir;
 
 /// Which features to test.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -98,10 +110,17 @@ pub enum Option_ {
   Threads,
 }
 
-#[derive(Default)]
 pub struct ThreadState<P> {
   // Only used with REUSE option:
   pub reuse_postings_enum: Option<P>,
+}
+
+impl<P> Default for ThreadState<P> {
+  fn default() -> Self {
+    Self {
+      reuse_postings_enum: None,
+    }
+  }
 }
 
 /// Helper class extracted from BasePostingsFormatTestCase to exercise a postings format.
@@ -385,11 +404,14 @@ impl RandomPostingsTester {
 
     let expected = get_seed_postings(
       &term.utf8_to_string()?,
-      self.fields
+      self
+        .fields
         .get(field)
         .and_then(|terms| terms.get(term))
         .ok_or_else(|| {
-          LuceneError::illegal_state(format!("missing seed postings for field={field} term={term}"))
+          LuceneError::illegal_state(format!(
+            "missing seed postings for field={field} term={term}"
+          ))
         })?
         .seed,
       max_index_options,
@@ -401,8 +423,7 @@ impl RandomPostingsTester {
       && max_test_options >= IndexOptions::DocsAndFreqs;
     let do_check_freqs = allow_freqs && (always_test_max || random.random_range(0..3) <= 2);
 
-    let allow_positions = *field_info.get_index_options()
-      >= IndexOptions::DocsAndFreqsAndPositions
+    let allow_positions = *field_info.get_index_options() >= IndexOptions::DocsAndFreqsAndPositions
       && max_test_options >= IndexOptions::DocsAndFreqsAndPositions;
     let do_check_positions = allow_positions && (always_test_max || random.random_range(0..3) <= 2);
 
@@ -416,13 +437,12 @@ impl RandomPostingsTester {
       && field_info.has_payloads()
       && (always_test_max || random.random_range(0..3) <= 2);
 
-    let reuse_postings_enum = if options.contains(&Option_::ReuseEnums)
-      && random.random_range(0..10) < 9
-    {
-      thread_state.reuse_postings_enum.take()
-    } else {
-      None
-    };
+    let reuse_postings_enum =
+      if options.contains(&Option_::ReuseEnums) && random.random_range(0..10) < 9 {
+        thread_state.reuse_postings_enum.take()
+      } else {
+        None
+      };
 
     let postings_enum = if !do_check_positions {
       if allow_positions && random.random_range(0..10) == 7 {
@@ -486,7 +506,10 @@ impl RandomPostingsTester {
     {
       let stop_at = random.random_range(0..(expected.doc_freq - 1));
       if verbose {
-        println!("  will not consume all docs ({stop_at} vs {})", expected.doc_freq);
+        println!(
+          "  will not consume all docs ({stop_at} vs {})",
+          expected.doc_freq
+        );
       }
       stop_at
     } else {
@@ -510,7 +533,11 @@ impl RandomPostingsTester {
     let skip_doc_inc = self.max_doc / num_skips;
     let do_all_skipping = options.contains(&Option_::Skipping) && random.random_range(0..7) == 1;
 
-    let freq_ask_chance: f64 = if always_test_max { 1.0 } else { random.random::<f64>() };
+    let freq_ask_chance: f64 = if always_test_max {
+      1.0
+    } else {
+      random.random::<f64>()
+    };
     let payload_check_chance: f64 = if always_test_max {
       1.0
     } else {
@@ -541,21 +568,21 @@ impl RandomPostingsTester {
 
     let mut expected = expected;
     while expected.upto <= stop_at {
-        if expected.upto == stop_at {
-          if stop_at == expected.doc_freq {
-            assert_eq!(
-              NO_MORE_DOCS,
-              postings_enum.next_doc()?,
-              "DocsEnum should have ended but didn't"
-            );
-            assert_eq!(
-              NO_MORE_DOCS,
-              postings_enum.doc_id(),
-              "DocsEnum should have ended but didn't"
-            );
-          }
-          break;
+      if expected.upto == stop_at {
+        if stop_at == expected.doc_freq {
+          assert_eq!(
+            NO_MORE_DOCS,
+            postings_enum.next_doc()?,
+            "DocsEnum should have ended but didn't"
+          );
+          assert_eq!(
+            NO_MORE_DOCS,
+            postings_enum.doc_id(),
+            "DocsEnum should have ended but didn't"
+          );
         }
+        break;
+      }
 
       if options.contains(&Option_::Skipping)
         && (do_all_skipping || random.random::<f64>() <= skip_chance)
@@ -630,7 +657,7 @@ impl RandomPostingsTester {
         }
       }
 
-        if do_check_freqs && random.random::<f64>() <= freq_ask_chance {
+      if do_check_freqs && random.random::<f64>() <= freq_ask_chance {
         if verbose {
           println!("    now freq()={}", expected.freq()?);
         }
@@ -667,24 +694,27 @@ impl RandomPostingsTester {
               }
               match expected_payload {
                 None => {
-                  assert!(postings_enum.get_payload()?.is_none(), "should not have payload");
-                }
+                  assert!(
+                    postings_enum.get_payload()?.is_none(),
+                    "should not have payload"
+                  );
+                },
                 Some(expected_payload) if expected_payload.length == 0 => {
-                  assert!(postings_enum.get_payload()?.is_none(), "should not have payload");
-                }
+                  assert!(
+                    postings_enum.get_payload()?.is_none(),
+                    "should not have payload"
+                  );
+                },
                 Some(expected_payload) => {
                   let payload = postings_enum.get_payload()?;
                   let payload = payload
                     .as_ref()
                     .ok_or_else(|| LuceneError::illegal_state("should have payload but doesn't"))?;
-                  assert_eq!(
-                    expected_payload.length,
-                    payload.length,
-                  );
+                  assert_eq!(expected_payload.length, payload.length,);
                   for byte_upto in 0..expected_payload.length {
                     assert_eq!(
-                      expected_payload.bytes[expected_payload.offset + byte_upto as usize],
-                      payload.bytes[payload.offset + byte_upto as usize],
+                      expected_payload.bytes[expected_payload.offset + byte_upto],
+                      payload.bytes[payload.offset + byte_upto],
                       "payload bytes are wrong"
                     );
                   }
@@ -701,7 +731,7 @@ impl RandomPostingsTester {
                     ),
                     "2nd call to getPayload returns something different!"
                   );
-                }
+                },
               }
             } else if verbose {
               println!(
@@ -735,7 +765,8 @@ impl RandomPostingsTester {
             } else if verbose {
               println!("      skip check offsets");
             }
-          } else if *field_info.get_index_options() < IndexOptions::DocsAndFreqsAndPositionsAndOffsets
+          } else if *field_info.get_index_options()
+            < IndexOptions::DocsAndFreqsAndPositionsAndOffsets
           {
             if verbose {
               println!("      now check offsets are -1");
@@ -760,18 +791,21 @@ impl RandomPostingsTester {
       } else {
         FREQS as i32
       })?;
-      let mut postings = terms_enum.postings_with_flags(None, if do_check_positions {
-        let mut flags = POSITIONS as i32;
-        if do_check_offsets {
-          flags |= OFFSETS as i32;
-        }
-        if do_check_payloads {
-          flags |= PAYLOADS as i32;
-        }
-        flags
-      } else {
-        FREQS as i32
-      })?;
+      let mut postings = terms_enum.postings_with_flags(
+        None,
+        if do_check_positions {
+          let mut flags = POSITIONS as i32;
+          if do_check_offsets {
+            flags |= OFFSETS as i32;
+          }
+          if do_check_payloads {
+            flags |= PAYLOADS as i32;
+          }
+          flags
+        } else {
+          FREQS as i32
+        },
+      )?;
 
       let doc_to_norm = |doc: i32| -> i64 {
         if field_info.has_norms() {
@@ -809,20 +843,11 @@ impl RandomPostingsTester {
           let pos = postings.next_position()?;
           assert_eq!(pos, impacts_enum.next_position()?);
           if do_check_offsets {
-            assert_eq!(
-              postings.start_offset()?,
-              impacts_enum.start_offset()?,
-            );
-            assert_eq!(
-              postings.end_offset()?,
-              impacts_enum.end_offset()?,
-            );
+            assert_eq!(postings.start_offset()?, impacts_enum.start_offset()?,);
+            assert_eq!(postings.end_offset()?, impacts_enum.end_offset()?,);
           }
           if do_check_payloads {
-            assert_eq!(
-              postings.get_payload()?,
-              impacts_enum.get_payload()?,
-            );
+            assert_eq!(postings.get_payload()?, impacts_enum.get_payload()?,);
           }
         }
 
@@ -834,9 +859,9 @@ impl RandomPostingsTester {
         }
         let freq = impacts_enum.freq()?;
         let norm = doc_to_norm(doc);
-        let impacts_copy = impacts_copy.as_ref().ok_or_else(|| {
-          LuceneError::illegal_state("impacts copy should have been initialized")
-        })?;
+        let impacts_copy = impacts_copy
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("impacts copy should have been initialized"))?;
         let idx = match impacts_copy.binary_search_by(|impact| impact.freq.cmp(&freq)) {
           Ok(idx) | Err(idx) => idx,
         };
@@ -890,20 +915,11 @@ impl RandomPostingsTester {
           let pos = postings.next_position()?;
           assert_eq!(pos, impacts_enum.next_position()?);
           if do_check_offsets {
-            assert_eq!(
-              postings.start_offset()?,
-              impacts_enum.start_offset()?,
-            );
-            assert_eq!(
-              postings.end_offset()?,
-              impacts_enum.end_offset()?,
-            );
+            assert_eq!(postings.start_offset()?, impacts_enum.start_offset()?,);
+            assert_eq!(postings.end_offset()?, impacts_enum.end_offset()?,);
           }
           if do_check_payloads {
-            assert_eq!(
-              postings.get_payload()?,
-              impacts_enum.get_payload()?,
-            );
+            assert_eq!(postings.get_payload()?, impacts_enum.get_payload()?,);
           }
         }
 
@@ -917,9 +933,9 @@ impl RandomPostingsTester {
 
         let freq = impacts_enum.freq()?;
         let norm = doc_to_norm(doc);
-        let impacts_copy = impacts_copy.as_ref().ok_or_else(|| {
-          LuceneError::illegal_state("impacts copy should have been initialized")
-        })?;
+        let impacts_copy = impacts_copy
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("impacts copy should have been initialized"))?;
         let idx = match impacts_copy.binary_search_by(|impact| impact.freq.cmp(&freq)) {
           Ok(idx) | Err(idx) => idx,
         };
@@ -1284,6 +1300,7 @@ impl PostingsEnum for SeedPostings {
   }
 }
 /// Holds one field, term and ord.
+#[derive(Clone)]
 pub struct FieldAndTerm {
   field: String,
   term: BytesRef<Vec<u8>>,
@@ -1590,6 +1607,386 @@ impl DocIdSetIterator for NumericDocValuesImpl {
 impl NumericDocValues for NumericDocValuesImpl {
   fn long_value(&mut self) -> Result<i64> {
     Ok(DocToNorm.apply_as_long(self.doc))
+  }
+}
+
+impl RandomPostingsTester {
+  pub fn test_terms<F, R>(
+    &self,
+    random: &mut R,
+    fields_source: &F,
+    options: &HashSet<Option_>,
+    max_test_options: IndexOptions,
+    max_index_options: IndexOptions,
+    always_test_max: bool,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+    F: Fields + Sync,
+  {
+    if options.contains(&Option_::Threads) {
+      let num_threads = if is_night_mode() {
+        TestUtil::next_int(random, 2, 5)
+      } else {
+        2
+      };
+      let seeds: Vec<u64> = (0..num_threads).map(|_| random.next_u64()).collect();
+      thread::scope(|scope| {
+        for seed in seeds {
+          scope.spawn(move || {
+            let mut thread_random = random_from_seed(seed);
+            if let Err(err) = self.test_terms_one_thread(
+              &mut thread_random,
+              fields_source,
+              options,
+              max_test_options,
+              max_index_options,
+              always_test_max,
+            ) {
+              panic!("{err}");
+            }
+          });
+        }
+      });
+      Ok(())
+    } else {
+      self.test_terms_one_thread(
+        random,
+        fields_source,
+        options,
+        max_test_options,
+        max_index_options,
+        always_test_max,
+      )
+    }
+  }
+
+  fn test_terms_one_thread<F, R>(
+    &self,
+    random: &mut R,
+    fields_source: &F,
+    options: &HashSet<Option_>,
+    max_test_options: IndexOptions,
+    max_index_options: IndexOptions,
+    always_test_max: bool,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+    F: Fields + Sync,
+  {
+    let mut thread_state = ThreadState::default();
+    let mut term_states: Vec<TermStateEnum> = Vec::new();
+    let mut term_state_terms: Vec<FieldAndTerm> = Vec::new();
+    let mut supports_ords = true;
+
+    let mut all_terms = self.all_terms.clone();
+    all_terms.shuffle(random);
+
+    let mut upto = 0usize;
+    while upto < all_terms.len() {
+      let use_term_state = !term_states.is_empty() && random.random_range(0..5) == 1;
+      let use_term_ord = supports_ords && !use_term_state && random.random_range(0..5) == 1;
+
+      let (field_and_term, term_state) = if !use_term_state {
+        let field_and_term = all_terms[upto].clone();
+        upto += 1;
+        if cfg!(feature = "test_log_verbose") {
+          if use_term_ord {
+            println!(
+              "\nTEST: seek to term={}:{} using ord={}",
+              field_and_term.field,
+              field_and_term.term.utf8_to_string()?,
+              field_and_term.ord
+            );
+          } else {
+            println!(
+              "\nTEST: seek to term={}:{}",
+              field_and_term.field,
+              field_and_term.term.utf8_to_string()?
+            );
+          }
+        }
+        (field_and_term, None)
+      } else {
+        let idx = random.random_range(0..term_states.len());
+        let field_and_term = term_state_terms[idx].clone();
+        if cfg!(feature = "test_log_verbose") {
+          println!(
+            "\nTEST: seek using TermState to term={}:{}",
+            field_and_term.field,
+            field_and_term.term.utf8_to_string()?
+          );
+        }
+        (field_and_term, Some(term_states[idx].clone()))
+      };
+
+      let terms = fields_source.terms(&field_and_term.field)?.ok_or_else(|| {
+        LuceneError::illegal_state(format!("missing terms for field {}", field_and_term.field))
+      })?;
+      let mut terms_enum = terms.iterator()?;
+
+      if let Some(term_state) = term_state {
+        terms_enum.seek_exact_with_state(&field_and_term.term, &term_state)?;
+      } else if use_term_ord {
+        match terms_enum.seek_exact_with_ord(field_and_term.ord) {
+          Ok(()) => {},
+          Err(LuceneError::UnsupportedOperation(_)) => {
+            supports_ords = false;
+            assert!(terms_enum.seek_exact(&field_and_term.term)?);
+          },
+          Err(err) => return Err(err),
+        }
+      } else {
+        assert!(terms_enum.seek_exact(&field_and_term.term)?);
+      }
+
+      assert_eq!(&field_and_term.term, terms_enum.term()?.as_ref());
+
+      let term_ord = if supports_ords {
+        match terms_enum.ord() {
+          Ok(ord) => ord,
+          Err(LuceneError::UnsupportedOperation(_)) => {
+            supports_ords = false;
+            -1
+          },
+          Err(err) => return Err(err),
+        }
+      } else {
+        -1
+      };
+
+      if term_ord != -1 {
+        assert_eq!(field_and_term.ord, term_ord);
+      }
+
+      let mut saved_term_state = false;
+      if options.contains(&Option_::TermState) && !use_term_state && random.random_range(0..5) == 1
+      {
+        term_states.push(terms_enum.term_state()?);
+        term_state_terms.push(field_and_term.clone());
+        saved_term_state = true;
+      }
+
+      self.verify_enum(
+        random,
+        &mut thread_state,
+        &field_and_term.field,
+        &field_and_term.term,
+        &mut terms_enum,
+        max_test_options,
+        max_index_options,
+        options,
+        always_test_max,
+      )?;
+
+      if options.contains(&Option_::TermState)
+        && !use_term_state
+        && !saved_term_state
+        && random.random_range(0..5) == 1
+      {
+        term_states.push(terms_enum.term_state()?);
+        term_state_terms.push(field_and_term.clone());
+      }
+
+      if always_test_max || random.random_range(0..10) == 7 {
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: try enum again on same term");
+        }
+        self.verify_enum(
+          random,
+          &mut thread_state,
+          &field_and_term.field,
+          &field_and_term.term,
+          &mut terms_enum,
+          max_test_options,
+          max_index_options,
+          options,
+          always_test_max,
+        )?;
+      }
+    }
+
+    for field in self.fields.keys() {
+      loop {
+        let automaton = AutomatonTestUtil::random_automaton(random)?;
+        let automaton = Operations::determinize(
+          automaton.as_ref(),
+          Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+        )?;
+        let automaton = automaton.into_owned();
+        let compiled = CompiledAutomaton::new(automaton.clone(), false, true)?;
+        if compiled.type_ != AutomatonType::Normal {
+          continue;
+        }
+
+        let mut start_term = None;
+        if random.random_bool(0.5) {
+          let ras = RandomAcceptedStrings::new(&automaton)?;
+          for _ in 0..100 {
+            let code_points = ras.get_random_accepted_string(random)?;
+            if code_points.is_empty() {
+              continue;
+            }
+            let s = UnicodeUtil::new_string(&code_points, 0, code_points.len())?;
+            start_term = Some(BytesRef::from_string(&s));
+            break;
+          }
+          if start_term.is_none() {
+            continue;
+          }
+        }
+
+        let terms = fields_source
+          .terms(field)?
+          .ok_or_else(|| LuceneError::illegal_state(format!("missing terms for field {field}")))?;
+        let mut intersected = terms.intersect(&compiled, start_term.as_ref())?;
+        let mut intersected_terms: HashSet<BytesRef<Vec<u8>>> = HashSet::new();
+
+        while let Some(term) = intersected.next()? {
+          let term = term.into_owned();
+          if let Some(ref start_term) = start_term {
+            assert!(start_term < &term);
+          }
+          intersected_terms.insert(BytesRef::deep_copy_of(&term));
+          self.verify_enum(
+            random,
+            &mut thread_state,
+            field,
+            &term,
+            &mut intersected,
+            max_test_options,
+            max_index_options,
+            options,
+            always_test_max,
+          )?;
+        }
+
+        if compiled.run_automaton.is_none() {
+          assert!(intersected_terms.is_empty());
+        } else {
+          let field_terms = self
+            .fields
+            .get(field)
+            .ok_or_else(|| LuceneError::illegal_state(format!("missing field {field}")))?;
+          for term2 in field_terms.keys() {
+            let expected = if let Some(ref start_term) = start_term {
+              if start_term >= term2 {
+                false
+              } else {
+                compiled.run_automaton.as_ref().unwrap().run(
+                  term2.bytes.as_ref(),
+                  term2.offset,
+                  term2.length,
+                )?
+              }
+            } else {
+              compiled.run_automaton.as_ref().unwrap().run(
+                term2.bytes.as_ref(),
+                term2.offset,
+                term2.length,
+              )?
+            };
+            assert_eq!(expected, intersected_terms.contains(term2), "term={term2}");
+          }
+        }
+
+        break;
+      }
+    }
+
+    Ok(())
+  }
+
+  pub fn test_fields<F>(&self, fields: &F) -> Result<()>
+  where
+    F: Fields,
+  {
+    let mut iterator = fields.iterator()?;
+    while iterator.has_next()? {
+      let _ = iterator.next()?;
+    }
+    assert!(!iterator.has_next()?);
+    assert!(iterator.next()?.is_none());
+    Ok(())
+  }
+
+  pub fn test_full<C, R>(
+    &mut self,
+    random: &mut R,
+    codec: &C,
+    path: TempDir,
+    max_index_options: IndexOptions,
+    with_payloads: bool,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+    C: crate::core::codecs::codec::Codec,
+    C::PostingsFormat: PostingsFormat,
+    <C::PostingsFormat as PostingsFormat>::FieldsProducer<<DirEnum as Directory>::IndexInput>:
+      Send + Sync,
+  {
+    let dir = new_fs_directory(random, path)?;
+    let fields_producer = Arc::new(self.build_index(
+      codec,
+      Arc::clone(&dir),
+      max_index_options,
+      with_payloads,
+      true,
+    )?);
+
+    self.test_fields(&fields_producer)?;
+
+    let all_options: Vec<Option_> = vec![
+      Option_::Skipping,
+      Option_::ReuseEnums,
+      Option_::LiveDocs,
+      Option_::TermState,
+      Option_::PartialDocConsume,
+      Option_::PartialPosConsume,
+      Option_::Payloads,
+      Option_::Threads,
+    ];
+
+    let all_index_options: Vec<IndexOptions> = IndexOptions::values().collect();
+    let max_index_option = all_index_options
+      .iter()
+      .position(|v| *v == max_index_options)
+      .ok_or_else(|| {
+        LuceneError::illegal_argument(format!("unsupported maxIndexOptions: {max_index_options}"))
+      })?;
+
+    for i in 0..=max_index_option {
+      let mut opts = HashSet::new();
+      opts.extend(all_options.iter().copied());
+      self.test_terms(
+        random,
+        &fields_producer,
+        &opts,
+        all_index_options[i],
+        max_index_options,
+        true,
+      )?;
+
+      if with_payloads {
+        let mut opts = HashSet::new();
+        opts.extend(
+          all_options
+            .iter()
+            .copied()
+            .filter(|opt| *opt != Option_::Payloads),
+        );
+        self.test_terms(
+          random,
+          &fields_producer,
+          &opts,
+          all_index_options[i],
+          max_index_options,
+          true,
+        )?;
+      }
+    }
+
+    Ok(())
   }
 }
 

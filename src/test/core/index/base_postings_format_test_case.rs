@@ -14,6 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_options::IndexOptions;
+use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test::core::index::random_postings_tester::RandomPostingsTester;
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::create_temp_dir_with_prefix;
 
-pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {}
+pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
+  fn create_postings<R>(&self, random: &mut R) -> RandomPostingsTester
+  where
+    R: rand::Rng + ?Sized;
+
+  fn test_docs_only<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: rand::Rng + ?Sized,
+  {
+    let mut postings_tester = self.create_postings(random);
+    postings_tester.test_full(
+      random,
+      &self.get_codec()?,
+      create_temp_dir_with_prefix("testPostingsFormat.testExact")?,
+      IndexOptions::Docs,
+      false,
+    )
+  }
+}

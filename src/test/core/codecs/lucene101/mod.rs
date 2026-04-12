@@ -14,6 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod lucene101;
-mod lucene90;
-mod lucene99;
+mod test_lucene101_postings_format;
