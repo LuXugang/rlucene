@@ -801,7 +801,7 @@ pub struct NumericDocValuesImpl<CR>
 where
   CR: CompositeReader,
 {
-  next_leaf: i32,
+  next_leaf: usize,
   current_values: Option<LRNormNumericDocValues<CR::LeafReader>>,
   reader: CompositeReaderContext<CR>,
   doc_id: i32,
@@ -838,12 +838,12 @@ where
     let leaves = self.reader.leaves()?;
     loop {
       if self.current_values.is_none() {
-        if self.next_leaf as usize == leaves.len() {
+        if self.next_leaf == leaves.len() {
           self.doc_id = NO_MORE_DOCS;
           return Ok(self.doc_id);
         }
 
-        let leaf = &leaves[self.next_leaf as usize];
+        let leaf = &leaves[self.next_leaf];
         self.current_doc_base = leaf.doc_base;
         self.current_values = leaf.reader().get_norm_values(&self.field)?;
 
@@ -873,7 +873,7 @@ where
 
     let reader_index = ReaderUtil::sub_index_with_leaves(target_doc_id, leaves);
 
-    if reader_index >= self.next_leaf as usize {
+    if reader_index >= self.next_leaf {
       if reader_index == leaves.len() {
         self.current_values = None;
         self.doc_id = NO_MORE_DOCS;
@@ -888,7 +888,7 @@ where
         return self.next_doc();
       }
 
-      self.next_leaf = (reader_index + 1) as i32;
+      self.next_leaf = reader_index + 1;
     }
 
     let new_doc_id = self
@@ -927,7 +927,7 @@ pub struct NumericDocValuesImpl1<CR>
 where
   CR: CompositeReader,
 {
-  next_leaf: i32,
+  next_leaf: usize,
   current_values: Option<LRNumericDocValues<CR::LeafReader>>,
   reader: CompositeReaderContext<CR>,
   doc_id: i32,
@@ -966,7 +966,7 @@ where
 
     let reader_index = ReaderUtil::sub_index_with_leaves(target_doc_id, leaves);
 
-    if reader_index >= self.next_leaf as usize {
+    if reader_index >= self.next_leaf {
       if reader_index == leaves.len() {
         return Err(LuceneError::illegal_argument(format!(
           "Out of range: {}",
@@ -977,7 +977,7 @@ where
       let leaf = &leaves[reader_index];
       self.current_doc_base = leaf.doc_base;
       self.current_values = leaf.reader().get_numeric_doc_values(&self.field)?;
-      self.next_leaf = (reader_index + 1) as i32;
+      self.next_leaf = reader_index + 1;
     }
 
     self.doc_id = target_doc_id;
@@ -1001,11 +1001,11 @@ where
     let leaves = self.reader.leaves()?;
     loop {
       while self.current_values.is_none() {
-        if self.next_leaf as usize == leaves.len() {
+        if self.next_leaf == leaves.len() {
           self.doc_id = NO_MORE_DOCS;
           return Ok(self.doc_id);
         }
-        let leaf = &leaves[self.next_leaf as usize];
+        let leaf = &leaves[self.next_leaf];
         self.current_doc_base = leaf.doc_base;
         self.current_values = leaf.reader().get_numeric_doc_values(&self.field)?;
         self.next_leaf += 1;
@@ -1033,7 +1033,7 @@ where
 
     let reader_index = ReaderUtil::sub_index_with_leaves(target_doc_id, leaves);
 
-    if reader_index >= self.next_leaf as usize {
+    if reader_index >= self.next_leaf {
       if reader_index == leaves.len() {
         self.current_values = None;
         self.doc_id = NO_MORE_DOCS;
@@ -1042,7 +1042,7 @@ where
       let leaf = &leaves[reader_index];
       self.current_doc_base = leaf.doc_base;
       self.current_values = leaf.reader().get_numeric_doc_values(&self.field)?;
-      self.next_leaf = (reader_index + 1) as i32;
+      self.next_leaf = reader_index + 1;
 
       if self.current_values.is_none() {
         return self.next_doc();
@@ -1085,7 +1085,7 @@ pub struct BinaryDocValuesImpl<CR>
 where
   CR: CompositeReader,
 {
-  next_leaf: i32,
+  next_leaf: usize,
   current_values: Option<LRBinaryDocValues<CR::LeafReader>>,
   reader: CompositeReaderContext<CR>,
   doc_id: i32,
@@ -1123,7 +1123,7 @@ where
 
     let reader_index = ReaderUtil::sub_index_with_leaves(target_doc_id, leaves);
 
-    if reader_index >= self.next_leaf as usize {
+    if reader_index >= self.next_leaf {
       if reader_index == leaves.len() {
         return Err(LuceneError::illegal_argument(format!(
           "Out of range: {}",
@@ -1134,7 +1134,7 @@ where
       let leaf = &leaves[reader_index];
       self.current_doc_base = leaf.doc_base;
       self.current_values = leaf.reader().get_binary_doc_values(&self.field)?;
-      self.next_leaf = (reader_index + 1) as i32;
+      self.next_leaf = reader_index + 1;
     }
 
     self.doc_id = target_doc_id;
@@ -1157,12 +1157,12 @@ where
     let leaves = self.reader.leaves()?;
     loop {
       while self.current_values.is_none() {
-        if self.next_leaf as usize == leaves.len() {
+        if self.next_leaf == leaves.len() {
           self.doc_id = NO_MORE_DOCS;
           return Ok(self.doc_id);
         }
 
-        let leaf = &leaves[self.next_leaf as usize];
+        let leaf = &leaves[self.next_leaf];
         self.current_doc_base = leaf.doc_base;
         self.current_values = leaf.reader().get_binary_doc_values(&self.field)?;
         self.next_leaf += 1;
@@ -1190,7 +1190,7 @@ where
 
     let reader_index = ReaderUtil::sub_index_with_leaves(target_doc_id, leaves);
 
-    if reader_index >= self.next_leaf as usize {
+    if reader_index >= self.next_leaf {
       if reader_index == leaves.len() {
         self.current_values = None;
         self.doc_id = NO_MORE_DOCS;
@@ -1200,7 +1200,7 @@ where
       let leaf = &leaves[reader_index];
       self.current_doc_base = leaf.doc_base;
       self.current_values = leaf.reader().get_binary_doc_values(&self.field)?;
-      self.next_leaf = (reader_index + 1) as i32;
+      self.next_leaf = reader_index + 1;
 
       if self.current_values.is_none() {
         return self.next_doc();
@@ -1241,7 +1241,7 @@ pub struct SortedNumericDocValuesImpl<CR>
 where
   CR: CompositeReader,
 {
-  next_leaf: i32,
+  next_leaf: usize,
   current_values_index: Option<usize>,
   values: Vec<
     SortedNumericDocValuesEnum2<
@@ -1297,7 +1297,7 @@ where
 
     let reader_index = ReaderUtil::sub_index_with_leaves(target_doc_id, leaves);
 
-    if reader_index >= self.next_leaf as usize {
+    if reader_index >= self.next_leaf {
       if reader_index == leaves.len() {
         return Err(LuceneError::illegal_argument(format!(
           "Out of range: {}",
@@ -1308,12 +1308,17 @@ where
       let leaf = &leaves[reader_index];
       self.current_doc_base = leaf.doc_base;
       self.current_values_index = Some(reader_index);
-      self.next_leaf = (reader_index + 1) as i32;
+      self.next_leaf = reader_index + 1;
     }
 
     self.doc_id = target_doc_id;
-    let current_values = &mut self.values[*self.current_values_index.as_ref().unwrap()];
-    current_values.advance_exact(target_doc_id - self.current_doc_base as i32)
+    match self.current_values_index {
+      None => Ok(false),
+      Some(current_values) => {
+        let current_values = &mut self.values[current_values];
+        current_values.advance_exact(target_doc_id - self.current_doc_base as i32)
+      },
+    }
   }
 }
 impl<CR> DocIdSetIterator for SortedNumericDocValuesImpl<CR>
@@ -1328,14 +1333,14 @@ where
     let leaves = self.reader.leaves()?;
     loop {
       if self.current_values_index.is_none() {
-        if self.next_leaf as usize == leaves.len() {
+        if self.next_leaf == leaves.len() {
           self.doc_id = NO_MORE_DOCS;
           return Ok(self.doc_id);
         }
 
-        let leaf = &leaves[self.next_leaf as usize];
+        let leaf = &leaves[self.next_leaf];
         self.current_doc_base = leaf.doc_base;
-        self.current_values_index = Some(self.next_leaf as usize);
+        self.current_values_index = Some(self.next_leaf);
         self.next_leaf += 1;
       }
 
@@ -1361,7 +1366,7 @@ where
 
     let reader_index = ReaderUtil::sub_index_with_leaves(target_doc_id, leaves);
 
-    if reader_index >= self.next_leaf as usize {
+    if reader_index >= self.next_leaf {
       if reader_index == leaves.len() {
         self.current_values_index = None;
         self.doc_id = NO_MORE_DOCS;
@@ -1371,7 +1376,7 @@ where
       let leaf = &leaves[reader_index];
       self.current_doc_base = leaf.doc_base;
       self.current_values_index = Some(reader_index);
-      self.next_leaf = (reader_index + 1) as i32;
+      self.next_leaf = reader_index + 1;
     }
 
     let new_doc = self.values[*self.current_values_index.as_ref().unwrap()]
@@ -1939,7 +1944,7 @@ mod tests {
     Ok(())
   }
 
-  #[test] // TODO IMPORTANT tests.seed=1206516831717484712/5439472325689081422/9735394333532887976测试未通过
+  #[test]
   fn test_sorted_numeric() -> Result<()> {
     let mut random = random();
 
