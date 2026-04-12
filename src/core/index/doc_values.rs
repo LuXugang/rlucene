@@ -420,8 +420,8 @@ impl DocIdSetIterator for EmptySorted {
     Ok(self.doc)
   }
 
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    self.doc = target;
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    self.doc = NO_MORE_DOCS;
     Ok(NO_MORE_DOCS)
   }
 
