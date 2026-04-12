@@ -375,13 +375,15 @@ mod tests {
   use crate::core::search::term_range_query::TermRangeQuery;
   use crate::core::store::directory::Directory;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
+  use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_string_field,
-    new_text_field, random,
+    new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+    new_searcher_with_reader, new_string_field, new_text_field, random,
   };
   use rand::Rng;
   use std::collections::{HashMap, HashSet};
   use std::sync::Arc;
+
   #[allow(dead_code)] // for quick search
   struct TestTermRangeQuery;
   #[test]
@@ -679,8 +681,8 @@ mod tests {
     R: Rng + ?Sized,
     D: Directory,
   {
-    // TODO IMPORTANT 这里没有指定分词器
-    let mut config = new_index_writer_config(random);
+    let a = MockAnalyzer::new(random);
+    let mut config = new_index_writer_config_with_analyzer(random, a);
     config.set_open_mode(OpenMode::Create);
 
     let mut writer = IndexWriter::new(dir, config)?;

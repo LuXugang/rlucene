@@ -21,8 +21,9 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory, new_index_writer_config, random,
+  new_directory, new_index_writer_config, new_index_writer_config_with_analyzer, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -41,13 +42,13 @@ where
   new_directory(random).unwrap()
 }
 
-// TODO IMPORTANT MockAnalyzer 未实现
+// TODO token_stream 未实现
 fn test_token_stream() -> Result<()> {
   let mut random = random();
   let dir = Arc::new(create_dir(&mut random));
 
-  // TODO: MockAnalyzer 未实现
-  let iwc = new_index_writer_config(&mut random);
+  let a = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut ft = FieldType::new();
@@ -125,7 +126,6 @@ fn test_token_stream() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-// TODO IMPORTANT MockAnalyzer 未实现
 fn test_binary_value() -> Result<()> {
   let mut random = random();
   let dir = Arc::new(create_dir(&mut random));
