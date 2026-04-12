@@ -680,10 +680,8 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       // TODO IMPORTANT CheckIndex未实现
       let reader = reader_context.reader();
       let skipper = test_doc_value_skipper.doc_values_skipper(reader)?;
-      read_docs += self.assert_doc_values_skip_sequential(
-        test_doc_value_skipper.doc_values_wrapper(reader)?,
-        skipper,
-      )?;
+      let wrapper = test_doc_value_skipper.doc_values_wrapper(reader)?;
+      read_docs += self.assert_doc_values_skip_sequential(wrapper, skipper)?;
       for _ in 0..10 {
         let skipper = test_doc_value_skipper.doc_values_skipper(reader)?;
         self.assert_doc_values_skip_random(
@@ -703,15 +701,17 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
 
   fn assert_doc_values_skip_sequential<I, SK>(
     &self,
-    mut iterator: I,
+    iterator: Option<I>,
     skipper: Option<SK>,
   ) -> Result<i32>
   where
     I: DocValuesWrapper,
     SK: DocValuesSkipper,
   {
-    let Some(mut skipper) = skipper else {
-      return Ok(0);
+    let (mut iterator, mut skipper) = match (iterator, skipper) {
+      (Some(iterator), Some(skipper)) => (iterator, skipper),
+      (None, None) => return Ok(0),
+      _ => unreachable!(""),
     };
 
     assert_eq!(-1, iterator.doc_id());
@@ -777,7 +777,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
   fn assert_doc_values_skip_random<I, SK, R>(
     &self,
     random: &mut R,
-    mut iterator: I,
+    iterator: Option<I>,
     skipper: Option<SK>,
     max_doc: i32,
   ) -> Result<()>
@@ -786,8 +786,10 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     I: DocValuesWrapper,
     SK: DocValuesSkipper,
   {
-    let Some(mut skipper) = skipper else {
-      return Ok(());
+    let (mut iterator, mut skipper) = match (iterator, skipper) {
+      (Some(iterator), Some(skipper)) => (iterator, skipper),
+      (None, None) => return Ok(()),
+      _ => unreachable!(""),
     };
 
     let mut next_level = 0;
@@ -827,7 +829,7 @@ pub trait TestDocValueSkipper {
   where
     LR: LeafReader;
 
-  fn doc_values_wrapper<LR>(&self, leaf_reader: &LR) -> Result<Self::DocValuesWrapper<LR>>
+  fn doc_values_wrapper<LR>(&self, leaf_reader: &LR) -> Result<Option<Self::DocValuesWrapper<LR>>>
   where
     LR: LeafReader;
 
@@ -912,12 +914,14 @@ impl TestDocValueSkipper for NumericTestDocValueSkipper {
   where
     LR: LeafReader;
 
-  fn doc_values_wrapper<LR>(&self, leaf_reader: &LR) -> Result<Self::DocValuesWrapper<LR>>
+  fn doc_values_wrapper<LR>(&self, leaf_reader: &LR) -> Result<Option<Self::DocValuesWrapper<LR>>>
   where
     LR: LeafReader,
   {
-    let numeric_doc_values = leaf_reader.get_numeric_doc_values("test")?.unwrap();
-    Ok(NumericDocValuesWrapper::new(numeric_doc_values))
+    match leaf_reader.get_numeric_doc_values("test")? {
+      Some(numeric_doc_values) => Ok(Some(NumericDocValuesWrapper::new(numeric_doc_values))),
+      None => Ok(None),
+    }
   }
 
   type DocValuesSkipper<LR>
@@ -1021,14 +1025,16 @@ impl TestDocValueSkipper for SortedNumericTestDocValueSkipper {
   where
     LR: LeafReader;
 
-  fn doc_values_wrapper<LR>(&self, leaf_reader: &LR) -> Result<Self::DocValuesWrapper<LR>>
+  fn doc_values_wrapper<LR>(&self, leaf_reader: &LR) -> Result<Option<Self::DocValuesWrapper<LR>>>
   where
     LR: LeafReader,
   {
-    let sorted_numeric_doc_values = leaf_reader.get_sorted_numeric_doc_values("test")?.unwrap();
-    Ok(SortedNumericDocValuesWrapper::new(
-      sorted_numeric_doc_values,
-    ))
+    match leaf_reader.get_sorted_numeric_doc_values("test")? {
+      Some(sorted_numeric_doc_values) => Ok(Some(SortedNumericDocValuesWrapper::new(
+        sorted_numeric_doc_values,
+      ))),
+      None => Ok(None),
+    }
   }
 
   type DocValuesSkipper<LR>
@@ -1104,12 +1110,14 @@ impl TestDocValueSkipper for SortedTestDocValueSkipper {
   where
     LR: LeafReader;
 
-  fn doc_values_wrapper<LR>(&self, leaf_reader: &LR) -> Result<Self::DocValuesWrapper<LR>>
+  fn doc_values_wrapper<LR>(&self, leaf_reader: &LR) -> Result<Option<Self::DocValuesWrapper<LR>>>
   where
     LR: LeafReader,
   {
-    let sorted_doc_values = leaf_reader.get_sorted_doc_values("test")?.unwrap();
-    Ok(SortedDocValuesWrapper::new(sorted_doc_values))
+    match leaf_reader.get_sorted_doc_values("test")? {
+      Some(sorted_doc_values) => Ok(Some(SortedDocValuesWrapper::new(sorted_doc_values))),
+      None => Ok(None),
+    }
   }
 
   type DocValuesSkipper<LR>
@@ -1213,12 +1221,16 @@ impl TestDocValueSkipper for SortedSetTestDocValueSkipper {
   where
     LR: LeafReader;
 
-  fn doc_values_wrapper<LR>(&self, leaf_reader: &LR) -> Result<Self::DocValuesWrapper<LR>>
+  fn doc_values_wrapper<LR>(&self, leaf_reader: &LR) -> Result<Option<Self::DocValuesWrapper<LR>>>
   where
     LR: LeafReader,
   {
-    let sorted_set_doc_values = leaf_reader.get_sorted_set_doc_values("test")?.unwrap();
-    Ok(SortedSetDocValuesWrapper::new(sorted_set_doc_values))
+    match leaf_reader.get_sorted_set_doc_values("test")? {
+      Some(sorted_set_doc_values) => {
+        Ok(Some(SortedSetDocValuesWrapper::new(sorted_set_doc_values)))
+      },
+      None => Ok(None),
+    }
   }
 
   type DocValuesSkipper<LR>

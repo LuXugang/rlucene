@@ -290,12 +290,12 @@ mod base_doc_values_format_test_case_tests {
     })
   }
 
-  // TODO IMPORTANT 测试未通过
+  #[test]
   fn test_numeric_doc_values_with_skipper_small() -> Result<()> {
     run_case(|case, random| case.test_numeric_doc_values_with_skipper_small(random))
   }
 
-  #[test] // TODO 测试未通过 421744876361577831
+  #[test]
   fn test_numeric_doc_values_with_skipper_medium() -> Result<()> {
     run_case(|case, random| case.test_numeric_doc_values_with_skipper_medium(random))
   }
@@ -306,12 +306,12 @@ mod base_doc_values_format_test_case_tests {
     run_case(|case, random| case.test_numeric_doc_values_with_skipper_big(random))
   }
 
-  // TODO 测试未通过 10871941667406789731
+  #[test]
   fn test_sorted_numeric_doc_values_with_skipper_small() -> Result<()> {
     run_case(|case, random| case.test_sorted_numeric_doc_values_with_skipper_small(random))
   }
 
-  // TODO 测试未通过 18325229374753797151
+  #[test]
   fn test_sorted_numeric_doc_values_with_skipper_medium() -> Result<()> {
     run_case(|case, random| case.test_sorted_numeric_doc_values_with_skipper_medium(random))
   }
@@ -320,12 +320,12 @@ mod base_doc_values_format_test_case_tests {
   fn test_sorted_numeric_doc_values_with_skipper_big() -> Result<()> {
     run_case(|case, random| case.test_sorted_numeric_doc_values_with_skipper_big(random))
   }
-  // TODO 测试未通过
+  #[test]
   fn test_sorted_doc_values_with_skipper_small() -> Result<()> {
     run_case(|case, random| case.test_sorted_doc_values_with_skipper_small(random))
   }
 
-  // TODO 测试未通过
+  #[test]
   fn test_sorted_doc_values_with_skipper_medium() -> Result<()> {
     run_case(|case, random| case.test_sorted_doc_values_with_skipper_medium(random))
   }
@@ -336,12 +336,12 @@ mod base_doc_values_format_test_case_tests {
     run_case(|case, random| case.test_sorted_doc_values_with_skipper_big(random))
   }
 
-  // TODO 测试不稳定8577391802447069184
+  #[test]
   fn test_sorted_set_doc_values_with_skipper_small() -> Result<()> {
     run_case(|case, random| case.test_sorted_set_doc_values_with_skipper_small(random))
   }
 
-  // TODO 测试不稳定 16887908699243793307
+  #[test]
   fn test_sorted_set_doc_values_with_skipper_medium() -> Result<()> {
     run_case(|case, random| case.test_sorted_set_doc_values_with_skipper_medium(random))
   }
