@@ -23,4 +23,5 @@
 /// If it only performs direct forwarding without adding state, invariants,
 /// or behavioral constraints, the layer can be eliminated and the logic
 /// expressed directly via trait default methods or helper functions.
+#[allow(dead_code)]
 pub struct JavaIntermediateBaseClass;
