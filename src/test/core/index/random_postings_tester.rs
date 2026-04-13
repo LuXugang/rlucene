@@ -1874,9 +1874,7 @@ impl RandomPostingsTester {
           )?;
         }
 
-        if ca.run_automaton.is_none() {
-          assert!(intersected_terms.is_empty());
-        } else {
+        if let Some(run_automaton) = ca.run_automaton.as_ref() {
           let field_terms = self
             .fields
             .get(field)
@@ -1886,21 +1884,15 @@ impl RandomPostingsTester {
               if start_term >= term2 {
                 false
               } else {
-                ca.run_automaton.as_ref().unwrap().run(
-                  term2.bytes.as_ref(),
-                  term2.offset,
-                  term2.length,
-                )?
+                run_automaton.run(term2.bytes.as_ref(), term2.offset, term2.length)?
               }
             } else {
-              ca.run_automaton.as_ref().unwrap().run(
-                term2.bytes.as_ref(),
-                term2.offset,
-                term2.length,
-              )?
+              run_automaton.run(term2.bytes.as_ref(), term2.offset, term2.length)?
             };
             assert_eq!(expected, intersected_terms.contains(term2), "term={term2}");
           }
+        } else {
+          assert!(intersected_terms.is_empty());
         }
 
         break;
@@ -1963,14 +1955,14 @@ impl RandomPostingsTester {
         LuceneError::illegal_argument(format!("unsupported maxIndexOptions: {max_index_options}"))
       })?;
 
-    for i in 0..=max_index_option {
+    for index_option in all_index_options.iter().take(max_index_option + 1).copied() {
       let mut opts = HashSet::new();
       opts.extend(all_options.iter().copied());
       self.test_terms(
         random,
         &fields_producer,
         &opts,
-        all_index_options[i],
+        index_option,
         max_index_options,
         true,
       )?;
@@ -1987,7 +1979,7 @@ impl RandomPostingsTester {
           random,
           &fields_producer,
           &opts,
-          all_index_options[i],
+          index_option,
           max_index_options,
           true,
         )?;
