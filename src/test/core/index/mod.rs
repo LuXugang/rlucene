@@ -23,6 +23,7 @@ pub mod base_knn_vectors_format_test_case;
 pub(crate) mod base_live_docs_format_test_case;
 pub(crate) mod base_merge_policy_test_case;
 pub mod base_norms_format_test_case;
+pub(crate) mod base_points_format_test_case;
 pub(crate) mod base_postings_format_test_case;
 pub(crate) mod base_segment_info_format_test_case;
 pub mod base_stored_fields_format_test_case;
