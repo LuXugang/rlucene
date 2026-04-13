@@ -79,10 +79,12 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 use std::{thread, vec};
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 use tempfile::TempDir;
 
 /// Which features to test.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 #[repr(u8)]
 pub enum Option_ {
   /// Sometimes use `.advance()`.
@@ -1947,16 +1949,11 @@ impl RandomPostingsTester {
 
     self.test_fields(&fields_producer)?;
 
-    let all_options: Vec<Option_> = vec![
-      Option_::Skipping,
-      Option_::ReuseEnums,
-      Option_::LiveDocs,
-      Option_::TermState,
-      Option_::PartialDocConsume,
-      Option_::PartialPosConsume,
-      Option_::Payloads,
-      // Option_::Threads,
-    ];
+    let mut all_options: HashSet<Option_> = Option_::iter().collect();
+    // TODO IMPORTANT 多线程未支持
+    all_options.remove(&Option_::Threads);
+    // TODO IMPORTANT SKipping不支持
+    all_options.remove(&Option_::Skipping);
 
     let all_index_options: Vec<IndexOptions> = IndexOptions::values().collect();
     let max_index_option = all_index_options

@@ -51,6 +51,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use rand::prelude::SliceRandom;
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
+use strum::IntoEnumIterator;
 
 pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   fn create_postings<R>(&self, random: &mut R) -> RandomPostingsTester
@@ -165,15 +166,11 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
 
       postings_tester.test_fields(&fields_producer)?;
 
-      let mut opts = HashSet::new();
-      opts.extend([
-        Option_::ReuseEnums,
-        Option_::LiveDocs,
-        Option_::TermState,
-        Option_::PartialDocConsume,
-        Option_::PartialPosConsume,
-        Option_::Payloads,
-      ]);
+      let mut opts: HashSet<Option_> = Option_::iter().collect();
+      // TODO IMPORTANT 多线程不支持
+      opts.remove(&Option_::Threads);
+      // TODO IMPORTANT
+      opts.remove(&Option_::Skipping);
 
       postings_tester.test_terms(
         random,

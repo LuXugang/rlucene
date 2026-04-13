@@ -45,11 +45,11 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
+use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::vector_util::VECTOR_UTIL;
-use crate::core::util::{SliceCopyOps, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -1267,8 +1267,8 @@ where
       let payload = self.payload.as_mut().unwrap();
       payload.offset = self.payload_byte_upto as usize;
       payload.length = self.payload_length as usize;
-      // clone 128 is acceptable
-      payload.bytes.copy_from(&self.payload_bytes, 0);
+      // TODO IMPORTANT could we avoid copying the payload?
+      payload.bytes = self.payload_bytes.clone();
       self.payload_byte_upto += self.payload_length;
     }
 
