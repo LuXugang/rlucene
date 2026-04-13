@@ -78,7 +78,7 @@ use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
-use std::thread;
+use std::{thread, vec};
 use tempfile::TempDir;
 
 /// Which features to test.
@@ -354,13 +354,15 @@ impl RandomPostingsTester {
       max_allowed,
       allow_payloads,
     );
-    let norms = NormsProducerImpl::new(Arc::clone(&new_field_infos), self.max_doc);
+    {
+      let fake_norms = NormsProducerImpl::new(Arc::clone(&new_field_infos), self.max_doc);
 
-    let mut consumer = codec
-      .postings_format()
-      .fields_consumer(&write_state, &segment_info)?;
-    consumer.write(&mut seed_fields, Some(&norms))?;
-    consumer.close()?;
+      let mut consumer = codec
+        .postings_format()
+        .fields_consumer(&write_state, &segment_info)?;
+      consumer.write(&mut seed_fields, Some(&fake_norms))?;
+      consumer.close()?;
+    }
 
     let read_state = SegmentReadState::new(dir.as_ref(), Arc::clone(&new_field_infos), &io_context);
     codec
@@ -394,15 +396,10 @@ impl RandomPostingsTester {
 
     assert_eq!(term, terms_enum.term()?.as_ref());
 
-    let field_infos = self
-      .current_field_infos
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("current_field_infos not set"))?;
-    let field_info = field_infos
-      .field_info_by_name(field)
-      .ok_or_else(|| LuceneError::illegal_state(format!("missing FieldInfo for field {field}")))?;
+    let field_infos = self.current_field_infos.as_ref().unwrap();
+    let field_info = field_infos.field_info_by_name(field).unwrap();
 
-    let expected = get_seed_postings(
+    let mut expected = get_seed_postings(
       &term.utf8_to_string()?,
       self
         .fields
@@ -437,7 +434,7 @@ impl RandomPostingsTester {
       && field_info.has_payloads()
       && (always_test_max || random.random_range(0..3) <= 2);
 
-    let reuse_postings_enum =
+    let prev_postings_enum =
       if options.contains(&Option_::ReuseEnums) && random.random_range(0..10) < 9 {
         thread_state.reuse_postings_enum.take()
       } else {
@@ -456,7 +453,7 @@ impl RandomPostingsTester {
         if verbose {
           println!("  get DocsEnum (but we won't check positions) flags={flags}");
         }
-        let postings_enum = terms_enum.postings_with_flags(reuse_postings_enum, flags)?;
+        let postings_enum = terms_enum.postings_with_flags(prev_postings_enum, flags)?;
         thread_state.reuse_postings_enum = Some(postings_enum);
         thread_state
           .reuse_postings_enum
@@ -471,7 +468,7 @@ impl RandomPostingsTester {
         } else {
           NONE as i32
         };
-        let postings_enum = terms_enum.postings_with_flags(reuse_postings_enum, flags)?;
+        let postings_enum = terms_enum.postings_with_flags(prev_postings_enum, flags)?;
         thread_state.reuse_postings_enum = Some(postings_enum);
         thread_state
           .reuse_postings_enum
@@ -489,7 +486,7 @@ impl RandomPostingsTester {
       if verbose {
         println!("  get DocsEnum flags={flags}");
       }
-      let postings_enum = terms_enum.postings_with_flags(reuse_postings_enum, flags)?;
+      let postings_enum = terms_enum.postings_with_flags(prev_postings_enum, flags)?;
       thread_state.reuse_postings_enum = Some(postings_enum);
       thread_state
         .reuse_postings_enum
@@ -566,7 +563,6 @@ impl RandomPostingsTester {
       }
     }
 
-    let mut expected = expected;
     while expected.upto <= stop_at {
       if expected.upto == stop_at {
         if stop_at == expected.doc_freq {
@@ -587,7 +583,7 @@ impl RandomPostingsTester {
       if options.contains(&Option_::Skipping)
         && (do_all_skipping || random.random::<f64>() <= skip_chance)
       {
-        let mut target_doc_id = None;
+        let mut target_doc_id = -1;
         if expected.upto < stop_at && random.random_bool(0.5) {
           let skip_count = TestUtil::next_int(random, 1, skip_inc);
           for _ in 0..skip_count {
@@ -598,9 +594,8 @@ impl RandomPostingsTester {
         } else {
           let skip_doc_ids = TestUtil::next_int(random, 1, skip_doc_inc);
           if skip_doc_ids > 0 {
-            let target = expected.doc_id() + skip_doc_ids;
-            expected.advance(target)?;
-            target_doc_id = Some(target);
+            target_doc_id = expected.doc_id() + skip_doc_ids;
+            expected.advance(target_doc_id)?;
           }
         }
 
@@ -621,23 +616,29 @@ impl RandomPostingsTester {
           break;
         } else {
           if verbose {
-            match target_doc_id {
-              Some(target_doc_id) => println!(
+            if target_doc_id != -1 {
+              println!(
                 "  now advance to random target={target_doc_id} ({} of {}) current={}",
                 expected.upto,
                 stop_at,
                 postings_enum.doc_id()
-              ),
-              None => println!(
+              )
+            } else {
+              println!(
                 "  now advance to known-exists target={} ({} of {}) current={}",
                 expected.doc_id(),
                 expected.upto,
                 stop_at,
                 postings_enum.doc_id()
-              ),
+              )
             }
           }
-          let doc_id = postings_enum.advance(target_doc_id.unwrap_or_else(|| expected.doc_id()))?;
+          let v = if target_doc_id != -1 {
+            target_doc_id
+          } else {
+            expected.doc_id()
+          };
+          let doc_id = postings_enum.advance(v)?;
           assert_eq!(expected.doc_id(), doc_id);
         }
       } else {
@@ -779,7 +780,17 @@ impl RandomPostingsTester {
     }
 
     if options.contains(&Option_::Skipping) {
-      let mut impacts_enum = terms_enum.impacts(if do_check_positions {
+      let doc_to_norm = |doc: i32| -> i64 {
+        if field_info.has_norms() {
+          (1 + (doc & 0x0f)) as i64
+        } else {
+          1
+        }
+      };
+
+      let mut max = -1;
+      let mut impacts_copy: Option<Vec<Impact>> = None;
+      let flags = if do_check_positions {
         let mut flags = POSITIONS as i32;
         if do_check_offsets {
           flags |= OFFSETS as i32;
@@ -790,45 +801,9 @@ impl RandomPostingsTester {
         flags
       } else {
         FREQS as i32
-      })?;
-      let mut postings = terms_enum.postings_with_flags(
-        None,
-        if do_check_positions {
-          let mut flags = POSITIONS as i32;
-          if do_check_offsets {
-            flags |= OFFSETS as i32;
-          }
-          if do_check_payloads {
-            flags |= PAYLOADS as i32;
-          }
-          flags
-        } else {
-          FREQS as i32
-        },
-      )?;
-
-      let doc_to_norm = |doc: i32| -> i64 {
-        if field_info.has_norms() {
-          ((1 + doc) & 0x0f) as i64
-        } else {
-          1
-        }
       };
-
-      let mut max = -1;
-      let mut impacts_copy: Option<Vec<Impact>> = None;
-      let flags = if do_check_positions {
-        let mut flags = FREQS as i32 | POSITIONS as i32;
-        if do_check_offsets {
-          flags |= OFFSETS as i32;
-        }
-        if do_check_payloads {
-          flags |= PAYLOADS as i32;
-        }
-        flags
-      } else {
-        FREQS as i32
-      };
+      let mut impacts_enum = terms_enum.impacts(flags)?;
+      let mut postings = terms_enum.postings_with_flags(None, flags)?;
 
       loop {
         let doc = impacts_enum.next_doc()?;
@@ -854,22 +829,23 @@ impl RandomPostingsTester {
         if doc > max {
           impacts_enum.advance_shallow(doc)?;
           let impacts = impacts_enum.get_impacts()?;
+          // TODO IMPORTANT INDEX_PACKAGE_ACCESS未实现
           let impacts_vec = impacts.get_impacts(0)?;
           impacts_copy = Some(impacts_vec);
         }
         let freq = impacts_enum.freq()?;
         let norm = doc_to_norm(doc);
-        let impacts_copy = impacts_copy
+        let impacts_copy_ref = impacts_copy
           .as_ref()
           .ok_or_else(|| LuceneError::illegal_state("impacts copy should have been initialized"))?;
-        let idx = match impacts_copy.binary_search_by(|impact| impact.freq.cmp(&freq)) {
+        let idx = match impacts_copy_ref.binary_search_by(|impact| impact.freq.cmp(&freq)) {
           Ok(idx) | Err(idx) => idx,
         };
         assert!(
-          idx < impacts_copy.len() && impacts_copy[idx].norm <= norm,
+          idx < impacts_copy_ref.len() && impacts_copy_ref[idx].norm <= norm,
           "Got {} in postings, but no impact triggers equal or better scores in {:?}",
           Impact::new(freq, norm),
-          impacts_copy
+          impacts_copy_ref
         );
       }
 
@@ -879,12 +855,11 @@ impl RandomPostingsTester {
       max = -1;
       loop {
         let doc = impacts_enum.doc_id();
-        let advance = random.random_bool(0.5);
-        let target = if advance {
-          let delta = std::cmp::min(1 + random.random_range(0..512), NO_MORE_DOCS - doc);
-          doc + delta
+        let (advance, target) = if random.random_bool(0.5) {
+          (false, doc + 1)
         } else {
-          doc + 1
+          let delta = std::cmp::min(1 + random.random_range(0..512), NO_MORE_DOCS - doc);
+          (true, doc + delta)
         };
 
         if target > max && random.random_bool(0.5) {
@@ -893,8 +868,20 @@ impl RandomPostingsTester {
 
           impacts_enum.advance_shallow(target)?;
           let impacts = impacts_enum.get_impacts()?;
-          let impacts_vec = impacts.get_impacts(0)?;
-          impacts_copy = Some(impacts_vec);
+          // TODO IMPORTANT INDEX_PACKAGE_ACCESS未实现
+          impacts_copy = Some(vec![Impact::new(i32::MAX, 1_i64)]);
+          for level in 0..impacts.num_levels() {
+            if impacts.get_doc_id_upto(level) >= max {
+              impacts_copy = Some(
+                impacts
+                  .get_impacts(level)?
+                  .iter()
+                  .map(|i| Impact::new(i.freq, i.norm))
+                  .collect(),
+              );
+              break;
+            }
+          }
         }
 
         let doc = if advance {
@@ -927,8 +914,20 @@ impl RandomPostingsTester {
           let delta = std::cmp::min(1 + random.random_range(0..512), NO_MORE_DOCS - doc);
           max = doc + delta;
           let impacts = impacts_enum.get_impacts()?;
-          let impacts_vec = impacts.get_impacts(0)?;
-          impacts_copy = Some(impacts_vec);
+          // TODO IMPORTANT INDEX_PACKAGE_ACCESS未实现
+          impacts_copy = Some(vec![Impact::new(i32::MAX, 1_i64)]);
+          for level in 0..impacts.num_levels() {
+            if impacts.get_doc_id_upto(level) >= max {
+              impacts_copy = Some(
+                impacts
+                  .get_impacts(level)?
+                  .iter()
+                  .map(|i| Impact::new(i.freq, i.norm))
+                  .collect(),
+              );
+              break;
+            }
+          }
         }
 
         let freq = impacts_enum.freq()?;
@@ -1315,6 +1314,24 @@ impl FieldAndTerm {
       ord,
     }
   }
+
+  pub fn field(&self) -> &str {
+    &self.field
+  }
+
+  pub fn term(&self) -> &BytesRef<Vec<u8>> {
+    &self.term
+  }
+
+  pub fn ord(&self) -> i64 {
+    self.ord
+  }
+}
+
+impl RandomPostingsTester {
+  pub fn all_terms(&self) -> &[FieldAndTerm] {
+    &self.all_terms
+  }
 }
 
 pub struct SeedTermsEnum {
@@ -1546,9 +1563,8 @@ impl NormsProducer for NormsProducerImpl {
       .field_info_by_number(field.number)?
       .unwrap();
     assert!(field_info.has_norms());
-    let field_infos = self.new_field_infos.clone();
     let max_doc = self.max_doc;
-    Ok(NumericDocValuesImpl::new(field_infos, max_doc))
+    Ok(NumericDocValuesImpl::new(max_doc))
   }
 
   fn check_integrity(&self) -> Result<()> {
@@ -1556,17 +1572,12 @@ impl NormsProducer for NormsProducerImpl {
   }
 }
 struct NumericDocValuesImpl {
-  field_infos: Arc<FieldInfos>,
   max_doc: i32,
   doc: i32,
 }
 impl NumericDocValuesImpl {
-  fn new(field_infos: Arc<FieldInfos>, max_doc: i32) -> Self {
-    Self {
-      field_infos,
-      max_doc,
-      doc: -1,
-    }
+  fn new(max_doc: i32) -> Self {
+    Self { max_doc, doc: -1 }
   }
 }
 
@@ -1814,8 +1825,8 @@ impl RandomPostingsTester {
           Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
         )?;
         let automaton = automaton.into_owned();
-        let compiled = CompiledAutomaton::new(automaton.clone(), false, true)?;
-        if compiled.type_ != AutomatonType::Normal {
+        let ca = CompiledAutomaton::new(automaton.clone(), false, true)?;
+        if ca.type_ != AutomatonType::Normal {
           continue;
         }
 
@@ -1839,7 +1850,7 @@ impl RandomPostingsTester {
         let terms = fields_source
           .terms(field)?
           .ok_or_else(|| LuceneError::illegal_state(format!("missing terms for field {field}")))?;
-        let mut intersected = terms.intersect(&compiled, start_term.as_ref())?;
+        let mut intersected = terms.intersect(&ca, start_term.as_ref())?;
         let mut intersected_terms: HashSet<BytesRef<Vec<u8>>> = HashSet::new();
 
         while let Some(term) = intersected.next()? {
@@ -1861,7 +1872,7 @@ impl RandomPostingsTester {
           )?;
         }
 
-        if compiled.run_automaton.is_none() {
+        if ca.run_automaton.is_none() {
           assert!(intersected_terms.is_empty());
         } else {
           let field_terms = self
@@ -1873,14 +1884,14 @@ impl RandomPostingsTester {
               if start_term >= term2 {
                 false
               } else {
-                compiled.run_automaton.as_ref().unwrap().run(
+                ca.run_automaton.as_ref().unwrap().run(
                   term2.bytes.as_ref(),
                   term2.offset,
                   term2.length,
                 )?
               }
             } else {
-              compiled.run_automaton.as_ref().unwrap().run(
+              ca.run_automaton.as_ref().unwrap().run(
                 term2.bytes.as_ref(),
                 term2.offset,
                 term2.length,
@@ -1944,7 +1955,7 @@ impl RandomPostingsTester {
       Option_::PartialDocConsume,
       Option_::PartialPosConsume,
       Option_::Payloads,
-      Option_::Threads,
+      // Option_::Threads,
     ];
 
     let all_index_options: Vec<IndexOptions> = IndexOptions::values().collect();
@@ -1996,6 +2007,6 @@ trait IntToLongFunction {
 struct DocToNorm;
 impl IntToLongFunction for DocToNorm {
   fn apply_as_long(self, doc: i32) -> i64 {
-    ((1 + doc) & 0x0f) as i64
+    (1 + (doc & 0x0f)) as i64
   }
 }

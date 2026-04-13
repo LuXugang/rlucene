@@ -221,6 +221,7 @@ where
   postings_writer: PW,
   field_infos: Arc<FieldInfos>,
   fields: Vec<ByteBuffersDataOutput>,
+  closed: bool,
 }
 impl<O, PW> Lucene90BlockTreeTermsWriter<O, PW>
 where
@@ -325,6 +326,7 @@ where
       postings_writer,
       field_infos,
       fields: vec![],
+      closed: false,
     })
   }
   /// Throws `IllegalArgumentError` if any of these settings is invalid.
@@ -410,6 +412,10 @@ where
   }
 
   fn close(&mut self) -> Result<()> {
+    if self.closed {
+      return Ok(());
+    }
+    self.closed = true;
     self.meta_out.write_vint(self.fields.len() as i32)?;
     for field_meta in &self.fields {
       field_meta.copy_to(&mut self.meta_out)?;

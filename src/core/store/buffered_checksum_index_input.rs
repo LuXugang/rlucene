@@ -80,7 +80,7 @@ where
   }
 }
 
-// TODO: readInt/Long not implement
+// TODO IMPORTANT: readInt/Long not implement
 impl<T> DataInput for BufferedChecksumIndexInput<T>
 where
   T: IndexInput,

@@ -1563,24 +1563,24 @@ pub(crate) fn read_vlong15(input: &mut impl DataInput) -> Result<i64> {
   }
 }
 pub(crate) fn read_impacts(
-  input: &mut ByteArrayDataInput<&[u8]>,
+  in_: &mut ByteArrayDataInput<&[u8]>,
   reuse: &mut MutableImpactList,
 ) -> Result<()> {
   let mut freq = 0;
   let mut norm = 0;
   let mut length = 0;
 
-  while input.get_position() < input.length() {
-    let freq_delta = input.read_vint()?;
-    freq += 1 + (freq_delta >> 1);
+  while in_.get_position() < in_.length() {
+    let freq_delta = in_.read_vint()?;
+    freq += 1 + ((freq_delta as u32) >> 1) as i32;
     if (freq_delta & 1) != 0 {
-      norm += 1 + input.read_zlong()?;
+      norm += 1 + in_.read_zlong()?;
     } else {
       norm += 1;
     }
-    let slot = &mut reuse.impacts[length];
-    slot.freq = freq;
-    slot.norm = norm;
+    let impact = &mut reuse.impacts[length];
+    impact.freq = freq;
+    impact.norm = norm;
     length += 1;
   }
   reuse.length = length;

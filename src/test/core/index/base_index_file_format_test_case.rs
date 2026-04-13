@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::LATEST_CODEC;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
@@ -43,6 +44,6 @@ pub trait BaseIndexFileFormatTestCase {
     Ok(())
   }
   fn get_codec(&self) -> Result<Lucene101Codec> {
-    Ok(Lucene101Codec)
+    Ok(LATEST_CODEC.clone())
   }
 }

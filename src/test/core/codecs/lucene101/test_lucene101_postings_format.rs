@@ -169,7 +169,104 @@ mod base_postings_format_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::codecs::lucene101::test_lucene101_postings_format::run_case;
   use crate::test::core::index::base_postings_format_test_case::BasePostingsFormatTestCase;
+  #[test]
   fn test_docs_only() -> Result<()> {
     run_case(|case, random| case.test_docs_only(random))
+  }
+  #[test]
+  fn test_docs_and_freqs() -> Result<()> {
+    run_case(|case, random| case.test_docs_and_freqs(random))
+  }
+  #[test]
+  fn test_docs_and_freqs_and_positions() -> Result<()> {
+    run_case(|case, random| case.test_docs_and_freqs_and_positions(random))
+  }
+  #[test]
+  fn test_docs_and_freqs_and_positions_and_payloads() -> Result<()> {
+    run_case(|case, random| case.test_docs_and_freqs_and_positions_and_payloads(random))
+  }
+  #[test]
+  fn test_docs_and_freqs_and_positions_and_offsets() -> Result<()> {
+    run_case(|case, random| case.test_docs_and_freqs_and_positions_and_offsets(random))
+  }
+  #[test]
+  fn test_docs_and_freqs_and_positions_and_offsets_and_payloads() -> Result<()> {
+    run_case(|case, random| case.test_docs_and_freqs_and_positions_and_offsets_and_payloads(random))
+  }
+  #[test]
+  fn test_random() -> Result<()> {
+    run_case(|case, random| case.test_random(random))
+  }
+  #[test]
+  fn test_postings_enum_reuse() -> Result<()> {
+    run_case(|case, random| case.test_postings_enum_reuse(random))
+  }
+  #[test]
+  fn test_just_empty_field() -> Result<()> {
+    run_case(|case, random| case.test_just_empty_field(random))
+  }
+  #[test]
+  fn test_empty_field_and_empty_term() -> Result<()> {
+    run_case(|case, random| case.test_empty_field_and_empty_term(random))
+  }
+  #[test]
+  fn test_didnt_want_freqs_but_asked_anyway() -> Result<()> {
+    run_case(|case, random| case.test_didnt_want_freqs_but_asked_anyway(random))
+  }
+  #[test]
+  fn test_ask_for_positions_when_not_there() -> Result<()> {
+    run_case(|case, random| case.test_ask_for_positions_when_not_there(random))
+  }
+  #[test]
+  fn test_ghosts() -> Result<()> {
+    run_case(|case, random| case.test_ghosts(random))
+  }
+  #[test]
+  fn test_disorder() -> Result<()> {
+    run_case(|case, random| case.test_disorder(random))
+  }
+  #[test]
+  fn test_binary_search_term_leaf() -> Result<()> {
+    run_case(|case, random| case.test_binary_search_term_leaf(random))
+  }
+  #[test]
+  fn test_level2_ghosts() -> Result<()> {
+    run_case(|case, random| case.test_level2_ghosts(random))
+  }
+  #[test]
+  fn test_inverted_write() -> Result<()> {
+    run_case(|case, random| case.test_inverted_write(random))
+  }
+  #[test]
+  fn test_postings_enum_docs_only() -> Result<()> {
+    run_case(|case, random| case.test_postings_enum_docs_only(random))
+  }
+  #[test]
+  fn test_postings_enum_freqs() -> Result<()> {
+    run_case(|case, random| case.test_postings_enum_freqs(random))
+  }
+  #[test]
+  fn test_postings_enum_positions() -> Result<()> {
+    run_case(|case, random| case.test_postings_enum_positions(random))
+  }
+  #[test]
+  fn test_postings_enum_offsets() -> Result<()> {
+    run_case(|case, random| case.test_postings_enum_offsets(random))
+  }
+  #[test]
+  fn test_postings_enum_payloads() -> Result<()> {
+    run_case(|case, random| case.test_postings_enum_payloads(random))
+  }
+  #[test]
+  fn test_postings_enum_all() -> Result<()> {
+    run_case(|case, random| case.test_postings_enum_all(random))
+  }
+  #[test]
+  fn test_line_file_docs() -> Result<()> {
+    run_case(|case, random| case.test_line_file_docs(random))
+  }
+  #[test]
+  fn test_mismatched_fields() -> Result<()> {
+    run_case(|case, random| case.test_mismatched_fields(random))
   }
 }
