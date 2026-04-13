@@ -22,6 +22,7 @@ use rand::RngExt;
 use strum::EnumCount;
 
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
+use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::document::field_type::FieldType;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -37,7 +38,7 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::{LATEST, StringHelper};
+use crate::core::util::{LATEST, StringHelper, TryIntoInt};
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::util::index_package_access::{
   FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
@@ -261,9 +262,11 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn get_vectors_max_dimensions(_field_name: &str) -> i32 {
-    // TODO
-    1024
+  fn get_vectors_max_dimensions(field_name: &str) -> usize {
+    LATEST_CODEC
+      .knn_vectors_format()
+      .unwrap()
+      .get_max_dimensions(field_name)
   }
 
   fn random_field_type<R>(&self, random: &mut R, field_name: &str) -> Result<FieldType>
@@ -326,7 +329,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
       .unwrap();
       let encoding =
         VectorEncoding::from_repr(random.random_range(0..VectorEncoding::COUNT) as u8).unwrap();
-      field_type.set_vector_attributes(dimension, encoding, similarity_function)?;
+      field_type.set_vector_attributes(dimension.try_convert()?, encoding, similarity_function)?;
     }
 
     Ok(field_type)
