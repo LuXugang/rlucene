@@ -169,8 +169,6 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       let mut opts: HashSet<Option_> = Option_::iter().collect();
       // TODO IMPORTANT 多线程不支持
       opts.remove(&Option_::Threads);
-      // TODO IMPORTANT
-      opts.remove(&Option_::Skipping);
 
       postings_tester.test_terms(
         random,

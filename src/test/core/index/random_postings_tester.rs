@@ -1944,8 +1944,6 @@ impl RandomPostingsTester {
     let mut all_options: HashSet<Option_> = Option_::iter().collect();
     // TODO IMPORTANT 多线程未支持
     all_options.remove(&Option_::Threads);
-    // TODO IMPORTANT SKipping不支持
-    all_options.remove(&Option_::Skipping);
 
     let all_index_options: Vec<IndexOptions> = IndexOptions::values().collect();
     let max_index_option = all_index_options

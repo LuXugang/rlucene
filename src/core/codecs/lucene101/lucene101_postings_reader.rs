@@ -1451,9 +1451,12 @@ pub struct ImpactsImpl<'a> {
   max_num_impacts_at_level1: usize,
 }
 impl ImpactsImpl<'_> {
-  fn read_impacts(serialized: &[u8], level_impacts_len: usize) -> Result<MutableImpactList> {
-    let len = serialized.len();
-    let mut scratch = ByteArrayDataInput::with_range(serialized, 0, len);
+  fn read_impacts(
+    serialized: &[u8],
+    serialized_len: usize,
+    level_impacts_len: usize,
+  ) -> Result<MutableImpactList> {
+    let mut scratch = ByteArrayDataInput::with_range(serialized, 0, serialized_len);
     let mut level_impacts = MutableImpactList::with_capacity(level_impacts_len);
     read_impacts(&mut scratch, &mut level_impacts)?;
     Ok(level_impacts)
@@ -1484,25 +1487,19 @@ impl Impacts for ImpactsImpl<'_> {
     if self.index_has_freq {
       // We don't reuse level0_impacts and level1_impacts like Java Lucene does.
       if level == 0 && self.level0_last_doc_id != NO_MORE_DOCS {
+        let level0_serialized_impacts_bytes_ref = self.level0_serialized_impacts.as_ref().unwrap();
         let level0_impacts = ImpactsImpl::read_impacts(
-          self
-            .level0_serialized_impacts
-            .as_ref()
-            .unwrap()
-            .bytes
-            .as_slice(),
+          level0_serialized_impacts_bytes_ref.bytes.as_ref(),
+          level0_serialized_impacts_bytes_ref.length,
           self.max_num_impacts_at_level0,
         )?;
         return Ok(level0_impacts.impacts);
       }
       if level == 1 {
+        let level1_serialized_impacts_bytes_ref = self.level1_serialized_impacts.as_ref().unwrap();
         let level1_impacts = ImpactsImpl::read_impacts(
-          self
-            .level1_serialized_impacts
-            .as_ref()
-            .unwrap()
-            .bytes
-            .as_slice(),
+          level1_serialized_impacts_bytes_ref.bytes.as_ref(),
+          level1_serialized_impacts_bytes_ref.length,
           self.max_num_impacts_at_level1,
         )?;
         return Ok(level1_impacts.impacts);
