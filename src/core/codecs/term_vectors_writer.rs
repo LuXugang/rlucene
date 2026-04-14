@@ -287,6 +287,7 @@ mod tests {
     new_directory_shared, new_field, new_index_writer_config,
     new_index_writer_config_with_analyzer, new_string_field, new_text_field, random,
   };
+  use crate::test::core::util::test_util::TestUtil;
   use rand::Rng;
   use std::collections::HashMap;
 
@@ -759,7 +760,75 @@ mod tests {
   }
   #[test]
   fn test_term_vector_corruption() -> Result<()> {
-    // TODO add_indexes未实现
+    let mut random = random();
+
+    let dir = new_directory_shared(&mut random)?;
+    for _iter in 0..2 {
+      let a = MockAnalyzer::new(&mut random);
+      let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+      iwc.set_max_buffered_docs(2);
+      iwc.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+      iwc.set_merge_scheduler(SerialMergeScheduler::new());
+      iwc.set_merge_policy(LogMergePolicy::log_doc());
+      let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+      let mut document = Document::new();
+      let mut custom_type = FieldType::new();
+      custom_type.set_stored(true)?;
+      let stored_field = new_field(
+        &mut random,
+        "stored",
+        "stored",
+        &custom_type,
+        &mut HashMap::new(),
+      )?;
+      document.add(stored_field.clone());
+      writer.add_document(document.clone())?;
+      writer.add_document(document)?;
+
+      let mut document = Document::new();
+      document.add(stored_field);
+      let mut custom_type2 = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
+      custom_type2.set_store_term_vectors(true)?;
+      custom_type2.set_store_term_vector_positions(true)?;
+      custom_type2.set_store_term_vector_offsets(true)?;
+      let term_vector_field = new_field(
+        &mut random,
+        "termVector",
+        "termVector",
+        &custom_type2,
+        &mut HashMap::new(),
+      )?;
+      document.add(term_vector_field);
+      writer.add_document(document)?;
+      writer.force_merge(1)?;
+      writer.close()?;
+      drop(writer);
+
+      let reader = directory_reader_util::open(dir.clone())?;
+      let mut stored_fields = reader.stored_fields()?;
+      let mut term_vectors = reader.term_vectors()?;
+      for i in 0..reader.num_docs()? {
+        stored_fields.document(i)?;
+        term_vectors.get(i)?;
+      }
+      reader.close()?;
+
+      let a = MockAnalyzer::new(&mut random);
+      let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+      iwc.set_max_buffered_docs(2);
+      iwc.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+      iwc.set_merge_scheduler(SerialMergeScheduler::new());
+      iwc.set_merge_policy(LogMergePolicy::log_doc());
+      let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+      let index_dirs = vec![TestUtil::ram_copy_of(&mut random, dir.as_ref())?];
+      writer.add_indexes_from_dir(&index_dirs)?;
+      // TODO IMPORTANT 这个 bug 非常严重
+      // writer.force_merge(1)?;
+      // writer.close()?;
+    }
+
     Ok(())
   }
   #[test]

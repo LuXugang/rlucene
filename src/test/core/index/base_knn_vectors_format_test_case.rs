@@ -429,46 +429,243 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_add_indexes_directory0<R>(&self, _random: &mut R) -> Result<()>
+  fn test_add_indexes_directory0<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO add_indexes未实现
+    let field_name = "field";
+    let mut doc = Document::new();
+    doc.add(KnnFloatVectorField::with_similarity_function(
+      field_name,
+      vec![0.0; 4],
+      VectorSimilarityFunction::DotProduct,
+    )?);
+
+    let dir = new_directory_shared(random)?;
+    let dir2 = new_directory_shared(random)?;
+
+    {
+      let iwc = new_index_writer_config(random);
+      let w = IndexWriter::new(dir.clone(), iwc)?;
+      w.add_document(doc.clone())?;
+      w.close()?;
+    }
+
+    {
+      let iwc = new_index_writer_config(random);
+      let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+      w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+      w2.force_merge(1)?;
+
+      let reader = directory_reader_util::open_from_writer(&w2)?;
+      let r = get_only_leaf_reader(&reader)?;
+      let vector_values = r.get_float_vector_values(field_name)?.unwrap();
+      let mut iterator = vector_values.iterator()?;
+      assert_eq!(0, iterator.next_doc()?);
+      assert_eq!(0.0, vector_values.vector_value(0)?.as_floats()?[0]);
+      assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
+      reader.close()?;
+
+      w2.close()?;
+    }
+
     Ok(())
   }
 
-  fn test_add_indexes_directory1<R>(&self, _random: &mut R) -> Result<()>
+  fn test_add_indexes_directory1<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO add_indexes未实现
+    let field_name = "field";
+    let mut doc = Document::new();
+
+    let dir = new_directory_shared(random)?;
+    let dir2 = new_directory_shared(random)?;
+
+    {
+      let iwc = new_index_writer_config(random);
+      let w = IndexWriter::new(dir.clone(), iwc)?;
+      w.add_document(doc.clone())?;
+      w.close()?;
+    }
+
+    doc.add(KnnFloatVectorField::with_similarity_function(
+      field_name,
+      vec![0.0; 4],
+      VectorSimilarityFunction::DotProduct,
+    )?);
+
+    {
+      let iwc = new_index_writer_config(random);
+      let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+      w2.add_document(doc)?;
+      w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+      w2.force_merge(1)?;
+
+      let reader = directory_reader_util::open_from_writer(&w2)?;
+      let r = get_only_leaf_reader(&reader)?;
+      let vector_values = r.get_float_vector_values(field_name)?.unwrap();
+      let mut iterator = vector_values.iterator()?;
+      assert_ne!(NO_MORE_DOCS, iterator.next_doc()?);
+      assert_eq!(
+        0.0,
+        vector_values
+          .vector_value(iterator.index()? as usize)?
+          .as_floats()?[0]
+      );
+      assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
+      reader.close()?;
+
+      w2.close()?;
+    }
+
     Ok(())
   }
 
-  fn test_add_indexes_directory01<R>(&self, _random: &mut R) -> Result<()>
+  fn test_add_indexes_directory01<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO add_indexes未实现
+    let field_name = "field";
+    let mut vector = vec![0.0f32; 2];
+    let mut doc = Document::new();
+    doc.add(KnnFloatVectorField::with_similarity_function(
+      field_name,
+      vector.clone(),
+      VectorSimilarityFunction::DotProduct,
+    )?);
+
+    let dir = new_directory_shared(random)?;
+    let dir2 = new_directory_shared(random)?;
+
+    {
+      let iwc = new_index_writer_config(random);
+      let w = IndexWriter::new(dir.clone(), iwc)?;
+      w.add_document(doc.clone())?;
+      w.close()?;
+    }
+
+    {
+      let iwc = new_index_writer_config(random);
+      let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+      vector[0] = 1.0;
+      vector[1] = 1.0;
+
+      let mut doc2 = Document::new();
+      doc2.add(KnnFloatVectorField::with_similarity_function(
+        field_name,
+        vector,
+        VectorSimilarityFunction::DotProduct,
+      )?);
+
+      w2.add_document(doc2)?;
+      w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+      w2.force_merge(1)?;
+
+      let reader = directory_reader_util::open_from_writer(&w2)?;
+      let r = get_only_leaf_reader(&reader)?;
+      let vector_values = r.get_float_vector_values(field_name)?.unwrap();
+      let mut iterator = vector_values.iterator()?;
+
+      assert_eq!(0, iterator.next_doc()?);
+      let mut value = vector_values.vector_value(0)?.as_floats()?[0];
+      assert!(value == 0.0 || value == 1.0);
+
+      assert_eq!(1, iterator.next_doc()?);
+      value += vector_values.vector_value(1)?.as_floats()?[0];
+      assert_eq!(1.0, value);
+
+      reader.close()?;
+      w2.close()?;
+    }
+
     Ok(())
   }
 
-  fn test_illegal_dim_change_via_add_indexes_directory<R>(&self, _random: &mut R) -> Result<()>
+  fn test_illegal_dim_change_via_add_indexes_directory<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO add_indexes未实现
+    let dir = new_directory_shared(random)?;
+    let dir2 = new_directory_shared(random)?;
+
+    {
+      let iwc = new_index_writer_config(random);
+      let w = IndexWriter::new(dir.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 4],
+        VectorSimilarityFunction::DotProduct,
+      )?);
+      w.add_document(doc)?;
+      w.close()?;
+    }
+
+    {
+      let iwc = new_index_writer_config(random);
+      let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 6],
+        VectorSimilarityFunction::DotProduct,
+      )?);
+      w2.add_document(doc)?;
+
+      let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir));
+      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert_eq!(
+        "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32(4), vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        err.unwrap_err().to_string()
+      );
+    }
+
     Ok(())
   }
 
   fn test_illegal_similarity_function_change_via_add_indexes_directory<R>(
     &self,
-    _random: &mut R,
+    random: &mut R,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO add_indexes未实现
+    let dir = new_directory_shared(random)?;
+    let dir2 = new_directory_shared(random)?;
+
+    {
+      let iwc = new_index_writer_config(random);
+      let w = IndexWriter::new(dir.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 4],
+        VectorSimilarityFunction::DotProduct,
+      )?);
+      w.add_document(doc)?;
+      w.close()?;
+    }
+
+    {
+      let iwc = new_index_writer_config(random);
+      let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 4],
+        VectorSimilarityFunction::Euclidean,
+      )?);
+      w2.add_document(doc)?;
+
+      let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir));
+      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert_eq!(
+        "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        err.unwrap_err().to_string()
+      );
+    }
+
     Ok(())
   }
 
@@ -476,7 +673,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO add_indexes未实现
+    // TODO IMPORTANT add_indexes_from_codec_readers未实现
     Ok(())
   }
 
@@ -487,7 +684,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO add_indexes未实现
+    // TODO IMPORTANT add_indexes_from_codec_readers未实现
     Ok(())
   }
 

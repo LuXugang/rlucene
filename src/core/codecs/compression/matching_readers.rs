@@ -63,12 +63,12 @@ impl MatchingReaders {
         "SM",
         &format!("merge store matched_count={matched_count} vs {num_readers}"),
       );
-    }
-    if matched_count as usize != num_readers {
-      merge_state.info_stream.message(
-        "SM",
-        &format!("{} non-bulk merges", num_readers as i32 - matched_count),
-      );
+      if matched_count as usize != num_readers {
+        merge_state.info_stream.message(
+          "SM",
+          &format!("{} non-bulk merges", num_readers as i32 - matched_count),
+        );
+      }
     }
 
     Ok(Self {

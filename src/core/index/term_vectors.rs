@@ -184,21 +184,30 @@ mod tests {
   use crate::core::index::directory_reader::directory_reader_util;
   use crate::core::index::fields::Fields;
   use crate::core::index::index_reader::IndexReader;
-  use crate::core::index::index_writer::IndexWriter;
+  use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter};
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::term_vectors::TermVectors;
   use crate::core::store::directory::Directory;
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer, random,
+    new_directory_shared, new_index_writer_config_with_analyzer, random,
   };
   use rand::Rng;
   use std::sync::Arc;
 
   #[allow(dead_code)] // for quick search
   struct TestTermVectors;
-
+  fn create_writer<D, R>(random: &mut R, dir: Arc<D>) -> Result<DefaultIndexWriterType<D>>
+  where
+    D: Directory,
+    R: Rng + ?Sized,
+  {
+    let a = MockAnalyzer::new(random);
+    let mut conf = new_index_writer_config_with_analyzer(random, a);
+    conf.set_max_buffered_docs(2);
+    IndexWriter::new(dir, conf)
+  }
   pub fn create_dir<D, R>(random: &mut R, dir: Arc<D>) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -248,9 +257,7 @@ mod tests {
   fn test_full_merge_add_docs() -> Result<()> {
     let mut random = random();
     let target = new_directory_shared(&mut random)?;
-    let mut config = new_index_writer_config(&mut random);
-    config.set_max_buffered_docs(2);
-    let writer = IndexWriter::new(target.clone(), config)?;
+    let writer = create_writer(&mut random, target.clone())?;
     // with maxBufferedDocs=2, this results in two segments, so that forceMerge
     // actually does something.
     for _ in 0..4 {
@@ -262,7 +269,28 @@ mod tests {
     verify_index(target.clone())?;
     Ok(())
   }
+  #[test]
+  fn test_full_merge_add_indexes_dir() -> Result<()> {
+    let mut random = random();
 
+    let input = vec![
+      new_directory_shared(&mut random)?,
+      new_directory_shared(&mut random)?,
+    ];
+    let target = new_directory_shared(&mut random)?;
+
+    for dir in &input {
+      create_dir(&mut random, dir.clone())?;
+    }
+
+    let writer = create_writer(&mut random, target.clone())?;
+    writer.add_indexes_from_dir(&input)?;
+    writer.force_merge(1)?;
+    writer.close()?;
+
+    verify_index(target.clone())?;
+    Ok(())
+  }
   #[test]
   fn test_full_merge_add_indexes_reader() -> Result<()> {
     // TODO add_indexes_slowly未实现

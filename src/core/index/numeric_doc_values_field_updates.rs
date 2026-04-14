@@ -207,13 +207,16 @@ mod tests {
   use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
+  use crate::core::document::long_point::LongPoint;
   use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
   use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
   use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
   use crate::core::document::string_field::StringField;
+  use crate::core::index::BytesRef;
   use crate::core::index::binary_doc_values::BinaryDocValues;
   use crate::core::index::composite_reader::get_context;
   use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::doc_values_type::DocValuesType;
   use crate::core::index::field_infos::FieldInfos;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_reader_context::IndexReaderContext;
@@ -221,6 +224,7 @@ mod tests {
   use crate::core::index::index_writer_config::{DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH};
   use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+  use crate::core::index::no_merge_policy::NoMergePolicy;
   use crate::core::index::numeric_doc_values::NumericDocValues;
   use crate::core::index::sorted_doc_values::SortedDocValues;
   use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
@@ -232,21 +236,27 @@ mod tests {
   use crate::core::search::term_query::TermQuery;
   use crate::core::search::top_docs::TopDocsLike;
   use crate::core::store::directory::Directory;
+  use crate::core::util::TryIntoInt;
   use crate::core::util::bits::Bits;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
+  use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    at_least, is_night_mode, new_bytes_ref_from_string, new_directory_shared,
-    new_index_writer_config, new_index_writer_config_with_analyzer, random,
+    at_least, get_only_leaf_reader, is_night_mode, new_bytes_ref_from_string, new_directory_shared,
+    new_index_writer_config, new_index_writer_config_with_analyzer, new_searcher_with_reader,
+    random,
   };
   use crate::test::core::util::test_util::TestUtil;
   use rand::RngExt;
   use rand::seq::IndexedRandom;
   use std::collections::HashSet;
-
-  use crate::core::index::no_merge_policy::NoMergePolicy;
-  use crate::core::util::TryIntoInt;
-  use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+  use std::sync::Arc;
   use std::vec;
+
+  use crate::core::index::multi_bits::get_live_docs;
+  use crate::core::index::multi_doc_values::MultiDocValues;
+  use crate::core::index::stored_fields::StoredFields;
+
+  use crate::test::core::index::random_index_writer::RandomIndexWriter;
 
   #[allow(dead_code)]
   struct TestNumericDocValuesUpdates;
@@ -538,7 +548,53 @@ mod tests {
   }
   #[test]
   fn test_updates_and_deletes() -> Result<()> {
-    // TODO
+    let mut random = random();
+
+    let dir = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, a);
+    conf.set_max_buffered_docs(10);
+    conf.set_merge_policy(NoMergePolicy::default());
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+
+    for i in 0..6 {
+      writer.add_document(doc(i)?)?;
+      if i % 2 == 1 {
+        writer.commit()?;
+      }
+    }
+
+    writer.delete_documents_with_terms(vec![
+      Term::from_text("id", "doc-1"),
+      Term::from_text("id", "doc-2"),
+    ])?;
+
+    writer.update_numeric_doc_value(Term::from_text("id", "doc-3"), "val", 17)?;
+    writer.update_numeric_doc_value(Term::from_text("id", "doc-5"), "val", 17)?;
+
+    let reader = if random.random_bool(0.5) {
+      writer.close()?;
+      directory_reader_util::open(dir.clone())?
+    } else {
+      let reader = directory_reader_util::open_from_writer(&writer)?;
+      writer.close()?;
+      reader
+    };
+
+    let live_docs = get_live_docs(&reader)?.unwrap();
+    let expected_live_docs = [true, false, false, true, true, true];
+    for (i, expected) in expected_live_docs.iter().enumerate() {
+      assert_eq!(*expected, live_docs.get(i).expect(""));
+    }
+
+    let expected_values = [1i64, 2, 3, 17, 5, 17];
+    let mut ndv = MultiDocValues::get_numeric_values(&reader, "val")?.unwrap();
+    for (i, expected) in expected_values.iter().enumerate() {
+      assert_eq!(i as i32, ndv.next_doc()?);
+      assert_eq!(*expected, ndv.long_value()?);
+    }
+
+    reader.close()?;
     Ok(())
   }
   #[test]
@@ -774,33 +830,413 @@ mod tests {
   }
   #[test]
   fn test_different_dv_format_per_field() -> Result<()> {
-    // TODO
+    let mut random = random();
+
+    let dir = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    // TODO IMPORTANT setCodec未实现
+    let conf = new_index_writer_config_with_analyzer(&mut random, a);
+
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("key", "doc", Store::No)?);
+    doc.add(NumericDocValuesField::new("ndv", 5));
+    doc.add(SortedDocValuesField::new(
+      "sorted",
+      BytesRef::from_string("value"),
+    ));
+
+    writer.add_document(doc.clone())?;
+    writer.commit()?;
+    writer.add_document(doc)?;
+
+    writer.update_numeric_doc_value(Term::from_text("key", "doc"), "ndv", 17)?;
+    writer.close()?;
+
+    let reader = directory_reader_util::open(dir.clone())?;
+
+    let mut ndv = MultiDocValues::get_numeric_values(&reader, "ndv")?.unwrap();
+    let mut sdv = MultiDocValues::get_sorted_values(&reader, "sorted")?.unwrap();
+    for i in 0..reader.max_doc()? {
+      assert_eq!(i, ndv.next_doc()?);
+      assert_eq!(17, ndv.long_value()?);
+      assert_eq!(i, sdv.next_doc()?);
+      let ord = sdv.ord_value()?;
+      let term = sdv.lookup_ord(ord)?;
+      assert_eq!(&BytesRef::from_string("value"), term.as_ref());
+    }
+
+    reader.close()?;
     Ok(())
   }
 
   #[test]
   fn test_update_same_doc_multiple_times() -> Result<()> {
-    // TODO
+    let mut random = random();
+
+    let dir = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, a);
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("key", "doc", Store::No)?);
+    doc.add(NumericDocValuesField::new("ndv", 5));
+    writer.add_document(doc.clone())?;
+    writer.commit()?;
+    writer.add_document(doc)?;
+
+    writer.update_numeric_doc_value(Term::from_text("key", "doc"), "ndv", 17)?;
+    writer.update_numeric_doc_value(Term::from_text("key", "doc"), "ndv", 3)?;
+    writer.close()?;
+
+    let reader = directory_reader_util::open(dir.clone())?;
+    let mut ndv = MultiDocValues::get_numeric_values(&reader, "ndv")?.unwrap();
+    for i in 0..reader.max_doc()? {
+      assert_eq!(i, ndv.next_doc()?);
+      assert_eq!(3, ndv.long_value()?);
+    }
+    reader.close()?;
     Ok(())
   }
+
   #[test]
   fn test_segment_merges() -> Result<()> {
-    // TODO
+    let mut random = random();
+
+    let dir = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, a);
+    let mut writer = IndexWriter::new(dir.clone(), conf)?;
+
+    let mut docid = 0;
+    let num_rounds = at_least(&mut random, 10);
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: {} rounds", num_rounds);
+    }
+
+    for rnd in 0..num_rounds {
+      if cfg!(feature = "test_log_verbose") {
+        println!("\nTEST: round={}", rnd);
+      }
+
+      let mut doc = Document::new();
+      doc.add(StringField::from_string("key", "doc", Store::No)?);
+      doc.add(NumericDocValuesField::new("ndv", -1));
+
+      let num_docs = at_least(&mut random, 30);
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: {} docs", num_docs);
+      }
+
+      for _ in 0..num_docs {
+        doc.remove_field("id");
+        doc.add(StringField::from_string(
+          "id",
+          docid.to_string(),
+          Store::Yes,
+        )?);
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: add doc id={}", docid);
+        }
+        writer.add_document(doc.clone())?;
+        docid += 1;
+      }
+
+      let value = (rnd + 1) as i64;
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: update all ndv values to {}", value);
+      }
+      writer.update_numeric_doc_value(Term::from_text("key", "doc"), "ndv", value)?;
+
+      if random.random::<f64>() < 0.2 {
+        let del_id = random.random_range(0..docid);
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: delete random doc id={}", del_id);
+        }
+        writer.delete_documents_with_terms(vec![Term::from_text("id", del_id.to_string())])?;
+      }
+
+      if random.random::<f64>() < 0.4 {
+        if cfg!(feature = "test_log_verbose") {
+          println!("\nTEST: commit writer");
+        }
+        writer.commit()?;
+      } else if random.random::<f64>() < 0.1 {
+        if cfg!(feature = "test_log_verbose") {
+          println!("\nTEST: close writer");
+        }
+        writer.close()?;
+        drop(writer);
+        let a = MockAnalyzer::new(&mut random);
+        conf = new_index_writer_config_with_analyzer(&mut random, a);
+        writer = IndexWriter::new(dir.clone(), conf)?;
+      }
+
+      let mut doc = Document::new();
+      doc.add(StringField::from_string(
+        "id",
+        docid.to_string(),
+        Store::Yes,
+      )?);
+      doc.add(StringField::from_string("key", "doc", Store::No)?);
+      doc.add(NumericDocValuesField::new("ndv", value));
+      if cfg!(feature = "test_log_verbose") {
+        println!("\nTEST: add one more doc id={}", docid);
+      }
+      writer.add_document(doc)?;
+      docid += 1;
+
+      if cfg!(feature = "test_log_verbose") {
+        println!("\nTEST: force merge");
+      }
+      writer.force_merge_with_wait(1, true)?;
+
+      let reader = if random.random_bool(0.5) {
+        if cfg!(feature = "test_log_verbose") {
+          println!("\nTEST: commit and open non-NRT reader");
+        }
+        writer.commit()?;
+        directory_reader_util::open(dir.clone())?
+      } else {
+        if cfg!(feature = "test_log_verbose") {
+          println!("\nTEST: open NRT reader");
+        }
+        directory_reader_util::open_from_writer(&writer)?
+      };
+
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: got reader={reader}");
+      }
+
+      let reader = get_context(reader)?;
+      assert_eq!(1, reader.leaves()?.len());
+
+      let leaves = reader.leaves()?;
+      let r = leaves[0].reader();
+      assert!(r.get_live_docs()?.is_none());
+
+      let mut ndv = r.get_numeric_doc_values("ndv")?.unwrap();
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: maxDoc={}", r.max_doc()?);
+      }
+
+      let mut stored_fields = r.stored_fields()?;
+      for i in 0..r.max_doc()? {
+        let rdoc = stored_fields.document(i)?;
+        assert_eq!(i, ndv.next_doc()?);
+        assert_eq!(
+          value,
+          ndv.long_value()?,
+          "docid={} has wrong ndv value; doc={}",
+          i,
+          rdoc
+        );
+      }
+    }
+
+    writer.close()?;
     Ok(())
   }
   #[test]
   fn test_update_document_by_multiple_terms() -> Result<()> {
-    // TODO
+    let mut random = random();
+
+    let dir = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, a);
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("k1", "v1", Store::No)?);
+    doc.add(StringField::from_string("k2", "v2", Store::No)?);
+    doc.add(NumericDocValuesField::new("ndv", 5));
+    writer.add_document(doc.clone())?;
+    writer.commit()?;
+    writer.add_document(doc)?;
+
+    writer.update_numeric_doc_value(Term::from_text("k1", "v1"), "ndv", 17)?;
+    writer.update_numeric_doc_value(Term::from_text("k2", "v2"), "ndv", 3)?;
+    writer.close()?;
+
+    let reader = directory_reader_util::open(dir.clone())?;
+    let mut ndv = MultiDocValues::get_numeric_values(&reader, "ndv")?.unwrap();
+    for i in 0..reader.max_doc()? {
+      assert_eq!(i, ndv.next_doc()?);
+      assert_eq!(3, ndv.long_value()?);
+    }
+    reader.close()?;
     Ok(())
   }
+  #[derive(Debug, Clone)]
+  struct OneSortDoc {
+    pub value: i64,
+    pub sort_value: i64,
+    pub id: i32,
+    pub deleted: bool,
+  }
+
+  impl OneSortDoc {
+    pub fn new(id: i32, value: i64, sort_value: i64) -> Self {
+      Self {
+        value,
+        sort_value,
+        id,
+        deleted: false,
+      }
+    }
+  }
+
+  impl PartialEq for OneSortDoc {
+    fn eq(&self, other: &Self) -> bool {
+      self.sort_value == other.sort_value && self.id == other.id
+    }
+  }
+
+  impl Eq for OneSortDoc {}
+
+  impl PartialOrd for OneSortDoc {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+      Some(self.cmp(other))
+    }
+  }
+
+  impl Ord for OneSortDoc {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+      let cmp = self.sort_value.cmp(&other.sort_value);
+      if cmp == std::cmp::Ordering::Equal {
+        let cmp = self.id.cmp(&other.id);
+        debug_assert_ne!(cmp, std::cmp::Ordering::Equal);
+        cmp
+      } else {
+        cmp
+      }
+    }
+  }
+
   #[test]
   fn test_sorted_index() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_index_sort(Sort::with_fields(vec![SortField::new(
+      Some("sort"),
+      SortFieldType::Long,
+    )?])?)?;
+    let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+    let value_range = TestUtil::next_int(&mut random, 1, 1000);
+    let sort_value_range = TestUtil::next_int(&mut random, 1, 1000);
+
+    let refresh_chance = TestUtil::next_int(&mut random, 5, 200);
+    let delete_chance = TestUtil::next_int(&mut random, 2, 100);
+
+    let mut deleted_count = 0;
+    let mut docs = Vec::new();
+    let mut r;
+
+    let num_iters = at_least(&mut random, 1000);
+    for iter in 0..num_iters {
+      let value = random.random_range(0..value_range) as i64;
+      if docs.is_empty() || random.random_range(0..3) == 1 {
+        let id = docs.len() as i32;
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("id", id.to_string(), Store::Yes)?);
+        doc.add(NumericDocValuesField::new("number", value));
+        let sort_value = random.random_range(0..sort_value_range) as i64;
+        doc.add(NumericDocValuesField::new("sort", sort_value));
+        if cfg!(feature = "test_log_verbose") {
+          println!(
+            "TEST: iter={} add doc id={} sortValue={} value={}",
+            iter, id, sort_value, value
+          );
+        }
+        w.add_document(doc)?;
+        docs.push(OneSortDoc::new(id, value, sort_value));
+      } else {
+        let id_to_update = random.random_range(0..docs.len());
+        if cfg!(feature = "test_log_verbose") {
+          println!(
+            "TEST: iter={} update doc id={} new value={}",
+            iter, id_to_update, value
+          );
+        }
+        w.update_numeric_doc_value(
+          Term::from_text("id", id_to_update.to_string()),
+          "number",
+          value,
+        )?;
+        docs[id_to_update].value = value;
+      }
+
+      if random.random_range(0..delete_chance) == 0 {
+        let id_to_delete = random.random_range(0..docs.len());
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: delete doc id={}", id_to_delete);
+        }
+        w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
+        if !docs[id_to_delete].deleted {
+          docs[id_to_delete].deleted = true;
+          deleted_count += 1;
+        }
+      }
+
+      if random.random_range(0..refresh_chance) == 0 {
+        let r2 = w.get_reader()?;
+        r = r2;
+
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: got reader={}", r);
+        }
+
+        let mut live_count = 0;
+        let reader = get_context(r)?;
+        for ctx in reader.leaves()? {
+          let leaf_reader = ctx.reader();
+          let mut values = leaf_reader.get_numeric_doc_values("number")?.unwrap();
+          let mut sort_values = leaf_reader.get_numeric_doc_values("sort")?.unwrap();
+          let live_docs = leaf_reader.get_live_docs()?;
+          let mut stored_fields = leaf_reader.stored_fields()?;
+
+          let mut last_sort_value = i64::MIN;
+          for i in 0..leaf_reader.max_doc()? {
+            let doc = stored_fields.document(i)?;
+            let sort_doc = &docs[doc.get("id")?.unwrap().parse::<usize>().unwrap()];
+
+            assert_eq!(i, values.next_doc()?);
+            assert_eq!(i, sort_values.next_doc()?);
+
+            if live_docs
+              .as_ref()
+              .is_some_and(|bits| !bits.get(i as usize).expect(""))
+            {
+              assert!(sort_doc.deleted);
+              continue;
+            }
+            assert!(!sort_doc.deleted);
+
+            assert_eq!(sort_doc.value, values.long_value()?);
+
+            let sort_value = sort_values.long_value()?;
+            assert_eq!(sort_doc.sort_value, sort_value);
+
+            assert!(sort_value >= last_sort_value);
+            last_sort_value = sort_value;
+            live_count += 1;
+          }
+        }
+
+        assert_eq!(docs.len() as i32 - deleted_count, live_count);
+      }
+    }
+    w.close()?;
     Ok(())
   }
   #[test]
   fn test_many_reopens_and_fields() -> Result<()> {
-    // TODO
+    // TODO IMPORTANT open_if_changed未实现
     Ok(())
   }
   #[test]
@@ -856,7 +1292,101 @@ mod tests {
   }
   #[test]
   fn test_update_segment_with_no_doc_values2() -> Result<()> {
-    // TODO
+    let mut random = random();
+
+    let dir = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, a);
+    conf.set_merge_policy(NoMergePolicy::default());
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "doc0", Store::No)?);
+    doc.add(NumericDocValuesField::new("ndv", 3));
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "doc4", Store::No)?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "doc1", Store::No)?);
+    doc.add(NumericDocValuesField::new("foo", 3));
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "doc2", Store::No)?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    writer.update_numeric_doc_value(Term::from_text("id", "doc0"), "ndv", 5)?;
+    writer.update_numeric_doc_value(Term::from_text("id", "doc1"), "ndv", 5)?;
+    writer.close()?;
+    drop(writer);
+
+    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = get_context(reader)?;
+    for context in reader.leaves()? {
+      let r = context.reader();
+      let mut ndv = r.get_numeric_doc_values("ndv")?.unwrap();
+      assert_eq!(0, ndv.next_doc()?);
+      assert_eq!(5, ndv.long_value()?);
+      assert!(ndv.next_doc()? > 1);
+    }
+
+    TestUtil::check_index(dir.clone())?;
+
+    let a = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, a);
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    writer.force_merge(1)?;
+    writer.close()?;
+
+    let reader = directory_reader_util::open(dir.clone())?;
+    let ar = get_only_leaf_reader(&reader)?;
+    assert_eq!(
+      DocValuesType::Numeric,
+      *ar
+        .get_field_infos()?
+        .field_info_by_name("foo")
+        .unwrap()
+        .get_doc_values_type()
+    );
+
+    let searcher = new_searcher_with_reader(reader)?;
+    let td = searcher.search_with_sort(
+      TermQuery::new(Term::from_text("id", "doc0")),
+      1,
+      Sort::with_fields(vec![SortField::new(Some("ndv"), SortFieldType::Long)?])?,
+    )?;
+    assert_eq!(5i64, *td.score_docs()[0].fields()?[0].as_i64().unwrap());
+
+    let td = searcher.search_with_sort(
+      TermQuery::new(Term::from_text("id", "doc1")),
+      1,
+      Sort::with_fields(vec![
+        SortField::new(Some("ndv"), SortFieldType::Long)?,
+        SortField::new(Some("foo"), SortFieldType::Long)?,
+      ])?,
+    )?;
+    assert_eq!(5i64, *td.score_docs()[0].fields()?[0].as_i64().unwrap());
+    assert_eq!(3i64, *td.score_docs()[0].fields()?[1].as_i64().unwrap());
+
+    let td = searcher.search_with_sort(
+      TermQuery::new(Term::from_text("id", "doc2")),
+      1,
+      Sort::with_fields(vec![SortField::new(Some("ndv"), SortFieldType::Long)?])?,
+    )?;
+    assert_eq!(0i64, *td.score_docs()[0].fields()?[0].as_i64().unwrap());
+
+    let td = searcher.search_with_sort(
+      TermQuery::new(Term::from_text("id", "doc4")),
+      1,
+      Sort::with_fields(vec![SortField::new(Some("ndv"), SortFieldType::Long)?])?,
+    )?;
+    assert_eq!(0i64, *td.score_docs()[0].fields()?[0].as_i64().unwrap());
+
     Ok(())
   }
   #[test]
@@ -945,7 +1475,7 @@ mod tests {
   }
   #[test]
   fn test_stress_multi_threading() -> Result<()> {
-    // TODO
+    // TODO IMPORTANT 多线程未实现
     Ok(())
   }
   #[test]
@@ -1011,17 +1541,295 @@ mod tests {
   }
   #[test]
   fn test_add_indexes() -> Result<()> {
-    // TODO
+    let mut random = random();
+
+    let dir1 = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, a);
+    let writer = IndexWriter::new(dir1.clone(), conf)?;
+
+    let num_docs = at_least(&mut random, 50);
+    let num_terms = TestUtil::next_int(&mut random, 1, num_docs / 5);
+    let mut random_terms = HashSet::new();
+    while random_terms.len() < num_terms as usize {
+      random_terms.insert(TestUtil::random_simple_string(&mut random));
+    }
+    let random_terms: Vec<String> = random_terms.into_iter().collect();
+
+    for _ in 0..num_docs {
+      let mut doc = Document::new();
+      let idx = random.random_range(0..random_terms.len());
+      doc.add(StringField::from_string(
+        "id",
+        random_terms[idx].clone(),
+        Store::No,
+      )?);
+      doc.add(NumericDocValuesField::new("ndv", 4));
+      doc.add(NumericDocValuesField::new("control", 8));
+      writer.add_document(doc)?;
+    }
+
+    if random.random_bool(0.5) {
+      writer.commit()?;
+    }
+
+    let value = random.random::<i32>() as i64;
+    let idx = random.random_range(0..random_terms.len());
+    let term = Term::from_text("id", random_terms[idx].clone());
+    writer.update_doc_values(
+      term,
+      vec![
+        NumericDocValuesField::new("ndv", value).into(),
+        NumericDocValuesField::new("control", value * 2).into(),
+      ],
+    )?;
+    writer.close()?;
+    drop(writer);
+
+    let dir2 = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, a);
+    let writer = IndexWriter::new(dir2.clone(), conf)?;
+    // TODO IMPORTANT add_indexes_slowly未实现
+    writer.add_indexes_from_dir(std::slice::from_ref(&dir1))?;
+    // if random.random_bool(0.5) {
+    //   writer.add_indexes_from_dir(&vec![dir1.clone()])?;
+    // } else {
+    //   let reader = directory_reader_util::open(dir1.clone())?;
+    //   TestUtil::add_indexes_slowly(&mut writer, &reader)?;
+    //   reader.close()?;
+    // }
+    writer.close()?;
+    drop(writer);
+
+    let reader = get_context(directory_reader_util::open(dir2.clone())?)?;
+    for context in reader.leaves()? {
+      let r = context.reader();
+      let mut ndv = r.get_numeric_doc_values("ndv")?.unwrap();
+      let mut control = r.get_numeric_doc_values("control")?.unwrap();
+      for i in 0..r.max_doc()? {
+        assert_eq!(i, ndv.next_doc()?);
+        assert_eq!(i, control.next_doc()?);
+        assert_eq!(ndv.long_value()? * 2, control.long_value()?);
+      }
+    }
     Ok(())
   }
   #[test]
   fn test_add_new_field_after_add_indexes() -> Result<()> {
-    // TODO
+    let mut random = random();
+
+    let dir1 = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, a);
+    conf.set_merge_policy(NoMergePolicy::default());
+    let num_docs = at_least(&mut random, 50);
+    {
+      let writer = IndexWriter::new(dir1.clone(), conf)?;
+      for i in 0..num_docs {
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+        doc.add(NumericDocValuesField::new("a1", 0));
+        doc.add(NumericDocValuesField::new("a2", 1));
+        writer.add_document(doc)?;
+      }
+      writer.close()?;
+    }
+
+    let dir2 = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, a);
+    conf.set_merge_policy(NoMergePolicy::default());
+    {
+      let writer = IndexWriter::new(dir2.clone(), conf)?;
+      for i in 0..num_docs {
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+        doc.add(NumericDocValuesField::new("i1", 0));
+        doc.add(NumericDocValuesField::new("i2", 1));
+        doc.add(NumericDocValuesField::new("i3", 2));
+        writer.add_document(doc)?;
+      }
+      writer.close()?;
+    }
+
+    let main_dir = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, a);
+    conf.set_merge_policy(NoMergePolicy::default());
+    {
+      let writer = IndexWriter::new(main_dir.clone(), conf)?;
+      writer.add_indexes_from_dir(&[dir1.clone(), dir2.clone()])?;
+
+      let mut original_field_infos = Vec::new();
+      {
+        let reader = get_context(directory_reader_util::open_from_writer(&writer)?)?;
+        for leaf in reader.leaves()? {
+          original_field_infos.push(leaf.reader().get_field_infos()?);
+        }
+      }
+      assert!(!original_field_infos.is_empty());
+
+      let value = random.random::<i32>() as i64;
+      for i in 0..num_docs {
+        let term = Term::new(
+          "id",
+          new_bytes_ref_from_string(&mut random, &i.to_string())?,
+        );
+        writer.update_doc_values(term, vec![NumericDocValuesField::new("ndv", value).into()])?;
+      }
+
+      {
+        let reader = get_context(directory_reader_util::open_from_writer(&writer)?)?;
+        let leaves = reader.leaves()?;
+        for (i, leaf) in leaves.iter().enumerate() {
+          let leaf_reader = leaf.reader();
+          let orig_field_infos = &original_field_infos[i];
+          let new_field_infos = leaf_reader.get_field_infos()?;
+          ensure_consistent_field_infos(orig_field_infos, &new_field_infos)?;
+          assert_eq!(
+            DocValuesType::Numeric,
+            *new_field_infos
+              .field_info_by_name("ndv")
+              .unwrap()
+              .get_doc_values_type()
+          );
+          let mut ndv = leaf_reader.get_numeric_doc_values("ndv")?.unwrap();
+          for doc_id in 0..leaf_reader.max_doc()? {
+            assert_eq!(doc_id, ndv.next_doc()?);
+            assert_eq!(ndv.long_value()?, value);
+          }
+        }
+      }
+
+      writer.close()?;
+    }
+
     Ok(())
   }
   #[test]
   fn test_updates_after_add_indexes() -> Result<()> {
-    // TODO
+    let mut random = random();
+
+    let dir1 = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, a);
+    conf.set_merge_policy(NoMergePolicy::default());
+    let num_docs = at_least(&mut random, 50);
+    {
+      let writer = IndexWriter::new(dir1.clone(), conf)?;
+      for i in 0..num_docs {
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+        doc.add(NumericDocValuesField::new("ndv", 4));
+        doc.add(NumericDocValuesField::new("control", 8));
+        doc.add(LongPoint::new("i1", [4])?);
+        writer.add_document(doc)?;
+      }
+      writer.close()?;
+    }
+
+    let dir2 = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, a);
+    conf.set_merge_policy(NoMergePolicy::default());
+    {
+      let writer = IndexWriter::new(dir2.clone(), conf)?;
+      for i in num_docs..num_docs * 2 {
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+        doc.add(NumericDocValuesField::new("ndv", 2));
+        doc.add(NumericDocValuesField::new("control", 4));
+        doc.add(LongPoint::new("i2", [16])?);
+        doc.add(LongPoint::new("i2", [24])?);
+        writer.add_document(doc)?;
+      }
+      writer.close()?;
+    }
+
+    let main_dir = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, a);
+    conf.set_merge_policy(NoMergePolicy::default());
+    {
+      let writer = IndexWriter::new(main_dir.clone(), conf)?;
+      writer.add_indexes_from_dir(&[dir1.clone(), dir2.clone()])?;
+
+      let mut original_field_infos = Vec::new();
+      {
+        let reader = get_context(directory_reader_util::open_from_writer(&writer)?)?;
+        for leaf in reader.leaves()? {
+          original_field_infos.push(leaf.reader().get_field_infos()?);
+        }
+      }
+      assert!(!original_field_infos.is_empty());
+
+      let value = random.random::<i32>() as i64;
+      let id = random.random_range(0..num_docs) * 2;
+      let term = Term::new(
+        "id",
+        new_bytes_ref_from_string(&mut random, &id.to_string())?,
+      );
+      writer.update_doc_values(
+        term,
+        vec![
+          NumericDocValuesField::new("ndv", value).into(),
+          NumericDocValuesField::new("control", value * 2).into(),
+        ],
+      )?;
+
+      {
+        let reader_cr = Arc::new(directory_reader_util::open_from_writer(&writer)?);
+        let reader = get_context(reader_cr.clone())?;
+        let leaves = reader.leaves()?;
+        for (i, leaf) in leaves.iter().enumerate() {
+          let leaf_reader = leaf.reader();
+          let orig_field_infos = &original_field_infos[i];
+          let new_field_infos = leaf_reader.get_field_infos()?;
+          ensure_consistent_field_infos(orig_field_infos, &new_field_infos)?;
+          assert!(new_field_infos.field_info_by_name("ndv").is_some());
+          assert_eq!(
+            DocValuesType::Numeric,
+            *new_field_infos
+              .field_info_by_name("ndv")
+              .unwrap()
+              .get_doc_values_type()
+          );
+          assert_eq!(
+            DocValuesType::Numeric,
+            *new_field_infos
+              .field_info_by_name("control")
+              .unwrap()
+              .get_doc_values_type()
+          );
+
+          let mut ndv = leaf_reader.get_numeric_doc_values("ndv")?.unwrap();
+          let mut control = leaf_reader.get_numeric_doc_values("control")?.unwrap();
+          for doc_id in 0..leaf_reader.max_doc()? {
+            assert_eq!(doc_id, ndv.next_doc()?);
+            assert_eq!(doc_id, control.next_doc()?);
+            assert_eq!(ndv.long_value()? * 2, control.long_value()?);
+          }
+        }
+
+        let searcher = new_searcher_with_reader(reader_cr)?;
+        assert_eq!(
+          num_docs,
+          searcher.count(LongPoint::new_exact_query("i1", 4)?)?
+        );
+        assert_eq!(
+          num_docs,
+          searcher.count(LongPoint::new_exact_query("i2", 16)?)?
+        );
+        assert_eq!(
+          num_docs,
+          searcher.count(LongPoint::new_exact_query("i2", 24)?)?
+        );
+      }
+
+      writer.close()?;
+    }
+
     Ok(())
   }
   fn ensure_consistent_field_infos(old: &FieldInfos, after: &FieldInfos) -> Result<()> {

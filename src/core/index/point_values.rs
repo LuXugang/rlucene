@@ -1014,17 +1014,44 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
   }
   #[test]
   fn test_illegal_dim_change_via_add_indexes_directory() -> Result<()> {
-    // TODO add_indexes未实现
+    let mut random = random();
+
+    let dir = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
+    let mut doc = Document::new();
+    doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+    w.add_document(doc)?;
+    w.close()?;
+    drop(w);
+
+    let dir2 = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let iwc2 = new_index_writer_config_with_analyzer(&mut random, a);
+    let w2 = IndexWriter::new(dir2.clone(), iwc2)?;
+    let mut doc = Document::new();
+    doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+    w2.add_document(doc)?;
+
+    let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir));
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert_eq!(
+      "cannot change field \"dim\" from points dimensionCount=2, indexDimensionCount=2, numBytes=4 to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=4",
+      err.unwrap_err().to_string()
+    );
+
+    w2.close()?;
     Ok(())
   }
   #[test]
   fn test_illegal_dim_change_via_add_indexes_codec_reader() -> Result<()> {
-    // TODO add_indexes未实现
+    // TODO aad_indexes_from_codec_readers未实现
     Ok(())
   }
   #[test]
   fn test_illegal_dim_change_via_add_indexes_slow_codec_reader() -> Result<()> {
-    // TODO add_indexes_slowly未实现
+    // TODO aad_indexes_from_codec_readers未实现
     Ok(())
   }
   #[test]
@@ -1165,12 +1192,39 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
   }
   #[test]
   fn test_illegal_num_bytes_change_via_add_indexes_directory() -> Result<()> {
-    // TODO add_indexes未实现
+    let mut random = random();
+
+    let dir = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
+    let mut doc = Document::new();
+    doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+    w.add_document(doc)?;
+    w.close()?;
+    drop(w);
+
+    let dir2 = new_directory_shared(&mut random)?;
+    let a = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+    let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+    let mut doc = Document::new();
+    doc.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+    w2.add_document(doc)?;
+
+    let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir));
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert_eq!(
+      "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=6 to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=4",
+      err.unwrap_err().to_string()
+    );
+
+    w2.close()?;
     Ok(())
   }
   #[test]
   fn test_illegal_num_bytes_change_via_add_indexes_codec_reader() -> Result<()> {
-    // TODO add_indexes未实现
+    // TODO add_indexes_slowly未实现
     Ok(())
   }
   #[test]

@@ -113,7 +113,59 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
 }
 #[test]
 fn test_add_indexes() -> Result<()> {
-  // TODO add_indexes未实现
+  let mut random = random();
+
+  let dir1 = new_directory_shared(&mut random)?;
+  let dir2 = new_directory_shared(&mut random)?;
+
+  let a = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  iwc.set_merge_policy(NoMergePolicy::default());
+  let writer = IndexWriter::new(dir1.clone(), iwc)?;
+
+  let mut d1 = Document::new();
+  d1.add(TextField::from_string("f1", "first field", Store::Yes)?);
+  d1.add(TextField::from_string("f2", "second field", Store::Yes)?);
+  writer.add_document(d1)?;
+  writer.close()?;
+  drop(writer);
+
+  let a = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  iwc.set_merge_policy(NoMergePolicy::default());
+  let writer = IndexWriter::new(dir2.clone(), iwc)?;
+
+  let mut d2 = Document::new();
+  d2.add(TextField::from_string("f2", "second field", Store::Yes)?);
+  d2.add(TextField::from_string("f1", "first field", Store::Yes)?);
+  d2.add(TextField::from_string("f3", "third field", Store::Yes)?);
+  d2.add(TextField::from_string("f4", "fourth field", Store::Yes)?);
+  writer.add_document(d2)?;
+  writer.close()?;
+  drop(writer);
+
+  let a = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  iwc.set_merge_policy(NoMergePolicy::default());
+  let writer = IndexWriter::new(dir1.clone(), iwc)?;
+  writer.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
+  writer.close()?;
+  drop(writer);
+
+  let sis = SegmentInfos::read_latest_commit(dir1.clone())?;
+  assert_eq!(2, sis.size());
+
+  let fis1 = read_field_infos(sis.info_idx(0).as_ref().unwrap())?;
+  let fis2 = read_field_infos(sis.info_idx(1).as_ref().unwrap())?;
+
+  assert_eq!("f1", fis1.field_info_by_number(0)?.unwrap().name);
+  assert_eq!("f2", fis1.field_info_by_number(1)?.unwrap().name);
+
+  assert_eq!("f2", fis2.field_info_by_number(0)?.unwrap().name);
+  assert_eq!("f1", fis2.field_info_by_number(1)?.unwrap().name);
+  assert_eq!("f3", fis2.field_info_by_number(2)?.unwrap().name);
+  assert_eq!("f4", fis2.field_info_by_number(3)?.unwrap().name);
+
   Ok(())
 }
 #[test]

@@ -63,13 +63,14 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least_usize, get_only_leaf_reader, new_directory_shared, new_index_writer_config,
+  at_least, at_least_usize, get_only_leaf_reader, new_directory_shared, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
   new_text_field, random, rarely,
 };
 use crate::test::core::util::test_util::TestUtil;
-use rand::RngExt;
+use rand::{Rng, RngExt};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -2207,31 +2208,191 @@ fn test_concurrent_dv_updates() -> Result<()> {
 }
 #[test]
 fn test_bad_add_indexes() -> Result<()> {
-  // TODO add_indexes未实现
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Long)?])?;
+  let mut iwc1 = new_index_writer_config(&mut random);
+  iwc1.set_index_sort(index_sort)?;
+  let w = IndexWriter::new(dir.clone(), iwc1)?;
+  w.add_document(Document::new())?;
+
+  let index_sorts = vec![
+    None,
+    Some(Sort::with_fields(vec![SortField::new(
+      Some("bar"),
+      SortFieldType::Long,
+    )?])?),
+  ];
+
+  for sort in index_sorts {
+    let dir2 = new_directory_shared(&mut random)?;
+    let mut iwc2 = new_index_writer_config(&mut random);
+    if let Some(sort) = sort {
+      iwc2.set_index_sort(sort)?;
+    }
+    let w2 = IndexWriter::new(dir2.clone(), iwc2)?;
+    w2.add_document(Document::new())?;
+    let reader = directory_reader_util::open_from_writer(&w2)?;
+    w2.close()?;
+    drop(w2);
+
+    let err = w.add_indexes_from_dir(std::slice::from_ref(&dir2));
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(
+      err
+        .unwrap_err()
+        .to_string()
+        .contains("cannot change index sort")
+    );
+    // TODO IMPORTANT  add_indexes_from_cr 未实现
+    // let leaves = get_context(reader)?.leaves()? ;
+    // let mut codec_readers = Vec::with_capacity(leaves.len());
+    // for leaf in leaves {
+    //   codec_readers.push(leaf.reader().get_codec_reader()?.clone());
+    // }
+
+    // let err = w.add_indexes(codec_readers);
+    // assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    // assert!(err
+    //     .unwrap_err()
+    //     .to_string()
+    //     .contains("cannot change index sort"));
+
+    reader.close()?;
+  }
+
+  w.close()?;
+  Ok(())
+}
+fn do_test_add_indexes<R>(random: &mut R, with_deletes: bool, _use_readers: bool) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
+  // TODO IMPORTANT add_indexes_from_codec_readers未实现
+  let use_readers = false;
+
+  let dir = new_directory_shared(random)?;
+  let mut iwc1 = new_index_writer_config(random);
+  let use_parent = rarely(random);
+  if use_parent {
+    iwc1.set_parent_field("___parent");
+  }
+  let index_sort = Sort::with_fields(vec![
+    SortField::new(Some("foo"), SortFieldType::Long)?,
+    SortField::new(Some("bar"), SortFieldType::Long)?,
+  ])?;
+  iwc1.set_index_sort(index_sort.clone())?;
+  let w = RandomIndexWriter::with_config(random, dir.clone(), iwc1);
+
+  let num_docs = at_least(random, 100);
+  for i in 0..num_docs {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+    doc.add(NumericDocValuesField::new(
+      "foo",
+      random.random_range(0..20) as i64,
+    ));
+    doc.add(NumericDocValuesField::new(
+      "bar",
+      random.random_range(0..20) as i64,
+    ));
+    w.add_document(doc)?;
+  }
+
+  if with_deletes {
+    let mut i = random.random_range(0..5);
+    while i < num_docs {
+      w.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
+      i += TestUtil::next_int(random, 1, 5);
+    }
+  }
+
+  if random.random_bool(0.5) {
+    w.force_merge(1)?;
+  }
+
+  let reader = Arc::new(w.get_reader()?);
+  w.close()?;
+  drop(w);
+
+  let dir2 = new_directory_shared(random)?;
+  let analyzer = MockAnalyzer::new(random);
+  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+  if random.random_bool(0.5) {
+    iwc.set_index_sort(Sort::with_fields(vec![SortField::new(
+      Some("foo"),
+      SortFieldType::Long,
+    )?])?)?;
+  } else {
+    iwc.set_index_sort(index_sort)?;
+  }
+  if use_parent {
+    iwc.set_parent_field("___parent");
+  }
+  let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+
+  if use_readers {
+    unreachable!("add_indexes_from_codec_readers未实现")
+    // let leaves = reader.leaves()?;
+    // let mut codec_readers = Vec::with_capacity(leaves.len());
+    // for leaf in leaves {
+    //   codec_readers.push(leaf.reader().get_codec_reader()?.clone());
+    // }
+    // w2.add_indexes(codec_readers)?;
+  } else {
+    w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+  }
+
+  let reader2 = Arc::new(directory_reader_util::open_from_writer(&w2)?);
+  let searcher = new_searcher_with_reader(reader.clone())?;
+  let searcher2 = new_searcher_with_reader(reader2.clone())?;
+
+  for i in 0..num_docs {
+    let query = TermQuery::new(Term::from_text("id", i.to_string()));
+    let top_docs = searcher.search(query.clone(), 1)?;
+    let top_docs2 = searcher2.search(query, 1)?;
+    assert_eq!(top_docs.total_hits.value(), top_docs2.total_hits.value());
+
+    if top_docs.total_hits.value() == 1 {
+      let mut dvs1 = MultiDocValues::get_numeric_values(reader.as_ref(), "foo")?.unwrap();
+      let hit_doc1 = top_docs.score_docs[0].doc;
+      assert_eq!(hit_doc1, dvs1.advance(hit_doc1)?);
+      let value1 = dvs1.long_value()?;
+
+      let mut dvs2 = MultiDocValues::get_numeric_values(&reader2, "foo")?.unwrap();
+      let hit_doc2 = top_docs2.score_docs[0].doc;
+      assert_eq!(hit_doc2, dvs2.advance(hit_doc2)?);
+      let value2 = dvs2.long_value()?;
+
+      assert_eq!(value1, value2);
+    }
+  }
+  reader2.close()?;
+  w2.close()?;
   Ok(())
 }
 #[test]
 fn test_add_indexes() -> Result<()> {
-  // TODO
-  Ok(())
+  let mut random = random();
+  do_test_add_indexes(&mut random, false, true)
 }
-
 #[test]
 fn test_add_indexes_with_deletions() -> Result<()> {
-  // TODO
-  Ok(())
+  let mut random = random();
+  do_test_add_indexes(&mut random, true, true)
 }
 
 #[test]
 fn test_add_indexes_with_directory() -> Result<()> {
-  // TODO
-  Ok(())
+  let mut random = random();
+  do_test_add_indexes(&mut random, false, false)
 }
 
 #[test]
 fn test_add_indexes_with_deletions_and_directory() -> Result<()> {
-  // TODO
-  Ok(())
+  let mut random = random();
+  do_test_add_indexes(&mut random, true, false)
 }
 #[test]
 fn test_bad_sort() -> Result<()> {

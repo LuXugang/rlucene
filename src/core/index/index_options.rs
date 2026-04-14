@@ -62,13 +62,16 @@ mod tests {
   use crate::core::document::field::Field;
   use crate::core::document::field_type::FieldType;
   use crate::core::document::text_field::text_field_type;
-
+  use crate::core::index::directory_reader::directory_reader_util;
   use crate::core::index::index_options::IndexOptions;
+  use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_writer::IndexWriter;
+  use crate::core::index::leaf_reader::LeafReader;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config, random,
+    get_only_leaf_reader, new_directory_shared, new_index_writer_config, random,
   };
+  use rand::Rng;
 
   #[allow(dead_code)]
   struct TestIndexOptions;
@@ -139,23 +142,75 @@ mod tests {
     _from: IndexOptions,
     _to: IndexOptions,
   ) -> Result<()> {
-    // TODO add_indexes 未实现
+    // TODO IMPORTANT add_indexes_from_codec_readers未实现
     Ok(())
   }
   #[test]
   fn test_change_index_options_via_add_indexes_directory() -> Result<()> {
+    let mut random = random();
     for from in IndexOptions::values() {
       for to in IndexOptions::values() {
-        do_test_change_index_options_add_indexes_codec_reader(from, to)?;
+        do_test_change_index_options_add_indexes_directory(&mut random, from, to)?;
       }
     }
     Ok(())
   }
-  fn do_test_change_index_options_add_indexes_directory(
-    _from: IndexOptions,
-    _to: IndexOptions,
-  ) -> Result<()> {
-    // TODO add_indexes 未实现
+  fn do_test_change_index_options_add_indexes_directory<R>(
+    random: &mut R,
+    from: IndexOptions,
+    to: IndexOptions,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let dir1 = new_directory_shared(random)?;
+    let w1 = IndexWriter::new(dir1.clone(), new_index_writer_config(random))?;
+
+    let mut ft1 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+    ft1.set_index_options(from)?;
+    let mut doc1 = Document::new();
+    doc1.add(Field::new("foo", "bar", ft1));
+    w1.add_document(doc1)?;
+
+    let dir2 = new_directory_shared(random)?;
+    let w2 = IndexWriter::new(dir2.clone(), new_index_writer_config(random))?;
+
+    let mut ft2 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+    ft2.set_index_options(to)?;
+    let mut doc2 = Document::new();
+    doc2.add(Field::new("foo", "bar", ft2));
+    w2.add_document(doc2)?;
+    w2.close()?;
+    drop(w2);
+
+    if from == to {
+      w1.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
+      w1.force_merge(1)?;
+      let reader = directory_reader_util::open_from_writer(&w1)?;
+      let leaf = get_only_leaf_reader(&reader)?;
+      let expected = if from == IndexOptions::None { to } else { from };
+      assert_eq!(
+        expected,
+        *leaf
+          .get_field_infos()?
+          .field_info_by_name("foo")
+          .unwrap()
+          .get_index_options()
+      );
+      reader.close()?;
+    } else {
+      let err = w1.add_indexes_from_dir(std::slice::from_ref(&dir2));
+      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert_eq!(
+        format!(
+          "cannot change field \"foo\" from index options={} to inconsistent index options={}",
+          from, to
+        ),
+        err.unwrap_err().to_string()
+      );
+    }
+
+    w1.close()?;
     Ok(())
   }
 }

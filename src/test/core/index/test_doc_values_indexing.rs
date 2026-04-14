@@ -698,7 +698,7 @@ fn test_mixed_types_after_reopen_append3() -> Result<()> {
 }
 #[test]
 fn test_mixed_types_different_threads() -> Result<()> {
-  // TODO
+  // TODO 多线程未完成
   Ok(())
 }
 #[test]
@@ -848,7 +848,33 @@ fn test_type_change_after_open_create() -> Result<()> {
 
 #[test]
 fn test_type_change_via_add_indexes() -> Result<()> {
-  // TODO add_indexes未实现
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("dv", 0));
+  writer.add_document(doc)?;
+  writer.close()?;
+  drop(writer);
+
+  let dir2 = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let writer2 = IndexWriter::new(dir2.clone(), iwc)?;
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    BytesRef::from_string("foo"),
+  ));
+  writer2.add_document(doc)?;
+
+  let err = writer2.add_indexes_from_dir(std::slice::from_ref(&dir));
+  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+  writer2.close()?;
   Ok(())
 }
 #[test]
@@ -857,8 +883,34 @@ fn test_type_change_via_add_indexes_ir() -> Result<()> {
   Ok(())
 }
 #[test]
-fn test_type_change_via_add_indexes_2() -> Result<()> {
-  // TODO add_indexes未实现
+fn test_type_change_via_add_indexes2() -> Result<()> {
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("dv", 0));
+  writer.add_document(doc)?;
+  writer.close()?;
+  drop(writer);
+
+  let dir2 = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let writer2 = IndexWriter::new(dir2.clone(), iwc)?;
+  writer2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+
+  let mut doc2 = Document::new();
+  doc2.add(SortedDocValuesField::new(
+    "dv",
+    BytesRef::from_string("foo"),
+  ));
+  let err = writer2.add_document(doc2);
+  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+  writer2.close()?;
   Ok(())
 }
 #[test]

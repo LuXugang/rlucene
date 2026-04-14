@@ -127,7 +127,7 @@ where
   B: IndexWriterBase,
 {
   fn drop(&mut self) {
-    // TODO 其他close需要用到IndexWriter的字段都需要在这里处理
+    // TODO IMPORTANT 其他close需要用到IndexWriter的字段都需要在这里处理
     match self.event_queue.close(self) {
       Ok(_) => {},
       Err(e) => {
@@ -2437,7 +2437,7 @@ where
   /// - `CorruptIndexException` if the index is corrupt
   /// - an error if there is a low-level IO error
   /// - `IllegalArgumentException` if `add_indexes` would cause the index to exceed `MAX_DOCS`
-  pub fn add_indexes_codec_readers<CR>(&self, _readers: Vec<CR>) -> Result<i64>
+  pub fn add_indexes_from_codec_readers<CR>(&self, _readers: Vec<CR>) -> Result<i64>
   where
     CR: CodecReader,
   {
