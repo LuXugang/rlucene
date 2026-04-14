@@ -32,6 +32,25 @@ use std::sync::LazyLock;
 
 pub struct CheckHits;
 impl CheckHits {
+  pub fn check_doc_ids<S>(mes: &str, result: &[i32], hits: &[S]) -> Result<()>
+  where
+    S: ScoreDocLike,
+  {
+    assert_eq!(hits.len(), result.len(), "{} nr of hits", mes);
+    for i in 0..result.len() {
+      assert_eq!(result[i], hits[i].doc(), "{} doc nrs for hit {}", mes, i);
+    }
+    Ok(())
+  }
+  pub fn check_hits_query<S>(query: &Query, hits1: &[S], hits2: &[S], result: &[i32]) -> Result<()>
+  where
+    S: ScoreDocLike,
+  {
+    Self::check_doc_ids("hits1", result, hits1)?;
+    Self::check_doc_ids("hits2", result, hits2)?;
+    Self::check_equal(query, hits1, hits2)
+  }
+
   pub fn check_equal<S>(query: &Query, hits1: &[S], hits2: &[S]) -> Result<()>
   where
     S: ScoreDocLike,
