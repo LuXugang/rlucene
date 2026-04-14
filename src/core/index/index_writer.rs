@@ -3951,11 +3951,11 @@ where
 
   fn handle_merge_exception(
     &self,
-    _t: LuceneError,
+    t: LuceneError,
     _merge: &mut OneMergeSR<D>,
   ) -> Result<LuceneError> {
     // TODO IMPORTANT
-    todo!()
+    Ok(t)
   }
 
   /// Merges the indicated segments, replacing them in the stack with a single segment.
