@@ -870,7 +870,7 @@ where
   merge_readers: Vec<MergeReader<CR, CR::Bits>>,
   /// Control used to pause/stop/resume the merge thread.
   merge_progress: OneMergeProgress,
-  pub(crate) merge_start_ns: AtomicI64,
+  pub(crate) merge_start_ns: Instant,
   /// Total number of documents in segments to be merged, not accounting for deletions.
   pub(crate) total_max_doc: i32,
   error: Mutex<Option<LuceneError>>,
@@ -932,7 +932,7 @@ where
       total_merge_bytes: AtomicI64::new(0),
       merge_readers: Vec::new(),
       merge_progress: OneMergeProgress::new(),
-      merge_start_ns: AtomicI64::new(-1),
+      merge_start_ns: Instant::now(),
       total_max_doc,
       error: Mutex::new(None),
       stat: MergeStat {
@@ -965,7 +965,7 @@ where
       is_external: false,
       estimated_merge_bytes: AtomicI64::new(0),
       total_merge_bytes: AtomicI64::new(0),
-      merge_start_ns: AtomicI64::new(-1),
+      merge_start_ns: Instant::now(),
       error: Mutex::new(None),
       stat: one_merge.stat,
       info: one_merge.info,
@@ -996,7 +996,7 @@ where
       total_merge_bytes: AtomicI64::new(0),
       merge_readers,
       merge_progress: OneMergeProgress::new(),
-      merge_start_ns: AtomicI64::new(-1),
+      merge_start_ns: Instant::now(),
       total_max_doc: total_docs,
       error: Mutex::new(None),
       stat: MergeStat {
@@ -1067,6 +1067,9 @@ where
       self.is_external,
       self.stat.max_num_segments,
     )
+  }
+  pub fn set_aborted(&mut self) -> Result<()> {
+    Ok(())
   }
   pub fn is_aborted(&self) -> bool {
     // TODO

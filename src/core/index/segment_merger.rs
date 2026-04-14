@@ -41,9 +41,9 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::Context::Merge;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
+use crate::core::util::{LATEST, StringHelper};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -62,6 +62,7 @@ where
   context: &'a IOContext,
   pub(crate) merge_state: MergeState<'a, D1, CR>,
   field_infos_builder: Builder,
+  pub(crate) id: String,
 }
 
 impl<'a, D1, D2, CR> SegmentMerger<'a, D1, D2, CR>
@@ -120,12 +121,13 @@ where
         .info_stream
         .message("SM", &format!("index sort during merge: {}", sort));
     }
-
+    let id = StringHelper::id_to_string(Option::from(&StringHelper::random_id()));
     Ok(Self {
       directory,
       context,
       merge_state,
       field_infos_builder,
+      id,
     })
   }
   fn merge_field_infos_with_state(

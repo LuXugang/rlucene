@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, Inner};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_scheduler::NoMergeScheduler;
@@ -27,6 +27,7 @@ use crate::impl_from_for_enum;
 use crate::test::core::index::base_knn_vectors_format_test_case::TestMergeScheduler;
 #[cfg(test)]
 use crate::test::core::index::base_merge_policy_test_case::SerialMergeSchedulerImpl;
+use parking_lot::MutexGuard;
 
 pub trait MergeScheduler: Closeable {
   fn merge<MS, D, L, B>(
@@ -84,7 +85,11 @@ pub trait MergeSource {
     B: IndexWriterBase;
 
   /// Expert: returns true if there are merges waiting to be scheduled.
-  fn has_pending_merges<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+  fn has_pending_merges<D, L, B>(
+    &self,
+    inner: Option<&MutexGuard<'_, Inner<D>>>,
+    writer: Option<&IndexWriter<D, L, B>>,
+  ) -> Result<bool>
   where
     D: Directory,
     L: LiveIndexWriterConfig,

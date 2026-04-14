@@ -516,3 +516,186 @@ where
     (**self).get_metadata()
   }
 }
+
+impl<LR> LeafReader for &LR
+where
+  LR: LeafReader,
+{
+  type CacheHelper = LR::CacheHelper;
+
+  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
+    (**self).get_core_cache_helper_ref()
+  }
+
+  fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
+    (**self).get_core_cache_helper()
+  }
+
+  fn doc_freq(&self, term: &Term) -> Result<i32>
+  where
+    Self: Sized,
+  {
+    LeafReader::doc_freq(&(**self), term)
+  }
+
+  fn get_total_term_freq(&self, term: &Term) -> Result<i64>
+  where
+    Self: Sized,
+  {
+    (**self).get_total_term_freq(term)
+  }
+
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64>
+  where
+    Self: Sized,
+  {
+    LeafReader::get_sum_doc_freq(&(**self), field)
+  }
+
+  fn get_doc_count(&self, field: &str) -> Result<i32>
+  where
+    Self: Sized,
+  {
+    LeafReader::get_doc_count(&(**self), field)
+  }
+
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64>
+  where
+    Self: Sized,
+  {
+    LeafReader::get_sum_total_term_freq(&(**self), field)
+  }
+
+  type Terms = LR::Terms;
+
+  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    (**self).terms(field)
+  }
+
+  fn postings_with_flag(
+    &self,
+    term: &Term,
+    flags: i32,
+  ) -> Result<Option<LeafPostingsEnum<Self::Terms>>>
+  where
+    Self: Sized,
+  {
+    (**self).postings_with_flag(term, flags)
+  }
+
+  fn postings(&self, term: &Term) -> Result<Option<LeafPostingsEnum<Self::Terms>>>
+  where
+    Self: Sized,
+  {
+    (**self).postings(term)
+  }
+
+  type NumericDocValues = LR::NumericDocValues;
+
+  fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+    (**self).get_numeric_doc_values(field)
+  }
+
+  type BinaryDocValues = LR::BinaryDocValues;
+
+  fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    (**self).get_binary_doc_values(field)
+  }
+
+  type SortedDocValues = LR::SortedDocValues;
+
+  fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+    (**self).get_sorted_doc_values(field)
+  }
+
+  type SortedNumericDocValues = LR::SortedNumericDocValues;
+
+  fn get_sorted_numeric_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::SortedNumericDocValues>> {
+    (**self).get_sorted_numeric_doc_values(field)
+  }
+
+  type SortedSetDocValues = LR::SortedSetDocValues;
+
+  fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+    (**self).get_sorted_set_doc_values(field)
+  }
+
+  type NormNumericDocValues = LR::NormNumericDocValues;
+
+  fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    (**self).get_norm_values(field)
+  }
+
+  type DocValuesSkipper = LR::DocValuesSkipper;
+
+  fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    (**self).get_doc_values_skipper(field)
+  }
+
+  type FloatVectorValues = LR::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    (**self).get_float_vector_values(field)
+  }
+
+  type ByteVectorValues = LR::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    (**self).get_byte_vector_values(field)
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    (**self).search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    (**self).search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
+  }
+
+  fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
+    (**self).get_field_infos()
+  }
+
+  type Bits = LR::Bits;
+
+  fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
+    (**self).get_live_docs()
+  }
+
+  type PointValues = LR::PointValues;
+
+  fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>> {
+    (**self).get_point_values(field)
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    (**self).check_integrity()
+  }
+
+  fn get_metadata(&self) -> Result<&LeafMetaData> {
+    (**self).get_metadata()
+  }
+}

@@ -105,6 +105,8 @@ where
   merges: Merges,
   merging_segments: HashSet<String>,
   merge_max_num_segments: i32,
+  pending_add_indexes_merges: VecDeque<OneMergeSR<D>>,
+  running_add_indexes_merges: HashSet<String>,
 }
 
 pub struct CommitInner<D>
@@ -393,6 +395,8 @@ where
           merges: Merges::new(),
           merging_segments: HashSet::new(),
           merge_max_num_segments: 0,
+          pending_add_indexes_merges: VecDeque::new(),
+          running_add_indexes_merges: HashSet::new(),
         }),
         pausing: Condvar::new(),
         sub,
@@ -1450,8 +1454,7 @@ where
             return Ok(0);
           } else {
             drop(inner);
-            // TODO IMPORTANT
-            return Err(e);
+            return Err(self.handle_merge_exception(e, merge)?);
           }
         }
 
@@ -2223,6 +2226,217 @@ where
         index_sort
       )));
     }
+
+    Ok(())
+  }
+  /// Runs a single merge operation for [`IndexWriter::add_indexes(CodecReader...)`].
+  ///
+  /// Merges and creates a `SegmentInfo`, for the readers grouped together in provided `OneMerge`.
+  ///
+  /// # Arguments
+  ///
+  /// * `merge` - OneMerge object initialized from readers.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if there is a low-level IO error.
+  fn add_indexes_reader_merge(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
+    merge.merge_init();
+    {
+      let inner = self.inner.lock();
+      merge.check_aborted(&inner.segment_infos)?;
+    }
+
+    let mut num_docs = 0_i64;
+    if self.info_stream.enabled("IW") {
+      self
+        .info_stream
+        .message("IW", "flush at addIndexes(CodecReader...)");
+    }
+    self.flush_with_apply_merge_deletes(false, true)?;
+
+    let merged_name = self.new_segment_name(None);
+    let merge_directory = self
+      .config
+      .get_merge_scheduler()
+      .wrap_for_merge(self.directory.clone())?;
+
+    let mut num_soft_deleted = 0;
+    let mut has_blocks = false;
+    for reader in merge.get_merge_reader() {
+      let leaf = &reader.reader;
+      num_docs += i64::from(leaf.num_docs()?);
+      let v = get_context(leaf)?;
+      let contexts = v.leaves()?;
+      for context in contexts {
+        has_blocks |= context.reader().get_metadata()?.has_blocks
+      }
+
+      if self.soft_deletes_enabled {
+        let field = self.config.get_soft_deletes_field().ok_or_else(|| {
+          LuceneError::illegal_state(
+            "soft_deletes_enabled is true but soft_deletes_field is not configured",
+          )
+        })?;
+
+        let mut soft_deleted_docs = get_doc_values_doc_id_set_iterator(field, leaf)?;
+
+        num_soft_deleted +=
+          count_soft_deletes(soft_deleted_docs.as_mut(), reader.hard_live_docs.as_ref())?;
+      }
+    }
+    // Best-effort up front check:
+    self.test_reserve_docs(num_docs)?;
+
+    let context = IOContext::with_merge(MergeInfo::new(
+      num_docs.try_convert()?,
+      -1,
+      false,
+      UNBOUNDED_MAX_MERGE_SEGMENTS,
+    ))?;
+
+    let mut tracking_dir = TrackingDirectoryWrapper::new(merge_directory);
+    let mut seg_info = SegmentInfo::new(
+      self.directory_orig.clone(),
+      Some((*LATEST).clone()),
+      None,
+      &merged_name,
+      -1,
+      false,
+      has_blocks,
+      HashMap::new(),
+      StringHelper::random_id(),
+      HashMap::new(),
+      self.config.get_index_sort(),
+    )?;
+
+    let mut readers = Vec::with_capacity(merge.get_merge_reader().len());
+    for mr in merge.get_merge_reader() {
+      let wrapped_reader = merge.wrap_for_merge(mr.reader.clone())?;
+      readers.push(wrapped_reader);
+    }
+    // Don't reorder if an explicit sort is configured.
+    let has_index_sort = self.config.get_index_sort().is_some();
+    // Don't reorder if blocks can't be identified using the parent field.
+    let mut has_blocks_but_no_parent_field = false;
+    for reader in &readers {
+      if reader.get_metadata()?.get_has_blocks()
+        && reader.get_field_infos()?.get_parent_field().is_none()
+      {
+        has_blocks_but_no_parent_field = true;
+        break;
+      }
+    }
+    // TODO IMPORTANT多线程未支持
+    let new_merge_readers;
+    if !has_index_sort && !has_blocks_but_no_parent_field && !readers.is_empty() {
+      let merged_reader = wrap(readers.clone())?;
+      let doc_map_opt = merge.reorder(&merged_reader, self.directory.as_ref())?;
+      if let Some(doc_map) = doc_map_opt {
+        new_merge_readers = vec![CodecReaderEnum2::B(wrap_with_doc_map(
+          merged_reader,
+          Some(doc_map),
+          None,
+        )?)];
+      } else {
+        let mut v = Vec::with_capacity(readers.len());
+        for reader in readers {
+          v.push(CodecReaderEnum2::A(reader));
+        }
+        new_merge_readers = v;
+      }
+    } else {
+      let mut v = Vec::with_capacity(readers.len());
+      for reader in readers {
+        v.push(CodecReaderEnum2::A(reader));
+      }
+      new_merge_readers = v;
+    }
+
+    let mut merger = SegmentMerger::new(
+      &new_merge_readers,
+      &mut seg_info,
+      self.info_stream.clone(),
+      &tracking_dir,
+      self.global_field_number_map.clone(),
+      &context,
+    )?;
+
+    if !merger.should_merge()? {
+      return Ok(());
+    }
+    {
+      let inner = self.inner.lock();
+      merge.check_aborted(&inner.segment_infos)?;
+    }
+    {
+      let mut inner = self.inner.lock();
+      inner.running_add_indexes_merges.insert(merger.id.clone());
+    }
+    merge.merge_start_ns = Instant::now();
+    let result: Result<()> = (|| {
+      merger.merge()?;
+      Ok(())
+    })();
+    {
+      let mut inner = self.inner.lock();
+      inner.running_add_indexes_merges.remove(&merger.id);
+      self.pausing.notify_all();
+    }
+    result?;
+
+    let mut sci = SegmentCommitInfo::new(
+      seg_info,
+      0,
+      num_soft_deleted,
+      -1,
+      -1,
+      -1,
+      Some(StringHelper::random_id()),
+    )?;
+    Arc::get_mut(&mut sci.info)
+      .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?
+      .set_files(tracking_dir.take_created_files())?;
+    set_diagnostics_impl(
+      Arc::get_mut(&mut sci.info).ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?,
+      SOURCE_ADDINDEXES_READERS,
+      None,
+    );
+
+    let use_compound_file = {
+      let inner = self.inner.lock();
+      merge.check_aborted(&inner.segment_infos)?;
+      self
+        .config
+        .get_merge_policy()
+        .use_compound_file(&inner.segment_infos, &sci, self)?
+    };
+
+    if use_compound_file {
+      let files_to_delete = sci.files()?;
+      let info =
+        Arc::get_mut(&mut sci.info).ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
+      let tracking_cfs_dir = TrackingDirectoryWrapper::new(self.directory.as_ref());
+      create_compound_file(
+        &self.info_stream,
+        &tracking_cfs_dir,
+        info,
+        &context,
+        IOConsumerImpl1::new(self),
+      )?;
+      self.delete_new_files(files_to_delete.iter(), None)?;
+      info.set_use_compound_file(true);
+    }
+
+    let info =
+      Arc::get_mut(&mut sci.info).ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
+    self
+      .config
+      .get_codec()
+      .segment_info_format()
+      .write(&tracking_dir, info, &context)?;
+    info.add_files(tracking_dir.take_created_files())?;
+    merge.set_merge_info(sci);
 
     Ok(())
   }
@@ -3355,6 +3569,16 @@ where
 
     Ok(true)
   }
+
+  fn handle_merge_exception(
+    &self,
+    _t: LuceneError,
+    _merge: &mut OneMergeSR<D>,
+  ) -> Result<LuceneError> {
+    // TODO IMPORTANT
+    todo!()
+  }
+
   /// Merges the indicated segments, replacing them in the stack with a single segment.
   fn merge(&self, mut merge: OneMergeSR<D>) -> Result<()> {
     let mut success = false;
@@ -3398,8 +3622,7 @@ where
       match inner_result {
         Ok(()) => {},
         Err(e) => {
-          // TODO IMPORTANT handleMergeException
-          return Err(e);
+          return Err(self.handle_merge_exception(e, &mut merge)?);
         },
       }
       Ok(())
@@ -5397,13 +5620,15 @@ use crate::core::index::documents_writer_flush_queue::FlushTicket;
 use crate::core::index::field_infos::{FieldInfos, FieldNumbers, FieldNumbersLock};
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::{Identity, IndexReader};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader::{LeafReader, get_context};
 use crate::core::index::merge_policy::{MergePolicy, MergeStat, OneMerge};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::numeric_doc_values_field_updates::NumericDocValuesFieldUpdates;
+use crate::core::index::pending_soft_deletes::count_soft_deletes;
 use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
@@ -5419,10 +5644,12 @@ use crate::core::index::term::Term;
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::field_exists_query::get_doc_values_doc_id_set_iterator;
 use crate::core::search::query::Query;
 use crate::core::search::sort::Sort;
 use crate::core::store::IOContext;
 use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
+use crate::core::store::merge_info::MergeInfo;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
@@ -5461,6 +5688,8 @@ pub const WRITE_LOCK_NAME: &str = "write.lock";
 pub const SOURCE: &str = "source";
 /// Source of a segment which results from a merge of other segments.
 pub const SOURCE_MERGE: &str = "merge";
+/// Source of a segment which results from `addIndexes(CodecReader...)`.
+pub const SOURCE_ADDINDEXES_READERS: &str = "addIndexes(CodecReader...)";
 /// Source of a segment which results from a flush.
 pub const SOURCE_FLUSH: &str = "flush";
 pub const MAX_STORED_STRING_LENGTH: i32 =
@@ -5928,13 +6157,20 @@ impl MergeSource for IndexWriterMergeSource {
     writer.merge_finish(merge, None)
   }
 
-  fn has_pending_merges<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+  fn has_pending_merges<D, L, B>(
+    &self,
+    _inner: Option<&MutexGuard<'_, Inner<D>>>,
+    writer: Option<&IndexWriter<D, L, B>>,
+  ) -> Result<bool>
   where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
-    writer.has_pending_merges()
+    writer
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("writer is not set"))?
+      .has_pending_merges()
   }
 
   fn merge<D, L, B>(&self, merge: Self::OneMerge<D>, writer: &IndexWriter<D, L, B>) -> Result<()>
@@ -5944,5 +6180,128 @@ impl MergeSource for IndexWriterMergeSource {
     B: IndexWriterBase,
   {
     writer.merge(merge)
+  }
+}
+#[derive(Default)]
+struct AddIndexesMergeSource;
+
+impl AddIndexesMergeSource {
+  fn register_merge<D>(&mut self, merge: OneMergeSR<D>, inner: &mut MutexGuard<'_, Inner<D>>)
+  where
+    D: Directory,
+  {
+    inner.pending_add_indexes_merges.push_back(merge);
+  }
+
+  fn abort_pending_merges<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    let mut inner = writer.inner.lock();
+    while let Some(mut merge) = inner.pending_add_indexes_merges.pop_front() {
+      if writer.info_stream.enabled("IW") {
+        writer
+          .info_stream
+          .message("IW", "now abort pending addIndexes merge");
+      }
+      merge.set_aborted()?;
+      merge.close(false, false, |_| Ok(()))?;
+      self.on_merge_finished(&mut merge, writer);
+      inner.pending_add_indexes_merges.clear();
+    }
+
+    Ok(())
+  }
+}
+impl MergeSource for AddIndexesMergeSource {
+  type OneMerge<D>
+    = OneMergeSR<D>
+  where
+    D: Directory;
+
+  fn get_next_merge<D, L, B>(
+    &self,
+    writer: &IndexWriter<D, L, B>,
+  ) -> Result<Option<Self::OneMerge<D>>>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    let mut inner = writer.inner.lock();
+    if !self.has_pending_merges::<D, L, B>(Some(&inner), None)? {
+      return Ok(None);
+    }
+    let merge = inner
+      .pending_add_indexes_merges
+      .pop_front()
+      .ok_or_else(|| LuceneError::illegal_state("should have pending merges"))?;
+    inner.running_merges.insert(merge.stat.clone());
+    Ok(Some(merge))
+  }
+
+  fn on_merge_finished<D, L, B>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D, L, B>)
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    let mut inner = writer.inner.lock();
+    inner.running_merges.remove(&merge.stat);
+  }
+
+  fn has_pending_merges<D, L, B>(
+    &self,
+    inner: Option<&MutexGuard<'_, Inner<D>>>,
+    _writer: Option<&IndexWriter<D, L, B>>,
+  ) -> Result<bool>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    Ok(
+      !inner
+        .ok_or_else(|| LuceneError::illegal_state("IndexWriter's Inner is not set"))?
+        .pending_add_indexes_merges
+        .is_empty(),
+    )
+  }
+
+  fn merge<D, L, B>(
+    &self,
+    mut merge: Self::OneMerge<D>,
+    writer: &IndexWriter<D, L, B>,
+  ) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    let mut success = false;
+    let result = (|| -> Result<()> {
+      writer.add_indexes_reader_merge(&mut merge)?;
+      success = true;
+      Ok(())
+    })();
+    let result = match result {
+      Ok(()) => Ok(()),
+      Err(err) => Err(writer.handle_merge_exception(err, &mut merge)?),
+    };
+
+    let close_result = merge.close(success, false, |_| Ok(()));
+    self.on_merge_finished(&mut merge, writer);
+
+    if let Err(err) = result {
+      if let Err(close_err) = close_result {
+        return Err(close_err);
+      }
+      Err(err)
+    } else {
+      close_result?;
+      Ok(())
+    }
   }
 }
