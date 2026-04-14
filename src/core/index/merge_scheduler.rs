@@ -97,7 +97,11 @@ pub trait MergeSource {
 
   /// Merges the indicated segments, replacing them in the stack
   /// with a single segment.
-  fn merge<D, L, B>(&self, merge: Self::OneMerge<D>, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn merge<D, L, B>(
+    &self,
+    merge: &mut Self::OneMerge<D>,
+    writer: &IndexWriter<D, L, B>,
+  ) -> Result<()>
   where
     D: Directory,
     L: LiveIndexWriterConfig,

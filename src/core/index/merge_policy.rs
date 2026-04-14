@@ -100,26 +100,30 @@ pub trait MergePolicy: Display {
     D: Directory,
     MC: MergeContext<D>;
 
-  // Define the set of merge operations to perform on provided codec readers in
-  // [`IndexWriter::add_indexes`].
-  //
-  // The merge operation is required to convert provided readers into segments
-  // that can be added to the writer. This API can be overridden in custom merge
-  // policies to control concurrency for `addIndexes`.
-  //
-  // Default implementation creates a single merge operation for all provided
-  // readers (lowest concurrency). Creating a merge for each reader would provide
-  // the highest level of concurrency possible with the configured merge scheduler.
-  //
-  // * `readers` — codec readers to merge into the main index
-  // fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<Option<MergeSpecification<CR>>>
-  // where
-  //     CR: CodecReader,
-  // {
-  //     let mut merge_spec = MergeSpecification::new();
-  //     merge_spec.add(OneMerge::from_codec_readers(readers)?);
-  //     Ok(Some(merge_spec))
-  // }
+  /// Define the set of merge operations to perform on provided codec readers in
+  /// [`IndexWriter::add_indexes`].
+  ///
+  /// The merge operation is required to convert provided readers into segments
+  /// that can be added to the writer. This API can be overridden in custom merge
+  /// policies to control concurrency for `addIndexes`.
+  ///
+  /// Default implementation creates a single merge operation for all provided
+  /// readers (lowest concurrency). Creating a merge for each reader would provide
+  /// the highest level of concurrency possible with the configured merge scheduler.
+  ///
+  /// * `readers` — codec readers to merge into the main index
+  fn find_merges_readers<CR, D>(
+    &self,
+    readers: Vec<CR>,
+  ) -> Result<Option<MergeSpecification<D, CR>>>
+  where
+    CR: CodecReader,
+    D: Directory,
+  {
+    let mut merge_spec = MergeSpecification::new();
+    merge_spec.add(OneMerge::from_codec_readers(readers)?);
+    Ok(Some(merge_spec))
+  }
 
   ///   Determine what set of merge operations is necessary in order to merge to
   ///   `<=` the specified segment count. [`IndexWriter`](crate::core::index::index_writer::IndexWriter) calls this when its

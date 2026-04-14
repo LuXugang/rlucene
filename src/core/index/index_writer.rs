@@ -82,6 +82,7 @@ where
   pub(crate) sub: Option<B>,
   commit_lock: Mutex<CommitInner<D>>,
   full_flush_lock: Mutex<()>,
+  add_indexes_merge_source: AddIndexesMergeSource,
 }
 pub type IndexWriterDir<D> = LockValidatingDirectoryWrapper<Arc<D>>;
 
@@ -408,6 +409,7 @@ where
           start_commit_time: Instant::now(),
         }),
         full_flush_lock: Mutex::new(()),
+        add_indexes_merge_source: AddIndexesMergeSource,
       };
       iw.message_state()?;
       Ok(iw)
@@ -2187,7 +2189,34 @@ where
     inner.merge_exceptions.clear();
     inner.merge_gen += 1;
   }
+  pub(crate) fn no_dup_dirs(&self, dirs: &[Arc<D>]) -> Result<()> {
+    let mut seen_dir_ids = HashSet::with_capacity(dirs.len());
+    let self_dir_id = self.directory_orig.identity().clone();
+    for dir in dirs {
+      let dir_id = dir.identity().clone();
+      if dir_id == self_dir_id {
+        return Err(LuceneError::illegal_argument(
+          "Cannot add directory to itself",
+        ));
+      }
+      if !seen_dir_ids.insert(dir_id) {
+        return Err(LuceneError::illegal_argument(format!(
+          "Directory {} appears more than once",
+          dir
+        )));
+      }
+    }
 
+    Ok(())
+  }
+  fn acquire_write_locks(&self, dirs: &[Arc<D>]) -> Result<Vec<D::Lock>> {
+    let mut locks = Vec::with_capacity(dirs.len());
+    for dir in dirs {
+      let lock = dir.obtain_lock(WRITE_LOCK_NAME)?;
+      locks.push(lock);
+    }
+    Ok(locks)
+  }
   /// Copies all segments from the provided directories into this index without re-merging them.
   ///
   /// This is the Rust counterpart of Lucene's `addIndexes(Directory...)` and follows the
@@ -2324,15 +2353,6 @@ where
     }
   }
 
-  fn acquire_write_locks(&self, dirs: &[Arc<D>]) -> Result<Vec<D::Lock>> {
-    let mut locks = Vec::with_capacity(dirs.len());
-    for dir in dirs {
-      let lock = dir.obtain_lock(WRITE_LOCK_NAME)?;
-      locks.push(lock);
-    }
-    Ok(locks)
-  }
-
   fn close_locks(&self, locks: &mut [D::Lock]) -> Result<()> {
     let mut first_err = None;
     for lock in locks {
@@ -2392,6 +2412,145 @@ where
 
     Ok(())
   }
+
+  /// Merges the provided indexes into this index.
+  ///
+  /// The provided `IndexReader`s are not closed.
+  ///
+  /// See [`Self::add_indexes`] for details on transactional semantics, temporary free space
+  /// required in the `Directory`, and non-CFS segments on an exception.
+  ///
+  /// **NOTE:** empty segments are dropped by this method and not added to this index.
+  ///
+  /// **NOTE:** provided `LeafReader`s are merged as specified by the
+  /// `MergePolicy::find_merges(CodecReader...)` API. Default behavior is to merge all provided
+  /// readers into a single segment. You can modify this by overriding the `find_merge` API in your
+  /// custom merge policy.
+  ///
+  /// # Returns
+  ///
+  /// The [sequence number](#sequence_number) for this operation.
+  ///
+  /// # Errors
+  ///
+  /// Returns:
+  /// - `CorruptIndexException` if the index is corrupt
+  /// - an error if there is a low-level IO error
+  /// - `IllegalArgumentException` if `add_indexes` would cause the index to exceed `MAX_DOCS`
+  pub fn add_indexes_codec_readers<CR>(&self, _readers: Vec<CR>) -> Result<i64>
+  where
+    CR: CodecReader,
+  {
+    // self.ensure_open()?;
+    // let res = (|| {
+    //   let mut num_docs = 0_i64;
+    //   {
+    //     let global_field_number_map = self.global_field_number_map.lock();
+    //     for leaf in &readers {
+    //       self.validate_merge_reader(leaf)?;
+    //       let field_infos = leaf.get_field_infos()?;
+    //       for fi in field_infos.iter() {
+    //         global_field_number_map.verify_field_info(fi)?;
+    //       }
+    //       num_docs += i64::from(leaf.num_docs()?);
+    //     }
+    //   }
+    //   self.test_reserve_docs(num_docs)?;
+    //
+    //   {
+    //     let inner = self.inner.lock();
+    //     self.ensure_open()?;
+    //     if !inner.merges.are_enabled(&inner) {
+    //       return Err(LuceneError::already_closed(
+    //         "this IndexWriter is closed. Cannot execute add_indexes(CodecReaders...) API",
+    //       ));
+    //     }
+    //   }
+    //   let merge_policy = self.config.get_merge_policy();
+    //   match merge_policy.find_merges_readers::<CR, D>(readers)? {
+    //     Some(mut spec) if !spec.merges.is_empty() => {
+    //       let merge_result: Result<()> = (|| {
+    //         for merge in &mut spec.merges {
+    //           todo!()
+    //         }
+    //
+    //         Ok(())
+    //       })();
+    //     }
+    //     Some(_) => {
+    //       self.info_stream.message(
+    //         "addIndexes(CodecReaders...)",
+    //         "received null mergeSpecification from MergePolicy. No indexes to add, returning..",
+    //       );
+    //       return Ok(self.doc_writer.get_next_sequence_number());
+    //     }
+    //     None => {
+    //       self.info_stream.message(
+    //         "addIndexes(CodecReaders...)",
+    //         "received empty mergeSpecification from MergePolicy. No indexes to add, returning..",
+    //       );
+    //       return Ok(self.doc_writer.get_next_sequence_number());
+    //     }
+    //   }
+    //
+    //
+    //   let mut merges = vec![OneMerge::from_codec_readers(readers)?];
+    //   let merge_result: Result<()> = (|| {
+    //     for merge in &mut merges {
+    //       todo!()
+    //     }
+    //     Ok(())
+    //   })();
+    //
+    //   if let Err(err) = merge_result {
+    //     for merge in &merges {
+    //       if let Some(merge_info) = merge.info.as_ref() {
+    //         self.delete_new_files(merge_info.files()?.iter(), None)?;
+    //       }
+    //     }
+    //     return Err(err);
+    //   }
+    //
+    //   let mut infos = Vec::new();
+    //   let mut total_docs = 0_i64;
+    //   for merge in &merges {
+    //     total_docs += i64::from(merge.total_max_doc);
+    //     if let Some(merge_info) = merge.info.as_ref() {
+    //       infos.push(merge_info.clone());
+    //     }
+    //   }
+    //
+    //   let seq_no = {
+    //     let mut inner = self.inner.lock();
+    //     if !infos.is_empty() {
+    //       let register_result: Result<()> = (|| {
+    //         self.ensure_open()?;
+    //         self.reserve_docs(total_docs)?;
+    //         inner.segment_infos.add_all(infos.clone())?;
+    //         self.checkpoint(&mut inner)?;
+    //         Ok(())
+    //       })();
+    //
+    //       if register_result.is_err() {
+    //         for sipc in &infos {
+    //           self.delete_new_files(sipc.files()?.iter(), Some(&inner))?;
+    //         }
+    //       }
+    //       register_result?;
+    //     }
+    //     self.doc_writer.get_next_sequence_number()
+    //   };
+    //   Ok(seq_no)
+    // })();
+    //
+    // if let Err(ref e) = res {
+    //   self.tragic_event(e, "addIndexes(CodecReader...)");
+    // }
+    // self.maybe_merge()?;
+    // res
+    todo!()
+  }
+
   /// Runs a single merge operation for [`IndexWriter::add_indexes(CodecReader...)`].
   ///
   /// Merges and creates a `SegmentInfo`, for the readers grouped together in provided `OneMerge`.
@@ -3404,26 +3563,6 @@ where
     Ok(())
   }
 
-  pub(crate) fn no_dup_dirs(&self, dirs: &[Arc<D>]) -> Result<()> {
-    let mut seen_dir_ids = HashSet::with_capacity(dirs.len());
-    let self_dir_id = self.directory_orig.identity().clone();
-    for dir in dirs {
-      let dir_id = dir.identity().clone();
-      if dir_id == self_dir_id {
-        return Err(LuceneError::illegal_argument(
-          "Cannot add directory to itself",
-        ));
-      }
-      if !seen_dir_ids.insert(dir_id) {
-        return Err(LuceneError::illegal_argument(format!(
-          "Directory {} appears more than once",
-          dir
-        )));
-      }
-    }
-
-    Ok(())
-  }
   /// Carefully merges deletes and updates for the segments we just merged.
   ///
   /// This is tricky because, although merging will clear all deletes (compacts
@@ -3820,16 +3959,16 @@ where
   }
 
   /// Merges the indicated segments, replacing them in the stack with a single segment.
-  fn merge(&self, mut merge: OneMergeSR<D>) -> Result<()> {
+  fn merge(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
     let mut success = false;
     let merge_policy = self.config.get_merge_policy();
     let result = (|| -> Result<()> {
       let inner_result = (|| -> Result<()> {
-        self.merge_init(&mut merge)?;
+        self.merge_init(merge)?;
         // Note: merge's SegmentCommitInfo has move to IndexWriter#inner#segment_infos
-        self.merge_middle(&mut merge, merge_policy)?;
+        self.merge_middle(merge, merge_policy)?;
         debug_assert!(merge.info.is_none());
-        self.merge_success(&mut merge)?;
+        self.merge_success(merge)?;
         success = true;
         Ok(())
       })();
@@ -3839,9 +3978,9 @@ where
         // Readers are already closed in commitMerge if we didn't hit
         // an exc:
         if !success {
-          self.close_merge_readers(&mut merge, true, false, Some(&mut inner))?;
+          self.close_merge_readers(merge, true, false, Some(&mut inner))?;
         }
-        self.merge_finish(&mut merge, Some(&mut inner));
+        self.merge_finish(merge, Some(&mut inner));
 
         if !success {
           if self.info_stream.enabled("IW") {
@@ -3862,7 +4001,7 @@ where
       match inner_result {
         Ok(()) => {},
         Err(e) => {
-          return Err(self.handle_merge_exception(e, &mut merge)?);
+          return Err(self.handle_merge_exception(e, merge)?);
         },
       }
       Ok(())
@@ -6413,7 +6552,11 @@ impl MergeSource for IndexWriterMergeSource {
       .has_pending_merges()
   }
 
-  fn merge<D, L, B>(&self, merge: Self::OneMerge<D>, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn merge<D, L, B>(
+    &self,
+    merge: &mut Self::OneMerge<D>,
+    writer: &IndexWriter<D, L, B>,
+  ) -> Result<()>
   where
     D: Directory,
     L: LiveIndexWriterConfig,
@@ -6426,7 +6569,7 @@ impl MergeSource for IndexWriterMergeSource {
 struct AddIndexesMergeSource;
 
 impl AddIndexesMergeSource {
-  fn register_merge<D>(&mut self, merge: OneMergeSR<D>, inner: &mut MutexGuard<'_, Inner<D>>)
+  fn register_merge<D>(&self, merge: OneMergeSR<D>, inner: &mut MutexGuard<'_, Inner<D>>)
   where
     D: Directory,
   {
@@ -6512,7 +6655,7 @@ impl MergeSource for AddIndexesMergeSource {
 
   fn merge<D, L, B>(
     &self,
-    mut merge: Self::OneMerge<D>,
+    merge: &mut Self::OneMerge<D>,
     writer: &IndexWriter<D, L, B>,
   ) -> Result<()>
   where
@@ -6522,17 +6665,17 @@ impl MergeSource for AddIndexesMergeSource {
   {
     let mut success = false;
     let result = (|| -> Result<()> {
-      writer.add_indexes_reader_merge(&mut merge)?;
+      writer.add_indexes_reader_merge(merge)?;
       success = true;
       Ok(())
     })();
     let result = match result {
       Ok(()) => Ok(()),
-      Err(err) => Err(writer.handle_merge_exception(err, &mut merge)?),
+      Err(err) => Err(writer.handle_merge_exception(err, merge)?),
     };
 
     let close_result = merge.close(success, false, |_| Ok(()));
-    self.on_merge_finished(&mut merge, writer);
+    self.on_merge_finished(merge, writer);
 
     if let Err(err) = result {
       if let Err(close_err) = close_result {

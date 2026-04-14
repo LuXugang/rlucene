@@ -58,11 +58,11 @@ impl MergeScheduler for SerialMergeScheduler {
     B: IndexWriterBase,
   {
     loop {
-      let merge = match merge_source.get_next_merge(index_writer)? {
+      let mut merge = match merge_source.get_next_merge(index_writer)? {
         Some(merge) => merge,
         None => break,
       };
-      merge_source.merge(merge, index_writer)?;
+      merge_source.merge(&mut merge, index_writer)?;
     }
     Ok(())
   }

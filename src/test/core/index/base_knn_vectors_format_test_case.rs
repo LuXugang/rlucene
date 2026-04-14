@@ -2384,8 +2384,8 @@ impl MergeScheduler for TestMergeScheduler {
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
-    while let Some(merge) = merge_source.get_next_merge(writer)? {
-      let result: Result<()> = merge_source.merge(merge, writer);
+    while let Some(mut merge) = merge_source.get_next_merge(writer)? {
+      let result: Result<()> = merge_source.merge(&mut merge, writer);
       if result.is_err() {
         self.ex.store(true, Ordering::Relaxed);
         return result;
