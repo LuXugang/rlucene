@@ -27,6 +27,7 @@ pub(crate) mod base_points_format_test_case;
 pub(crate) mod base_postings_format_test_case;
 pub(crate) mod base_segment_info_format_test_case;
 pub mod base_stored_fields_format_test_case;
+pub(crate) mod base_term_vectors_format_test_case;
 pub mod doc_helper;
 pub(crate) mod force_merge_policy;
 pub mod legacy_base_doc_values_format_test_case;

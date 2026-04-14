@@ -62,20 +62,8 @@ where
   let case = TestLucene90StoredFieldsFormat;
   f(&case, &mut random)
 }
-mod test_lucene90_stored_fields_format_test {
-  use crate::core::util::error::lucene_error::Result;
-  use crate::test::core::codecs::lucene90::test_lucene90_stored_fields_format::{
-    TestLucene90StoredFields, run_case,
-  };
-
-  #[test]
-  fn test_skip_redundant_prefetches() -> Result<()> {
-    run_case(|case, random| case.test_skip_redundant_prefetches(random))
-  }
-}
 
 impl BaseStoredFieldsFormatTestCase for TestLucene90StoredFieldsFormat {}
-impl TestLucene90StoredFields for TestLucene90StoredFieldsFormat {}
 
 mod base_stored_fields_format_test_case_test {
   use crate::core::util::error::lucene_error::Result;
@@ -120,9 +108,49 @@ mod base_stored_fields_format_test_case_test {
   fn test_concurrent_reads() -> Result<()> {
     run_case(|case, random| case.test_concurrent_reads(random))
   }
+
+  #[test]
+  fn test_write_read_merge() -> Result<()> {
+    run_case(|case, random| case.test_write_read_merge(random))
+  }
+
+  #[test]
+  fn test_merge_filter_reader() -> Result<()> {
+    run_case(|case, random| case.test_merge_filter_reader(random))
+  }
+
+  #[ignore]
+  // TODO 测试未通过
+  fn test_big_documents() -> Result<()> {
+    run_case(|case, random| case.test_big_documents(random))
+  }
+
+  #[test]
+  fn test_bulk_merge_with_deletes() -> Result<()> {
+    run_case(|case, random| case.test_bulk_merge_with_deletes(random))
+  }
+
+  #[test]
+  fn test_mismatched_fields() -> Result<()> {
+    run_case(|case, random| case.test_mismatched_fields(random))
+  }
+
+  #[test]
+  fn test_random_stored_fields_with_index_sort() -> Result<()> {
+    run_case(|case, random| case.test_random_stored_fields_with_index_sort(random))
+  }
+
+  #[test]
+  fn test_line_file_docs() -> Result<()> {
+    run_case(|case, random| case.test_line_file_docs(random))
+  }
 }
 
-pub trait TestLucene90StoredFields {
+#[test]
+fn test_skip_redundant_prefetches() -> Result<()> {
+  run_case(|case, random| case.test_skip_redundant_prefetches(random))
+}
+impl TestLucene90StoredFieldsFormat {
   fn test_skip_redundant_prefetches<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

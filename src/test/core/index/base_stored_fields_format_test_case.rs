@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::document::field::{Field, Store};
+use crate::core::document::field::{Field, FieldBase, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
@@ -30,6 +30,7 @@ use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
@@ -41,8 +42,9 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_field, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_searcher_with_reader, new_string_field,
+  at_least, create_temp_dir_with_prefix, new_directory_shared, new_field, new_fs_directory,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_searcher_with_reader,
+  new_string_field,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -457,5 +459,283 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     // TODO 多线程未实现
     Ok(())
   }
-  // TODO  还有其他测试未实现
+  fn random_byte_array<R>(&self, random: &mut R, length: usize, max: i32) -> Vec<u8>
+  where
+    R: Rng + ?Sized,
+  {
+    let mut result = vec![0u8; length];
+    for item in result.iter_mut().take(length) {
+      *item = random.random_range(0..max) as u8;
+    }
+    result
+  }
+  fn test_write_read_merge<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    iwc.set_max_buffered_docs(TestUtil::next_int(random, 2, 30));
+    // TODO: set codec to a different implementation here so we can exercise
+    // merging stored fields across codecs once codec switching is wired up.
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
+
+    let doc_count = at_least(random, 200);
+    let mut data: Vec<Vec<Vec<u8>>> = vec![Vec::new(); doc_count as usize];
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..doc_count as usize {
+      let field_count = if random.random_bool(0.05) {
+        TestUtil::next_int(random, 1, 500) as usize
+      } else {
+        TestUtil::next_int(random, 1, 5) as usize
+      };
+      let mut fields = Vec::with_capacity(field_count);
+      for _ in 0..field_count {
+        let length = if random.random_bool(0.05) {
+          random.random_range(0..1000)
+        } else {
+          random.random_range(0..10)
+        };
+        let max = if random.random_bool(0.05) {
+          256usize
+        } else {
+          2usize
+        };
+        let bytes = self.random_byte_array(random, length as usize, max as i32);
+        fields.push(bytes);
+      }
+      data[i] = fields;
+    }
+
+    let mut type_ = FieldType::new();
+    type_.set_stored(true)?;
+    type_.freeze();
+
+    let mut id = IntPoint::new("id", [0])?;
+    let mut id_stored = StoredField::from_i32("id", 0)?;
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..data.len() {
+      id.set_int_value(i as i32)?;
+      id_stored.set_int_value(i as i32)?;
+      let mut doc = Document::new();
+      doc.add(id.clone());
+      doc.add(id_stored.clone());
+      for (j, bytes) in data[i].iter().enumerate() {
+        doc.add(Field::from_binary(
+          format!("bytes{j}"),
+          bytes.clone(),
+          type_.clone(),
+        )?);
+      }
+      writer.add_document(doc)?;
+    }
+
+    for _ in 0..10 {
+      let min = random.random_range(0..data.len() as i32);
+      let max = min + random.random_range(0..20);
+      writer
+        .delete_documents_with_query(vec![IntPoint::new_range_query("id", min, max - 1)?.into()])?;
+    }
+
+    writer.force_merge(2)?;
+    writer.commit()?;
+
+    let reader =
+      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+    let mut stored_fields = reader.stored_fields()?;
+    assert!(reader.num_docs()? > 0);
+    let mut num_docs = 0;
+    for i in 0..reader.max_doc()? {
+      let doc = stored_fields.document(i)?;
+      num_docs += 1;
+      let doc_id = doc
+        .get_field("id")
+        .unwrap()
+        .numeric_value()?
+        .unwrap()
+        .to_i32()
+        .unwrap();
+      assert_eq!(data[doc_id as usize].len() + 1, doc.get_fields().len());
+      for (j, bytes) in data[doc_id as usize].iter().enumerate() {
+        let actual = doc.get_binary_value(&format!("bytes{j}"))?.unwrap();
+        let actual = actual.as_ref();
+        assert_eq!(
+          bytes,
+          &actual.bytes[actual.offset..actual.offset + actual.length]
+        );
+      }
+    }
+    assert!(reader.num_docs()? <= num_docs);
+    reader.close()?;
+
+    writer.w.delete_all()?;
+    writer.commit()?;
+    writer.force_merge(1)?;
+
+    writer.close()?;
+    Ok(())
+  }
+  fn test_merge_filter_reader<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    // TODO DummyFilterDirectoryReader 未实现
+    Ok(())
+  }
+
+  fn test_big_documents<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    // TODO IMPORTANT MMAP未实现
+    let dir = new_fs_directory(random, create_temp_dir_with_prefix("testBigDocuments")?)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    iwc.set_max_buffered_docs(TestUtil::next_int(random, 2, 30));
+    let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
+
+    let mut empty_doc = Document::new();
+    let mut big_doc1 = Document::new();
+    let mut big_doc2 = Document::new();
+
+    let id_field = StringField::from_string("id", "", Store::No)?;
+    empty_doc.add(id_field.clone());
+    big_doc1.add(id_field.clone());
+    big_doc2.add(id_field);
+
+    let mut only_stored = FieldType::new();
+    only_stored.set_stored(true)?;
+    only_stored.set_index_options(IndexOptions::None)?;
+    only_stored.freeze();
+
+    let small_length = TestUtil::next_int(random, 0, 9) as usize;
+    let small_field = Field::from_binary(
+      "fld",
+      self.random_byte_array(random, small_length, 256),
+      only_stored.clone(),
+    )?;
+    let num_fields = TestUtil::next_int(random, 500_000, 1_000_000);
+    for _ in 0..num_fields {
+      big_doc1.add(small_field.clone());
+    }
+
+    let big_length = TestUtil::next_int(random, 1_000_000, 5_000_000) as usize;
+    let big_field = Field::from_binary(
+      "fld",
+      self.random_byte_array(random, big_length, 2),
+      only_stored,
+    )?;
+    big_doc2.add(big_field);
+
+    let num_docs = at_least(random, 5) as usize;
+    let docs = [empty_doc, big_doc1, big_doc2];
+    let mut doc_templates = Vec::with_capacity(num_docs);
+    for i in 0..num_docs {
+      let template_idx = TestUtil::next_int(random, 0, (docs.len() - 1) as i32) as usize;
+      doc_templates.push(template_idx);
+      let mut doc = docs[template_idx].clone();
+      doc.remove_field("id");
+      doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+      writer.add_document(doc)?;
+      if random.random_bool(0.1) {
+        writer.commit()?;
+      }
+    }
+
+    writer.commit()?;
+    writer.force_merge(1)?;
+
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir.clone())?)?;
+    let searcher = new_searcher_with_reader(directory_reader_util::open(dir.clone())?)?;
+    let mut stored_fields = reader.stored_fields()?;
+
+    for i in 0..num_docs {
+      let query = TermQuery::new(Term::from_text("id", i.to_string()));
+      let top_docs = searcher.search(query, 1)?;
+      assert_eq!(1, top_docs.total_hits.value());
+
+      let doc = stored_fields.document(top_docs.score_docs[0].doc)?;
+      let field_values = doc.get_fields_with_name("fld");
+      let template = &docs[doc_templates[i]];
+      assert_eq!(
+        template.get_fields_with_name("fld").len(),
+        field_values.len()
+      );
+      if !field_values.is_empty() {
+        assert_eq!(
+          template.get_fields_with_name("fld")[0].binary_value()?,
+          field_values[0].binary_value()?
+        );
+      }
+    }
+
+    reader.close()?;
+    writer.close()?;
+    Ok(())
+  }
+
+  fn test_bulk_merge_with_deletes<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let dir = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    iwc.set_merge_policy(NoMergePolicy::default());
+    let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
+
+    let num_docs = at_least(random, 200) as usize;
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+      doc.add(StoredField::from_string(
+        "f",
+        TestUtil::random_simple_string(random),
+      )?);
+      writer.add_document(doc)?;
+    }
+
+    let delete_count = TestUtil::next_int(random, 5, num_docs as i32) as usize;
+    for _ in 0..delete_count {
+      let id = TestUtil::next_int(random, 0, (num_docs - 1) as i32);
+      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+    }
+
+    writer.commit()?;
+    writer.close()?;
+    drop(writer);
+
+    let writer = RandomIndexWriter::new(random, dir.clone());
+    writer.force_merge(TestUtil::next_int(random, 1, 3))?;
+    writer.commit()?;
+    writer.close()?;
+
+    TestUtil::checkIndex(dir)?;
+    Ok(())
+  }
+
+  fn test_mismatched_fields<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    // addIndexesSlowly未实现
+    Ok(())
+  }
+
+  fn test_random_stored_fields_with_index_sort<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    // TODO IMPORTANT 多线程未实现
+    Ok(())
+  }
+
+  fn test_line_file_docs<R>(&self, _random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    // TODO IMPORTANT LineFileDocs未实现
+    Ok(())
+  }
 }

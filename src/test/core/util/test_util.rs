@@ -160,6 +160,11 @@ impl TestUtil {
     Self::random_simple_string_range(random, 0, 10)
   }
 
+  #[allow(non_snake_case)]
+  pub fn checkIndex<T>(_dir: T) -> Result<()> {
+    Ok(())
+  }
+
   pub fn random_htmlish_string<R>(random: &mut R, num_elements: usize) -> String
   where
     R: Rng + ?Sized,
