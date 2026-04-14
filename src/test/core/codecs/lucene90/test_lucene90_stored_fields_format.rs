@@ -47,7 +47,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub struct TestLucene90StoredFieldsFormat;
 
 impl BaseIndexFileFormatTestCase for TestLucene90StoredFieldsFormat {
-  fn add_random_fields<R>(_random: &mut R) -> crate::core::util::error::lucene_error::Result<()>
+  fn add_random_fields<R>(_random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
