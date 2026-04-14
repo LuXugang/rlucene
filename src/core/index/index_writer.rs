@@ -2194,7 +2194,7 @@ where
   /// same coarse-grained flow:
   /// flush current in-memory changes, validate incoming commits, copy segment files as-is,
   /// reserve document ids, publish the new segments, and finally trigger merges if needed.
-  pub fn add_indexes(&self, dirs: &[Arc<D>]) -> Result<i64> {
+  pub fn add_indexes_from_dir(&self, dirs: &[Arc<D>]) -> Result<i64> {
     self.ensure_open()?;
     self.no_dup_dirs(dirs)?;
 
