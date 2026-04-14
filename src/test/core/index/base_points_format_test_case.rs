@@ -615,7 +615,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     // TODO add_indexes 未实现 这里就不定义 save_dir save_w;
     let field_type = {
       let mut field_type = FieldType::new();
-      field_type.set_dimensions_all(num_dims, num_index_dims, num_bytes_per_dim)?;
+      field_type.set_dimensions_with_index(num_dims, num_index_dims, num_bytes_per_dim)?;
       field_type.freeze();
       field_type
     };
@@ -720,17 +720,13 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
 
     let context = get_context(&r)?;
     let mut doc_id_to_id = vec![0i32; r.max_doc()? as usize];
-    for _leaf in context.leaves()? {
-      let Some(mut id_values) = MultiDocValues::get_numeric_values(&r, "id")? else {
-        continue;
-      };
-      loop {
-        let doc_id = id_values.next_doc()?;
-        if doc_id == NO_MORE_DOCS {
-          break;
-        }
-        doc_id_to_id[doc_id as usize] = id_values.long_value()? as i32;
+    let mut id_values = MultiDocValues::get_numeric_values(&r, "id")?.unwrap();
+    loop {
+      let doc_id = id_values.next_doc()?;
+      if doc_id == NO_MORE_DOCS {
+        break;
       }
+      doc_id_to_id[doc_id as usize] = id_values.long_value()? as i32;
     }
     let live_docs = get_live_docs(&r)?;
     let mut min_values = vec![0xff; num_index_dims * num_bytes_per_dim];
@@ -1095,7 +1091,7 @@ where
     let doc_id = self.doc_base + doc_id as usize;
     if self
       .live_docs
-      .is_none_or(|bits| bits.get(doc_id).unwrap_or(false))
+      .is_none_or(|bits| bits.get(doc_id).expect(""))
     {
       self.hits.insert(self.doc_id_to_id[doc_id] as usize);
     }
@@ -1104,9 +1100,9 @@ where
 
   fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
     let doc_id = self.doc_base + doc_id as usize;
-    if !self
+    if self
       .live_docs
-      .is_some_and(|bits| bits.get(doc_id).unwrap_or(false))
+      .is_some_and(|bits| !bits.get(doc_id).expect(""))
     {
       return Ok(());
     }

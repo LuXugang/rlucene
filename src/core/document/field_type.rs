@@ -220,11 +220,11 @@ impl FieldType {
     dimension_count: usize,
     dimension_num_bytes: usize,
   ) -> Result<()> {
-    self.set_dimensions_all(dimension_count, dimension_count, dimension_num_bytes)
+    self.set_dimensions_with_index(dimension_count, dimension_count, dimension_num_bytes)
   }
 
   /// Enables points indexing with selectable dimension indexing.
-  pub fn set_dimensions_all(
+  pub fn set_dimensions_with_index(
     &mut self,
     dimension_count: usize,
     index_dimension_count: usize,
@@ -654,7 +654,7 @@ mod tests {
     let dim = random.random_range(1..=max_dims);
     let idx_dim = random.random_range(1..=max_idx_dims.min(dim));
     let num_bytes = random.random_range(1..=max_bytes);
-    ft.set_dimensions_all(dim, idx_dim, num_bytes)?;
+    ft.set_dimensions_with_index(dim, idx_dim, num_bytes)?;
     ft.set_stored(random_value_bool(random))?;
     ft.set_tokenized(random_value_bool(random))?;
     ft.set_store_term_vectors(random_value_bool(random))?;

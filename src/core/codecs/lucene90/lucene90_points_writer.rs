@@ -161,7 +161,7 @@ where
       .ok_or_else(|| LuceneError::illegal_state("PointValues is None"))?
       .get_point_tree()?;
     let config = BKDConfig::new(
-      field_info.get_point_index_dimension_count(),
+      field_info.get_point_dimension_count(),
       field_info.get_point_index_dimension_count(),
       field_info.get_point_num_bytes(),
       self.max_points_in_leaf_node,

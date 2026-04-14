@@ -47,7 +47,7 @@ mod base_points_format_test_case_tests {
   fn test_with_exceptions() -> Result<()> {
     run_case(|case, _random| case.test_with_exceptions())
   }
-  // TODO
+  #[test]
   fn test_multi_valued() -> Result<()> {
     run_case(|case, random| case.test_multi_valued(random))
   }
@@ -57,11 +57,11 @@ mod base_points_format_test_case_tests {
     run_case(|case, random| case.test_all_equal(random))
   }
 
-  // TODO
+  #[test]
   fn test_one_dim_equal() -> Result<()> {
     run_case(|case, random| case.test_one_dim_equal(random))
   }
-  // TODO
+  #[test]
   fn test_one_dim_two_values() -> Result<()> {
     run_case(|case, random| case.test_one_dim_two_values(random))
   }
@@ -70,12 +70,12 @@ mod base_points_format_test_case_tests {
     run_case(|case, random| case.test_big_int_n_dims(random))
   }
 
-  // TODO
+  #[test]
   fn test_random_binary_tiny() -> Result<()> {
     run_case(|case, random| case.test_random_binary_tiny(random))
   }
 
-  // TODO
+  #[test]
   fn test_random_binary_medium() -> Result<()> {
     run_case(|case, random| case.test_random_binary_medium(random))
   }

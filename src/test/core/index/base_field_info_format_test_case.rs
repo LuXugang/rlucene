@@ -317,7 +317,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
       let index_dimension =
         1 + random.random_range(0..std::cmp::min(dimension, MAX_INDEX_DIMENSIONS));
       let dimension_num_bytes = 1 + random.random_range(0..MAX_NUM_BYTES);
-      field_type.set_dimensions_all(dimension, index_dimension, dimension_num_bytes)?;
+      field_type.set_dimensions_with_index(dimension, index_dimension, dimension_num_bytes)?;
     }
 
     if random.random_bool(0.5) && Self::get_vectors_max_dimensions(field_name) > 0 {
