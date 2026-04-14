@@ -20,16 +20,20 @@ use num_traits::{FromPrimitive, ToPrimitive};
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::IndexedRandom;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
-use crate::core::index::BytesRef;
+use crate::core::index::CODEC_FILE_PATTERN;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::multi_terms::{TermsType, get_terms};
 use crate::core::index::postings_enum::{ALL, FREQS, OFFSETS, PAYLOADS, POSITIONS};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::{BytesRef, IndexFileNames};
+use crate::core::store::IOContext;
+use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
 
 pub struct TestUtil;
 const BLOCK_STARTS: &[u32] = &[
@@ -160,8 +164,7 @@ impl TestUtil {
     Self::random_simple_string_range(random, 0, 10)
   }
 
-  #[allow(non_snake_case)]
-  pub fn checkIndex<T>(_dir: T) -> Result<()> {
+  pub fn check_index<T>(_dir: T) -> Result<()> {
     Ok(())
   }
 
@@ -290,7 +293,20 @@ impl TestUtil {
     }
     sb
   }
-
+  pub fn ram_copy_of<R, D>(random: &mut R, dir: &D) -> Result<Arc<DirEnum>>
+  where
+    D: Directory,
+    R: Rng + ?Sized,
+  {
+    // TODO ByteBuffersDirectory 未实现
+    let ram = new_directory_shared(random)?;
+    for file in dir.list_all()? {
+      if file.starts_with(IndexFileNames::SEGMENTS) || CODEC_FILE_PATTERN.is_match(&file) {
+        ram.copy_from(dir, &file, &file, &IOContext::default_io_context()?)?;
+      }
+    }
+    Ok(ram)
+  }
   pub fn randomly_recase_codepoints<R>(random: &mut R, s: &str) -> String
   where
     R: Rng + ?Sized,

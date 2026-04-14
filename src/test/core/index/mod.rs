@@ -33,6 +33,7 @@ pub(crate) mod force_merge_policy;
 pub mod legacy_base_doc_values_format_test_case;
 pub mod random_index_writer;
 pub(crate) mod random_postings_tester;
+mod test_add_indexes;
 mod test_all_file_have_codec_header;
 mod test_binary_terms;
 mod test_consistent_field_numbers;

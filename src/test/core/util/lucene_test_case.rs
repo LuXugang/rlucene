@@ -175,7 +175,32 @@ pub mod lucene_test_case_util {
     // TODO
     TieredMergePolicy::new()
   }
-
+  pub fn new_log_merge_policy_with_merge_factor_cfs<R>(
+    r: &mut R,
+    use_cfs: bool,
+    merge_factor: i32,
+  ) -> Result<MergePolicyEnum>
+  where
+    R: Rng + ?Sized,
+  {
+    let lomp = new_log_merge_policy(r)?;
+    let ratio = if use_cfs { 1.0 } else { 0.0 };
+    match lomp {
+      MergePolicyEnum::LogDoc(mut log_doc) => {
+        log_doc.get_base_mut().set_no_cfs_ratio(ratio)?;
+        log_doc.set_merge_factor(merge_factor as usize)?;
+        Ok(log_doc.into())
+      },
+      MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
+        log_bytes_size.get_base_mut().set_no_cfs_ratio(ratio)?;
+        log_bytes_size.set_merge_factor(merge_factor as usize)?;
+        Ok(log_bytes_size.into())
+      },
+      _ => Err(LuceneError::illegal_argument(
+        "Expected a LogMergePolicyEnum variant",
+      )),
+    }
+  }
   pub fn new_log_merge_policy_with_merge_factor<R>(
     r: &mut R,
     merge_factor: i32,
@@ -208,6 +233,24 @@ pub mod lucene_test_case_util {
       v.into()
     } else {
       let mut v = LogMergePolicy::log_bytes_size();
+      set_meta(r, &mut v)?;
+      v.into()
+    };
+
+    Ok(logmp)
+  }
+  pub fn new_log_merge_policy_with_cfs<R>(r: &mut R, use_cfs: bool) -> Result<MergePolicyEnum>
+  where
+    R: Rng + ?Sized,
+  {
+    let ratio = if use_cfs { 1.0 } else { 0.0 };
+    let logmp = if r.random_bool(0.5) {
+      let mut v = LogMergePolicy::log_doc();
+      v.get_base_mut().set_no_cfs_ratio(ratio)?;
+      v.into()
+    } else {
+      let mut v = LogMergePolicy::log_bytes_size();
+      v.get_base_mut().set_no_cfs_ratio(ratio)?;
       set_meta(r, &mut v)?;
       v.into()
     };

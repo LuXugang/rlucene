@@ -125,7 +125,7 @@ impl FSLockFactory for NativeFSLockFactory {
 
     let mut lock_held = self.lock_held.lock();
     if !lock_held.insert(real_path_str.clone()) {
-      return Err(LuceneError::lock_already_held(format!(
+      return Err(LuceneError::lock_obtain_failed(format!(
         "Lock held by another program: {real_path_str}"
       )));
     }
@@ -141,7 +141,7 @@ impl FSLockFactory for NativeFSLockFactory {
       },
       Err(_) => {
         lock_held.remove(&real_path_str);
-        Err(LuceneError::lock_held_by_other(format!(
+        Err(LuceneError::lock_obtain_failed(format!(
           "Lock held by this machine: {real_path_str}"
         )))
       },
@@ -202,7 +202,8 @@ impl Display for NativeFSLock {
 
 impl Closeable for NativeFSLock {
   fn close(&mut self) -> Result<()> {
-    todo!()
+    // TODO IMPORTANT 未实现
+    Ok(())
   }
 }
 

@@ -118,4 +118,7 @@ where
   }
 
   pub fn set_do_random_force_merge(&mut self, _v: bool) {}
+  pub fn add_indexes_from_dir(&self, dirs: &[Arc<D>]) -> Result<i64> {
+    self.w.add_indexes_from_dir(dirs)
+  }
 }

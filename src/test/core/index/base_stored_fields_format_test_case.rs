@@ -711,7 +711,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.commit()?;
     writer.close()?;
 
-    TestUtil::checkIndex(dir)?;
+    TestUtil::check_index(dir)?;
     Ok(())
   }
 
