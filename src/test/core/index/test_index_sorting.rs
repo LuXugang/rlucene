@@ -50,12 +50,16 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::MissingValueEnum::{StringFirst, StringLast};
 use crate::core::search::sort_field::{SortField, SortFieldType, SortFiledBase};
+use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
 use crate::core::search::sorted_set_sort_field::SortedSetSortField;
 use crate::core::search::term_query::TermQuery;
+use crate::core::search::top_docs::TopDocsLike;
+use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -65,13 +69,14 @@ use crate::core::util::numeric_utils::NumericUtils;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, at_least_usize, get_only_leaf_reader, new_directory_shared, new_index_writer_config,
+  at_least, at_least_usize, create_temp_dir, get_only_leaf_reader, new_bytes_ref_from_string,
+  new_directory_shared, new_fs_directory, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
   new_text_field, random, rarely,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -2450,9 +2455,291 @@ fn test_random2() -> Result<()> {
   //TODO  PositionsTokenStream 未实现
   Ok(())
 }
+
+fn random_index_sort_field<R: Rng + ?Sized>(random: &mut R) -> Result<SortFieldEnum> {
+  let reversed = random.random::<bool>();
+  let sort_field = match random.random_range(0..10) {
+    0 => {
+      let mut s = SortField::with_reverse(Some("int"), SortFieldType::Int, reversed)?;
+      if random.random_bool(0.5) {
+        s.set_missing_value(random.random::<i32>())?;
+      }
+      SortFieldEnum::from(s)
+    },
+    1 => {
+      let mut s =
+        SortedNumericSortField::with_reverse("multi_valued_int", SortFieldType::Int, reversed)?;
+      if random.random_bool(0.5) {
+        s.set_missing_value(random.random::<i32>())?;
+      }
+      SortFieldEnum::from(s)
+    },
+    2 => {
+      let mut s = SortField::with_reverse(Some("long"), SortFieldType::Long, reversed)?;
+      if random.random_bool(0.5) {
+        s.set_missing_value(random.random::<i64>())?;
+      }
+      SortFieldEnum::from(s)
+    },
+    3 => {
+      let mut s =
+        SortedNumericSortField::with_reverse("multi_valued_long", SortFieldType::Long, reversed)?;
+      if random.random_bool(0.5) {
+        s.set_missing_value(random.random::<i64>())?;
+      }
+      SortFieldEnum::from(s)
+    },
+    4 => {
+      let mut s = SortField::with_reverse(Some("float"), SortFieldType::Float, reversed)?;
+      if random.random_bool(0.5) {
+        s.set_missing_value(random.random::<f32>())?;
+      }
+      SortFieldEnum::from(s)
+    },
+    5 => {
+      let mut s =
+        SortedNumericSortField::with_reverse("multi_valued_float", SortFieldType::Float, reversed)?;
+      if random.random_bool(0.5) {
+        s.set_missing_value(random.random::<f32>())?;
+      }
+      SortFieldEnum::from(s)
+    },
+    6 => {
+      let mut s = SortField::with_reverse(Some("double"), SortFieldType::Double, reversed)?;
+      if random.random_bool(0.5) {
+        s.set_missing_value(random.random::<f64>())?;
+      }
+      SortFieldEnum::from(s)
+    },
+    7 => {
+      let mut s = SortedNumericSortField::with_reverse(
+        "multi_valued_double",
+        SortFieldType::Double,
+        reversed,
+      )?;
+      if random.random_bool(0.5) {
+        s.set_missing_value(random.random::<f64>())?;
+      }
+      SortFieldEnum::from(s)
+    },
+    8 => {
+      let mut s = SortField::with_reverse(Some("bytes"), SortFieldType::String, reversed)?;
+      if random.random_bool(0.5) {
+        s.set_missing_value(StringLast)?;
+      }
+      SortFieldEnum::from(s)
+    },
+    9 => {
+      let mut s = SortedSetSortField::new("multi_valued_bytes", reversed)?;
+      if random.random_bool(0.5) {
+        s.set_missing_value(StringLast)?;
+      }
+      SortFieldEnum::from(s)
+    },
+    _ => unreachable!("random_range(0..10) should only produce values in [0, 10)"),
+  };
+  Ok(sort_field)
+}
+
+fn random_sort<R: Rng + ?Sized>(random: &mut R) -> Result<Sort> {
+  let num_fields = random.random_range(2..=4);
+  let mut sort_fields = Vec::with_capacity(num_fields);
+  for _ in 0..(num_fields - 1) {
+    sort_fields.push(random_index_sort_field(random)?);
+  }
+
+  sort_fields.push(SortField::new(Some("id"), SortFieldType::Int)?.into());
+  Sort::with_fields(sort_fields)
+}
+
+#[derive(Clone)]
+struct RandomDoc {
+  id: i32,
+  int_value: i32,
+  int_values: Vec<i32>,
+  long_value: i64,
+  long_values: Vec<i64>,
+  float_value: f32,
+  float_values: Vec<f32>,
+  double_value: f64,
+  double_values: Vec<f64>,
+  bytes_value: String,
+  bytes_values: Vec<String>,
+}
+
+impl RandomDoc {
+  fn new<R: Rng + ?Sized>(random: &mut R, id: i32) -> Self {
+    let num_values = random.random_range(0..10);
+
+    let mut int_values = Vec::with_capacity(num_values);
+    let mut long_values = Vec::with_capacity(num_values);
+    let mut float_values = Vec::with_capacity(num_values);
+    let mut double_values = Vec::with_capacity(num_values);
+    let mut bytes_values = Vec::with_capacity(num_values);
+
+    for _ in 0..num_values {
+      int_values.push(random.random::<i32>());
+      long_values.push(random.random::<i64>());
+      float_values.push(random.random::<f32>());
+      double_values.push(random.random::<f64>());
+      bytes_values.push(TestUtil::random_simple_string_range(random, 0, 10));
+    }
+
+    Self {
+      id,
+      int_value: random.random::<i32>(),
+      int_values,
+      long_value: random.random::<i64>(),
+      long_values,
+      float_value: random.random::<f32>(),
+      float_values,
+      double_value: random.random::<f64>(),
+      double_values,
+      bytes_value: TestUtil::random_simple_string_range(random, 0, 10),
+      bytes_values,
+    }
+  }
+
+  fn into_document<R>(self, random: &mut R) -> Result<Document>
+  where
+    R: Rng + ?Sized,
+  {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string(
+      "id",
+      self.id.to_string(),
+      Store::Yes,
+    )?);
+    doc.add(NumericDocValuesField::new("id", self.id as i64));
+    doc.add(NumericDocValuesField::new("int", self.int_value as i64));
+    doc.add(NumericDocValuesField::new("long", self.long_value));
+    doc.add(DoubleDocValuesField::new("double", self.double_value));
+    doc.add(FloatDocValuesField::new("float", self.float_value));
+    doc.add(SortedDocValuesField::new(
+      "bytes",
+      new_bytes_ref_from_string(random, &self.bytes_value)?,
+    ));
+
+    for value in self.int_values {
+      doc.add(SortedNumericDocValuesField::new(
+        "multi_valued_int",
+        value as i64,
+      ));
+    }
+
+    for value in self.long_values {
+      doc.add(SortedNumericDocValuesField::new("multi_valued_long", value));
+    }
+
+    for value in self.float_values {
+      doc.add(SortedNumericDocValuesField::new(
+        "multi_valued_float",
+        NumericUtils::float_to_sortable_int(value) as i64,
+      ));
+    }
+
+    for value in self.double_values {
+      doc.add(SortedNumericDocValuesField::new(
+        "multi_valued_double",
+        NumericUtils::double_to_sortable_long(value),
+      ));
+    }
+
+    for value in self.bytes_values {
+      doc.add(SortedSetDocValuesField::new(
+        "multi_valued_bytes",
+        BytesRef::from_string(&value),
+      ));
+    }
+    Ok(doc)
+  }
+}
+// #[test]
+// fn test() -> Result<()> {
+//   for i in 0..100 {
+//     test_random3()?;
+//   }
+//   Ok(())
+// }
+
 #[test]
 fn test_random3() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let num_docs = at_least(&mut random, 1000);
+
+  let sort = Arc::new(random_sort(&mut random)?);
+
+  let dir1 = new_fs_directory(&mut random, create_temp_dir()?)?;
+  let analyzer1 = MockAnalyzer::new(&mut random);
+  let iwc1 = new_index_writer_config_with_analyzer(&mut random, analyzer1);
+  let w1 = IndexWriter::new(dir1.clone(), iwc1)?;
+
+  let dir2 = new_fs_directory(&mut random, create_temp_dir()?)?;
+  let analyzer2 = MockAnalyzer::new(&mut random);
+  let mut iwc2 = new_index_writer_config_with_analyzer(&mut random, analyzer2);
+  iwc2.set_index_sort(sort.clone())?;
+  let w2 = IndexWriter::new(dir2.clone(), iwc2)?;
+
+  let mut to_delete = HashSet::new();
+  let delete_chance = random.random::<f64>();
+
+  for id in 0..num_docs {
+    let random_doc = RandomDoc::new(&mut random, id);
+    let doc1 = random_doc.clone().into_document(&mut random)?;
+    let doc2 = random_doc.into_document(&mut random)?;
+
+    w1.add_document(doc1)?;
+    w2.add_document(doc2)?;
+
+    if random.random::<f64>() < delete_chance {
+      to_delete.insert(id);
+    }
+  }
+
+  for id in to_delete {
+    w1.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+    w2.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+  }
+
+  let r1 = Arc::new(directory_reader_util::open_from_writer(&w1)?);
+  let s1 = new_searcher_with_reader(r1.clone())?;
+
+  if random.random::<bool>() {
+    let max_segment_count = TestUtil::next_int(&mut random, 1, 5);
+    w2.force_merge(max_segment_count)?;
+  }
+
+  let r2 = Arc::new(directory_reader_util::open_from_writer(&w2)?);
+  let s2 = new_searcher_with_reader(r2.clone())?;
+
+  for _ in 0..100 {
+    let num_hits = TestUtil::next_int(&mut random, 1, num_docs) as usize;
+
+    let collector_manager1 =
+      TopFieldCollectorManager::new(sort.clone(), num_hits, i32::MAX as usize)?;
+    let hits1 = s1.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager1)?;
+
+    let collector_manager2 = TopFieldCollectorManager::new(sort.clone(), num_hits, 1)?;
+    let hits2 = s2.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager2)?;
+
+    assert_eq!(hits2.score_docs().len(), hits1.score_docs().len());
+
+    let mut stored_fields1 = r1.stored_fields()?;
+    let mut stored_fields2 = r2.stored_fields()?;
+
+    for i in 0..hits2.score_docs().len() {
+      let hit1 = &hits1.score_docs()[i];
+      let hit2 = &hits2.score_docs()[i];
+
+      let doc1 = stored_fields1.document(hit1.doc())?;
+      let doc2 = stored_fields2.document(hit2.doc())?;
+
+      assert_eq!(doc1.get("id")?.as_deref(), doc2.get("id")?.as_deref());
+      assert_eq!(hit1.fields()?, hit2.fields()?);
+    }
+  }
+  w1.close()?;
+  w2.close()?;
   Ok(())
 }
 #[test]

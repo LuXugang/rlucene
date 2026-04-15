@@ -423,25 +423,29 @@ where
   LR: LeafReader,
 {
   type FieldComparator = TermOrdValComparator;
-  fn set_bottom(&mut self, bottom: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
-    comparator.bottom_slot = bottom as i32;
-    comparator.bottom_value = Some(bottom);
+  fn set_bottom(
+    &mut self,
+    bottom_slot: usize,
+    comparator: &mut Self::FieldComparator,
+  ) -> Result<()> {
+    comparator.bottom_slot = bottom_slot as i32;
+    comparator.bottom_value = Some(bottom_slot);
 
-    if comparator.current_reader_gen == comparator.reader_gen[bottom] {
-      self.bottom_ord = comparator.ords[bottom];
+    if comparator.current_reader_gen == comparator.reader_gen[bottom_slot] {
+      self.bottom_ord = comparator.ords[bottom_slot];
       self.bottom_same_reader = true;
     } else {
-      let has_value = comparator.values[bottom].is_some();
+      let has_value = comparator.values[bottom_slot].is_some();
       match has_value {
         false => {
           // missingOrd is null for all segments
-          debug_assert!(comparator.ords[bottom] == self.missing_ord);
+          debug_assert!(comparator.ords[bottom_slot] == self.missing_ord);
           self.bottom_ord = self.missing_ord;
           self.bottom_same_reader = true;
-          comparator.reader_gen[bottom] = comparator.current_reader_gen;
+          comparator.reader_gen[bottom_slot] = comparator.current_reader_gen;
         },
         true => {
-          let target = match comparator.values[bottom].as_ref() {
+          let target = match comparator.values[bottom_slot].as_ref() {
             None => {
               return Err(LuceneError::illegal_state(
                 "bottomValue is None but ords[bottomSlot] is not missingOrd",
@@ -456,8 +460,8 @@ where
           } else {
             self.bottom_ord = ord;
             self.bottom_same_reader = true;
-            comparator.reader_gen[bottom] = comparator.current_reader_gen;
-            comparator.ords[bottom] = self.bottom_ord;
+            comparator.reader_gen[bottom_slot] = comparator.current_reader_gen;
+            comparator.ords[bottom_slot] = self.bottom_ord;
           }
         },
       }
@@ -667,8 +671,6 @@ where
         }
         disjunction.add(v)?;
       }
-    } else {
-      self.init(doc_values, min_ord, max_ord)?;
     }
 
     Ok(())
