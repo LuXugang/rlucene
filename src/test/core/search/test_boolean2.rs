@@ -30,6 +30,7 @@ use crate::core::search::query::Query;
 use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
 use crate::core::search::sort::Sort;
 use crate::core::search::term_query::TermQuery;
+use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::store::IOContext;
@@ -473,10 +474,14 @@ fn test_random_queries() -> Result<()> {
       ctx.searcher.set_similarity(baseline_similarity);
       random_check_result?;
 
+      let cm = TopFieldCollectorManager::new(sort.clone(), 1000, 1)?;
       let hits1 = ctx
         .searcher
-        .search_with_sort(query.clone(), 1000, sort.clone())?;
-      let top_docs = ctx.searcher.search_with_sort(query.clone(), 1000, sort)?;
+        .search_with_collector_manager(query.clone(), &cm)?;
+      let cm = TopFieldCollectorManager::new(sort.clone(), 1000, 1)?;
+      let top_docs = ctx
+        .searcher
+        .search_with_collector_manager(query.clone(), &cm)?;
       let hits2 = top_docs.base.score_docs.clone();
       CheckHits::check_equal(&query, &hits1.base.score_docs, &hits2)?;
 
@@ -491,16 +496,14 @@ fn test_random_queries() -> Result<()> {
         ctx.big_searcher.count(q3.build())? as usize
       );
 
-      let hits1 = ctx.big_searcher.search_with_sort(
-        query.clone(),
-        ctx.mul_factor as usize,
-        Sort::get_index_order()?,
-      )?;
-      let hits2 = ctx.big_searcher.search_with_sort(
-        query.clone(),
-        ctx.mul_factor as usize,
-        Sort::get_index_order()?,
-      )?;
+      let cm = TopFieldCollectorManager::new(sort.clone(), ctx.mul_factor as usize, 1)?;
+      let hits1 = ctx
+        .big_searcher
+        .search_with_collector_manager(query.clone(), &cm)?;
+      let cm = TopFieldCollectorManager::new(sort.clone(), ctx.mul_factor as usize, 1)?;
+      let hits2 = ctx
+        .big_searcher
+        .search_with_collector_manager(query.clone(), &cm)?;
       CheckHits::check_equal(&query, &hits1.base.score_docs, &hits2.base.score_docs)?;
     }
     Ok(())
