@@ -25,8 +25,10 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::boolean_scorer::SIZE;
 use crate::core::search::phrase_query::PhraseQuery;
+use crate::core::search::prefix_query::PrefixQuery;
 use crate::core::search::query::Query;
 use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+use crate::core::search::sort::Sort;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::search::wildcard_query::WildcardQuery;
@@ -37,6 +39,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::check_hits::CheckHits;
+use crate::test::core::search::query_utils::QueryUtils;
 use crate::test::core::search::test_boolean_min_should_match::Callback;
 use crate::test::core::util::DefaultIndexSearchCR;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
@@ -44,6 +47,8 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader, random,
 };
 use crate::test::core::util::test_util::TestUtil;
+use rand::SeedableRng;
+use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -65,6 +70,15 @@ pub struct TestBoolean2Context {
   pub mul_factor: i32,
   pub pre_filler_docs: usize,
   pub num_filler_docs: usize,
+}
+struct NoCallback;
+impl Callback for NoCallback {
+  fn post_create<R>(&self, _random: &mut R, _q: &mut Builder) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(())
+  }
 }
 fn set_up<R>(random: &mut R) -> Result<TestBoolean2Context>
 where
@@ -420,6 +434,88 @@ fn test_queries09() -> Result<()> {
   queries_test(&mut random, &ctx, query.build().into(), &exp_doc_nrs)?;
   Ok(())
 }
+
+#[test]
+fn test_random_queries() -> Result<()> {
+  let mut random = random();
+  let mut ctx = set_up(&mut random)?;
+  let vals: Vec<String> = ["w1", "w2", "w3", "w4", "w5", "xx", "yy", "zzz"]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
+  let mut q1: Option<Query> = None;
+
+  let result = (|| -> Result<()> {
+    let num = at_least_usize(&mut random, 3);
+    for _ in 0..num {
+      let level = random.random_range(0..3) as i32;
+      let mut nested_random = StdRng::seed_from_u64(random.random::<u64>());
+      let built = rand_bool_query(
+        &mut nested_random,
+        random.random_bool(0.5),
+        level,
+        FIELD,
+        &vals,
+        None::<&NoCallback>,
+      )?
+      .build();
+      let query: Query = built.into();
+      q1 = Some(query.clone());
+
+      let sort = Sort::get_index_order()?;
+
+      QueryUtils::check_from_searcher(&mut random, query.clone(), &ctx.searcher)?;
+      let baseline_similarity = ClassicSimilarity::new();
+      let random_similarity = ctx.big_searcher.get_similarity();
+      ctx.searcher.set_similarity(random_similarity);
+      let random_check_result =
+        QueryUtils::check_from_searcher(&mut random, query.clone(), &ctx.searcher);
+      ctx.searcher.set_similarity(baseline_similarity);
+      random_check_result?;
+
+      let hits1 = ctx
+        .searcher
+        .search_with_sort(query.clone(), 1000, sort.clone())?;
+      let top_docs = ctx.searcher.search_with_sort(query.clone(), 1000, sort)?;
+      let hits2 = top_docs.base.score_docs.clone();
+      CheckHits::check_equal(&query, &hits1.base.score_docs, &hits2)?;
+
+      let mut q3 = Builder::new();
+      q3.add(query.clone(), Occur::Should)?;
+      q3.add(
+        PrefixQuery::new(Term::from_text("field2", "b"))?,
+        Occur::Should,
+      )?;
+      assert_eq!(
+        ctx.mul_factor as usize * top_docs.base.total_hits.value() + NUM_EXTRA_DOCS / 2,
+        ctx.big_searcher.count(q3.build())? as usize
+      );
+
+      let hits1 = ctx.big_searcher.search_with_sort(
+        query.clone(),
+        ctx.mul_factor as usize,
+        Sort::get_index_order()?,
+      )?;
+      let hits2 = ctx.big_searcher.search_with_sort(
+        query.clone(),
+        ctx.mul_factor as usize,
+        Sort::get_index_order()?,
+      )?;
+      CheckHits::check_equal(&query, &hits1.base.score_docs, &hits2.base.score_docs)?;
+    }
+    Ok(())
+  })();
+
+  if let Err(e) = result {
+    if let Some(query) = q1 {
+      println!("failed query: {:?}", query);
+    }
+    return Err(e);
+  }
+
+  Ok(())
+}
+
 pub(crate) fn rand_bool_query<R, C>(
   rnd: &mut R,
   allow_must: bool,
