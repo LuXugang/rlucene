@@ -108,7 +108,7 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
   }
 
   fn get_soft_deletes_field(&self) -> Option<&String> {
-    self.base.parent_field.as_ref()
+    self.base.soft_deletes_field.as_ref()
   }
 
   fn get_info_stream(&self) -> InfoStreamMT {

@@ -705,7 +705,7 @@ where
       for field in &document {
         let field_type = field.field_type();
         let is_reserved = field.is_reserved();
-        let pf_idx = self.get_or_add_per_field(field.name(), false);
+        let pf_idx = self.get_or_add_per_field(field.name(), is_reserved);
         {
           let pf = &mut self.per_fields[pf_idx];
 
