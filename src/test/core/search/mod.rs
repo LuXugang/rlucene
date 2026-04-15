@@ -24,6 +24,7 @@ pub mod query_utils;
 pub mod random_approximation_query;
 pub mod similarities;
 mod test_base_range_filter;
+mod test_block_max_conjunction;
 pub(crate) mod test_boolean2;
 pub(crate) mod test_boolean_min_should_match;
 mod test_boolean_or;
