@@ -422,7 +422,10 @@ where
     for (idx, _) in &self.has_tpi_idx {
       match self.approx.scorers[*idx].two_phase_iterator_mut() {
         Some(ref mut tpi) => {
-          debug_assert!(tpi.approximation().doc_id() == doc);
+          #[cfg(debug_assertions)]
+          {
+            debug_assert!(tpi.approximation().doc_id() == doc);
+          }
           if !tpi.matches()? {
             return Ok(false);
           }

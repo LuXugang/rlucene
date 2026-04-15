@@ -698,6 +698,7 @@ where
           let mut terms_enum = terms.iterator()?;
           if self.sorted_terms {
             // need to reset otherwise we fail the assertSorted below since we sort per field
+            #[cfg(debug_assertions)]
             debug_assert!(self.last_term.is_none());
             self.reader_term = Option::from(terms_enum.next()?.unwrap().into_owned());
           }

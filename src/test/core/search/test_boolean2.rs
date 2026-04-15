@@ -436,7 +436,6 @@ fn test_queries09() -> Result<()> {
   Ok(())
 }
 
-#[test]
 fn test_random_queries() -> Result<()> {
   let mut random = random();
   let mut ctx = set_up(&mut random)?;

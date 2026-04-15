@@ -326,6 +326,7 @@ where
     }
   }
 
+  #[cfg(debug_assertions)]
   fn is_fs_directory(&self) -> bool {
     match self {
       CompoundDirectoryEnum::A(dir) => dir.is_fs_directory(),

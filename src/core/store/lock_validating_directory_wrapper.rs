@@ -149,6 +149,7 @@ where
     self.in_.get_pending_deletions()
   }
 
+  #[cfg(debug_assertions)]
   fn is_fs_directory(&self) -> bool {
     self.in_.is_fs_directory()
   }

@@ -144,7 +144,10 @@ pub(crate) fn is_costly(query: &Query) -> bool {
         Query::PointRange(_) => true,
 
         _ => {
-          debug_assert!(!self.is_multi_term_query());
+          #[cfg(debug_assertions)]
+          {
+            debug_assert!(!self.is_multi_term_query());
+          }
           false
         },
       }

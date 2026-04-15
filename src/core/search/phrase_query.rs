@@ -555,10 +555,13 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
 
       let state = match state {
         None => {
-          debug_assert!(
-            Self::term_not_in_reader(reader, t)?,
-            "no termstate found but term exists in reader"
-          );
+          #[cfg(debug_assertions)]
+          {
+            debug_assert!(
+              Self::term_not_in_reader(reader, t)?,
+              "no termstate found but term exists in reader"
+            );
+          }
           return Ok(None);
         },
         Some(s) => s,
