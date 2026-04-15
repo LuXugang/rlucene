@@ -291,7 +291,7 @@ where
   CheckHits::check_equal(&query, &hits1, &hits2)?;
   Ok(())
 }
-// #[test]
+#[test]
 fn test_queries01() -> Result<()> {
   let mut random = random();
   let ctx = set_up(&mut random)?;
@@ -304,7 +304,7 @@ fn test_queries01() -> Result<()> {
   queries_test(&mut random, &ctx, query.build().into(), &exp_doc_nrs)?;
   Ok(())
 }
-// #[test]
+#[test]
 fn test_queries02() -> Result<()> {
   let mut random = random();
   let ctx = set_up(&mut random)?;
@@ -318,7 +318,7 @@ fn test_queries02() -> Result<()> {
   Ok(())
 }
 
-// #[test]
+#[test]
 fn test_queries03() -> Result<()> {
   let mut random = random();
   let ctx = set_up(&mut random)?;
@@ -332,7 +332,7 @@ fn test_queries03() -> Result<()> {
   Ok(())
 }
 
-// #[test]
+#[test]
 fn test_queries04() -> Result<()> {
   let mut random = random();
   let ctx = set_up(&mut random)?;
@@ -346,7 +346,7 @@ fn test_queries04() -> Result<()> {
   Ok(())
 }
 
-// #[test]
+#[test]
 fn test_queries05() -> Result<()> {
   let mut random = random();
   let ctx = set_up(&mut random)?;
@@ -360,7 +360,7 @@ fn test_queries05() -> Result<()> {
   Ok(())
 }
 
-// #[test]
+#[test]
 fn test_queries06() -> Result<()> {
   let mut random = random();
   let ctx = set_up(&mut random)?;
@@ -375,7 +375,7 @@ fn test_queries06() -> Result<()> {
   Ok(())
 }
 
-// #[test]
+#[test]
 fn test_queries07() -> Result<()> {
   let mut random = random();
   let ctx = set_up(&mut random)?;
@@ -390,7 +390,7 @@ fn test_queries07() -> Result<()> {
   Ok(())
 }
 
-// #[test]
+#[test]
 fn test_queries08() -> Result<()> {
   let mut random = random();
   let ctx = set_up(&mut random)?;
@@ -405,7 +405,7 @@ fn test_queries08() -> Result<()> {
   Ok(())
 }
 
-// #[test]
+#[test]
 fn test_queries09() -> Result<()> {
   let mut random = random();
   let ctx = set_up(&mut random)?;
