@@ -414,7 +414,7 @@ pub trait BaseMergePolicyTestCase {
       let mut total_max_doc = 0i32;
 
       for i in 0..segment_infos.size() {
-        let sci = segment_infos.info_idx(i).unwrap();
+        let sci = segment_infos.info(i).unwrap();
         total_del_count += sci.get_del_count();
         total_max_doc += sci.info.max_doc()?;
       }
@@ -591,7 +591,7 @@ where
   let mut new_size_mb = 0f64;
 
   for id in &merge.stat.segments {
-    let sci = infos.info(id).unwrap();
+    let sci = infos.index_of(id).unwrap();
     let max_doc = sci.info.max_doc()?;
     let num_live_docs = max_doc - sci.get_del_count();
 
@@ -613,15 +613,15 @@ where
     SOURCE_MERGE,
   )?;
 
-  let merged_away: HashSet<_> = merge.stat.segments.iter().collect();
+  let merged_away: HashSet<_> = merge.stat.segments.iter().cloned().collect();
 
   let mut merged_segment_added = false;
   let mut new_infos = SegmentInfos::new(LATEST.major)?;
 
   for i in 0..infos.size() {
-    let info = infos.info_idx(i).unwrap();
+    let info = infos.info(i).unwrap();
 
-    if merged_away.contains(&info.info.get_id_str()) {
+    if merged_away.contains(info.info.get_id_key()) {
       if !merged_segment_added {
         new_infos.add(merged_info.clone())?;
         merged_segment_added = true;
@@ -645,7 +645,7 @@ where
   let mut total_num_docs = 0i32;
 
   for i in 0..infos.size() {
-    let sci = infos.info_idx(i).unwrap();
+    let sci = infos.info(i).unwrap();
     total_num_docs += sci.info.max_doc()? - sci.get_del_count();
   }
 
@@ -660,7 +660,7 @@ where
   for i in 0..infos.size() {
     debug_assert!(num_deletes >= 0);
 
-    let sci = infos.info_idx(i).unwrap();
+    let sci = infos.info(i).unwrap();
     let live_docs = sci.info.max_doc()? - sci.get_del_count();
 
     let seg_deletes = if i == infos.size() - 1 {

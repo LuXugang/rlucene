@@ -185,7 +185,7 @@ impl BufferedUpdatesStream {
     {
       let writer_inner = writer.inner.lock();
       for info in merge_infos_id {
-        let info = writer_inner.segment_infos.info(info).ok_or_else(|| {
+        let info = writer_inner.segment_infos.index_of(info).ok_or_else(|| {
           LuceneError::illegal_argument(
             "could not find merge's segment from IndexWriter's segment_infos",
           )

@@ -83,8 +83,8 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
       let sis = SegmentInfos::read_latest_commit(dir.clone())?;
       assert_eq!(2, sis.size());
 
-      let fis1 = read_field_infos(sis.info_idx(0).unwrap())?;
-      let fis2 = read_field_infos(sis.info_idx(1).unwrap())?;
+      let fis1 = read_field_infos(sis.info(0).unwrap())?;
+      let fis2 = read_field_infos(sis.info(1).unwrap())?;
 
       assert_eq!("f1", fis1.field_info_by_number(0)?.unwrap().name);
       assert_eq!("f2", fis1.field_info_by_number(1)?.unwrap().name);
@@ -101,7 +101,7 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
     let sis = SegmentInfos::read_latest_commit(dir.clone())?;
     assert_eq!(1, sis.size());
 
-    let fis3 = read_field_infos(sis.info_idx(0).unwrap())?;
+    let fis3 = read_field_infos(sis.info(0).unwrap())?;
 
     assert_eq!("f1", fis3.field_info_by_number(0)?.unwrap().name);
     assert_eq!("f2", fis3.field_info_by_number(1)?.unwrap().name);
@@ -155,8 +155,8 @@ fn test_add_indexes() -> Result<()> {
   let sis = SegmentInfos::read_latest_commit(dir1.clone())?;
   assert_eq!(2, sis.size());
 
-  let fis1 = read_field_infos(sis.info_idx(0).as_ref().unwrap())?;
-  let fis2 = read_field_infos(sis.info_idx(1).as_ref().unwrap())?;
+  let fis1 = read_field_infos(sis.info(0).as_ref().unwrap())?;
+  let fis2 = read_field_infos(sis.info(1).as_ref().unwrap())?;
 
   assert_eq!("f1", fis1.field_info_by_number(0)?.unwrap().name);
   assert_eq!("f2", fis1.field_info_by_number(1)?.unwrap().name);
@@ -190,7 +190,7 @@ fn test_field_number_gaps() -> Result<()> {
 
       let sis = SegmentInfos::read_latest_commit(dir.clone())?;
       assert_eq!(1, sis.size());
-      let fis1 = read_field_infos(sis.info_idx(0).unwrap())?;
+      let fis1 = read_field_infos(sis.info(0).unwrap())?;
       assert_eq!("f1", fis1.field_info_by_number(0)?.unwrap().name);
       assert_eq!("f2", fis1.field_info_by_number(1)?.unwrap().name);
     }
@@ -206,8 +206,8 @@ fn test_field_number_gaps() -> Result<()> {
 
       let sis = SegmentInfos::read_latest_commit(dir.clone())?;
       assert_eq!(2, sis.size());
-      let fis1 = read_field_infos(sis.info_idx(0).unwrap())?;
-      let fis2 = read_field_infos(sis.info_idx(1).unwrap())?;
+      let fis1 = read_field_infos(sis.info(0).unwrap())?;
+      let fis2 = read_field_infos(sis.info(1).unwrap())?;
       assert_eq!("f1", fis1.field_info_by_number(0)?.unwrap().name);
       assert_eq!("f2", fis1.field_info_by_number(1)?.unwrap().name);
       assert_eq!("f1", fis2.field_info_by_number(0)?.unwrap().name);
@@ -227,9 +227,9 @@ fn test_field_number_gaps() -> Result<()> {
 
       let sis = SegmentInfos::read_latest_commit(dir.clone())?;
       assert_eq!(3, sis.size());
-      let fis1 = read_field_infos(sis.info_idx(0).unwrap())?;
-      let fis2 = read_field_infos(sis.info_idx(1).unwrap())?;
-      let fis3 = read_field_infos(sis.info_idx(2).unwrap())?;
+      let fis1 = read_field_infos(sis.info(0).unwrap())?;
+      let fis2 = read_field_infos(sis.info(1).unwrap())?;
+      let fis3 = read_field_infos(sis.info(2).unwrap())?;
       assert_eq!("f1", fis1.field_info_by_number(0)?.unwrap().name);
       assert_eq!("f2", fis1.field_info_by_number(1)?.unwrap().name);
       assert_eq!("f1", fis2.field_info_by_number(0)?.unwrap().name);

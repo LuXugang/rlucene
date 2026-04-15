@@ -824,9 +824,8 @@ mod tests {
 
       let index_dirs = vec![TestUtil::ram_copy_of(&mut random, dir.as_ref())?];
       writer.add_indexes_from_dir(&index_dirs)?;
-      // TODO IMPORTANT 这个 bug 非常严重
-      // writer.force_merge(1)?;
-      // writer.close()?;
+      writer.force_merge(1)?;
+      writer.close()?;
     }
 
     Ok(())

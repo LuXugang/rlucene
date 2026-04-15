@@ -862,7 +862,7 @@ impl MergePolicy for TieredMergePolicy {
             || self.has_merged(
               infos,
               infos
-                .info(info_zero)
+                .index_of(info_zero)
                 .ok_or_else(|| LuceneError::illegal_argument("Missing numeric value"))?,
               merge_context,
             )?)
@@ -1043,7 +1043,7 @@ impl SegmentSizeAndDocs {
   {
     let max_doc = info.info.max_doc()?;
     Ok(Self {
-      seg_info: info.info.get_id_str(),
+      seg_info: info.info.get_id_key().to_string(),
       name: info.info.name.clone(),
       size_in_bytes,
       size_in_seg: info.size_in_bytes()?,
@@ -1276,7 +1276,7 @@ mod tests {
         let infos = w.clone_segment_infos()?;
 
         for i in 0..infos.size() {
-          let info = infos.info_idx(i).unwrap();
+          let info = infos.info(i).unwrap();
           assert!(
             max125_pct >= info.size_in_bytes()?,
             "No segment should be more than 125% of max segment size"
@@ -1476,8 +1476,8 @@ mod tests {
     let infos = w.clone_segment_infos()?;
     assert_eq!(2, infos.size());
 
-    let info0 = infos.info_idx(0).unwrap();
-    let info1 = infos.info_idx(1).unwrap();
+    let info0 = infos.info(0).unwrap();
+    let info1 = infos.info(1).unwrap();
     let large_seg_doc_count = std::cmp::max(info0.info.max_doc()?, info1.info.max_doc()?);
     let small_seg_doc_count = std::cmp::min(info0.info.max_doc()?, info1.info.max_doc()?);
 
@@ -1522,7 +1522,7 @@ mod tests {
     for merge in &specification.merges {
       let mut merge_total_size_in_bytes = 0i64;
       for segment_id in &merge.stat.segments {
-        let segment = infos.info(segment_id).unwrap();
+        let segment = infos.index_of(segment_id).unwrap();
         merge_total_size_in_bytes += segment.size_in_bytes()?;
       }
 
@@ -1684,8 +1684,8 @@ mod tests {
     }
 
     let mut merge_context = MockMergeContext::new(|s| Ok(s.get_del_count()));
-    let merging = infos.info_idx(0).unwrap();
-    merge_context.set_merging_segments(HashSet::from([merging.info.get_id_str()]));
+    let merging = infos.info(0).unwrap();
+    merge_context.set_merging_segments(HashSet::from([merging.info.get_id_key().to_string()]));
 
     let expected_count = random.random_range(0..10) + 3;
 
@@ -1707,8 +1707,8 @@ mod tests {
   {
     let mut segments_to_merge = HashMap::new();
     for i in 0..infos.size() {
-      let info = infos.info_idx(i).unwrap();
-      segments_to_merge.insert(info.info.get_id_str(), Some(true));
+      let info = infos.info(i).unwrap();
+      segments_to_merge.insert(info.info.get_id_key().to_string(), Some(true));
     }
     segments_to_merge
   }
@@ -1796,7 +1796,7 @@ mod tests {
     let infos = w.clone_segment_infos()?;
     let mut names = Vec::with_capacity(infos.size());
     for i in 0..infos.size() {
-      let info = infos.info_idx(i).unwrap();
+      let info = infos.info(i).unwrap();
       names.push(info.info.name.clone());
     }
     Ok(names)
@@ -1880,7 +1880,7 @@ mod tests {
     D: Directory,
   {
     for i in 0..infos.size() {
-      let info = infos.info_idx(i).unwrap();
+      let info = infos.info(i).unwrap();
       assert!(
         info.size_in_bytes()? <= max_seg_bytes,
         "Found an unexpectedly large segment: {}",
@@ -2307,7 +2307,7 @@ mod tests {
       let mut segment_sizes = Vec::new();
 
       for i in 0..infos.size() {
-        let sci = infos.info_idx(i).unwrap();
+        let sci = infos.info(i).unwrap();
         total_del_count += sci.get_del_count();
         total_max_doc += sci.info.max_doc()?;
         let byte_size = sci.size_in_bytes()?;

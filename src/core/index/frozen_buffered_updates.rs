@@ -492,7 +492,7 @@ impl FrozenBufferedUpdates {
         if let Some(scorer) = scorer {
           let mut it = scorer.iterator();
           let info = infos
-            .info(&seg_state.rld.info_id)
+            .index_of(&seg_state.rld.info_id)
             .ok_or_else(|| LuceneError::illegal_state("segment is missing"))?;
           if let (Some(sort_map), true) = (seg_state.rld.sort_map.as_ref(), limit != i32::MAX) {
             debug_assert!(self.private_segment.is_some());
@@ -568,7 +568,7 @@ impl FrozenBufferedUpdates {
               if doc_id == NO_MORE_DOCS {
                 break;
               }
-              let info = infos.info(&seg_state.rld.info_id).ok_or_else(|| {
+              let info = infos.index_of(&seg_state.rld.info_id).ok_or_else(|| {
                 LuceneError::illegal_state("not find in IndexWriter's SegmentInfos")
               })?;
               if seg_state.rld.delete(doc_id, info, Some(&mut inner))? {

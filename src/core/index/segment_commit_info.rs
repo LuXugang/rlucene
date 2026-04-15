@@ -475,7 +475,7 @@ where
     SegmentCommitInfoMeta::with_deletions(
       s.info.dir.clone(),
       s.info.max_doc().expect("should not fail"),
-      s.info.get_id_str(),
+      s.info.get_id_key().to_string(),
       s.del_gen != -1,
     )
   }

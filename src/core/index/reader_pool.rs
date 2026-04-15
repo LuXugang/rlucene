@@ -139,7 +139,7 @@ where
   pub(crate) fn any_deletions(&self, infos: &SegmentInfos<D>) -> Result<bool> {
     let inner = self.inner.lock();
     for rld in inner.reader_map.values() {
-      let info = match infos.info(&rld.info_id) {
+      let info = match infos.index_of(&rld.info_id) {
         Some(info) => info,
         None => return Err(LuceneError::illegal_state("SegmentCommitInfo missing")),
       };
@@ -273,7 +273,7 @@ where
 
     let mut any = false;
     for rld in copy {
-      let info = match infos.info_mut(&rld.info_id) {
+      let info = match infos.index_of_mut(&rld.info_id) {
         Some(info) => info,
         None => return Err(LuceneError::illegal_state("SegmentCommitInfo missing")),
       };
@@ -296,7 +296,7 @@ where
   ) -> Result<bool> {
     let mut any = false;
     for ids in info_ids {
-      let info = infos.info_mut(ids).ok_or_else(|| {
+      let info = infos.index_of_mut(ids).ok_or_else(|| {
         LuceneError::illegal_state(format!(
           "could not find SegmentCommitInfo with {} in SegmentInfos",
           ids
@@ -381,8 +381,8 @@ where
     let mut at_least_one_change = false;
 
     for info in infos.segments.iter_mut() {
-      if let Some(rld) = inner.reader_map.get(&info.info.get_id_str()) {
-        debug_assert_eq!(rld.info_id, info.info.get_id_str());
+      if let Some(rld) = inner.reader_map.get(info.info.get_id_key()) {
+        debug_assert_eq!(rld.info_id, info.info.get_id_key());
 
         let mut changed = rld.write_live_docs(&self.directory, info)?;
         changed |= rld.write_field_updates(
@@ -599,10 +599,10 @@ mod tests {
 
     let same = pool.get((&*commit_info).into(), false, None)?.unwrap();
     assert!(Arc::ptr_eq(&readers_and_updates, &same));
-    assert!(pool.drop(&commit_info.info.get_id_str())?);
+    assert!(pool.drop(commit_info.info.get_id_key())?);
 
     if random.random_bool(0.5) {
-      assert!(!pool.drop(&commit_info.info.get_id_str())?);
+      assert!(!pool.drop(commit_info.info.get_id_key())?);
     }
     assert!(pool.get((&*commit_info).into(), false, None)?.is_none());
     pool.release(
@@ -667,7 +667,7 @@ mod tests {
     let pooled_again = pool.get((&*commit_info).into(), false, None)?.unwrap();
     assert!(Arc::ptr_eq(&pooled, &pooled_again));
 
-    pool.drop(&commit_info.info.get_id_str())?;
+    pool.drop(commit_info.info.get_id_key())?;
 
     // let mut ram_bytes_used = 0_i64;
     // TODO: memory calculation not implement
@@ -704,7 +704,7 @@ mod tests {
     pool.drop_all()?;
 
     for idx in 0..segment_infos.segments.len() {
-      let info = segment_infos.info_idx(idx).unwrap();
+      let info = segment_infos.info(idx).unwrap();
       assert!(pool.get(info.into(), false, None)?.is_none());
     }
 

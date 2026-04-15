@@ -43,7 +43,9 @@ where
   is_compound_file: bool,
   /// Id that uniquely identifies this segment.
   id: [u8; StringHelper::ID_LENGTH],
+  #[cfg(test)]
   id_str: String,
+  id_key: String,
   // Diff to Java Lucene: We need to ensure that there is only one Codec in
   // the index, Therefore, we do not need to explicitly define the Codec
   // in the SegmentInfo. pub(crate) codec: Option<Lucene101Codec>,
@@ -67,6 +69,7 @@ where
   set_files: Option<HashSet<String>>,
 }
 
+// padding using
 #[cfg(test)]
 impl Default for SegmentInfo<DummyDirectory> {
   fn default() -> Self {
@@ -78,7 +81,8 @@ impl Default for SegmentInfo<DummyDirectory> {
       dir: Arc::new(DummyDirectory),
       is_compound_file: false,
       id: [0; 16],
-      id_str,
+      id_str: id_str.clone(),
+      id_key: id_str,
       diagnostics: HashMap::new(),
       attributes: HashMap::new(),
       index_sort: None,
@@ -135,7 +139,16 @@ where
     if id.len() != StringHelper::ID_LENGTH {
       return Err(LuceneError::illegal_argument(format!("Invalid id: {id:?}")));
     }
-    let id_str = StringHelper::id_to_string(Some(&id));
+    #[cfg(test)]
+    let id_key = {
+      // for easy debugging
+      let random = StringHelper::id_to_string(Some(&StringHelper::random_id()));
+      let id_str = StringHelper::id_to_string(Some(&id));
+      format!("{}-{}", id_str, random)
+    };
+
+    #[cfg(not(test))]
+    let id_key = StringHelper::id_to_string(Some(&StringHelper::random_id()));
     Ok(SegmentInfo {
       dir,
       version,
@@ -146,7 +159,9 @@ where
       has_blocks,
       diagnostics,
       id,
-      id_str,
+      #[cfg(test)]
+      id_str: StringHelper::id_to_string(Some(&id)),
+      id_key,
       attributes,
       index_sort,
       set_files: None,
@@ -338,8 +353,8 @@ where
   pub fn get_id(&self) -> &[u8; StringHelper::ID_LENGTH] {
     &self.id
   }
-  pub fn get_id_str(&self) -> String {
-    self.id_str.to_string()
+  pub fn get_id_key(&self) -> &str {
+    &self.id_key
   }
 
   /// Add these files to the set of files written for this segment.
@@ -421,6 +436,7 @@ where
     self.index_sort.as_ref().cloned()
   }
 
+  // padding using
   pub(crate) fn dummy(dir: Arc<D>) -> Self {
     let id = [0u8; StringHelper::ID_LENGTH];
     let id_str = StringHelper::id_to_string(Some(&id));
@@ -430,7 +446,9 @@ where
       dir,
       is_compound_file: false,
       id,
-      id_str,
+      #[cfg(test)]
+      id_str: id_str.clone(),
+      id_key: id_str,
       diagnostics: HashMap::new(),
       attributes: HashMap::new(),
       index_sort: None,
@@ -462,6 +480,7 @@ where
       is_compound_file: self.is_compound_file,
       id: self.id,
       id_str: self.id_str.clone(),
+      id_key: self.id_key.clone(),
       diagnostics: self.diagnostics.clone(),
       attributes: self.attributes.clone(),
       index_sort: self.index_sort.clone(),

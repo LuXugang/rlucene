@@ -450,7 +450,7 @@ fn test_segment_info_is_snapshot() -> Result<()> {
   let segment_info = segment_reader.get_segment_info();
   let original_info_id = segment_reader.get_original_segment_info_id();
   let clone_segment_infos = writer.clone_segment_infos()?;
-  let original_info = clone_segment_infos.info(original_info_id).unwrap();
+  let original_info = clone_segment_infos.index_of(original_info_id).unwrap();
 
   assert_eq!(0, original_info.get_del_count());
   assert_eq!(0, segment_info.get_del_count());

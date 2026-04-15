@@ -61,12 +61,15 @@ where
     &self,
     info: &SegmentCommitInfo<D>,
   ) -> crate::core::util::error::lucene_error::Result<i32> {
-    let key = info.info.get_id_str();
-    if let Some(v) = self.cached_num_deletes_to_merge.lock().get(&key) {
+    let key = info.info.get_id_key();
+    if let Some(v) = self.cached_num_deletes_to_merge.lock().get(key) {
       return Ok(*v);
     }
     let v = self.merge_context.num_deletes_to_merge(info)?;
-    self.cached_num_deletes_to_merge.lock().insert(key, v);
+    self
+      .cached_num_deletes_to_merge
+      .lock()
+      .insert(key.to_string(), v);
     Ok(v)
   }
 
@@ -114,7 +117,7 @@ mod tests {
       -1,
       Some(StringHelper::random_id()),
     )?;
-    let id = dummy_commit_info.info.get_id_str();
+    let id = dummy_commit_info.info.get_id_key().to_string();
     let v = caching_merge_context.num_deletes_to_merge(&dummy_commit_info)?;
     assert_eq!(v, 1);
     {
@@ -145,8 +148,8 @@ mod tests {
     {
       let cache = caching_merge_context.cached_num_deletes_to_merge.lock();
       assert_eq!(cache.len(), 1);
-      let key = dummy_commit_info.info.get_id_str();
-      assert_eq!(cache.get(&key), Some(&1));
+      let key = dummy_commit_info.info.get_id_key();
+      assert_eq!(cache.get(key), Some(&1));
     }
 
     Ok(())

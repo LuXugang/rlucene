@@ -98,13 +98,13 @@ fn test_byte_size_limit() -> Result<()> {
   let mut sis = SegmentInfos::read_latest_commit(dir.clone())?;
   let mut number_of_segments_of_minimum_size = 1;
   for i in 1..sis.size() {
-    if sis.info_idx(i).unwrap().size_in_bytes()? == sis.info_idx(0).unwrap().size_in_bytes()? {
+    if sis.info(i).unwrap().size_in_bytes()? == sis.info(0).unwrap().size_in_bytes()? {
       number_of_segments_of_minimum_size += 1;
     }
   }
   assert_eq!(num_segments - 1, number_of_segments_of_minimum_size);
 
-  let min = sis.info_idx(0).unwrap().size_in_bytes()? as f64;
+  let min = sis.info(0).unwrap().size_in_bytes()? as f64;
 
   let mut conf = new_writer_config(&mut random);
   let mut lmp = LogMergePolicy::log_bytes_size();
@@ -364,7 +364,7 @@ fn test_single_mergeable_segment() -> Result<()> {
 
   let sis = SegmentInfos::read_latest_commit(dir)?;
   assert_eq!(3, sis.size());
-  assert!(!sis.info_idx(2).unwrap().has_deletions());
+  assert!(!sis.info(2).unwrap().has_deletions());
   Ok(())
 }
 
@@ -420,6 +420,6 @@ fn test_single_mergeable_too_large_segment() -> Result<()> {
 
   let sis = SegmentInfos::read_latest_commit(dir)?;
   assert_eq!(1, sis.size());
-  assert!(sis.info_idx(0).unwrap().has_deletions());
+  assert!(sis.info(0).unwrap().has_deletions());
   Ok(())
 }

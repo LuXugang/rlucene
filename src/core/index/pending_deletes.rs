@@ -57,7 +57,7 @@ impl PendingDeletes {
     D: Directory,
   {
     let mut v = Self::with(
-      info.info.get_id_str(),
+      info.info.get_id_key().to_string(),
       reader.get_live_docs()?,
       true,
       info.info.max_doc()?,
@@ -895,7 +895,7 @@ mod tests {
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
     let rld = ReadersAndUpdates::new(
       0,
-      commit_info.info.get_id_str(),
+      commit_info.info.get_id_key().to_string(),
       new_pending_deletes(&meta)?,
     );
     for i in 0..3 {

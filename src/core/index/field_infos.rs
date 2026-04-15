@@ -986,9 +986,9 @@ mod tests {
     let sis = SegmentInfos::read_latest_commit(dir.clone())?;
     assert_eq!(3, sis.size());
 
-    let fis1 = read_field_infos(sis.info_idx(0).unwrap())?;
-    let fis2 = read_field_infos(sis.info_idx(1).unwrap())?;
-    let fis3 = read_field_infos(sis.info_idx(2).unwrap())?;
+    let fis1 = read_field_infos(sis.info(0).unwrap())?;
+    let fis2 = read_field_infos(sis.info(1).unwrap())?;
+    let fis3 = read_field_infos(sis.info(2).unwrap())?;
 
     let iter = fis1.iter();
     for (i, fi) in iter.enumerate() {

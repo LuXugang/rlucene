@@ -161,14 +161,14 @@ where
     let mut i = 0;
     while i < num_segments && num_to_merge <= max_num_segments {
       let info = infos
-        .info_idx(i)
+        .info(i)
         .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
-      let seg_id = info.info.get_id_str();
-      let is_original = segments_to_merge.get(&seg_id).copied();
+      let seg_id = info.info.get_id_key();
+      let is_original = segments_to_merge.get(seg_id).copied();
       if let Some(Some(v)) = is_original {
         segment_is_original = v;
         num_to_merge += 1;
-        merge_info = Some(seg_id);
+        merge_info = Some(seg_id.to_string());
       }
       i += 1;
     }
@@ -178,7 +178,7 @@ where
         && (num_to_merge != 1 || !segment_is_original || {
           let merge_info = merge_info.ok_or_else(|| LuceneError::illegal_state(""))?;
           let info = infos
-            .info(&merge_info)
+            .index_of(&merge_info)
             .ok_or_else(|| LuceneError::illegal_state(""))?;
           self.has_merged(infos, info, merge_context)?
         }),
@@ -208,7 +208,7 @@ where
     while start >= 0 {
       let start_idx = start as usize;
       let info = infos
-        .info_idx(start_idx)
+        .info(start_idx)
         .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
       if self.size(info, merge_context)? > self.max_merge_size_for_forced_merge
         || size_docs(info, merge_context, self.calibrate_size_by_deletes)?
@@ -219,7 +219,7 @@ where
         if last - start - 1 > 1
           || (start != last - 1 && {
             let info = infos
-              .info_idx(start_idx + 1)
+              .info(start_idx + 1)
               .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
             !self.has_merged(infos, info, merge_context)?
           })
@@ -245,7 +245,7 @@ where
     if last > 0
       && (start + 1 < last || {
         let info = infos
-          .info_idx(start as usize)
+          .info(start as usize)
           .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
         !self.has_merged(infos, info, merge_context)?
       })
@@ -294,7 +294,7 @@ where
         // choice is simple:
         if last > 1 || {
           let info = infos
-            .info_idx(0)
+            .info(0)
             .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
           !self.has_merged(infos, info, merge_context)?
         } {
@@ -325,7 +325,7 @@ where
           while j < final_merge_size {
             let idx = j + i;
             let info = infos
-              .info_idx(idx)
+              .info(idx)
               .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
             sum_size += self.size(info, merge_context)?;
             j += 1;
@@ -335,7 +335,7 @@ where
             || (sum_size
               < 2 * {
                 let prev = infos
-                  .info_idx(i - 1)
+                  .info(i - 1)
                   .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
                 self.size(prev, merge_context)?
               }
@@ -389,7 +389,7 @@ where
     let mut meta = Vec::new();
     for seg in sci.iter().take(end).skip(start) {
       meta.push(SegmentDocAndID::new(
-        seg.info.get_id_str(),
+        seg.info.get_id_key().to_string(),
         seg.info.max_doc()?,
       ));
     }
@@ -511,7 +511,7 @@ where
 
     for i in 0..num_segments {
       let info = infos
-        .info_idx(i)
+        .info(i)
         .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
 
       total_doc_count += size_docs(info, merge_context, self.calibrate_size_by_deletes)?;
@@ -523,7 +523,10 @@ where
       }
 
       let level = ((size as f64).ln() as f32) / norm;
-      levels.push(SegmentInfoAndLevel::new(info.info.get_id_str(), level));
+      levels.push(SegmentInfoAndLevel::new(
+        info.info.get_id_key().to_string(),
+        level,
+      ));
     }
 
     let level_floor: f32 = if self.min_merge_size <= 0 {
@@ -598,10 +601,10 @@ where
         while i < end {
           let seg_level = &levels[i];
           let info = infos
-            .info(&seg_level.info_id)
+            .index_of(&seg_level.info_id)
             .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
 
-          if merging_segments.contains(&info.info.get_id_str()) {
+          if merging_segments.contains(info.info.get_id_key()) {
             any_merging = true;
             break;
           }
@@ -639,7 +642,7 @@ where
           for level in levels.iter().take(end).skip(start) {
             let idx = &level.info_id;
             let info = infos
-              .info(idx)
+              .index_of(idx)
               .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
             debug_assert!(infos.contains(idx));
             meta.push(SegmentDocAndID::new(idx.clone(), info.info.max_doc()?));
@@ -695,9 +698,9 @@ where
     while last > 0 {
       last -= 1;
       let info = segment_infos
-        .info_idx(last)
+        .info(last)
         .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
-      if segments_to_merge.get(&info.info.get_id_str()).is_some() {
+      if segments_to_merge.get(info.info.get_id_key()).is_some() {
         last += 1;
         break;
       }
@@ -710,7 +713,7 @@ where
     // There is only one segment already, and it is merged
     if max_segment_count == 1 && last == 1 && {
       let info0 = segment_infos
-        .info_idx(0)
+        .info(0)
         .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
       self.has_merged(segment_infos, info0, merge_context)?
     } {
@@ -722,7 +725,7 @@ where
     let mut i = 0;
     while i < last {
       let info = segment_infos
-        .info_idx(i)
+        .info(i)
         .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
       if self.size(info, merge_context)? > self.max_merge_size_for_forced_merge
         || size_docs(info, merge_context, self.calibrate_size_by_deletes)?
@@ -768,7 +771,7 @@ where
     let mut i: usize = 0;
     while i < num_segments {
       let info = segment_infos
-        .info_idx(i)
+        .info(i)
         .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
       let del_count = merge_context.num_deletes_to_merge(info)?;
       debug_assert!(assert_del_count(del_count, info)?);
@@ -995,8 +998,8 @@ mod tests {
     }
 
     assert_eq!(2, segment_infos.size());
-    assert_eq!(55_000, segment_infos.info_idx(0).unwrap().info.max_doc()?);
-    assert_eq!(11_000, segment_infos.info_idx(1).unwrap().info.max_doc()?);
+    assert_eq!(55_000, segment_infos.info(0).unwrap().info.max_doc()?);
+    assert_eq!(11_000, segment_infos.info(1).unwrap().info.max_doc()?);
     Ok(())
   }
 
@@ -1061,8 +1064,8 @@ mod tests {
     }
 
     assert_eq!(2, segment_infos.size());
-    assert_eq!(90_100, segment_infos.info_idx(0).unwrap().info.max_doc()?);
-    assert_eq!(10_000, segment_infos.info_idx(1).unwrap().info.max_doc()?);
+    assert_eq!(90_100, segment_infos.info(0).unwrap().info.max_doc()?);
+    assert_eq!(10_000, segment_infos.info(1).unwrap().info.max_doc()?);
     Ok(())
   }
 
@@ -1125,8 +1128,8 @@ mod tests {
     }
 
     assert_eq!(2, segment_infos.size());
-    assert_eq!(10_900, segment_infos.info_idx(0).unwrap().info.max_doc()?);
-    assert_eq!(10_000, segment_infos.info_idx(1).unwrap().info.max_doc()?);
+    assert_eq!(10_900, segment_infos.info(0).unwrap().info.max_doc()?);
+    assert_eq!(10_000, segment_infos.info(1).unwrap().info.max_doc()?);
     Ok(())
   }
 
@@ -1194,8 +1197,8 @@ mod tests {
     }
 
     assert_eq!(2, segment_infos.size());
-    assert_eq!(100, segment_infos.info_idx(0).unwrap().info.max_doc()?);
-    assert_eq!(10, segment_infos.info_idx(1).unwrap().info.max_doc()?);
+    assert_eq!(100, segment_infos.info(0).unwrap().info.max_doc()?);
+    assert_eq!(10, segment_infos.info(1).unwrap().info.max_doc()?);
     Ok(())
   }
 
@@ -1238,7 +1241,7 @@ mod tests {
       )?;
     }
 
-    assert_eq!(9_000, segment_infos.info_idx(0).unwrap().info.max_doc()?);
+    assert_eq!(9_000, segment_infos.info(0).unwrap().info.max_doc()?);
     Ok(())
   }
 
@@ -1291,8 +1294,8 @@ mod tests {
       )?;
     }
 
-    assert_eq!(11_000, segment_infos.info_idx(0).unwrap().info.max_doc()?);
-    assert_eq!(10_000, segment_infos.info_idx(1).unwrap().info.max_doc()?);
+    assert_eq!(11_000, segment_infos.info(0).unwrap().info.max_doc()?);
+    assert_eq!(10_000, segment_infos.info(1).unwrap().info.max_doc()?);
     Ok(())
   }
 

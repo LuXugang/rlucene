@@ -216,7 +216,7 @@ pub trait MergePolicy: Display {
           let mut below_max_full_flush_size = true;
 
           for seg_id in &one_merge.stat.segments {
-            match segment_infos.info(seg_id) {
+            match segment_infos.index_of(seg_id) {
               Some(sci) => {
                 if self.size(sci, merge_context)? >= self.max_full_flush_merge_size() {
                   below_max_full_flush_size = false;
@@ -1038,7 +1038,7 @@ where
       if i > 0 {
         s.push(' ');
       }
-      let v = segments.info(seg).ok_or_else(|| {
+      let v = segments.index_of(seg).ok_or_else(|| {
         LuceneError::illegal_state("merge's segment could find from IndexWriter's SegmentInfos")
       })?;
       s.push_str(&v.to_string_with_pending_del_count(0));
@@ -1046,7 +1046,7 @@ where
 
     if let Some(info_id) = &self.stat.info_id {
       s.push_str(" into ");
-      let v = segments.info(info_id).ok_or_else(|| {
+      let v = segments.index_of(info_id).ok_or_else(|| {
         LuceneError::illegal_state("merge's segment could find from IndexWriter's SegmentInfos")
       })?;
       s.push_str(&v.info.name);
@@ -1134,7 +1134,7 @@ where
   type DocMap = DummyDocMap;
 
   fn set_merge_info(&mut self, info: SegmentCommitInfo<D>) {
-    self.stat.info_id = Some(info.info.get_id_str());
+    self.stat.info_id = Some(info.info.get_id_key().to_string());
     self.stat.name = Some(info.info.name.clone());
     self.info = Some(info);
   }

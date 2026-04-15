@@ -163,7 +163,7 @@ where
         // segmentInfos here, so that we are passing the
         // actual instance of SegmentInfoPerCommit in
         // IndexWriter's segmentInfos:
-        let info = match infos.info_idx(i) {
+        let info = match infos.info(i) {
           Some(info) => info,
           None => {
             return Err(LuceneError::illegal_argument(
@@ -481,9 +481,9 @@ where
 
     // ensure cleanup on failure
     for i in 0..sis.size() {
-      debug_assert!(sis.info_idx(i).is_some());
+      debug_assert!(sis.info(i).is_some());
       let reader = SegmentReader::new(
-        sis.info_idx(i).as_ref().unwrap(),
+        sis.info(i).as_ref().unwrap(),
         sis.get_index_created_version_major(),
         &IOContext::default_io_context()?,
       )?;

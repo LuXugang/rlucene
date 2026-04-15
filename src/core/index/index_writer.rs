@@ -1174,7 +1174,7 @@ where
     if i >= 0 && (i as usize) < inner.segment_infos.size() {
       inner
         .segment_infos
-        .info_idx(i as usize)
+        .info(i as usize)
         .expect("segment info not found")
         .info
         .max_doc()
@@ -1225,7 +1225,7 @@ where
       merge.init_merge_readers(|sci_id: &String| -> Result<MergeReaderSR<D>> {
         let rld = {
           let inner = self.inner.lock();
-          let sci = inner.segment_infos.info(sci_id).ok_or_else(|| {
+          let sci = inner.segment_infos.index_of(sci_id).ok_or_else(|| {
             LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
           })?;
           let rld_opt = self.get_pooled_instance(sci.into(), true, None)?;
@@ -1241,7 +1241,7 @@ where
         rld.set_is_merging();
         let reader = {
           let mut inner = self.inner.lock();
-          let sci = inner.segment_infos.info(sci_id).ok_or_else(|| {
+          let sci = inner.segment_infos.index_of(sci_id).ok_or_else(|| {
             LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
           })?;
           let reader = rld.get_reader_for_merge(&context, sci, &inner.segment_infos)?;
@@ -1731,7 +1731,7 @@ where
           ..
         } = &mut *inner;
         for info in segment_infos.iter() {
-          segments_to_merge.insert(info.info.get_id_str(), Some(true));
+          segments_to_merge.insert(info.info.get_id_key().to_string(), Some(true));
         }
       }
 
@@ -2120,11 +2120,11 @@ where
         );
       }
       new_segment.set_buffered_deletes_gen(next_gen)?;
-      let new_segment_id = new_segment.info.get_id_str();
+      let new_segment_id = new_segment.info.get_id_key().to_string();
       inner.segment_infos.add(new_segment)?;
       published = true;
       self.checkpoint(&mut *inner)?;
-      let new_segment = inner.segment_infos.info(&new_segment_id).unwrap();
+      let new_segment = inner.segment_infos.index_of(&new_segment_id).unwrap();
       if packet_any {
         let _ = self.get_pooled_instance(new_segment.into(), true, sort_map)?;
       }
@@ -2159,7 +2159,7 @@ where
               ));
             },
             Some(ref rld) => {
-              let new_segment = inner.segment_infos.info(&new_segment_id).unwrap();
+              let new_segment = inner.segment_infos.index_of(&new_segment_id).unwrap();
               let is_fully_deleted = self.is_fully_deleted(rld, new_segment)?;
               if is_fully_deleted {
                 self.drop_deleted_segment(&new_segment_id, &mut *inner)?;
@@ -3049,7 +3049,7 @@ where
       if let Some(rld) = self.reader_pool.get(info.into(), false, None)?
         && rld.is_fully_deleted(info)?
       {
-        to_drop.push(info.info.get_id_str());
+        to_drop.push(info.info.get_id_key().to_string());
       }
     }
 
@@ -3143,7 +3143,7 @@ where
               // this rld concurrently
               // which wins and then if readerPooling is off this rld will be dropped.
               let mut inner = self.inner.lock();
-              let info = match inner.segment_infos.info_mut(&rld.info_id) {
+              let info = match inner.segment_infos.index_of_mut(&rld.info_id) {
                 Some(info) => info,
                 None => Err(LuceneError::illegal_state(
                   "could not find segment info from IndexWriter#segment_infos",
@@ -3607,7 +3607,7 @@ where
     let mut any_dv_updates = false;
     debug_assert_eq!(source_segments.len(), doc_maps.len());
     for (i, info_id) in source_segments.iter().enumerate() {
-      let info = inner.segment_infos.info(info_id).ok_or_else(|| {
+      let info = inner.segment_infos.index_of(info_id).ok_or_else(|| {
         LuceneError::illegal_state(format!("segment info with id={} not found", info_id))
       })?;
 
@@ -3824,7 +3824,7 @@ where
       // doing this makes  MockDirWrapper angry in
       // TestNRTThreads (LUCENE-5434):
       if let Some(ref info) = merge.info {
-        self.reader_pool.drop(&info.info.get_id_str())?;
+        self.reader_pool.drop(info.info.get_id_key())?;
         // Safe: these files must exist
         self.delete_new_files(info.files()?.iter(), Some(&inner))?;
       } else {
@@ -3844,7 +3844,7 @@ where
     // started), then we will switch to the compound
     // format as well:
     let sci = merge.info.as_ref().unwrap();
-    debug_assert!(!inner.segment_infos.contains(&sci.info.get_id_str()));
+    debug_assert!(!inner.segment_infos.contains(sci.info.get_id_key()));
 
     let all_deleted = merge.stat.segments.is_empty()
       || sci.info.max_doc()? == 0
@@ -3885,7 +3885,7 @@ where
         merged_updates.drop_changes();
         self
           .reader_pool
-          .drop(&merge.info.as_ref().unwrap().info.get_id_str())?;
+          .drop(merge.info.as_ref().unwrap().info.get_id_key())?;
         return Err(res.err().unwrap());
       }
     }
@@ -3894,12 +3894,12 @@ where
     // exception is hit e.g. writing the live docs for the
     // merge segment, in which case we need to abort the
     // merge:
-    let merge_id = merge.info.as_ref().unwrap().info.get_id_str();
+    let merge_id = merge.info.as_ref().unwrap().info.get_id_key().to_string();
     inner
       .segment_infos
       .apply_merge_changes(merge, drop_segment)?;
     // Note: merge's SegmentCommitInfo has move to IndexWriter#inner#segment_infos
-    let merge_sci = inner.segment_infos.info(&merge_id).ok_or_else(|| {
+    let merge_sci = inner.segment_infos.index_of(&merge_id).ok_or_else(|| {
       LuceneError::illegal_state("merge's SegmentCommitInfo not in IndexWriter#inner#segment_infos")
     })?;
 
@@ -3917,8 +3917,8 @@ where
     self.adjust_pending_num_docs(-(del_doc_count as i64));
 
     if drop_segment {
-      debug_assert!(!inner.segment_infos.contains(&merge_sci.info.get_id_str()));
-      self.reader_pool.drop(&merge_sci.info.get_id_str())?;
+      debug_assert!(!inner.segment_infos.contains(merge_sci.info.get_id_key()));
+      self.reader_pool.drop(merge_sci.info.get_id_key())?;
       // Safe: these files must exist
       self.delete_new_files(merge_sci.files()?.iter(), Some(&inner))?;
     }
@@ -4077,7 +4077,7 @@ where
     for info_id in &merge.stat.segments {
       let info = inner
         .segment_infos
-        .info(info_id)
+        .index_of(info_id)
         .ok_or_else(|| LuceneError::illegal_state("{} not in IndexWriter's segment_infos"))?;
       let max_doc = info.info.max_doc()?;
       if max_doc > 0 {
@@ -4171,7 +4171,7 @@ where
     for info_id in &merge.stat.segments {
       let info = inner
         .segment_infos
-        .info(info_id)
+        .index_of(info_id)
         .ok_or_else(|| LuceneError::illegal_state("{} not in IndexWriter's segment_infos"))?;
       if info.info.get_has_blocks() {
         has_blocks = true;
@@ -4862,7 +4862,7 @@ where
     merge_info: Option<&mut SegmentCommitInfo<D>>,
   ) -> Result<()> {
     let info_id = &readers_and_updates.info_id;
-    let info = match inner.segment_infos.info_mut(info_id) {
+    let info = match inner.segment_infos.index_of_mut(info_id) {
       Some(info) => Some(info),
       None => merge_info,
     };
@@ -4948,7 +4948,7 @@ where
           InfoFrom::All => inner.segment_infos.seg_ids(),
         };
         for id in &keys {
-          let info = inner.segment_infos.info(id).ok_or_else(|| {
+          let info = inner.segment_infos.index_of(id).ok_or_else(|| {
             LuceneError::illegal_state(format!("{} not in IndexWriter's segment_infos", id))
           })?;
           del_files.extend(info.files()?);
@@ -5163,7 +5163,7 @@ where
       for seg_state in seg_states.iter_mut() {
         if success {
           let info_id = &seg_state.rld.info_id;
-          let info = match inner.segment_infos.info(info_id) {
+          let info = match inner.segment_infos.index_of(info_id) {
             Some(info) => info,
             None => Err(LuceneError::illegal_state(
               "could not find segment info from IndexWriter#segment_infos",
@@ -5275,7 +5275,7 @@ where
         Some(it) => vec![it],
       };
       for info_id in infos {
-        let info = inner.segment_infos.info(&info_id).unwrap();
+        let info = inner.segment_infos.index_of(&info_id).unwrap();
         if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(&info_id) {
           let rld = self
             .get_pooled_instance(info.into(), true, None)?

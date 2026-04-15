@@ -1028,7 +1028,7 @@ where
       Some(ref mut upd) if upd.any() => Some(FrozenBufferedUpdates::new(
         info_stream,
         upd,
-        Option::from(StringHelper::id_to_string(Some(segment_info.info.get_id()))),
+        Option::from(segment_info.info.get_id_key().to_string()),
       )?),
       _ => None,
     };

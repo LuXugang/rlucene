@@ -186,24 +186,24 @@ where
     })
   }
   /// Returns [`SegmentCommitInfo`] at the provided index.
-  pub fn info(&self, seg_id: &str) -> Option<&SegmentCommitInfo<D>> {
+  pub fn index_of(&self, seg_id: &str) -> Option<&SegmentCommitInfo<D>> {
     self
       .segments
       .iter()
-      .find(|sci| sci.info.get_id_str() == seg_id)
+      .find(|sci| sci.info.get_id_key() == seg_id)
   }
-  pub fn info_idx(&self, i: usize) -> Option<&SegmentCommitInfo<D>> {
+  pub fn info(&self, i: usize) -> Option<&SegmentCommitInfo<D>> {
     self.segments.get(i)
   }
   #[cfg(test)]
   pub fn info_idx_mut(&mut self, i: usize) -> Option<&mut SegmentCommitInfo<D>> {
     self.segments.get_mut(i)
   }
-  pub fn info_mut(&mut self, seg_id: &str) -> Option<&mut SegmentCommitInfo<D>> {
+  pub fn index_of_mut(&mut self, seg_id: &str) -> Option<&mut SegmentCommitInfo<D>> {
     self
       .segments
       .iter_mut()
-      .find(|sci| sci.info.get_id_str() == seg_id)
+      .find(|sci| sci.info.get_id_key() == seg_id)
   }
 
   /// Get the segments_N filename in use by this segment infos.
@@ -840,7 +840,7 @@ where
     let size = self.size();
     for i in 0..size {
       let segment_commit_info = self
-        .info_idx(i)
+        .info(i)
         .ok_or_else(|| LuceneError::illegal_state("segment was None"))?;
       files.extend(segment_commit_info.files()?);
     }
@@ -978,8 +978,8 @@ where
     let mut new_segments: Vec<SegmentCommitInfo<D>> = Vec::with_capacity(self.segments.len());
 
     for info in self.segments.drain(..) {
-      let info_id = info.info.get_id_str();
-      if merged_away.contains(&info_id) {
+      let info_id = info.info.get_id_key();
+      if merged_away.contains(info_id) {
         if !inserted && !drop_segment {
           new_segments.push(merge.info.take().unwrap());
           inserted = true;
@@ -1032,7 +1032,7 @@ where
         "All segments must record the minVersion for indices created on or after Lucene 7, but minVersion is missing for segment: {si}"
       )));
     }
-    let _id = si.info.get_id_str();
+    let _id = si.info.get_id_key();
     self.segments.push(si);
     Ok(())
   }
@@ -1055,7 +1055,7 @@ where
     let idx = self
       .segments
       .iter()
-      .position(|sci| sci.info.get_id_str() == si_id)?;
+      .position(|sci| sci.info.get_id_key() == si_id)?;
     Some(self.segments.remove(idx))
   }
 
@@ -1069,7 +1069,7 @@ where
 
   /// Returns true if the provided `SegmentCommitInfo` is contained.
   pub fn contains(&self, si_id: &str) -> bool {
-    self.info(si_id).is_some()
+    self.index_of(si_id).is_some()
   }
 
   /// Returns the `Version` of the Lucene commit.
@@ -1094,7 +1094,7 @@ where
     self
       .segments
       .iter()
-      .map(|s| s.info.get_id_str().clone())
+      .map(|s| s.info.get_id_key().to_string())
       .collect()
   }
 }
@@ -1481,7 +1481,7 @@ mod tests {
 
     let commit_info_0 =
       SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
-    let id_0 = commit_info_0.info.get_id_str();
+    let _id_0 = commit_info_0.info.get_id_key().to_string();
     sis.add(commit_info_0)?;
 
     // Second Segment
@@ -1505,12 +1505,12 @@ mod tests {
 
     let commit_info_1 =
       SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
-    let id_1 = commit_info_1.info.get_id_str();
+    let _id_1 = commit_info_1.info.get_id_key().to_string();
     sis.add(commit_info_1)?;
     sis.commit(directory.as_ref())?;
 
-    let commit_info_id_0 = *sis.info(&id_0).unwrap().get_id().unwrap();
-    let commit_info_id_1 = *sis.info(&id_1).unwrap().get_id().unwrap();
+    let commit_info_id_0 = *sis.info(0).unwrap().get_id().unwrap();
+    let commit_info_id_1 = *sis.info(1).unwrap().get_id().unwrap();
 
     // Read back the latest commit
     sis = SegmentInfos::read_latest_commit(directory.clone())?;
@@ -1521,8 +1521,8 @@ mod tests {
       (*LUCENE_10_1_1).clone()
     );
     assert_eq!(*sis.get_commit_lucene_version().unwrap(), (*LATEST).clone());
-    let actual1 = sis.info(&id_0).unwrap().get_id();
-    let actual2 = sis.info(&id_1).unwrap().get_id();
+    let actual1 = sis.info(0).unwrap().get_id();
+    let actual2 = sis.info(1).unwrap().get_id();
     assert_eq!(
       StringHelper::id_to_string(Option::from(&commit_info_id_0)),
       StringHelper::id_to_string(Option::from(actual1.unwrap()))

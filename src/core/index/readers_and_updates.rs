@@ -817,7 +817,7 @@ where
       .pending_deletes
       .needs_refresh(reader_arc.as_ref(), info)?;
     let pending_info = segment_infos
-      .info(inner.pending_deletes.get_info_id())
+      .index_of(inner.pending_deletes.get_info_id())
       .ok_or_else(|| {
         LuceneError::illegal_state(
           "pending_deletes's segment info could not find from IndexWriter#segment_infos",

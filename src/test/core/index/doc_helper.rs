@@ -362,7 +362,7 @@ impl DocHelper {
     writer.close()?;
     let inner = writer.inner.lock();
     debug_assert!(inner.segment_infos.segments.len() == 1);
-    let v = inner.segment_infos.info_idx(0).unwrap().clone();
+    let v = inner.segment_infos.info(0).unwrap().clone();
     Ok(v)
   }
   pub(crate) fn num_fields(doc: &Document) -> usize {

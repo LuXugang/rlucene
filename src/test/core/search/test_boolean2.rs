@@ -99,14 +99,8 @@ where
   }
   let mut field_types = HashMap::new();
 
-  for i in 0..DOC_FIELDS.len() {
-    doc.add(new_field(
-      random,
-      FIELD,
-      DOC_FIELDS[i],
-      &ft,
-      &mut field_types,
-    )?);
+  for doc_field in &DOC_FIELDS {
+    doc.add(new_field(random, FIELD, *doc_field, &ft, &mut field_types)?);
     writer.add_document(doc.clone())?;
 
     doc = Document::new();
@@ -163,7 +157,6 @@ where
 
   // First multiply small test index:
   let mut mul_factor = 1;
-  let mut doc_count = 0;
 
   if cfg!(feature = "test_log_verbose") {
     println!("\nTEST: now copy index...");
@@ -178,7 +171,7 @@ where
 
     w.add_indexes_from_dir(std::slice::from_ref(&copy))?;
     copy.close()?;
-    doc_count = w.get_doc_stats()?.max_doc as usize;
+    let doc_count = w.get_doc_stats()?.max_doc as usize;
     w.close()?;
     mul_factor *= 2;
     if doc_count >= 3000 * num_filler_docs {
