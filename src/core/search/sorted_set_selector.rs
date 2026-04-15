@@ -674,7 +674,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
     // slow wrapper does not support random access ordinals (there is no need for that!)
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
       "value", false, Max,
@@ -737,7 +737,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
     // slow wrapper does not support random access ordinals (there is no need for that!)
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let sort = Sort::with_fields(vec![SortedSetSortField::with_selector("value", true, Max)?])?;
 
@@ -810,7 +810,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let mut sort_field = SortedSetSortField::with_selector("value", false, Max)?;
     sort_field.set_missing_value(StringFirst)?;
@@ -890,7 +890,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let mut sort_field = SortedSetSortField::with_selector("value", false, Max)?;
     sort_field.set_missing_value(StringLast)?;
@@ -955,7 +955,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
       "value", false, Max,
@@ -1017,7 +1017,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
       "value", false, MiddleMin,
@@ -1079,7 +1079,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
       "value", true, MiddleMin,
@@ -1151,7 +1151,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMin)?;
     sort_field.set_missing_value(StringFirst)?;
@@ -1228,7 +1228,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     // MIDDLE_MIN with missing last
     let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMin)?;
@@ -1297,7 +1297,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
       "value", false, MiddleMin,
@@ -1359,7 +1359,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
       "value", false, MiddleMax,
@@ -1419,7 +1419,7 @@ mod tests {
 
     let reader = writer.get_reader()?;
     writer.close()?;
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
       "value", true, MiddleMax,
@@ -1499,7 +1499,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMax)?;
     sort_field.set_missing_value(StringFirst)?;
@@ -1577,7 +1577,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let mut sf = SortedSetSortField::with_selector("value", false, MiddleMax)?;
     sf.set_missing_value(StringLast)?;
@@ -1642,7 +1642,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
     let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
       "value", false, MiddleMax,

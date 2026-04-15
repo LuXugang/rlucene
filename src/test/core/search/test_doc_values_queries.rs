@@ -112,7 +112,7 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
   }
 
   let reader = iw.get_reader()?;
-  let searcher = new_searcher_with_wrap(reader, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
   iw.close()?;
 
   for _ in 0..100 {
@@ -194,7 +194,7 @@ fn do_test_duel_point_range_numeric_range_query(
     // }
 
     let reader = iw.get_reader()?;
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
     iw.close()?;
 
     for _ in 0..100 {
@@ -297,7 +297,7 @@ fn do_test_duel_point_range_sorted_range_query(
     // }
 
     let reader = iw.get_reader()?;
-    let searcher = new_searcher_with_wrap(reader, false)?;
+    let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
     iw.close()?;
 
     for _ in 0..100 {
@@ -438,7 +438,7 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
   }
 
   let reader = iw.get_reader()?;
-  let searcher = new_searcher_with_wrap(reader, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
   iw.close()?;
 
   for _ in 0..100 {

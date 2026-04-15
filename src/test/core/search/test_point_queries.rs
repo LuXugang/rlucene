@@ -679,7 +679,7 @@ fn test_min_max_long() -> Result<()> {
   }
 
   let r = w.get_reader()?;
-  let searcher = new_searcher_with_wrap(r, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
     1,
@@ -738,7 +738,7 @@ fn test_basic_sorted_set() -> Result<()> {
   }
 
   let r = w.get_reader()?;
-  let searcher = new_searcher_with_wrap(r, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
     1,
@@ -845,7 +845,7 @@ fn test_long_min_max_numeric() -> Result<()> {
   }
 
   let r = w.get_reader()?;
-  let searcher = new_searcher_with_wrap(r, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
     2,
@@ -895,7 +895,7 @@ fn test_long_min_max_sorted_set() -> Result<()> {
   }
 
   let r = w.get_reader()?;
-  let searcher = new_searcher_with_wrap(r, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
     2,
@@ -946,7 +946,7 @@ fn test_sorted_set_no_ords_match() -> Result<()> {
   }
 
   let r = w.get_reader()?;
-  let searcher = new_searcher_with_wrap(r, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
     0,
@@ -1003,7 +1003,7 @@ fn test_no_docs() -> Result<()> {
   w.add_document(Document::new())?;
 
   let r = w.get_reader()?;
-  let searcher = new_searcher_with_wrap(r, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
     0,
@@ -1131,7 +1131,7 @@ fn test_exact_points() -> Result<()> {
   }
 
   let r = directory_reader_util::open_from_writer(&w)?;
-  let searcher = new_searcher_with_wrap(r, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(1, searcher.count(IntPoint::new_exact_query("int", 42i32)?)?);
   assert_eq!(0, searcher.count(IntPoint::new_exact_query("int", 41i32)?)?);
@@ -1329,7 +1329,7 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
   }
 
   let r = directory_reader_util::open_from_writer(&w)?;
-  let searcher = new_searcher_with_wrap(r, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
     zero_count,
@@ -1914,7 +1914,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
   }
 
   let reader = directory_reader_util::open_from_writer(&w)?;
-  let searcher = new_searcher_with_wrap(reader, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
   let query = IntPoint::new_range_query("field", 0i32, 1i32)?;
   let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;

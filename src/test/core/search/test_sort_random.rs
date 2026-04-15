@@ -113,7 +113,7 @@ fn test_random_string_sort_for_type(type_: SortFieldType) -> Result<()> {
   let max_doc = reader.max_doc()?;
   writer.close()?;
 
-  let searcher = new_searcher_with_wrap(reader, false)?;
+  let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
   let iters = at_least(&mut random, 100);
   let doc_values = Arc::new(doc_values);
 

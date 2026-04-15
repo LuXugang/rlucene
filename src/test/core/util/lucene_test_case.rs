@@ -629,28 +629,32 @@ pub mod lucene_test_case_util {
     let irc = crate::core::index::leaf_reader::get_context(leaf_reader)?;
     IndexSearcher::new(irc)
   }
-  pub fn new_searcher_with_wrap<CR>(
+  pub fn new_searcher_with_wrap<CR, R>(
+    random: &mut R,
     composite_reader: CR,
     may_be_wrap: bool,
   ) -> Result<DefaultIndexSearcher<CompositeReaderContext<CR>>>
   where
     CR: CompositeReader,
+    R: Rng + ?Sized,
   {
-    new_searcher_with_wrap_assert(composite_reader, may_be_wrap, true)
+    new_searcher_with_wrap_assert(random, composite_reader, may_be_wrap, true)
   }
-  pub fn new_searcher_with_wrap_assert<CR>(
+  pub fn new_searcher_with_wrap_assert<CR, R>(
+    random: &mut R,
     composite_reader: CR,
     may_be_wrap: bool,
     wrap_with_assertions: bool,
   ) -> Result<DefaultIndexSearcher<CompositeReaderContext<CR>>>
   where
     CR: CompositeReader,
+    R: Rng + ?Sized,
   {
     new_searcher_with_threads(
       composite_reader,
       may_be_wrap,
       wrap_with_assertions,
-      random().random_bool(0.5),
+      random.random_bool(0.5),
     )
   }
   pub fn new_searcher_with_threads<CR>(
