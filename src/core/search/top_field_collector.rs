@@ -323,7 +323,9 @@ impl Collector for TopFieldCollector {
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
   {
-    unreachable!("should call Simple/PagingFieldCollector instead")
+    Err(LuceneError::unreachable(
+      "should call Simple/PagingFieldCollector instead",
+    ))
   }
 
   fn score_mode(&self) -> ScoreMode {
@@ -577,8 +579,17 @@ where
   }
 
   fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
-    unreachable!("should not be called")
+    Err(LuceneError::unsupported_operation("should not here"))
   }
+
+  fn collect_stream(
+    &mut self,
+    _stream: &mut dyn DocIdStream,
+    _scorer: &mut dyn Scorable,
+  ) -> Result<()> {
+    Err(LuceneError::unsupported_operation("should not here"))
+  }
+
   fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
     let comparators = self.base.base.pq.get_comparators_mut();
     Ok(
@@ -786,13 +797,6 @@ where
     Ok(())
   }
 
-  fn collect_stream(
-    &mut self,
-    stream: &mut dyn DocIdStream,
-    scorer: &mut dyn Scorable,
-  ) -> Result<()> {
-    self.base.collect_stream(stream, scorer)
-  }
   fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
     self.base.competitive_iterator()
   }
@@ -1024,6 +1028,7 @@ where
 
     Ok(())
   }
+
   fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
     self.base.competitive_iterator()
   }
