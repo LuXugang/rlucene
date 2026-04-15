@@ -293,25 +293,23 @@ where
     };
 
     if enable_skipping {
-      let docs_with_field = match leaf.dense {
-        true => None,
-        false => Some(doc_value_producer(context)?),
-      };
       let terms = context.reader().terms(&comparator.field)?;
-      let terms_enum = match terms {
-        None => {
-          return Err(LuceneError::illegal_state("terms is None"));
-        },
-        Some(terms_enum) => terms_enum.iterator()?,
-      };
-      leaf.competitive_iterator = Some(TermOrdValCompetitiveIterator::new(
-        context,
-        leaf.dense,
-        docs_with_field,
-        terms_enum,
-      )?);
-    }
+      if let Some(terms) = terms {
+        let t = terms.iterator()?;
+        let docs_with_field = if leaf.dense {
+          None
+        } else {
+          Some(doc_value_producer(context)?)
+        };
 
+        leaf.competitive_iterator = Some(TermOrdValCompetitiveIterator::new(
+          context,
+          leaf.dense,
+          docs_with_field,
+          t,
+        )?);
+      }
+    }
     leaf.update_competitive_iterator(comparator)?;
 
     Ok(leaf)
@@ -592,7 +590,7 @@ where
   doc: i32,
   postings: VecDeque<i32>,
   postings_init: bool,
-  terms_enum: Option<LRTermsEnum<LR>>,
+  terms: LRTermsEnum<LR>,
   docs_with_field: Option<TermOrdValDocValues<LR>>,
   // if docs_with_field is active, dense must be false
   using_skip: bool,
@@ -619,7 +617,7 @@ where
       doc: -1,
       postings: VecDeque::new(),
       postings_init: false,
-      terms_enum: Some(terms_enum),
+      terms: terms_enum,
       docs_with_field,
       using_skip: false,
       disjunction: None,
@@ -692,12 +690,7 @@ where
     let mut disjunction = PriorityQueue::new(size.try_convert()?, PostingsEnumAndOrdCmp)?;
     if size > 0 {
       let min_term = doc_values.lookup_ord(min_ord)?.into_owned();
-      let terms = self
-        .terms_enum
-        .as_mut()
-        .ok_or_else(|| LuceneError::IllegalState("terms_enum not initialized".into()))?;
-
-      if !terms.seek_exact(&min_term)? {
+      if !self.terms.seek_exact(&min_term)? {
         return Err(LuceneError::illegal_state(format!(
           "Term {} exists in doc values but not in the terms index",
           min_term
@@ -705,13 +698,13 @@ where
       }
 
       disjunction.add(PostingsEnumAndOrd::<LR>::new(
-        terms.postings_with_flags(None, NONE as i32)?,
+        self.terms.postings_with_flags(None, NONE as i32)?,
         min_ord,
       ))?;
       self.postings.push_back(min_ord);
 
       for ord in (min_ord + 1)..=max_ord {
-        let next = terms.next()?;
+        let next = self.terms.next()?;
         let next = match next {
           Some(term) => term,
           None => {
@@ -727,7 +720,7 @@ where
           "docValuesTerms not aligned with terms index"
         );
         disjunction.add(PostingsEnumAndOrd::new(
-          terms.postings_with_flags(None, NONE as i32)?,
+          self.terms.postings_with_flags(None, NONE as i32)?,
           ord,
         ))?;
         self.postings.push_back(ord);

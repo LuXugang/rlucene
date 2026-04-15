@@ -69,6 +69,8 @@ use crate::test::core::search::random_approximation_query::RandomApproximationQu
 use crate::test::core::search::test_boolean_rewrites::TestRewriteQuery;
 #[cfg(test)]
 use crate::test::core::search::test_scorer_perf::BitSetQuery;
+#[cfg(test)]
+use crate::test::core::search::test_sort_random::RandomQuery;
 use std::cmp::PartialEq;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -132,6 +134,8 @@ macro_rules! dispatch_query {
       #[cfg(test)]
       Query::RandomApproximation($inner) => $body,
       #[cfg(test)]
+      Query::Random($inner) => $body,
+      #[cfg(test)]
       Query::TestRewrite($inner) => $body,
       #[cfg(test)]
       Query::WANDScorer($inner) => $body,
@@ -176,6 +180,7 @@ impl_from_for_enum!(
     DummyQuery1=> Dummy1,
     MaxScoreWrapperQuery => MaxScoreWrapper,
     RandomApproximationQuery => RandomApproximation,
+    RandomQuery => Random,
     TestRewriteQuery => TestRewrite,
     WANDScorerQuery => WANDScorer
 );
@@ -272,6 +277,8 @@ pub enum Query {
   #[cfg(test)]
   RandomApproximation(RandomApproximationQuery),
   #[cfg(test)]
+  Random(RandomQuery),
+  #[cfg(test)]
   TestRewrite(TestRewriteQuery),
   #[cfg(test)]
   WANDScorer(WANDScorerQuery),
@@ -332,6 +339,7 @@ impl Query {
             Dummy1,
             MaxScoreWrapper,
             RandomApproximation,
+            Random,
             TestRewrite,
             WANDScorer,
         ]
