@@ -822,11 +822,9 @@ impl Display for SortFieldType {
 
 #[derive(Clone)]
 pub enum MissingValueEnum {
-  /// Pass this to `setMissingValue` to have missing string values sort
-  /// first.  */
+  /// Pass this to `setMissingValue` to have missing string values sort first.
   StringFirst,
   /// Pass this to `setMissingValue` to have missing string values sort last.
-  ///  */
   StringLast,
   Int(i32),
   Long(i64),
