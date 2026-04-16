@@ -224,6 +224,12 @@ where
       context,
     })
   }
+  fn get_doc_values_leaf_reader<'a>(
+    index_chain: &'a mut IndexingChain<D>,
+    field_info: &'a mut Builder,
+  ) -> DocValuesLeafReaderImpl1<'a, D> {
+    DocValuesLeafReaderImpl1::new(index_chain, field_info)
+  }
   pub(crate) fn maybe_sort_segment<D1>(
     &mut self,
     state: &SegmentWriteState<D>,
@@ -240,20 +246,23 @@ where
       return Ok(None);
     }
 
-    let doc_values_reader = DocValuesLeafReaderImpl1::new(self, field_info);
+    let doc_values_reader = Self::get_doc_values_leaf_reader(self, field_info);
     let max_doc = segment_info.max_doc()?;
     let has_blocks = segment_info.get_has_blocks();
     let parent_field = state.field_infos.get_parent_field();
-    let use_parent = has_blocks && parent_field.is_some();
-    let parent_bit_set = if use_parent {
-      let parent_field = *parent_field.as_ref().unwrap();
-      match doc_values_reader.get_numeric_doc_values(parent_field)? {
-        Some(ref mut reader_values) => Some(Rc::new(of(reader_values, max_doc.try_convert()?)?)),
-        None => {
-          return Err(LuceneError::corrupt_index(format!(
-            "missing doc values for parent field {parent_field} IndexingChain"
-          )));
-        },
+
+    let parent_bit_set = if has_blocks {
+      if let Some(parent_field) = parent_field {
+        match doc_values_reader.get_numeric_doc_values(parent_field)? {
+          Some(ref mut reader_values) => Some(Rc::new(of(reader_values, max_doc.try_convert()?)?)),
+          None => {
+            return Err(LuceneError::corrupt_index(format!(
+              "missing doc values for parent field {parent_field} IndexingChain"
+            )));
+          },
+        }
+      } else {
+        None
       }
     } else {
       None

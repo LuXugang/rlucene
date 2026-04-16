@@ -631,13 +631,9 @@ where
   }
 
   fn init_count(&mut self) -> Result<()> {
-    debug_assert!(self.doc_id >= 0);
-    self.ord_upto = self.ords.offsets[self.doc_id as usize] - 1;
-    self.count = self
-      .ords
-      .doc_value_counts
-      .get(self.doc_id.try_convert()?)
-      .try_convert()?;
+    let doc_id = self.doc_id.try_convert()?;
+    self.ord_upto = self.ords.offsets[doc_id] - 1;
+    self.count = self.ords.doc_value_counts.get(doc_id) as i32;
     Ok(())
   }
 }

@@ -799,8 +799,8 @@ where
   {
     let mut sorted = self.values_provider.get(leaf_reader)?;
     let missing_ord = match self.missing_value {
-      Some(MissingValueEnum::StringLast) => i32::MAX as usize,
-      _ => i32::MIN as usize,
+      Some(MissingValueEnum::StringLast) => i32::MAX,
+      _ => i32::MIN,
     };
 
     let mut ords = vec![missing_ord; max_doc as usize];
@@ -810,7 +810,7 @@ where
       if doc_id == NO_MORE_DOCS {
         break;
       }
-      ords[doc_id as usize] = sorted.ord_value()? as usize;
+      ords[doc_id as usize] = sorted.ord_value()?;
     }
     Ok(DocComparatorImplString::new(ords, self.reverse_mul))
   }
@@ -839,12 +839,12 @@ where
 }
 
 pub struct DocComparatorImplString {
-  ords: Vec<usize>,
+  ords: Vec<i32>,
   reverse_mul: i32,
 }
 
 impl DocComparatorImplString {
-  pub fn new(ords: Vec<usize>, reverse_mul: i32) -> Self {
+  pub fn new(ords: Vec<i32>, reverse_mul: i32) -> Self {
     Self { ords, reverse_mul }
   }
 }

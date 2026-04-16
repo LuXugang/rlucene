@@ -149,7 +149,6 @@ impl OneComparatorComparator {
 impl Compare<TopFieldScoreDoc> for OneComparatorComparator {
   fn less_than(&self, hit_a: &TopFieldScoreDoc, hit_b: &TopFieldScoreDoc) -> Result<bool> {
     debug_assert!(self.one_comparator.len() == self.one_reverse_mul.len());
-    debug_assert_ne!(hit_a as *const _, hit_b as *const _);
     debug_assert_ne!(hit_a.slot()?, hit_b.slot()?);
 
     let cmp_result = self.one_comparator[0].compare(hit_a.slot()?, hit_b.slot()?);
@@ -189,7 +188,6 @@ impl Compare<TopFieldScoreDoc> for MultiComparatorsComparator {
       self.reverse_mul.len(),
       "comparators/reverse_mul length mismatch"
     );
-    debug_assert_ne!(hit_a as *const _, hit_b as *const _);
     debug_assert_ne!(hit_a.slot()?, hit_b.slot()?);
 
     let num_comparators = self.comparators.len();
