@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::BTreeSet;
-use std::fmt::{Display, Formatter};
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -30,15 +29,8 @@ use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
 use rand::RngExt;
 use regex::Regex;
-use std::sync::{Arc, LazyLock};
-use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
-use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
-use crate::core::index::leaf_metadata::LeafMetaData;
-use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::term::Term;
-use crate::core::search::knn_collector::KnnCollector;
-use crate::core::util::bits::Bits;
+use std::collections::BTreeSet;
+use std::sync::LazyLock;
 
 pub struct CheckHits;
 impl CheckHits {
@@ -51,7 +43,7 @@ impl CheckHits {
     results: &[i32],
   ) -> Result<()>
   where
-      IRC: IndexReaderContext,
+    IRC: IndexReaderContext,
   {
     let d = q.as_string(default_field_name)?;
     let ignore: BTreeSet<i32> = results.iter().copied().collect();
