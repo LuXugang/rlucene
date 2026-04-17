@@ -129,4 +129,8 @@ where
   fn cost(&mut self) -> Result<i64> {
     (**self).cost()
   }
+  #[cfg(test)]
+  fn kind(&self) -> BulkScorerKind {
+    (**self).kind()
+  }
 }
