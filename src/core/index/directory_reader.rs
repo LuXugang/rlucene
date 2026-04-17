@@ -55,7 +55,7 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// # Errors
   ///
   /// Returns an error if a low-level I/O failure occurs.
-  fn do_open_if_changed(&mut self) -> Result<Option<Self::DirectoryReader>>;
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>>;
   /// If this reader does not support reopen, return `None` so that client code behaves correctly.
   /// This should be consistent with [`is_current`](Self::is_current),
   /// which should always return `true` if reopen is not supported.
@@ -69,7 +69,7 @@ pub trait DirectoryReader: BaseCompositeReader {
   ///
   /// Returns an error if a low-level I/O failure occurs.
   fn do_open_if_changed_with_commit<IC>(
-    &mut self,
+    &self,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
@@ -344,5 +344,65 @@ where
 {
   pub fn new(directory: Arc<D>) -> Self {
     Self { directory }
+  }
+}
+
+impl<T> BaseCompositeReader for Arc<T> where T: DirectoryReader {}
+
+impl<T> DirectoryReader for Arc<T>
+where
+  T: DirectoryReader,
+{
+  type DirectoryReader = T::DirectoryReader;
+
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
+    (**self).do_open_if_changed()
+  }
+
+  fn do_open_if_changed_with_commit<IC>(
+    &self,
+    commit: Option<&IC>,
+  ) -> Result<Option<Self::DirectoryReader>>
+  where
+    IC: IndexCommit,
+  {
+    (**self).do_open_if_changed_with_commit(commit)
+  }
+
+  fn do_open_if_changed_with_index_writer<L, B>(
+    &self,
+    writer: IndexWriter<Self::Directory, L, B>,
+    apply_deletes: bool,
+  ) -> Result<Option<Self::DirectoryReader>>
+  where
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    (**self).do_open_if_changed_with_index_writer(writer, apply_deletes)
+  }
+
+  fn get_version(&self) -> i64 {
+    (**self).get_version()
+  }
+
+  fn is_current<D, L, B>(&self, index_writer: &IndexWriter<D, L, B>) -> Result<bool>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    (**self).is_current(index_writer)
+  }
+
+  type IndexCommit = T::IndexCommit;
+
+  fn get_index_commit(&self) -> Result<Self::IndexCommit> {
+    (**self).get_index_commit()
+  }
+
+  type Directory = T::Directory;
+
+  fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
+    (**self).directory()
   }
 }

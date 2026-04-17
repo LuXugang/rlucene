@@ -74,6 +74,19 @@ impl SortFieldEnum {
       SortFieldEnum::Sorter(sort_field) => sort_field.get_missing_value(),
     }
   }
+  pub fn set_optimize_sort_with_indexed_data(&mut self, optimize_sort_with_indexed_data: bool) {
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => sort_field
+        .base
+        .set_optimize_sort_with_indexed_data(optimize_sort_with_indexed_data),
+      SortFieldEnum::SortedSet(sort_field) => sort_field
+        .base
+        .set_optimize_sort_with_indexed_data(optimize_sort_with_indexed_data),
+      SortFieldEnum::Sorter(sort_field) => {
+        sort_field.set_optimize_sort_with_indexed_data(optimize_sort_with_indexed_data)
+      },
+    }
+  }
 }
 
 impl SortFiledBase for SortFieldEnum {

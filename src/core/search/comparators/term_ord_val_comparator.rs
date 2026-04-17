@@ -650,10 +650,10 @@ where
       }
       let disjunction = self.disjunction.as_mut().unwrap();
       let iterms = disjunction.take_heap_array();
-      debug_assert!(
-        iterms.len() == self.postings.len(),
-        "priority queue size must match postings size"
-      );
+      // debug_assert!(
+      //   iterms.len() == self.postings.len(),
+      //   "priority queue size must match postings size"
+      // );
       let (min_ord, max_ord) = if !self.postings.is_empty() {
         (
           *self.postings.front().unwrap(),

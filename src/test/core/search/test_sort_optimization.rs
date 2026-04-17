@@ -20,11 +20,13 @@ use crate::core::document::float_doc_values_field::FloatDocValuesField;
 use crate::core::document::float_point::FloatPoint;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::int_range::IntRange;
+use crate::core::document::keyword_field::KeywordField;
 use crate::core::document::long_field::{LongField, long_field_type};
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
+use crate::core::index::BytesRef;
 use crate::core::index::base_composite_reader::{BaseCompositeReader, BaseCompositeReaderBase};
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{
@@ -59,24 +61,29 @@ use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::query::Query;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort::Sort;
+use crate::core::search::sort_field::MissingValueEnum::{StringFirst, StringLast};
 use crate::core::search::sort_field::{SortField, SortFieldType, SortFiledBase};
 use crate::core::search::sorted_numeric_selector::SortedNumericSelectorType;
+use crate::core::search::sorted_set_selector::SortedSetSelectorType;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::{TopDocsLike, top_docs_util};
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
+use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::total_hits::Relation;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, at_least_usize, is_night_mode, new_directory_shared, new_searcher,
-  new_searcher_with_reader, new_searcher_with_threads, random,
+  at_least, at_least_usize, is_night_mode, new_directory_shared, new_index_writer_config,
+  new_log_merge_policy, new_searcher, new_searcher_with_reader, new_searcher_with_threads, random,
 };
 use rand::RngExt;
 use rand::prelude::SliceRandom;
 use rand::random_bool;
+use rand_chacha::rand_core::Rng;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -1382,24 +1389,6 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
 
   Ok(())
 }
-fn test_string_sort_optimization() -> Result<()> {
-  // TODO
-  Ok(())
-}
-fn test_string_sort_optimization_with_missing_values() -> Result<()> {
-  // TODO
-  Ok(())
-}
-fn assert_sort() -> Result<()> {
-  // TODO
-  Ok(())
-}
-
-fn assert_search_hits() -> Result<()> {
-  // TODO
-  Ok(())
-}
-
 fn assert_non_competitive_hits_are_skipped(collected_hits: i64, num_docs: i64) -> Result<()> {
   if collected_hits >= num_docs {
     return Err(LuceneError::illegal_state(format!(
@@ -1408,6 +1397,263 @@ fn assert_non_competitive_hits_are_skipped(collected_hits: i64, num_docs: i64) -
     )));
   }
   Ok(())
+}
+
+#[test]
+fn test_string_sort_optimization() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let num_docs = at_least(&mut random, 10_000);
+
+  for i in 0..num_docs {
+    let mut doc = Document::new();
+    let value = BytesRef::from_string(&random.random_range(0..1000).to_string());
+    doc.add(KeywordField::from_bytes_ref("my_field", value, Store::No)?);
+    writer.add_document(doc)?;
+    if i % 2000 == 0 {
+      writer.flush()?;
+    }
+  }
+
+  let reader = Arc::new(directory_reader_util::open_from_writer(&writer)?);
+  writer.close()?;
+
+  do_test_string_sort_optimization(&mut random, reader.clone())?;
+  do_test_string_sort_optimization_disabled(reader)?;
+  Ok(())
+}
+
+#[test]
+fn test_string_sort_optimization_with_missing_values() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let num_docs = at_least(&mut random, 10_000);
+
+  writer.add_document(Document::new())?;
+
+  for i in 0..(num_docs - 2) {
+    if i % 2000 == 0 {
+      writer.flush()?;
+    }
+    let mut doc = Document::new();
+    if random.random_range(0..2) == 0 {
+      let value = BytesRef::from_string(&random.random_range(0..1000).to_string());
+      doc.add(KeywordField::from_bytes_ref("my_field", value, Store::No)?);
+    }
+    writer.add_document(doc)?;
+  }
+
+  writer.flush()?;
+  writer.add_document(Document::new())?;
+
+  let reader = Arc::new(directory_reader_util::open_from_writer(&writer)?);
+  writer.close()?;
+  do_test_string_sort_optimization(&mut random, reader.clone())?;
+  Ok(())
+}
+fn do_test_string_sort_optimization<DR, R>(random: &mut R, reader: DR) -> Result<()>
+where
+  DR: DirectoryReader + Clone + 'static,
+  R: Rng + ?Sized,
+{
+  let num_docs = reader.num_docs()?;
+  let num_hits = 5;
+
+  {
+    let mut sort_field =
+      KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
+    sort_field.set_missing_value(StringLast)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+    let top_docs = assert_sort(reader.clone(), sort, num_hits, None)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+  }
+
+  {
+    let mut sort_field =
+      KeywordField::new_sort_field("my_field", true, SortedSetSelectorType::Min)?;
+    sort_field.set_missing_value(StringFirst)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+    let top_docs = assert_sort(reader.clone(), sort, num_hits, None)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+  }
+
+  {
+    let mut sort_field =
+      KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
+    sort_field.set_missing_value(StringFirst)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+    assert_sort(reader.clone(), sort, num_hits, None)?;
+  }
+
+  {
+    let mut sort_field =
+      KeywordField::new_sort_field("my_field", true, SortedSetSelectorType::Min)?;
+    sort_field.set_missing_value(StringLast)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+    assert_sort(reader.clone(), sort, num_hits, None)?;
+  }
+
+  {
+    let mut sort_field =
+      KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
+    sort_field.set_missing_value(StringLast)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+    let after_value = BytesRef::from_string(if random.random_bool(0.5) {
+      "23"
+    } else {
+      "230000000"
+    });
+    let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
+    let top_docs = assert_sort(reader.clone(), sort, num_hits, Some(after))?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+  }
+
+  {
+    let mut sort_field =
+      KeywordField::new_sort_field("my_field", true, SortedSetSelectorType::Min)?;
+    sort_field.set_missing_value(StringFirst)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+    let after_value = BytesRef::from_string(if random.random_bool(0.5) {
+      "17"
+    } else {
+      "170000000"
+    });
+    let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
+    let top_docs = assert_sort(reader.clone(), sort, num_hits, Some(after))?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+  }
+
+  {
+    let mut sort_field =
+      KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
+    sort_field.set_missing_value(StringFirst)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+    let after_value = BytesRef::from_string(if random.random_bool(0.5) {
+      "23"
+    } else {
+      "230000000"
+    });
+    let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
+    let top_docs = assert_sort(reader.clone(), sort, num_hits, Some(after))?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+  }
+
+  {
+    let mut sort_field =
+      KeywordField::new_sort_field("my_field", true, SortedSetSelectorType::Min)?;
+    sort_field.set_missing_value(StringLast)?;
+    let sort = Sort::with_fields(vec![sort_field])?;
+    let after_value = BytesRef::from_string(if random.random_bool(0.5) {
+      "17"
+    } else {
+      "170000000"
+    });
+    let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
+    let top_docs = assert_sort(reader.clone(), sort, num_hits, Some(after))?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+  }
+
+  {
+    let mut sort_field =
+      KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
+    sort_field.set_missing_value(StringLast)?;
+    let sort = Sort::with_fields(vec![sort_field, SortField::get_field_score()?.into()])?;
+    let top_docs = assert_sort(reader.clone(), sort, num_hits, None)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+  }
+
+  {
+    let mut sort_field =
+      KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
+    sort_field.set_missing_value(StringLast)?;
+    let sort = Sort::with_fields(vec![SortField::get_field_score()?.into(), sort_field])?;
+    let top_docs = assert_sort(reader, sort, num_hits, None)?;
+    assert_eq!(top_docs.total_hits().value() as i64, num_docs as i64);
+  }
+
+  Ok(())
+}
+fn do_test_string_sort_optimization_disabled<DR>(reader: DR) -> Result<()>
+where
+  DR: DirectoryReader + Clone + 'static,
+{
+  let mut sort_field = KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
+  sort_field.set_missing_value(StringLast)?;
+  sort_field.set_optimize_sort_with_indexed_data(false);
+
+  let sort = Sort::with_fields(vec![sort_field])?;
+  let num_docs = reader.num_docs()?;
+  let num_hits = 5;
+  let total_hits_threshold = 5;
+
+  let manager = TopFieldCollectorManager::with_after(sort, num_hits, None, total_hits_threshold)?;
+  let searcher = new_searcher_with_reader(reader)?;
+  let top_docs = searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?;
+
+  assert_eq!(num_docs as usize, top_docs.total_hits().value());
+  Ok(())
+}
+fn assert_sort<DR>(
+  reader: DR,
+  sort: Sort,
+  n: usize,
+  after: Option<FieldDoc>,
+) -> Result<TopFieldDocs>
+where
+  DR: DirectoryReader + Clone + 'static,
+{
+  let top_docs = assert_search_hits(reader.clone(), sort.clone(), n, after.clone())?;
+  let mut sort_fields = sort.get_sort().to_vec();
+  // A secondary sort on reverse doc ID is the best way to catch bugs if the comparator filters
+  // too aggressively
+  sort_fields.push(SortField::with_reverse::<String>(None, SortFieldType::Doc, true)?.into());
+
+  let after2 = match after {
+    Some(after) => {
+      let mut after_fields = after.fields.clone();
+      after_fields.push(i32::MAX.into());
+      Some(FieldDoc::with_fields(
+        after.doc(),
+        after.score(),
+        after_fields,
+      ))
+    },
+    None => None,
+  };
+
+  assert_search_hits(reader, Sort::with_fields(sort_fields)?, n, after2)?;
+  Ok(top_docs)
+}
+
+fn assert_search_hits<DR>(
+  reader: DR,
+  sort: Sort,
+  n: usize,
+  after: Option<FieldDoc>,
+) -> Result<TopFieldDocs>
+where
+  DR: DirectoryReader + Clone + 'static,
+{
+  let searcher = new_searcher_with_reader(reader.clone())?;
+  let query = MatchAllDocsQuery::new();
+  let manager = TopFieldCollectorManager::with_after(sort.clone(), n, after.clone(), n)?;
+  let top_docs = searcher.search_with_collector_manager(query.clone(), &manager)?;
+
+  let unoptimized_reader = NoIndexDirectoryReader::new(reader)?;
+  let unoptimized_searcher = new_searcher_with_threads(unoptimized_reader, true, true, false)?;
+  let unoptimized_top_docs =
+    unoptimized_searcher.search_with_collector_manager(query.clone(), &manager)?;
+
+  CheckHits::check_equal(
+    &query.into(),
+    unoptimized_top_docs.score_docs(),
+    top_docs.score_docs(),
+  )?;
+  Ok(top_docs)
 }
 #[derive(Default)]
 pub struct SubReaderWrapperImpl;
@@ -1726,13 +1972,13 @@ where
 {
   type DirectoryReader = DR::DirectoryReader;
 
-  fn do_open_if_changed(&mut self) -> Result<Option<Self::DirectoryReader>> {
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
     let v = self.in_.do_open_if_changed()?;
     self.wrap_directory_reader(v)
   }
 
   fn do_open_if_changed_with_commit<IC>(
-    &mut self,
+    &self,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where

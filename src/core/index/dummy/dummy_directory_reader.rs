@@ -134,12 +134,12 @@ where
 {
   type DirectoryReader = DummyDirectoryReader<D>;
 
-  fn do_open_if_changed(&mut self) -> Result<Option<Self::DirectoryReader>> {
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 
   fn do_open_if_changed_with_commit<IC>(
-    &mut self,
+    &self,
     _commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
