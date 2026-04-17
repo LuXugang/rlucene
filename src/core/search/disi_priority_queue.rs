@@ -340,7 +340,7 @@ pub mod tests {
   fn test_random() -> Result<()> {
     let mut random = random();
     let size = random.random_range(1..if is_night_mode() { 1000 } else { 100 });
-    let mut all = Vec::with_capacity(size as usize);
+    let mut all = Vec::with_capacity(size);
 
     for _ in 0..size {
       let it = random_disi(&mut random);
@@ -349,7 +349,6 @@ pub mod tests {
     }
 
     let mut pq = DisiPriorityQueue::new(size);
-    let size = size as usize;
     if random.random_bool(0.5) {
       for idx in 0..all.len() {
         pq.add(idx, &all);
@@ -370,7 +369,7 @@ pub mod tests {
       for idx in 0..size {
         v.push(idx)
       }
-      pq.add_all(v.as_slice(), 0, size as usize, &all)?;
+      pq.add_all(v.as_slice(), 0, size, &all)?;
     }
     while pq.size() > 0 {
       let mut sorted_docs: Vec<i32> = all.iter().map(|w| w.doc).collect();

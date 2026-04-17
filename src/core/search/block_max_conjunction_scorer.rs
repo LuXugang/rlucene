@@ -46,7 +46,7 @@ where
       let cost = v.iterator_mut().cost()?;
       scorers_with_cost.push((cost, v));
     }
-    scorers_with_cost.sort_by(|a, b| b.0.cmp(&a.0));
+    scorers_with_cost.sort_by_key(|entry| std::cmp::Reverse(entry.0));
 
     let mut scorers = Vec::with_capacity(scorers_with_cost.len());
     for (_, mut v) in scorers_with_cost {

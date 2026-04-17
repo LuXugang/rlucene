@@ -349,7 +349,7 @@ where
         .collect()
     };
     // Sort this outside of the lock by largest ramBytesUsed:
-    holders.sort_by(|a, b| b.ram_bytes_used.cmp(&a.ram_bytes_used));
+    holders.sort_by_key(|holder| std::cmp::Reverse(holder.ram_bytes_used));
 
     holders.into_iter().map(|h| h.updates).collect()
   }

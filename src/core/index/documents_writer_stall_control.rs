@@ -216,11 +216,11 @@ mod tests {
     let total_threads = num_stallers + num_releasers + num_waiters;
 
     let sync = Arc::new(Synchronizer::new(
-      (num_stallers + num_releasers) as usize,
-      total_threads as usize,
+      num_stallers + num_releasers,
+      total_threads,
     ));
 
-    let mut threads = Vec::with_capacity(total_threads as usize);
+    let mut threads = Vec::with_capacity(total_threads);
     for _ in 0..num_releasers {
       threads.push(updater(
         stop.clone(),

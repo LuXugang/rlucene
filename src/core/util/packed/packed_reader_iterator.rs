@@ -63,7 +63,7 @@ where
     let next_blocks = vec![0u8; iterations as usize * bulk_operation.byte_block_count() as usize];
     let next_values_long_length = (iterations * bulk_operation.byte_value_count()).try_convert()?;
     let next_values = LongsRef::from_slice(
-      vec![0i64; next_values_long_length as usize],
+      vec![0i64; next_values_long_length],
       next_values_long_length,
       0,
     );

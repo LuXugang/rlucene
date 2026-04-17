@@ -482,7 +482,7 @@ mod tests {
     for _ in 0..40 {
       let pos1 = random.random_range(0..num_nodes);
       let pos2 = random.random_range(0..num_nodes);
-      insertions.swap(pos1 as usize, pos2 as usize);
+      insertions.swap(pos1, pos2);
     }
 
     for &i in &insertions {

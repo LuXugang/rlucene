@@ -2055,29 +2055,27 @@ mod tests {
           }
           terms.insert(new_bytes_ref_empty(&mut random)?);
         },
-        6 => {
-          if !terms.is_empty() {
-            let v = Operations::remove_dead_states(&a)?;
-            let ras = RandomAcceptedStrings::new(&v)?;
-            let mut to_remove = BTreeSet::new();
-            let num_to_remove = TestUtil::next_int(&mut random, 1, terms.len().div_ceil(2) as i32);
-            while to_remove.len() < num_to_remove as usize {
-              let ints = ras.get_random_accepted_string(&mut random)?;
-              let len = ints.len();
-              let s =
-                new_bytes_ref_from_string(&mut random, &UnicodeUtil::new_string(&ints, 0, len)?)?;
-              if !to_remove.contains(&s) {
-                to_remove.insert(s);
-              }
+        6 if !terms.is_empty() => {
+          let v = Operations::remove_dead_states(&a)?;
+          let ras = RandomAcceptedStrings::new(&v)?;
+          let mut to_remove = BTreeSet::new();
+          let num_to_remove = TestUtil::next_int(&mut random, 1, terms.len().div_ceil(2) as i32);
+          while to_remove.len() < num_to_remove as usize {
+            let ints = ras.get_random_accepted_string(&mut random)?;
+            let len = ints.len();
+            let s =
+              new_bytes_ref_from_string(&mut random, &UnicodeUtil::new_string(&ints, 0, len)?)?;
+            if !to_remove.contains(&s) {
+              to_remove.insert(s);
             }
-            for t in &to_remove {
-              let removed = terms.remove(t);
-              assert!(removed)
-            }
-            let a2 = union_terms(&to_remove.iter().cloned().collect::<Vec<_>>(), &mut random)?;
-            if let Cow::Owned(o) = Operations::minus(&a, &a2, i32::MAX as usize)? {
-              a = Cow::Owned(o);
-            }
+          }
+          for t in &to_remove {
+            let removed = terms.remove(t);
+            assert!(removed)
+          }
+          let a2 = union_terms(&to_remove.iter().cloned().collect::<Vec<_>>(), &mut random)?;
+          if let Cow::Owned(o) = Operations::minus(&a, &a2, i32::MAX as usize)? {
+            a = Cow::Owned(o);
           }
         },
         7 => {
@@ -2232,66 +2230,64 @@ mod tests {
           a = Cow::Owned(Operations::union(&a, &Automata::make_empty_string()?)?);
           terms.insert(new_bytes_ref_empty(&mut random)?);
         },
-        14 => {
-          if terms.len() <= (num_terms * 3) as usize {
-            if cfg!(feature = "test_log_verbose") {
-              println!("  op=concat finite automaton");
-            }
-
-            let count = if random.random_bool(0.5) { 2 } else { 3 };
-            let mut add_terms = BTreeSet::new();
-            while add_terms.len() < count {
-              let s = get_random_string(&mut random);
-              add_terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
-            }
-
-            if cfg!(feature = "test_log_verbose") {
-              for term in &add_terms {
-                println!("    term={:?}", term);
-              }
-            }
-
-            let add_vec: Vec<_> = add_terms.iter().cloned().collect();
-            let a2 = union_terms(&add_vec, &mut random)?;
-
-            let mut new_terms = BTreeSet::new();
-
-            if random.random_bool(0.5) {
-              // suffix
-              if cfg!(feature = "test_log_verbose") {
-                println!("  do suffix");
-              }
-              let a2 = random_no_op(&a2, &mut random)?;
-              a = Cow::Owned(Operations::concatenate(&a, &a2)?);
-
-              let mut new_term = BytesRefBuilder::new();
-              for term in &terms {
-                for suffix in &add_terms {
-                  new_term.copy_bytes_from_ref(term);
-                  new_term.append_ref(suffix);
-                  new_terms.insert(new_term.get_bytes_ref_copy());
-                }
-              }
-            } else {
-              // prefix
-              if cfg!(feature = "test_log_verbose") {
-                println!("  do prefix");
-              }
-              let a2 = random_no_op(&a2, &mut random)?;
-              a = Cow::Owned(Operations::concatenate(&a2, &a)?);
-
-              let mut new_term = BytesRefBuilder::new();
-              for term in &terms {
-                for prefix in &add_terms {
-                  new_term.copy_bytes_from_ref(prefix);
-                  new_term.append_ref(term);
-                  new_terms.insert(new_term.get_bytes_ref_copy());
-                }
-              }
-            }
-
-            terms = new_terms;
+        14 if terms.len() <= (num_terms * 3) as usize => {
+          if cfg!(feature = "test_log_verbose") {
+            println!("  op=concat finite automaton");
           }
+
+          let count = if random.random_bool(0.5) { 2 } else { 3 };
+          let mut add_terms = BTreeSet::new();
+          while add_terms.len() < count {
+            let s = get_random_string(&mut random);
+            add_terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
+          }
+
+          if cfg!(feature = "test_log_verbose") {
+            for term in &add_terms {
+              println!("    term={:?}", term);
+            }
+          }
+
+          let add_vec: Vec<_> = add_terms.iter().cloned().collect();
+          let a2 = union_terms(&add_vec, &mut random)?;
+
+          let mut new_terms = BTreeSet::new();
+
+          if random.random_bool(0.5) {
+            // suffix
+            if cfg!(feature = "test_log_verbose") {
+              println!("  do suffix");
+            }
+            let a2 = random_no_op(&a2, &mut random)?;
+            a = Cow::Owned(Operations::concatenate(&a, &a2)?);
+
+            let mut new_term = BytesRefBuilder::new();
+            for term in &terms {
+              for suffix in &add_terms {
+                new_term.copy_bytes_from_ref(term);
+                new_term.append_ref(suffix);
+                new_terms.insert(new_term.get_bytes_ref_copy());
+              }
+            }
+          } else {
+            // prefix
+            if cfg!(feature = "test_log_verbose") {
+              println!("  do prefix");
+            }
+            let a2 = random_no_op(&a2, &mut random)?;
+            a = Cow::Owned(Operations::concatenate(&a2, &a)?);
+
+            let mut new_term = BytesRefBuilder::new();
+            for term in &terms {
+              for prefix in &add_terms {
+                new_term.copy_bytes_from_ref(prefix);
+                new_term.append_ref(term);
+                new_terms.insert(new_term.get_bytes_ref_copy());
+              }
+            }
+          }
+
+          terms = new_terms;
         },
 
         _ => {}, // others omitted for brevity

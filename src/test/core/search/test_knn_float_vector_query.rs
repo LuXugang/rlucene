@@ -491,7 +491,7 @@ fn test_doc_and_score_query_basics() -> Result<()> {
     let mut top_docs = searcher.search(query.clone(), 100)?;
     assert_eq!(score_docs.len(), top_docs.total_hits.value());
     assert_eq!(EqualTo, top_docs.total_hits.relation());
-    top_docs.score_docs.sort_by(|a, b| a.doc.cmp(&b.doc));
+    top_docs.score_docs.sort_by_key(|a| a.doc);
 
     assert_eq!(score_docs.len(), top_docs.score_docs.len());
     for (expected, actual) in score_docs.iter().zip(top_docs.score_docs.iter()) {

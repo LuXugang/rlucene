@@ -781,7 +781,7 @@ where
     ctx_map.insert(ord, idx);
     sorted_leaves.push((ord, max_doc));
   }
-  sorted_leaves.sort_by(|a, b| b.1.cmp(&a.1));
+  sorted_leaves.sort_by_key(|leaf| std::cmp::Reverse(leaf.1));
 
   if allow_segment_partitions {
     let mut grouped_leaf_partitions: Vec<Vec<LeafReaderContextPartition>> = Vec::new();

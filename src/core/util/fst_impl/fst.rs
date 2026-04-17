@@ -1692,7 +1692,7 @@ mod tests {
             terms_set.insert(ints_ref);
           }
 
-          let terms: Vec<_> = Vec::from_iter(terms_set.into_iter());
+          let terms: Vec<_> = Vec::from_iter(terms_set);
           self.do_test(random, input_mode, terms)?;
         }
       }

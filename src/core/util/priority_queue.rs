@@ -770,7 +770,7 @@ mod tests {
     let mut last_least: Option<i32> = None;
 
     // Basic insertion of new content
-    let mut sds: Vec<i32> = Vec::with_capacity(num_docs_in_pq as usize);
+    let mut sds: Vec<i32> = Vec::with_capacity(num_docs_in_pq);
     for _i in 0..num_docs_in_pq * 10 {
       let new_entry = random.random::<i32>().abs();
       sds.push(new_entry);
@@ -805,8 +805,8 @@ mod tests {
     // increasing scores in the lowest entry in the PQ
     for _i in 0..500000 {
       let element = (random.random::<f32>() * ((sds.len() - 1) as f32)) as usize;
-      let object_to_remove = sds[element as usize];
-      assert_eq!(sds.remove(element as usize), object_to_remove);
+      let object_to_remove = sds[element];
+      assert_eq!(sds.remove(element), object_to_remove);
       assert!(pq.remove(&object_to_remove)?);
       check_validity(&pq);
       let new_entry = random.random::<i32>().abs();

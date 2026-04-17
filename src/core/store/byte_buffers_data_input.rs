@@ -573,8 +573,8 @@ mod tests {
     let mut dst = ByteBuffersDataOutput::new();
     while remaining > 0 {
       let mut block = page_bytes.clone();
-      if block.len() > remaining as usize {
-        block.truncate(remaining as usize);
+      if block.len() > remaining {
+        block.truncate(remaining);
       }
       let len = block.len();
       dst.write_bytes(block.as_slice())?;

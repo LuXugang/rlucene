@@ -1999,7 +1999,7 @@ pub(crate) mod tests {
 
         if random.random_bool(0.5) {
           let denom = random.random_range(1..=100);
-          let max_range = (num_docs as i32) / denom;
+          let max_range = num_docs / denom;
           q = MaxScoreWrapperQuery::new(q, max_range, max_score).into();
         }
 

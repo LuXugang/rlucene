@@ -119,7 +119,7 @@ mod tests {
 
     for iter in 0..iters {
       let num_bytes = TestUtil::next_usize(&mut random, 1, max_bytes);
-      let mut expected = vec![0u8; num_bytes as usize];
+      let mut expected = vec![0u8; num_bytes];
       let mut bytes = GrowableByteArrayDataOutput::new();
 
       if cfg!(feature = "test_log_verbose") {

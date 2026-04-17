@@ -460,16 +460,12 @@ impl ForUtil {
     I: IndexInput,
   {
     pdu.split_ints_diff(24, ints, 2, 6, Self::MASK8_6, tmp, 0, Self::MASK8_2)?;
-    let mut tmp_idx = 0;
-    let mut ints_idx = 24;
-    for _ in 0..8 {
+    for (offset, tmp_idx) in (0..24).step_by(3).enumerate() {
+      let ints_idx = 24 + offset;
       let mut l0 = tmp[tmp_idx] << 4;
       l0 |= tmp[tmp_idx + 1] << 2;
       l0 |= tmp[tmp_idx + 2];
       ints[ints_idx] = l0;
-
-      tmp_idx += 3;
-      ints_idx += 1;
     }
     Ok(())
   }
@@ -479,9 +475,8 @@ impl ForUtil {
     I: IndexInput,
   {
     pdu.split_ints_diff(28, ints, 1, 7, Self::MASK8_7, tmp, 0, Self::MASK8_1)?;
-    let mut tmp_idx = 0;
-    let mut ints_idx = 28;
-    for _ in 0..4 {
+    for (offset, tmp_idx) in (0..28).step_by(7).enumerate() {
+      let ints_idx = 28 + offset;
       let mut l0 = tmp[tmp_idx] << 6;
       l0 |= tmp[tmp_idx + 1] << 5;
       l0 |= tmp[tmp_idx + 2] << 4;
@@ -490,9 +485,6 @@ impl ForUtil {
       l0 |= tmp[tmp_idx + 5] << 1;
       l0 |= tmp[tmp_idx + 6];
       ints[ints_idx] = l0;
-
-      tmp_idx += 7;
-      ints_idx += 1;
     }
     Ok(())
   }
@@ -628,13 +620,10 @@ impl ForUtil {
     I: IndexInput,
   {
     pdu.split_ints_diff(48, ints, 4, 12, Self::MASK16_12, tmp, 0, Self::MASK16_4)?;
-    let mut tmp_idx = 0;
-    let mut ints_idx = 48;
-    for _ in 0..16 {
+    for (offset, tmp_idx) in (0..48).step_by(3).enumerate() {
+      let ints_idx = 48 + offset;
       let l0 = (tmp[tmp_idx] << 8) | (tmp[tmp_idx + 1] << 4) | tmp[tmp_idx + 2];
       ints[ints_idx] = l0;
-      tmp_idx += 3;
-      ints_idx += 1;
     }
     Ok(())
   }
@@ -679,9 +668,8 @@ impl ForUtil {
     I: IndexInput,
   {
     pdu.split_ints_diff(56, ints, 2, 14, Self::MASK16_14, tmp, 0, Self::MASK16_2)?;
-    let mut tmp_idx = 0;
-    let mut ints_idx = 56;
-    for _ in 0..8 {
+    for (offset, tmp_idx) in (0..56).step_by(7).enumerate() {
+      let ints_idx = 56 + offset;
       let l0 = (tmp[tmp_idx] << 12)
         | (tmp[tmp_idx + 1] << 10)
         | (tmp[tmp_idx + 2] << 8)
@@ -690,8 +678,6 @@ impl ForUtil {
         | (tmp[tmp_idx + 5] << 2)
         | tmp[tmp_idx + 6];
       ints[ints_idx] = l0;
-      tmp_idx += 7;
-      ints_idx += 1;
     }
     Ok(())
   }
@@ -701,9 +687,8 @@ impl ForUtil {
     I: IndexInput,
   {
     pdu.split_ints_diff(60, ints, 1, 15, Self::MASK16_15, tmp, 0, Self::MASK16_1)?;
-    let mut tmp_idx = 0;
-    let mut ints_idx = 60;
-    for _ in 0..4 {
+    for (offset, tmp_idx) in (0..60).step_by(15).enumerate() {
+      let ints_idx = 60 + offset;
       let l0 = (tmp[tmp_idx] << 14)
         | (tmp[tmp_idx + 1] << 13)
         | (tmp[tmp_idx + 2] << 12)
@@ -720,8 +705,6 @@ impl ForUtil {
         | (tmp[tmp_idx + 13] << 1)
         | tmp[tmp_idx + 14];
       ints[ints_idx] = l0;
-      tmp_idx += 15;
-      ints_idx += 1;
     }
     Ok(())
   }

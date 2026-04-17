@@ -24,7 +24,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use parking_lot::MutexGuard;
 
-pub struct DummyFlushPolicy;
+pub(crate) struct DummyFlushPolicy;
 impl FlushPolicy for DummyFlushPolicy {
   fn on_change<D, L>(
     &self,

@@ -1192,7 +1192,7 @@ mod tests {
           let actual_value_count = if random.random_bool(0.5) {
             value_count
           } else {
-            TestUtil::next_usize(&mut random, 0, value_count) as usize
+            TestUtil::next_usize(&mut random, 0, value_count)
           };
 
           values
@@ -1631,7 +1631,7 @@ mod tests {
   fn test_bulk_get() -> Result<()> {
     let mut random = random();
     let value_count = 1111;
-    let index = random.random_range(0..value_count) as usize;
+    let index = random.random_range(0..value_count);
     let len = TestUtil::next_usize(&mut random, 1, value_count * 2);
     let off = random.random_range(0..77);
 
@@ -2289,7 +2289,7 @@ mod tests {
         random.random_range(0..(1 << 15))
       };
 
-      let mut values = vec![0i64; value_count as usize];
+      let mut values = vec![0i64; value_count];
       let mut min_value = 0;
       let mut bpv = 0;
       #[allow(clippy::needless_range_loop)]
@@ -2318,7 +2318,7 @@ mod tests {
         let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
         let mut writer = AbstractBlockPackedWriter::new(block_size, BlockPackedWriter)?;
         for (i, &value) in values.iter().enumerate() {
-          assert_eq!(i, writer.ord() as usize);
+          assert_eq!(i, writer.ord());
           writer.add(value, &mut out)?;
         }
         assert_eq!(value_count, writer.ord());
@@ -2381,11 +2381,8 @@ mod tests {
       {
         let in2 = ByteArrayDataInput::with_bytes(buf.as_slice());
         let mut in_ref = in2;
-        let mut it = BlockPackedReaderIterator::new(
-          PackedInts::VERSION_CURRENT,
-          block_size,
-          value_count as usize,
-        )?;
+        let mut it =
+          BlockPackedReaderIterator::new(PackedInts::VERSION_CURRENT, block_size, value_count)?;
 
         let mut i = 0;
         while i < value_count {

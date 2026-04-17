@@ -441,7 +441,7 @@ mod tests {
       for _i in 0..entries {
         let e = random.random_range(0..entries);
         assert_eq!(
-          string_list[e as usize],
+          string_list[e],
           list
             .get(&mut spare, e)
             .expect("not fail")

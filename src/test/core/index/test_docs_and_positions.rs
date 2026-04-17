@@ -203,7 +203,7 @@ fn test_random_positions() -> Result<()> {
 
     if positions.is_empty() {
       builder.push_str(&format!("{}", term));
-      positions.push(num as i32);
+      positions.push(num);
     }
 
     doc.add(new_field(
@@ -303,7 +303,7 @@ fn test_random_docs() -> Result<()> {
   let num_docs = at_least_usize(&mut random, 49);
   let max = 15678;
   let term = random.random_range(0..max);
-  let mut freq_in_doc = vec![0i32; num_docs as usize];
+  let mut freq_in_doc = vec![0i32; num_docs];
 
   let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;

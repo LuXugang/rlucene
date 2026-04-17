@@ -61,7 +61,7 @@ where
       i += 1;
     }
 
-    costs.sort_by(|a, b| a.0.cmp(&b.0));
+    costs.sort_by_key(|a| a.0);
 
     let mut all_scores = Vec::with_capacity(num_clauses);
     let mut required_scoring_idx = Vec::with_capacity(required_scoring_len);

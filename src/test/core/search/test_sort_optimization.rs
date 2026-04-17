@@ -284,7 +284,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
-    assert_eq!(top_docs.total_hits().value as i32, num_docs as i32);
+    assert_eq!(top_docs.total_hits().value as i32, num_docs);
   }
 
   {
@@ -442,7 +442,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
     let collector_manager = TopFieldCollectorManager::new(sort, num_hits, total_hits_threshold)?;
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
-    assert_eq!(top_docs.total_hits().value as i32, num_docs as i32);
+    assert_eq!(top_docs.total_hits().value as i32, num_docs);
   }
 
   Ok(())

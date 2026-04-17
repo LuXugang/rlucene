@@ -62,7 +62,7 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::{fmt, thread};
 
-pub(crate) struct DocumentsWriterPerThread<D>
+pub struct DocumentsWriterPerThread<D>
 where
   D: Directory,
 {
@@ -112,7 +112,7 @@ impl State {
   pub(crate) fn has_flushed(&self) -> bool {
     self.has_flushed.get().copied().unwrap_or(false)
   }
-  pub fn get_num_docs_in_ram(&self) -> i32 {
+  pub(crate) fn get_num_docs_in_ram(&self) -> i32 {
     self.num_docs_in_ram.load(SeqCst)
   }
   pub(crate) fn is_aborted(&self) -> bool {
@@ -474,7 +474,7 @@ where
     Ok(())
   }
   /// Returns the number of RAM resident documents in this [`DocumentsWriterPerThread`]
-  pub fn get_num_docs_in_ram(&self) -> i32 {
+  pub(crate) fn get_num_docs_in_ram(&self) -> i32 {
     self.state.get_num_docs_in_ram()
   }
   /// Prepares this DWPT for flushing. This method will freeze and return the [`DocumentsWriterDeleteQueue`]’s global buffer and apply all pending deletes to this DWPT.
@@ -1054,7 +1054,7 @@ impl<'a, FN> IOConsumerImpl<'a, FN>
 where
   FN: FlushNotifications,
 {
-  pub fn new(flush_notifications: &'a FN) -> Self {
+  pub(crate) fn new(flush_notifications: &'a FN) -> Self {
     IOConsumerImpl {
       flush_notifications,
     }
@@ -1077,7 +1077,7 @@ impl<B> DocWrapper<B>
 where
   B: IntoIterator<Item = Fields>,
 {
-  pub fn new(doc: B, parent_field: String) -> Self {
+  pub(crate) fn new(doc: B, parent_field: String) -> Self {
     DocWrapper { doc, parent_field }
   }
 }

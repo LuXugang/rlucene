@@ -199,15 +199,10 @@ pub fn to_automaton(wildcard_query: &Term, determinize_work_limit: i32) -> Resul
       WildcardQuery::WILDCARD_CHAR => {
         automata.push(Automata::make_any_char()?);
       },
-      WildcardQuery::WILDCARD_ESCAPE => {
-        if i + 1 < chars.len() {
-          let next = chars[i + 1] as i32;
-          automata.push(Automata::make_char(next)?);
-          i += 1;
-        } else {
-          let cp = c as i32;
-          automata.push(Automata::make_char(cp)?);
-        }
+      WildcardQuery::WILDCARD_ESCAPE if i + 1 < chars.len() => {
+        let next = chars[i + 1] as i32;
+        automata.push(Automata::make_char(next)?);
+        i += 1;
       },
       _ => {
         let cp = c as i32;

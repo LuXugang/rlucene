@@ -2004,7 +2004,7 @@ fn test_random1() -> Result<()> {
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let num_docs = at_least_usize(&mut random, 200);
-  let mut deleted = FixedBitSet::new(num_docs as usize);
+  let mut deleted = FixedBitSet::new(num_docs);
 
   for i in 0..num_docs {
     let mut doc = Document::new();
@@ -2094,7 +2094,7 @@ fn test_multi_valued_random1() -> Result<()> {
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let num_docs = at_least_usize(&mut random, 200);
-  let mut deleted = FixedBitSet::new(num_docs as usize);
+  let mut deleted = FixedBitSet::new(num_docs);
 
   for i in 0..num_docs {
     let mut doc = Document::new();

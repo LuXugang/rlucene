@@ -53,7 +53,7 @@ where
       cost.push((idx, v.iterator_mut().cost()?));
       temp_scorers_list.push(Some(v));
     }
-    cost.sort_by(|a, b| b.1.cmp(&a.1));
+    cost.sort_by_key(|entry| std::cmp::Reverse(entry.1));
     let mut scorers = Vec::with_capacity(cost.len());
     for (idx, _) in cost {
       let v = temp_scorers_list[idx].take().unwrap();

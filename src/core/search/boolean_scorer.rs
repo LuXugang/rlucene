@@ -99,11 +99,8 @@ where
         head.add(evicted)?;
       }
     }
-    let cost = ScorerUtil::cost_with_min_should_match(
-      cost_values.into_iter(),
-      head_size + tail_size,
-      min_should_match,
-    )?;
+    let cost =
+      ScorerUtil::cost_with_min_should_match(cost_values, head_size + tail_size, min_should_match)?;
 
     Ok(Self {
       buckets,

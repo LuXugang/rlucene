@@ -1164,7 +1164,7 @@ mod tests {
       let partition_point = random.random_range(0..values);
       let sorted_on_heap = random.random_range(0..5000);
       let mut points = get_random_point_writer(&mut random, config.clone(), &dir, values)?;
-      let mut value = vec![0u8; config.packed_bytes_length() as usize];
+      let mut value = vec![0u8; config.packed_bytes_length()];
       random.fill(&mut value[..]);
       for i in 0..values {
         if random.random_bool(0.5) {

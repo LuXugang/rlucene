@@ -1327,7 +1327,7 @@ mod tests {
     let writer = RandomIndexWriter::new(&mut random, dir.clone());
     let mut field_to_type = HashMap::new();
 
-    let num_docs = at_least(&mut random, 300) as i32;
+    let num_docs = at_least(&mut random, 300);
     for _doc_upto in 0..num_docs {
       let mut contents = String::from("a");
       if random.random_range(0..20) <= 16 {

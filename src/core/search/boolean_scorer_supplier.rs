@@ -165,7 +165,7 @@ where
         }
 
         ScorerUtil::cost_with_min_should_match(
-          costs.into_iter(),
+          costs,
           v.len(),
           self.min_should_match.try_convert()?,
         )?
@@ -1559,8 +1559,7 @@ mod tests {
         random.random_range(0..num_shoulds)
       };
 
-      let mut supplier =
-        BooleanScorerSupplier::new(subs, score_mode, min_should_match as i32, 100)?;
+      let mut supplier = BooleanScorerSupplier::new(subs, score_mode, min_should_match, 100)?;
 
       let cost1 = supplier.cost(&dummy_lrc, &dummy_searcher)?;
       let scorer = supplier.get(i64::MAX, &dummy_lrc, &dummy_searcher)?;

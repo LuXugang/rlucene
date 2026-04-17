@@ -448,7 +448,7 @@ fn test_random_queries() -> Result<()> {
   let result = (|| -> Result<()> {
     let num = at_least_usize(&mut random, 3);
     for _ in 0..num {
-      let level = random.random_range(0..3) as i32;
+      let level = random.random_range(0..3);
       let mut nested_random = StdRng::seed_from_u64(random.random::<u64>());
       let built = rand_bool_query(
         &mut nested_random,

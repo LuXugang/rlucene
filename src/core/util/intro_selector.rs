@@ -175,10 +175,8 @@ where
     // Sort the final tiny range (3 entries or less) with a very specialized
     // sort.
     match size {
-      2 => {
-        if IntroSelectorBase::compare(&mut self.sub_selector, from, from + 1)? > 0 {
-          self.sub_selector.swap(from, from + 1)?;
-        }
+      2 if IntroSelectorBase::compare(&mut self.sub_selector, from, from + 1)? > 0 => {
+        self.sub_selector.swap(from, from + 1)?;
       },
       3 => {
         self.sort3(from)?;

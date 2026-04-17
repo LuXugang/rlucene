@@ -358,17 +358,14 @@ impl ForDeltaUtil {
       0,
       ForUtil::MASK16_1,
     )?;
-    let mut tmp_idx = 0;
-    let mut ints_idx = 60;
-    for _ in 0..4 {
+    for (offset, tmp_idx) in (0..20).step_by(5).enumerate() {
+      let ints_idx = 60 + offset;
       let mut l0 = tmp[tmp_idx] << 4;
       l0 |= tmp[tmp_idx + 1] << 3;
       l0 |= tmp[tmp_idx + 2] << 2;
       l0 |= tmp[tmp_idx + 3] << 1;
       l0 |= tmp[tmp_idx + 4];
       ints[ints_idx] = l0;
-      tmp_idx += 5;
-      ints_idx += 1;
     }
     Ok(())
   }

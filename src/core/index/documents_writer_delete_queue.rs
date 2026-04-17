@@ -78,7 +78,7 @@ use crate::core::util::info_stream::InfoStreamMT;
 /// [`BufferedUpdates`](BufferedUpdates)
 /// [`DeleteSlice`](crate::core::index::DeleteSlice)
 /// [`DocumentsWriterPerThread`](crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread)
-pub(crate) struct DocumentsWriterDeleteQueue {
+pub struct DocumentsWriterDeleteQueue {
   pub(crate) inner: Mutex<Inner>,
   pub(crate) generation: i64,
   /// Generates the sequence number that IW returns to callers changing the

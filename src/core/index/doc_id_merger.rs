@@ -536,7 +536,7 @@ pub mod tests {
     for _ in 0..sub_count {
       let max_doc = TestUtil::next_usize(&mut random, 1, 1000);
       uptos.push(0);
-      old_to_new.push(vec![0; max_doc as usize]);
+      old_to_new.push(vec![0; max_doc]);
       tot_doc_count += max_doc;
     }
 

@@ -378,13 +378,11 @@ where
 
     for level in 0..self.hnsw.num_levels()? {
       match self.connect_components_with_level(level) {
-        Ok(false) => {
-          if self.info_stream.enabled(HNSW_COMPONENT) {
-            self.info_stream.message(
-              HNSW_COMPONENT,
-              &format!("connectComponents failed on level {level}"),
-            );
-          }
+        Ok(false) if self.info_stream.enabled(HNSW_COMPONENT) => {
+          self.info_stream.message(
+            HNSW_COMPONENT,
+            &format!("connectComponents failed on level {level}"),
+          );
         },
         Err(e) => return Err(e),
         _ => {},

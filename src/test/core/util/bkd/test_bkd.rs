@@ -152,7 +152,6 @@ fn test_random_ints_n_dims() -> Result<()> {
     max_mb as f64,
     num_docs as i64,
   )?;
-  let num_dims = num_dims as usize;
   let mut docs = vec![vec![]; num_docs as usize];
   let mut scratch = vec![0u8; 4 * num_dims];
   let mut min_value = vec![i32::MAX; num_dims];
@@ -194,7 +193,7 @@ fn test_random_ints_n_dims() -> Result<()> {
 
     let min_packed_value = r.get_min_packed_value()?.unwrap();
     let max_packed_value = r.get_max_packed_value()?.unwrap();
-    for dim in 0..num_index_dims as usize {
+    for dim in 0..num_index_dims {
       assert_eq!(
         min_value[dim],
         NumericUtils::sortable_bytes_to_int(min_packed_value.as_ref(), dim * BitUtil::INT_BYTES,),
@@ -219,7 +218,7 @@ fn test_random_ints_n_dims() -> Result<()> {
       let mut query_max = vec![0; num_dims];
       let mut query_max_bytes = vec![vec![0u8; 4]; num_dims];
 
-      for dim in 0..num_index_dims as usize {
+      for dim in 0..num_index_dims {
         query_min[dim] = random.random();
         query_max[dim] = random.random();
         if query_min[dim] > query_max[dim] {
@@ -242,7 +241,7 @@ fn test_random_ints_n_dims() -> Result<()> {
 
       for (doc_id, doc_values) in docs.iter().enumerate() {
         let mut expected = true;
-        for dim in 0..num_index_dims as usize {
+        for dim in 0..num_index_dims {
           let x = doc_values[dim];
           if x < query_min[dim] || x > query_max[dim] {
             expected = false;
@@ -283,8 +282,6 @@ fn test_big_int_n_dims() -> Result<()> {
     num_docs as i64,
   )?;
 
-  let num_bytes_per_dim = num_bytes_per_dim as usize;
-  let num_dims = num_dims as usize;
   let mut docs = vec![vec![]; num_docs as usize];
   let mut scratch = vec![0u8; num_bytes_per_dim * num_dims];
 
@@ -468,12 +465,11 @@ fn test_all_equal() -> Result<()> {
   ) as usize;
 
   let num_docs = at_least(&mut random, 1000);
-  let mut doc_values =
-    vec![vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize]; num_docs as usize];
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
 
   for doc_id in 0..num_docs as usize {
     if doc_id == 0 {
-      for values in doc_values[doc_id].iter_mut().take(num_data_dims as usize) {
+      for values in doc_values[doc_id].iter_mut().take(num_data_dims) {
         random.fill_bytes(values);
       }
     } else {
@@ -503,10 +499,9 @@ fn test_index_dim_equal_data_dim_different() -> Result<()> {
   ) as usize;
 
   let num_docs = at_least(&mut random, 1000);
-  let mut doc_values =
-    vec![vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize]; num_docs as usize];
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
 
-  let mut index_dimensions = vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+  let mut index_dimensions = vec![vec![0u8; num_bytes_per_dim]; num_data_dims];
   for dim_value in index_dimensions.iter_mut().take(num_index_dims as usize) {
     random.fill_bytes(dim_value);
   }
@@ -522,7 +517,7 @@ fn test_index_dim_equal_data_dim_different() -> Result<()> {
     for val in doc_value
       .iter_mut()
       .skip(num_index_dims as usize)
-      .take(num_data_dims as usize - num_index_dims as usize)
+      .take(num_data_dims - num_index_dims as usize)
     {
       random.fill_bytes(val);
     }
@@ -551,8 +546,7 @@ fn test_one_dim_equal() -> Result<()> {
 
   let num_docs = at_least(&mut random, 1000);
   let the_equal_dim = random.random_range(0..num_data_dims);
-  let mut doc_values =
-    vec![vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize]; num_docs as usize];
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
 
   for doc_id in 0..num_docs as usize {
     for values in doc_values[doc_id].iter_mut().take(num_data_dims) {
@@ -560,7 +554,7 @@ fn test_one_dim_equal() -> Result<()> {
     }
 
     if doc_id > 0 {
-      doc_values[doc_id][the_equal_dim as usize] = doc_values[0][the_equal_dim as usize].clone();
+      doc_values[doc_id][the_equal_dim] = doc_values[0][the_equal_dim].clone();
     }
   }
 
@@ -591,27 +585,22 @@ fn test_one_dim_low_card() -> Result<()> {
   let num_docs = at_least(&mut random, 10_000);
   let the_low_card_dim = random.random_range(0..num_data_dims);
 
-  let mut value1 = vec![0u8; num_bytes_per_dim as usize];
+  let mut value1 = vec![0u8; num_bytes_per_dim];
   random.fill_bytes(&mut value1);
   let mut value2 = value1.clone();
 
-  let last = &mut value2[num_bytes_per_dim as usize - 1];
+  let last = &mut value2[num_bytes_per_dim - 1];
   if *last == 0 || random.random_bool(0.5) {
     *last = last.wrapping_add(1);
   } else {
     *last = last.wrapping_sub(1);
   }
 
-  let mut doc_values =
-    vec![vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize]; num_docs as usize];
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
 
   for doc_value in doc_values.iter_mut().take(num_docs as usize) {
-    for (dim, val) in doc_value
-      .iter_mut()
-      .take(num_data_dims as usize)
-      .enumerate()
-    {
-      if dim == the_low_card_dim as usize {
+    for (dim, val) in doc_value.iter_mut().take(num_data_dims).enumerate() {
+      if dim == the_low_card_dim {
         *val = if random.random_bool(0.5) {
           value1.clone()
         } else {
@@ -649,21 +638,16 @@ fn test_one_dim_two_values() -> Result<()> {
   let num_docs = at_least(&mut random, 1000);
   let the_dim = random.random_range(0..num_data_dims);
 
-  let mut value1 = vec![0u8; num_bytes_per_dim as usize];
+  let mut value1 = vec![0u8; num_bytes_per_dim];
   random.fill_bytes(&mut value1);
-  let mut value2 = vec![0u8; num_bytes_per_dim as usize];
+  let mut value2 = vec![0u8; num_bytes_per_dim];
   random.fill_bytes(&mut value2);
 
-  let mut doc_values =
-    vec![vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize]; num_docs as usize];
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
 
   for doc_value in doc_values.iter_mut().take(num_docs as usize) {
-    for (dim, val) in doc_value
-      .iter_mut()
-      .take(num_data_dims as usize)
-      .enumerate()
-    {
-      if dim == the_dim as usize {
+    for (dim, val) in doc_value.iter_mut().take(num_data_dims).enumerate() {
+      if dim == the_dim {
         *val = if random.random_bool(0.5) {
           value1.clone()
         } else {
@@ -699,19 +683,17 @@ fn test_random_few_different_values() -> Result<()> {
   let num_docs = at_least(&mut random, 10000);
   let cardinality = TestUtil::next_usize(&mut random, 2, 100);
 
-  let mut values =
-    vec![vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize]; cardinality as usize];
-  for value_set in values.iter_mut().take(cardinality as usize) {
-    for value in value_set.iter_mut().take(num_data_dims as usize) {
+  let mut values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; cardinality];
+  for value_set in values.iter_mut().take(cardinality) {
+    for value in value_set.iter_mut().take(num_data_dims) {
       random.fill_bytes(value);
     }
   }
 
-  let mut doc_values =
-    vec![vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize]; num_docs as usize];
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
   for (doc_value, _) in doc_values.iter_mut().zip(0..num_docs as usize) {
     let v = random.random_range(0..cardinality);
-    *doc_value = values[v as usize].clone();
+    *doc_value = values[v].clone();
   }
 
   verify(
@@ -752,8 +734,8 @@ fn test_multi_valued() -> Result<()> {
     let num_values_in_doc = TestUtil::next_usize(&mut random, 1, 5);
     for _ in 0..num_values_in_doc {
       doc_ids.push(doc_id);
-      let mut values = vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-      for value in values.iter_mut().take(num_data_dims as usize) {
+      let mut values = vec![vec![0u8; num_bytes_per_dim]; num_data_dims];
+      for value in values.iter_mut().take(num_data_dims) {
         random.fill_bytes(value);
       }
 
@@ -1447,18 +1429,15 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
   let num_index_dims = TestUtil::next_usize(&mut random, 1, 8);
   let num_data_dims = TestUtil::next_usize(&mut random, num_index_dims, 8);
 
-  let mut point_value1 = vec![0u8; (num_data_dims * num_bytes_per_dim) as usize];
-  let mut point_value2 = vec![0u8; (num_data_dims * num_bytes_per_dim) as usize];
+  let mut point_value1 = vec![0u8; num_data_dims * num_bytes_per_dim];
+  let mut point_value2 = vec![0u8; num_data_dims * num_bytes_per_dim];
   random.fill_bytes(&mut point_value1);
   random.fill_bytes(&mut point_value2);
 
   // Equal index dimensions but different data dimensions
   for i in 0..num_index_dims {
-    let offset = (i * num_bytes_per_dim) as usize;
-    point_value2.copy_from(
-      &point_value1[offset..offset + num_bytes_per_dim as usize],
-      offset,
-    );
+    let offset = i * num_bytes_per_dim;
+    point_value2.copy_from(&point_value1[offset..offset + num_bytes_per_dim], offset);
   }
 
   let config = BKDConfig::new(
@@ -1640,13 +1619,13 @@ fn test_wasted_leading_bytes() -> Result<()> {
     num_docs as i64,
   )?;
 
-  let mut tmp = vec![0u8; bytes_used as usize];
-  let mut buffer = vec![0u8; (num_dims * bytes_per_dim) as usize];
+  let mut tmp = vec![0u8; bytes_used];
+  let mut buffer = vec![0u8; num_dims * bytes_per_dim];
 
   for doc_id in 0..num_docs {
     for dim in 0..num_dims {
       random.fill_bytes(&mut tmp);
-      let offset = (dim * bytes_per_dim + (bytes_per_dim - bytes_used)) as usize;
+      let offset = dim * bytes_per_dim + (bytes_per_dim - bytes_used);
       buffer.copy_from(&tmp, offset);
     }
     writer.add(&buffer, doc_id)?;
@@ -1742,8 +1721,8 @@ fn test_estimate_point_count() -> Result<()> {
   let max_points_in_leaf_node = TestUtil::next_usize(&mut random, 50, 500);
   let num_bytes_per_dim = TestUtil::next_usize(&mut random, 1, 4);
 
-  let mut point_value = vec![0u8; num_bytes_per_dim as usize];
-  let mut unique_point_value = vec![0u8; num_bytes_per_dim as usize];
+  let mut point_value = vec![0u8; num_bytes_per_dim];
+  let mut unique_point_value = vec![0u8; num_bytes_per_dim];
   random.fill_bytes(&mut unique_point_value);
 
   let config = BKDConfig::new(1, 1, num_bytes_per_dim, max_points_in_leaf_node)?;
@@ -1880,7 +1859,7 @@ fn test_total_point_count_validation() -> Result<()> {
   let num_values = 10;
   let num_points_added = 50;
   let num_bytes_per_dim = TestUtil::next_usize(&mut random, 1, 4);
-  let mut point_value = vec![0u8; num_bytes_per_dim as usize];
+  let mut point_value = vec![0u8; num_bytes_per_dim];
   random.fill_bytes(&mut point_value);
 
   let mut reader = MutablePointTreeMock1 {
@@ -2025,7 +2004,7 @@ fn test_too_many_points_1d() -> Result<()> {
 
   let num_values = 10;
   let num_bytes_per_dim = TestUtil::next_usize(&mut random, 1, 4);
-  let mut point_values = vec![vec![0u8; num_bytes_per_dim as usize]; 11];
+  let mut point_values = vec![vec![0u8; num_bytes_per_dim]; 11];
   let mut doc_ids = vec![0i32; 11];
 
   for i in 0..=num_values as usize {

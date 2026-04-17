@@ -39,7 +39,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
-pub(crate) struct DocumentsWriterFlushControl<D>
+pub struct DocumentsWriterFlushControl<D>
 where
   D: Directory,
 {
@@ -50,7 +50,7 @@ where
   pausing: Condvar,
   pub(crate) per_thread_pool: DocumentsWriterPerThreadPool<D>,
 }
-pub(crate) struct Inner<D>
+pub struct Inner<D>
 where
   D: Directory,
 {
@@ -134,7 +134,7 @@ where
     })
   }
 
-  pub fn active_bytes(&self, inner: Option<&Inner<D>>) -> i64 {
+  pub(crate) fn active_bytes(&self, inner: Option<&Inner<D>>) -> i64 {
     let inner = match inner {
       Some(inner) => inner,
       None => &mut *self.inner.lock(),
@@ -432,7 +432,7 @@ where
     stall
   }
 
-  pub fn wait_for_flush(&self) {
+  pub(crate) fn wait_for_flush(&self) {
     let mut inner = self.inner.lock();
     while !inner.flushing_writers.is_empty() {
       self.pausing.wait(&mut inner);
@@ -440,7 +440,7 @@ where
   }
   /// Sets flush pending state on the given [`DocumentsWriterPerThread`].
   /// The [`DocumentsWriterPerThread`] must have indexed at least on Document and must not be already pending.
-  pub fn set_flush_pending<L>(
+  pub(crate) fn set_flush_pending<L>(
     &self,
     per_thread: &DocumentsWriterPerThread<D>,
     inner: Option<&mut Inner<D>>,
@@ -464,7 +464,7 @@ where
     }
     Ok(())
   }
-  pub fn do_on_abort<L>(&self, per_thread: &Arc<DwptWrapper<D>>, config: &L)
+  pub(crate) fn do_on_abort<L>(&self, per_thread: &Arc<DwptWrapper<D>>, config: &L)
   where
     L: LiveIndexWriterConfig,
   {
@@ -588,7 +588,7 @@ where
     Ok(None)
   }
 
-  pub fn close(&self) {
+  pub(crate) fn close(&self) {
     let mut inner = self.inner.lock();
     inner.closed = true;
   }
@@ -624,20 +624,20 @@ where
     };
     inner.flushing_writers.len()
   }
-  pub fn get_and_reset_apply_all_deletes(&self) -> bool {
+  pub(crate) fn get_and_reset_apply_all_deletes(&self) -> bool {
     self.flush_deletes.swap(false, Ordering::SeqCst)
   }
   /// Check whether deletes need to be applied. This can be used as a pre-flight check before calling
   /// [`getAndResetApplyAllDeletes()`](Self::get_and_reset_apply_all_deletes) to make sure that a single thread applies deletes.
-  pub fn get_apply_all_deletes(&self) -> bool {
+  pub(crate) fn get_apply_all_deletes(&self) -> bool {
     self.flush_deletes.load(Ordering::SeqCst)
   }
 
-  pub fn set_apply_all_deletes(&self) {
+  pub(crate) fn set_apply_all_deletes(&self) {
     self.flush_deletes.store(true, Ordering::SeqCst);
   }
 
-  pub fn obtain_and_lock<B, L>(
+  pub(crate) fn obtain_and_lock<B, L>(
     &self,
     delete_queue: &Arc<DocumentsWriterDeleteQueue>,
     writer: &IndexWriter<D, L, B>,
@@ -772,7 +772,7 @@ where
 
     Ok(seq_no)
   }
-  pub fn assert_active_delete_queue(&self, queue: &Arc<DocumentsWriterDeleteQueue>) -> bool {
+  pub(crate) fn assert_active_delete_queue(&self, queue: &Arc<DocumentsWriterDeleteQueue>) -> bool {
     let dwpts = self.per_thread_pool.iterator(None);
     for (_, next) in dwpts.iter() {
       debug_assert!(Arc::ptr_eq(&next.state.delete_queue, queue));
@@ -847,13 +847,13 @@ where
   }
 
   /// Returns `true` if a full flush is currently running
-  pub fn is_full_flush(&self) -> bool {
+  pub(crate) fn is_full_flush(&self) -> bool {
     let inner = self.inner.lock();
     inner.full_flush
   }
 
   /// Returns the number of flushes that are already checked out but not yet actively flushing
-  pub fn num_queued_flushes(&self) -> usize {
+  pub(crate) fn num_queued_flushes(&self) -> usize {
     let inner = self.inner.lock();
     inner.flush_queue.len()
   }
@@ -861,7 +861,7 @@ where
   /// Returns the number of flushes that are checked out but not yet available for flushing.
   /// This only applies during a full flush if a DWPT needs flushing but must not be flushed
   /// until the full flush has finished.
-  pub fn num_blocked_flushes(&self, inner: Option<&Inner<D>>) -> i32 {
+  pub(crate) fn num_blocked_flushes(&self, inner: Option<&Inner<D>>) -> i32 {
     let inner = match inner {
       Some(inner) => inner,
       None => &*self.inner.lock(),
@@ -870,12 +870,12 @@ where
   }
 
   /// This method will block if too many DWPT are currently flushing and no checked out DWPT are available
-  pub fn wait_if_stalled(&self) {
+  pub(crate) fn wait_if_stalled(&self) {
     self.stall_control.wait_if_stalled();
   }
 
   /// Returns `true` iff stalled.
-  pub fn any_stalled_threads(&self) -> bool {
+  pub(crate) fn any_stalled_threads(&self) -> bool {
     self.stall_control.any_stalled_threads()
   }
   pub(crate) fn find_largest_non_pending_writer(&self) -> Option<Arc<DwptWrapper<D>>> {

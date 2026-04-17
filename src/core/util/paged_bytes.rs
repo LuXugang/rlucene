@@ -501,9 +501,9 @@ mod tests {
       let mut paged_bytes = PagedBytes::new(block_bits as usize);
 
       let num_bytes = if is_night_mode() {
-        TestUtil::next_usize(&mut random, 2, 10_000_000) as usize
+        TestUtil::next_usize(&mut random, 2, 10_000_000)
       } else {
-        TestUtil::next_usize(&mut random, 2, 1_000_000) as usize
+        TestUtil::next_usize(&mut random, 2, 1_000_000)
       };
 
       let mut answer = vec![0u8; num_bytes];
@@ -685,7 +685,7 @@ mod tests {
     }
 
     let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
-    paged_bytes.copy_with_input(&mut input, num_bytes as usize)?;
+    paged_bytes.copy_with_input(&mut input, num_bytes)?;
     let reader = paged_bytes.freeze(random.random_bool(0.5))?;
 
     let test_offsets = [

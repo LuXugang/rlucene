@@ -1866,7 +1866,7 @@ fn test_inverse_point_range() -> Result<()> {
   let mut low = vec![0i32; num_dims];
   let mut high = vec![0i32; num_dims];
 
-  high.fill((num_docs - 2) as i32);
+  high.fill(num_docs - 2);
   assert_eq!(
     (high[0] - low[0] + 1),
     searcher.count(IntPoint::new_range_query_n("f", &low, &high)?)?
@@ -1878,7 +1878,7 @@ fn test_inverse_point_range() -> Result<()> {
     searcher.count(IntPoint::new_range_query_n("f", &low, &high)?)?
   );
 
-  high.fill((num_docs - 1) as i32);
+  high.fill(num_docs - 1);
   assert_eq!(
     (high[0] - low[0] + 1),
     searcher.count(IntPoint::new_range_query_n("f", &low, &high)?)?

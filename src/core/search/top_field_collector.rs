@@ -835,7 +835,7 @@ impl PagingFieldCollector {
     let fields = std::mem::take(&mut after.fields);
     let score_doc = std::mem::take(&mut after.base);
 
-    for (comp, top_value) in comparators.iter_mut().zip(fields.into_iter()) {
+    for (comp, top_value) in comparators.iter_mut().zip(fields) {
       comp.set_top_value(top_value);
     }
 
