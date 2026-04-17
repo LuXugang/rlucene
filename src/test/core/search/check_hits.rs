@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::BTreeSet;
+use std::fmt::{Display, Formatter};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
@@ -28,10 +30,50 @@ use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
 use rand::RngExt;
 use regex::Regex;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
+use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
+use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::leaf_metadata::LeafMetaData;
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::term::Term;
+use crate::core::search::knn_collector::KnnCollector;
+use crate::core::util::bits::Bits;
 
 pub struct CheckHits;
 impl CheckHits {
+  /// Tests that all documents up to `maxDoc` which are *not* in the expected result set, have an
+  /// explanation which indicates that the document does not match.
+  pub fn check_no_match_explanations<IRC>(
+    q: Query,
+    default_field_name: &str,
+    searcher: &IndexSearcher<IRC>,
+    results: &[i32],
+  ) -> Result<()>
+  where
+      IRC: IndexReaderContext,
+  {
+    let d = q.as_string(default_field_name)?;
+    let ignore: BTreeSet<i32> = results.iter().copied().collect();
+
+    let max_doc = searcher.get_index_reader().max_doc()?;
+    for doc in 0..max_doc {
+      if ignore.contains(&doc) {
+        continue;
+      }
+
+      let exp = searcher.explain(q.clone(), doc)?;
+      assert!(
+        !exp.is_match(),
+        "Explanation of [[{}]] for #{} doesn't indicate non-match: {}",
+        d,
+        doc,
+        exp
+      );
+    }
+
+    Ok(())
+  }
   pub fn check_doc_ids<S>(mes: &str, result: &[i32], hits: &[S]) -> Result<()>
   where
     S: ScoreDocLike,
