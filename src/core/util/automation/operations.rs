@@ -196,7 +196,7 @@ impl Operations {
     }
 
     // If state 0 is the only accept state, and it already repeats itself
-    if a.is_accept(0) && a.get_accept_states().len() == 1 {
+    if a.is_accept(0) && a.get_accept_states().count() == 1 {
       return Ok(Cow::Borrowed(a));
     }
 
@@ -465,7 +465,7 @@ impl Operations {
   /// Cost: O(num_transitions + num_states).
   pub fn has_dead_states(a: &Automaton) -> Result<bool> {
     let live_states = Operations::get_live_states(a)?;
-    let num_live = live_states.len();
+    let num_live = live_states.count();
     let num_states = a.get_num_states();
     debug_assert!(
       num_live <= num_states as usize,
@@ -893,7 +893,7 @@ impl Operations {
   pub fn remove_dead_states(a: &'_ Automaton) -> Result<Cow<'_, Automaton>> {
     let num_states = a.get_num_states() as usize;
     let live_set = Operations::get_live_states(a)?;
-    if live_set.len() == num_states {
+    if live_set.count() == num_states {
       return Ok(Cow::Borrowed(a));
     }
 

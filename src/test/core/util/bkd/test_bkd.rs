@@ -1042,7 +1042,7 @@ where
       random,
     })?;
     assert_hits(&hits, &expected);
-    hits.clear();
+    hits.make_empty();
     PointTree::visit_doc_values(
       &mut point_values.get_point_tree()?,
       &mut IntersectVisitorImpl {
@@ -1155,7 +1155,7 @@ where
 }
 
 fn assert_hits(hits: &BitSet, expected: &BitSet) {
-  let limit = expected.len().max(hits.len());
+  let limit = expected.count().max(hits.iter().count());
   for doc_id in 0..limit {
     assert_eq!(
       expected.contains(doc_id),

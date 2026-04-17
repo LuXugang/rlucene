@@ -190,7 +190,7 @@ impl MinimizationOperations {
         splitblock[j].clear();
         k1 = refine.next_set_bit(j + 1);
       }
-      refine.clear();
+      refine.make_empty();
     }
 
     let mut result = Automaton::new();

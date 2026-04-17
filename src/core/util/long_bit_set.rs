@@ -543,7 +543,7 @@ mod tests {
   struct TestLongBitSet;
 
   fn do_get(a: &BitSet, b: &LongBitSet) {
-    assert_eq!(a.len(), b.cardinality());
+    assert_eq!(a.count(), b.cardinality());
     let max = b.length();
     for i in 0..max {
       let abit = a.contains(i);
@@ -578,7 +578,7 @@ mod tests {
   where
     R: Rng + ?Sized,
   {
-    assert_eq!(a.len(), b.cardinality());
+    assert_eq!(a.count(), b.cardinality());
 
     let mut aa = a.get_ref().len() as i64 + random.random_range(0..100);
     let mut bb = aa;
@@ -690,7 +690,7 @@ mod tests {
       if let (Some(a0), Some(b0)) = (&a0, &b0)
         && b0.length() <= b.length()
       {
-        assert_eq!(a.len(), b.cardinality());
+        assert_eq!(a.count(), b.cardinality());
 
         let mut a_and = a.clone();
         a_and.intersect_with(a0);
@@ -711,11 +711,11 @@ mod tests {
         let mut b_andn = b.clone();
         b_andn.and_not(b0);
 
-        assert_eq!(a0.len(), b0.cardinality());
-        assert_eq!(a_or.len(), b_or.cardinality());
-        assert_eq!(a_and.len(), b_and.cardinality());
-        assert_eq!(a_xor.len(), b_xor.cardinality());
-        assert_eq!(a_andn.len(), b_andn.cardinality());
+        assert_eq!(a0.count(), b0.cardinality());
+        assert_eq!(a_or.count(), b_or.cardinality());
+        assert_eq!(a_and.count(), b_and.cardinality());
+        assert_eq!(a_xor.count(), b_xor.cardinality());
+        assert_eq!(a_andn.count(), b_andn.cardinality());
       }
       a0 = Some(a);
       b0 = Some(b);

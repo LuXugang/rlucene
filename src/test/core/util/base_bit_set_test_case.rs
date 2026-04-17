@@ -357,7 +357,7 @@ impl Accountable for RustUtilBitSet {
 
 impl BitSet for RustUtilBitSet {
   fn clear(&mut self) {
-    self.bitset.clear();
+    self.bitset.make_empty();
   }
 
   fn set(&mut self, i: usize) {
@@ -382,11 +382,11 @@ impl BitSet for RustUtilBitSet {
   }
 
   fn cardinality(&self) -> usize {
-    self.bitset.len()
+    self.bitset.count()
   }
 
   fn approximate_cardinality(&self) -> usize {
-    self.bitset.len()
+    self.bitset.count()
   }
 
   fn prev_set_bit(&self, index: usize) -> Option<usize> {

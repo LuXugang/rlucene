@@ -945,8 +945,8 @@ mod tests {
           num_entries += 1;
         }
       }
-      assert_eq!(hash.size() as usize, bits.len());
-      assert_eq!(num_entries as usize, bits.len());
+      assert_eq!(hash.size() as usize, bits.count());
+      assert_eq!(num_entries as usize, bits.count());
       assert_eq!(num_entries, hash.size());
 
       let compact = hash.compact();
@@ -956,7 +956,7 @@ mod tests {
         bits.remove(id as usize);
       }
 
-      assert_eq!(bits.len(), 0);
+      assert_eq!(bits.count(), 0);
 
       hash.clear(&mut byte_block_pool);
       assert_eq!(hash.size(), 0);

@@ -870,7 +870,7 @@ mod tests {
   }
 
   fn do_get(a: &bit_set::BitSet, b: &FixedBitSet) {
-    assert_eq!(a.len(), b.cardinality());
+    assert_eq!(a.count(), b.cardinality());
     let max = b.length();
     for i in 0..max {
       assert_eq!(a.contains(i), b.get(i).unwrap());
@@ -878,7 +878,7 @@ mod tests {
   }
 
   fn do_next_set_bit(a: &bit_set::BitSet, b: &FixedBitSet) {
-    assert_eq!(a.len(), b.cardinality());
+    assert_eq!(a.count(), b.cardinality());
     let mut bb = 0;
     loop {
       bb = b.next_set_bit(bb);
@@ -902,7 +902,7 @@ mod tests {
   }
 
   fn do_prev_set_bit(a: &bit_set::BitSet, b: &FixedBitSet) {
-    assert_eq!(a.len(), b.cardinality());
+    assert_eq!(a.count(), b.cardinality());
     let mut bb = b.length().checked_sub(1);
     let mut count = 0;
     let mut iter: Vec<_> = a.iter().collect();
@@ -949,7 +949,7 @@ mod tests {
   where
     R: Rng + ?Sized,
   {
-    assert_eq!(a.len(), b.cardinality());
+    assert_eq!(a.count(), b.cardinality());
     let mut iterator = BitSetIterator::new(b, 0)?;
     let iter = a.iter();
     for index in iter {
@@ -1044,7 +1044,7 @@ mod tests {
       do_prev_set_bit(&aa, &bb);
 
       if flag == 1 && b0.length() <= b.length() {
-        assert_eq!(a.len(), b.cardinality());
+        assert_eq!(a.count(), b.cardinality());
 
         let mut a_and = a.clone();
         a_and.intersect_with(&a0);
@@ -1065,13 +1065,13 @@ mod tests {
         let mut b_andn = b.clone();
         b_andn.and_not_fixed_bit_set(&b0);
 
-        assert_eq!(a0.len(), b0.cardinality());
-        assert_eq!(a_or.len(), b_or.cardinality());
+        assert_eq!(a0.count(), b0.cardinality());
+        assert_eq!(a_or.count(), b_or.cardinality());
 
-        assert_eq!(a_and.len(), b_and.cardinality());
-        assert_eq!(a_or.len(), b_or.cardinality());
-        assert_eq!(a_andn.len(), b_andn.cardinality());
-        assert_eq!(a_xor.len(), b_xor.cardinality());
+        assert_eq!(a_and.count(), b_and.cardinality());
+        assert_eq!(a_or.count(), b_or.cardinality());
+        assert_eq!(a_andn.count(), b_andn.cardinality());
+        assert_eq!(a_xor.count(), b_xor.cardinality());
 
         do_iterate(random, &a_and, b_and)?;
         do_iterate(random, &a_xor, b_xor)?;
@@ -1312,7 +1312,7 @@ mod tests {
     // assertEquals(bitSet2.cardinality(), fixedBitSet2.cardinality());
 
     bit_set1.intersect_with(&bit_set2);
-    assert_eq!(bit_set1.len(), intersection_count as usize);
+    assert_eq!(bit_set1.count(), intersection_count as usize);
   }
 
   #[test]
@@ -1394,7 +1394,7 @@ mod tests {
     let bit_set2 = make_bitset(&bits2);
     bit_set1.union_with(&bit_set2);
 
-    assert_eq!(bit_set1.len(), union_count as usize);
+    assert_eq!(bit_set1.count(), union_count as usize);
     Ok(())
   }
 
@@ -1421,7 +1421,7 @@ mod tests {
 
     bit_set1.difference_with(&bit_set2);
 
-    assert_eq!(bit_set1.len(), and_not_count as usize);
+    assert_eq!(bit_set1.count(), and_not_count as usize);
     Ok(())
   }
 

@@ -11,7 +11,7 @@ byteorder = "1.5.0"
 thiserror = "2.0.18"
 num-bigint = "0.4.6"
 regex = { version = "1.12.3", default-features = false, features = ["std", "unicode"] }
-rand = "0.10.0"
+rand = "0.10.1"
 fs2 = "0.4.3"
 chrono = { version = "0.4.44", default-features = false, features = ["clock", "std"] }
 num-traits = "0.2.19"
@@ -19,18 +19,18 @@ flate2 = { version = "1.1.9", default-features = false, features = ["rust_backen
 strum = "0.28.0"
 strum_macros = "0.28.0"
 parking_lot = "0.12.5"
-bit-set = "0.8.0"
+bit-set = "0.10.0"
 rand_chacha = "0.10.0"
 os_info = "3.14.0"
 crossbeam= "0.8.4"
 linked-hash-map = "0.5.6"
-sysinfo = "0.38.3"
+sysinfo = "0.38.4"
 log = "0.4.29"
 
 
 [dev-dependencies]
 rand_xoshiro = "0.8.0"
-tempfile = "3.26.0"
+tempfile = "3.27.0"
 num-integer="0.1.46"
 
 [profile.dev]
