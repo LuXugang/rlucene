@@ -26,7 +26,6 @@ use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 
 /// A BulkScorer-backed scorer.
-#[allow(dead_code)] // for quick search
 pub struct BulkScorerWrapperScorer<BS>
 where
   BS: BulkScorer,

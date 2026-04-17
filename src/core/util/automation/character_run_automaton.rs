@@ -24,7 +24,14 @@ use std::hash::{Hash, Hasher};
 pub struct CharacterRunAutomaton {
   pub base: RunAutomaton,
 }
-
+#[cfg(test)]
+impl Clone for CharacterRunAutomaton {
+  fn clone(&self) -> Self {
+    Self {
+      base: self.base.clone(),
+    }
+  }
+}
 impl CharacterRunAutomaton {
   /// Constructs the automaton. error if the input is not deterministic.
   pub fn new(automaton: Automaton) -> Result<Self> {

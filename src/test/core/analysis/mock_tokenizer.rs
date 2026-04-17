@@ -14,24 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod automata;
-pub mod automaton;
-pub mod automaton_provider;
-pub mod byte_run_automaton;
-pub mod byte_runnable;
-pub(crate) mod character_run_automaton;
-pub mod compiled_automaton;
-mod finite_strings_iterator;
-mod frozen_int_set;
-mod int_set;
-mod limited_finite_strings_iterator;
-pub mod nfa_run_automaton;
-pub mod operations;
-pub mod reg_exp;
-pub mod run_automaton;
-pub mod state_pair;
-mod state_set;
-mod strings_to_automaton;
-pub mod transition;
-pub mod transition_accessor;
-mod utf32_to_utf8;
+use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
+use crate::core::util::automation::operations::Operations;
+use crate::core::util::automation::reg_exp::RegExp;
+use std::sync::LazyLock;
+
+pub static WHITESPACE: LazyLock<CharacterRunAutomaton> = LazyLock::new(|| {
+  CharacterRunAutomaton::new(
+    Operations::determinize(
+      &RegExp::from_string("[^ \t\r\n]+")
+        .expect("")
+        .to_automaton()
+        .expect(""),
+      Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+    )
+    .expect("")
+    .into_owned(),
+  )
+  .expect("")
+});
+
+pub struct MockTokenizer;

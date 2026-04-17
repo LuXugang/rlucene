@@ -22,6 +22,7 @@ pub mod dummy_total_hit_count_collector;
 pub(crate) mod fixed_bit_set_collector;
 pub mod query_utils;
 pub mod random_approximation_query;
+mod search_equivalence_test_base;
 pub mod similarities;
 mod test_base_range_filter;
 mod test_block_max_conjunction;

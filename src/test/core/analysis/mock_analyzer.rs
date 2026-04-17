@@ -21,6 +21,7 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream, TokenStreams};
 use crate::core::index::BytesRef;
 use crate::core::util::attribute_source::Attributes;
+use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
 use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
 
@@ -33,6 +34,19 @@ impl MockAnalyzer {
     R: Rng + ?Sized,
   {
     // TODO IMPORTANT only support WhitespaceAnalyzer now
+    MockAnalyzer {
+      in_: WhitespaceAnalyzer::new(),
+    }
+  }
+  pub fn with_filter<R>(
+    _random: &mut R,
+    _run_automaton: CharacterRunAutomaton,
+    _lower_case: bool,
+    _filter: CharacterRunAutomaton,
+  ) -> MockAnalyzer
+  where
+    R: Rng + ?Sized,
+  {
     MockAnalyzer {
       in_: WhitespaceAnalyzer::new(),
     }

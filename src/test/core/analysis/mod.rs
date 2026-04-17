@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 pub mod mock_analyzer;
+pub mod mock_tokenizer;

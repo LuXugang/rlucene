@@ -40,8 +40,12 @@ pub(crate) mod lucene_test_case;
 mod packed;
 pub mod test_util;
 
+pub type DefaultCRReaderShared = Arc<StandardDirectoryReaderType<DirEnum>>;
 pub type DefaultCRReader = StandardDirectoryReaderType<DirEnum>;
 pub type DefaultLRReader = Arc<SegmentReader<DirEnum>>;
+
+pub type DefaultIndexSearchCRShared =
+  DefaultIndexSearcher<CompositeReaderContext<DefaultCRReaderShared>>;
 pub type DefaultIndexSearchCR = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReader>>;
 pub type DefaultIndexSearchLR = DefaultIndexSearcher<LeafReaderContext<DefaultLRReader>>;
 pub(crate) fn dummy_index_searcher() -> crate::core::util::error::lucene_error::Result<

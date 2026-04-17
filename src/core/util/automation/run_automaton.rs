@@ -36,6 +36,20 @@ pub struct RunAutomaton {
   points: Vec<i32>,
   classmap: Vec<usize>,
 }
+#[cfg(test)]
+impl Clone for RunAutomaton {
+  fn clone(&self) -> Self {
+    Self {
+      automaton: self.automaton.clone(),
+      alphabet_size: self.alphabet_size,
+      size: self.size,
+      accept: self.accept.clone(),
+      transitions: self.transitions.clone(),
+      points: self.points.clone(),
+      classmap: self.classmap.clone(),
+    }
+  }
+}
 
 impl RunAutomaton {
   /// Constructs a new [`RunAutomaton`] from a deterministic [`Automaton`].
