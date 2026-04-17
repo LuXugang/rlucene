@@ -45,4 +45,5 @@ mod test_search_after;
 mod test_similarity_provider;
 mod test_sort_optimization;
 pub(crate) mod test_sort_random;
+mod test_top_docs_merge;
 mod test_top_field_collector_early_termination;
