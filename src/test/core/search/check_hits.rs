@@ -14,23 +14,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::IndexReader;
+use crate::core::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
+use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
+use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
+use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
+use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
+use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
+use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
+use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
+use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
+use crate::core::index::dummy::dummy_point_value_base::DummyPointValues;
+use crate::core::index::dummy::dummy_terms::DummyTerms;
+use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_metadata::LeafMetaData;
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::stored_field_visitor::StoredFieldVisitor;
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
+use crate::core::index::term::Term;
+use crate::core::index::term_vectors::EmptyTermVectors;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
+use crate::core::util::bits::{Bits, MatchNoBits};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::version::LATEST;
 use rand::Rng;
 use rand::RngExt;
 use regex::Regex;
 use std::collections::BTreeSet;
-use std::sync::LazyLock;
+use std::fmt::{Display, Formatter};
+use std::sync::{Arc, LazyLock};
 
 pub struct CheckHits;
 impl CheckHits {
@@ -497,3 +521,244 @@ impl CheckHits {
 }
 pub static COMPUTED_FROM_PATTERN: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"^.*, computed as .* from:$").unwrap());
+
+fn empty_reader(max_doc: i32) -> EmptyLeafReader {
+  EmptyLeafReader::new(max_doc)
+}
+
+struct EmptyLeafReader {
+  max_doc: i32,
+  live_docs: MatchNoBits,
+  metadata: LeafMetaData,
+  index_base: IndexReaderBase,
+}
+
+impl EmptyLeafReader {
+  fn new(max_doc: i32) -> Self {
+    assert!(max_doc >= 0, "max_doc must be non-negative");
+    Self {
+      max_doc,
+      live_docs: MatchNoBits::new(max_doc as usize),
+      metadata: LeafMetaData::new(LATEST.major, Some(LATEST.clone()), None, false)
+        .expect("empty reader metadata should be valid"),
+      index_base: IndexReaderBase::new(),
+    }
+  }
+}
+
+impl Display for EmptyLeafReader {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
+}
+
+impl IndexReader for EmptyLeafReader {
+  type TermVectors = EmptyTermVectors;
+
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    Ok(EmptyTermVectors)
+  }
+
+  fn max_doc(&self) -> Result<i32> {
+    Ok(self.max_doc)
+  }
+
+  fn num_docs(&self) -> Result<i32> {
+    Ok(0)
+  }
+
+  type StoredFields = EmptyStoredFields;
+
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    Ok(EmptyStoredFields)
+  }
+
+  type ReaderCacheHelper = DummyCacheHelper;
+
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    Ok(None)
+  }
+
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    LeafReader::doc_freq(self, term)
+  }
+
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    LeafReader::get_total_term_freq(self, term)
+  }
+
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    LeafReader::get_sum_doc_freq(self, field)
+  }
+
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    LeafReader::get_doc_count(self, field)
+  }
+
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    LeafReader::get_sum_total_term_freq(self, field)
+  }
+
+  fn index_base(&self) -> &IndexReaderBase {
+    &self.index_base
+  }
+}
+
+impl LeafReader for EmptyLeafReader {
+  type CacheHelper = DummyCacheHelper;
+
+  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
+    Ok(None)
+  }
+
+  fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
+    Ok(None)
+  }
+
+  type Terms = DummyTerms;
+
+  fn terms(&self, _field: &str) -> Result<Option<Self::Terms>> {
+    Ok(None)
+  }
+
+  type NumericDocValues = DummyNumericDocValues;
+
+  fn get_numeric_doc_values(&self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
+    Ok(None)
+  }
+
+  type BinaryDocValues = DummyBinaryDocValues;
+
+  fn get_binary_doc_values(&self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    Ok(None)
+  }
+
+  type SortedDocValues = DummySortedDocValues;
+
+  fn get_sorted_doc_values(&self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
+    Ok(None)
+  }
+
+  type SortedNumericDocValues = DummySortedNumericDocValues;
+
+  fn get_sorted_numeric_doc_values(
+    &self,
+    _field: &str,
+  ) -> Result<Option<Self::SortedNumericDocValues>> {
+    Ok(None)
+  }
+
+  type SortedSetDocValues = DummySortedSetDocValues;
+
+  fn get_sorted_set_doc_values(&self, _field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+    Ok(None)
+  }
+
+  type NormNumericDocValues = DummyNumericDocValues;
+
+  fn get_norm_values(&self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    Ok(None)
+  }
+
+  type DocValuesSkipper = DummyDocValuesSkipper;
+
+  fn get_doc_values_skipper(&self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    Ok(None)
+  }
+
+  type FloatVectorValues = DummyFloatVectorValues;
+
+  fn get_float_vector_values(&self, _field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    Ok(None)
+  }
+
+  type ByteVectorValues = DummyByteVectorValues;
+
+  fn get_byte_vector_values(&self, _field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    Ok(None)
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    _field: &str,
+    _target: Vec<f32>,
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    Ok(())
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    _field: &str,
+    _target: Vec<u8>,
+    _knn_collector: &mut K,
+    _accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    Ok(())
+  }
+
+  fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
+    Ok(Arc::new(FieldInfos::new(vec![])?))
+  }
+
+  type Bits = MatchNoBits;
+
+  fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
+    Ok(Some(self.live_docs.clone()))
+  }
+
+  type PointValues = DummyPointValues;
+
+  fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
+    Ok(None)
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    Ok(())
+  }
+
+  fn get_metadata(&self) -> Result<&LeafMetaData> {
+    Ok(&self.metadata)
+  }
+}
+
+struct EmptyStoredFields;
+
+impl StoredFields for EmptyStoredFields {
+  fn document_with_visitor<S>(
+    &mut self,
+    _doc_id: i32,
+    _visitor: &mut impl StoredFieldVisitor,
+    _writer: Option<&mut S>,
+  ) -> Result<()>
+  where
+    S: crate::core::codecs::stored_fields_writer::StoredFieldsWriter,
+  {
+    Ok(())
+  }
+}
+
+impl RawStoredFieldsReader for EmptyStoredFields {
+  type IndexInput = DummyIndexInput;
+
+  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+    Err(LuceneError::illegal_state(
+      "raw stored fields are not available".to_string(),
+    ))
+  }
+
+  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
+    Err(LuceneError::illegal_state(
+      "raw stored fields are not available".to_string(),
+    ))
+  }
+}

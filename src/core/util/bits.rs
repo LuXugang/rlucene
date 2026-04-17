@@ -88,12 +88,19 @@ impl Bits for MatchAllBits {
 }
 
 /// Bits impl of the specified length with no bits set.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct MatchNoBits {
   len: usize,
   id: Identity,
 }
-
+impl MatchNoBits {
+  pub fn new(len: usize) -> Self {
+    Self {
+      len,
+      id: Identity::new(),
+    }
+  }
+}
 impl HasIdentity for MatchNoBits {
   fn identity(&self) -> &Identity {
     &self.id
