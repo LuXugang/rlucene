@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 pub mod component2d;
+pub mod geo_utils;

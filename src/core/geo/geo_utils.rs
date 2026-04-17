@@ -1,0 +1,216 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use std::f64::consts::{FRAC_PI_2, PI};
+
+use crate::core::index::point_values::Relation;
+use crate::core::util::error::lucene_error::LuceneError;
+/// Basic reusable geo-spatial utility methods
+pub struct GeoUtils;
+
+impl GeoUtils {
+  /// Minimum longitude value.
+  pub const MIN_LON_INCL: f64 = -180.0;
+  /// Maximum longitude value.
+  pub const MAX_LON_INCL: f64 = 180.0;
+  /// Minimum latitude value.
+  pub const MIN_LAT_INCL: f64 = -90.0;
+  /// Maximum latitude value.
+  pub const MAX_LAT_INCL: f64 = 90.0;
+
+  /// Minimum longitude value in radians.
+  pub const MIN_LON_RADIANS: f64 = Self::MIN_LON_INCL * PI / 180.0;
+  /// Minimum latitude value in radians.
+  pub const MIN_LAT_RADIANS: f64 = Self::MIN_LAT_INCL * PI / 180.0;
+  /// Maximum longitude value in radians.
+  pub const MAX_LON_RADIANS: f64 = Self::MAX_LON_INCL * PI / 180.0;
+  /// Maximum latitude value in radians.
+  pub const MAX_LAT_RADIANS: f64 = Self::MAX_LAT_INCL * PI / 180.0;
+
+  /// Mean earth axis in meters (WGS84).
+  pub const EARTH_MEAN_RADIUS_METERS: f64 = 6_371_008.771_4;
+
+  const PIO2: f64 = FRAC_PI_2;
+
+  /// Validates latitude value is within standard +/-90 coordinate bounds.
+  pub fn check_latitude(latitude: f64) -> Result<(), LuceneError> {
+    if latitude.is_nan() || !(Self::MIN_LAT_INCL..=Self::MAX_LAT_INCL).contains(&latitude) {
+      return Err(LuceneError::illegal_argument(format!(
+        "invalid latitude {}; must be between {} and {}",
+        latitude,
+        Self::MIN_LAT_INCL,
+        Self::MAX_LAT_INCL
+      )));
+    }
+
+    Ok(())
+  }
+
+  /// Validates longitude value is within standard +/-180 coordinate bounds.
+  pub fn check_longitude(longitude: f64) -> Result<(), LuceneError> {
+    if longitude.is_nan() || !(Self::MIN_LON_INCL..=Self::MAX_LON_INCL).contains(&longitude) {
+      return Err(LuceneError::illegal_argument(format!(
+        "invalid longitude {}; must be between {} and {}",
+        longitude,
+        Self::MIN_LON_INCL,
+        Self::MAX_LON_INCL
+      )));
+    }
+
+    Ok(())
+  }
+
+  /// Returns the trigonometric sine of an angle converted as a cosine operation.
+  ///
+  /// This intentionally mirrors Lucene's `sloppySin`, including its approximation
+  /// behavior.
+  pub fn sloppy_sin(a: f64) -> f64 {
+    (a - Self::PIO2).cos()
+  }
+
+  /// Placeholder for Lucene's `distanceQuerySortKey`.
+  ///
+  /// This depends on the haversine helpers that have not been ported yet.
+  pub fn distance_query_sort_key(_radius: f64) -> f64 {
+    todo!("distance_query_sort_key requires haversine helpers that are not ported yet")
+  }
+
+  /// Placeholder for Lucene's `relate`.
+  ///
+  /// This depends on `SloppyMath` and `Rectangle::AXISLAT_ERROR`, which are
+  /// not available in the Rust port yet.
+  #[allow(clippy::too_many_arguments)]
+  pub fn relate(
+    _min_lat: f64,
+    _max_lat: f64,
+    _min_lon: f64,
+    _max_lon: f64,
+    _lat: f64,
+    _lon: f64,
+    _distance_sort_key: f64,
+    _axis_lat: f64,
+  ) -> Relation {
+    todo!("relate requires SloppyMath and Rectangle support that are not ported yet")
+  }
+
+  /// Return whether all points of `[min_lon, max_lon]` are within 90 degrees of `lon`.
+  pub fn within_90_lon_degrees(mut lon: f64, min_lon: f64, max_lon: f64) -> bool {
+    if max_lon <= lon - 180.0 {
+      lon -= 360.0;
+    } else if min_lon >= lon + 180.0 {
+      lon += 360.0;
+    }
+
+    max_lon - lon < 90.0 && lon - min_lon < 90.0
+  }
+
+  /// Returns a positive value if points a, b, and c are arranged in counter-clockwise order,
+  /// negative if clockwise, zero if collinear.
+  pub fn orient(ax: f64, ay: f64, bx: f64, by: f64, cx: f64, cy: f64) -> i32 {
+    let v1 = (bx - ax) * (cy - ay);
+    let v2 = (cx - ax) * (by - ay);
+    if v1 > v2 {
+      1
+    } else if v1 < v2 {
+      -1
+    } else {
+      0
+    }
+  }
+
+  /// Uses `orient` to compute whether two line segments cross.
+  #[allow(clippy::too_many_arguments)]
+  pub fn line_crosses_line(
+    a1x: f64,
+    a1y: f64,
+    b1x: f64,
+    b1y: f64,
+    a2x: f64,
+    a2y: f64,
+    b2x: f64,
+    b2y: f64,
+  ) -> bool {
+    Self::orient(a2x, a2y, b2x, b2y, a1x, a1y) * Self::orient(a2x, a2y, b2x, b2y, b1x, b1y) < 0
+      && Self::orient(a1x, a1y, b1x, b1y, a2x, a2y) * Self::orient(a1x, a1y, b1x, b1y, b2x, b2y) < 0
+  }
+
+  /// Uses `orient` to compute whether two lines overlap each other.
+  #[allow(clippy::too_many_arguments)]
+  pub fn line_overlap_line(
+    a1x: f64,
+    a1y: f64,
+    b1x: f64,
+    b1y: f64,
+    a2x: f64,
+    a2y: f64,
+    b2x: f64,
+    b2y: f64,
+  ) -> bool {
+    Self::orient(a2x, a2y, b2x, b2y, a1x, a1y) == 0
+      && Self::orient(a2x, a2y, b2x, b2y, b1x, b1y) == 0
+      && Self::orient(a1x, a1y, b1x, b1y, a2x, a2y) == 0
+      && Self::orient(a1x, a1y, b1x, b1y, b2x, b2y) == 0
+  }
+
+  /// uses orient method to compute whether two line segments cross; boundaries included - returning
+  /// true for lines that terminate on each other.
+  ///
+  /// e.g., (plus sign) + == true, and (capital 't') T == true
+  ///
+  /// Use [`line_crosses_line`] to exclude lines that terminate on each other from the truth table
+  #[allow(clippy::too_many_arguments)]
+  pub fn line_crosses_line_with_boundary(
+    a1x: f64,
+    a1y: f64,
+    b1x: f64,
+    b1y: f64,
+    a2x: f64,
+    a2y: f64,
+    b2x: f64,
+    b2y: f64,
+  ) -> bool {
+    Self::orient(a2x, a2y, b2x, b2y, a1x, a1y) * Self::orient(a2x, a2y, b2x, b2y, b1x, b1y) <= 0
+      && Self::orient(a1x, a1y, b1x, b1y, a2x, a2y) * Self::orient(a1x, a1y, b1x, b1y, b2x, b2y)
+        <= 0
+  }
+}
+
+/// Used to define the orientation of 3 points:
+/// `-1 = Clockwise`, `0 = Collinear`, `1 = Counter-clockwise`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindingOrder {
+  Cw = -1,
+  Colinear = 0,
+  Ccw = 1,
+}
+
+impl WindingOrder {
+  pub fn sign(self) -> i32 {
+    self as i32
+  }
+
+  pub fn from_sign(sign: i32) -> Result<Self, LuceneError> {
+    match sign {
+      -1 => Ok(Self::Cw),
+      0 => Ok(Self::Colinear),
+      1 => Ok(Self::Ccw),
+      _ => Err(LuceneError::illegal_argument(format!(
+        "Invalid WindingOrder sign: {}",
+        sign
+      ))),
+    }
+  }
+}
