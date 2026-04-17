@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+/// # Note
+/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 pub trait FilterLeafReader {}
 
 /// # Note

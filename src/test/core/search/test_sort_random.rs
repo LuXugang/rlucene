@@ -369,8 +369,7 @@ impl RandomQueryWeight {
 
 impl<IRC> SegmentCacheable<IRC> for RandomQueryWeight
 where
-  IRC: IndexReaderContext + 'static,
-  IRCLeafReader<IRC>: 'static,
+  IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     Ok(false)
@@ -379,8 +378,7 @@ where
 
 impl<IRC> Weight<IRC> for RandomQueryWeight
 where
-  IRC: IndexReaderContext + 'static,
-  IRCLeafReader<IRC>: 'static,
+  IRC: IndexReaderContext,
 {
   type Matches = MatchWithNoTerms;
 

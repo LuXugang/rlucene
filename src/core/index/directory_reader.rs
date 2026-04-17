@@ -89,7 +89,7 @@ pub trait DirectoryReader: BaseCompositeReader {
     &self,
     writer: IndexWriter<Self::Directory, L, B>,
     apply_deletes: bool,
-  ) -> Result<Self::DirectoryReader>
+  ) -> Result<Option<Self::DirectoryReader>>
   where
     L: LiveIndexWriterConfig,
     B: IndexWriterBase;

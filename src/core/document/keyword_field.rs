@@ -25,6 +25,9 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
+use crate::core::search::sort_field_enum::SortFieldEnum;
+use crate::core::search::sorted_set_selector::SortedSetSelectorType;
+use crate::core::search::sorted_set_sort_field::SortedSetSortField;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 pub mod keyword {
@@ -101,6 +104,18 @@ impl KeywordField {
       binary_value,
       has_stored_value,
     })
+  }
+  /// Create a new [`SortField`] for [`BytesRef`] values.
+  ///
+  /// * `field` - field name. must not be `null`.
+  /// * `reverse` - true if natural order should be reversed.
+  /// * `selector` - custom selector type for choosing the sort value from the set.
+  pub fn new_sort_field(
+    field: &str,
+    reverse: bool,
+    selector: SortedSetSelectorType,
+  ) -> Result<SortFieldEnum> {
+    Ok(SortedSetSortField::with_selector(field, reverse, selector)?.into())
   }
 }
 

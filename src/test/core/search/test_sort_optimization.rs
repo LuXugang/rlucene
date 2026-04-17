@@ -25,17 +25,36 @@ use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::base_composite_reader::{BaseCompositeReader, BaseCompositeReaderBase};
+use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::directory_reader::{
+  DirectoryReader, DirectoryReaderBase, directory_reader_util,
+};
+use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
+use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
+use crate::core::index::dummy::dummy_point_value_base::DummyPointValues;
+use crate::core::index::dummy::dummy_terms::DummyTerms;
+use crate::core::index::field_info::FieldInfo;
+use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
+use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::index_writer_config::IndexWriterConfig;
+use crate::core::index::leaf_metadata::LeafMetaData;
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
+use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::field_comparator::FieldComparatorValue;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::query::Query;
 use crate::core::search::score_doc::ScoreDocLike;
@@ -46,6 +65,9 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::{TopDocsLike, top_docs_util};
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::total_hits::Relation;
+use crate::core::store::directory::Directory;
+use crate::core::util::bits::Bits;
+use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
@@ -55,6 +77,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use rand::RngExt;
 use rand::prelude::SliceRandom;
 use rand::random_bool;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -1385,4 +1408,477 @@ fn assert_non_competitive_hits_are_skipped(collected_hits: i64, num_docs: i64) -
     )));
   }
   Ok(())
+}
+#[derive(Default)]
+pub struct SubReaderWrapperImpl;
+impl SubReaderWrapper for SubReaderWrapperImpl {
+  type LeafReader1<LR>
+    = Self::LeafReader2<LR>
+  where
+    LR: LeafReader;
+
+  fn wrap_readers<LR>(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1<LR>>>
+  where
+    LR: LeafReader,
+  {
+    self.default_wrap_readers(readers)
+  }
+
+  type LeafReader2<LR>
+    = NoIndexLeafReader<LR>
+  where
+    LR: LeafReader;
+
+  fn wrap<LR>(&self, reader: LR) -> Result<Self::LeafReader2<LR>>
+  where
+    LR: LeafReader,
+  {
+    Ok(NoIndexLeafReader::new(reader))
+  }
+}
+pub struct NoIndexLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  in_: LR,
+}
+impl<LR> NoIndexLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  pub fn new(in_: LR) -> Self {
+    Self { in_ }
+  }
+}
+
+impl<LR> IndexReader for NoIndexLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  type TermVectors = LR::TermVectors;
+
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    self.ensure_open()?;
+    self.in_.term_vectors()
+  }
+
+  fn max_doc(&self) -> Result<i32> {
+    self.in_.max_doc()
+  }
+
+  fn num_docs(&self) -> Result<i32> {
+    self.in_.num_docs()
+  }
+
+  type StoredFields = LR::StoredFields;
+
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    self.ensure_open()?;
+    self.in_.stored_fields()
+  }
+
+  type ReaderCacheHelper = DummyCacheHelper;
+
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    Ok(None)
+  }
+
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    IndexReader::doc_freq(&self.in_, term)
+  }
+
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    self.in_.total_term_freq(term)
+  }
+
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    IndexReader::get_sum_doc_freq(&self.in_, field)
+  }
+
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    IndexReader::get_doc_count(&self.in_, field)
+  }
+
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    IndexReader::get_sum_total_term_freq(&self.in_, field)
+  }
+
+  fn index_base(&self) -> &IndexReaderBase {
+    self.in_.index_base()
+  }
+}
+
+impl<LR> Display for NoIndexLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
+}
+
+impl<LR> LeafReader for NoIndexLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  type CacheHelper = DummyCacheHelper;
+
+  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
+    Ok(None)
+  }
+
+  fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
+    Ok(None)
+  }
+
+  type Terms = DummyTerms;
+
+  fn terms(&self, _field: &str) -> Result<Option<Self::Terms>> {
+    Ok(None)
+  }
+
+  type NumericDocValues = LR::NumericDocValues;
+
+  fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+    self.ensure_open()?;
+    self.in_.get_numeric_doc_values(field)
+  }
+
+  type BinaryDocValues = LR::BinaryDocValues;
+
+  fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    self.ensure_open()?;
+    self.in_.get_binary_doc_values(field)
+  }
+
+  type SortedDocValues = LR::SortedDocValues;
+
+  fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+    self.ensure_open()?;
+    self.in_.get_sorted_doc_values(field)
+  }
+
+  type SortedNumericDocValues = LR::SortedNumericDocValues;
+
+  fn get_sorted_numeric_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::SortedNumericDocValues>> {
+    self.ensure_open()?;
+    self.in_.get_sorted_numeric_doc_values(field)
+  }
+
+  type SortedSetDocValues = LR::SortedSetDocValues;
+
+  fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+    self.ensure_open()?;
+    self.in_.get_sorted_set_doc_values(field)
+  }
+
+  type NormNumericDocValues = LR::NormNumericDocValues;
+
+  fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    self.ensure_open()?;
+    self.in_.get_norm_values(field)
+  }
+
+  type DocValuesSkipper = LR::DocValuesSkipper;
+
+  fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    self.ensure_open()?;
+    self.in_.get_doc_values_skipper(field)
+  }
+
+  type FloatVectorValues = LR::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    self.ensure_open()?;
+    self.in_.get_float_vector_values(field)
+  }
+
+  type ByteVectorValues = LR::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    self.ensure_open()?;
+    self.in_.get_byte_vector_values(field)
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .in_
+      .search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .in_
+      .search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
+  }
+
+  fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
+    let mut new_infos = Vec::with_capacity(self.in_.get_field_infos()?.size());
+
+    for fi in self.in_.get_field_infos()?.iter() {
+      let attributes = fi.attributes().lock().attributes.clone();
+      let no_index_fi = FieldInfo::new(
+        fi.name.clone(),
+        fi.number,
+        false,
+        false,
+        false,
+        IndexOptions::None,
+        *fi.get_doc_values_type(),
+        *fi.doc_values_skip_index_type(),
+        fi.get_doc_values_gen(),
+        attributes,
+        0,
+        0,
+        0,
+        0,
+        VectorEncoding::FLOAT32(4),
+        VectorSimilarityFunction::DotProduct,
+        fi.is_soft_deletes_field(),
+        fi.is_parent_field(),
+      );
+      new_infos.push(Arc::new(no_index_fi));
+    }
+    Ok(Arc::new(FieldInfos::new(new_infos)?))
+  }
+
+  type Bits = LR::Bits;
+
+  fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
+    self.in_.get_live_docs()
+  }
+
+  type PointValues = DummyPointValues;
+
+  fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
+    Ok(None)
+  }
+
+  fn get_metadata(&self) -> Result<&LeafMetaData> {
+    self.in_.get_metadata()
+  }
+}
+
+pub struct NoIndexDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  in_: DR,
+  base: BaseCompositeReaderBase<
+    NoIndexLeafReader<DR::LeafReader>,
+    DummyCompositeReader<<DR as CompositeReader>::LeafReader>,
+  >,
+}
+impl<DR> NoIndexDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  pub fn new(in_: DR) -> Result<Self> {
+    let sub_readers = in_.get_sequential_sub_readers();
+    let wrap = SubReaderWrapperImpl;
+    let mut leaf_reads = Vec::new();
+    for v in sub_readers {
+      match v {
+        IndexReaderEnum::Leaf(lr) => {
+          leaf_reads.push(lr.clone());
+        },
+        _ => unreachable!(""),
+      }
+    }
+    let wrap_readers = wrap.wrap_readers(leaf_reads)?;
+    let base_composite_reader_base: BaseCompositeReaderBase<
+      NoIndexLeafReader<_>,
+      DummyCompositeReader<<DR as CompositeReader>::LeafReader>,
+    > = BaseCompositeReaderBase::with_leaf_readers::<DummyComparator>(wrap_readers, None)?;
+    Ok(Self {
+      in_,
+      base: base_composite_reader_base,
+    })
+  }
+}
+
+impl<DR> DirectoryReader for NoIndexDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type DirectoryReader = DR::DirectoryReader;
+
+  fn do_open_if_changed(&mut self) -> Result<Option<Self::DirectoryReader>> {
+    let v = self.in_.do_open_if_changed()?;
+    self.wrap_directory_reader(v)
+  }
+
+  fn do_open_if_changed_with_commit<IC>(
+    &mut self,
+    commit: Option<&IC>,
+  ) -> Result<Option<Self::DirectoryReader>>
+  where
+    IC: crate::core::index::index_commit::IndexCommit,
+  {
+    let v = self.in_.do_open_if_changed_with_commit(commit)?;
+    self.wrap_directory_reader(v)
+  }
+
+  fn do_open_if_changed_with_index_writer<L, B>(
+    &self,
+    writer: IndexWriter<Self::Directory, L, B>,
+    apply_deletes: bool,
+  ) -> Result<Option<Self::DirectoryReader>>
+  where
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    let v = self
+      .in_
+      .do_open_if_changed_with_index_writer(writer, apply_deletes)?;
+    self.wrap_directory_reader(v)
+  }
+
+  fn get_version(&self) -> i64 {
+    self.in_.get_version()
+  }
+
+  fn is_current<D, L, B>(&self, index_writer: &IndexWriter<D, L, B>) -> Result<bool>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    self.in_.is_current(index_writer)
+  }
+
+  type IndexCommit = DR::IndexCommit;
+
+  fn get_index_commit(&self) -> Result<Self::IndexCommit> {
+    self.in_.get_index_commit()
+  }
+
+  type Directory = DR::Directory;
+
+  fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
+    self.in_.directory()
+  }
+}
+
+impl<DR> BaseCompositeReader for NoIndexDirectoryReader<DR> where DR: DirectoryReader {}
+
+impl<DR> CompositeReader for NoIndexDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type LeafReader = DR::LeafReader;
+  type SubCompositeReader = DR::SubCompositeReader;
+
+  fn get_sequential_sub_readers(
+    &self,
+  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+    self.in_.get_sequential_sub_readers()
+  }
+}
+
+impl<DR> IndexReader for NoIndexDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type TermVectors = DR::TermVectors;
+
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    self.in_.term_vectors()
+  }
+
+  fn max_doc(&self) -> Result<i32> {
+    self.in_.max_doc()
+  }
+
+  fn num_docs(&self) -> Result<i32> {
+    self.in_.num_docs()
+  }
+
+  type StoredFields = DR::StoredFields;
+
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    self.in_.stored_fields()
+  }
+
+  type ReaderCacheHelper = DR::ReaderCacheHelper;
+
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    self.in_.get_reader_cache_helper()
+  }
+
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    self.in_.doc_freq(term)
+  }
+
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    self.in_.total_term_freq(term)
+  }
+
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    self.in_.get_sum_doc_freq(field)
+  }
+
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    self.in_.get_doc_count(field)
+  }
+
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    self.in_.get_sum_total_term_freq(field)
+  }
+
+  fn index_base(&self) -> &IndexReaderBase {
+    self.in_.index_base()
+  }
+}
+
+impl<DR> Display for NoIndexDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
+}
+
+impl<DR> FilterDirectoryReader for NoIndexDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type Delegate = DR;
+
+  fn get_delegate(&self) -> &Self::Delegate {
+    &self.in_
+  }
+
+  type WrapDirectoryReader = DR::DirectoryReader;
+
+  fn do_wrap_directory_reader(
+    &self,
+    _in_: Option<<Self::Delegate as DirectoryReader>::DirectoryReader>,
+  ) -> Result<Option<Self::WrapDirectoryReader>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 }
