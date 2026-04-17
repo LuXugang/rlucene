@@ -321,6 +321,17 @@ pub struct Builder {
   terms: Vec<Term>,
   positions: Vec<usize>,
 }
+#[cfg(test)]
+impl Clone for Builder {
+  fn clone(&self) -> Self {
+    Self {
+      slop: self.slop,
+      terms: self.terms.clone(),
+      positions: self.positions.clone(),
+    }
+  }
+}
+
 impl Default for Builder {
   fn default() -> Self {
     Self::new()

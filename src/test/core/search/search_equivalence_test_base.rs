@@ -50,8 +50,14 @@ use std::sync::Arc;
 /// random_term()`]s (all terms are single characters a-z), and use [`assert_same_set(Query,
 /// Query)`] and [`assert_subset_of(Query, Query)`]
 pub trait SearchEquivalenceTestBase {
-  fn get_meta(&self) -> SearchEquivalenceTestBaseMeta;
-
+  fn get_meta(&self) -> &SearchEquivalenceTestBaseMeta;
+  /// Returns a term suitable for searching. Terms are single characters in lowercase (`a-z`).
+  fn random_term<R>(&self, random: &mut R) -> Term
+  where
+    R: Rng + ?Sized,
+  {
+    Term::from_text("field", random_char(random).to_string())
+  }
   /// Asserts that the documents returned by q1 are the same as of those returned by q2
   fn assert_same_set<R>(&self, random: &mut R, q1: &Query, q2: &Query) -> Result<()>
   where
@@ -68,7 +74,6 @@ pub trait SearchEquivalenceTestBase {
   {
     self.assert_subset_of_with_filter(q1, q2, None)?;
 
-    let _meta = self.get_meta();
     let num_filters = if is_night_mode() {
       at_least(random, 10)
     } else {
@@ -294,13 +299,6 @@ where
     c = char::from_u32(TestUtil::next_int(random, 'a' as i32, c as i32) as u32).unwrap();
   }
   c
-}
-/// Returns a term suitable for searching. Terms are single characters in lowercase (`a-z`).
-fn random_term<R>(random: &mut R) -> Term
-where
-  R: Rng + ?Sized,
-{
-  Term::from_text("field", random_char(random).to_string())
 }
 
 /// Returns a random filter over the document set.

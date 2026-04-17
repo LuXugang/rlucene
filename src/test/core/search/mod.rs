@@ -44,6 +44,7 @@ mod test_regexp_random;
 pub(crate) mod test_scorer_perf;
 mod test_search_after;
 mod test_similarity_provider;
+mod test_sloppy_phrase_query2;
 mod test_sort_optimization;
 pub(crate) mod test_sort_random;
 mod test_top_docs_merge;
