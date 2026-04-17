@@ -28,6 +28,8 @@ use crate::core::search::index_searcher::IndexSearcher;
 
 use crate::core::search::abstract_knn_vector_query::DocAndScoreQuery;
 use crate::core::search::automaton_query::AutomatonQuery;
+#[cfg(test)]
+use crate::core::search::boolean_scorer::tests::CrazyMustUseBulkScorerQuery;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
@@ -128,6 +130,8 @@ macro_rules! dispatch_query {
       #[cfg(test)]
       Query::BlockScoreQueryWrapper($inner) => $body,
       #[cfg(test)]
+      Query::CrazyMustUseBulkScorer($inner) => $body,
+      #[cfg(test)]
       Query::Dummy1($inner) => $body,
       #[cfg(test)]
       Query::MaxScoreWrapper($inner) => $body,
@@ -177,6 +181,7 @@ impl_from_for_enum!(
     Query,
     BitSetQuery => BitSet,
     BlockScoreQueryWrapper => BlockScoreQueryWrapper,
+    CrazyMustUseBulkScorerQuery => CrazyMustUseBulkScorer,
     DummyQuery1=> Dummy1,
     MaxScoreWrapperQuery => MaxScoreWrapper,
     RandomApproximationQuery => RandomApproximation,
@@ -271,6 +276,8 @@ pub enum Query {
   #[cfg(test)]
   BlockScoreQueryWrapper(BlockScoreQueryWrapper),
   #[cfg(test)]
+  CrazyMustUseBulkScorer(CrazyMustUseBulkScorerQuery),
+  #[cfg(test)]
   Dummy1(DummyQuery1),
   #[cfg(test)]
   MaxScoreWrapper(MaxScoreWrapperQuery),
@@ -336,6 +343,7 @@ impl Query {
         test: [
             BitSet,
             BlockScoreQueryWrapper,
+            CrazyMustUseBulkScorer,
             Dummy1,
             MaxScoreWrapper,
             RandomApproximation,

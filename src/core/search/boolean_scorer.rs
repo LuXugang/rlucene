@@ -33,6 +33,7 @@ pub(crate) const MASK: usize = SIZE - 1;
 
 pub(crate) const SET_SIZE: usize = 1 << (SHIFT - 6);
 pub(crate) const SET_MASK: usize = SET_SIZE - 1;
+
 /// **BulkScorer** that is used for pure disjunctions and disjunctions that have low values of
 /// `MinimumNumberShouldMatch` and dense clauses.
 ///
@@ -385,6 +386,7 @@ where
       .ok_or_else(|| LuceneError::illegal_state("head's top() returned None"))
   }
 }
+
 impl<S> BulkScorer for BooleanScorer<S>
 where
   S: Scorer,
@@ -511,35 +513,51 @@ where
   }
 }
 #[cfg(test)]
-mod tests {
+pub mod tests {
   use crate::core::document::document::Document;
-
   use crate::core::document::field::Store;
-
   use crate::core::document::string_field::StringField;
+  use crate::core::document::text_field::TextField;
+  use std::hash::{Hash, Hasher};
+  use std::sync::Arc;
 
   use crate::core::index::composite_reader_context::CompositeReaderContext;
-  use crate::core::index::index_reader_context::IndexReaderContext;
+  use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
   use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
   use crate::core::index::term::Term;
   use crate::core::search::boolean_clause::Occur;
   use crate::core::search::boolean_query::Builder;
   use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
-  use crate::core::search::bulk_scorer::BulkScorerKind;
+  use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerKind};
   use crate::core::search::score_mode::ScoreMode;
   use crate::core::search::scorer_supplier::ScorerSupplier;
   use crate::core::search::term_query::TermQuery;
   use crate::core::store::directory::DirEnum;
-  use crate::core::util::error::lucene_error::Result;
+  use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_searcher_with_reader, random,
   };
 
+  use crate::core::index::index_reader::Identity;
+  use crate::core::index::leaf_reader_context::LeafReaderContext;
   use crate::core::search::boost_query::BoostQuery;
+  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::explanation::Explanation;
+  use crate::core::search::index_searcher::IndexSearcher;
+  use crate::core::search::leaf_collector::LeafCollector;
   use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-  use crate::core::search::query::Query;
+  use crate::core::search::matches_utils::MatchWithNoTerms;
+  use crate::core::search::query::{
+    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+  };
+  use crate::core::search::query_visitor::QueryVisitor;
+  use crate::core::search::score::Score;
   use crate::core::search::scorer::ScorerKind;
+  use crate::core::search::segment_cacheable::SegmentCacheable;
+  use crate::core::search::weight::Weight;
+  use crate::core::util::HasIdentity;
+  use crate::core::util::bits::Bits;
   use crate::test::core::search::query_utils::QueryUtils;
   use rand::RngExt;
 
@@ -578,7 +596,37 @@ mod tests {
   }
   #[test]
   fn test_embedded_boolean_scorer() -> Result<()> {
-    // TODO CrazyMustUseBulkScorerQuery未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+    doc.add(TextField::from_string(
+      "field",
+      "doctors are people who prescribe medicines of which they know little, to cure diseases of which they know less, in human beings of whom they know nothing",
+      Store::No,
+    )?);
+    w.add_document(doc)?;
+
+    let reader = w.get_reader()?;
+    w.close()?;
+
+    let searcher = new_searcher_with_reader(reader)?;
+    let mut q1 = Builder::new();
+    q1.add(
+      TermQuery::new(Term::from_text("field", "little")),
+      Occur::Should,
+    )?;
+    q1.add(
+      TermQuery::new(Term::from_text("field", "diseases")),
+      Occur::Should,
+    )?;
+
+    let mut q2 = Builder::new();
+    q2.add(q1.build(), Occur::Should)?;
+    q2.add(CrazyMustUseBulkScorerQuery::new(), Occur::Should)?;
+
+    assert_eq!(1, searcher.count(q2.build())?);
     Ok(())
   }
   #[test]
@@ -905,5 +953,197 @@ mod tests {
 
     w.close()?;
     Ok(())
+  }
+  #[derive(Clone, Debug)]
+  pub struct CrazyMustUseBulkScorerQuery {
+    id: Identity,
+  }
+
+  impl CrazyMustUseBulkScorerQuery {
+    pub(crate) fn new() -> Self {
+      Self {
+        id: Identity::new(),
+      }
+    }
+  }
+
+  impl Default for CrazyMustUseBulkScorerQuery {
+    fn default() -> Self {
+      Self::new()
+    }
+  }
+
+  impl PartialEq for CrazyMustUseBulkScorerQuery {
+    fn eq(&self, other: &Self) -> bool {
+      self.identity() == other.identity()
+    }
+  }
+
+  impl Eq for CrazyMustUseBulkScorerQuery {}
+
+  impl Hash for CrazyMustUseBulkScorerQuery {
+    fn hash<H>(&self, state: &mut H)
+    where
+      H: Hasher,
+    {
+      self.identity().hash(state);
+    }
+  }
+
+  impl HasIdentity for CrazyMustUseBulkScorerQuery {
+    fn identity(&self) -> &Identity {
+      &self.id
+    }
+  }
+
+  impl QueryBase for CrazyMustUseBulkScorerQuery {
+    fn as_string(&self, _field: &str) -> Result<String> {
+      Ok("MustUseBulkScorerQuery".to_string())
+    }
+
+    fn create_weight<IRC>(
+      self,
+      _searcher: &IndexSearcher<IRC>,
+      _score_mode: &ScoreMode,
+      _boost: f32,
+    ) -> Result<QueryWeight<IRC>>
+    where
+      IRC: IndexReaderContext,
+      Self: Sized,
+    {
+      Ok(Box::new(CrazyMustUseBulkScorerWeight::new(self)))
+    }
+
+    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+    where
+      IRC: IndexReaderContext,
+      Self: Sized,
+    {
+      Ok(self.into())
+    }
+
+    fn visit<QV>(&self, _visitor: &QV)
+    where
+      QV: QueryVisitor,
+    {
+    }
+  }
+
+  struct CrazyMustUseBulkScorerWeight {
+    query: Arc<Query>,
+  }
+
+  impl CrazyMustUseBulkScorerWeight {
+    fn new(query: CrazyMustUseBulkScorerQuery) -> Self {
+      Self {
+        query: Arc::new(query.into()),
+      }
+    }
+  }
+
+  impl<IRC> SegmentCacheable<IRC> for CrazyMustUseBulkScorerWeight
+  where
+    IRC: IndexReaderContext,
+  {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
+      Ok(false)
+    }
+  }
+
+  impl<IRC> Weight<IRC> for CrazyMustUseBulkScorerWeight
+  where
+    IRC: IndexReaderContext,
+  {
+    type Matches = MatchWithNoTerms;
+
+    fn matches(
+      &self,
+      _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+      _doc: i32,
+      _searcher: &IndexSearcher<IRC>,
+    ) -> Result<Option<Self::Matches>> {
+      Ok(None)
+    }
+
+    fn explain(
+      &self,
+      _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+      _doc: i32,
+      _searcher: &IndexSearcher<IRC>,
+    ) -> Result<Explanation> {
+      Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn get_query(&self) -> Arc<Query> {
+      self.query.clone()
+    }
+
+    type ScorerSupplier = QueryWeightSs<IRC>;
+
+    fn scorer_supplier(
+      &self,
+      _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+      _searcher: &IndexSearcher<IRC>,
+    ) -> Result<Option<Self::ScorerSupplier>> {
+      Ok(Some(Box::new(CrazyMustUseBulkScorerSupplier)))
+    }
+  }
+
+  struct CrazyMustUseBulkScorerSupplier;
+
+  impl<IRC> ScorerSupplier<IRC> for CrazyMustUseBulkScorerSupplier
+  where
+    IRC: IndexReaderContext,
+  {
+    type Scorer = QueryWeightSsScorer;
+    type BulkScorer = QueryWeightSsBulkScorer;
+
+    fn get(
+      &mut self,
+      _lead_cost: i64,
+      _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+      _searcher: &IndexSearcher<IRC>,
+    ) -> Result<Self::Scorer> {
+      Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn bulk_scorer(
+      &mut self,
+      _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+      _searcher: &IndexSearcher<IRC>,
+    ) -> Result<Option<Self::BulkScorer>> {
+      Ok(Some(Box::new(CrazyMustUseBulkScorer)))
+    }
+
+    fn cost(
+      &mut self,
+      _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+      _searcher: &IndexSearcher<IRC>,
+    ) -> Result<i64> {
+      Err(LuceneError::unsupported_operation(""))
+    }
+  }
+
+  struct CrazyMustUseBulkScorer;
+
+  impl BulkScorer for CrazyMustUseBulkScorer {
+    fn score(
+      &mut self,
+      collector: &mut dyn LeafCollector,
+      accept_docs: Option<&dyn Bits>,
+      min: i32,
+      max: i32,
+    ) -> Result<i32> {
+      if min <= 0 && max > 0 && accept_docs.map_or(Ok(true), |bits| bits.get(0))? {
+        let mut score = Score::default();
+        collector.set_scorer(&mut score)?;
+        collector.collect(0, &mut score)?;
+      }
+      Ok(NO_MORE_DOCS)
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+      Ok(1)
+    }
   }
 }
