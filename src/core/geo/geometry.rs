@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod component2d;
-mod component_tree;
-pub mod geo_encoding_utils;
-pub mod geo_utils;
-pub mod geometry;
-mod lat_lon_geometry;
-pub mod rectangle;
-pub(crate) mod rectangle2d;
+use crate::core::geo::component2d::Component2D;
+use crate::core::util::error::lucene_error::Result;
+
+/// Base class for LatLonGeometry and XYGeometry
+pub trait Geometry {
+  type Component2D: Component2D;
+  fn to_component2d(&self) -> Result<Self::Component2D>;
+}

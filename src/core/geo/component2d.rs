@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::point_values::Relation;
+use crate::core::util::error::lucene_error::Result;
 /// 2D Geometry object that supports spatial relationships with bounding boxes, triangles and points
 pub trait Component2D {
   /// min X value for the component
@@ -96,7 +97,7 @@ pub trait Component2D {
   ) -> bool;
 
   /// Compute the within relation of this component2D with a point
-  fn within_point(&self, x: f64, y: f64) -> WithinRelation;
+  fn within_point(&self, x: f64, y: f64) -> Result<WithinRelation>;
 
   /// Compute the within relation of this component2D with a line
   #[allow(clippy::too_many_arguments)]
@@ -111,7 +112,7 @@ pub trait Component2D {
     ab: bool,
     b_x: f64,
     b_y: f64,
-  ) -> WithinRelation;
+  ) -> Result<WithinRelation>;
 
   /// Compute the within relation of this component2D with a triangle
   #[allow(clippy::too_many_arguments)]
@@ -130,7 +131,7 @@ pub trait Component2D {
     c_x: f64,
     c_y: f64,
     ca: bool,
-  ) -> WithinRelation;
+  ) -> Result<WithinRelation>;
 
   /// return true if this component2D intersects the provided line
   fn intersects_line_values(&self, a_x: f64, a_y: f64, b_x: f64, b_y: f64) -> bool {
@@ -185,7 +186,14 @@ pub trait Component2D {
   }
 
   /// Compute the within relation of this component2D with a triangle
-  fn within_line_values(&self, a_x: f64, a_y: f64, ab: bool, b_x: f64, b_y: f64) -> WithinRelation {
+  fn within_line_values(
+    &self,
+    a_x: f64,
+    a_y: f64,
+    ab: bool,
+    b_x: f64,
+    b_y: f64,
+  ) -> Result<WithinRelation> {
     let min_y = a_y.min(b_y);
     let min_x = a_x.min(b_x);
     let max_y = a_y.max(b_y);
@@ -206,7 +214,7 @@ pub trait Component2D {
     c_x: f64,
     c_y: f64,
     ca: bool,
-  ) -> WithinRelation {
+  ) -> Result<WithinRelation> {
     let min_y = a_y.min(b_y).min(c_y);
     let min_x = a_x.min(b_x).min(c_x);
     let max_y = a_y.max(b_y).max(c_y);

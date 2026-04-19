@@ -347,13 +347,7 @@ impl ArrayUtil {
   /// - `k`: The index of the element to sort from. Value must be less than
   ///   `to` and greater than or equal to `from`.
   /// - `comparator`: A comparator to use for sorting.
-  pub fn select<T, C>(
-    arr: &mut [T],
-    from: usize,
-    to: usize,
-    k: usize,
-    comparator: &mut C,
-  ) -> Result<()>
+  pub fn select<T, C>(arr: &mut [T], from: usize, to: usize, k: usize, comparator: &C) -> Result<()>
   where
     C: Comparator<T>,
   {
@@ -904,7 +898,7 @@ mod tests {
     expected[from..to].sort();
 
     let mut actual = arr.clone();
-    ArrayUtil::select(&mut actual, from, to, k, &mut NaturalOrder::new())?;
+    ArrayUtil::select(&mut actual, from, to, k, &NaturalOrder::new())?;
 
     assert_eq!(expected[k], actual[k]);
 

@@ -347,6 +347,15 @@ pub enum Relation {
   /// Return this if the cell partially overlaps the query.
   CellCrossesQuery,
 }
+impl Relation {
+  pub fn ordinal(&self) -> i32 {
+    match self {
+      Relation::CellInsideQuery => 0,
+      Relation::CellOutsideQuery => 1,
+      Relation::CellCrossesQuery => 2,
+    }
+  }
+}
 /// Basic operations to read the KD-tree.
 pub trait PointTree: TryClone {
   /// Move to the first child node and return `true` upon success.

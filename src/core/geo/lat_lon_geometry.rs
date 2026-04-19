@@ -14,11 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod component2d;
-mod component_tree;
-pub mod geo_encoding_utils;
-pub mod geo_utils;
-pub mod geometry;
-mod lat_lon_geometry;
-pub mod rectangle;
-pub(crate) mod rectangle2d;
+use crate::core::geo::geometry::Geometry;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+
+/// Lat/Lon Geometry object.
+pub trait LatLonGeometry: Geometry {}
+pub fn create<T>(geometries: &[T]) -> Result<T::Component2D>
+where
+  T: LatLonGeometry,
+{
+  if geometries.is_empty() {
+    return Err(LuceneError::illegal_argument(
+      "geometries must not be empty",
+    ));
+  }
+
+  if geometries.len() == 1 {
+    return geometries[0].to_component2d();
+  }
+
+  let mut components = Vec::with_capacity(geometries.len());
+  for geometry in geometries.iter() {
+    components.push(geometry.to_component2d()?);
+  }
+  // TODO IMPORTANT ComponentTree未实现
+  todo!()
+}
