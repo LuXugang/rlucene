@@ -23,6 +23,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 /// Represents a lat/lon rectangle.
+#[derive(Clone)]
 pub struct Rectangle {
   /// maximum longitude value (in degrees)
   pub min_lat: f64,

@@ -17,7 +17,7 @@
 pub mod analysis;
 pub mod codecs;
 pub mod document;
-mod geo;
+pub mod geo;
 pub mod index;
 pub mod internal;
 pub mod search;

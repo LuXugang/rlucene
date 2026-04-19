@@ -20,5 +20,6 @@ pub mod geo_encoding_utils;
 pub mod geo_utils;
 pub mod geometry;
 mod lat_lon_geometry;
+pub mod polygon;
 pub mod rectangle;
 pub(crate) mod rectangle2d;
