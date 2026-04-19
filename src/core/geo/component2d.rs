@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::Result;
 /// 2D Geometry object that supports spatial relationships with bounding boxes, triangles and points
@@ -223,70 +224,6 @@ pub trait Component2D {
       min_x, max_x, min_y, max_y, a_x, a_y, ab, b_x, b_y, bc, c_x, c_y, ca,
     )
   }
-
-  /// Compute whether the bounding boxes are disjoint
-  #[allow(clippy::too_many_arguments)]
-  fn disjoint(
-    min_x1: f64,
-    max_x1: f64,
-    min_y1: f64,
-    max_y1: f64,
-    min_x2: f64,
-    max_x2: f64,
-    min_y2: f64,
-    max_y2: f64,
-  ) -> bool {
-    max_y1 < min_y2 || min_y1 > max_y2 || max_x1 < min_x2 || min_x1 > max_x2
-  }
-
-  /// Compute whether the first bounding box 1 is within the second bounding box
-  #[allow(clippy::too_many_arguments)]
-  fn within(
-    min_x1: f64,
-    max_x1: f64,
-    min_y1: f64,
-    max_y1: f64,
-    min_x2: f64,
-    max_x2: f64,
-    min_y2: f64,
-    max_y2: f64,
-  ) -> bool {
-    min_y2 <= min_y1 && max_y2 >= max_y1 && min_x2 <= min_x1 && max_x2 >= max_x1
-  }
-
-  /// returns true if rectangle (defined by minX, maxX, minY, maxY) contains the X Y point
-  fn contains_point(x: f64, y: f64, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> bool {
-    x >= min_x && x <= max_x && y >= min_y && y <= max_y
-  }
-
-  // /// Compute whether the given x, y point is in a triangle; uses the winding order method
-  // fn point_in_triangle(
-  //     min_x: f64,
-  //     max_x: f64,
-  //     min_y: f64,
-  //     max_y: f64,
-  //     x: f64,
-  //     y: f64,
-  //     a_x: f64,
-  //     a_y: f64,
-  //     b_x: f64,
-  //     b_y: f64,
-  //     c_x: f64,
-  //     c_y: f64,
-  // ) -> bool {
-  //     if x >= min_x && x <= max_x && y >= min_y && y <= max_y {
-  //         let a = orient(x, y, a_x, a_y, b_x, b_y);
-  //         let b = orient(x, y, b_x, b_y, c_x, c_y);
-  //         if a == 0 || b == 0 || (a < 0) == (b < 0) {
-  //             let c = orient(x, y, c_x, c_y, a_x, a_y);
-  //             c == 0 || (c < 0) == ((b < 0) || (a < 0))
-  //         } else {
-  //             false
-  //         }
-  //     } else {
-  //         false
-  //     }
-  // }
 }
 
 /**
@@ -308,4 +245,254 @@ pub enum WithinRelation {
   NotWithin,
   /// The query shape is disjoint with the triangle.
   Disjoint,
+}
+/// Compute whether the bounding boxes are disjoint
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn disjoint(
+  min_x1: f64,
+  max_x1: f64,
+  min_y1: f64,
+  max_y1: f64,
+  min_x2: f64,
+  max_x2: f64,
+  min_y2: f64,
+  max_y2: f64,
+) -> bool {
+  max_y1 < min_y2 || min_y1 > max_y2 || max_x1 < min_x2 || min_x1 > max_x2
+}
+
+/// Compute whether the first bounding box 1 is within the second bounding box
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn within(
+  min_x1: f64,
+  max_x1: f64,
+  min_y1: f64,
+  max_y1: f64,
+  min_x2: f64,
+  max_x2: f64,
+  min_y2: f64,
+  max_y2: f64,
+) -> bool {
+  min_y2 <= min_y1 && max_y2 >= max_y1 && min_x2 <= min_x1 && max_x2 >= max_x1
+}
+
+/// returns true if rectangle (defined by minX, maxX, minY, maxY) contains the X Y point
+pub(crate) fn contains_point(
+  x: f64,
+  y: f64,
+  min_x: f64,
+  max_x: f64,
+  min_y: f64,
+  max_y: f64,
+) -> bool {
+  x >= min_x && x <= max_x && y >= min_y && y <= max_y
+}
+
+/// Compute whether the given x, y point is in a triangle; uses the winding order method
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn point_in_triangle(
+  min_x: f64,
+  max_x: f64,
+  min_y: f64,
+  max_y: f64,
+  x: f64,
+  y: f64,
+  a_x: f64,
+  a_y: f64,
+  b_x: f64,
+  b_y: f64,
+  c_x: f64,
+  c_y: f64,
+) -> bool {
+  if x >= min_x && x <= max_x && y >= min_y && y <= max_y {
+    let a = GeoUtils::orient(x, y, a_x, a_y, b_x, b_y);
+    let b = GeoUtils::orient(x, y, b_x, b_y, c_x, c_y);
+    if a == 0 || b == 0 || (a < 0) == (b < 0) {
+      let c = GeoUtils::orient(x, y, c_x, c_y, a_x, a_y);
+      c == 0 || (c < 0) == ((b < 0) || (a < 0))
+    } else {
+      false
+    }
+  } else {
+    false
+  }
+}
+#[macro_export]
+macro_rules! either_component2d_named {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> Component2D for $name<$( $T ),+>
+        where
+            $( $T: Component2D ),+
+        {
+            fn get_min_x(&self) -> f64 {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_min_x(), )+
+                }
+            }
+
+            fn get_max_x(&self) -> f64 {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_max_x(), )+
+                }
+            }
+
+            fn get_min_y(&self) -> f64 {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_min_y(), )+
+                }
+            }
+
+            fn get_max_y(&self) -> f64 {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_max_y(), )+
+                }
+            }
+
+            fn contains(&self, x: f64, y: f64) -> bool {
+                match self {
+                    $( Self::$Variant(inner) => inner.contains(x, y), )+
+                }
+            }
+
+            fn relate(&self, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Relation {
+                match self {
+                    $( Self::$Variant(inner) => inner.relate(min_x, max_x, min_y, max_y), )+
+                }
+            }
+
+            fn intersects_line(
+                &self,
+                min_x: f64,
+                max_x: f64,
+                min_y: f64,
+                max_y: f64,
+                a_x: f64,
+                a_y: f64,
+                b_x: f64,
+                b_y: f64,
+            ) -> bool {
+                match self {
+                    $( Self::$Variant(inner) => {
+                        inner.intersects_line(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y)
+                    }, )+
+                }
+            }
+
+            fn intersects_triangle(
+                &self,
+                min_x: f64,
+                max_x: f64,
+                min_y: f64,
+                max_y: f64,
+                a_x: f64,
+                a_y: f64,
+                b_x: f64,
+                b_y: f64,
+                c_x: f64,
+                c_y: f64,
+            ) -> bool {
+                match self {
+                    $( Self::$Variant(inner) => {
+                        inner.intersects_triangle(
+                            min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y, c_x, c_y,
+                        )
+                    }, )+
+                }
+            }
+
+            fn contains_line(
+                &self,
+                min_x: f64,
+                max_x: f64,
+                min_y: f64,
+                max_y: f64,
+                a_x: f64,
+                a_y: f64,
+                b_x: f64,
+                b_y: f64,
+            ) -> bool {
+                match self {
+                    $( Self::$Variant(inner) => {
+                        inner.contains_line(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y)
+                    }, )+
+                }
+            }
+
+            fn contains_triangle(
+                &self,
+                min_x: f64,
+                max_x: f64,
+                min_y: f64,
+                max_y: f64,
+                a_x: f64,
+                a_y: f64,
+                b_x: f64,
+                b_y: f64,
+                c_x: f64,
+                c_y: f64,
+            ) -> bool {
+                match self {
+                    $( Self::$Variant(inner) => {
+                        inner.contains_triangle(
+                            min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y, c_x, c_y,
+                        )
+                    }, )+
+                }
+            }
+
+            fn within_point(&self, x: f64, y: f64) -> Result<WithinRelation> {
+                match self {
+                    $( Self::$Variant(inner) => inner.within_point(x, y), )+
+                }
+            }
+
+            fn within_line(
+                &self,
+                min_x: f64,
+                max_x: f64,
+                min_y: f64,
+                max_y: f64,
+                a_x: f64,
+                a_y: f64,
+                ab: bool,
+                b_x: f64,
+                b_y: f64,
+            ) -> Result<WithinRelation> {
+                match self {
+                    $( Self::$Variant(inner) => {
+                        inner.within_line(min_x, max_x, min_y, max_y, a_x, a_y, ab, b_x, b_y)
+                    }, )+
+                }
+            }
+
+            fn within_triangle(
+                &self,
+                min_x: f64,
+                max_x: f64,
+                min_y: f64,
+                max_y: f64,
+                a_x: f64,
+                a_y: f64,
+                ab: bool,
+                b_x: f64,
+                b_y: f64,
+                bc: bool,
+                c_x: f64,
+                c_y: f64,
+                ca: bool,
+            ) -> Result<WithinRelation> {
+                match self {
+                    $( Self::$Variant(inner) => {
+                        inner.within_triangle(
+                            min_x, max_x, min_y, max_y, a_x, a_y, ab, b_x, b_y, bc, c_x, c_y, ca,
+                        )
+                    }, )+
+                }
+            }
+        }
+    };
 }
