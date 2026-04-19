@@ -276,4 +276,112 @@ impl WindingOrder {
   }
 }
 #[cfg(test)]
-pub mod tests {}
+pub mod tests {
+  use rand::{Rng, RngExt};
+
+  use super::GeoUtils;
+  use crate::core::geo::rectangle::Rectangle;
+  use crate::core::util::SloppyMath;
+
+  struct TestGeoUtils;
+
+  impl TestGeoUtils {
+    fn next_latitude<R: Rng + ?Sized>(random: &mut R) -> f64 {
+      random.random_range(-90.0..=90.0)
+    }
+
+    fn next_longitude<R: Rng + ?Sized>(random: &mut R) -> f64 {
+      random.random_range(-180.0..=180.0)
+    }
+
+    fn random_in_range<R: Rng + ?Sized>(random: &mut R, min: f64, max: f64) -> f64 {
+      min + (max - min) * random.random::<f64>()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn is_disjoint(
+      center_lat: f64,
+      center_lon: f64,
+      radius: f64,
+      axis_lat: f64,
+      lat_min: f64,
+      lat_max: f64,
+      lon_min: f64,
+      lon_max: f64,
+    ) -> bool {
+      if (center_lon < lon_min || center_lon > lon_max)
+        && (axis_lat + Rectangle::AXISLAT_ERROR < lat_min
+          || axis_lat - Rectangle::AXISLAT_ERROR > lat_max)
+        && SloppyMath::haversin_meters(center_lat, center_lon, lat_min, lon_min) > radius
+        && SloppyMath::haversin_meters(center_lat, center_lon, lat_min, lon_max) > radius
+        && SloppyMath::haversin_meters(center_lat, center_lon, lat_max, lon_min) > radius
+        && SloppyMath::haversin_meters(center_lat, center_lon, lat_max, lon_max) > radius
+      {
+        return true;
+      }
+
+      false
+    }
+  }
+
+  #[test]
+
+  fn test_random_circle_to_bbox() {}
+
+  #[test]
+  fn test_bounding_box_opto() {}
+
+  #[test]
+  fn test_haversin_opto() {}
+
+  #[test]
+  fn test_infinite_rect() {}
+
+  #[test]
+  fn test_axis_lat() {}
+
+  #[test]
+  fn test_circle_opto() {}
+  fn random_in_range<R>(random: &mut R, min: f64, max: f64) -> f64
+  where
+    R: Rng + ?Sized,
+  {
+    min + (max - min) * random.random::<f64>()
+  }
+  #[allow(clippy::too_many_arguments)]
+  fn is_disjoint(
+    center_lat: f64,
+    center_lon: f64,
+    radius: f64,
+    axis_lat: f64,
+    lat_min: f64,
+    lat_max: f64,
+    lon_min: f64,
+    lon_max: f64,
+  ) -> bool {
+    if (center_lon < lon_min || center_lon > lon_max)
+      && (axis_lat + Rectangle::AXISLAT_ERROR < lat_min
+        || axis_lat - Rectangle::AXISLAT_ERROR > lat_max)
+      && SloppyMath::haversin_meters(center_lat, center_lon, lat_min, lon_min) > radius
+      && SloppyMath::haversin_meters(center_lat, center_lon, lat_min, lon_max) > radius
+      && SloppyMath::haversin_meters(center_lat, center_lon, lat_max, lon_min) > radius
+      && SloppyMath::haversin_meters(center_lat, center_lon, lat_max, lon_max) > radius
+    {
+      return true;
+    }
+
+    false
+  }
+  #[test]
+  fn test_within_90_lon_degrees() {
+    assert!(GeoUtils::within_90_lon_degrees(0.0, -80.0, 80.0));
+    assert!(!GeoUtils::within_90_lon_degrees(0.0, -100.0, 80.0));
+    assert!(!GeoUtils::within_90_lon_degrees(0.0, -80.0, 100.0));
+
+    assert!(GeoUtils::within_90_lon_degrees(-150.0, 140.0, 170.0));
+    assert!(!GeoUtils::within_90_lon_degrees(-150.0, 120.0, 150.0));
+
+    assert!(GeoUtils::within_90_lon_degrees(150.0, -170.0, -140.0));
+    assert!(!GeoUtils::within_90_lon_degrees(150.0, -150.0, -120.0));
+  }
+}
