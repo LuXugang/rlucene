@@ -24,8 +24,6 @@ pub trait DocIdStreamConsumer {
 
 /// A stream of doc IDs. Most methods on [`DocIdStream`]s are terminal,
 /// meaning that the [`DocIdStream`] may not be further used.
-///
-/// @lucene.experimental
 pub trait DocIdStream {
   /// Iterate over doc IDs contained in this stream in order,
   /// calling the given consumer on them.

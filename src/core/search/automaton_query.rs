@@ -42,7 +42,7 @@ use std::hash::{Hash, Hasher};
 /// to reduce the number of comparisons. For example: the regular expression of `[dl]og?`
 /// will make approximately four comparisons: do, dog, lo, and log.
 ///
-/// @lucene.experimental
+
 #[derive(Clone)]
 pub struct AutomatonQuery {
   pub(crate) compiled: CompiledAutomaton,

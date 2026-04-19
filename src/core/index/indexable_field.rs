@@ -31,8 +31,6 @@ use std::fmt::Display;
 
 /// Represents a single field for indexing. IndexWriter consumes
 /// `Iterable<IndexableField>` as a document.
-///
-/// @lucene.experimental
 pub trait IndexableField: Display {
   /// Field name
   fn name(&self) -> &str;

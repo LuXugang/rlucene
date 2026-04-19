@@ -23,8 +23,6 @@ use crate::core::util::error::lucene_error::Result;
 /// To obtain a [`MatchesIterator`] for a particular field, call
 /// [`Matches::get_matches`]. Note that you can call this method multiple
 /// times to retrieve new iterators, but it is not thread-safe.
-///
-/// @lucene.experimental
 pub trait Matches {
   type MatchesIterator: MatchesIterator;
   /// Returns a [`MatchesIterator`] over the matches for a single field,

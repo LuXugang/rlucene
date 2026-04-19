@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod circle;
+pub(crate) mod circle2d;
 pub mod component2d;
 mod component_tree;
 pub mod geo_encoding_utils;

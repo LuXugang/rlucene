@@ -55,8 +55,6 @@ use std::collections::{HashMap, HashSet};
 /// Base class aiming at testing [`StoredFieldsFormat`] stored fields formats. To test a new
 /// format, all you need is to register a new [`Codec`] which uses it and extend this class and
 /// override [`Self::get_codec`].
-///
-/// @lucene.experimental
 pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
   fn test_random_stored_fields<R>(&self, random: &mut R) -> Result<()>
   where

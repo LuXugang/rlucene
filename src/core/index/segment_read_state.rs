@@ -20,8 +20,6 @@ use crate::core::store::directory::Directory;
 use std::sync::Arc;
 
 /// Holder struct for common parameters used during read.
-///
-/// @lucene.experimental
 pub struct SegmentReadState<'a, D>
 where
   D: Directory,

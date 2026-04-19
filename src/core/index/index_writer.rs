@@ -682,8 +682,6 @@ where
   /// # Errors
   /// - Returns a `CorruptIndexException` if the index is corrupt.
   /// - Returns an `io::Error` if there is a low-level I/O error.
-  ///
-  /// @lucene.experimental
   pub fn add_documents<DI, DF>(&self, docs: DI) -> Result<i64>
   where
     DI: IntoIterator<Item = DF>,
@@ -703,8 +701,6 @@ where
   /// # Errors
   /// - Returns a `CorruptIndexException` if the index is corrupt.
   /// - Returns an `io::Error` if there is a low-level I/O error.
-  ///
-  /// @lucene.experimental
   pub fn update_documents_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
   where
     T: Into<Option<Term>>,
@@ -719,8 +715,6 @@ where
 
   /// Similar to [`update_documents(Term, Iterable)`](Self::update_documents_with_term), but takes a query instead of a term to
   /// identify the documents to be updated.
-  ///
-  /// @lucene.experimental
   pub fn update_documents_with_query<T, DI, DF>(&self, del_query: T, docs: DI) -> Result<i64>
   where
     T: Into<Option<Query>>,

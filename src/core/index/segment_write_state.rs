@@ -22,8 +22,6 @@ use crate::core::util::info_stream::InfoStreamMT;
 use std::sync::Arc;
 
 /// Holder struct for common parameters used during write.
-///
-/// @lucene.experimental
 pub struct SegmentWriteState<'a, D>
 where
   D: Directory,

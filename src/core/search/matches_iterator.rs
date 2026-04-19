@@ -27,8 +27,6 @@ use std::sync::Arc;
 /// individual matching terms on the current match by calling [`MatchesIterator::get_sub_matches`].
 ///
 /// Matches are ordered by start position, and then by end position. Match intervals may overlap.
-///
-/// @lucene.experimental
 pub trait MatchesIterator {
   /// Advance the iterator to the next match position.
   ///

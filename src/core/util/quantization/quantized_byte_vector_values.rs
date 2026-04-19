@@ -22,8 +22,6 @@ use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 
 /// A version of [`ByteVectorValues`], but additionally retrieving score correction offset for
 /// Scalar quantization scores.
-///
-/// @lucene.experimental
 pub trait QuantizedByteVectorValues: ByteVectorValues + HasIndexSlice {
   fn get_scalar_quantizer(&self) -> Result<ScalarQuantizer> {
     Err(LuceneError::unsupported_operation(""))

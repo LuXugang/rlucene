@@ -19,8 +19,6 @@ use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 
 /// An interface that provides an HNSW graph. This interface is useful when gathering multiple HNSW
 /// graphs to bootstrap segment merging. The graph may be off the JVM heap.
-///
-/// @lucene.experimental
 pub trait HnswGraphProvider {
   type HnswGraph: HnswGraph;
 

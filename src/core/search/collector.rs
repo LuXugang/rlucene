@@ -37,8 +37,6 @@ use crate::core::search::weight::Weight;
 ///   [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) search methods that take an explicit `Sort`(crate::core::index::sort::Sort).
 /// - [`PositiveScoresOnlyCollector`](crate::core::search::positive_scores_only_collector::PositiveScoresOnlyCollector) wraps any other Collector and prevents collection of
 ///   hits whose score is <= 0.0
-///
-/// @lucene.experimental
 use crate::core::util::error::lucene_error::Result;
 
 pub trait Collector {

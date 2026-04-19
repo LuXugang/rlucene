@@ -90,8 +90,6 @@ use std::sync::Arc;
 ///
 /// This [`StoredFieldsFormat`] does not support individual documents larger
 /// than `(2^31 - 2^14)` bytes.
-///
-/// @lucene.experimental
 pub struct Lucene90StoredFieldsFormat {
   pub mode: Mode,
 }

@@ -31,8 +31,6 @@ use std::sync::Arc;
 
 /// Provides mechanisms to score vectors that are stored in a flat file The purpose of this class is
 /// for providing flexibility to the codec utilizing the vectors
-///
-/// @lucene.experimental
 pub trait FlatVectorsScorer: Display {
   type RandomVectorScorerSupplier<B, F>: RandomVectorScorerSupplier
   where
