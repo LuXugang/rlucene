@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod component2d;
-pub mod geo_utils;
-mod rectangle;
+use crate::core::geo::geo_utils::GeoUtils;
+
+pub struct Rectangle;
+impl Rectangle {
+  pub(crate) const AXISLAT_ERROR: f64 =
+    (0.1f64 / GeoUtils::EARTH_MEAN_RADIUS_METERS) * 180.0 / std::f64::consts::PI;
+}

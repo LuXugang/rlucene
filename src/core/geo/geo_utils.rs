@@ -14,10 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::geo::rectangle::Rectangle;
+use crate::core::index::point_values::Relation;
+use crate::core::util::SloppyMath;
+use crate::core::util::error::lucene_error::LuceneError;
+use crate::core::util::error::lucene_error::Result;
 use std::f64::consts::{FRAC_PI_2, PI};
 
-use crate::core::index::point_values::Relation;
-use crate::core::util::error::lucene_error::LuceneError;
 /// Basic reusable geo-spatial utility methods
 pub struct GeoUtils;
 
@@ -46,7 +49,7 @@ impl GeoUtils {
   const PIO2: f64 = FRAC_PI_2;
 
   /// Validates latitude value is within standard +/-90 coordinate bounds.
-  pub fn check_latitude(latitude: f64) -> Result<(), LuceneError> {
+  pub fn check_latitude(latitude: f64) -> Result<()> {
     if latitude.is_nan() || !(Self::MIN_LAT_INCL..=Self::MAX_LAT_INCL).contains(&latitude) {
       return Err(LuceneError::illegal_argument(format!(
         "invalid latitude {}; must be between {} and {}",
@@ -60,7 +63,7 @@ impl GeoUtils {
   }
 
   /// Validates longitude value is within standard +/-180 coordinate bounds.
-  pub fn check_longitude(longitude: f64) -> Result<(), LuceneError> {
+  pub fn check_longitude(longitude: f64) -> Result<()> {
     if longitude.is_nan() || !(Self::MIN_LON_INCL..=Self::MAX_LON_INCL).contains(&longitude) {
       return Err(LuceneError::illegal_argument(format!(
         "invalid longitude {}; must be between {} and {}",
@@ -84,8 +87,37 @@ impl GeoUtils {
   /// Placeholder for Lucene's `distanceQuerySortKey`.
   ///
   /// This depends on the haversine helpers that have not been ported yet.
-  pub fn distance_query_sort_key(_radius: f64) -> f64 {
-    todo!("distance_query_sort_key requires haversine helpers that are not ported yet")
+  pub fn distance_query_sort_key(radius: f64) -> f64 {
+    let max_sort_key = f64::MAX;
+    let max_haversin = SloppyMath::haversin_meters_from_sort_key(max_sort_key);
+
+    if radius >= max_haversin {
+      return max_haversin;
+    }
+
+    let mut lo: u64 = 0;
+    let mut hi: u64 = f64::MAX.to_bits();
+
+    while lo <= hi {
+      let mid = lo + ((hi - lo) >> 1);
+      let sort_key = f64::from_bits(mid);
+      let mid_radius = SloppyMath::haversin_meters_from_sort_key(sort_key);
+
+      if mid_radius == radius {
+        return sort_key;
+      } else if mid_radius > radius {
+        if mid == 0 {
+          break;
+        }
+        hi = mid - 1;
+      } else {
+        lo = mid + 1;
+      }
+    }
+
+    let ceil = f64::from_bits(lo);
+    debug_assert!(SloppyMath::haversin_meters_from_sort_key(ceil) > radius);
+    ceil
   }
 
   /// Placeholder for Lucene's `relate`.
@@ -94,16 +126,45 @@ impl GeoUtils {
   /// not available in the Rust port yet.
   #[allow(clippy::too_many_arguments)]
   pub fn relate(
-    _min_lat: f64,
-    _max_lat: f64,
-    _min_lon: f64,
-    _max_lon: f64,
-    _lat: f64,
-    _lon: f64,
-    _distance_sort_key: f64,
-    _axis_lat: f64,
-  ) -> Relation {
-    todo!("relate requires SloppyMath and Rectangle support that are not ported yet")
+    min_lat: f64,
+    max_lat: f64,
+    min_lon: f64,
+    max_lon: f64,
+    lat: f64,
+    lon: f64,
+    distance_sort_key: f64,
+    axis_lat: f64,
+  ) -> Result<Relation> {
+    if min_lon > max_lon {
+      return Err(LuceneError::illegal_argument("Box crosses the dateline"));
+    }
+
+    if (lon < min_lon || lon > max_lon)
+      && (axis_lat + Rectangle::AXISLAT_ERROR < min_lat
+        || axis_lat - Rectangle::AXISLAT_ERROR > max_lat)
+    {
+      // circle not fully inside / crossing axis
+      if SloppyMath::haversin_sort_key(lat, lon, min_lat, min_lon) > distance_sort_key
+        && SloppyMath::haversin_sort_key(lat, lon, min_lat, max_lon) > distance_sort_key
+        && SloppyMath::haversin_sort_key(lat, lon, max_lat, min_lon) > distance_sort_key
+        && SloppyMath::haversin_sort_key(lat, lon, max_lat, max_lon) > distance_sort_key
+      {
+        // no points inside
+        return Ok(Relation::CellOutsideQuery);
+      }
+    }
+
+    if Self::within_90_lon_degrees(lon, min_lon, max_lon)
+      && SloppyMath::haversin_sort_key(lat, lon, min_lat, min_lon) <= distance_sort_key
+      && SloppyMath::haversin_sort_key(lat, lon, min_lat, max_lon) <= distance_sort_key
+      && SloppyMath::haversin_sort_key(lat, lon, max_lat, min_lon) <= distance_sort_key
+      && SloppyMath::haversin_sort_key(lat, lon, max_lat, max_lon) <= distance_sort_key
+    {
+      // we are fully enclosed, collect everything within this subtree
+      return Ok(Relation::CellInsideQuery);
+    }
+
+    Ok(Relation::CellCrossesQuery)
   }
 
   /// Return whether all points of `[min_lon, max_lon]` are within 90 degrees of `lon`.
@@ -202,7 +263,7 @@ impl WindingOrder {
     self as i32
   }
 
-  pub fn from_sign(sign: i32) -> Result<Self, LuceneError> {
+  pub fn from_sign(sign: i32) -> Result<Self> {
     match sign {
       -1 => Ok(Self::Cw),
       0 => Ok(Self::Colinear),
@@ -214,3 +275,5 @@ impl WindingOrder {
     }
   }
 }
+#[cfg(test)]
+pub mod tests {}
