@@ -235,9 +235,11 @@ fn slow_haversin(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
 }
 #[cfg(test)]
 mod tests {
-  use rand::RngExt;
-
   use super::{SIN_COS_MAX_VALUE_FOR_INT_MODULO, SloppyMath, TO_METERS, slow_haversin};
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::geo::geo_test_util::GeoTestUtil;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+  use rand::RngExt;
   #[allow(dead_code)] // for quick search
   struct TestSloppyMath;
 
@@ -399,8 +401,50 @@ mod tests {
   }
 
   #[test]
-  fn test_haversin_sort_key() {
-    // TODO IMPORTANT GeoTestUtil未实现
+  fn test_haversin_sort_key() -> Result<()> {
+    let mut random = random();
+    let iters = at_least(&mut random, 10000);
+
+    for _ in 0..iters {
+      let center_lat = GeoTestUtil::next_latitude(&mut random);
+      let center_lon = GeoTestUtil::next_longitude(&mut random);
+
+      let lat1 = GeoTestUtil::next_latitude(&mut random);
+      let lon1 = GeoTestUtil::next_longitude(&mut random);
+
+      let lat2 = GeoTestUtil::next_latitude(&mut random);
+      let lon2 = GeoTestUtil::next_longitude(&mut random);
+
+      let expected = f64::total_cmp(
+        &SloppyMath::haversin_meters(center_lat, center_lon, lat1, lon1),
+        &SloppyMath::haversin_meters(center_lat, center_lon, lat2, lon2),
+      )
+      .cmp(&std::cmp::Ordering::Equal) as i32;
+      let expected = expected.signum();
+
+      let actual = f64::total_cmp(
+        &SloppyMath::haversin_sort_key(center_lat, center_lon, lat1, lon1),
+        &SloppyMath::haversin_sort_key(center_lat, center_lon, lat2, lon2),
+      )
+      .cmp(&std::cmp::Ordering::Equal) as i32;
+      let actual = actual.signum();
+
+      assert_eq!(expected, actual);
+      assert_eq!(
+        SloppyMath::haversin_meters(center_lat, center_lon, lat1, lon1),
+        SloppyMath::haversin_meters_from_sort_key(SloppyMath::haversin_sort_key(
+          center_lat, center_lon, lat1, lon1
+        )),
+      );
+      assert_eq!(
+        SloppyMath::haversin_meters(center_lat, center_lon, lat2, lon2),
+        SloppyMath::haversin_meters_from_sort_key(SloppyMath::haversin_sort_key(
+          center_lat, center_lon, lat2, lon2
+        )),
+      );
+    }
+
+    Ok(())
   }
 
   #[test]
@@ -409,10 +453,23 @@ mod tests {
   }
 
   #[test]
-  fn test_against_slow_version() {
-    // TODO IMPORTANT GeoTestUtil未实现
-  }
+  fn test_against_slow_version() -> Result<()> {
+    let mut random = random();
+    for _ in 0..100_000 {
+      let lat1 = GeoTestUtil::next_latitude(&mut random);
+      let lon1 = GeoTestUtil::next_longitude(&mut random);
+      let lat2 = GeoTestUtil::next_latitude(&mut random);
+      let lon2 = GeoTestUtil::next_longitude(&mut random);
 
+      let expected = slow_haversin(lat1, lon1, lat2, lon2);
+      let actual = SloppyMath::haversin_meters(lat1, lon1, lat2, lon2);
+      assert!(
+        (expected - actual).abs() <= HAVERSIN_DELTA,
+        "expected={expected}, actual={actual}"
+      );
+    }
+    Ok(())
+  }
   #[test]
   fn test_across_whole_world_steps() {
     for lat1 in (-90..=90).step_by(10) {
@@ -433,7 +490,23 @@ mod tests {
   }
 
   #[test]
-  fn test_against_slow_version_reasonable() {
-    // TODO IMPORTANT GeoTestUtil未实现
+  fn test_against_slow_version_reasonable() -> Result<()> {
+    let mut random = random();
+    for _ in 0..100_000 {
+      let lat1 = GeoTestUtil::next_latitude(&mut random);
+      let lon1 = GeoTestUtil::next_longitude(&mut random);
+      let lat2 = GeoTestUtil::next_latitude(&mut random);
+      let lon2 = GeoTestUtil::next_longitude(&mut random);
+
+      let expected = SloppyMath::haversin_meters(lat1, lon1, lat2, lon2);
+      if expected < 1_000_000.0 {
+        let actual = slow_haversin(lat1, lon1, lat2, lon2);
+        assert!(
+          (expected - actual).abs() <= REASONABLE_HAVERSIN_DELTA,
+          "expected={expected}, actual={actual}"
+        );
+      }
+    }
+    Ok(())
   }
 }
