@@ -25,6 +25,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 /// 2D rectangle implementation containing cartesian spatial logic.
+#[derive(Debug)]
 pub struct Rectangle2D {
   min_x: f64,
   max_x: f64,
@@ -62,8 +63,8 @@ impl Rectangle2D {
   }
   pub(crate) fn create(rectangle: &XYRectangle) -> Rectangle2D {
     Rectangle2D::new(
-      rectangle.max_x as f64,
-      rectangle.max_x as f64,
+      rectangle.min_x as f64,
+      rectangle.max_y as f64,
       rectangle.min_y as f64,
       rectangle.max_y as f64,
     )
@@ -299,5 +300,195 @@ impl Display for Rectangle2D {
       "Rectangle2D(x={} TO {} y={} TO {})",
       self.min_x, self.max_x, self.min_y, self.max_y
     )
+  }
+}
+impl PartialEq for Rectangle2D {
+  fn eq(&self, other: &Self) -> bool {
+    self.min_x.to_bits() == other.min_x.to_bits()
+      && self.max_x.to_bits() == other.max_x.to_bits()
+      && self.min_y.to_bits() == other.min_y.to_bits()
+      && self.max_y.to_bits() == other.max_y.to_bits()
+  }
+}
+
+impl Eq for Rectangle2D {}
+
+impl std::hash::Hash for Rectangle2D {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.min_x.to_bits().hash(state);
+    self.max_x.to_bits().hash(state);
+    self.min_y.to_bits().hash(state);
+    self.max_y.to_bits().hash(state);
+  }
+}
+#[cfg(test)]
+mod tests {
+  use crate::core::geo::component2d::{Component2D, WithinRelation};
+  use crate::core::geo::rectangle2d::Rectangle2D;
+  use crate::core::geo::xy_rectangle::XYRectangle;
+  use crate::core::index::point_values::Relation::{CellInsideQuery, CellOutsideQuery};
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::geo::shape_test_util::ShapeTestUtil;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use rand::RngExt;
+
+  #[allow(dead_code)] // for quick search
+  struct TestRectangle2D;
+  #[test]
+  fn test_triangle_disjoint() -> Result<()> {
+    let rectangle = XYRectangle::new(0f32, 1f32, 0f32, 1f32)?;
+    let rectangle_2d = Rectangle2D::create(&rectangle);
+    let ax = 4f64;
+    let ay = 4f64;
+    let bx = 5f64;
+    let by = 5f64;
+    let cx = 5f64;
+    let cy = 4f64;
+    assert!(!rectangle_2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(!rectangle_2d.intersects_line_values(ax, ay, bx, by));
+    assert!(!rectangle_2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(!rectangle_2d.contains_line_values(ax, ay, bx, by));
+    let mut random = random();
+    assert_eq!(
+      WithinRelation::Disjoint,
+      rectangle_2d.within_triangle_values(
+        ax,
+        ay,
+        random.random_bool(0.5),
+        bx,
+        by,
+        random.random_bool(0.5),
+        cx,
+        cy,
+        random.random_bool(0.5),
+      )?
+    );
+    Ok(())
+  }
+
+  #[test]
+  fn test_triangle_intersects() -> Result<()> {
+    let rectangle = XYRectangle::new(0f32, 1f32, 0f32, 1f32)?;
+    let rectangle_2d = Rectangle2D::create(&rectangle);
+    let ax = 0.5f64;
+    let ay = 0.5f64;
+    let bx = 2f64;
+    let by = 2f64;
+    let cx = 0.5f64;
+    let cy = 2f64;
+    assert!(rectangle_2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(rectangle_2d.intersects_line_values(ax, ay, bx, by));
+    assert!(!rectangle_2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(!rectangle_2d.contains_line_values(ax, ay, bx, by));
+    assert_eq!(
+      WithinRelation::NotWithin,
+      rectangle_2d.within_triangle_values(ax, ay, true, bx, by, true, cx, cy, true)?
+    );
+    Ok(())
+  }
+
+  #[test]
+  fn test_triangle_contains() -> Result<()> {
+    let rectangle = XYRectangle::new(0f32, 1f32, 0f32, 1f32)?;
+    let rectangle_2d = Rectangle2D::create(&rectangle);
+    let ax = 0.25f64;
+    let ay = 0.25f64;
+    let bx = 0.5f64;
+    let by = 0.5f64;
+    let cx = 0.5f64;
+    let cy = 0.25f64;
+    assert!(rectangle_2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(rectangle_2d.intersects_line_values(ax, ay, bx, by));
+    assert!(rectangle_2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(rectangle_2d.contains_line_values(ax, ay, bx, by));
+    assert_eq!(
+      WithinRelation::NotWithin,
+      rectangle_2d.within_triangle_values(ax, ay, true, bx, by, true, cx, cy, true)?
+    );
+    Ok(())
+  }
+
+  #[test]
+  fn test_random_triangles() -> Result<()> {
+    let mut random = random();
+    let rectangle = ShapeTestUtil::next_box(&mut random)?;
+    let rectangle_2d = Rectangle2D::create(&rectangle);
+    for _ in 0..100 {
+      let ax = ShapeTestUtil::next_float(&mut random) as f64;
+      let ay = ShapeTestUtil::next_float(&mut random) as f64;
+      let bx = ShapeTestUtil::next_float(&mut random) as f64;
+      let by = ShapeTestUtil::next_float(&mut random) as f64;
+      let cx = ShapeTestUtil::next_float(&mut random) as f64;
+      let cy = ShapeTestUtil::next_float(&mut random) as f64;
+
+      let t_min_x = ax.min(bx).min(cx);
+      let t_max_x = ax.max(bx).max(cx);
+      let t_min_y = ay.min(by).min(cy);
+      let t_max_y = ay.max(by).max(cy);
+
+      let r = rectangle_2d.relate(t_min_x, t_max_x, t_min_y, t_max_y);
+      if r == CellOutsideQuery {
+        assert!(!rectangle_2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+        assert!(!rectangle_2d.intersects_line_values(ax, ay, bx, by));
+        assert!(!rectangle_2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+        assert!(!rectangle_2d.contains_line_values(ax, ay, bx, by));
+        assert_eq!(
+          WithinRelation::Disjoint,
+          rectangle_2d.within_triangle_values(ax, ay, true, bx, by, true, cx, cy, true)?
+        );
+      } else if r == CellInsideQuery {
+        assert!(rectangle_2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+        assert!(rectangle_2d.intersects_line_values(ax, ay, bx, by));
+        assert!(rectangle_2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+        assert!(rectangle_2d.contains_line_values(ax, ay, bx, by));
+      }
+    }
+    Ok(())
+  }
+
+  #[test]
+  fn test_equals_and_hash_code() -> Result<()> {
+    let mut random = random();
+    let xy_rectangle = ShapeTestUtil::next_box(&mut random)?;
+    let rectangle_2d = Rectangle2D::create(&xy_rectangle);
+
+    let copy = Rectangle2D::create(&xy_rectangle);
+    assert_eq!(rectangle_2d, copy);
+
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut h1 = DefaultHasher::new();
+    rectangle_2d.hash(&mut h1);
+    let mut h2 = DefaultHasher::new();
+    copy.hash(&mut h2);
+    assert_eq!(h1.finish(), h2.finish());
+
+    let other_xy_rectangle = ShapeTestUtil::next_box(&mut random)?;
+    let other_rectangle_2d = Rectangle2D::create(&other_xy_rectangle);
+
+    if rectangle_2d.get_min_x().to_bits() != other_rectangle_2d.get_min_x().to_bits()
+      || rectangle_2d.get_max_x().to_bits() != other_rectangle_2d.get_max_x().to_bits()
+      || rectangle_2d.get_min_y().to_bits() != other_rectangle_2d.get_min_y().to_bits()
+      || rectangle_2d.get_max_y().to_bits() != other_rectangle_2d.get_max_y().to_bits()
+    {
+      assert_ne!(rectangle_2d, other_rectangle_2d);
+
+      let mut h1 = DefaultHasher::new();
+      rectangle_2d.hash(&mut h1);
+      let mut h2 = DefaultHasher::new();
+      other_rectangle_2d.hash(&mut h2);
+      assert_ne!(h1.finish(), h2.finish());
+    } else {
+      assert_eq!(rectangle_2d, other_rectangle_2d);
+
+      let mut h1 = DefaultHasher::new();
+      rectangle_2d.hash(&mut h1);
+      let mut h2 = DefaultHasher::new();
+      other_rectangle_2d.hash(&mut h2);
+      assert_eq!(h1.finish(), h2.finish());
+    }
+
+    Ok(())
   }
 }
