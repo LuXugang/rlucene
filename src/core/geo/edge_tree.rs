@@ -58,8 +58,8 @@ impl EdgeTree {
       right: None,
     }
   }
-  pub(crate) fn contains(&self, x: f64, y: f64) -> Result<bool> {
-    Ok(self.contains_pn_poly(x, y) > Self::FALSE)
+  pub(crate) fn contains(&self, x: f64, y: f64) -> bool {
+    self.contains_pn_poly(x, y) > Self::FALSE
   }
 
   /**
