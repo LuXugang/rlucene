@@ -17,6 +17,7 @@
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::Result;
+
 /// 2D Geometry object that supports spatial relationships with bounding boxes, triangles and points
 pub trait Component2D {
   /// min X value for the component
@@ -358,7 +359,7 @@ macro_rules! either_component2d_named {
                 }
             }
 
-            fn relate(&self, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Relation {
+            fn relate(&self, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Result<Relation >{
                 match self {
                     $( Self::$Variant(inner) => inner.relate(min_x, max_x, min_y, max_y), )+
                 }
@@ -496,3 +497,4 @@ macro_rules! either_component2d_named {
         }
     };
 }
+either_component2d_named!(pub Component2DEnum2{ A: A, B: B});

@@ -332,72 +332,76 @@ where
     )
   }
 }
-pub(crate) fn create<T>(_components: &[T]) -> Result<T>
-where
-  T: Component2D,
-{
-  todo!()
-}
-fn create_tree<T>(
-  _components: &mut Vec<T>,
-  _low: usize,
-  _high: usize,
-  _split_x: bool,
-) -> Result<Option<T>>
-where
-  T: Component2D,
-{
-  // if low > high {
-  //     return Ok(None);
-  // }
-  //
-  // let mid = low + ((high - low) >> 1);
-  //
-  // if low < high {
-  //     if split_x {
-  //         components[low..=high].sort_by(|left, right| {
-  //             let ret = left.get_min_x().total_cmp(&right.get_min_x());
-  //             if ret.is_eq() {
-  //                 left.get_max_x().total_cmp(&right.get_max_x())
-  //             } else {
-  //                 ret
-  //             }
-  //         });
-  //     } else {
-  //         components[low..=high].sort_by(|left, right| {
-  //             let ret = left.get_min_y().total_cmp(&right.get_min_y());
-  //             if ret.is_eq() {
-  //                 left.get_max_y().total_cmp(&right.get_max_y())
-  //             } else {
-  //                 ret
-  //             }
-  //         });
-  //     }
-  // }
-  //
-  // let mut new_node = Self::new(Box::new((*components[mid]).as_ref().clone()), split_x);
-  //
-  // new_node.left = if mid > low {
-  //     create_tree(components, low, mid - 1, !split_x)?.map(Box::new)
-  // } else {
-  //     None
-  // };
-  //
-  // new_node.right = if mid < high {
-  //     create_tree(components, mid + 1, high, !split_x)?.map(Box::new)
-  // } else {
-  //     None
-  // };
-  //
-  // if let Some(left) = &new_node.left {
-  //     new_node.max_x = new_node.max_x.max(left.get_max_x());
-  //     new_node.max_y = new_node.max_y.max(left.get_max_y());
-  // }
-  // if let Some(right) = &new_node.right {
-  //     new_node.max_x = new_node.max_x.max(right.get_max_x());
-  //     new_node.max_y = new_node.max_y.max(right.get_max_y());
-  // }
-  //
-  // Ok(Some(new_node))
-  todo!()
+pub mod component_tree_util {
+  use crate::core::geo::component2d::Component2D;
+
+  pub(crate) fn create<T>(_components: Vec<T>) -> crate::core::util::error::lucene_error::Result<T>
+  where
+    T: Component2D,
+  {
+    todo!()
+  }
+  fn create_tree<T>(
+    _components: &mut Vec<T>,
+    _low: usize,
+    _high: usize,
+    _split_x: bool,
+  ) -> crate::core::util::error::lucene_error::Result<Option<T>>
+  where
+    T: Component2D,
+  {
+    // if low > high {
+    //     return Ok(None);
+    // }
+    //
+    // let mid = low + ((high - low) >> 1);
+    //
+    // if low < high {
+    //     if split_x {
+    //         components[low..=high].sort_by(|left, right| {
+    //             let ret = left.get_min_x().total_cmp(&right.get_min_x());
+    //             if ret.is_eq() {
+    //                 left.get_max_x().total_cmp(&right.get_max_x())
+    //             } else {
+    //                 ret
+    //             }
+    //         });
+    //     } else {
+    //         components[low..=high].sort_by(|left, right| {
+    //             let ret = left.get_min_y().total_cmp(&right.get_min_y());
+    //             if ret.is_eq() {
+    //                 left.get_max_y().total_cmp(&right.get_max_y())
+    //             } else {
+    //                 ret
+    //             }
+    //         });
+    //     }
+    // }
+    //
+    // let mut new_node = Self::new(Box::new((*components[mid]).as_ref().clone()), split_x);
+    //
+    // new_node.left = if mid > low {
+    //     create_tree(components, low, mid - 1, !split_x)?.map(Box::new)
+    // } else {
+    //     None
+    // };
+    //
+    // new_node.right = if mid < high {
+    //     create_tree(components, mid + 1, high, !split_x)?.map(Box::new)
+    // } else {
+    //     None
+    // };
+    //
+    // if let Some(left) = &new_node.left {
+    //     new_node.max_x = new_node.max_x.max(left.get_max_x());
+    //     new_node.max_y = new_node.max_y.max(left.get_max_y());
+    // }
+    // if let Some(right) = &new_node.right {
+    //     new_node.max_x = new_node.max_x.max(right.get_max_x());
+    //     new_node.max_y = new_node.max_y.max(right.get_max_y());
+    // }
+    //
+    // Ok(Some(new_node))
+    todo!()
+  }
 }

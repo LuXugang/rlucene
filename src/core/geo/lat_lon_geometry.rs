@@ -14,29 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::geo::component_tree::component_tree_util;
 use crate::core::geo::geometry::Geometry;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Lat/Lon Geometry object.
 pub trait LatLonGeometry: Geometry {}
-pub fn create<T>(geometries: &[T]) -> Result<T::Component2D>
+pub fn create<T>(xy_geometries: Vec<T>) -> Result<T::Component2D>
 where
   T: LatLonGeometry,
 {
-  if geometries.is_empty() {
+  if xy_geometries.is_empty() {
     return Err(LuceneError::illegal_argument(
       "geometries must not be empty",
     ));
   }
-
-  if geometries.len() == 1 {
-    return geometries[0].to_component2d();
+  if xy_geometries.len() == 1 {
+    return xy_geometries.into_iter().next().unwrap().to_component2d();
   }
-
-  let mut components = Vec::with_capacity(geometries.len());
-  for geometry in geometries.iter() {
+  let mut components = Vec::with_capacity(xy_geometries.len());
+  for geometry in xy_geometries {
     components.push(geometry.to_component2d()?);
   }
-  // TODO IMPORTANT ComponentTree未实现
-  todo!()
+  component_tree_util::create(components)
 }

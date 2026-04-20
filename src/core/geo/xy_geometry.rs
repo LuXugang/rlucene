@@ -14,6 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::geo::component_tree::component_tree_util;
 use crate::core::geo::geometry::Geometry;
+use crate::core::util::error::lucene_error::LuceneError;
+use crate::core::util::error::lucene_error::Result;
 
 pub trait XYGeometry: Geometry {}
+
+pub fn create<T>(xy_geometries: Vec<T>) -> Result<T::Component2D>
+where
+  T: XYGeometry,
+{
+  if xy_geometries.is_empty() {
+    return Err(LuceneError::illegal_argument(
+      "geometries must not be empty",
+    ));
+  }
+  if xy_geometries.len() == 1 {
+    return xy_geometries.into_iter().next().unwrap().to_component2d();
+  }
+  let mut components = Vec::with_capacity(xy_geometries.len());
+  for geometry in xy_geometries {
+    components.push(geometry.to_component2d()?);
+  }
+  component_tree_util::create(components)
+}
