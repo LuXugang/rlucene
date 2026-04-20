@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::lat_lon_doc_values_box_query::LatLonDocValuesBoxQuery;
 use crate::core::document::sorted_numeric_doc_values_range_query::SortedNumericDocValuesRangeQuery;
 use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQuery;
 use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQuery;
@@ -110,6 +111,7 @@ macro_rules! dispatch_query {
       Query::IndexSortSortedNumericDocValuesRange($inner) => $body,
       Query::KnnByteVector($inner) => $body,
       Query::KnnFloatVector($inner) => $body,
+      Query::LatLonDocValuesBox($inner) => $body,
       Query::MatchAllDocs($inner) => $body,
       Query::MatchNoDocs($inner) => $body,
       Query::MultiTermQueryConstantScoreBlendedWrapper($inner) => $body,
@@ -160,6 +162,7 @@ impl_from_for_enum!(
     IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
     KnnByteVectorQuery => KnnByteVector,
     KnnFloatVectorQuery => KnnFloatVector,
+    LatLonDocValuesBoxQuery => LatLonDocValuesBox,
     MatchAllDocsQuery => MatchAllDocs,
     MatchNoDocsQuery => MatchNoDocs,
     MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
@@ -202,6 +205,7 @@ impl_into_box_query!(
   IndexSortSortedNumericDocValuesRangeQuery,
   KnnByteVectorQuery,
   KnnFloatVectorQuery,
+  LatLonDocValuesBoxQuery,
   MatchAllDocsQuery,
   MatchNoDocsQuery,
   MultiTermQueryConstantScoreBlendedWrapper,
@@ -256,6 +260,7 @@ pub enum Query {
   IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
   KnnByteVector(KnnByteVectorQuery),
   KnnFloatVector(KnnFloatVectorQuery),
+  LatLonDocValuesBox(LatLonDocValuesBoxQuery),
   MatchAllDocs(MatchAllDocsQuery),
   MatchNoDocs(MatchNoDocsQuery),
   MultiTermQueryConstantScoreBlendedWrapper(MultiTermQueryConstantScoreBlendedWrapper),
@@ -324,6 +329,7 @@ impl Query {
             IndexSortSortedNumericDocValuesRange,
             KnnByteVector,
             KnnFloatVector,
+            LatLonDocValuesBox,
             MatchAllDocs,
             MatchNoDocs,
             MultiTermQueryConstantScoreBlendedWrapper,
