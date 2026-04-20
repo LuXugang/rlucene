@@ -305,9 +305,123 @@ impl Component2D for Line2D {
   }
 }
 
+/// create a Line2D from the provided LatLon Linestring
 pub(crate) fn create_from_line(line: &Line) -> Result<Line2D> {
   Line2D::from_line(line)
 }
+/// create a Line2D from the provided XY Linestring
 pub(crate) fn create_from_xy_line(xy_line: &XYLine) -> Result<Line2D> {
   Line2D::from_xy_line(xy_line)
+}
+#[cfg(test)]
+mod tests {
+  use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
+
+  use super::*;
+  use crate::test::core::geo::geo_test_util::GeoTestUtil;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  #[allow(dead_code)] // for quick serach
+  struct TestLine2D;
+
+  #[test]
+  fn test_triangle_disjoint() -> Result<()> {
+    let line = Line::new(vec![0.0, 1.0, 2.0, 3.0], vec![0.0, 0.0, 2.0, 2.0])?;
+    let line2d = create_from_line(&line)?;
+    let ax = GeoEncodingUtils::encode_longitude(4.0)? as f64;
+    let ay = GeoEncodingUtils::encode_latitude(4.0)? as f64;
+    let bx = GeoEncodingUtils::encode_longitude(5.0)? as f64;
+    let by = GeoEncodingUtils::encode_latitude(5.0)? as f64;
+    let cx = GeoEncodingUtils::encode_longitude(5.0)? as f64;
+    let cy = GeoEncodingUtils::encode_latitude(4.0)? as f64;
+    assert!(!line2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(!line2d.intersects_line_values(ax, ay, bx, by));
+    assert!(!line2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(!line2d.contains_line_values(ax, ay, bx, by));
+    assert_eq!(
+      WithinRelation::Disjoint,
+      line2d.within_triangle_values(ax, ay, true, bx, by, true, cx, cy, true)?
+    );
+    Ok(())
+  }
+
+  #[test]
+  fn test_triangle_intersects() -> Result<()> {
+    let line = Line::new(vec![0.5, 0.0, 1.0, 2.0, 3.0], vec![0.5, 0.0, 0.0, 2.0, 2.0])?;
+    let line2d = create_from_line(&line)?;
+    let ax = GeoEncodingUtils::encode_longitude(0.0)? as f64;
+    let ay = GeoEncodingUtils::encode_latitude(0.0)? as f64;
+    let bx = GeoEncodingUtils::encode_longitude(1.0)? as f64;
+    let by = GeoEncodingUtils::encode_latitude(0.0)? as f64;
+    let cx = GeoEncodingUtils::encode_longitude(0.0)? as f64;
+    let cy = GeoEncodingUtils::encode_latitude(1.0)? as f64;
+    assert!(line2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(line2d.intersects_line_values(ax, ay, bx, by));
+    assert!(!line2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(!line2d.contains_line_values(ax, ay, bx, by));
+    assert_eq!(
+      WithinRelation::NotWithin,
+      line2d.within_triangle_values(ax, ay, true, bx, by, true, cx, cy, true)?
+    );
+    Ok(())
+  }
+
+  #[test]
+  fn test_triangle_contains() -> Result<()> {
+    let line = Line::new(vec![0.5, 0.0, 1.0, 2.0, 3.0], vec![0.5, 0.0, 0.0, 2.0, 2.0])?;
+    let line2d = create_from_line(&line)?;
+    let ax = GeoEncodingUtils::encode_longitude(-10.0)? as f64;
+    let ay = GeoEncodingUtils::encode_latitude(-10.0)? as f64;
+    let bx = GeoEncodingUtils::encode_longitude(4.0)? as f64;
+    let by = GeoEncodingUtils::encode_latitude(-10.0)? as f64;
+    let cx = GeoEncodingUtils::encode_longitude(4.0)? as f64;
+    let cy = GeoEncodingUtils::encode_latitude(30.0)? as f64;
+    assert!(line2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(!line2d.intersects_line_values(bx, by, cx, cy));
+    assert!(!line2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(!line2d.contains_line_values(bx, by, cx, cy));
+    assert_eq!(
+      WithinRelation::Candidate,
+      line2d.within_triangle_values(ax, ay, true, bx, by, true, cx, cy, true)?
+    );
+    Ok(())
+  }
+
+  #[test]
+  fn test_random_triangles() -> Result<()> {
+    let mut random = random();
+    let line = GeoTestUtil::next_line(&mut random)?;
+    let line2d = create_from_line(&line)?;
+
+    for _ in 0..100 {
+      let ax = GeoTestUtil::next_longitude(&mut random);
+      let ay = GeoTestUtil::next_latitude(&mut random);
+      let bx = GeoTestUtil::next_longitude(&mut random);
+      let by = GeoTestUtil::next_latitude(&mut random);
+      let cx = GeoTestUtil::next_longitude(&mut random);
+      let cy = GeoTestUtil::next_latitude(&mut random);
+
+      let t_min_x = ax.min(bx).min(cx);
+      let t_max_x = ax.max(bx).max(cx);
+      let t_min_y = ay.min(by).min(cy);
+      let t_max_y = ay.max(by).max(cy);
+
+      let r = line2d.relate(t_min_x, t_max_x, t_min_y, t_max_y)?;
+      if r == Relation::CellOutsideQuery {
+        assert!(!line2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+        assert!(!line2d.intersects_line_values(ax, ay, bx, by));
+        assert!(!line2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+        assert!(!line2d.contains_line_values(ax, ay, bx, by));
+        assert_eq!(
+          WithinRelation::Disjoint,
+          line2d.within_triangle_values(ax, ay, true, bx, by, true, cx, cy, true)?
+        );
+      } else if line2d.contains_triangle_values(ax, ay, bx, by, cx, cy) {
+        assert_ne!(
+          WithinRelation::Candidate,
+          line2d.within_triangle_values(ax, ay, true, bx, by, true, cx, cy, true)?
+        );
+      }
+    }
+    Ok(())
+  }
 }
