@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 
 /// Represents a polygon in cartesian space. You can construct the Polygon directly with `Vec<f32>`,
 /// `Vec<f32>` x, y arrays coordinates.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct XYPolygon {
   x: Vec<f32>,
   y: Vec<f32>,
@@ -167,6 +167,27 @@ impl XYPolygon {
     self.holes.len()
   }
 }
+impl PartialEq for XYPolygon {
+  fn eq(&self, other: &Self) -> bool {
+    self.holes == other.holes && self.x == other.x && self.y == other.y
+  }
+}
+
+impl Eq for XYPolygon {}
+
+impl std::hash::Hash for XYPolygon {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    for hole in &self.holes {
+      hole.hash(state);
+    }
+    for x in &self.x {
+      x.to_bits().hash(state);
+    }
+    for y in &self.y {
+      y.to_bits().hash(state);
+    }
+  }
+}
 impl std::fmt::Display for XYPolygon {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "XYPolygon")?;
@@ -195,3 +216,138 @@ impl Geometry for XYPolygon {
 }
 
 impl XYGeometry for XYPolygon {}
+#[cfg(test)]
+mod test_xy_polygon {
+  use super::*;
+  use crate::test::core::geo::shape_test_util::ShapeTestUtil;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  #[allow(dead_code)] // for quick search
+  struct TestXYPolygon;
+  #[test]
+  fn test_polygon_null_poly_lats() {
+    // this test is not required in Rust Lucene
+  }
+
+  #[test]
+  fn test_polygon_null_poly_lons() {
+    // this test is not required in Rust Lucene
+  }
+
+  #[test]
+  fn test_polygon_line() {
+    let err = XYPolygon::new(vec![18.0, 18.0, 18.0], vec![-66.0, -65.0, -66.0], vec![]);
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(e.to_string().contains("at least 4 polygon points required"));
+    }
+  }
+
+  #[test]
+  fn test_polygon_bogus() {
+    let err = XYPolygon::new(
+      vec![18.0, 18.0, 19.0, 19.0],
+      vec![-66.0, -65.0, -65.0, -66.0, -66.0],
+      vec![],
+    );
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(e.to_string().contains("must be equal length"));
+    }
+  }
+
+  #[test]
+  fn test_polygon_not_closed() {
+    let err = XYPolygon::new(
+      vec![18.0, 18.0, 19.0, 19.0, 19.0],
+      vec![-66.0, -65.0, -65.0, -66.0, -67.0],
+      vec![],
+    );
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(e.to_string().contains("it must close itself"));
+    }
+  }
+
+  #[test]
+  fn test_polygon_nan() {
+    let err = XYPolygon::new(
+      vec![18.0, 18.0, 19.0, f32::NAN, 18.0],
+      vec![-66.0, -65.0, -65.0, -66.0, -66.0],
+      vec![],
+    );
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(e.to_string().contains("invalid value NaN"));
+    }
+  }
+
+  #[test]
+  fn test_polygon_positive_infinite() {
+    let err = XYPolygon::new(
+      vec![18.0, 18.0, 19.0, 19.0, 18.0],
+      vec![-66.0, f32::INFINITY, -65.0, -66.0, -66.0],
+      vec![],
+    );
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(e.to_string().contains("invalid value inf"));
+    }
+  }
+
+  #[test]
+  fn test_polygon_negative_infinite() {
+    let err = XYPolygon::new(
+      vec![18.0, 18.0, 19.0, 19.0, 18.0],
+      vec![-66.0, -65.0, -65.0, f32::NEG_INFINITY, -66.0],
+      vec![],
+    );
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(e.to_string().contains("invalid value -inf"));
+    }
+  }
+
+  #[test]
+  fn test_equals_and_hash_code() -> Result<()> {
+    let mut random = random();
+    let polygon = ShapeTestUtil::next_polygon(&mut random)?;
+    let copy = XYPolygon::new(
+      polygon.get_poly_x().to_vec(),
+      polygon.get_poly_y().to_vec(),
+      polygon.get_holes().to_vec(),
+    )?;
+    assert_eq!(polygon, copy);
+
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher1 = DefaultHasher::new();
+    polygon.hash(&mut hasher1);
+    let hash1 = hasher1.finish();
+
+    let mut hasher2 = DefaultHasher::new();
+    copy.hash(&mut hasher2);
+    let hash2 = hasher2.finish();
+
+    assert_eq!(hash1, hash2);
+
+    let other_polygon = ShapeTestUtil::next_polygon(&mut random)?;
+    let same = polygon.get_poly_x() == other_polygon.get_poly_x()
+      && polygon.get_poly_y() == other_polygon.get_poly_y()
+      && polygon.get_holes() == other_polygon.get_holes();
+
+    let mut hasher3 = DefaultHasher::new();
+    other_polygon.hash(&mut hasher3);
+    let hash3 = hasher3.finish();
+
+    if !same {
+      assert_ne!(polygon, other_polygon);
+      assert_ne!(hash1, hash3);
+    } else {
+      assert_eq!(polygon, other_polygon);
+      assert_eq!(hash1, hash3);
+    }
+
+    Ok(())
+  }
+}
