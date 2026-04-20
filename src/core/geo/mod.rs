@@ -31,6 +31,7 @@ pub mod polygon;
 pub(crate) mod polygon2d;
 pub mod rectangle;
 pub(crate) mod rectangle2d;
+pub(crate) mod simple_geo_json_polygon_parser;
 pub mod xy_circle;
 pub mod xy_encoding_utils;
 pub mod xy_geometry;
