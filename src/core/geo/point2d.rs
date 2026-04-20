@@ -199,3 +199,143 @@ pub fn create_from_point(point: &Point) -> Result<Point2D> {
 pub fn create_from_xy_point(xy_point: &XYPoint) -> Point2D {
   Point2D::new(xy_point.get_x() as f64, xy_point.get_y() as f64)
 }
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::test::core::geo::geo_test_util::GeoTestUtil;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use rand::RngExt;
+  #[allow(dead_code)] // for quick search
+  struct TestPoint2D;
+  #[test]
+  fn test_triangle_disjoint() -> Result<()> {
+    let mut random = random();
+    let point2d = create_from_point(&Point::new(0.0, 0.0)?)?;
+    let ax = 4.0;
+    let ay = 4.0;
+    let bx = 5.0;
+    let by = 5.0;
+    let cx = 5.0;
+    let cy = 4.0;
+    assert!(!point2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(!point2d.intersects_line_values(ax, ay, bx, by));
+    assert!(!point2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(!point2d.contains_line_values(ax, ay, bx, by));
+    assert_eq!(
+      WithinRelation::Disjoint,
+      point2d.within_triangle_values(
+        ax,
+        ay,
+        random.random_bool(0.5),
+        bx,
+        by,
+        random.random_bool(0.5),
+        cx,
+        cy,
+        random.random_bool(0.5),
+      )?
+    );
+    Ok(())
+  }
+  #[test]
+  fn test_triangle_intersects() -> Result<()> {
+    let mut random = random();
+    let point2d = create_from_point(&Point::new(0.0, 0.0)?)?;
+    let ax = 0.0;
+    let ay = 0.0;
+    let bx = 1.0;
+    let by = 0.0;
+    let cx = 0.0;
+    let cy = 1.0;
+    assert!(point2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(point2d.intersects_line_values(ax, ay, bx, by));
+    assert!(!point2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+    assert!(!point2d.contains_line_values(ax, ay, bx, by));
+    assert_eq!(
+      WithinRelation::Candidate,
+      point2d.within_triangle_values(
+        ax,
+        ay,
+        random.random_bool(0.5),
+        bx,
+        by,
+        random.random_bool(0.5),
+        cx,
+        cy,
+        random.random_bool(0.5),
+      )?
+    );
+    Ok(())
+  }
+
+  #[test]
+  fn test_triangle_contains() -> Result<()> {
+    let mut random = random();
+    let point2d = create_from_point(&Point::new(0.0, 0.0)?)?;
+    let ax = 0.0;
+    let ay = 0.0;
+    assert!(point2d.contains(ax, ay));
+    assert_eq!(
+      WithinRelation::Candidate,
+      point2d.within_triangle_values(
+        ax,
+        ay,
+        random.random_bool(0.5),
+        ax,
+        ay,
+        random.random_bool(0.5),
+        ax,
+        ay,
+        random.random_bool(0.5),
+      )?
+    );
+    Ok(())
+  }
+
+  #[test]
+  fn test_random_triangles() -> Result<()> {
+    let mut random = random();
+    let point2d = create_from_point(&Point::new(
+      GeoTestUtil::next_latitude(&mut random),
+      GeoTestUtil::next_longitude(&mut random),
+    )?)?;
+
+    for _ in 0..100 {
+      let ax = GeoTestUtil::next_longitude(&mut random);
+      let ay = GeoTestUtil::next_latitude(&mut random);
+      let bx = GeoTestUtil::next_longitude(&mut random);
+      let by = GeoTestUtil::next_latitude(&mut random);
+      let cx = GeoTestUtil::next_longitude(&mut random);
+      let cy = GeoTestUtil::next_latitude(&mut random);
+
+      let t_min_x = ax.min(bx).min(cx);
+      let t_max_x = ax.max(bx).max(cx);
+      let t_min_y = ay.min(by).min(cy);
+      let t_max_y = ay.max(by).max(cy);
+
+      let r = point2d.relate(t_min_x, t_max_x, t_min_y, t_max_y)?;
+      if r == Relation::CellOutsideQuery {
+        assert!(!point2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
+        assert!(!point2d.intersects_line_values(ax, ay, bx, by));
+        assert!(!point2d.contains_triangle_values(ax, ay, bx, by, cx, cy));
+        assert!(!point2d.contains_line_values(ax, ay, bx, by));
+        assert_eq!(
+          WithinRelation::Disjoint,
+          point2d.within_triangle_values(
+            ax,
+            ay,
+            random.random_bool(0.5),
+            bx,
+            by,
+            random.random_bool(0.5),
+            cx,
+            cy,
+            random.random_bool(0.5),
+          )?
+        );
+      }
+    }
+
+    Ok(())
+  }
+}
