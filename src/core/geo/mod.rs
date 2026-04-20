@@ -22,7 +22,7 @@ pub(crate) mod edge_tree;
 pub mod geo_encoding_utils;
 pub mod geo_utils;
 pub mod geometry;
-mod lat_lon_geometry;
+pub mod lat_lon_geometry;
 pub mod line;
 pub mod line2d;
 pub mod point;

@@ -45,7 +45,7 @@ use std::sync::LazyLock;
 /// values into 32 bit integers so they are sortable at index time.
 pub struct ShapeField;
 impl ShapeField {
-  pub const BYTES: usize = BitUtil::BYTE_BYTES;
+  pub const BYTES: usize = BitUtil::INT_BYTES;
 }
 
 /// tessellated triangles are seven dimensions; the first four are the bounding box index dimensions

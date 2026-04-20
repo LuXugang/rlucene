@@ -14,11 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analysis;
-pub mod codecs;
-mod document;
-pub mod geo;
-pub mod index;
-pub mod search;
-pub mod store;
-pub mod util;
+mod base_shape_encoding_test_case;
+mod test_lat_lon_shape_encoding;
+mod test_xy_shape_encoding;
