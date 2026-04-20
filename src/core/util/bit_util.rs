@@ -277,7 +277,41 @@ impl BitUtil {
     v |= v >> 32;
     v + 1
   }
+  const MAGIC0: u64 = 0x5555_5555_5555_5555;
+  const MAGIC1: u64 = 0x3333_3333_3333_3333;
+  const MAGIC2: u64 = 0x0F0F_0F0F_0F0F_0F0F;
+  const MAGIC3: u64 = 0x00FF_00FF_00FF_00FF;
+  const MAGIC4: u64 = 0x0000_FFFF_0000_FFFF;
+  const MAGIC5: u64 = 0x0000_0000_FFFF_FFFF;
+  const MAGIC6: u64 = 0xAAAA_AAAA_AAAA_AAAA;
 
+  const SHIFT0: u32 = 1;
+  const SHIFT1: u32 = 2;
+  const SHIFT2: u32 = 4;
+  const SHIFT3: u32 = 8;
+  const SHIFT4: u32 = 16;
+
+  /// Interleaves the first 32 bits of each long value
+  ///
+  /// Adapted from: http://graphics.stanford.edu/~seander/bithacks.html#InterleaveBMN
+  pub fn interleave(even: i32, odd: i32) -> i64 {
+    let mut v1 = Self::MAGIC5 & (even as u32 as u64);
+    let mut v2 = Self::MAGIC5 & (odd as u32 as u64);
+
+    v1 = (v1 | (v1 << Self::SHIFT4)) & Self::MAGIC4;
+    v1 = (v1 | (v1 << Self::SHIFT3)) & Self::MAGIC3;
+    v1 = (v1 | (v1 << Self::SHIFT2)) & Self::MAGIC2;
+    v1 = (v1 | (v1 << Self::SHIFT1)) & Self::MAGIC1;
+    v1 = (v1 | (v1 << Self::SHIFT0)) & Self::MAGIC0;
+
+    v2 = (v2 | (v2 << Self::SHIFT4)) & Self::MAGIC4;
+    v2 = (v2 | (v2 << Self::SHIFT3)) & Self::MAGIC3;
+    v2 = (v2 | (v2 << Self::SHIFT2)) & Self::MAGIC2;
+    v2 = (v2 | (v2 << Self::SHIFT1)) & Self::MAGIC1;
+    v2 = (v2 | (v2 << Self::SHIFT0)) & Self::MAGIC0;
+
+    ((v2 << 1) | v1) as i64
+  }
   pub fn zig_zag_decode_i32(i: u32) -> i32 {
     ((i >> 1) as i32) ^ -((i & 1) as i32)
   }

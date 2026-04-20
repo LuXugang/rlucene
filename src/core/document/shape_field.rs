@@ -63,7 +63,7 @@ pub struct Triangle {
 
 impl Triangle {
   /// constructor for points and lines
-  pub fn new(
+  pub(crate) fn new(
     name: &str,
     a_x_encoded: i32,
     a_y_encoded: i32,
