@@ -25,7 +25,7 @@ use crate::test::core::geo::geo_test_util::GeoTestUtil;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use rand::Rng;
 use rand::prelude::StdRng;
-
+/// Test case for LatLonShape encoding
 pub struct TestLatLonShapeEncoding;
 
 impl BaseShapeEncodingTestCase for TestLatLonShapeEncoding {

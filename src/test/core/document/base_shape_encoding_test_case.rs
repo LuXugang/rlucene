@@ -22,7 +22,7 @@ use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
 use std::slice;
-
+/// base shape encoding class for testing encoding of tessellated XYShape and LatLonShape
 pub trait BaseShapeEncodingTestCase {
   fn encode_x(&self, x: f64) -> Result<i32>;
 

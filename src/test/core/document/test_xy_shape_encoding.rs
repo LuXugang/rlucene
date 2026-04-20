@@ -26,6 +26,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 
+/// Test case for LatLonShape encoding
 pub struct TestXYShapeEncoding;
 impl BaseShapeEncodingTestCase for TestXYShapeEncoding {
   fn encode_x(&self, x: f64) -> Result<i32> {
@@ -182,4 +183,17 @@ mod base_shape_encoding_test_case_tests {
   fn test_degenerated_triangle() -> Result<()> {
     run_case(|case, _| case.test_degenerated_triangle())
   }
+}
+#[test]
+fn test_rotation_changes_orientation() -> Result<()> {
+  let mut random = random();
+  let mut case = TestXYShapeEncoding;
+  let ay = -3.4028218437925203E38;
+  let ax = 3.4028220466166163E38;
+  let by = 3.4028218437925203E38;
+  let bx = -3.4028218437925203E38;
+  let cy = 3.4028230607370965E38;
+  let cx = -3.4028230607370965E38;
+
+  case.verify_encoding(ay, ax, by, bx, cy, cx, &mut random)
 }
