@@ -15,10 +15,17 @@
  * limitations under the License.
  */
 use crate::core::geo::component_tree::{ComponentTree, component_tree_util};
-use crate::core::geo::component2d::Component2DEnum2;
+use crate::core::geo::component2d::{Component2D, Component2DEnum2, WithinRelation};
 use crate::core::geo::geometry::Geometry;
+use crate::core::geo::xy_circle::XYCircle;
+use crate::core::geo::xy_line::XYLine;
+use crate::core::geo::xy_point::XYPoint;
+use crate::core::geo::xy_polygon::XYPolygon;
+use crate::core::geo::xy_rectangle::XYRectangle;
+use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::impl_from_for_enum;
 
 pub trait XYGeometry: Geometry {}
 
@@ -43,3 +50,61 @@ where
   }
   Ok(XYGeometryType::B(component_tree_util::create(components)?))
 }
+
+#[macro_export]
+macro_rules! either_xy_geometry_named {
+    (
+        $vis:vis $name:ident,
+        $component_name:ident {
+            $( $Variant:ident : $T:ident ),+ $(,)?
+        }
+    ) => {
+        $crate::either_component2d_named!(
+            $vis $component_name {
+                $( $Variant : $T ),+
+            }
+        );
+
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> Geometry for $name<$( $T ),+>
+        where
+            $( $T: XYGeometry ),+
+        {
+            type Component2D = $component_name<$( <$T as Geometry>::Component2D ),+>;
+
+            fn to_component2d(&self) -> Result<Self::Component2D> {
+                match self {
+                    $( Self::$Variant(inner) => Ok(Self::Component2D::$Variant(inner.to_component2d()?)), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> XYGeometry for $name<$( $T ),+>
+        where
+            $( $T: XYGeometry ),+
+        {}
+    };
+}
+
+either_xy_geometry_named!(
+  pub XYGeometryEnum5,
+  XYGeometryComponent2DEnum5 {
+    Circle: A,
+    Line: B,
+    Point: C,
+    Polygon: D,
+    Rectangle: E,
+  }
+);
+pub type XYGeometryEnum = XYGeometryEnum5<XYCircle, XYLine, XYPoint, XYPolygon, XYRectangle>;
+impl_from_for_enum!(
+XYGeometryEnum,
+XYCircle => Circle,
+XYLine => Line,
+XYPoint => Point,
+XYPolygon => Polygon,
+XYRectangle => Rectangle,
+);
