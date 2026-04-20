@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::geo::circle2d::Circle2D;
+use crate::core::geo::circle2d::{Circle2D, HaversinDistance};
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::geometry::Geometry;
 use crate::core::geo::lat_lon_geometry::LatLonGeometry;
@@ -102,7 +102,7 @@ impl std::hash::Hash for Circle {
   }
 }
 impl Geometry for Circle {
-  type Component2D = Circle2D;
+  type Component2D = Circle2D<HaversinDistance>;
 
   fn to_component2d(&self) -> Result<Self::Component2D> {
     todo!()

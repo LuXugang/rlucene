@@ -91,20 +91,20 @@ impl Component2D for Rectangle2D {
     contains_point(x, y, self.min_x, self.max_x, self.min_y, self.max_y)
   }
 
-  fn relate(&self, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Relation {
+  fn relate(&self, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Result<Relation> {
     if disjoint(
       self.min_x, self.max_x, self.min_y, self.max_y, min_x, max_x, min_y, max_y,
     ) {
-      return Relation::CellOutsideQuery;
+      return Ok(Relation::CellOutsideQuery);
     }
 
     if within(
       min_x, max_x, min_y, max_y, self.min_x, self.max_x, self.min_y, self.max_y,
     ) {
-      return Relation::CellInsideQuery;
+      return Ok(Relation::CellInsideQuery);
     }
 
-    Relation::CellCrossesQuery
+    Ok(Relation::CellCrossesQuery)
   }
 
   fn intersects_line(
@@ -426,7 +426,7 @@ mod tests {
       let t_min_y = ay.min(by).min(cy);
       let t_max_y = ay.max(by).max(cy);
 
-      let r = rectangle_2d.relate(t_min_x, t_max_x, t_min_y, t_max_y);
+      let r = rectangle_2d.relate(t_min_x, t_max_x, t_min_y, t_max_y)?;
       if r == CellOutsideQuery {
         assert!(!rectangle_2d.intersects_triangle_values(ax, ay, bx, by, cx, cy));
         assert!(!rectangle_2d.intersects_line_values(ax, ay, bx, by));

@@ -110,29 +110,29 @@ where
     false
   }
 
-  fn relate(&self, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Relation {
+  fn relate(&self, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Result<Relation> {
     if min_y <= self.max_y && min_x <= self.max_x {
-      let relation = self.component.relate(min_x, max_x, min_y, max_y);
+      let relation = self.component.relate(min_x, max_x, min_y, max_y)?;
       if relation != Relation::CellOutsideQuery {
-        return relation;
+        return Ok(relation);
       }
       if let Some(left) = &self.left {
-        let relation = left.relate(min_x, max_x, min_y, max_y);
+        let relation = left.relate(min_x, max_x, min_y, max_y)?;
         if relation != Relation::CellOutsideQuery {
-          return relation;
+          return Ok(relation);
         }
       }
       if let Some(right) = &self.right
         && ((!self.split_x && max_y >= self.component.get_min_y())
           || (self.split_x && max_x >= self.component.get_min_x()))
       {
-        let relation = right.relate(min_x, max_x, min_y, max_y);
+        let relation = right.relate(min_x, max_x, min_y, max_y)?;
         if relation != Relation::CellOutsideQuery {
-          return relation;
+          return Ok(relation);
         }
       }
     }
-    Relation::CellOutsideQuery
+    Ok(Relation::CellOutsideQuery)
   }
 
   fn intersects_line(

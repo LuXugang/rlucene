@@ -35,7 +35,7 @@ pub trait Component2D {
   fn contains(&self, x: f64, y: f64) -> bool;
 
   /// relates this component2D with a bounding box
-  fn relate(&self, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Relation;
+  fn relate(&self, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Result<Relation>;
 
   /// return true if this component2D intersects the provided line
   #[allow(clippy::too_many_arguments)]
