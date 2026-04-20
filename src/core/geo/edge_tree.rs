@@ -43,9 +43,9 @@ pub struct EdgeTree {
 }
 impl EdgeTree {
   /// helper bytes to signal if a point is on an edge, it is within the edge tree or disjoint
-  const FALSE: u8 = 0x00;
-  const TRUE: u8 = 0x01;
-  const ON_EDGE: u8 = 0x02;
+  pub(crate) const FALSE: u8 = 0x00;
+  pub(crate) const TRUE: u8 = 0x01;
+  pub(crate) const ON_EDGE: u8 = 0x02;
   fn new(x1: f64, y1: f64, x2: f64, y2: f64, low: f64, max: f64) -> Self {
     Self {
       y1,
@@ -103,7 +103,7 @@ impl EdgeTree {
   // CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
   // OR OTHER DEALINGS
   // IN THE SOFTWARE.
-  fn contains_pn_poly(&self, x: f64, y: f64) -> u8 {
+  pub(crate) fn contains_pn_poly(&self, x: f64, y: f64) -> u8 {
     let mut res = Self::FALSE;
     if y <= self.max {
       if (y == self.y1 && y == self.y2)

@@ -675,10 +675,10 @@ mod tests {
     let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
       if random.random_bool(0.5) {
         let circle = Circle::new(0.0, 0.0, 100.0)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(vec![circle])?)
+        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
       } else {
         let xy_circle = XYCircle::new(0f32, 0f32, 1f32)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(vec![xy_circle])?)
+        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
       };
     let ax = 4f64;
     let ay = 4f64;
@@ -702,10 +702,10 @@ mod tests {
     let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
       if random.random_bool(0.5) {
         let circle = Circle::new(0.0, 0.0, 1_000_000.0)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(vec![circle])?)
+        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
       } else {
         let xy_circle = XYCircle::new(0f32, 0f32, 10f32)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(vec![xy_circle])?)
+        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
       };
     let ax = -20f64;
     let ay = 1f64;
@@ -726,7 +726,7 @@ mod tests {
 
   #[test]
   fn test_triangle_date_line_intersects() -> Result<()> {
-    let circle_2d = lat_lon_geometry::create::<Circle>(vec![Circle::new(0.0, 179.0, 222400.0)?])?;
+    let circle_2d = lat_lon_geometry::create::<Circle>(&[Circle::new(0.0, 179.0, 222400.0)?])?;
     let ax = -179f64;
     let ay = 1f64;
     let bx = -179f64;
@@ -750,10 +750,10 @@ mod tests {
     let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
       if random.random_bool(0.5) {
         let circle = Circle::new(0.0, 0.0, 1_000_000.0)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(vec![circle])?)
+        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
       } else {
         let xy_circle = XYCircle::new(0f32, 0f32, 1f32)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(vec![xy_circle])?)
+        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
       };
     let ax = 0.25f64;
     let ay = 0.25f64;
@@ -778,10 +778,10 @@ mod tests {
     let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
       if random.random_bool(0.5) {
         let circle = Circle::new(0.0, 0.0, 1000.0)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(vec![circle])?)
+        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
       } else {
         let xy_circle = XYCircle::new(0f32, 0f32, 1f32)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(vec![xy_circle])?)
+        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
       };
 
     let ax = -20f64;
@@ -807,10 +807,10 @@ mod tests {
     let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
       if random.random_bool(0.5) {
         let circle = GeoTestUtil::next_circle(&mut random)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(vec![circle])?)
+        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
       } else {
         let circle = ShapeTestUtil::next_circle(&mut random)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(vec![circle])?)
+        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[circle])?)
       };
 
     for _ in 0..100 {
@@ -857,10 +857,10 @@ mod tests {
     let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
       if random.random_bool(0.5) {
         let circle = Circle::new(0.0, 0.0, 35000.0)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(vec![circle])?)
+        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
       } else {
         let xy_circle = XYCircle::new(0f32, 0f32, 0.3f32)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(vec![xy_circle])?)
+        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
       };
 
     let ax = -0.25f64;

@@ -16,7 +16,8 @@
  */
 use crate::core::geo::geo_utils::WindingOrder;
 use crate::core::geo::geometry::Geometry;
-use crate::core::geo::rectangle2d::Rectangle2D;
+use crate::core::geo::polygon2d;
+use crate::core::geo::polygon2d::Polygon2D;
 use crate::core::geo::xy_encoding_utils::XYEncodingUtils;
 use crate::core::geo::xy_geometry::XYGeometry;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -148,8 +149,8 @@ impl XYPolygon {
   }
 
   /// Returns a copy of the internal holes array
-  pub fn get_holes(&self) -> Vec<XYPolygon> {
-    self.holes.clone()
+  pub fn get_holes(&self) -> &[XYPolygon] {
+    self.holes.as_slice()
   }
 
   pub(crate) fn get_hole(&self, i: usize) -> &XYPolygon {
@@ -186,10 +187,10 @@ impl std::fmt::Display for XYPolygon {
   }
 }
 impl Geometry for XYPolygon {
-  type Component2D = Rectangle2D;
+  type Component2D = Polygon2D;
 
   fn to_component2d(&self) -> Result<Self::Component2D> {
-    todo!()
+    polygon2d::create_from_xy_polygon(self)
   }
 }
 

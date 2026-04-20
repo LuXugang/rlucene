@@ -20,7 +20,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Lat/Lon Geometry object.
 pub trait LatLonGeometry: Geometry {}
-pub fn create<T>(xy_geometries: Vec<T>) -> Result<T::Component2D>
+pub fn create<T>(xy_geometries: &[T]) -> Result<T::Component2D>
 where
   T: LatLonGeometry,
 {
@@ -30,7 +30,7 @@ where
     ));
   }
   if xy_geometries.len() == 1 {
-    return xy_geometries.into_iter().next().unwrap().to_component2d();
+    return xy_geometries.iter().next().unwrap().to_component2d();
   }
   let mut components = Vec::with_capacity(xy_geometries.len());
   for geometry in xy_geometries {

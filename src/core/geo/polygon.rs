@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 use crate::core::geo::geo_utils::{GeoUtils, WindingOrder};
+use crate::core::geo::geometry::Geometry;
+use crate::core::geo::lat_lon_geometry::LatLonGeometry;
+use crate::core::geo::polygon2d;
+use crate::core::geo::polygon2d::Polygon2D;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
@@ -186,6 +190,37 @@ impl Polygon {
     }
     s.push(']');
     s
+  }
+}
+
+impl Geometry for Polygon {
+  type Component2D = Polygon2D;
+
+  fn to_component2d(&self) -> Result<Self::Component2D> {
+    polygon2d::create_from_polygon(self)
+  }
+}
+
+impl LatLonGeometry for Polygon {}
+impl PartialEq for Polygon {
+  fn eq(&self, other: &Self) -> bool {
+    self.holes == other.holes
+      && self.poly_lats == other.poly_lats
+      && self.poly_lons == other.poly_lons
+  }
+}
+
+impl Eq for Polygon {}
+
+impl std::hash::Hash for Polygon {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.holes.hash(state);
+    for lat in &self.poly_lats {
+      lat.to_bits().hash(state);
+    }
+    for lon in &self.poly_lons {
+      lon.to_bits().hash(state);
+    }
   }
 }
 impl Display for Polygon {
