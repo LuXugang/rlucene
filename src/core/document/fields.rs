@@ -39,6 +39,7 @@ use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
 use crate::core::document::long_field::LongField;
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+use crate::core::document::shape_field::Triangle;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
@@ -85,6 +86,7 @@ pub enum Fields {
   Stored(StoredField),
   String(StringField),
   Text(TextField),
+  Triangle(Triangle),
 }
 
 macro_rules! dispatch_fields {
@@ -117,6 +119,7 @@ macro_rules! dispatch_fields {
       Fields::Stored($inner) => $body,
       Fields::String($inner) => $body,
       Fields::Text($inner) => $body,
+      Fields::Triangle($inner) => $body,
     }
   }};
 }
@@ -148,6 +151,7 @@ impl_from_for_enum!(
     StoredField => Stored,
     StringField => String,
     TextField => Text,
+    Triangle=> Triangle,
 );
 #[cfg(test)]
 impl_from_for_enum!(Fields, FieldImpl => FieldImpl);

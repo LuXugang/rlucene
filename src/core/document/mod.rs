@@ -41,6 +41,7 @@ pub(crate) mod lat_lon_doc_values_box_query;
 pub mod long_field;
 pub mod long_point;
 pub mod numeric_doc_values_field;
+pub mod shape_field;
 pub mod sorted_doc_values_field;
 pub mod sorted_numeric_doc_values_field;
 pub mod sorted_numeric_doc_values_range_query;
