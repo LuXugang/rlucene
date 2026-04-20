@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::geo::geometry::Geometry;
-use crate::core::geo::rectangle2d::Rectangle2D;
+use crate::core::geo::rectangle2d::{Rectangle2D, create_from_xy_rectangle};
 use crate::core::geo::xy_geometry::XYGeometry;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -118,7 +118,7 @@ impl Geometry for XYRectangle {
   type Component2D = Rectangle2D;
 
   fn to_component2d(&self) -> Result<Self::Component2D> {
-    Ok(Rectangle2D::create(self))
+    Ok(create_from_xy_rectangle(self))
   }
 }
 
@@ -143,6 +143,8 @@ mod tests {
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
   use crate::test::core::util::test_util::TestUtil;
   use rand::RngExt;
+  #[allow(dead_code)] // for quick search
+  struct TestXYRectangle;
 
   #[test]
   fn test_invalid_min_max_x() {

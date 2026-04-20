@@ -92,6 +92,8 @@ mod test_xy_point {
   use crate::core::util::error::lucene_error::LuceneError;
   use crate::test::core::geo::shape_test_util::ShapeTestUtil;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  #[allow(dead_code)] // for quick search
+  struct TestXYPoint;
 
   #[test]
   fn test_nan() {

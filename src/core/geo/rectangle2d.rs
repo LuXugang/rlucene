@@ -14,15 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::geo::component_tree::{ComponentTree, component_tree_util};
 use crate::core::geo::component2d::{
-  Component2D, WithinRelation, contains_point, disjoint, point_in_triangle, within,
+  Component2D, Component2DEnum2, WithinRelation, contains_point, disjoint, point_in_triangle,
+  within,
 };
+use crate::core::geo::geo_encoding_utils::{GeoEncodingUtils, MAX_LON_ENCODED, MIN_LON_ENCODED};
 use crate::core::geo::geo_utils::GeoUtils;
+use crate::core::geo::rectangle::Rectangle;
 use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::sync::LazyLock;
 
 /// 2D rectangle implementation containing cartesian spatial logic.
 #[derive(Debug)]
@@ -59,14 +64,6 @@ impl Rectangle2D {
       a_x, a_y, b_x, b_y, self.max_x, self.min_y, self.min_x, self.min_y,
     ) || GeoUtils::line_crosses_line_with_boundary(
       a_x, a_y, b_x, b_y, self.min_x, self.min_y, self.min_x, self.max_y,
-    )
-  }
-  pub(crate) fn create(rectangle: &XYRectangle) -> Rectangle2D {
-    Rectangle2D::new(
-      rectangle.min_x as f64,
-      rectangle.max_x as f64,
-      rectangle.min_y as f64,
-      rectangle.max_y as f64,
     )
   }
 }
@@ -321,10 +318,54 @@ impl std::hash::Hash for Rectangle2D {
     self.max_y.to_bits().hash(state);
   }
 }
+static MIN_LON_INCL_QUANTIZE: LazyLock<f64> =
+  LazyLock::new(|| GeoEncodingUtils::decode_longitude(*MIN_LON_ENCODED));
+
+static MAX_LON_INCL_QUANTIZE: LazyLock<f64> =
+  LazyLock::new(|| GeoEncodingUtils::decode_longitude(*MAX_LON_ENCODED));
+pub(crate) fn create_from_xy_rectangle(rectangle: &XYRectangle) -> Rectangle2D {
+  Rectangle2D::new(
+    rectangle.min_x as f64,
+    rectangle.max_x as f64,
+    rectangle.min_y as f64,
+    rectangle.max_y as f64,
+  )
+}
+
+pub type Rectangle2DType = Component2DEnum2<ComponentTree<Rectangle2D>, Rectangle2D>;
+pub(crate) fn create_from_rectangle(rectangle: &Rectangle) -> Result<Rectangle2DType> {
+  let mut min_longitude = rectangle.min_lon;
+  let mut crosses_dateline = rectangle.min_lon > rectangle.max_lon;
+  if min_longitude == 180.0 && crosses_dateline {
+    min_longitude = -180.0;
+    crosses_dateline = false;
+  }
+
+  let q_min_lat =
+    GeoEncodingUtils::decode_latitude(GeoEncodingUtils::encode_latitude_ceil(rectangle.min_lat)?);
+  let q_max_lat =
+    GeoEncodingUtils::decode_latitude(GeoEncodingUtils::encode_latitude(rectangle.max_lat)?);
+  let q_min_lon =
+    GeoEncodingUtils::decode_longitude(GeoEncodingUtils::encode_longitude_ceil(min_longitude)?);
+  let q_max_lon =
+    GeoEncodingUtils::decode_longitude(GeoEncodingUtils::encode_longitude(rectangle.max_lon)?);
+
+  if crosses_dateline {
+    let components = vec![
+      Rectangle2D::new(*MIN_LON_INCL_QUANTIZE, q_max_lon, q_min_lat, q_max_lat),
+      Rectangle2D::new(q_min_lon, *MAX_LON_INCL_QUANTIZE, q_min_lat, q_max_lat),
+    ];
+    Ok(Rectangle2DType::A(component_tree_util::create(components)?))
+  } else {
+    Ok(Rectangle2DType::B(Rectangle2D::new(
+      q_min_lon, q_max_lon, q_min_lat, q_max_lat,
+    )))
+  }
+}
 #[cfg(test)]
 mod tests {
   use crate::core::geo::component2d::{Component2D, WithinRelation};
-  use crate::core::geo::rectangle2d::Rectangle2D;
+  use crate::core::geo::rectangle2d::create_from_xy_rectangle;
   use crate::core::geo::xy_rectangle::XYRectangle;
   use crate::core::index::point_values::Relation::{CellInsideQuery, CellOutsideQuery};
   use crate::core::util::error::lucene_error::Result;
@@ -337,7 +378,7 @@ mod tests {
   #[test]
   fn test_triangle_disjoint() -> Result<()> {
     let rectangle = XYRectangle::new(0f32, 1f32, 0f32, 1f32)?;
-    let rectangle_2d = Rectangle2D::create(&rectangle);
+    let rectangle_2d = create_from_xy_rectangle(&rectangle);
     let ax = 4f64;
     let ay = 4f64;
     let bx = 5f64;
@@ -369,7 +410,7 @@ mod tests {
   #[test]
   fn test_triangle_intersects() -> Result<()> {
     let rectangle = XYRectangle::new(0f32, 1f32, 0f32, 1f32)?;
-    let rectangle_2d = Rectangle2D::create(&rectangle);
+    let rectangle_2d = create_from_xy_rectangle(&rectangle);
     let ax = 0.5f64;
     let ay = 0.5f64;
     let bx = 2f64;
@@ -390,7 +431,7 @@ mod tests {
   #[test]
   fn test_triangle_contains() -> Result<()> {
     let rectangle = XYRectangle::new(0f32, 1f32, 0f32, 1f32)?;
-    let rectangle_2d = Rectangle2D::create(&rectangle);
+    let rectangle_2d = create_from_xy_rectangle(&rectangle);
     let ax = 0.25f64;
     let ay = 0.25f64;
     let bx = 0.5f64;
@@ -412,7 +453,7 @@ mod tests {
   fn test_random_triangles() -> Result<()> {
     let mut random = random();
     let rectangle = ShapeTestUtil::next_box(&mut random)?;
-    let rectangle_2d = Rectangle2D::create(&rectangle);
+    let rectangle_2d = create_from_xy_rectangle(&rectangle);
     for _ in 0..100 {
       let ax = ShapeTestUtil::next_float(&mut random) as f64;
       let ay = ShapeTestUtil::next_float(&mut random) as f64;
@@ -450,9 +491,9 @@ mod tests {
   fn test_equals_and_hash_code() -> Result<()> {
     let mut random = random();
     let xy_rectangle = ShapeTestUtil::next_box(&mut random)?;
-    let rectangle_2d = Rectangle2D::create(&xy_rectangle);
+    let rectangle_2d = create_from_xy_rectangle(&xy_rectangle);
 
-    let copy = Rectangle2D::create(&xy_rectangle);
+    let copy = create_from_xy_rectangle(&xy_rectangle);
     assert_eq!(rectangle_2d, copy);
 
     use std::collections::hash_map::DefaultHasher;
@@ -465,7 +506,7 @@ mod tests {
     assert_eq!(h1.finish(), h2.finish());
 
     let other_xy_rectangle = ShapeTestUtil::next_box(&mut random)?;
-    let other_rectangle_2d = Rectangle2D::create(&other_xy_rectangle);
+    let other_rectangle_2d = create_from_xy_rectangle(&other_xy_rectangle);
 
     if rectangle_2d.get_min_x().to_bits() != other_rectangle_2d.get_min_x().to_bits()
       || rectangle_2d.get_max_x().to_bits() != other_rectangle_2d.get_max_x().to_bits()

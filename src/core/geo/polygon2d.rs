@@ -18,12 +18,16 @@ use crate::core::geo::component2d::{
   Component2D, WithinRelation, contains_point, disjoint, point_in_triangle, within,
 };
 use crate::core::geo::edge_tree::{EdgeTree, create_tree};
+use crate::core::geo::lat_lon_geometry::LatLonGeometryType;
 use crate::core::geo::polygon::Polygon;
 use crate::core::geo::xy_encoding_utils::XYEncodingUtils;
+use crate::core::geo::xy_geometry::XYGeometryType;
 use crate::core::geo::xy_polygon::XYPolygon;
 use crate::core::geo::{lat_lon_geometry, xy_geometry};
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::Result;
+use crate::either_component2d_named;
+
 /// 2D polygon implementation represented as a balanced interval tree of edges.
 ///
 /// Loosely based on the algorithm described in
@@ -42,11 +46,13 @@ pub struct Polygon2D {
   max_x: f64,
 
   /// tree of holes, or null
-  pub(crate) holes: Option<Box<Polygon2D>>,
+  pub(crate) holes: Option<Box<HolesType>>,
 
   /// Edges of the polygon represented as a 2-d interval tree.
   tree: EdgeTree,
 }
+either_component2d_named!(pub HolesEnum{ LatLonGeometry: A, XYGeometry: B});
+pub type HolesType = HolesEnum<LatLonGeometryType<Polygon2D>, XYGeometryType<Polygon2D>>;
 
 impl Polygon2D {
   fn new(
@@ -56,7 +62,7 @@ impl Polygon2D {
     max_y: f64,
     x: Vec<f64>,
     y: Vec<f64>,
-    holes: Option<Polygon2D>,
+    holes: Option<HolesType>,
   ) -> Result<Self> {
     let holes = holes.map(Box::new);
     Ok(Self {
@@ -69,7 +75,7 @@ impl Polygon2D {
     })
   }
 
-  fn from_xy_polygon(polygon: &XYPolygon, holes: Option<Polygon2D>) -> Result<Self> {
+  fn from_xy_polygon(polygon: &XYPolygon, holes: Option<HolesType>) -> Result<Self> {
     Self::new(
       polygon.min_x as f64,
       polygon.max_x as f64,
@@ -81,7 +87,7 @@ impl Polygon2D {
     )
   }
 
-  fn from_polygon(polygon: &Polygon, holes: Option<Polygon2D>) -> Result<Self> {
+  fn from_polygon(polygon: &Polygon, holes: Option<HolesType>) -> Result<Self> {
     Self::new(
       polygon.min_lon,
       polygon.max_lon,
@@ -447,7 +453,9 @@ pub(crate) fn create_from_polygon(polygon: &Polygon) -> Result<Polygon2D> {
   let holes = if polygon.get_holes().is_empty() {
     None
   } else {
-    Some(lat_lon_geometry::create(polygon.get_holes())?)
+    Some(HolesType::LatLonGeometry(lat_lon_geometry::create(
+      polygon.get_holes(),
+    )?))
   };
   Polygon2D::from_polygon(polygon, holes)
 }
@@ -457,7 +465,75 @@ pub(crate) fn create_from_xy_polygon(polygon: &XYPolygon) -> Result<Polygon2D> {
   let holes = if polygon.get_holes().is_empty() {
     None
   } else {
-    Some(xy_geometry::create(polygon.get_holes())?)
+    Some(HolesType::XYGeometry(xy_geometry::create(
+      polygon.get_holes(),
+    )?))
   };
   Polygon2D::from_xy_polygon(polygon, holes)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  #[cfg(test)] // for quick search
+  struct TestPolygon2D;
+  #[test]
+  fn test_multi_polygon() -> Result<()> {
+    let hole = Polygon::new(
+      vec![-10.0, -10.0, 10.0, 10.0, -10.0],
+      vec![-10.0, 10.0, 10.0, -10.0, -10.0],
+      vec![],
+    )?;
+    let outer = Polygon::new(
+      vec![-50.0, -50.0, 50.0, 50.0, -50.0],
+      vec![-50.0, 50.0, 50.0, -50.0, -50.0],
+      vec![hole],
+    )?;
+    let island = Polygon::new(
+      vec![-5.0, -5.0, 5.0, 5.0, -5.0],
+      vec![-5.0, 5.0, 5.0, -5.0, -5.0],
+      vec![],
+    )?;
+    let polygon = lat_lon_geometry::create::<Polygon>(&[outer, island])?;
+
+    assert!(polygon.contains(-2.0, 2.0));
+    assert!(!polygon.contains(-6.0, 6.0));
+    assert!(polygon.contains(-25.0, 25.0));
+    assert!(!polygon.contains(-51.0, 51.0));
+
+    assert_eq!(
+      Relation::CellInsideQuery,
+      polygon.relate(-2.0, 2.0, -2.0, 2.0)?
+    );
+    assert_eq!(
+      Relation::CellOutsideQuery,
+      polygon.relate(6.0, 7.0, 6.0, 7.0)?
+    );
+    assert_eq!(
+      Relation::CellInsideQuery,
+      polygon.relate(24.0, 25.0, 24.0, 25.0)?
+    );
+    assert_eq!(
+      Relation::CellOutsideQuery,
+      polygon.relate(51.0, 52.0, 51.0, 52.0)?
+    );
+    assert_eq!(
+      Relation::CellCrossesQuery,
+      polygon.relate(-60.0, 60.0, -60.0, 60.0)?
+    );
+    assert_eq!(
+      Relation::CellCrossesQuery,
+      polygon.relate(49.0, 51.0, 49.0, 51.0)?
+    );
+    assert_eq!(
+      Relation::CellCrossesQuery,
+      polygon.relate(9.0, 11.0, 9.0, 11.0)?
+    );
+    assert_eq!(
+      Relation::CellCrossesQuery,
+      polygon.relate(5.0, 6.0, 5.0, 6.0)?
+    );
+
+    Ok(())
+  }
 }

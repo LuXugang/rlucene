@@ -658,7 +658,9 @@ mod tests {
   use crate::core::geo::circle::Circle;
   use crate::core::geo::circle2d::{CartesianDistance, Circle2D, HaversinDistance};
   use crate::core::geo::component2d::{Component2D, Component2DEnum2, WithinRelation};
+  use crate::core::geo::lat_lon_geometry::LatLonGeometryType;
   use crate::core::geo::xy_circle::XYCircle;
+  use crate::core::geo::xy_geometry::XYGeometryType;
   use crate::core::geo::{lat_lon_geometry, xy_geometry};
   use crate::core::index::point_values::Relation::{CellInsideQuery, CellOutsideQuery};
   use crate::core::util::error::lucene_error::Result;
@@ -672,14 +674,16 @@ mod tests {
   #[test]
   fn test_triangle_disjoint() -> Result<()> {
     let mut random = random();
-    let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
-      if random.random_bool(0.5) {
-        let circle = Circle::new(0.0, 0.0, 100.0)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
-      } else {
-        let xy_circle = XYCircle::new(0f32, 0f32, 1f32)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
-      };
+    let circle_2d: Component2DEnum2<
+      LatLonGeometryType<Circle2D<HaversinDistance>>,
+      XYGeometryType<Circle2D<CartesianDistance>>,
+    > = if random.random_bool(0.5) {
+      let circle = Circle::new(0.0, 0.0, 100.0)?;
+      Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
+    } else {
+      let xy_circle = XYCircle::new(0f32, 0f32, 1f32)?;
+      Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
+    };
     let ax = 4f64;
     let ay = 4f64;
     let bx = 5f64;
@@ -699,14 +703,16 @@ mod tests {
   #[test]
   fn test_triangle_intersects() -> Result<()> {
     let mut random = random();
-    let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
-      if random.random_bool(0.5) {
-        let circle = Circle::new(0.0, 0.0, 1_000_000.0)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
-      } else {
-        let xy_circle = XYCircle::new(0f32, 0f32, 10f32)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
-      };
+    let circle_2d: Component2DEnum2<
+      LatLonGeometryType<Circle2D<HaversinDistance>>,
+      XYGeometryType<Circle2D<CartesianDistance>>,
+    > = if random.random_bool(0.5) {
+      let circle = Circle::new(0.0, 0.0, 1_000_000.0)?;
+      Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
+    } else {
+      let xy_circle = XYCircle::new(0f32, 0f32, 10f32)?;
+      Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
+    };
     let ax = -20f64;
     let ay = 1f64;
     let bx = 20f64;
@@ -747,14 +753,16 @@ mod tests {
   #[test]
   fn test_triangle_contains() -> Result<()> {
     let mut random = random();
-    let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
-      if random.random_bool(0.5) {
-        let circle = Circle::new(0.0, 0.0, 1_000_000.0)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
-      } else {
-        let xy_circle = XYCircle::new(0f32, 0f32, 1f32)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
-      };
+    let circle_2d: Component2DEnum2<
+      LatLonGeometryType<Circle2D<HaversinDistance>>,
+      XYGeometryType<Circle2D<CartesianDistance>>,
+    > = if random.random_bool(0.5) {
+      let circle = Circle::new(0.0, 0.0, 1_000_000.0)?;
+      Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
+    } else {
+      let xy_circle = XYCircle::new(0f32, 0f32, 1f32)?;
+      Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
+    };
     let ax = 0.25f64;
     let ay = 0.25f64;
     let bx = 0.5f64;
@@ -775,14 +783,16 @@ mod tests {
   #[test]
   fn test_triangle_within() -> Result<()> {
     let mut random = random();
-    let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
-      if random.random_bool(0.5) {
-        let circle = Circle::new(0.0, 0.0, 1000.0)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
-      } else {
-        let xy_circle = XYCircle::new(0f32, 0f32, 1f32)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
-      };
+    let circle_2d: Component2DEnum2<
+      LatLonGeometryType<Circle2D<HaversinDistance>>,
+      XYGeometryType<Circle2D<CartesianDistance>>,
+    > = if random.random_bool(0.5) {
+      let circle = Circle::new(0.0, 0.0, 1000.0)?;
+      Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
+    } else {
+      let xy_circle = XYCircle::new(0f32, 0f32, 1f32)?;
+      Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
+    };
 
     let ax = -20f64;
     let ay = -20f64;
@@ -804,14 +814,16 @@ mod tests {
   #[test]
   fn test_random_triangles() -> Result<()> {
     let mut random = random();
-    let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
-      if random.random_bool(0.5) {
-        let circle = GeoTestUtil::next_circle(&mut random)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
-      } else {
-        let circle = ShapeTestUtil::next_circle(&mut random)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[circle])?)
-      };
+    let circle_2d: Component2DEnum2<
+      LatLonGeometryType<Circle2D<HaversinDistance>>,
+      XYGeometryType<Circle2D<CartesianDistance>>,
+    > = if random.random_bool(0.5) {
+      let circle = GeoTestUtil::next_circle(&mut random)?;
+      Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
+    } else {
+      let circle = ShapeTestUtil::next_circle(&mut random)?;
+      Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[circle])?)
+    };
 
     for _ in 0..100 {
       let ax = GeoTestUtil::next_longitude(&mut random);
@@ -854,14 +866,16 @@ mod tests {
   #[test]
   fn test_line_intersects() -> Result<()> {
     let mut random = random();
-    let circle_2d: Component2DEnum2<Circle2D<HaversinDistance>, Circle2D<CartesianDistance>> =
-      if random.random_bool(0.5) {
-        let circle = Circle::new(0.0, 0.0, 35000.0)?;
-        Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
-      } else {
-        let xy_circle = XYCircle::new(0f32, 0f32, 0.3f32)?;
-        Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
-      };
+    let circle_2d: Component2DEnum2<
+      LatLonGeometryType<Circle2D<HaversinDistance>>,
+      XYGeometryType<Circle2D<CartesianDistance>>,
+    > = if random.random_bool(0.5) {
+      let circle = Circle::new(0.0, 0.0, 35000.0)?;
+      Component2DEnum2::A(lat_lon_geometry::create::<Circle>(&[circle])?)
+    } else {
+      let xy_circle = XYCircle::new(0f32, 0f32, 0.3f32)?;
+      Component2DEnum2::B(xy_geometry::create::<XYCircle>(&[xy_circle])?)
+    };
 
     let ax = -0.25f64;
     let ay = 0.25f64;

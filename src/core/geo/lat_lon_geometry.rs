@@ -14,13 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::geo::component_tree::component_tree_util;
+use crate::core::geo::component_tree::{ComponentTree, component_tree_util};
+use crate::core::geo::component2d::Component2DEnum2;
 use crate::core::geo::geometry::Geometry;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Lat/Lon Geometry object.
 pub trait LatLonGeometry: Geometry {}
-pub fn create<T>(xy_geometries: &[T]) -> Result<T::Component2D>
+pub type LatLonGeometryType<T> = Component2DEnum2<T, ComponentTree<T>>;
+pub fn create<T>(xy_geometries: &[T]) -> Result<LatLonGeometryType<T::Component2D>>
 where
   T: LatLonGeometry,
 {
@@ -30,11 +32,15 @@ where
     ));
   }
   if xy_geometries.len() == 1 {
-    return xy_geometries.iter().next().unwrap().to_component2d();
+    return Ok(LatLonGeometryType::A(
+      xy_geometries.iter().next().unwrap().to_component2d()?,
+    ));
   }
   let mut components = Vec::with_capacity(xy_geometries.len());
   for geometry in xy_geometries {
     components.push(geometry.to_component2d()?);
   }
-  component_tree_util::create(components)
+  Ok(LatLonGeometryType::B(component_tree_util::create(
+    components,
+  )?))
 }

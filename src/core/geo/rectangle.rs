@@ -17,7 +17,8 @@
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::geometry::Geometry;
 use crate::core::geo::lat_lon_geometry::LatLonGeometry;
-use crate::core::geo::rectangle2d::Rectangle2D;
+use crate::core::geo::polygon::Polygon;
+use crate::core::geo::rectangle2d::{Rectangle2DType, create_from_rectangle};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -178,17 +179,28 @@ impl Rectangle {
     l2.to_degrees()
   }
   /// Returns the bounding box over an array of polygons
-  pub fn from_polygon() -> Result<Self> {
-    // TODO IMPORTANT Polygon未实现
-    todo!()
+  pub fn from_polygon(polygons: &[Polygon]) -> Result<Rectangle> {
+    let mut min_lat = f64::INFINITY;
+    let mut max_lat = f64::NEG_INFINITY;
+    let mut min_lon = f64::INFINITY;
+    let mut max_lon = f64::NEG_INFINITY;
+
+    for polygon in polygons {
+      min_lat = f64::min(polygon.min_lat, min_lat);
+      max_lat = f64::max(polygon.max_lat, max_lat);
+      min_lon = f64::min(polygon.min_lon, min_lon);
+      max_lon = f64::max(polygon.max_lon, max_lon);
+    }
+
+    Rectangle::new(min_lat, max_lat, min_lon, max_lon)
   }
 }
 
 impl Geometry for Rectangle {
-  type Component2D = Rectangle2D;
+  type Component2D = Rectangle2DType;
 
   fn to_component2d(&self) -> Result<Self::Component2D> {
-    todo!()
+    create_from_rectangle(self)
   }
 }
 
