@@ -64,7 +64,7 @@ impl Rectangle2D {
   pub(crate) fn create(rectangle: &XYRectangle) -> Rectangle2D {
     Rectangle2D::new(
       rectangle.min_x as f64,
-      rectangle.max_y as f64,
+      rectangle.max_x as f64,
       rectangle.min_y as f64,
       rectangle.max_y as f64,
     )

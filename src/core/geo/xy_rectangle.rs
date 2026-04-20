@@ -283,7 +283,7 @@ mod tests {
           && y <= bbox.max_y as f64;
 
         if cartesian_says && !bbox_says {
-          panic!(
+          unreachable!(
             "point was within the distance according to cartesian distance, but the bbox doesn't contain it; centerX={} centerY={} radius={} bbox: x={} to {} y={} to {} point: x={} y={}",
             center_x, center_y, radius, bbox.min_x, bbox.max_x, bbox.min_y, bbox.max_y, x, y
           );
