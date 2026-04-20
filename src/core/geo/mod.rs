@@ -26,6 +26,7 @@ mod lat_lon_geometry;
 pub mod line;
 pub mod line2d;
 pub mod point;
+pub(crate) mod point2d;
 pub mod polygon;
 pub(crate) mod polygon2d;
 pub mod rectangle;

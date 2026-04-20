@@ -14,13 +14,144 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::geo::geo_utils::GeoUtils;
+use crate::core::geo::geometry::Geometry;
+use crate::core::geo::lat_lon_geometry::LatLonGeometry;
+use crate::core::geo::point2d;
+use crate::core::geo::point2d::Point2D;
 use crate::core::util::error::lucene_error::Result;
+/// Represents a point on the earth's surface. You can construct the point directly
+/// with `double` coordinates.
+///
+/// NOTES:
+///
+/// 1. latitude/longitude values must be in decimal degrees.
+/// 2. For more advanced GeoSpatial indexing and query operations see the
+///    `spatial-extras` module
+#[derive(Clone, Copy, Debug)]
 pub struct Point {
+  /// latitude coordinate
   lat: f64,
+
+  /// longitude coordinate
   lon: f64,
 }
+
 impl Point {
-  pub fn new(lat: f64, lon: f64) -> Result<Point> {
-    Ok(Point { lat, lon })
+  /// Creates a new Point from the supplied latitude/longitude.
+  pub fn new(lat: f64, lon: f64) -> Result<Self> {
+    GeoUtils::check_latitude(lat)?;
+    GeoUtils::check_longitude(lon)?;
+    Ok(Self { lat, lon })
+  }
+
+  /// Returns latitude value at given index
+  pub fn get_lat(&self) -> f64 {
+    self.lat
+  }
+
+  /// Returns longitude value at given index
+  pub fn get_lon(&self) -> f64 {
+    self.lon
+  }
+}
+
+impl Geometry for Point {
+  type Component2D = Point2D;
+
+  fn to_component2d(&self) -> Result<Self::Component2D> {
+    point2d::create_from_point(self)
+  }
+}
+
+impl LatLonGeometry for Point {}
+
+impl PartialEq for Point {
+  fn eq(&self, other: &Self) -> bool {
+    self.lat == other.lat && self.lon == other.lon
+  }
+}
+
+impl Eq for Point {}
+
+impl std::hash::Hash for Point {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.lat.to_bits().hash(state);
+    self.lon.to_bits().hash(state);
+  }
+}
+
+impl std::fmt::Display for Point {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "Point({},{})", self.lon, self.lat)
+  }
+}
+#[cfg(test)]
+mod test_point {
+  use super::*;
+  use crate::core::util::error::lucene_error::LuceneError;
+  use crate::test::core::geo::geo_test_util::GeoTestUtil;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  #[allow(dead_code)] // for quick search
+  struct TestPoint;
+  #[test]
+  fn test_invalid_lat() {
+    let err = Point::new(134.14, 45.23);
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(
+        e.to_string()
+          .contains("invalid latitude 134.14; must be between -90 and 90")
+      );
+    }
+  }
+
+  #[test]
+  fn test_invalid_lon() {
+    let err = Point::new(43.5, 180.5);
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(
+        e.to_string()
+          .contains("invalid longitude 180.5; must be between -180 and 180")
+      );
+    }
+  }
+
+  #[test]
+  fn test_equals_and_hash_code() -> Result<()> {
+    let mut random = random();
+    let point = GeoTestUtil::next_point(&mut random)?;
+    let copy = Point::new(point.get_lat(), point.get_lon())?;
+
+    assert_eq!(point, copy);
+
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher1 = DefaultHasher::new();
+    point.hash(&mut hasher1);
+    let hash1 = hasher1.finish();
+
+    let mut hasher2 = DefaultHasher::new();
+    copy.hash(&mut hasher2);
+    let hash2 = hasher2.finish();
+
+    assert_eq!(hash1, hash2);
+
+    let other_point = GeoTestUtil::next_point(&mut random)?;
+    if point.get_lat() != other_point.get_lat() || point.get_lon() != other_point.get_lon() {
+      assert_ne!(point, other_point);
+    } else {
+      assert_eq!(point, other_point);
+
+      let mut hasher3 = DefaultHasher::new();
+      other_point.hash(&mut hasher3);
+      let hash3 = hasher3.finish();
+
+      assert_eq!(hash1, hash3);
+    }
+
+    Ok(())
   }
 }
