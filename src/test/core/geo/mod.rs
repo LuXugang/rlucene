@@ -16,3 +16,4 @@
  */
 pub mod earth_debugger;
 pub mod geo_test_util;
+pub mod shape_test_util;

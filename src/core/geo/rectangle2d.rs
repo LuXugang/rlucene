@@ -18,10 +18,12 @@ use crate::core::geo::component2d::{
   Component2D, WithinRelation, contains_point, disjoint, point_in_triangle, within,
 };
 use crate::core::geo::geo_utils::GeoUtils;
+use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+
 /// 2D rectangle implementation containing cartesian spatial logic.
 pub struct Rectangle2D {
   min_x: f64,
@@ -31,7 +33,7 @@ pub struct Rectangle2D {
 }
 
 impl Rectangle2D {
-  fn new(min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Self {
+  pub(crate) fn new(min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Self {
     Self {
       min_x,
       max_x,
@@ -56,6 +58,14 @@ impl Rectangle2D {
       a_x, a_y, b_x, b_y, self.max_x, self.min_y, self.min_x, self.min_y,
     ) || GeoUtils::line_crosses_line_with_boundary(
       a_x, a_y, b_x, b_y, self.min_x, self.min_y, self.min_x, self.max_y,
+    )
+  }
+  pub(crate) fn create(rectangle: &XYRectangle) -> Rectangle2D {
+    Rectangle2D::new(
+      rectangle.max_x as f64,
+      rectangle.max_x as f64,
+      rectangle.min_y as f64,
+      rectangle.max_y as f64,
     )
   }
 }
