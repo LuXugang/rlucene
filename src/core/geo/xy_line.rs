@@ -23,6 +23,7 @@ use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 /// Represents a line in cartesian space. You can construct the line directly with `float[]`,
 /// `float[]` x, y arrays coordinates.
+#[derive(Debug)]
 pub struct XYLine {
   /// Array of x coordinates.
   x: Vec<f32>,
@@ -140,5 +141,126 @@ impl Display for XYLine {
       write!(f, "[{}, {}]", self.x[i], self.y[i])?;
     }
     write!(f, ")")
+  }
+}
+#[cfg(test)]
+mod test_xy_line {
+  use super::*;
+  use crate::test::core::geo::shape_test_util::ShapeTestUtil;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  #[allow(dead_code)] // for quick search
+  struct TestXYLine;
+  #[test]
+  fn test_line_null_xs() {
+    // this test is not required in Rust Lucene
+  }
+
+  #[test]
+  fn test_polygon_null_ys() {
+    // this test is not required in Rust Lucene
+  }
+
+  #[test]
+  fn test_line_enough_points() {
+    let err = XYLine::new(vec![18.0], vec![-66.0]);
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(e.to_string().contains("at least 2 line points required"));
+    }
+  }
+
+  #[test]
+  fn test_lines_bogus() {
+    let err = XYLine::new(
+      vec![18.0, 18.0, 19.0, 19.0],
+      vec![-66.0, -65.0, -65.0, -66.0, -66.0],
+    );
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(e.to_string().contains("must be equal length"));
+    }
+  }
+
+  #[test]
+  fn test_line_nan() {
+    let err = XYLine::new(
+      vec![18.0, 18.0, 19.0, f32::NAN, 18.0],
+      vec![-66.0, -65.0, -65.0, -66.0, -66.0],
+    );
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(e.to_string().contains("invalid value NaN"));
+    }
+  }
+
+  #[test]
+  fn test_line_positive_infinite() {
+    let err = XYLine::new(
+      vec![18.0, 18.0, 19.0, 19.0, 18.0],
+      vec![-66.0, f32::INFINITY, -65.0, -66.0, -66.0],
+    );
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(
+        e.to_string().contains("invalid value inf") || e.to_string().contains("invalid value Inf")
+      );
+    }
+  }
+
+  #[test]
+  fn test_line_negative_infinite() {
+    let err = XYLine::new(
+      vec![18.0, 18.0, 19.0, 19.0, 18.0],
+      vec![-66.0, -65.0, -65.0, f32::NEG_INFINITY, -66.0],
+    );
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    if let Err(e) = err {
+      assert!(
+        e.to_string().contains("invalid value -inf")
+          || e.to_string().contains("invalid value -Inf")
+      );
+    }
+  }
+
+  #[test]
+  fn test_equals_and_hash_code() -> Result<()> {
+    let mut random = random();
+    let line = ShapeTestUtil::next_line(&mut random)?;
+    let copy = XYLine::new(line.get_xs().to_vec(), line.get_ys().to_vec())?;
+    assert_eq!(line, copy);
+
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher1 = DefaultHasher::new();
+    line.hash(&mut hasher1);
+    let hash1 = hasher1.finish();
+
+    let mut hasher2 = DefaultHasher::new();
+    copy.hash(&mut hasher2);
+    let hash2 = hasher2.finish();
+
+    assert_eq!(hash1, hash2);
+
+    let other_line = ShapeTestUtil::next_line(&mut random)?;
+    if line.get_xs() != other_line.get_xs() || line.get_ys() != other_line.get_ys() {
+      assert_ne!(line, other_line);
+
+      let mut hasher3 = DefaultHasher::new();
+      other_line.hash(&mut hasher3);
+      let hash3 = hasher3.finish();
+
+      assert_ne!(hash1, hash3);
+    } else {
+      assert_eq!(line, other_line);
+
+      let mut hasher3 = DefaultHasher::new();
+      other_line.hash(&mut hasher3);
+      let hash3 = hasher3.finish();
+
+      assert_eq!(hash1, hash3);
+    }
+
+    Ok(())
   }
 }
