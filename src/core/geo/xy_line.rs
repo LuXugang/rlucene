@@ -14,10 +14,131 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::error::lucene_error::Result;
-pub struct XYLine {}
+use crate::core::geo::geometry::Geometry;
+use crate::core::geo::line2d::{Line2D, create_from_xy_line};
+use crate::core::geo::xy_encoding_utils::XYEncodingUtils;
+use crate::core::geo::xy_geometry::XYGeometry;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
+/// Represents a line in cartesian space. You can construct the line directly with `float[]`,
+/// `float[]` x, y arrays coordinates.
+pub struct XYLine {
+  /// Array of x coordinates.
+  x: Vec<f32>,
+
+  /// Array of y coordinates.
+  y: Vec<f32>,
+
+  /// Minimum x of this line's bounding box.
+  pub min_x: f32,
+
+  /// Maximum x of this line's bounding box.
+  pub max_x: f32,
+
+  /// Minimum y of this line's bounding box.
+  pub min_y: f32,
+
+  /// Maximum y of this line's bounding box.
+  pub max_y: f32,
+}
+
 impl XYLine {
-  pub fn new(_x: Vec<f32>, _y: Vec<f32>) -> Result<XYLine> {
-    Ok(XYLine {})
+  /// Creates a new `XYLine` from the supplied X/Y array.
+  pub fn new(x: Vec<f32>, y: Vec<f32>) -> Result<Self> {
+    if x.len() != y.len() {
+      return Err(LuceneError::illegal_argument(
+        "x and y must be equal length",
+      ));
+    }
+    if x.len() < 2 {
+      return Err(LuceneError::illegal_argument(
+        "at least 2 line points required",
+      ));
+    }
+
+    let mut min_x = f32::MAX;
+    let mut min_y = f32::MAX;
+    let mut max_x = -f32::MAX;
+    let mut max_y = -f32::MAX;
+    for i in 0..x.len() {
+      min_x = XYEncodingUtils::check_val(x[i])?.min(min_x);
+      min_y = XYEncodingUtils::check_val(y[i])?.min(min_y);
+      max_x = x[i].max(max_x);
+      max_y = y[i].max(max_y);
+    }
+
+    Ok(Self {
+      x,
+      y,
+      min_x,
+      max_x,
+      min_y,
+      max_y,
+    })
+  }
+
+  /// Returns the number of vertex points.
+  pub fn num_points(&self) -> usize {
+    self.x.len()
+  }
+
+  /// Returns x value at given index.
+  pub fn get_x(&self, vertex: usize) -> f32 {
+    self.x[vertex]
+  }
+
+  /// Returns y value at given index.
+  pub fn get_y(&self, vertex: usize) -> f32 {
+    self.y[vertex]
+  }
+
+  /// Returns a copy of the internal x array.
+  pub fn get_xs(&self) -> &[f32] {
+    self.x.as_slice()
+  }
+
+  /// Returns a copy of the internal y array.
+  pub fn get_ys(&self) -> &[f32] {
+    self.y.as_slice()
+  }
+}
+
+impl Geometry for XYLine {
+  type Component2D = Line2D;
+
+  fn to_component2d(&self) -> Result<Self::Component2D> {
+    create_from_xy_line(self)
+  }
+}
+
+impl XYGeometry for XYLine {}
+
+impl PartialEq for XYLine {
+  fn eq(&self, other: &Self) -> bool {
+    self.x == other.x && self.y == other.y
+  }
+}
+
+impl Eq for XYLine {}
+
+impl Hash for XYLine {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    for x in &self.x {
+      x.to_bits().hash(state);
+    }
+    for y in &self.y {
+      y.to_bits().hash(state);
+    }
+  }
+}
+
+impl Display for XYLine {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "XYLine(")?;
+    for i in 0..self.x.len() {
+      write!(f, "[{}, {}]", self.x[i], self.y[i])?;
+    }
+    write!(f, ")")
   }
 }
