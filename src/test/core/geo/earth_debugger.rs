@@ -78,7 +78,7 @@ impl EarthDebugger {
     self
       .b
       .push_str(&format!("        var {} = WE.polygon([\n", name));
-    let poly_lats = poly.poly_lats();
+    let poly_lats = poly.get_poly_lats();
     let poly_lons = poly.get_poly_lons();
     for i in 0..poly_lats.len() {
       self.b.push_str(&format!(
@@ -95,7 +95,7 @@ impl EarthDebugger {
       .push_str(&format!("        {}.addTo(earth);\n", name));
 
     for hole in poly.get_holes() {
-      self.add_polygon_with_color(&hole, "#ffffff");
+      self.add_polygon_with_color(hole, "#ffffff");
     }
   }
 

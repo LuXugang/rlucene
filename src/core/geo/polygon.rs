@@ -138,8 +138,8 @@ impl Polygon {
   }
 
   /// Returns a copy of the internal latitude array
-  pub fn poly_lats(&self) -> Vec<f64> {
-    self.poly_lats.clone()
+  pub fn get_poly_lats(&self) -> &[f64] {
+    self.poly_lats.as_slice()
   }
 
   /// Returns latitude value at given index
@@ -148,8 +148,8 @@ impl Polygon {
   }
 
   /// Returns a copy of the internal longitude array
-  pub fn get_poly_lons(&self) -> Vec<f64> {
-    self.poly_lons.clone()
+  pub fn get_poly_lons(&self) -> &[f64] {
+    self.poly_lons.as_slice()
   }
 
   /// Returns longitude value at given index
@@ -158,8 +158,8 @@ impl Polygon {
   }
 
   /// Returns a copy of the internal holes array
-  pub fn get_holes(&self) -> Vec<Polygon> {
-    self.holes.clone()
+  pub fn get_holes(&self) -> &[Polygon] {
+    self.holes.as_slice()
   }
 
   fn get_hole(&self, i: usize) -> &Polygon {
