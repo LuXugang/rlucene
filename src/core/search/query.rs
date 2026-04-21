@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::lat_lon_doc_values_box_query::LatLonDocValuesBoxQuery;
+use crate::core::document::lat_lon_doc_values_query::LatLonDocValuesQuery;
 use crate::core::document::lat_lon_point_distance_feature_query::LatLonPointDistanceFeatureQuery;
 use crate::core::document::lat_lon_point_distance_query::LatLonPointDistanceQuery;
 use crate::core::document::sorted_numeric_doc_values_range_query::SortedNumericDocValuesRangeQuery;
@@ -115,6 +116,7 @@ macro_rules! dispatch_query {
       Query::KnnByteVector($inner) => $body,
       Query::KnnFloatVector($inner) => $body,
       Query::LatLonDocValuesBox($inner) => $body,
+      Query::LatLonDocValues($inner) => $body,
       Query::LatLonPointDistanceFeature($inner) => $body,
       Query::LatLonPointDistance($inner) => $body,
       Query::LatLonPoint($inner) => $body,
@@ -169,6 +171,7 @@ impl_from_for_enum!(
     KnnByteVectorQuery => KnnByteVector,
     KnnFloatVectorQuery => KnnFloatVector,
     LatLonDocValuesBoxQuery => LatLonDocValuesBox,
+    LatLonDocValuesQuery => LatLonDocValues,
     LatLonPointDistanceFeatureQuery => LatLonPointDistanceFeature,
     LatLonPointDistanceQuery => LatLonPointDistance,
     LatLonPointQuery=> LatLonPoint,
@@ -215,6 +218,7 @@ impl_into_box_query!(
   KnnByteVectorQuery,
   KnnFloatVectorQuery,
   LatLonDocValuesBoxQuery,
+  LatLonDocValuesQuery,
   LatLonPointDistanceFeatureQuery,
   LatLonPointDistanceQuery,
   LatLonPointQuery,
@@ -273,6 +277,7 @@ pub enum Query {
   KnnByteVector(KnnByteVectorQuery),
   KnnFloatVector(KnnFloatVectorQuery),
   LatLonDocValuesBox(LatLonDocValuesBoxQuery),
+  LatLonDocValues(LatLonDocValuesQuery),
   LatLonPointDistanceFeature(LatLonPointDistanceFeatureQuery),
   LatLonPointDistance(LatLonPointDistanceQuery),
   LatLonPoint(LatLonPointQuery),
@@ -345,6 +350,7 @@ impl Query {
             KnnByteVector,
             KnnFloatVector,
             LatLonDocValuesBox,
+            LatLonDocValues,
             LatLonPointDistanceFeature,
             LatLonPointDistance,
             LatLonPoint,
