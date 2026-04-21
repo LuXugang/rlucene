@@ -401,3 +401,25 @@ impl IndexableField for LatLonDocValuesField {
 }
 
 impl FieldBase for LatLonDocValuesField {}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  #[allow(dead_code)] // for quick search
+  struct TestLatLonDocValuesField;
+  #[test]
+  fn test_to_string() -> Result<()> {
+    assert_eq!(
+      "LatLonDocValuesField <field:18.313693958334625,-65.22744401358068>",
+      LatLonDocValuesField::new("field", 18.313694, -65.227444)?.to_string()
+    );
+
+    // TODO IMPORTANT LatLonPointSortField 未实现
+    // assert_eq!(
+    //   "<distance:\"field\" latitude=18.0 longitude=19.0>",
+    //   LatLonDocValuesField::new_distance_sort("field", 18.0, 19.0)?.to_string()
+    // );
+
+    Ok(())
+  }
+}
