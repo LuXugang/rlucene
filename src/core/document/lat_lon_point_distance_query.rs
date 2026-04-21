@@ -111,11 +111,11 @@ impl QueryBase for LatLonPointDistanceQuery {
       sb.push_str(&self.field);
       sb.push(':');
     }
-    sb.push_str(&self.latitude.to_string());
+    sb.push_str(&format!("{:.1}", self.latitude));
     sb.push(',');
-    sb.push_str(&self.longitude.to_string());
+    sb.push_str(&format!("{:.1}", self.longitude));
     sb.push_str(" +/- ");
-    sb.push_str(&self.radius_meters.to_string());
+    sb.push_str(&format!("{:.1}", self.radius_meters));
     sb.push_str(" meters");
     Ok(sb)
   }
