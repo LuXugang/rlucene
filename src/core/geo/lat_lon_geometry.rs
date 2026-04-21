@@ -70,6 +70,17 @@ macro_rules! either_lat_lon_geometry_named {
             $( $Variant($T), )+
         }
 
+        impl<$( $T ),+> std::fmt::Display for $name<$( $T ),+>
+        where
+            $( $T: LatLonGeometry ),+
+        {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $( Self::$Variant(inner) => std::fmt::Display::fmt(inner, f), )+
+                }
+            }
+        }
+
         impl<$( $T ),+> Geometry for $name<$( $T ),+>
         where
             $( $T: LatLonGeometry ),+

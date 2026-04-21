@@ -50,6 +50,7 @@ pub mod sorted_numeric_doc_values_range_query;
 pub(crate) mod sorted_numeric_doc_values_set_query;
 pub mod sorted_set_doc_values_field;
 pub(crate) mod sorted_set_doc_values_range_query;
+mod spatial_query;
 pub mod stored_field;
 pub mod string_field;
 pub mod text_field;

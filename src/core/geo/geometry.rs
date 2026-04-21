@@ -16,9 +16,10 @@
  */
 use crate::core::geo::component2d::Component2D;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::Display;
 
 /// Base class for LatLonGeometry and XYGeometry
-pub trait Geometry {
+pub trait Geometry: Display {
   type Component2D: Component2D;
   fn to_component2d(&self) -> Result<Self::Component2D>;
 }
