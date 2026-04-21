@@ -848,3 +848,57 @@ fn get_distance_key_from_encoded(encoded: i64, origin_lat: f64, origin_lon: f64)
   let lon = GeoEncodingUtils::decode_longitude(longitude_bits);
   SloppyMath::haversin_sort_key(origin_lat, origin_lon, lat, lon)
 }
+#[cfg(test)]
+mod tests {
+
+  use crate::test::core::search::query_utils::QueryUtils;
+
+  use super::*;
+  #[allow(dead_code)] // for quick search
+  struct TestLatLonPointDistanceFeatureQuery;
+  #[test]
+  fn test_equals_and_hashcode() -> Result<()> {
+    let q1: Query = LatLonPoint::new_distance_feature_query("foo", 3.0, 10.0, 10.0, 5.0)?;
+    let q2: Query = LatLonPoint::new_distance_feature_query("foo", 3.0, 10.0, 10.0, 5.0)?;
+    QueryUtils::check_equal::<Query>(&q1, &q2);
+
+    let q3: Query = LatLonPoint::new_distance_feature_query("bar", 3.0, 10.0, 10.0, 5.0)?;
+    QueryUtils::check_unequal::<Query>(&q1, &q3);
+
+    let q4: Query = LatLonPoint::new_distance_feature_query("foo", 4.0, 10.0, 10.0, 5.0)?;
+    QueryUtils::check_unequal::<Query>(&q1, &q4);
+
+    let q5: Query = LatLonPoint::new_distance_feature_query("foo", 3.0, 9.0, 10.0, 5.0)?;
+    QueryUtils::check_unequal::<Query>(&q1, &q5);
+
+    let q6: Query = LatLonPoint::new_distance_feature_query("foo", 3.0, 10.0, 9.0, 5.0)?;
+    QueryUtils::check_unequal::<Query>(&q1, &q6);
+
+    let q7: Query = LatLonPoint::new_distance_feature_query("foo", 3.0, 10.0, 10.0, 6.0)?;
+    QueryUtils::check_unequal::<Query>(&q1, &q7);
+
+    Ok(())
+  }
+  #[test]
+  fn test_basics() -> Result<()> {
+    // TODO IMPORTANT LatLonDocValuesField 未实现
+    Ok(())
+  }
+  #[test]
+  fn test_multi_valued() -> Result<()> {
+    // TODO IMPORTANT LatLonDocValuesField 未实现
+    Ok(())
+  }
+
+  #[test]
+  fn test_random() -> Result<()> {
+    // TODO IMPORTANT LatLonDocValuesField 未实现
+    Ok(())
+  }
+
+  #[test]
+  fn test_compare_sorting() -> Result<()> {
+    // TODO IMPORTANT LatLonDocValuesField 未实现
+    Ok(())
+  }
+}
