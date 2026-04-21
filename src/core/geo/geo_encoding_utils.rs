@@ -16,6 +16,8 @@
  */
 use crate::core::geo::component2d::Component2D;
 use crate::core::geo::geo_utils::GeoUtils;
+use crate::core::geo::rectangle::Rectangle;
+use crate::core::index::point_values::Relation;
 use crate::core::index::point_values::Relation::{CellCrossesQuery, CellInsideQuery};
 use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -201,6 +203,53 @@ impl GeoEncodingUtils {
   pub fn decode_longitude_from_bytes(src: &[u8], offset: usize) -> f64 {
     Self::decode_longitude(NumericUtils::sortable_bytes_to_int(src, offset))
   }
+  /// Create a predicate that checks whether points are within a distance of a given point. It works
+  /// by computing the bounding box around the circle that is defined by the given points/distance
+  /// and splitting it into between 1024 and 4096 smaller boxes (4096*0.75^2=2304 on average). Then
+  /// for each sub box, it computes the relation between this box and the distance query. Finally at
+  /// search time, it first computes the sub box that the point belongs to, most of the time, no
+  /// distance computation will need to be performed since all points from the sub box will either be
+  /// in or out of the circle.
+  pub fn create_distance_predicate(
+    lat: f64,
+    lon: f64,
+    radius_meters: f64,
+  ) -> Result<DistancePredicate> {
+    let bounding_box = Rectangle::from_point_distance(lat, lon, radius_meters)?;
+    let axis_lat = Rectangle::axis_lat(lat, radius_meters);
+    let distance_sort_key = GeoUtils::distance_query_sort_key(radius_meters);
+    let sub_boxes = create_sub_boxes(
+      bounding_box.min_lat,
+      bounding_box.max_lat,
+      bounding_box.min_lon,
+      bounding_box.max_lon,
+      |box_| {
+        GeoUtils::relate(
+          box_.min_lat,
+          box_.max_lat,
+          box_.min_lon,
+          box_.max_lon,
+          lat,
+          lon,
+          distance_sort_key,
+          axis_lat,
+        )
+      },
+    )?;
+
+    DistancePredicate::new(
+      sub_boxes.lat_shift,
+      sub_boxes.lon_shift,
+      sub_boxes.lat_base,
+      sub_boxes.lon_base,
+      sub_boxes.max_lat_delta,
+      sub_boxes.max_lon_delta,
+      sub_boxes.relations,
+      lat,
+      lon,
+      distance_sort_key,
+    )
+  }
 }
 struct Grid {
   lat_shift: i32,
@@ -246,7 +295,7 @@ impl Grid {
     })
   }
 }
-struct DistancePredicate {
+pub struct DistancePredicate {
   base: Grid,
   lat: f64,
   lon: f64,
@@ -284,7 +333,7 @@ impl DistancePredicate {
   }
   /// Check whether the given point is within a distance of another point.
   /// NOTE: this operates directly on the encoded representation of points.
-  fn test(&self, lat: i32, lon: i32) -> bool {
+  pub fn test(&self, lat: i32, lon: i32) -> bool {
     let lat2 = ((lat.wrapping_sub(i32::MIN)) as u32 >> self.base.lat_shift) as i32;
     if lat2 < self.base.lat_base || lat2 - self.base.lat_base >= self.base.max_lat_delta {
       return false;
@@ -316,6 +365,80 @@ impl DistancePredicate {
       relation == CellInsideQuery.ordinal() as u8
     }
   }
+}
+
+fn create_sub_boxes<F>(
+  shape_min_lat: f64,
+  shape_max_lat: f64,
+  shape_min_lon: f64,
+  shape_max_lon: f64,
+  box_to_relation: F,
+) -> Result<Grid>
+where
+  F: Fn(Rectangle) -> Result<Relation>,
+{
+  let min_lat = GeoEncodingUtils::encode_latitude_ceil(shape_min_lat)?;
+  let max_lat = GeoEncodingUtils::encode_latitude(shape_max_lat)?;
+  let min_lon = GeoEncodingUtils::encode_longitude_ceil(shape_min_lon)?;
+  let max_lon = GeoEncodingUtils::encode_longitude(shape_max_lon)?;
+
+  if max_lat < min_lat || (shape_max_lon >= shape_min_lon && max_lon < min_lon) {
+    return Grid::new(1, 1, 0, 0, 0, 0, vec![]);
+  }
+
+  let min_lat2 = min_lat as i64 - i32::MIN as i64;
+  let max_lat2 = max_lat as i64 - i32::MIN as i64;
+  let lat_shift = compute_shift(min_lat2, max_lat2);
+  let lat_base = (min_lat2 as u64 >> lat_shift) as i32;
+  let max_lat_delta = (max_lat2 as u64 >> lat_shift) as i32 - lat_base + 1;
+  debug_assert!(max_lat_delta > 0);
+
+  let min_lon2 = min_lon as i64 - i32::MIN as i64;
+  let mut max_lon2 = max_lon as i64 - i32::MIN as i64;
+  if shape_max_lon < shape_min_lon {
+    max_lon2 += 1i64 << 32;
+  }
+  let lon_shift = compute_shift(min_lon2, max_lon2);
+  let lon_base = (min_lon2 as u64 >> lon_shift) as i32;
+  let max_lon_delta = (max_lon2 as u64 >> lon_shift) as i32 - lon_base + 1;
+
+  let mut relations = vec![0u8; (max_lat_delta * max_lon_delta) as usize];
+  for i in 0..max_lat_delta {
+    for j in 0..max_lon_delta {
+      let box_min_lat = ((lat_base + i) << lat_shift).wrapping_add(i32::MIN);
+      let box_min_lon = ((lon_base + j) << lon_shift).wrapping_add(i32::MIN);
+      let box_max_lat = box_min_lat.wrapping_add((1 << lat_shift) - 1);
+      let box_max_lon = box_min_lon.wrapping_add((1 << lon_shift) - 1);
+      let rect = Rectangle::new(
+        GeoEncodingUtils::decode_latitude(box_min_lat),
+        GeoEncodingUtils::decode_latitude(box_max_lat),
+        GeoEncodingUtils::decode_longitude(box_min_lon),
+        GeoEncodingUtils::decode_longitude(box_max_lon),
+      )?;
+      relations[(i * max_lon_delta + j) as usize] = box_to_relation(rect)?.ordinal() as u8;
+    }
+  }
+
+  Grid::new(
+    lat_shift,
+    lon_shift,
+    lat_base,
+    lon_base,
+    max_lat_delta,
+    max_lon_delta,
+    relations,
+  )
+}
+
+fn compute_shift(a: i64, b: i64) -> i32 {
+  debug_assert!(a <= b);
+  for shift in 1.. {
+    let delta = (b as u64 >> shift) as i64 - (a as u64 >> shift) as i64;
+    if (0..Grid::ARITY as i64).contains(&delta) {
+      return shift;
+    }
+  }
+  unreachable!()
 }
 /// A predicate that checks whether a given point is within a component2D geometry.
 pub struct Component2DPredicate<C>

@@ -21,6 +21,7 @@ use crate::core::document::field::FieldDataEnum::Dummy;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::document::lat_lon_point_distance_query::LatLonPointDistanceQuery;
 use crate::core::document::shape_field::QueryRelation;
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
 use crate::core::geo::lat_lon_geometry::LatLonGeometry;
@@ -257,12 +258,12 @@ impl LatLonPoint {
   /// Returns `IllegalArgument` if `field` is null, location has invalid coordinates, or
   /// radius is invalid.
   pub fn new_distance_query(
-    _field: &str,
-    _latitude: f64,
-    _longitude: f64,
-    _radius_meters: f64,
-  ) -> Result<Query> {
-    todo!()
+    field: &str,
+    latitude: f64,
+    longitude: f64,
+    radius_meters: f64,
+  ) -> Result<LatLonPointDistanceQuery> {
+    LatLonPointDistanceQuery::new(field.to_string(), latitude, longitude, radius_meters)
   }
   /// Create a query for matching one or more polygons.
   ///

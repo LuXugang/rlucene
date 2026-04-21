@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::lat_lon_doc_values_box_query::LatLonDocValuesBoxQuery;
+use crate::core::document::lat_lon_point_distance_query::LatLonPointDistanceQuery;
 use crate::core::document::sorted_numeric_doc_values_range_query::SortedNumericDocValuesRangeQuery;
 use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQuery;
 use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQuery;
@@ -112,6 +113,7 @@ macro_rules! dispatch_query {
       Query::KnnByteVector($inner) => $body,
       Query::KnnFloatVector($inner) => $body,
       Query::LatLonDocValuesBox($inner) => $body,
+      Query::LatLonPointDistance($inner) => $body,
       Query::MatchAllDocs($inner) => $body,
       Query::MatchNoDocs($inner) => $body,
       Query::MultiTermQueryConstantScoreBlendedWrapper($inner) => $body,
@@ -163,6 +165,7 @@ impl_from_for_enum!(
     KnnByteVectorQuery => KnnByteVector,
     KnnFloatVectorQuery => KnnFloatVector,
     LatLonDocValuesBoxQuery => LatLonDocValuesBox,
+    LatLonPointDistanceQuery => LatLonPointDistance,
     MatchAllDocsQuery => MatchAllDocs,
     MatchNoDocsQuery => MatchNoDocs,
     MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
@@ -206,6 +209,7 @@ impl_into_box_query!(
   KnnByteVectorQuery,
   KnnFloatVectorQuery,
   LatLonDocValuesBoxQuery,
+  LatLonPointDistanceQuery,
   MatchAllDocsQuery,
   MatchNoDocsQuery,
   MultiTermQueryConstantScoreBlendedWrapper,
@@ -261,6 +265,7 @@ pub enum Query {
   KnnByteVector(KnnByteVectorQuery),
   KnnFloatVector(KnnFloatVectorQuery),
   LatLonDocValuesBox(LatLonDocValuesBoxQuery),
+  LatLonPointDistance(LatLonPointDistanceQuery),
   MatchAllDocs(MatchAllDocsQuery),
   MatchNoDocs(MatchNoDocsQuery),
   MultiTermQueryConstantScoreBlendedWrapper(MultiTermQueryConstantScoreBlendedWrapper),
@@ -330,6 +335,7 @@ impl Query {
             KnnByteVector,
             KnnFloatVector,
             LatLonDocValuesBox,
+            LatLonPointDistance,
             MatchAllDocs,
             MatchNoDocs,
             MultiTermQueryConstantScoreBlendedWrapper,
