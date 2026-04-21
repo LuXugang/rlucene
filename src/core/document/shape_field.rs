@@ -492,25 +492,25 @@ pub fn decode_triangle(t: &[u8], triangle: &mut DecodedTriangle) -> Result<()> {
 pub fn resolve_triangle_type(triangle: &mut DecodedTriangle) {
   if triangle.a_x == triangle.b_x && triangle.a_y == triangle.b_y {
     if triangle.a_x == triangle.c_x && triangle.a_y == triangle.c_y {
-      triangle.type_ = Type::Point;
+      triangle.type_ = DecodedTriangleType::Point;
     } else {
       triangle.ab = triangle.bc || triangle.ca;
       triangle.b_x = triangle.c_x;
       triangle.b_y = triangle.c_y;
       triangle.c_x = triangle.a_x;
       triangle.c_y = triangle.a_y;
-      triangle.type_ = Type::Line;
+      triangle.type_ = DecodedTriangleType::Line;
     }
   } else if triangle.a_x == triangle.c_x && triangle.a_y == triangle.c_y {
     triangle.ab = triangle.ab || triangle.bc;
-    triangle.type_ = Type::Line;
+    triangle.type_ = DecodedTriangleType::Line;
   } else if triangle.b_x == triangle.c_x && triangle.b_y == triangle.c_y {
     triangle.ab = triangle.ab || triangle.ca;
     triangle.c_x = triangle.a_x;
     triangle.c_y = triangle.a_y;
-    triangle.type_ = Type::Line;
+    triangle.type_ = DecodedTriangleType::Line;
   } else {
-    triangle.type_ = Type::Triangle;
+    triangle.type_ = DecodedTriangleType::Triangle;
   }
 }
 /// Represents a encoded triangle using [`ShapeField::decode_triangle`].
@@ -544,12 +544,12 @@ pub struct DecodedTriangle {
   pub ca: bool,
 
   /// triangle type
-  pub type_: Type,
+  pub type_: DecodedTriangleType,
 }
 
 /// type of triangle
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
-pub enum Type {
+pub enum DecodedTriangleType {
   /// all coordinates are equal
   Point,
   /// first and third coordinates are equal

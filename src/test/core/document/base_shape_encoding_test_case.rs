@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::shape_field::{
-  DecodedTriangle, ShapeField, Type, decode_triangle, encode_triangle,
+  DecodedTriangle, DecodedTriangleType, ShapeField, decode_triangle, encode_triangle,
 };
 use crate::core::geo::component2d::Component2D;
 use crate::core::geo::geo_utils::GeoUtils;
@@ -711,12 +711,12 @@ pub trait BaseShapeEncodingTestCase {
 
       let (original_intersects, encoded_intersects, original_contains, encoded_contains) =
         match encoded.type_ {
-          Type::Point => {
+          DecodedTriangleType::Point => {
             let oi = polygon_2d.contains(original_quantized[0], original_quantized[1]);
             let ei = polygon_2d.contains(encoded_quantized[0], encoded_quantized[1]);
             (oi, ei, oi, ei)
           },
-          Type::Line => (
+          DecodedTriangleType::Line => (
             polygon_2d.intersects_line_values(
               original_quantized[0],
               original_quantized[1],
@@ -742,7 +742,7 @@ pub trait BaseShapeEncodingTestCase {
               encoded_quantized[3],
             ),
           ),
-          Type::Triangle => (
+          DecodedTriangleType::Triangle => (
             polygon_2d.intersects_triangle_values(
               original_quantized[0],
               original_quantized[1],
