@@ -80,7 +80,7 @@ impl KnnFloatVectorField {
   ///
   /// # Errors
   ///
-  /// returns [`LuceneError::IllegalArgument`] if any parameter is null, or has dimension > 1024.
+  /// returns [`LuceneError::IllegalArgument`] if has dimension > 1024.
   pub fn create_field_type(
     dimension: i32,
     similarity_function: VectorSimilarityFunction,
@@ -107,7 +107,7 @@ impl KnnFloatVectorField {
   ///
   /// # Errors
   ///
-  /// returns [`LuceneError::IllegalArgument`] if any parameter is null, or the vector is empty or has
+  /// returns [`LuceneError::IllegalArgument`] if the vector is empty or has
   /// dimension > 1024.
   pub fn with_similarity_function(
     name: &str,
@@ -134,7 +134,7 @@ impl KnnFloatVectorField {
   ///
   /// # Errors
   ///
-  /// returns [`LuceneError::IllegalArgument`] if any parameter is null, or the vector is empty or has
+  /// returns [`LuceneError::IllegalArgument`] if the vector is empty or has
   /// dimension > 1024.
   pub fn new(name: &str, vector: Vec<f32>) -> Result<Self> {
     Self::with_similarity_function(name, vector, VectorSimilarityFunction::Euclidean)
@@ -151,7 +151,7 @@ impl KnnFloatVectorField {
   ///
   /// # Errors
   ///
-  /// returns [`LuceneError::IllegalArgument`] if any parameter is null, or the vector is empty or has
+  /// returns [`LuceneError::IllegalArgument`] if the vector is empty or has
   /// dimension > 1024.
   pub fn with_type(name: &str, vector: Vec<f32>, field_type: FieldType) -> Result<Self> {
     if *field_type.vector_encoding() != VectorEncoding::FLOAT32(4) {
