@@ -273,8 +273,8 @@ impl fmt::Display for LongPoint {
 pub struct LongPointRangeQuery;
 
 impl PointRangeBase for LongPointRangeQuery {
-  fn to_string(&self, _dimension: usize, value: &[u8]) -> String {
-    LongPoint::decode_dimension(value, 0).to_string()
+  fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
+    Ok(LongPoint::decode_dimension(value, 0).to_string())
   }
 }
 

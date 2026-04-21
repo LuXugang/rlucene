@@ -282,7 +282,7 @@ impl fmt::Display for BinaryPoint {
 pub struct BinaryPointRangeQuery;
 
 impl PointRangeBase for BinaryPointRangeQuery {
-  fn to_string(&self, _dimension: usize, value: &[u8]) -> String {
+  fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
     let mut out = String::from("binary(");
     for (i, b) in value.iter().enumerate() {
       if i > 0 {
@@ -291,7 +291,7 @@ impl PointRangeBase for BinaryPointRangeQuery {
       out.push_str(&format!("{:x}", b));
     }
     out.push(')');
-    out
+    Ok(out)
   }
 }
 

@@ -260,8 +260,8 @@ impl fmt::Display for IntPoint {
 #[derive(Debug, Clone)]
 pub struct IntPointRangeQuery;
 impl PointRangeBase for IntPointRangeQuery {
-  fn to_string(&self, _dimension: usize, value: &[u8]) -> String {
-    IntPoint::decode_dimension(value, 0).to_string()
+  fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
+    Ok(IntPoint::decode_dimension(value, 0).to_string())
   }
 }
 

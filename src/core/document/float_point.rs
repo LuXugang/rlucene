@@ -276,8 +276,8 @@ impl fmt::Display for FloatPoint {
 pub struct FloatPointRangeQuery;
 
 impl PointRangeBase for FloatPointRangeQuery {
-  fn to_string(&self, _dimension: usize, value: &[u8]) -> String {
-    FloatPoint::decode_dimension(value, 0).to_string()
+  fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
+    Ok(FloatPoint::decode_dimension(value, 0).to_string())
   }
 }
 

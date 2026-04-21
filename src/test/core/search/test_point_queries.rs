@@ -1171,47 +1171,48 @@ fn test_to_string() -> Result<()> {
   // ints
   assert_eq!(
     "field:[1 TO 2]",
-    IntPoint::new_range_query("field", 1i32, 2i32)?.to_string("")
+    IntPoint::new_range_query("field", 1i32, 2i32)?.to_string("")?
   );
   assert_eq!(
     "field:[-2 TO 1]",
-    IntPoint::new_range_query("field", -2i32, 1i32)?.to_string("")
+    IntPoint::new_range_query("field", -2i32, 1i32)?.to_string("")?
   );
 
   // longs
   assert_eq!(
     "field:[1099511627776 TO 2199023255552]",
-    LongPoint::new_range_query("field", 1i64 << 40, 1i64 << 41)?.to_string("")
+    LongPoint::new_range_query("field", 1i64 << 40, 1i64 << 41)?.to_string("")?
   );
   assert_eq!(
     "field:[-5 TO 6]",
-    LongPoint::new_range_query("field", -5i64, 6i64)?.to_string("")
+    LongPoint::new_range_query("field", -5i64, 6i64)?.to_string("")?
   );
 
   // floats
   assert_eq!(
     "field:[1.3 TO 2.5]",
-    FloatPoint::new_range_query("field", 1.3f32, 2.5f32)?.to_string("")
+    FloatPoint::new_range_query("field", 1.3f32, 2.5f32)?.to_string("")?
   );
   assert_eq!(
     "field:[-2.9 TO 1]",
-    FloatPoint::new_range_query("field", -2.9f32, 1.0f32)?.to_string("")
+    FloatPoint::new_range_query("field", -2.9f32, 1.0f32)?.to_string("")?
   );
 
   // doubles
   assert_eq!(
     "field:[1.3 TO 2.5]",
-    DoublePoint::new_range_query("field", 1.3f64, 2.5f64)?.to_string("")
+    DoublePoint::new_range_query("field", 1.3f64, 2.5f64)?.to_string("")?
   );
   assert_eq!(
     "field:[-2.9 TO 1]",
-    DoublePoint::new_range_query("field", -2.9f64, 1.0f64)?.to_string("")
+    DoublePoint::new_range_query("field", -2.9f64, 1.0f64)?.to_string("")?
   );
 
   // n-dimensional double
   assert_eq!(
     "field:[1.3 TO 2.5],[-2.9 TO 1]",
-    DoublePoint::new_range_query_n("field", &[1.3f64, -2.9f64], &[2.5f64, 1.0f64])?.to_string("")
+    DoublePoint::new_range_query_n("field", &[1.3f64, -2.9f64], &[2.5f64, 1.0f64])?
+      .to_string("")?
   );
 
   Ok(())
@@ -1713,8 +1714,8 @@ fn test_point_in_set_equals() -> Result<()> {
 #[derive(Debug, Clone)]
 pub struct PointRangeQueryBaseImpl;
 impl PointRangeBase for PointRangeQueryBaseImpl {
-  fn to_string(&self, _dimension: usize, _value: &[u8]) -> String {
-    "foo".to_string()
+  fn to_string(&self, _dimension: usize, _value: &[u8]) -> Result<String> {
+    Ok("foo".to_string())
   }
 }
 #[test]

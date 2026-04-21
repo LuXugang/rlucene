@@ -18,6 +18,7 @@ use crate::core::document::binary_point::BinaryPointRangeQuery;
 use crate::core::document::double_point::DoublePointRangeQuery;
 use crate::core::document::float_point::FloatPointRangeQuery;
 use crate::core::document::int_point::IntPointRangeQuery;
+use crate::core::document::lat_lon_point::LatLonPointRangeQuery;
 use crate::core::document::long_point::LongPointRangeQuery;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -138,7 +139,7 @@ impl PointRangeQuery {
       && self.lower_point == other.lower_point
       && self.upper_point == other.upper_point
   }
-  pub fn to_string(&self, field: &str) -> String {
+  pub fn to_string(&self, field: &str) -> Result<String> {
     let mut sb = String::new();
 
     if self.field != field {
@@ -157,13 +158,13 @@ impl PointRangeQuery {
       let upper = &self.upper_point[start..end];
 
       sb.push('[');
-      sb.push_str(&self.sub.to_string(i, lower));
+      sb.push_str(&self.sub.to_string(i, lower)?);
       sb.push_str(" TO ");
-      sb.push_str(&self.sub.to_string(i, upper));
+      sb.push_str(&self.sub.to_string(i, upper)?);
       sb.push(']');
     }
 
-    sb
+    Ok(sb)
   }
   #[cfg(test)]
   pub(crate) fn get_lower_point(&self) -> &[u8] {
@@ -207,9 +208,8 @@ impl HasIdentity for PointRangeQuery {
   }
 }
 impl QueryBase for PointRangeQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
-    debug_assert!(false, "should never be called");
-    Ok("".to_string())
+  fn as_string(&self, field: &str) -> Result<String> {
+    self.to_string(field)
   }
 
   fn create_weight<IRC>(
@@ -967,7 +967,7 @@ pub trait PointRangeBase {
   ///
   /// # Returns
   /// A human-readable representation of the value for debugging.
-  fn to_string(&self, dimension: usize, value: &[u8]) -> String;
+  fn to_string(&self, dimension: usize, value: &[u8]) -> Result<String>;
 }
 #[derive(Debug, Clone)]
 pub enum PointRangeBaseEnum {
@@ -976,6 +976,7 @@ pub enum PointRangeBaseEnum {
   Float(FloatPointRangeQuery),
   Double(DoublePointRangeQuery),
   Binary(BinaryPointRangeQuery),
+  LatLon(LatLonPointRangeQuery),
   #[cfg(test)]
   Test(PointRangeQueryBaseImpl),
 }
@@ -986,17 +987,19 @@ impl_from_for_enum!(
     FloatPointRangeQuery => Float,
     DoublePointRangeQuery => Double,
     BinaryPointRangeQuery => Binary,
+    LatLonPointRangeQuery => LatLon,
 );
 #[cfg(test)]
 impl_from_for_enum!(PointRangeBaseEnum, PointRangeQueryBaseImpl => Test);
 impl PointRangeBase for PointRangeBaseEnum {
-  fn to_string(&self, dimension: usize, value: &[u8]) -> String {
+  fn to_string(&self, dimension: usize, value: &[u8]) -> Result<String> {
     match self {
       PointRangeBaseEnum::Int(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Long(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Float(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Double(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Binary(q) => q.to_string(dimension, value),
+      PointRangeBaseEnum::LatLon(q) => q.to_string(dimension, value),
       #[cfg(test)]
       PointRangeBaseEnum::Test(q) => q.to_string(dimension, value),
     }
