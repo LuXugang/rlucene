@@ -29,7 +29,7 @@ use std::hash::{Hash, Hasher};
 /// 1. All latitude/longitude values must be in decimal degrees.
 /// 2. For more advanced GeoSpatial indexing and query operations see the `spatial-extras`
 ///    module.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Line {
   /// Array of latitude coordinates.
   lats: Vec<f64>,

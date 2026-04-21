@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::shape_field::QueryRelation;
-use crate::core::geo::component2d::{Component2D, WithinRelation};
+use crate::core::geo::component2d::WithinRelation;
 use crate::core::geo::geometry::Geometry;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -33,7 +33,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+  Query, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -47,7 +47,8 @@ use crate::core::util::bits::Bits;
 use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 /// Base query data for spatial geometries.
@@ -58,8 +59,8 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct SpatialQuery<G, C>
 where
-  G: Geometry,
   C: SpatialQueryBase,
+  G: Geometry + PartialEq + Hash,
 {
   /// field name
   pub(crate) field: String,
@@ -67,13 +68,13 @@ where
   pub(crate) query_relation: QueryRelation,
   pub(crate) geometries: Vec<G>,
   pub(crate) sub: C,
-  pub(crate) query_component2d: C::Component2D<G>,
+  id: Identity,
 }
 
 impl<G, C> SpatialQuery<G, C>
 where
-  G: Geometry + 'static,
   C: SpatialQueryBase + 'static,
+  G: Geometry + PartialEq + Hash + 'static,
 {
   pub fn new(
     field: String,
@@ -81,13 +82,12 @@ where
     geometries: Vec<G>,
     sub: C,
   ) -> Result<Self> {
-    let query_component2d = sub.create_component2d(&geometries)?;
     Ok(Self {
       field,
       query_relation,
       geometries,
       sub,
-      query_component2d,
+      id: Identity::new(),
     })
   }
 
@@ -105,31 +105,7 @@ where
     transpose_relation(r)
   }
 
-  pub(crate) fn as_string(&self, _field: &str) -> Result<String> {
-    todo!()
-  }
-
-  pub(crate) fn create_weight<IRC>(
-    self,
-    _searcher: &IndexSearcher<IRC>,
-    score_mode: &ScoreMode,
-    boost: f32,
-  ) -> Result<QueryWeight<IRC>>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    let spatial_visitor = self.sub.get_spatial_visitor()?;
-    let spatial_weight = SpatialWeight::new(self, spatial_visitor, boost, *score_mode);
-    Ok(Box::new(spatial_weight))
-  }
-  pub(crate) fn visit<QV>(&self, _visitor: &QV)
-  where
-    QV: QueryVisitor,
-  {
-    todo!()
-  }
-  fn to_string(&self, field: &str) -> Result<String> {
+  pub(crate) fn as_string(&self, field: &str) -> Result<String> {
     let mut sb = String::new();
     sb.push_str(std::any::type_name::<Self>());
     sb.push(':');
@@ -146,21 +122,83 @@ where
     sb.push(']');
     Ok(sb)
   }
+
+  pub(crate) fn create_weight<IRC>(
+    self,
+    _searcher: &IndexSearcher<IRC>,
+    score_mode: &ScoreMode,
+    boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    let spatial_visitor = self.sub.get_spatial_visitor()?;
+    let spatial_weight = SpatialWeight::new(self, spatial_visitor, boost, *score_mode);
+    Ok(Box::new(spatial_weight))
+  }
+
+  pub(crate) fn visit<QV>(&self, _visitor: &QV)
+  where
+    QV: QueryVisitor,
+  {
+    todo!()
+  }
+}
+
+impl<G, C> Debug for SpatialQuery<G, C>
+where
+  C: SpatialQueryBase,
+  G: Geometry + PartialEq + Hash,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
 }
 
 impl<G, C> HasIdentity for SpatialQuery<G, C>
 where
   C: SpatialQueryBase,
-  G: Geometry,
+  G: Geometry + PartialEq + Hash,
 {
   fn identity(&self) -> &Identity {
-    self.sub.identity()
+    &self.id
+  }
+}
+impl<G, C> PartialEq for SpatialQuery<G, C>
+where
+  G: Geometry + PartialEq + Hash,
+  C: SpatialQueryBase,
+{
+  fn eq(&self, other: &Self) -> bool {
+    self.field == other.field
+      && self.query_relation == other.query_relation
+      && self.geometries == other.geometries
+  }
+}
+
+impl<G, C> Eq for SpatialQuery<G, C>
+where
+  G: Geometry + PartialEq + Hash,
+  C: SpatialQueryBase,
+{
+}
+
+impl<G, C> Hash for SpatialQuery<G, C>
+where
+  G: Geometry + PartialEq + Hash,
+  C: SpatialQueryBase,
+{
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.field.hash(state);
+    self.query_relation.hash(state);
+    self.geometries.hash(state);
   }
 }
 pub struct SpatialWeight<G, C>
 where
-  G: Geometry,
   C: SpatialQueryBase,
+  G: Geometry + PartialEq + Hash,
 {
   parent_query: SpatialQuery<G, C>,
   base: ConstantScoreWeight,
@@ -170,8 +208,8 @@ where
 }
 impl<G, C> SpatialWeight<G, C>
 where
-  G: Geometry,
   C: SpatialQueryBase,
+  G: Geometry + PartialEq + Hash,
 {
   pub fn new(
     query: SpatialQuery<G, C>,
@@ -193,7 +231,7 @@ where
 impl<G, C, IRC> SegmentCacheable<IRC> for SpatialWeight<G, C>
 where
   C: SpatialQueryBase,
-  G: Geometry,
+  G: Geometry + PartialEq + Hash,
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -203,8 +241,8 @@ where
 
 impl<G, C, IRC> Weight<IRC> for SpatialWeight<G, C>
 where
-  G: Geometry + 'static,
   C: SpatialQueryBase + 'static,
+  G: Geometry + PartialEq + Hash + 'static,
   IRC: IndexReaderContext,
 {
   type Matches = MatchWithNoTerms;
@@ -301,15 +339,8 @@ where
   }
 }
 
-pub trait SpatialQueryBase: QueryBase {
-  type Component2D<T>: Component2D + Debug
-  where
-    T: Geometry;
+pub trait SpatialQueryBase {
   type SpatialVisitor: SpatialVisitor;
-
-  fn create_component2d<T>(&self, geometries: &[T]) -> Result<Self::Component2D<T>>
-  where
-    T: Geometry;
   fn get_spatial_visitor(&self) -> Result<Self::SpatialVisitor>;
 }
 

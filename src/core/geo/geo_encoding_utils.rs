@@ -250,6 +250,35 @@ impl GeoEncodingUtils {
       distance_sort_key,
     )
   }
+  /// Create a predicate that checks whether points are within a geometry. It works the same way as
+  /// [`Self::create_distance_predicate`].
+  ///
+  /// @lucene.internal
+  pub fn create_component_predicate<C>(tree: C) -> Result<Component2DPredicate<C>>
+  where
+    C: Component2D,
+  {
+    let box_to_relation =
+      |rect: Rectangle| tree.relate(rect.min_lon, rect.max_lon, rect.min_lat, rect.max_lat);
+    let sub_boxes = create_sub_boxes(
+      tree.get_min_y(),
+      tree.get_max_y(),
+      tree.get_min_x(),
+      tree.get_max_x(),
+      box_to_relation,
+    )?;
+
+    Component2DPredicate::new(
+      sub_boxes.lat_shift,
+      sub_boxes.lon_shift,
+      sub_boxes.lat_base,
+      sub_boxes.lon_base,
+      sub_boxes.max_lat_delta,
+      sub_boxes.max_lon_delta,
+      sub_boxes.relations,
+      tree,
+    )
+  }
 }
 struct Grid {
   lat_shift: i32,

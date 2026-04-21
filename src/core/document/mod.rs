@@ -40,6 +40,7 @@ pub mod knn_float_vector_field;
 pub(crate) mod lat_lon_doc_values_box_query;
 pub mod lat_lon_point;
 pub(crate) mod lat_lon_point_distance_query;
+pub(crate) mod lat_lon_point_query;
 pub mod long_field;
 pub mod long_point;
 pub mod numeric_doc_values_field;

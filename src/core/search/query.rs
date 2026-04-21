@@ -28,6 +28,7 @@ use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 
+use crate::core::document::lat_lon_point_query::LatLonPointQuery;
 use crate::core::search::abstract_knn_vector_query::DocAndScoreQuery;
 use crate::core::search::automaton_query::AutomatonQuery;
 #[cfg(test)]
@@ -114,6 +115,7 @@ macro_rules! dispatch_query {
       Query::KnnFloatVector($inner) => $body,
       Query::LatLonDocValuesBox($inner) => $body,
       Query::LatLonPointDistance($inner) => $body,
+      Query::LatLonPoint($inner) => $body,
       Query::MatchAllDocs($inner) => $body,
       Query::MatchNoDocs($inner) => $body,
       Query::MultiTermQueryConstantScoreBlendedWrapper($inner) => $body,
@@ -166,6 +168,7 @@ impl_from_for_enum!(
     KnnFloatVectorQuery => KnnFloatVector,
     LatLonDocValuesBoxQuery => LatLonDocValuesBox,
     LatLonPointDistanceQuery => LatLonPointDistance,
+    LatLonPointQuery=> LatLonPoint,
     MatchAllDocsQuery => MatchAllDocs,
     MatchNoDocsQuery => MatchNoDocs,
     MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
@@ -210,6 +213,7 @@ impl_into_box_query!(
   KnnFloatVectorQuery,
   LatLonDocValuesBoxQuery,
   LatLonPointDistanceQuery,
+  LatLonPointQuery,
   MatchAllDocsQuery,
   MatchNoDocsQuery,
   MultiTermQueryConstantScoreBlendedWrapper,
@@ -266,6 +270,7 @@ pub enum Query {
   KnnFloatVector(KnnFloatVectorQuery),
   LatLonDocValuesBox(LatLonDocValuesBoxQuery),
   LatLonPointDistance(LatLonPointDistanceQuery),
+  LatLonPoint(LatLonPointQuery),
   MatchAllDocs(MatchAllDocsQuery),
   MatchNoDocs(MatchNoDocsQuery),
   MultiTermQueryConstantScoreBlendedWrapper(MultiTermQueryConstantScoreBlendedWrapper),
@@ -336,6 +341,7 @@ impl Query {
             KnnFloatVector,
             LatLonDocValuesBox,
             LatLonPointDistance,
+            LatLonPoint,
             MatchAllDocs,
             MatchNoDocs,
             MultiTermQueryConstantScoreBlendedWrapper,
@@ -382,7 +388,6 @@ impl QueryBase for Query {
   fn as_string(&self, field: &str) -> Result<String> {
     dispatch_query!(self, |q| q.as_string(field))
   }
-
   fn create_weight<IRC>(
     self,
     searcher: &IndexSearcher<IRC>,

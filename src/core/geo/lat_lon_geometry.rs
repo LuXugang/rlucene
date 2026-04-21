@@ -26,10 +26,10 @@ use crate::core::geo::rectangle::Rectangle;
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
+use std::hash::{Hash, Hasher};
 
 /// Lat/Lon Geometry object.
 pub trait LatLonGeometry: Geometry {}
-pub type LatLonGeometryType<T> = Component2DEnum2<T, ComponentTree<T>>;
 pub fn create<T>(xy_geometries: &[T]) -> Result<LatLonGeometryType<T::Component2D>>
 where
   T: LatLonGeometry,
@@ -52,6 +52,7 @@ where
     components,
   )?))
 }
+pub type LatLonGeometryType<T> = Component2DEnum2<T, ComponentTree<T>>;
 #[macro_export]
 macro_rules! either_lat_lon_geometry_named {
     (
@@ -120,3 +121,52 @@ Point => Point,
 Polygon => Polygon,
 Rectangle => Rectangle,
 );
+impl Clone for LatLonGeometryEnum {
+  fn clone(&self) -> Self {
+    match self {
+      LatLonGeometryEnum5::Circle(v) => LatLonGeometryEnum5::Circle(v.clone()),
+      LatLonGeometryEnum5::Line(v) => LatLonGeometryEnum5::Line(v.clone()),
+      LatLonGeometryEnum5::Point(v) => LatLonGeometryEnum5::Point(*v),
+      LatLonGeometryEnum5::Polygon(v) => LatLonGeometryEnum5::Polygon(v.clone()),
+      LatLonGeometryEnum5::Rectangle(v) => LatLonGeometryEnum5::Rectangle(v.clone()),
+    }
+  }
+}
+impl PartialEq for LatLonGeometryEnum {
+  fn eq(&self, other: &Self) -> bool {
+    match self {
+      LatLonGeometryEnum5::Circle(v) => match other {
+        LatLonGeometryEnum5::Circle(other_v) => v == other_v,
+        _ => false,
+      },
+      LatLonGeometryEnum5::Line(v) => match other {
+        LatLonGeometryEnum5::Line(other_v) => v == other_v,
+        _ => false,
+      },
+      LatLonGeometryEnum5::Point(v) => match other {
+        LatLonGeometryEnum5::Point(other_v) => v == other_v,
+        _ => false,
+      },
+      LatLonGeometryEnum5::Polygon(v) => match other {
+        LatLonGeometryEnum5::Polygon(other_v) => v == other_v,
+        _ => false,
+      },
+      LatLonGeometryEnum5::Rectangle(v) => match other {
+        LatLonGeometryEnum5::Rectangle(other_v) => v == other_v,
+        _ => false,
+      },
+    }
+  }
+}
+impl Eq for LatLonGeometryEnum {}
+impl Hash for LatLonGeometryEnum {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    match self {
+      LatLonGeometryEnum5::Circle(v) => v.hash(state),
+      LatLonGeometryEnum5::Line(v) => v.hash(state),
+      LatLonGeometryEnum5::Point(v) => v.hash(state),
+      LatLonGeometryEnum5::Polygon(v) => v.hash(state),
+      LatLonGeometryEnum5::Rectangle(v) => v.hash(state),
+    }
+  }
+}

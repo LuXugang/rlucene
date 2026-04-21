@@ -22,6 +22,7 @@ use crate::core::geo::rectangle2d::{Rectangle2DType, create_from_rectangle};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
 
 /// Represents a lat/lon rectangle.
 #[derive(Clone)]
@@ -216,5 +217,24 @@ impl Display for Rectangle {
       write!(f, " [crosses dateline!]")?;
     }
     write!(f, ")")
+  }
+}
+impl PartialEq for Rectangle {
+  fn eq(&self, other: &Self) -> bool {
+    self.min_lat == other.min_lat
+      && self.min_lon == other.min_lon
+      && self.max_lat == other.max_lat
+      && self.max_lon == other.max_lon
+  }
+}
+
+impl Eq for Rectangle {}
+
+impl Hash for Rectangle {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.min_lat.to_bits().hash(state);
+    self.min_lon.to_bits().hash(state);
+    self.max_lat.to_bits().hash(state);
+    self.max_lon.to_bits().hash(state);
   }
 }

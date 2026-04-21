@@ -17,6 +17,7 @@
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 /// 2D Geometry object that supports spatial relationships with bounding boxes, triangles and points
 pub trait Component2D {
@@ -498,3 +499,376 @@ macro_rules! either_component2d_named {
     };
 }
 either_component2d_named!(pub Component2DEnum2{ A: A, B: B});
+
+impl<T> Component2D for Arc<T>
+where
+  T: Component2D,
+{
+  fn get_min_x(&self) -> f64 {
+    (**self).get_min_x()
+  }
+
+  fn get_max_x(&self) -> f64 {
+    (**self).get_max_x()
+  }
+
+  fn get_min_y(&self) -> f64 {
+    (**self).get_min_y()
+  }
+
+  fn get_max_y(&self) -> f64 {
+    (**self).get_max_y()
+  }
+
+  fn contains(&self, x: f64, y: f64) -> bool {
+    (**self).contains(x, y)
+  }
+
+  fn relate(&self, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Result<Relation> {
+    (**self).relate(min_x, max_x, min_y, max_y)
+  }
+
+  fn intersects_line(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+  ) -> bool {
+    (**self).intersects_line(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y)
+  }
+
+  fn intersects_triangle(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+    c_x: f64,
+    c_y: f64,
+  ) -> bool {
+    (**self).intersects_triangle(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y, c_x, c_y)
+  }
+
+  fn contains_line(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+  ) -> bool {
+    (**self).contains_line(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y)
+  }
+
+  fn contains_triangle(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+    c_x: f64,
+    c_y: f64,
+  ) -> bool {
+    (**self).contains_triangle(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y, c_x, c_y)
+  }
+
+  fn within_point(&self, x: f64, y: f64) -> Result<WithinRelation> {
+    (**self).within_point(x, y)
+  }
+
+  fn within_line(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    ab: bool,
+    b_x: f64,
+    b_y: f64,
+  ) -> Result<WithinRelation> {
+    (**self).within_line(min_x, max_x, min_y, max_y, a_x, a_y, ab, b_x, b_y)
+  }
+
+  fn within_triangle(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    ab: bool,
+    b_x: f64,
+    b_y: f64,
+    bc: bool,
+    c_x: f64,
+    c_y: f64,
+    ca: bool,
+  ) -> Result<WithinRelation> {
+    (**self).within_triangle(
+      min_x, max_x, min_y, max_y, a_x, a_y, ab, b_x, b_y, bc, c_x, c_y, ca,
+    )
+  }
+
+  fn intersects_line_values(&self, a_x: f64, a_y: f64, b_x: f64, b_y: f64) -> bool {
+    (**self).intersects_line_values(a_x, a_y, b_x, b_y)
+  }
+
+  fn intersects_triangle_values(
+    &self,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+    c_x: f64,
+    c_y: f64,
+  ) -> bool {
+    (**self).intersects_triangle_values(a_x, a_y, b_x, b_y, c_x, c_y)
+  }
+
+  fn contains_line_values(&self, a_x: f64, a_y: f64, b_x: f64, b_y: f64) -> bool {
+    (**self).contains_line_values(a_x, a_y, b_x, b_y)
+  }
+
+  fn contains_triangle_values(
+    &self,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+    c_x: f64,
+    c_y: f64,
+  ) -> bool {
+    (**self).contains_triangle_values(a_x, a_y, b_x, b_y, c_x, c_y)
+  }
+
+  fn within_line_values(
+    &self,
+    a_x: f64,
+    a_y: f64,
+    ab: bool,
+    b_x: f64,
+    b_y: f64,
+  ) -> Result<WithinRelation> {
+    (**self).within_line_values(a_x, a_y, ab, b_x, b_y)
+  }
+
+  fn within_triangle_values(
+    &self,
+    a_x: f64,
+    a_y: f64,
+    ab: bool,
+    b_x: f64,
+    b_y: f64,
+    bc: bool,
+    c_x: f64,
+    c_y: f64,
+    ca: bool,
+  ) -> Result<WithinRelation> {
+    (**self).within_triangle_values(a_x, a_y, ab, b_x, b_y, bc, c_x, c_y, ca)
+  }
+}
+impl<T> Component2D for &T
+where
+  T: Component2D,
+{
+  fn get_min_x(&self) -> f64 {
+    (*self).get_min_x()
+  }
+
+  fn get_max_x(&self) -> f64 {
+    (*self).get_max_x()
+  }
+
+  fn get_min_y(&self) -> f64 {
+    (*self).get_min_y()
+  }
+
+  fn get_max_y(&self) -> f64 {
+    (*self).get_max_y()
+  }
+
+  fn contains(&self, x: f64, y: f64) -> bool {
+    (*self).contains(x, y)
+  }
+
+  fn relate(&self, min_x: f64, max_x: f64, min_y: f64, max_y: f64) -> Result<Relation> {
+    (*self).relate(min_x, max_x, min_y, max_y)
+  }
+
+  fn intersects_line(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+  ) -> bool {
+    (*self).intersects_line(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y)
+  }
+
+  fn intersects_triangle(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+    c_x: f64,
+    c_y: f64,
+  ) -> bool {
+    (*self).intersects_triangle(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y, c_x, c_y)
+  }
+
+  fn contains_line(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+  ) -> bool {
+    (*self).contains_line(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y)
+  }
+
+  fn contains_triangle(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+    c_x: f64,
+    c_y: f64,
+  ) -> bool {
+    (*self).contains_triangle(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y, c_x, c_y)
+  }
+
+  fn within_point(&self, x: f64, y: f64) -> Result<WithinRelation> {
+    (*self).within_point(x, y)
+  }
+
+  fn within_line(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    ab: bool,
+    b_x: f64,
+    b_y: f64,
+  ) -> Result<WithinRelation> {
+    (*self).within_line(min_x, max_x, min_y, max_y, a_x, a_y, ab, b_x, b_y)
+  }
+
+  fn within_triangle(
+    &self,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    a_x: f64,
+    a_y: f64,
+    ab: bool,
+    b_x: f64,
+    b_y: f64,
+    bc: bool,
+    c_x: f64,
+    c_y: f64,
+    ca: bool,
+  ) -> Result<WithinRelation> {
+    (*self).within_triangle(
+      min_x, max_x, min_y, max_y, a_x, a_y, ab, b_x, b_y, bc, c_x, c_y, ca,
+    )
+  }
+
+  fn intersects_line_values(&self, a_x: f64, a_y: f64, b_x: f64, b_y: f64) -> bool {
+    (*self).intersects_line_values(a_x, a_y, b_x, b_y)
+  }
+
+  fn intersects_triangle_values(
+    &self,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+    c_x: f64,
+    c_y: f64,
+  ) -> bool {
+    (*self).intersects_triangle_values(a_x, a_y, b_x, b_y, c_x, c_y)
+  }
+
+  fn contains_line_values(&self, a_x: f64, a_y: f64, b_x: f64, b_y: f64) -> bool {
+    (*self).contains_line_values(a_x, a_y, b_x, b_y)
+  }
+
+  fn contains_triangle_values(
+    &self,
+    a_x: f64,
+    a_y: f64,
+    b_x: f64,
+    b_y: f64,
+    c_x: f64,
+    c_y: f64,
+  ) -> bool {
+    (*self).contains_triangle_values(a_x, a_y, b_x, b_y, c_x, c_y)
+  }
+
+  fn within_line_values(
+    &self,
+    a_x: f64,
+    a_y: f64,
+    ab: bool,
+    b_x: f64,
+    b_y: f64,
+  ) -> Result<WithinRelation> {
+    (*self).within_line_values(a_x, a_y, ab, b_x, b_y)
+  }
+
+  fn within_triangle_values(
+    &self,
+    a_x: f64,
+    a_y: f64,
+    ab: bool,
+    b_x: f64,
+    b_y: f64,
+    bc: bool,
+    c_x: f64,
+    c_y: f64,
+    ca: bool,
+  ) -> Result<WithinRelation> {
+    (*self).within_triangle_values(a_x, a_y, ab, b_x, b_y, bc, c_x, c_y, ca)
+  }
+}
