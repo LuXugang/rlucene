@@ -60,7 +60,7 @@ use std::sync::Arc;
 pub struct SpatialQuery<G, C>
 where
   C: SpatialQueryBase,
-  G: Geometry + PartialEq + Hash,
+  G: Geometry,
 {
   /// field name
   pub(crate) field: String,
@@ -74,7 +74,7 @@ where
 impl<G, C> SpatialQuery<G, C>
 where
   C: SpatialQueryBase + 'static,
-  G: Geometry + PartialEq + Hash + 'static,
+  G: Geometry + 'static,
 {
   pub fn new(
     field: String,
@@ -149,7 +149,7 @@ where
 impl<G, C> Debug for SpatialQuery<G, C>
 where
   C: SpatialQueryBase,
-  G: Geometry + PartialEq + Hash,
+  G: Geometry,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
@@ -159,7 +159,7 @@ where
 impl<G, C> HasIdentity for SpatialQuery<G, C>
 where
   C: SpatialQueryBase,
-  G: Geometry + PartialEq + Hash,
+  G: Geometry,
 {
   fn identity(&self) -> &Identity {
     &self.id
@@ -167,7 +167,7 @@ where
 }
 impl<G, C> PartialEq for SpatialQuery<G, C>
 where
-  G: Geometry + PartialEq + Hash,
+  G: Geometry,
   C: SpatialQueryBase,
 {
   fn eq(&self, other: &Self) -> bool {
@@ -179,14 +179,14 @@ where
 
 impl<G, C> Eq for SpatialQuery<G, C>
 where
-  G: Geometry + PartialEq + Hash,
+  G: Geometry,
   C: SpatialQueryBase,
 {
 }
 
 impl<G, C> Hash for SpatialQuery<G, C>
 where
-  G: Geometry + PartialEq + Hash,
+  G: Geometry,
   C: SpatialQueryBase,
 {
   fn hash<H: Hasher>(&self, state: &mut H) {
@@ -198,7 +198,7 @@ where
 pub struct SpatialWeight<G, C>
 where
   C: SpatialQueryBase,
-  G: Geometry + PartialEq + Hash,
+  G: Geometry,
 {
   parent_query: SpatialQuery<G, C>,
   base: ConstantScoreWeight,
@@ -209,7 +209,7 @@ where
 impl<G, C> SpatialWeight<G, C>
 where
   C: SpatialQueryBase,
-  G: Geometry + PartialEq + Hash,
+  G: Geometry,
 {
   pub fn new(
     query: SpatialQuery<G, C>,
@@ -231,7 +231,7 @@ where
 impl<G, C, IRC> SegmentCacheable<IRC> for SpatialWeight<G, C>
 where
   C: SpatialQueryBase,
-  G: Geometry + PartialEq + Hash,
+  G: Geometry,
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -242,7 +242,7 @@ where
 impl<G, C, IRC> Weight<IRC> for SpatialWeight<G, C>
 where
   C: SpatialQueryBase + 'static,
-  G: Geometry + PartialEq + Hash + 'static,
+  G: Geometry + 'static,
   IRC: IndexReaderContext,
 {
   type Matches = MatchWithNoTerms;

@@ -65,6 +65,7 @@ macro_rules! either_xy_geometry_named {
             }
         );
 
+        #[derive(PartialEq, Eq, Hash)]
         $vis enum $name<$( $T ),+> {
             $( $Variant($T), )+
         }
