@@ -67,7 +67,12 @@ pub struct LatLonPointDistanceFeatureQuery {
 }
 
 impl LatLonPointDistanceFeatureQuery {
-  pub fn new(field: String, origin_lat: f64, origin_lon: f64, pivot_distance: f64) -> Result<Self> {
+  pub(crate) fn new(
+    field: String,
+    origin_lat: f64,
+    origin_lon: f64,
+    pivot_distance: f64,
+  ) -> Result<Self> {
     GeoUtils::check_latitude(origin_lat)?;
     GeoUtils::check_longitude(origin_lon)?;
     if pivot_distance <= 0.0 {

@@ -36,6 +36,7 @@ use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
+use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
@@ -385,18 +386,17 @@ impl LatLonPoint {
     origin_lon: f64,
     pivot_distance_meters: f64,
   ) -> Result<Query> {
-    Ok(
-      crate::core::search::boost_query::BoostQuery::new(
-        LatLonPointDistanceFeatureQuery::new(
-          field.to_string(),
-          origin_lat,
-          origin_lon,
-          pivot_distance_meters,
-        )?,
-        weight,
-      )?
-      .into(),
-    )
+    let mut query: Query = LatLonPointDistanceFeatureQuery::new(
+      field.to_string(),
+      origin_lat,
+      origin_lon,
+      pivot_distance_meters,
+    )?
+    .into();
+    if weight != 1f32 {
+      query = BoostQuery::new(query, weight)?.into();
+    }
+    Ok(query)
   }
 
   /// Finds the `n` nearest indexed points to the provided point, according to Haversine distance.
