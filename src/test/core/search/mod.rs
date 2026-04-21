@@ -36,6 +36,7 @@ pub mod test_doc_values_rewrite_method;
 mod test_early_termination;
 mod test_knn_byte_vector_query;
 mod test_knn_float_vector_query;
+mod test_lat_lon_point_queries;
 pub mod test_max_clause_limit;
 pub mod test_min_should_match2;
 pub mod test_multi_slice_merge;

@@ -123,18 +123,19 @@ where
     Ok(sb)
   }
 
-  pub(crate) fn create_weight<IRC>(
+  pub(crate) fn inner_create_weight<IRC>(
     self,
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
+    query: Arc<Query>,
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
     let spatial_visitor = self.sub.get_spatial_visitor()?;
-    let spatial_weight = SpatialWeight::new(self, spatial_visitor, boost, *score_mode);
+    let spatial_weight = SpatialWeight::new(self, spatial_visitor, boost, *score_mode, query);
     Ok(Box::new(spatial_weight))
   }
 
@@ -205,6 +206,7 @@ where
   spatial_visitor: Arc<C::SpatialVisitor>,
   boost: f32,
   score_mode: ScoreMode,
+  query_s: Arc<Query>,
 }
 impl<G, C> SpatialWeight<G, C>
 where
@@ -216,6 +218,7 @@ where
     spatial_visitor: C::SpatialVisitor,
     boost: f32,
     score_mode: ScoreMode,
+    query_s: Arc<Query>,
   ) -> Self {
     let parent_query = Arc::new(query);
     let base = ConstantScoreWeight::new(boost);
@@ -225,6 +228,7 @@ where
       spatial_visitor: Arc::new(spatial_visitor),
       boost,
       score_mode,
+      query_s,
     }
   }
 }
@@ -270,7 +274,7 @@ where
   }
 
   fn get_query(&self) -> Arc<Query> {
-    todo!()
+    self.query_s.clone()
   }
 
   type ScorerSupplier = QueryWeightSs<IRC>;

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod base_geo_point_test_case;
 pub mod earth_debugger;
 pub mod geo_test_util;
 pub mod shape_test_util;

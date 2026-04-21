@@ -68,7 +68,8 @@ impl QueryBase for LatLonPointQuery {
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    self.create_weight(searcher, score_mode, boost)
+    let query = Arc::new(self.clone().into());
+    self.inner_create_weight(searcher, score_mode, boost, query)
   }
 
   fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
