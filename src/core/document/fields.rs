@@ -36,6 +36,7 @@ use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::keyword_field::KeywordField;
 use crate::core::document::knn_byte_vector_field::KnnByteVectorField;
 use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
+use crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField;
 use crate::core::document::lat_lon_point::LatLonPoint;
 use crate::core::document::long_field::LongField;
 use crate::core::document::long_point::LongPoint;
@@ -77,6 +78,7 @@ pub enum Fields {
   Keyword(KeywordField),
   KnnByteVector(KnnByteVectorField),
   KnnFloatVector(KnnFloatVectorField),
+  LatLonDocValues(LatLonDocValuesField),
   LatLonPoint(LatLonPoint),
   LongField(LongField),
   LongPoint(LongPoint),
@@ -111,6 +113,7 @@ macro_rules! dispatch_fields {
       Fields::Keyword($inner) => $body,
       Fields::KnnByteVector($inner) => $body,
       Fields::KnnFloatVector($inner) => $body,
+      Fields::LatLonDocValues($inner) => $body,
       Fields::LatLonPoint($inner) => $body,
       Fields::LongField($inner) => $body,
       Fields::LongPoint($inner) => $body,
@@ -144,6 +147,7 @@ impl_from_for_enum!(
     KeywordField => Keyword,
     KnnByteVectorField => KnnByteVector,
     KnnFloatVectorField => KnnFloatVector,
+    LatLonDocValuesField => LatLonDocValues,
     LatLonPoint => LatLonPoint,
     LongField => LongField,
     LongPoint => LongPoint,

@@ -170,7 +170,7 @@ pub trait KnnVectorsWriter: Accountable {
 /// nothing and output are written to parameters
 ///
 /// # Arguments
-/// * `old_doc_ids` - the old or current document ordinals. Must not be null.
+/// * `old_doc_ids` - the old or current document ordinals.
 /// * `sort_map` - the document sorting map for how to make the new ordinals. Must not be null.
 /// * `old2new_ord` - maps from old ord to new ord
 /// * `new2old_ord` - maps from new ord to old ord

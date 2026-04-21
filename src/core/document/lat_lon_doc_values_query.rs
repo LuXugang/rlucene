@@ -61,7 +61,7 @@ pub struct LatLonDocValuesQuery {
 }
 
 impl LatLonDocValuesQuery {
-  pub fn new(
+  pub(crate) fn new(
     field: String,
     query_relation: QueryRelation,
     geometries: Vec<LatLonGeometryEnum>,

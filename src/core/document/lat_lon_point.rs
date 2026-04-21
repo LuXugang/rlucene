@@ -195,7 +195,7 @@ impl LatLonPoint {
   ///
   /// The box may cross over the dateline.
   ///
-  /// * `field` - field name. must not be null.
+  /// * `field` - field name.
   /// * `min_latitude` - latitude lower bound: must be within standard +/-90 coordinate bounds.
   /// * `max_latitude` - latitude upper bound: must be within standard +/-90 coordinate bounds.
   /// * `min_longitude` - longitude lower bound: must be within standard +/-180 coordinate bounds.
@@ -258,7 +258,7 @@ impl LatLonPoint {
   }
   /// Create a query for matching points within the specified distance of the supplied location.
   ///
-  /// * `field` - field name. must not be null.
+  /// * `field` - field name.
   /// * `latitude` - latitude at the center: must be within standard +/-90 coordinate bounds.
   /// * `longitude` - longitude at the center: must be within standard +/-180 coordinate bounds.
   /// * `radius_meters` - maximum distance from the center in meters: must be non-negative and
@@ -280,7 +280,7 @@ impl LatLonPoint {
   }
   /// Create a query for matching one or more polygons.
   ///
-  /// * `field` - field name. must not be null.
+  /// * `field` - field name.
   /// * `polygons` - array of polygons. must not be null or empty
   ///
   /// Returns query matching points within this polygon.
@@ -297,9 +297,9 @@ impl LatLonPoint {
   /// Create a query for matching one or more geometries against the provided
   /// [`ShapeField::QueryRelation`]. Line geometries are not supported for WITHIN relationship.
   ///
-  /// * `field` - field name. must not be null.
+  /// * `field` - field name.
   /// * `query_relation` - The relation the points needs to satisfy with the provided geometries,
-  ///   must not be null.
+  ///   
   /// * `lat_lon_geometries` - array of LatLonGeometries. must not be null or empty.
   ///
   /// Returns query matching points within at least one geometry.
@@ -420,7 +420,7 @@ impl LatLonPoint {
   /// [`FieldDoc`] for the hits contains a `Double` instance with the distance in meters.
   ///
   /// * `searcher` - IndexSearcher to find nearest points from.
-  /// * `field` - field name. must not be null.
+  /// * `field` - field name.
   /// * `latitude` - latitude at the center: must be within standard +/-90 coordinate bounds.
   /// * `longitude` - longitude at the center: must be within standard +/-180 coordinate bounds.
   /// * `n` - the number of nearest neighbors to retrieve.
