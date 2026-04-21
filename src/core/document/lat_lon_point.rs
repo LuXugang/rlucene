@@ -22,9 +22,11 @@ use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::lat_lon_point_distance_query::LatLonPointDistanceQuery;
+use crate::core::document::lat_lon_point_query::lat_lon_point_query;
 use crate::core::document::shape_field::QueryRelation;
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
 use crate::core::geo::lat_lon_geometry::LatLonGeometry;
+use crate::core::geo::lat_lon_geometry::LatLonGeometryEnum;
 use crate::core::geo::polygon::Polygon;
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
@@ -278,8 +280,7 @@ impl LatLonPoint {
   ///
   /// See also [`Polygon`].
   pub fn new_polygon_query(field: &str, polygons: Vec<Polygon>) -> Result<Query> {
-    let _ = (field, polygons);
-    todo!()
+    Self::new_geometry_query(field, QueryRelation::Intersects, polygons)
   }
 
   /// Create a query for matching one or more geometries against the provided
@@ -304,18 +305,67 @@ impl LatLonPoint {
     lat_lon_geometries: Vec<T>,
   ) -> Result<Query>
   where
-    T: LatLonGeometry,
+    T: LatLonGeometry + Into<LatLonGeometryEnum>,
   {
-    let _ = (field, query_relation, lat_lon_geometries);
-    todo!()
+    let lat_lon_geometries: Vec<LatLonGeometryEnum> =
+      lat_lon_geometries.into_iter().map(Into::into).collect();
+
+    if query_relation == QueryRelation::Intersects && lat_lon_geometries.len() == 1 {
+      match &lat_lon_geometries[0] {
+        LatLonGeometryEnum::Rectangle(rect) => {
+          return Self::new_box_query(
+            field,
+            rect.min_lat,
+            rect.max_lat,
+            rect.min_lon,
+            rect.max_lon,
+          );
+        },
+        LatLonGeometryEnum::Circle(circle) => {
+          return Ok(
+            Self::new_distance_query(
+              field,
+              circle.get_lat(),
+              circle.get_lon(),
+              circle.get_radius(),
+            )?
+            .into(),
+          );
+        },
+        _ => {},
+      }
+    }
+
+    if query_relation == QueryRelation::Contains {
+      return Self::make_contains_geometry_query(field, lat_lon_geometries);
+    }
+
+    Ok(lat_lon_point_query(field.to_string(), query_relation, lat_lon_geometries)?.into())
   }
 
   fn make_contains_geometry_query<T>(field: &str, lat_lon_geometries: Vec<T>) -> Result<Query>
   where
-    T: LatLonGeometry,
+    T: LatLonGeometry + Into<LatLonGeometryEnum>,
   {
-    let _ = (field, lat_lon_geometries);
-    todo!()
+    let mut builder = Builder::new();
+
+    for geometry in lat_lon_geometries {
+      let geometry = geometry.into();
+      if !matches!(geometry, LatLonGeometryEnum::Point(_)) {
+        return Ok(
+          MatchNoDocsQuery::with_reason(
+            "Contains LatLonPoint.newGeometryQuery with non-point geometries",
+          )
+          .into(),
+        );
+      }
+      builder.add(
+        lat_lon_point_query(field.to_string(), QueryRelation::Contains, vec![geometry])?,
+        Occur::Must,
+      )?;
+    }
+
+    Ok(ConstantScoreQuery::new(builder.build()).into())
   }
 
   /// Given a field that indexes point values into a [`LatLonPoint`] and doc values into

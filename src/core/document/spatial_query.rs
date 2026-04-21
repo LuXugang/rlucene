@@ -200,7 +200,7 @@ where
   C: SpatialQueryBase,
   G: Geometry,
 {
-  parent_query: SpatialQuery<G, C>,
+  parent_query: Arc<SpatialQuery<G, C>>,
   base: ConstantScoreWeight,
   spatial_visitor: Arc<C::SpatialVisitor>,
   boost: f32,
@@ -217,9 +217,10 @@ where
     boost: f32,
     score_mode: ScoreMode,
   ) -> Self {
+    let parent_query = Arc::new(query);
     let base = ConstantScoreWeight::new(boost);
     Self {
-      parent_query: query,
+      parent_query,
       base,
       spatial_visitor: Arc::new(spatial_visitor),
       boost,
