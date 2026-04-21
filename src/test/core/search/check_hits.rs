@@ -145,6 +145,17 @@ impl CheckHits {
 
     Ok(())
   }
+  pub fn check_explanations<IRC>(
+    _query: &Query,
+    _default_field_name: &str,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+  {
+    // TODO IMPORTANT
+    Ok(())
+  }
   pub fn verify_explanation(
     q: &str,
     doc: i32,
