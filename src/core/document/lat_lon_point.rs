@@ -21,6 +21,7 @@ use crate::core::document::field::FieldDataEnum::Dummy;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::document::lat_lon_point_distance_feature_query::LatLonPointDistanceFeatureQuery;
 use crate::core::document::lat_lon_point_distance_query::LatLonPointDistanceQuery;
 use crate::core::document::lat_lon_point_query::lat_lon_point_query;
 use crate::core::document::shape_field::QueryRelation;
@@ -384,8 +385,18 @@ impl LatLonPoint {
     origin_lon: f64,
     pivot_distance_meters: f64,
   ) -> Result<Query> {
-    let _ = (field, weight, origin_lat, origin_lon, pivot_distance_meters);
-    todo!()
+    Ok(
+      crate::core::search::boost_query::BoostQuery::new(
+        LatLonPointDistanceFeatureQuery::new(
+          field.to_string(),
+          origin_lat,
+          origin_lon,
+          pivot_distance_meters,
+        )?,
+        weight,
+      )?
+      .into(),
+    )
   }
 
   /// Finds the `n` nearest indexed points to the provided point, according to Haversine distance.

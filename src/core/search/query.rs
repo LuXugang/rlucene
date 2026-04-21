@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::lat_lon_doc_values_box_query::LatLonDocValuesBoxQuery;
+use crate::core::document::lat_lon_point_distance_feature_query::LatLonPointDistanceFeatureQuery;
 use crate::core::document::lat_lon_point_distance_query::LatLonPointDistanceQuery;
 use crate::core::document::sorted_numeric_doc_values_range_query::SortedNumericDocValuesRangeQuery;
 use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQuery;
@@ -114,6 +115,7 @@ macro_rules! dispatch_query {
       Query::KnnByteVector($inner) => $body,
       Query::KnnFloatVector($inner) => $body,
       Query::LatLonDocValuesBox($inner) => $body,
+      Query::LatLonPointDistanceFeature($inner) => $body,
       Query::LatLonPointDistance($inner) => $body,
       Query::LatLonPoint($inner) => $body,
       Query::MatchAllDocs($inner) => $body,
@@ -167,6 +169,7 @@ impl_from_for_enum!(
     KnnByteVectorQuery => KnnByteVector,
     KnnFloatVectorQuery => KnnFloatVector,
     LatLonDocValuesBoxQuery => LatLonDocValuesBox,
+    LatLonPointDistanceFeatureQuery => LatLonPointDistanceFeature,
     LatLonPointDistanceQuery => LatLonPointDistance,
     LatLonPointQuery=> LatLonPoint,
     MatchAllDocsQuery => MatchAllDocs,
@@ -212,6 +215,7 @@ impl_into_box_query!(
   KnnByteVectorQuery,
   KnnFloatVectorQuery,
   LatLonDocValuesBoxQuery,
+  LatLonPointDistanceFeatureQuery,
   LatLonPointDistanceQuery,
   LatLonPointQuery,
   MatchAllDocsQuery,
@@ -269,6 +273,7 @@ pub enum Query {
   KnnByteVector(KnnByteVectorQuery),
   KnnFloatVector(KnnFloatVectorQuery),
   LatLonDocValuesBox(LatLonDocValuesBoxQuery),
+  LatLonPointDistanceFeature(LatLonPointDistanceFeatureQuery),
   LatLonPointDistance(LatLonPointDistanceQuery),
   LatLonPoint(LatLonPointQuery),
   MatchAllDocs(MatchAllDocsQuery),
@@ -340,6 +345,7 @@ impl Query {
             KnnByteVector,
             KnnFloatVector,
             LatLonDocValuesBox,
+            LatLonPointDistanceFeature,
             LatLonPointDistance,
             LatLonPoint,
             MatchAllDocs,

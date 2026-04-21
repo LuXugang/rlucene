@@ -16,7 +16,8 @@
  */
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::leaf_reader::{
-  LRNormNumericDocValues, LRNumericDocValues, LRSortedSetDocValues, LeafReader,
+  LRNormNumericDocValues, LRNumericDocValues, LRSortedNumericDocValues, LRSortedSetDocValues,
+  LeafReader,
 };
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::util::error::lucene_error::Result;
@@ -71,6 +72,7 @@ pub type IRCLeafReaderCacheHelper<IRC> = <IRCLeafReader<IRC> as LeafReader>::Cac
 pub type IRCSSDV<IRC> = LRSortedSetDocValues<IRCLeafReader<IRC>>;
 pub type IRCNDV<IRC> = LRNumericDocValues<IRCLeafReader<IRC>>;
 pub type IRCNormNDV<IRC> = LRNormNumericDocValues<IRCLeafReader<IRC>>;
+pub type IRCSNDV<IRC> = LRSortedNumericDocValues<IRCLeafReader<IRC>>;
 
 impl<IRC> IndexReaderContext for Arc<IRC>
 where
