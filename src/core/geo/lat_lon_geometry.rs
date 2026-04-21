@@ -113,6 +113,7 @@ either_lat_lon_geometry_named!(
   }
 );
 pub type LatLonGeometryEnum = LatLonGeometryEnum5<Circle, Line, Point, Polygon, Rectangle>;
+pub type LatLonGeometryEnumComponent2D = <LatLonGeometryEnum as Geometry>::Component2D;
 impl_from_for_enum!(
 LatLonGeometryEnum,
 Circle => Circle,
