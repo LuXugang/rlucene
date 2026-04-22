@@ -21,6 +21,7 @@ use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::packed_token_and_binary::BinaryTokenStreamAttributeImpl;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 use crate::core::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
+use crate::core::analysis::token_attributes::position_length_attribute::PositionLengthAttribute;
 use crate::core::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::analysis::token_attributes::type_attribute::TypeAttribute;
@@ -69,8 +70,23 @@ pub trait AttributeSource {
     None
   }
 
+  // PositionLengthAttribute
+  fn set_position_length(&mut self, _position_length: i32) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn get_position_length(&self) -> i32 {
+    0
+  }
+  // KeywordAttribute
+  fn is_keyword(&self) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn set_keyword(&mut self, _is_keyword: bool) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn end_attributes(&mut self) {
-    // TODO
+    todo!()
   }
 
   fn clear_attributes(&mut self);
@@ -299,6 +315,24 @@ impl AttributeSource for Attributes {
     }
   }
 
+  fn set_position_length(&mut self, position_length: i32) -> Result<()> {
+    match self {
+      Attributes::PackedToken(attr) => attr.set_position_length(position_length),
+      Attributes::BinaryTokenStream(attr) => attr
+        .get_packed_token_mut()
+        .set_position_length(position_length),
+      Attributes::BytesTerm(_attr) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn get_position_length(&self) -> i32 {
+    match self {
+      Attributes::PackedToken(attr) => attr.get_position_length(),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().get_position_length(),
+      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
+    }
+  }
+
   fn end_attributes(&mut self) {
     match self {
       Attributes::PackedToken(attr) => attr.end(),
@@ -460,7 +494,26 @@ macro_rules! define_attribute_source_enum {
                     $(Self::$V(t) => t.get_term_frequency(),)+
                 }
             }
-
+            fn set_position_length(&mut self,position_length: i32) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.set_position_length(position_length),)+
+                }
+            }
+            fn get_position_length(&self) -> i32 {
+                match self {
+                    $(Self::$V(t) => t.get_position_length(),)+
+                }
+            }
+            fn is_keyword(&self) -> Result<bool>{
+                match self {
+                    $(Self::$V(t) => t.is_keyword(),)+
+                }
+            }
+            fn set_keyword(&mut self,is_keyword: bool) -> Result<()>{
+                match self {
+                    $(Self::$V(t) => t.set_keyword(is_keyword),)+
+                }
+            }
             fn end_attributes(&mut self) {
                 match self {
                     $(Self::$V(t) => t.end_attributes(),)+

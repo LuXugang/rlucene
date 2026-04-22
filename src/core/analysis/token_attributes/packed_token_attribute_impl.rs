@@ -24,8 +24,13 @@ use crate::core::analysis::token_attributes::type_attribute::{DEFAULT_TYPE, Type
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+#[cfg(test)]
+use crate::test::core::analysis::base_token_stream_test_case::{
+  CheckClearAttributesAttribute, CheckClearAttributesAttributeImpl,
+};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
+
 /// Default implementation of the common attributes used by Lucene:
 ///
 /// - [`CharTermAttribute`]
@@ -42,6 +47,8 @@ pub struct PackedTokenAttributeImpl {
   position_length: i32,
   term_frequency: i32,
   pub(crate) base: CharTermAttributeImpl,
+  #[cfg(test)]
+  check_clear_attributes: CheckClearAttributesAttributeImpl,
 }
 impl Default for PackedTokenAttributeImpl {
   fn default() -> Self {
@@ -59,6 +66,8 @@ impl PackedTokenAttributeImpl {
       position_length: 1,
       term_frequency: 1,
       base: CharTermAttributeImpl::new(),
+      #[cfg(test)]
+      check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
     }
   }
 }
@@ -213,6 +222,8 @@ impl Clone for PackedTokenAttributeImpl {
       position_length: self.position_length,
       term_frequency: self.term_frequency,
       base: self.base.clone(),
+      #[cfg(test)]
+      check_clear_attributes: self.check_clear_attributes.clone(),
     }
   }
 }
@@ -276,6 +287,12 @@ impl PartialEq for PackedTokenAttributeImpl {
 impl Display for PackedTokenAttributeImpl {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     self.base.fmt(f)
+  }
+}
+#[cfg(test)]
+impl CheckClearAttributesAttribute for PackedTokenAttributeImpl {
+  fn get_and_reset_clear_called(&mut self) -> bool {
+    self.check_clear_attributes.get_and_reset_clear_called()
   }
 }
 

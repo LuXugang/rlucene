@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::util::attribute::Attribute;
+use crate::core::util::error::lucene_error::Result;
 
 /// This attribute can be used to mark a token as a keyword. Keyword aware [`TokenStream`](crate::core::analysis::token_stream::TokenStream)s can
 /// decide to modify a token based on the return value of [`is_keyword`](KeywordAttribute::is_keyword)
@@ -26,7 +27,7 @@ pub trait KeywordAttribute: Attribute {
   /// # See
   ///
   /// [`set_keyword`](KeywordAttribute::set_keyword)
-  fn is_keyword(&self) -> bool;
+  fn is_keyword(&self) -> Result<bool>;
 
   /// Marks the current token as keyword if set to `true`.
   ///
@@ -37,5 +38,5 @@ pub trait KeywordAttribute: Attribute {
   /// # See
   ///
   /// [`is_keyword`](KeywordAttribute::is_keyword)
-  fn set_keyword(&mut self, is_keyword: bool);
+  fn set_keyword(&mut self, is_keyword: bool) -> Result<()>;
 }

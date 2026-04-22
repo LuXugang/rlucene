@@ -17,9 +17,9 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
+use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::core::analysis::token_attributes::packed_token_and_binary::BinaryTokenStreamAttributeImpl;
 use crate::core::analysis::token_stream::{
   InnerTokenStreams, TokenStream, TokenStreamBase, TokenStreamEnum2,
 };
@@ -861,7 +861,7 @@ impl BinaryTokenStream {
     Self {
       used: false,
       value: None,
-      token_stream_base: TokenStreamBase::new(BinaryTokenStreamAttributeImpl::default().into()),
+      token_stream_base: TokenStreamBase::new(BytesTermAttributeImpl::default().into()),
     }
   }
 
