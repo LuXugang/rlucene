@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::flags_attribute::FlagsAttribute;
 use crate::core::analysis::token_attributes::keyword_attribute::KeywordAttribute;
@@ -32,310 +33,7 @@ use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 
-pub trait BaseTokenStreamTestCase {
-  #[allow(clippy::too_many_arguments)]
-  fn assert_token_stream_contents<TS>(
-    ts: &mut TS,
-    output: &[&str],
-    start_offsets: Option<&[i32]>,
-    end_offsets: Option<&[i32]>,
-    types: Option<&[&str]>,
-    pos_increments: Option<&[i32]>,
-    pos_lengths: Option<&[i32]>,
-    final_offset: Option<i32>,
-    final_pos_inc: Option<i32>,
-    keyword_atts: Option<&[bool]>,
-    graph_offsets_are_correct: bool,
-    payloads: Option<&[Option<Vec<u8>>]>,
-    flags: Option<&[i32]>,
-    boost: Option<&[f32]>,
-  ) -> Result<()>
-  where
-    TS: TokenStream,
-  {
-    let (
-      offset_att,
-      type_att,
-      pos_incr_att,
-      pos_length_att,
-      keyword_att,
-      payload_att,
-      flags_att,
-      boost_att,
-    ) = {
-      let attr = ts.get_attribute_source();
-      let attribute_names = attr.get_attribute_name()?;
-
-      if !output.is_empty() {
-        assert!(attribute_names.contains(<Attributes as CharTermAttribute>::ATTRIBUTE_NAME));
-        assert!(attribute_names.contains(<Attributes as TermToBytesRefAttribute>::ATTRIBUTE_NAME));
-        // TODO IMPORTANT BytesRefBuilderTermAttributeImpl未实现
-      }
-
-      let mut offset_att = false;
-      if start_offsets.is_some() || end_offsets.is_some() || final_offset.is_some() {
-        assert!(attribute_names.contains(<Attributes as OffsetAttribute>::ATTRIBUTE_NAME));
-        offset_att = true;
-      }
-
-      let mut type_att = false;
-      if types.is_some() {
-        assert!(attribute_names.contains(<Attributes as TypeAttribute>::ATTRIBUTE_NAME));
-        type_att = true;
-      }
-
-      let mut pos_incr_att = false;
-      if pos_increments.is_some() || final_pos_inc.is_some() {
-        assert!(
-          attribute_names.contains(<Attributes as PositionIncrementAttribute>::ATTRIBUTE_NAME)
-        );
-        pos_incr_att = true;
-      }
-
-      let mut pos_length_att = false;
-      if pos_lengths.is_some() {
-        assert!(attribute_names.contains(<Attributes as PositionLengthAttribute>::ATTRIBUTE_NAME));
-        pos_length_att = true;
-      }
-
-      let mut keyword_att = false;
-      if keyword_atts.is_some() {
-        assert!(attribute_names.contains(<Attributes as KeywordAttribute>::ATTRIBUTE_NAME));
-        keyword_att = true;
-      }
-
-      let mut payload_att = false;
-      if payloads.is_some() {
-        assert!(attribute_names.contains(<Attributes as PayloadAttribute>::ATTRIBUTE_NAME));
-        payload_att = true;
-      }
-
-      let mut flags_att = false;
-      if flags.is_some() {
-        assert!(attribute_names.contains(<Attributes as FlagsAttribute>::ATTRIBUTE_NAME));
-        flags_att = true;
-      }
-
-      let mut boost_att = false;
-      if boost.is_some() {
-        assert!(attribute_names.contains(<Attributes as BoostAttribute>::ATTRIBUTE_NAME));
-        boost_att = true;
-      }
-
-      (
-        offset_att,
-        type_att,
-        pos_incr_att,
-        pos_length_att,
-        keyword_att,
-        payload_att,
-        flags_att,
-        boost_att,
-      )
-    };
-
-    let mut pos_to_start_offset: HashMap<i32, i32> = HashMap::new();
-    let mut pos_to_end_offset: HashMap<i32, i32> = HashMap::new();
-
-    ts.reset()?;
-    let mut pos = -1;
-    let mut last_start_offset = 0;
-
-    for i in 0..output.len() {
-      ts.get_attribute_source_mut().clear_attributes();
-      {
-        let attr = ts.get_attribute_source_mut();
-        attr.set_empty().append_str(Some("bogusTerm"));
-
-        if offset_att {
-          attr.set_offset(14584724, 24683243)?;
-        }
-        if type_att {
-          attr.set_type("bogusType");
-        }
-        if pos_incr_att {
-          PositionIncrementAttribute::set_position_increment(attr, 45987657)?;
-        }
-        if pos_length_att {
-          PositionLengthAttribute::set_position_length(attr, 45987653)?;
-        }
-        if keyword_att {
-          KeywordAttribute::set_keyword(attr, (i & 1) == 0)?;
-        }
-        if payload_att {
-          PayloadAttribute::set_payload(
-            attr,
-            BytesRef::from_bytes(vec![0x00, (-0x21i8) as u8, 0x12, (-0x43i8) as u8, 0x24]),
-          )
-        }
-        if flags_att {
-          FlagsAttribute::set_flags(attr, !0);
-        }
-        if boost_att {
-          BoostAttribute::set_boost(attr, -1.0);
-        }
-      }
-      {
-        let attr = ts.get_attribute_source_mut();
-        attr.get_and_reset_clear_called()?;
-      }
-      assert!(ts.increment_token()?, "token {} does not exist", i);
-      let attr = ts.get_attribute_source_mut();
-      assert!(
-        attr.get_and_reset_clear_called()?,
-        "clearAttributes() was not called correctly in TokenStream chain at token {}",
-        i
-      );
-
-      assert_eq!(output[i], attr.to_string(), "term {}", i);
-
-      if let Some(start_offsets) = start_offsets {
-        assert_eq!(start_offsets[i], OffsetAttribute::start_offset(attr));
-      }
-
-      if let Some(end_offsets) = end_offsets {
-        assert_eq!(end_offsets[i], OffsetAttribute::end_offset(attr));
-      }
-      if let Some(types) = types {
-        assert_eq!(types[i], TypeAttribute::type_value(attr));
-      }
-      if let Some(pos_increments) = pos_increments {
-        assert_eq!(
-          pos_increments[i],
-          PositionIncrementAttribute::get_position_increment(attr)
-        );
-      }
-      if let Some(pos_lengths) = pos_lengths {
-        assert_eq!(
-          pos_lengths[i],
-          PositionLengthAttribute::get_position_length(attr)
-        );
-      }
-      if let Some(keyword_atts) = keyword_atts {
-        assert_eq!(keyword_atts[i], KeywordAttribute::is_keyword(attr)?);
-      }
-      if let Some(flags) = flags {
-        assert_eq!(flags[i], FlagsAttribute::get_flags(attr));
-      }
-      if let Some(boost) = boost {
-        assert!((boost[i] - BoostAttribute::get_boost(attr)).abs() <= 0.001);
-      }
-      if let Some(payloads) = payloads
-        && let Some(payload) = &payloads[i]
-      {
-        assert_eq!(
-          &BytesRef::from_bytes(payload.clone()),
-          PayloadAttribute::get_payload(attr)
-        );
-      }
-      if pos_incr_att {
-        if i == 0 {
-          assert!(PositionIncrementAttribute::get_position_increment(attr) >= 1);
-        } else {
-          assert!(PositionIncrementAttribute::get_position_increment(attr) >= 0);
-        }
-      }
-      if pos_length_att {
-        assert!(PositionLengthAttribute::get_position_length(attr) >= 1);
-      }
-
-      if offset_att {
-        let start_offset = OffsetAttribute::start_offset(attr);
-        let end_offset = OffsetAttribute::end_offset(attr);
-
-        if let Some(final_offset) = final_offset {
-          assert!(start_offset <= final_offset);
-          assert!(end_offset <= final_offset);
-        }
-
-        assert!(OffsetAttribute::start_offset(attr) >= last_start_offset);
-        last_start_offset = OffsetAttribute::start_offset(attr);
-
-        if graph_offsets_are_correct && pos_length_att && pos_incr_att {
-          let pos_inc = PositionIncrementAttribute::get_position_increment(attr);
-          pos += pos_inc;
-
-          let pos_length = PositionLengthAttribute::get_position_length(attr);
-
-          if let Some(expected_start_offset) = pos_to_start_offset.get(&pos) {
-            assert_eq!(*expected_start_offset, start_offset);
-          } else {
-            pos_to_start_offset.insert(pos, start_offset);
-          }
-
-          let end_pos = pos + pos_length;
-
-          if let Some(expected_end_offset) = pos_to_end_offset.get(&end_pos) {
-            assert_eq!(*expected_end_offset, end_offset);
-          } else {
-            pos_to_end_offset.insert(end_pos, end_offset);
-          }
-        }
-      }
-    }
-
-    if ts.increment_token()? {
-      unreachable!("")
-    }
-
-    {
-      let attr = ts.get_attribute_source_mut();
-      if !output.is_empty() {
-        attr.set_empty().append_str(Some("bogusTerm"));
-      }
-      if offset_att {
-        attr.set_offset(14584724, 24683243)?;
-      }
-      if type_att {
-        attr.set_type("bogusType");
-      }
-      if pos_incr_att {
-        PositionIncrementAttribute::set_position_increment(attr, 45987657)?;
-      }
-      if pos_length_att {
-        PositionLengthAttribute::set_position_length(attr, 45987653)?;
-      }
-      if keyword_att {
-        KeywordAttribute::set_keyword(attr, true)?;
-      }
-      if payload_att {
-        PayloadAttribute::set_payload(
-          attr,
-          BytesRef::from_bytes(vec![0x00, (-0x21i8) as u8, 0x12, (-0x43i8) as u8, 0x24]),
-        );
-      }
-      if flags_att {
-        FlagsAttribute::set_flags(attr, !0);
-      }
-      if boost_att {
-        BoostAttribute::set_boost(attr, -1.0);
-      }
-      attr.get_and_reset_clear_called()?;
-    }
-
-    ts.end()?;
-    assert!(ts.get_attribute_source_mut().get_and_reset_clear_called()?);
-
-    if let Some(final_offset) = final_offset {
-      assert_eq!(
-        final_offset,
-        OffsetAttribute::end_offset(ts.get_attribute_source())
-      );
-    }
-    if offset_att {
-      assert!(OffsetAttribute::end_offset(ts.get_attribute_source()) >= 0);
-    }
-    if let Some(final_pos_inc) = final_pos_inc {
-      assert_eq!(
-        final_pos_inc,
-        PositionIncrementAttribute::get_position_increment(ts.get_attribute_source())
-      );
-    }
-
-    ts.close()?;
-    Ok(())
-  }
-}
+pub trait BaseTokenStreamTestCase {}
 
 pub trait CheckClearAttributesAttribute: AttributeImpl {
   const ATTRIBUTE_NAME: &'static str = "CheckClearAttributesAttribute";
@@ -386,4 +84,789 @@ impl CheckClearAttributesAttribute for CheckClearAttributesAttributeImpl {
     self.clear_called = false;
     self.clear_called
   }
+}
+#[allow(clippy::too_many_arguments)]
+fn assert_token_stream_contents<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  final_offset: Option<i32>,
+  final_pos_inc: Option<i32>,
+  keyword_atts: Option<&[bool]>,
+  graph_offsets_are_correct: bool,
+  payloads: Option<&[Option<Vec<u8>>]>,
+  flags: Option<&[i32]>,
+  boost: Option<&[f32]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  let (
+    offset_att,
+    type_att,
+    pos_incr_att,
+    pos_length_att,
+    keyword_att,
+    payload_att,
+    flags_att,
+    boost_att,
+  ) = {
+    let attr = ts.get_attribute_source();
+    let attribute_names = attr.get_attribute_name()?;
+
+    if !output.is_empty() {
+      assert!(attribute_names.contains(<Attributes as CharTermAttribute>::ATTRIBUTE_NAME));
+      assert!(attribute_names.contains(<Attributes as TermToBytesRefAttribute>::ATTRIBUTE_NAME));
+      // TODO IMPORTANT BytesRefBuilderTermAttributeImpl未实现
+    }
+
+    let mut offset_att = false;
+    if start_offsets.is_some() || end_offsets.is_some() || final_offset.is_some() {
+      assert!(attribute_names.contains(<Attributes as OffsetAttribute>::ATTRIBUTE_NAME));
+      offset_att = true;
+    }
+
+    let mut type_att = false;
+    if types.is_some() {
+      assert!(attribute_names.contains(<Attributes as TypeAttribute>::ATTRIBUTE_NAME));
+      type_att = true;
+    }
+
+    let mut pos_incr_att = false;
+    if pos_increments.is_some() || final_pos_inc.is_some() {
+      assert!(attribute_names.contains(<Attributes as PositionIncrementAttribute>::ATTRIBUTE_NAME));
+      pos_incr_att = true;
+    }
+
+    let mut pos_length_att = false;
+    if pos_lengths.is_some() {
+      assert!(attribute_names.contains(<Attributes as PositionLengthAttribute>::ATTRIBUTE_NAME));
+      pos_length_att = true;
+    }
+
+    let mut keyword_att = false;
+    if keyword_atts.is_some() {
+      assert!(attribute_names.contains(<Attributes as KeywordAttribute>::ATTRIBUTE_NAME));
+      keyword_att = true;
+    }
+
+    let mut payload_att = false;
+    if payloads.is_some() {
+      assert!(attribute_names.contains(<Attributes as PayloadAttribute>::ATTRIBUTE_NAME));
+      payload_att = true;
+    }
+
+    let mut flags_att = false;
+    if flags.is_some() {
+      assert!(attribute_names.contains(<Attributes as FlagsAttribute>::ATTRIBUTE_NAME));
+      flags_att = true;
+    }
+
+    let mut boost_att = false;
+    if boost.is_some() {
+      assert!(attribute_names.contains(<Attributes as BoostAttribute>::ATTRIBUTE_NAME));
+      boost_att = true;
+    }
+
+    (
+      offset_att,
+      type_att,
+      pos_incr_att,
+      pos_length_att,
+      keyword_att,
+      payload_att,
+      flags_att,
+      boost_att,
+    )
+  };
+
+  let mut pos_to_start_offset: HashMap<i32, i32> = HashMap::new();
+  let mut pos_to_end_offset: HashMap<i32, i32> = HashMap::new();
+
+  ts.reset()?;
+  let mut pos = -1;
+  let mut last_start_offset = 0;
+
+  for i in 0..output.len() {
+    ts.get_attribute_source_mut().clear_attributes();
+    {
+      let attr = ts.get_attribute_source_mut();
+      attr.set_empty().append_str(Some("bogusTerm"));
+
+      if offset_att {
+        attr.set_offset(14584724, 24683243)?;
+      }
+      if type_att {
+        attr.set_type("bogusType");
+      }
+      if pos_incr_att {
+        PositionIncrementAttribute::set_position_increment(attr, 45987657)?;
+      }
+      if pos_length_att {
+        PositionLengthAttribute::set_position_length(attr, 45987653)?;
+      }
+      if keyword_att {
+        KeywordAttribute::set_keyword(attr, (i & 1) == 0)?;
+      }
+      if payload_att {
+        PayloadAttribute::set_payload(
+          attr,
+          BytesRef::from_bytes(vec![0x00, (-0x21i8) as u8, 0x12, (-0x43i8) as u8, 0x24]),
+        )
+      }
+      if flags_att {
+        FlagsAttribute::set_flags(attr, !0);
+      }
+      if boost_att {
+        BoostAttribute::set_boost(attr, -1.0);
+      }
+    }
+    {
+      let attr = ts.get_attribute_source_mut();
+      attr.get_and_reset_clear_called()?;
+    }
+    assert!(ts.increment_token()?, "token {} does not exist", i);
+    let attr = ts.get_attribute_source_mut();
+    assert!(
+      attr.get_and_reset_clear_called()?,
+      "clearAttributes() was not called correctly in TokenStream chain at token {}",
+      i
+    );
+
+    assert_eq!(output[i], attr.to_string(), "term {}", i);
+
+    if let Some(start_offsets) = start_offsets {
+      assert_eq!(start_offsets[i], OffsetAttribute::start_offset(attr));
+    }
+
+    if let Some(end_offsets) = end_offsets {
+      assert_eq!(end_offsets[i], OffsetAttribute::end_offset(attr));
+    }
+    if let Some(types) = types {
+      assert_eq!(types[i], TypeAttribute::type_value(attr));
+    }
+    if let Some(pos_increments) = pos_increments {
+      assert_eq!(
+        pos_increments[i],
+        PositionIncrementAttribute::get_position_increment(attr)
+      );
+    }
+    if let Some(pos_lengths) = pos_lengths {
+      assert_eq!(
+        pos_lengths[i],
+        PositionLengthAttribute::get_position_length(attr)
+      );
+    }
+    if let Some(keyword_atts) = keyword_atts {
+      assert_eq!(keyword_atts[i], KeywordAttribute::is_keyword(attr)?);
+    }
+    if let Some(flags) = flags {
+      assert_eq!(flags[i], FlagsAttribute::get_flags(attr));
+    }
+    if let Some(boost) = boost {
+      assert!((boost[i] - BoostAttribute::get_boost(attr)).abs() <= 0.001);
+    }
+    if let Some(payloads) = payloads
+      && let Some(payload) = &payloads[i]
+    {
+      assert_eq!(
+        &BytesRef::from_bytes(payload.clone()),
+        PayloadAttribute::get_payload(attr)
+      );
+    }
+    if pos_incr_att {
+      if i == 0 {
+        assert!(PositionIncrementAttribute::get_position_increment(attr) >= 1);
+      } else {
+        assert!(PositionIncrementAttribute::get_position_increment(attr) >= 0);
+      }
+    }
+    if pos_length_att {
+      assert!(PositionLengthAttribute::get_position_length(attr) >= 1);
+    }
+
+    if offset_att {
+      let start_offset = OffsetAttribute::start_offset(attr);
+      let end_offset = OffsetAttribute::end_offset(attr);
+
+      if let Some(final_offset) = final_offset {
+        assert!(start_offset <= final_offset);
+        assert!(end_offset <= final_offset);
+      }
+
+      assert!(OffsetAttribute::start_offset(attr) >= last_start_offset);
+      last_start_offset = OffsetAttribute::start_offset(attr);
+
+      if graph_offsets_are_correct && pos_length_att && pos_incr_att {
+        let pos_inc = PositionIncrementAttribute::get_position_increment(attr);
+        pos += pos_inc;
+
+        let pos_length = PositionLengthAttribute::get_position_length(attr);
+
+        if let Some(expected_start_offset) = pos_to_start_offset.get(&pos) {
+          assert_eq!(*expected_start_offset, start_offset);
+        } else {
+          pos_to_start_offset.insert(pos, start_offset);
+        }
+
+        let end_pos = pos + pos_length;
+
+        if let Some(expected_end_offset) = pos_to_end_offset.get(&end_pos) {
+          assert_eq!(*expected_end_offset, end_offset);
+        } else {
+          pos_to_end_offset.insert(end_pos, end_offset);
+        }
+      }
+    }
+  }
+
+  if ts.increment_token()? {
+    unreachable!("")
+  }
+
+  {
+    let attr = ts.get_attribute_source_mut();
+    if !output.is_empty() {
+      attr.set_empty().append_str(Some("bogusTerm"));
+    }
+    if offset_att {
+      attr.set_offset(14584724, 24683243)?;
+    }
+    if type_att {
+      attr.set_type("bogusType");
+    }
+    if pos_incr_att {
+      PositionIncrementAttribute::set_position_increment(attr, 45987657)?;
+    }
+    if pos_length_att {
+      PositionLengthAttribute::set_position_length(attr, 45987653)?;
+    }
+    if keyword_att {
+      KeywordAttribute::set_keyword(attr, true)?;
+    }
+    if payload_att {
+      PayloadAttribute::set_payload(
+        attr,
+        BytesRef::from_bytes(vec![0x00, (-0x21i8) as u8, 0x12, (-0x43i8) as u8, 0x24]),
+      );
+    }
+    if flags_att {
+      FlagsAttribute::set_flags(attr, !0);
+    }
+    if boost_att {
+      BoostAttribute::set_boost(attr, -1.0);
+    }
+    attr.get_and_reset_clear_called()?;
+  }
+
+  ts.end()?;
+  assert!(ts.get_attribute_source_mut().get_and_reset_clear_called()?);
+
+  if let Some(final_offset) = final_offset {
+    assert_eq!(
+      final_offset,
+      OffsetAttribute::end_offset(ts.get_attribute_source())
+    );
+  }
+  if offset_att {
+    assert!(OffsetAttribute::end_offset(ts.get_attribute_source()) >= 0);
+  }
+  if let Some(final_pos_inc) = final_pos_inc {
+    assert_eq!(
+      final_pos_inc,
+      PositionIncrementAttribute::get_position_increment(ts.get_attribute_source())
+    );
+  }
+
+  ts.close()?;
+  Ok(())
+}
+
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub fn assertTokenStreamContents1<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  final_offset: Option<i32>,
+  final_pos_inc: Option<i32>,
+  keyword_atts: Option<&[bool]>,
+  graph_offsets_are_correct: bool,
+  payloads: Option<&[Option<Vec<u8>>]>,
+  flags: Option<&[i32]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assert_token_stream_contents(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    pos_lengths,
+    final_offset,
+    final_pos_inc,
+    keyword_atts,
+    graph_offsets_are_correct,
+    payloads,
+    flags,
+    None,
+  )
+}
+
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub fn assertTokenStreamContents2<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  final_offset: Option<i32>,
+  keyword_atts: Option<&[bool]>,
+  graph_offsets_are_correct: bool,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents3(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    pos_lengths,
+    final_offset,
+    keyword_atts,
+    graph_offsets_are_correct,
+    None,
+  )
+}
+
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub fn assertTokenStreamContents3<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  final_offset: Option<i32>,
+  keyword_atts: Option<&[bool]>,
+  graph_offsets_are_correct: bool,
+  boost: Option<&[f32]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assert_token_stream_contents(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    pos_lengths,
+    final_offset,
+    None,
+    keyword_atts,
+    graph_offsets_are_correct,
+    None,
+    None,
+    boost,
+  )
+}
+
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub fn assertTokenStreamContents4<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  final_offset: Option<i32>,
+  final_pos_inc: Option<i32>,
+  keyword_atts: Option<&[bool]>,
+  graph_offsets_are_correct: bool,
+  payloads: Option<&[Option<Vec<u8>>]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assert_token_stream_contents(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    pos_lengths,
+    final_offset,
+    final_pos_inc,
+    keyword_atts,
+    graph_offsets_are_correct,
+    payloads,
+    None,
+    None,
+  )
+}
+
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub fn assertTokenStreamContents5<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  final_offset: Option<i32>,
+  graph_offsets_are_correct: bool,
+  boost: Option<&[f32]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents3(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    pos_lengths,
+    final_offset,
+    None,
+    graph_offsets_are_correct,
+    boost,
+  )
+}
+
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub fn assertTokenStreamContents6<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  final_offset: Option<i32>,
+  graph_offsets_are_correct: bool,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents3(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    pos_lengths,
+    final_offset,
+    None,
+    graph_offsets_are_correct,
+    None,
+  )
+}
+
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub fn assertTokenStreamContents7<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  final_offset: Option<i32>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents6(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    pos_lengths,
+    final_offset,
+    true,
+  )
+}
+
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub fn assertTokenStreamContents8<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  final_offset: Option<i32>,
+  boost: Option<&[f32]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents5(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    pos_lengths,
+    final_offset,
+    true,
+    boost,
+  )
+}
+
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub fn assertTokenStreamContents9<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  final_offset: Option<i32>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents7(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    None,
+    final_offset,
+  )
+}
+
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub fn assertTokenStreamContents10<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents7(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    None,
+    None,
+  )
+}
+
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub fn assertTokenStreamContents11<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents7(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    pos_lengths,
+    None,
+  )
+}
+
+#[allow(non_snake_case)]
+pub fn assertTokenStreamContents12<TS>(ts: &mut TS, output: &[&str]) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents7(ts, output, None, None, None, None, None, None)
+}
+
+#[allow(non_snake_case)]
+pub fn assertTokenStreamContents13<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  types: Option<&[&str]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents7(ts, output, None, None, types, None, None, None)
+}
+
+#[allow(non_snake_case)]
+pub fn assertTokenStreamContents14<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  pos_increments: Option<&[i32]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents7(ts, output, None, None, None, pos_increments, None, None)
+}
+
+#[allow(non_snake_case)]
+pub fn assertTokenStreamContents15<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents7(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    None,
+    None,
+    None,
+    None,
+  )
+}
+
+#[allow(non_snake_case)]
+pub fn assertTokenStreamContents16<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  final_offset: Option<i32>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents7(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    None,
+    None,
+    None,
+    final_offset,
+  )
+}
+
+#[allow(non_snake_case)]
+pub fn assertTokenStreamContents17<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  pos_increments: Option<&[i32]>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents7(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    None,
+    pos_increments,
+    None,
+    None,
+  )
+}
+
+#[allow(non_snake_case)]
+pub fn assertTokenStreamContents18<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  pos_increments: Option<&[i32]>,
+  final_offset: Option<i32>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents7(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    None,
+    pos_increments,
+    None,
+    final_offset,
+  )
+}
+
+#[allow(non_snake_case)]
+pub fn assertTokenStreamContents19<TS>(
+  ts: &mut TS,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  final_offset: Option<i32>,
+) -> Result<()>
+where
+  TS: TokenStream,
+{
+  assertTokenStreamContents7(
+    ts,
+    output,
+    start_offsets,
+    end_offsets,
+    None,
+    pos_increments,
+    pos_lengths,
+    final_offset,
+  )
+}
+fn check_reset_exception<A>(_a: &A, _input: &str) -> Result<()>
+where
+  A: Analyzer,
+{
+  Ok(())
 }
