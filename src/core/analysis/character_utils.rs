@@ -26,7 +26,7 @@ impl CharacterUtils {
     }
     Ok(CharacterBuffer::new(vec!['\0'; buffer_size], 0, 0))
   }
-  pub fn get_lower_case(buffer: &mut [char], offset: usize, limit: usize) {
+  pub fn convert_to_lower_case(buffer: &mut [char], offset: usize, limit: usize) {
     debug_assert!(buffer.len() >= limit);
     debug_assert!(offset <= buffer.len());
 
@@ -187,7 +187,7 @@ mod tests {
     let mut buffer = CharacterUtils::new_character_buffer(3)?;
     assert!(CharacterUtils::fill_with_num(&mut buffer, &mut reader, 3)?);
     assert_eq!(buffer.length, 3);
-    CharacterUtils::get_lower_case(&mut buffer.buffer, 1, 3);
+    CharacterUtils::convert_to_lower_case(&mut buffer.buffer, 1, 3);
     let s: String = buffer.buffer.iter().collect();
     assert_eq!(s, "Abc");
     CharacterUtils::get_upper_case(&mut buffer.buffer, 1, 3);

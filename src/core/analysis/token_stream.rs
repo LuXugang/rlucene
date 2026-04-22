@@ -20,12 +20,14 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 use crate::core::document::field::StringTokenStream;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 
 pub trait TokenStream {
   fn increment_token(&mut self) -> Result<bool> {
-    unreachable!("must be implemented by sub");
+    Err(LuceneError::unsupported_operation(
+      "must be implemented by sub",
+    ))
   }
   fn end(&mut self) -> Result<()>;
   fn default_end(&mut self) -> Result<()> {
@@ -59,7 +61,7 @@ impl TokenStreamBase {
 }
 
 pub fn default_attribute() -> Attributes {
-  Attributes::PackedToken(PackedTokenAttributeImpl::new())
+  PackedTokenAttributeImpl::new().into()
 }
 macro_rules! either_token_stream {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {

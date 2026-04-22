@@ -15,4 +15,5 @@
  * limitations under the License.
  */
 
+pub struct StandardTokenizer;
 pub const MAX_TOKEN_LENGTH_LIMIT: i32 = 1024 * 1024; // 1MB

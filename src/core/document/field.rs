@@ -861,9 +861,7 @@ impl BinaryTokenStream {
     Self {
       used: false,
       value: None,
-      token_stream_base: TokenStreamBase::new(Attributes::BinaryTokenStream(
-        BinaryTokenStreamAttributeImpl::default(),
-      )),
+      token_stream_base: TokenStreamBase::new(BinaryTokenStreamAttributeImpl::default().into()),
     }
   }
 

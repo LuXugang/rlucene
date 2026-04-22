@@ -27,6 +27,7 @@ use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::impl_from_for_enum;
 use std::borrow::Cow;
 
 pub trait AttributeSource {
@@ -79,7 +80,12 @@ pub enum Attributes {
   BytesTerm(BytesTermAttributeImpl),
   BinaryTokenStream(BinaryTokenStreamAttributeImpl),
 }
-
+impl_from_for_enum!(
+    Attributes,
+    PackedTokenAttributeImpl=> PackedToken,
+    BytesTermAttributeImpl=> BytesTerm,
+    BinaryTokenStreamAttributeImpl=> BinaryTokenStream,
+);
 impl Attribute for Attributes {}
 
 impl CharTermAttribute for Attributes {

@@ -22,6 +22,7 @@ pub mod char_filter;
 pub mod character_utils;
 pub mod dummy;
 mod filtering_token_filter;
+mod lower_case_filter;
 pub mod reader;
 pub(crate) mod reusable_string_reader;
 pub mod standard;
