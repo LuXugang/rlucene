@@ -23,6 +23,7 @@ use crate::core::analysis::token_attributes::packed_token_attribute_impl::Packed
 use crate::core::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
 use crate::core::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
+use crate::core::analysis::token_attributes::type_attribute::TypeAttribute;
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
@@ -338,6 +339,24 @@ impl OffsetAttribute for Attributes {
     match self {
       Attributes::PackedToken(attr) => attr.end_offset(),
       Attributes::BinaryTokenStream(attr) => attr.get_packed_token().end_offset(),
+      _ => unimplemented!("not support"),
+    }
+  }
+}
+
+impl TypeAttribute for Attributes {
+  fn type_value(&self) -> &str {
+    match self {
+      Attributes::PackedToken(attr) => attr.type_value(),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().type_value(),
+      _ => unimplemented!("not support"),
+    }
+  }
+
+  fn set_type(&mut self, type_: &str) {
+    match self {
+      Attributes::PackedToken(attr) => attr.set_type(type_),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token_mut().set_type(type_),
       _ => unimplemented!("not support"),
     }
   }

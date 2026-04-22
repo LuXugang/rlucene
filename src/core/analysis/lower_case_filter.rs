@@ -16,9 +16,8 @@
  */
 use crate::core::analysis::character_utils::CharacterUtils;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
-use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 use crate::core::analysis::token_filter::{TokenFilter, TokenFilterBase};
-use crate::core::analysis::token_stream::{TokenStream, TokenStreamBase};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::Result;
 /// Normalizes token text to lower case.
@@ -27,7 +26,6 @@ where
   TS: TokenStream,
 {
   token_filter_base: TokenFilterBase<TS>,
-  token_stream_base: TokenStreamBase,
 }
 impl<TS> LowerCaseFilter<TS>
 where
@@ -40,11 +38,7 @@ where
   /// - `in_`: `TokenStream` to filter.
   pub fn new(input: TS) -> Self {
     let token_filter_base = TokenFilterBase::new(input);
-    let token_stream_base = TokenStreamBase::new(PackedTokenAttributeImpl::default().into());
-    Self {
-      token_filter_base,
-      token_stream_base,
-    }
+    Self { token_filter_base }
   }
 }
 
@@ -76,11 +70,11 @@ where
   }
 
   fn get_attribute_source(&self) -> &Attributes {
-    &self.token_stream_base.att
+    self.token_filter_base.input.get_attribute_source()
   }
 
   fn get_attribute_source_mut(&mut self) -> &mut Attributes {
-    &mut self.token_stream_base.att
+    self.token_filter_base.input.get_attribute_source_mut()
   }
 }
 
