@@ -16,9 +16,10 @@
  */
 use crate::core::util::attribute::Attribute;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::Display;
 
 /// The term text of a `Token`.
-pub trait CharTermAttribute: Attribute {
+pub trait CharTermAttribute: Attribute + Display {
   fn length(&self) -> usize;
   /// Copies the contents of `buffer[offset..offset+length]` into the internal term buffer.
   ///

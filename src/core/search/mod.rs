@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 mod abstract_knn_collector;
-mod boost_attribute;
+pub mod boost_attribute;
 pub mod bulk_scorer;
 pub mod collection_statistics;
 pub mod collector;

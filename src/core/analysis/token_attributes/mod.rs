@@ -20,7 +20,7 @@ pub mod char_term_attribute;
 pub mod char_term_attribute_impl;
 pub mod dummy;
 pub mod flags_attribute;
-mod keyword_attribute;
+pub mod keyword_attribute;
 pub mod offset_attribute;
 pub mod packed_token_and_binary;
 pub mod packed_token_attribute_impl;

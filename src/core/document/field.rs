@@ -549,9 +549,13 @@ impl IndexableField for Field {
             LuceneError::illegal_state("Expected binary value to be present after is_some() check")
           })?
           .into_owned();
-        let ts = self
-          .ts
-          .get_or_insert_with(|| TokenStreamEnum2::A(BinaryTokenStream::new()));
+        let ts = match self.ts {
+          Some(ref mut ts) => ts,
+          None => {
+            let ts = TokenStreamEnum2::A(BinaryTokenStream::new()?);
+            self.ts.insert(ts)
+          },
+        };
 
         match ts {
           TokenStreamEnum2::A(v) => v.set_value(binary_value),
@@ -857,12 +861,12 @@ pub struct BinaryTokenStream {
 
 impl BinaryTokenStream {
   /// Creates a new TokenStream that returns a BytesRef as single token.
-  pub(crate) fn new() -> Self {
-    Self {
+  pub(crate) fn new() -> Result<Self> {
+    Ok(Self {
       used: false,
       value: None,
-      token_stream_base: TokenStreamBase::new(BinaryTokenStreamAttributeImpl::default().into()),
-    }
+      token_stream_base: TokenStreamBase::new(BinaryTokenStreamAttributeImpl::new()?.into()),
+    })
   }
 
   /// Sets the bytes value.

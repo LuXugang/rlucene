@@ -20,26 +20,61 @@ use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::Result;
+#[cfg(test)]
+use crate::test::core::analysis::base_token_stream_test_case::{
+  CheckClearAttributesAttribute, CheckClearAttributesAttributeImpl,
+};
 use std::borrow::Cow;
+#[cfg(test)]
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 /// Implementation class for BytesTermAttribute.
 pub struct BytesTermAttributeImpl {
   bytes: Option<BytesRef<Vec<u8>>>,
+  #[cfg(test)]
+  check_clear_attributes: CheckClearAttributesAttributeImpl,
+  #[cfg(test)]
+  attribute: HashSet<String>,
 }
 impl Default for BytesTermAttributeImpl {
   fn default() -> Self {
     Self::new()
   }
 }
-
+#[cfg(test)]
+impl CheckClearAttributesAttribute for BytesTermAttributeImpl {
+  fn get_and_reset_clear_called(&mut self) -> bool {
+    self.check_clear_attributes.get_and_reset_clear_called()
+  }
+}
 impl BytesTermAttributeImpl {
   pub fn new() -> Self {
-    Self { bytes: None }
+    // TODO is there a better way to do this?
+    #[cfg(test)]
+    let mut attribute = HashSet::new();
+    #[cfg(test)]
+    {
+      attribute.insert("CharTermAttribute".to_string());
+      attribute.insert("TermToBytesRefAttribute".to_string());
+    }
+    Self {
+      bytes: None,
+      #[cfg(test)]
+      check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
+      #[cfg(test)]
+      attribute,
+    }
   }
 }
 
-impl Attribute for BytesTermAttributeImpl {}
+impl Attribute for BytesTermAttributeImpl {
+  #[cfg(test)]
+  fn get_attribute_name(&self) -> Result<&HashSet<String>> {
+    Ok(&self.attribute)
+  }
+}
 
 impl Clone for BytesTermAttributeImpl {
   fn clone(&self) -> Self {
@@ -87,6 +122,11 @@ impl Hash for BytesTermAttributeImpl {
 impl PartialEq for BytesTermAttributeImpl {
   fn eq(&self, other: &Self) -> bool {
     self.bytes == other.bytes
+  }
+}
+impl Display for BytesTermAttributeImpl {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 

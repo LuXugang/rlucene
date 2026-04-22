@@ -14,5 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(test)]
+use crate::core::util::error::lucene_error::LuceneError;
+#[cfg(test)]
+use crate::core::util::error::lucene_error::Result;
+#[cfg(test)]
+use std::collections::HashSet;
+
 /// Base interface for attributes.
-pub trait Attribute {}
+pub trait Attribute {
+  #[cfg(test)]
+  fn get_attribute_name(&self) -> Result<&HashSet<String>> {
+    Err(LuceneError::need_implemented(""))
+  }
+}

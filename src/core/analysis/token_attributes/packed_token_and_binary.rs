@@ -16,12 +16,48 @@
  */
 use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
+#[cfg(test)]
+use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
+use crate::core::util::error::lucene_error::Result;
+#[cfg(test)]
+use crate::test::core::analysis::base_token_stream_test_case::CheckClearAttributesAttribute;
+#[cfg(test)]
+use crate::test::core::analysis::base_token_stream_test_case::CheckClearAttributesAttributeImpl;
+#[cfg(test)]
+use std::collections::HashSet;
+use std::fmt::Display;
 
-#[derive(Default)]
 pub struct BinaryTokenStreamAttributeImpl {
   packed_token: PackedTokenAttributeImpl,
   binary: BytesTermAttributeImpl,
+  #[cfg(test)]
+  check_clear_attributes: CheckClearAttributesAttributeImpl,
+  #[cfg(test)]
+  attribute: HashSet<String>,
+}
+
+impl BinaryTokenStreamAttributeImpl {
+  pub fn new() -> Result<Self> {
+    let packed_token = PackedTokenAttributeImpl::default();
+    let binary = BytesTermAttributeImpl::default();
+    // TODO is there a better way to do this?
+    #[cfg(test)]
+    let mut attribute = HashSet::new();
+    #[cfg(test)]
+    {
+      attribute.extend(packed_token.get_attribute_name()?.clone());
+      attribute.extend(binary.get_attribute_name()?.clone());
+    }
+    Ok(Self {
+      packed_token,
+      binary,
+      #[cfg(test)]
+      check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
+      #[cfg(test)]
+      attribute,
+    })
+  }
 }
 impl BinaryTokenStreamAttributeImpl {
   pub fn get_packed_token(&self) -> &PackedTokenAttributeImpl {
@@ -39,5 +75,40 @@ impl BinaryTokenStreamAttributeImpl {
   pub fn clear(&mut self) {
     self.binary.clear();
     self.packed_token.clear()
+  }
+}
+impl Display for BinaryTokenStreamAttributeImpl {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    self.packed_token.fmt(f)
+  }
+}
+
+#[cfg(test)]
+impl AttributeImpl for BinaryTokenStreamAttributeImpl {
+  fn clear(&mut self) {
+    self.check_clear_attributes.clear();
+  }
+
+  type AttributeImpl = CheckClearAttributesAttributeImpl;
+
+  fn copy_to(&self, other: &mut Self::AttributeImpl) {
+    self.check_clear_attributes.copy_to(other)
+  }
+}
+
+#[cfg(test)]
+impl Attribute for BinaryTokenStreamAttributeImpl {}
+
+#[cfg(test)]
+impl Clone for BinaryTokenStreamAttributeImpl {
+  fn clone(&self) -> Self {
+    unreachable!("")
+  }
+}
+
+#[cfg(test)]
+impl CheckClearAttributesAttribute for BinaryTokenStreamAttributeImpl {
+  fn get_and_reset_clear_called(&mut self) -> bool {
+    self.check_clear_attributes.get_and_reset_clear_called()
   }
 }

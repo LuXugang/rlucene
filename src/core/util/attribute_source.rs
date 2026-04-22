@@ -17,20 +17,29 @@
 use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
 use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
+use crate::core::analysis::token_attributes::flags_attribute::FlagsAttribute;
+use crate::core::analysis::token_attributes::keyword_attribute::KeywordAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::packed_token_and_binary::BinaryTokenStreamAttributeImpl;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
+use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
 use crate::core::analysis::token_attributes::position_length_attribute::PositionLengthAttribute;
 use crate::core::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::analysis::token_attributes::type_attribute::TypeAttribute;
 use crate::core::index::BytesRef;
+use crate::core::search::boost_attribute::BoostAttribute;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
+#[cfg(test)]
+use crate::test::core::analysis::base_token_stream_test_case::CheckClearAttributesAttribute;
 use std::borrow::Cow;
+#[cfg(test)]
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 
 pub trait AttributeSource {
   // OffsetAttribute
@@ -59,6 +68,9 @@ pub trait AttributeSource {
   fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     Ok(None)
   }
+  fn set_payload(&mut self, _payload: BytesRef<Vec<u8>>) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
   // TermToBytesRefAttribute;
   fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
@@ -84,6 +96,21 @@ pub trait AttributeSource {
   fn set_keyword(&mut self, _is_keyword: bool) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
+  // FlagsAttribute
+  fn get_flags(&self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn set_flags(&mut self, _flags: i32) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn set_boost(&mut self, _boost: f32) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_boost(&self) -> Result<f32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
   fn end_attributes(&mut self) {
     todo!()
@@ -97,13 +124,41 @@ pub enum Attributes {
   BytesTerm(BytesTermAttributeImpl),
   BinaryTokenStream(BinaryTokenStreamAttributeImpl),
 }
+impl Display for Attributes {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Attributes::PackedToken(attr) => attr.fmt(f),
+      Attributes::BytesTerm(attr) => attr.fmt(f),
+      Attributes::BinaryTokenStream(attr) => attr.fmt(f),
+    }
+  }
+}
+#[cfg(test)]
+impl Attributes {
+  pub fn get_and_reset_clear_called(&mut self) -> Result<bool> {
+    match self {
+      Attributes::PackedToken(attr) => Ok(attr.get_and_reset_clear_called()),
+      Attributes::BytesTerm(attr) => Ok(attr.get_and_reset_clear_called()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_and_reset_clear_called()),
+    }
+  }
+}
 impl_from_for_enum!(
     Attributes,
     PackedTokenAttributeImpl=> PackedToken,
     BytesTermAttributeImpl=> BytesTerm,
     BinaryTokenStreamAttributeImpl=> BinaryTokenStream,
 );
-impl Attribute for Attributes {}
+impl Attribute for Attributes {
+  #[cfg(test)]
+  fn get_attribute_name(&self) -> Result<&HashSet<String>> {
+    match self {
+      Attributes::PackedToken(attr) => attr.get_attribute_name(),
+      Attributes::BytesTerm(attr) => attr.get_attribute_name(),
+      Attributes::BinaryTokenStream(attr) => attr.get_attribute_name(),
+    }
+  }
+}
 
 impl CharTermAttribute for Attributes {
   fn length(&self) -> usize {
@@ -232,6 +287,112 @@ impl CharTermAttribute for Attributes {
         self
       },
       _ => unimplemented!("not support"),
+    }
+  }
+}
+impl PositionIncrementAttribute for Attributes {
+  fn set_position_increment(&mut self, position_increment: i32) -> Result<()> {
+    match self {
+      Attributes::PackedToken(attr) => attr.set_position_increment(position_increment),
+      Attributes::BinaryTokenStream(attr) => attr
+        .get_packed_token_mut()
+        .set_position_increment(position_increment),
+      _ => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn get_position_increment(&self) -> i32 {
+    match self {
+      Attributes::PackedToken(attr) => attr.get_position_increment(),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().get_position_increment(),
+      _ => unimplemented!("not support"),
+    }
+  }
+}
+impl PositionLengthAttribute for Attributes {
+  fn set_position_length(&mut self, position_length: i32) -> Result<()> {
+    match self {
+      Attributes::PackedToken(attr) => attr.set_position_length(position_length),
+      Attributes::BinaryTokenStream(attr) => attr
+        .get_packed_token_mut()
+        .set_position_length(position_length),
+      _ => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn get_position_length(&self) -> i32 {
+    match self {
+      Attributes::PackedToken(attr) => attr.get_position_length(),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().get_position_length(),
+      _ => unimplemented!("not support"),
+    }
+  }
+}
+impl FlagsAttribute for Attributes {
+  fn get_flags(&self) -> i32 {
+    match self {
+      Attributes::PackedToken(_attr) => unimplemented!("not support"),
+      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
+      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
+    }
+  }
+
+  fn set_flags(&mut self, _flags: i32) {
+    match self {
+      Attributes::PackedToken(_attr) => unimplemented!("not support"),
+      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
+      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
+    }
+  }
+}
+impl KeywordAttribute for Attributes {
+  fn is_keyword(&self) -> Result<bool> {
+    match self {
+      Attributes::PackedToken(_attr) => unimplemented!("not support"),
+      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
+      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
+    }
+  }
+
+  fn set_keyword(&mut self, _is_keyword: bool) -> Result<()> {
+    match self {
+      Attributes::PackedToken(_attr) => unimplemented!("not support"),
+      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
+      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
+    }
+  }
+}
+impl BoostAttribute for Attributes {
+  fn set_boost(&mut self, _boost: f32) {
+    match self {
+      Attributes::PackedToken(_attr) => unimplemented!("not support"),
+      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
+      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
+    }
+  }
+
+  fn get_boost(&self) -> f32 {
+    match self {
+      Attributes::PackedToken(_attr) => unimplemented!("not support"),
+      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
+      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
+    }
+  }
+}
+impl PayloadAttribute for Attributes {
+  fn get_payload(&self) -> &BytesRef<Vec<u8>> {
+    match self {
+      Attributes::PackedToken(_attr) => unimplemented!("not support"),
+      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
+      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
+    }
+  }
+
+  fn set_payload(&mut self, _payload: BytesRef<Vec<u8>>) {
+    match self {
+      Attributes::PackedToken(_attr) => unimplemented!("not support"),
+      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
+      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
     }
   }
 }
@@ -478,6 +639,11 @@ macro_rules! define_attribute_source_enum {
                     $(Self::$V(t) => t.get_payload(),)+
                 }
             }
+            fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.set_payload(payload),)+
+                }
+            }
 
             fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
                 match self {
@@ -508,6 +674,27 @@ macro_rules! define_attribute_source_enum {
             fn set_keyword(&mut self,is_keyword: bool) -> Result<()>{
                 match self {
                     $(Self::$V(t) => t.set_keyword(is_keyword),)+
+                }
+            }
+            fn get_flags(&self) -> Result<i32>{
+                match self {
+                    $(Self::$V(t) => t.get_flags(),)+
+                }
+            }
+            fn set_flags(&mut self,flags: i32) -> Result<()>{
+                match self {
+                    $(Self::$V(t) => t.set_flags(flags),)+
+                }
+            }
+
+            fn set_boost(&mut self,boost: f32) -> Result<()>{
+                match self {
+                    $(Self::$V(t) => t.set_boost(boost),)+
+                }
+            }
+            fn get_boost(&self) -> Result<f32>{
+                match self {
+                    $(Self::$V(t) => t.get_boost(),)+
                 }
             }
             fn end_attributes(&mut self) {

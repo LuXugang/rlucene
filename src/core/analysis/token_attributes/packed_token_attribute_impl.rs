@@ -28,6 +28,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::base_token_stream_test_case::{
   CheckClearAttributesAttribute, CheckClearAttributesAttributeImpl,
 };
+#[cfg(test)]
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
@@ -49,6 +51,8 @@ pub struct PackedTokenAttributeImpl {
   pub(crate) base: CharTermAttributeImpl,
   #[cfg(test)]
   check_clear_attributes: CheckClearAttributesAttributeImpl,
+  #[cfg(test)]
+  attribute: HashSet<String>,
 }
 impl Default for PackedTokenAttributeImpl {
   fn default() -> Self {
@@ -58,6 +62,20 @@ impl Default for PackedTokenAttributeImpl {
 
 impl PackedTokenAttributeImpl {
   pub fn new() -> Self {
+    // TODO is there a better way to do this?
+    #[cfg(test)]
+    let mut attribute = HashSet::new();
+    #[cfg(test)]
+    {
+      attribute.insert("CharTermAttribute".to_string());
+      attribute.insert("TermToBytesRefAttribute".to_string());
+      attribute.insert("TypeAttribute".to_string());
+      attribute.insert("PositionIncrementAttribute".to_string());
+      attribute.insert("PositionLengthAttribute".to_string());
+      attribute.insert("OffsetAttribute".to_string());
+      attribute.insert("TermFrequencyAttribute".to_string());
+      attribute.insert("CheckClearAttributesAttribute".to_string());
+    }
     Self {
       start_offset: 0,
       end_offset: 0,
@@ -68,11 +86,18 @@ impl PackedTokenAttributeImpl {
       base: CharTermAttributeImpl::new(),
       #[cfg(test)]
       check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
+      #[cfg(test)]
+      attribute,
     }
   }
 }
 
-impl Attribute for PackedTokenAttributeImpl {}
+impl Attribute for PackedTokenAttributeImpl {
+  #[cfg(test)]
+  fn get_attribute_name(&self) -> Result<&HashSet<String>> {
+    Ok(&self.attribute)
+  }
+}
 
 impl TypeAttribute for PackedTokenAttributeImpl {
   /// Returns this Token's lexical type. Defaults to "word".
@@ -224,6 +249,8 @@ impl Clone for PackedTokenAttributeImpl {
       base: self.base.clone(),
       #[cfg(test)]
       check_clear_attributes: self.check_clear_attributes.clone(),
+      #[cfg(test)]
+      attribute: self.attribute.clone(),
     }
   }
 }
