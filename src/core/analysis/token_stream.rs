@@ -16,9 +16,11 @@
  */
 use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzerTS;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
+use crate::core::analysis::filtering_token_filter::FilteringTokenFilter;
 use crate::core::analysis::lower_case_filter::LowerCaseFilter;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::standard::standard_tokenizer::StandardTokenizer;
+use crate::core::analysis::stop_filter::StopFilter;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 use crate::core::document::field::StringTokenStream;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
@@ -130,7 +132,7 @@ macro_rules! either_token_stream {
 either_token_stream!(pub TokenStreamEnum { Whitespace: A, Dummy: B });
 either_token_stream!(pub TokenStreamEnum2 { A: A, B: B });
 
-pub type StandardAnalyzerTS = LowerCaseFilter<StandardTokenizer>;
+pub type StandardAnalyzerTS = FilteringTokenFilter<LowerCaseFilter<StandardTokenizer>, StopFilter>;
 either_token_stream!(pub TokenStreamEnum3 { Whitespace: A, Standard: B, Dummy: C });
 pub type InnerTokenStreams =
   TokenStreamEnum3<WhitespaceAnalyzerTS, StandardAnalyzerTS, DummyTokenStream>;

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::char_array_map::CharArrayMap;
+use crate::core::analysis::char_array_map::{CharArrayMap, empty_map};
 use std::fmt::Display;
 
 /// A simple class that stores Strings as char[]'s in a hash table.
@@ -26,6 +26,12 @@ impl CharArraySet {
     CharArraySet {
       map: CharArrayMap::new(ignore),
     }
+  }
+  pub fn from_map(map: CharArrayMap<()>) -> CharArraySet {
+    CharArraySet { map }
+  }
+  pub fn empty_set() -> CharArraySet {
+    Self::from_map(empty_map())
   }
   pub fn add_all<I, S>(&mut self, iter: I)
   where
@@ -81,6 +87,7 @@ impl CharArraySet {
     self.map.size()
   }
 }
+
 #[cfg(test)]
 mod tests {
   use crate::core::analysis::char_array_set::CharArraySet;

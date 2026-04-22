@@ -166,6 +166,9 @@ fn norm(ignore: bool, s: &[char]) -> Cow<'_, [char]> {
     Cow::Borrowed(s)
   }
 }
+pub fn empty_map() -> CharArrayMap<()> {
+  CharArrayMap::new(false)
+}
 
 #[cfg(test)]
 mod tests {

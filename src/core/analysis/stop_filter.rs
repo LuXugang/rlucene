@@ -21,12 +21,13 @@ use crate::core::analysis::filtering_token_filter::{
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::Attributes;
+use std::sync::Arc;
 
 pub struct StopFilter {
-  stop_words: CharArraySet,
+  stop_words: Arc<CharArraySet>,
 }
 impl StopFilter {
-  pub fn new<T>(input: T, stop_words: CharArraySet) -> FilteringTokenFilter<T, StopFilter>
+  pub fn new<T>(input: T, stop_words: Arc<CharArraySet>) -> FilteringTokenFilter<T, StopFilter>
   where
     T: TokenStream,
   {

@@ -14,22 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::char_array_set::CharArraySet;
 
-pub mod analyzer;
-mod char_array_map;
-mod char_array_set;
-pub mod char_filter;
-pub mod character_utils;
-pub mod dummy;
-mod filtering_token_filter;
-mod lower_case_filter;
-pub mod reader;
-pub(crate) mod reusable_string_reader;
-pub mod standard;
-mod stop_filter;
-pub mod stop_word_analyzer_base;
-pub mod token_attributes;
-pub mod token_filter;
-pub mod token_stream;
-pub mod tokenizer;
-pub mod util;
+pub trait StopWordAnalyzerBase: Analyzer {
+  fn get_stop_words(&self) -> &CharArraySet;
+}
+pub(crate) fn init_stop_wors(stop_words: Option<&CharArraySet>) -> CharArraySet {
+  match stop_words {
+    Some(_v) => {
+      // TODO IMPORTANT
+      todo!()
+    },
+    None => CharArraySet::empty_set(),
+  }
+}
