@@ -611,8 +611,8 @@ impl StandardTokenizerImpl {
     self.zz_buffer[self.zz_start_read + position as usize]
   }
   /// Returns the length of the matched text region.
-  pub fn yylength(&self) -> i32 {
-    (self.zz_marked_pos - self.zz_start_read) as i32
+  pub fn yylength(&self) -> usize {
+    self.zz_marked_pos - self.zz_start_read
   }
   /// Reports an error that occurred while scanning.
   ///
@@ -644,7 +644,7 @@ impl StandardTokenizerImpl {
   /// * `number` - The number of characters to be read again. This number must not
   ///   be greater than `yylength()`.
   pub fn yypushback(&mut self, number: usize) -> Result<()> {
-    if number > self.yylength() as usize {
+    if number > self.yylength() {
       Self::zz_scan_error(ZZ_PUSHBACK_2BIG)?;
     }
     self.zz_marked_pos -= number;

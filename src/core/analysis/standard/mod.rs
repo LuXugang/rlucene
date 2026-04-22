@@ -16,4 +16,4 @@
  */
 pub mod standard_analyzer;
 pub mod standard_tokenizer;
-mod standard_tokenizer_impl;
+pub mod standard_tokenizer_impl;

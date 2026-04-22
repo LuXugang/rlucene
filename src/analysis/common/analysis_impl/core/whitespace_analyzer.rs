@@ -24,7 +24,7 @@ use crate::core::util::error::lucene_error::Result;
 /// An Analyzer that uses [`WhitespaceTokenizer`]
 pub struct WhitespaceAnalyzer {
   base: AnalyzerBase<WhitespaceAnalyzerTS, GlobalReuseStrategy<WhitespaceAnalyzerTS>>,
-  max_token_length: i32,
+  max_token_length: usize,
 }
 impl Default for WhitespaceAnalyzer {
   fn default() -> Self {
@@ -40,7 +40,7 @@ impl WhitespaceAnalyzer {
   /// Creates a new WhitespaceAnalyzer with a custom maximum token length
   /// # Parameters
   /// - `max_token_length`: the maximum token length the analyzer will emit.
-  pub fn with_max_token_length(max_token_length: i32) -> Self {
+  pub fn with_max_token_length(max_token_length: usize) -> Self {
     let base: AnalyzerBase<WhitespaceAnalyzerTS, GlobalReuseStrategy<WhitespaceAnalyzerTS>> =
       AnalyzerBase::new();
     Self {

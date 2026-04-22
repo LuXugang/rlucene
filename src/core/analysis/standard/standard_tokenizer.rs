@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 use crate::core::analysis::reader::ReaderEnum;
+use crate::core::analysis::standard::standard_analyzer::DEFAULT_MAX_TOKEN_LENGTH;
 use crate::core::analysis::standard::standard_tokenizer_impl::{StandardTokenizerImpl, YYEOF};
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
@@ -24,26 +24,49 @@ use crate::core::analysis::token_stream::{TokenStream, default_attribute};
 use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-
+/// A grammar-based tokenizer constructed with JFlex.
+///
+/// This class implements the Word Break rules from the Unicode Text
+/// Segmentation algorithm, as specified in
+/// [Unicode Standard Annex #29](http://unicode.org/reports/tr29/).
+///
+/// Many applications have specific tokenizer requirements. If this tokenizer
+/// does not suit your application, consider copying this source code directory
+/// into your project and maintaining your own grammar-based tokenizer.
 pub struct StandardTokenizer {
+  /// A private instance of the JFlex-constructed scanner
   scanner: StandardTokenizerImpl,
   skipped_positions: i32,
-  max_token_length: i32,
+  max_token_length: usize,
   tokenizer_base: TokenizerBase,
 }
-
+/// Alpha/numeric token type.
 pub const ALPHANUM: i32 = 0;
+
+/// Numeric token type.
 pub const NUM: i32 = 1;
+
+/// Southeast Asian token type.
 pub const SOUTHEAST_ASIAN: i32 = 2;
+
+/// Ideographic token type.
 pub const IDEOGRAPHIC: i32 = 3;
+
+/// Hiragana token type.
 pub const HIRAGANA: i32 = 4;
+
+/// Katakana token type.
 pub const KATAKANA: i32 = 5;
+
+/// Hangul token type.
 pub const HANGUL: i32 = 6;
+
+/// Emoji token type.
 pub const EMOJI: i32 = 7;
 
-pub const DEFAULT_MAX_TOKEN_LENGTH: i32 = 255;
-pub const MAX_TOKEN_LENGTH_LIMIT: i32 = 1024 * 1024;
-
+/// Absolute maximum sized token
+pub const MAX_TOKEN_LENGTH_LIMIT: usize = 1024 * 1024;
+/// String token types that correspond to token type int constants
 pub const TOKEN_TYPES: [&str; 8] = [
   "<ALPHANUM>",
   "<NUM>",
@@ -56,6 +79,11 @@ pub const TOKEN_TYPES: [&str; 8] = [
 ];
 
 impl StandardTokenizer {
+  /// Creates a new instance of [`StandardTokenizer`].
+  ///
+  /// Attaches `input` to the newly created JFlex scanner.
+  ///
+  /// See <http://issues.apache.org/jira/browse/LUCENE-1068>
   pub fn new() -> Self {
     Self::with_att(default_attribute())
   }
@@ -70,8 +98,18 @@ impl StandardTokenizer {
       tokenizer_base,
     }
   }
-
-  pub fn set_max_token_length(&mut self, length: i32) -> Result<()> {
+  /// Sets the maximum allowed token length.
+  ///
+  /// Tokens longer than this value will be split at this length and emitted as
+  /// multiple tokens. To skip such large tokens instead, you can increase this
+  /// limit and then use `LengthFilter` to remove long tokens. The default value
+  /// is `StandardAnalyzer::DEFAULT_MAX_TOKEN_LENGTH`.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the given length is outside the range
+  /// `[1, MAX_TOKEN_LENGTH_LIMIT]`.
+  pub fn set_max_token_length(&mut self, length: usize) -> Result<()> {
     if length < 1 {
       return Err(LuceneError::illegal_argument(
         "maxTokenLength must be greater than zero",
@@ -83,12 +121,12 @@ impl StandardTokenizer {
     }
     if length != self.max_token_length {
       self.max_token_length = length;
-      self.scanner.set_buffer_size(length as usize);
+      self.scanner.set_buffer_size(length);
     }
     Ok(())
   }
-
-  pub fn get_max_token_length(&self) -> i32 {
+  /// Returns the current maximum token length
+  pub fn get_max_token_length(&self) -> usize {
     self.max_token_length
   }
 }
@@ -111,24 +149,18 @@ impl TokenStream for StandardTokenizer {
       }
 
       if self.scanner.yylength() <= self.max_token_length {
-        self
-          .tokenizer_base
-          .token_stream_base
-          .att
-          .set_position_increment(self.skipped_positions + 1)?;
-        self
-          .scanner
-          .get_text(&mut self.tokenizer_base.token_stream_base.att);
+        {
+          let att = &mut self.tokenizer_base.token_stream_base.att;
+          att.set_position_increment(self.skipped_positions + 1)?;
+          self.scanner.get_text(att);
+        }
         let start = self.scanner.yychar();
         let end = start + self.tokenizer_base.token_stream_base.att.length() as i32;
         let start = self.correct_offset(start);
         let end = self.correct_offset(end);
-        self
-          .tokenizer_base
-          .token_stream_base
-          .att
-          .set_offset(start, end)?;
-        self.tokenizer_base.token_stream_base.att.set_type(
+        let att = &mut self.tokenizer_base.token_stream_base.att;
+        att.set_offset(start, end)?;
+        att.set_type(
           TOKEN_TYPES
             .get(token_type as usize)
             .ok_or_else(|| LuceneError::illegal_state("invalid token type"))?,
@@ -142,23 +174,11 @@ impl TokenStream for StandardTokenizer {
 
   fn end(&mut self) -> Result<()> {
     self.tokenizer_base.end()?;
-    let final_offset = self.correct_offset(self.scanner.yychar() + self.scanner.yylength());
-    self
-      .tokenizer_base
-      .token_stream_base
-      .att
-      .set_offset(final_offset, final_offset)?;
-    let position_increment = self
-      .tokenizer_base
-      .token_stream_base
-      .att
-      .get_position_increment()
-      .unwrap_or(0);
-    self
-      .tokenizer_base
-      .token_stream_base
-      .att
-      .set_position_increment(position_increment + self.skipped_positions)
+    let final_offset = self.correct_offset(self.scanner.yychar() + self.scanner.yylength() as i32);
+    let att = &mut self.tokenizer_base.token_stream_base.att;
+    att.set_offset(final_offset, final_offset)?;
+    let position_increment = att.get_position_increment().unwrap_or(0);
+    att.set_position_increment(position_increment + self.skipped_positions)
   }
 
   fn reset(&mut self) -> Result<()> {

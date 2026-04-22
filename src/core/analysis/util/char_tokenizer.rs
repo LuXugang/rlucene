@@ -32,7 +32,7 @@ where
   buffer_index: i32,
   data_len: i32,
   final_offset: i32,
-  max_token_len: i32,
+  max_token_len: usize,
   io_buffer: CharacterBuffer,
   pub(crate) tokenizer_base: TokenizerBase,
   sub: S,
@@ -47,8 +47,8 @@ where
   pub fn with_att(att: Attributes, sub: S) -> Result<Self> {
     Self::with_max_token_len(att, DEFAULT_MAX_WORD_LEN, sub)
   }
-  pub fn with_max_token_len(att: Attributes, max_token_len: i32, sub: S) -> Result<Self> {
-    if max_token_len > MAX_TOKEN_LENGTH_LIMIT || max_token_len == 0 {
+  pub fn with_max_token_len(att: Attributes, max_token_len: usize, sub: S) -> Result<Self> {
+    if max_token_len > MAX_TOKEN_LENGTH_LIMIT {
       return Err(LuceneError::illegal_argument(format!(
         "maxTokenLen must be greater than 0 and less than {}, passed: {}",
         MAX_TOKEN_LENGTH_LIMIT, max_token_len
@@ -123,7 +123,7 @@ where
         length += 1;
         end += 1;
 
-        if length >= self.max_token_len as usize {
+        if length >= self.max_token_len {
           break;
         }
       } else if length > 0 {
@@ -233,7 +233,7 @@ pub fn from_separator_char_predicate_with_attr(
   from_token_char_predicate_with_attr(att, separator_char_predicate)
 }
 
-pub const DEFAULT_MAX_WORD_LEN: i32 = 255;
+pub const DEFAULT_MAX_WORD_LEN: usize = 255;
 const I_BUFFER_SIZE: i32 = 4096;
 
 pub struct CharTokenizerImpl {

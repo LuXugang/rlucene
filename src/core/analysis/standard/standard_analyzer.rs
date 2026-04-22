@@ -19,15 +19,15 @@ use crate::core::analysis::analyzer::{
 };
 use crate::core::analysis::lower_case_filter::LowerCaseFilter;
 use crate::core::analysis::standard::standard_tokenizer::{
-  DEFAULT_MAX_TOKEN_LENGTH, MAX_TOKEN_LENGTH_LIMIT, StandardTokenizer,
+  MAX_TOKEN_LENGTH_LIMIT, StandardTokenizer,
 };
 use crate::core::analysis::token_stream::{InnerTokenStreams, StandardAnalyzerTS, TokenStream};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
-
+pub const DEFAULT_MAX_TOKEN_LENGTH: usize = 255;
 pub struct StandardAnalyzer {
   base: AnalyzerBase<StandardAnalyzerTS, GlobalReuseStrategy<StandardAnalyzerTS>>,
-  max_token_length: i32,
+  max_token_length: usize,
 }
 
 impl Default for StandardAnalyzer {
@@ -44,7 +44,7 @@ impl StandardAnalyzer {
     }
   }
 
-  pub fn set_max_token_length(&mut self, length: i32) -> Result<()> {
+  pub fn set_max_token_length(&mut self, length: usize) -> Result<()> {
     if length < 1 {
       return Err(LuceneError::illegal_argument(
         "maxTokenLength must be greater than zero",
@@ -58,7 +58,7 @@ impl StandardAnalyzer {
     Ok(())
   }
 
-  pub fn get_max_token_length(&self) -> i32 {
+  pub fn get_max_token_length(&self) -> usize {
     self.max_token_length
   }
 }
