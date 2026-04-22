@@ -19,6 +19,9 @@ use crate::core::util::error::lucene_error::Result;
 
 /// The start and end character offset of a token.
 pub trait OffsetAttribute: Attribute {
+  #[cfg(test)]
+  const ATTRIBUTE_NAME: &'static str = "OffsetAttribute";
+
   /// Returns this token's starting offset, the position of the first
   /// character in the source text.
   ///

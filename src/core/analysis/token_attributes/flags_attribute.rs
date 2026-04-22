@@ -23,6 +23,9 @@ use crate::core::util::attribute::Attribute;
 /// purposes. The flags can be used to encode information about the token for use by other
 /// `TokenFilter`s.
 pub trait FlagsAttribute: Attribute {
+  #[cfg(test)]
+  const ATTRIBUTE_NAME: &'static str = "FlagsAttribute";
+
   /// Get the bitset for any bits that have been set.
   fn get_flags(&self) -> i32;
   /// Set the flags to a new bitset.

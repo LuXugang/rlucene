@@ -21,13 +21,14 @@ use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
 use crate::core::analysis::token_attributes::position_length_attribute::PositionLengthAttribute;
+use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::analysis::token_attributes::type_attribute::TypeAttribute;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::index::BytesRef;
 use crate::core::search::boost_attribute::BoostAttribute;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
-use crate::core::util::attribute_source::AttributeSource;
+use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 
@@ -66,56 +67,58 @@ pub trait BaseTokenStreamTestCase {
       let attribute_names = attr.get_attribute_name()?;
 
       if !output.is_empty() {
-        assert!(attribute_names.contains("CharTermAttribute"));
-        assert!(attribute_names.contains("TermToBytesRefAttribute"));
+        assert!(attribute_names.contains(<Attributes as CharTermAttribute>::ATTRIBUTE_NAME));
+        assert!(attribute_names.contains(<Attributes as TermToBytesRefAttribute>::ATTRIBUTE_NAME));
         // TODO IMPORTANT BytesRefBuilderTermAttributeImpl未实现
       }
 
       let mut offset_att = false;
       if start_offsets.is_some() || end_offsets.is_some() || final_offset.is_some() {
-        assert!(attribute_names.contains("OffsetAttribute"));
+        assert!(attribute_names.contains(<Attributes as OffsetAttribute>::ATTRIBUTE_NAME));
         offset_att = true;
       }
 
       let mut type_att = false;
       if types.is_some() {
-        assert!(attribute_names.contains("TypeAttribute"));
+        assert!(attribute_names.contains(<Attributes as TypeAttribute>::ATTRIBUTE_NAME));
         type_att = true;
       }
 
       let mut pos_incr_att = false;
       if pos_increments.is_some() || final_pos_inc.is_some() {
-        assert!(attribute_names.contains("PositionIncrementAttribute"));
+        assert!(
+          attribute_names.contains(<Attributes as PositionIncrementAttribute>::ATTRIBUTE_NAME)
+        );
         pos_incr_att = true;
       }
 
       let mut pos_length_att = false;
       if pos_lengths.is_some() {
-        assert!(attribute_names.contains("PositionLengthAttribute"));
+        assert!(attribute_names.contains(<Attributes as PositionLengthAttribute>::ATTRIBUTE_NAME));
         pos_length_att = true;
       }
 
       let mut keyword_att = false;
       if keyword_atts.is_some() {
-        assert!(attribute_names.contains("KeywordAttribute"));
+        assert!(attribute_names.contains(<Attributes as KeywordAttribute>::ATTRIBUTE_NAME));
         keyword_att = true;
       }
 
       let mut payload_att = false;
       if payloads.is_some() {
-        assert!(attribute_names.contains("PayloadAttribute"));
+        assert!(attribute_names.contains(<Attributes as PayloadAttribute>::ATTRIBUTE_NAME));
         payload_att = true;
       }
 
       let mut flags_att = false;
       if flags.is_some() {
-        assert!(attribute_names.contains("FlagsAttribute"));
+        assert!(attribute_names.contains(<Attributes as FlagsAttribute>::ATTRIBUTE_NAME));
         flags_att = true;
       }
 
       let mut boost_att = false;
       if boost.is_some() {
-        assert!(attribute_names.contains("BoostAttribute"));
+        assert!(attribute_names.contains(<Attributes as BoostAttribute>::ATTRIBUTE_NAME));
         boost_att = true;
       }
 
@@ -335,6 +338,8 @@ pub trait BaseTokenStreamTestCase {
 }
 
 pub trait CheckClearAttributesAttribute: AttributeImpl {
+  const ATTRIBUTE_NAME: &'static str = "CheckClearAttributesAttribute";
+
   fn get_and_reset_clear_called(&mut self) -> bool;
 }
 pub struct CheckClearAttributesAttributeImpl {

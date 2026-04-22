@@ -20,6 +20,9 @@ use std::fmt::Display;
 
 /// The term text of a `Token`.
 pub trait CharTermAttribute: Attribute + Display {
+  #[cfg(test)]
+  const ATTRIBUTE_NAME: &'static str = "CharTermAttribute";
+
   fn length(&self) -> usize;
   /// Copies the contents of `buffer[offset..offset+length]` into the internal term buffer.
   ///

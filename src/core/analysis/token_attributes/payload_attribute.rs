@@ -28,6 +28,9 @@ use crate::core::util::attribute::Attribute;
 ///
 /// See also: [`PostingsEnum`](crate::core::index::postings_enum::PostingsEnum)
 pub trait PayloadAttribute: Attribute {
+  #[cfg(test)]
+  const ATTRIBUTE_NAME: &'static str = "PayloadAttribute";
+
   /// Returns this token's payload.
   ///
   /// See also: [`Self::set_payload`]

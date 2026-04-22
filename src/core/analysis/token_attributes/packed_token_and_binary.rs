@@ -97,7 +97,11 @@ impl AttributeImpl for BinaryTokenStreamAttributeImpl {
 }
 
 #[cfg(test)]
-impl Attribute for BinaryTokenStreamAttributeImpl {}
+impl Attribute for BinaryTokenStreamAttributeImpl {
+  fn get_attribute_name(&self) -> Result<&HashSet<String>> {
+    Ok(&self.attribute)
+  }
+}
 
 #[cfg(test)]
 impl Clone for BinaryTokenStreamAttributeImpl {

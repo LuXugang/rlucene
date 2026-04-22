@@ -20,6 +20,8 @@ use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
 use crate::core::analysis::token_attributes::position_length_attribute::PositionLengthAttribute;
 use crate::core::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+#[cfg(test)]
+use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::analysis::token_attributes::type_attribute::{DEFAULT_TYPE, TypeAttribute};
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
@@ -67,14 +69,15 @@ impl PackedTokenAttributeImpl {
     let mut attribute = HashSet::new();
     #[cfg(test)]
     {
-      attribute.insert("CharTermAttribute".to_string());
-      attribute.insert("TermToBytesRefAttribute".to_string());
-      attribute.insert("TypeAttribute".to_string());
-      attribute.insert("PositionIncrementAttribute".to_string());
-      attribute.insert("PositionLengthAttribute".to_string());
-      attribute.insert("OffsetAttribute".to_string());
-      attribute.insert("TermFrequencyAttribute".to_string());
-      attribute.insert("CheckClearAttributesAttribute".to_string());
+      attribute.insert(<Self as CharTermAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute
+        .insert(<CharTermAttributeImpl as TermToBytesRefAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute.insert(<Self as TypeAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute.insert(<Self as PositionIncrementAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute.insert(<Self as PositionLengthAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute.insert(<Self as OffsetAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute.insert(<Self as TermFrequencyAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute.insert(<Self as CheckClearAttributesAttribute>::ATTRIBUTE_NAME.to_string());
     }
     Self {
       start_offset: 0,

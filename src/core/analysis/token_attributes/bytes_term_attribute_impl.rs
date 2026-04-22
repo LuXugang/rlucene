@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
+#[cfg(test)]
+use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
+#[cfg(test)]
+use crate::core::analysis::token_attributes::char_term_attribute_impl::CharTermAttributeImpl;
 use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
@@ -56,8 +60,8 @@ impl BytesTermAttributeImpl {
     let mut attribute = HashSet::new();
     #[cfg(test)]
     {
-      attribute.insert("CharTermAttribute".to_string());
-      attribute.insert("TermToBytesRefAttribute".to_string());
+      attribute.insert(<CharTermAttributeImpl as CharTermAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute.insert(<Self as TermToBytesRefAttribute>::ATTRIBUTE_NAME.to_string());
     }
     Self {
       bytes: None,

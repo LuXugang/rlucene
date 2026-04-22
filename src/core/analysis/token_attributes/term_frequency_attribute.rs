@@ -25,6 +25,9 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// See also: [`IndexOptions`](crate::core::index::index_options::IndexOptions)
 pub trait TermFrequencyAttribute: Attribute {
+  #[cfg(test)]
+  const ATTRIBUTE_NAME: &'static str = "TermFrequencyAttribute";
+
   /// Sets the custom term frequency of the current term within one document.
   fn set_term_frequency(&mut self, term_frequency: i32) -> Result<()>;
 
