@@ -112,7 +112,7 @@ impl FreqProxTermsWriterPerField {
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
   ) -> Result<()> {
-    if let Some(payload) = attribute_source.get_payload() {
+    if let Some(payload) = attribute_source.get_payload()? {
       if payload.length > 0 {
         self
           .base
@@ -171,12 +171,8 @@ impl FreqProxTermsWriterPerField {
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
   ) -> Result<()> {
-    let (start, end) = attribute_source
-      .start_offset()
-      .zip(attribute_source.end_offset())
-      .ok_or_else(|| {
-        LuceneError::illegal_state("missing start or end offset in attribute_source")
-      })?;
+    let start = attribute_source.start_offset()?;
+    let end = attribute_source.end_offset()?;
 
     let start_offset = offset_accum + start;
     let end_offset = offset_accum + end;
@@ -265,7 +261,7 @@ impl FreqProxTermsWriterPerField {
     // We are first in the chain so we must "intern" the
     // term text into textStart address
     // Get the text & hash of this term.
-    let bytes = attribute_source.get_bytes_ref();
+    let bytes = attribute_source.get_bytes_ref()?;
     let term_bytes = if let Some(t) = term_bytes {
       t
     } else {
@@ -492,9 +488,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
         if !self.has_freq {
           debug_assert!(postings.term_freqs.is_none());
 
-          if let Some(attr) = attribute_source.get_term_frequency()
-            && attr != 1
-          {
+          if attribute_source.get_term_frequency().unwrap_or(1) != 1 {
             return Err(LuceneError::illegal_state(format!(
               "field \"{}\": must index term freq while using custom TermFrequencyAttribute",
               self.field_info.name

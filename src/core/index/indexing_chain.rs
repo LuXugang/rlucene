@@ -1523,9 +1523,7 @@ impl PerField {
                 // consume a docID
                 let attribute_source = stream.get_attribute_source_mut();
                 let invert_state = self.invert_state.as_mut().unwrap();
-                let pos_incr = attribute_source.get_position_increment().ok_or_else(|| {
-                    LuceneError::illegal_state("PositionIncrementAttribute is None")
-                })?;
+                let pos_incr = attribute_source.get_position_increment()?;
                 invert_state.position += pos_incr;
                 if invert_state.position < invert_state.last_position {
                     return if pos_incr == 0 {
@@ -1555,14 +1553,8 @@ impl PerField {
                     invert_state.num_overlap += 1;
                 }
                 invert_state.last_position = invert_state.position;
-                let (start, end) = attribute_source
-                    .start_offset()
-                    .zip(attribute_source.end_offset())
-                    .ok_or_else(|| {
-                        LuceneError::illegal_state(
-                            "missing start or end offset in attribute_source",
-                        )
-                    })?;
+                let start = attribute_source.start_offset()?;
+                let end = attribute_source.end_offset()?;
                 let start_offset = invert_state.offset + start;
                 let end_offset = invert_state.offset + end;
                 if start_offset < invert_state.last_start_offset || end_offset < start_offset {
@@ -1573,9 +1565,7 @@ impl PerField {
                 }
                 invert_state.last_start_offset = start_offset;
                 // update length
-                let tf = attribute_source.get_term_frequency().ok_or_else(|| {
-                    LuceneError::illegal_argument("term frequency is None")
-                })?;
+                let tf = attribute_source.get_term_frequency()?;
                 invert_state.length = invert_state.length.checked_add(tf).ok_or_else(|| {
                     LuceneError::number_overflow(format!(
                         "too many tokens for field {}",
@@ -1596,7 +1586,7 @@ impl PerField {
                     attribute_source,
                     context,
                 ) {
-                    let bytes_ref = attribute_source.get_bytes_ref().ok_or_else(|| {
+                    let bytes_ref = attribute_source.get_bytes_ref()?.ok_or_else(|| {
                         LuceneError::illegal_state(
                             "BytesRef is None in attribute_source",
                         )
@@ -1621,10 +1611,8 @@ impl PerField {
             // TODO
             invert_state.position += stream
                 .get_attribute_source()
-                .get_position_increment()
-                .as_ref()
-                .unwrap();
-            invert_state.offset += stream.get_attribute_source().end_offset().as_ref().unwrap();
+                .get_position_increment()?;
+            invert_state.offset += stream.get_attribute_source().end_offset()?;
             stream.close()?;
             Ok(())
         })();

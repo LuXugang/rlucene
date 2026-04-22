@@ -34,12 +34,12 @@ use std::borrow::Cow;
 
 pub trait AttributeSource {
   // OffsetAttribute
-  fn start_offset(&self) -> Option<i32> {
-    None
+  fn start_offset(&self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
   }
 
-  fn end_offset(&self) -> Option<i32> {
-    None
+  fn end_offset(&self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
   }
 
   // BytesTermAttribute
@@ -48,34 +48,34 @@ pub trait AttributeSource {
   }
 
   // PositionIncrementAttribute
-  fn get_position_increment(&self) -> Option<i32> {
-    None
+  fn get_position_increment(&self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
   }
   fn set_position_increment(&mut self, _position_increment: i32) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
 
   // PayloadAttribute;
-  fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
-    None
+  fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    Ok(None)
   }
 
   // TermToBytesRefAttribute;
-  fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
-    None
+  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    Ok(None)
   }
 
   // TermFrequencyAttribute;
-  fn get_term_frequency(&self) -> Option<i32> {
-    None
+  fn get_term_frequency(&self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
   }
 
   // PositionLengthAttribute
   fn set_position_length(&mut self, _position_length: i32) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
-  fn get_position_length(&self) -> i32 {
-    0
+  fn get_position_length(&self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
   }
   // KeywordAttribute
   fn is_keyword(&self) -> Result<bool> {
@@ -158,7 +158,7 @@ impl CharTermAttribute for Attributes {
         attr.get_packed_token_mut().set_length(length)?;
         Ok(self)
       },
-      _ => unimplemented!("not support"),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -243,41 +243,37 @@ impl Default for Attributes {
 }
 
 impl AttributeSource for Attributes {
-  fn start_offset(&self) -> Option<i32> {
+  fn start_offset(&self) -> Result<i32> {
     match self {
-      Attributes::PackedToken(attr) => Some(attr.start_offset()),
-      Attributes::BinaryTokenStream(attr) => Some(attr.get_packed_token().start_offset()),
-      _ => unimplemented!("not support"),
+      Attributes::PackedToken(attr) => Ok(attr.start_offset()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().start_offset()),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn end_offset(&self) -> Option<i32> {
+  fn end_offset(&self) -> Result<i32> {
     match self {
-      Attributes::PackedToken(attr) => Some(attr.end_offset()),
-      Attributes::BinaryTokenStream(attr) => Some(attr.get_packed_token().end_offset()),
-      _ => unimplemented!("not support"),
+      Attributes::PackedToken(attr) => Ok(attr.end_offset()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().end_offset()),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
   fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
     match self {
-      Attributes::BytesTerm(attr) => {
-        BytesTermAttribute::set_bytes_ref(attr, bytes);
-        Ok(())
-      },
+      Attributes::BytesTerm(attr) => BytesTermAttribute::set_bytes_ref(attr, bytes),
       Attributes::BinaryTokenStream(attr) => {
-        BytesTermAttribute::set_bytes_ref(attr.get_binary_mut(), bytes);
-        Ok(())
+        BytesTermAttribute::set_bytes_ref(attr.get_binary_mut(), bytes)
       },
-      _ => unimplemented!("not support"),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn get_position_increment(&self) -> Option<i32> {
+  fn get_position_increment(&self) -> Result<i32> {
     match self {
-      Attributes::PackedToken(attr) => Some(attr.get_position_increment()),
-      Attributes::BinaryTokenStream(attr) => Some(attr.get_packed_token().get_position_increment()),
-      _ => unimplemented!("not support"),
+      Attributes::PackedToken(attr) => Ok(attr.get_position_increment()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().get_position_increment()),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -287,31 +283,31 @@ impl AttributeSource for Attributes {
       Attributes::BinaryTokenStream(attr) => attr
         .get_packed_token_mut()
         .set_position_increment(position_increment),
-      _ => unimplemented!("not support"),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
+  fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     match self {
-      Attributes::PackedToken(_) => None,
-      Attributes::BinaryTokenStream(_) => None,
-      Attributes::BytesTerm(_) => None,
+      Attributes::PackedToken(_) => Ok(None),
+      Attributes::BinaryTokenStream(_) => Ok(None),
+      Attributes::BytesTerm(_) => Ok(None),
     }
   }
 
-  fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     match self {
-      Attributes::PackedToken(attr) => attr.base.get_bytes_ref(),
-      Attributes::BinaryTokenStream(attr) => attr.get_binary_mut().get_bytes_ref(),
-      Attributes::BytesTerm(attr) => attr.get_bytes_ref(),
+      Attributes::PackedToken(attr) => Ok(attr.base.get_bytes_ref()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_binary_mut().get_bytes_ref()),
+      Attributes::BytesTerm(attr) => Ok(attr.get_bytes_ref()),
     }
   }
 
-  fn get_term_frequency(&self) -> Option<i32> {
+  fn get_term_frequency(&self) -> Result<i32> {
     match self {
-      Attributes::PackedToken(attr) => Some(attr.get_term_frequency()),
-      Attributes::BinaryTokenStream(attr) => Some(attr.get_packed_token().get_term_frequency()),
-      _ => unimplemented!("not support"),
+      Attributes::PackedToken(attr) => Ok(attr.get_term_frequency()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().get_term_frequency()),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -325,11 +321,11 @@ impl AttributeSource for Attributes {
     }
   }
 
-  fn get_position_length(&self) -> i32 {
+  fn get_position_length(&self) -> Result<i32> {
     match self {
-      Attributes::PackedToken(attr) => attr.get_position_length(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().get_position_length(),
-      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
+      Attributes::PackedToken(attr) => Ok(attr.get_position_length()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().get_position_length()),
+      Attributes::BytesTerm(_attr) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -365,7 +361,7 @@ impl OffsetAttribute for Attributes {
       Attributes::BinaryTokenStream(attr) => attr
         .get_packed_token_mut()
         .set_offset(start_offset, end_offset),
-      _ => unimplemented!("not support"),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -409,13 +405,13 @@ impl TermToBytesRefAttribute for Attributes {
 }
 
 impl BytesTermAttribute for Attributes {
-  fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) {
+  fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
     match self {
       Attributes::BytesTerm(attr) => BytesTermAttribute::set_bytes_ref(attr, bytes),
       Attributes::BinaryTokenStream(attr) => {
         BytesTermAttribute::set_bytes_ref(attr.get_binary_mut(), bytes)
       },
-      _ => unimplemented!("not support"),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 }
@@ -447,13 +443,13 @@ macro_rules! define_attribute_source_enum {
         where
             $($V: AttributeSource,)+
         {
-            fn start_offset(&self) -> Option<i32> {
+            fn start_offset(&self) -> Result<i32> {
                 match self {
                     $(Self::$V(t) => t.start_offset(),)+
                 }
             }
 
-            fn end_offset(&self) -> Option<i32> {
+            fn end_offset(&self) -> Result<i32> {
                 match self {
                     $(Self::$V(t) => t.end_offset(),)+
                 }
@@ -465,7 +461,7 @@ macro_rules! define_attribute_source_enum {
                 }
             }
 
-            fn get_position_increment(&self) -> Option<i32> {
+            fn get_position_increment(&self) -> Result<i32> {
                 match self {
                     $(Self::$V(t) => t.get_position_increment(),)+
                 }
@@ -477,19 +473,19 @@ macro_rules! define_attribute_source_enum {
                 }
             }
 
-            fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
+            fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
                 match self {
                     $(Self::$V(t) => t.get_payload(),)+
                 }
             }
 
-            fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+            fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
                 match self {
                     $(Self::$V(t) => t.get_bytes_ref(),)+
                 }
             }
 
-            fn get_term_frequency(&self) -> Option<i32> {
+            fn get_term_frequency(&self) -> Result<i32> {
                 match self {
                     $(Self::$V(t) => t.get_term_frequency(),)+
                 }
@@ -499,7 +495,7 @@ macro_rules! define_attribute_source_enum {
                     $(Self::$V(t) => t.set_position_length(position_length),)+
                 }
             }
-            fn get_position_length(&self) -> i32 {
+            fn get_position_length(&self) -> Result<i32> {
                 match self {
                     $(Self::$V(t) => t.get_position_length(),)+
                 }

@@ -16,10 +16,11 @@
  */
 use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::index::BytesRef;
+use crate::core::util::error::lucene_error::Result;
 /// This attribute can be used if you have the raw term bytes to be indexed.
 /// It can be used as replacement for CharTermAttribute,
 /// if binary terms should be indexed.
 pub trait BytesTermAttribute: TermToBytesRefAttribute {
   /// Sets the BytesRef of the term
-  fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>);
+  fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()>;
 }

@@ -19,6 +19,7 @@ use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermTo
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
+use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 
@@ -70,8 +71,9 @@ impl TermToBytesRefAttribute for BytesTermAttributeImpl {
 }
 
 impl BytesTermAttribute for BytesTermAttributeImpl {
-  fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) {
+  fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
     self.bytes = bytes;
+    Ok(())
   }
 }
 impl Hash for BytesTermAttributeImpl {
@@ -109,7 +111,7 @@ mod tests {
     assert!(copy.get_bytes_ref().is_none());
 
     // now after setting it
-    t.set_bytes_ref(Some(BytesRef::from_string("hello")));
+    t.set_bytes_ref(Some(BytesRef::from_string("hello")))?;
     copy = assert_copy_is_equal(&t)?;
     assert_eq!(t.get_bytes_ref(), copy.get_bytes_ref());
     // no need check same instance

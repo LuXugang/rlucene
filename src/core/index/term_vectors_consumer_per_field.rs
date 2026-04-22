@@ -310,12 +310,8 @@ impl TermVectorsConsumerPerField {
     match postings {
       PostingsArrayEnum::TermVectors(postings) => {
         if self.do_vector_offsets {
-          let (start, end) = attribute_source
-            .start_offset()
-            .zip(attribute_source.end_offset())
-            .ok_or_else(|| {
-              LuceneError::illegal_state("missing start or end offset in attribute_source")
-            })?;
+          let start = attribute_source.start_offset()?;
+          let end = attribute_source.end_offset()?;
 
           let start_offset = field_state.offset + start;
           let end_offset = field_state.offset + end;
@@ -335,7 +331,7 @@ impl TermVectorsConsumerPerField {
         if self.do_vector_positions {
           let pos = field_state.position - postings.last_positions[term_id];
 
-          if let Some(payload) = attribute_source.get_payload() {
+          if let Some(payload) = attribute_source.get_payload()? {
             if payload.length > 0 {
               self
                 .base
@@ -387,11 +383,7 @@ impl TermVectorsConsumerPerField {
     Ok(())
   }
   pub(crate) fn get_term_freq(&self, attribute_source: &impl AttributeSource) -> Result<i32> {
-    let freq = if let Some(att) = attribute_source.get_term_frequency() {
-      att
-    } else {
-      return Ok(1);
-    };
+    let freq = attribute_source.get_term_frequency().unwrap_or(1);
 
     if freq != 1 {
       if self.do_vector_positions {

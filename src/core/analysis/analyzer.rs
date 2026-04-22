@@ -121,7 +121,7 @@ pub trait Analyzer {
       )));
     }
     let term_att = ts.get_attribute_source_mut();
-    let term = match term_att.get_bytes_ref() {
+    let term = match term_att.get_bytes_ref()? {
       Some(t) => BytesRef::deep_copy_of(&*t),
       None => {
         return Err(LuceneError::illegal_state(format!(

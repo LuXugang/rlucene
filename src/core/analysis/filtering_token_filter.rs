@@ -61,7 +61,7 @@ where
     self.skipped_positions = 0;
     {
       let att = self.base.input.get_attribute_source_mut();
-      if att.get_position_increment().is_none() {
+      if att.get_position_increment().is_err() {
         return Err(LuceneError::illegal_state(
           "PositionIncrementAttribute is missing",
         ));
@@ -74,12 +74,12 @@ where
       let att = self.base.input.get_attribute_source_mut();
       if self.sub.accept(att) {
         if self.skipped_positions != 0 {
-          let new_pos = att.get_position_increment().unwrap() + self.skipped_positions;
+          let new_pos = att.get_position_increment()? + self.skipped_positions;
           att.set_position_increment(new_pos)?;
         }
         return Ok(true);
       }
-      self.skipped_positions += att.get_position_increment().unwrap();
+      self.skipped_positions += att.get_position_increment()?;
     }
     Ok(false)
   }
@@ -88,7 +88,7 @@ where
     self.base.end()?;
     let att = self.base.input.get_attribute_source_mut();
     // we can safely unwrap
-    att.set_position_increment(att.get_position_increment().unwrap() + self.skipped_positions)?;
+    att.set_position_increment(att.get_position_increment()? + self.skipped_positions)?;
     Ok(())
   }
 

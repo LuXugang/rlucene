@@ -16,31 +16,32 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::util::attribute_source::AttributeSource;
+use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
 pub struct DummyAttributeSource;
 impl AttributeSource for DummyAttributeSource {
-  fn start_offset(&self) -> Option<i32> {
+  fn start_offset(&self) -> Result<i32> {
     unimplemented!("Dummy implementation: this method should never be called in real usage")
   }
 
-  fn end_offset(&self) -> Option<i32> {
+  fn end_offset(&self) -> Result<i32> {
     unimplemented!("Dummy implementation: this method should never be called in real usage")
   }
 
-  fn get_position_increment(&self) -> Option<i32> {
+  fn get_position_increment(&self) -> Result<i32> {
     unimplemented!("Dummy implementation: this method should never be called in real usage")
   }
 
-  fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
+  fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     unimplemented!("Dummy implementation: this method should never be called in real usage")
   }
 
-  fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     unimplemented!("Dummy implementation: this method should never be called in real usage")
   }
 
-  fn get_term_frequency(&self) -> Option<i32> {
+  fn get_term_frequency(&self) -> Result<i32> {
     unimplemented!("Dummy implementation: this method should never be called in real usage")
   }
 

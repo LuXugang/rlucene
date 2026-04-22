@@ -884,7 +884,7 @@ impl TokenStream for BinaryTokenStream {
     }
     self.token_stream_base.att.clear_attributes();
     let value = self.value.take();
-    BytesTermAttribute::set_bytes_ref(&mut self.token_stream_base.att, value);
+    BytesTermAttribute::set_bytes_ref(&mut self.token_stream_base.att, value)?;
     self.used = true;
     Ok(true)
   }
