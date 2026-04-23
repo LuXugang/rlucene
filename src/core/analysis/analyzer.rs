@@ -28,14 +28,13 @@ use crate::impl_from_for_enum;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 
 thread_local! {
     pub static REUSE_STRATEGY: RefCell<Option<ReuseStrategyEnum>> = const { RefCell::new(None) };
 }
 
 pub trait Analyzer {
-  fn create_components(&self, field: &str) -> Result<TokenStreamComponents<AnalyzerTokenStreams>>;
+  fn create_components(&self, field: &str) -> Result<TokenStreamComponents>;
   /// Default reuse strategy is GlobalReuseStrategy
   fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
     ReuseStrategyEnum::Global(Box::default())
@@ -179,7 +178,7 @@ impl Default for AnalyzerEnum {
   }
 }
 impl Analyzer for AnalyzerEnum {
-  fn create_components(&self, field: &str) -> Result<TokenStreamComponents<AnalyzerTokenStreams>> {
+  fn create_components(&self, field: &str) -> Result<TokenStreamComponents> {
     match self {
       AnalyzerEnum::Whitespace(v) => v.create_components(field),
       #[cfg(test)]
@@ -289,14 +288,14 @@ impl Analyzer for AnalyzerEnum {
 }
 
 pub enum ReuseStrategyEnum {
-  Global(Box<GlobalReuseStrategy<AnalyzerTokenStreams>>),
-  PerField(PerFieldReuseStrategy<AnalyzerTokenStreams>),
+  Global(Box<GlobalReuseStrategy>),
+  PerField(PerFieldReuseStrategy),
 }
-impl ReuseStrategy<AnalyzerTokenStreams> for ReuseStrategyEnum {
+impl ReuseStrategy for ReuseStrategyEnum {
   fn get_reusable_components(
     &mut self,
     field_name: &str,
-  ) -> Result<Option<&mut TokenStreamComponents<AnalyzerTokenStreams>>> {
+  ) -> Result<Option<&mut TokenStreamComponents>> {
     match self {
       ReuseStrategyEnum::Global(v) => v.get_reusable_components(field_name),
       ReuseStrategyEnum::PerField(v) => v.get_reusable_components(field_name),
@@ -306,7 +305,7 @@ impl ReuseStrategy<AnalyzerTokenStreams> for ReuseStrategyEnum {
   fn set_reusable_components(
     &mut self,
     field_name: &str,
-    components: TokenStreamComponents<AnalyzerTokenStreams>,
+    components: TokenStreamComponents,
   ) -> Result<()> {
     match self {
       ReuseStrategyEnum::Global(v) => v.set_reusable_components(field_name, components),
@@ -314,63 +313,44 @@ impl ReuseStrategy<AnalyzerTokenStreams> for ReuseStrategyEnum {
     }
   }
 }
-pub struct AnalyzerBase<TS, RS>
+pub struct AnalyzerBase<RS>
 where
-  TS: TokenStream,
-  RS: ReuseStrategy<TS>,
+  RS: ReuseStrategy,
 {
   reuse_strategy: RS,
-  _phantom: PhantomData<TS>,
 }
-impl<TS> AnalyzerBase<TS, GlobalReuseStrategy<TS>>
-where
-  TS: TokenStream,
-{
+impl AnalyzerBase<GlobalReuseStrategy> {
   pub(crate) fn new() -> Self {
     Self {
       reuse_strategy: GlobalReuseStrategy::default(),
-      _phantom: PhantomData,
     }
   }
 }
-impl<TS, RS> AnalyzerBase<TS, RS>
+impl<RS> AnalyzerBase<RS>
 where
-  TS: TokenStream,
-  RS: ReuseStrategy<TS>,
+  RS: ReuseStrategy,
 {
   fn with_rs(reuse_strategy: RS) -> Self {
-    Self {
-      reuse_strategy,
-      _phantom: PhantomData,
-    }
+    Self { reuse_strategy }
   }
 }
 
-pub trait ReuseStrategy<TS>
-where
-  TS: TokenStream,
-{
+pub trait ReuseStrategy {
   fn get_reusable_components(
     &mut self,
     field_name: &str,
-  ) -> Result<Option<&mut TokenStreamComponents<TS>>>;
+  ) -> Result<Option<&mut TokenStreamComponents>>;
   fn set_reusable_components(
     &mut self,
     field_name: &str,
-    components: TokenStreamComponents<TS>,
+    components: TokenStreamComponents,
   ) -> Result<()>;
 }
-pub struct GlobalReuseStrategy<TS>
-where
-  TS: TokenStream,
-{
-  store_value: Option<TokenStreamComponents<TS>>,
+pub struct GlobalReuseStrategy {
+  store_value: Option<TokenStreamComponents>,
   first: bool,
 }
-impl<TS> Default for GlobalReuseStrategy<TS>
-where
-  TS: TokenStream,
-{
+impl Default for GlobalReuseStrategy {
   fn default() -> Self {
     Self {
       store_value: None,
@@ -378,14 +358,11 @@ where
     }
   }
 }
-impl<TS> ReuseStrategy<TS> for GlobalReuseStrategy<TS>
-where
-  TS: TokenStream,
-{
+impl ReuseStrategy for GlobalReuseStrategy {
   fn get_reusable_components(
     &mut self,
     _field_name: &str,
-  ) -> Result<Option<&mut TokenStreamComponents<TS>>> {
+  ) -> Result<Option<&mut TokenStreamComponents>> {
     match self.store_value {
       Some(ref mut v) => Ok(Some(v)),
       _ => Ok(None),
@@ -395,7 +372,7 @@ where
   fn set_reusable_components(
     &mut self,
     _field_name: &str,
-    components: TokenStreamComponents<TS>,
+    components: TokenStreamComponents,
   ) -> Result<()> {
     if self.first {
       self.first = false;
@@ -411,23 +388,14 @@ where
   }
 }
 #[derive(Default)]
-pub struct PerFieldReuseStrategy<TS>
-where
-  TS: TokenStream,
-{
-  store_value: Option<HashMap<String, TokenStreamComponents<TS>>>,
+pub struct PerFieldReuseStrategy {
+  store_value: Option<HashMap<String, TokenStreamComponents>>,
 }
-impl<TS> ReuseStrategy<TS> for PerFieldReuseStrategy<TS>
-where
-  TS: TokenStream,
-{
+impl ReuseStrategy for PerFieldReuseStrategy {
   fn get_reusable_components(
     &mut self,
     field_name: &str,
-  ) -> Result<Option<&mut TokenStreamComponents<TS>>>
-  where
-    TS: TokenStream,
-  {
+  ) -> Result<Option<&mut TokenStreamComponents>> {
     match self.store_value {
       Some(ref mut v) => Ok(v.get_mut(field_name)),
       _ => Ok(None),
@@ -437,7 +405,7 @@ where
   fn set_reusable_components(
     &mut self,
     field_name: &str,
-    components: TokenStreamComponents<TS>,
+    components: TokenStreamComponents,
   ) -> Result<()> {
     match self.store_value {
       Some(ref mut v) => {
@@ -449,27 +417,21 @@ where
   }
 }
 
-pub struct TokenStreamComponents<TS>
-where
-  TS: TokenStream,
-{
-  sink: Option<TS>,
+pub struct TokenStreamComponents {
+  sink: AnalyzerTokenStreams,
 }
-impl<TS> TokenStreamComponents<TS>
-where
-  TS: TokenStream,
-{
-  pub fn new(sink: TS) -> Self {
-    Self { sink: Some(sink) }
+impl TokenStreamComponents {
+  pub fn new<T>(sink: T) -> Self
+  where
+    T: Into<AnalyzerTokenStreams>,
+  {
+    Self { sink: sink.into() }
   }
   fn set_reader(&mut self, reader: ReaderEnum) -> Result<()> {
-    self.sink.as_mut().unwrap().set_reader(reader)
+    self.sink.set_reader(reader)
   }
-  pub fn get_token_stream(&mut self) -> &mut TS {
-    self.sink.as_mut().unwrap()
-  }
-  pub fn take_token_stream(&mut self) -> Option<TS> {
-    self.sink.take()
+  pub fn get_token_stream(&mut self) -> &mut AnalyzerTokenStreams {
+    &mut self.sink
   }
 }
 

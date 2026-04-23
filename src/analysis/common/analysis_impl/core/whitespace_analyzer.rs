@@ -18,12 +18,12 @@ use crate::analysis::common::analysis_impl::core::whitespace_tokenizer::Whitespa
 use crate::core::analysis::analyzer::{
   Analyzer, AnalyzerBase, GlobalReuseStrategy, TokenStreamComponents,
 };
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::analysis::util::char_tokenizer::{CharTokenizer, DEFAULT_MAX_WORD_LEN};
 use crate::core::util::error::lucene_error::Result;
 /// An Analyzer that uses [`WhitespaceTokenizer`]
 pub struct WhitespaceAnalyzer {
-  base: AnalyzerBase<WhitespaceAnalyzerTS, GlobalReuseStrategy<WhitespaceAnalyzerTS>>,
+  base: AnalyzerBase<GlobalReuseStrategy>,
   max_token_length: usize,
 }
 impl Default for WhitespaceAnalyzer {
@@ -41,8 +41,7 @@ impl WhitespaceAnalyzer {
   /// # Parameters
   /// - `max_token_length`: the maximum token length the analyzer will emit.
   pub fn with_max_token_length(max_token_length: usize) -> Self {
-    let base: AnalyzerBase<WhitespaceAnalyzerTS, GlobalReuseStrategy<WhitespaceAnalyzerTS>> =
-      AnalyzerBase::new();
+    let base: AnalyzerBase<GlobalReuseStrategy> = AnalyzerBase::new();
     Self {
       base,
       max_token_length,
@@ -50,11 +49,9 @@ impl WhitespaceAnalyzer {
   }
 }
 impl Analyzer for WhitespaceAnalyzer {
-  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<AnalyzerTokenStreams>> {
+  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
     Ok(TokenStreamComponents::new(
-      AnalyzerTokenStreams::Whitespace(WhitespaceTokenizer::with_max_token_len(
-        self.max_token_length,
-      )?),
+      WhitespaceTokenizer::with_max_token_len(self.max_token_length)?,
     ))
   }
 

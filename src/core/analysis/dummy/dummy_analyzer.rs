@@ -16,12 +16,12 @@
  */
 use crate::core::analysis::analyzer::{Analyzer, ReuseStrategyEnum, TokenStreamComponents};
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyAnalyzer;
 impl Analyzer for DummyAnalyzer {
-  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<AnalyzerTokenStreams>> {
+  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

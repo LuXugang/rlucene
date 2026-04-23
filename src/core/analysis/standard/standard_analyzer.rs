@@ -18,26 +18,29 @@ use crate::core::analysis::analyzer::{
   Analyzer, AnalyzerBase, GlobalReuseStrategy, TokenStreamComponents,
 };
 use crate::core::analysis::char_array_set::CharArraySet;
+use crate::core::analysis::filtering_token_filter::FilteringTokenFilter;
 use crate::core::analysis::lower_case_filter::LowerCaseFilter;
 use crate::core::analysis::standard::standard_tokenizer::{
   MAX_TOKEN_LENGTH_LIMIT, StandardTokenizer,
 };
 use crate::core::analysis::stop_filter::StopFilter;
 use crate::core::analysis::stop_word_analyzer_base::{StopWordAnalyzerBase, init_stop_wors};
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, StandardAnalyzerTS, TokenStream};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
+
 /// Default maximum allowed token length
 pub const DEFAULT_MAX_TOKEN_LENGTH: usize = 255;
 /// Filters [`StandardTokenizer`] with [`LowerCaseFilter`] and [`StopFilter`],
 /// using a configurable list of stop words.
 pub struct StandardAnalyzer {
-  base: AnalyzerBase<StandardAnalyzerTS, GlobalReuseStrategy<StandardAnalyzerTS>>,
+  base: AnalyzerBase<GlobalReuseStrategy>,
   max_token_length: usize,
   stop_words: Arc<CharArraySet>,
 }
 
+pub type StandardAnalyzerTS = FilteringTokenFilter<LowerCaseFilter<StandardTokenizer>, StopFilter>;
 impl Default for StandardAnalyzer {
   fn default() -> Self {
     Self::new()
@@ -79,14 +82,12 @@ impl StandardAnalyzer {
 }
 
 impl Analyzer for StandardAnalyzer {
-  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<AnalyzerTokenStreams>> {
+  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
     let mut src = StandardTokenizer::new();
     src.set_max_token_length(self.max_token_length)?;
     let tok = StopFilter::new(LowerCaseFilter::new(src), self.stop_words.clone());
     // TODO IMPORTANT
-    Ok(TokenStreamComponents::new(AnalyzerTokenStreams::Standard(
-      tok,
-    )))
+    Ok(TokenStreamComponents::new(tok))
   }
 
   type TokenStream<TS>
@@ -104,5 +105,54 @@ impl Analyzer for StandardAnalyzer {
 impl StopWordAnalyzerBase for StandardAnalyzer {
   fn get_stop_words(&self) -> &CharArraySet {
     self.stop_words.as_ref()
+  }
+}
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
+  use crate::test::core::analysis::base_token_stream_test_case::assert_analyzes_to6;
+  use rand::rng;
+  #[allow(dead_code)]
+  struct TestStandardAnalyzer;
+
+  #[test]
+  fn test_farsi() -> Result<()> {
+    let a = WhitespaceAnalyzer::new();
+    let mut random = rng();
+    let input =
+      "ویکی پدیای انگلیسی در تاریخ ۲۵ دی ۱۳۷۹ به صورت مکملی برای دانشنامهٔ تخصصی نوپدیا نوشته شد.";
+    let expected = [
+      "ویکی",
+      "پدیای",
+      "انگلیسی",
+      "در",
+      "تاریخ",
+      "۲۵",
+      "دی",
+      "۱۳۷۹",
+      "به",
+      "صورت",
+      "مکملی",
+      "برای",
+      "دانشنامهٔ",
+      "تخصصی",
+      "نوپدیا",
+      "نوشته",
+      "شد",
+    ];
+    assert_analyzes_to6(&mut random, &a, input, &expected)
+  }
+
+  #[test]
+  fn test_numeric_sa() -> Result<()> {
+    let a = StandardAnalyzer::new();
+    let mut random = rng();
+
+    assert_analyzes_to6(&mut random, &a, "21.35", &["21.35"])?;
+    assert_analyzes_to6(&mut random, &a, "R2D2 C3PO", &["r2d2", "c3po"])?;
+    assert_analyzes_to6(&mut random, &a, "216.239.63.104", &["216.239.63.104"])?;
+    assert_analyzes_to6(&mut random, &a, "216.239.63.104", &["216.239.63.104"])?;
+    Ok(())
   }
 }
