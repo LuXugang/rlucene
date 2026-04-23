@@ -16,11 +16,10 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStreamEnum2};
+use crate::core::analysis::token_stream::AnalyzerTokenStreams;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
-use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
@@ -37,7 +36,9 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::index_writer_config::OpenMode::Create;
-use crate::core::index::indexable_field::IndexableField;
+use crate::core::index::indexable_field::{
+  IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
+};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_doc_values::MultiDocValues;
@@ -1005,16 +1006,9 @@ impl IndexableField for FieldImpl {
   }
   fn token_stream<'a>(
     &'a mut self,
-    _token_stream: Option<&'a mut AnalyzerTokenStreams>,
-    _reuse_token_stream: Option<&'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
-  ) -> Result<
-    Option<
-      TokenStreamEnum2<
-        &'a mut AnalyzerTokenStreams,
-        &'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>,
-      >,
-    >,
-  > {
+    _token_stream: &'a mut AnalyzerTokenStreams,
+    _reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
+  ) -> Result<IndexingTokenStream<'a>> {
     Err(LuceneError::unsupported_operation(""))
   }
 

@@ -16,13 +16,14 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStreamEnum2};
-use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
+use crate::core::analysis::token_stream::AnalyzerTokenStreams;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
-use crate::core::index::indexable_field::IndexableField;
+use crate::core::index::indexable_field::{
+  IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
+};
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery, check_args};
 use crate::core::util::bit_util::BitUtil;
@@ -162,16 +163,9 @@ impl IndexableField for IntPoint {
   }
   fn token_stream<'a>(
     &'a mut self,
-    token_stream: Option<&'a mut AnalyzerTokenStreams>,
-    reuse_token_stream: Option<&'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
-  ) -> Result<
-    Option<
-      TokenStreamEnum2<
-        &'a mut AnalyzerTokenStreams,
-        &'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>,
-      >,
-    >,
-  > {
+    token_stream: &'a mut AnalyzerTokenStreams,
+    reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
+  ) -> Result<IndexingTokenStream<'a>> {
     self
       .parent_field
       .token_stream(token_stream, reuse_token_stream)

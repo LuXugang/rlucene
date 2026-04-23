@@ -19,9 +19,9 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStreamEnum2};
-use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field::FieldDataEnum;
+use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field_type::IndexableFieldType;
@@ -57,9 +57,9 @@ pub trait IndexableField: Display {
   /// non-null value if the field is to be indexed.
   fn token_stream<'a>(
     &'a mut self,
-    analyzer_token_stream: Option<&'a mut AnalyzerTokenStreams>,
-    reuse_token_stream: Option<&'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
-  ) -> Result<Option<TokenStreamEnum2<&'a mut AnalyzerTokenStreams, &'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>>>;
+    analyzer_token_stream: &'a mut AnalyzerTokenStreams,
+    reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
+  ) -> Result<IndexingTokenStream<'a>>;
   /// Non-null if this field has a binary value.
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>>;
@@ -99,6 +99,9 @@ pub trait IndexableField: Display {
     Err(LuceneError::unsupported_operation(""))
   }
 }
+pub type IndexingTokenStream<'a> =
+  Option<TokenStreamEnum2<&'a mut AnalyzerTokenStreams, &'a mut ReusedIndexingTokenStream>>;
+pub type ReusedIndexingTokenStream = TokenStreamEnum2<BinaryTokenStream, StringTokenStream>;
 
 #[cfg(test)]
 mod tests {

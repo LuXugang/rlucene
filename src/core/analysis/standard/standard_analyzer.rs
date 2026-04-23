@@ -84,7 +84,9 @@ impl Analyzer for StandardAnalyzer {
     src.set_max_token_length(self.max_token_length)?;
     let tok = StopFilter::new(LowerCaseFilter::new(src), self.stop_words.clone());
     // TODO IMPORTANT
-    Ok(TokenStreamComponents::new(AnalyzerTokenStreams::Standard(tok)))
+    Ok(TokenStreamComponents::new(AnalyzerTokenStreams::Standard(
+      tok,
+    )))
   }
 
   type TokenStream<TS>

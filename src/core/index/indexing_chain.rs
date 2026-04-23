@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{Analyzer, REUSE_STRATEGY, ReuseStrategy};
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream, TokenStreamEnum2};
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::norms_format::NormsFormat;
@@ -23,7 +23,6 @@ use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::codecs::{Codec, LATEST_CODEC};
-use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
 use crate::core::document::fields::Fields;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
@@ -58,7 +57,9 @@ use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::document::field::FieldDataEnum;
 use crate::core::index::index_writer::{MAX_POSITION, MAX_STORED_STRING_LENGTH, MAX_TERM_LENGTH};
-use crate::core::index::indexable_field::IndexableField;
+use crate::core::index::indexable_field::{
+  IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
+};
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -718,7 +719,6 @@ where
         let pf_idx = self.get_or_add_per_field(field, is_reserved)?;
         {
           let pf = &mut self.per_fields[pf_idx];
-
           if pf.reserved != is_reserved {
             return Err(LuceneError::illegal_argument(format!(
               "\"{}\" is a reserved field and should not be added to any document",
@@ -997,7 +997,7 @@ where
   }
   /// Returns a previously created [`PerField`], absorbing the type information from
   /// [`FieldType`](crate::core::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
-  pub(crate) fn get_or_add_per_field(&mut self, field: &Fields, reserved: bool) -> Result<usize >{
+  pub(crate) fn get_or_add_per_field(&mut self, field: &Fields, reserved: bool) -> Result<usize> {
     let field_name = field.name();
     let hash_pos = CoreHelper::calculate_hash(field_name) as usize & self.hash_mask;
     let mut per_field_index = self.field_hash[hash_pos];
@@ -1014,12 +1014,7 @@ where
     }
     if per_field_index < 0 {
       let schema = FieldSchema::new(field_name);
-      let mut pf = PerField::new(
-        field,
-        self.index_created_version_major,
-        schema,
-        reserved,
-      )?;
+      let mut pf = PerField::new(field, self.index_created_version_major, schema, reserved)?;
       // filed_name's hash conflict happened, and could not find existing PerField with the same name in next chain
       if conflict {
         let old_pos = self.field_hash[hash_pos];
@@ -1282,9 +1277,7 @@ where
     None
   }
   #[allow(dead_code)] // not use in rust lucene
-  pub(crate) fn mark_as_reserved(){
-
-  }
+  pub(crate) fn mark_as_reserved() {}
 
   pub(crate) fn get_has_doc_values(&mut self, field: &str) -> Result<Option<DocValuesWriterDISI>> {
     if let Some(idx) = self.get_per_field(field) {
@@ -1324,7 +1317,8 @@ pub(crate) struct PerField {
   pub(crate) next: i32,
   pub(crate) norms: Option<NormValuesWriter>,
   // reuse
-  pub(crate) token_stream: Option<TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
+  // TODO IMPORTANT  如果同一个域既有 StringValue 跟 Binary是不是应该同时保留BinaryTokenStream, StringTokenStream是的复用最大化
+  pub(crate) token_stream: Option<ReusedIndexingTokenStream>,
   pub(crate) first: bool,
   pub(crate) idx_in_doc_field: i32,
 }
@@ -1334,8 +1328,7 @@ impl PerField {
     index_created_version_major: i32,
     schema: FieldSchema,
     reserved: bool,
-  ) -> Result<Self >{
-    let token_stream = Self::init_token_stream(field)?;
+  ) -> Result<Self> {
     Ok(PerField {
       field_name: field.name().to_string(),
       index_created_version_major,
@@ -1350,22 +1343,10 @@ impl PerField {
       field_gen: -1,
       next: -1,
       norms: None,
-      token_stream,
+      token_stream: None,
       first: false,
       idx_in_doc_field: -1,
     })
-  }
-  fn init_token_stream(field: &Fields) -> Result<Option<TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>> {
-    if field.field_type().tokenized(){
-      return Ok(None)
-    }
-    if field.string_value()?.is_some(){
-      return Ok(Some(TokenStreamEnum2::B(StringTokenStream::new())))
-    }
-    if field.binary_value()?.is_some(){
-      return Ok(Some(TokenStreamEnum2::A(BinaryTokenStream::new()?)))
-    }
-    Ok(None)
   }
   pub(crate) fn reset(&mut self, doc_id: i32) {
     self.first = true;
@@ -1514,17 +1495,17 @@ impl PerField {
     REUSE_STRATEGY.with(|reuse_strategy| {
             (|| -> Result<()> {
                 let mut reuse_strategy = reuse_strategy.borrow_mut();
-                let ts = match reuse_strategy.as_mut() {
-                    Some(rs) => rs
-                        .get_reusable_components(&field_name)?
-                        .map(|ts_ref| ts_ref.get_token_stream()),
-                    None => None,
-                };
+              let ts_ref = match reuse_strategy.as_mut() {
+                Some(rs) => rs.get_reusable_components(&field_name)?,
+                None => None,
+              }.ok_or_else(|| LuceneError::illegal_argument("AnalyzerTokenStreams not initialized"))?;
+
+              let ts = ts_ref.get_token_stream();
 
          let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
                 terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
         let mut stream = field
-            .token_stream(ts, self.token_stream.as_mut())?
+            .token_stream(ts, &mut self.token_stream)?
             .ok_or_else(|| LuceneError::illegal_state("token_stream is None"))?;
         let result = (|| {
             stream.reset()?;
@@ -2647,16 +2628,9 @@ where
   }
   fn token_stream<'a>(
     &'a mut self,
-    token_stream: Option<&'a mut AnalyzerTokenStreams>,
-    reuse_token_stream: Option<&'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
-  ) -> Result<
-    Option<
-      TokenStreamEnum2<
-        &'a mut AnalyzerTokenStreams,
-        &'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>,
-      >,
-    >,
-  > {
+    token_stream: &'a mut AnalyzerTokenStreams,
+    reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
+  ) -> Result<IndexingTokenStream<'a>> {
     self.delegate.token_stream(token_stream, reuse_token_stream)
   }
 

@@ -1539,8 +1539,8 @@ mod tests {
   #[test]
   fn test_int_ghost() -> Result<()> {
     let mut random = random();
-    do_test_string_ghost(&mut random, true)?;
-    do_test_string_ghost(&mut random, false)?;
+    do_test_int_ghost(&mut random, true)?;
+    do_test_int_ghost(&mut random, false)?;
     Ok(())
   }
 
@@ -1603,8 +1603,8 @@ mod tests {
   #[test]
   fn test_long_ghost() -> Result<()> {
     let mut random = random();
-    do_test_string_ghost(&mut random, true)?;
-    do_test_string_ghost(&mut random, false)?;
+    do_test_long_ghost(&mut random, true)?;
+    do_test_long_ghost(&mut random, false)?;
     Ok(())
   }
 
@@ -1667,8 +1667,8 @@ mod tests {
   #[test]
   fn test_double_ghost() -> Result<()> {
     let mut random = random();
-    do_test_string_ghost(&mut random, true)?;
-    do_test_string_ghost(&mut random, false)?;
+    do_test_double_ghost(&mut random, true)?;
+    do_test_double_ghost(&mut random, false)?;
     Ok(())
   }
 
@@ -1731,8 +1731,8 @@ mod tests {
   #[test]
   fn test_float_ghost() -> Result<()> {
     let mut random = random();
-    do_test_string_ghost(&mut random, true)?;
-    do_test_string_ghost(&mut random, false)?;
+    do_test_float_ghost(&mut random, true)?;
+    do_test_float_ghost(&mut random, false)?;
     Ok(())
   }
 

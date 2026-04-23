@@ -17,14 +17,13 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStreamEnum2};
+use crate::core::analysis::token_stream::AnalyzerTokenStreams;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::double_doc_values_field::DoubleDocValuesField;
 use crate::core::document::double_field::DoubleField;
 use crate::core::document::double_point::DoublePoint;
-use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
 use crate::core::document::field::{Field, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::float_doc_values_field::FloatDocValuesField;
@@ -50,7 +49,9 @@ use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
-use crate::core::index::indexable_field::IndexableField;
+use crate::core::index::indexable_field::{
+  IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
+};
 use crate::core::index::indexing_chain::ReservedField;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
@@ -183,16 +184,9 @@ impl IndexableField for Fields {
   }
   fn token_stream<'a>(
     &'a mut self,
-    token_stream: Option<&'a mut AnalyzerTokenStreams>,
-    reuse_token_stream: Option<&'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
-  ) -> Result<
-    Option<
-      TokenStreamEnum2<
-        &'a mut AnalyzerTokenStreams,
-        &'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>,
-      >,
-    >,
-  > {
+    token_stream: &'a mut AnalyzerTokenStreams,
+    reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
+  ) -> Result<IndexingTokenStream<'a>> {
     dispatch_fields!(self, |field| field
       .token_stream(token_stream, reuse_token_stream))
   }
