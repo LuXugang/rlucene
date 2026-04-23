@@ -152,7 +152,7 @@ impl IndexableField for FloatField {
   }
   fn token_stream<'a>(
     &'a mut self,
-    token_stream: &'a mut AnalyzerTokenStreams,
+    token_stream: Option<&'a mut AnalyzerTokenStreams>,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
   ) -> Result<IndexingTokenStream<'a>> {
     self

@@ -184,7 +184,7 @@ impl IndexableField for Fields {
   }
   fn token_stream<'a>(
     &'a mut self,
-    token_stream: &'a mut AnalyzerTokenStreams,
+    token_stream: Option<&'a mut AnalyzerTokenStreams>,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
   ) -> Result<IndexingTokenStream<'a>> {
     dispatch_fields!(self, |field| field

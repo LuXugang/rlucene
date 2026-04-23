@@ -158,7 +158,7 @@ impl IndexableField for KeywordField {
   }
   fn token_stream<'a>(
     &'a mut self,
-    ts: &'a mut AnalyzerTokenStreams,
+    ts: Option<&'a mut AnalyzerTokenStreams>,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
   ) -> Result<IndexingTokenStream<'a>> {
     self.parent_field.token_stream(ts, reuse_token_stream)

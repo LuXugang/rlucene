@@ -49,7 +49,7 @@ impl IndexableField for DummyIndexableField {
   }
   fn token_stream<'a>(
     &'a mut self,
-    _token_stream: &'a mut AnalyzerTokenStreams,
+    _token_stream: Option<&'a mut AnalyzerTokenStreams>,
     _reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
   ) -> Result<IndexingTokenStream<'a>> {
     unreachable!("Dummy implementation: this method should never be called in real usage")

@@ -57,7 +57,7 @@ pub trait IndexableField: Display {
   /// non-null value if the field is to be indexed.
   fn token_stream<'a>(
     &'a mut self,
-    analyzer_token_stream: &'a mut AnalyzerTokenStreams,
+    analyzer_token_stream: Option<&'a mut AnalyzerTokenStreams>,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
   ) -> Result<IndexingTokenStream<'a>>;
   /// Non-null if this field has a binary value.

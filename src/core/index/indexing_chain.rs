@@ -716,7 +716,7 @@ where
       for field in &document {
         let field_type = field.field_type();
         let is_reserved = field.is_reserved();
-        let pf_idx = self.get_or_add_per_field(field, is_reserved)?;
+        let pf_idx = self.get_or_add_per_field(field, is_reserved);
         {
           let pf = &mut self.per_fields[pf_idx];
           if pf.reserved != is_reserved {
@@ -997,7 +997,7 @@ where
   }
   /// Returns a previously created [`PerField`], absorbing the type information from
   /// [`FieldType`](crate::core::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
-  pub(crate) fn get_or_add_per_field(&mut self, field: &Fields, reserved: bool) -> Result<usize> {
+  pub(crate) fn get_or_add_per_field(&mut self, field: &Fields, reserved: bool) -> usize {
     let field_name = field.name();
     let hash_pos = CoreHelper::calculate_hash(field_name) as usize & self.hash_mask;
     let mut per_field_index = self.field_hash[hash_pos];
@@ -1014,7 +1014,7 @@ where
     }
     if per_field_index < 0 {
       let schema = FieldSchema::new(field_name);
-      let mut pf = PerField::new(field, self.index_created_version_major, schema, reserved)?;
+      let mut pf = PerField::new(field, self.index_created_version_major, schema, reserved);
       // filed_name's hash conflict happened, and could not find existing PerField with the same name in next chain
       if conflict {
         let old_pos = self.field_hash[hash_pos];
@@ -1036,7 +1036,7 @@ where
         ArrayUtil::grow_with_len(&mut self.fields, new_len);
       }
     }
-    Ok(per_field_index as usize)
+    per_field_index as usize
   }
   // update schema for field as seen in a particular document
   fn update_doc_field_schema<IFT>(
@@ -1328,8 +1328,8 @@ impl PerField {
     index_created_version_major: i32,
     schema: FieldSchema,
     reserved: bool,
-  ) -> Result<Self> {
-    Ok(PerField {
+  ) -> Self {
+    PerField {
       field_name: field.name().to_string(),
       index_created_version_major,
       schema,
@@ -1346,7 +1346,7 @@ impl PerField {
       token_stream: None,
       first: false,
       idx_in_doc_field: -1,
-    })
+    }
   }
   pub(crate) fn reset(&mut self, doc_id: i32) {
     self.first = true;
@@ -1494,13 +1494,13 @@ impl PerField {
     field.init_token_stream(analyzer)?;
     REUSE_STRATEGY.with(|reuse_strategy| {
             (|| -> Result<()> {
-                let mut reuse_strategy = reuse_strategy.borrow_mut();
-              let ts_ref = match reuse_strategy.as_mut() {
-                Some(rs) => rs.get_reusable_components(&field_name)?,
+              let mut reuse_strategy = reuse_strategy.borrow_mut();
+              let ts = match reuse_strategy.as_mut() {
+                Some(rs) => rs
+                    .get_reusable_components(&field_name)?
+                    .map(|ts_ref| ts_ref.get_token_stream()),
                 None => None,
-              }.ok_or_else(|| LuceneError::illegal_argument("AnalyzerTokenStreams not initialized"))?;
-
-              let ts = ts_ref.get_token_stream();
+              };
 
          let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
                 terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
@@ -2628,7 +2628,7 @@ where
   }
   fn token_stream<'a>(
     &'a mut self,
-    token_stream: &'a mut AnalyzerTokenStreams,
+    token_stream: Option<&'a mut AnalyzerTokenStreams>,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
   ) -> Result<IndexingTokenStream<'a>> {
     self.delegate.token_stream(token_stream, reuse_token_stream)

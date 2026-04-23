@@ -506,7 +506,7 @@ impl IndexableField for Field {
   }
   fn token_stream<'a>(
     &'a mut self,
-    token_stream: &'a mut AnalyzerTokenStreams,
+    token_stream: Option<&'a mut AnalyzerTokenStreams>,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
   ) -> Result<IndexingTokenStream<'a>> {
     if *self.field_type().index_options() == IndexOptions::None {
@@ -559,7 +559,13 @@ impl IndexableField for Field {
 
     debug_assert!(reuse_token_stream.is_none());
 
-    Ok(Some(TokenStreamEnum2::A(token_stream)))
+    if let Some(token_stream) = token_stream {
+      Ok(Some(TokenStreamEnum2::A(token_stream)))
+    } else {
+      Err(LuceneError::illegal_state(
+        "not initialized Analyzer's token stream in IndexableField::init_token_stream()?",
+      ))
+    }
   }
 
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {

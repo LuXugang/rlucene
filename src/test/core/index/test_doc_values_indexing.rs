@@ -1006,7 +1006,7 @@ impl IndexableField for FieldImpl {
   }
   fn token_stream<'a>(
     &'a mut self,
-    _token_stream: &'a mut AnalyzerTokenStreams,
+    _token_stream: Option<&'a mut AnalyzerTokenStreams>,
     _reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
   ) -> Result<IndexingTokenStream<'a>> {
     Err(LuceneError::unsupported_operation(""))
