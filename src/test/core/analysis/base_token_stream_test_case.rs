@@ -24,13 +24,16 @@ use crate::core::analysis::token_attributes::position_increment_attribute::Posit
 use crate::core::analysis::token_attributes::position_length_attribute::PositionLengthAttribute;
 use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::analysis::token_attributes::type_attribute::TypeAttribute;
+use crate::core::analysis::token_stream::AnalyzerTokenStreams;
 use crate::core::analysis::token_stream::TokenStream;
+use crate::core::document::field::Field;
 use crate::core::index::BytesRef;
 use crate::core::search::boost_attribute::BoostAttribute;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use rand::Rng;
 use std::collections::HashMap;
 
 pub trait BaseTokenStreamTestCase {}
@@ -386,8 +389,8 @@ where
   Ok(())
 }
 
-#[allow(non_snake_case, clippy::too_many_arguments)]
-pub fn assertTokenStreamContents1<TS>(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_token_stream_contents1<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -423,8 +426,8 @@ where
   )
 }
 
-#[allow(non_snake_case, clippy::too_many_arguments)]
-pub fn assertTokenStreamContents2<TS>(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_token_stream_contents2<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -439,7 +442,7 @@ pub fn assertTokenStreamContents2<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents3(
+  assert_token_stream_contents3(
     ts,
     output,
     start_offsets,
@@ -454,8 +457,8 @@ where
   )
 }
 
-#[allow(non_snake_case, clippy::too_many_arguments)]
-pub fn assertTokenStreamContents3<TS>(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_token_stream_contents3<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -489,8 +492,8 @@ where
   )
 }
 
-#[allow(non_snake_case, clippy::too_many_arguments)]
-pub fn assertTokenStreamContents4<TS>(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_token_stream_contents4<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -525,8 +528,8 @@ where
   )
 }
 
-#[allow(non_snake_case, clippy::too_many_arguments)]
-pub fn assertTokenStreamContents5<TS>(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_token_stream_contents5<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -541,7 +544,7 @@ pub fn assertTokenStreamContents5<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents3(
+  assert_token_stream_contents3(
     ts,
     output,
     start_offsets,
@@ -556,8 +559,8 @@ where
   )
 }
 
-#[allow(non_snake_case, clippy::too_many_arguments)]
-pub fn assertTokenStreamContents6<TS>(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_token_stream_contents6<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -571,7 +574,7 @@ pub fn assertTokenStreamContents6<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents3(
+  assert_token_stream_contents3(
     ts,
     output,
     start_offsets,
@@ -586,8 +589,8 @@ where
   )
 }
 
-#[allow(non_snake_case, clippy::too_many_arguments)]
-pub fn assertTokenStreamContents7<TS>(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_token_stream_contents7<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -600,7 +603,7 @@ pub fn assertTokenStreamContents7<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents6(
+  assert_token_stream_contents6(
     ts,
     output,
     start_offsets,
@@ -613,8 +616,8 @@ where
   )
 }
 
-#[allow(non_snake_case, clippy::too_many_arguments)]
-pub fn assertTokenStreamContents8<TS>(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_token_stream_contents8<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -628,7 +631,7 @@ pub fn assertTokenStreamContents8<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents5(
+  assert_token_stream_contents5(
     ts,
     output,
     start_offsets,
@@ -642,8 +645,8 @@ where
   )
 }
 
-#[allow(non_snake_case, clippy::too_many_arguments)]
-pub fn assertTokenStreamContents9<TS>(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_token_stream_contents9<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -655,7 +658,7 @@ pub fn assertTokenStreamContents9<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents7(
+  assert_token_stream_contents7(
     ts,
     output,
     start_offsets,
@@ -667,8 +670,8 @@ where
   )
 }
 
-#[allow(non_snake_case, clippy::too_many_arguments)]
-pub fn assertTokenStreamContents10<TS>(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_token_stream_contents10<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -679,7 +682,7 @@ pub fn assertTokenStreamContents10<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents7(
+  assert_token_stream_contents7(
     ts,
     output,
     start_offsets,
@@ -691,8 +694,8 @@ where
   )
 }
 
-#[allow(non_snake_case, clippy::too_many_arguments)]
-pub fn assertTokenStreamContents11<TS>(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_token_stream_contents11<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -704,7 +707,7 @@ pub fn assertTokenStreamContents11<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents7(
+  assert_token_stream_contents7(
     ts,
     output,
     start_offsets,
@@ -717,15 +720,15 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn assertTokenStreamContents12<TS>(ts: &mut TS, output: &[&str]) -> Result<()>
+pub fn assert_token_stream_contents12<TS>(ts: &mut TS, output: &[&str]) -> Result<()>
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents7(ts, output, None, None, None, None, None, None)
+  assert_token_stream_contents7(ts, output, None, None, None, None, None, None)
 }
 
 #[allow(non_snake_case)]
-pub fn assertTokenStreamContents13<TS>(
+pub fn assert_token_stream_contents13<TS>(
   ts: &mut TS,
   output: &[&str],
   types: Option<&[&str]>,
@@ -733,11 +736,11 @@ pub fn assertTokenStreamContents13<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents7(ts, output, None, None, types, None, None, None)
+  assert_token_stream_contents7(ts, output, None, None, types, None, None, None)
 }
 
 #[allow(non_snake_case)]
-pub fn assertTokenStreamContents14<TS>(
+pub fn assert_token_stream_contents14<TS>(
   ts: &mut TS,
   output: &[&str],
   pos_increments: Option<&[i32]>,
@@ -745,11 +748,11 @@ pub fn assertTokenStreamContents14<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents7(ts, output, None, None, None, pos_increments, None, None)
+  assert_token_stream_contents7(ts, output, None, None, None, pos_increments, None, None)
 }
 
 #[allow(non_snake_case)]
-pub fn assertTokenStreamContents15<TS>(
+pub fn assert_token_stream_contents15<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -758,7 +761,7 @@ pub fn assertTokenStreamContents15<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents7(
+  assert_token_stream_contents7(
     ts,
     output,
     start_offsets,
@@ -771,7 +774,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn assertTokenStreamContents16<TS>(
+pub fn assert_token_stream_contents16<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -781,7 +784,7 @@ pub fn assertTokenStreamContents16<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents7(
+  assert_token_stream_contents7(
     ts,
     output,
     start_offsets,
@@ -794,7 +797,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn assertTokenStreamContents17<TS>(
+pub fn assert_token_stream_contents17<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -804,7 +807,7 @@ pub fn assertTokenStreamContents17<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents7(
+  assert_token_stream_contents7(
     ts,
     output,
     start_offsets,
@@ -817,7 +820,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn assertTokenStreamContents18<TS>(
+pub fn assert_token_stream_contents18<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -828,7 +831,7 @@ pub fn assertTokenStreamContents18<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents7(
+  assert_token_stream_contents7(
     ts,
     output,
     start_offsets,
@@ -841,7 +844,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn assertTokenStreamContents19<TS>(
+pub fn assert_token_stream_contents19<TS>(
   ts: &mut TS,
   output: &[&str],
   start_offsets: Option<&[i32]>,
@@ -853,7 +856,7 @@ pub fn assertTokenStreamContents19<TS>(
 where
   TS: TokenStream,
 {
-  assertTokenStreamContents7(
+  assert_token_stream_contents7(
     ts,
     output,
     start_offsets,
@@ -864,6 +867,340 @@ where
     final_offset,
   )
 }
+
+fn with_analyzer_token_stream<A, F>(a: &A, input: &str, f: F) -> Result<()>
+where
+  A: Analyzer,
+  F: FnOnce(&mut AnalyzerTokenStreams) -> Result<()>,
+{
+  let field = "dummy";
+  a.token_stream(field, input)?;
+  REUSE_STRATEGY.with(|reuse_strategy| {
+    (|| -> Result<()> {
+      let mut reuse_strategy = reuse_strategy.borrow_mut();
+      let ts = reuse_strategy
+        .as_mut()
+        .and_then(|rs| rs.get_reusable_components(field).ok().flatten())
+        .map(|ts_ref| ts_ref.get_token_stream())
+        .ok_or_else(|| LuceneError::illegal_state("missing reusable token stream"))?;
+      f(ts)
+    })()
+  })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn assert_analyzes_to1<A, R>(
+  random: &mut R,
+  a: &A,
+  input: &str,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  with_analyzer_token_stream(a, input, |ts| {
+    assert_token_stream_contents10(
+      ts,
+      output,
+      start_offsets,
+      end_offsets,
+      types,
+      pos_increments,
+    )
+  })?;
+  check_reset_exception(a, input)?;
+  check_analysis_consistency1(random, a, true, input)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn assert_analyzes_to2<A, R>(
+  random: &mut R,
+  a: &A,
+  input: &str,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  assert_analyzes_to3(
+    random,
+    a,
+    input,
+    output,
+    start_offsets,
+    end_offsets,
+    types,
+    pos_increments,
+    pos_lengths,
+    None,
+  )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn assert_analyzes_to3<A, R>(
+  random: &mut R,
+  a: &A,
+  input: &str,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  boost: Option<&[f32]>,
+) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  with_analyzer_token_stream(a, input, |ts| {
+    assert_token_stream_contents8(
+      ts,
+      output,
+      start_offsets,
+      end_offsets,
+      types,
+      pos_increments,
+      pos_lengths,
+      Some(input.len() as i32),
+      boost,
+    )
+  })?;
+  check_reset_exception(a, input)?;
+  check_analysis_consistency1(random, a, true, input)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn assert_analyzes_to4<A, R>(
+  random: &mut R,
+  a: &A,
+  input: &str,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  graph_offsets_are_correct: bool,
+) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  with_analyzer_token_stream(a, input, |ts| {
+    assert_token_stream_contents6(
+      ts,
+      output,
+      start_offsets,
+      end_offsets,
+      types,
+      pos_increments,
+      pos_lengths,
+      Some(input.len() as i32),
+      graph_offsets_are_correct,
+    )
+  })?;
+  check_reset_exception(a, input)?;
+  check_analysis_consistency2(random, a, true, input, graph_offsets_are_correct)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn assert_analyzes_to5<A, R>(
+  random: &mut R,
+  a: &A,
+  input: &str,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+  graph_offsets_are_correct: bool,
+  payloads: Option<&[Option<Vec<u8>>]>,
+) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  with_analyzer_token_stream(a, input, |ts| {
+    assert_token_stream_contents4(
+      ts,
+      output,
+      start_offsets,
+      end_offsets,
+      types,
+      pos_increments,
+      pos_lengths,
+      Some(input.len() as i32),
+      None,
+      None,
+      graph_offsets_are_correct,
+      payloads,
+    )
+  })?;
+  check_reset_exception(a, input)?;
+  check_analysis_consistency2(random, a, true, input, graph_offsets_are_correct)
+}
+
+pub fn assert_analyzes_to6<A, R>(random: &mut R, a: &A, input: &str, output: &[&str]) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  assert_analyzes_to2(random, a, input, output, None, None, None, None, None)
+}
+
+pub fn assert_analyzes_to7<A, R>(
+  random: &mut R,
+  a: &A,
+  input: &str,
+  output: &[&str],
+  types: Option<&[&str]>,
+) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  assert_analyzes_to2(random, a, input, output, None, None, types, None, None)
+}
+
+pub fn assert_analyzes_to8<A, R>(
+  random: &mut R,
+  a: &A,
+  input: &str,
+  output: &[&str],
+  pos_increments: Option<&[i32]>,
+) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  assert_analyzes_to2(
+    random,
+    a,
+    input,
+    output,
+    None,
+    None,
+    None,
+    pos_increments,
+    None,
+  )
+}
+
+pub fn assert_analyzes_to_positions1<A, R>(
+  random: &mut R,
+  a: &A,
+  input: &str,
+  output: &[&str],
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  assert_analyzes_to2(
+    random,
+    a,
+    input,
+    output,
+    None,
+    None,
+    None,
+    pos_increments,
+    pos_lengths,
+  )
+}
+
+pub fn assert_analyzes_to_positions2<A, R>(
+  random: &mut R,
+  a: &A,
+  input: &str,
+  output: &[&str],
+  types: Option<&[&str]>,
+  pos_increments: Option<&[i32]>,
+  pos_lengths: Option<&[i32]>,
+) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  assert_analyzes_to2(
+    random,
+    a,
+    input,
+    output,
+    None,
+    None,
+    types,
+    pos_increments,
+    pos_lengths,
+  )
+}
+
+pub fn assert_analyzes_to9<A, R>(
+  random: &mut R,
+  a: &A,
+  input: &str,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  assert_analyzes_to2(
+    random,
+    a,
+    input,
+    output,
+    start_offsets,
+    end_offsets,
+    None,
+    None,
+    None,
+  )
+}
+
+pub fn assert_analyzes_to10<A, R>(
+  random: &mut R,
+  a: &A,
+  input: &str,
+  output: &[&str],
+  start_offsets: Option<&[i32]>,
+  end_offsets: Option<&[i32]>,
+  pos_increments: Option<&[i32]>,
+) -> Result<()>
+where
+  A: Analyzer,
+  R: Rng + ?Sized,
+{
+  assert_analyzes_to2(
+    random,
+    a,
+    input,
+    output,
+    start_offsets,
+    end_offsets,
+    None,
+    pos_increments,
+    None,
+  )
+}
+
 fn check_reset_exception<A>(a: &A, input: &str) -> Result<()>
 where
   A: Analyzer,
@@ -948,4 +1285,49 @@ where
     })()
   })?;
   Ok(())
+}
+pub fn check_analysis_consistency1<R>(
+  random: &mut R,
+  a: &impl Analyzer,
+  use_char_filter: bool,
+  text: &str,
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
+  check_analysis_consistency2(random, a, use_char_filter, text, true)
+}
+
+pub fn check_analysis_consistency2<R>(
+  random: &mut R,
+  a: &impl Analyzer,
+  use_char_filter: bool,
+  text: &str,
+  graph_offsets_are_correct: bool,
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
+  check_analysis_consistency(
+    random,
+    a,
+    use_char_filter,
+    text,
+    graph_offsets_are_correct,
+    None,
+  )
+}
+pub fn check_analysis_consistency<R>(
+  _random: &mut R,
+  _a: &impl Analyzer,
+  _use_char_filter: bool,
+  _text: &str,
+  _graph_offsets_are_correct: bool,
+  _field: Option<&mut Field>,
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
+  // TODO IMPORTANT 未实现
+  todo!()
 }
