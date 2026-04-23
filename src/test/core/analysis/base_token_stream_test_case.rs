@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::analyzer::{Analyzer, REUSE_STRATEGY, ReuseStrategy};
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::flags_attribute::FlagsAttribute;
 use crate::core::analysis::token_attributes::keyword_attribute::KeywordAttribute;
@@ -30,7 +30,7 @@ use crate::core::search::boost_attribute::BoostAttribute;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 
 pub trait BaseTokenStreamTestCase {}
@@ -864,9 +864,88 @@ where
     final_offset,
   )
 }
-fn check_reset_exception<A>(_a: &A, _input: &str) -> Result<()>
+fn check_reset_exception<A>(a: &A, input: &str) -> Result<()>
 where
   A: Analyzer,
 {
+  let field = "bogus";
+  a.token_stream(field, input)?;
+  REUSE_STRATEGY.with(|reuse_strategy| {
+    (|| -> Result<()> {
+      let mut reuse_strategy = reuse_strategy.borrow_mut();
+      let ts_ref = match reuse_strategy.as_mut() {
+        Some(rs) => rs
+          .get_reusable_components(field)?
+          .map(|ts_ref| ts_ref.get_token_stream()),
+        None => None,
+      };
+      let ts = ts_ref.unwrap();
+      match ts.increment_token() {
+        Err(e) => {
+          match e {
+            LuceneError::IllegalArgument(_) => {
+              // ok
+            },
+            _ => unreachable!(""),
+          }
+        },
+        Ok(_) => {
+          unreachable!("didn't get expected exception when reset() not called")
+        },
+      }
+      ts.reset()?;
+      while ts.increment_token()? {}
+      ts.end()?;
+      ts.close()?;
+      Ok(())
+    })()
+  })?;
+  // check for a missing close()
+  REUSE_STRATEGY.with(|reuse_strategy| {
+    (|| -> Result<()> {
+      let mut reuse_strategy = reuse_strategy.borrow_mut();
+
+      let ts_ref = match reuse_strategy.as_mut() {
+        Some(rs) => rs
+          .get_reusable_components(field)?
+          .map(|ts_ref| ts_ref.get_token_stream()),
+        None => None,
+      };
+      let ts = ts_ref.unwrap();
+
+      ts.reset()?;
+      while ts.increment_token()? {}
+      ts.end()?;
+      Ok(())
+    })()
+  })?;
+  match a.token_stream(field, input) {
+    Err(e) => {
+      match e {
+        LuceneError::IllegalArgument(_) => {
+          // ok
+        },
+        _ => unreachable!("didn't get expected exception"),
+      }
+    },
+    Ok(_) => {
+      unreachable!("didn't get expected exception when close() not called")
+    },
+  }
+  REUSE_STRATEGY.with(|reuse_strategy| {
+    (|| -> Result<()> {
+      let mut reuse_strategy = reuse_strategy.borrow_mut();
+
+      let ts_ref = match reuse_strategy.as_mut() {
+        Some(rs) => rs
+          .get_reusable_components(field)?
+          .map(|ts_ref| ts_ref.get_token_stream()),
+        None => None,
+      };
+      let ts = ts_ref.unwrap();
+      ts.close()?;
+      Ok(())
+    })()
+  })?;
   Ok(())
 }

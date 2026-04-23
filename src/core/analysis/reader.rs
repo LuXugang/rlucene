@@ -18,6 +18,8 @@
 use crate::core::analysis::char_filter::CharFilter;
 #[cfg(test)]
 use crate::core::analysis::char_filter::tests::{CharFilter1, CharFilter2};
+#[cfg(test)]
+use crate::test::core::analysis::mock_char_filter::MockCharFilter;
 
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::analysis::tokenizer::IllegalStateReader;
@@ -46,6 +48,8 @@ pub enum ReaderEnum {
   CharFilter1(CharFilter1),
   #[cfg(test)]
   CharFilter2(CharFilter2),
+  #[cfg(test)]
+  MockCharFilter(MockCharFilter),
 }
 // for std::mem::take
 impl Default for ReaderEnum {
@@ -60,6 +64,8 @@ impl ReaderEnum {
       ReaderEnum::CharFilter1(r) => r.correct_offset(corrected),
       #[cfg(test)]
       ReaderEnum::CharFilter2(r) => r.correct_offset(corrected),
+      #[cfg(test)]
+      ReaderEnum::MockCharFilter(r) => r.correct_offset(corrected),
       // not a CharFilter
       _ => corrected,
     }
@@ -74,6 +80,8 @@ impl Reader for ReaderEnum {
       ReaderEnum::CharFilter1(r) => r.read(),
       #[cfg(test)]
       ReaderEnum::CharFilter2(r) => r.read(),
+      #[cfg(test)]
+      ReaderEnum::MockCharFilter(r) => r.read(),
     }
   }
 
@@ -85,6 +93,8 @@ impl Reader for ReaderEnum {
       ReaderEnum::CharFilter1(r) => r.read_range(buf, off, len),
       #[cfg(test)]
       ReaderEnum::CharFilter2(r) => r.read_range(buf, off, len),
+      #[cfg(test)]
+      ReaderEnum::MockCharFilter(r) => r.read_range(buf, off, len),
     }
   }
 
@@ -96,6 +106,8 @@ impl Reader for ReaderEnum {
       ReaderEnum::CharFilter1(r) => CharFilter::close(r),
       #[cfg(test)]
       ReaderEnum::CharFilter2(r) => CharFilter::close(r),
+      #[cfg(test)]
+      ReaderEnum::MockCharFilter(r) => CharFilter::close(r),
     }
   }
 }
