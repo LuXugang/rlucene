@@ -19,7 +19,7 @@ use crate::core::analysis::reader::{Reader, ReaderEnum};
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream, TokenStreams};
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream, TokenStreams};
 use crate::core::index::BytesRef;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -35,7 +35,7 @@ thread_local! {
 }
 
 pub trait Analyzer {
-  fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>>;
+  fn create_components(&self, field: &str) -> Result<TokenStreamComponents<AnalyzerTokenStreams>>;
   /// Default reuse strategy is GlobalReuseStrategy
   fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
     ReuseStrategyEnum::Global(Box::default())
@@ -179,7 +179,7 @@ impl Default for AnalyzerEnum {
   }
 }
 impl Analyzer for AnalyzerEnum {
-  fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
+  fn create_components(&self, field: &str) -> Result<TokenStreamComponents<AnalyzerTokenStreams>> {
     match self {
       AnalyzerEnum::Whitespace(v) => v.create_components(field),
       #[cfg(test)]
@@ -289,14 +289,14 @@ impl Analyzer for AnalyzerEnum {
 }
 
 pub enum ReuseStrategyEnum {
-  Global(Box<GlobalReuseStrategy<InnerTokenStreams>>),
-  PerField(PerFieldReuseStrategy<InnerTokenStreams>),
+  Global(Box<GlobalReuseStrategy<AnalyzerTokenStreams>>),
+  PerField(PerFieldReuseStrategy<AnalyzerTokenStreams>),
 }
-impl ReuseStrategy<InnerTokenStreams> for ReuseStrategyEnum {
+impl ReuseStrategy<AnalyzerTokenStreams> for ReuseStrategyEnum {
   fn get_reusable_components(
     &mut self,
     field_name: &str,
-  ) -> Result<Option<&mut TokenStreamComponents<InnerTokenStreams>>> {
+  ) -> Result<Option<&mut TokenStreamComponents<AnalyzerTokenStreams>>> {
     match self {
       ReuseStrategyEnum::Global(v) => v.get_reusable_components(field_name),
       ReuseStrategyEnum::PerField(v) => v.get_reusable_components(field_name),
@@ -306,7 +306,7 @@ impl ReuseStrategy<InnerTokenStreams> for ReuseStrategyEnum {
   fn set_reusable_components(
     &mut self,
     field_name: &str,
-    components: TokenStreamComponents<InnerTokenStreams>,
+    components: TokenStreamComponents<AnalyzerTokenStreams>,
   ) -> Result<()> {
     match self {
       ReuseStrategyEnum::Global(v) => v.set_reusable_components(field_name, components),

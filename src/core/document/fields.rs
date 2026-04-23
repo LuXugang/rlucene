@@ -17,13 +17,14 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStreamEnum2};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::double_doc_values_field::DoubleDocValuesField;
 use crate::core::document::double_field::DoubleField;
 use crate::core::document::double_point::DoublePoint;
+use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
 use crate::core::document::field::{Field, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::float_doc_values_field::FloatDocValuesField;
@@ -180,14 +181,20 @@ impl IndexableField for Fields {
   fn field_type(&self) -> &Self::FieldType {
     dispatch_fields!(self, |field| field.field_type())
   }
-
-  type TokenStream = <Field as IndexableField>::TokenStream;
-
   fn token_stream<'a>(
     &'a mut self,
-    token_stream: Option<&'a mut InnerTokenStreams>,
-  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
-    dispatch_fields!(self, |field| field.token_stream(token_stream))
+    token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    reuse_token_stream: Option<&'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
+  ) -> Result<
+    Option<
+      TokenStreamEnum2<
+        &'a mut AnalyzerTokenStreams,
+        &'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>,
+      >,
+    >,
+  > {
+    dispatch_fields!(self, |field| field
+      .token_stream(token_stream, reuse_token_stream))
   }
 
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {

@@ -18,7 +18,7 @@
 use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
 use crate::core::analysis::analyzer::{Analyzer, ReuseStrategyEnum, TokenStreamComponents};
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream, TokenStreams};
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream, TokenStreams};
 use crate::core::index::BytesRef;
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
@@ -54,7 +54,7 @@ impl MockAnalyzer {
   pub fn set_enable_checks(&mut self, _enable_checks: bool) {}
 }
 impl Analyzer for MockAnalyzer {
-  fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
+  fn create_components(&self, field: &str) -> Result<TokenStreamComponents<AnalyzerTokenStreams>> {
     self.in_.create_components(field)
   }
 

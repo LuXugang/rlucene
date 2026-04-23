@@ -18,7 +18,8 @@
 
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream, TokenStreamEnum2};
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStreamEnum2};
+use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field::FieldDataEnum;
 use crate::core::document::invertable_field::InvertableType;
@@ -54,11 +55,11 @@ pub trait IndexableField: Display {
   /// # Returns
   /// TokenStream value for indexing the document. Should always return a
   /// non-null value if the field is to be indexed.
-  type TokenStream: TokenStream;
   fn token_stream<'a>(
     &'a mut self,
-    token_stream: Option<&'a mut InnerTokenStreams>,
-  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>;
+    analyzer_token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    reuse_token_stream: Option<&'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
+  ) -> Result<Option<TokenStreamEnum2<&'a mut AnalyzerTokenStreams, &'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>>>;
   /// Non-null if this field has a binary value.
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>>;

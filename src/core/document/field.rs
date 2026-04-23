@@ -21,7 +21,7 @@ use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttrib
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::packed_token_and_binary::BinaryTokenStreamAttributeImpl;
 use crate::core::analysis::token_stream::{
-  InnerTokenStreams, TokenStream, TokenStreamBase, TokenStreamEnum2,
+  AnalyzerTokenStreams, TokenStream, TokenStreamBase, TokenStreamEnum2,
 };
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field_type::FieldType;
@@ -79,8 +79,6 @@ pub struct Field {
   pub(crate) name: String,
   /// Field's value.
   pub(crate) fields_data: FieldDataEnum,
-  // TODO IMPORTANT 在这里定义没有无法实现复用
-  ts: Option<TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
 }
 #[cfg(test)]
 impl Clone for Field {
@@ -89,7 +87,6 @@ impl Clone for Field {
       indexable_field_type: self.indexable_field_type.clone(),
       name: self.name.clone(),
       fields_data: self.fields_data.clone(),
-      ts: None,
     }
   }
 }
@@ -113,7 +110,7 @@ impl Field {
       name: name.into(),
       fields_data: fields_data.into(),
       indexable_field_type,
-      ts: None,
+
     }
   }
   /// Creates a field with a `Reader` value.
@@ -148,7 +145,7 @@ impl Field {
       indexable_field_type,
       name: name.into(),
       fields_data: FieldDataEnum::Reader(reader),
-      ts: None,
+
     })
   }
   /// Creates a field with a `TokenStream` value.
@@ -185,7 +182,7 @@ impl Field {
       indexable_field_type,
       name: name.into(),
       fields_data: FieldDataEnum::TokenStream(token_stream),
-      ts: None,
+
     })
   }
   /// Creates a field with a binary value.
@@ -287,7 +284,7 @@ impl Field {
       indexable_field_type,
       name: name.into(),
       fields_data: FieldDataEnum::Binary(bytes),
-      ts: None,
+
     })
   }
   /// Creates a field with a `String` value.
@@ -317,7 +314,7 @@ impl Field {
       indexable_field_type,
       name: name.into(),
       fields_data: FieldDataEnum::String(value.into()),
-      ts: None,
+
     })
   }
   /// Returns the `TokenStream` for this field to be used when indexing, or
@@ -510,13 +507,18 @@ impl IndexableField for Field {
   fn field_type(&self) -> &Self::FieldType {
     &self.indexable_field_type
   }
-
-  type TokenStream = TokenStreamEnum2<BinaryTokenStream, StringTokenStream>;
-
   fn token_stream<'a>(
     &'a mut self,
-    token_stream: Option<&'a mut InnerTokenStreams>,
-  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
+    token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    reuse_token_stream: Option<&'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
+  ) -> Result<
+    Option<
+      TokenStreamEnum2<
+        &'a mut AnalyzerTokenStreams,
+        &'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>,
+      >,
+    >,
+  > {
     if *self.field_type().index_options() == IndexOptions::None {
       return Ok(None);
     }
@@ -529,17 +531,20 @@ impl IndexableField for Field {
             LuceneError::illegal_state("Expected string value to be present, but it was None")
           })?
           .into_owned();
-        let ts = self
-          .ts
-          .get_or_insert_with(|| TokenStreamEnum2::B(StringTokenStream::new()));
-
-        match ts {
-          TokenStreamEnum2::B(v) => v.set_value(string_value),
-          TokenStreamEnum2::A(_) => {
-            return Err(LuceneError::illegal_argument(""));
-          },
+        return match reuse_token_stream {
+          Some(v) => {
+            match v {
+              TokenStreamEnum2::A(_) => {
+                return Err(LuceneError::illegal_argument("should StringTokenStream here"));
+              },
+              TokenStreamEnum2::B(s) => s.set_value(string_value)
+            }
+            Ok(Some(TokenStreamEnum2::B(v)))
+          }
+          None => {
+            Err(LuceneError::illegal_state("StringTokenStream should already inited in PerField"))
+          }
         }
-        return Ok(Some(TokenStreamEnum2::B(ts)));
       }
       if self.binary_value()?.is_some() {
         // TODO IMPORTANT avoid copy here?
@@ -549,21 +554,20 @@ impl IndexableField for Field {
             LuceneError::illegal_state("Expected binary value to be present after is_some() check")
           })?
           .into_owned();
-        let ts = match self.ts {
-          Some(ref mut ts) => ts,
+        return match reuse_token_stream {
+          Some(v) => {
+            match v {
+              TokenStreamEnum2::B(_) => {
+                return Err(LuceneError::illegal_argument("should BinaryTokenStream here"));
+              },
+              TokenStreamEnum2::A(s) => s.set_value(binary_value)
+            }
+            Ok(Some(TokenStreamEnum2::B(v)))
+          }
           None => {
-            let ts = TokenStreamEnum2::A(BinaryTokenStream::new()?);
-            self.ts.insert(ts)
-          },
-        };
-
-        match ts {
-          TokenStreamEnum2::A(v) => v.set_value(binary_value),
-          TokenStreamEnum2::B(_) => {
-            return Err(LuceneError::illegal_argument(""));
-          },
+            Err(LuceneError::illegal_state("BinaryTokenStream should already inited in PerField"))
+          }
         }
-        return Ok(Some(TokenStreamEnum2::B(ts)));
       }
     }
     if let Some(token_stream) = token_stream {

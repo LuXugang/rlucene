@@ -18,7 +18,7 @@ use crate::analysis::common::analysis_impl::core::whitespace_tokenizer::Whitespa
 use crate::core::analysis::analyzer::{
   Analyzer, AnalyzerBase, GlobalReuseStrategy, TokenStreamComponents,
 };
-use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream};
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
 use crate::core::analysis::util::char_tokenizer::{CharTokenizer, DEFAULT_MAX_WORD_LEN};
 use crate::core::util::error::lucene_error::Result;
 /// An Analyzer that uses [`WhitespaceTokenizer`]
@@ -50,8 +50,8 @@ impl WhitespaceAnalyzer {
   }
 }
 impl Analyzer for WhitespaceAnalyzer {
-  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
-    Ok(TokenStreamComponents::new(InnerTokenStreams::Whitespace(
+  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<AnalyzerTokenStreams>> {
+    Ok(TokenStreamComponents::new(AnalyzerTokenStreams::Whitespace(
       WhitespaceTokenizer::with_max_token_len(self.max_token_length)?,
     )))
   }

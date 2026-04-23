@@ -24,7 +24,7 @@ use crate::core::analysis::standard::standard_tokenizer::{
 };
 use crate::core::analysis::stop_filter::StopFilter;
 use crate::core::analysis::stop_word_analyzer_base::{StopWordAnalyzerBase, init_stop_wors};
-use crate::core::analysis::token_stream::{InnerTokenStreams, StandardAnalyzerTS, TokenStream};
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, StandardAnalyzerTS, TokenStream};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -79,12 +79,12 @@ impl StandardAnalyzer {
 }
 
 impl Analyzer for StandardAnalyzer {
-  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
+  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<AnalyzerTokenStreams>> {
     let mut src = StandardTokenizer::new();
     src.set_max_token_length(self.max_token_length)?;
     let tok = StopFilter::new(LowerCaseFilter::new(src), self.stop_words.clone());
     // TODO IMPORTANT
-    Ok(TokenStreamComponents::new(InnerTokenStreams::Standard(tok)))
+    Ok(TokenStreamComponents::new(AnalyzerTokenStreams::Standard(tok)))
   }
 
   type TokenStream<TS>

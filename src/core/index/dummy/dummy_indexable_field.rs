@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::Analyzer;
-use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
-use crate::core::document::field::FieldDataEnum;
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStreamEnum2};
+use crate::core::document::field::{BinaryTokenStream, FieldDataEnum, StringTokenStream};
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_indexable_field_type::DummyIndexableFieldType;
@@ -46,13 +45,18 @@ impl IndexableField for DummyIndexableField {
   fn field_type(&self) -> &Self::FieldType {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
-
-  type TokenStream = DummyTokenStream;
-
   fn token_stream<'a>(
     &'a mut self,
-    _token_stream: Option<&'a mut InnerTokenStreams>,
-  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
+    _token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    _reuse_token_stream: Option<&'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
+  ) -> Result<
+    Option<
+      TokenStreamEnum2<
+        &'a mut AnalyzerTokenStreams,
+        &'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>,
+      >,
+    >,
+  > {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   }
 

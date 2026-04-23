@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{Analyzer, REUSE_STRATEGY, ReuseStrategy};
-use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream, TokenStreamEnum2};
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream, TokenStreamEnum2};
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::norms_format::NormsFormat;
@@ -23,6 +23,7 @@ use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::codecs::{Codec, LATEST_CODEC};
+use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
 use crate::core::document::fields::Fields;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
@@ -714,7 +715,7 @@ where
       for field in &document {
         let field_type = field.field_type();
         let is_reserved = field.is_reserved();
-        let pf_idx = self.get_or_add_per_field(field.name(), is_reserved);
+        let pf_idx = self.get_or_add_per_field(field, is_reserved)?;
         {
           let pf = &mut self.per_fields[pf_idx];
 
@@ -996,7 +997,8 @@ where
   }
   /// Returns a previously created [`PerField`], absorbing the type information from
   /// [`FieldType`](crate::core::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
-  pub(crate) fn get_or_add_per_field(&mut self, field_name: &str, reserved: bool) -> usize {
+  pub(crate) fn get_or_add_per_field(&mut self, field: &Fields, reserved: bool) -> Result<usize >{
+    let field_name = field.name();
     let hash_pos = CoreHelper::calculate_hash(field_name) as usize & self.hash_mask;
     let mut per_field_index = self.field_hash[hash_pos];
     let mut conflict = false;
@@ -1013,11 +1015,11 @@ where
     if per_field_index < 0 {
       let schema = FieldSchema::new(field_name);
       let mut pf = PerField::new(
-        field_name,
+        field,
         self.index_created_version_major,
         schema,
         reserved,
-      );
+      )?;
       // filed_name's hash conflict happened, and could not find existing PerField with the same name in next chain
       if conflict {
         let old_pos = self.field_hash[hash_pos];
@@ -1039,7 +1041,7 @@ where
         ArrayUtil::grow_with_len(&mut self.fields, new_len);
       }
     }
-    per_field_index as usize
+    Ok(per_field_index as usize)
   }
   // update schema for field as seen in a particular document
   fn update_doc_field_schema<IFT>(
@@ -1279,13 +1281,11 @@ where
     }
     None
   }
-  pub(crate) fn mark_as_reserved<IF>(&mut self, field: IF) -> ReservedField<IF>
-  where
-    IF: IndexableField,
-  {
-    self.get_or_add_per_field(field.name(), true);
-    ReservedField::new(field)
+  #[allow(dead_code)] // not use in rust lucene
+  pub(crate) fn mark_as_reserved(){
+
   }
+
   pub(crate) fn get_has_doc_values(&mut self, field: &str) -> Result<Option<DocValuesWriterDISI>> {
     if let Some(idx) = self.get_per_field(field) {
       let pf = &mut self.per_fields[idx];
@@ -1323,19 +1323,21 @@ pub(crate) struct PerField {
   pub(crate) field_gen: i64,
   pub(crate) next: i32,
   pub(crate) norms: Option<NormValuesWriter>,
-  pub(crate) token_stream: Option<<Fields as IndexableField>::TokenStream>,
+  // reuse
+  pub(crate) token_stream: Option<TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
   pub(crate) first: bool,
   pub(crate) idx_in_doc_field: i32,
 }
 impl PerField {
   pub(crate) fn new(
-    field_name: impl Into<String>,
+    field: &Fields,
     index_created_version_major: i32,
     schema: FieldSchema,
     reserved: bool,
-  ) -> Self {
-    PerField {
-      field_name: field_name.into(),
+  ) -> Result<Self >{
+    let token_stream = Self::init_token_stream(field)?;
+    Ok(PerField {
+      field_name: field.name().to_string(),
       index_created_version_major,
       schema,
       reserved,
@@ -1348,10 +1350,22 @@ impl PerField {
       field_gen: -1,
       next: -1,
       norms: None,
-      token_stream: None,
+      token_stream,
       first: false,
       idx_in_doc_field: -1,
+    })
+  }
+  fn init_token_stream(field: &Fields) -> Result<Option<TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>> {
+    if field.field_type().tokenized(){
+      return Ok(None)
     }
+    if field.string_value()?.is_some(){
+      return Ok(Some(TokenStreamEnum2::B(StringTokenStream::new())))
+    }
+    if field.binary_value()?.is_some(){
+      return Ok(Some(TokenStreamEnum2::A(BinaryTokenStream::new()?)))
+    }
+    Ok(None)
   }
   pub(crate) fn reset(&mut self, doc_id: i32) {
     self.first = true;
@@ -1510,7 +1524,7 @@ impl PerField {
          let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
                 terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
         let mut stream = field
-            .token_stream(ts)?
+            .token_stream(ts, self.token_stream.as_mut())?
             .ok_or_else(|| LuceneError::illegal_state("token_stream is None"))?;
         let result = (|| {
             stream.reset()?;
@@ -2631,14 +2645,19 @@ where
   fn field_type(&self) -> &Self::FieldType {
     self.delegate.field_type()
   }
-
-  type TokenStream = <T as IndexableField>::TokenStream;
-
   fn token_stream<'a>(
     &'a mut self,
-    token_stream: Option<&'a mut InnerTokenStreams>,
-  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
-    self.delegate.token_stream(token_stream)
+    token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    reuse_token_stream: Option<&'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
+  ) -> Result<
+    Option<
+      TokenStreamEnum2<
+        &'a mut AnalyzerTokenStreams,
+        &'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>,
+      >,
+    >,
+  > {
+    self.delegate.token_stream(token_stream, reuse_token_stream)
   }
 
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {

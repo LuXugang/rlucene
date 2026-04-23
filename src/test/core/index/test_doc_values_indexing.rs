@@ -16,10 +16,11 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStreamEnum2};
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
+use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
@@ -1002,13 +1003,18 @@ impl IndexableField for FieldImpl {
   fn field_type(&self) -> &Self::FieldType {
     self.parent_field.field_type()
   }
-
-  type TokenStream = <Field as IndexableField>::TokenStream;
-
   fn token_stream<'a>(
     &'a mut self,
-    _token_stream: Option<&'a mut InnerTokenStreams>,
-  ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>> {
+    _token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    _reuse_token_stream: Option<&'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
+  ) -> Result<
+    Option<
+      TokenStreamEnum2<
+        &'a mut AnalyzerTokenStreams,
+        &'a mut TokenStreamEnum2<BinaryTokenStream, StringTokenStream>,
+      >,
+    >,
+  > {
     Err(LuceneError::unsupported_operation(""))
   }
 

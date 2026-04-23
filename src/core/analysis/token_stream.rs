@@ -134,7 +134,7 @@ either_token_stream!(pub TokenStreamEnum2 { A: A, B: B });
 
 pub type StandardAnalyzerTS = FilteringTokenFilter<LowerCaseFilter<StandardTokenizer>, StopFilter>;
 either_token_stream!(pub TokenStreamEnum3 { Whitespace: A, Standard: B, Dummy: C });
-pub type InnerTokenStreams =
+pub type AnalyzerTokenStreams =
   TokenStreamEnum3<WhitespaceAnalyzerTS, StandardAnalyzerTS, DummyTokenStream>;
 
 impl<T> TokenStream for &mut T
