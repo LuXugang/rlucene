@@ -71,3 +71,44 @@ impl Analyzer for WhitespaceAnalyzer {
   }
 }
 pub type WhitespaceAnalyzerTS = CharTokenizer<WhitespaceTokenizer>;
+#[cfg(test)]
+mod tests {
+  use super::WhitespaceAnalyzer;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::analysis::base_token_stream_test_case::assert_analyzes_to6;
+  use rand::rng;
+  #[allow(dead_code)] // for quick search
+  struct TestWhitespaceAnalyzer;
+  const LONGTOKEN: &str = concat!(
+    "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+    "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+    "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+  );
+
+  #[test]
+  fn test_default_maximum_token_length() -> Result<()> {
+    let a = WhitespaceAnalyzer::new();
+    let mut random = rng();
+    let long_token_input = format!("{LONGTOKEN} extra");
+    let expected_first = concat!(
+      "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+      "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+      "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstu"
+    );
+    let expected = [
+      expected_first,
+      "vwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+      "extra",
+    ];
+    assert_analyzes_to6(&mut random, &a, &long_token_input, &expected)
+  }
+
+  #[test]
+  fn test_custom_maximum_token_length() -> Result<()> {
+    let a = WhitespaceAnalyzer::with_max_token_length(1024);
+    let mut random = rng();
+    let long_token_input = format!("{LONGTOKEN} extra");
+    let expected = [LONGTOKEN, "extra"];
+    assert_analyzes_to6(&mut random, &a, &long_token_input, &expected)
+  }
+}

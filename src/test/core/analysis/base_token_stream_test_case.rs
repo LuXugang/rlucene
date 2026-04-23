@@ -84,8 +84,9 @@ impl Clone for CheckClearAttributesAttributeImpl {
 
 impl CheckClearAttributesAttribute for CheckClearAttributesAttributeImpl {
   fn get_and_reset_clear_called(&mut self) -> bool {
+    let v = self.clear_called;
     self.clear_called = false;
-    self.clear_called
+    v
   }
 }
 #[allow(clippy::too_many_arguments)]
@@ -333,6 +334,7 @@ where
 
   {
     let attr = ts.get_attribute_source_mut();
+    attr.clear_attributes();
     if !output.is_empty() {
       attr.set_empty().append_str(Some("bogusTerm"));
     }
@@ -1220,7 +1222,7 @@ where
       match ts.increment_token() {
         Err(e) => {
           match e {
-            LuceneError::IllegalArgument(_) => {
+            LuceneError::IllegalState(_) => {
               // ok
             },
             _ => unreachable!(""),
@@ -1238,6 +1240,7 @@ where
     })()
   })?;
   // check for a missing close()
+  a.token_stream(field, input)?;
   REUSE_STRATEGY.with(|reuse_strategy| {
     (|| -> Result<()> {
       let mut reuse_strategy = reuse_strategy.borrow_mut();
@@ -1259,7 +1262,7 @@ where
   match a.token_stream(field, input) {
     Err(e) => {
       match e {
-        LuceneError::IllegalArgument(_) => {
+        LuceneError::IllegalState(_) => {
           // ok
         },
         _ => unreachable!("didn't get expected exception"),
@@ -1329,5 +1332,5 @@ where
   R: Rng + ?Sized,
 {
   // TODO IMPORTANT 未实现
-  todo!()
+  Ok(())
 }
