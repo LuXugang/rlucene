@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
+use crate::core::analysis::token_attributes::char_term_attribute_impl::CharTermAttributeImpl;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 #[cfg(test)]
 use crate::core::util::attribute::Attribute;
@@ -29,7 +30,7 @@ use std::collections::HashSet;
 use std::fmt::Display;
 
 pub struct BinaryTokenStreamAttributeImpl {
-  packed_token: PackedTokenAttributeImpl,
+  packed_token: CharTermAttributeImpl<PackedTokenAttributeImpl>,
   binary: BytesTermAttributeImpl,
   #[cfg(test)]
   check_clear_attributes: CheckClearAttributesAttributeImpl,
@@ -39,7 +40,7 @@ pub struct BinaryTokenStreamAttributeImpl {
 
 impl BinaryTokenStreamAttributeImpl {
   pub fn new() -> Result<Self> {
-    let packed_token = PackedTokenAttributeImpl::default();
+    let packed_token = PackedTokenAttributeImpl::new()?;
     let binary = BytesTermAttributeImpl::default();
     // TODO is there a better way to do this?
     #[cfg(test)]
@@ -60,10 +61,10 @@ impl BinaryTokenStreamAttributeImpl {
   }
 }
 impl BinaryTokenStreamAttributeImpl {
-  pub fn get_packed_token(&self) -> &PackedTokenAttributeImpl {
+  pub fn get_packed_token(&self) -> &CharTermAttributeImpl<PackedTokenAttributeImpl> {
     &self.packed_token
   }
-  pub fn get_packed_token_mut(&mut self) -> &mut PackedTokenAttributeImpl {
+  pub fn get_packed_token_mut(&mut self) -> &mut CharTermAttributeImpl<PackedTokenAttributeImpl> {
     &mut self.packed_token
   }
   pub fn get_binary(&self) -> &BytesTermAttributeImpl {

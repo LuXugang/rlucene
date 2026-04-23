@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
-use crate::core::analysis::token_attributes::char_term_attribute_impl::CharTermAttributeImpl;
+use crate::core::analysis::token_attributes::char_term_attribute_impl::{
+  CharTermAttributeImpl, CharTermAttributeImplBase,
+};
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
 use crate::core::analysis::token_attributes::position_length_attribute::PositionLengthAttribute;
 use crate::core::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
-#[cfg(test)]
-use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::analysis::token_attributes::type_attribute::{DEFAULT_TYPE, TypeAttribute};
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
@@ -50,28 +49,19 @@ pub struct PackedTokenAttributeImpl {
   position_increment: i32,
   position_length: i32,
   term_frequency: i32,
-  pub(crate) base: CharTermAttributeImpl,
   #[cfg(test)]
   check_clear_attributes: CheckClearAttributesAttributeImpl,
   #[cfg(test)]
   attribute: HashSet<String>,
 }
-impl Default for PackedTokenAttributeImpl {
-  fn default() -> Self {
-    Self::new()
-  }
-}
 
 impl PackedTokenAttributeImpl {
-  pub fn new() -> Self {
+  pub fn new() -> Result<CharTermAttributeImpl<Self>> {
     // TODO is there a better way to do this?
     #[cfg(test)]
     let mut attribute = HashSet::new();
     #[cfg(test)]
     {
-      attribute.insert(<Self as CharTermAttribute>::ATTRIBUTE_NAME.to_string());
-      attribute
-        .insert(<CharTermAttributeImpl as TermToBytesRefAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as TypeAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as PositionIncrementAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as PositionLengthAttribute>::ATTRIBUTE_NAME.to_string());
@@ -79,19 +69,19 @@ impl PackedTokenAttributeImpl {
       attribute.insert(<Self as TermFrequencyAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as CheckClearAttributesAttribute>::ATTRIBUTE_NAME.to_string());
     }
-    Self {
+    let sub = Self {
       start_offset: 0,
       end_offset: 0,
       type_: DEFAULT_TYPE.to_string(),
       position_increment: 1,
       position_length: 1,
       term_frequency: 1,
-      base: CharTermAttributeImpl::new(),
       #[cfg(test)]
       check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
       #[cfg(test)]
       attribute,
-    }
+    };
+    CharTermAttributeImpl::with_sub(sub)
   }
 }
 
@@ -185,61 +175,6 @@ impl TermFrequencyAttribute for PackedTokenAttributeImpl {
     self.term_frequency
   }
 }
-impl CharTermAttribute for PackedTokenAttributeImpl {
-  fn length(&self) -> usize {
-    self.base.length()
-  }
-
-  fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) {
-    self.base.copy_buffer(buffer, offset, length);
-  }
-
-  fn buffer_mut(&mut self) -> &mut [char] {
-    self.base.buffer_mut()
-  }
-
-  fn buffer(&self) -> &[char] {
-    self.base.buffer()
-  }
-
-  fn resize_buffer(&mut self, new_size: usize) -> &mut [char] {
-    self.base.resize_buffer(new_size)
-  }
-
-  fn set_length(&mut self, length: usize) -> Result<&mut Self> {
-    self.base.set_length(length)?;
-    Ok(self)
-  }
-
-  fn set_empty(&mut self) -> &mut Self {
-    self.base.set_empty();
-    self
-  }
-
-  fn append_range(&mut self, csq: &str, start: usize, end: usize) -> &mut Self {
-    self.base.append_range(csq, start, end);
-    self
-  }
-
-  fn append_char(&mut self, c: char) -> &mut Self {
-    self.base.append_char(c);
-    self
-  }
-
-  fn append_str(&mut self, s: Option<&str>) -> &mut Self {
-    self.base.append_str(s);
-    self
-  }
-
-  fn append_term_attribute<C>(&mut self, term_att: Option<&mut C>) -> &mut Self
-  where
-    C: CharTermAttribute,
-  {
-    self.base.append_term_attribute(term_att);
-    self
-  }
-}
-
 impl Clone for PackedTokenAttributeImpl {
   fn clone(&self) -> Self {
     Self {
@@ -249,7 +184,6 @@ impl Clone for PackedTokenAttributeImpl {
       position_increment: self.position_increment,
       position_length: self.position_length,
       term_frequency: self.term_frequency,
-      base: self.base.clone(),
       #[cfg(test)]
       check_clear_attributes: self.check_clear_attributes.clone(),
       #[cfg(test)]
@@ -261,27 +195,24 @@ impl Clone for PackedTokenAttributeImpl {
 impl AttributeImpl for PackedTokenAttributeImpl {
   /// Resets the attributes
   fn clear(&mut self) {
-    self.base.clear();
-    self.start_offset = 0;
-    self.end_offset = 0;
-    self.type_ = DEFAULT_TYPE.to_string();
     self.position_increment = 1;
     self.position_length = 1;
     self.term_frequency = 1;
+    self.start_offset = 0;
+    self.end_offset = 0;
+    self.type_ = DEFAULT_TYPE.to_string();
+    #[cfg(test)]
+    self.check_clear_attributes.clear();
   }
 
   /// Resets the attributes at end
   fn end(&mut self) {
-    self.base.end();
     self.position_increment = 0;
   }
 
   type AttributeImpl = PackedTokenAttributeImpl;
 
   fn copy_to(&self, to: &mut Self::AttributeImpl) {
-    let len = self.base.length();
-    let buf = self.base.buffer();
-    to.base.copy_buffer(buf, 0, len);
     to.position_increment = self.position_increment;
     to.position_length = self.position_length;
     to.start_offset = self.start_offset;
@@ -301,7 +232,6 @@ impl Hash for PackedTokenAttributeImpl {
     self.position_increment.hash(state);
     self.position_length.hash(state);
     self.term_frequency.hash(state);
-    self.base.hash(state);
   }
 }
 impl PartialEq for PackedTokenAttributeImpl {
@@ -316,13 +246,21 @@ impl PartialEq for PackedTokenAttributeImpl {
 }
 impl Display for PackedTokenAttributeImpl {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    self.base.fmt(f)
+    write!(f, "{}", std::any::type_name::<Self>())
   }
 }
+
+impl CharTermAttributeImplBase for PackedTokenAttributeImpl {}
 #[cfg(test)]
 impl CheckClearAttributesAttribute for PackedTokenAttributeImpl {
   fn get_and_reset_clear_called(&mut self) -> bool {
     self.check_clear_attributes.get_and_reset_clear_called()
+  }
+}
+#[cfg(test)]
+impl CheckClearAttributesAttribute for CharTermAttributeImpl<PackedTokenAttributeImpl> {
+  fn get_and_reset_clear_called(&mut self) -> bool {
+    self.sub.check_clear_attributes.get_and_reset_clear_called()
   }
 }
 
@@ -340,8 +278,8 @@ mod tests {
   struct TestPackedTokenAttributeImpl;
   #[test]
   fn test_clone() -> Result<()> {
-    let mut t = PackedTokenAttributeImpl::new();
-    t.set_offset(0, 5)?;
+    let mut t = PackedTokenAttributeImpl::new()?;
+    t.sub.set_offset(0, 5)?;
     let content: Vec<char> = "hello".chars().collect();
     t.copy_buffer(&content, 0, 5);
     let copy = assert_clone_is_equal(&t);
@@ -350,13 +288,13 @@ mod tests {
   }
   #[test]
   fn test_copy_to() -> Result<()> {
-    let t = PackedTokenAttributeImpl::new();
+    let t = PackedTokenAttributeImpl::new()?;
     let mut copy = assert_copy_is_equal(&t);
     assert_eq!(t.to_string(), "");
     assert_eq!(copy.to_string(), "");
 
-    let mut t = PackedTokenAttributeImpl::new();
-    t.set_offset(0, 5)?;
+    let mut t = PackedTokenAttributeImpl::new()?;
+    t.sub.set_offset(0, 5)?;
     let content: Vec<char> = "hello".chars().collect();
     t.copy_buffer(&content, 0, 5);
 

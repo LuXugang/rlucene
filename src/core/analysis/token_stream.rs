@@ -65,7 +65,9 @@ impl TokenStreamBase {
 }
 
 pub fn default_attribute() -> Attributes {
-  PackedTokenAttributeImpl::new().into()
+  PackedTokenAttributeImpl::new()
+    .expect("new PackedTokenAttributeImpl should never failed")
+    .into()
 }
 macro_rules! either_token_stream {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {

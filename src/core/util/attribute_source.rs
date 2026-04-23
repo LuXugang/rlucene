@@ -17,6 +17,7 @@
 use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
 use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
+use crate::core::analysis::token_attributes::char_term_attribute_impl::CharTermAttributeImpl;
 use crate::core::analysis::token_attributes::flags_attribute::FlagsAttribute;
 use crate::core::analysis::token_attributes::keyword_attribute::KeywordAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
@@ -112,15 +113,13 @@ pub trait AttributeSource {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn end_attributes(&mut self) {
-    todo!()
-  }
+  fn end_attributes(&mut self) {}
 
   fn clear_attributes(&mut self);
 }
 
 pub enum Attributes {
-  PackedToken(PackedTokenAttributeImpl),
+  PackedToken(CharTermAttributeImpl<PackedTokenAttributeImpl>),
   BytesTerm(BytesTermAttributeImpl),
   BinaryTokenStream(BinaryTokenStreamAttributeImpl),
 }
@@ -145,7 +144,7 @@ impl Attributes {
 }
 impl_from_for_enum!(
     Attributes,
-    PackedTokenAttributeImpl=> PackedToken,
+    CharTermAttributeImpl<PackedTokenAttributeImpl> => PackedToken,
     BytesTermAttributeImpl=> BytesTerm,
     BinaryTokenStreamAttributeImpl=> BinaryTokenStream,
 );
@@ -293,9 +292,10 @@ impl CharTermAttribute for Attributes {
 impl PositionIncrementAttribute for Attributes {
   fn set_position_increment(&mut self, position_increment: i32) -> Result<()> {
     match self {
-      Attributes::PackedToken(attr) => attr.set_position_increment(position_increment),
+      Attributes::PackedToken(attr) => attr.sub.set_position_increment(position_increment),
       Attributes::BinaryTokenStream(attr) => attr
         .get_packed_token_mut()
+        .sub
         .set_position_increment(position_increment),
       _ => Err(LuceneError::unsupported_operation("")),
     }
@@ -303,8 +303,8 @@ impl PositionIncrementAttribute for Attributes {
 
   fn get_position_increment(&self) -> i32 {
     match self {
-      Attributes::PackedToken(attr) => attr.get_position_increment(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().get_position_increment(),
+      Attributes::PackedToken(attr) => attr.sub.get_position_increment(),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.get_position_increment(),
       _ => unimplemented!("not support"),
     }
   }
@@ -312,9 +312,10 @@ impl PositionIncrementAttribute for Attributes {
 impl PositionLengthAttribute for Attributes {
   fn set_position_length(&mut self, position_length: i32) -> Result<()> {
     match self {
-      Attributes::PackedToken(attr) => attr.set_position_length(position_length),
+      Attributes::PackedToken(attr) => attr.sub.set_position_length(position_length),
       Attributes::BinaryTokenStream(attr) => attr
         .get_packed_token_mut()
+        .sub
         .set_position_length(position_length),
       _ => Err(LuceneError::unsupported_operation("")),
     }
@@ -322,8 +323,8 @@ impl PositionLengthAttribute for Attributes {
 
   fn get_position_length(&self) -> i32 {
     match self {
-      Attributes::PackedToken(attr) => attr.get_position_length(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().get_position_length(),
+      Attributes::PackedToken(attr) => attr.sub.get_position_length(),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.get_position_length(),
       _ => unimplemented!("not support"),
     }
   }
@@ -399,23 +400,25 @@ impl PayloadAttribute for Attributes {
 
 impl Default for Attributes {
   fn default() -> Self {
-    Attributes::PackedToken(PackedTokenAttributeImpl::default())
+    Attributes::PackedToken(
+      PackedTokenAttributeImpl::new().expect("new PackedTokenAttributeImpl fail"),
+    )
   }
 }
 
 impl AttributeSource for Attributes {
   fn start_offset(&self) -> Result<i32> {
     match self {
-      Attributes::PackedToken(attr) => Ok(attr.start_offset()),
-      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().start_offset()),
+      Attributes::PackedToken(attr) => Ok(attr.sub.start_offset()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().sub.start_offset()),
       _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
   fn end_offset(&self) -> Result<i32> {
     match self {
-      Attributes::PackedToken(attr) => Ok(attr.end_offset()),
-      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().end_offset()),
+      Attributes::PackedToken(attr) => Ok(attr.sub.end_offset()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().sub.end_offset()),
       _ => Err(LuceneError::unsupported_operation("")),
     }
   }
@@ -432,17 +435,20 @@ impl AttributeSource for Attributes {
 
   fn get_position_increment(&self) -> Result<i32> {
     match self {
-      Attributes::PackedToken(attr) => Ok(attr.get_position_increment()),
-      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().get_position_increment()),
+      Attributes::PackedToken(attr) => Ok(attr.sub.get_position_increment()),
+      Attributes::BinaryTokenStream(attr) => {
+        Ok(attr.get_packed_token().sub.get_position_increment())
+      },
       _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
   fn set_position_increment(&mut self, position_increment: i32) -> Result<()> {
     match self {
-      Attributes::PackedToken(attr) => attr.set_position_increment(position_increment),
+      Attributes::PackedToken(attr) => attr.sub.set_position_increment(position_increment),
       Attributes::BinaryTokenStream(attr) => attr
         .get_packed_token_mut()
+        .sub
         .set_position_increment(position_increment),
       _ => Err(LuceneError::unsupported_operation("")),
     }
@@ -458,7 +464,7 @@ impl AttributeSource for Attributes {
 
   fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     match self {
-      Attributes::PackedToken(attr) => Ok(attr.base.get_bytes_ref()),
+      Attributes::PackedToken(attr) => Ok(attr.get_bytes_ref()),
       Attributes::BinaryTokenStream(attr) => Ok(attr.get_binary_mut().get_bytes_ref()),
       Attributes::BytesTerm(attr) => Ok(attr.get_bytes_ref()),
     }
@@ -466,17 +472,18 @@ impl AttributeSource for Attributes {
 
   fn get_term_frequency(&self) -> Result<i32> {
     match self {
-      Attributes::PackedToken(attr) => Ok(attr.get_term_frequency()),
-      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().get_term_frequency()),
+      Attributes::PackedToken(attr) => Ok(attr.sub.get_term_frequency()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().sub.get_term_frequency()),
       _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
   fn set_position_length(&mut self, position_length: i32) -> Result<()> {
     match self {
-      Attributes::PackedToken(attr) => attr.set_position_length(position_length),
+      Attributes::PackedToken(attr) => attr.sub.set_position_length(position_length),
       Attributes::BinaryTokenStream(attr) => attr
         .get_packed_token_mut()
+        .sub
         .set_position_length(position_length),
       Attributes::BytesTerm(_attr) => Err(LuceneError::unsupported_operation("")),
     }
@@ -484,8 +491,8 @@ impl AttributeSource for Attributes {
 
   fn get_position_length(&self) -> Result<i32> {
     match self {
-      Attributes::PackedToken(attr) => Ok(attr.get_position_length()),
-      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().get_position_length()),
+      Attributes::PackedToken(attr) => Ok(attr.sub.get_position_length()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().sub.get_position_length()),
       Attributes::BytesTerm(_attr) => Err(LuceneError::unsupported_operation("")),
     }
   }
@@ -510,17 +517,18 @@ impl AttributeSource for Attributes {
 impl OffsetAttribute for Attributes {
   fn start_offset(&self) -> i32 {
     match self {
-      Attributes::PackedToken(attr) => attr.start_offset(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().start_offset(),
+      Attributes::PackedToken(attr) => attr.sub.start_offset(),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.start_offset(),
       _ => unimplemented!("not support"),
     }
   }
 
   fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()> {
     match self {
-      Attributes::PackedToken(attr) => attr.set_offset(start_offset, end_offset),
+      Attributes::PackedToken(attr) => attr.sub.set_offset(start_offset, end_offset),
       Attributes::BinaryTokenStream(attr) => attr
         .get_packed_token_mut()
+        .sub
         .set_offset(start_offset, end_offset),
       _ => Err(LuceneError::unsupported_operation("")),
     }
@@ -528,8 +536,8 @@ impl OffsetAttribute for Attributes {
 
   fn end_offset(&self) -> i32 {
     match self {
-      Attributes::PackedToken(attr) => attr.end_offset(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().end_offset(),
+      Attributes::PackedToken(attr) => attr.sub.end_offset(),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.end_offset(),
       _ => unimplemented!("not support"),
     }
   }
@@ -538,16 +546,16 @@ impl OffsetAttribute for Attributes {
 impl TypeAttribute for Attributes {
   fn type_value(&self) -> &str {
     match self {
-      Attributes::PackedToken(attr) => attr.type_value(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().type_value(),
+      Attributes::PackedToken(attr) => attr.sub.type_value(),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.type_value(),
       _ => unimplemented!("not support"),
     }
   }
 
   fn set_type(&mut self, type_: &str) {
     match self {
-      Attributes::PackedToken(attr) => attr.set_type(type_),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token_mut().set_type(type_),
+      Attributes::PackedToken(attr) => attr.sub.set_type(type_),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token_mut().sub.set_type(type_),
       _ => unimplemented!("not support"),
     }
   }

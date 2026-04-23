@@ -20,36 +20,60 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
+use crate::core::util::dummy::dummy_attribute_impl::DummyAttributeImpl;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 use std::borrow::Cow;
+#[cfg(test)]
+use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
 
 /// Default implementation of [`CharTermAttribute`].
-pub struct CharTermAttributeImpl {
+pub struct CharTermAttributeImpl<T>
+where
+  T: AttributeImpl + CharTermAttributeImplBase,
+{
   term_buffer: Vec<char>,
   term_length: usize,
   /// May be used by subclasses to convert to different charsets / encodings for implementing [`get_bytes_ref`](Self::get_bytes_ref).
   pub(crate) builder: BytesRefBuilder<Vec<u8>>,
+  pub(crate) sub: T,
+  #[cfg(test)]
+  attribute: HashSet<String>,
 }
-impl Default for CharTermAttributeImpl {
-  fn default() -> Self {
-    Self::new()
+impl CharTermAttributeImpl<DummyAttributeImpl> {
+  pub fn new() -> Result<Self> {
+    Self::with_sub(DummyAttributeImpl)
   }
 }
 
-impl CharTermAttributeImpl {
+impl<T> CharTermAttributeImpl<T>
+where
+  T: AttributeImpl + CharTermAttributeImplBase,
+{
   const MIN_BUFFER_SIZE: usize = 10;
 
-  pub fn new() -> Self {
+  pub fn with_sub(sub: T) -> Result<Self> {
+    #[cfg(test)]
+    let mut attribute = HashSet::new();
+    #[cfg(test)]
+    {
+      attribute.insert(<Self as CharTermAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute.insert(<Self as TermToBytesRefAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute.extend(sub.get_attribute_name()?.clone())
+    }
+
     // TODO: _bytes_per_element not Specific
     let size = ArrayUtil::oversize(Self::MIN_BUFFER_SIZE, 0);
-    Self {
+    Ok(Self {
       term_buffer: vec!['\0'; size],
       term_length: 0,
       builder: BytesRefBuilder::new(),
-    }
+      sub,
+      #[cfg(test)]
+      attribute,
+    })
   }
   fn grow_term_buffer(&mut self, new_size: usize) {
     if self.term_buffer.len() < new_size {
@@ -82,9 +106,20 @@ impl CharTermAttributeImpl {
   }
 }
 
-impl Attribute for CharTermAttributeImpl {}
+impl<T> Attribute for CharTermAttributeImpl<T>
+where
+  T: AttributeImpl + CharTermAttributeImplBase,
+{
+  #[cfg(test)]
+  fn get_attribute_name(&self) -> Result<&HashSet<String>> {
+    Ok(&self.attribute)
+  }
+}
 
-impl CharTermAttribute for CharTermAttributeImpl {
+impl<T> CharTermAttribute for CharTermAttributeImpl<T>
+where
+  T: AttributeImpl + CharTermAttributeImplBase,
+{
   fn length(&self) -> usize {
     self.term_length
   }
@@ -168,7 +203,10 @@ impl CharTermAttribute for CharTermAttributeImpl {
     }
   }
 }
-impl TermToBytesRefAttribute for CharTermAttributeImpl {
+impl<T> TermToBytesRefAttribute for CharTermAttributeImpl<T>
+where
+  T: AttributeImpl + CharTermAttributeImplBase,
+{
   fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
     self
       .builder
@@ -177,9 +215,12 @@ impl TermToBytesRefAttribute for CharTermAttributeImpl {
   }
 }
 
-impl Clone for CharTermAttributeImpl {
+impl<T> Clone for CharTermAttributeImpl<T>
+where
+  T: AttributeImpl + CharTermAttributeImplBase,
+{
   fn clone(&self) -> Self {
-    let mut copy = CharTermAttributeImpl::new();
+    let mut copy = CharTermAttributeImpl::with_sub(self.sub.clone()).expect("should not failed");
     copy.term_buffer = self.term_buffer.clone();
     copy.term_length = self.term_length;
     let mut builder = BytesRefBuilder::new();
@@ -189,18 +230,31 @@ impl Clone for CharTermAttributeImpl {
   }
 }
 
-impl AttributeImpl for CharTermAttributeImpl {
+impl<T> AttributeImpl for CharTermAttributeImpl<T>
+where
+  T: AttributeImpl<AttributeImpl = T> + CharTermAttributeImplBase,
+{
   fn clear(&mut self) {
     self.term_length = 0;
+    self.sub.clear()
   }
 
-  type AttributeImpl = CharTermAttributeImpl;
+  fn end(&mut self) {
+    self.clear();
+    self.sub.end()
+  }
+
+  type AttributeImpl = CharTermAttributeImpl<T>;
 
   fn copy_to(&self, other: &mut Self::AttributeImpl) {
     other.copy_buffer(&self.term_buffer, 0, self.term_length);
+    self.sub.copy_to(&mut other.sub)
   }
 }
-impl Hash for CharTermAttributeImpl {
+impl<T> Hash for CharTermAttributeImpl<T>
+where
+  T: AttributeImpl + CharTermAttributeImplBase,
+{
   fn hash<H>(&self, state: &mut H)
   where
     H: std::hash::Hasher,
@@ -209,7 +263,10 @@ impl Hash for CharTermAttributeImpl {
     self.term_buffer.hash(state);
   }
 }
-impl PartialEq for CharTermAttributeImpl {
+impl<T> PartialEq for CharTermAttributeImpl<T>
+where
+  T: AttributeImpl + CharTermAttributeImplBase,
+{
   fn eq(&self, other: &Self) -> bool {
     if self.term_length != other.term_length {
       return false;
@@ -217,29 +274,33 @@ impl PartialEq for CharTermAttributeImpl {
     self.term_buffer[..self.term_length] == other.term_buffer[..other.term_length]
   }
 }
-impl Display for CharTermAttributeImpl {
+impl<T> Display for CharTermAttributeImpl<T>
+where
+  T: AttributeImpl + CharTermAttributeImplBase,
+{
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let s: String = self.term_buffer[..self.term_length].iter().collect();
     write!(f, "{s}")
   }
 }
 
+pub trait CharTermAttributeImplBase {}
 #[cfg(test)]
 pub mod tests {
   use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
   use crate::core::analysis::token_attributes::char_term_attribute_impl::CharTermAttributeImpl;
 
+  use crate::core::util::dummy::dummy_attribute_impl::DummyAttributeImpl;
+  use crate::core::util::error::lucene_error::{LuceneError, Result};
   use regex::Regex;
   use std::hash::{DefaultHasher, Hash, Hasher};
-
-  use crate::core::util::error::lucene_error::{LuceneError, Result};
 
   #[allow(deprecated)] // for quick search
   struct TestCharTermAttributeImpl;
 
   #[test]
   fn test_resize() {
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     let content: Vec<char> = "hello".chars().collect();
     t.copy_buffer(&content, 0, content.len());
 
@@ -260,7 +321,7 @@ pub mod tests {
   }
   #[test]
   fn test_grow() {
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     let mut buf = String::from("ab");
     for _ in 0..20 {
       let chars: Vec<char> = buf.chars().collect();
@@ -271,7 +332,7 @@ pub mod tests {
     }
     assert_eq!(1_048_576, t.length());
 
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     let mut buf = String::from("ab");
     for _ in 0..20 {
       t.set_empty().append_str(Some(&buf));
@@ -281,7 +342,7 @@ pub mod tests {
     }
     assert_eq!(1_048_576, t.length());
 
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     let mut buf = String::from("a");
     for _ in 0..20_000 {
       t.set_empty().append_str(Some(&buf));
@@ -293,7 +354,7 @@ pub mod tests {
   }
   #[test]
   fn test_to_string() {
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     let b: Vec<char> = ['a', 'l', 'o', 'h', 'a'].to_vec();
     t.copy_buffer(&b, 0, 5);
     assert_eq!(t.to_string(), "aloha");
@@ -304,7 +365,7 @@ pub mod tests {
 
   #[test]
   fn test_clone() {
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     let content: Vec<char> = "hello".chars().collect();
     t.copy_buffer(&content, 0, 5);
 
@@ -314,15 +375,15 @@ pub mod tests {
 
   #[test]
   fn test_equals() {
-    let mut t1a = CharTermAttributeImpl::new();
+    let mut t1a = CharTermAttributeImpl::new().unwrap();
     let content1a: Vec<char> = "hello".chars().collect();
     t1a.copy_buffer(&content1a, 0, 5);
 
-    let mut t1b = CharTermAttributeImpl::new();
+    let mut t1b = CharTermAttributeImpl::new().unwrap();
     let content1b: Vec<char> = "hello".chars().collect();
     t1b.copy_buffer(&content1b, 0, 5);
 
-    let mut t2 = CharTermAttributeImpl::new();
+    let mut t2 = CharTermAttributeImpl::new().unwrap();
     let content2: Vec<char> = "hello2".chars().collect();
     t2.copy_buffer(&content2, 0, 6);
 
@@ -332,12 +393,12 @@ pub mod tests {
   }
   #[test]
   fn test_copy_to() {
-    let t = CharTermAttributeImpl::new();
+    let t = CharTermAttributeImpl::new().unwrap();
     let copy = assert_copy_is_equal(&t);
     assert_eq!(t.to_string(), "");
     assert_eq!(copy.to_string(), "");
 
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     let content: Vec<char> = "hello".chars().collect();
     t.copy_buffer(&content, 0, 5);
 
@@ -352,7 +413,7 @@ pub mod tests {
   #[test]
   fn test_char_sequence_interface() -> Result<()> {
     let s = "0123456789";
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     t.append_str(Some(s));
 
     assert_eq!(s.len(), t.length());
@@ -387,7 +448,7 @@ pub mod tests {
   }
   #[test]
   fn test_non_char_sequence_append() {
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
 
     t.append_str(Some("0123456789"))
       .append_str(Some("0123456789"));
@@ -397,14 +458,14 @@ pub mod tests {
     t.append_str(Some(&sb));
     assert_eq!(t.to_string(), "012345678901234567890123456789");
 
-    let mut t2 = CharTermAttributeImpl::new();
+    let mut t2 = CharTermAttributeImpl::new().unwrap();
     t2.append_str(Some("test"));
     t.append_term_attribute(Some(&mut t2));
     assert_eq!(t.to_string(), "012345678901234567890123456789test");
 
     t.append_str(None)
       .append_str(None)
-      .append_term_attribute::<CharTermAttributeImpl>(None);
+      .append_term_attribute::<CharTermAttributeImpl<DummyAttributeImpl>>(None);
     assert_eq!(
       t.to_string(),
       "012345678901234567890123456789testnullnullnull"
@@ -421,14 +482,14 @@ pub mod tests {
   }
   #[test]
   fn test_to_string_normal() {
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     t.append_str(Some("test"));
     assert_eq!(t.to_string(), "test");
   }
 
   #[test]
   fn test_char_at_too_large() {
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     t.append_str(Some("test"));
     let v = t.char_at(4);
     matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
@@ -436,7 +497,7 @@ pub mod tests {
 
   #[test]
   fn test_subsequence_end_too_large() {
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     t.append_str(Some("test"));
     let v = t.sub_sequence(0, 5);
     matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
@@ -444,7 +505,7 @@ pub mod tests {
 
   #[test]
   fn test_subsequence_start_gt_end() {
-    let mut t = CharTermAttributeImpl::new();
+    let mut t = CharTermAttributeImpl::new().unwrap();
     t.append_str(Some("test"));
     let v = t.sub_sequence(5, 0);
     matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));

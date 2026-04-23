@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod dummy_attribute_impl;
 pub mod dummy_attribute_source;
 pub mod dummy_bits;
 pub mod dummy_comparator;
