@@ -20,7 +20,6 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
-use crate::core::util::dummy::dummy_attribute_impl::DummyAttributeImpl;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 use std::borrow::Cow;
@@ -42,9 +41,9 @@ where
   #[cfg(test)]
   attribute: HashSet<String>,
 }
-impl CharTermAttributeImpl<DummyAttributeImpl> {
+impl CharTermAttributeImpl<EmptyAttributeImpl> {
   pub fn new() -> Result<Self> {
-    Self::with_sub(DummyAttributeImpl)
+    Self::with_sub(EmptyAttributeImpl::default())
   }
 }
 
@@ -283,14 +282,50 @@ where
     write!(f, "{s}")
   }
 }
+#[derive(Clone)]
+pub struct EmptyAttributeImpl {
+  #[cfg(test)]
+  attribute: HashSet<String>,
+}
+impl Default for EmptyAttributeImpl {
+  fn default() -> Self {
+    EmptyAttributeImpl::new()
+  }
+}
+impl EmptyAttributeImpl {
+  fn new() -> Self {
+    EmptyAttributeImpl {
+      #[cfg(test)]
+      attribute: HashSet::new(),
+    }
+  }
+}
 
+impl Attribute for EmptyAttributeImpl {
+  #[cfg(test)]
+  fn get_attribute_name(&self) -> Result<&HashSet<String>> {
+    Ok(&self.attribute)
+  }
+}
+
+impl AttributeImpl for EmptyAttributeImpl {
+  fn clear(&mut self) {}
+
+  fn end(&mut self) {}
+
+  type AttributeImpl = EmptyAttributeImpl;
+
+  fn copy_to(&self, _other: &mut Self::AttributeImpl) {}
+}
+impl CharTermAttributeImplBase for EmptyAttributeImpl {}
 pub trait CharTermAttributeImplBase {}
 #[cfg(test)]
 pub mod tests {
   use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
-  use crate::core::analysis::token_attributes::char_term_attribute_impl::CharTermAttributeImpl;
+  use crate::core::analysis::token_attributes::char_term_attribute_impl::{
+    CharTermAttributeImpl, EmptyAttributeImpl,
+  };
 
-  use crate::core::util::dummy::dummy_attribute_impl::DummyAttributeImpl;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use regex::Regex;
   use std::hash::{DefaultHasher, Hash, Hasher};
@@ -465,7 +500,7 @@ pub mod tests {
 
     t.append_str(None)
       .append_str(None)
-      .append_term_attribute::<CharTermAttributeImpl<DummyAttributeImpl>>(None);
+      .append_term_attribute::<CharTermAttributeImpl<EmptyAttributeImpl>>(None);
     assert_eq!(
       t.to_string(),
       "012345678901234567890123456789testnullnullnull"
@@ -474,39 +509,16 @@ pub mod tests {
 
   #[test]
   fn test_exceptions() {
-    // See:
-    // test_to_string_normal
-    // test_char_at_too_large
-    // test_subsequence_end_too_large
-    // test_subsequence_start_gt_end
-  }
-  #[test]
-  fn test_to_string_normal() {
     let mut t = CharTermAttributeImpl::new().unwrap();
     t.append_str(Some("test"));
     assert_eq!(t.to_string(), "test");
-  }
 
-  #[test]
-  fn test_char_at_too_large() {
-    let mut t = CharTermAttributeImpl::new().unwrap();
-    t.append_str(Some("test"));
     let v = t.char_at(4);
     matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
-  }
 
-  #[test]
-  fn test_subsequence_end_too_large() {
-    let mut t = CharTermAttributeImpl::new().unwrap();
-    t.append_str(Some("test"));
     let v = t.sub_sequence(0, 5);
     matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
-  }
 
-  #[test]
-  fn test_subsequence_start_gt_end() {
-    let mut t = CharTermAttributeImpl::new().unwrap();
-    t.append_str(Some("test"));
     let v = t.sub_sequence(5, 0);
     matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
   }
