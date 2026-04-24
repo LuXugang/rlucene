@@ -111,7 +111,7 @@ mod tests {
     } else {
       let res = w.add_document(doc2);
       let expected = format!(
-        "Inconsistency of field data structures across documents for field [foo] of doc [1].\
+        "Inconsistency of field data structures across documents for field [foo] of doc [1]. \
              index options: expected '{}', but it has '{}'.",
         from, to
       );

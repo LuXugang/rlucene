@@ -152,7 +152,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       )?);
       let err = w.add_document(doc2).unwrap_err();
       assert_eq!(
-        "Inconsistency of field data structures across documents for field [f] of doc [1].vector dimension: expected '4', but it has '6'.",
+        "Inconsistency of field data structures across documents for field [f] of doc [1]. vector dimension: expected '4', but it has '6'.",
         err.to_string()
       );
     }
@@ -217,7 +217,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       let err = w.add_document(doc2).unwrap_err();
       assert_eq!(
         format!(
-          "Inconsistency of field data structures across documents for field [f] of doc [1].vector similarity function: expected '{}', but it has '{}'.",
+          "Inconsistency of field data structures across documents for field [f] of doc [1]. vector similarity function: expected '{}', but it has '{}'.",
           VectorSimilarityFunction::DotProduct,
           VectorSimilarityFunction::Euclidean
         ),

@@ -906,7 +906,7 @@ mod tests {
       LuceneError::IllegalArgument(msg) => {
         assert_eq!(
           msg.to_string(),
-          "Inconsistency of field data structures across documents for field [dim] of doc [0].\
+          "Inconsistency of field data structures across documents for field [dim] of doc [0]. \
  point dimension: expected '1', but it has '2'."
         );
       },
@@ -936,7 +936,7 @@ mod tests {
       LuceneError::IllegalArgument(msg) => {
         assert_eq!(
           msg.to_string(),
-          "Inconsistency of field data structures across documents for field [dim] of doc [1].\
+          "Inconsistency of field data structures across documents for field [dim] of doc [1]. \
  point dimension: expected '1', but it has '2'."
         );
       },
@@ -1081,7 +1081,7 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
       LuceneError::IllegalArgument(msg) => {
         assert_eq!(
           msg.to_string(),
-          "Inconsistency of field data structures across documents for field [dim] of doc [0].\
+          "Inconsistency of field data structures across documents for field [dim] of doc [0]. \
  point num bytes: expected '4', but it has '6'."
         );
       },
@@ -1113,7 +1113,7 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
       LuceneError::IllegalArgument(msg) => {
         assert_eq!(
           msg.to_string(),
-          "Inconsistency of field data structures across documents for field [dim] of doc [1].\
+          "Inconsistency of field data structures across documents for field [dim] of doc [1]. \
  point num bytes: expected '4', but it has '6'."
         );
       },
