@@ -31,11 +31,16 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, read_field_infos};
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::{
+  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecificationNoReader, OneMerge,
+};
+use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
+use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::term::Term;
-use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::term_query::TermQuery;
+use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper};
@@ -50,6 +55,8 @@ use rand::RngExt;
 use rand_xoshiro::rand_core::Rng;
 use std::clone::Clone;
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
@@ -63,35 +70,73 @@ pub(crate) struct TestIndexWriter;
 fn test_doc_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
+  let mut field_types = HashMap::new();
 
-  let mut doc = Document::new();
-  let field1 = TextField::from_string("content", "aaa", Store::Yes)?;
-  doc.add(field1);
-  writer.add_document(doc)?;
+  {
+    let a = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, a);
+    let writer = IndexWriter::new(dir.clone(), config)?;
+    for i in 0..100 {
+      add_doc_with_index(&mut random, &writer, i, &mut field_types)?;
+      if random.random_bool(0.5) {
+        writer.commit()?;
+      }
+    }
+    let doc_stats = writer.get_doc_stats()?;
+    assert_eq!(100, doc_stats.max_doc);
+    assert_eq!(100, doc_stats.num_docs);
+    writer.close()?;
+  }
 
-  // let mut doc = Document::new();
-  // let field1 = TextField::with_string("content", "aaasdf", Store::Yes)?;
-  // doc.add(field1);
-  // writer.add_document(doc)?;
+  {
+    let mut config = new_index_writer_config(&mut random);
+    config.set_merge_policy(KeepFullyDeletedSegmentsMergePolicy::default());
+    let writer = IndexWriter::new(dir.clone(), config)?;
+    for i in 0..40 {
+      writer.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
+      if random.random_bool(0.5) {
+        writer.commit()?;
+      }
+    }
+    writer.flush()?;
+    let doc_stats = writer.get_doc_stats()?;
+    assert_eq!(100, doc_stats.max_doc);
+    assert_eq!(60, doc_stats.num_docs);
+    writer.close()?;
+  }
 
-  let mut doc = Document::new();
-  let field1 = TextField::from_string("content1", "aaa", Store::Yes)?;
-  doc.add(field1);
-  writer.add_document(doc)?;
+  {
+    let reader = directory_reader_util::open(dir.clone())?;
+    assert_eq!(60, reader.num_docs()?);
+    reader.close()?;
+  }
 
-  writer.commit()?;
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  {
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    assert_eq!(60, writer.get_doc_stats()?.num_docs);
+    writer.force_merge(1)?;
+    let doc_stats = writer.get_doc_stats()?;
+    assert_eq!(60, doc_stats.max_doc);
+    assert_eq!(60, doc_stats.num_docs);
+    writer.close()?;
+  }
 
-  let index_searcher = IndexSearcher::from_cr(reader)?;
-  let term_query = TermQuery::new(Term::from_text("content1", "aaa"));
-  let v = index_searcher.search(term_query, 10)?;
-  assert_eq!(v.score_docs.len(), 1);
-  assert_eq!(v.score_docs[0].doc, 1);
-  let doc_stats = writer.get_doc_stats()?;
-  assert_eq!(2, doc_stats.max_doc);
-  assert_eq!(2, doc_stats.num_docs);
-  writer.close()?;
+  {
+    let reader = directory_reader_util::open(dir.clone())?;
+    assert_eq!(60, reader.max_doc()?);
+    assert_eq!(60, reader.num_docs()?);
+    reader.close()?;
+  }
+
+  {
+    let mut config = new_index_writer_config(&mut random);
+    config.set_open_mode(OpenMode::Create);
+    let writer = IndexWriter::new(dir, config)?;
+    let doc_stats = writer.get_doc_stats()?;
+    assert_eq!(0, doc_stats.max_doc);
+    assert_eq!(0, doc_stats.num_docs);
+    writer.close()?;
+  }
   Ok(())
 }
 // Make sure we can flush segment w/ norms, then add empty doc (no norms) and flush
@@ -917,13 +962,30 @@ fn test_segment_commit_info_id() -> Result<()> {
 }
 #[test]
 fn test_merge_zero_docs_merge_is_closed_once() -> Result<()> {
-  // TODO IMPORTANT FilterMergePolicy
+  // TODO IMPORTANT OneMergeWrappingMergePolicy未实现
   Ok(())
 }
 
 #[test]
 fn test_merge_on_commit_keep_fully_deleted_segments() -> Result<()> {
-  // TODO IMPORTANT FilterMergePolicy
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random);
+  iwc.set_max_full_flush_merge_wait_millis(30 * 1000);
+  iwc.set_merge_policy(KeepFullyDeletedSegmentsMergePolicy::with_full_flush_merges());
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut d = Document::new();
+  d.add(StringField::from_string("id", "1", Store::Yes)?);
+  writer.add_document(d.clone())?;
+  writer.commit()?;
+  writer.update_documents_with_term(Term::from_text("id", "1"), d)?;
+  writer.commit()?;
+
+  let reader = directory_reader_util::open_from_writer(&writer)?;
+  assert_eq!(1, reader.num_docs()?);
+  reader.close()?;
+  writer.close()?;
   Ok(())
 }
 #[test]
@@ -1347,10 +1409,172 @@ where
     &STORED_TEXT_TYPE,
     field_types,
   )?);
-  // doc.add(new_field(&mut random, "id", index.to_string(), &STORED_TEXT_TYPE)?);
+  doc.add(StringField::from_string(
+    "id",
+    index.to_string(),
+    Store::No,
+  )?);
 
   match writer.add_document(doc) {
     Ok(_) => Ok(()),
     Err(e) => Err(e),
+  }
+}
+
+#[derive(Clone, Default)]
+pub struct KeepFullyDeletedSegmentsMergePolicy {
+  in_: NoMergePolicy,
+  merge_fully_deleted_on_full_flush: bool,
+}
+
+impl KeepFullyDeletedSegmentsMergePolicy {
+  fn with_full_flush_merges() -> Self {
+    Self {
+      in_: NoMergePolicy::default(),
+      merge_fully_deleted_on_full_flush: true,
+    }
+  }
+}
+
+impl From<KeepFullyDeletedSegmentsMergePolicy> for MergePolicyEnum {
+  fn from(value: KeepFullyDeletedSegmentsMergePolicy) -> Self {
+    MergePolicyEnum::KeepFullyDeletedSegments(value)
+  }
+}
+
+impl Display for KeepFullyDeletedSegmentsMergePolicy {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "KeepFullyDeletedSegmentsMergePolicy")
+  }
+}
+
+impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
+  fn get_base(&self) -> &MergePolicyBase {
+    self.in_.get_base()
+  }
+
+  fn get_base_mut(&mut self) -> &mut MergePolicyBase {
+    self.in_.get_base_mut()
+  }
+
+  fn find_merges<D, MC>(
+    &self,
+    merge_trigger: MergeTrigger,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&crate::core::index::index_writer::Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self
+      .in_
+      .find_merges(merge_trigger, segment_infos, inner, merge_context)
+  }
+
+  fn find_forced_merges<D, MC>(
+    &self,
+    segment_infos: &SegmentInfos<D>,
+    max_segment_count: usize,
+    segments_to_merge: &HashMap<String, Option<bool>>,
+    inner: Option<&crate::core::index::index_writer::Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self.in_.find_forced_merges(
+      segment_infos,
+      max_segment_count,
+      segments_to_merge,
+      inner,
+      merge_context,
+    )
+  }
+
+  fn find_forced_deletes_merges<D, MC>(
+    &self,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&crate::core::index::index_writer::Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    MC: MergeContext<D>,
+    D: Directory,
+  {
+    self
+      .in_
+      .find_forced_deletes_merges(segment_infos, inner, merge_context)
+  }
+
+  fn find_full_flush_merges<D, MC>(
+    &self,
+    merge_trigger: MergeTrigger,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&crate::core::index::index_writer::Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    // for test_doc_count()
+    if !self.merge_fully_deleted_on_full_flush {
+      return self
+        .in_
+        .find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context);
+    }
+    // for test_merge_on_commit_keep_fully_deleted_segments()
+    let mut fully_deleted_segments = Vec::new();
+    for sci in segment_infos.iter() {
+      let max_doc = sci.info.max_doc()?;
+      if max_doc - sci.get_del_count() == 0 {
+        fully_deleted_segments.push(SegmentDocAndID::new(
+          sci.info.get_id_key().to_string(),
+          max_doc,
+        ));
+      }
+    }
+
+    if fully_deleted_segments.is_empty() {
+      return Ok(None);
+    }
+
+    let mut spec = MergeSpecificationNoReader::new();
+    spec.add(OneMerge::new(fully_deleted_segments)?);
+    Ok(Some(spec))
+  }
+
+  fn use_compound_file<D, MC>(
+    &self,
+    infos: &SegmentInfos<D>,
+    merged_info: &SegmentCommitInfo<D>,
+    merge_context: &MC,
+  ) -> Result<bool>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self
+      .in_
+      .use_compound_file(infos, merged_info, merge_context)
+  }
+
+  fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self.in_.size(info, merge_context)
+  }
+
+  fn keep_fully_deleted_segment<D, F>(&self, _reader_supplier: F) -> Result<bool>
+  where
+    D: Directory,
+    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+  {
+    Ok(true)
   }
 }
