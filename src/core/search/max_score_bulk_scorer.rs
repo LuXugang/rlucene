@@ -215,7 +215,7 @@ where
         }
       } else {
         let doc = self.all_scorers[top_index].doc;
-        let m = {
+        let match_ = {
           let accepted = match accept_docs {
             None => true,
             Some(bits) => bits.get(doc as usize)?,
@@ -225,7 +225,7 @@ where
 
         let mut score = 0f64;
         loop {
-          if m {
+          if match_ {
             let s = {
               let top = &mut self.all_scorers[top_index];
               top.scorer.score()? as f64
@@ -245,7 +245,7 @@ where
           }
         }
 
-        if m {
+        if match_ {
           self.score_non_essential_clauses(collector, doc, score, self.first_essential_scorer)?;
         }
       }
@@ -263,11 +263,11 @@ where
       .essential_queue
       .top()
       .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
-    let (mut doc, mut score) = {
+    let mut doc = {
       let top = &mut self.all_scorers[top_index];
       // single essential clause in this window, we can iterate it directly and skip the bitset.
       // this is a common case for 2-clauses queries
-      (top.doc, top.scorer.score()? as f64)
+      top.doc
     };
 
     while doc < upto {
@@ -275,12 +275,23 @@ where
         None => true,
         Some(bits) => bits.get(doc as usize)?,
       };
+
       if accepted {
-        self.score_non_essential_clauses(collector, doc, score, self.first_essential_scorer)?;
+        let score = {
+          let top = &mut self.all_scorers[top_index];
+          top.scorer.score()?
+        };
+
+        self.score_non_essential_clauses(
+          collector,
+          doc,
+          score as f64,
+          self.first_essential_scorer,
+        )?;
       }
+
       let top = &mut self.all_scorers[top_index];
       doc = top.scorer.iterator_mut().next_doc()?;
-      score = top.scorer.score()? as f64;
     }
     let top = &mut self.all_scorers[top_index];
     let v = top.scorer.iterator_mut().doc_id();
@@ -417,7 +428,6 @@ where
             score += self.all_scorers[j].scorer.score()? as f64;
           }
         }
-
         (self.all_scorers[leader1_idx].doc, score)
       };
 

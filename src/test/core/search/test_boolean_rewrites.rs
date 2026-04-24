@@ -18,6 +18,8 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
 
+use crate::core::document::field::FieldBase;
+use crate::core::document::text_field::TextField;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -26,6 +28,7 @@ use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
+use crate::core::search::boolean_query;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
@@ -35,16 +38,19 @@ use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
+use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
+use crate::core::search::top_docs::TopDocs;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, new_directory_shared, new_searcher_with_reader, new_text_field, random,
 };
-use rand::RngExt;
-use std::collections::HashMap;
+use crate::test::core::util::test_util::TestUtil;
+use rand::{Rng, RngExt};
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -591,10 +597,170 @@ fn test_remove_match_all_filter() -> Result<()> {
 
   Ok(())
 }
-#[test]
 fn test_random() -> Result<()> {
-  // TODO IMPORTANT
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+  let mut doc = Document::new();
+  let mut f = TextField::from_string("body", "a b c", No)?;
+  doc.add(f.clone());
+  writer.add_document(doc)?;
+
+  let mut doc = Document::new();
+  f.set_string_value("")?;
+  doc.add(f.clone());
+  writer.add_document(doc)?;
+
+  let mut doc = Document::new();
+  f.set_string_value("a b")?;
+  doc.add(f.clone());
+  writer.add_document(doc)?;
+
+  let mut doc = Document::new();
+  f.set_string_value("b c")?;
+  doc.add(f.clone());
+  writer.add_document(doc)?;
+
+  let mut doc = Document::new();
+  f.set_string_value("a")?;
+  doc.add(f.clone());
+  writer.add_document(doc)?;
+
+  let mut doc = Document::new();
+  f.set_string_value("c")?;
+  doc.add(f.clone());
+  writer.add_document(doc)?;
+
+  let num_random_docs = at_least(&mut random, 3);
+  for _ in 0..num_random_docs {
+    let num_terms = random.random_range(0..20);
+    let mut text = String::new();
+    for _ in 0..num_terms {
+      text.push(char::from(b'a' + random.random_range(0..4)));
+      text.push(' ');
+    }
+    doc = Document::new();
+    f.set_string_value(text)?;
+    doc.add(f.clone());
+    writer.add_document(doc)?;
+  }
+
+  let reader1 = writer.get_reader()?;
+  let reader2 = writer.get_reader()?;
+  writer.close()?;
+
+  let searcher1 = IndexSearcher::from_cr(reader1)?;
+  let mut searcher2 = IndexSearcher::from_cr(reader2)?;
+  searcher2.disable_rewrite = true;
+  searcher2.set_similarity(searcher1.get_similarity());
+
+  let iters = at_least(&mut random, 1000);
+  for _iter in 0..iters {
+    let query = random_boolean_query(&mut random)?;
+    let td1 = searcher1.search(query.clone(), 100)?;
+    let td2 = searcher2.search(query.clone(), 100)?;
+    assert_equals(&td1, &td2);
+  }
+
   Ok(())
+}
+
+fn random_boolean_query<R>(random: &mut R) -> Result<Query>
+where
+  R: Rng + ?Sized,
+{
+  let num_clauses = random.random_range(0..5);
+  let mut b = boolean_query::Builder::new();
+  let mut num_shoulds = 0;
+
+  for _ in 0..num_clauses {
+    let occur = match random.random_range(0..4) {
+      0 => Occur::Must,
+      1 => Occur::Filter,
+      2 => Occur::Should,
+      3 => Occur::MustNot,
+      _ => unreachable!(),
+    };
+
+    if occur == Occur::Should {
+      num_shoulds += 1;
+    }
+
+    let query = random_query(random)?;
+    b.add(query, occur)?;
+  }
+
+  b.set_minimum_number_should_match(if random.random_bool(0.5) {
+    0
+  } else {
+    TestUtil::next_int(random, 0, num_shoulds + 1)
+  });
+
+  let mut query: Query = b.build().into();
+
+  if random.random_bool(0.5) {
+    query = random_wrapper(random, query)?;
+  }
+
+  Ok(query)
+}
+fn random_wrapper<R>(random: &mut R, query: Query) -> Result<Query>
+where
+  R: Rng + ?Sized,
+{
+  match random.random_range(0..2) {
+    0 => Ok(BoostQuery::new(query, TestUtil::next_int(random, 0, 4) as f32)?.into()),
+    1 => Ok(ConstantScoreQuery::new(query).into()),
+    _ => unreachable!(""),
+  }
+}
+fn random_query<R>(random: &mut R) -> Result<Query>
+where
+  R: Rng + ?Sized,
+{
+  if random.random_range(0..5) == 0 {
+    let query = random_query(random)?;
+    return random_wrapper(random, query);
+  }
+  let v = random.random_range(0..6);
+  match v {
+    0 => Ok(MatchAllDocsQuery::new().into()),
+    1 => Ok(TermQuery::new(Term::from_text("body", "a")).into()),
+    2 => Ok(TermQuery::new(Term::from_text("body", "b")).into()),
+    3 => Ok(TermQuery::new(Term::from_text("body", "c")).into()),
+    4 => Ok(TermQuery::new(Term::from_text("body", "d")).into()),
+    5 => random_boolean_query(random),
+    _ => unreachable!(),
+  }
+}
+
+fn assert_equals(td1: &TopDocs<ScoreDoc>, td2: &TopDocs<ScoreDoc>) {
+  assert_eq!(td1.total_hits.value(), td2.total_hits.value(),);
+  assert_eq!(td1.score_docs.len(), td2.score_docs.len(),);
+
+  let expected_scores: HashMap<i32, f32> = td1
+    .score_docs
+    .iter()
+    .map(|score_doc| (score_doc.doc, score_doc.score))
+    .collect();
+  let actual_result_set: HashSet<i32> = td2
+    .score_docs
+    .iter()
+    .map(|score_doc| score_doc.doc)
+    .collect();
+
+  assert_eq!(
+    expected_scores.keys().copied().collect::<HashSet<_>>(),
+    actual_result_set,
+  );
+
+  for score_doc in &td2.score_docs {
+    let expected_score = expected_scores[&score_doc.doc];
+    let actual_score = score_doc.score;
+    let tolerance = expected_score / 100.0;
+    assert!((expected_score - actual_score).abs() <= tolerance,);
+  }
 }
 #[test]
 fn test_deduplicate_should_clauses() -> Result<()> {

@@ -96,6 +96,8 @@ where
   // shouldn't hurt either.
   partial_result: AtomicBool,
   #[cfg(test)]
+  pub(crate) disable_rewrite: bool,
+  #[cfg(test)]
   pub(crate) count_invocations: AtomicUsize,
 }
 pub(crate) struct Inner {
@@ -148,6 +150,8 @@ where
       query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?.into()),
       query_cache: Some(lru_query_cache.into()),
       partial_result: AtomicBool::new(false),
+      #[cfg(test)]
+      disable_rewrite: false,
       #[cfg(test)]
       count_invocations: AtomicUsize::new(0),
     })
@@ -577,6 +581,10 @@ where
     Q: Into<Query>,
   {
     let mut query = query.into();
+    #[cfg(test)]
+    if self.disable_rewrite {
+      return Ok(query);
+    }
     let mut query_id = query.identity().clone();
     loop {
       query = query.rewrite(self)?;
