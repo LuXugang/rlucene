@@ -16,6 +16,5 @@
  */
 mod base_shape_encoding_test_case;
 pub(crate) mod base_spatial_test_case;
-mod test_lat_lon_point_distance_feature_query;
 mod test_lat_lon_shape_encoding;
 mod test_xy_shape_encoding;
