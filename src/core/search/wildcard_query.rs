@@ -222,6 +222,7 @@ pub fn to_automaton(wildcard_query: &Term, determinize_work_limit: i32) -> Resul
 }
 #[cfg(test)]
 mod tests {
+  use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
   use crate::core::index::directory_reader::directory_reader_util;
@@ -494,7 +495,8 @@ mod tests {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir.clone());
+    // TODO IMPORTANT MockTokenizer.WHITESPACE未实现 暂时使用WhitespaceAnalyzer
+    let writer = RandomIndexWriter::with_analyzer(random, dir.clone(), WhitespaceAnalyzer::new());
     let mut field_to_type = HashMap::new();
 
     for content in contents {
@@ -604,7 +606,8 @@ mod tests {
 
     // prepare the index
     let dir = new_directory_shared(&mut random)?;
-    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+    // TODO IMPORTANT MockTokenizer.WHITESPACE未实现 暂时使用WhitespaceAnalyzer
+    let iw = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), WhitespaceAnalyzer::new());
     let mut field_to_type = HashMap::new();
 
     for d in docs {

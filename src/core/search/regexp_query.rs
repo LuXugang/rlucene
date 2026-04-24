@@ -362,6 +362,7 @@ where
 
 #[cfg(test)]
 mod tests {
+  use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
   use crate::core::index::index_reader_context::IndexReaderContext;
@@ -392,8 +393,9 @@ mod tests {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-
-    let writer = RandomIndexWriter::new(random, directory.clone());
+    // TODO IMPORTANT MockTokenizer.WHITESPACE未实现 暂时使用WhitespaceAnalyzer
+    let writer =
+      RandomIndexWriter::with_analyzer(random, directory.clone(), WhitespaceAnalyzer::new());
     let mut doc = Document::new();
     let mut field_to_type = HashMap::new();
     doc.add(new_text_field(

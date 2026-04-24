@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field::Store::{No, Yes};
@@ -353,8 +354,8 @@ impl DocHelper {
   where
     D: Directory,
   {
-    // TODO similarity Analyzer未实现
-    let config = IndexWriterConfig::new();
+    // TODO MockTokenizer.WHITESPACE未实现 使用WhitespaceAnalyzer临时替换
+    let config = IndexWriterConfig::with_analyzer(WhitespaceAnalyzer::new());
 
     let writer = IndexWriter::new(dir.clone(), config)?;
     writer.add_document(doc)?;
