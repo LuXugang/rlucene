@@ -98,7 +98,7 @@ impl FieldInfo {
     vector_similarity_function: VectorSimilarityFunction,
     soft_deletes_field: bool,
     is_parent_field: bool,
-  ) -> Self
+  ) -> Result<Self>
   where
     T: Into<String>,
   {
@@ -111,7 +111,7 @@ impl FieldInfo {
     };
     let properties = Mutex::new(Inner { attributes });
 
-    FieldInfo {
+    let v = FieldInfo {
       name: name.into(),
       number,
       doc_values_type,
@@ -130,7 +130,9 @@ impl FieldInfo {
       is_parent_field,
       store_payloads: AtomicBool::new(store_payloads),
       store_term_vector: AtomicBool::new(store_term_vector),
-    }
+    };
+    v.check_consistency()?;
+    Ok(v)
   }
 
   /// Check correctness of the FieldInfo options

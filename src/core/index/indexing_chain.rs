@@ -855,7 +855,7 @@ where
       s.vector_similarity_function,
       soft_deletes_field,
       is_parent_field,
-    );
+    )?;
 
     let fi = field_infos.add(Arc::new(field_info))?;
     pf.set_field_info(fi.clone());

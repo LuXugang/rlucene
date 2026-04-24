@@ -340,7 +340,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
           vector_dist_func,
           is_soft_deletes_field,
           is_parent_field,
-        );
+        )?;
         field_info.check_consistency()?;
         infos.push(Arc::new(field_info));
       }

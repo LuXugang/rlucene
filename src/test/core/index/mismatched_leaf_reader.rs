@@ -19,6 +19,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::util::error::lucene_error::LuceneError;
+use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
 use rand::prelude::SliceRandom;
 use std::sync::Arc;
@@ -35,10 +36,7 @@ impl<'a, V> MismatchedVisitor<'a, V> {
     Self { visitor, shuffled }
   }
 
-  fn renumber(
-    &self,
-    field_info: Arc<FieldInfo>,
-  ) -> crate::core::util::error::lucene_error::Result<Arc<FieldInfo>> {
+  fn renumber(&self, field_info: Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
     self
       .shuffled
       .field_info_by_name(&field_info.name)
@@ -60,7 +58,7 @@ where
     field_info: Arc<FieldInfo>,
     value: Vec<u8>,
     writer: Option<&mut S>,
-  ) -> crate::core::util::error::lucene_error::Result<()>
+  ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
@@ -74,7 +72,7 @@ where
     field_info: Arc<FieldInfo>,
     value: String,
     writer: Option<&mut S>,
-  ) -> crate::core::util::error::lucene_error::Result<()>
+  ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
@@ -88,7 +86,7 @@ where
     field_info: Arc<FieldInfo>,
     value: i32,
     writer: Option<&mut S>,
-  ) -> crate::core::util::error::lucene_error::Result<()>
+  ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
@@ -102,7 +100,7 @@ where
     field_info: Arc<FieldInfo>,
     value: i64,
     writer: Option<&mut S>,
-  ) -> crate::core::util::error::lucene_error::Result<()>
+  ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
@@ -116,7 +114,7 @@ where
     field_info: Arc<FieldInfo>,
     value: f32,
     writer: Option<&mut S>,
-  ) -> crate::core::util::error::lucene_error::Result<()>
+  ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
@@ -130,7 +128,7 @@ where
     field_info: Arc<FieldInfo>,
     value: f64,
     writer: Option<&mut S>,
-  ) -> crate::core::util::error::lucene_error::Result<()>
+  ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
@@ -139,11 +137,7 @@ where
       .double_field(self.renumber(field_info)?, value, writer)
   }
 
-  fn needs_field<S>(
-    &mut self,
-    field_info: Arc<FieldInfo>,
-    writer: Option<&mut S>,
-  ) -> crate::core::util::error::lucene_error::Result<Status>
+  fn needs_field<S>(&mut self, field_info: Arc<FieldInfo>, writer: Option<&mut S>) -> Result<Status>
   where
     S: StoredFieldsWriter,
   {
@@ -151,10 +145,7 @@ where
   }
 }
 
-pub fn shuffle_infos<R>(
-  infos: &FieldInfos,
-  random: &mut R,
-) -> crate::core::util::error::lucene_error::Result<FieldInfos>
+pub fn shuffle_infos<R>(infos: &FieldInfos, random: &mut R) -> Result<FieldInfos>
 where
   R: Rng + ?Sized,
 {
@@ -163,14 +154,14 @@ where
 
   let mut new_infos = Vec::with_capacity(shuffled.len());
   for (i, old_info) in shuffled.into_iter().enumerate() {
-    let new_info = Arc::new(clone_field_info(old_info.as_ref(), i as i32));
+    let new_info = Arc::new(clone_field_info(old_info.as_ref(), i as i32)?);
     new_infos.push(new_info);
   }
 
   FieldInfos::new(new_infos)
 }
 
-fn clone_field_info(fi: &FieldInfo, field_number: i32) -> FieldInfo {
+fn clone_field_info(fi: &FieldInfo, field_number: i32) -> Result<FieldInfo> {
   FieldInfo::new(
     fi.name.clone(),
     field_number,

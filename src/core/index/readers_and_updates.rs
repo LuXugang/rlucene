@@ -614,7 +614,7 @@ where
         // the local field number. Field numbers can be different from
         // the global ones if the segment was created externally (and added to
         // this index with IndexWriter#addIndexes(Directory)).
-        by_name.insert(fi.name.to_string(), clone_field_info(fi, fi.number));
+        by_name.insert(fi.name.to_string(), clone_field_info(fi, fi.number)?);
         max_field_number = max_field_number.max(fi.number);
       }
 
@@ -1308,7 +1308,7 @@ impl Function<Arc<FieldInfo>, Option<MergedIterator<DocValuesFieldIteratorEnum>>
   }
 }
 
-fn clone_field_info(fi: &FieldInfo, field_number: i32) -> FieldInfo {
+fn clone_field_info(fi: &FieldInfo, field_number: i32) -> Result<FieldInfo> {
   FieldInfo::new(
     fi.name.to_string(),
     field_number,

@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::document::field::Store;
+use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TextField, text_field_type};
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
+use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
@@ -29,7 +31,7 @@ use crate::core::index::term::Term;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
@@ -543,6 +545,39 @@ fn test_get_field_names() -> Result<()> {
   assert_eq!(HashSet::<String>::new(), writer.get_field_names());
 
   writer.close()?;
+  Ok(())
+}
+#[test]
+fn test_doc_values_skipping_index_without_doc_values() -> Result<()> {
+  let mut random = random();
+
+  for doc_values_type in [DocValuesType::None, DocValuesType::Binary] {
+    let mut field_type = FieldType::new();
+    field_type.set_stored(true)?;
+    field_type.set_doc_values_type(doc_values_type)?;
+    field_type.set_doc_values_skip_index_type(DocValuesSkipIndexType::Range)?;
+    field_type.freeze();
+    // TODO IMPORTANT newMockDirectory未实现
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir, iwc)?;
+
+    let mut doc1 = Document::new();
+    doc1.add(Field::from_binary("test", vec![0u8; 10], field_type)?);
+
+    let err = writer.add_document(doc1);
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(
+      err
+        .unwrap_err()
+        .to_string()
+        .starts_with("field 'test' cannot have docValuesSkipIndexType=Range")
+    );
+
+    writer.close()?;
+  }
+
   Ok(())
 }
 

@@ -180,7 +180,7 @@ impl RandomPostingsTester {
         VectorSimilarityFunction::Euclidean,
         false,
         false,
-      )));
+      )?));
 
       let mut postings: BTreeMap<BytesRef<Vec<u8>>, SeedAndOrd> = BTreeMap::new();
       let mut seen_terms: HashSet<String> = HashSet::new();
@@ -335,7 +335,7 @@ impl RandomPostingsTester {
         VectorSimilarityFunction::Euclidean,
         false,
         false,
-      )));
+      )?));
     }
 
     let new_field_infos = Arc::new(FieldInfos::new(new_field_info_array)?);

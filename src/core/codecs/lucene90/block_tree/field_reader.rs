@@ -388,7 +388,7 @@ mod tests {
         VectorSimilarityFunction::Euclidean,
         false,
         false,
-      )))?;
+      )?))?;
     }
 
     let dir = new_directory_shared(&mut random)?;

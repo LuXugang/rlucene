@@ -1905,7 +1905,7 @@ where
         VectorSimilarityFunction::DotProduct,
         fi.is_soft_deletes_field(),
         fi.is_parent_field(),
-      );
+      )?;
       new_infos.push(Arc::new(no_index_fi));
     }
     Ok(Arc::new(FieldInfos::new(new_infos)?))

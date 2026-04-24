@@ -705,7 +705,7 @@ impl FieldNumbers {
             .parent_field_name
             .as_ref()
             .is_some_and(|s| s == field_name),
-        );
+        )?;
         self.add_or_get(&fi)?;
       }
     } else {
@@ -794,7 +794,7 @@ impl FieldNumbers {
         VectorSimilarityFunction::Euclidean,
         is_soft_deletes_field,
         is_parent_field,
-      )))
+      )?))
     } else {
       Ok(None)
     }
@@ -898,7 +898,7 @@ pub mod build {
         *fi.get_vector_similarity_function(),
         fi.is_soft_deletes_field(),
         fi.is_parent_field(),
-      ));
+      )?);
       self.by_name.insert(fi_new.name.clone(), fi_new.clone());
       Ok(fi_new)
     }
@@ -1199,7 +1199,7 @@ mod tests {
         VectorSimilarityFunction::Euclidean,
         false,
         false,
-      );
+      )?;
       field_numbers.add_or_get(&fi)?;
     }
     let idx = field_numbers.add_or_get(&FieldInfo::new(
@@ -1221,7 +1221,7 @@ mod tests {
       VectorSimilarityFunction::Euclidean,
       false,
       false,
-    ))?;
+    )?)?;
     assert_eq!(10, idx, "Field numbers 0 through 9 were allocated");
 
     field_numbers.clear();
@@ -1244,7 +1244,7 @@ mod tests {
       VectorSimilarityFunction::Euclidean,
       false,
       false,
-    ))?;
+    )?)?;
     assert_eq!(0, idx, "Field numbers should reset after clear()");
     Ok(())
   }
