@@ -370,22 +370,19 @@ where
 
   ts.end()?;
   assert!(ts.get_attribute_source_mut().get_and_reset_clear_called()?);
-
-  // if let Some(final_offset) = final_offset {
-  //   assert_eq!(
-  //     final_offset,
-  //     OffsetAttribute::end_offset(ts.get_attribute_source())
-  //   );
-  // }
-  // if offset_att {
-  //   assert!(OffsetAttribute::end_offset(ts.get_attribute_source()) >= 0);
-  // }
-  // if let Some(final_pos_inc) = final_pos_inc {
-  //   assert_eq!(
-  //     final_pos_inc,
-  //     PositionIncrementAttribute::get_position_increment(ts.get_attribute_source())
-  //   );
-  // }
+  let attr = ts.get_attribute_source();
+  if let Some(final_offset) = final_offset {
+    assert_eq!(final_offset, OffsetAttribute::end_offset(attr));
+  }
+  if offset_att {
+    assert!(OffsetAttribute::end_offset(attr) >= 0);
+  }
+  if let Some(final_pos_inc) = final_pos_inc {
+    assert_eq!(
+      final_pos_inc,
+      PositionIncrementAttribute::get_position_increment(attr)
+    );
+  }
 
   ts.close()?;
   Ok(())
@@ -967,6 +964,7 @@ where
   R: Rng + ?Sized,
 {
   with_analyzer_token_stream(a, input, |ts| {
+    let len: Vec<char> = input.chars().collect();
     assert_token_stream_contents8(
       ts,
       output,
@@ -975,7 +973,7 @@ where
       types,
       pos_increments,
       pos_lengths,
-      Some(input.len() as i32),
+      Some(len.len() as i32),
       boost,
     )
   })?;
@@ -1001,6 +999,7 @@ where
   R: Rng + ?Sized,
 {
   with_analyzer_token_stream(a, input, |ts| {
+    let len: Vec<char> = input.chars().collect();
     assert_token_stream_contents6(
       ts,
       output,
@@ -1009,7 +1008,7 @@ where
       types,
       pos_increments,
       pos_lengths,
-      Some(input.len() as i32),
+      Some(len.len() as i32),
       graph_offsets_are_correct,
     )
   })?;
@@ -1036,6 +1035,7 @@ where
   R: Rng + ?Sized,
 {
   with_analyzer_token_stream(a, input, |ts| {
+    let len: Vec<char> = input.chars().collect();
     assert_token_stream_contents4(
       ts,
       output,
@@ -1044,7 +1044,7 @@ where
       types,
       pos_increments,
       pos_lengths,
-      Some(input.len() as i32),
+      Some(len.len() as i32),
       None,
       None,
       graph_offsets_are_correct,

@@ -177,7 +177,7 @@ impl TokenStream for StandardTokenizer {
     let final_offset = self.correct_offset(self.scanner.yychar() + self.scanner.yylength() as i32);
     let att = &mut self.tokenizer_base.token_stream_base.att;
     att.set_offset(final_offset, final_offset)?;
-    let position_increment = att.get_position_increment().unwrap_or(0);
+    let position_increment = att.get_position_increment()?;
     att.set_position_increment(position_increment + self.skipped_positions)
   }
 

@@ -110,7 +110,7 @@ impl StopWordAnalyzerBase for StandardAnalyzer {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
+
   use crate::test::core::analysis::base_token_stream_test_case::{
     assert_analyzes_to6, assert_analyzes_to7, assert_analyzes_to9, check_one_term,
   };
@@ -125,7 +125,7 @@ mod tests {
   }
   #[test]
   fn test_armenian() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(
@@ -167,7 +167,7 @@ mod tests {
 
   #[test]
   fn test_amharic() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(
@@ -194,7 +194,7 @@ mod tests {
   }
   #[test]
   fn test_arabic() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(
@@ -231,7 +231,7 @@ mod tests {
 
   #[test]
   fn test_aramaic() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(
@@ -264,7 +264,7 @@ mod tests {
 
   #[test]
   fn test_bengali() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(
@@ -299,9 +299,9 @@ mod tests {
 
     Ok(())
   }
-  // 测试未通过
+  #[test]
   fn test_farsi() -> Result<()> {
-    let a = WhitespaceAnalyzer::new();
+    let a = set_up();
     let mut random = random();
     let input =
       "ویکی پدیای انگلیسی در تاریخ ۲۵ دی ۱۳۷۹ به صورت مکملی برای دانشنامهٔ تخصصی نوپدیا نوشته شد.";
@@ -328,7 +328,7 @@ mod tests {
   }
   #[test]
   fn test_greek() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(
@@ -366,7 +366,7 @@ mod tests {
   }
   #[test]
   fn test_thai() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(
@@ -381,7 +381,7 @@ mod tests {
 
   #[test]
   fn test_lao() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(
@@ -396,7 +396,7 @@ mod tests {
 
   #[test]
   fn test_tibetan() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(
@@ -431,7 +431,7 @@ mod tests {
   }
   #[test]
   fn test_chinese() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(
@@ -446,7 +446,7 @@ mod tests {
 
   #[test]
   fn test_empty() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(&mut random, &a, "", &[])?;
@@ -458,7 +458,7 @@ mod tests {
 
   #[test]
   fn test_lucene1545() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(&mut random, &a, "moͤchte", &["moͤchte"])?;
@@ -468,7 +468,7 @@ mod tests {
 
   #[test]
   fn test_alphanumeric_sa() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(&mut random, &a, "B2B", &["b2b"])?;
@@ -479,7 +479,7 @@ mod tests {
 
   #[test]
   fn test_delimiters_sa() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(
@@ -501,7 +501,7 @@ mod tests {
 
   #[test]
   fn test_apostrophes_sa() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to6(&mut random, &a, "O'Reilly", &["o'reilly"])?;
@@ -782,7 +782,7 @@ mod tests {
   }
   #[test]
   fn test_emoji_variation_sequence() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to7(&mut random, &a, "#️⃣", &["#️⃣"], Some(&["<EMOJI>"]))?;
@@ -815,7 +815,7 @@ mod tests {
   }
   #[test]
   fn test_emoji_tag_sequence() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to7(&mut random, &a, "🏴", &["🏴"], Some(&["<EMOJI>"]))?;
@@ -825,7 +825,7 @@ mod tests {
 
   #[test]
   fn test_emoji_tokenization() -> Result<()> {
-    let a = StandardAnalyzer::new();
+    let a = set_up();
     let mut random = random();
 
     assert_analyzes_to7(
