@@ -16,6 +16,7 @@
  */
 use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzerTS;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
+use crate::core::analysis::lower_case_filter::LowerCaseFilter;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzerTS;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
@@ -185,22 +186,22 @@ where
   }
 }
 
-impl_from_for_enum!(
-    TokenStreams,
-    WhitespaceAnalyzerTS=> Whitespace,
-    StandardAnalyzerTS=> Standard,
-    StringTokenStream=> StringField,
-    crate::core::analysis::analyzer::StringTokenStream=> String,
-    DummyTokenStream=> Dummy,
-);
-pub enum TokenStreams {
-  Whitespace(WhitespaceAnalyzerTS),
-  Standard(StandardAnalyzerTS),
+pub enum TokenStreams<TS>
+where
+  TS: TokenStream,
+{
+  Whitespace(TS),
+  Standard(LowerCaseFilter<TS>),
   StringField(StringTokenStream),
   String(crate::core::analysis::analyzer::StringTokenStream),
   Dummy(DummyTokenStream),
+  #[cfg(test)]
+  Mock(TS),
 }
-impl TokenStream for TokenStreams {
+impl<TS> TokenStream for TokenStreams<TS>
+where
+  TS: TokenStream,
+{
   fn increment_token(&mut self) -> Result<bool> {
     match self {
       TokenStreams::Whitespace(v) => v.increment_token(),
@@ -208,6 +209,8 @@ impl TokenStream for TokenStreams {
       TokenStreams::StringField(v) => v.increment_token(),
       TokenStreams::String(v) => v.increment_token(),
       TokenStreams::Dummy(v) => v.increment_token(),
+      #[cfg(test)]
+      TokenStreams::Mock(v) => v.increment_token(),
     }
   }
 
@@ -218,6 +221,8 @@ impl TokenStream for TokenStreams {
       TokenStreams::StringField(v) => v.end(),
       TokenStreams::String(v) => v.end(),
       TokenStreams::Dummy(v) => v.end(),
+      #[cfg(test)]
+      TokenStreams::Mock(v) => v.end(),
     }
   }
 
@@ -228,6 +233,8 @@ impl TokenStream for TokenStreams {
       TokenStreams::StringField(v) => v.default_end(),
       TokenStreams::String(v) => v.default_end(),
       TokenStreams::Dummy(v) => v.default_end(),
+      #[cfg(test)]
+      TokenStreams::Mock(v) => v.default_end(),
     }
   }
 
@@ -238,6 +245,8 @@ impl TokenStream for TokenStreams {
       TokenStreams::StringField(v) => v.reset(),
       TokenStreams::String(v) => v.reset(),
       TokenStreams::Dummy(v) => v.reset(),
+      #[cfg(test)]
+      TokenStreams::Mock(v) => v.reset(),
     }
   }
 
@@ -248,6 +257,8 @@ impl TokenStream for TokenStreams {
       TokenStreams::StringField(v) => v.default_reset(),
       TokenStreams::String(v) => v.default_reset(),
       TokenStreams::Dummy(v) => v.default_reset(),
+      #[cfg(test)]
+      TokenStreams::Mock(v) => v.default_reset(),
     }
   }
 
@@ -258,6 +269,8 @@ impl TokenStream for TokenStreams {
       TokenStreams::StringField(v) => v.close(),
       TokenStreams::String(v) => v.close(),
       TokenStreams::Dummy(v) => v.close(),
+      #[cfg(test)]
+      TokenStreams::Mock(v) => v.close(),
     }
   }
 
@@ -268,6 +281,8 @@ impl TokenStream for TokenStreams {
       TokenStreams::StringField(v) => v.get_attribute_source(),
       TokenStreams::String(v) => v.get_attribute_source(),
       TokenStreams::Dummy(v) => v.get_attribute_source(),
+      #[cfg(test)]
+      TokenStreams::Mock(v) => v.get_attribute_source(),
     }
   }
 
@@ -278,16 +293,20 @@ impl TokenStream for TokenStreams {
       TokenStreams::StringField(v) => v.get_attribute_source_mut(),
       TokenStreams::String(v) => v.get_attribute_source_mut(),
       TokenStreams::Dummy(v) => v.get_attribute_source_mut(),
+      #[cfg(test)]
+      TokenStreams::Mock(v) => v.get_attribute_source_mut(),
     }
   }
 
-  fn set_reader(&mut self, _input: ReaderEnum) -> Result<()> {
+  fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
     match self {
-      TokenStreams::Whitespace(v) => v.set_reader(_input),
-      TokenStreams::Standard(v) => v.set_reader(_input),
-      TokenStreams::StringField(v) => v.set_reader(_input),
-      TokenStreams::String(v) => v.set_reader(_input),
-      TokenStreams::Dummy(v) => v.set_reader(_input),
+      TokenStreams::Whitespace(v) => v.set_reader(input),
+      TokenStreams::Standard(v) => v.set_reader(input),
+      TokenStreams::StringField(v) => v.set_reader(input),
+      TokenStreams::String(v) => v.set_reader(input),
+      TokenStreams::Dummy(v) => v.set_reader(input),
+      #[cfg(test)]
+      TokenStreams::Mock(v) => v.set_reader(input),
     }
   }
 
@@ -298,6 +317,8 @@ impl TokenStream for TokenStreams {
       TokenStreams::StringField(v) => v.set_reader_test_point(),
       TokenStreams::String(v) => v.set_reader_test_point(),
       TokenStreams::Dummy(v) => v.set_reader_test_point(),
+      #[cfg(test)]
+      TokenStreams::Mock(v) => v.set_reader_test_point(),
     }
   }
 }

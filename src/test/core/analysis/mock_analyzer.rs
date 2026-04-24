@@ -18,7 +18,7 @@
 use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
 use crate::core::analysis::analyzer::{Analyzer, ReuseStrategyEnum, TokenStreamComponents};
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{TokenStream, TokenStreams};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::index::BytesRef;
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
@@ -69,7 +69,7 @@ impl Analyzer for MockAnalyzer {
 
   fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
   where
-    TS: TokenStream + Into<TokenStreams>,
+    TS: TokenStream,
   {
     self.in_.normalize_from_ts(_field_name, in_)
   }

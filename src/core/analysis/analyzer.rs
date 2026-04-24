@@ -17,6 +17,7 @@
 use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
 use crate::core::analysis::reader::{Reader, ReaderEnum};
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
+use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream, TokenStreams};
@@ -44,7 +45,7 @@ pub trait Analyzer {
     TS: TokenStream;
   fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
   where
-    TS: TokenStream + Into<TokenStreams>;
+    TS: TokenStream;
   fn default_normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<TS>
   where
     TS: TokenStream,
@@ -160,6 +161,7 @@ pub trait Analyzer {
 impl_from_for_enum!(
     AnalyzerEnum,
     WhitespaceAnalyzer=> Whitespace,
+    StandardAnalyzer => Standard,
 );
 #[cfg(test)]
 impl_from_for_enum!(
@@ -169,18 +171,20 @@ impl_from_for_enum!(
 
 pub enum AnalyzerEnum {
   Whitespace(WhitespaceAnalyzer),
+  Standard(StandardAnalyzer),
   #[cfg(test)]
   Mock(MockAnalyzer),
 }
 impl Default for AnalyzerEnum {
   fn default() -> Self {
-    AnalyzerEnum::Whitespace(WhitespaceAnalyzer::default())
+    StandardAnalyzer::default().into()
   }
 }
 impl Analyzer for AnalyzerEnum {
   fn create_components(&self, field: &str) -> Result<TokenStreamComponents> {
     match self {
       AnalyzerEnum::Whitespace(v) => v.create_components(field),
+      AnalyzerEnum::Standard(v) => v.create_components(field),
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.create_components(field),
     }
@@ -189,30 +193,30 @@ impl Analyzer for AnalyzerEnum {
   fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.init_reuse_strategy(),
+      AnalyzerEnum::Standard(v) => v.init_reuse_strategy(),
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.init_reuse_strategy(),
     }
   }
 
   type TokenStream<TS>
-    = TokenStreams
+    = TokenStreams<TS>
   where
     TS: TokenStream;
 
   fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
   where
-    TS: TokenStream + Into<TokenStreams>,
+    TS: TokenStream,
   {
     match self {
-      AnalyzerEnum::Whitespace(v) => {
-        let v = v.normalize_from_ts(field_name, in_)?;
-        Ok(v.into())
-      },
+      AnalyzerEnum::Whitespace(v) => Ok(TokenStreams::Whitespace(
+        v.normalize_from_ts(field_name, in_)?,
+      )),
+      AnalyzerEnum::Standard(v) => Ok(TokenStreams::Standard(
+        v.normalize_from_ts(field_name, in_)?,
+      )),
       #[cfg(test)]
-      AnalyzerEnum::Mock(v) => {
-        let v = v.normalize_from_ts(field_name, in_)?;
-        Ok(v.into())
-      },
+      AnalyzerEnum::Mock(v) => Ok(TokenStreams::Mock(v.normalize_from_ts(field_name, in_)?)),
     }
   }
 
@@ -222,6 +226,7 @@ impl Analyzer for AnalyzerEnum {
   ) -> &'a mut ReuseStrategyEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.ensure_reuse_strategy(slot),
+      AnalyzerEnum::Standard(v) => v.ensure_reuse_strategy(slot),
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.ensure_reuse_strategy(slot),
     }
@@ -233,6 +238,7 @@ impl Analyzer for AnalyzerEnum {
   {
     match self {
       AnalyzerEnum::Whitespace(v) => v.token_stream(field_name, input),
+      AnalyzerEnum::Standard(v) => v.token_stream(field_name, input),
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.token_stream(field_name, input),
     }
@@ -241,6 +247,7 @@ impl Analyzer for AnalyzerEnum {
   fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
     match self {
       AnalyzerEnum::Whitespace(v) => v.normalize(field_name, text),
+      AnalyzerEnum::Standard(v) => v.normalize(field_name, text),
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.normalize(field_name, text),
     }
@@ -249,6 +256,7 @@ impl Analyzer for AnalyzerEnum {
   fn init_reader(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.init_reader(_filed_name, reader),
+      AnalyzerEnum::Standard(v) => v.init_reader(_filed_name, reader),
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.init_reader(_filed_name, reader),
     }
@@ -257,6 +265,7 @@ impl Analyzer for AnalyzerEnum {
   fn init_reader_for_normalization(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.init_reader_for_normalization(_filed_name, reader),
+      AnalyzerEnum::Standard(v) => v.init_reader_for_normalization(_filed_name, reader),
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.init_reader_for_normalization(_filed_name, reader),
     }
@@ -265,6 +274,7 @@ impl Analyzer for AnalyzerEnum {
   fn attribute_factory(&self, field_name: &str) -> Attributes {
     match self {
       AnalyzerEnum::Whitespace(v) => v.attribute_factory(field_name),
+      AnalyzerEnum::Standard(v) => v.attribute_factory(field_name),
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.attribute_factory(field_name),
     }
@@ -273,6 +283,7 @@ impl Analyzer for AnalyzerEnum {
   fn get_position_increment_gap(&self, field_name: &str) -> i32 {
     match self {
       AnalyzerEnum::Whitespace(v) => v.get_position_increment_gap(field_name),
+      AnalyzerEnum::Standard(v) => v.get_position_increment_gap(field_name),
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.get_position_increment_gap(field_name),
     }
@@ -281,6 +292,7 @@ impl Analyzer for AnalyzerEnum {
   fn get_offset_gap(&self, field_name: &str) -> i32 {
     match self {
       AnalyzerEnum::Whitespace(v) => v.get_offset_gap(field_name),
+      AnalyzerEnum::Standard(v) => v.get_offset_gap(field_name),
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.get_offset_gap(field_name),
     }

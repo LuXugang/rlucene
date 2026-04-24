@@ -1319,7 +1319,7 @@ pub fn check_analysis_consistency2<R>(
 where
   R: Rng + ?Sized,
 {
-  check_analysis_consistency(
+  check_analysis_consistenc3(
     random,
     a,
     use_char_filter,
@@ -1328,7 +1328,7 @@ where
     None,
   )
 }
-pub fn check_analysis_consistency<R>(
+pub fn check_analysis_consistenc3<R>(
   _random: &mut R,
   _a: &impl Analyzer,
   _use_char_filter: bool,
