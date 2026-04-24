@@ -24,7 +24,6 @@ use std::io::Error;
 use std::sync::LazyLock;
 
 static ZZ_CMAP_TOP: LazyLock<Vec<i32>> = LazyLock::new(zz_unpack_cmap_top);
-static ZZ_CMAP_BLOCKS: LazyLock<Vec<i32>> = LazyLock::new(zz_unpackcmap_blocks);
 
 const ZZ_CMAP_TOP_PACKED_0: &str = concat!(
   "\u{1}\0\u{1}\u{100}\u{1}\u{200}\u{1}\u{300}\u{1}\u{400}\u{1}\u{500}\u{1}\u{600}\u{1}\u{700}\u{1}\u{800}\u{1}\u{900}\u{1}\u{a00}\u{1}\u{b00}\u{1}\u{c00}\u{1}\u{d00}",
@@ -43,7 +42,7 @@ const ZZ_CMAP_TOP_PACKED_0: &str = concat!(
 );
 fn zz_unpack_cmap_top() -> Vec<i32> {
   let mut result = vec![0; 4352];
-  zz_unpackcmap_blocks_with_offset(ZZ_CMAP_TOP_PACKED_0, 0, &mut result);
+  zz_unpackcmap_blocks_top_with_offset(ZZ_CMAP_TOP_PACKED_0, 0, &mut result);
   result
 }
 fn zz_unpackcmap_blocks_top_with_offset(packed: &str, offset: usize, result: &mut [i32]) -> usize {
@@ -63,6 +62,7 @@ fn zz_unpackcmap_blocks_top_with_offset(packed: &str, offset: usize, result: &mu
   }
   j
 }
+static ZZ_CMAP_BLOCKS: LazyLock<Vec<i32>> = LazyLock::new(zz_unpackcmap_blocks);
 const ZZ_CMAP_BLOCKS_PACKED_0: &str = concat!(
   "\u{22}\0\u{1}\u{1}\u{1}\u{2}\u{3}\0\u{1}\u{3}\u{2}\0\u{1}\u{2}\u{1}\0\u{1}\u{4}\u{1}\0\u{1}\u{5}\u{1}\0\u{a}\u{6}\u{1}\u{7}",
   "\u{1}\u{4}\u{5}\0\u{1a}\u{8}\u{4}\0\u{1}\u{9}\u{1}\0\u{1a}\u{8}\u{2e}\0\u{1}\u{a}\u{1}\u{8}\u{2}\0\u{1}\u{b}\u{1}\u{a}\u{6}\0",
@@ -237,7 +237,7 @@ const ZZ_ACTION_PACKED_0: &str = "\u{1}\0\u{2}\u{1}\u{1}\u{2}\u{1}\u{3}\u{1}\u{1
 
 fn zz_unpack_action() -> Vec<i32> {
   let mut result = vec![0; 59];
-  zz_unpackcmap_blocks_with_offset(ZZ_ACTION_PACKED_0, 0, &mut result);
+  zz_unpack_action_with_offset(ZZ_ACTION_PACKED_0, 0, &mut result);
   result
 }
 fn zz_unpack_action_with_offset(packed: &str, offset: usize, result: &mut [i32]) -> usize {
@@ -259,7 +259,7 @@ fn zz_unpack_action_with_offset(packed: &str, offset: usize, result: &mut [i32])
 }
 
 /// Translates a state to a row index in the transition table
-static ZZ_ROWMAP: LazyLock<Vec<i32>> = LazyLock::new(zz_unpack_row_map);
+static ZZ_ROWMAP: LazyLock<Vec<usize>> = LazyLock::new(zz_unpack_row_map);
 const ZZ_ROWMAP_PACKED_0: &str = "\0\0\0\u{1d}\0\u{3a}\0\u{57}\0\u{74}\0\u{91}\0\u{ae}\0\u{cb}\
 \0\u{e8}\0\u{105}\0\u{122}\0\u{13f}\0\u{15c}\0\u{179}\0\u{196}\0\u{1b3}\
 \0\u{1d0}\0\u{1ed}\0\u{3a}\0\u{20a}\0\u{227}\0\u{244}\0\u{261}\0\u{27e}\
@@ -268,14 +268,13 @@ const ZZ_ROWMAP_PACKED_0: &str = "\0\0\0\u{1d}\0\u{3a}\0\u{57}\0\u{74}\0\u{91}\0
 \0\u{414}\0\u{431}\0\u{44e}\0\u{46b}\0\u{488}\0\u{4a5}\0\u{4c2}\0\u{4df}\
 \0\u{4fc}\0\u{519}\0\u{536}\0\u{553}\0\u{1d}\0\u{570}\0\u{58d}\0\u{5aa}\
 \0\u{5c7}\0\u{74}\0\u{5e4}";
-fn zz_unpack_row_map() -> Vec<i32> {
+fn zz_unpack_row_map() -> Vec<usize> {
   let mut result = vec![0; 59];
-  zz_unpackcmap_blocks_with_offset(ZZ_ROWMAP_PACKED_0, 0, &mut result);
+  zz_unpack_row_map_with_offset(ZZ_ROWMAP_PACKED_0, 0, &mut result);
   result
 }
-fn zz_unpack_row_map_with_offset(packed: &str, _offset: usize, _result: &mut [i32]) -> usize {
+fn zz_unpack_row_map_with_offset(packed: &str, _offset: usize, result: &mut [usize]) -> usize {
   let packed: Vec<char> = packed.chars().collect();
-  let mut result = vec![0; 59];
   let mut i = 0;
   let mut j = 0;
   while i < packed.len() {
@@ -347,7 +346,7 @@ const ZZ_TRANS_PACKED_0: &str = concat!(
   "\u{1}\u{2f}\u{3}\0\u{2}\u{5}\u{1}\0\u{3}\u{39}",
 );
 fn zz_unpack_trans() -> Vec<i32> {
-  let mut result = vec![0; 59];
+  let mut result = vec![0; 1537];
   zz_unpack_trans_with_offset(ZZ_TRANS_PACKED_0, 0, &mut result);
   result
 }
@@ -358,8 +357,9 @@ fn zz_unpack_trans_with_offset(packed: &str, offset: usize, result: &mut [i32]) 
   while i < packed.len() {
     let mut count = packed[i] as usize;
     i += 1;
-    let value = packed[i] as i32 - 1;
+    let mut value = packed[i] as i32;
     i += 1;
+    value -= 1;
     while count > 0 {
       result[j] = value;
       j += 1;
@@ -522,8 +522,9 @@ impl StandardTokenizerImpl {
       return Ok(true);
     }
 
-    let mut scratch = vec!['\0'; requested];
-    let num_read = self.zz_reader.read_range(&mut scratch, 0, requested)?;
+    let num_read = self
+      .zz_reader
+      .read_range(&mut self.zz_buffer, 0, requested)?;
     if num_read == 0 {
       return Err(LuceneError::io(Error::other(
         "Reader returned 0 characters. See JFlex examples/zero-reader for a workaround.",
@@ -532,9 +533,6 @@ impl StandardTokenizerImpl {
     if num_read == -1 {
       return Ok(true);
     }
-    self
-      .zz_buffer
-      .extend_from_slice(&scratch[..num_read as usize]);
     self.zz_end_read += num_read as usize;
     Ok(false)
   }
@@ -696,8 +694,7 @@ impl StandardTokenizerImpl {
           zz_input = self.zz_buffer[zz_current_pos_l] as i32;
           zz_current_pos_l += 1;
         }
-
-        let zz_next = ZZ_TRANS[ZZ_ROWMAP[zz_state] as usize + Self::zz_cmap(zz_input)];
+        let zz_next = ZZ_TRANS[ZZ_ROWMAP[zz_state] + Self::zz_cmap(zz_input)];
         if zz_next == -1 {
           break zz_input;
         }

@@ -52,6 +52,7 @@ impl Analyzer for WhitespaceAnalyzer {
   fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
     Ok(TokenStreamComponents::new(
       WhitespaceTokenizer::with_max_token_len(self.max_token_length)?,
+      None,
     ))
   }
 

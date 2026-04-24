@@ -25,7 +25,7 @@ pub struct LowerCaseFilter<TS>
 where
   TS: TokenStream,
 {
-  token_filter_base: TokenFilterBase<TS>,
+  pub(crate) token_filter_base: TokenFilterBase<TS>,
 }
 impl<TS> LowerCaseFilter<TS>
 where

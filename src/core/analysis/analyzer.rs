@@ -419,16 +419,34 @@ impl ReuseStrategy for PerFieldReuseStrategy {
 
 pub struct TokenStreamComponents {
   sink: AnalyzerTokenStreams,
+  max_token_length: Option<usize>,
 }
 impl TokenStreamComponents {
-  pub fn new<T>(sink: T) -> Self
+  pub fn new<T>(sink: T, max_token_length: Option<usize>) -> Self
   where
     T: Into<AnalyzerTokenStreams>,
   {
-    Self { sink: sink.into() }
+    Self {
+      sink: sink.into(),
+      max_token_length,
+    }
   }
   fn set_reader(&mut self, reader: ReaderEnum) -> Result<()> {
-    self.sink.set_reader(reader)
+    match self.sink {
+      AnalyzerTokenStreams::Standard(ref mut ts) => {
+        let src = &mut ts.base.input.token_filter_base.input;
+        src.set_reader(reader)?;
+        let max_token_length = self
+          .max_token_length
+          .ok_or_else(|| LuceneError::illegal_state("max_token_length is not set"))?;
+        src.set_max_token_length(max_token_length)?;
+      },
+      AnalyzerTokenStreams::Whitespace(ref mut ts) => {
+        ts.set_reader(reader)?;
+      },
+      _ => return Err(LuceneError::unsupported_operation("")),
+    }
+    Ok(())
   }
   pub fn get_token_stream(&mut self) -> &mut AnalyzerTokenStreams {
     &mut self.sink
