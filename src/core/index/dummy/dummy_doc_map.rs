@@ -21,6 +21,6 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyDocMap;
 impl DocMap for DummyDocMap {
   fn get(&self, _doc_id: i32) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

@@ -24,23 +24,23 @@ pub struct DummyScorer;
 
 impl Scorable for DummyScorer {
   fn score(&mut self) -> Result<f32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn smoothing_score(&mut self, _doc_id: i32) -> Result<f32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn set_min_competitive_score(&mut self, _min_score: f32) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn cost(&self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -48,50 +48,50 @@ impl FixedScore for DummyScorer {}
 
 impl Scorer for DummyScorer {
   fn doc_id(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

@@ -21,23 +21,23 @@ pub struct DummyScorable;
 
 impl Scorable for DummyScorable {
   fn score(&mut self) -> Result<f32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn smoothing_score(&mut self, _doc_id: i32) -> Result<f32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn set_min_competitive_score(&mut self, _min_score: f32) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn cost(&self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 

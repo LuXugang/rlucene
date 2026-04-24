@@ -22,23 +22,23 @@ use std::sync::Arc;
 pub struct DummyMatchesIterator;
 impl MatchesIterator for DummyMatchesIterator {
   fn next(&mut self) -> crate::core::util::error::lucene_error::Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn start_position(&self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn end_position(&self) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn start_offset(&self) -> crate::core::util::error::lucene_error::Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn end_offset(&self) -> crate::core::util::error::lucene_error::Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type MatchesIterRef<'a>
@@ -47,10 +47,10 @@ impl MatchesIterator for DummyMatchesIterator {
     Self: 'a;
 
   fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_query(&self) -> Arc<Query> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

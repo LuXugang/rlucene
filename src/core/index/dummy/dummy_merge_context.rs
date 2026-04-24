@@ -27,18 +27,18 @@ impl MergeContext<DummyDirectory> for DummyMergeContext {
     &self,
     _info: &SegmentCommitInfo<DummyDirectory>,
   ) -> crate::core::util::error::lucene_error::Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn num_deleted_docs(&self, _info: &SegmentCommitInfo<DummyDirectory>) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_info_stream(&self) -> InfoStreamMT {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_merging_segments(&self, _inner: Option<&Inner<DummyDirectory>>) -> HashSet<String> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

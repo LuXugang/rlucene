@@ -26,70 +26,70 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 pub struct DummyIndexableFieldType;
 impl IndexableFieldType for DummyIndexableFieldType {
   fn stored(&self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn tokenized(&self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn store_term_vectors(&self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn store_term_vector_offsets(&self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn store_term_vector_positions(&self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn store_term_vector_payloads(&self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn omit_norms(&self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn index_options(&self) -> &IndexOptions {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn doc_values_type(&self) -> &DocValuesType {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn doc_values_skip_index_type(&self) -> &DocValuesSkipIndexType {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn point_dimension_count(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn point_index_dimension_count(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn point_num_bytes(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn vector_dimension(&self) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn vector_encoding(&self) -> &VectorEncoding {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn vector_similarity_function(&self) -> &VectorSimilarityFunction {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_attributes(&self) -> Option<&HashMap<String, String>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

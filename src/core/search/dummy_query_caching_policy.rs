@@ -20,10 +20,10 @@ use crate::core::search::query_caching_policy::QueryCachingPolicy;
 pub struct DummyQueryCachingPolicy;
 impl QueryCachingPolicy for DummyQueryCachingPolicy {
   fn on_use(&self, _query: &Query) {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn should_cache(&self, _query: &Query) -> crate::core::util::error::lucene_error::Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

@@ -24,19 +24,19 @@ pub struct DummyBytesReader;
 
 impl DataInput for DummyBytesReader {
   fn read_byte(&mut self) -> Result<u8> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn read_group_vint(&mut self, _dst: &mut [i32], _offset: usize) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 

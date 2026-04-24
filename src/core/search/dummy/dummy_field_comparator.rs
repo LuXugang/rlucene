@@ -24,15 +24,15 @@ impl FieldComparator for DummyFieldComparator {
   type V = i32;
 
   fn compare(&self, _slot1: usize, _slot2: usize) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn set_top_value(&mut self, _value: Self::V) {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn value(&self, _slot: usize) -> Option<Self::V> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type LeafFieldComparator<LR>
@@ -47,22 +47,22 @@ impl FieldComparator for DummyFieldComparator {
   where
     LR: LeafReader,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn compare_values(&self, _first: Option<&Self::V>, _second: Option<&Self::V>) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn set_single_sort(&mut self) {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn disable_skipping(&mut self) {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

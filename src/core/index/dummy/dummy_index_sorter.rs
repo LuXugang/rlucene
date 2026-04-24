@@ -23,7 +23,7 @@ use crate::core::search::sort_field::MissingValueEnum;
 pub struct DummyIndexSorter;
 impl IndexSorter for DummyIndexSorter {
   fn get_provider_name(&self) -> &str {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type ComparableProvider<LR>
@@ -38,11 +38,11 @@ impl IndexSorter for DummyIndexSorter {
   where
     LR: LeafReader,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_missing_value(&self) -> MissingValueEnum {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type DocComparator = DummyDocComparator;
@@ -55,6 +55,6 @@ impl IndexSorter for DummyIndexSorter {
   where
     LR: LeafReader,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

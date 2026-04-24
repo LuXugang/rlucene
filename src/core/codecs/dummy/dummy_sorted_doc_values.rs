@@ -27,56 +27,56 @@ pub struct DummySortedDocValues;
 
 impl DocValuesIterator for DummySortedDocValues {
   fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl DocIdSetIterator for DummySortedDocValues {
   fn doc_id(&self) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn advance(&mut self, _target: i32) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn slow_advance(&mut self, _target: i32) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn cost(&self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl SortedDocValues for DummySortedDocValues {
   fn ord_value(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_value_count(&self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type TermsEnum<'a> = DummyTermsEnum;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   // fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
-  //     unreachable!("Dummy implementation: this method should never be called in real usage")
+  //     dummy_unreachable!()
   // }
 }

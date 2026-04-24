@@ -25,6 +25,6 @@ impl HnswGraphProvider for DummyHnswGraphProvider {
     &self,
     _field: &str,
   ) -> crate::core::util::error::lucene_error::Result<Self::HnswGraph> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

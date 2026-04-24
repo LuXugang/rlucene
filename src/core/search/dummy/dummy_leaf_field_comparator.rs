@@ -25,7 +25,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
   type FieldComparator = DummyFieldComparator;
 
   fn set_bottom(&mut self, _slot: usize, _comparator: &mut Self::FieldComparator) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn compare_bottom<S>(
@@ -37,7 +37,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
   where
     S: Scorable + ?Sized,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn compare_top<S>(
@@ -49,7 +49,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
   where
     S: Scorable + ?Sized,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn copy<S>(
@@ -62,7 +62,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
   where
     S: Scorable + ?Sized,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn set_scorer<S>(
@@ -73,7 +73,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
   where
     S: Scorable + ?Sized,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type DocIdSetIteratorRef<'a> = &'a mut DummyDISI;
@@ -82,10 +82,10 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
     &mut self,
     _comparator: &mut Self::FieldComparator,
   ) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn set_hits_threshold_reached(&mut self, _comparator: &mut Self::FieldComparator) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

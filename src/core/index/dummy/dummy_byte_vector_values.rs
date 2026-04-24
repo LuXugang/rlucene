@@ -30,17 +30,17 @@ pub struct DummyByteVectorValues;
 
 impl KnnVectorValues for DummyByteVectorValues {
   fn dimension(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn size(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type KnnVectorValues = DummyKnnVectorsWriter;
 
   fn get_encoding(&self) -> VectorEncoding {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Bits<'a, B>
@@ -53,7 +53,7 @@ impl KnnVectorValues for DummyByteVectorValues {
   where
     B: Bits,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type DocIndexIterator = DummyDocIndexIterator;
@@ -64,7 +64,7 @@ impl ByteVectorValues for DummyByteVectorValues {
     &self,
     _ord: usize,
   ) -> crate::core::util::error::lucene_error::Result<Cow<'_, VectorValueEnum>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type ByteVectorValues = DummyByteVectorValues;
@@ -75,10 +75,10 @@ impl ByteVectorValues for DummyByteVectorValues {
     &self,
     _query: Vec<u8>,
   ) -> crate::core::util::error::lucene_error::Result<Option<Self::VectorScorer>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_encoding(&self) -> VectorEncoding {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

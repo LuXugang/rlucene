@@ -22,34 +22,34 @@ use std::borrow::Cow;
 pub struct DummyAttributeSource;
 impl AttributeSource for DummyAttributeSource {
   fn start_offset(&self) -> Result<i32> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn end_offset(&self) -> Result<i32> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_position_increment(&self) -> Result<i32> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_term_frequency(&self) -> Result<i32> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn end_attributes(&mut self) {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn clear_attributes(&mut self) {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

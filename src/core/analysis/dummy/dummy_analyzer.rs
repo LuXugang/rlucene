@@ -22,11 +22,11 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyAnalyzer;
 impl Analyzer for DummyAnalyzer {
   fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type TokenStream<TS>
@@ -38,21 +38,21 @@ impl Analyzer for DummyAnalyzer {
   where
     TS: TokenStream,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn default_normalize_from_ts<TS>(&self, _field_name: &str, _in_: TS) -> Result<TS>
   where
     TS: TokenStream,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_offset_gap(&self, _field_name: &str) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

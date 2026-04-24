@@ -565,7 +565,7 @@ impl FieldComparator for FieldComparatorEnum {
         comparator.set_top_value(v);
       },
       FieldComparatorEnum::Dummy(_comparator) => {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        dummy_unreachable!()
       },
     }
   }
@@ -608,7 +608,7 @@ impl FieldComparator for FieldComparatorEnum {
         comparator.value(slot).map(FieldComparatorValue::TermVal)
       },
       FieldComparatorEnum::Dummy(_comparator) => {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        dummy_unreachable!()
       },
     }
   }
@@ -666,7 +666,7 @@ impl FieldComparator for FieldComparatorEnum {
         .get_leaf_comparator(context)
         .map(LeafFieldComparatorEnum::TermOrdVal),
       FieldComparatorEnum::Dummy(_) => {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        dummy_unreachable!()
       },
     }
   }
@@ -726,7 +726,7 @@ impl FieldComparator for FieldComparatorEnum {
         second.and_then(FieldComparatorValue::as_term_val),
       ),
       FieldComparatorEnum::Dummy(_) => {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        dummy_unreachable!()
       },
     }
   }
@@ -758,7 +758,7 @@ impl FieldComparator for FieldComparatorEnum {
           .expect("expected sorted numeric float comparator value"),
       ),
       FieldComparatorEnum::Dummy(_) => {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        dummy_unreachable!()
       },
       _ => 0,
     }

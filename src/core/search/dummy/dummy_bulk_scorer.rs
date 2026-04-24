@@ -29,10 +29,10 @@ impl BulkScorer for DummyBulkScorer {
     _min: i32,
     _max: i32,
   ) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn cost(&mut self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

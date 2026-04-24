@@ -46,7 +46,7 @@ where
   type TermVectors = DummyTermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn max_doc(&self) -> Result<i32> {
@@ -54,47 +54,47 @@ where
   }
 
   fn num_docs(&self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type StoredFields = DummyStoredFields;
 
   fn stored_fields(&self) -> Result<Self::StoredFields> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn do_close(&self) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type ReaderCacheHelper = DummyCacheHelper;
 
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn doc_freq(&self, _term: &Term) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn total_term_freq(&self, _term: &Term) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_sum_doc_freq(&self, _field: &str) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_doc_count(&self, _field: &str) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_sum_total_term_freq(&self, _field: &str) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn index_base(&self) -> &IndexReaderBase {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -103,7 +103,7 @@ where
   LR: LeafReader + Clone,
 {
   fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -122,6 +122,6 @@ where
   }
 
   fn to_string(&self) -> String {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

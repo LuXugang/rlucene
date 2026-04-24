@@ -23,48 +23,48 @@ pub struct DummySortedNumericDocValues;
 
 impl DocValuesIterator for DummySortedNumericDocValues {
   fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl DocIdSetIterator for DummySortedNumericDocValues {
   fn doc_id(&self) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn advance(&mut self, _target: i32) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn slow_advance(&mut self, _target: i32) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn cost(&self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl SortedNumericDocValues for DummySortedNumericDocValues {
   fn next_value(&mut self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn doc_value_count(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn is_single_valued(&self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type NumericDocValues = DummyNumericDocValues;
 
   fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

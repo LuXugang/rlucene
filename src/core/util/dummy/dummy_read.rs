@@ -20,6 +20,6 @@ use std::io::Read;
 pub struct DummyRead;
 impl Read for DummyRead {
   fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

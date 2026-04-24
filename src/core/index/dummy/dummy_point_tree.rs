@@ -26,45 +26,45 @@ impl TryClone for DummyPointTree {
   where
     Self: Sized,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 impl PointTree for DummyPointTree {
   fn move_to_child(&mut self) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn move_to_sibling(&mut self) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn move_to_parent(&mut self) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn size(&self) -> Result<usize> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn visit_doc_ids<IV>(&mut self, _visitor: &mut IV) -> Result<()>
   where
     IV: IntersectVisitor,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn visit_doc_values<IV>(&mut self, _visitor: &mut IV) -> Result<()>
   where
     IV: IntersectVisitor,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

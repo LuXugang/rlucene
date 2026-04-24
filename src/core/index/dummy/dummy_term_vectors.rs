@@ -25,13 +25,13 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 pub struct DummyTermVectors;
 impl TermVectors for DummyTermVectors {
   fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Fields = DummyFields;
 
   fn get(&mut self, _doc: i32) -> Result<Option<Self::Fields>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Terms = DummyTerms;
@@ -41,7 +41,7 @@ impl TermVectors for DummyTermVectors {
     _doc: i32,
     _field: &str,
   ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 

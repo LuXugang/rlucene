@@ -24,16 +24,16 @@ pub struct DummyBits;
 
 impl HasIdentity for DummyBits {
   fn identity(&self) -> &Identity {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl Bits for DummyBits {
   fn get(&self, _index: usize) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn length(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

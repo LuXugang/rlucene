@@ -21,40 +21,40 @@ use crate::core::util::hnsw::neighbor_array::NeighborArray;
 pub struct DummyHnswGraph;
 impl HnswGraph for DummyHnswGraph {
   fn seek(&mut self, _level: usize, _target: usize) -> Result<()> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn size(&self) -> usize {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn max_node_id(&self) -> Option<usize> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn next_neighbor(&mut self) -> Result<usize> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn num_levels(&self) -> Result<usize> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn entry_node(&self) -> Result<Option<usize>> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type NodeIterator = ArrayNodesIterator;
 
   fn get_nodes_on_level(&mut self, _level: usize) -> Result<Self::NodeIterator> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_neighbors_mut(&mut self, _level: usize, _node: usize) -> Result<&mut NeighborArray> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_neighbors(&self, _level: usize, _node: usize) -> Result<&NeighborArray> {
-    unimplemented!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

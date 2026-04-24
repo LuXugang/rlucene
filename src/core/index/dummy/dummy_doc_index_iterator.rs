@@ -21,28 +21,28 @@ pub struct DummyDocIndexIterator;
 
 impl DocIdSetIterator for DummyDocIndexIterator {
   fn doc_id(&self) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn next_doc(&mut self) -> crate::core::util::error::lucene_error::Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn advance(&mut self, _target: i32) -> crate::core::util::error::lucene_error::Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn slow_advance(&mut self, _target: i32) -> crate::core::util::error::lucene_error::Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn cost(&self) -> crate::core::util::error::lucene_error::Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl DocIndexIterator for DummyDocIndexIterator {
   fn index(&self) -> crate::core::util::error::lucene_error::Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

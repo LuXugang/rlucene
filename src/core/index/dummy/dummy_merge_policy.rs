@@ -32,17 +32,17 @@ pub struct DummyMergePolicy;
 
 impl Display for DummyMergePolicy {
   fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl MergePolicy for DummyMergePolicy {
   fn get_base(&self) -> &MergePolicyBase {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_base_mut(&mut self) -> &mut MergePolicyBase {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn find_merges<D, MC>(
@@ -56,7 +56,7 @@ impl MergePolicy for DummyMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn find_forced_merges<D, MC>(
@@ -71,7 +71,7 @@ impl MergePolicy for DummyMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn find_forced_deletes_merges<D, MC>(
@@ -84,7 +84,7 @@ impl MergePolicy for DummyMergePolicy {
     MC: MergeContext<D>,
     D: Directory,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn find_full_flush_merges<D, MC>(
@@ -98,7 +98,7 @@ impl MergePolicy for DummyMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn use_compound_file<D, MC>(
@@ -111,7 +111,7 @@ impl MergePolicy for DummyMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn size<D, MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &MC) -> Result<i64>
@@ -119,7 +119,7 @@ impl MergePolicy for DummyMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn has_merged<D, MC>(
@@ -132,7 +132,7 @@ impl MergePolicy for DummyMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn keep_fully_deleted_segment<D, F>(&self, _reader_supplier: F) -> Result<bool>
@@ -140,7 +140,7 @@ impl MergePolicy for DummyMergePolicy {
     D: Directory,
     F: Fn() -> Result<Arc<SegmentReader<D>>>,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn num_deletes_to_merge<D, F>(
@@ -153,7 +153,7 @@ impl MergePolicy for DummyMergePolicy {
     D: Directory,
     F: Fn() -> Result<Arc<SegmentReader<D>>>,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn seg_string<MC, D>(&self, _merge_context: &MC, _infos: &[SegmentCommitInfo<D>]) -> String
@@ -161,7 +161,7 @@ impl MergePolicy for DummyMergePolicy {
     MC: MergeContext<D>,
     D: Directory,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn message<MC, D>(&self, _message: &str, _merge_context: &MC)
@@ -169,7 +169,7 @@ impl MergePolicy for DummyMergePolicy {
     MC: MergeContext<D>,
     D: Directory,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn verbose<MC, D>(&self, _merge_context: &MC) -> bool
@@ -177,6 +177,6 @@ impl MergePolicy for DummyMergePolicy {
     MC: MergeContext<D>,
     D: Directory,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

@@ -20,7 +20,7 @@ use crate::core::search::vector_scorer::VectorScorer;
 pub struct DummyVectorScorer;
 impl VectorScorer for DummyVectorScorer {
   fn score(&self) -> crate::core::util::error::lucene_error::Result<f32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type DocIdSetIteratorRef<'a>
@@ -29,7 +29,7 @@ impl VectorScorer for DummyVectorScorer {
     Self: 'a;
 
   fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type DocIdSetIteratorMut<'a>
@@ -38,6 +38,6 @@ impl VectorScorer for DummyVectorScorer {
     Self: 'a;
 
   fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

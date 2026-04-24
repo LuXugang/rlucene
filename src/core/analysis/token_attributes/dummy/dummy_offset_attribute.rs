@@ -23,7 +23,7 @@ impl Attribute for DummyOffsetAttribute {}
 
 impl OffsetAttribute for DummyOffsetAttribute {
   fn start_offset(&self) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn set_offset(
@@ -31,10 +31,10 @@ impl OffsetAttribute for DummyOffsetAttribute {
     _start_offset: i32,
     _end_offset: i32,
   ) -> crate::core::util::error::lucene_error::Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn end_offset(&self) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

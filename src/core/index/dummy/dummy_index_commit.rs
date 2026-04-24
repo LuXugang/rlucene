@@ -37,7 +37,7 @@ where
   D: Directory,
 {
   fn eq(&self, _other: &Self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -57,7 +57,7 @@ where
   D: Directory,
 {
   fn cmp(&self, _other: &Self) -> Ordering {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -66,7 +66,7 @@ where
   D: Directory,
 {
   fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -75,37 +75,37 @@ where
   D: Directory,
 {
   fn get_segments_file_name(&self) -> &str {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_file_names(&self) -> crate::core::util::error::lucene_error::Result<&[String]> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Directory = D;
 
   fn get_directory(&self) -> Arc<Self::Directory> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn delete(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn is_deleted(&self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_segment_count(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_generation(&self) -> i64 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn user_data(&self) -> &HashMap<String, String> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type LeafReader = DummyLeafReader;
@@ -115,6 +115,6 @@ where
     &self,
   ) -> Option<StandardDirectoryReader<Self::LeafReader, Self::Comparator, Self::Directory>>
 where {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

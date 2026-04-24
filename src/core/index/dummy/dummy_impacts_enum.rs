@@ -27,39 +27,39 @@ pub struct DummyImpactsEnum;
 
 impl PostingsEnum for DummyImpactsEnum {
   fn freq(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn next_position(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn start_offset(&self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn end_offset(&self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl DocIdSetIterator for DummyImpactsEnum {
   fn doc_id(&self) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl ImpactsSource for DummyImpactsEnum {
   fn advance_shallow(&mut self, _target: i32) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Impacts<'a>
@@ -68,7 +68,7 @@ impl ImpactsSource for DummyImpactsEnum {
     Self: 'a;
 
   fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 

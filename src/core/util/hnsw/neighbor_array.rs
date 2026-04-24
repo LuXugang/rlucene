@@ -687,7 +687,7 @@ mod tests {
     where
       B: Bits,
     {
-      unreachable!("Dummy implementation: this method should never be called in real usage")
+      dummy_unreachable!()
     }
   }
   #[derive(Default)]
@@ -714,7 +714,7 @@ mod tests {
     where
       B: Bits,
     {
-      unreachable!("Dummy implementation: this method should never be called in real usage")
+      dummy_unreachable!()
     }
   }
 }

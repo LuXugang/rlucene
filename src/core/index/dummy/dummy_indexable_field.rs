@@ -33,76 +33,76 @@ pub struct DummyIndexableField;
 
 impl Display for DummyIndexableField {
   fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl IndexableField for DummyIndexableField {
   fn name(&self) -> &str {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type FieldType = DummyIndexableFieldType;
 
   fn field_type(&self) -> &Self::FieldType {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
   fn token_stream<'a>(
     &'a mut self,
     _token_stream: Option<&'a mut AnalyzerTokenStreams>,
     _reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
   ) -> Result<IndexingTokenStream<'a>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn take_string_value(&mut self) -> Result<Option<String>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_char_sequence_value(&self) -> Result<Option<Cow<'_, String>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn numeric_value(&self) -> Result<Option<Number>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn stored_value(&self) -> Option<&FieldDataEnum> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn invertable_type(&self) -> &InvertableType {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn is_reserved(&self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn init_token_stream<A>(&mut self, _analyzer: &A) -> Result<()>
   where
     A: Analyzer,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

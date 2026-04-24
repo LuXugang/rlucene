@@ -24,17 +24,17 @@ pub struct DummyKnnVectorsWriter;
 
 impl KnnVectorValues for DummyKnnVectorsWriter {
   fn dimension(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn size(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type KnnVectorValues = DummyKnnVectorsWriter;
 
   fn get_encoding(&self) -> VectorEncoding {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Bits<'a, B>
@@ -47,7 +47,7 @@ impl KnnVectorValues for DummyKnnVectorsWriter {
   where
     B: Bits,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type DocIndexIterator = DummyDocIndexIterator;

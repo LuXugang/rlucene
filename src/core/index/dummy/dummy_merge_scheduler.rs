@@ -26,7 +26,7 @@ pub struct DummyMergeScheduler;
 
 impl Closeable for DummyMergeScheduler {
   fn close(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -43,7 +43,7 @@ impl MergeScheduler for DummyMergeScheduler {
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Directory<D>
@@ -58,6 +58,6 @@ impl MergeScheduler for DummyMergeScheduler {
   where
     D: Directory,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

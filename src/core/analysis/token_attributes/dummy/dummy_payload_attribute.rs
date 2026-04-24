@@ -24,10 +24,10 @@ impl Attribute for DummyPayloadAttribute {}
 
 impl PayloadAttribute for DummyPayloadAttribute {
   fn get_payload(&self) -> &BytesRef<Vec<u8>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn set_payload(&mut self, _payload: BytesRef<Vec<u8>>) {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

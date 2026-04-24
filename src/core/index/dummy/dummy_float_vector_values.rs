@@ -30,19 +30,19 @@ pub struct DummyFloatVectorValues;
 
 impl KnnVectorValues for DummyFloatVectorValues {
   fn dimension(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
   fn size(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
   fn ord_to_doc(&self, _ord: usize) -> crate::core::util::error::lucene_error::Result<usize> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type KnnVectorValues = DummyKnnVectorsWriter;
 
   fn get_encoding(&self) -> VectorEncoding {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Bits<'a, B>
@@ -55,7 +55,7 @@ impl KnnVectorValues for DummyFloatVectorValues {
   where
     B: Bits,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type DocIndexIterator = DummyDocIndexIterator;
@@ -66,7 +66,7 @@ impl FloatVectorValues for DummyFloatVectorValues {
     &self,
     _ord: usize,
   ) -> crate::core::util::error::lucene_error::Result<Cow<'_, VectorValueEnum>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type FloatVectorValues = Self;
@@ -74,7 +74,7 @@ impl FloatVectorValues for DummyFloatVectorValues {
   fn float_copy(
     &self,
   ) -> crate::core::util::error::lucene_error::Result<Option<Self::FloatVectorValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type VectorScorer = DummyVectorScorer;
@@ -83,10 +83,10 @@ impl FloatVectorValues for DummyFloatVectorValues {
     &self,
     _target: Vec<f32>,
   ) -> crate::core::util::error::lucene_error::Result<Option<Self::VectorScorer>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_encoding(&self) -> VectorEncoding {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

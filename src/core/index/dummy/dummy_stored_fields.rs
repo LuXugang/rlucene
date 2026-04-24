@@ -26,11 +26,11 @@ use std::collections::HashSet;
 pub struct DummyStoredFields;
 impl StoredFields for DummyStoredFields {
   fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn document(&mut self, _doc_id: i32) -> Result<Document> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn document_with_visitor<S>(
@@ -42,7 +42,7 @@ impl StoredFields for DummyStoredFields {
   where
     S: StoredFieldsWriter,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn document_with_fields(
@@ -50,7 +50,7 @@ impl StoredFields for DummyStoredFields {
     _doc_id: i32,
     _fields_to_load: &HashSet<String>,
   ) -> Result<Document> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 

@@ -64,7 +64,7 @@ impl HasIdentity for DummyQuery {
 }
 impl QueryBase for DummyQuery {
   fn as_string(&self, _field: &str) -> Result<String> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn create_weight<IRC>(
@@ -77,7 +77,7 @@ impl QueryBase for DummyQuery {
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn rewrite<IRC>(
@@ -87,13 +87,13 @@ impl QueryBase for DummyQuery {
   where
     IRC: IndexReaderContext,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn visit<QV>(&self, _visitor: &QV)
   where
     QV: QueryVisitor,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

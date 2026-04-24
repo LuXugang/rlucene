@@ -29,36 +29,36 @@ use std::fmt::{Display, Formatter};
 pub struct DummyDirectory;
 impl Display for DummyDirectory {
   fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl Closeable for DummyDirectory {
   fn close(&mut self) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl HasIdentity for DummyDirectory {
   fn identity(&self) -> &Identity {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl Directory for DummyDirectory {
   fn list_all(&self) -> Result<Vec<String>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn delete_file(&self, _name: &str) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn file_length(&self, _name: &str) -> Result<usize> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
   fn create_output(&self, _name: &str, _context: &IOContext) -> Result<DummyIndexOutput> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type IndexOutput = DummyIndexOutput;
@@ -68,34 +68,34 @@ impl Directory for DummyDirectory {
     _suffix: &str,
     _context: &IOContext,
   ) -> Result<Self::IndexOutput> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn sync(&self, _names: &[String]) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn sync_metadata(&self) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn rename(&self, _source: &str, _dest: &str) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type IndexInput = DummyIndexInput;
 
   fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexInput> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Lock = DummyLock;
 
   fn obtain_lock(&self, _name: &str) -> Result<Self::Lock> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

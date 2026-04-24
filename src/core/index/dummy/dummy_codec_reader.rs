@@ -55,35 +55,35 @@ impl LeafReader for DummyCodecReader {
   type CacheHelper = DummyCacheHelper;
 
   fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Terms = DummyTerms;
 
   fn terms(&self, _field: &str) -> Result<Option<Self::Terms>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type NumericDocValues = DummyNumericDocValues;
 
   fn get_numeric_doc_values(&self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type BinaryDocValues = DummyBinaryDocValues;
 
   fn get_binary_doc_values(&self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type SortedDocValues = DummySortedDocValues;
 
   fn get_sorted_doc_values(&self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type SortedNumericDocValues = DummySortedNumericDocValues;
@@ -92,37 +92,37 @@ impl LeafReader for DummyCodecReader {
     &self,
     _field: &str,
   ) -> Result<Option<Self::SortedNumericDocValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type SortedSetDocValues = DummySortedSetDocValues;
 
   fn get_sorted_set_doc_values(&self, _field: &str) -> Result<Option<Self::SortedSetDocValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type NormNumericDocValues = DummyNumericDocValues;
 
   fn get_norm_values(&self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type DocValuesSkipper = DummyDocValuesSkipper;
 
   fn get_doc_values_skipper(&self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type FloatVectorValues = DummyFloatVectorValues;
 
   fn get_float_vector_values(&self, _field: &str) -> Result<Option<Self::FloatVectorValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type ByteVectorValues = DummyByteVectorValues;
 
   fn get_byte_vector_values(&self, _field: &str) -> Result<Option<Self::ByteVectorValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn search_nearest_vectors_f32<B, K>(
@@ -136,7 +136,7 @@ impl LeafReader for DummyCodecReader {
     B: Bits,
     K: KnnCollector,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn search_nearest_vectors_u8<B, K>(
@@ -150,27 +150,27 @@ impl LeafReader for DummyCodecReader {
     B: Bits,
     K: KnnCollector,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Bits = DummyBits;
 
   fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type PointValues = DummyPointValues;
 
   fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_metadata(&self) -> Result<&LeafMetaData> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -178,61 +178,61 @@ impl IndexReader for DummyCodecReader {
   type TermVectors = DummyTermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn max_doc(&self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn num_docs(&self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type StoredFields = DummyStoredFields;
 
   fn stored_fields(&self) -> Result<Self::StoredFields> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn do_close(&self) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type ReaderCacheHelper = DummyCacheHelper;
 
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn doc_freq(&self, _term: &Term) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn total_term_freq(&self, _term: &Term) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_sum_doc_freq(&self, _field: &str) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_doc_count(&self, _field: &str) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_sum_total_term_freq(&self, _field: &str) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn index_base(&self) -> &IndexReaderBase {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl Display for DummyCodecReader {
   fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -247,27 +247,27 @@ impl CodecReader for DummyCodecReader {
   type KnnVectorsReader = DummyKnnVectorsReader;
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {

@@ -24,16 +24,16 @@ impl Matches for DummyMatches {
   type MatchesIterator = DummyMatchesIterator;
 
   fn get_matches(&self, _field: &str) -> Result<Option<Self::MatchesIterator>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Matches = DummyMatches;
 
   fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn field(&self) -> &[String] {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

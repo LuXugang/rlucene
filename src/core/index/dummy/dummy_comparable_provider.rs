@@ -22,6 +22,6 @@ impl ComparableProvider for DummyComparableProvider {
     &mut self,
     _doc_id: i32,
   ) -> crate::core::util::error::lucene_error::Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

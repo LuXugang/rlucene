@@ -25,6 +25,6 @@ impl Attribute for DummyTermToBytesRefAttribute {}
 
 impl TermToBytesRefAttribute for DummyTermToBytesRefAttribute {
   fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

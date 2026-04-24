@@ -28,7 +28,7 @@ use std::borrow::Cow;
 pub struct DummyTermsEnum;
 impl BytesRefIterator for DummyTermsEnum {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -36,27 +36,27 @@ impl TermsEnum for DummyTermsEnum {
   type AttributeSource = DummyAttributeSource;
 
   fn attributes(&self) -> Result<Self::AttributeSource> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn seek_exact_with_state(
@@ -64,23 +64,23 @@ impl TermsEnum for DummyTermsEnum {
     _term: &BytesRef<Vec<u8>>,
     _state: &TermStateEnum,
   ) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn ord(&self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn total_term_freq(&mut self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type PostingsEnum = DummyPostingsEnum;
@@ -90,17 +90,17 @@ impl TermsEnum for DummyTermsEnum {
     _reuse: Option<Self::PostingsEnum>,
     _flags: i32,
   ) -> Result<Self::PostingsEnum> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type ImpactsEnum = DummyImpactsEnum;
 
   fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn term_state(&mut self) -> Result<TermStateEnum> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -115,7 +115,7 @@ where
   T: Terms,
 {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -126,27 +126,27 @@ where
   type AttributeSource = DummyAttributeSource;
 
   fn attributes(&self) -> Result<Self::AttributeSource> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn seek_exact_with_state(
@@ -154,23 +154,23 @@ where
     _term: &BytesRef<Vec<u8>>,
     _state: &TermStateEnum,
   ) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn ord(&self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn total_term_freq(&mut self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type PostingsEnum = TermsPosting<T>;
@@ -180,16 +180,16 @@ where
     _reuse: Option<Self::PostingsEnum>,
     _flags: i32,
   ) -> Result<Self::PostingsEnum> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type ImpactsEnum = DummyImpactsEnum;
 
   fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn term_state(&mut self) -> Result<TermStateEnum> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

@@ -22,14 +22,14 @@ pub struct DummyDocMap;
 
 impl DocMap for DummyDocMap {
   fn old_to_new(&self, _doc_id: i32) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn new_to_old(&self, _doc_id: i32) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn size(&self) -> i32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

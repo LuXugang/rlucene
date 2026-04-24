@@ -24,37 +24,37 @@ use std::borrow::Cow;
 pub struct DummyPointValues;
 impl PointValues for DummyPointValues {
   fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_num_dimensions(&self) -> Result<usize> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_num_index_dimensions(&self) -> Result<usize> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_bytes_per_dimension(&self) -> Result<usize> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn size(&self) -> Result<usize> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_doc_count(&self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type PointTree = DummyPointTree;
   type MutablePointTree = DummyMutablePointTree;
 
   fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

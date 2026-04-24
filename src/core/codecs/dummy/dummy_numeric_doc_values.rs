@@ -23,7 +23,7 @@ pub struct DummyNumericDocValues;
 
 impl DocValuesIterator for DummyNumericDocValues {
   fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -33,24 +33,24 @@ impl DocIdSetIterator for DummyNumericDocValues {
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn advance(&mut self, _target: i32) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn slow_advance(&mut self, _target: i32) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn cost(&self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl NumericDocValues for DummyNumericDocValues {
   fn long_value(&mut self) -> Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

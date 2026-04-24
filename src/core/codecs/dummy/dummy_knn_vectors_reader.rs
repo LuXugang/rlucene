@@ -28,7 +28,7 @@ impl HnswGraphProvider for DummyKnnVectorsReader {
 }
 impl KnnVectorsReader for DummyKnnVectorsReader {
   fn check_integrity(&self) -> crate::core::util::error::lucene_error::Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type FloatVectorValues = DummyFloatVectorValues;
@@ -37,7 +37,7 @@ impl KnnVectorsReader for DummyKnnVectorsReader {
     &self,
     _field: &str,
   ) -> crate::core::util::error::lucene_error::Result<Self::FloatVectorValues> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type ByteVectorValues = DummyByteVectorValues;
@@ -46,7 +46,7 @@ impl KnnVectorsReader for DummyKnnVectorsReader {
     &self,
     _field: &str,
   ) -> crate::core::util::error::lucene_error::Result<Self::ByteVectorValues> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn search_f32<B, K>(
@@ -60,7 +60,7 @@ impl KnnVectorsReader for DummyKnnVectorsReader {
     B: Bits,
     K: KnnCollector,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn search_u8<B, K>(
@@ -74,17 +74,17 @@ impl KnnVectorsReader for DummyKnnVectorsReader {
     B: Bits,
     K: KnnCollector,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn get_merge_instance(&self) -> crate::core::util::error::lucene_error::Result<Option<Self>>
   where
     Self: Sized,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn finish_merge(&self) -> crate::core::util::error::lucene_error::Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

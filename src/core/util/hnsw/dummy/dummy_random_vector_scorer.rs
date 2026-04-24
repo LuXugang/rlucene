@@ -44,6 +44,6 @@ impl RandomVectorScorer for DummyRandomVectorScorer {
   where
     B: Bits,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

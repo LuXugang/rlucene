@@ -19,6 +19,6 @@ use crate::core::index::index_reader::{CacheHelper, CacheKey};
 pub struct DummyCacheHelper;
 impl CacheHelper for DummyCacheHelper {
   fn get_key(&self) -> CacheKey {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

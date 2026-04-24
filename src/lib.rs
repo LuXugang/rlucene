@@ -15,6 +15,14 @@
  * limitations under the License.
  */
 #![cfg_attr(debug_assertions, allow(dead_code))]
+
+#[macro_export]
+macro_rules! dummy_unreachable {
+  () => {
+    unreachable!("Dummy implementation: this method should never be called in real usage")
+  };
+}
+
 pub mod analysis;
 pub mod core;
 pub mod migration_notes;

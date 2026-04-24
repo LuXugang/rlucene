@@ -22,7 +22,7 @@ pub struct DummyKnnFieldVectorsWriter;
 
 impl Accountable for DummyKnnFieldVectorsWriter {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
@@ -36,13 +36,13 @@ impl KnnFieldVectorsWriter for DummyKnnFieldVectorsWriter {
   where
     F: FlatFieldVectorsWriter,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn copy_value(
     &self,
     _vector_value: &VectorValueEnum,
   ) -> crate::core::util::error::lucene_error::Result<VectorValueEnum> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

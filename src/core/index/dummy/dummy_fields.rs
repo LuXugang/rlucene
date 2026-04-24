@@ -24,16 +24,16 @@ impl Fields for DummyFields {
   type FieldIter<'a> = VecIter<'a, String>;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Terms = DummyTerms;
 
   fn terms(&self, _field: &str) -> Result<Option<Self::Terms>> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn size(&self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

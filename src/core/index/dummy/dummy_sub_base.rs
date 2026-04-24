@@ -21,12 +21,12 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummySubBase;
 impl SubBase for DummySubBase {
   fn next_doc(&mut self) -> Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type DocMap = DummyDocMap;
 
   fn get_doc_map(&self) -> Result<&Self::DocMap> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

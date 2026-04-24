@@ -21,6 +21,6 @@ impl<T> Comparator<T> for DummyComparator {
   const TYPE: &'static str = "DummyComparator";
 
   fn compare(&self, _a: &T, _b: &T) -> crate::core::util::error::lucene_error::Result<i32> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

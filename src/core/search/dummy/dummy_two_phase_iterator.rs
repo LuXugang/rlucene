@@ -22,18 +22,18 @@ pub struct DummyTwoPhaseIterator;
 
 impl TwoPhaseIterator for DummyTwoPhaseIterator {
   fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn matches(&mut self) -> Result<bool> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn match_cost(&self) -> f32 {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

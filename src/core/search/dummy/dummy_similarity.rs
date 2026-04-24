@@ -26,13 +26,13 @@ pub struct DummySimilarity;
 
 impl Display for DummySimilarity {
   fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl Similarity for DummySimilarity {
   fn get_discount_overlaps(&self) -> bool {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn compute_norm(
@@ -50,6 +50,6 @@ impl Similarity for DummySimilarity {
     _collection_stats: &CollectionStatistics,
     _term_stats: &[TermStatistics],
   ) -> Result<Self::SimScorer> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }

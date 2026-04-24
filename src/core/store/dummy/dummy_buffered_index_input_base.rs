@@ -26,13 +26,13 @@ impl crate::core::util::clone::TryClone for DummyBufferedIndexInputBase {
   where
     Self: Sized,
   {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
 
 impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
   fn seek_internal(&mut self, _pos: usize) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn read_internal(
@@ -41,16 +41,16 @@ impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
     _len: usize,
     _file_pointer: usize,
   ) -> Result<()> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   type Slice = BufferedIndexInput<DummyBufferedIndexInputBase>;
 
   fn slice(&self, _slice_description: &str, _offset: usize, _length: usize) -> Result<Self::Slice> {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 
   fn length(&self) -> usize {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
+    dummy_unreachable!()
   }
 }
