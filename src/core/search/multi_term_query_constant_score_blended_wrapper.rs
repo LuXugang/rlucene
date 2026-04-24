@@ -212,7 +212,7 @@ impl RewritingWeightBase for BlendedRewritingWeight {
           reuse = Some(pe);
         } else {
           high_frequency_terms.compare.postings_enum.push(Some(pe));
-          let idx = high_frequency_terms.compare.postings_enum.len();
+          let idx = high_frequency_terms.compare.postings_enum.len() - 1;
           high_frequency_terms.add(idx)?;
           reuse = None;
         }
@@ -247,7 +247,7 @@ impl RewritingWeightBase for BlendedRewritingWeight {
         reuse = Some(pe);
       } else {
         high_frequency_terms.compare.postings_enum.push(Some(pe));
-        let idx = high_frequency_terms.compare.postings_enum.len();
+        let idx = high_frequency_terms.compare.postings_enum.len() - 1;
         let dropped = high_frequency_terms.insert_with_overflow(idx)?;
 
         if let Some(dropped_idx) = dropped {

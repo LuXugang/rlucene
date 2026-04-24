@@ -46,7 +46,7 @@ impl SearchEquivalenceTestBase for TestSimpleSearchEquivalence {
     &self.meta
   }
 }
-
+#[test]
 fn test_term_versus_boolean_or() -> Result<()> {
   let mut random = random();
   let case = TestSimpleSearchEquivalence::new(&mut random);
@@ -59,6 +59,7 @@ fn test_term_versus_boolean_or() -> Result<()> {
   case.assert_subset_of(&mut random, &q1.into(), &q2.build().into())
 }
 
+#[test]
 fn test_term_versus_boolean_req_opt() -> Result<()> {
   let mut random = random();
   let case = TestSimpleSearchEquivalence::new(&mut random);
@@ -71,6 +72,7 @@ fn test_term_versus_boolean_req_opt() -> Result<()> {
   case.assert_subset_of(&mut random, &q1.into(), &q2.build().into())
 }
 
+#[test]
 fn test_boolean_req_excl_versus_term() -> Result<()> {
   let mut random = random();
   let case = TestSimpleSearchEquivalence::new(&mut random);
@@ -83,6 +85,7 @@ fn test_boolean_req_excl_versus_term() -> Result<()> {
   case.assert_subset_of(&mut random, &q1.build().into(), &q2.into())
 }
 
+#[test]
 fn test_boolean_and_versus_boolean_or() -> Result<()> {
   let mut random = random();
   let case = TestSimpleSearchEquivalence::new(&mut random);
@@ -96,6 +99,7 @@ fn test_boolean_and_versus_boolean_or() -> Result<()> {
   q2.add(TermQuery::new(t2), Occur::Should)?;
   case.assert_subset_of(&mut random, &q1.build().into(), &q2.build().into())
 }
+#[test]
 fn test_disjunction_sum_versus_disjunction_max() -> Result<()> {
   let mut random = random();
   let case = TestSimpleSearchEquivalence::new(&mut random);
@@ -110,6 +114,7 @@ fn test_disjunction_sum_versus_disjunction_max() -> Result<()> {
   )?;
   case.assert_same_set(&mut random, &q1.build().into(), &q2.into())
 }
+#[test]
 fn test_exact_phrase_versus_boolean_and() -> Result<()> {
   let mut random = random();
   let case = TestSimpleSearchEquivalence::new(&mut random);
@@ -121,6 +126,7 @@ fn test_exact_phrase_versus_boolean_and() -> Result<()> {
   q2.add(TermQuery::new(t2), Occur::Must)?;
   case.assert_subset_of(&mut random, &q1.into(), &q2.build().into())
 }
+#[test]
 fn test_exact_phrase_versus_boolean_and_with_holes() -> Result<()> {
   let mut random = random();
   let case = TestSimpleSearchEquivalence::new(&mut random);
@@ -135,6 +141,7 @@ fn test_exact_phrase_versus_boolean_and_with_holes() -> Result<()> {
   q2.add(TermQuery::new(t2), Occur::Must)?;
   case.assert_subset_of(&mut random, &q1.into(), &q2.build().into())
 }
+#[test]
 fn test_phrase_versus_sloppy_phrase() -> Result<()> {
   let mut random = random();
   let case = TestSimpleSearchEquivalence::new(&mut random);
@@ -144,6 +151,7 @@ fn test_phrase_versus_sloppy_phrase() -> Result<()> {
   let q2 = PhraseQuery::from_bytes(1, t1.field(), vec![t1.bytes().clone(), t2.bytes().clone()])?;
   case.assert_subset_of(&mut random, &q1.into(), &q2.into())
 }
+#[test]
 fn test_phrase_versus_sloppy_phrase_with_holes() -> Result<()> {
   let mut random = random();
   let case = TestSimpleSearchEquivalence::new(&mut random);

@@ -41,7 +41,7 @@ impl SearchEquivalenceTestBase for TestSloppyPhraseQuery2 {
     &self.meta
   }
 }
-
+#[test]
 fn test_increasing_sloppiness() -> Result<()> {
   let mut random = random();
   let case = TestSloppyPhraseQuery2::new(&mut random);
@@ -59,6 +59,7 @@ fn test_increasing_sloppiness() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_increasing_sloppiness_with_holes() -> Result<()> {
   let mut random = random();
   let case = TestSloppyPhraseQuery2::new(&mut random);
@@ -77,6 +78,7 @@ fn test_increasing_sloppiness_with_holes() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_increasing_sloppiness3() -> Result<()> {
   let mut random = random();
   let case = TestSloppyPhraseQuery2::new(&mut random);
@@ -102,6 +104,7 @@ fn test_increasing_sloppiness3() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_increasing_sloppiness3_with_holes() -> Result<()> {
   let mut random = random();
   let case = TestSloppyPhraseQuery2::new(&mut random);
@@ -124,6 +127,7 @@ fn test_increasing_sloppiness3_with_holes() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_repetitive_increasing_sloppiness() -> Result<()> {
   let mut random = random();
   let case = TestSloppyPhraseQuery2::new(&mut random);
@@ -138,6 +142,7 @@ fn test_repetitive_increasing_sloppiness() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_repetitive_increasing_sloppiness_with_holes() -> Result<()> {
   let mut random = random();
   let case = TestSloppyPhraseQuery2::new(&mut random);
@@ -155,6 +160,7 @@ fn test_repetitive_increasing_sloppiness_with_holes() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_repetitive_increasing_sloppiness3() -> Result<()> {
   let mut random = random();
   let case = TestSloppyPhraseQuery2::new(&mut random);
@@ -177,6 +183,7 @@ fn test_repetitive_increasing_sloppiness3() -> Result<()> {
   }
   Ok(())
 }
+#[test]
 fn test_random_increasing_sloppiness() -> Result<()> {
   // TODO IMPORTANT MultiPhraseQuery 未实现
   Ok(())
