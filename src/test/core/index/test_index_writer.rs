@@ -17,6 +17,9 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TextField, text_field_type};
 use crate::core::index::composite_reader::get_context;
@@ -25,19 +28,24 @@ use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, read_field_infos};
+use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::no_merge_policy::NoMergePolicy;
+use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::term::Term;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{LATEST, StringHelper};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_directory_shared, new_field, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_text_field, random,
 };
+use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand_xoshiro::rand_core::Rng;
 use std::clone::Clone;
@@ -464,7 +472,460 @@ fn test_segment_info_is_snapshot() -> Result<()> {
   writer.close()?;
   Ok(())
 }
+#[test]
+fn test_prevent_changing_soft_deletes_field() -> Result<()> {
+  // TODO IMPORTANT SoftDeletesRetentionMergePolicy未实现
+  Ok(())
+}
+fn test_prevent_adding_indexes_with_different_soft_deletes_field() -> Result<()> {
+  let mut random = random();
 
+  let dir1 = new_directory_shared(&mut random)?;
+  let mut config = new_index_writer_config(&mut random);
+  config.set_soft_deletes_field("soft_deletes_1");
+  let w1 = IndexWriter::new(dir1.clone(), config)?;
+
+  for i in 0..2 {
+    let mut d = Document::new();
+    d.add(StringField::from_string("id", "1", Store::Yes)?);
+    d.add(StringField::from_string(
+      "version",
+      i.to_string(),
+      Store::Yes,
+    )?);
+
+    w1.soft_update_document(
+      Term::from_text("id", "1"),
+      d,
+      vec![NumericDocValuesField::new("soft_deletes_1", 1).into()],
+    )?;
+  }
+
+  w1.commit()?;
+  w1.close()?;
+  drop(w1);
+
+  let dir2 = new_directory_shared(&mut random)?;
+  let mut config = new_index_writer_config(&mut random);
+  config.set_soft_deletes_field("soft_deletes_2");
+  let w2 = IndexWriter::new(dir2.clone(), config)?;
+
+  let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir1));
+  match err {
+    Ok(_) => panic!("expected IllegalArgument error"),
+    Err(err) => {
+      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert_eq!(
+        "cannot configure [soft_deletes_2] as soft-deletes; this index uses [soft_deletes_1] as soft-deletes already",
+        err.to_string()
+      );
+    },
+  }
+
+  w2.close()?;
+
+  let dir3 = new_directory_shared(&mut random)?;
+  let mut config = new_index_writer_config(&mut random);
+  config.set_soft_deletes_field("soft_deletes_1");
+  let w3 = IndexWriter::new(dir3, config)?;
+
+  w3.add_indexes_from_dir(std::slice::from_ref(&dir1))?;
+
+  for si in w3.clone_segment_infos()?.iter() {
+    let field_infos = read_field_infos(si)?;
+    let soft_delete_field = field_infos.field_info_by_name("soft_deletes_1").unwrap();
+    assert!(soft_delete_field.is_soft_deletes_field());
+  }
+
+  w3.close()?;
+
+  Ok(())
+}
+
+#[test]
+fn test_not_allow_using_existing_field_as_soft_deletes() -> Result<()> {
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+  for _ in 0..2 {
+    let mut d = Document::new();
+    d.add(StringField::from_string("id", "1", Store::Yes)?);
+
+    if random.random_bool(0.5) {
+      d.add(NumericDocValuesField::new("dv_field", 1));
+      w.update_documents_with_term(Term::from_text("id", "1"), d)?;
+    } else {
+      w.soft_update_document(
+        Term::from_text("id", "1"),
+        d,
+        vec![NumericDocValuesField::new("dv_field", 1).into()],
+      )?;
+    }
+  }
+
+  w.commit()?;
+  w.close()?;
+  drop(w);
+  let soft_deletes_field = if random.random_bool(0.5) {
+    "id"
+  } else {
+    "dv_field"
+  };
+
+  let mut config = new_index_writer_config(&mut random);
+  config.set_soft_deletes_field(soft_deletes_field);
+
+  let err = IndexWriter::new(dir.clone(), config);
+  match err {
+    Ok(_) => panic!("expected IllegalArgument error"),
+    Err(err) => {
+      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert_eq!(
+        format!(
+          "cannot configure [{}] as soft-deletes; this index uses [{}] as non-soft-deletes already",
+          soft_deletes_field, soft_deletes_field
+        ),
+        err.to_string()
+      );
+    },
+  }
+
+  let mut config = new_index_writer_config(&mut random);
+  config.set_soft_deletes_field("non-existing-field");
+
+  let w = IndexWriter::new(dir, config)?;
+  w.close()?;
+
+  Ok(())
+}
+#[test]
+fn test_broken_payload() -> Result<()> {
+  // TODO CannedTokenStream未实现
+  Ok(())
+}
+fn test_soft_and_hard_live_docs() -> Result<()> {
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mut index_writer_config = new_index_writer_config(&mut random);
+  let soft_deletes_field = "soft_delete";
+  index_writer_config.set_soft_deletes_field(soft_deletes_field);
+
+  let writer = IndexWriter::new(dir.clone(), index_writer_config)?;
+  let mut unique_docs = HashSet::new();
+
+  for _ in 0..100 {
+    let doc_id = random.random_range(0..5);
+    unique_docs.insert(doc_id);
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string(
+      "id",
+      doc_id.to_string(),
+      Store::Yes,
+    )?);
+
+    if doc_id % 2 == 0 {
+      writer.update_documents_with_term(Term::from_text("id", doc_id.to_string()), doc)?;
+    } else {
+      writer.soft_update_document(
+        Term::from_text("id", doc_id.to_string()),
+        doc,
+        vec![NumericDocValuesField::new(soft_deletes_field, 0).into()],
+      )?;
+    }
+
+    if random.random_bool(0.5) {
+      assert_hard_live_docs(&writer, &unique_docs)?;
+    }
+  }
+
+  if random.random_bool(0.5) {
+    writer.commit()?;
+  }
+  assert_hard_live_docs(&writer, &unique_docs)?;
+
+  writer.close()?;
+
+  Ok(())
+}
+#[test]
+fn test_abort_fully_deleted_segment() -> Result<()> {
+  // TODO 未实现
+  Ok(())
+}
+fn assert_hard_live_docs<D, L, B>(
+  _writer: &IndexWriter<D, L, B>,
+  _unique_docs: &HashSet<i32>,
+) -> Result<()>
+where
+  D: Directory,
+  L: LiveIndexWriterConfig,
+  B: IndexWriterBase,
+{
+  // TODO IMPORTANT 未实现
+  Ok(())
+}
+#[test]
+fn test_set_index_created_version() -> Result<()> {
+  let mut random = random();
+
+  let mut iwc = new_index_writer_config(&mut random);
+  let err = iwc.set_index_created_version_major(LATEST.major + 1);
+  match err {
+    Ok(_) => unreachable!("expected IllegalArgument error"),
+    Err(err) => {
+      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert_eq!(
+        format!(
+          "indexCreatedVersionMajor may not be in the future: current major version is {}, but got: {}",
+          LATEST.major,
+          LATEST.major + 1
+        ),
+        err.to_string()
+      );
+    },
+  }
+
+  let mut iwc = new_index_writer_config(&mut random);
+  let err = iwc.set_index_created_version_major(LATEST.major - 2);
+  match err {
+    Ok(_) => unreachable!("expected IllegalArgument error"),
+    Err(err) => {
+      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert_eq!(
+        format!(
+          "indexCreatedVersionMajor may not be less than the minimum supported version: {}, but got: {}",
+          LATEST.major - 1,
+          LATEST.major - 2
+        ),
+        err.to_string()
+      );
+    },
+  }
+
+  for previous_major in LATEST.major - 1..=LATEST.major {
+    for new_major in LATEST.major - 1..=LATEST.major {
+      for open_mode in [OpenMode::Create, OpenMode::Append, OpenMode::CreateOrAppend] {
+        let dir = new_directory_shared(&mut random)?;
+
+        {
+          let mut iwc = new_index_writer_config(&mut random);
+          iwc.set_index_created_version_major(previous_major)?;
+          let w = IndexWriter::new(dir.clone(), iwc)?;
+          w.close()?;
+        }
+
+        let mut infos = SegmentInfos::read_latest_commit(dir.clone())?;
+        assert_eq!(previous_major, infos.get_index_created_version_major());
+
+        {
+          let mut iwc = new_index_writer_config(&mut random);
+          iwc.set_open_mode(open_mode);
+          iwc.set_index_created_version_major(new_major)?;
+          let w = IndexWriter::new(dir.clone(), iwc)?;
+          w.close()?;
+        }
+
+        infos = SegmentInfos::read_latest_commit(dir)?;
+        if open_mode == OpenMode::Create {
+          assert_eq!(new_major, infos.get_index_created_version_major());
+        } else {
+          assert_eq!(previous_major, infos.get_index_created_version_major());
+        }
+      }
+    }
+  }
+
+  Ok(())
+}
+
+#[test]
+fn test_flush_while_starting_new_threads() -> Result<()> {
+  // TODO IMPORTANT 多线程未实现
+  Ok(())
+}
+
+#[test]
+fn test_refresh_and_rollback_concurrently() -> Result<()> {
+  // TODO IMPORTANT 多线程未实现
+  Ok(())
+}
+
+#[test]
+fn test_closeable_queue() -> Result<()> {
+  // TODO IMPORTANT 多线程未实现
+  Ok(())
+}
+#[test]
+fn test_random_operations() -> Result<()> {
+  // TODO IMPORTANT 多线程未实现
+  Ok(())
+}
+#[test]
+fn test_random_operations_with_soft_deletes() -> Result<()> {
+  // TODO IMPORTANT 多线程未实现
+  Ok(())
+}
+
+#[test]
+fn test_max_completed_sequence_number() -> Result<()> {
+  // TODO IMPORTANT 多线程未实现
+  Ok(())
+}
+
+#[test]
+fn test_ensure_max_seq_no_is_accurate_during_flush() -> Result<()> {
+  // TODO IMPORTANT 多线程未实现
+  Ok(())
+}
+#[test]
+fn test_segment_commit_info_id() -> Result<()> {
+  let mut random = random();
+
+  {
+    let dir = new_directory_shared(&mut random)?;
+    let v = {
+      let mut iwc = new_index_writer_config(&mut random);
+      iwc.set_merge_policy(NoMergePolicy::default());
+      let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+      let mut doc = Document::new();
+      doc.add(NumericDocValuesField::new("num", 1));
+      doc.add(StringField::from_string("id", "1", Store::No)?);
+      writer.add_document(doc)?;
+
+      let mut doc = Document::new();
+      doc.add(NumericDocValuesField::new("num", 1));
+      doc.add(StringField::from_string("id", "2", Store::No)?);
+      writer.add_document(doc)?;
+
+      writer.commit()?;
+      let segment_commit_infos = SegmentInfos::read_latest_commit(dir.clone())?;
+      let mut id = segment_commit_infos.info(0).unwrap().get_id();
+      let seg_info_id = segment_commit_infos.info(0).unwrap().info.get_id();
+
+      writer.update_numeric_doc_value(Term::from_text("id", "1"), "num", 2)?;
+      writer.commit()?;
+
+      let segment_commit_infos = SegmentInfos::read_latest_commit(dir.clone())?;
+      assert_eq!(1, segment_commit_infos.size());
+      assert_ne!(
+        StringHelper::id_to_string(id),
+        StringHelper::id_to_string(segment_commit_infos.info(0).unwrap().get_id())
+      );
+      assert_eq!(
+        StringHelper::id_to_string(Some(seg_info_id)),
+        StringHelper::id_to_string(Some(segment_commit_infos.info(0).unwrap().info.get_id()))
+      );
+
+      id = segment_commit_infos.info(0).unwrap().get_id();
+
+      writer.add_document(Document::new())?;
+      writer.commit()?;
+
+      let segment_commit_infos = SegmentInfos::read_latest_commit(dir.clone())?;
+      assert_eq!(2, segment_commit_infos.size());
+      assert_eq!(
+        StringHelper::id_to_string(id),
+        StringHelper::id_to_string(segment_commit_infos.info(0).unwrap().get_id())
+      );
+      assert_eq!(
+        StringHelper::id_to_string(Some(seg_info_id)),
+        StringHelper::id_to_string(Some(segment_commit_infos.info(0).unwrap().info.get_id()))
+      );
+
+      let mut doc = Document::new();
+      doc.add(NumericDocValuesField::new("num", 5));
+      doc.add(StringField::from_string("id", "1", Store::No)?);
+      writer.update_documents_with_term(Term::from_text("id", "1"), doc)?;
+      writer.commit()?;
+
+      let segment_commit_infos = SegmentInfos::read_latest_commit(dir.clone())?;
+      assert_eq!(3, segment_commit_infos.size());
+      assert_ne!(
+        StringHelper::id_to_string(id),
+        StringHelper::id_to_string(segment_commit_infos.info(0).unwrap().get_id())
+      );
+      assert_eq!(
+        StringHelper::id_to_string(Some(seg_info_id)),
+        StringHelper::id_to_string(Some(segment_commit_infos.info(0).unwrap().info.get_id()))
+      );
+
+      writer.close()?;
+      segment_commit_infos
+    };
+
+    {
+      let dir2 = new_directory_shared(&mut random)?;
+      let mut iwc = new_index_writer_config(&mut random);
+      iwc.set_merge_policy(NoMergePolicy::default());
+      let writer2 = IndexWriter::new(dir2.clone(), iwc)?;
+
+      writer2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+      writer2.commit()?;
+
+      let infos2 = SegmentInfos::read_latest_commit(dir2)?;
+      assert_eq!(infos2.size(), v.size());
+
+      for i in 0..infos2.size() {
+        assert_eq!(
+          StringHelper::id_to_string(infos2.info(i).unwrap().get_id()),
+          StringHelper::id_to_string(v.info(i).unwrap().get_id())
+        );
+        assert_eq!(
+          StringHelper::id_to_string(Some(infos2.info(i).unwrap().info.get_id())),
+          StringHelper::id_to_string(Some(v.info(i).unwrap().info.get_id()))
+        );
+      }
+
+      writer2.close()?;
+    }
+  }
+
+  let mut ids = HashSet::new();
+
+  for _ in 0..2 {
+    let dir = new_directory_shared(&mut random)?;
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(NoMergePolicy::default());
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+    let mut doc = Document::new();
+    doc.add(NumericDocValuesField::new("num", 1));
+    doc.add(StringField::from_string("id", "1", Store::No)?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let mut segment_commit_infos = SegmentInfos::read_latest_commit(dir.clone())?;
+    let id = StringHelper::id_to_string(segment_commit_infos.info(0).unwrap().get_id());
+    assert!(ids.insert(id));
+
+    writer.update_numeric_doc_value(Term::from_text("id", "1"), "num", 2)?;
+    writer.commit()?;
+
+    segment_commit_infos = SegmentInfos::read_latest_commit(dir)?;
+    let id = StringHelper::id_to_string(segment_commit_infos.info(0).unwrap().get_id());
+    assert!(ids.insert(id));
+
+    writer.close()?;
+  }
+
+  Ok(())
+}
+#[test]
+fn test_merge_zero_docs_merge_is_closed_once() -> Result<()> {
+  // TODO IMPORTANT FilterMergePolicy
+  Ok(())
+}
+
+#[test]
+fn test_merge_on_commit_keep_fully_deleted_segments() -> Result<()> {
+  // TODO IMPORTANT FilterMergePolicy
+  Ok(())
+}
 #[test]
 fn test_pending_num_docs() -> Result<()> {
   let mut random = random();
@@ -491,6 +952,11 @@ fn test_pending_num_docs() -> Result<()> {
     assert_eq!(num_docs as i64, writer.get_pending_num_docs());
     writer.close()?;
   }
+  Ok(())
+}
+#[test]
+fn test_index_writer_blocks_on_stall() -> Result<()> {
+  // TODO IMPORTANT 多线程未实现
   Ok(())
 }
 #[test]
@@ -545,6 +1011,264 @@ fn test_get_field_names() -> Result<()> {
   assert_eq!(HashSet::<String>::new(), writer.get_field_names());
 
   writer.close()?;
+  Ok(())
+}
+
+fn add_doc_with_field<D, L, B, R>(
+  random: &mut R,
+  writer: &mut IndexWriter<D, L, B>,
+  field: &str,
+  field_types: &mut HashMap<String, FieldType>,
+) -> Result<()>
+where
+  D: Directory,
+  L: LiveIndexWriterConfig,
+  B: IndexWriterBase,
+  R: Rng + ?Sized,
+{
+  let mut doc = Document::new();
+  let stored_text_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  doc.add(new_field(
+    random,
+    field,
+    "value",
+    &stored_text_type,
+    field_types,
+  )?);
+  let _ = writer.add_document(doc)?;
+  Ok(())
+}
+
+#[test]
+fn test_parent_and_soft_deletes_are_the_same() -> Result<()> {
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut index_writer_config = new_index_writer_config_with_analyzer(&mut random, mock);
+  index_writer_config.set_soft_deletes_field("foo");
+  index_writer_config.set_parent_field("foo");
+
+  let err = IndexWriter::new(dir, index_writer_config);
+  match err {
+    Ok(_) => unreachable!("expected IllegalArgument error"),
+    Err(err) => {
+      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert_eq!(
+        "parent document and soft-deletes field can't be the same field \"foo\"",
+        err.to_string()
+      );
+    },
+  }
+
+  Ok(())
+}
+
+#[test]
+fn test_parent_field_existing_index() -> Result<()> {
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  {
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+    let mut field_to_type = HashMap::new();
+    let mut d = Document::new();
+    d.add(new_text_field(
+      &mut random,
+      "f",
+      "a",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    writer.add_document(d)?;
+    writer.close()?;
+  }
+
+  {
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    iwc.set_open_mode(OpenMode::Append);
+    iwc.set_parent_field("foo");
+
+    let err = IndexWriter::new(dir.clone(), iwc);
+    match err {
+      Ok(_) => unreachable!("expected IllegalArgument error"),
+      Err(err) => {
+        assert!(matches!(err, LuceneError::IllegalArgument(_)));
+        assert_eq!(
+          "can't add a parent field to an already existing index without a parent field",
+          err.to_string()
+        );
+      },
+    }
+  }
+
+  {
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    iwc.set_open_mode(OpenMode::CreateOrAppend);
+    iwc.set_parent_field("foo");
+
+    let err = IndexWriter::new(dir.clone(), iwc);
+    match err {
+      Ok(_) => unreachable!("expected IllegalArgument error"),
+      Err(err) => {
+        assert!(matches!(err, LuceneError::IllegalArgument(_)));
+        assert_eq!(
+          "can't add a parent field to an already existing index without a parent field",
+          err.to_string()
+        );
+      },
+    }
+  }
+
+  {
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    iwc.set_open_mode(OpenMode::Create);
+    iwc.set_parent_field("foo");
+
+    let writer = IndexWriter::new(dir, iwc)?;
+    writer.add_document(Document::new())?;
+    writer.close()?;
+  }
+
+  Ok(())
+}
+#[test]
+fn test_parent_field_is_already_used() -> Result<()> {
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  {
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string(
+      "parent",
+      1.to_string(),
+      Store::Yes,
+    )?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+    writer.close()?;
+  }
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  config.set_parent_field("parent");
+
+  let err = IndexWriter::new(dir, config);
+
+  assert!(err.is_err());
+
+  let err = match err {
+    Ok(_) => unreachable!(),
+    Err(err) => err,
+  };
+
+  assert!(matches!(err, LuceneError::IllegalArgument(_)));
+  assert_eq!(
+    "can't add [parent] as non parent document field; this IndexWriter is configured with [parent] as parent document field",
+    err.to_string()
+  );
+
+  Ok(())
+}
+#[test]
+fn test_parent_field_empty_index() -> Result<()> {
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  {
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    iwc.set_parent_field("parent");
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    writer.commit()?;
+    writer.close()?;
+  }
+
+  {
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc2 = new_index_writer_config_with_analyzer(&mut random, mock);
+    iwc2.set_parent_field("parent");
+    let writer = IndexWriter::new(dir, iwc2)?;
+    writer.commit()?;
+    writer.close()?;
+  }
+
+  Ok(())
+}
+
+#[test]
+fn test_doc_values_mixed_skipping_index() -> Result<()> {
+  let mut random = random();
+  {
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir, iwc)?;
+
+    let mut doc1 = Document::new();
+    doc1.add(SortedNumericDocValuesField::indexed_field(
+      "test",
+      random.random(),
+    ));
+    writer.add_document(doc1)?;
+
+    let mut doc2 = Document::new();
+    doc2.add(SortedNumericDocValuesField::new("test", random.random()));
+
+    let err = writer.add_document(doc2);
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    let err = err.unwrap_err();
+    assert_eq!(
+      "Inconsistency of field data structures across documents for field [test] of doc [1]. doc values skip index type: expected 'Range', but it has 'None'.",
+      err.to_string()
+    );
+
+    writer.close()?;
+  }
+
+  {
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir, iwc)?;
+
+    let mut doc1 = Document::new();
+    doc1.add(SortedSetDocValuesField::new(
+      "test",
+      TestUtil::random_binary_term(&mut random),
+    ));
+    writer.add_document(doc1)?;
+
+    let mut doc2 = Document::new();
+    doc2.add(SortedSetDocValuesField::indexed_field(
+      "test",
+      TestUtil::random_binary_term(&mut random),
+    ));
+
+    let err = writer.add_document(doc2);
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    let err = err.unwrap_err();
+    assert_eq!(
+      "Inconsistency of field data structures across documents for field [test] of doc [1]. doc values skip index type: expected 'None', but it has 'Range'.",
+      err.to_string()
+    );
+
+    writer.close()?;
+  }
+
   Ok(())
 }
 #[test]
@@ -629,28 +1353,4 @@ where
     Ok(_) => Ok(()),
     Err(e) => Err(e),
   }
-}
-fn add_doc_with_field<D, L, B, R>(
-  random: &mut R,
-  writer: &mut IndexWriter<D, L, B>,
-  field: &str,
-  field_types: &mut HashMap<String, FieldType>,
-) -> Result<()>
-where
-  D: Directory,
-  L: LiveIndexWriterConfig,
-  B: IndexWriterBase,
-  R: Rng + ?Sized,
-{
-  let mut doc = Document::new();
-  let stored_text_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
-  doc.add(new_field(
-    random,
-    field,
-    "value",
-    &stored_text_type,
-    field_types,
-  )?);
-  let _ = writer.add_document(doc)?;
-  Ok(())
 }

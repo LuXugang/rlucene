@@ -27,6 +27,8 @@ use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
+use crate::core::util::LATEST;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -61,6 +63,28 @@ impl IndexWriterConfig {
     T: Into<SimilarityEnum>,
   {
     self.base.similarity = Arc::new(similarity.into());
+  }
+  pub fn set_index_created_version_major(
+    &mut self,
+    index_created_version_major: i32,
+  ) -> Result<&mut Self> {
+    if index_created_version_major > LATEST.major {
+      return Err(LuceneError::illegal_argument(format!(
+        "indexCreatedVersionMajor may not be in the future: current major version is {}, but got: {}",
+        LATEST.major, index_created_version_major
+      )));
+    }
+
+    if index_created_version_major < LATEST.major - 1 {
+      return Err(LuceneError::illegal_argument(format!(
+        "indexCreatedVersionMajor may not be less than the minimum supported version: {}, but got: {}",
+        LATEST.major - 1,
+        index_created_version_major
+      )));
+    }
+
+    self.base.created_version_major = index_created_version_major;
+    Ok(self)
   }
 }
 

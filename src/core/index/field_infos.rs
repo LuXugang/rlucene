@@ -586,7 +586,7 @@ impl FieldNumbers {
       // (think addIndices)
       if parent == field_name {
         return Err(LuceneError::illegal_argument(format!(
-          "can't add field [{field_name}] as non parent document field; this IndexWriter is configured with [{parent}] as parent document field"
+          "can't add [{field_name}] as non parent document field; this IndexWriter is configured with [{parent}] as parent document field"
         )));
       }
     }

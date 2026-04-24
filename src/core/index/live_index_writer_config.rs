@@ -170,6 +170,14 @@ pub trait LiveIndexWriterConfig: Display {
     self.get_base_mut().merge_scheduler = v;
     self
   }
+  fn set_soft_deletes_field<T>(&mut self, soft_deletes_field: T) -> &mut Self
+  where
+    T: Into<String>,
+  {
+    let v = soft_deletes_field.into();
+    self.get_base_mut().soft_deletes_field = Some(v);
+    self
+  }
 
   fn set_parent_field<T>(&mut self, parent_field: T) -> &mut Self
   where
