@@ -127,7 +127,7 @@ mod phrase_positions;
 pub mod phrase_query;
 pub(crate) mod phrase_queue;
 pub(crate) mod phrase_scorer;
-mod phrase_weight;
+pub(crate) mod phrase_weight;
 pub mod point_range_query;
 pub mod prefix_query;
 pub mod regexp_query;

@@ -181,6 +181,10 @@ where
   fn cost(&self) -> Result<i64> {
     (**self).cost()
   }
+  #[cfg(test)]
+  fn as_any(&mut self) -> &mut dyn std::any::Any {
+    (**self).as_any()
+  }
 }
 
 impl<T> FixedScore for Box<T>
@@ -376,6 +380,10 @@ macro_rules! either_scorer {
             #[inline]
             fn cost(&self) -> Result<i64> {
                 match self { $( Self::$Variant(inner) => inner.cost(), )+ }
+            }
+            #[cfg(test)]
+            fn as_any(&mut self) -> &mut dyn std::any::Any {
+                match self { $( Self::$Variant(inner) => inner.as_any(), )+ }
             }
         }
 

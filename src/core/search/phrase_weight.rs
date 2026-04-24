@@ -15,10 +15,14 @@
  * limitations under the License.
  */
 use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::impacts_enum::ImpactsEnumEnum2;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader::{
+  LRImpactsEnum, LRNormNumericDocValues, LRPosting, LeafReader,
+};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
@@ -163,7 +167,7 @@ where
         } else {
           None
         };
-        let scorer = PhraseScorer::new(
+        let scorer: PhraseScorerType<IRC, S> = PhraseScorer::new(
           matcher,
           self.sub.base().score_mode,
           self.stats.clone(),
@@ -175,7 +179,14 @@ where
     }
   }
 }
-
+pub type PhraseScorerType<IRC, S> = PhraseScorer<
+  ImpactsEnumEnum2<
+    LRImpactsEnum<IRCLeafReader<IRC>>,
+    SlowImpactsEnum<LRPosting<IRCLeafReader<IRC>>>,
+  >,
+  <S as PhraseWeightBase>::SimScorer,
+  LRNormNumericDocValues<IRCLeafReader<IRC>>,
+>;
 pub trait PhraseWeightBase {
   type SimScorer: SimScorer + Clone;
   fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>

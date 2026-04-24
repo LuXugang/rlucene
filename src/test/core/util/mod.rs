@@ -43,7 +43,8 @@ pub mod test_util;
 pub type DefaultCRReaderShared = Arc<StandardDirectoryReaderType<DirEnum>>;
 pub type DefaultCRReader = StandardDirectoryReaderType<DirEnum>;
 pub type DefaultLRReader = Arc<SegmentReader<DirEnum>>;
-
+pub type DefaultIRCRC = CompositeReaderContext<DefaultCRReader>;
+pub type DefaultIRCLR = LeafReaderContext<DefaultLRReader>;
 pub type DefaultIndexSearchCRShared =
   DefaultIndexSearcher<CompositeReaderContext<DefaultCRReaderShared>>;
 pub type DefaultIndexSearchCR = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReader>>;
