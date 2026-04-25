@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 pub mod base_similarity_test_case;
+mod test_similarity2;
