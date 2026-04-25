@@ -244,7 +244,6 @@ impl FixedBitSet {
   }
   pub fn xor_disi(&self, _iter: impl DocIdSetIterator) {
     // not used in Java Lucene, so we did not impl it
-    todo!()
   }
   fn xor_impl(&mut self, other_bits: &[i64], other_num_words: usize) {
     debug_assert!(
@@ -652,14 +651,7 @@ impl BitSet for FixedBitSet {
     //TODO IMPORTANT: this is a naive implementation, we can optimize it from Java
     // Lucene
     check_unpositioned(iter)?;
-    loop {
-      let doc = iter.next_doc()?;
-      if doc == NO_MORE_DOCS {
-        break;
-      }
-      self.set(doc.try_convert()?);
-    }
-    Ok(())
+    self.default_or(iter)
   }
 
   fn ensure_capacity(&mut self, num_bits: usize) {

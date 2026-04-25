@@ -93,7 +93,7 @@ impl SparseFixedBitSet {
     let block: Vec<u64> = vec![1_u64 << (i % 64)];
     self.bits[i4096] = Some(block);
     self.non_zero_long_count += 1;
-    //TODO
+    // TODO: memory calculation not implement
     self.ram_bytes_used = 0;
   }
   fn insert_long(&mut self, i4096: usize, i64bit: usize, i: usize, index: usize) {
@@ -116,7 +116,7 @@ impl SparseFixedBitSet {
       new_bit_array[o] = 1_u64 << (i % 64);
       new_bit_array.copy_from(&bit_array[o..], o + 1);
       self.bits[i4096] = Some(new_bit_array);
-      //TODO
+      // TODO: memory calculation not implement
       self.ram_bytes_used = 0;
     }
     self.non_zero_long_count += 1;
@@ -266,7 +266,7 @@ impl SparseFixedBitSet {
       let new_bits = bits[0..non_zero_long_count].to_vec();
       self.bits[i4096] = Some(new_bits);
       // we may slightly overestimate size here, but keep it cheap
-      //TODO
+      // TODO: memory calculation not implement
       self.ram_bytes_used = 0;
       self.non_zero_long_count += non_zero_long_count;
       return;
@@ -277,7 +277,7 @@ impl SparseFixedBitSet {
     let mut new_bits = if current_bits.as_ref().unwrap().len() >= required_capacity as usize {
       current_bits.take().unwrap()
     } else {
-      //TODO
+      // TODO: memory calculation not implement
       self.ram_bytes_used = 0;
       vec![0; oversize(required_capacity as i32) as usize]
     };
@@ -432,7 +432,7 @@ impl BitSet for SparseFixedBitSet {
     self.bits = vec![None; self.bits.len()];
     self.indices = vec![0; self.indices.len()];
     self.non_zero_long_count = 0;
-    //TODO
+    // TODO: memory calculation not implement
     self.ram_bytes_used = 0;
   }
 
