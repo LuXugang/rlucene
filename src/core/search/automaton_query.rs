@@ -238,10 +238,11 @@ mod tests {
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::DefaultIndexSearchCR;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    is_night_mode, new_directory_shared, new_searcher_with_reader, new_text_field, random,
+    at_least, is_night_mode, new_directory_shared, new_searcher_with_reader, new_text_field, random,
   };
   use crate::test::core::util::test_util::TestUtil;
   use rand::Rng;
+  use rand::RngExt;
   use std::collections::HashMap;
   use std::rc::Rc;
 
@@ -249,6 +250,7 @@ mod tests {
   use crate::core::search::regexp_query::RegexpQuery;
   use crate::core::search::wildcard_query::WildcardQuery;
   use crate::core::util::CoreHelper;
+  use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 
   #[allow(dead_code)] // for quick search
   struct TestAutomatonQuery;
@@ -529,8 +531,40 @@ mod tests {
     assert_eq!(0, automaton_query_nr_hits(&searcher, aq)?);
     Ok(())
   }
+  #[test]
   fn test_hash_code_with_threads() -> Result<()> {
-    // TODO IMPORTANT
+    let mut random = random();
+    let mut queries = Vec::new();
+    for _ in 0..at_least(&mut random, 100) {
+      let automaton = AutomatonTestUtil::random_automaton(&mut random)?;
+      let automaton =
+        Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+          .into_owned();
+      queries.push(AutomatonQuery::from_automaton(
+        Term::from_text("bogus", "bogus"),
+        automaton,
+      )?);
+    }
+
+    let queries = std::sync::Arc::new(queries);
+    let num_threads = random.random_range(2..=5);
+    let starting_gun = std::sync::Arc::new(std::sync::Barrier::new(num_threads));
+    let mut threads = Vec::new();
+
+    for _ in 0..num_threads {
+      let queries = std::sync::Arc::clone(&queries);
+      let starting_gun = std::sync::Arc::clone(&starting_gun);
+      threads.push(std::thread::spawn(move || {
+        starting_gun.wait();
+        for query in queries.iter() {
+          CoreHelper::calculate_hash(query);
+        }
+      }));
+    }
+
+    for thread in threads {
+      thread.join().unwrap();
+    }
     Ok(())
   }
   #[test]
