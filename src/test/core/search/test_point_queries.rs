@@ -18,31 +18,47 @@ use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::document::Document;
 use crate::core::document::double_point::DoublePoint;
 use crate::core::document::field::Store::No;
+use crate::core::document::field_type::FieldType;
 use crate::core::document::float_point::FloatPoint;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::multi_doc_values::MultiDocValues;
+use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::point_values::{MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES};
 use crate::core::index::term::Term;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::search::query::Query;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
+use crate::core::util::bits::Bits;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::search::fixed_bit_set_collector::FixedBitSetCollector;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_searcher_with_reader, new_searcher_with_wrap, random,
+  at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_searcher_with_reader,
+  new_searcher_with_wrap, new_string_field, random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
 use std::vec;
 
 #[allow(dead_code)] // for quick search
@@ -562,25 +578,46 @@ fn test_all_equal() -> Result<()> {
 }
 #[test]
 fn test_random_longs_tiny() -> Result<()> {
-  // TODO
-  Ok(())
+  let mut random = random();
+  do_test_random_longs(&mut random, 10)
 }
 #[test]
 fn test_random_longs_medium() -> Result<()> {
-  // TODO: port do_test_random_longs(1000)
-  Ok(())
+  let mut random = random();
+  do_test_random_longs(&mut random, 1000)
 }
 
 #[test]
 fn test_random_longs_big() -> Result<()> {
-  // TODO: port do_test_random_longs(20_000)
-  Ok(())
+  let mut random = random();
+  do_test_random_longs(&mut random, 20_000)
 }
 
-// TODO: port doTestRandomLongs
-fn do_test_random_longs(_count: i32) -> Result<()> {
-  // TODO
-  Ok(())
+fn do_test_random_longs<R>(random: &mut R, count: i32) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
+  let num_values = TestUtil::next_int(random, count, count * 2) as usize;
+  let mut values = vec![0i64; num_values];
+  let mut ids = vec![0; num_values];
+  let single_valued = random.random_bool(0.5);
+  let same_value_pct = random.random_range(0..100);
+
+  let mut id = 0;
+  for ord in 0..num_values {
+    if ord > 0 && random.random_range(0..100) < same_value_pct {
+      values[ord] = values[random.random_range(0..ord)];
+    } else {
+      values[ord] = random_value(random);
+    }
+
+    ids[ord] = id;
+    if single_valued || random.random_range(0..2) == 1 {
+      id += 1;
+    }
+  }
+
+  verify_longs(random, &values, &ids)
 }
 #[test]
 fn test_long_encode() -> Result<()> {
@@ -598,65 +635,439 @@ fn test_long_encode() -> Result<()> {
 
   Ok(())
 }
-// TODO: port verifyLongs
-fn verify_longs(_values: &[i64], _ids: &[i32]) -> Result<()> {
-  // TODO
+fn verify_longs<R>(random: &mut R, values: &[i64], ids: &[i32]) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
+  let mut iwc = new_index_writer_config(random);
+
+  let mbd = iwc.get_max_buffered_docs();
+  if mbd != -1 && mbd < (values.len() / 100) as i32 {
+    iwc.set_max_buffered_docs((values.len() / 100) as i32);
+  }
+
+  let dir = if values.len() > 100000 {
+    new_fs_directory(
+      random,
+      create_temp_dir_with_prefix("test_random_longs_big")?,
+    )?
+  } else {
+    new_directory_shared(random)?
+  };
+
+  let missing_pct = if random.random_bool(0.5) {
+    0
+  } else {
+    random.random_range(0..100)
+  };
+  let deleted_pct = random.random_range(0..100);
+
+  let mut missing = bit_set::BitSet::new();
+  let mut deleted = bit_set::BitSet::new();
+  let mut doc: Option<Document> = None;
+  let mut last_id = -1;
+  let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  #[allow(clippy::needless_range_loop)]
+  for ord in 0..values.len() {
+    let id = ids[ord];
+    let id_index = id as usize;
+
+    if id != last_id {
+      if random.random_range(0..100) < missing_pct {
+        missing.insert(id_index);
+      }
+
+      if let Some(doc) = doc.take() {
+        w.add_document(doc)?;
+        if random.random_range(0..100) < deleted_pct {
+          let id_to_delete = random.random_range(0..id) as usize;
+          w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
+          deleted.insert(id_to_delete);
+        }
+      }
+
+      let mut new_doc = Document::new();
+      new_doc.add(new_string_field(
+        random,
+        "id",
+        id.to_string(),
+        No,
+        &mut field_to_type,
+      )?);
+      new_doc.add(NumericDocValuesField::new("id", id as i64));
+      doc = Some(new_doc);
+      last_id = id;
+    }
+
+    if !missing.contains(id_index) {
+      let value = values[id_index];
+      doc
+        .as_mut()
+        .expect("document should be initialized before adding point values")
+        .add(LongPoint::new("sn_value", [value])?);
+
+      let mut bytes = vec![0u8; 8];
+      NumericUtils::long_to_sortable_bytes(value, &mut bytes, 0);
+      doc
+        .as_mut()
+        .expect("document should be initialized before adding point values")
+        .add(BinaryPoint::new("ss_value", [bytes])?);
+    }
+  }
+
+  if let Some(doc) = doc {
+    w.add_document(doc)?;
+  }
+
+  if random.random_bool(0.5) {
+    w.force_merge(1)?;
+  }
+
+  let r = directory_reader_util::open_from_writer(&w)?;
+  let max_doc = r.max_doc()?;
+  w.close()?;
+
+  let num_threads = TestUtil::next_int(random, 2, 5);
+  let iters = at_least(random, 100);
+  let failed = AtomicBool::new(false);
+
+  thread::scope(|scope| -> Result<()> {
+    let mut handles = Vec::new();
+
+    for _ in 0..num_threads {
+      let dir = dir.clone();
+      let failed = &failed;
+      let missing = &missing;
+      let deleted = &deleted;
+      let seed = random.next_u64();
+
+      handles.push(scope.spawn(move || -> Result<()> {
+        let mut random = random_from_seed(seed);
+        let r = Arc::new(directory_reader_util::open(dir)?);
+        let searcher = new_searcher_with_reader(r.clone())?;
+
+        for _ in 0..iters {
+          if failed.load(Ordering::Relaxed) {
+            break;
+          }
+
+          let mut lower = random_value(&mut random);
+          let mut upper = random_value(&mut random);
+          if upper < lower {
+            std::mem::swap(&mut lower, &mut upper);
+          }
+
+          let query: Query = if random.random_bool(0.5) {
+            LongPoint::new_range_query("sn_value", lower, upper)?.into()
+          } else {
+            let mut lower_bytes = vec![0u8; 8];
+            let mut upper_bytes = vec![0u8; 8];
+            NumericUtils::long_to_sortable_bytes(lower, &mut lower_bytes, 0);
+            NumericUtils::long_to_sortable_bytes(upper, &mut upper_bytes, 0);
+            BinaryPoint::new_range_query("ss_value", lower_bytes, upper_bytes)?.into()
+          };
+
+          let hits = searcher
+            .search_with_collector_manager(query, &FixedBitSetCollector::create_manager(max_doc))?;
+
+          let mut doc_id_to_id = MultiDocValues::get_numeric_values(r.clone(), "id")?
+            .ok_or_else(|| LuceneError::illegal_state("missing id numeric doc values"))?;
+
+          loop {
+            let doc_id = doc_id_to_id.next_doc()?;
+            if doc_id == NO_MORE_DOCS {
+              break;
+            }
+            let id = doc_id_to_id.long_value()? as usize;
+            let expected = !missing.contains(id)
+              && !deleted.contains(id)
+              && values[id] >= lower
+              && values[id] <= upper;
+
+            if hits.get(doc_id as usize)? != expected {
+              failed.store(true, Ordering::Relaxed);
+              return Err(LuceneError::illegal_state(format!(
+                "id={} docID={} value={} range={} TO {} expected {} but got {}",
+                id,
+                doc_id,
+                values[id],
+                lower,
+                upper,
+                expected,
+                hits.get(doc_id as usize)?
+              )));
+            }
+          }
+        }
+
+        Ok(())
+      }));
+    }
+
+    for handle in handles {
+      handle
+        .join()
+        .map_err(|_| LuceneError::illegal_state("verify_longs query thread panicked"))??;
+    }
+
+    Ok(())
+  })?;
+
   Ok(())
 }
 #[test]
 fn test_random_binary_tiny() -> Result<()> {
-  // TODO: port do_test_random_binary(10)
-  Ok(())
+  let mut random = random();
+  do_test_random_binary(&mut random, 10)
 }
 
 #[test]
 fn test_random_binary_medium() -> Result<()> {
-  // TODO: port do_test_random_binary(1000)
-  Ok(())
+  let mut random = random();
+  do_test_random_binary(&mut random, 1000)
 }
 
-// TODO: port doTestRandomBinary
-fn do_test_random_binary(_count: i32) -> Result<()> {
-  // TODO
-  Ok(())
-}
-
-// TODO: port verifyBinary
-fn verify_binary(
-  _doc_values: &[Vec<Vec<u8>>],
-  _ids: &[i32],
-  _num_bytes_per_dim: usize,
-) -> Result<()> {
-  // TODO
-  Ok(())
-}
-// TODO: port bytesToString
-fn bytes_to_string<R>(_random: &mut R, _bytes: Option<&[u8]>) -> Result<String>
+fn do_test_random_binary<R>(random: &mut R, count: i32) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  // TODO
-  Ok("".to_string())
+  let num_values = TestUtil::next_int(random, count, count * 2) as usize;
+  let num_bytes_per_dim = TestUtil::next_int(random, 2, MAX_NUM_BYTES as i32) as usize;
+  let num_dims = TestUtil::next_int(random, 1, MAX_INDEX_DIMENSIONS as i32) as usize;
+  let same_value_pct = random.random_range(0..100);
+
+  let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::with_capacity(num_values);
+  let single_valued = random.random_bool(0.5);
+  let mut ids = vec![0; num_values];
+
+  let mut id = 0;
+  for ord in 0..num_values {
+    if ord > 0 && random.random_range(0..100) < same_value_pct {
+      doc_values.push(doc_values[random.random_range(0..ord)].clone());
+    } else {
+      let mut values = Vec::with_capacity(num_dims);
+      for _ in 0..num_dims {
+        let mut value = vec![0u8; num_bytes_per_dim];
+        random.fill_bytes(&mut value);
+        values.push(value);
+      }
+      doc_values.push(values);
+    }
+
+    ids[ord] = id;
+    if single_valued || random.random_range(0..2) == 1 {
+      id += 1;
+    }
+  }
+
+  verify_binary(random, &doc_values, &ids, num_bytes_per_dim)
 }
 
-// TODO: port matches
-fn matches(
-  _bytes_per_dim: usize,
-  _lower: &[Vec<u8>],
-  _upper: &[Vec<u8>],
-  _value: &[Vec<u8>],
-) -> bool {
-  // TODO
-  false
-}
-
-// TODO: port randomValue
-fn random_value<R>(_random: &mut R) -> i64
+fn verify_binary<R>(
+  random: &mut R,
+  doc_values: &[Vec<Vec<u8>>],
+  ids: &[i32],
+  num_bytes_per_dim: usize,
+) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  // TODO
-  0
+  let mut iwc = new_index_writer_config(random);
+
+  let num_dims = doc_values[0].len();
+  let bytes_per_dim = doc_values[0][0].len();
+
+  let mbd = iwc.get_max_buffered_docs();
+  if mbd != -1 && mbd < (doc_values.len() / 100) as i32 {
+    iwc.set_max_buffered_docs((doc_values.len() / 100) as i32);
+  }
+  // TODO setCodec未实现
+  let dir = if doc_values.len() > 100000 {
+    new_fs_directory(
+      random,
+      create_temp_dir_with_prefix("test_random_binary_big")?,
+    )?
+  } else {
+    new_directory_shared(random)?
+  };
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let num_values = doc_values.len();
+  let missing_pct = random.random_range(0..100);
+  let deleted_pct = random.random_range(0..100);
+
+  let mut missing = bit_set::BitSet::new();
+  let mut deleted = bit_set::BitSet::new();
+
+  let mut doc: Option<Document> = None;
+  let mut last_id = -1;
+  let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+  for ord in 0..num_values {
+    let id = ids[ord];
+    let id_index = id as usize;
+
+    if id != last_id {
+      if random.random_range(0..100) < missing_pct {
+        missing.insert(id_index);
+      }
+
+      if let Some(doc) = doc.take() {
+        w.add_document(doc)?;
+        if random.random_range(0..100) < deleted_pct {
+          let id_to_delete = random.random_range(0..id) as usize;
+          w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
+          deleted.insert(id_to_delete);
+        }
+      }
+
+      let mut new_doc = Document::new();
+      new_doc.add(new_string_field(
+        random,
+        "id",
+        id.to_string(),
+        No,
+        &mut field_to_type,
+      )?);
+      new_doc.add(NumericDocValuesField::new("id", id as i64));
+      doc = Some(new_doc);
+      last_id = id;
+    }
+
+    if !missing.contains(id as usize) {
+      doc
+        .as_mut()
+        .expect("document should be initialized before adding point values")
+        .add(BinaryPoint::new("value", doc_values[ord].clone())?);
+    }
+  }
+
+  if let Some(doc) = doc {
+    w.add_document(doc)?;
+  }
+
+  if random.random_bool(0.5) {
+    w.force_merge(1)?;
+  }
+
+  let r = directory_reader_util::open_from_writer(&w)?;
+  let max_doc = r.max_doc()?;
+  w.close()?;
+
+  let num_threads = TestUtil::next_int(random, 2, 5);
+  let iters = at_least(random, 100);
+
+  let failed = AtomicBool::new(false);
+
+  thread::scope(|scope| -> Result<()> {
+    let mut handles = Vec::new();
+
+    for _ in 0..num_threads {
+      let dir = dir.clone();
+      let failed = &failed;
+      let missing = &missing;
+      let deleted = &deleted;
+      let seed = random.next_u64();
+
+      handles.push(scope.spawn(move || -> Result<()> {
+        let mut random = random_from_seed(seed);
+        let r = Arc::new(directory_reader_util::open(dir)?);
+        let searcher = new_searcher_with_reader(r.clone())?;
+
+        for _ in 0..iters {
+          if failed.load(Ordering::Relaxed) {
+            break;
+          }
+
+          let mut lower = vec![vec![0u8; bytes_per_dim]; num_dims];
+          let mut upper = vec![vec![0u8; bytes_per_dim]; num_dims];
+
+          for dim in 0..num_dims {
+            random.fill_bytes(&mut lower[dim]);
+            random.fill_bytes(&mut upper[dim]);
+
+            if lower[dim].as_slice() > upper[dim].as_slice() {
+              std::mem::swap(&mut lower[dim], &mut upper[dim]);
+            }
+          }
+
+          let query = BinaryPoint::new_range_query_multi_dim("value", &lower, &upper)?;
+          let hits = searcher
+            .search_with_collector_manager(query, &FixedBitSetCollector::create_manager(max_doc))?;
+
+          let mut expected = bit_set::BitSet::new();
+          for ord in 0..num_values {
+            let id = ids[ord] as usize;
+            if !missing.contains(id)
+              && !deleted.contains(id)
+              && matches(num_bytes_per_dim, &lower, &upper, &doc_values[ord])
+            {
+              expected.insert(id);
+            }
+          }
+
+          let mut doc_id_to_id = MultiDocValues::get_numeric_values(r.clone(), "id")?
+            .ok_or_else(|| LuceneError::illegal_state("missing id numeric doc values"))?;
+
+          let mut fail_count = 0;
+          loop {
+            let doc_id = doc_id_to_id.next_doc()?;
+            if doc_id == NO_MORE_DOCS {
+              break;
+            }
+            let id = doc_id_to_id.long_value()? as usize;
+            if hits.get(doc_id as usize)? != expected.contains(id) {
+              fail_count += 1;
+            }
+          }
+
+          if fail_count != 0 {
+            failed.store(true, Ordering::Relaxed);
+            return Err(LuceneError::illegal_state(format!(
+              "{} hits were wrong",
+              fail_count
+            )));
+          }
+        }
+
+        Ok(())
+      }));
+    }
+
+    for handle in handles {
+      handle
+        .join()
+        .map_err(|_| LuceneError::illegal_state("verify_binary query thread panicked"))??;
+    }
+
+    Ok(())
+  })?;
+
+  Ok(())
+}
+fn matches(bytes_per_dim: usize, lower: &[Vec<u8>], upper: &[Vec<u8>], value: &[Vec<u8>]) -> bool {
+  for dim in 0..value.len() {
+    if value[dim][0..bytes_per_dim] < lower[dim][0..bytes_per_dim]
+      || value[dim][0..bytes_per_dim] > upper[dim][0..bytes_per_dim]
+    {
+      return false;
+    }
+  }
+  true
+}
+
+fn random_value<R>(random: &mut R) -> i64
+where
+  R: Rng + ?Sized,
+{
+  match random.random_range(0..10) {
+    0 => i64::MIN,
+    1 => i64::MAX,
+    2 => 0,
+    3 => -1,
+    4 => 1,
+    _ => random.random(),
+  }
 }
 #[test]
 fn test_min_max_long() -> Result<()> {
@@ -1217,13 +1628,11 @@ fn test_to_string() -> Result<()> {
 
   Ok(())
 }
-// TODO: port toArray
 fn to_array(_values_set: &std::collections::HashSet<i32>) -> Vec<i32> {
   // TODO
   Vec::new()
 }
 
-// TODO: port randomIntValue
 fn random_int_value(_min: Option<i32>, _max: Option<i32>) -> i32 {
   // TODO
   0
@@ -1234,7 +1643,6 @@ fn test_random_point_in_set_query() -> Result<()> {
   // TODO
   Ok(())
 }
-// TODO: port newMultiDimIntSetQuery
 fn new_multi_dim_int_set_query(
   _field: &str,
   _num_dims: usize,
