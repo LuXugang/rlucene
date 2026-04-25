@@ -435,7 +435,7 @@ fn test_queries09() -> Result<()> {
   queries_test(&mut random, &ctx, query.build().into(), &exp_doc_nrs)?;
   Ok(())
 }
-// TODO IMPORTANT 测试未通过14412882855420539045/17421473047116477521
+#[test]
 fn test_random_queries() -> Result<()> {
   let mut random = random();
   let mut ctx = set_up(&mut random)?;

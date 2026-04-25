@@ -383,7 +383,8 @@ fn test_no_optional_but_min_2() -> Result<()> {
 
   Ok(())
 }
-// TODO IMPORTANT 531972363230362638
+
+#[test]
 fn test_random_queries() -> Result<()> {
   let mut random = random();
   let s = set_up(&mut random)?;

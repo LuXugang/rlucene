@@ -508,6 +508,7 @@ pub(crate) mod tests {
   use crate::core::search::index_searcher::IndexSearcher;
   use crate::core::search::query::{Query, QueryBase};
 
+  use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
   use crate::core::document::string_field::StringField;
   use crate::core::index::directory_reader::directory_reader_util;
   use crate::core::index::index_writer::IndexWriter;
@@ -1245,7 +1246,7 @@ pub(crate) mod tests {
 
     Ok(())
   }
-  // TODO 测试未通过 6234308664746830463
+  #[test]
   fn test_random_top_docs() -> Result<()> {
     let mut random = random();
     do_test_random_top_docs(&mut random, 2, &[0.05, 0.05])?;
@@ -1332,9 +1333,8 @@ pub(crate) mod tests {
     assert_eq!(num_fields, freqs.len());
 
     let dir = new_directory_shared(random)?;
-    // TODO IMPORTANT StandardAnalyzer 未实现
-    // let analyzer = StandardAnalyzer::new();
-    let iwc = IndexWriterConfig::new();
+    let analyzer = StandardAnalyzer::new();
+    let iwc = IndexWriterConfig::with_analyzer(analyzer);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
     let num_docs = if is_night_mode() {
