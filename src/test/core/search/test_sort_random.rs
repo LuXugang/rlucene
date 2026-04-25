@@ -197,31 +197,6 @@ fn field_doc_sort_value(value: Option<&FieldComparatorValue>) -> Result<Option<B
   }
 }
 
-fn expected_random_matches<IRC>(
-  reader_context: &IRC,
-  seed: u64,
-  density: f32,
-  doc_values: &[Option<BytesRef<Vec<u8>>>],
-) -> Result<Vec<Option<BytesRef<Vec<u8>>>>>
-where
-  IRC: IndexReaderContext,
-{
-  let mut expected = Vec::new();
-  for leaf in reader_context.leaves()? {
-    let mut random = StdRng::seed_from_u64((leaf.doc_base as u64) ^ seed);
-    let max_doc = leaf.reader().max_doc()?;
-    let mut id_source = leaf.reader().get_numeric_doc_values("id")?.unwrap();
-    for doc_id in 0..max_doc {
-      assert_eq!(doc_id, id_source.next_doc()?);
-      if random.random::<f32>() <= density {
-        let value_ord = id_source.long_value()? as usize;
-        expected.push(doc_values[value_ord].clone());
-      }
-    }
-  }
-  Ok(expected)
-}
-
 #[derive(Clone, Debug)]
 pub struct RandomQuery {
   id: Identity,
