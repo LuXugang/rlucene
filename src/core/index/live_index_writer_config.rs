@@ -34,23 +34,14 @@ use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::search::index_searcher::default_similarity;
 use crate::core::search::similarities_impl::similarities::{Similarity, SimilarityEnum};
 use crate::core::search::sort::Sort;
-use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::LATEST;
-use crate::core::util::error::lucene_error::LuceneError;
-use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::Arc;
 
 pub trait LiveIndexWriterConfig: Display {
-  fn set_open_mode(&mut self, open_mode: OpenMode) -> &mut Self {
-    let base = self.get_base_mut();
-    base.open_mode = open_mode;
-    self
-  }
-
   type Analyzer: Analyzer;
   fn get_analyzer(&self) -> &Self::Analyzer;
 
@@ -94,14 +85,6 @@ pub trait LiveIndexWriterConfig: Display {
 
   fn get_max_full_flush_merge_wait_millis(&self) -> i64;
 
-  fn set_max_full_flush_merge_wait_millis(
-    &mut self,
-    max_full_flush_merge_wait_millis: i64,
-  ) -> &mut Self {
-    self.get_base_mut().max_full_flush_merge_wait_millis = max_full_flush_merge_wait_millis;
-    self
-  }
-
   fn get_commit_on_close(&self) -> bool;
 
   fn get_open_mode(&self) -> &OpenMode;
@@ -128,63 +111,12 @@ pub trait LiveIndexWriterConfig: Display {
     self.get_base_mut().use_compound_file = use_compound_file;
     self
   }
-
-  fn set_index_sort<T>(&mut self, sort: T) -> Result<&mut Self>
-  where
-    T: Into<Arc<Sort>>,
-  {
-    let sort = sort.into();
-    let base = self.get_base_mut();
-    for sort_field in sort.get_sort() {
-      if sort_field.get_index_sorter()?.is_none() {
-        return Err(LuceneError::illegal_argument(format!(
-          "Cannot sort index with sort field {}",
-          sort_field
-        )));
-      }
-    }
-    let index_sort_fields: HashSet<String> = sort
-      .get_sort()
-      .iter()
-      .filter_map(|f| f.get_field())
-      .map(str::to_string)
-      .collect();
-    base.index_sort_fields = index_sort_fields;
-    base.index_sort = Some(sort);
-    Ok(self)
-  }
-
   fn set_merge_policy<T>(&mut self, merge_policy: T) -> &mut Self
   where
     T: Into<MergePolicyEnum>,
   {
     let v = merge_policy.into();
     self.get_base_mut().merge_policy = v;
-    self
-  }
-  fn set_merge_scheduler<T>(&mut self, merge_scheduler: T) -> &mut Self
-  where
-    T: Into<MergeSchedulerEnum>,
-  {
-    let v = merge_scheduler.into();
-    self.get_base_mut().merge_scheduler = v;
-    self
-  }
-  fn set_soft_deletes_field<T>(&mut self, soft_deletes_field: T) -> &mut Self
-  where
-    T: Into<String>,
-  {
-    let v = soft_deletes_field.into();
-    self.get_base_mut().soft_deletes_field = Some(v);
-    self
-  }
-
-  fn set_parent_field<T>(&mut self, parent_field: T) -> &mut Self
-  where
-    T: Into<String>,
-  {
-    let v = parent_field.into();
-    self.get_base_mut().parent_field = Some(v);
     self
   }
 }

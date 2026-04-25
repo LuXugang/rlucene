@@ -1258,8 +1258,6 @@ mod tests {
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_reader_context::IndexReaderContext;
 
-  use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-
   use crate::core::search::boolean_query::Builder;
   use crate::core::search::field_exists_query::FieldExistsQuery;
   use crate::core::search::index_searcher::IndexSearcher;

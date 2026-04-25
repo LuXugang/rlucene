@@ -21,7 +21,6 @@ use crate::core::document::string_field::StringField;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;

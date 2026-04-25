@@ -26,6 +26,7 @@ use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
+use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -57,6 +58,18 @@ impl IndexWriterConfig {
       base: LiveIndexWriterConfigBase::with_analyzer(analyzer),
     }
   }
+  pub fn set_max_full_flush_merge_wait_millis(
+    &mut self,
+    max_full_flush_merge_wait_millis: i64,
+  ) -> &mut Self {
+    self.base.max_full_flush_merge_wait_millis = max_full_flush_merge_wait_millis;
+    self
+  }
+  pub fn set_open_mode(&mut self, open_mode: OpenMode) -> &mut Self {
+    let base = self.get_base_mut();
+    base.open_mode = open_mode;
+    self
+  }
 
   pub fn set_similarity<T>(&mut self, similarity: T)
   where
@@ -85,6 +98,55 @@ impl IndexWriterConfig {
 
     self.base.created_version_major = index_created_version_major;
     Ok(self)
+  }
+  pub fn set_index_sort<T>(&mut self, sort: T) -> Result<&mut Self>
+  where
+    T: Into<Arc<Sort>>,
+  {
+    let sort = sort.into();
+    for sort_field in sort.get_sort() {
+      if sort_field.get_index_sorter()?.is_none() {
+        return Err(LuceneError::illegal_argument(format!(
+          "Cannot sort index with sort field {}",
+          sort_field
+        )));
+      }
+    }
+    let index_sort_fields: HashSet<String> = sort
+      .get_sort()
+      .iter()
+      .filter_map(|f| f.get_field())
+      .map(str::to_string)
+      .collect();
+    self.base.index_sort_fields = index_sort_fields;
+    self.base.index_sort = Some(sort);
+    Ok(self)
+  }
+
+  pub fn set_merge_scheduler<T>(&mut self, merge_scheduler: T) -> &mut Self
+  where
+    T: Into<MergeSchedulerEnum>,
+  {
+    let v = merge_scheduler.into();
+    self.base.merge_scheduler = v;
+    self
+  }
+  pub fn set_soft_deletes_field<T>(&mut self, soft_deletes_field: T) -> &mut Self
+  where
+    T: Into<String>,
+  {
+    let v = soft_deletes_field.into();
+    self.base.soft_deletes_field = Some(v);
+    self
+  }
+
+  pub fn set_parent_field<T>(&mut self, parent_field: T) -> &mut Self
+  where
+    T: Into<String>,
+  {
+    let v = parent_field.into();
+    self.base.parent_field = Some(v);
+    self
   }
 }
 

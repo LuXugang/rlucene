@@ -26,7 +26,6 @@ use crate::core::index::BytesRef;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer_config::IndexWriterConfig;
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
