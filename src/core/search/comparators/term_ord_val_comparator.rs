@@ -151,10 +151,9 @@ impl FieldComparator for TermOrdValComparator {
     LR: LeafReader,
   {
     self.current_reader_gen += 1;
-    let c = |context: &LeafReaderContext<LR>| -> Result<TermOrdValDocValues<LR>> {
+    let c = |context: &LeafReaderContext<LR>, field: &str| -> Result<TermOrdValDocValues<LR>> {
       Ok(TermOrdValDocValues::<LR>::B(get_sorted_doc_values(
-        context,
-        &self.field,
+        context, field,
       )?))
     };
     TermOrdValLeafComparator::new(context, c, self)
@@ -208,12 +207,12 @@ where
   pub fn new<F>(
     context: &LeafReaderContext<LR>,
     doc_value_producer: F,
-    comparator: &TermOrdValComparator,
+    comparator: &mut TermOrdValComparator,
   ) -> Result<Self>
   where
-    F: Fn(&LeafReaderContext<LR>) -> Result<TermOrdValDocValues<LR>>,
+    F: Fn(&LeafReaderContext<LR>, &str) -> Result<TermOrdValDocValues<LR>>,
   {
-    let mut terms_index = doc_value_producer(context)?;
+    let mut terms_index = doc_value_producer(context, &comparator.field)?;
     let missing_ord = if comparator.sort_missing_last {
       i32::MAX
     } else {
@@ -242,10 +241,9 @@ where
       dense: false,
     };
 
-    // TODO
-    // if comparator.bottom_slot != -1 {
-    //     leaf.set_bottom(comparator.bottom_slot as usize)?;
-    // }
+    if comparator.bottom_slot != -1 {
+      leaf.set_bottom(comparator.bottom_slot as usize, comparator)?;
+    }
 
     let enable_skipping = if !comparator.can_skip_documents {
       leaf.dense = false;
@@ -299,7 +297,7 @@ where
         let docs_with_field = if leaf.dense {
           None
         } else {
-          Some(doc_value_producer(context)?)
+          Some(doc_value_producer(context, &comparator.field)?)
         };
 
         leaf.competitive_iterator = Some(TermOrdValCompetitiveIterator::new(

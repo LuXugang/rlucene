@@ -61,7 +61,7 @@ use std::sync::{Arc, Mutex};
 #[allow(dead_code)] // for quick search
 pub struct TestSortRandom;
 
-// TODO IMPORTANT 测试未通过
+#[test]
 fn test_random_string_sort() -> Result<()> {
   test_random_string_sort_for_type(SortFieldType::String)
 }

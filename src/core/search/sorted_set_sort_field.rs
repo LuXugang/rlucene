@@ -307,13 +307,13 @@ impl FieldComparator for SortedDocValuesTermOrdValComparator {
     LR: LeafReader,
   {
     self.base.current_reader_gen += 1;
-    let c = |context: &LeafReaderContext<LR>| -> Result<TermOrdValDocValues<LR>> {
+    let c = |context: &LeafReaderContext<LR>, field: &str| -> Result<TermOrdValDocValues<LR>> {
       Ok(TermOrdValDocValues::<LR>::A(SortedSetSelector::wrap(
-        DocValues::get_sorted_set(context.reader(), &self.base.field)?,
+        DocValues::get_sorted_set(context.reader(), field)?,
         self.selector,
       )?))
     };
-    TermOrdValLeafComparator::new(context, c, &self.base)
+    TermOrdValLeafComparator::new(context, c, &mut self.base)
   }
 
   fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
