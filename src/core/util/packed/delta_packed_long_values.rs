@@ -65,7 +65,7 @@ impl Default for DeltaPackedLongValuesBuilder {
 }
 
 impl DeltaPackedLongValuesBuilder {
-  // TODO
+  // TODO: memory calculation not implement
   const BASE_RAM_BYTES_USED: u64 = 0;
   pub(crate) fn new() -> DeltaPackedLongValuesBuilder {
     Self::with_sub_builder(None)
@@ -86,7 +86,7 @@ impl DeltaPackedLongValuesBuilder {
     };
 
     self.mins.truncate(values_off as usize);
-    // TODO:
+    // TODO: memory calculation not implement:
     let _ram_bytes_used = 0;
 
     Ok(DeltaPackedLongValues::new(self.mins, sub_reader))

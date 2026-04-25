@@ -262,7 +262,6 @@ impl PackedInts {
   ///
   /// # Returns
   /// The number of bits required to store `bits`.
-  // TODO: 这里是不是要改成u64
   pub fn unsigned_bits_required(bits: i64) -> i32 {
     (64 - bits.leading_zeros() as usize).max(1) as i32
   }

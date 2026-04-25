@@ -1007,9 +1007,6 @@ where
     if input.length() > 0 {
       input.prefetch(0, 1)?;
     }
-
-    // TODO: should we write to disk the actual max level for this
-    // segment?
     Ok(Some(DocValuesSkipperImpl::new(input, entry.clone())))
   }
 

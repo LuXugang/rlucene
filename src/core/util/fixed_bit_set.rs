@@ -24,8 +24,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, TryIntoInt};
 use std::hash::{Hash, Hasher};
-// todo
-
+// TODO: memory calculation not implement
 const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
 /// `BitSet` of fixed length (`num_bits`), backed by accessible (`get_bits`)
@@ -478,7 +477,7 @@ impl Bits for FixedBitSet {
 
 impl Accountable for FixedBitSet {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO
+    // TODO: memory calculation not implement
     Ok(0)
   }
 }
@@ -650,7 +649,7 @@ impl BitSet for FixedBitSet {
   where
     T: DocIdSetIterator,
   {
-    //TODO: this is a naive implementation, we can optimize it from Java
+    //TODO IMPORTANT: this is a naive implementation, we can optimize it from Java
     // Lucene
     check_unpositioned(iter)?;
     loop {

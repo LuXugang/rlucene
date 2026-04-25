@@ -67,13 +67,13 @@ impl MonotonicLongValuesBuilder {
   pub(crate) fn build(mut self, values_off: i32) -> Result<MonotonicLongValues> {
     let _ = self.averages.split_off(values_off as usize);
 
-    // TODO
+    // TODO: memory calculation not implement
     let _ram_bytes_used = 0;
 
     Ok(MonotonicLongValues::new(std::mem::take(&mut self.averages)))
   }
   pub(crate) fn base_ram_bytes_used(&self) -> u64 {
-    // TODO
+    // TODO: memory calculation not implement
     Self::BASE_RAM_BYTES_USED
   }
 

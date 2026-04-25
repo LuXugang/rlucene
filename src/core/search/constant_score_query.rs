@@ -190,7 +190,6 @@ impl<IRC> Weight<IRC> for WeightImpl<IRC>
 where
   IRC: IndexReaderContext,
 {
-  // TODO IMPORTANT
   type Matches = MatchWithNoTerms;
 
   fn matches(

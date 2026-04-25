@@ -21,8 +21,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
-// TODO
-
+// TODO: memory calculation not implement
 const BASE_RAM_BYTES_USED: i64 = 0;
 
 /// A doc id set based on a sorted `Vec<i32>`.

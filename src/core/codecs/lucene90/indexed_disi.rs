@@ -502,7 +502,6 @@ impl MethodBehavior for SparseMethod {
     P: IndexedDISIPolicy<I>,
   {
     let target_in_block = target & 0xFFFF;
-    // TODO: binary search
     if disi.next_exist_doc_in_block > target_in_block {
       debug_assert!(!disi.exists);
       return Ok(false);

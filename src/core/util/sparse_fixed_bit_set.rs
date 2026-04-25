@@ -23,7 +23,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, SliceCopyOps, TryIntoInt};
 
-// TODO
+// TODO: memory calculation not implement
 
 const SPARSE_FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
@@ -67,7 +67,7 @@ impl SparseFixedBitSet {
     }
     let block_count = block_count(length);
     let indices = vec![0; block_count];
-    // todo
+    // TODO: memory calculation not implement
     let ram_bytes_used = 0;
     Ok(SparseFixedBitSet {
       indices,
@@ -781,6 +781,6 @@ mod tests {
   #[test]
 
   fn test_ram_bytes_used() {
-    // todo
+    // TODO: memory calculation not implement
   }
 }

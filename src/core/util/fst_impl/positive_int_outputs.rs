@@ -111,7 +111,7 @@ impl Outputs for PositiveIntOutputs {
   }
 
   fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
-    // TODO
+    // TODO: memory calculation not implement
     0
   }
 }

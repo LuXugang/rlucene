@@ -375,7 +375,7 @@ impl fmt::Display for OnHeapHnswGraph {
 
 impl Accountable for OnHeapHnswGraph {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO
+    // TODO: memory calculation not implement
     todo!()
   }
 }
