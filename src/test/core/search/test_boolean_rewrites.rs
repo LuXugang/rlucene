@@ -597,6 +597,7 @@ fn test_remove_match_all_filter() -> Result<()> {
 
   Ok(())
 }
+
 #[test]
 fn test_random() -> Result<()> {
   let mut random = random();
@@ -706,16 +707,15 @@ where
 
   Ok(query)
 }
-fn random_wrapper<R>(_random: &mut R, query: Query) -> Result<Query>
+fn random_wrapper<R>(random: &mut R, query: Query) -> Result<Query>
 where
   R: Rng + ?Sized,
 {
-  // match random.random_range(0..2) {
-  //   0 => Ok(BoostQuery::new(query, TestUtil::next_int(random, 0, 4) as f32)?.into()),
-  //   1 => Ok(ConstantScoreQuery::new(query).into()),
-  //   _ => unreachable!(""),
-  // }
-  Ok(query)
+  match random.random_range(0..2) {
+    0 => Ok(BoostQuery::new(query, TestUtil::next_int(random, 0, 4) as f32)?.into()),
+    1 => Ok(ConstantScoreQuery::new(query).into()),
+    _ => unreachable!(""),
+  }
 }
 fn random_query<R>(random: &mut R) -> Result<Query>
 where
@@ -727,8 +727,8 @@ where
   }
   let v = random.random_range(0..6);
   match v {
-    0 => Ok(MatchAllDocsQuery::new().into()),
-    1 => Ok(TermQuery::new(Term::from_text("body", "a")).into()),
+    // 0 => Ok(MatchAllDocsQuery::new().into()),
+    0 | 1 => Ok(TermQuery::new(Term::from_text("body", "a")).into()),
     2 => Ok(TermQuery::new(Term::from_text("body", "b")).into()),
     3 => Ok(TermQuery::new(Term::from_text("body", "c")).into()),
     4 => Ok(TermQuery::new(Term::from_text("body", "d")).into()),

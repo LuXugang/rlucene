@@ -253,7 +253,9 @@ impl Display for TopScoreDocLeafCollector<'_> {
 
 impl LeafCollector for TopScoreDocLeafCollector<'_> {
   fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
-    if self.base.total_hits_threshold != i32::MAX as usize {
+    if self.base.min_score_acc.is_none() {
+      self.update_min_competitive_score(scorer)?;
+    } else {
       self.update_global_min_competitive_score(scorer)?;
     }
     Ok(())

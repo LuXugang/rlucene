@@ -80,7 +80,7 @@ where
       .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
     loop {
       let top = &mut self.all_scores[top_idx];
-      let v = ScorerUtil::next_doc(&mut top.scorer)?;
+      let v = ScorerUtil::advance(&mut top.scorer, target)?;
       top.doc = v;
       top_idx = self.sub_iterators.update_top(&self.all_scores);
       if self.all_scores[top_idx].doc >= target {

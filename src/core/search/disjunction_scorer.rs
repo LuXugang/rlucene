@@ -400,7 +400,7 @@ where
       let w = &mut self.unverified_matches.compare.approximation.all_scores[w_idx];
       let next = w.next;
       let has_no_two_phase_view = (w.scorer.has_two_phase_iterator() == TwoPhaseState::No)
-        || w.scorer.two_phase_iterator().is_some();
+        || w.scorer.two_phase_iterator().is_none();
       if has_no_two_phase_view {
         // implicitly verified, move it to verifiedMatches
         w.next = self.verified_matches;

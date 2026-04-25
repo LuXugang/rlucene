@@ -297,8 +297,14 @@ impl QueryBase for BooleanQuery {
 
     for (i, clause) in self.clauses.iter().enumerate() {
       buffer.push_str(&clause.occur.to_string());
-
-      buffer.push_str(&clause.query.as_string(field)?);
+      let is_boolean = matches!(&clause.query, Query::Boolean(_));
+      if is_boolean {
+        buffer.push('(');
+        buffer.push_str(&clause.query.as_string(field)?);
+        buffer.push(')');
+      } else {
+        buffer.push_str(&clause.query.as_string(field)?);
+      }
 
       if i != self.clauses.len() - 1 {
         buffer.push(' ');
