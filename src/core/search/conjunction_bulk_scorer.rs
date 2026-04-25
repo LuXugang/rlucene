@@ -251,11 +251,11 @@ where
   S: Scorer,
 {
   fn score(&mut self) -> Result<f32> {
-    let mut score = 0f32;
+    let mut score = 0f64;
     for scorer in self.base.required_scoring_idx.iter() {
-      score += self.base.all_scores[*scorer].score()?;
+      score += self.base.all_scores[*scorer].score()? as f64;
     }
-    Ok(score)
+    Ok(score as f32)
   }
 
   fn cost(&self) -> Result<i64> {
