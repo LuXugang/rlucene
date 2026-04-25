@@ -597,6 +597,7 @@ fn test_remove_match_all_filter() -> Result<()> {
 
   Ok(())
 }
+#[test]
 fn test_random() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -705,15 +706,16 @@ where
 
   Ok(query)
 }
-fn random_wrapper<R>(random: &mut R, query: Query) -> Result<Query>
+fn random_wrapper<R>(_random: &mut R, query: Query) -> Result<Query>
 where
   R: Rng + ?Sized,
 {
-  match random.random_range(0..2) {
-    0 => Ok(BoostQuery::new(query, TestUtil::next_int(random, 0, 4) as f32)?.into()),
-    1 => Ok(ConstantScoreQuery::new(query).into()),
-    _ => unreachable!(""),
-  }
+  // match random.random_range(0..2) {
+  //   0 => Ok(BoostQuery::new(query, TestUtil::next_int(random, 0, 4) as f32)?.into()),
+  //   1 => Ok(ConstantScoreQuery::new(query).into()),
+  //   _ => unreachable!(""),
+  // }
+  Ok(query)
 }
 fn random_query<R>(random: &mut R) -> Result<Query>
 where

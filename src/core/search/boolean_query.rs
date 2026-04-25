@@ -331,7 +331,7 @@ impl QueryBase for BooleanQuery {
     Ok(Box::new(weight))
   }
   #[allow(clippy::mutable_key_type)]
-  fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
     Self: Sized,
@@ -355,18 +355,23 @@ impl QueryBase for BooleanQuery {
       let clause = &self.clauses[0];
 
       if self.minimum_number_should_match == 1 && clause.occur == Occur::Should {
-        return Ok(clause.query.clone());
+        let v = std::mem::take(&mut self.clauses[0]);
+        return Ok(v.query);
       } else if self.minimum_number_should_match == 0 {
         match clause.occur {
           Occur::Should | Occur::Must => {
-            return Ok(clause.query.clone());
+            let v = std::mem::take(&mut self.clauses[0]);
+            return Ok(v.query);
           },
           Occur::Filter => {
             // no scoring clauses, so return a score of 0
-            return Ok(Query::Boost(BoostQuery::new(
-              Query::ConstantScore(ConstantScoreQuery::new(clause.query.clone())),
-              0.0,
-            )?));
+            {
+              let v = std::mem::take(&mut self.clauses[0]);
+              return Ok(Query::Boost(BoostQuery::new(
+                Query::ConstantScore(ConstantScoreQuery::new(v.query)),
+                0.0,
+              )?));
+            };
           },
           Occur::MustNot => return Err(LuceneError::illegal_state("should not be here")),
         }
@@ -387,7 +392,7 @@ impl QueryBase for BooleanQuery {
           Occur::Filter | Occur::MustNot => {
             // Clauses that are not involved in scoring can get some extra simplifications
             let rewritten =
-              Query::ConstantScore(ConstantScoreQuery::new(query.clone())).rewrite(searcher)?;
+              Query::ConstantScore(ConstantScoreQuery::new(query)).rewrite(searcher)?;
             match rewritten {
               Query::ConstantScore(cs) => cs.into_inner(),
               q => q,
@@ -402,9 +407,7 @@ impl QueryBase for BooleanQuery {
 
           if matches!(rewritten, Query::MatchNoDocs(_)) {
             match occur {
-              Occur::Should | Occur::MustNot => {
-                // the clause can be safely ignored
-              },
+              Occur::Should | Occur::MustNot => {},
               Occur::Must | Occur::Filter => {
                 return Ok(rewritten);
               },
@@ -437,8 +440,8 @@ impl QueryBase for BooleanQuery {
 
         for (occur, indices) in &self.clause_sets {
           for &idx in indices {
-            let clause = &self.clauses[idx];
-            rewritten.add(clause.query.clone(), *occur)?;
+            let clause = std::mem::take(&mut self.clauses[idx]);
+            rewritten.add(clause.query, *occur)?;
           }
         }
 
@@ -519,14 +522,16 @@ impl QueryBase for BooleanQuery {
         let mut builder = Builder::new();
         builder.set_minimum_number_should_match(self.get_minimum_number_should_match());
 
-        for clause in &self.clauses {
+        for clause in &mut self.clauses {
           if clause.occur != Occur::Filter {
-            builder.add_clause(clause.clone())?;
+            builder.add_clause(std::mem::take(clause))?;
           }
         }
 
         for idx in new_filter_ixd {
-          builder.add(self.clauses[idx].query.clone(), Occur::Filter)?;
+          let v = std::mem::take(&mut self.clauses[idx]);
+          debug_assert!(!matches!(v.query, Query::Dummy(_)));
+          builder.add(v.query, Occur::Filter)?;
         }
 
         return Ok(builder.build().into());
@@ -561,12 +566,12 @@ impl QueryBase for BooleanQuery {
       if !intersection.is_empty() {
         let mut builder = Builder::new();
         let mut min_should_match = self.get_minimum_number_should_match();
-
         for clause in &self.clauses {
           let in_intersection = intersection
             .iter()
             .any(|&idx| self.clauses[idx].query == clause.query);
 
+          // TODO IMPORTANT avoid query copy here
           if in_intersection && clause.occur == Occur::Should {
             builder.add(clause.query.clone(), Occur::Must)?;
             min_should_match -= 1;
@@ -614,9 +619,10 @@ impl QueryBase for BooleanQuery {
           builder.add(query, Occur::Should)?;
         }
 
-        for clause in &self.clauses {
+        for clause in &mut self.clauses {
           if clause.occur != Occur::Should {
-            builder.add_clause(clause.clone())?;
+            let v = std::mem::take(clause);
+            builder.add_clause(v)?;
           }
         }
 
@@ -658,9 +664,10 @@ impl QueryBase for BooleanQuery {
           builder.add(query, Occur::Must)?;
         }
 
-        for clause in &self.clauses {
+        for clause in &mut self.clauses {
           if clause.occur != Occur::Must {
-            builder.add_clause(clause.clone())?;
+            let v = std::mem::take(clause);
+            builder.add_clause(v)?;
           }
         }
 
@@ -695,10 +702,11 @@ impl QueryBase for BooleanQuery {
           // our single scoring clause matches everything: rewrite to a CSQ on the filter
           // ignore SHOULD clause for now
           let mut builder = Builder::new();
-          for clause in &self.clauses {
+          for clause in &mut self.clauses {
             match clause.occur {
               Occur::Filter | Occur::MustNot => {
-                builder.add_clause(clause.clone())?;
+                let v = std::mem::take(clause);
+                builder.add_clause(v)?;
               },
               Occur::Must | Occur::Should => {
                 // ignore
@@ -724,7 +732,9 @@ impl QueryBase for BooleanQuery {
             .map(|v| v.as_slice())
             .unwrap_or(&[]);
           for &idx in should_indices {
-            builder.add(self.clauses[idx].query.clone(), Occur::Should)?;
+            let v = std::mem::take(&mut self.clauses[idx]);
+            debug_assert!(!matches!(v.query, Query::Dummy(_)));
+            builder.add(v.query, Occur::Should)?;
           }
 
           return Ok(builder.build().into());
@@ -843,11 +853,12 @@ impl QueryBase for BooleanQuery {
       if should_len > 0 && should_len == self.minimum_number_should_match as usize {
         let mut builder = Builder::new();
 
-        for clause in &self.clauses {
-          if clause.occur == Occur::Should {
-            builder.add(clause.query.clone(), Occur::Must)?;
+        for clause in &mut self.clauses {
+          let v = std::mem::take(clause);
+          if v.occur == Occur::Should {
+            builder.add(v.query, Occur::Must)?;
           } else {
-            builder.add_clause(clause.clone())?;
+            builder.add_clause(v)?;
           }
         }
 
