@@ -136,6 +136,9 @@ impl PhraseQuery {
   pub fn get_terms(&self) -> &[Term] {
     &self.terms
   }
+  pub fn get_term_arc(&self) -> Arc<Vec<Term>> {
+    self.terms.clone()
+  }
 
   /// Returns the relative positions of terms in this phrase.
   ///

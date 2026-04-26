@@ -48,6 +48,7 @@ use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::multi_term_query_constant_score_blended_wrapper::MultiTermQueryConstantScoreBlendedWrapper;
 use crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQueryConstantScoreWrapper;
+use crate::core::search::n_gram_phrase_query::NGramPhraseQuery;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::prefix_query::PrefixQuery;
@@ -132,6 +133,7 @@ macro_rules! dispatch_query {
       Query::MatchNoDocs($inner) => $body,
       Query::MultiTermQueryConstantScoreBlendedWrapper($inner) => $body,
       Query::MultiTermQueryConstantScoreWrapper($inner) => $body,
+      Query::NGramPhrase($inner) => $body,
       Query::PointRange($inner) => $body,
       Query::Prefix($inner) => $body,
       Query::Regexp($inner) => $body,
@@ -193,6 +195,7 @@ impl_from_for_enum!(
     MatchNoDocsQuery => MatchNoDocs,
     MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
     MultiTermQueryConstantScoreWrapper => MultiTermQueryConstantScoreWrapper,
+    NGramPhraseQuery=> NGramPhrase,
     PointRangeQuery => PointRange,
     PrefixQuery => Prefix,
     RegexpQuery => Regexp,
@@ -244,6 +247,7 @@ impl_into_box_query!(
   MatchNoDocsQuery,
   MultiTermQueryConstantScoreBlendedWrapper,
   MultiTermQueryConstantScoreWrapper,
+  NGramPhraseQuery,
   PointRangeQuery,
   RegexpQuery,
   SortedNumericDocValuesRangeQuery,
@@ -305,6 +309,7 @@ pub enum Query {
   MatchNoDocs(MatchNoDocsQuery),
   MultiTermQueryConstantScoreBlendedWrapper(MultiTermQueryConstantScoreBlendedWrapper),
   MultiTermQueryConstantScoreWrapper(MultiTermQueryConstantScoreWrapper),
+  NGramPhrase(NGramPhraseQuery),
   PointRange(PointRangeQuery),
   Regexp(RegexpQuery),
   SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
@@ -384,6 +389,7 @@ impl Query {
             MatchNoDocs,
             MultiTermQueryConstantScoreBlendedWrapper,
             MultiTermQueryConstantScoreWrapper,
+            NGramPhrase,
             PointRange,
             Regexp,
             SortedNumericDocValuesRange,

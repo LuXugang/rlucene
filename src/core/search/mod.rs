@@ -125,6 +125,7 @@ mod max_score_bulk_scorer;
 pub mod multi_term_query;
 mod multi_term_query_constant_score_blended_wrapper;
 mod multi_term_query_constant_score_wrapper;
+pub mod n_gram_phrase_query;
 pub mod phrase_matcher;
 mod phrase_positions;
 pub mod phrase_query;
