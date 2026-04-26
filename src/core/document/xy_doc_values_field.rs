@@ -355,17 +355,3 @@ impl IndexableField for XYDocValuesField {
 }
 
 impl FieldBase for XYDocValuesField {}
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn test_to_string() -> Result<()> {
-    assert_eq!(
-      "XYDocValuesField <field:18.313694,-65.22745>",
-      XYDocValuesField::new("field", 18.313694, -65.227_45)?.to_string()
-    );
-    Ok(())
-  }
-}

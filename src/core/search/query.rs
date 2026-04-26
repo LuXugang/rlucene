@@ -22,6 +22,7 @@ use crate::core::document::sorted_numeric_doc_values_range_query::SortedNumericD
 use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQuery;
 use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQuery;
 use crate::core::document::xy_doc_values_point_in_geometry_query::XYDocValuesPointInGeometryQuery;
+use crate::core::document::xy_point_in_geometry_query::XYPointInGeometryQuery;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::boolean_query::BooleanQuery;
@@ -151,6 +152,7 @@ macro_rules! dispatch_query {
       Query::TermRange($inner) => $body,
       Query::Wildcard($inner) => $body,
       Query::XYDocValuesPointInGeometry($inner) => $body,
+      Query::XYPointInGeometry($inner) => $body,
       #[cfg(test)]
       Query::BitSet($inner) => $body,
       #[cfg(test)]
@@ -199,6 +201,7 @@ impl_from_for_enum!(
     LatLonDocValuesBoxQuery => LatLonDocValuesBox,
     LatLonDocValuesQuery => LatLonDocValues,
     XYDocValuesPointInGeometryQuery => XYDocValuesPointInGeometry,
+    XYPointInGeometryQuery => XYPointInGeometry,
     LatLonPointDistanceFeatureQuery => LatLonPointDistanceFeature,
     LatLonPointDistanceQuery => LatLonPointDistance,
     LatLonPointQuery=> LatLonPoint,
@@ -273,6 +276,7 @@ impl_into_box_query!(
   TermRangeQuery,
   WildcardQuery,
   XYDocValuesPointInGeometryQuery,
+  XYPointInGeometryQuery,
 );
 
 pub trait QueryBase: Debug + HasIdentity {
@@ -336,6 +340,7 @@ pub enum Query {
   TermRange(TermRangeQuery),
   Wildcard(WildcardQuery),
   XYDocValuesPointInGeometry(XYDocValuesPointInGeometryQuery),
+  XYPointInGeometry(XYPointInGeometryQuery),
   #[cfg(test)]
   BitSet(BitSetQuery),
   #[cfg(test)]
@@ -421,6 +426,7 @@ impl Query {
             TermRange,
             Wildcard,
             XYDocValuesPointInGeometry,
+            XYPointInGeometry,
         ];
         test: [
             BitSet,

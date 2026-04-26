@@ -49,6 +49,7 @@ use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::document::xy_doc_values_field::XYDocValuesField;
+use crate::core::document::xy_point_field::XYPointField;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
@@ -95,6 +96,7 @@ pub enum Fields {
   Text(TextField),
   Triangle(Triangle),
   XYDocValues(XYDocValuesField),
+  XYPoint(XYPointField),
 }
 
 macro_rules! dispatch_fields {
@@ -131,6 +133,7 @@ macro_rules! dispatch_fields {
       Fields::Text($inner) => $body,
       Fields::Triangle($inner) => $body,
       Fields::XYDocValues($inner) => $body,
+      Fields::XYPoint($inner) => $body,
     }
   }};
 }
@@ -166,6 +169,7 @@ impl_from_for_enum!(
     TextField => Text,
     Triangle=> Triangle,
     XYDocValuesField => XYDocValues,
+    XYPointField=> XYPoint,
 );
 #[cfg(test)]
 impl_from_for_enum!(Fields, FieldImpl => FieldImpl);
