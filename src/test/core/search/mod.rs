@@ -51,6 +51,7 @@ pub mod test_multi_slice_merge;
 pub(crate) mod test_needs_scores;
 mod test_not;
 pub(crate) mod test_point_queries;
+mod test_positive_scores_only_collector;
 mod test_regexp_random;
 pub(crate) mod test_scorer_perf;
 mod test_search_after;
