@@ -79,6 +79,8 @@ use crate::test::core::search::random_approximation_query::RandomApproximationQu
 #[cfg(test)]
 use crate::test::core::search::test_boolean_rewrites::TestRewriteQuery;
 #[cfg(test)]
+use crate::test::core::search::test_needs_scores::AssertNeedsScores;
+#[cfg(test)]
 use crate::test::core::search::test_scorer_perf::BitSetQuery;
 #[cfg(test)]
 use crate::test::core::search::test_sort_random::RandomQuery;
@@ -158,6 +160,8 @@ macro_rules! dispatch_query {
       #[cfg(test)]
       Query::Random($inner) => $body,
       #[cfg(test)]
+      Query::AssertNeedsScores($inner) => $body,
+      #[cfg(test)]
       Query::TestRewrite($inner) => $body,
       #[cfg(test)]
       Query::WANDScorer($inner) => $body,
@@ -212,6 +216,7 @@ impl_from_for_enum!(
     MaxScoreWrapperQuery => MaxScoreWrapper,
     RandomApproximationQuery => RandomApproximation,
     RandomQuery => Random,
+    AssertNeedsScores => AssertNeedsScores,
     TestRewriteQuery => TestRewrite,
     WANDScorerQuery => WANDScorer
 );
@@ -328,6 +333,8 @@ pub enum Query {
   #[cfg(test)]
   Random(RandomQuery),
   #[cfg(test)]
+  AssertNeedsScores(AssertNeedsScores),
+  #[cfg(test)]
   TestRewrite(TestRewriteQuery),
   #[cfg(test)]
   WANDScorer(WANDScorerQuery),
@@ -398,6 +405,7 @@ impl Query {
             MaxScoreWrapper,
             RandomApproximation,
             Random,
+            AssertNeedsScores,
             TestRewrite,
             WANDScorer,
         ]
