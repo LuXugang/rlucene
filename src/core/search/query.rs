@@ -36,6 +36,7 @@ use crate::core::search::automaton_query::AutomatonQuery;
 #[cfg(test)]
 use crate::core::search::boolean_scorer::tests::CrazyMustUseBulkScorerQuery;
 use crate::core::search::bulk_scorer::BulkScorer;
+use crate::core::search::byte_vector_similarity_query::ByteVectorSimilarityQuery;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
@@ -106,6 +107,7 @@ macro_rules! dispatch_query {
       Query::Automaton($inner) => $body,
       Query::Boolean($inner) => $body,
       Query::Boost($inner) => $body,
+      Query::ByteVectorSimilarity($inner) => $body,
       Query::ConstantScore($inner) => $body,
       Query::Dummy($inner) => $body,
       Query::DisjunctionMax($inner) => $body,
@@ -161,6 +163,7 @@ impl_from_for_enum!(
     AutomatonQuery=> Automaton,
     BooleanQuery => Boolean,
     BoostQuery => Boost,
+    ByteVectorSimilarityQuery => ByteVectorSimilarity,
     ConstantScoreQuery => ConstantScore,
     DummyQuery => Dummy,
     DisjunctionMaxQuery => DisjunctionMax,
@@ -208,6 +211,7 @@ impl_into_box_query!(
   AutomatonQuery,
   BooleanQuery,
   BoostQuery,
+  ByteVectorSimilarityQuery,
   ConstantScoreQuery,
   DummyQuery,
   DisjunctionMaxQuery,
@@ -267,6 +271,7 @@ pub enum Query {
   Automaton(AutomatonQuery),
   Boolean(BooleanQuery),
   Boost(BoostQuery),
+  ByteVectorSimilarity(ByteVectorSimilarityQuery),
   ConstantScore(ConstantScoreQuery),
   Dummy(DummyQuery),
   DisjunctionMax(DisjunctionMaxQuery),
@@ -340,6 +345,7 @@ impl Query {
             Automaton,
             Boolean,
             Boost,
+            ByteVectorSimilarity,
             ConstantScore,
             Dummy,
             DisjunctionMax,
