@@ -28,6 +28,7 @@ use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::field_exists_query::FieldExistsQuery;
+use crate::core::search::float_vector_similarity_query::FloatVectorSimilarityQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 
 use crate::core::document::lat_lon_point_query::LatLonPointQuery;
@@ -113,6 +114,7 @@ macro_rules! dispatch_query {
       Query::DisjunctionMax($inner) => $body,
       Query::DocAndScore($inner) => $body,
       Query::FieldExists($inner) => $body,
+      Query::FloatVectorSimilarity($inner) => $body,
       Query::IndexOrDocValues($inner) => $body,
       Query::IndexSortSortedNumericDocValuesRange($inner) => $body,
       Query::KnnByteVector($inner) => $body,
@@ -169,6 +171,7 @@ impl_from_for_enum!(
     DisjunctionMaxQuery => DisjunctionMax,
     DocAndScoreQuery => DocAndScore,
     FieldExistsQuery => FieldExists,
+    FloatVectorSimilarityQuery => FloatVectorSimilarity,
     IndexOrDocValuesQuery => IndexOrDocValues,
     IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
     KnnByteVectorQuery => KnnByteVector,
@@ -217,6 +220,7 @@ impl_into_box_query!(
   DisjunctionMaxQuery,
   DocAndScoreQuery,
   FieldExistsQuery,
+  FloatVectorSimilarityQuery,
   IndexOrDocValuesQuery,
   IndexSortSortedNumericDocValuesRangeQuery,
   KnnByteVectorQuery,
@@ -277,6 +281,7 @@ pub enum Query {
   DisjunctionMax(DisjunctionMaxQuery),
   DocAndScore(DocAndScoreQuery),
   FieldExists(FieldExistsQuery),
+  FloatVectorSimilarity(FloatVectorSimilarityQuery),
   IndexOrDocValues(IndexOrDocValuesQuery),
   IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
   KnnByteVector(KnnByteVectorQuery),
@@ -351,6 +356,7 @@ impl Query {
             DisjunctionMax,
             DocAndScore,
             FieldExists,
+            FloatVectorSimilarity,
             IndexOrDocValues,
             IndexSortSortedNumericDocValuesRange,
             KnnByteVector,
