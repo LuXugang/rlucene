@@ -22,6 +22,7 @@ use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValu
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TextField, text_field_type};
+use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -30,6 +31,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, read_field_infos};
 use crate::core::index::index_writer_config::OpenMode;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
   MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecificationNoReader, OneMerge,
@@ -40,15 +42,17 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::term::Term;
+use crate::core::index::terms::Terms;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::store::directory::Directory;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_field, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_text_field, random,
+  get_only_leaf_reader, new_directory_shared, new_field, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_string_field, new_text_field, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -260,12 +264,95 @@ fn test_empty_field_name() -> Result<()> {
 }
 #[test]
 fn test_empty_field_name_terms() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), config)?;
+
+  let mut field_to_type = HashMap::new();
+  let mut doc = Document::new();
+  doc.add(new_text_field(
+    &mut random,
+    "",
+    "a b c",
+    Store::No,
+    &mut field_to_type,
+  )?);
+
+  writer.add_document(doc)?;
+  writer.close()?;
+
+  let reader = directory_reader_util::open(dir)?;
+  let subreader = get_only_leaf_reader(&reader)?;
+
+  let terms = subreader.terms("")?.unwrap();
+  let mut te = terms.iterator()?;
+
+  assert_eq!(&BytesRef::from_string("a"), te.next()?.unwrap().as_ref());
+  assert_eq!(&BytesRef::from_string("b"), te.next()?.unwrap().as_ref());
+  assert_eq!(&BytesRef::from_string("c"), te.next()?.unwrap().as_ref());
+  assert_eq!(None, te.next()?);
+
   Ok(())
 }
 #[test]
 fn test_empty_field_name_with_empty_term() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), config)?;
+
+  let mut field_to_type = HashMap::new();
+  let mut doc = Document::new();
+
+  doc.add(new_string_field(
+    &mut random,
+    "",
+    "",
+    Store::No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "",
+    "a",
+    Store::No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "",
+    "b",
+    Store::No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "",
+    "c",
+    Store::No,
+    &mut field_to_type,
+  )?);
+
+  writer.add_document(doc)?;
+  writer.close()?;
+
+  let reader = directory_reader_util::open(dir)?;
+  let subreader = get_only_leaf_reader(&reader)?;
+
+  let terms = subreader.terms("")?.unwrap();
+  let mut te = terms.iterator()?;
+
+  assert_eq!(&BytesRef::from_string(""), te.next()?.unwrap().as_ref());
+  assert_eq!(&BytesRef::from_string("a"), te.next()?.unwrap().as_ref());
+  assert_eq!(&BytesRef::from_string("b"), te.next()?.unwrap().as_ref());
+  assert_eq!(&BytesRef::from_string("c"), te.next()?.unwrap().as_ref());
+  assert_eq!(None, te.next()?);
+
   Ok(())
 }
 struct MockIndexWriter {
@@ -346,7 +433,7 @@ fn test_do_before_after_flush() -> Result<()> {
 }
 #[test]
 fn test_negative_positions() -> Result<()> {
-  // TODO
+  // TODO TokenStream 不支持
   Ok(())
 }
 #[test]
@@ -395,6 +482,11 @@ fn test_delete_unused_files2() -> Result<()> {
 #[test]
 fn test_empty_fsdir_with_no_lock() -> Result<()> {
   // TODO
+  Ok(())
+}
+#[test]
+fn test_empty_dir_roll_back() -> Result<()> {
+  // TODO : rollback 未实现
   Ok(())
 }
 #[test]
