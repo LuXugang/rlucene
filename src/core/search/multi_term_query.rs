@@ -34,6 +34,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test::core::search::test_prefix_random::DumbPrefixQuery;
+#[cfg(test)]
+use crate::test::core::search::test_regexp_random2::DumbRegexpQuery;
 use std::fmt::Debug;
 
 pub trait MultiTermQuery: QueryBase + Clone {
@@ -141,6 +143,8 @@ macro_rules! dispatch_multi_term_query {
       MultiTermQueryEnum::Regexp($inner) => $body,
       #[cfg(test)]
       MultiTermQueryEnum::DumbPrefix($inner) => $body,
+      #[cfg(test)]
+      MultiTermQueryEnum::DumbRegexp($inner) => $body,
     }
   }};
 }
@@ -155,6 +159,8 @@ pub enum MultiTermQueryEnum {
   Regexp(RegexpQuery),
   #[cfg(test)]
   DumbPrefix(DumbPrefixQuery),
+  #[cfg(test)]
+  DumbRegexp(DumbRegexpQuery),
 }
 #[cfg(debug_assertions)]
 impl From<MultiTermQueryEnum> for Query {
@@ -167,6 +173,8 @@ impl From<MultiTermQueryEnum> for Query {
       MultiTermQueryEnum::Regexp(q) => Query::Regexp(q),
       #[cfg(test)]
       MultiTermQueryEnum::DumbPrefix(q) => Query::DumbPrefix(q),
+      #[cfg(test)]
+      MultiTermQueryEnum::DumbRegexp(q) => Query::DumbRegexp(q),
     }
   }
 }
@@ -182,6 +190,8 @@ impl MultiTermQueryEnum {
       Query::Regexp(q) => Some(Self::Regexp(q.clone())),
       #[cfg(test)]
       Query::DumbPrefix(q) => Some(Self::DumbPrefix(q.clone())),
+      #[cfg(test)]
+      Query::DumbRegexp(q) => Some(Self::DumbRegexp(q.clone())),
       _ => None,
     }
   }
@@ -245,4 +255,5 @@ impl_from_for_enum!(
 impl_from_for_enum!(
     MultiTermQueryEnum,
     DumbPrefixQuery => DumbPrefix,
+    DumbRegexpQuery => DumbRegexp,
 );
