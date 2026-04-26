@@ -49,6 +49,7 @@ pub mod test_max_clause_limit;
 pub mod test_min_should_match2;
 pub mod test_multi_slice_merge;
 pub(crate) mod test_needs_scores;
+mod test_not;
 pub(crate) mod test_point_queries;
 mod test_regexp_random;
 pub(crate) mod test_scorer_perf;
