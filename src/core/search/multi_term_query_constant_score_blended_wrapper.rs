@@ -104,6 +104,7 @@ impl QueryBase for MultiTermQueryConstantScoreBlendedWrapper {
         q,
         sub.into(),
       ))),
+
       MultiTermQueryEnum::TermRange(q) => Ok(Box::new(RewritingWeight::new(
         boost,
         *score_mode,
@@ -123,6 +124,13 @@ impl QueryBase for MultiTermQueryConstantScoreBlendedWrapper {
         sub.into(),
       ))),
       MultiTermQueryEnum::Regexp(q) => Ok(Box::new(RewritingWeight::new(
+        boost,
+        *score_mode,
+        q,
+        sub.into(),
+      ))),
+      #[cfg(test)]
+      MultiTermQueryEnum::DumbPrefix(q) => Ok(Box::new(RewritingWeight::new(
         boost,
         *score_mode,
         q,

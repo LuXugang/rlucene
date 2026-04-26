@@ -32,6 +32,8 @@ use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
+#[cfg(test)]
+use crate::test::core::search::test_prefix_random::DumbPrefixQuery;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
@@ -137,6 +139,8 @@ pub enum MultiTermQueryEnum {
   Automaton(AutomatonQuery),
   Wildcard(WildcardQuery),
   Regexp(RegexpQuery),
+  #[cfg(test)]
+  DumbPrefix(DumbPrefixQuery),
 }
 #[cfg(debug_assertions)]
 impl From<MultiTermQueryEnum> for Query {
@@ -147,6 +151,8 @@ impl From<MultiTermQueryEnum> for Query {
       MultiTermQueryEnum::Automaton(q) => Query::Automaton(q),
       MultiTermQueryEnum::Wildcard(q) => Query::Wildcard(q),
       MultiTermQueryEnum::Regexp(q) => Query::Regexp(q),
+      #[cfg(test)]
+      MultiTermQueryEnum::DumbPrefix(q) => Query::DumbPrefix(q),
     }
   }
 }
@@ -160,6 +166,8 @@ impl MultiTermQueryEnum {
       Query::Automaton(q) => Some(Self::Automaton(q.clone())),
       Query::Wildcard(q) => Some(Self::Wildcard(q.clone())),
       Query::Regexp(q) => Some(Self::Regexp(q.clone())),
+      #[cfg(test)]
+      Query::DumbPrefix(q) => Some(Self::DumbPrefix(q.clone())),
       _ => None,
     }
   }
@@ -179,6 +187,8 @@ impl QueryBase for MultiTermQueryEnum {
       MultiTermQueryEnum::Automaton(q) => q.as_string(field),
       MultiTermQueryEnum::Wildcard(q) => q.as_string(field),
       MultiTermQueryEnum::Regexp(q) => q.as_string(field),
+      #[cfg(test)]
+      MultiTermQueryEnum::DumbPrefix(q) => q.as_string(field),
     }
   }
 
@@ -213,6 +223,8 @@ impl QueryBase for MultiTermQueryEnum {
       MultiTermQueryEnum::Automaton(q) => q.visit(visitor),
       MultiTermQueryEnum::Wildcard(q) => q.visit(visitor),
       MultiTermQueryEnum::Regexp(q) => q.visit(visitor),
+      #[cfg(test)]
+      MultiTermQueryEnum::DumbPrefix(q) => q.visit(visitor),
     }
   }
 }
@@ -225,6 +237,8 @@ impl Debug for MultiTermQueryEnum {
       MultiTermQueryEnum::Automaton(q) => write!(f, "Automaton({:?})", q),
       MultiTermQueryEnum::Wildcard(q) => write!(f, "Wildcard({:?})", q),
       MultiTermQueryEnum::Regexp(q) => write!(f, "Regexp({:?})", q),
+      #[cfg(test)]
+      MultiTermQueryEnum::DumbPrefix(q) => write!(f, "DumbPrefix({:?})", q),
     }
   }
 }
@@ -237,6 +251,8 @@ impl HasIdentity for MultiTermQueryEnum {
       MultiTermQueryEnum::Automaton(q) => q.identity(),
       MultiTermQueryEnum::Wildcard(q) => q.identity(),
       MultiTermQueryEnum::Regexp(q) => q.identity(),
+      #[cfg(test)]
+      MultiTermQueryEnum::DumbPrefix(q) => q.identity(),
     }
   }
 }
@@ -249,6 +265,11 @@ impl_from_for_enum!(
     WildcardQuery => Wildcard,
     RegexpQuery => Regexp,
 );
+#[cfg(test)]
+impl_from_for_enum!(
+    MultiTermQueryEnum,
+    DumbPrefixQuery => DumbPrefix,
+);
 impl Hash for MultiTermQueryEnum {
   fn hash<H>(&self, state: &mut H)
   where
@@ -260,6 +281,8 @@ impl Hash for MultiTermQueryEnum {
       MultiTermQueryEnum::Automaton(q) => q.hash(state),
       MultiTermQueryEnum::Wildcard(q) => q.hash(state),
       MultiTermQueryEnum::Regexp(q) => q.hash(state),
+      #[cfg(test)]
+      MultiTermQueryEnum::DumbPrefix(q) => q.hash(state),
     }
   }
 }
@@ -273,6 +296,8 @@ impl PartialEq for MultiTermQueryEnum {
       (MultiTermQueryEnum::Automaton(q1), MultiTermQueryEnum::Automaton(q2)) => q1 == q2,
       (MultiTermQueryEnum::Wildcard(q1), MultiTermQueryEnum::Wildcard(q2)) => q1 == q2,
       (MultiTermQueryEnum::Regexp(q1), MultiTermQueryEnum::Regexp(q2)) => q1 == q2,
+      #[cfg(test)]
+      (MultiTermQueryEnum::DumbPrefix(q1), MultiTermQueryEnum::DumbPrefix(q2)) => q1 == q2,
       _ => false,
     }
   }

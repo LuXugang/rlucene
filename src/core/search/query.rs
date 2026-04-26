@@ -82,6 +82,8 @@ use crate::test::core::search::test_boolean_rewrites::TestRewriteQuery;
 #[cfg(test)]
 use crate::test::core::search::test_needs_scores::AssertNeedsScores;
 #[cfg(test)]
+use crate::test::core::search::test_prefix_random::DumbPrefixQuery;
+#[cfg(test)]
 use crate::test::core::search::test_scorer_perf::BitSetQuery;
 #[cfg(test)]
 use crate::test::core::search::test_sort_random::RandomQuery;
@@ -156,6 +158,8 @@ macro_rules! dispatch_query {
       #[cfg(test)]
       Query::Dummy1($inner) => $body,
       #[cfg(test)]
+      Query::DumbPrefix($inner) => $body,
+      #[cfg(test)]
       Query::MaxScoreWrapper($inner) => $body,
       #[cfg(test)]
       Query::RandomApproximation($inner) => $body,
@@ -216,6 +220,7 @@ impl_from_for_enum!(
     CountingQuery => Counting,
     CrazyMustUseBulkScorerQuery => CrazyMustUseBulkScorer,
     DummyQuery1=> Dummy1,
+    DumbPrefixQuery => DumbPrefix,
     MaxScoreWrapperQuery => MaxScoreWrapper,
     RandomApproximationQuery => RandomApproximation,
     RandomQuery => Random,
@@ -343,6 +348,8 @@ pub enum Query {
   TestRewrite(TestRewriteQuery),
   #[cfg(test)]
   WANDScorer(WANDScorerQuery),
+  #[cfg(test)]
+  DumbPrefix(DumbPrefixQuery),
 }
 macro_rules! query_variant_name {
     (
@@ -408,6 +415,7 @@ impl Query {
             Counting,
             CrazyMustUseBulkScorer,
             Dummy1,
+            DumbPrefix,
             MaxScoreWrapper,
             RandomApproximation,
             Random,
