@@ -169,7 +169,21 @@ mod tests {
   use std::hash::DefaultHasher;
   use std::sync::Arc;
   use std::vec;
-
+  /*
+   * Very simple tests of sorting.
+   *
+   * THE RULES:
+   * 1. keywords like 'abstract' and 'static' should not appear in this file.
+   * 2. each test method should be self-contained and understandable.
+   * 3. no test methods should share code with other test methods.
+   * 4. no testing of things unrelated to sorting.
+   * 5. no tracers.
+   * 6. keyword 'class' should appear only once in this file, here ----
+   *                                                                  |
+   *        -----------------------------------------------------------
+   *        |
+   *       \./
+   */
   #[allow(dead_code)] // for quick search
   struct TestSort;
   fn assert_equals_sort(a: &Sort, b: &Sort) {

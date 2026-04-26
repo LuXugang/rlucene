@@ -629,7 +629,7 @@ mod tests {
     random,
   };
   use std::collections::HashMap;
-
+  /// Tests for SortedSetSortField selectors other than MIN, these require optional codec support (random access to ordinals)
   #[allow(dead_code)] // for quick search
   struct TestSortedSetSelector;
   #[test]

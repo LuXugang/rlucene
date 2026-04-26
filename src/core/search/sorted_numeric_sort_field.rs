@@ -649,6 +649,7 @@ mod tests {
     new_directory_shared, new_searcher_with_reader, random,
   };
 
+  /// Simple tests for SortedNumericSortField
   #[allow(dead_code)] // for quick search
   struct TestSortedNumericSortField;
   #[test]
