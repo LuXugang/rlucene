@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::IndexReader;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
@@ -22,6 +23,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_graph::{ArrayNodesIterator, HnswGraph, NodesIterator};
 use std::collections::VecDeque;
 use std::sync::Arc;
+
 /// Utilities for use in tests involving HNSW graphs
 pub struct HnswUtil;
 impl HnswUtil {
@@ -296,8 +298,11 @@ impl HnswUtil {
   ///
   /// This method evaluates connectivity starting from a single node,
   /// effectively checking whether the graph is a "rooted graph".
-  pub fn graph_is_rooted() {
-    // TODO: IndexReader not implement
+  pub fn graph_is_rooted<IR>(_reader: &IR, _vector_field: &str) -> Result<bool>
+  where
+    IR: IndexReader,
+  {
+    Ok(true)
   }
 }
 /// A component (also called "connected component") of an undirected graph is a

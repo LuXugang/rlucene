@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 pub mod base_knn_vector_query_test_case;
+pub mod base_vector_similarity_query_test_case;
 pub(crate) mod block_score_query_wrapper;
 pub mod bulk_scorer_wrapper_scorer;
 pub mod check_hits;
@@ -30,10 +31,12 @@ pub(crate) mod test_boolean2;
 pub(crate) mod test_boolean_min_should_match;
 mod test_boolean_or;
 pub mod test_boolean_rewrites;
+mod test_byte_vector_similarity_query;
 mod test_conjunctions;
 mod test_doc_values_queries;
 pub mod test_doc_values_rewrite_method;
 mod test_early_termination;
+mod test_float_vector_similarity_query;
 mod test_knn_byte_vector_query;
 mod test_knn_float_vector_query;
 mod test_lat_lon_doc_values_queries;

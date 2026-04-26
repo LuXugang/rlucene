@@ -71,6 +71,8 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
+use crate::test::core::search::base_vector_similarity_query_test_case::CountingQuery;
+#[cfg(test)]
 use crate::test::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
 #[cfg(test)]
 use crate::test::core::search::random_approximation_query::RandomApproximationQuery;
@@ -146,6 +148,8 @@ macro_rules! dispatch_query {
       #[cfg(test)]
       Query::CrazyMustUseBulkScorer($inner) => $body,
       #[cfg(test)]
+      Query::Counting($inner) => $body,
+      #[cfg(test)]
       Query::Dummy1($inner) => $body,
       #[cfg(test)]
       Query::MaxScoreWrapper($inner) => $body,
@@ -202,6 +206,7 @@ impl_from_for_enum!(
     Query,
     BitSetQuery => BitSet,
     BlockScoreQueryWrapper => BlockScoreQueryWrapper,
+    CountingQuery => Counting,
     CrazyMustUseBulkScorerQuery => CrazyMustUseBulkScorer,
     DummyQuery1=> Dummy1,
     MaxScoreWrapperQuery => MaxScoreWrapper,
@@ -311,6 +316,8 @@ pub enum Query {
   #[cfg(test)]
   BlockScoreQueryWrapper(BlockScoreQueryWrapper),
   #[cfg(test)]
+  Counting(CountingQuery),
+  #[cfg(test)]
   CrazyMustUseBulkScorer(CrazyMustUseBulkScorerQuery),
   #[cfg(test)]
   Dummy1(DummyQuery1),
@@ -385,6 +392,7 @@ impl Query {
         test: [
             BitSet,
             BlockScoreQueryWrapper,
+            Counting,
             CrazyMustUseBulkScorer,
             Dummy1,
             MaxScoreWrapper,

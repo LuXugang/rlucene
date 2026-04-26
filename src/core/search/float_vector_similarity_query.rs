@@ -33,6 +33,8 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::HasIdentity;
 use crate::core::util::bits::Bits;
+#[cfg(test)]
+use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::vector_util::VectorUtil;
 use std::hash::{Hash, Hasher};
@@ -43,6 +45,8 @@ pub struct FloatVectorSimilarityQuery {
   base: AbstractVectorSimilarityQueryBase,
   target: Vec<f32>,
   id: Identity,
+  #[cfg(test)]
+  pub(crate) has_vector_scorer: bool,
 }
 
 impl FloatVectorSimilarityQuery {
@@ -85,6 +89,8 @@ impl FloatVectorSimilarityQuery {
       )?,
       target,
       id: Identity::new(),
+      #[cfg(test)]
+      has_vector_scorer: true,
     })
   }
 
@@ -262,6 +268,12 @@ impl AbstractVectorSimilarityQuery for FloatVectorSimilarityQuery {
   where
     LR: LeafReader,
   {
+    #[cfg(test)]
+    {
+      if !self.has_vector_scorer {
+        return Err(LuceneError::unsupported_operation(""));
+      }
+    }
     let reader = context.reader();
     let vector_values = match reader.get_float_vector_values(&self.base.field)? {
       Some(vector_values) => vector_values,
