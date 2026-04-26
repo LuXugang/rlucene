@@ -55,7 +55,7 @@ impl PrefixQuery {
     R: Into<RewriteMethodEnum>,
   {
     let automaton = to_automaton(prefix.bytes())?;
-    let base = AutomatonQuery::new(prefix.clone(), automaton, true, rewrite_method)?;
+    let base = AutomatonQuery::new(prefix, automaton, true, rewrite_method)?;
     Ok(Self {
       base,
       id: Identity::default(),
