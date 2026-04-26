@@ -58,4 +58,5 @@ mod spatial_query;
 pub mod stored_field;
 pub mod string_field;
 pub mod text_field;
+pub mod xy_doc_values_field;
 pub(crate) mod xy_doc_values_point_in_geometry_query;
