@@ -57,6 +57,8 @@ use crate::core::search::weight::Weight;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, TryIntoInt};
+#[cfg(test)]
+use crate::test::core::search::scorer_index_searcher::ScorerIndexSearcherSearchLeafHelper;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -98,6 +100,8 @@ where
   pub(crate) disable_rewrite: bool,
   #[cfg(test)]
   pub(crate) count_invocations: AtomicUsize,
+  #[cfg(test)]
+  pub(crate) use_scorer_search: bool,
 }
 pub(crate) struct Inner {
   leaf_slices: Option<Arc<Vec<LeafSlice>>>,
@@ -153,6 +157,8 @@ where
       disable_rewrite: false,
       #[cfg(test)]
       count_invocations: AtomicUsize::new(0),
+      #[cfg(test)]
+      use_scorer_search: false,
     })
   }
 }
@@ -528,6 +534,13 @@ where
     C: Collector,
     W: Weight<IRC> + ?Sized,
   {
+    #[cfg(test)]
+    {
+      if self.use_scorer_search {
+        let v = ScorerIndexSearcherSearchLeafHelper;
+        return v.search_leaf(self, ctx_ord, min_doc_id, max_doc_id, weight, collector);
+      }
+    }
     let ctx = &self.reader_context.leaves()?[ctx_ord];
     let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight)) {
       Ok(leaf_collector) => leaf_collector,
