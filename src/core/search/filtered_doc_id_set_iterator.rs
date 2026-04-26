@@ -35,7 +35,7 @@ pub trait FilteredDocIdSetIterator: DocIdSetIterator {
   /// # See also
   ///
   /// [`FilteredDocIdSetIterator`]
-  fn match_(&self, doc: i32) -> Result<bool>;
+  fn match_(&mut self, doc: i32) -> Result<bool>;
 
   fn doc_id(&self) -> i32 {
     self.base().doc
@@ -90,7 +90,7 @@ where
   D: DocIdSetIterator,
 {
   doc: i32,
-  inner_iter: D,
+  pub(crate) inner_iter: D,
 }
 impl<D> FilteredDocIdSetIteratorBase<D>
 where

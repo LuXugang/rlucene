@@ -487,7 +487,10 @@ where
   B: Bits,
   D: DocIdSetIterator,
 {
-  fn new(live_docs: Option<&'a B>, iterator: D) -> FilteredDocIdSetIteratorImpl<'a, B, D> {
+  pub(crate) fn new(
+    live_docs: Option<&'a B>,
+    iterator: D,
+  ) -> FilteredDocIdSetIteratorImpl<'a, B, D> {
     let base = FilteredDocIdSetIteratorBase::new(iterator);
     Self { live_docs, base }
   }
@@ -530,7 +533,7 @@ where
     &mut self.base
   }
 
-  fn match_(&self, doc: i32) -> Result<bool> {
+  fn match_(&mut self, doc: i32) -> Result<bool> {
     match self.live_docs {
       Some(ref v) => v.get(doc as usize),
       None => Ok(true),
