@@ -36,6 +36,7 @@ pub mod test_boolean_rewrites;
 mod test_byte_vector_similarity_query;
 mod test_conjunctions;
 mod test_custom_searcher_sort;
+mod test_date_sort;
 mod test_doc_values_queries;
 pub mod test_doc_values_rewrite_method;
 mod test_early_termination;
