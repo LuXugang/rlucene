@@ -41,7 +41,6 @@ use crate::core::search::query_caching_policy::{QueryCachingPolicyArc, QueryCach
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
-use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
 use crate::core::search::similarities_impl::similarities::{IntoSimilarityArc, SimilarityEnum};
 use crate::core::search::sort::Sort;
@@ -501,7 +500,7 @@ where
   ) -> Result<()>
   where
     C: Collector,
-    W: Weight<IRC> + SegmentCacheable<IRC> + ?Sized,
+    W: Weight<IRC> + ?Sized,
   {
     collector.set_weight(Some(weight))?;
 
@@ -527,7 +526,7 @@ where
   ) -> Result<()>
   where
     C: Collector,
-    W: Weight<IRC> + SegmentCacheable<IRC> + ?Sized,
+    W: Weight<IRC> + ?Sized,
   {
     let ctx = &self.reader_context.leaves()?[ctx_ord];
     let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight)) {

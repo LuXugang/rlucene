@@ -33,7 +33,6 @@ use crate::core::search::index_searcher::DefaultIndexSearcher;
 use crate::core::search::query::Query;
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::term_query::TermQuery;
@@ -84,7 +83,7 @@ where
 
   fn search<W, C>(&self, weight: &W, collector: &mut C) -> Result<()>
   where
-    W: Weight<IRC> + SegmentCacheable<IRC> + ?Sized,
+    W: Weight<IRC> + ?Sized,
     C: Collector,
   {
     self
@@ -94,7 +93,7 @@ where
 
   fn search_top_docs<W>(&self, weight: &W, top_n: usize) -> Result<TopDocs<ScoreDoc>>
   where
-    W: Weight<IRC> + SegmentCacheable<IRC> + ?Sized,
+    W: Weight<IRC> + ?Sized,
   {
     let manager = TopScoreDocCollectorManager::new(top_n, i32::MAX as usize)?;
     let mut collector = manager.new_collector()?;
@@ -104,7 +103,7 @@ where
 
   fn search_top_field_docs<W>(&self, weight: &W, sort: &Sort, top_n: usize) -> Result<TopFieldDocs>
   where
-    W: Weight<IRC> + SegmentCacheable<IRC> + ?Sized,
+    W: Weight<IRC> + ?Sized,
   {
     let manager = TopFieldCollectorManager::new(sort.clone(), top_n, i32::MAX as usize)?;
     let mut collector = manager.new_collector()?;
