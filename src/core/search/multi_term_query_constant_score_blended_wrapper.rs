@@ -35,7 +35,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::multi_term_query::MultiTermQueryEnum;
+use crate::core::search::multi_term_query::{MultiTermQueryEnum, dispatch_multi_term_query};
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -97,46 +97,12 @@ impl QueryBase for MultiTermQueryConstantScoreBlendedWrapper {
     Self: Sized,
   {
     let sub = BlendedRewritingWeight;
-    match self.q {
-      MultiTermQueryEnum::Prefix(q) => Ok(Box::new(RewritingWeight::new(
-        boost,
-        *score_mode,
-        q,
-        sub.into(),
-      ))),
-
-      MultiTermQueryEnum::TermRange(q) => Ok(Box::new(RewritingWeight::new(
-        boost,
-        *score_mode,
-        q,
-        sub.into(),
-      ))),
-      MultiTermQueryEnum::Automaton(q) => Ok(Box::new(RewritingWeight::new(
-        boost,
-        *score_mode,
-        q,
-        sub.into(),
-      ))),
-      MultiTermQueryEnum::Wildcard(q) => Ok(Box::new(RewritingWeight::new(
-        boost,
-        *score_mode,
-        q,
-        sub.into(),
-      ))),
-      MultiTermQueryEnum::Regexp(q) => Ok(Box::new(RewritingWeight::new(
-        boost,
-        *score_mode,
-        q,
-        sub.into(),
-      ))),
-      #[cfg(test)]
-      MultiTermQueryEnum::DumbPrefix(q) => Ok(Box::new(RewritingWeight::new(
-        boost,
-        *score_mode,
-        q,
-        sub.into(),
-      ))),
-    }
+    dispatch_multi_term_query!(self.q, |q| Ok(Box::new(RewritingWeight::new(
+      boost,
+      *score_mode,
+      q,
+      sub.into(),
+    ))))
   }
 
   fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
