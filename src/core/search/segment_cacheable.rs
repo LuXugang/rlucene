@@ -53,3 +53,156 @@ where
     self.as_ref().is_cacheable(ctx)
   }
 }
+#[cfg(test)]
+mod tests {
+  use crate::core::document::document::Document;
+  use crate::core::document::field::Store;
+  use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+  use crate::core::index::composite_reader::get_context;
+  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::doc_values::DocValues;
+  use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+  use crate::core::index::index_writer::IndexWriter;
+  use crate::core::index::leaf_reader::LeafReader;
+  use crate::core::index::leaf_reader_context::LeafReaderContext;
+  use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+  use crate::core::index::no_merge_policy::NoMergePolicy;
+  use crate::core::index::term::Term;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    new_directory_shared, new_index_writer_config, new_text_field, random,
+  };
+  use std::collections::HashMap;
+  use std::rc::Rc;
+
+  use super::SegmentCacheable;
+
+  #[allow(dead_code)] // for quick search
+  struct TestSegmentCacheables;
+
+  enum TestCacheable {
+    Fixed(bool),
+    DocValues(Vec<String>),
+    All(Vec<Rc<TestCacheable>>),
+  }
+
+  impl TestCacheable {
+    fn fixed(cacheable: bool) -> Rc<Self> {
+      Rc::new(Self::Fixed(cacheable))
+    }
+
+    fn doc_values(names: &[&str]) -> Rc<Self> {
+      Rc::new(Self::DocValues(fields(names)))
+    }
+
+    fn all(children: Vec<Rc<Self>>) -> Rc<Self> {
+      Rc::new(Self::All(children))
+    }
+
+    fn is_cacheable<LR>(&self, ctx: &LeafReaderContext<LR>) -> Result<bool>
+    where
+      LR: LeafReader,
+    {
+      match self {
+        Self::Fixed(cacheable) => Ok(*cacheable),
+        Self::DocValues(fields) => DocValues::is_cacheable(ctx, fields),
+        Self::All(children) => {
+          for child in children {
+            if !child.is_cacheable(ctx)? {
+              return Ok(false);
+            }
+          }
+          Ok(true)
+        },
+      }
+    }
+  }
+
+  impl<IRC> SegmentCacheable<IRC> for TestCacheable
+  where
+    IRC: IndexReaderContext,
+  {
+    fn is_cacheable(
+      &self,
+      ctx: &crate::core::index::leaf_reader_context::LeafReaderContext<IRCLeafReader<IRC>>,
+    ) -> Result<bool> {
+      TestCacheable::is_cacheable(self, ctx)
+    }
+  }
+
+  fn fields(names: &[&str]) -> Vec<String> {
+    names.iter().map(|name| name.to_string()).collect()
+  }
+
+  fn is_cacheable<LR>(cacheable: &Rc<TestCacheable>, ctx: &LeafReaderContext<LR>) -> Result<bool>
+  where
+    LR: LeafReader,
+  {
+    cacheable.as_ref().is_cacheable(ctx)
+  }
+
+  #[test]
+  fn test_multiple_doc_values_delegates() -> Result<()> {
+    let seg = TestCacheable::fixed(true);
+    let non = TestCacheable::fixed(false);
+    let dv1 = TestCacheable::doc_values(&["field1"]);
+    let dv2 = TestCacheable::doc_values(&["field2"]);
+    let dv3 = TestCacheable::doc_values(&["field3"]);
+    let dv34 = TestCacheable::doc_values(&["field3", "field4"]);
+    let dv12 = TestCacheable::doc_values(&["field1", "field2"]);
+
+    let seg_dv1 = TestCacheable::all(vec![seg.clone(), dv1.clone()]);
+    let dv2_dv34 = TestCacheable::all(vec![dv2.clone(), dv34.clone()]);
+    let dv2_non = TestCacheable::all(vec![dv2.clone(), non.clone()]);
+
+    let seg_dv1_dv2_dv34 = TestCacheable::all(vec![seg_dv1.clone(), dv2_dv34.clone()]);
+
+    let dv1_dv3 = TestCacheable::all(vec![dv1.clone(), dv3.clone()]);
+    let dv12_dv1_dv3 = TestCacheable::all(vec![dv12.clone(), dv1_dv3.clone()]);
+
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(NoMergePolicy::default());
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+    let mut doc = Document::new();
+    doc.add(NumericDocValuesField::new("field3", 1));
+    doc.add(new_text_field(
+      &mut random,
+      "text",
+      "text",
+      Store::No,
+      &mut HashMap::new(),
+    )?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader_context = get_context(reader)?;
+    let ctx = &reader_context.leaves()?[0];
+
+    assert!(is_cacheable(&seg_dv1, ctx)?);
+    assert!(is_cacheable(&dv2_dv34, ctx)?);
+    assert!(is_cacheable(&seg_dv1_dv2_dv34, ctx)?);
+    assert!(!is_cacheable(&dv2_non, ctx)?);
+
+    writer.update_numeric_doc_value(Term::from_text("text", "text"), "field3", 2)?;
+    writer.commit()?;
+    drop(reader_context);
+    let reader = directory_reader_util::open(dir.clone())?;
+
+    let reader_context = get_context(reader)?;
+    let ctx = &reader_context.leaves()?[0];
+    assert!(is_cacheable(&seg_dv1, ctx)?);
+    assert!(!is_cacheable(&dv34, ctx)?);
+    assert!(!is_cacheable(&dv2_dv34, ctx)?);
+    assert!(!is_cacheable(&dv1_dv3, ctx)?);
+    assert!(!is_cacheable(&seg_dv1_dv2_dv34, ctx)?);
+    assert!(!is_cacheable(&dv12_dv1_dv3, ctx)?);
+
+    drop(reader_context);
+    writer.close()?;
+    Ok(())
+  }
+}
