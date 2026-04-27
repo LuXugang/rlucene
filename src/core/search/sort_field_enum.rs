@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::lat_lon_point_sort_field::LatLonPointSortField;
 use crate::core::document::xy_point_sort_field::XYPointSortField;
 use crate::core::index::doc_values::SortedSet;
 use crate::core::index::index_sorter::{
@@ -46,6 +47,7 @@ pub enum SortFieldEnum {
   SortedSet(SortedSetSortField),
   Sorter(SortField),
   XYPoint(XYPointSortField),
+  LatLonPoint(LatLonPointSortField),
 }
 
 macro_rules! dispatch_sort_field {
@@ -55,6 +57,7 @@ macro_rules! dispatch_sort_field {
       SortFieldEnum::SortedSet($sort_field) => $body,
       SortFieldEnum::Sorter($sort_field) => $body,
       SortFieldEnum::XYPoint($sort_field) => $body,
+      SortFieldEnum::LatLonPoint($sort_field) => $body,
     }
   }};
 }
@@ -75,6 +78,10 @@ macro_rules! dispatch_sort_field_base {
         let $sort_field = &sort_field.base;
         $body
       },
+      SortFieldEnum::LatLonPoint(sort_field) => {
+        let $sort_field = &sort_field.base;
+        $body
+      },
     }
   }};
 }
@@ -92,6 +99,10 @@ macro_rules! dispatch_sort_field_base_mut {
       },
       SortFieldEnum::Sorter($sort_field) => $body,
       SortFieldEnum::XYPoint(sort_field) => {
+        let $sort_field = &mut sort_field.base;
+        $body
+      },
+      SortFieldEnum::LatLonPoint(sort_field) => {
         let $sort_field = &mut sort_field.base;
         $body
       },
@@ -153,6 +164,10 @@ impl SortFiledBase for SortFieldEnum {
         let sorter = sort_field.get_index_sorter()?;
         Ok(sorter.map(IndexSortEnum::Sorter))
       },
+      SortFieldEnum::LatLonPoint(sort_field) => {
+        let sorter = sort_field.get_index_sorter()?;
+        Ok(sorter.map(IndexSortEnum::Sorter))
+      },
     }
   }
 
@@ -177,6 +192,10 @@ impl SortFiledBase for SortFieldEnum {
         Ok(comparator)
       },
       SortFieldEnum::XYPoint(sort_field) => {
+        let comparator = sort_field.get_comparator(num_hits, pruning)?;
+        Ok(comparator.into())
+      },
+      SortFieldEnum::LatLonPoint(sort_field) => {
         let comparator = sort_field.get_comparator(num_hits, pruning)?;
         Ok(comparator.into())
       },
@@ -205,6 +224,7 @@ impl_from_for_enum!(
     SortedNumericSortField => SortedNumeric,
     SortedSetSortField => SortedSet,
     XYPointSortField=> XYPoint,
+    LatLonPointSortField=> LatLonPoint,
 );
 pub type CPType<LR> = ComparableProviderEnum3<
   CPEnumType2<NPImpl2, LR>,

@@ -22,6 +22,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::lat_lon_doc_values_box_query::LatLonDocValuesBoxQuery;
 use crate::core::document::lat_lon_doc_values_query::LatLonDocValuesQuery;
+use crate::core::document::lat_lon_point_sort_field::LatLonPointSortField;
 use crate::core::document::shape_field::QueryRelation;
 use crate::core::geo::circle::Circle;
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
@@ -41,6 +42,7 @@ use crate::core::util::number::Number;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
+
 /// Type for a `LatLonDocValuesField`.
 ///
 /// Each value stores a 64-bit `long` where the upper 32 bits are the encoded latitude, and the
@@ -165,9 +167,15 @@ impl LatLonDocValuesField {
   /// # Errors
   ///
   /// Returns an error if the location has invalid coordinates.
-  pub fn new_distance_sort() {
-    // TODO IMPORTANT
-    todo!()
+  pub fn new_distance_sort<T>(
+    field: T,
+    latitude: f64,
+    longitude: f64,
+  ) -> Result<LatLonPointSortField>
+  where
+    T: Into<String>,
+  {
+    LatLonPointSortField::new(field, latitude, longitude)
   }
   /// Create a query for matching a bounding box using doc values. This query is usually slow as it
   /// does not use an index structure and needs to verify documents one-by-one in order to know
