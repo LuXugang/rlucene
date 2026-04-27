@@ -23,7 +23,7 @@ use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 /// Represents a line in cartesian space. You can construct the line directly with `float[]`,
 /// `float[]` x, y arrays coordinates.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct XYLine {
   /// Array of x coordinates.
   x: Vec<f32>,

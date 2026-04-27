@@ -120,3 +120,14 @@ XYPoint => Point,
 XYPolygon => Polygon,
 XYRectangle => Rectangle,
 );
+impl Clone for XYGeometryEnum {
+  fn clone(&self) -> Self {
+    match self {
+      XYGeometryEnum::Circle(circle) => Self::Circle(*circle),
+      XYGeometryEnum::Line(line) => Self::Line(line.clone()),
+      XYGeometryEnum::Point(point) => Self::Point(*point),
+      XYGeometryEnum::Polygon(polygon) => Self::Polygon(polygon.clone()),
+      XYGeometryEnum::Rectangle(rectangle) => Self::Rectangle(rectangle.clone()),
+    }
+  }
+}
