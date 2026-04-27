@@ -36,6 +36,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::document::lat_lon_point_query::LatLonPointQuery;
 use crate::core::search::abstract_knn_vector_query::DocAndScoreQuery;
 use crate::core::search::automaton_query::AutomatonQuery;
+use crate::core::search::blended_term_query::BlendedTermQuery;
 #[cfg(test)]
 use crate::core::search::boolean_scorer::tests::CrazyMustUseBulkScorerQuery;
 use crate::core::search::bulk_scorer::BulkScorer;
@@ -117,6 +118,7 @@ macro_rules! dispatch_query {
   ($self:expr, |$inner:ident| $body:expr) => {{
     match $self {
       Query::Automaton($inner) => $body,
+      Query::BlendedTerm($inner) => $body,
       Query::Boolean($inner) => $body,
       Query::Boost($inner) => $body,
       Query::ByteVectorSimilarity($inner) => $body,
@@ -185,6 +187,7 @@ macro_rules! dispatch_query {
 impl_from_for_enum!(
     Query,
     AutomatonQuery=> Automaton,
+    BlendedTermQuery=> BlendedTerm,
     BooleanQuery => Boolean,
     BoostQuery => Boost,
     ByteVectorSimilarityQuery => ByteVectorSimilarity,
@@ -241,6 +244,7 @@ impl_from_for_enum!(
 );
 impl_into_box_query!(
   AutomatonQuery,
+  BlendedTermQuery,
   BooleanQuery,
   BoostQuery,
   ByteVectorSimilarityQuery,
@@ -305,6 +309,7 @@ pub trait QueryBase: Debug + HasIdentity {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Query {
   Automaton(AutomatonQuery),
+  BlendedTerm(BlendedTermQuery),
   Boolean(BooleanQuery),
   Boost(BoostQuery),
   ByteVectorSimilarity(ByteVectorSimilarityQuery),
@@ -391,6 +396,7 @@ impl Query {
         self;
         normal: [
             Automaton,
+            BlendedTerm,
             Boolean,
             Boost,
             ByteVectorSimilarity,

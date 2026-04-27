@@ -27,6 +27,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 /// Maintains an [`IndexReader`](crate::core::index::index_reader::IndexReader) [`TermState`] view over [`IndexReader`](crate::core::index::index_reader::IndexReader) instances
@@ -35,7 +36,7 @@ use std::sync::Arc;
 /// associated readers.
 #[derive(Default, Clone)]
 pub struct TermStates {
-  top_reader_context_identity: Identity,
+  pub(crate) top_reader_context_identity: Identity,
   states: Vec<Option<Arc<TermStateEnum>>>,
   term: Option<Arc<Term>>,
   doc_freq: i32,
@@ -111,10 +112,13 @@ impl TermStates {
   /// Expert: Registers and associates a [`TermState`] with a leaf ordinal.
   /// The leaf ordinal should be derived from an [`IndexReaderContext`]'s leaf ord.
   /// Unlike [`register`](Self::register_with_stats), this method does **not** update term statistics.
-  pub fn register(&mut self, state: TermStateEnum, ord: usize) {
+  pub fn register<T>(&mut self, state: T, ord: usize)
+  where
+    T: Into<Arc<TermStateEnum>>,
+  {
     debug_assert!(ord < self.states.len(), "ord {} out of bounds", ord);
     // wrap with Arc for clone
-    self.states[ord] = Some(Arc::new(state));
+    self.states[ord] = Some(state.into());
   }
   /// Expert: Accumulate term statistics.
   pub fn accumulate_statistics(&mut self, doc_freq: i32, total_term_freq: i64) {
@@ -255,7 +259,19 @@ impl Display for TermStates {
     Ok(())
   }
 }
+impl PartialEq for TermStates {
+  fn eq(&self, other: &Self) -> bool {
+    self.top_reader_context_identity == other.top_reader_context_identity
+  }
+}
 
+impl Eq for TermStates {}
+
+impl Hash for TermStates {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.top_reader_context_identity.hash(state);
+  }
+}
 pub struct EmptyTermState;
 
 impl Display for EmptyTermState {
