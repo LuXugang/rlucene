@@ -45,47 +45,66 @@ pub enum SortFieldEnum {
   SortedSet(SortedSetSortField),
   Sorter(SortField),
 }
+
+macro_rules! dispatch_sort_field {
+  ($self:expr, |$sort_field:ident| $body:expr) => {{
+    match $self {
+      SortFieldEnum::SortedNumeric($sort_field) => $body,
+      SortFieldEnum::SortedSet($sort_field) => $body,
+      SortFieldEnum::Sorter($sort_field) => $body,
+    }
+  }};
+}
+
+macro_rules! dispatch_sort_field_base {
+  ($self:expr, |$sort_field:ident| $body:expr) => {{
+    match $self {
+      SortFieldEnum::SortedNumeric(sort_field) => {
+        let $sort_field = &sort_field.base;
+        $body
+      },
+      SortFieldEnum::SortedSet(sort_field) => {
+        let $sort_field = &sort_field.base;
+        $body
+      },
+      SortFieldEnum::Sorter($sort_field) => $body,
+    }
+  }};
+}
+
+macro_rules! dispatch_sort_field_base_mut {
+  ($self:expr, |$sort_field:ident| $body:expr) => {{
+    match $self {
+      SortFieldEnum::SortedNumeric(sort_field) => {
+        let $sort_field = &mut sort_field.base;
+        $body
+      },
+      SortFieldEnum::SortedSet(sort_field) => {
+        let $sort_field = &mut sort_field.base;
+        $body
+      },
+      SortFieldEnum::Sorter($sort_field) => $body,
+    }
+  }};
+}
+
 impl SortFieldEnum {
   pub fn get_reverse(&self) -> bool {
-    match self {
-      SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_reverse(),
-      SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_reverse(),
-      SortFieldEnum::Sorter(sort_field) => sort_field.get_reverse(),
-    }
+    dispatch_sort_field_base!(self, |sort_field| sort_field.get_reverse())
   }
   pub fn get_field(&self) -> Option<&str> {
-    match self {
-      SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_field(),
-      SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_field(),
-      SortFieldEnum::Sorter(sort_field) => sort_field.get_field(),
-    }
+    dispatch_sort_field_base!(self, |sort_field| sort_field.get_field())
   }
   pub fn get_type(&self) -> SortFieldType {
-    match self {
-      SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_type(),
-      SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_type(),
-      SortFieldEnum::Sorter(sort_field) => sort_field.get_type(),
-    }
+    dispatch_sort_field_base!(self, |sort_field| sort_field.get_type())
   }
   pub fn get_missing_value(&self) -> Option<&MissingValueEnum> {
-    match self {
-      SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_missing_value(),
-      SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_missing_value(),
-      SortFieldEnum::Sorter(sort_field) => sort_field.get_missing_value(),
-    }
+    dispatch_sort_field_base!(self, |sort_field| sort_field.get_missing_value())
   }
   pub fn set_optimize_sort_with_indexed_data(&mut self, optimize_sort_with_indexed_data: bool) {
-    match self {
-      SortFieldEnum::SortedNumeric(sort_field) => sort_field
-        .base
-        .set_optimize_sort_with_indexed_data(optimize_sort_with_indexed_data),
-      SortFieldEnum::SortedSet(sort_field) => sort_field
-        .base
-        .set_optimize_sort_with_indexed_data(optimize_sort_with_indexed_data),
-      SortFieldEnum::Sorter(sort_field) => {
-        sort_field.set_optimize_sort_with_indexed_data(optimize_sort_with_indexed_data)
-      },
-    }
+    dispatch_sort_field_base_mut!(self, |sort_field| {
+      sort_field.set_optimize_sort_with_indexed_data(optimize_sort_with_indexed_data)
+    })
   }
 }
 
@@ -95,19 +114,12 @@ impl SortFiledBase for SortFieldEnum {
     T: Into<MissingValueEnum>,
   {
     let missing_value = missing_value.into();
-    match self {
-      SortFieldEnum::SortedNumeric(sort_field) => sort_field.set_missing_value(missing_value),
-      SortFieldEnum::SortedSet(sort_field) => sort_field.set_missing_value(missing_value),
-      SortFieldEnum::Sorter(sort_field) => sort_field.set_missing_value(missing_value),
-    }
+    dispatch_sort_field!(self, |sort_field| sort_field
+      .set_missing_value(missing_value))
   }
 
   fn needs_scores(&self) -> bool {
-    match self {
-      SortFieldEnum::SortedNumeric(sort_field) => sort_field.needs_scores(),
-      SortFieldEnum::SortedSet(sort_field) => sort_field.needs_scores(),
-      SortFieldEnum::Sorter(sort_field) => sort_field.needs_scores(),
-    }
+    dispatch_sort_field!(self, |sort_field| sort_field.needs_scores())
   }
 
   type IndexSort = IndexSortEnum;
@@ -130,33 +142,20 @@ impl SortFiledBase for SortFieldEnum {
   }
 
   fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
-    match self {
-      SortFieldEnum::SortedNumeric(sort_field) => sort_field.serialize(out),
-      SortFieldEnum::SortedSet(sort_field) => sort_field.serialize(out),
-      SortFieldEnum::Sorter(sort_field) => sort_field.serialize(out),
-    }
+    dispatch_sort_field!(self, |sort_field| sort_field.serialize(out))
   }
 
   type FieldComparator = FieldComparatorEnum;
 
   fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator> {
-    match self {
-      SortFieldEnum::SortedNumeric(sort_field) => sort_field.get_comparator(num_hits, pruning),
-      SortFieldEnum::SortedSet(sort_field) => sort_field.get_comparator(num_hits, pruning),
-      SortFieldEnum::Sorter(sort_field) => sort_field.get_comparator(num_hits, pruning),
-    }
+    dispatch_sort_field!(self, |sort_field| sort_field
+      .get_comparator(num_hits, pruning))
   }
 }
 
 impl Display for SortFieldEnum {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match self {
-      SortFieldEnum::SortedNumeric(sort_field) => {
-        write!(f, "{sort_field}")
-      },
-      SortFieldEnum::SortedSet(sort_field) => write!(f, "{sort_field}"),
-      SortFieldEnum::Sorter(sort_field) => write!(f, "{sort_field}"),
-    }
+    dispatch_sort_field!(self, |sort_field| write!(f, "{sort_field}"))
   }
 }
 
@@ -165,11 +164,7 @@ impl Hash for SortFieldEnum {
   where
     H: std::hash::Hasher,
   {
-    match self {
-      SortFieldEnum::SortedNumeric(sort_field) => sort_field.hash(state),
-      SortFieldEnum::SortedSet(sort_field) => sort_field.hash(state),
-      SortFieldEnum::Sorter(sort_field) => sort_field.hash(state),
-    }
+    dispatch_sort_field!(self, |sort_field| sort_field.hash(state))
   }
 }
 
