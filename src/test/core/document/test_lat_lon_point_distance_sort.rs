@@ -37,6 +37,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
+use rand_chacha::rand_core::Rng;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -148,8 +149,9 @@ fn test_missing_last() -> Result<()> {
 /// Run a few iterations with just 10 docs, hopefully easy to debug
 #[test]
 fn test_random() -> Result<()> {
+  let mut random = random();
   for _ in 0..100 {
-    do_random_test(10, 100)?;
+    do_random_test(&mut random, 10, 100)?;
   }
   Ok(())
 }
@@ -158,12 +160,13 @@ fn test_random() -> Result<()> {
 #[ignore]
 #[test]
 fn test_random_huge() -> Result<()> {
+  let mut random = random();
   if !is_night_mode() {
     return Ok(());
   }
 
   for _ in 0..10 {
-    do_random_test(2000, 100)?;
+    do_random_test(&mut random, 2000, 100)?;
   }
   Ok(())
 }
@@ -212,13 +215,15 @@ impl Display for ResultItem {
   }
 }
 
-fn do_random_test(num_docs: i32, num_queries: i32) -> Result<()> {
-  let mut random = random();
-  let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+fn do_random_test<R>(random: &mut R, num_docs: i32, num_queries: i32) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
+  let dir = new_directory_shared(random)?;
+  let mut iwc = new_index_writer_config(random);
   // else seeds may not to reproduce:
   iwc.set_merge_scheduler(SerialMergeScheduler::new());
-  let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+  let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
   for i in 0..num_docs {
     let mut doc = Document::new();
@@ -226,8 +231,8 @@ fn do_random_test(num_docs: i32, num_queries: i32) -> Result<()> {
     doc.add(NumericDocValuesField::new("id", i as i64));
 
     if random.random_range(0..10) > 7 {
-      let lat_raw = GeoTestUtil::next_latitude(&mut random);
-      let lon_raw = GeoTestUtil::next_longitude(&mut random);
+      let lat_raw = GeoTestUtil::next_latitude(random);
+      let lon_raw = GeoTestUtil::next_longitude(random);
       // pre-normalize up front, so we can just use quantized value for testing and do simple
       // exact comparisons
       let lat = GeoEncodingUtils::decode_latitude(GeoEncodingUtils::encode_latitude(lat_raw)?);
@@ -247,8 +252,8 @@ fn do_random_test(num_docs: i32, num_queries: i32) -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
 
   for _ in 0..num_queries {
-    let lat = GeoTestUtil::next_latitude(&mut random);
-    let lon = GeoTestUtil::next_longitude(&mut random);
+    let lat = GeoTestUtil::next_latitude(random);
+    let lon = GeoTestUtil::next_longitude(random);
     let missing_value = f64::INFINITY;
 
     let mut expected = Vec::with_capacity(max_doc as usize);
@@ -290,7 +295,7 @@ fn do_random_test(num_docs: i32, num_queries: i32) -> Result<()> {
     expected.sort();
 
     // randomize the topN a bit
-    let top_n = TestUtil::next_int(&mut random, 1, max_doc) as usize;
+    let top_n = TestUtil::next_int(random, 1, max_doc) as usize;
     // sort by distance, then ID
     let mut distance_sort = LatLonDocValuesField::new_distance_sort("field", lat, lon)?;
     distance_sort.set_missing_value(MissingValueEnum::Double(missing_value))?;
@@ -314,7 +319,7 @@ fn do_random_test(num_docs: i32, num_queries: i32) -> Result<()> {
 
     // get page2 with searchAfter()
     if top_n < max_doc as usize {
-      let page2 = TestUtil::next_int(&mut random, 1, max_doc - top_n as i32) as usize;
+      let page2 = TestUtil::next_int(random, 1, max_doc - top_n as i32) as usize;
       let v = top_docs.score_docs()[top_n - 1].as_field().unwrap().clone();
       let top_docs2 = searcher.search_after(Some(v), MatchAllDocsQuery::new(), page2, sort)?;
 

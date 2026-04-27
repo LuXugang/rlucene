@@ -424,11 +424,10 @@ mod tests {
       LatLonDocValuesField::new("field", 18.313694, -65.227444)?.to_string()
     );
 
-    // TODO IMPORTANT LatLonPointSortField 未实现
-    // assert_eq!(
-    //   "<distance:\"field\" latitude=18.0 longitude=19.0>",
-    //   LatLonDocValuesField::new_distance_sort("field", 18.0, 19.0)?.to_string()
-    // );
+    assert_eq!(
+      "<distance:\"field\" latitude=18 longitude=19>",
+      LatLonDocValuesField::new_distance_sort("field", 18.0, 19.0)?.to_string()
+    );
 
     Ok(())
   }

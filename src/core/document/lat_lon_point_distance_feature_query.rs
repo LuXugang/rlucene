@@ -850,13 +850,18 @@ fn get_distance_key_from_encoded(encoded: i64, origin_lat: f64, origin_lon: f64)
 }
 #[cfg(test)]
 mod tests {
+  use super::*;
   use crate::core::document::document::Document;
   use crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField;
   use crate::core::index::directory_reader::directory_reader_util;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::multi_reader::MultiReader;
+  use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
   use crate::core::search::score_doc::ScoreDoc;
+  use crate::core::search::sort::Sort;
+  use crate::core::search::sort_field::SortField;
+  use crate::core::search::sort_field_enum::SortFieldEnum;
   use crate::core::search::top_docs::TopDocsLike;
   use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
@@ -867,8 +872,6 @@ mod tests {
     new_searcher_with_reader, random,
   };
   use rand::RngExt;
-
-  use super::*;
   #[allow(dead_code)] // for quick search
   struct TestLatLonPointDistanceFeatureQuery;
   #[test]
@@ -1337,7 +1340,57 @@ mod tests {
 
   #[test]
   fn test_compare_sorting() -> Result<()> {
-    // TODO newDistanceSort 未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+    let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+    let num_docs = at_least(&mut random, 10000);
+    for _ in 0..num_docs {
+      let lat = random.random::<f64>() * 180.0 - 90.0;
+      let lon = random.random::<f64>() * 360.0 - 180.0;
+
+      let mut doc = Document::new();
+      doc.add(LatLonPoint::new("foo", lat, lon)?);
+      doc.add(LatLonDocValuesField::new("foo", lat, lon)?);
+      w.add_document(doc)?;
+    }
+
+    let reader = w.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let lat = random.random::<f64>() * 180.0 - 90.0;
+    let lon = random.random::<f64>() * 360.0 - 180.0;
+    let pivot_distance = random.random::<f64>()
+      * random.random::<f64>()
+      * GeoUtils::EARTH_MEAN_RADIUS_METERS
+      * std::f64::consts::PI;
+    let boost = (1 + random.random_range(0..10)) as f32 / 3.0;
+
+    let query1 = LatLonPoint::new_distance_feature_query("foo", boost, lat, lon, pivot_distance)?;
+    let sort_field: Vec<SortFieldEnum> = vec![
+      SortField::get_field_score()?.into(),
+      LatLonDocValuesField::new_distance_sort("foo", lat, lon)?.into(),
+    ];
+    let sort1 = Sort::with_fields(sort_field)?;
+
+    let query2 = MatchAllDocsQuery::new();
+    let sort_field2: Vec<SortFieldEnum> =
+      vec![LatLonDocValuesField::new_distance_sort("foo", lat, lon)?.into()];
+    let sort2 = Sort::with_fields(sort_field2)?;
+
+    let top_docs1 = searcher.search_with_sort(query1, 10, sort1)?;
+    let top_docs2 = searcher.search_with_sort(query2, 10, sort2)?;
+    for i in 0..10 {
+      assert_eq!(
+        top_docs1.score_docs()[i].doc(),
+        top_docs2.score_docs()[i].doc()
+      );
+    }
+
+    w.close()?;
     Ok(())
   }
 }
