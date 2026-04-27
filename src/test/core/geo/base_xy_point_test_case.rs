@@ -63,6 +63,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 const FIELD_NAME: &str = "point";
+/// Abstract class to do basic tests for a xy spatial impl (high level fields and queries)
 pub trait BaseXYPointTestCase {
   fn next_x<R>(&self, random: &mut R) -> f32
   where

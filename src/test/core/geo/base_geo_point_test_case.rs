@@ -62,6 +62,12 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use rand::{Rng, RngExt};
 use std::collections::HashSet;
 const FIELD_NAME: &str = "point";
+/// Abstract class to do basic tests for a geospatial impl (high level fields and queries) NOTE: This
+/// test focuses on geospatial (distance queries, polygon queries, etc) indexing and search, not any
+/// underlying storage format or encoding: it merely supplies two hooks for the encoding so that
+/// tests can be exact. The [stretch] goal is for this test to be so thorough in testing a new geo
+/// impl that if this test passes, then all Lucene tests should also pass. Ie, if there is some bug
+/// in a given geo impl that this test fails to catch then this test needs to be improved!
 pub trait BaseGeoPointTestCase {
   fn next_longitude<R>(&self, random: &mut R) -> f64
   where

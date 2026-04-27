@@ -30,6 +30,10 @@ use rand::RngExt;
 pub(crate) const MAXDOC_FORTESTING: i64 = 1 << 48;
 // must be at least MAXDOC_FORTESTING + i32::MAX
 pub(crate) const MAXTOKENS_FORTESTING: i64 = 1 << 49;
+/// Abstract class to do basic tests for a similarity. NOTE: This test focuses on the similarity
+/// impl, nothing else. The [stretch] goal is for this test to be so thorough in testing a new
+/// Similarity that if this test passes, then all Lucene tests should also pass. Ie, if there is some
+/// bug in a given Similarity that this test fails to catch then this test needs to be improved!
 pub trait BaseSimilarityTestCase {
   /// returns a random corpus that is at least possible given the norm value for a single document.
   fn new_corpus<R>(random: &mut R, norm: i32) -> Result<CollectionStatistics>
@@ -383,7 +387,24 @@ pub trait BaseSimilarityTestCase {
   fn get_similarity<R>(&self, random: &mut R) -> Result<Self::Similarity>
   where
     R: Rng + ?Sized;
-
+  /// Tests scoring across a bunch of random terms/corpora/frequencies for each possible document
+  /// length. It does the following checks:
+  ///
+  /// - Scores are non-negative and finite.
+  /// - Score matches the explanation exactly.
+  /// - Internal explanations calculations are sane (e.g., sum of: and so on actually compute
+  ///   sums)
+  /// - Scores don't decrease as term frequencies increase: e.g., score(freq=N + 1) >=
+  ///   score(freq=N)
+  /// - Scores don't decrease as documents get shorter, e.g., score(len=M) >= score(len=M+1)
+  /// - Scores don't decrease as terms get rarer, e.g., score(term=N) >= score(term=N+1)
+  /// - Scoring works for floating point frequencies (e.g., sloppy phrase and span queries will
+  ///   work)
+  /// - Scoring works for reasonably large 64-bit statistic values (e.g. distributed search will
+  ///   work)
+  /// - Scoring works for reasonably large boost values (0 .. Integer.MAX_VALUE, e.g. query
+  ///   boosts will work)
+  /// - Scoring works for parameters randomized within valid ranges (see [`get_similarity`])
   fn test_random_scoring<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
