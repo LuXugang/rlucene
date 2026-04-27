@@ -24,8 +24,10 @@ use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::lat_lon_point_distance_feature_query::LatLonPointDistanceFeatureQuery;
 use crate::core::document::lat_lon_point_distance_query::LatLonPointDistanceQuery;
 use crate::core::document::lat_lon_point_query::lat_lon_point_query;
+use crate::core::document::nearest_neighbor;
 use crate::core::document::shape_field::QueryRelation;
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
+use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::lat_lon_geometry::LatLonGeometry;
 use crate::core::geo::lat_lon_geometry::LatLonGeometryEnum;
 use crate::core::geo::polygon::Polygon;
@@ -36,15 +38,21 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::point_values::PointValues;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
+use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::search::query::Query;
 use crate::core::search::top_field_docs::TopFieldDocs;
+use crate::core::search::total_hits::Relation::EqualTo;
+use crate::core::search::total_hits::TotalHits;
+use crate::core::util::SloppyMath;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
@@ -436,7 +444,6 @@ impl LatLonPoint {
   /// `longitude` or `n` are out-of-bounds.
   ///
   /// Returns an error if an I/O error occurs while finding the points.
-  // TODO: what about multi-valued documents? what happens?
   pub fn nearest<IRC>(
     searcher: &IndexSearcher<IRC>,
     field: &str,
@@ -447,8 +454,47 @@ impl LatLonPoint {
   where
     IRC: IndexReaderContext,
   {
-    let _ = (searcher, field, latitude, longitude, n);
-    todo!()
+    GeoUtils::check_latitude(latitude)?;
+    GeoUtils::check_longitude(longitude)?;
+
+    if n < 1 {
+      return Err(LuceneError::illegal_argument(format!(
+        "n must be at least 1; got {}",
+        n
+      )));
+    }
+
+    let mut readers = Vec::new();
+    let mut doc_bases = Vec::new();
+    let mut live_docs = Vec::new();
+    let mut total_hits = 0;
+
+    for leaf in searcher.get_leaf_contexts()? {
+      let reader = leaf.reader();
+      let points = reader.get_point_values(field)?;
+      if let Some(points) = points {
+        total_hits += points.get_doc_count()?;
+        readers.push(points);
+        doc_bases.push(leaf.doc_base as i32);
+        live_docs.push(reader.get_live_docs()?);
+      }
+    }
+
+    let hits = nearest_neighbor::nearest(
+      latitude, longitude, &readers, &live_docs, &doc_bases, n as usize,
+    )?;
+
+    let mut score_docs = Vec::with_capacity(hits.len());
+    for hit in hits {
+      let hit_distance = SloppyMath::haversin_meters_from_sort_key(hit.distance_sort_key);
+      score_docs.push(FieldDoc::with_fields(hit.doc_id, 0.0, vec![hit_distance.into()]).into());
+    }
+
+    Ok(TopFieldDocs::new(
+      TotalHits::new(total_hits as usize, EqualTo),
+      score_docs,
+      vec![],
+    ))
   }
 }
 
