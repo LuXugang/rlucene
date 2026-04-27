@@ -60,5 +60,6 @@ pub mod string_field;
 pub mod text_field;
 pub mod xy_doc_values_field;
 pub(crate) mod xy_doc_values_point_in_geometry_query;
+pub(crate) mod xy_point_distance_comparator;
 pub mod xy_point_field;
 pub(crate) mod xy_point_in_geometry_query;
