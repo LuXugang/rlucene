@@ -35,10 +35,7 @@ use crate::core::util::error::lucene_error::Result;
 /// When the least competitive item on the priority queue changes (`set_bottom`), we recompute a
 /// bounding box representing competitive distance to the top-N. Then in `compare_bottom`, we can
 /// quickly reject hits based on bounding box alone without computing distance for every element.
-pub struct XYPointDistanceComparator<S>
-where
-  S: SortedNumericDocValues,
-{
+pub struct XYPointDistanceComparator {
   field: String,
   x: f64,
   y: f64,
@@ -49,7 +46,6 @@ where
   values: Vec<f64>,
   bottom: f64,
   top_value: f64,
-  current_docs: Option<S>,
 
   // current bounding box(es) for the bottom distance on the PQ.
   // these are pre-encoded with XYPoint's encoding and
@@ -66,11 +62,8 @@ where
   values_doc_id: i32,
 }
 
-impl<S> XYPointDistanceComparator<S>
-where
-  S: SortedNumericDocValues,
-{
-  pub fn new(field: String, x: f32, y: f32, num_hits: usize) -> Self {
+impl XYPointDistanceComparator {
+  pub(crate) fn new(field: String, x: f32, y: f32, num_hits: usize) -> Self {
     Self {
       field,
       x: x as f64,
@@ -78,7 +71,6 @@ where
       values: vec![0.0; num_hits],
       bottom: 0.0,
       top_value: 0.0,
-      current_docs: None,
       min_x: i32::MIN,
       max_x: i32::MAX,
       min_y: i32::MIN,
@@ -89,10 +81,7 @@ where
     }
   }
 }
-impl<S> FieldComparator for XYPointDistanceComparator<S>
-where
-  S: SortedNumericDocValues,
-{
+impl FieldComparator for XYPointDistanceComparator {
   type V = f64;
 
   fn compare(&self, slot1: usize, slot2: usize) -> i32 {
@@ -198,7 +187,7 @@ impl<SN> LeafFieldComparator for XYPointDistanceLeafComparator<SN>
 where
   SN: SortedNumericDocValues,
 {
-  type FieldComparator = XYPointDistanceComparator<SN>;
+  type FieldComparator = XYPointDistanceComparator;
 
   fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
     comparator.bottom = comparator.values[slot];

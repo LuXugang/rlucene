@@ -21,6 +21,7 @@ use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::xy_doc_values_point_in_geometry_query::XYDocValuesPointInGeometryQuery;
+use crate::core::document::xy_point_sort_field::XYPointSortField;
 use crate::core::geo::xy_circle::XYCircle;
 use crate::core::geo::xy_encoding_utils::XYEncodingUtils;
 use crate::core::geo::xy_geometry::{XYGeometry, XYGeometryEnum};
@@ -168,9 +169,11 @@ impl XYDocValuesField {
   /// # Errors
   ///
   /// Returns an error if `field` is null or location has invalid coordinates.
-  pub fn new_distance_sort() {
-    // TODO IMPORTANT XYPointSortField 未实现
-    todo!()
+  pub fn new_distance_sort<T>(field: T, x: f32, y: f32) -> Result<XYPointSortField>
+  where
+    T: Into<String>,
+  {
+    XYPointSortField::new(field, x, y)
   }
 
   /// Create a query for matching a bounding box using doc values. This query is usually slow as it
