@@ -22,6 +22,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
@@ -97,7 +98,7 @@ impl FieldComparator for XYPointDistanceComparator {
   }
 
   type LeafFieldComparator<LR>
-    = XYPointDistanceLeafComparator<SortedNumeric<LR>>
+    = XYPointDistanceLeafComparator<LR>
   where
     LR: LeafReader;
 
@@ -119,19 +120,19 @@ impl FieldComparator for XYPointDistanceComparator {
   }
 }
 
-pub struct XYPointDistanceLeafComparator<SN>
+pub struct XYPointDistanceLeafComparator<LR>
 where
-  SN: SortedNumericDocValues,
+  LR: LeafReader,
 {
-  current_docs: SN,
+  current_docs: SortedNumeric<LR>,
 }
-impl<SN> XYPointDistanceLeafComparator<SN>
+impl<LR> XYPointDistanceLeafComparator<LR>
 where
-  SN: SortedNumericDocValues,
+  LR: LeafReader,
 {
   fn set_values(
     &mut self,
-    comparator: &mut <XYPointDistanceLeafComparator<SN> as LeafFieldComparator>::FieldComparator,
+    comparator: &mut <XYPointDistanceLeafComparator<LR> as LeafFieldComparator>::FieldComparator,
   ) -> Result<()> {
     if comparator.values_doc_id != self.current_docs.doc_id() {
       debug_assert!(
@@ -158,7 +159,7 @@ where
   fn sort_key(
     &mut self,
     doc: i32,
-    comparator: &mut <XYPointDistanceLeafComparator<SN> as LeafFieldComparator>::FieldComparator,
+    comparator: &mut <XYPointDistanceLeafComparator<LR> as LeafFieldComparator>::FieldComparator,
   ) -> Result<f64> {
     if doc > self.current_docs.doc_id() {
       self.current_docs.advance(doc)?;
@@ -183,9 +184,9 @@ where
     Ok(min_value)
   }
 }
-impl<SN> LeafFieldComparator for XYPointDistanceLeafComparator<SN>
+impl<LR> LeafFieldComparator for XYPointDistanceLeafComparator<LR>
 where
-  SN: SortedNumericDocValues,
+  LR: LeafReader,
 {
   type FieldComparator = XYPointDistanceComparator;
 

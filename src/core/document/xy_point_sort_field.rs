@@ -24,6 +24,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 /// Sorts by distance from an origin location.
+#[derive(Clone)]
 pub struct XYPointSortField {
   x: f32,
   y: f32,

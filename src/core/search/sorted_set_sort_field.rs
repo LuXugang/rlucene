@@ -23,7 +23,7 @@ use crate::core::index::sort_field_provider::SortFieldProvider;
 use crate::core::search::comparators::term_ord_val_comparator::{
   TermOrdValComparator, TermOrdValDocValues, TermOrdValLeafComparator,
 };
-use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
+use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
@@ -170,7 +170,7 @@ impl SortFiledBase for SortedSetSortField {
     Ok(())
   }
 
-  type FieldComparator = FieldComparatorEnum;
+  type FieldComparator = SortedDocValuesTermOrdValComparator;
 
   fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator> {
     let final_pruning = if self.base.get_optimize_sort_with_indexed_data() {
@@ -192,7 +192,10 @@ impl SortFiledBase for SortedSetSortField {
       self.base.reverse,
       final_pruning,
     );
-    Ok(SortedDocValuesTermOrdValComparator::new(base, self.selector).into())
+    Ok(SortedDocValuesTermOrdValComparator::new(
+      base,
+      self.selector,
+    ))
   }
 }
 impl Hash for SortedSetSortField {

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::xy_point_distance_comparator::XYPointDistanceComparator;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values::{Binary, DocValues};
@@ -444,6 +445,7 @@ pub enum FieldComparatorEnum {
   SortedNumericFloat(SortedNumericFloatComparator),
   SortedNumericDouble(SortedNumericDoubleComparator),
   SortedDocValuesTermOrdVal(SortedDocValuesTermOrdValComparator),
+  XYPointDistance(XYPointDistanceComparator),
   Dummy(DummyFieldComparator),
 }
 // for std::mem::take
@@ -467,6 +469,7 @@ impl_from_for_enum!(
     SortedNumericFloatComparator => SortedNumericFloat,
     SortedNumericDoubleComparator => SortedNumericDouble,
     SortedDocValuesTermOrdValComparator => SortedDocValuesTermOrdVal,
+    XYPointDistanceComparator => XYPointDistance,
     DummyFieldComparator => Dummy,
 );
 
@@ -490,6 +493,7 @@ impl FieldComparator for FieldComparatorEnum {
       FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
         comparator.compare(slot1, slot2)
       },
+      FieldComparatorEnum::XYPointDistance(comparator) => comparator.compare(slot1, slot2),
       FieldComparatorEnum::Dummy(comparator) => comparator.compare(slot1, slot2),
     }
   }
@@ -564,6 +568,12 @@ impl FieldComparator for FieldComparatorEnum {
           .expect("expected sorted doc values term ord val comparator value");
         comparator.set_top_value(v);
       },
+      FieldComparatorEnum::XYPointDistance(comparator) => {
+        let v = value
+          .into_f64()
+          .expect("expected xy point distance comparator value");
+        comparator.set_top_value(v);
+      },
       FieldComparatorEnum::Dummy(_comparator) => {
         dummy_unreachable!()
       },
@@ -606,6 +616,9 @@ impl FieldComparator for FieldComparatorEnum {
       },
       FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
         comparator.value(slot).map(FieldComparatorValue::TermVal)
+      },
+      FieldComparatorEnum::XYPointDistance(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::Double)
       },
       FieldComparatorEnum::Dummy(_comparator) => {
         dummy_unreachable!()
@@ -665,6 +678,9 @@ impl FieldComparator for FieldComparatorEnum {
       FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator
         .get_leaf_comparator(context)
         .map(LeafFieldComparatorEnum::TermOrdVal),
+      FieldComparatorEnum::XYPointDistance(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::XYPointDistance),
       FieldComparatorEnum::Dummy(_) => {
         dummy_unreachable!()
       },
@@ -725,6 +741,10 @@ impl FieldComparator for FieldComparatorEnum {
         first.and_then(FieldComparatorValue::as_term_val),
         second.and_then(FieldComparatorValue::as_term_val),
       ),
+      FieldComparatorEnum::XYPointDistance(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_f64),
+        second.and_then(FieldComparatorValue::as_f64),
+      ),
       FieldComparatorEnum::Dummy(_) => {
         dummy_unreachable!()
       },
@@ -779,6 +799,7 @@ impl FieldComparator for FieldComparatorEnum {
       FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.set_single_sort(),
       FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.set_single_sort(),
       FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::XYPointDistance(comparator) => comparator.set_single_sort(),
       FieldComparatorEnum::Dummy(comparator) => comparator.set_single_sort(),
     }
   }
@@ -798,6 +819,7 @@ impl FieldComparator for FieldComparatorEnum {
       FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.disable_skipping(),
       FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.disable_skipping(),
       FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::XYPointDistance(comparator) => comparator.disable_skipping(),
       FieldComparatorEnum::Dummy(comparator) => comparator.disable_skipping(),
     }
   }

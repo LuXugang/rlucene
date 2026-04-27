@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::xy_point_distance_comparator::XYPointDistanceLeafComparator;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::comparators::doc_comparator::{DocComparatorIterator, DocLeafComparator};
 use crate::core::search::comparators::double_comparator::DoubleLeafComparator;
@@ -226,6 +227,7 @@ where
   Long(LongLeafComparator<LR>),
   TermVal(TermValLeafComparator<LR>),
   TermOrdVal(TermOrdValLeafComparator<LR>),
+  XYPointDistance(XYPointDistanceLeafComparator<LR>),
 }
 
 impl<LR> LeafFieldComparator for LeafFieldComparatorEnum<LR>
@@ -265,6 +267,9 @@ where
 
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.set_bottom(slot, &mut c.base)
+      },
+      (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
+        comparator.set_bottom(slot, c)
       },
       _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
     }
@@ -320,6 +325,9 @@ where
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.compare_bottom(doc, scorer, &mut c.base)
       },
+      (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
+        comparator.compare_bottom(doc, scorer, c)
+      },
       _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
     }
   }
@@ -374,6 +382,9 @@ where
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.compare_top(doc, scorer, &mut c.base)
       },
+      (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
+        comparator.compare_top(doc, scorer, c)
+      },
       _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
     }
   }
@@ -425,6 +436,9 @@ where
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.copy(slot, doc, scorer, &mut c.base)
       },
+      (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
+        comparator.copy(slot, doc, scorer, c)
+      },
       _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
     }
   }
@@ -464,6 +478,9 @@ where
       },
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.set_scorer(scorer, &mut c.base)
+      },
+      (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
+        comparator.set_scorer(scorer, c)
       },
       _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
     }
@@ -521,6 +538,7 @@ where
           .competitive_iterator(&mut c.base)
           .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::D))
       },
+      (Self::XYPointDistance(_comparator), FieldComparatorEnum::XYPointDistance(_c)) => Ok(None),
       _ => Ok(None),
     }
   }
@@ -566,6 +584,9 @@ where
 
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.set_hits_threshold_reached(&mut c.base)
+      },
+      (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
+        comparator.set_hits_threshold_reached(c)
       },
       _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
     }

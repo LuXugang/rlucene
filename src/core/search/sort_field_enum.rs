@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::xy_point_sort_field::XYPointSortField;
 use crate::core::index::doc_values::SortedSet;
 use crate::core::index::index_sorter::{
   CPEnumType1, CPEnumType2, ComparableProviderEnum3, DocComparatorImpl, IndexSorter,
@@ -44,6 +45,7 @@ pub enum SortFieldEnum {
   SortedNumeric(SortedNumericSortField),
   SortedSet(SortedSetSortField),
   Sorter(SortField),
+  XYPoint(XYPointSortField),
 }
 
 macro_rules! dispatch_sort_field {
@@ -52,6 +54,7 @@ macro_rules! dispatch_sort_field {
       SortFieldEnum::SortedNumeric($sort_field) => $body,
       SortFieldEnum::SortedSet($sort_field) => $body,
       SortFieldEnum::Sorter($sort_field) => $body,
+      SortFieldEnum::XYPoint($sort_field) => $body,
     }
   }};
 }
@@ -68,6 +71,10 @@ macro_rules! dispatch_sort_field_base {
         $body
       },
       SortFieldEnum::Sorter($sort_field) => $body,
+      SortFieldEnum::XYPoint(sort_field) => {
+        let $sort_field = &sort_field.base;
+        $body
+      },
     }
   }};
 }
@@ -84,6 +91,10 @@ macro_rules! dispatch_sort_field_base_mut {
         $body
       },
       SortFieldEnum::Sorter($sort_field) => $body,
+      SortFieldEnum::XYPoint(sort_field) => {
+        let $sort_field = &mut sort_field.base;
+        $body
+      },
     }
   }};
 }
@@ -138,6 +149,10 @@ impl SortFiledBase for SortFieldEnum {
         let sorter = sort_field.get_index_sorter()?;
         Ok(sorter.map(IndexSortEnum::Sorter))
       },
+      SortFieldEnum::XYPoint(sort_field) => {
+        let sorter = sort_field.get_index_sorter()?;
+        Ok(sorter.map(IndexSortEnum::Sorter))
+      },
     }
   }
 
@@ -148,8 +163,24 @@ impl SortFiledBase for SortFieldEnum {
   type FieldComparator = FieldComparatorEnum;
 
   fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator> {
-    dispatch_sort_field!(self, |sort_field| sort_field
-      .get_comparator(num_hits, pruning))
+    match self {
+      SortFieldEnum::SortedNumeric(sort_field) => {
+        let comparator = sort_field.get_comparator(num_hits, pruning)?;
+        Ok(comparator)
+      },
+      SortFieldEnum::SortedSet(sort_field) => {
+        let comparator = sort_field.get_comparator(num_hits, pruning)?;
+        Ok(comparator.into())
+      },
+      SortFieldEnum::Sorter(sort_field) => {
+        let comparator = sort_field.get_comparator(num_hits, pruning)?;
+        Ok(comparator)
+      },
+      SortFieldEnum::XYPoint(sort_field) => {
+        let comparator = sort_field.get_comparator(num_hits, pruning)?;
+        Ok(comparator.into())
+      },
+    }
   }
 }
 
@@ -173,6 +204,7 @@ impl_from_for_enum!(
     SortField => Sorter,
     SortedNumericSortField => SortedNumeric,
     SortedSetSortField => SortedSet,
+    XYPointSortField=> XYPoint,
 );
 pub type CPType<LR> = ComparableProviderEnum3<
   CPEnumType2<NPImpl2, LR>,
