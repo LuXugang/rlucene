@@ -41,6 +41,7 @@ pub(crate) mod lat_lon_doc_values_box_query;
 pub mod lat_lon_doc_values_field;
 pub(crate) mod lat_lon_doc_values_query;
 pub mod lat_lon_point;
+pub(crate) mod lat_lon_point_distance_comparator;
 pub(crate) mod lat_lon_point_distance_feature_query;
 pub(crate) mod lat_lon_point_distance_query;
 pub(crate) mod lat_lon_point_query;

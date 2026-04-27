@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::lat_lon_point_distance_comparator::LatLonPointDistanceComparator;
 use crate::core::document::xy_point_distance_comparator::XYPointDistanceComparator;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
@@ -437,6 +438,7 @@ pub enum FieldComparatorEnum {
   Double(DoubleComparator),
   Float(FloatComparator),
   Int(IntComparator),
+  LatLonPointDistance(LatLonPointDistanceComparator),
   Long(LongComparator),
   TermVal(TermValComparator),
   TermOrdValue(TermOrdValComparator),
@@ -469,6 +471,7 @@ impl_from_for_enum!(
     SortedNumericFloatComparator => SortedNumericFloat,
     SortedNumericDoubleComparator => SortedNumericDouble,
     SortedDocValuesTermOrdValComparator => SortedDocValuesTermOrdVal,
+    LatLonPointDistanceComparator => LatLonPointDistance,
     XYPointDistanceComparator => XYPointDistance,
     DummyFieldComparator => Dummy,
 );
@@ -493,6 +496,7 @@ impl FieldComparator for FieldComparatorEnum {
       FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
         comparator.compare(slot1, slot2)
       },
+      FieldComparatorEnum::LatLonPointDistance(comparator) => comparator.compare(slot1, slot2),
       FieldComparatorEnum::XYPointDistance(comparator) => comparator.compare(slot1, slot2),
       FieldComparatorEnum::Dummy(comparator) => comparator.compare(slot1, slot2),
     }
@@ -568,6 +572,12 @@ impl FieldComparator for FieldComparatorEnum {
           .expect("expected sorted doc values term ord val comparator value");
         comparator.set_top_value(v);
       },
+      FieldComparatorEnum::LatLonPointDistance(comparator) => {
+        let v = value
+          .into_f64()
+          .expect("expected lat lon point distance comparator value");
+        comparator.set_top_value(v);
+      },
       FieldComparatorEnum::XYPointDistance(comparator) => {
         let v = value
           .into_f64()
@@ -616,6 +626,9 @@ impl FieldComparator for FieldComparatorEnum {
       },
       FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
         comparator.value(slot).map(FieldComparatorValue::TermVal)
+      },
+      FieldComparatorEnum::LatLonPointDistance(comparator) => {
+        comparator.value(slot).map(FieldComparatorValue::Double)
       },
       FieldComparatorEnum::XYPointDistance(comparator) => {
         comparator.value(slot).map(FieldComparatorValue::Double)
@@ -678,6 +691,9 @@ impl FieldComparator for FieldComparatorEnum {
       FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator
         .get_leaf_comparator(context)
         .map(LeafFieldComparatorEnum::TermOrdVal),
+      FieldComparatorEnum::LatLonPointDistance(comparator) => comparator
+        .get_leaf_comparator(context)
+        .map(LeafFieldComparatorEnum::LatLonPointDistance),
       FieldComparatorEnum::XYPointDistance(comparator) => comparator
         .get_leaf_comparator(context)
         .map(LeafFieldComparatorEnum::XYPointDistance),
@@ -741,6 +757,10 @@ impl FieldComparator for FieldComparatorEnum {
         first.and_then(FieldComparatorValue::as_term_val),
         second.and_then(FieldComparatorValue::as_term_val),
       ),
+      FieldComparatorEnum::LatLonPointDistance(comparator) => comparator.compare_values(
+        first.and_then(FieldComparatorValue::as_f64),
+        second.and_then(FieldComparatorValue::as_f64),
+      ),
       FieldComparatorEnum::XYPointDistance(comparator) => comparator.compare_values(
         first.and_then(FieldComparatorValue::as_f64),
         second.and_then(FieldComparatorValue::as_f64),
@@ -799,6 +819,7 @@ impl FieldComparator for FieldComparatorEnum {
       FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.set_single_sort(),
       FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.set_single_sort(),
       FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator.set_single_sort(),
+      FieldComparatorEnum::LatLonPointDistance(comparator) => comparator.set_single_sort(),
       FieldComparatorEnum::XYPointDistance(comparator) => comparator.set_single_sort(),
       FieldComparatorEnum::Dummy(comparator) => comparator.set_single_sort(),
     }
@@ -819,6 +840,7 @@ impl FieldComparator for FieldComparatorEnum {
       FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.disable_skipping(),
       FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.disable_skipping(),
       FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator.disable_skipping(),
+      FieldComparatorEnum::LatLonPointDistance(comparator) => comparator.disable_skipping(),
       FieldComparatorEnum::XYPointDistance(comparator) => comparator.disable_skipping(),
       FieldComparatorEnum::Dummy(comparator) => comparator.disable_skipping(),
     }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::lat_lon_point_distance_comparator::LatLonPointDistanceLeafComparator;
 use crate::core::document::xy_point_distance_comparator::XYPointDistanceLeafComparator;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::comparators::doc_comparator::{DocComparatorIterator, DocLeafComparator};
@@ -224,6 +225,7 @@ where
   Double(DoubleLeafComparator<LR>),
   Float(FloatLeafComparator<LR>),
   Int(IntLeafComparator<LR>),
+  LatLonPointDistance(LatLonPointDistanceLeafComparator<LR>),
   Long(LongLeafComparator<LR>),
   TermVal(TermValLeafComparator<LR>),
   TermOrdVal(TermOrdValLeafComparator<LR>),
@@ -267,6 +269,9 @@ where
 
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.set_bottom(slot, &mut c.base)
+      },
+      (Self::LatLonPointDistance(comparator), FieldComparatorEnum::LatLonPointDistance(c)) => {
+        comparator.set_bottom(slot, c)
       },
       (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
         comparator.set_bottom(slot, c)
@@ -325,6 +330,9 @@ where
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.compare_bottom(doc, scorer, &mut c.base)
       },
+      (Self::LatLonPointDistance(comparator), FieldComparatorEnum::LatLonPointDistance(c)) => {
+        comparator.compare_bottom(doc, scorer, c)
+      },
       (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
         comparator.compare_bottom(doc, scorer, c)
       },
@@ -382,6 +390,9 @@ where
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.compare_top(doc, scorer, &mut c.base)
       },
+      (Self::LatLonPointDistance(comparator), FieldComparatorEnum::LatLonPointDistance(c)) => {
+        comparator.compare_top(doc, scorer, c)
+      },
       (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
         comparator.compare_top(doc, scorer, c)
       },
@@ -436,6 +447,9 @@ where
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.copy(slot, doc, scorer, &mut c.base)
       },
+      (Self::LatLonPointDistance(comparator), FieldComparatorEnum::LatLonPointDistance(c)) => {
+        comparator.copy(slot, doc, scorer, c)
+      },
       (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
         comparator.copy(slot, doc, scorer, c)
       },
@@ -478,6 +492,9 @@ where
       },
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.set_scorer(scorer, &mut c.base)
+      },
+      (Self::LatLonPointDistance(comparator), FieldComparatorEnum::LatLonPointDistance(c)) => {
+        comparator.set_scorer(scorer, c)
       },
       (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
         comparator.set_scorer(scorer, c)
@@ -538,6 +555,9 @@ where
           .competitive_iterator(&mut c.base)
           .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::D))
       },
+      (Self::LatLonPointDistance(_comparator), FieldComparatorEnum::LatLonPointDistance(_c)) => {
+        Ok(None)
+      },
       (Self::XYPointDistance(_comparator), FieldComparatorEnum::XYPointDistance(_c)) => Ok(None),
       _ => Ok(None),
     }
@@ -584,6 +604,9 @@ where
 
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator.set_hits_threshold_reached(&mut c.base)
+      },
+      (Self::LatLonPointDistance(comparator), FieldComparatorEnum::LatLonPointDistance(c)) => {
+        comparator.set_hits_threshold_reached(c)
       },
       (Self::XYPointDistance(comparator), FieldComparatorEnum::XYPointDistance(c)) => {
         comparator.set_hits_threshold_reached(c)
