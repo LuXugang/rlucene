@@ -54,7 +54,7 @@ use std::hash::{Hash, Hasher};
 /// term `"a"` with `maxEdits=2` will not match an indexed term `"abc"`.
 #[derive(Clone)]
 pub struct FuzzyQuery {
-  max_edits: usize,
+  max_edits: i32,
   max_expansions: usize,
   transpositions: bool,
   prefix_length: usize,
@@ -64,7 +64,7 @@ pub struct FuzzyQuery {
 }
 
 impl FuzzyQuery {
-  pub const DEFAULT_MAX_EDITS: usize = LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE;
+  pub const DEFAULT_MAX_EDITS: i32 = LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE;
   pub const DEFAULT_PREFIX_LENGTH: usize = 0;
   pub const DEFAULT_MAX_EXPANSIONS: usize = 50;
   pub const DEFAULT_TRANSPOSITIONS: bool = true;
@@ -77,13 +77,13 @@ impl FuzzyQuery {
     Self::with_max_edits(term, Self::DEFAULT_MAX_EDITS)
   }
 
-  pub fn with_max_edits(term: Term, max_edits: usize) -> Result<Self> {
+  pub fn with_max_edits(term: Term, max_edits: i32) -> Result<Self> {
     Self::with_max_edits_and_prefix(term, max_edits, Self::DEFAULT_PREFIX_LENGTH)
   }
 
   pub fn with_max_edits_and_prefix(
     term: Term,
-    max_edits: usize,
+    max_edits: i32,
     prefix_length: usize,
   ) -> Result<Self> {
     Self::with_options(
@@ -97,7 +97,7 @@ impl FuzzyQuery {
 
   pub fn with_options(
     term: Term,
-    max_edits: usize,
+    max_edits: i32,
     prefix_length: usize,
     max_expansions: usize,
     transpositions: bool,
@@ -127,7 +127,7 @@ impl FuzzyQuery {
   /// - `rewrite_method`: the rewrite method to use to build the final query.
   pub fn with_rewrite<R>(
     term: Term,
-    max_edits: usize,
+    max_edits: i32,
     prefix_length: usize,
     max_expansions: usize,
     transpositions: bool,
@@ -160,7 +160,7 @@ impl FuzzyQuery {
   }
   /// Returns:
   // the maximum number of edit distances allowed for this query to match.
-  pub fn get_max_edits(&self) -> usize {
+  pub fn get_max_edits(&self) -> i32 {
     self.max_edits
   }
   /// Returns the non-fuzzy prefix length.
@@ -198,7 +198,7 @@ impl FuzzyQuery {
   /// Returns a [`CompiledAutomaton`] that matches terms that satisfy input parameters.
   pub fn get_fuzzy_automaton<T>(
     term: T,
-    max_edits: usize,
+    max_edits: i32,
     prefix_length: usize,
     transpositions: bool,
   ) -> Result<CompiledAutomaton>
@@ -213,14 +213,14 @@ impl FuzzyQuery {
     &self.term
   }
 
-  pub fn float_to_edits(minimum_similarity: f32, term_len: usize) -> usize {
+  pub fn float_to_edits(minimum_similarity: f32, term_len: usize) -> i32 {
     if minimum_similarity >= 1.0 {
-      (minimum_similarity as usize).min(LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE)
+      minimum_similarity.min(LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE as f32) as i32
     } else if minimum_similarity == 0.0 {
       0
     } else {
-      (((1.0 - minimum_similarity) as f64 * term_len as f64) as usize)
-        .min(LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE)
+      ((1.0 - minimum_similarity) as f64 * term_len as f64)
+        .min(LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE as f64) as i32
     }
   }
 }

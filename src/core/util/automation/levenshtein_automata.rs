@@ -51,7 +51,7 @@ pub struct LevenshteinAutomata {
 
 impl LevenshteinAutomata {
   /// Maximum edit distance this class can generate an automaton for.
-  pub const MAXIMUM_SUPPORTED_DISTANCE: usize = 2;
+  pub const MAXIMUM_SUPPORTED_DISTANCE: i32 = 2;
 
   /// Create a new `LevenshteinAutomata` for some input string. Optionally count transpositions as a
   /// primitive edit.
