@@ -60,6 +60,13 @@ pub trait RewriteMethod {
   ) -> Result<Query>
   where
     IRC: IndexReaderContext;
+  fn get_terms_enum<M, T>(&self, query: &M, terms: T) -> Result<<M as MultiTermQuery>::TermsEnum<T>>
+  where
+    M: MultiTermQuery,
+    T: Terms + Clone,
+  {
+    query.get_terms_enum(terms)
+  }
 }
 /// A rewrite method where documents are assigned a constant score equal to the query's boost.
 /// Maintains a boolean query-like implementation over the most costly terms while pre-processing
@@ -257,3 +264,5 @@ impl_from_for_enum!(
     DumbPrefixQuery => DumbPrefix,
     DumbRegexpQuery => DumbRegexp,
 );
+
+pub struct TopTermsBoostOnlyBooleanQueryRewrite {}
