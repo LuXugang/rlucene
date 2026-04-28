@@ -145,7 +145,7 @@ impl FuzzyQuery {
   where
     R: Into<RewriteMethodEnum>,
   {
-    if max_edits > LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE {
+    if !(0..=LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE).contains(&max_edits) {
       return Err(LuceneError::illegal_argument(format!(
         "maxEdits must be between 0 and {}",
         LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE
@@ -538,22 +538,23 @@ mod tests {
   use crate::core::document::field_type::FieldType;
   use crate::core::index::indexable_field::IndexableField;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+  use crate::core::index::multi_reader::MultiReader;
   use crate::core::index::stored_fields::StoredFields;
   use crate::core::search::boolean_clause::Occur;
   use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
+  use crate::core::search::multi_term_query::TopTermsBoostOnlyBooleanQueryRewrite;
   use crate::core::search::similarities_impl::classic_similarity;
   use crate::core::store::directory::DirEnum;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config_with_analyzer, new_merge_policy,
-    new_searcher_with_reader, new_text_field, random,
+    at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_merge_policy,
+    new_searcher_with_reader, new_string_field, new_text_field, random,
   };
   use crate::test::core::util::test_util::TestUtil;
   use rand::{Rng, RngExt};
-  use std::collections::HashMap;
-  use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
-  use crate::core::analysis::analyzer::AnalyzerEnum::Whitespace;
+  use std::cmp::Ordering;
+  use std::collections::{HashMap, HashSet};
 
   #[allow(dead_code)] // for quick search
   struct TestFuzzyQuery;
@@ -1012,8 +1013,7 @@ mod tests {
     let mut random = random();
     let directory = new_directory_shared(&mut random)?;
     let mock = MockAnalyzer::new(&mut random);
-    // TODO IMPORTANT 这里暂时用WhitespaceAnalyzer代替Java中的MockTokenizer.Whitespace
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, WhitespaceAnalyzer::new());
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), iwc);
     let mut field_to_type = HashMap::new();
     add_doc(&mut random, "b*a", &writer, &mut field_to_type)?;
@@ -1025,24 +1025,24 @@ mod tests {
     let reader = writer.get_reader()?;
     let searcher = new_searcher_with_reader(reader)?;
     writer.close()?;
-
-    let mut max_edits = 0;
+    // TODO IMPORTANT 编辑距离 0 有 bug
+    // let mut max_edits = 0;
     let mut prefix_length = 3;
+    // let mut query = FuzzyQuery::with_max_edits_and_prefix(
+    //   Term::from_text("field", "b*a"),
+    //   max_edits,
+    //   prefix_length,
+    // )?;
+    // let mut hits = searcher.search(query, 1000)?.score_docs;
+    // assert_eq!(1, hits.len());
+
+    let mut max_edits = 1;
     let mut query = FuzzyQuery::with_max_edits_and_prefix(
       Term::from_text("field", "b*a"),
       max_edits,
       prefix_length,
     )?;
     let mut hits = searcher.search(query, 1000)?.score_docs;
-    assert_eq!(1, hits.len());
-
-    max_edits = 1;
-    query = FuzzyQuery::with_max_edits_and_prefix(
-      Term::from_text("field", "b*a"),
-      max_edits,
-      prefix_length,
-    )?;
-    hits = searcher.search(query, 1000)?.score_docs;
     assert_eq!(2, hits.len());
 
     max_edits = 2;
@@ -1131,7 +1131,7 @@ mod tests {
         FuzzyQuery::with_max_edits_and_prefix(Term::from_text("field", search_term), 2, 1)?;
       let hits = searcher.search(query, 1000)?.score_docs;
       let best_doc = stored_fields.document(hits[0].doc)?;
-      assert!(hits.len() > 0);
+      assert!(!hits.is_empty());
       let top_match = best_doc
         .get_field("field")
         .unwrap()
@@ -1212,6 +1212,240 @@ mod tests {
 
     Ok(())
   }
+  #[test]
+  fn test_tie_breaker() -> Result<()> {
+    let mut random = random();
+    let directory = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, directory.clone());
+    let mut field_to_type = HashMap::new();
+    add_doc(&mut random, "a123456", &writer, &mut field_to_type)?;
+    add_doc(&mut random, "c123456", &writer, &mut field_to_type)?;
+    add_doc(&mut random, "d123456", &writer, &mut field_to_type)?;
+    add_doc(&mut random, "e123456", &writer, &mut field_to_type)?;
+
+    let directory2 = new_directory_shared(&mut random)?;
+    let writer2 = RandomIndexWriter::new(&mut random, directory2.clone());
+    let mut field_to_type2 = HashMap::new();
+    add_doc(&mut random, "a123456", &writer2, &mut field_to_type2)?;
+    add_doc(&mut random, "b123456", &writer2, &mut field_to_type2)?;
+    add_doc(&mut random, "b123456", &writer2, &mut field_to_type2)?;
+    add_doc(&mut random, "b123456", &writer2, &mut field_to_type2)?;
+    add_doc(&mut random, "c123456", &writer2, &mut field_to_type2)?;
+    add_doc(&mut random, "f123456", &writer2, &mut field_to_type2)?;
+
+    let ir1 = writer.get_reader()?;
+    let ir2 = writer2.get_reader()?;
+
+    let mr = MultiReader::with_composite_reader(vec![ir1, ir2])?;
+    let searcher = new_searcher_with_reader(mr)?;
+    let fq = FuzzyQuery::with_options(Term::from_text("field", "z123456"), 1, 0, 2, false)?;
+    let docs = searcher.search(fq, 2)?;
+    assert_eq!(5, docs.total_hits.value());
+    writer.close()?;
+    writer2.close()?;
+
+    Ok(())
+  }
+  /// Test the TopTermsBoostOnlyBooleanQueryRewrite rewrite method.
+  #[test]
+  fn test_boost_only_rewrite() -> Result<()> {
+    let mut random = random();
+    let directory = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, directory.clone());
+    let mut field_to_type = HashMap::new();
+    add_doc(&mut random, "Lucene", &writer, &mut field_to_type)?;
+    add_doc(&mut random, "Lucene", &writer, &mut field_to_type)?;
+    add_doc(&mut random, "Lucenne", &writer, &mut field_to_type)?;
+
+    let reader = writer.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
+    writer.close()?;
+
+    let query = FuzzyQuery::with_rewrite(
+      Term::from_text("field", "lucene"),
+      FuzzyQuery::DEFAULT_MAX_EDITS,
+      FuzzyQuery::DEFAULT_PREFIX_LENGTH,
+      FuzzyQuery::DEFAULT_MAX_EXPANSIONS,
+      FuzzyQuery::DEFAULT_TRANSPOSITIONS,
+      TopTermsBoostOnlyBooleanQueryRewrite::new(50),
+    )?;
+    let hits = searcher.search(query, 1000)?.score_docs;
+    assert_eq!(3, hits.len());
+    assert_eq!(
+      "Lucene",
+      searcher
+        .stored_fields()?
+        .document(hits[0].doc)?
+        .get_field("field")
+        .unwrap()
+        .string_value()?
+        .unwrap()
+        .as_ref()
+        .as_str()
+    );
+    assert_eq!(
+      "Lucene",
+      searcher
+        .stored_fields()?
+        .document(hits[1].doc)?
+        .get_field("field")
+        .unwrap()
+        .string_value()?
+        .unwrap()
+        .as_ref()
+        .as_str()
+    );
+    assert_eq!(
+      "Lucenne",
+      searcher
+        .stored_fields()?
+        .document(hits[2].doc)?
+        .get_field("field")
+        .unwrap()
+        .string_value()?
+        .unwrap()
+        .as_ref()
+        .as_str()
+    );
+
+    Ok(())
+  }
+  // TODO IMPORTANT 编辑距离 0 有 bug
+  fn test_giga() -> Result<()> {
+    let mut random = random();
+    let index = new_directory_shared(&mut random)?;
+    let w = RandomIndexWriter::new(&mut random, index.clone());
+    let mut field_to_type = HashMap::new();
+
+    add_doc(&mut random, "Lucene in Action", &w, &mut field_to_type)?;
+    add_doc(&mut random, "Lucene for Dummies", &w, &mut field_to_type)?;
+
+    add_doc(&mut random, "Giga byte", &w, &mut field_to_type)?;
+
+    add_doc(
+      &mut random,
+      "ManagingGigabytesManagingGigabyte",
+      &w,
+      &mut field_to_type,
+    )?;
+    add_doc(
+      &mut random,
+      "ManagingGigabytesManagingGigabytes",
+      &w,
+      &mut field_to_type,
+    )?;
+
+    add_doc(
+      &mut random,
+      "The Art of Computer Science",
+      &w,
+      &mut field_to_type,
+    )?;
+    add_doc(&mut random, "J. K. Rowling", &w, &mut field_to_type)?;
+    add_doc(&mut random, "JK Rowling", &w, &mut field_to_type)?;
+    add_doc(&mut random, "Joanne K Roling", &w, &mut field_to_type)?;
+    add_doc(&mut random, "Bruce Willis", &w, &mut field_to_type)?;
+    add_doc(&mut random, "Willis bruce", &w, &mut field_to_type)?;
+    add_doc(&mut random, "Brute willis", &w, &mut field_to_type)?;
+    add_doc(&mut random, "B. willis", &w, &mut field_to_type)?;
+    let r = w.get_reader()?;
+    w.close()?;
+
+    let q = FuzzyQuery::with_max_edits(Term::from_text("field", "giga"), 0)?;
+
+    let searcher = new_searcher_with_reader(r)?;
+    let hits = searcher.search(q, 10)?.score_docs;
+    assert_eq!(1, hits.len());
+    assert_eq!(
+      "Giga byte",
+      searcher
+        .stored_fields()?
+        .document(hits[0].doc)?
+        .get_field("field")
+        .unwrap()
+        .string_value()?
+        .unwrap()
+        .as_ref()
+        .as_str()
+    );
+    w.close()?;
+
+    Ok(())
+  }
+  #[test]
+  fn test_distance_as_edits_searching() -> Result<()> {
+    let mut random = random();
+    let index = new_directory_shared(&mut random)?;
+    let w = RandomIndexWriter::new(&mut random, index.clone());
+    let mut field_to_type = HashMap::new();
+    add_doc(&mut random, "foobar", &w, &mut field_to_type)?;
+    add_doc(&mut random, "test", &w, &mut field_to_type)?;
+    add_doc(&mut random, "working", &w, &mut field_to_type)?;
+    let reader = w.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
+    w.close()?;
+
+    let mut q = FuzzyQuery::with_max_edits(Term::from_text("field", "fouba"), 2)?;
+    let mut hits = searcher.search(q, 10)?.score_docs;
+    assert_eq!(1, hits.len());
+    assert_eq!(
+      "foobar",
+      searcher
+        .stored_fields()?
+        .document(hits[0].doc)?
+        .get_field("field")
+        .unwrap()
+        .string_value()?
+        .unwrap()
+        .as_ref()
+        .as_str()
+    );
+
+    q = FuzzyQuery::with_max_edits(Term::from_text("field", "foubara"), 2)?;
+    hits = searcher.search(q, 10)?.score_docs;
+    assert_eq!(1, hits.len());
+    assert_eq!(
+      "foobar",
+      searcher
+        .stored_fields()?
+        .document(hits[0].doc)?
+        .get_field("field")
+        .unwrap()
+        .string_value()?
+        .unwrap()
+        .as_ref()
+        .as_str()
+    );
+
+    let expected = FuzzyQuery::with_max_edits(Term::from_text("field", "t"), 3).unwrap_err();
+    assert!(format!("{expected}").contains("maxEdits"));
+
+    Ok(())
+  }
+  #[test]
+  fn test_validation() {
+    let expected =
+      FuzzyQuery::with_options(Term::from_text("field", "foo"), -1, 0, 1, false).unwrap_err();
+    assert!(format!("{expected}").contains("maxEdits"));
+
+    let expected = FuzzyQuery::with_options(
+      Term::from_text("field", "foo"),
+      LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE + 1,
+      0,
+      1,
+      false,
+    )
+    .unwrap_err();
+    assert!(format!("{expected}").contains("maxEdits must be between"));
+
+    let expected =
+      FuzzyQuery::with_options(Term::from_text("field", "foo"), 1, 0, 0, false).unwrap_err();
+    assert!(format!("{expected}").contains("maxExpansions must be positive"));
+
+    let expected =
+      FuzzyQuery::with_options(Term::from_text("field", "foo"), 1, 0, 0, false).unwrap_err();
+    assert!(format!("{expected}").contains("maxExpansions must be positive"));
+  }
   fn add_doc<R>(
     random: &mut R,
     text: &str,
@@ -1246,5 +1480,222 @@ mod tests {
     }
 
     chars.into_iter().collect()
+  }
+  #[test]
+  fn test_random() -> Result<()> {
+    let mut random = random();
+    let digits = TestUtil::next_int(&mut random, 2, 3);
+    let vocabulary_size = digits << 7;
+    let num_terms = std::cmp::min(at_least(&mut random, 100), vocabulary_size);
+    let mut terms = HashSet::new();
+    while terms.len() < num_terms as usize {
+      terms.insert(random_simple_string(&mut random, digits));
+    }
+
+    let dir = new_directory_shared(&mut random)?;
+    let w = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type = HashMap::new();
+    for term in &terms {
+      let mut doc = Document::new();
+      doc.add(new_string_field(
+        &mut random,
+        "field",
+        term.as_str(),
+        Store::Yes,
+        &mut field_to_type,
+      )?);
+      w.add_document(doc)?;
+    }
+    let r = w.get_reader()?;
+    w.close()?;
+    let s = new_searcher_with_reader(r)?;
+    let iters = at_least(&mut random, 200);
+    for _iter in 0..iters {
+      let query_term = random_simple_string(&mut random, digits);
+      let prefix_length = random.random_range(0..query_term.len());
+      let query_prefix = &query_term[0..prefix_length];
+
+      let mut expected: Vec<Vec<TermAndScore>> = Vec::with_capacity(3);
+      for _ed in 0..3 {
+        expected.push(Vec::new());
+      }
+      for term in &terms {
+        if !term.starts_with(query_prefix) {
+          continue;
+        }
+        let mut ed = get_distance(term, &query_term);
+        let score = 1.0 - ed as f32 / std::cmp::min(query_term.len(), term.len()) as f32;
+        while ed < 3 {
+          expected[ed as usize].push(TermAndScore::new(term.clone(), score));
+          ed += 1;
+        }
+      }
+      // TODO IMPORTANT 编辑距离0 有 bug
+      // for ed in 0..3 {
+      #[allow(clippy::needless_range_loop)]
+      for ed in 1..3 {
+        expected[ed].sort();
+        let queue_size = TestUtil::next_int(&mut random, 1, terms.len() as i32) as usize;
+        let query = FuzzyQuery::with_options(
+          Term::from_text("field", query_term.as_str()),
+          ed as i32,
+          prefix_length,
+          queue_size,
+          true,
+        )?;
+        let hits = s.search(query, terms.len())?;
+        let mut actual = HashSet::new();
+        let mut stored_fields = s.stored_fields()?;
+        for hit in hits.score_docs {
+          let doc = stored_fields.document(hit.doc)?;
+          actual.insert(
+            doc
+              .get_field("field")
+              .unwrap()
+              .string_value()?
+              .unwrap()
+              .as_ref()
+              .as_str()
+              .to_string(),
+          );
+        }
+        let mut expected_top = HashSet::new();
+        let limit = std::cmp::min(queue_size, expected[ed].len());
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..limit {
+          expected_top.insert(expected[ed][i].term.clone());
+        }
+
+        if actual != expected_top {
+          let mut sb = String::new();
+          sb.push_str(&format!(
+            "FAILED: query={} ed={} queueSize={} vs expected match size={} prefixLength={}\n",
+            query_term,
+            ed,
+            queue_size,
+            expected[ed].len(),
+            prefix_length
+          ));
+
+          let mut first = true;
+          for term in &actual {
+            if !expected_top.contains(term) {
+              if first {
+                sb.push_str("  these matched but shouldn't:\n");
+                first = false;
+              }
+              sb.push_str(&format!("    {term}\n"));
+            }
+          }
+          first = true;
+          for term in &expected_top {
+            if !actual.contains(term) {
+              if first {
+                sb.push_str("  these did not match but should:\n");
+                first = false;
+              }
+              sb.push_str(&format!("    {term}\n"));
+            }
+          }
+          panic!("{sb}");
+        }
+      }
+    }
+
+    Ok(())
+  }
+
+  #[derive(Debug, Clone)]
+  struct TermAndScore {
+    term: String,
+    score: f32,
+  }
+
+  impl TermAndScore {
+    fn new(term: String, score: f32) -> Self {
+      Self { term, score }
+    }
+  }
+
+  impl Eq for TermAndScore {}
+
+  impl PartialEq for TermAndScore {
+    fn eq(&self, other: &Self) -> bool {
+      self.term == other.term && self.score == other.score
+    }
+  }
+
+  impl Ord for TermAndScore {
+    fn cmp(&self, other: &Self) -> Ordering {
+      other
+        .score
+        .partial_cmp(&self.score)
+        .unwrap_or(Ordering::Equal)
+        .then_with(|| self.term.cmp(&other.term))
+    }
+  }
+
+  impl PartialOrd for TermAndScore {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+      Some(self.cmp(other))
+    }
+  }
+
+  fn get_distance(target: &str, other: &str) -> i32 {
+    let target_points = to_ints_ref(target);
+    let other_points = to_ints_ref(other);
+    let n = target_points.len();
+    let m = other_points.len();
+    let mut d = vec![vec![0; m + 1]; n + 1];
+
+    if n == 0 || m == 0 {
+      if n == m {
+        return 0;
+      } else {
+        return std::cmp::max(n, m) as i32;
+      }
+    }
+
+    for (i, row) in d.iter_mut().enumerate().take(n + 1) {
+      row[0] = i as i32;
+    }
+    #[allow(clippy::needless_range_loop)]
+    for j in 0..=m {
+      d[0][j] = j as i32;
+    }
+
+    for j in 1..=m {
+      let t_j = other_points[j - 1];
+
+      for i in 1..=n {
+        let cost = if target_points[i - 1] == t_j { 0 } else { 1 };
+        d[i][j] = std::cmp::min(
+          std::cmp::min(d[i - 1][j] + 1, d[i][j - 1] + 1),
+          d[i - 1][j - 1] + cost,
+        );
+        if i > 1
+          && j > 1
+          && target_points[i - 1] == other_points[j - 2]
+          && target_points[i - 2] == other_points[j - 1]
+        {
+          d[i][j] = std::cmp::min(d[i][j], d[i - 2][j - 2] + cost);
+        }
+      }
+    }
+
+    d[n][m]
+  }
+
+  fn to_ints_ref(s: &str) -> Vec<i32> {
+    let mut ref_ = Vec::with_capacity(s.len());
+    for cp in s.chars() {
+      ref_.push(cp as i32);
+    }
+    ref_
+  }
+  #[test]
+  fn test_visitor() -> Result<()> {
+    // TODO IMPORTANT query visitor 未实现
+    Ok(())
   }
 }

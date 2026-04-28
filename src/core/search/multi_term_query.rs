@@ -372,7 +372,8 @@ impl TermCollectingRewrite for TopTermsBoostOnlyBooleanQueryRewrite {
     states: Option<TermStates>,
   ) -> Result<()> {
     let tq = TermQuery::with_term_state(term, states);
-    top_level.add(BoostQuery::new(tq, boost)?, Occur::Should)?;
+    let q = ConstantScoreQuery::new(tq);
+    top_level.add(BoostQuery::new(q, boost)?, Occur::Should)?;
     Ok(())
   }
 }
@@ -402,6 +403,7 @@ use crate::core::index::term_states::TermStates;
 use crate::core::search::blended_term_query::BooleanRewrite;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boost_query::BoostQuery;
+use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::scoring_rewrite::{ConstantScoreBooleanRewrite, ScoringBooleanRewrite};
 use crate::core::search::term_collecting_rewrite::TermCollectingRewrite;
 use crate::core::search::term_query::TermQuery;

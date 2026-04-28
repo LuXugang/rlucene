@@ -115,7 +115,7 @@ impl Compare<BytesRef<Vec<u8>>> for ScoreTermCmp {
     } else if l.boost > r.boost {
       Ok(false)
     } else {
-      Ok(a < b)
+      Ok(b < a)
     }
   }
 }
