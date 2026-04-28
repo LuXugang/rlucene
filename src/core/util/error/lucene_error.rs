@@ -23,7 +23,16 @@ use thiserror::Error;
 
 use crate::core::util::VersionError;
 use crate::core::util::error::parse::Parse;
-use crate::core::util::error::{AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CollectionTerminatedError, CorruptIndexError, Eof, FuzzyTermsError, IllegalArgumentError, IllegalStateError, IndexFormatTooNewError, IndexFormatTooOldError, IndexNotFound, LockAlreadyHeldError, LockHeldByOtherError, LockObtainFailedError, MaxBytesLengthExceededError, MergeAbortedError, MergeError, NeedImplementedError, NoMoreTermsError, NoSuchElementError, NotFoundError, NotImplementedError, NumberFormatError, NumberOverflow, TimeExceededError, TooComplexToDeterminizeError, TooManyClausesError, TooManyNestedClausesError, UncheckedIOError, UnreachableError, UnsupportedOperationError};
+use crate::core::util::error::{
+  AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CollectionTerminatedError,
+  CorruptIndexError, Eof, FuzzyTermsError, IllegalArgumentError, IllegalStateError,
+  IndexFormatTooNewError, IndexFormatTooOldError, IndexNotFound, LockAlreadyHeldError,
+  LockHeldByOtherError, LockObtainFailedError, MaxBytesLengthExceededError, MergeAbortedError,
+  MergeError, NeedImplementedError, NoMoreTermsError, NoSuchElementError, NotFoundError,
+  NotImplementedError, NumberFormatError, NumberOverflow, TimeExceededError,
+  TooComplexToDeterminizeError, TooManyClausesError, TooManyNestedClausesError, UncheckedIOError,
+  UnreachableError, UnsupportedOperationError,
+};
 
 #[derive(Debug, Error)]
 pub enum LuceneError {
