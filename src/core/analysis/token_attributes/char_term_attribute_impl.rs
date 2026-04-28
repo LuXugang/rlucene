@@ -63,7 +63,7 @@ where
       attribute.extend(sub.get_attribute_name()?.clone())
     }
 
-    // TODO: _bytes_per_element not Specific
+    // TODO: IMPORTANT  _bytes_per_element not Specific
     let size = ArrayUtil::oversize(Self::MIN_BUFFER_SIZE, 0);
     Ok(Self {
       term_buffer: vec!['\0'; size],
@@ -78,7 +78,7 @@ where
     if self.term_buffer.len() < new_size {
       // Not big enough; create a new array with slight
       // over allocation:
-      // TODO: _bytes_per_element not Specific
+      // TODO: IMPORTANT  _bytes_per_element not Specific
       let new_capacity = ArrayUtil::oversize(new_size, 0);
       self.term_buffer = vec!['\0'; new_capacity];
     }
@@ -143,7 +143,7 @@ where
     if self.term_buffer.len() < new_size {
       // Not big enough; create a new array with slight
       // over allocation:
-      // TODO: _bytes_per_element not Specific
+      // TODO: IMPORTANT  _bytes_per_element not Specific
       let new_capacity = ArrayUtil::oversize(new_size, std::mem::size_of::<char>());
       ArrayUtil::grow_with_len(&mut self.term_buffer, new_capacity);
     }

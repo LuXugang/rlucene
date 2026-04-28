@@ -382,7 +382,7 @@ impl BytesRefIntMap {
   pub fn new(counter: SharedCounter) -> Self {
     let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
       DEFAULT_CAPACITY,
-      DirectBytesStartArray::with_counter(DEFAULT_CAPACITY, counter.clone()),
+      DirectBytesStartArray::with_counter(DEFAULT_CAPACITY as usize, counter.clone()),
     );
     BytesRefIntMap::new_impl(counter, bytes_ref_hash)
   }

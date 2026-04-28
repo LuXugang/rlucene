@@ -57,7 +57,7 @@ where
 }
 impl BytesRefHash<DirectBytesStartArray> {
   pub fn new() -> Self {
-    let bytes_start_array = DirectBytesStartArray::new(DEFAULT_CAPACITY);
+    let bytes_start_array = DirectBytesStartArray::new(DEFAULT_CAPACITY as usize);
     BytesRefHash::from_bytes_start_array(16, bytes_start_array)
   }
 }
@@ -646,16 +646,16 @@ pub trait BytesStartArray {
 /// A simple [`BytesStartArray`] that tracks memory allocation using a private
 /// `Counter` instance.
 pub struct DirectBytesStartArray {
-  init_size: i32,
-  bytes_start: Vec<i32>,
+  init_size: usize,
+  pub(crate) bytes_start: Vec<i32>,
   bytes_used: SharedCounter,
   init: bool,
 }
 impl DirectBytesStartArray {
-  pub fn new(init_size: i32) -> Self {
+  pub fn new(init_size: usize) -> Self {
     DirectBytesStartArray::with_counter(init_size, Arc::new(AtomicCounter::new()))
   }
-  pub fn with_counter(init_size: i32, counter: SharedCounter) -> Self {
+  pub fn with_counter(init_size: usize, counter: SharedCounter) -> Self {
     DirectBytesStartArray {
       init_size,
       bytes_start: vec![],
@@ -668,7 +668,7 @@ impl DirectBytesStartArray {
 impl BytesStartArray for DirectBytesStartArray {
   fn init(&mut self) {
     self.init = true;
-    self.bytes_start = vec![0; ArrayUtil::oversize(self.init_size as usize, BitUtil::INT_BYTES)];
+    self.bytes_start = vec![0; ArrayUtil::oversize(self.init_size, BitUtil::INT_BYTES)];
   }
 
   fn grow(&mut self) -> Result<()> {
@@ -823,7 +823,10 @@ mod tests {
     if random.random_bool(0.5) {
       BytesRefHash::new()
     } else {
-      BytesRefHash::from_bytes_start_array(init_size, DirectBytesStartArray::new(init_size))
+      BytesRefHash::from_bytes_start_array(
+        init_size,
+        DirectBytesStartArray::new(init_size as usize),
+      )
     }
   }
   #[test]
