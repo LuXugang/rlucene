@@ -14,13 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
+use crate::core::index::BytesRef;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::core::index::impacts_enum::ImpactsEnumEnum2;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::single_terms_enum::SingleTermsEnum;
 use crate::core::index::term::Term;
-use crate::core::index::terms::{Terms, TermsTE};
+use crate::core::index::terms::{Terms, TermsIntersect, TermsPosting, TermsTE};
+use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::fuzzy_automaton_builder::FuzzyAutomatonBuilder;
+use crate::core::search::fuzzy_terms_enum::FuzzyTermsEnum;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
   MultiTermQuery, RewriteMethod, RewriteMethodEnum, TopTermsBlendedFreqScoringRewrite,
@@ -29,11 +34,15 @@ use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::HasIdentity;
+use crate::core::util::attribute_source::AttributeSourceEnum2;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::automation::levenshtein_automata::LevenshteinAutomata;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
+
 /// Implements the fuzzy search query. The similarity measurement is based on the
 /// Damerau-Levenshtein (optimal string alignment) algorithm, though you can explicitly choose
 /// classic Levenshtein by passing `false` to the `transpositions` parameter.
@@ -283,37 +292,6 @@ impl HasIdentity for FuzzyQuery {
   }
 }
 
-impl MultiTermQuery for FuzzyQuery {
-  fn get_field(&self) -> &str {
-    self.term.field()
-  }
-
-  type TermsEnum<T>
-    = FilteredTermsEnum<TermsTE<T>, SingleTermsEnum>
-  where
-    T: Terms;
-
-  fn get_terms_enum<T>(&self, terms: T) -> Result<Self::TermsEnum<T>>
-  where
-    T: Terms + Clone,
-  {
-    if self.max_edits == 0 {
-      return Ok(SingleTermsEnum::new(
-        terms.iterator()?,
-        self.term.bytes().clone(),
-      ));
-    }
-    // TODO IMPORTANT FuzzyTermsEnum未实现
-    Err(LuceneError::unsupported_operation(
-      "FuzzyQuery with maxEdits > 0 is unsupported.",
-    ))
-  }
-
-  fn as_query(&self) -> Query {
-    self.clone().into()
-  }
-}
-
 impl Hash for FuzzyQuery {
   fn hash<H>(&self, state: &mut H)
   where
@@ -338,5 +316,217 @@ impl PartialEq for FuzzyQuery {
       && self.max_expansions == other.max_expansions
       && self.transpositions == other.transpositions
       && self.rewrite_method == other.rewrite_method
+  }
+}
+
+pub enum FuzzyQueryTermsEnum<T>
+where
+  T: Terms,
+{
+  Single(FilteredTermsEnum<TermsTE<T>, SingleTermsEnum>),
+  Fuzzy(FuzzyTermsEnum<T>),
+}
+
+impl<T> BytesRefIterator for FuzzyQueryTermsEnum<T>
+where
+  T: Terms,
+  TermsIntersect<T>: TermsEnum<PostingsEnum = TermsPosting<T>>,
+{
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Single(t) => t.next(),
+      Self::Fuzzy(t) => t.next(),
+    }
+  }
+
+  fn set_next(&mut self) -> Result<bool> {
+    match self {
+      Self::Single(t) => t.set_next(),
+      Self::Fuzzy(t) => t.set_next(),
+    }
+  }
+}
+
+impl<T> TermsEnum for FuzzyQueryTermsEnum<T>
+where
+  T: Terms,
+  TermsIntersect<T>: TermsEnum<PostingsEnum = TermsPosting<T>>,
+{
+  type AttributeSource<'a>
+    = AttributeSourceEnum2<
+    <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::AttributeSource<'a>,
+    <FuzzyTermsEnum<T> as TermsEnum>::AttributeSource<'a>,
+  >
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = AttributeSourceEnum2<
+    <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::AttributeSourceMut<'a>,
+    <FuzzyTermsEnum<T> as TermsEnum>::AttributeSourceMut<'a>,
+  >
+  where
+    Self: 'a;
+
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    match self {
+      Self::Single(t) => Ok(AttributeSourceEnum2::A(t.attributes()?)),
+      Self::Fuzzy(t) => Ok(AttributeSourceEnum2::B(t.attributes()?)),
+    }
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    match self {
+      Self::Single(t) => Ok(AttributeSourceEnum2::A(t.attributes_mut()?)),
+      Self::Fuzzy(t) => Ok(AttributeSourceEnum2::B(t.attributes_mut()?)),
+    }
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::Single(t) => t.seek_exact(term),
+      Self::Fuzzy(t) => t.seek_exact(term),
+    }
+  }
+
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    match self {
+      Self::Single(t) => t.prepare_seek_exact(text),
+      Self::Fuzzy(t) => t.prepare_seek_exact(text),
+    }
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::Single(t) => t.get_prepare_seek_exact_status(target),
+      Self::Fuzzy(t) => t.get_prepare_seek_exact_status(target),
+    }
+  }
+
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    match self {
+      Self::Single(t) => t.seek_ceil(term),
+      Self::Fuzzy(t) => t.seek_ceil(term),
+    }
+  }
+
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    match self {
+      Self::Single(t) => t.seek_exact_with_ord(ord),
+      Self::Fuzzy(t) => t.seek_exact_with_ord(ord),
+    }
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()> {
+    match self {
+      Self::Single(t) => t.seek_exact_with_state(term, state),
+      Self::Fuzzy(t) => t.seek_exact_with_state(term, state),
+    }
+  }
+
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Single(t) => t.term(),
+      Self::Fuzzy(t) => t.term(),
+    }
+  }
+
+  fn ord(&self) -> Result<i64> {
+    match self {
+      Self::Single(t) => t.ord(),
+      Self::Fuzzy(t) => t.ord(),
+    }
+  }
+
+  fn doc_freq(&mut self) -> Result<i32> {
+    match self {
+      Self::Single(t) => t.doc_freq(),
+      Self::Fuzzy(t) => t.doc_freq(),
+    }
+  }
+
+  fn total_term_freq(&mut self) -> Result<i64> {
+    match self {
+      Self::Single(t) => t.total_term_freq(),
+      Self::Fuzzy(t) => t.total_term_freq(),
+    }
+  }
+
+  type PostingsEnum = TermsPosting<T>;
+
+  fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::Single(t) => t.postings(reuse),
+      Self::Fuzzy(t) => t.postings(reuse),
+    }
+  }
+
+  fn postings_with_flags(
+    &mut self,
+    reuse: Option<Self::PostingsEnum>,
+    flags: i32,
+  ) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::Single(t) => t.postings_with_flags(reuse, flags),
+      Self::Fuzzy(t) => t.postings_with_flags(reuse, flags),
+    }
+  }
+
+  type ImpactsEnum = ImpactsEnumEnum2<
+    <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::ImpactsEnum,
+    <FuzzyTermsEnum<T> as TermsEnum>::ImpactsEnum,
+  >;
+
+  fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+    match self {
+      Self::Single(t) => Ok(ImpactsEnumEnum2::A(t.impacts(flags)?)),
+      Self::Fuzzy(t) => Ok(ImpactsEnumEnum2::B(t.impacts(flags)?)),
+    }
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    match self {
+      Self::Single(t) => t.term_state(),
+      Self::Fuzzy(t) => t.term_state(),
+    }
+  }
+}
+
+impl MultiTermQuery for FuzzyQuery {
+  fn get_field(&self) -> &str {
+    self.term.field()
+  }
+
+  type TermsEnum<T>
+    = FuzzyQueryTermsEnum<T>
+  where
+    T: Terms,
+    TermsIntersect<T>: TermsEnum<PostingsEnum = TermsPosting<T>>;
+
+  fn get_terms_enum<T>(&self, terms: T) -> Result<Self::TermsEnum<T>>
+  where
+    T: Terms + Clone,
+    TermsIntersect<T>: TermsEnum<PostingsEnum = TermsPosting<T>>,
+  {
+    if self.max_edits == 0 {
+      return Ok(FuzzyQueryTermsEnum::Single(SingleTermsEnum::new(
+        terms.iterator()?,
+        self.term.bytes().clone(),
+      )));
+    }
+    Ok(FuzzyQueryTermsEnum::Fuzzy(FuzzyTermsEnum::new_with_attrs(
+      terms,
+      self.term.clone(),
+      self.max_edits,
+      self.prefix_length,
+      self.transpositions,
+    )?))
+  }
+
+  fn as_query(&self) -> Query {
+    self.clone().into()
   }
 }
