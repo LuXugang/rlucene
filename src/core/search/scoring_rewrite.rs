@@ -90,6 +90,7 @@ pub trait ScoringRewrite: TermCollectingRewrite {
 ///
 /// **NOTE**: This rewrite method will hit [`IndexSearcherError::TooManyClauses`] if the number
 /// of terms exceeds [`IndexSearcher::get_max_clause_count`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ScoringBooleanRewrite;
 impl TermCollectingRewrite for ScoringBooleanRewrite {
   type B = boolean_query::Builder;
@@ -139,6 +140,7 @@ impl ScoringRewrite for ScoringBooleanRewrite {
 ///
 /// **NOTE**: This rewrite method will hit [`IndexSearcherError::TooManyClauses`] if the number
 /// of terms exceeds [`IndexSearcher::get_max_clause_count`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreBooleanRewrite;
 impl RewriteMethod for ConstantScoreBooleanRewrite {
   fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>

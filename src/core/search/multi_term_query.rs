@@ -140,11 +140,13 @@ impl RewriteMethod for ConstantScoreRewrite {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum RewriteMethodEnum {
-  Standard(ConstantScoreRewrite),
   Blended(ConstantScoreBlendedRewrite),
-  TopTermsScoringBoolean(TopTermsScoringBooleanQueryRewrite),
+  ConstantScoreBoolean(ConstantScoreBooleanRewrite),
+  ScoringBoolean(ScoringBooleanRewrite),
+  Standard(ConstantScoreRewrite),
   TopTermsBlendedFreqScoring(TopTermsBlendedFreqScoringRewrite),
   TopTermsBoostOnlyBoolean(TopTermsBoostOnlyBooleanQueryRewrite),
+  TopTermsScoringBoolean(TopTermsScoringBooleanQueryRewrite),
 }
 impl RewriteMethod for RewriteMethodEnum {
   fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
@@ -153,11 +155,13 @@ impl RewriteMethod for RewriteMethodEnum {
     IRC: IndexReaderContext,
   {
     match self {
-      RewriteMethodEnum::Standard(r) => r.rewrite(index_searcher, query),
       RewriteMethodEnum::Blended(r) => r.rewrite(index_searcher, query),
-      RewriteMethodEnum::TopTermsScoringBoolean(r) => r.rewrite(index_searcher, query),
+      RewriteMethodEnum::ConstantScoreBoolean(r) => r.rewrite(index_searcher, query),
+      RewriteMethodEnum::ScoringBoolean(r) => r.rewrite(index_searcher, query),
+      RewriteMethodEnum::Standard(r) => r.rewrite(index_searcher, query),
       RewriteMethodEnum::TopTermsBlendedFreqScoring(r) => r.rewrite(index_searcher, query),
       RewriteMethodEnum::TopTermsBoostOnlyBoolean(r) => r.rewrite(index_searcher, query),
+      RewriteMethodEnum::TopTermsScoringBoolean(r) => r.rewrite(index_searcher, query),
     }
   }
 }
@@ -177,11 +181,13 @@ pub const SCORING_BOOLEAN_REWRITE: ScoringBooleanRewrite = ScoringBooleanRewrite
 pub const CONSTANT_SCORE_BOOLEAN_REWRITE: ConstantScoreBooleanRewrite = ConstantScoreBooleanRewrite;
 impl_from_for_enum!(
     RewriteMethodEnum,
-    ConstantScoreRewrite => Standard,
     ConstantScoreBlendedRewrite => Blended,
-    TopTermsScoringBooleanQueryRewrite => TopTermsScoringBoolean,
+    ConstantScoreBooleanRewrite => ConstantScoreBoolean,
+    ScoringBooleanRewrite => ScoringBoolean,
+    ConstantScoreRewrite => Standard,
     TopTermsBlendedFreqScoringRewrite => TopTermsBlendedFreqScoring,
     TopTermsBoostOnlyBooleanQueryRewrite => TopTermsBoostOnlyBoolean,
+    TopTermsScoringBooleanQueryRewrite => TopTermsScoringBoolean,
 );
 
 macro_rules! dispatch_multi_term_query {
