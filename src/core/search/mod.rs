@@ -118,6 +118,7 @@ pub mod filter_scorer;
 pub mod filtered_doc_id_set_iterator;
 pub mod float_vector_similarity_query;
 pub(crate) mod fuzzy_automaton_builder;
+pub mod fuzzy_query;
 pub mod index_or_doc_values_query;
 pub mod index_sort_sorted_numeric_doc_values_range_query;
 pub mod knn;

@@ -31,6 +31,7 @@ use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::float_vector_similarity_query::FloatVectorSimilarityQuery;
+use crate::core::search::fuzzy_query::FuzzyQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 
 use crate::core::document::lat_lon_point_query::LatLonPointQuery;
@@ -128,6 +129,7 @@ macro_rules! dispatch_query {
       Query::DocAndScore($inner) => $body,
       Query::FieldExists($inner) => $body,
       Query::FloatVectorSimilarity($inner) => $body,
+      Query::Fuzzy($inner) => $body,
       Query::IndexOrDocValues($inner) => $body,
       Query::IndexSortSortedNumericDocValuesRange($inner) => $body,
       Query::KnnByteVector($inner) => $body,
@@ -197,6 +199,7 @@ impl_from_for_enum!(
     DocAndScoreQuery => DocAndScore,
     FieldExistsQuery => FieldExists,
     FloatVectorSimilarityQuery => FloatVectorSimilarity,
+    FuzzyQuery => Fuzzy,
     IndexOrDocValuesQuery => IndexOrDocValues,
     IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
     KnnByteVectorQuery => KnnByteVector,
@@ -254,6 +257,7 @@ impl_into_box_query!(
   DocAndScoreQuery,
   FieldExistsQuery,
   FloatVectorSimilarityQuery,
+  FuzzyQuery,
   IndexOrDocValuesQuery,
   IndexSortSortedNumericDocValuesRangeQuery,
   KnnByteVectorQuery,
@@ -319,6 +323,7 @@ pub enum Query {
   DocAndScore(DocAndScoreQuery),
   FieldExists(FieldExistsQuery),
   FloatVectorSimilarity(FloatVectorSimilarityQuery),
+  Fuzzy(FuzzyQuery),
   IndexOrDocValues(IndexOrDocValuesQuery),
   IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
   KnnByteVector(KnnByteVectorQuery),
@@ -406,6 +411,7 @@ impl Query {
             DocAndScore,
             FieldExists,
             FloatVectorSimilarity,
+            Fuzzy,
             IndexOrDocValues,
             IndexSortSortedNumericDocValuesRange,
             KnnByteVector,

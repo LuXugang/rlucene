@@ -19,6 +19,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::automaton_query::AutomatonQuery;
+use crate::core::search::fuzzy_query::FuzzyQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query_constant_score_blended_wrapper::MultiTermQueryConstantScoreBlendedWrapper;
 use crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQueryConstantScoreWrapper;
@@ -108,7 +109,7 @@ pub trait RewriteMethod {
 /// `IndexSearcher.TooManyClauses`. For some use-cases with all low
 /// cost terms, [`ConstantScoreRewrite`] may be more performant. While for some use-cases
 /// with all high cost terms, [`ConstantScoreBooleanRewrite`] may be better.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreBlendedRewrite;
 impl RewriteMethod for ConstantScoreBlendedRewrite {
   fn rewrite<IRC, Q>(self, _index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
@@ -126,7 +127,7 @@ impl RewriteMethod for ConstantScoreBlendedRewrite {
 /// This method is faster than the BooleanQuery rewrite methods when the number of matched terms
 /// or matched documents is non-trivial. Also, it will never hit an errant `IndexSearcher.TooManyClauses`
 /// exception.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreRewrite;
 impl RewriteMethod for ConstantScoreRewrite {
   fn rewrite<IRC, Q>(self, _index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
@@ -137,10 +138,13 @@ impl RewriteMethod for ConstantScoreRewrite {
     Ok(MultiTermQueryConstantScoreWrapper::new(query).into())
   }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum RewriteMethodEnum {
   Standard(ConstantScoreRewrite),
   Blended(ConstantScoreBlendedRewrite),
+  TopTermsScoringBoolean(TopTermsScoringBooleanQueryRewrite),
+  TopTermsBlendedFreqScoring(TopTermsBlendedFreqScoringRewrite),
+  TopTermsBoostOnlyBoolean(TopTermsBoostOnlyBooleanQueryRewrite),
 }
 impl RewriteMethod for RewriteMethodEnum {
   fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
@@ -151,6 +155,9 @@ impl RewriteMethod for RewriteMethodEnum {
     match self {
       RewriteMethodEnum::Standard(r) => r.rewrite(index_searcher, query),
       RewriteMethodEnum::Blended(r) => r.rewrite(index_searcher, query),
+      RewriteMethodEnum::TopTermsScoringBoolean(r) => r.rewrite(index_searcher, query),
+      RewriteMethodEnum::TopTermsBlendedFreqScoring(r) => r.rewrite(index_searcher, query),
+      RewriteMethodEnum::TopTermsBoostOnlyBoolean(r) => r.rewrite(index_searcher, query),
     }
   }
 }
@@ -172,6 +179,9 @@ impl_from_for_enum!(
     RewriteMethodEnum,
     ConstantScoreRewrite => Standard,
     ConstantScoreBlendedRewrite => Blended,
+    TopTermsScoringBooleanQueryRewrite => TopTermsScoringBoolean,
+    TopTermsBlendedFreqScoringRewrite => TopTermsBlendedFreqScoring,
+    TopTermsBoostOnlyBooleanQueryRewrite => TopTermsBoostOnlyBoolean,
 );
 
 macro_rules! dispatch_multi_term_query {
@@ -180,6 +190,7 @@ macro_rules! dispatch_multi_term_query {
       MultiTermQueryEnum::Prefix($inner) => $body,
       MultiTermQueryEnum::TermRange($inner) => $body,
       MultiTermQueryEnum::Automaton($inner) => $body,
+      MultiTermQueryEnum::Fuzzy($inner) => $body,
       MultiTermQueryEnum::Wildcard($inner) => $body,
       MultiTermQueryEnum::Regexp($inner) => $body,
       #[cfg(test)]
@@ -195,6 +206,7 @@ macro_rules! dispatch_multi_term_query {
 ///
 /// This rewrite method only uses the top scoring terms so it will not overflow the boolean max
 /// clause count.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TopTermsScoringBooleanQueryRewrite {
   size: usize,
 }
@@ -260,6 +272,7 @@ impl TopTermsRewrite for TopTermsScoringBooleanQueryRewrite {
 ///
 /// This rewrite method only uses the top scoring terms so it will not overflow the boolean max
 /// clause count.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TopTermsBlendedFreqScoringRewrite {
   size: usize,
 }
@@ -325,6 +338,7 @@ impl TopTermsRewrite for TopTermsBlendedFreqScoringRewrite {
 ///
 /// This rewrite method only uses the top scoring terms so it will not overflow the boolean max
 /// clause count.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TopTermsBoostOnlyBooleanQueryRewrite {
   size: usize,
 }
@@ -397,11 +411,13 @@ pub(crate) use dispatch_multi_term_query;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum MultiTermQueryEnum {
-  Prefix(PrefixQuery),
-  TermRange(TermRangeQuery),
   Automaton(AutomatonQuery),
-  Wildcard(WildcardQuery),
+  Fuzzy(FuzzyQuery),
+  Prefix(PrefixQuery),
   Regexp(RegexpQuery),
+  TermRange(TermRangeQuery),
+  Wildcard(WildcardQuery),
+
   #[cfg(test)]
   DumbPrefix(DumbPrefixQuery),
   #[cfg(test)]
@@ -411,11 +427,13 @@ pub enum MultiTermQueryEnum {
 impl From<MultiTermQueryEnum> for Query {
   fn from(value: MultiTermQueryEnum) -> Self {
     match value {
-      MultiTermQueryEnum::Prefix(q) => Query::Prefix(q),
-      MultiTermQueryEnum::TermRange(q) => Query::TermRange(q),
       MultiTermQueryEnum::Automaton(q) => Query::Automaton(q),
-      MultiTermQueryEnum::Wildcard(q) => Query::Wildcard(q),
+      MultiTermQueryEnum::Fuzzy(q) => Query::Fuzzy(q),
+      MultiTermQueryEnum::Prefix(q) => Query::Prefix(q),
       MultiTermQueryEnum::Regexp(q) => Query::Regexp(q),
+      MultiTermQueryEnum::TermRange(q) => Query::TermRange(q),
+      MultiTermQueryEnum::Wildcard(q) => Query::Wildcard(q),
+
       #[cfg(test)]
       MultiTermQueryEnum::DumbPrefix(q) => Query::DumbPrefix(q),
       #[cfg(test)]
@@ -428,15 +446,18 @@ impl From<MultiTermQueryEnum> for Query {
 impl MultiTermQueryEnum {
   pub fn from_query(query: &Query) -> Option<Self> {
     match query {
-      Query::Prefix(q) => Some(Self::Prefix(q.clone())),
-      Query::TermRange(q) => Some(Self::TermRange(q.clone())),
       Query::Automaton(q) => Some(Self::Automaton(q.clone())),
-      Query::Wildcard(q) => Some(Self::Wildcard(q.clone())),
+      Query::Fuzzy(q) => Some(Self::Fuzzy(q.clone())),
+      Query::Prefix(q) => Some(Self::Prefix(q.clone())),
       Query::Regexp(q) => Some(Self::Regexp(q.clone())),
+      Query::TermRange(q) => Some(Self::TermRange(q.clone())),
+      Query::Wildcard(q) => Some(Self::Wildcard(q.clone())),
+
       #[cfg(test)]
       Query::DumbPrefix(q) => Some(Self::DumbPrefix(q.clone())),
       #[cfg(test)]
       Query::DumbRegexp(q) => Some(Self::DumbRegexp(q.clone())),
+
       _ => None,
     }
   }
@@ -490,12 +511,14 @@ impl HasIdentity for MultiTermQueryEnum {
 
 impl_from_for_enum!(
     MultiTermQueryEnum,
-    PrefixQuery => Prefix,
-    TermRangeQuery => TermRange,
     AutomatonQuery => Automaton,
-    WildcardQuery => Wildcard,
+    FuzzyQuery => Fuzzy,
+    PrefixQuery => Prefix,
     RegexpQuery => Regexp,
+    TermRangeQuery => TermRange,
+    WildcardQuery => Wildcard,
 );
+
 #[cfg(test)]
 impl_from_for_enum!(
     MultiTermQueryEnum,
