@@ -102,14 +102,14 @@ where
   }
 
   /// Append the provided bytes to this builder.
-  pub fn append_ref(&mut self, b: &BytesRef<AV>) {
+  pub fn append(&mut self, b: &BytesRef<AV>) {
     b.bytes
       .access(|bytes| self.append_with_range(bytes, b.offset, b.length))
   }
 
   /// Reset this builder to the empty state.
   pub fn append_builder(&mut self, b: &mut BytesRefBuilder<AV>) {
-    self.append_ref(b.get_bytes_mut_ref())
+    self.append(b.get_bytes_mut_ref())
   }
   pub fn clear(&mut self) {
     self.set_length(0);

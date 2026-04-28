@@ -1994,7 +1994,7 @@ mod tests {
           let mut new_term = BytesRefBuilder::new();
           for term in &terms {
             new_term.copy_bytes_from_ref(&prefix);
-            new_term.append_ref(term);
+            new_term.append(term);
             new_terms.insert(new_term.get_bytes_ref_copy());
           }
           terms = new_terms;
@@ -2012,7 +2012,7 @@ mod tests {
           let mut b = BytesRefBuilder::new();
           for term in &terms {
             b.copy_bytes_from_ref(term);
-            b.append_ref(&suffix);
+            b.append(&suffix);
             new_terms.insert(b.get_bytes_ref_copy());
           }
           terms = new_terms;
@@ -2265,7 +2265,7 @@ mod tests {
             for term in &terms {
               for suffix in &add_terms {
                 new_term.copy_bytes_from_ref(term);
-                new_term.append_ref(suffix);
+                new_term.append(suffix);
                 new_terms.insert(new_term.get_bytes_ref_copy());
               }
             }
@@ -2281,7 +2281,7 @@ mod tests {
             for term in &terms {
               for prefix in &add_terms {
                 new_term.copy_bytes_from_ref(prefix);
-                new_term.append_ref(term);
+                new_term.append(term);
                 new_terms.insert(new_term.get_bytes_ref_copy());
               }
             }
@@ -2562,7 +2562,7 @@ mod tests {
       let prefix = new_bytes_ref_from_string(&mut random, &s)?;
 
       let mut b = BytesRefBuilder::new();
-      b.append_ref(&prefix);
+      b.append(&prefix);
       let num_zeros = random.random_range(0..10);
       for _ in 0..num_zeros {
         b.append_byte(0);
@@ -2570,7 +2570,7 @@ mod tests {
       let min_term = b.get_bytes_ref_copy();
 
       let mut b = BytesRefBuilder::new();
-      b.append_ref(&min_term);
+      b.append(&min_term);
       let num_zeros = random.random_range(0..10);
       for _ in 0..num_zeros {
         b.append_byte(0);
@@ -2606,7 +2606,7 @@ mod tests {
       }
 
       let mut b = BytesRefBuilder::new();
-      b.append_ref(&min_term);
+      b.append(&min_term);
 
       if !min_inclusive {
         assert!(!accepts(&a, &b.get_bytes_ref_copy())?);

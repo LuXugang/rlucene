@@ -83,7 +83,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     let _guard = self.lock.lock();
     self.offsets.set(index, self.values.length() as i64);
     self.lengths.set(index, value.length as i64);
-    self.values.append_ref(value);
+    self.values.append(value);
     Ok(())
   }
 

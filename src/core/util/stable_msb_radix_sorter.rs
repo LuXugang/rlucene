@@ -441,7 +441,7 @@ mod tests {
         for (j, substring) in substrings.iter().enumerate() {
           accum += chance[j];
           if accum >= v {
-            builder.append_ref(substring);
+            builder.append(substring);
             break;
           }
         }
