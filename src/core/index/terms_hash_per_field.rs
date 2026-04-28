@@ -538,7 +538,7 @@ pub(crate) mod tests {
   struct TestTermsHashPerField;
 
   fn create_new_hash(new_called: AtomicI64, add_called: AtomicI64) -> TermsHashPerFieldMock {
-    TermsHashPerFieldMock::new(new_called, add_called)
+    new_terms_hash_per_field_mock(new_called, add_called)
   }
 
   fn assert_doc_and_freq<P>(
@@ -951,24 +951,6 @@ pub(crate) mod tests {
     base: Option<FreqProxTermsWriterPerField>,
   }
   impl TermsHashPerFieldMock {
-    #[allow(clippy::new_ret_no_self)]
-    pub(crate) fn new(new_called: AtomicI64, add_called: AtomicI64) -> Self {
-      let bytes_used = Arc::new(AtomicCounter::new());
-      let writer = FreqProxTermsWriter::new(bytes_used, TermVectorsConsumer::default());
-
-      let field_state = FieldInvertState::default();
-      let mut field_info = FieldInfo::default();
-      field_info.index_options = IndexOptions::DocsAndFreqs;
-
-      let base = FreqProxTermsWriterPerField::new(&writer, Arc::new(field_info), None);
-
-      TermsHashPerFieldMock {
-        field_state,
-        new_called,
-        add_called,
-        base: Option::from(base),
-      }
-    }
     pub(crate) fn new_term(
       &mut self,
       term_id: i32,
@@ -1058,6 +1040,26 @@ pub(crate) mod tests {
         }
       }
       Ok(())
+    }
+  }
+  pub(crate) fn new_terms_hash_per_field_mock(
+    new_called: AtomicI64,
+    add_called: AtomicI64,
+  ) -> TermsHashPerFieldMock {
+    let bytes_used = Arc::new(AtomicCounter::new());
+    let writer = FreqProxTermsWriter::new(bytes_used, TermVectorsConsumer::default());
+
+    let field_state = FieldInvertState::default();
+    let mut field_info = FieldInfo::default();
+    field_info.index_options = IndexOptions::DocsAndFreqs;
+
+    let base = FreqProxTermsWriterPerField::new(&writer, Arc::new(field_info), None);
+
+    TermsHashPerFieldMock {
+      field_state,
+      new_called,
+      add_called,
+      base: Option::from(base),
     }
   }
 }

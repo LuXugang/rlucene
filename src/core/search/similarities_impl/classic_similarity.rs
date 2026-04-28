@@ -24,17 +24,13 @@ use crate::core::search::term_statistics::TermStatistics;
 /// [`BM25Similarity`](crate::core::search::similarities_impl::bm25_similarity::BM25Similarity) instead, which is generally considered superior to TF-IDF.
 #[derive(Clone)]
 pub struct ClassicSimilarity;
-impl ClassicSimilarity {
-  #[allow(clippy::new_ret_no_self)]
-  pub fn new() -> TFIDFSimilarity {
-    let v = TFIDFSubEnum::Classic(ClassicSimilarity);
-    TFIDFSimilarity::new(v)
-  }
-  #[allow(clippy::new_ret_no_self)]
-  pub fn with_discount_overlaps(discount_overlaps: bool) -> TFIDFSimilarity {
-    let v = TFIDFSubEnum::Classic(ClassicSimilarity);
-    TFIDFSimilarity::with_discount_overlaps(v, discount_overlaps)
-  }
+pub fn new() -> TFIDFSimilarity {
+  let v = TFIDFSubEnum::Classic(ClassicSimilarity);
+  TFIDFSimilarity::new(v)
+}
+pub fn with_discount_overlaps(discount_overlaps: bool) -> TFIDFSimilarity {
+  let v = TFIDFSubEnum::Classic(ClassicSimilarity);
+  TFIDFSimilarity::with_discount_overlaps(v, discount_overlaps)
 }
 impl TFIDFSimilarityBase for ClassicSimilarity {
   fn tf(&self, freq: f32) -> f32 {
@@ -101,7 +97,7 @@ mod tests {
   use crate::core::index::index_options::IndexOptions::DocsAndFreqs;
   use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
   use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
-  use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+  use crate::core::search::similarities_impl::classic_similarity;
   use crate::core::search::similarities_impl::similarities::Similarity;
   use crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity;
   use crate::core::search::term_query::TermQuery;
@@ -133,7 +129,7 @@ mod tests {
 
     let index_reader = directory_reader_util::open(directory)?;
     let mut index_searcher = new_searcher_with_reader(index_reader)?;
-    index_searcher.set_similarity(ClassicSimilarity::new());
+    index_searcher.set_similarity(classic_similarity::new());
     Ok(index_searcher)
   }
   #[test]
@@ -291,7 +287,7 @@ mod tests {
     let mut random = random();
     let index_searcher = test_set_up(&mut random)?;
 
-    let sim = ClassicSimilarity::new();
+    let sim = classic_similarity::new();
     let collection_stats = index_searcher.collection_statistics("test")?;
     let stats = sim.scorer(1.0, collection_stats.as_ref().unwrap(), &[])?;
 
@@ -318,7 +314,7 @@ mod tests {
   fn test_same_norms_as_bm25() -> Result<()> {
     let mut random = random();
 
-    let sim1 = ClassicSimilarity::new();
+    let sim1 = classic_similarity::new();
     let sim2 = BM25Similarity::new()?;
 
     for _ in 0..100 {
@@ -353,7 +349,7 @@ mod tests {
     where
       R: Rng + ?Sized,
     {
-      Ok(ClassicSimilarity::new())
+      Ok(classic_similarity::new())
     }
   }
   #[test]

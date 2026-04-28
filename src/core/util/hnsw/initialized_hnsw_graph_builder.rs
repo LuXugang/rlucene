@@ -33,28 +33,23 @@ where
 {
   initialized_nodes: B,
 }
-impl<B> InitializedHnswGraphBuilder<B>
+pub fn new<B, S>(
+  scorer_supplier: S,
+  m: usize,
+  beam_width: usize,
+  random: u64,
+  hnsw: OnHeapHnswGraph,
+  initialized_nodes: B,
+) -> Result<HnswGraphBuilder<B, S, FixedBitSet, HnswGraphSearcherBaseDefault>>
 where
   B: Bits,
+  S: RandomVectorScorerSupplier,
 {
-  #[allow(clippy::new_ret_no_self)]
-  pub fn new<S>(
-    scorer_supplier: S,
-    m: usize,
-    beam_width: usize,
-    random: u64,
-    hnsw: OnHeapHnswGraph,
-    initialized_nodes: B,
-  ) -> Result<HnswGraphBuilder<B, S, FixedBitSet, HnswGraphSearcherBaseDefault>>
-  where
-    S: RandomVectorScorerSupplier,
-  {
-    let sub = Some(HnswGraphBuilderBaseEnum::Initialized(Self {
-      initialized_nodes,
-    }));
-    let base = HnswGraphBuilder::from_hnsw(scorer_supplier, m, beam_width, random, hnsw, sub)?;
-    Ok(base)
-  }
+  let sub = Some(HnswGraphBuilderBaseEnum::Initialized(
+    InitializedHnswGraphBuilder { initialized_nodes },
+  ));
+  let base = HnswGraphBuilder::from_hnsw(scorer_supplier, m, beam_width, random, hnsw, sub)?;
+  Ok(base)
 }
 impl<B> HnswGraphBuilderBase for InitializedHnswGraphBuilder<B>
 where
@@ -101,7 +96,7 @@ where
   B: Bits,
   S: RandomVectorScorerSupplier,
 {
-  InitializedHnswGraphBuilder::new(
+  new(
     scorer_supplier,
     m,
     beam_width,

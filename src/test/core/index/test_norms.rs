@@ -28,7 +28,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::similarities_impl::per_field_similarity_wrapper::PerFieldSimilarityWrapper;
 use crate::core::search::similarities_impl::similarities::{
   BoxSimScorer, Similarity, SimilarityEnum,
@@ -219,7 +219,7 @@ impl PerFieldSimilarityWrapper for MySimProvider {
     if BYTE_TEST_FIELD == field {
       TestSimilarityEnum::ByteEncodingBoost(ByteEncodingBoostSimilarity)
     } else {
-      TestSimilarityEnum::Classic(ClassicSimilarity::new())
+      TestSimilarityEnum::Classic(classic_similarity::new())
     }
   }
 }

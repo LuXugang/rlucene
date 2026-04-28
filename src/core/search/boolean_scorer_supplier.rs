@@ -1214,15 +1214,6 @@ mod tests {
     top_level_scoring_clause: bool,
   }
   impl FakeScorerSupplier {
-    #[allow(clippy::new_ret_no_self)]
-    fn new(cost: i64) -> QueryWeightSs<DummyIRC> {
-      let v = Self {
-        cost,
-        lead_cost: None,
-        top_level_scoring_clause: false,
-      };
-      Box::new(v)
-    }
     fn with_lead_cost(cost: i64, lead_cost: Option<i64>) -> QueryWeightSs<DummyIRC> {
       let v = Self {
         cost,
@@ -1231,6 +1222,14 @@ mod tests {
       };
       Box::new(v)
     }
+  }
+  fn new_fake_scorer_supplier(cost: i64) -> QueryWeightSs<DummyIRC> {
+    let v = FakeScorerSupplier {
+      cost,
+      lead_cost: None,
+      top_level_scoring_clause: false,
+    };
+    Box::new(v)
   }
   impl ScorerSupplier<DummyIRC> for FakeScorerSupplier {
     type Scorer = QueryWeightSsScorer;
@@ -1290,7 +1289,7 @@ mod tests {
       subs
         .get_mut(&occur)
         .unwrap()
-        .push(FakeScorerSupplier::new(42));
+        .push(new_fake_scorer_supplier(42));
 
       let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
       let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
@@ -1303,7 +1302,7 @@ mod tests {
       subs
         .get_mut(&occur)
         .unwrap()
-        .push(FakeScorerSupplier::new(12));
+        .push(new_fake_scorer_supplier(12));
 
       let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
       let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
@@ -1316,7 +1315,7 @@ mod tests {
       subs
         .get_mut(&occur)
         .unwrap()
-        .push(FakeScorerSupplier::new(20));
+        .push(new_fake_scorer_supplier(20));
 
       let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
       let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
@@ -1340,7 +1339,7 @@ mod tests {
     subs
       .get_mut(&Occur::Should)
       .unwrap()
-      .push(FakeScorerSupplier::new(42));
+      .push(new_fake_scorer_supplier(42));
     subs = {
       let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
       let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
@@ -1358,7 +1357,7 @@ mod tests {
     subs
       .get_mut(&Occur::Should)
       .unwrap()
-      .push(FakeScorerSupplier::new(12));
+      .push(new_fake_scorer_supplier(12));
     subs = {
       let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
       let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
@@ -1376,7 +1375,7 @@ mod tests {
     subs
       .get_mut(&Occur::Should)
       .unwrap()
-      .push(FakeScorerSupplier::new(20));
+      .push(new_fake_scorer_supplier(20));
     {
       let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
       let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
@@ -1407,11 +1406,11 @@ mod tests {
     subs
       .get_mut(&Occur::Should)
       .unwrap()
-      .push(FakeScorerSupplier::new(42));
+      .push(new_fake_scorer_supplier(42));
     subs
       .get_mut(&Occur::Should)
       .unwrap()
-      .push(FakeScorerSupplier::new(12));
+      .push(new_fake_scorer_supplier(12));
 
     subs = {
       let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
@@ -1430,7 +1429,7 @@ mod tests {
     subs
       .get_mut(&Occur::Should)
       .unwrap()
-      .push(FakeScorerSupplier::new(20));
+      .push(new_fake_scorer_supplier(20));
 
     subs = {
       let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
@@ -1463,7 +1462,7 @@ mod tests {
     subs
       .get_mut(&Occur::Should)
       .unwrap()
-      .push(FakeScorerSupplier::new(30));
+      .push(new_fake_scorer_supplier(30));
 
     subs = {
       let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
@@ -1534,7 +1533,7 @@ mod tests {
         subs
           .get_mut(&occur)
           .unwrap()
-          .push(FakeScorerSupplier::new(random.random_range(0..100)));
+          .push(new_fake_scorer_supplier(random.random_range(0..100)));
 
         if occur == Occur::Should {
           num_shoulds += 1;

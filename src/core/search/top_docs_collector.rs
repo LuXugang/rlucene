@@ -235,7 +235,7 @@ mod tests {
   use crate::core::search::boolean_clause::Occur;
   use crate::core::search::boolean_query::Builder;
   use crate::core::search::dummy::dummy_weight::DummyWeight;
-  use crate::core::search::hit_queue::{HitQueue, HitQueueComparator};
+  use crate::core::search::hit_queue::{self, HitQueueComparator};
   use crate::core::search::index_searcher::IndexSearcher;
   use crate::core::search::leaf_collector::LeafCollector;
   use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
@@ -346,7 +346,7 @@ mod tests {
   }
   impl MyTopDocsCollector {
     fn new(size: usize) -> Result<Self> {
-      let pq = HitQueue::new(size, true)?;
+      let pq = hit_queue::new(size, true)?;
       let base = TopDocsCollectorBase::new(pq);
       Ok(Self { base })
     }

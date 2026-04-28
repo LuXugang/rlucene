@@ -34,41 +34,38 @@ use std::rc::Rc;
 
 /// A hit queue for sorting by hits by terms in more than one field
 pub struct FieldValueHitQueue;
-impl FieldValueHitQueue {
-  #[allow(clippy::new_ret_no_self)]
-  pub fn new(
-    fields: &[SortFieldEnum],
-    size: usize,
-  ) -> Result<PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>> {
-    let num_comparators = fields.len();
-    let mut comparators = Vec::with_capacity(num_comparators);
-    let mut reverse_mul = Vec::with_capacity(num_comparators);
+pub fn new(
+  fields: &[SortFieldEnum],
+  size: usize,
+) -> Result<PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>> {
+  let num_comparators = fields.len();
+  let mut comparators = Vec::with_capacity(num_comparators);
+  let mut reverse_mul = Vec::with_capacity(num_comparators);
 
-    for (i, field) in fields.iter().enumerate() {
-      let reverse = if field.get_reverse() { -1 } else { 1 };
-      reverse_mul.push(reverse);
+  for (i, field) in fields.iter().enumerate() {
+    let reverse = if field.get_reverse() { -1 } else { 1 };
+    reverse_mul.push(reverse);
 
-      let pruning = if i == 0 {
-        if num_comparators > 1 {
-          Pruning::GreaterThan
-        } else {
-          Pruning::GreaterThanOrEqualTo
-        }
+    let pruning = if i == 0 {
+      if num_comparators > 1 {
+        Pruning::GreaterThan
       } else {
-        Pruning::None
-      };
-
-      let comparator = field.get_comparator(size, pruning)?;
-      comparators.push(comparator);
-    }
-    let reverse_mul = Rc::new(reverse_mul);
-    let comparator = if num_comparators == 1 {
-      CompareEnum2::A(OneComparatorComparator::new(comparators, reverse_mul))
+        Pruning::GreaterThanOrEqualTo
+      }
     } else {
-      CompareEnum2::B(MultiComparatorsComparator::new(comparators, reverse_mul))
+      Pruning::None
     };
-    PriorityQueue::new(size, comparator)
+
+    let comparator = field.get_comparator(size, pruning)?;
+    comparators.push(comparator);
   }
+  let reverse_mul = Rc::new(reverse_mul);
+  let comparator = if num_comparators == 1 {
+    CompareEnum2::A(OneComparatorComparator::new(comparators, reverse_mul))
+  } else {
+    CompareEnum2::B(MultiComparatorsComparator::new(comparators, reverse_mul))
+  };
+  PriorityQueue::new(size, comparator)
 }
 /// Creates a hit queue sorted by the given list of fields.
 ///
@@ -90,7 +87,7 @@ pub fn create(
       "Sort must contain at least one field",
     ));
   }
-  FieldValueHitQueue::new(fields, size)
+  new(fields, size)
 }
 
 #[derive(Clone, Default, Debug)]

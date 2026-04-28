@@ -27,7 +27,7 @@ use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
-use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
@@ -42,7 +42,7 @@ pub struct TestSimilarity2;
 
 fn set_up() -> Result<Vec<SimilarityEnum>> {
   Ok(vec![
-    ClassicSimilarity::new().into(),
+    classic_similarity::new().into(),
     BM25Similarity::new()?.into(),
   ])
 }

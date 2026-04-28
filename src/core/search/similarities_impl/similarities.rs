@@ -592,12 +592,9 @@ pub mod tests {
 
   #[derive(Clone)]
   pub struct SimpleSimilarity;
-  impl SimpleSimilarity {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> TFIDFSimilarity {
-      let v = TFIDFSubEnum::Simple(SimpleSimilarity);
-      TFIDFSimilarity::new(v)
-    }
+  pub fn new_simple_similarity() -> TFIDFSimilarity {
+    let v = TFIDFSubEnum::Simple(SimpleSimilarity);
+    TFIDFSimilarity::new(v)
   }
   impl TFIDFSimilarityBase for SimpleSimilarity {
     fn tf(&self, freq: f32) -> f32 {
@@ -635,7 +632,7 @@ pub mod tests {
 
     let mock = MockAnalyzer::new(&mut random);
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-    iwc.set_similarity(SimpleSimilarity::new());
+    iwc.set_similarity(new_simple_similarity());
     iwc.set_merge_policy(new_merge_policy(&mut random, false)?);
     let writer = RandomIndexWriter::with_config(&mut random, store.clone(), iwc);
 
@@ -652,7 +649,7 @@ pub mod tests {
     writer.close()?;
 
     let mut searcher = new_searcher_with_reader(reader)?;
-    searcher.set_similarity(SimpleSimilarity::new());
+    searcher.set_similarity(new_simple_similarity());
 
     let a = Term::from_text("field", "a");
     let b = Term::from_text("field", "b");

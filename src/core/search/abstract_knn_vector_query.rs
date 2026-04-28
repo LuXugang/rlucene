@@ -30,7 +30,7 @@ use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::filtered_doc_id_set_iterator::{
   FilteredDocIdSetIterator, FilteredDocIdSetIteratorBase,
 };
-use crate::core::search::hit_queue::HitQueue;
+use crate::core::search::hit_queue;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::knn::top_knn_collector_manager::TopKnnCollectorManager;
@@ -283,7 +283,7 @@ pub trait AbstractKnnVectorQuery: QueryBase {
 
     let cost = accept_iterator.cost()? as usize;
     let queue_size = self.base().k.min(cost);
-    let mut queue = HitQueue::new(queue_size, true)?;
+    let mut queue = hit_queue::new(queue_size, true)?;
     let mut relation = EqualTo;
     let mut top_doc = queue
       .top_mut()

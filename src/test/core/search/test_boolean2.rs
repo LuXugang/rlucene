@@ -27,7 +27,7 @@ use crate::core::search::boolean_scorer::SIZE;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::prefix_query::PrefixQuery;
 use crate::core::search::query::Query;
-use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::sort::Sort;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
@@ -130,7 +130,7 @@ where
   let mut searcher = new_searcher_with_reader(little_reader)?;
   // this is intentionally using the baseline sim, because it compares against bigSearcher (which
   // uses a random one)
-  searcher.set_similarity(ClassicSimilarity::new());
+  searcher.set_similarity(classic_similarity::new());
 
   // make a copy of our index using a single segment
   let single_segment_directory = if num_filler_docs * pre_filler_docs > 100000 {
@@ -465,7 +465,7 @@ fn test_random_queries() -> Result<()> {
       let sort = Sort::get_index_order()?;
 
       QueryUtils::check_from_searcher(&mut random, query.clone(), &ctx.searcher)?;
-      let baseline_similarity = ClassicSimilarity::new();
+      let baseline_similarity = classic_similarity::new();
       let random_similarity = ctx.big_searcher.get_similarity();
       ctx.searcher.set_similarity(random_similarity);
       let random_check_result =

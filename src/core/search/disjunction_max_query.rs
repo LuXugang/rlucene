@@ -549,7 +549,7 @@ pub(crate) mod tests {
 
     let analyzer = MockAnalyzer::new(random);
     let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
-    let sim = TestSimilarity::new();
+    let sim = new_test_similarity();
     iwc.set_similarity(sim.clone());
     iwc.set_merge_policy(new_log_merge_policy(random)?);
 
@@ -1438,12 +1438,9 @@ pub(crate) mod tests {
   #[derive(Clone, Default)]
   pub struct TestSimilarity;
 
-  impl TestSimilarity {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> TFIDFSimilarity {
-      let v = TFIDFSubEnum::Test(TestSimilarity);
-      TFIDFSimilarity::new(v)
-    }
+  pub fn new_test_similarity() -> TFIDFSimilarity {
+    let v = TFIDFSubEnum::Test(TestSimilarity);
+    TFIDFSimilarity::new(v)
   }
 
   impl TFIDFSimilarityBase for TestSimilarity {

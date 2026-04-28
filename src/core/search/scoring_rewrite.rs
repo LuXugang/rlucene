@@ -24,7 +24,7 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
-use crate::core::search::index_searcher::{IndexSearcher, TooManyClauses};
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{MultiTermQuery, MultiTermQueryEnum, RewriteMethod};
 use crate::core::search::query::Query;
 use crate::core::search::term_collecting_rewrite::{TermCollectingRewrite, TermCollector};
@@ -129,7 +129,7 @@ impl RewriteMethod for ScoringBooleanRewrite {
 impl ScoringRewrite for ScoringBooleanRewrite {
   fn check_max_clause_count(&self, count: usize) -> Result<()> {
     if count > index_searcher::get_max_clause_count() {
-      return Err(TooManyClauses::new());
+      return Err(index_searcher::new());
     }
     Ok(())
   }

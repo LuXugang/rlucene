@@ -1051,7 +1051,7 @@ mod tests {
   use crate::core::search::score_doc::ScoreDoc;
   use crate::core::search::score_mode::ScoreMode;
   use crate::core::search::scorer::ScorerKind;
-  use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+  use crate::core::search::similarities_impl::classic_similarity;
   use crate::core::search::simple_collector::SimpleCollector;
   use crate::core::search::term_query::TermQuery;
   use crate::core::search::top_docs::TopDocsLike;
@@ -1305,7 +1305,7 @@ mod tests {
 
     let reader = w.get_reader()?;
     let mut s = new_searcher_with_reader(reader)?;
-    s.set_similarity(ClassicSimilarity::new());
+    s.set_similarity(classic_similarity::new());
 
     let mut q = Builder::new();
     q.add(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?;

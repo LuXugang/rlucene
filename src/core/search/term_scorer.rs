@@ -307,7 +307,7 @@ mod tests {
   use crate::core::search::scorable::Scorable;
   use crate::core::search::score_mode::ScoreMode;
   use crate::core::search::scorer::Scorer;
-  use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+  use crate::core::search::similarities_impl::classic_similarity;
   use crate::core::search::simple_collector::SimpleCollector;
   use crate::core::search::term_query::TermQuery;
   use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
@@ -345,7 +345,7 @@ mod tests {
     let analyzer = MockAnalyzer::new(random);
     let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
     iwc.set_merge_policy(new_log_merge_policy(random)?);
-    iwc.set_similarity(ClassicSimilarity::new());
+    iwc.set_similarity(classic_similarity::new());
 
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
     let mut field_to_type = HashMap::new();
@@ -367,7 +367,7 @@ mod tests {
     writer.close()?;
 
     let mut index_searcher = new_searcher_with_leaf_reader(index_reader)?;
-    index_searcher.set_similarity(ClassicSimilarity::new());
+    index_searcher.set_similarity(classic_similarity::new());
 
     Ok(index_searcher)
   }

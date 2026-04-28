@@ -63,12 +63,9 @@ pub struct TestOmitTF;
 #[derive(Clone, Default)]
 pub struct SimpleSimilarity1;
 
-impl SimpleSimilarity1 {
-  #[allow(clippy::new_ret_no_self)]
-  pub fn new() -> TFIDFSimilarity {
-    let v = TFIDFSubEnum::Simple1(SimpleSimilarity1);
-    TFIDFSimilarity::new(v)
-  }
+pub fn new_simple_similarity1() -> TFIDFSimilarity {
+  let v = TFIDFSubEnum::Simple1(SimpleSimilarity1);
+  TFIDFSimilarity::new(v)
 }
 
 impl TFIDFSimilarityBase for SimpleSimilarity1 {
@@ -232,7 +229,7 @@ fn test_basic() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   iwc.set_max_buffered_docs(2);
-  iwc.set_similarity(SimpleSimilarity1::new());
+  iwc.set_similarity(new_simple_similarity1());
   iwc.set_max_buffered_docs(10);
   let mut mp = new_log_merge_policy_with_merge_factor(&mut random, 2)?;
   mp.get_base_mut().set_no_cfs_ratio(0.0)?;
@@ -275,7 +272,7 @@ fn test_basic() -> Result<()> {
 
   let reader = directory_reader_util::open(dir.clone())?;
   let mut searcher = new_searcher_with_reader(reader)?;
-  searcher.set_similarity(SimpleSimilarity1::new());
+  searcher.set_similarity(new_simple_similarity1());
 
   let a = Term::from_text("noTf", term);
   let b = Term::from_text("tf", term);

@@ -39,7 +39,7 @@ use crate::core::search::query::Query;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
-use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::similarities_impl::similarities::{
   SimScorer, Similarity, SimilaritySimScorer,
 };
@@ -102,7 +102,7 @@ where
   iw.close()?;
 
   let mut searcher = new_searcher_with_leaf_reader(get_only_leaf_reader(&reader)?)?;
-  searcher.set_similarity(ClassicSimilarity::new());
+  searcher.set_similarity(classic_similarity::new());
   Ok(searcher)
 }
 fn add_some<R>(random: &mut R, doc: &mut Document, values: &[&str]) -> Result<()>

@@ -22,7 +22,7 @@ use crate::core::index::term_states::TermStates;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
-use crate::core::search::index_searcher::{IndexSearcher, TooManyNestedClauses};
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -300,7 +300,7 @@ impl Builder {
     context: Option<TermStates>,
   ) -> Result<&mut Self> {
     if self.num_terms >= index_searcher::get_max_clause_count() {
-      return Err(TooManyNestedClauses::new());
+      return Err(index_searcher::new_nested());
     }
     self.terms.push(term);
     self.boosts.push(boost);

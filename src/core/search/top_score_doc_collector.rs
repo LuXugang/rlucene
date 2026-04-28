@@ -18,7 +18,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::hit_queue::{HitQueue, HitQueueComparator};
+use crate::core::search::hit_queue::{self, HitQueueComparator};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::scorable::Scorable;
@@ -57,7 +57,7 @@ impl TopScoreDocCollector {
     total_hits_threshold: usize,
     min_score_acc: Option<Arc<MaxScoreAccumulator>>,
   ) -> Result<Self> {
-    let pq = HitQueue::new(num_hits, true)?;
+    let pq = hit_queue::new(num_hits, true)?;
     let base = TopDocsCollectorBase::new(pq);
     Ok(Self {
       base,

@@ -953,27 +953,21 @@ fn enforce_distinct_leaves(leaf_slice: &LeafSlice) -> Result<()> {
 /// This typically happens if a `PrefixQuery`, `FuzzyQuery`, `WildcardQuery`,
 /// or `TermRangeQuery` is expanded to many terms during search.
 pub struct TooManyClauses;
-impl TooManyClauses {
-  #[allow(clippy::new_ret_no_self)]
-  pub fn new() -> LuceneError {
-    Self::with_msg(format!(
-      "maxClauseCount is set to {}",
-      get_max_clause_count()
-    ))
-  }
-  pub fn with_msg(msg: String) -> LuceneError {
-    LuceneError::too_many_clauses(msg)
-  }
+pub fn new() -> LuceneError {
+  with_msg(format!(
+    "maxClauseCount is set to {}",
+    get_max_clause_count()
+  ))
+}
+pub fn with_msg(msg: String) -> LuceneError {
+  LuceneError::too_many_clauses(msg)
 }
 pub struct TooManyNestedClauses;
-impl TooManyNestedClauses {
-  #[allow(clippy::new_ret_no_self)]
-  pub fn new() -> LuceneError {
-    LuceneError::too_many_nested_clauses(format!(
-      "Query contains too many nested clauses; maxClauseCount is set to {}",
-      get_max_clause_count()
-    ))
-  }
+pub fn new_nested() -> LuceneError {
+  LuceneError::too_many_nested_clauses(format!(
+    "Query contains too many nested clauses; maxClauseCount is set to {}",
+    get_max_clause_count()
+  ))
 }
 
 /// Holds information about a specific leaf context and the corresponding range of doc ids to

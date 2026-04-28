@@ -749,7 +749,7 @@ mod tests {
   use crate::core::search::exact_phrase_matcher::merge_impacts_from_ie;
   use crate::core::search::phrase_query::PhraseQuery;
   use crate::core::search::query::{Query, QueryBase};
-  use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+  use crate::core::search::similarities_impl::classic_similarity;
   use crate::core::search::term_query::TermQuery;
   use crate::core::search::top_docs::TopDocsLike;
   use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
@@ -1166,7 +1166,7 @@ mod tests {
     writer.close()?;
 
     let mut searcher = new_searcher_with_reader(reader)?;
-    searcher.set_similarity(ClassicSimilarity::new());
+    searcher.set_similarity(classic_similarity::new());
 
     let query = PhraseQuery::from_terms(i32::MAX as usize, "field", &["firstname", "lastname"])?;
     let top_docs = searcher.search(query.clone(), 1000)?;

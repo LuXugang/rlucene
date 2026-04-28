@@ -19,7 +19,7 @@ use crate::core::document::field::Store;
 use crate::core::document::text_field::TextField;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::search::query::Query;
-use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
+use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
@@ -72,7 +72,7 @@ fn set_up<R: Rng + ?Sized>(
 
   let mut searcher: DefaultIndexSearchCRShared =
     new_searcher_with_wrap_assert(random, reader.clone(), true, false)?;
-  searcher.set_similarity(ClassicSimilarity::new());
+  searcher.set_similarity(classic_similarity::new());
 
   let mut scorer_searcher: ScorerIndexSearcher<DefaultCRReaderShared> =
     ScorerIndexSearcher::new(reader);
