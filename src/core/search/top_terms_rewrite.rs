@@ -129,7 +129,7 @@ pub(crate) struct TermCollectorImpl {
 impl TermCollectorImpl {
   pub(crate) fn new(max_size: usize) -> Result<Self> {
     let cmp = ScoreTermCmp::new();
-    let st_queue = PriorityQueue::new(max_size, cmp)?;
+    let st_queue = PriorityQueue::new(max_size + 1, cmp)?;
     Ok(Self {
       last_term: None,
       st_queue,
