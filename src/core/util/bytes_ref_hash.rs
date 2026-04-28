@@ -799,7 +799,7 @@ mod tests {
   use rand::RngExt;
 
   use crate::core::index::{BytesRef, BytesRefBuilder};
-  use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
+  use crate::core::util::allocator_byte::DirectAllocatorByte;
   use crate::core::util::bytes_ref_hash::{
     BytesRefHash, DirectBytesRefHash, DirectBytesStartArray,
   };
@@ -812,7 +812,7 @@ mod tests {
   pub struct TestBytesRefHash;
 
   fn new_pool() -> ByteBlockPool {
-    let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+    let allocator = DirectAllocatorByte::new();
     ByteBlockPool::new(allocator)
   }
   fn new_hash<R>(random: &mut R) -> DirectBytesRefHash

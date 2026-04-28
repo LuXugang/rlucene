@@ -16,6 +16,7 @@
  */
 
 use crate::core::util::{BYTE_BLOCK_SIZE, Counter, SharedCounter};
+use crate::impl_from_for_enum;
 
 /// A simple `Allocator` that never recycles, but tracks how much total RAM is
 /// in use.  */
@@ -32,8 +33,8 @@ impl DirectTrackingAllocatorByte {
       byte_used,
     }
   }
-  pub fn allocator_enum(byte_used: SharedCounter) -> AllocatorByteEnum {
-    AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used))
+  pub fn allocator_enum(byte_used: SharedCounter) -> DirectTrackingAllocatorByte {
+    DirectTrackingAllocatorByte::new(byte_used)
   }
 }
 
@@ -97,6 +98,11 @@ pub enum AllocatorByteEnum {
   DA(DirectAllocatorByte),
   DTA(DirectTrackingAllocatorByte),
 }
+impl_from_for_enum!(
+    AllocatorByteEnum,
+    DirectAllocatorByte=> DA,
+    DirectTrackingAllocatorByte=> DTA,
+);
 impl AllocatorByteEnum {
   pub fn get_used(&self) -> i64 {
     match self {

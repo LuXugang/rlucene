@@ -164,9 +164,7 @@ mod tests {
   use std::sync::Arc;
 
   use crate::core::index::byte_slice_pool::ByteSlicePool;
-  use crate::core::util::allocator_byte::{
-    AllocatorByteEnum, DirectAllocatorByte, DirectTrackingAllocatorByte,
-  };
+  use crate::core::util::allocator_byte::{DirectAllocatorByte, DirectTrackingAllocatorByte};
   use crate::core::util::bit_util::BitUtil;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::core::util::{AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps};
@@ -179,7 +177,7 @@ mod tests {
   fn test_alloc_known_size_slice() -> Result<()> {
     let mut random = random();
     let byte_used = Arc::new(AtomicCounter::new());
-    let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
+    let allocator = DirectTrackingAllocatorByte::new(byte_used);
     let mut block_pool = ByteBlockPool::new(allocator);
     block_pool.next_buffer()?;
     let mut slice_pool = ByteSlicePool;
@@ -227,7 +225,7 @@ mod tests {
   }
   #[test]
   fn test_alloc_large_slice() -> Result<()> {
-    let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+    let allocator = DirectAllocatorByte::new();
     let mut block_pool = ByteBlockPool::new(allocator);
     let mut slice_pool = ByteSlicePool;
     assert_eq!(0, slice_pool.new_slice(BYTE_BLOCK_SIZE, &mut block_pool)?);
@@ -449,7 +447,7 @@ mod tests {
   fn test_random_interleaved_slices() -> Result<()> {
     let mut random = random();
     let byte_used = Arc::new(AtomicCounter::new());
-    let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
+    let allocator = DirectTrackingAllocatorByte::new(byte_used);
     let mut pool = ByteBlockPool::new(allocator);
     let mut slice_pool = ByteSlicePool;
 

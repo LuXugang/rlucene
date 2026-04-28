@@ -20,7 +20,7 @@ use crate::core::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::core::index::term::Term;
 use crate::core::search::query::Query;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
+use crate::core::util::allocator_byte::DirectTrackingAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bytes_ref_hash::DEFAULT_CAPACITY;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray};
@@ -252,7 +252,7 @@ pub(crate) struct DeletedTerms {
 impl DeletedTerms {
   pub(crate) fn new() -> Self {
     let bytes_used = Arc::new(AtomicCounter::new());
-    let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
+    let allocator = DirectTrackingAllocatorByte::new(bytes_used.clone());
     let pool = ByteBlockPool::new(allocator);
     Self::new_impl(pool, bytes_used)
   }

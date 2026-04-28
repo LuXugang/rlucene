@@ -521,7 +521,7 @@ pub(crate) mod tests {
   use crate::core::index::terms_hash_per_field::{PostingsArrayWrapper, TermsHashPerField};
   use crate::core::store::DataInput;
 
-  use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
+  use crate::core::util::allocator_byte::DirectAllocatorByte;
   use crate::core::util::attribute_source::EmptyAttributeSource;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::core::util::int_block_pool::IntBlockPool;
@@ -601,7 +601,7 @@ pub(crate) mod tests {
       "binary",
       dummy_value.as_bytes().to_vec(),
     )?);
-    let mut byte_pool = ByteBlockPool::new(AllocatorByteEnum::DA(DirectAllocatorByte::new()));
+    let mut byte_pool = ByteBlockPool::new(DirectAllocatorByte::new());
     let mut base = hash.base.take().unwrap();
     base.start(&dummy_filed, true, &mut byte_pool)?;
     // Pass `None` for the field as in the Java version (null)
@@ -827,7 +827,7 @@ pub(crate) mod tests {
       "binary",
       dummy_value.as_bytes().to_vec(),
     )?);
-    let mut byte_pool = ByteBlockPool::new(AllocatorByteEnum::DA(DirectAllocatorByte::new()));
+    let mut byte_pool = ByteBlockPool::new(DirectAllocatorByte::new());
     hash
       .base
       .as_mut()

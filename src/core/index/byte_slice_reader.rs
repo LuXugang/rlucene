@@ -195,7 +195,7 @@ mod tests {
   use crate::core::index::byte_slice_pool::ByteSlicePool;
   use crate::core::index::byte_slice_reader::ByteSliceReader;
   use crate::core::store::DataInput;
-  use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
+  use crate::core::util::allocator_byte::DirectAllocatorByte;
   use crate::core::util::error::lucene_error::Result;
   use crate::core::util::{ByteBlockPool, TryIntoInt};
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
@@ -205,14 +205,14 @@ mod tests {
   struct TestByteSliceReader;
 
   #[allow(clippy::type_complexity)]
-  pub fn before_class<R>(random: &mut R) -> Result<(Vec<u8>, ByteBlockPool, i32)>
+  pub fn set_up<R>(random: &mut R) -> Result<(Vec<u8>, ByteBlockPool, i32)>
   where
     R: Rng + ?Sized,
   {
     let len = 100; // You can adjust this value if needed
     let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 
-    let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+    let allocator = DirectAllocatorByte::new();
     let mut block_pool = ByteBlockPool::new(allocator);
     block_pool.next_buffer()?;
 
@@ -236,7 +236,7 @@ mod tests {
   #[test]
   fn test_read_byte() -> Result<()> {
     let mut random = random();
-    let (random_data, block_pool, block_pool_end) = before_class(&mut random)?;
+    let (random_data, block_pool, block_pool_end) = set_up(&mut random)?;
     let mut reader = ByteSliceReader::new(&block_pool);
     reader.init(0, block_pool_end.try_convert()?);
     for &expected in random_data.iter() {
@@ -248,7 +248,7 @@ mod tests {
   #[test]
   fn test_skip_bytes() -> Result<()> {
     let mut random = random();
-    let (random_data, block_pool, block_pool_end) = before_class(&mut random)?;
+    let (random_data, block_pool, block_pool_end) = set_up(&mut random)?;
     let mut slice_reader = ByteSliceReader::new(Rc::new(block_pool));
     let max_skip_to = random_data.len() as i32 - 1;
     let iterations = at_least(&mut random, 10);

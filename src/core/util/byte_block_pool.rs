@@ -47,12 +47,16 @@ pub struct ByteBlockPool {
 }
 impl Default for ByteBlockPool {
   fn default() -> Self {
-    let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+    let allocator = DirectAllocatorByte::new();
     Self::new(allocator)
   }
 }
 impl ByteBlockPool {
-  pub fn new(allocator: AllocatorByteEnum) -> Self {
+  pub fn new<T>(allocator: T) -> Self
+  where
+    T: Into<AllocatorByteEnum>,
+  {
+    let allocator = allocator.into();
     ByteBlockPool {
       buffers: vec![],
       buffer_upto: None,
@@ -397,9 +401,7 @@ mod tests {
   use std::sync::Arc;
 
   use crate::core::index::{BytesRef, BytesRefBuilder};
-  use crate::core::util::allocator_byte::{
-    AllocatorByteEnum, DirectAllocatorByte, DirectTrackingAllocatorByte,
-  };
+  use crate::core::util::allocator_byte::{DirectAllocatorByte, DirectTrackingAllocatorByte};
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::core::util::{AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps};
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
@@ -410,7 +412,7 @@ mod tests {
   #[test]
   fn test_append_from_other_pool() -> Result<()> {
     let mut random = random();
-    let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+    let allocator = DirectAllocatorByte::new();
     let mut pool = ByteBlockPool::new(allocator);
     let num_bytes = at_least_usize(&mut random, 2 << 16);
     let bytes = (&mut random)
@@ -423,7 +425,7 @@ mod tests {
     pool.append(&bytes)?;
     let bytes_length = bytes.len();
 
-    let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+    let allocator = DirectAllocatorByte::new();
     let mut another_pool = ByteBlockPool::new(allocator);
     let existing_bytes = vec![0; at_least_usize(&mut random, 500)];
     another_pool.append(&existing_bytes)?;
@@ -457,7 +459,7 @@ mod tests {
   fn test_read_and_write() -> Result<()> {
     let mut random = random();
     let byte_used = Arc::new(AtomicCounter::new());
-    let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used.clone()));
+    let allocator = DirectTrackingAllocatorByte::new(byte_used.clone());
     let mut pool = ByteBlockPool::new(allocator);
     pool.next_buffer()?;
     let reuse_first = random.random_bool(0.5);
@@ -527,7 +529,7 @@ mod tests {
   fn test_large_random_block() -> Result<()> {
     let mut random = random();
     let byte_used = Arc::new(AtomicCounter::new());
-    let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used.clone()));
+    let allocator = DirectTrackingAllocatorByte::new(byte_used.clone());
     let mut pool = ByteBlockPool::new(allocator);
     let _ = pool.next_buffer();
 
@@ -567,7 +569,7 @@ mod tests {
   #[test]
   fn test_too_many_allocs() -> Result<()> {
     // Use a mock allocator that doesn't waste memory
-    let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+    let allocator = DirectAllocatorByte::new();
     let mut pool = ByteBlockPool::new(allocator);
     pool.next_buffer()?;
 

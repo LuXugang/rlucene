@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::store::directory::Directory;
-use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
+use crate::core::util::allocator_byte::DirectAllocatorByte;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
 use crate::core::util::fst_impl::fst::{
@@ -376,7 +376,7 @@ where
       PagedGrowableWriter::with_fill_page(copied_node_address_bits_per_value, PackedInts::COMPACT);
     let copied_node_address = AbstractPagedMutable::new(size, Self::BLOCK_SIZE_BYTES, sub_reader)?;
 
-    let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+    let allocator = DirectAllocatorByte::new();
     let copied_nodes = ByteBlockPool::new(allocator);
     let bytes_reader = ByteBlockPoolReverseBytesReader::new(copied_nodes);
     let inner = Inner {
