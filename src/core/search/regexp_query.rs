@@ -267,7 +267,7 @@ impl QueryBase for RegexpQuery {
     Self: Sized,
   {
     let rewrite_method = self.base.rewrite_method.clone();
-    rewrite_method.rewrite(searcher, self.into())
+    rewrite_method.rewrite(searcher, self)
   }
 
   fn visit<QV>(&self, _visitor: &QV)

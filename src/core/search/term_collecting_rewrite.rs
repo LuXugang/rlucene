@@ -32,7 +32,7 @@ pub trait TermCollectingRewrite: RewriteMethod {
   fn get_top_level_builder(&self) -> Result<Self::B>;
 
   /// Finalize the creation of the query from the builder.
-  fn build(&self, builder: Self::B) -> Query;
+  fn build(&self, builder: Self::B) -> Result<Query>;
 
   /// Add a [`MultiTermQuery`] term to the top-level query builder.
   fn add_clause(

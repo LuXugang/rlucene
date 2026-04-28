@@ -53,12 +53,9 @@ pub trait MultiTermQuery: QueryBase + Clone {
   fn as_query(&self) -> Query;
 }
 pub trait RewriteMethod {
-  fn rewrite<IRC>(
-    self,
-    index_searcher: &IndexSearcher<IRC>,
-    query: MultiTermQueryEnum,
-  ) -> Result<Query>
+  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
   where
+    Q: MultiTermQuery + Into<MultiTermQueryEnum>,
     IRC: IndexReaderContext;
   fn get_terms_enum<M, T>(&self, query: &M, terms: T) -> Result<<M as MultiTermQuery>::TermsEnum<T>>
   where
@@ -82,12 +79,9 @@ pub trait RewriteMethod {
 #[derive(Default, Clone)]
 pub struct ConstantScoreBlendedRewrite;
 impl RewriteMethod for ConstantScoreBlendedRewrite {
-  fn rewrite<IRC>(
-    self,
-    _index_searcher: &IndexSearcher<IRC>,
-    query: MultiTermQueryEnum,
-  ) -> Result<Query>
+  fn rewrite<IRC, Q>(self, _index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
   where
+    Q: MultiTermQuery + Into<MultiTermQueryEnum>,
     IRC: IndexReaderContext,
   {
     Ok(MultiTermQueryConstantScoreBlendedWrapper::new(query).into())
@@ -103,12 +97,9 @@ impl RewriteMethod for ConstantScoreBlendedRewrite {
 #[derive(Default, Clone)]
 pub struct ConstantScoreRewrite;
 impl RewriteMethod for ConstantScoreRewrite {
-  fn rewrite<IRC>(
-    self,
-    _index_searcher: &IndexSearcher<IRC>,
-    query: MultiTermQueryEnum,
-  ) -> Result<Query>
+  fn rewrite<IRC, Q>(self, _index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
   where
+    Q: MultiTermQuery + Into<MultiTermQueryEnum>,
     IRC: IndexReaderContext,
   {
     Ok(MultiTermQueryConstantScoreWrapper::new(query).into())
@@ -120,12 +111,9 @@ pub enum RewriteMethodEnum {
   Blended(ConstantScoreBlendedRewrite),
 }
 impl RewriteMethod for RewriteMethodEnum {
-  fn rewrite<IRC>(
-    self,
-    index_searcher: &IndexSearcher<IRC>,
-    query: MultiTermQueryEnum,
-  ) -> Result<Query>
+  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
   where
+    Q: MultiTermQuery + Into<MultiTermQueryEnum>,
     IRC: IndexReaderContext,
   {
     match self {
@@ -155,6 +143,15 @@ macro_rules! dispatch_multi_term_query {
     }
   }};
 }
+use crate::core::index::term::Term;
+use crate::core::index::term_states::TermStates;
+use crate::core::search::blended_term_query::BooleanRewrite;
+use crate::core::search::boolean_clause::Occur;
+use crate::core::search::boost_query::BoostQuery;
+use crate::core::search::term_collecting_rewrite::TermCollectingRewrite;
+use crate::core::search::term_query::TermQuery;
+use crate::core::search::top_terms_rewrite::TopTermsRewrite;
+use crate::core::search::{blended_term_query, boolean_query, index_searcher};
 pub(crate) use dispatch_multi_term_query;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -264,5 +261,195 @@ impl_from_for_enum!(
     DumbPrefixQuery => DumbPrefix,
     DumbRegexpQuery => DumbRegexp,
 );
+/// A rewrite method that first translates each term into [`Occur::Should`] clause
+/// in a [`BooleanQuery`], and keeps the scores as computed by the query.
+///
+/// This rewrite method only uses the top scoring terms so it will not overflow the boolean max
+/// clause count.
+pub struct TopTermsScoringBooleanQueryRewrite {
+  size: usize,
+}
 
-pub struct TopTermsBoostOnlyBooleanQueryRewrite {}
+impl TopTermsScoringBooleanQueryRewrite {
+  /// Create a [`TopTermsScoringBooleanQueryRewrite`] for at most `size` terms.
+  ///
+  /// NOTE: if [`IndexSearcher::get_max_clause_count`] is smaller than `size`, then
+  /// it will be used instead.
+  pub fn new(size: usize) -> Self {
+    Self { size }
+  }
+}
+
+impl TermCollectingRewrite for TopTermsScoringBooleanQueryRewrite {
+  type B = boolean_query::Builder;
+
+  fn get_top_level_builder(&self) -> Result<Self::B> {
+    Ok(boolean_query::Builder::new())
+  }
+
+  fn build(&self, builder: Self::B) -> Result<Query> {
+    Ok(builder.build().into())
+  }
+
+  fn add_clause_with_states(
+    &self,
+    top_level: &mut Self::B,
+    term: Term,
+    _doc_count: i32,
+    boost: f32,
+    states: Option<TermStates>,
+  ) -> Result<()> {
+    let tq = TermQuery::with_term_state(term, states);
+    top_level.add(BoostQuery::new(tq, boost)?, Occur::Should)?;
+    Ok(())
+  }
+}
+
+impl RewriteMethod for TopTermsScoringBooleanQueryRewrite {
+  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
+  where
+    Q: MultiTermQuery + Into<MultiTermQueryEnum>,
+    IRC: IndexReaderContext,
+  {
+    self.default_rewrite(index_searcher, &query)
+  }
+}
+
+impl TopTermsRewrite for TopTermsScoringBooleanQueryRewrite {
+  fn get_size(&self) -> usize {
+    self.size
+  }
+
+  fn get_max_size(&self) -> usize {
+    index_searcher::get_max_clause_count()
+  }
+}
+/// A rewrite method that first translates each term into [`Occur::Should`] clause
+/// in a [`BooleanQuery`], but adjusts the frequencies used for scoring to be blended across the
+/// terms, otherwise the rarest term typically ranks highest (often not useful eg in the set of
+/// expanded terms in a [`FuzzyQuery`]).
+///
+/// This rewrite method only uses the top scoring terms so it will not overflow the boolean max
+/// clause count.
+pub struct TopTermsBlendedFreqScoringRewrite {
+  size: usize,
+}
+
+impl TopTermsBlendedFreqScoringRewrite {
+  /// Create a [`TopTermsBlendedFreqScoringRewrite`] for at most `size` terms.
+  ///
+  /// NOTE: if [`IndexSearcher::get_max_clause_count`] is smaller than `size`, then
+  /// it will be used instead.
+  pub fn new(size: usize) -> Self {
+    Self { size }
+  }
+}
+
+impl TermCollectingRewrite for TopTermsBlendedFreqScoringRewrite {
+  type B = blended_term_query::Builder;
+
+  fn get_top_level_builder(&self) -> Result<Self::B> {
+    let mut builder = blended_term_query::Builder::new();
+    builder.set_rewrite_method(BooleanRewrite);
+    Ok(builder)
+  }
+
+  fn build(&self, builder: Self::B) -> Result<Query> {
+    Ok(builder.build()?.into())
+  }
+
+  fn add_clause_with_states(
+    &self,
+    top_level: &mut Self::B,
+    term: Term,
+    _doc_count: i32,
+    boost: f32,
+    states: Option<TermStates>,
+  ) -> Result<()> {
+    top_level.add_with_term_states(term, boost, states)?;
+    Ok(())
+  }
+}
+
+impl RewriteMethod for TopTermsBlendedFreqScoringRewrite {
+  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
+  where
+    Q: MultiTermQuery + Into<MultiTermQueryEnum>,
+    IRC: IndexReaderContext,
+  {
+    self.default_rewrite(index_searcher, &query)
+  }
+}
+
+impl TopTermsRewrite for TopTermsBlendedFreqScoringRewrite {
+  fn get_size(&self) -> usize {
+    self.size
+  }
+
+  fn get_max_size(&self) -> usize {
+    index_searcher::get_max_clause_count()
+  }
+}
+
+/// A rewrite method that first translates each term into [`Occur::Should`] clause
+/// in a [`BooleanQuery`], and keeps the scores as computed by the query.
+///
+/// This rewrite method only uses the top scoring terms so it will not overflow the boolean max
+/// clause count.
+pub struct TopTermsBoostOnlyBooleanQueryRewrite {
+  size: usize,
+}
+impl TopTermsBoostOnlyBooleanQueryRewrite {
+  /// Create a [`TopTermsScoringBooleanQueryRewrite`] for at most `size` terms.
+  ///
+  /// NOTE: if [`IndexSearcher::get_max_clause_count`] is smaller than `size`, then
+  /// it will be used instead.
+  pub fn new(size: usize) -> Self {
+    Self { size }
+  }
+}
+
+impl TermCollectingRewrite for TopTermsBoostOnlyBooleanQueryRewrite {
+  type B = boolean_query::Builder;
+
+  fn get_top_level_builder(&self) -> Result<Self::B> {
+    Ok(boolean_query::Builder::new())
+  }
+
+  fn build(&self, builder: Self::B) -> Result<Query> {
+    Ok(builder.build().into())
+  }
+
+  fn add_clause_with_states(
+    &self,
+    top_level: &mut Self::B,
+    term: Term,
+    _doc_count: i32,
+    boost: f32,
+    states: Option<TermStates>,
+  ) -> Result<()> {
+    let tq = TermQuery::with_term_state(term, states);
+    top_level.add(BoostQuery::new(tq, boost)?, Occur::Should)?;
+    Ok(())
+  }
+}
+
+impl RewriteMethod for TopTermsBoostOnlyBooleanQueryRewrite {
+  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
+  where
+    Q: MultiTermQuery + Into<MultiTermQueryEnum>,
+    IRC: IndexReaderContext,
+  {
+    self.default_rewrite(index_searcher, &query)
+  }
+}
+
+impl TopTermsRewrite for TopTermsBoostOnlyBooleanQueryRewrite {
+  fn get_size(&self) -> usize {
+    self.size
+  }
+
+  fn get_max_size(&self) -> usize {
+    index_searcher::get_max_clause_count()
+  }
+}

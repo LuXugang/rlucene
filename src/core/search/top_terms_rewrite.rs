@@ -76,7 +76,7 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
         Some(st.term_state),
       )?;
     }
-    Ok(self.build(builder))
+    self.build(builder)
   }
 }
 struct ScoreTerm {

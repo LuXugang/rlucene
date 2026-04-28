@@ -58,9 +58,12 @@ pub struct MultiTermQueryConstantScoreBlendedWrapper {
   id: Identity,
 }
 impl MultiTermQueryConstantScoreBlendedWrapper {
-  pub fn new(q: MultiTermQueryEnum) -> Self {
+  pub fn new<T>(q: T) -> Self
+  where
+    T: Into<MultiTermQueryEnum>,
+  {
     Self {
-      q,
+      q: q.into(),
       id: Identity::new(),
     }
   }

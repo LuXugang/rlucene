@@ -142,6 +142,7 @@ pub(crate) mod req_excl_bulk_scorer;
 pub(crate) mod req_excl_scorer;
 pub(crate) mod req_opt_sum_scorer;
 mod scorer_util;
+mod scoring_rewrite;
 pub(crate) mod simple_scorable;
 mod sloppy_phrase_matcher;
 pub mod sort;

@@ -197,7 +197,7 @@ impl QueryBase for DumbRegexpQuery {
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    ConstantScoreBlendedRewrite.rewrite(searcher, self.into())
+    ConstantScoreBlendedRewrite.rewrite(searcher, self)
   }
 
   fn visit<QV>(&self, _visitor: &QV)
