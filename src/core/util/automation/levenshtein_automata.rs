@@ -14,13 +14,234 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::BTreeSet;
+
+use crate::core::util::automation::automata::Automata;
+use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::lev1_parametric_description::Lev1ParametricDescription;
 use crate::core::util::automation::lev1t_parametric_description::Lev1TParametricDescription;
 use crate::core::util::automation::lev2_parametric_description::Lev2ParametricDescription;
 use crate::core::util::automation::lev2t_parametric_description::Lev2TParametricDescription;
+use crate::core::util::automation::operations::Operations;
+use crate::core::util::automation::{
+  lev1_parametric_description, lev1t_parametric_description, lev2_parametric_description,
+  lev2t_parametric_description,
+};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 
-pub struct LevenshteinAutomata;
+/// Class to construct DFAs that match a word within some edit distance.
+///
+/// Implements the algorithm described in: Schulz and Mihov: Fast String Correction with
+/// Levenshtein Automata.
+pub struct LevenshteinAutomata {
+  /// Input word.
+  word: Vec<i32>,
+  /// The automata alphabet.
+  alphabet: Vec<i32>,
+  /// The maximum symbol in the alphabet (e.g. 255 for UTF-8 or 10FFFF for UTF-32).
+  alpha_max: i32,
+  /// Lower bounds for ranges outside of alphabet.
+  range_lower: Vec<i32>,
+  /// Upper bounds for ranges outside of alphabet.
+  range_upper: Vec<i32>,
+  num_ranges: usize,
+  descriptions: Vec<Option<ParametricDescription>>,
+}
+
+impl LevenshteinAutomata {
+  /// Maximum edit distance this class can generate an automaton for.
+  pub const MAXIMUM_SUPPORTED_DISTANCE: i32 = 2;
+
+  /// Create a new `LevenshteinAutomata` for some input string. Optionally count transpositions as a
+  /// primitive edit.
+  pub fn new(input: &str, with_transpositions: bool) -> Result<Self> {
+    Self::from_word(
+      Self::code_points(input),
+      char::MAX as i32,
+      with_transpositions,
+    )
+  }
+
+  /// Expert: specify a custom maximum possible symbol (`alpha_max`); default is
+  /// `char::MAX`.
+  pub fn from_word(word: Vec<i32>, alpha_max: i32, with_transpositions: bool) -> Result<Self> {
+    let mut set = BTreeSet::new();
+    for &v in &word {
+      if v > alpha_max {
+        return Err(LuceneError::illegal_argument(format!(
+          "alphaMax exceeded by symbol {v} in word"
+        )));
+      }
+      set.insert(v);
+    }
+    let alphabet: Vec<i32> = set.into_iter().collect();
+
+    let mut range_lower = vec![0; alphabet.len() + 2];
+    let mut range_upper = vec![0; alphabet.len() + 2];
+    let mut num_ranges = 0;
+
+    let mut lower = 0;
+    for &higher in &alphabet {
+      if higher > lower {
+        range_lower[num_ranges] = lower;
+        range_upper[num_ranges] = higher - 1;
+        num_ranges += 1;
+      }
+      lower = higher + 1;
+    }
+
+    if lower <= alpha_max {
+      range_lower[num_ranges] = lower;
+      range_upper[num_ranges] = alpha_max;
+      num_ranges += 1;
+    }
+
+    let w = word.len() as i32;
+    let descriptions = vec![
+      None,
+      Some(if with_transpositions {
+        lev1t_parametric_description::new(w)
+      } else {
+        lev1_parametric_description::new(w)
+      }),
+      Some(if with_transpositions {
+        lev2t_parametric_description::new(w)
+      } else {
+        lev2_parametric_description::new(w)
+      }),
+    ];
+
+    Ok(Self {
+      word,
+      alphabet,
+      alpha_max,
+      range_lower,
+      range_upper,
+      num_ranges,
+      descriptions,
+    })
+  }
+
+  fn code_points(input: &str) -> Vec<i32> {
+    input.chars().map(|ch| ch as i32).collect()
+  }
+
+  /// Compute a DFA that accepts all strings within an edit distance of `n`.
+  ///
+  /// All automata have the following properties:
+  ///
+  /// - They are deterministic (DFA).
+  /// - There are no transitions to dead states.
+  /// - They are not minimal (some transitions could be combined).
+  pub fn to_automaton(&self, n: usize) -> Result<Option<Automaton>> {
+    self.to_automaton_with_prefix(n, "")
+  }
+
+  /// Compute a DFA that accepts all strings within an edit distance of `n`, matching the specified
+  /// exact prefix.
+  ///
+  /// All automata have the following properties:
+  ///
+  /// - They are deterministic (DFA).
+  /// - There are no transitions to dead states.
+  /// - They are not minimal (some transitions could be combined).
+  pub fn to_automaton_with_prefix(&self, n: usize, prefix: &str) -> Result<Option<Automaton>> {
+    if n == 0 {
+      let mut word = String::with_capacity(prefix.len() + self.word.len());
+      word.push_str(prefix);
+      for &cp in &self.word {
+        match char::from_u32(cp as u32) {
+          Some(ch) => word.push(ch),
+          None => {
+            return Err(LuceneError::illegal_argument(format!(
+              "invalid Unicode code point {cp} in word"
+            )));
+          },
+        }
+      }
+      return Ok(Some(Automata::make_string(&word)?));
+    }
+
+    if n >= self.descriptions.len() {
+      return Ok(None);
+    }
+
+    let Some(description) = &self.descriptions[n] else {
+      return Ok(None);
+    };
+    let range = 2 * n as i32 + 1;
+    let num_states = description.size();
+    let num_transitions = num_states * std::cmp::min(1 + 2 * n as i32, self.alphabet.len() as i32);
+    let prefix_states = prefix.chars().count() as i32;
+
+    let mut a = Automaton::with_capacity(
+      (num_states + prefix_states) as usize,
+      num_transitions as usize,
+    );
+    let mut last_state = a.create_state();
+    for cp in prefix.chars().map(|ch| ch as i32) {
+      let state = a.create_state();
+      a.add_transition_label(last_state, state, cp)?;
+      last_state = state;
+    }
+
+    let state_offset = last_state;
+    a.set_accept(last_state, description.is_accept(0));
+
+    for i in 1..num_states {
+      let state = a.create_state();
+      a.set_accept(state, description.is_accept(i));
+    }
+
+    for k in 0..num_states {
+      let xpos = description.get_position(k);
+      if xpos < 0 {
+        continue;
+      }
+      let end = xpos + std::cmp::min(self.word.len() as i32 - xpos, range);
+
+      for &ch in &self.alphabet {
+        let cvec = self.get_vector(ch, xpos, end);
+        let dest = description.transition(k, xpos, cvec);
+        if dest >= 0 {
+          a.add_transition_label(state_offset + k, state_offset + dest, ch)?;
+        }
+      }
+      // add transitions for all other chars in unicode
+      // by definition, their characteristic vectors are always 0,
+      // because they do not exist in the input string.
+      let dest = description.transition(k, xpos, 0);
+      if dest >= 0 {
+        for r in 0..self.num_ranges {
+          a.add_transition(
+            state_offset + k,
+            state_offset + dest,
+            self.range_lower[r],
+            self.range_upper[r],
+          )?;
+        }
+      }
+    }
+
+    a.finish_state()?;
+    let automaton = Operations::remove_dead_states(&a)?.into_owned();
+    debug_assert!(automaton.is_deterministic());
+    Ok(Some(automaton))
+  }
+
+  /// Get the characteristic vector `X(x, V)` where V is `substring(pos, end)`.
+  fn get_vector(&self, x: i32, pos: i32, end: i32) -> i32 {
+    let mut vector = 0;
+    for i in pos..end {
+      vector <<= 1;
+      if self.word[i as usize] == x {
+        vector |= 1;
+      }
+    }
+    vector
+  }
+}
 
 /// A `ParametricDescription` describes the structure of a Levenshtein DFA for some degree `n`.
 ///
@@ -69,6 +290,10 @@ impl ParametricDescription {
   /// the state.
   pub(crate) fn get_position(&self, abs_state: i32) -> i32 {
     abs_state % (self.w + 1)
+  }
+
+  pub(crate) fn transition(&self, state: i32, position: i32, vector: i32) -> i32 {
+    self.sub.transition(state, position, vector, self)
   }
 }
 pub trait ParametricDescriptionBase {
