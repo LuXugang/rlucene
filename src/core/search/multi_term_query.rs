@@ -37,26 +37,58 @@ use crate::test::core::search::test_prefix_random::DumbPrefixQuery;
 #[cfg(test)]
 use crate::test::core::search::test_regexp_random2::DumbRegexpQuery;
 use std::fmt::Debug;
-
+/// An abstract [`Query`] that matches documents containing a subset of terms provided by a
+/// [`FilteredTermsEnum`] enumeration.
+///
+/// This query cannot be used directly; you must subclass it and define
+/// [`MultiTermQuery::get_terms_enum`] to provide a [`FilteredTermsEnum`] that iterates
+/// through the terms to be matched.
+///
+/// **NOTE**: if [`RewriteMethod`] is either [`MultiTermQuery::CONSTANT_SCORE_BOOLEAN_REWRITE`] or
+/// [`MultiTermQuery::SCORING_BOOLEAN_REWRITE`], you may encounter a
+/// [`IndexSearcherError::TooManyClauses`] error during searching, which happens when the number of
+/// terms to be searched exceeds [`IndexSearcher::get_max_clause_count`]. Setting [`RewriteMethod`]
+/// to [`MultiTermQuery::CONSTANT_SCORE_BLENDED_REWRITE`] or
+/// [`MultiTermQuery::CONSTANT_SCORE_REWRITE`] prevents this.
+///
+/// The recommended rewrite method is [`MultiTermQuery::CONSTANT_SCORE_BLENDED_REWRITE`]: it doesn't
+/// spend CPU computing unhelpful scores, and is the most performant rewrite method given the query.
+/// If you need scoring (like [`FuzzyQuery`], use [`TopTermsScoringBooleanQueryRewrite`] which uses
+/// a priority queue to only collect competitive terms and not hit this limitation.
+///
+/// Note that org.apache.lucene.queryparser.classic.QueryParser produces MultiTermQueries using
+/// [`MultiTermQuery::CONSTANT_SCORE_REWRITE`] by default.
 pub trait MultiTermQuery: QueryBase + Clone {
+  /// Returns the field name for this query
   fn get_field(&self) -> &str;
   type TermsEnum<T>: TermsEnum<PostingsEnum = TermsPosting<T>>
   where
     T: Terms;
+  /// Construct the enumeration to be used, expanding the pattern term. This method should only be
+  /// called if the field exists (ie, implementations can assume the field does exist). This method
+  /// should not return `None` (should instead return [`TermsEnum::EMPTY`] if no terms match). The
+  /// [`TermsEnum`] must already be positioned to the first matching term. The given
+  /// [`AttributeSource`] is passed by the [`RewriteMethod`] to share information between segments,
+  /// for example [`TopTermsRewrite`] uses it to share maximum competitive boosts.
   fn get_terms_enum<T>(&self, terms: T) -> Result<Self::TermsEnum<T>>
   where
     T: Terms + Clone;
+  /// Return the number of unique terms contained in this query, if known up-front. If not known, -1 will be returned.
   fn get_terms_count(&self) -> i64 {
     -1
   }
 
   fn as_query(&self) -> Query;
 }
+/// Abstract class that defines how the query is rewritten.
 pub trait RewriteMethod {
   fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQueryEnum>,
     IRC: IndexReaderContext;
+  /// Returns the [`MultiTermQuery`]s [`TermsEnum`].
+  ///
+  /// See [`MultiTermQuery::get_terms_enum`].
   fn get_terms_enum<M, T>(&self, query: &M, terms: T) -> Result<<M as MultiTermQuery>::TermsEnum<T>>
   where
     M: MultiTermQuery,
@@ -122,6 +154,20 @@ impl RewriteMethod for RewriteMethodEnum {
     }
   }
 }
+/// A rewrite method that first translates each term into [`Occur::Should`] clause
+/// in a [`BooleanQuery`], and keeps the scores as computed by the query. Note that typically such
+/// scores are meaningless to the user, and require non-trivial CPU to compute, so it's almost
+/// always better to use [`MultiTermQuery::CONSTANT_SCORE_REWRITE`] instead.
+///
+/// **NOTE**: This rewrite method will hit [`IndexSearcherError::TooManyClauses`] if the number
+/// of terms exceeds [`IndexSearcher::get_max_clause_count`].
+pub const SCORING_BOOLEAN_REWRITE: ScoringBooleanRewrite = ScoringBooleanRewrite;
+/// Like [`Self::SCORING_BOOLEAN_REWRITE`] except scores are not computed. Instead, each matching
+/// document receives a constant score equal to the query's boost.
+///
+/// **NOTE**: This rewrite method will hit [`IndexSearcherError::TooManyClauses`] if the number
+/// of terms exceeds [`IndexSearcher::get_max_clause_count`].
+pub const CONSTANT_SCORE_BOOLEAN_REWRITE: ConstantScoreBooleanRewrite = ConstantScoreBooleanRewrite;
 impl_from_for_enum!(
     RewriteMethodEnum,
     ConstantScoreRewrite => Standard,
@@ -143,124 +189,7 @@ macro_rules! dispatch_multi_term_query {
     }
   }};
 }
-use crate::core::index::term::Term;
-use crate::core::index::term_states::TermStates;
-use crate::core::search::blended_term_query::BooleanRewrite;
-use crate::core::search::boolean_clause::Occur;
-use crate::core::search::boost_query::BoostQuery;
-use crate::core::search::term_collecting_rewrite::TermCollectingRewrite;
-use crate::core::search::term_query::TermQuery;
-use crate::core::search::top_terms_rewrite::TopTermsRewrite;
-use crate::core::search::{blended_term_query, boolean_query, index_searcher};
-pub(crate) use dispatch_multi_term_query;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum MultiTermQueryEnum {
-  Prefix(PrefixQuery),
-  TermRange(TermRangeQuery),
-  Automaton(AutomatonQuery),
-  Wildcard(WildcardQuery),
-  Regexp(RegexpQuery),
-  #[cfg(test)]
-  DumbPrefix(DumbPrefixQuery),
-  #[cfg(test)]
-  DumbRegexp(DumbRegexpQuery),
-}
-#[cfg(debug_assertions)]
-impl From<MultiTermQueryEnum> for Query {
-  fn from(value: MultiTermQueryEnum) -> Self {
-    match value {
-      MultiTermQueryEnum::Prefix(q) => Query::Prefix(q),
-      MultiTermQueryEnum::TermRange(q) => Query::TermRange(q),
-      MultiTermQueryEnum::Automaton(q) => Query::Automaton(q),
-      MultiTermQueryEnum::Wildcard(q) => Query::Wildcard(q),
-      MultiTermQueryEnum::Regexp(q) => Query::Regexp(q),
-      #[cfg(test)]
-      MultiTermQueryEnum::DumbPrefix(q) => Query::DumbPrefix(q),
-      #[cfg(test)]
-      MultiTermQueryEnum::DumbRegexp(q) => Query::DumbRegexp(q),
-    }
-  }
-}
-
-#[cfg(debug_assertions)]
-impl MultiTermQueryEnum {
-  pub fn from_query(query: &Query) -> Option<Self> {
-    match query {
-      Query::Prefix(q) => Some(Self::Prefix(q.clone())),
-      Query::TermRange(q) => Some(Self::TermRange(q.clone())),
-      Query::Automaton(q) => Some(Self::Automaton(q.clone())),
-      Query::Wildcard(q) => Some(Self::Wildcard(q.clone())),
-      Query::Regexp(q) => Some(Self::Regexp(q.clone())),
-      #[cfg(test)]
-      Query::DumbPrefix(q) => Some(Self::DumbPrefix(q.clone())),
-      #[cfg(test)]
-      Query::DumbRegexp(q) => Some(Self::DumbRegexp(q.clone())),
-      _ => None,
-    }
-  }
-}
-#[cfg(debug_assertions)]
-impl Query {
-  pub fn is_multi_term_query(&self) -> bool {
-    MultiTermQueryEnum::from_query(self).is_some()
-  }
-}
-
-impl QueryBase for MultiTermQueryEnum {
-  fn as_string(&self, field: &str) -> Result<String> {
-    dispatch_multi_term_query!(self, |q| q.as_string(field))
-  }
-
-  fn create_weight<IRC>(
-    self,
-    _searcher: &IndexSearcher<IRC>,
-    _score_mode: &ScoreMode,
-    _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn visit<QV>(&self, visitor: &QV)
-  where
-    QV: QueryVisitor,
-  {
-    dispatch_multi_term_query!(self, |q| q.visit(visitor))
-  }
-}
-
-impl HasIdentity for MultiTermQueryEnum {
-  fn identity(&self) -> &Identity {
-    dispatch_multi_term_query!(self, |q| q.identity())
-  }
-}
-
-impl_from_for_enum!(
-    MultiTermQueryEnum,
-    PrefixQuery => Prefix,
-    TermRangeQuery => TermRange,
-    AutomatonQuery => Automaton,
-    WildcardQuery => Wildcard,
-    RegexpQuery => Regexp,
-);
-#[cfg(test)]
-impl_from_for_enum!(
-    MultiTermQueryEnum,
-    DumbPrefixQuery => DumbPrefix,
-    DumbRegexpQuery => DumbRegexp,
-);
 /// A rewrite method that first translates each term into [`Occur::Should`] clause
 /// in a [`BooleanQuery`], and keeps the scores as computed by the query.
 ///
@@ -453,3 +382,123 @@ impl TopTermsRewrite for TopTermsBoostOnlyBooleanQueryRewrite {
     index_searcher::get_max_clause_count()
   }
 }
+
+use crate::core::index::term::Term;
+use crate::core::index::term_states::TermStates;
+use crate::core::search::blended_term_query::BooleanRewrite;
+use crate::core::search::boolean_clause::Occur;
+use crate::core::search::boost_query::BoostQuery;
+use crate::core::search::scoring_rewrite::{ConstantScoreBooleanRewrite, ScoringBooleanRewrite};
+use crate::core::search::term_collecting_rewrite::TermCollectingRewrite;
+use crate::core::search::term_query::TermQuery;
+use crate::core::search::top_terms_rewrite::TopTermsRewrite;
+use crate::core::search::{blended_term_query, boolean_query, index_searcher};
+pub(crate) use dispatch_multi_term_query;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum MultiTermQueryEnum {
+  Prefix(PrefixQuery),
+  TermRange(TermRangeQuery),
+  Automaton(AutomatonQuery),
+  Wildcard(WildcardQuery),
+  Regexp(RegexpQuery),
+  #[cfg(test)]
+  DumbPrefix(DumbPrefixQuery),
+  #[cfg(test)]
+  DumbRegexp(DumbRegexpQuery),
+}
+#[cfg(debug_assertions)]
+impl From<MultiTermQueryEnum> for Query {
+  fn from(value: MultiTermQueryEnum) -> Self {
+    match value {
+      MultiTermQueryEnum::Prefix(q) => Query::Prefix(q),
+      MultiTermQueryEnum::TermRange(q) => Query::TermRange(q),
+      MultiTermQueryEnum::Automaton(q) => Query::Automaton(q),
+      MultiTermQueryEnum::Wildcard(q) => Query::Wildcard(q),
+      MultiTermQueryEnum::Regexp(q) => Query::Regexp(q),
+      #[cfg(test)]
+      MultiTermQueryEnum::DumbPrefix(q) => Query::DumbPrefix(q),
+      #[cfg(test)]
+      MultiTermQueryEnum::DumbRegexp(q) => Query::DumbRegexp(q),
+    }
+  }
+}
+
+#[cfg(debug_assertions)]
+impl MultiTermQueryEnum {
+  pub fn from_query(query: &Query) -> Option<Self> {
+    match query {
+      Query::Prefix(q) => Some(Self::Prefix(q.clone())),
+      Query::TermRange(q) => Some(Self::TermRange(q.clone())),
+      Query::Automaton(q) => Some(Self::Automaton(q.clone())),
+      Query::Wildcard(q) => Some(Self::Wildcard(q.clone())),
+      Query::Regexp(q) => Some(Self::Regexp(q.clone())),
+      #[cfg(test)]
+      Query::DumbPrefix(q) => Some(Self::DumbPrefix(q.clone())),
+      #[cfg(test)]
+      Query::DumbRegexp(q) => Some(Self::DumbRegexp(q.clone())),
+      _ => None,
+    }
+  }
+}
+#[cfg(debug_assertions)]
+impl Query {
+  pub fn is_multi_term_query(&self) -> bool {
+    MultiTermQueryEnum::from_query(self).is_some()
+  }
+}
+
+impl QueryBase for MultiTermQueryEnum {
+  fn as_string(&self, field: &str) -> Result<String> {
+    dispatch_multi_term_query!(self, |q| q.as_string(field))
+  }
+
+  fn create_weight<IRC>(
+    self,
+    _searcher: &IndexSearcher<IRC>,
+    _score_mode: &ScoreMode,
+    _boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+    Self: Sized,
+  {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn visit<QV>(&self, visitor: &QV)
+  where
+    QV: QueryVisitor,
+  {
+    dispatch_multi_term_query!(self, |q| q.visit(visitor))
+  }
+}
+
+impl HasIdentity for MultiTermQueryEnum {
+  fn identity(&self) -> &Identity {
+    dispatch_multi_term_query!(self, |q| q.identity())
+  }
+}
+
+impl_from_for_enum!(
+    MultiTermQueryEnum,
+    PrefixQuery => Prefix,
+    TermRangeQuery => TermRange,
+    AutomatonQuery => Automaton,
+    WildcardQuery => Wildcard,
+    RegexpQuery => Regexp,
+);
+#[cfg(test)]
+impl_from_for_enum!(
+    MultiTermQueryEnum,
+    DumbPrefixQuery => DumbPrefix,
+    DumbRegexpQuery => DumbRegexp,
+);
