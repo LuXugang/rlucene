@@ -29,7 +29,7 @@ pub(crate) fn run() {
     .expect("failed to execute git");
   let stdout = String::from_utf8_lossy(&output.stdout);
   if stdout.trim().is_empty() {
-    log("✅ ✅ ✅ Working directory clean. All changes committed.")
+    log("Working directory clean. All changes committed.")
   } else {
     log(
       "❌ ❌ ❌ Uncommitted changes detected after code check. Please run `Cargo tidy` then commit your work again.",
@@ -38,7 +38,7 @@ pub(crate) fn run() {
     process::exit(1);
   }
   log(&colorize(
-    "Finished Checking uncommitted changes",
+    "✅ ✅ ✅ Finished Checking uncommitted changes",
     LogColor::Green,
     true,
   ));
