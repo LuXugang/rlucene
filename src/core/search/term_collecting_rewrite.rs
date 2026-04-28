@@ -23,6 +23,7 @@ use crate::core::index::term_states::TermStates;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::multi_term_query::{MultiTermQuery, RewriteMethod};
 use crate::core::search::query::Query;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use std::rc::Rc;
 
@@ -75,7 +76,13 @@ pub trait TermCollectingRewrite: RewriteMethod {
       // TODO IMPORTANT 这里要判断是否为 EMPTY
       collector.set_reader_context::<IRC>(context)?;
       collector.set_next_enum(&mut terms_enum)?;
-      collect_terms(collector, &mut terms_enum, top_reader_context)?;
+      while let Some(bytes) = terms_enum.next()? {
+        let bytes = bytes.into_owned();
+
+        if !collector.collect(bytes, &mut terms_enum, top_reader_context)? {
+          return Ok(());
+        }
+      }
     }
 
     Ok(())
@@ -104,24 +111,4 @@ pub trait TermCollector {
   fn set_next_enum<TE>(&mut self, terms_enum: &mut TE) -> Result<()>
   where
     TE: TermsEnum;
-}
-fn collect_terms<C, TE, IRC>(
-  collector: &mut C,
-  terms_enum: &mut TE,
-  top_reader_context: &IRC,
-) -> Result<()>
-where
-  C: TermCollector,
-  TE: TermsEnum,
-  IRC: IndexReaderContext,
-{
-  while let Some(bytes) = terms_enum.next()? {
-    let bytes = bytes.into_owned();
-
-    if !collector.collect(bytes, terms_enum, top_reader_context)? {
-      return Ok(());
-    }
-  }
-
-  Ok(())
 }

@@ -21,8 +21,6 @@ use crate::core::index::term_states::TermStates;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::max_non_competitive_boost_attribute::MaxNonCompetitiveBoostAttribute;
-use crate::core::search::max_non_competitive_boost_attribute_impl::MaxNonCompetitiveBoostAttributeImpl;
 use crate::core::search::multi_term_query::MultiTermQuery;
 use crate::core::search::query::Query;
 use crate::core::search::term_collecting_rewrite::{TermCollectingRewrite, TermCollector};
@@ -124,19 +122,16 @@ impl Compare<BytesRef<Vec<u8>>> for ScoreTermCmp {
 
 pub(crate) struct TermCollectorImpl {
   last_term: Option<BytesRefBuilder<Vec<u8>>>,
-  max_boost_att: MaxNonCompetitiveBoostAttributeImpl,
   st_queue: PriorityQueue<BytesRef<Vec<u8>>, ScoreTermCmp>,
   max_size: usize,
   ord: usize,
 }
 impl TermCollectorImpl {
   pub(crate) fn new(max_size: usize) -> Result<Self> {
-    let max_boost_att = MaxNonCompetitiveBoostAttributeImpl::default();
     let cmp = ScoreTermCmp::new();
     let st_queue = PriorityQueue::new(max_size, cmp)?;
     Ok(Self {
       last_term: None,
-      max_boost_att,
       st_queue,
       max_size,
       ord: 0,
@@ -257,8 +252,9 @@ impl TermCollector for TermCollectorImpl {
           .visited_terms
           .get(key)
           .ok_or_else(|| LuceneError::illegal_state("term not found in visited_terms"))?;
-        self.max_boost_att.set_max_non_competitive_boost(t.boost);
-        self.max_boost_att.set_competitive_term(Some(key.clone()));
+        let mut attr = terms_enum.attributes_mut()?;
+        attr.set_max_non_competitive_boost(t.boost)?;
+        attr.set_competitive_term(Some(key.clone()))?;
       }
     }
 

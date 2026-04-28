@@ -104,12 +104,24 @@ pub trait AttributeSource {
   fn set_flags(&mut self, _flags: i32) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
-
+  // BoostAttribute
   fn set_boost(&mut self, _boost: f32) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
-
   fn get_boost(&self) -> Result<f32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  // MaxNonCompetitiveBoostAttribute
+  fn set_max_non_competitive_boost(&mut self, _max_non_competitive_boost: f32) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn get_max_non_competitive_boost(&self) -> Result<f32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn set_competitive_term(&mut self, _competitive_term: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn get_competitive_term(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -233,6 +245,22 @@ where
 
   fn get_boost(&self) -> Result<f32> {
     (**self).get_boost()
+  }
+
+  fn set_max_non_competitive_boost(&mut self, max_non_competitive_boost: f32) -> Result<()> {
+    (**self).set_max_non_competitive_boost(max_non_competitive_boost)
+  }
+
+  fn get_max_non_competitive_boost(&self) -> Result<f32> {
+    (**self).get_max_non_competitive_boost()
+  }
+
+  fn set_competitive_term(&mut self, competitive_term: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+    (**self).set_competitive_term(competitive_term)
+  }
+
+  fn get_competitive_term(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    (**self).get_competitive_term()
   }
 
   fn end_attributes(&mut self) {
@@ -829,6 +857,26 @@ macro_rules! define_attribute_source_enum {
             fn get_boost(&self) -> Result<f32>{
                 match self {
                     $(Self::$V(t) => t.get_boost(),)+
+                }
+            }
+            fn set_max_non_competitive_boost(&mut self, max_non_competitive_boost: f32) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.set_max_non_competitive_boost(max_non_competitive_boost),)+
+                }
+            }
+            fn get_max_non_competitive_boost(&self) -> Result<f32> {
+                match self {
+                    $(Self::$V(t) => t.get_max_non_competitive_boost(),)+
+                }
+            }
+            fn set_competitive_term(&mut self, competitive_term: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.set_competitive_term(competitive_term),)+
+                }
+            }
+            fn get_competitive_term(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+                match self {
+                    $(Self::$V(t) => t.get_competitive_term(),)+
                 }
             }
             fn end_attributes(&mut self) {
