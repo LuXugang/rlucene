@@ -404,10 +404,21 @@ where
   T: TermsEnum,
   DM: DocMap,
 {
-  type AttributeSource = T::AttributeSource;
+  type AttributeSource<'a>
+    = T::AttributeSource<'a>
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = T::AttributeSourceMut<'a>
+  where
+    Self: 'a;
 
-  fn attributes(&self) -> Result<Self::AttributeSource> {
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     self.in_.attributes()
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    self.in_.attributes_mut()
   }
 
   fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {

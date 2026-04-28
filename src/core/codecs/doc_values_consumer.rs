@@ -1192,9 +1192,20 @@ impl<TE> TermsEnum for MergedTermsEnum<TE>
 where
   TE: TermsEnum,
 {
-  type AttributeSource = DummyAttributeSource;
+  type AttributeSource<'a>
+    = &'a DummyAttributeSource
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = &'a mut DummyAttributeSource
+  where
+    Self: 'a;
 
-  fn attributes(&self) -> Result<Self::AttributeSource> {
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     Err(LuceneError::unsupported_operation(""))
   }
 

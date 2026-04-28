@@ -118,6 +118,132 @@ pub trait AttributeSource {
   fn clear_attributes(&mut self);
 }
 
+impl<T> AttributeSource for &T
+where
+  T: AttributeSource,
+{
+  fn start_offset(&self) -> Result<i32> {
+    (**self).start_offset()
+  }
+
+  fn end_offset(&self) -> Result<i32> {
+    (**self).end_offset()
+  }
+
+  fn get_position_increment(&self) -> Result<i32> {
+    (**self).get_position_increment()
+  }
+
+  fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    (**self).get_payload()
+  }
+
+  fn get_term_frequency(&self) -> Result<i32> {
+    (**self).get_term_frequency()
+  }
+
+  fn get_position_length(&self) -> Result<i32> {
+    (**self).get_position_length()
+  }
+
+  fn is_keyword(&self) -> Result<bool> {
+    (**self).is_keyword()
+  }
+
+  fn get_flags(&self) -> Result<i32> {
+    (**self).get_flags()
+  }
+
+  fn get_boost(&self) -> Result<f32> {
+    (**self).get_boost()
+  }
+
+  fn clear_attributes(&mut self) {
+    unreachable!("cannot clear attributes through an immutable reference")
+  }
+}
+
+impl<T> AttributeSource for &mut T
+where
+  T: AttributeSource,
+{
+  fn start_offset(&self) -> Result<i32> {
+    (**self).start_offset()
+  }
+
+  fn end_offset(&self) -> Result<i32> {
+    (**self).end_offset()
+  }
+
+  fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+    (**self).set_bytes_ref(bytes)
+  }
+
+  fn get_position_increment(&self) -> Result<i32> {
+    (**self).get_position_increment()
+  }
+
+  fn set_position_increment(&mut self, position_increment: i32) -> Result<()> {
+    (**self).set_position_increment(position_increment)
+  }
+
+  fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    (**self).get_payload()
+  }
+
+  fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) -> Result<()> {
+    (**self).set_payload(payload)
+  }
+
+  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    (**self).get_bytes_ref()
+  }
+
+  fn get_term_frequency(&self) -> Result<i32> {
+    (**self).get_term_frequency()
+  }
+
+  fn set_position_length(&mut self, position_length: i32) -> Result<()> {
+    (**self).set_position_length(position_length)
+  }
+
+  fn get_position_length(&self) -> Result<i32> {
+    (**self).get_position_length()
+  }
+
+  fn is_keyword(&self) -> Result<bool> {
+    (**self).is_keyword()
+  }
+
+  fn set_keyword(&mut self, is_keyword: bool) -> Result<()> {
+    (**self).set_keyword(is_keyword)
+  }
+
+  fn get_flags(&self) -> Result<i32> {
+    (**self).get_flags()
+  }
+
+  fn set_flags(&mut self, flags: i32) -> Result<()> {
+    (**self).set_flags(flags)
+  }
+
+  fn set_boost(&mut self, boost: f32) -> Result<()> {
+    (**self).set_boost(boost)
+  }
+
+  fn get_boost(&self) -> Result<f32> {
+    (**self).get_boost()
+  }
+
+  fn end_attributes(&mut self) {
+    (**self).end_attributes()
+  }
+
+  fn clear_attributes(&mut self) {
+    (**self).clear_attributes()
+  }
+}
+
 pub enum Attributes {
   PackedToken(CharTermAttributeImpl<PackedTokenAttributeImpl>),
   BytesTerm(BytesTermAttributeImpl),

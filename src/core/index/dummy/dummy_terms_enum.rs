@@ -33,9 +33,20 @@ impl BytesRefIterator for DummyTermsEnum {
 }
 
 impl TermsEnum for DummyTermsEnum {
-  type AttributeSource = DummyAttributeSource;
+  type AttributeSource<'a>
+    = &'a DummyAttributeSource
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = &'a mut DummyAttributeSource
+  where
+    Self: 'a;
 
-  fn attributes(&self) -> Result<Self::AttributeSource> {
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    dummy_unreachable!()
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     dummy_unreachable!()
   }
 
@@ -123,9 +134,20 @@ impl<T> TermsEnum for DummyTermsEnum2<T>
 where
   T: Terms,
 {
-  type AttributeSource = DummyAttributeSource;
+  type AttributeSource<'a>
+    = &'a DummyAttributeSource
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = &'a mut DummyAttributeSource
+  where
+    Self: 'a;
 
-  fn attributes(&self) -> Result<Self::AttributeSource> {
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    dummy_unreachable!()
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     dummy_unreachable!()
   }
 

@@ -544,19 +544,40 @@ where
   T: Terms,
   TermsIntersect<T>: TermsEnum<PostingsEnum = TermsPosting<T>>,
 {
-  type AttributeSource = AttributeSourceEnum4<
-    <EmptyTermsEnumTermsWrapper<T> as TermsEnum>::AttributeSource,
-    <TermsTE<T> as TermsEnum>::AttributeSource,
-    <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::AttributeSource,
-    <TermsIntersect<T> as TermsEnum>::AttributeSource,
-  >;
+  type AttributeSource<'a>
+    = AttributeSourceEnum4<
+    <EmptyTermsEnumTermsWrapper<T> as TermsEnum>::AttributeSource<'a>,
+    <TermsTE<T> as TermsEnum>::AttributeSource<'a>,
+    <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::AttributeSource<'a>,
+    <TermsIntersect<T> as TermsEnum>::AttributeSource<'a>,
+  >
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = AttributeSourceEnum4<
+    <EmptyTermsEnumTermsWrapper<T> as TermsEnum>::AttributeSourceMut<'a>,
+    <TermsTE<T> as TermsEnum>::AttributeSourceMut<'a>,
+    <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::AttributeSourceMut<'a>,
+    <TermsIntersect<T> as TermsEnum>::AttributeSourceMut<'a>,
+  >
+  where
+    Self: 'a;
 
-  fn attributes(&self) -> Result<Self::AttributeSource> {
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     match self {
       Self::Empty(t) => Ok(AttributeSourceEnum4::A(t.attributes()?)),
       Self::TE(t) => Ok(AttributeSourceEnum4::B(t.attributes()?)),
       Self::Single(t) => Ok(AttributeSourceEnum4::C(t.attributes()?)),
       Self::Intersect(t) => Ok(AttributeSourceEnum4::D(t.attributes()?)),
+    }
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    match self {
+      Self::Empty(t) => Ok(AttributeSourceEnum4::A(t.attributes_mut()?)),
+      Self::TE(t) => Ok(AttributeSourceEnum4::B(t.attributes_mut()?)),
+      Self::Single(t) => Ok(AttributeSourceEnum4::C(t.attributes_mut()?)),
+      Self::Intersect(t) => Ok(AttributeSourceEnum4::D(t.attributes_mut()?)),
     }
   }
 

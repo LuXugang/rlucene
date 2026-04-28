@@ -44,9 +44,16 @@ use std::borrow::Cow;
 /// successfully call [`next()`](BytesRefIterator::next) or one of the `seek`
 /// methods.
 pub trait TermsEnum: BytesRefIterator {
-  type AttributeSource: AttributeSource;
+  type AttributeSource<'a>: AttributeSource
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>: AttributeSource
+  where
+    Self: 'a;
   /// Returns the related attribute source.
-  fn attributes(&self) -> Result<Self::AttributeSource>;
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>>;
+  /// Returns the related attribute source mutably.
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>>;
   /// Attempts to seek to the exact term.
   ///
   /// Returns `true` if the term is found; `false` if the enum is
@@ -202,9 +209,20 @@ impl BytesRefIterator for EmptyTermsEnum {
 }
 
 impl TermsEnum for EmptyTermsEnum {
-  type AttributeSource = DummyAttributeSource;
+  type AttributeSource<'a>
+    = &'a DummyAttributeSource
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = &'a mut DummyAttributeSource
+  where
+    Self: 'a;
 
-  fn attributes(&self) -> Result<Self::AttributeSource> {
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -319,9 +337,20 @@ impl<T> TermsEnum for EmptyTermsEnumTermsWrapper<T>
 where
   T: Terms,
 {
-  type AttributeSource = DummyAttributeSource;
+  type AttributeSource<'a>
+    = &'a DummyAttributeSource
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = &'a mut DummyAttributeSource
+  where
+    Self: 'a;
 
-  fn attributes(&self) -> Result<Self::AttributeSource> {
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -410,13 +439,25 @@ impl<T> TermsEnum for &mut T
 where
   T: TermsEnum,
 {
-  type AttributeSource = T::AttributeSource;
+  type AttributeSource<'a>
+    = T::AttributeSource<'a>
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = T::AttributeSourceMut<'a>
+  where
+    Self: 'a;
   type PostingsEnum = T::PostingsEnum;
   type ImpactsEnum = T::ImpactsEnum;
 
   #[inline]
-  fn attributes(&self) -> Result<Self::AttributeSource> {
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     (**self).attributes()
+  }
+
+  #[inline]
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    (**self).attributes_mut()
   }
 
   #[inline]
@@ -531,11 +572,18 @@ macro_rules! define_terms_enum_enum {
         where
             $($V: TermsEnum,)+
         {
-            type AttributeSource = $attr_enum<$($V::AttributeSource),+>;
+            type AttributeSource<'a> = $attr_enum<$($V::AttributeSource<'a>),+> where Self: 'a;
+            type AttributeSourceMut<'a> = $attr_enum<$($V::AttributeSourceMut<'a>),+> where Self: 'a;
 
-            fn attributes(&self) -> Result<Self::AttributeSource> {
+            fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
                 match self {
                     $(Self::$V(t) => Ok($attr_enum::$V(t.attributes()?)),)+
+                }
+            }
+
+            fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+                match self {
+                    $(Self::$V(t) => Ok($attr_enum::$V(t.attributes_mut()?)),)+
                 }
             }
 

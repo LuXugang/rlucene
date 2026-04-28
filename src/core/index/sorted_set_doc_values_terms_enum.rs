@@ -67,10 +67,21 @@ impl<S> TermsEnum for SortedSetDocValuesTermsEnum<S>
 where
   S: SortedSetDocValues,
 {
-  type AttributeSource = DummyAttributeSource;
+  type AttributeSource<'a>
+    = &'a DummyAttributeSource
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = &'a mut DummyAttributeSource
+  where
+    Self: 'a;
 
-  fn attributes(&self) -> Result<Self::AttributeSource> {
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     Err(LuceneError::not_implemented(""))
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    Err(LuceneError::unsupported_operation(""))
   }
 
   fn seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
