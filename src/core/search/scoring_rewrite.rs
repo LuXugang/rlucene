@@ -22,6 +22,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStates;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::boolean_clause::Occur;
+use crate::core::search::boost_attribute::DEFAULT_BOOST;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -34,7 +35,7 @@ use crate::core::util::allocator_byte::DirectAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, DirectBytesStartArray};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{ByteBlockPool, SharedCounter};
 /// Base rewrite method that translates each term into a query, and keeps the scores as computed by
 /// the query.
@@ -220,13 +221,28 @@ where
       );
       debug_assert_eq!(
         array.boost[pos],
-        terms_enum.attributes()?.get_boost()?,
+        match (|| -> Result<f32> {
+          let attr = terms_enum.attributes()?;
+          attr.get_boost()
+        })() {
+          Ok(boost) => boost,
+          Err(LuceneError::UnsupportedOperation(_)) => DEFAULT_BOOST,
+          Err(e) => return Err(e),
+        },
         "boost should be equal in all segment TermsEnums"
       );
     } else {
       let pos = e as usize;
       let array = &mut self.terms.bytes_start_array;
-      array.boost[pos] = terms_enum.attributes()?.get_boost()?;
+      let boost = match (|| -> Result<f32> {
+        let attr = terms_enum.attributes()?;
+        attr.get_boost()
+      })() {
+        Ok(boost) => boost,
+        Err(LuceneError::UnsupportedOperation(_)) => DEFAULT_BOOST,
+        Err(e) => return Err(e),
+      };
+      array.boost[pos] = boost;
       array.term_state[pos] = TermStates::with_state_and_stats(
         top_reader_context,
         state,

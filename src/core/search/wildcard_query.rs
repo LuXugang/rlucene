@@ -231,6 +231,7 @@ mod tests {
   use crate::core::index::term::Term;
   use crate::core::search::boolean_clause::Occur;
   use crate::core::search::boolean_query::Builder;
+  use crate::core::search::fuzzy_query::FuzzyQuery;
   use crate::core::search::index_searcher::IndexSearcher;
   use crate::core::search::multi_term_query::{
     ConstantScoreBlendedRewrite, ConstantScoreRewrite, MultiTermQuery,
@@ -238,6 +239,7 @@ mod tests {
   use crate::core::search::prefix_query::PrefixQuery;
   use crate::core::search::query::{Query, QueryBase};
   use crate::core::search::score_mode::ScoreMode;
+  use crate::core::search::scoring_rewrite::{ConstantScoreBooleanRewrite, ScoringBooleanRewrite};
   use crate::core::search::term_query::TermQuery;
   use crate::core::search::wildcard_query::WildcardQuery;
   use crate::core::store::directory::DirEnum;
@@ -270,10 +272,10 @@ mod tests {
     assert_eq!(wq2, wq3);
     assert_eq!(wq1, wq3);
 
-    // TODO IMPORTANT FuzzyQuery未实现
-    // let fq = FuzzyQuery::new(Term::from_text("field", "b*a"))?;
-    // assert_ne!(wq1.clone().into(), fq.clone().into());
-    // assert_ne!(fq.into(), wq1.into());
+    let fq: Query = FuzzyQuery::new(Term::from_text("field", "b*a"))?.into();
+    let wq1: Query = wq1.into();
+    assert_ne!(wq1.clone(), fq.clone());
+    assert_ne!(fq, wq1);
 
     Ok(())
   }
@@ -288,15 +290,12 @@ mod tests {
     let wq = WildcardQuery::new(Term::from_text("field", "nowildcard"))?;
     assert_matches(&searcher, wq, 1)?;
 
-    // TODO IMPORTANT ScoringBooleanRewrite未实现
-    // let q = searcher.rewrite(
-    //     WildcardQuery::with_rewrite(
-    //         Term::from_text("field", "nowildcard"),
-    //         Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32,
-    //         ScoringBooleanRewrite,
-    //     )?
-    // )?;
-    // assert!(matches!(q, Query::Term(_)));
+    let q = searcher.rewrite(WildcardQuery::with_rewrite(
+      Term::from_text("field", "nowildcard"),
+      Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32,
+      ScoringBooleanRewrite,
+    )?)?;
+    assert!(matches!(q, Query::Term(_)));
 
     let q = searcher.rewrite(WildcardQuery::with_rewrite(
       Term::from_text("field", "nowildcard"),
@@ -315,36 +314,33 @@ mod tests {
       Query::MultiTermQueryConstantScoreBlendedWrapper(_)
     ));
 
-    // TODO IMPORTANT ScoringBooleanRewrite未实现
-    // let q = searcher.rewrite(
-    //     WildcardQuery::with_rewrite(
-    //         Term::from_text("field", "nowildcard"),
-    //         Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32,
-    //         ConstantScoreBooleanRewrite,
-    //     )?
-    // )?;
-    // assert!(matches!(q, Query::ConstantScore(_)));
+    let q = searcher.rewrite(WildcardQuery::with_rewrite(
+      Term::from_text("field", "nowildcard"),
+      Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32,
+      ConstantScoreBooleanRewrite,
+    )?)?;
+    assert!(matches!(q, Query::ConstantScore(_)));
 
     Ok(())
   }
   #[test]
   fn test_empty_term() -> Result<()> {
-    // TODO IMPORTANT ScoringBooleanRewrite未实现
-    // let mut random = random();
-    //
-    // let index_store = get_index_store(&mut random, "field", &["nowildcard", "nowildcardx"])?;
-    // let reader = directory_reader_util::open(index_store.clone())?;
-    // let searcher = new_searcher_with_reader(reader)?;
-    //
-    // let wq = WildcardQuery::with_rewrite(
-    //     Term::from_text("field", ""),
-    //     Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32,
-    //     ScoringBooleanRewrite,
-    // )?;
-    // assert_matches(&searcher, wq.clone().into(), 0)?;
-    //
-    // let q = searcher.rewrite(wq.into())?;
-    // assert!(matches!(q, Query::MatchNoDoc(_)));
+    let mut random = random();
+
+    let index_store = get_index_store(&mut random, "field", &["nowildcard", "nowildcardx"])?;
+    let reader = directory_reader_util::open(index_store.clone())?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let wq: Query = WildcardQuery::with_rewrite(
+      Term::from_text("field", ""),
+      Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32,
+      ScoringBooleanRewrite,
+    )?
+    .into();
+    assert_matches(&searcher, wq.clone(), 0)?;
+
+    let q = searcher.rewrite(wq)?;
+    assert!(matches!(q, Query::MatchNoDocs(_)));
 
     Ok(())
   }
