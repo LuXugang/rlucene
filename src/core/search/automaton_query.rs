@@ -248,6 +248,7 @@ mod tests {
 
   use crate::core::search::query::Query;
   use crate::core::search::regexp_query::RegexpQuery;
+  use crate::core::search::scoring_rewrite::ScoringBooleanRewrite;
   use crate::core::search::wildcard_query::WildcardQuery;
   use crate::core::util::CoreHelper;
   use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
@@ -324,19 +325,18 @@ mod tests {
   where
     IRC: IndexReaderContext,
   {
-    // TODO
-    // assert_eq!(
-    //     expected ,
-    //     automaton_query_nr_hits(
-    //         searcher,
-    //         AutomatonQuery::new(
-    //             new_term("bogus"),
-    //             automaton.clone(),
-    //             false,
-    //             ScoringBooleanRewrite,
-    //         )?,
-    //     )?
-    // );
+    assert_eq!(
+        expected ,
+        automaton_query_nr_hits(
+            searcher,
+            AutomatonQuery::new(
+                new_term("bogus"),
+                automaton.clone(),
+                false,
+                ScoringBooleanRewrite,
+            )?,
+        )?
+    );
 
     assert_eq!(
       expected,
