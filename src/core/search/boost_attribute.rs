@@ -30,12 +30,11 @@ pub trait BoostAttribute: Attribute {
   #[cfg(test)]
   const ATTRIBUTE_NAME: &'static str = "BoostAttribute";
 
-  /// Default boost value = `1.0`.
-  const DEFAULT_BOOST: f32 = 1.0;
-
   /// Sets the boost in this attribute.
   fn set_boost(&mut self, boost: f32);
 
   /// Retrieves the boost, default is `1.0`.
   fn get_boost(&self) -> f32;
 }
+/// Default boost value = `1.0`.
+pub(crate) const DEFAULT_BOOST: f32 = 1.0;

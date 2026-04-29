@@ -20,6 +20,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStates;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::search::boost_attribute::DEFAULT_BOOST;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::MultiTermQuery;
 use crate::core::search::query::Query;
@@ -182,7 +183,14 @@ impl TermCollector for TermCollectorImpl {
     TE: TermsEnum,
     IRC: IndexReaderContext,
   {
-    let boost = terms_enum.attributes()?.get_boost()?;
+    let boost = match (|| -> Result<f32> {
+      let attr = terms_enum.attributes()?;
+      attr.get_boost()
+    })() {
+      Ok(boost) => boost,
+      Err(LuceneError::UnsupportedOperation(_)) => DEFAULT_BOOST,
+      Err(e) => return Err(e),
+    };
 
     debug_assert!(self.compare_to_last_term(Some(&bytes)));
 
@@ -252,9 +260,16 @@ impl TermCollector for TermCollectorImpl {
           .visited_terms
           .get(key)
           .ok_or_else(|| LuceneError::illegal_state("term not found in visited_terms"))?;
-        let mut attr = terms_enum.attributes_mut()?;
-        attr.set_max_non_competitive_boost(t.boost)?;
-        attr.set_competitive_term(Some(key.clone()))?;
+        let result: Result<()> = (|| {
+          let mut attr = terms_enum.attributes_mut()?;
+          attr.set_max_non_competitive_boost(t.boost)?;
+          attr.set_competitive_term(Some(key.clone()))?;
+          Ok(())
+        })();
+        match result {
+          Err(LuceneError::UnsupportedOperation(_)) | Ok(_) => {},
+          Err(e) => return Err(e),
+        }
       }
     }
 

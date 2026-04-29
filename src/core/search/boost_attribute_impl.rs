@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::boost_attribute::BoostAttribute;
+use crate::core::search::boost_attribute::{BoostAttribute, DEFAULT_BOOST};
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 /// Implementation class for [`BoostAttribute`].
@@ -29,7 +29,9 @@ impl Default for BoostAttributeImpl {
 
 impl BoostAttributeImpl {
   pub fn new() -> Self {
-    Self { boost: 1.0f32 }
+    Self {
+      boost: DEFAULT_BOOST,
+    }
   }
 }
 

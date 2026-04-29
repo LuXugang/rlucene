@@ -1025,24 +1025,23 @@ mod tests {
     let reader = writer.get_reader()?;
     let searcher = new_searcher_with_reader(reader)?;
     writer.close()?;
-    // TODO IMPORTANT 编辑距离 0 有 bug
-    // let mut max_edits = 0;
+    let mut max_edits = 0;
     let mut prefix_length = 3;
-    // let mut query = FuzzyQuery::with_max_edits_and_prefix(
-    //   Term::from_text("field", "b*a"),
-    //   max_edits,
-    //   prefix_length,
-    // )?;
-    // let mut hits = searcher.search(query, 1000)?.score_docs;
-    // assert_eq!(1, hits.len());
-
-    let mut max_edits = 1;
     let mut query = FuzzyQuery::with_max_edits_and_prefix(
       Term::from_text("field", "b*a"),
       max_edits,
       prefix_length,
     )?;
     let mut hits = searcher.search(query, 1000)?.score_docs;
+    assert_eq!(1, hits.len());
+
+    max_edits = 1;
+    query = FuzzyQuery::with_max_edits_and_prefix(
+      Term::from_text("field", "b*a"),
+      max_edits,
+      prefix_length,
+    )?;
+    hits = searcher.search(query, 1000)?.score_docs;
     assert_eq!(2, hits.len());
 
     max_edits = 2;
@@ -1310,7 +1309,7 @@ mod tests {
 
     Ok(())
   }
-  // TODO IMPORTANT 编辑距离 0 有 bug
+  #[test]
   fn test_giga() -> Result<()> {
     let mut random = random();
     let index = new_directory_shared(&mut random)?;
@@ -1349,7 +1348,6 @@ mod tests {
     add_doc(&mut random, "Brute willis", &w, &mut field_to_type)?;
     add_doc(&mut random, "B. willis", &w, &mut field_to_type)?;
     let r = w.get_reader()?;
-    w.close()?;
 
     let q = FuzzyQuery::with_max_edits(Term::from_text("field", "giga"), 0)?;
 
@@ -1530,10 +1528,8 @@ mod tests {
           ed += 1;
         }
       }
-      // TODO IMPORTANT 编辑距离0 有 bug
-      // for ed in 0..3 {
       #[allow(clippy::needless_range_loop)]
-      for ed in 1..3 {
+      for ed in 0..3 {
         expected[ed].sort();
         let queue_size = TestUtil::next_int(&mut random, 1, terms.len() as i32) as usize;
         let query = FuzzyQuery::with_options(
