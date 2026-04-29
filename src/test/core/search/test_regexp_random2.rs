@@ -26,7 +26,7 @@ use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
-  ConstantScoreBlendedRewrite, MultiTermQuery, RewriteMethod,
+  CONSTANT_SCORE_BOOLEAN_REWRITE, ConstantScoreBlendedRewrite, MultiTermQuery, RewriteMethod,
 };
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
@@ -107,8 +107,7 @@ where
     0,
     &DefaultProvider,
     0,
-    // TODO IMPORTANT CONSTANT_SCORE_BOOLEAN_REWRITE 未实现
-    ConstantScoreBlendedRewrite,
+    CONSTANT_SCORE_BOOLEAN_REWRITE,
     false,
   )?;
   let dumb = DumbRegexpQuery::new(Term::from_text(field_name, regexp), RegExp::NONE)?;

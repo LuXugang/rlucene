@@ -84,6 +84,8 @@ use crate::test::core::search::random_approximation_query::RandomApproximationQu
 #[cfg(test)]
 use crate::test::core::search::test_boolean_rewrites::TestRewriteQuery;
 #[cfg(test)]
+use crate::test::core::search::test_multi_term_query_rewrites::BoostCheckingQuery;
+#[cfg(test)]
 use crate::test::core::search::test_needs_scores::AssertNeedsScores;
 #[cfg(test)]
 use crate::test::core::search::test_prefix_random::DumbPrefixQuery;
@@ -168,6 +170,8 @@ macro_rules! dispatch_query {
       #[cfg(test)]
       Query::Dummy1($inner) => $body,
       #[cfg(test)]
+      Query::BoostChecking($inner) => $body,
+      #[cfg(test)]
       Query::DumbPrefix($inner) => $body,
       #[cfg(test)]
       Query::DumbRegexp($inner) => $body,
@@ -232,6 +236,7 @@ impl_from_for_enum!(
 impl_from_for_enum!(
     Query,
     BitSetQuery => BitSet,
+    BoostCheckingQuery => BoostChecking,
     BlockScoreQueryWrapper => BlockScoreQueryWrapper,
     CountingQuery => Counting,
     CrazyMustUseBulkScorerQuery => CrazyMustUseBulkScorer,
@@ -356,6 +361,8 @@ pub enum Query {
   #[cfg(test)]
   BlockScoreQueryWrapper(BlockScoreQueryWrapper),
   #[cfg(test)]
+  BoostChecking(BoostCheckingQuery),
+  #[cfg(test)]
   Counting(CountingQuery),
   #[cfg(test)]
   CrazyMustUseBulkScorer(CrazyMustUseBulkScorerQuery),
@@ -443,6 +450,7 @@ impl Query {
         test: [
             BitSet,
             BlockScoreQueryWrapper,
+            BoostChecking,
             Counting,
             CrazyMustUseBulkScorer,
             Dummy1,

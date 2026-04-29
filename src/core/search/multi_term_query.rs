@@ -34,6 +34,8 @@ use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
+use crate::test::core::search::test_multi_term_query_rewrites::BoostCheckingQuery;
+#[cfg(test)]
 use crate::test::core::search::test_prefix_random::DumbPrefixQuery;
 #[cfg(test)]
 use crate::test::core::search::test_regexp_random2::DumbRegexpQuery;
@@ -199,6 +201,8 @@ macro_rules! dispatch_multi_term_query {
       MultiTermQueryEnum::Fuzzy($inner) => $body,
       MultiTermQueryEnum::Wildcard($inner) => $body,
       MultiTermQueryEnum::Regexp($inner) => $body,
+      #[cfg(test)]
+      MultiTermQueryEnum::BoostChecking($inner) => $body,
       #[cfg(test)]
       MultiTermQueryEnum::DumbPrefix($inner) => $body,
       #[cfg(test)]
@@ -427,6 +431,8 @@ pub enum MultiTermQueryEnum {
   Wildcard(WildcardQuery),
 
   #[cfg(test)]
+  BoostChecking(BoostCheckingQuery),
+  #[cfg(test)]
   DumbPrefix(DumbPrefixQuery),
   #[cfg(test)]
   DumbRegexp(DumbRegexpQuery),
@@ -442,6 +448,8 @@ impl From<MultiTermQueryEnum> for Query {
       MultiTermQueryEnum::TermRange(q) => Query::TermRange(q),
       MultiTermQueryEnum::Wildcard(q) => Query::Wildcard(q),
 
+      #[cfg(test)]
+      MultiTermQueryEnum::BoostChecking(q) => Query::BoostChecking(q),
       #[cfg(test)]
       MultiTermQueryEnum::DumbPrefix(q) => Query::DumbPrefix(q),
       #[cfg(test)]
@@ -461,6 +469,8 @@ impl MultiTermQueryEnum {
       Query::TermRange(q) => Some(Self::TermRange(q.clone())),
       Query::Wildcard(q) => Some(Self::Wildcard(q.clone())),
 
+      #[cfg(test)]
+      Query::BoostChecking(q) => Some(Self::BoostChecking(q.clone())),
       #[cfg(test)]
       Query::DumbPrefix(q) => Some(Self::DumbPrefix(q.clone())),
       #[cfg(test)]
@@ -530,6 +540,7 @@ impl_from_for_enum!(
 #[cfg(test)]
 impl_from_for_enum!(
     MultiTermQueryEnum,
+    BoostCheckingQuery => BoostChecking,
     DumbPrefixQuery => DumbPrefix,
     DumbRegexpQuery => DumbRegexp,
 );
