@@ -41,6 +41,7 @@ mod test_doc_values_queries;
 pub mod test_doc_values_rewrite_method;
 mod test_early_termination;
 mod test_float_vector_similarity_query;
+mod test_fuzzy_term_on_short_terms;
 mod test_knn_byte_vector_query;
 mod test_knn_float_vector_query;
 mod test_lat_lon_doc_values_queries;
