@@ -326,16 +326,16 @@ mod tests {
     IRC: IndexReaderContext,
   {
     assert_eq!(
-        expected ,
-        automaton_query_nr_hits(
-            searcher,
-            AutomatonQuery::new(
-                new_term("bogus"),
-                automaton.clone(),
-                false,
-                ScoringBooleanRewrite,
-            )?,
-        )?
+      expected,
+      automaton_query_nr_hits(
+        searcher,
+        AutomatonQuery::new(
+          new_term("bogus"),
+          automaton.clone(),
+          false,
+          ScoringBooleanRewrite,
+        )?,
+      )?
     );
 
     assert_eq!(

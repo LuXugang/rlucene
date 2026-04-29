@@ -115,7 +115,7 @@ fn set_up() -> Result<(Arc<DirEnum>, StandardDirectoryReaderType<DirEnum>)> {
   writer.close()?;
   Ok((small, reader))
 }
-#[warn(clippy::type_complexity)]
+#[allow(clippy::type_complexity)]
 fn range_index() -> Result<(
   Arc<DirEnum>,
   StandardDirectoryReaderType<DirEnum>,
