@@ -23,7 +23,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-use crate::core::search::top_docs::top_docs_util;
+use crate::core::search::top_docs;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::check_hits::CheckHits;
@@ -140,13 +140,10 @@ fn test_multiple_slices_of_multiple_index_searchers() -> Result<()> {
 
   let shard_hits = vec![top_docs1, top_docs2];
 
-  let merged_hits1 = top_docs_util::merge_top_docs_with_start(
-    0,
-    shard_hits[0].score_docs.len(),
-    shard_hits.clone(),
-  )?;
+  let merged_hits1 =
+    top_docs::merge_top_docs_with_start(0, shard_hits[0].score_docs.len(), shard_hits.clone())?;
   let merged_hits2 =
-    top_docs_util::merge_top_docs_with_start(0, shard_hits[0].score_docs.len(), shard_hits)?;
+    top_docs::merge_top_docs_with_start(0, shard_hits[0].score_docs.len(), shard_hits)?;
 
   CheckHits::check_equal(
     &query.into(),

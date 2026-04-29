@@ -20,7 +20,7 @@ use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::field_value_hit_queue::create;
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::sort::Sort;
-use crate::core::search::top_docs::top_docs_util;
+use crate::core::search::top_docs;
 use crate::core::search::top_docs_collector::TopDocsCollector;
 use crate::core::search::top_field_collector::{
   PagingFieldCollector, SimpleFieldCollector, TopFieldCollectorEnum,
@@ -214,6 +214,6 @@ impl CollectorManager for TopFieldCollectorManager {
       // Here we discard TopFieldDocs#fields because it is not used in the original Java Lucene implementation
       top_docs_list.push(std::mem::take(&mut v.base));
     }
-    top_docs_util::merge_top_field_docs_with_start(&self.sort, 0, self.num_hits, top_docs_list)
+    top_docs::merge_top_field_docs_with_start(&self.sort, 0, self.num_hits, top_docs_list)
   }
 }

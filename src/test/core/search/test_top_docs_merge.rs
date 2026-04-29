@@ -36,7 +36,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::term_query::TermQuery;
-use crate::core::search::top_docs::{TopDocs, TopDocsLike, top_docs_util};
+use crate::core::search::top_docs::{self, TopDocs, TopDocsLike};
 use crate::core::search::top_docs_collector::TopDocsCollector;
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::top_field_docs::TopFieldDocs;
@@ -138,7 +138,7 @@ fn test_inconsistent_top_docs_fail() {
     top_docs.swap(0, 1);
   }
 
-  let err = top_docs_util::merge_top_docs_with_start(0, 2, top_docs);
+  let err = top_docs::merge_top_docs_with_start(0, 2, top_docs);
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
 }
 
@@ -176,7 +176,7 @@ fn test_pre_assigned_shard_index() -> Result<()> {
   let from = random.random_range(0..(num_hits_total - 1));
   let size = 1 + random.random_range(0..(num_hits_total - from));
 
-  let merge = top_docs_util::merge_top_docs_with_start(from, size, top_docs.clone())?;
+  let merge = top_docs::merge_top_docs_with_start(from, size, top_docs.clone())?;
   assert!(!merge.score_docs.is_empty());
   for score_doc in &merge.score_docs {
     assert_ne!(score_doc.shard_index, -1);
@@ -191,7 +191,7 @@ fn test_pre_assigned_shard_index() -> Result<()> {
   }
 
   top_docs.shuffle(&mut random);
-  let merge2 = top_docs_util::merge_top_docs_with_start(from, size, top_docs)?;
+  let merge2 = top_docs::merge_top_docs_with_start(from, size, top_docs)?;
   assert_eq!(merge.score_docs, merge2.score_docs);
   Ok(())
 }
@@ -328,9 +328,9 @@ fn test_sort(use_from: bool) -> Result<()> {
         }
 
         let merged_hits = if use_from {
-          top_docs_util::merge_top_docs_with_start(from, size, shard_hits)?
+          top_docs::merge_top_docs_with_start(from, size, shard_hits)?
         } else {
-          top_docs_util::merge_top_docs(num_hits, shard_hits)?
+          top_docs::merge_top_docs(num_hits, shard_hits)?
         };
 
         for score_doc in &merged_hits.score_docs {
@@ -369,9 +369,9 @@ fn test_sort(use_from: bool) -> Result<()> {
         }
 
         let merged_hits = if use_from {
-          top_docs_util::merge_top_field_docs_with_start(&sort, from, size, shard_hits)?
+          top_docs::merge_top_field_docs_with_start(&sort, from, size, shard_hits)?
         } else {
-          top_docs_util::merge_top_field_docs(&sort, num_hits, shard_hits)?
+          top_docs::merge_top_field_docs(&sort, num_hits, shard_hits)?
         };
 
         for score_doc in merged_hits.score_docs() {
@@ -437,22 +437,22 @@ fn test_merge_total_hits_relation() -> Result<()> {
     vec![ScoreDoc::with_shard_index(42, 2.0, 3)],
   );
 
-  let merged1 = top_docs_util::merge_top_docs(1, vec![top_docs1.clone(), top_docs2.clone()])?;
+  let merged1 = top_docs::merge_top_docs(1, vec![top_docs1.clone(), top_docs2.clone()])?;
   assert_eq!(TotalHits::new(3, Relation::EqualTo), merged1.total_hits);
 
-  let merged2 = top_docs_util::merge_top_docs(1, vec![top_docs1.clone(), top_docs3.clone()])?;
+  let merged2 = top_docs::merge_top_docs(1, vec![top_docs1.clone(), top_docs3.clone()])?;
   assert_eq!(
     TotalHits::new(3, Relation::GreaterThanOrEqualTo),
     merged2.total_hits
   );
 
-  let merged3 = top_docs_util::merge_top_docs(1, vec![top_docs3.clone(), top_docs4.clone()])?;
+  let merged3 = top_docs::merge_top_docs(1, vec![top_docs3.clone(), top_docs4.clone()])?;
   assert_eq!(
     TotalHits::new(4, Relation::GreaterThanOrEqualTo),
     merged3.total_hits
   );
 
-  let merged4 = top_docs_util::merge_top_docs(1, vec![top_docs4, top_docs2])?;
+  let merged4 = top_docs::merge_top_docs(1, vec![top_docs4, top_docs2])?;
   assert_eq!(
     TotalHits::new(4, Relation::GreaterThanOrEqualTo),
     merged4.total_hits

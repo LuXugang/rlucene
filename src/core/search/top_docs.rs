@@ -20,6 +20,7 @@ use crate::core::search::pruning::Pruning;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
+use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
@@ -49,122 +50,102 @@ where
     }
   }
 }
-pub mod top_docs_util {
-  use crate::core::search::sort::Sort;
 
-  use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
-  use crate::core::search::score_doc::ScoreDocLike;
-
-  use crate::core::search::top_docs::{
-    DefaultTieBreaker, MergeSortQueueCmp, ScoreMergeSortQueueCmp, TopDocs, merge_aux,
-  };
-  use crate::core::search::top_field_docs::TopFieldDocs;
-  use crate::core::util::Comparator;
-  use crate::core::util::error::lucene_error::Result;
-  use crate::core::util::priority_queue::PriorityQueue;
-
-  /// Returns a new `TopFieldDocs`, containing topN results across the provided `TopFieldDocs`,
-  /// sorting by the specified `Sort`. Each of the [`TopDocs`] must have been sorted by the same
-  /// `Sort`, and sort field values must have been filled.
-  ///
-  /// See also: [`merge_top_field_docs_with_start(Sort, int, int, TopFieldDocs[])`](merge_top_field_docs_with_start)
-  ///
-  /// lucene.experimental
-  pub fn merge_top_field_docs(
-    sort: &Sort,
-    top_n: usize,
-    // The reason the type of shard_hits is Vec<TopDocs<TopFieldScoreDoc>> instead of Vec<TopFieldDocs>
-    // is that the field property inside TopFieldDocs is currently unused.
-    shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
-  ) -> Result<TopFieldDocs> {
-    merge_top_field_docs_with_start(sort, 0, top_n, shard_hits)
-  }
-  /// Same as [`merge_top_field_docs(Sort, int, TopFieldDocs[])`](merge_top_field_docs) but also ignores the top `start` top docs.
-  /// This is typically useful for pagination.
-  ///
-  /// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
-  /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
-  /// belong to the same searcher).
-  pub fn merge_top_field_docs_with_start(
-    sort: &Sort,
-    start: usize,
-    top_n: usize,
-    shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
-  ) -> Result<TopFieldDocs> {
-    merge_top_field_docs_with_comparator(
-      sort,
-      start,
-      top_n,
-      shard_hits,
-      DefaultTieBreaker::default(),
-    )
-  }
-  /// Pass in a custom tie breaker for ordering results
-  pub fn merge_top_field_docs_with_comparator<C>(
-    sort: &Sort,
-    start: usize,
-    size: usize,
-    shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
-    tie_breaker: C,
-  ) -> Result<TopFieldDocs>
-  where
-    C: Comparator<TopFieldScoreDoc>,
-  {
-    let len = shard_hits.len();
-    let cmp = MergeSortQueueCmp::new(sort, &shard_hits, tie_breaker)?;
-    let queue = PriorityQueue::new(len, &cmp)?;
-    let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
-    // TODO: TopFieldDocs#fields not used in Java Lucene, so far we set it to empty vec
-    Ok(TopFieldDocs::new(total_hits, hits, vec![]))
-  }
-  /// Returns a new [`TopDocs`], containing topN results across the provided [`TopDocs`],
-  /// sorting by score. Each [`TopDocs`] instance must be sorted.
-  ///
-  /// See also: [`merge_top_docs_with_start(int, int, TopDocs[])`](merge_top_docs_with_start)
-  pub fn merge_top_docs<S>(top_n: usize, shard_hits: Vec<TopDocs<S>>) -> Result<TopDocs<S>>
-  where
-    S: ScoreDocLike,
-  {
-    merge_top_docs_with_start(0, top_n, shard_hits)
-  }
-  /// Same as [`merge_top_docs(int, TopDocs[])`](merge_top_docs) but also ignores the top `start` top docs.
-  /// This is typically useful for pagination.
-  ///
-  /// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
-  /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
-  /// belong to the same searcher).
-  pub fn merge_top_docs_with_start<S>(
-    start: usize,
-    top_n: usize,
-    shard_hits: Vec<TopDocs<S>>,
-  ) -> Result<TopDocs<S>>
-  where
-    S: ScoreDocLike,
-  {
-    merge_top_docs_with_comparator(start, top_n, shard_hits, DefaultTieBreaker::default())
-  }
-  /// Same as above, but accepts the passed in tie breaker.
-  ///
-  /// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
-  /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
-  /// belong to the same searcher).
-  pub fn merge_top_docs_with_comparator<C, S>(
-    start: usize,
-    size: usize,
-    shard_hits: Vec<TopDocs<S>>,
-    tie_breaker: C,
-  ) -> Result<TopDocs<S>>
-  where
-    C: Comparator<S>,
-    S: ScoreDocLike,
-  {
-    let len = shard_hits.len();
-    debug_assert!(len <= i32::MAX as usize);
-    let cmp = ScoreMergeSortQueueCmp::new(&shard_hits, tie_breaker);
-    let queue = PriorityQueue::new(len, &cmp)?;
-    let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
-    Ok(TopDocs::new(total_hits, hits))
-  }
+/// Returns a new `TopFieldDocs`, containing topN results across the provided `TopFieldDocs`,
+/// sorting by the specified `Sort`. Each of the [`TopDocs`] must have been sorted by the same
+/// `Sort`, and sort field values must have been filled.
+///
+/// See also: [`merge_top_field_docs_with_start(Sort, int, int, TopFieldDocs[])`](merge_top_field_docs_with_start)
+///
+/// lucene.experimental
+pub fn merge_top_field_docs(
+  sort: &Sort,
+  top_n: usize,
+  // The reason the type of shard_hits is Vec<TopDocs<TopFieldScoreDoc>> instead of Vec<TopFieldDocs>
+  // is that the field property inside TopFieldDocs is currently unused.
+  shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
+) -> Result<TopFieldDocs> {
+  merge_top_field_docs_with_start(sort, 0, top_n, shard_hits)
+}
+/// Same as [`merge_top_field_docs(Sort, int, TopFieldDocs[])`](merge_top_field_docs) but also ignores the top `start` top docs.
+/// This is typically useful for pagination.
+///
+/// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
+/// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
+/// belong to the same searcher).
+pub fn merge_top_field_docs_with_start(
+  sort: &Sort,
+  start: usize,
+  top_n: usize,
+  shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
+) -> Result<TopFieldDocs> {
+  merge_top_field_docs_with_comparator(sort, start, top_n, shard_hits, DefaultTieBreaker::default())
+}
+/// Pass in a custom tie breaker for ordering results
+pub fn merge_top_field_docs_with_comparator<C>(
+  sort: &Sort,
+  start: usize,
+  size: usize,
+  shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
+  tie_breaker: C,
+) -> Result<TopFieldDocs>
+where
+  C: Comparator<TopFieldScoreDoc>,
+{
+  let len = shard_hits.len();
+  let cmp = MergeSortQueueCmp::new(sort, &shard_hits, tie_breaker)?;
+  let queue = PriorityQueue::new(len, &cmp)?;
+  let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
+  // TODO: TopFieldDocs#fields not used in Java Lucene, so far we set it to empty vec
+  Ok(TopFieldDocs::new(total_hits, hits, vec![]))
+}
+/// Returns a new [`TopDocs`], containing topN results across the provided [`TopDocs`],
+/// sorting by score. Each [`TopDocs`] instance must be sorted.
+///
+/// See also: [`merge_top_docs_with_start(int, int, TopDocs[])`](merge_top_docs_with_start)
+pub fn merge_top_docs<S>(top_n: usize, shard_hits: Vec<TopDocs<S>>) -> Result<TopDocs<S>>
+where
+  S: ScoreDocLike,
+{
+  merge_top_docs_with_start(0, top_n, shard_hits)
+}
+/// Same as [`merge_top_docs(int, TopDocs[])`](merge_top_docs) but also ignores the top `start` top docs.
+/// This is typically useful for pagination.
+///
+/// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
+/// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
+/// belong to the same searcher).
+pub fn merge_top_docs_with_start<S>(
+  start: usize,
+  top_n: usize,
+  shard_hits: Vec<TopDocs<S>>,
+) -> Result<TopDocs<S>>
+where
+  S: ScoreDocLike,
+{
+  merge_top_docs_with_comparator(start, top_n, shard_hits, DefaultTieBreaker::default())
+}
+/// Same as above, but accepts the passed in tie breaker.
+///
+/// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
+/// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
+/// belong to the same searcher).
+pub fn merge_top_docs_with_comparator<C, S>(
+  start: usize,
+  size: usize,
+  shard_hits: Vec<TopDocs<S>>,
+  tie_breaker: C,
+) -> Result<TopDocs<S>>
+where
+  C: Comparator<S>,
+  S: ScoreDocLike,
+{
+  let len = shard_hits.len();
+  debug_assert!(len <= i32::MAX as usize);
+  let cmp = ScoreMergeSortQueueCmp::new(&shard_hits, tie_breaker);
+  let queue = PriorityQueue::new(len, &cmp)?;
+  let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
+  Ok(TopDocs::new(total_hits, hits))
 }
 
 /// Internal comparator with shardIndex

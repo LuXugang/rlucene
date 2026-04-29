@@ -64,7 +64,7 @@ use crate::core::search::sort_field::{SortField, SortFieldType, SortFiledBase};
 use crate::core::search::sorted_numeric_selector::SortedNumericSelectorType;
 use crate::core::search::sorted_set_selector::SortedSetSelectorType;
 use crate::core::search::term_query::TermQuery;
-use crate::core::search::top_docs::{TopDocsLike, top_docs_util};
+use crate::core::search::top_docs::{self, TopDocsLike};
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::total_hits::Relation;
@@ -685,8 +685,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
       top_docs_vec.push(top_docs.base)
     }
 
-    let mut merged_top_docs =
-      top_docs_util::merge_top_field_docs(sort.as_ref(), size, top_docs_vec)?;
+    let mut merged_top_docs = top_docs::merge_top_field_docs(sort.as_ref(), size, top_docs_vec)?;
     cur_num_hits = merged_top_docs.score_docs().len();
     num_hits += cur_num_hits;
     if cur_num_hits > 0 {

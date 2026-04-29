@@ -45,7 +45,7 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::time_limiting_knn_collector_manager::TimeLimitingKnnCollectorManager;
 use crate::core::search::top_docs::TopDocs;
-use crate::core::search::top_docs::top_docs_util::merge_top_docs;
+use crate::core::search::top_docs::merge_top_docs;
 use crate::core::search::top_docs_collector::EMPTY_TOP_DOCS;
 use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
 use crate::core::search::total_hits::TotalHits;
