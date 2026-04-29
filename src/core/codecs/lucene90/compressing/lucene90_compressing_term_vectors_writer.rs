@@ -32,7 +32,7 @@ use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::{BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase, of};
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{
   ByteBuffersDataOutput, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,

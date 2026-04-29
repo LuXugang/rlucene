@@ -314,7 +314,7 @@ pub mod tests {
   use crate::core::search::disi_priority_queue::DisiPriorityQueue;
   use crate::core::search::disi_wrapper::DisiWrapper;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
   use crate::core::search::explanation::Explanation;
   use crate::core::search::index_searcher::IndexSearcher;

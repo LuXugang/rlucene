@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set::DocIdSet;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
@@ -93,7 +93,7 @@ impl Accountable for RoaringDocIdSet {
 }
 pub mod builder {
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::util::bit_doc_id_set::BitDocIdSet;
   use crate::core::util::bit_set::BitSet;
   use crate::core::util::bits::Bits;

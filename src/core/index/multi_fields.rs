@@ -118,7 +118,7 @@ mod tests {
   use crate::core::index::multi_terms::get_term_postings_enum_with_flag;
   use crate::core::index::postings_enum::{FREQS, NONE};
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{

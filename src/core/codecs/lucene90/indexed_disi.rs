@@ -712,7 +712,7 @@ where
   type JumpTable = Arc<Mutex<I::RandomAccessSlice>>;
 }
 
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::TryIntoInt;
 use crate::core::util::access::MutAccess;
 use crate::core::util::array_util::ArrayUtil;
@@ -1204,7 +1204,7 @@ mod tests {
   };
   use crate::core::codecs::lucene90::indexed_disi::{IndexedDISI, Method};
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::store::directory::Directory;
   use crate::core::store::{IOContext, IndexInput, IndexOutput};
 

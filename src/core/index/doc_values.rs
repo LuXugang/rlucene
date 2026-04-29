@@ -33,7 +33,7 @@ use crate::core::index::sorted_numeric_doc_values::{
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
@@ -467,7 +467,7 @@ mod tests {
   use crate::core::index::doc_values::DocValues;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     get_only_leaf_reader, new_directory_shared, new_index_writer_config, random,

@@ -16,7 +16,7 @@
  */
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Wrapper around a [`TwoPhaseIterator`] used by doc-values range queries to
@@ -273,7 +273,7 @@ mod tests {
   use crate::core::index::doc_values_skipper::DocValuesSkipper;
   use crate::core::index::numeric_doc_values::NumericDocValues;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::doc_values_range_iterator::{DocValuesRangeIterator, Match};
   use crate::core::search::two_phase_iterator::TwoPhaseIterator;
   use crate::core::util::error::lucene_error::{LuceneError, Result};

@@ -45,7 +45,7 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::IOContext;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::flush_info::FlushInfo;

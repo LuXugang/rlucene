@@ -300,7 +300,7 @@ mod tests {
   use crate::core::search::boolean_clause::Occur;
   use crate::core::search::boolean_query::Builder;
   use crate::core::search::collector::Collector;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::index_searcher::IndexSearcher;
   use crate::core::search::knn_collector::KnnCollector;
   use crate::core::search::leaf_collector::LeafCollector;

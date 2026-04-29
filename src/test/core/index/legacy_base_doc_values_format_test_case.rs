@@ -49,7 +49,7 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;

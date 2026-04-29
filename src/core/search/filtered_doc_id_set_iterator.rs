@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::Result;
 /// Abstract decorator class of a DocIdSetIterator implementation that provides on-demand filter/validation mechanism on an underlying DocIdSetIterator.
 pub trait FilteredDocIdSetIterator: DocIdSetIterator {

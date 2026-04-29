@@ -27,7 +27,7 @@ use crate::core::index::term::Term;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::abstract_knn_vector_query::{DocAndScoreQuery, find_segment_starts};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::knn_byte_vector_query::KnnByteVectorQuery;
 use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;

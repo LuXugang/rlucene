@@ -33,7 +33,7 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::abstract_knn_vector_query::AbstractKnnVectorQuery;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::knn::top_knn_collector_manager::TopKnnCollectorManager;

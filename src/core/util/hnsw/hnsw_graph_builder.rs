@@ -20,7 +20,7 @@ use rand_chacha::rand_core::Rng;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::TopDocs;

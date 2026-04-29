@@ -30,7 +30,7 @@ pub trait BulkScorer {
   /// # Return value
   ///
   /// - `>= max`
-  /// - [`NO_MORE_DOCS`](crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS) if there are no more matches
+  /// - [`NO_MORE_DOCS`](crate::core::search::doc_id_set_iterator::NO_MORE_DOCS) if there are no more matches
   /// - `<=` the first matching document that is `>= max` otherwise
   ///
   /// # Parameters

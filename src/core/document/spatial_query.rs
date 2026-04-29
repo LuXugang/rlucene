@@ -25,7 +25,7 @@ use crate::core::index::point_values::{IntersectVisitor, PointValues, Relation};
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::DocIdSet;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
   AllDISI, DocIdSetIterator, DocIdSetIteratorEnum2, EmptyDISI,
 };

@@ -25,7 +25,7 @@ use std::sync::Arc;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::internal::hppc::bit_mixer::BitMixer;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::BitSetExt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::automata::Automata;

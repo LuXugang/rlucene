@@ -458,7 +458,7 @@ mod tests {
   use crate::core::index::terms::Terms;
   use crate::core::index::terms_enum::TermsEnum;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::store::IOContext;
   use crate::core::store::merge_info::MergeInfo;
   use crate::core::util::bit_set::BitSet;

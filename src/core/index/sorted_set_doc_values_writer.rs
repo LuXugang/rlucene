@@ -38,7 +38,7 @@ use crate::core::index::terms_enum::TermsEnumEnum2;
 use crate::core::index::{BytesRef, docs_with_field_set::DocsWithFieldSet, field_info::FieldInfo};
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;

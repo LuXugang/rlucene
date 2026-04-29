@@ -24,7 +24,7 @@ use crate::core::index::postings_enum::{FREQS, OFFSETS, PAYLOADS, POSITIONS, Pos
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::terms_enum::TermsEnum;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IndexOutput};
 use crate::core::util::bit_set::BitSet;

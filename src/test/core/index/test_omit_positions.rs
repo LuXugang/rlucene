@@ -27,7 +27,7 @@ use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::multi_terms::get_term_postings_enum;
 use crate::core::index::postings_enum::{FREQS, PostingsEnum};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;

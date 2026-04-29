@@ -16,7 +16,7 @@
  */
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -145,7 +145,7 @@ mod tests {
   use rand::Rng;
 
   use crate::core::search::doc_id_set::DocIdSet;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::util::error::lucene_error::Result;
   use crate::core::util::int_array_doc_id_set::IntArrayDocIdSet;
   use crate::test::core::util::base_doc_id_set_test_case::{

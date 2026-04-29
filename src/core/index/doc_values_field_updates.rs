@@ -30,7 +30,7 @@ use crate::core::index::numeric_doc_values_field_updates::{
   AbstractIteratorNumeric, NumericDocValuesFieldUpdates, SingleValueNumericDocValuesFieldUpdates,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
@@ -1281,7 +1281,7 @@ mod tests {
     NumericDocValuesFieldUpdates, SingleValueNumericDocValuesFieldUpdates,
   };
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{random, rarely};
 

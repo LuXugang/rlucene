@@ -16,7 +16,7 @@
  */
 use std::sync::Arc;
 
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::SliceCopyOps;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::neighbor_array::NeighborArray;

@@ -63,7 +63,7 @@ use crate::core::index::term_vectors::{
   EmptyTermVectors, RawTermVectors, TermVectors, TermVectorsEnum2,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::core::util::bits::Bits;

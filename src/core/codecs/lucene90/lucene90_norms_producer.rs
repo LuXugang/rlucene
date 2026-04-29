@@ -32,7 +32,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
 use crate::core::store::random_access_input::RandomAccessInput;

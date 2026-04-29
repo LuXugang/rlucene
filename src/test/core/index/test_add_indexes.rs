@@ -33,7 +33,7 @@ use crate::core::index::postings_enum::NONE;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::store::directory::Directory;

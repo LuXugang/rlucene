@@ -246,7 +246,7 @@ impl PendingDeletesBase for PendingSoftDeletes {
 }
 
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::bits::Bits;
 pub(crate) fn count_soft_deletes(
   soft_deleted_docs: Option<&mut impl DocIdSetIterator>,

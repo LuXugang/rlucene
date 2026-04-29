@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// This abstract struct defines methods to iterate over a set of non-decreasing
@@ -299,14 +298,12 @@ impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &T {
   }
 }
 
-pub mod disi_const {
-  /// When returned by
-  /// [`next_doc`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::next_doc),
-  /// [`advance`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::advance),
-  /// and [`doc_id`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::doc_id),
-  /// it means there are no more documents in the iterator.
-  pub const NO_MORE_DOCS: i32 = i32::MAX;
-}
+/// When returned by
+/// [`next_doc`](DocIdSetIterator::next_doc),
+/// [`advance`](DocIdSetIterator::advance),
+/// and [`doc_id`](DocIdSetIterator::doc_id),
+/// it means there are no more documents in the iterator.
+pub const NO_MORE_DOCS: i32 = i32::MAX;
 #[macro_export]
 macro_rules! either_docidsetiterator_named {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
@@ -363,7 +360,7 @@ pub type EmptyEnum<DISI> = DocIdSetIteratorEnum2<DISI, EmptyDISI>;
 
 #[cfg(test)]
 mod tests {
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, RangeDISI};
   use crate::core::util::error::lucene_error::{LuceneError, Result};
 

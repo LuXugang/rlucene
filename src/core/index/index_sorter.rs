@@ -19,7 +19,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::ordinal_map::{OrdinalMap, SegmentToGlobalOrds};
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::sort_field::MissingValueEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;

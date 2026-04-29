@@ -158,7 +158,7 @@ mod tests {
   use crate::core::search::weight::Weight;
 
   use crate::core::search::bulk_scorer::BulkScorer;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::time_limiting_bulk_scorer::{BulkScorerImpl, TimeLimitingBulkScorer};
   use crate::core::util::bits::MatchAllBits;
   use crate::core::util::error::lucene_error::Result;

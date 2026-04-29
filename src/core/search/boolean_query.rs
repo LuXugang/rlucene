@@ -1042,7 +1042,7 @@ mod tests {
   use crate::core::search::collector_manager::CollectorManager;
   use crate::core::search::constant_score_query::ConstantScoreQuery;
   use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
   use crate::core::search::leaf_collector::LeafCollector;
   use crate::core::search::match_all_docs_query::MatchAllDocsQuery;

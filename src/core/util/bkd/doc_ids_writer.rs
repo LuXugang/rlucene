@@ -16,7 +16,7 @@
  */
 use crate::core::index::point_values::IntersectVisitor;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::{DataOutput, IndexInput};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;

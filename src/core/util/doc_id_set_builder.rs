@@ -18,7 +18,7 @@ use crate::core::index::point_values::PointValues;
 use crate::core::index::terms::Terms;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
@@ -255,7 +255,7 @@ mod tests {
   use crate::core::index::point_values::{PointTreeEnum, PointValues};
   use crate::core::index::terms::Terms;
   use crate::core::search::doc_id_set::DocIdSet;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, RangeDISI};
   use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
   use crate::core::util::bit_doc_id_set::BitDocIdSet;

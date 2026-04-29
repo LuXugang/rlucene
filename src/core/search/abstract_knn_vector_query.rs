@@ -24,7 +24,7 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::conjunction_disi::{ConjunctionDISI, VectorScorerDisi};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::filtered_doc_id_set_iterator::{

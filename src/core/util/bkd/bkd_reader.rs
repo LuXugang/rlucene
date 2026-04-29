@@ -21,7 +21,7 @@ use crate::core::index::point_values::{
   IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::{DataInput, IndexInput};
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::core::util::bkd::bkd_config::BKDConfig;

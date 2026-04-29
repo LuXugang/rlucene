@@ -503,7 +503,7 @@ pub(crate) mod tests {
   use crate::core::search::boost_query::BoostQuery;
   use crate::core::search::collection_statistics::CollectionStatistics;
   use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::explanation::Explanation;
   use crate::core::search::index_searcher::IndexSearcher;
   use crate::core::search::query::{Query, QueryBase};

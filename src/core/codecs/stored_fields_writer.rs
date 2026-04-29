@@ -24,7 +24,7 @@ use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::{BytesRef, DocIDMerger, Sub, SubBase, of};
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::DataInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};

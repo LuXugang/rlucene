@@ -118,7 +118,7 @@ mod tests {
   use crate::core::index::vector_encoding::VectorEncoding;
   use crate::core::index::vector_similarity_function::VectorSimilarityFunction::Euclidean;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::vector_scorer::VectorScorer;
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;

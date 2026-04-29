@@ -23,7 +23,7 @@ use crate::core::index::point_values::{
   Relation,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IOContext, IndexInput, IndexOutput};
 use crate::core::util::bit_util::BitUtil;

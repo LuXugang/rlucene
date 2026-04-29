@@ -33,7 +33,7 @@ use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::term::Term;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::legacy_base_doc_values_format_test_case::LegacyBaseDocValuesFormatTestCase;

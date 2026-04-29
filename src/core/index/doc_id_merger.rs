@@ -16,7 +16,7 @@
  */
 
 use crate::core::index::merge_state::DocMap;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
@@ -380,7 +380,7 @@ pub mod tests {
   use crate::core::index::doc_id_merger::{DocIDMerger, Sub, SubBase};
   use crate::core::index::merge_state::DocMap;
   use crate::core::index::of;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::util::bit_set::BitSet;
   use crate::core::util::bits::Bits;
   use crate::core::util::error::lucene_error::Result;

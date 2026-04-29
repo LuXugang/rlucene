@@ -19,7 +19,7 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};

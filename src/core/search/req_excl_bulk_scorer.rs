@@ -98,7 +98,7 @@ mod tests {
   use crate::core::search::bulk_scorer::BulkScorer;
   use crate::core::search::doc_id_set::DocIdSet;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 
   use crate::core::search::dummy::dummy_scorer::DummyScorer;
   use crate::core::search::leaf_collector::LeafCollector;

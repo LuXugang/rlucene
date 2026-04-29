@@ -22,7 +22,7 @@ use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;

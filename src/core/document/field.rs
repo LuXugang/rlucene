@@ -1025,7 +1025,7 @@ mod tests {
   use crate::core::index::term::Term;
   use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::term_query::TermQuery;
   use crate::core::search::top_docs::TopDocsLike;
   use crate::core::util::TryIntoInt;

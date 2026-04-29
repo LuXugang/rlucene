@@ -23,7 +23,7 @@ use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::term::Term;
 use crate::core::search::conjunction_disi::ConjunctionDISI;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::impacts_disi::ImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::phrase_matcher::PhraseMatcher;

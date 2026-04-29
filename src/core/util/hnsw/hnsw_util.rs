@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::IndexReader;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -329,7 +329,7 @@ mod tests {
 
   use rand::RngExt;
 
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::util::bit_set::BitSet;
   use crate::core::util::bits::Bits;
   use crate::core::util::error::lucene_error::Result;

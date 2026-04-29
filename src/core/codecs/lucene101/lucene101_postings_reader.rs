@@ -42,7 +42,7 @@ use crate::core::internal::vectorization::vectorization_provider::{
   DEFAULT_VECTORIZATION_PROVIDER, VectorizationProvider,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
 use crate::core::util::TryIntoInt;

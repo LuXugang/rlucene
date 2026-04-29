@@ -26,7 +26,7 @@ use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::index_searcher::get_max_clause_count;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;

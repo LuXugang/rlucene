@@ -30,7 +30,7 @@ use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;

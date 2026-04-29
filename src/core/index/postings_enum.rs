@@ -29,7 +29,7 @@ pub trait PostingsEnum: DocIdSetIterator {
   /// [`nextDoc`](DocIdSetIterator::next_doc) is first called, nor after
   /// [`nextDoc`](DocIdSetIterator::next_doc) returns
   /// [`DocIdSetIterator#
-  /// NO_MORE_DOCS`](crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS)
+  /// NO_MORE_DOCS`](crate::core::search::doc_id_set_iterator::NO_MORE_DOCS)
   ///
   /// NOTE: if this enum was obtained with `NONE`, the result of this method
   /// is undefined.

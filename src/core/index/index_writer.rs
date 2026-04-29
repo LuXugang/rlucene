@@ -6016,7 +6016,7 @@ use crate::core::index::standard_directory_reader::{
 use crate::core::index::term::Term;
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::field_exists_query::get_doc_values_doc_id_set_iterator;
 use crate::core::search::query::Query;
 use crate::core::search::sort::Sort;

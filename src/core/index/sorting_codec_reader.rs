@@ -69,7 +69,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::sort::Sort;
@@ -2407,7 +2407,7 @@ mod tests {
   use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
   use crate::core::index::sorting_codec_reader::{SortingCodecReaderEnum, wrap};
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::sort::Sort;
   use crate::core::search::sorted_set_selector::SortedSetSelectorType::Min;
   use crate::core::search::sorted_set_sort_field::SortedSetSortField;

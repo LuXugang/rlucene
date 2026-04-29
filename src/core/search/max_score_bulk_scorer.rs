@@ -18,7 +18,7 @@ use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{FixedScore, Scorable};
@@ -844,7 +844,7 @@ mod test {
   use crate::core::document::string_field::StringField;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::index_writer_config::IndexWriterConfig;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
   use std::fmt::{Display, Formatter};
 

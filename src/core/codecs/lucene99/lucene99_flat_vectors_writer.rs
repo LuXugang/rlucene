@@ -49,7 +49,7 @@ use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::{IndexOutput, ReadAdvice};

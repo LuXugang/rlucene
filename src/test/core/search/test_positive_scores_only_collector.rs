@@ -21,7 +21,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::positive_scores_only_collector::PositiveScoresOnlyCollector;

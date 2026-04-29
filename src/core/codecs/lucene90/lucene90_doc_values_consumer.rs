@@ -41,7 +41,7 @@ use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::{BytesRefBuilder, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::sorted_set_selector::{
   SortedDocValuesWrap, SortedSetSelector, SortedSetSelectorType,
 };

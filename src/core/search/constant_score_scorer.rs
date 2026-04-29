@@ -423,7 +423,7 @@ mod tests {
   use crate::core::search::constant_score_query::ConstantScoreQuery;
   use crate::core::search::constant_score_scorer::ConstantScoreScorer;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::dummy::dummy_disi::DummyDISI;
   use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
   use crate::core::search::phrase_query::PhraseQuery;

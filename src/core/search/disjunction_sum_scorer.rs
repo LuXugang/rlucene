@@ -16,7 +16,7 @@
  */
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_scorer::DisjunctionScorerBase;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::scorer::Scorer;
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;

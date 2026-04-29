@@ -28,7 +28,7 @@ use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::DefaultIndexSearcher;
 use crate::core::search::query::Query;
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};

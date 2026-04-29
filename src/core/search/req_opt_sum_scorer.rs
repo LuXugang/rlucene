@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -585,7 +585,7 @@ mod tests {
   use crate::core::search::boolean_query::Builder;
   use crate::core::search::constant_score_query::ConstantScoreQuery;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-  use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+  use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::search::index_searcher::IndexSearcher;
   use crate::core::search::query::{Query, QueryWeightSsScorer};
   use crate::core::search::req_opt_sum_scorer::ReqOptSumScorer;
