@@ -60,12 +60,18 @@ use crate::core::util::{HasIdentity, TryIntoInt};
 #[cfg(test)]
 use crate::test::core::search::scorer_index_searcher::ScorerIndexSearcherSearchLeafHelper;
 use parking_lot::Mutex;
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+#[cfg(test)]
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock};
 use sysinfo::System;
 
-pub(crate) static MAX_CLAUSE_COUNT: AtomicUsize = AtomicUsize::new(1024);
+const DEFAULT_MAX_CLAUSE_COUNT: usize = 1024;
+thread_local! {
+  static MAX_CLAUSE_COUNT: Cell<usize> = const { Cell::new(DEFAULT_MAX_CLAUSE_COUNT) };
+}
 const TOTAL_HITS_THRESHOLD: usize = 1000;
 /// Thresholds for index slice allocation logic.
 /// To change the default, extend IndexSearcher and use custom values
@@ -771,16 +777,16 @@ where
 ///
 /// Attempts to add more than the permitted number of clauses cause a [`TooManyClauses`] error to be thrown.
 ///
-/// See also [`set_max_clause_count()`].
+/// Tests can override this value with `set_max_clause_count`.
 pub fn get_max_clause_count() -> usize {
-  MAX_CLAUSE_COUNT.load(Ordering::Relaxed)
+  { MAX_CLAUSE_COUNT.with(Cell::get) }
 }
 /// Set the maximum number of clauses permitted per Query. Default value is 1024.
 pub fn set_max_clause_count(value: usize) -> Result<()> {
   if value < 1 {
     return Err(LuceneError::illegal_argument("maxClauseCount must be >= 1"));
   }
-  MAX_CLAUSE_COUNT.store(value, Ordering::Relaxed);
+  MAX_CLAUSE_COUNT.with(|max_clause_count| max_clause_count.set(value));
   Ok(())
 }
 pub fn do_slices<LR>(
