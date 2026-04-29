@@ -33,6 +33,7 @@ pub(crate) mod force_merge_policy;
 pub mod legacy_base_doc_values_format_test_case;
 mod mismatched_codec_reader;
 mod mismatched_leaf_reader;
+pub(crate) mod per_thread_pk_lookup;
 pub mod random_index_writer;
 pub(crate) mod random_postings_tester;
 mod test_add_indexes;
