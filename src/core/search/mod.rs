@@ -150,6 +150,7 @@ mod scoring_rewrite;
 pub(crate) mod simple_scorable;
 mod sloppy_phrase_matcher;
 pub mod sort;
+pub mod synonym_query;
 pub(crate) mod term_collecting_rewrite;
 pub mod term_in_set_query;
 pub mod term_range_query;

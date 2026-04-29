@@ -61,6 +61,7 @@ use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::synonym_query::SynonymQuery;
 use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_range_query::TermRangeQuery;
@@ -153,6 +154,7 @@ macro_rules! dispatch_query {
       Query::SortedNumericDocValuesSet($inner) => $body,
       Query::SortedSetDocValuesRange($inner) => $body,
       Query::Phrase($inner) => $body,
+      Query::Synonym($inner) => $body,
       Query::Term($inner) => $body,
       Query::TermInSet($inner) => $body,
       Query::TermRange($inner) => $body,
@@ -226,6 +228,7 @@ impl_from_for_enum!(
     SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
     SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
     SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
+    SynonymQuery => Synonym,
     TermQuery => Term,
     TermInSetQuery => TermInSet,
     TermRangeQuery => TermRange,
@@ -282,6 +285,7 @@ impl_into_box_query!(
   SortedNumericDocValuesRangeQuery,
   SortedNumericDocValuesSetQuery,
   SortedSetDocValuesRangeQuery,
+  SynonymQuery,
   PhraseQuery,
   PrefixQuery,
   TermQuery,
@@ -350,6 +354,7 @@ pub enum Query {
   SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
   Phrase(PhraseQuery),
   Prefix(PrefixQuery),
+  Synonym(SynonymQuery),
   Term(TermQuery),
   TermInSet(TermInSetQuery),
   TermRange(TermRangeQuery),
@@ -440,6 +445,7 @@ impl Query {
             SortedSetDocValuesRange,
             Phrase,
             Prefix,
+            Synonym,
             Term,
             TermInSet,
             TermRange,

@@ -779,7 +779,7 @@ where
 ///
 /// Tests can override this value with `set_max_clause_count`.
 pub fn get_max_clause_count() -> usize {
-  { MAX_CLAUSE_COUNT.with(Cell::get) }
+  MAX_CLAUSE_COUNT.with(Cell::get)
 }
 /// Set the maximum number of clauses permitted per Query. Default value is 1024.
 pub fn set_max_clause_count(value: usize) -> Result<()> {
