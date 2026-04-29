@@ -25,7 +25,7 @@ use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::string_field::StringField;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -90,7 +90,7 @@ fn test_basic_ints() -> Result<()> {
     w.add_document(doc)?;
   }
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   let searcher = IndexSearcher::from_cr(r)?;
 
   assert_eq!(
@@ -135,7 +135,7 @@ fn test_basic_floats() -> Result<()> {
     w.add_document(doc)?;
   }
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   let searcher = IndexSearcher::from_cr(r)?;
 
   assert_eq!(
@@ -187,7 +187,7 @@ fn test_basic_longs() -> Result<()> {
     w.add_document(doc)?;
   }
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   let searcher = IndexSearcher::from_cr(r)?;
 
   assert_eq!(
@@ -239,7 +239,7 @@ fn test_basic_doubles() -> Result<()> {
     w.add_document(doc)?;
   }
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   let searcher = IndexSearcher::from_cr(r)?;
 
   assert_eq!(
@@ -315,7 +315,7 @@ fn test_crazy_doubles() -> Result<()> {
     w.add_document(doc)?;
   }
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   let searcher = IndexSearcher::from_cr(r)?;
 
   // exact queries
@@ -468,7 +468,7 @@ fn test_crazy_floats() -> Result<()> {
     w.add_document(doc)?;
   }
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   let searcher = IndexSearcher::from_cr(r)?;
 
   // exact queries
@@ -724,7 +724,7 @@ where
     w.force_merge(1)?;
   }
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   let max_doc = r.max_doc()?;
   w.close()?;
 
@@ -744,7 +744,7 @@ where
 
       handles.push(scope.spawn(move || -> Result<()> {
         let mut random = random_from_seed(seed);
-        let r = Arc::new(directory_reader_util::open(dir)?);
+        let r = Arc::new(directory_reader::open(dir)?);
         let searcher = new_searcher_with_reader(r.clone())?;
 
         for _ in 0..iters {
@@ -950,7 +950,7 @@ where
     w.force_merge(1)?;
   }
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   let max_doc = r.max_doc()?;
   w.close()?;
 
@@ -971,7 +971,7 @@ where
 
       handles.push(scope.spawn(move || -> Result<()> {
         let mut random = random_from_seed(seed);
-        let r = Arc::new(directory_reader_util::open(dir)?);
+        let r = Arc::new(directory_reader::open(dir)?);
         let searcher = new_searcher_with_reader(r.clone())?;
 
         for _ in 0..iters {
@@ -1541,7 +1541,7 @@ fn test_exact_points() -> Result<()> {
     w.add_document(doc)?;
   }
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(1, searcher.count(IntPoint::new_exact_query("int", 42i32)?)?);
@@ -1737,7 +1737,7 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
     w.add_document(doc)?;
   }
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
@@ -2267,7 +2267,7 @@ fn test_inverse_point_range() -> Result<()> {
 
   w.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&w)?;
+  let reader = directory_reader::open_from_writer(&w)?;
   w.close()?;
 
   let searcher = new_searcher_with_reader(reader)?;
@@ -2322,7 +2322,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
     w.add_document(doc)?;
   }
 
-  let reader = directory_reader_util::open_from_writer(&w)?;
+  let reader = directory_reader::open_from_writer(&w)?;
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
   let query = IntPoint::new_range_query("field", 0i32, 1i32)?;

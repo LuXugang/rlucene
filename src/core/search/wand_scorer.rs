@@ -929,7 +929,7 @@ pub(crate) mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
   use crate::core::document::string_field::StringField;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader::Identity;
   use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
   use crate::core::index::index_writer::IndexWriter;
@@ -1059,7 +1059,7 @@ pub(crate) mod tests {
     w.force_merge(1)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
     let mut builder = Builder::new();
     builder
@@ -1277,7 +1277,7 @@ pub(crate) mod tests {
     w.force_merge(1)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
     let context = &searcher.get_leaf_contexts()?[0];
 
@@ -1384,7 +1384,7 @@ pub(crate) mod tests {
     w.force_merge(1)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
     let context = &searcher.get_leaf_contexts()?[0];
 
@@ -1441,7 +1441,7 @@ pub(crate) mod tests {
     w.force_merge(1)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
     let context = &searcher.get_leaf_contexts()?[0];
 
@@ -1510,7 +1510,7 @@ pub(crate) mod tests {
     w.force_merge(1)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
     let context = &searcher.get_leaf_contexts()?[0];
 
@@ -1605,7 +1605,7 @@ pub(crate) mod tests {
     w.force_merge(1)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
     let context = &searcher.get_leaf_contexts()?[0];
 
@@ -1680,7 +1680,7 @@ pub(crate) mod tests {
     w.force_merge(1)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
     let context = &searcher.get_leaf_contexts()?[0];
 
@@ -1773,7 +1773,7 @@ pub(crate) mod tests {
     w.force_merge(1)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
     let context = &searcher.get_leaf_contexts()?[0];
 
@@ -1844,7 +1844,7 @@ pub(crate) mod tests {
       w.add_document(doc)?;
     }
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
     // turn off concurrent search to avoid Random object used across threads resulting into
@@ -1907,7 +1907,7 @@ pub(crate) mod tests {
       w.add_document(doc)?;
     }
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
     // turn off concurrent search to avoid Random object used across threads resulting into
@@ -1980,7 +1980,7 @@ pub(crate) mod tests {
       w.add_document(doc)?;
     }
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
     // turn off concurrent search to avoid Random object used across threads resulting into

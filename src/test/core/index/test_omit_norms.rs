@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::text_field::text_field_type;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -93,7 +93,7 @@ fn test_mixed_merge_throws_error() -> Result<()> {
   writer.force_merge(1)?;
   writer.close()?;
 
-  let reader = directory_reader_util::open(ram.clone())?;
+  let reader = directory_reader::open(ram.clone())?;
   let leaf = get_only_leaf_reader(&reader)?;
   let fi = leaf.get_field_infos()?;
 
@@ -146,7 +146,7 @@ fn test_mixed_ram() -> Result<()> {
   writer.force_merge(1)?;
   writer.close()?;
 
-  let reader = directory_reader_util::open(ram.clone())?;
+  let reader = directory_reader::open(ram.clone())?;
   let leaf = get_only_leaf_reader(&reader)?;
   let fi = leaf.get_field_infos()?;
 

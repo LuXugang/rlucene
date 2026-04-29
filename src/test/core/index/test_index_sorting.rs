@@ -29,7 +29,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::composite_reader::get_context;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_options::IndexOptions::DocsAndFreqs;
@@ -142,7 +142,7 @@ fn test_basic_string() -> Result<()> {
   writer.add_document(doc)?;
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let leaf = get_only_leaf_reader(&reader)?;
   assert_eq!(3, leaf.max_doc()?);
 
@@ -214,7 +214,7 @@ fn test_basic_multi_valued_string() -> Result<()> {
   writer.add_document(doc)?;
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let leaf = get_only_leaf_reader(&reader)?;
   assert_eq!(3, leaf.max_doc()?);
 
@@ -268,7 +268,7 @@ fn test_missing_string_first() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -348,7 +348,7 @@ fn test_missing_multi_valued_string_first() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -415,7 +415,7 @@ fn test_missing_string_last() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -493,7 +493,7 @@ fn test_missing_multi_valued_string_last() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -552,7 +552,7 @@ fn test_basic_long() -> Result<()> {
   writer.add_document(doc)?;
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let leaf = get_only_leaf_reader(&reader)?;
   assert_eq!(3, leaf.max_doc()?);
 
@@ -606,7 +606,7 @@ fn test_basic_multi_valued_long() -> Result<()> {
   writer.add_document(doc)?;
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let leaf = get_only_leaf_reader(&reader)?;
   assert_eq!(3, leaf.max_doc()?);
 
@@ -654,7 +654,7 @@ fn test_missing_long_first() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -715,7 +715,7 @@ fn test_missing_multi_valued_long_first() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -775,7 +775,7 @@ fn test_missing_long_last() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -838,7 +838,7 @@ fn test_missing_multi_valued_long_last() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -897,7 +897,7 @@ fn test_basic_int() -> Result<()> {
   writer.add_document(doc)?;
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let leaf = get_only_leaf_reader(&reader)?;
   assert_eq!(3, leaf.max_doc()?);
 
@@ -953,7 +953,7 @@ fn test_basic_multi_valued_int() -> Result<()> {
   writer.add_document(doc)?;
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let leaf = get_only_leaf_reader(&reader)?;
   assert_eq!(3, leaf.max_doc()?);
 
@@ -1001,7 +1001,7 @@ fn test_missing_int_first() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -1062,7 +1062,7 @@ fn test_missing_multi_valued_int_first() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -1123,7 +1123,7 @@ fn test_missing_int_last() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -1185,7 +1185,7 @@ fn test_missing_multi_valued_int_last() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -1244,7 +1244,7 @@ fn test_basic_double() -> Result<()> {
   writer.add_document(doc)?;
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let leaf = get_only_leaf_reader(&reader)?;
   assert_eq!(3, leaf.max_doc()?);
 
@@ -1316,7 +1316,7 @@ fn test_basic_multi_valued_double() -> Result<()> {
   writer.add_document(doc)?;
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let leaf = get_only_leaf_reader(&reader)?;
   assert_eq!(3, leaf.max_doc()?);
 
@@ -1364,7 +1364,7 @@ fn test_missing_double_first() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -1438,7 +1438,7 @@ fn test_missing_multi_valued_double_first() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -1499,7 +1499,7 @@ fn test_missing_double_last() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -1573,7 +1573,7 @@ fn test_missing_multi_valued_double_last() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -1632,7 +1632,7 @@ fn test_basic_float() -> Result<()> {
   writer.add_document(doc)?;
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let leaf = get_only_leaf_reader(&reader)?;
   assert_eq!(3, leaf.max_doc()?);
 
@@ -1701,7 +1701,7 @@ fn test_basic_multi_valued_float() -> Result<()> {
   writer.add_document(doc)?;
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let leaf = get_only_leaf_reader(&reader)?;
   assert_eq!(3, leaf.max_doc()?);
 
@@ -1749,7 +1749,7 @@ fn test_missing_float_first() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -1823,7 +1823,7 @@ fn test_missing_multi_valued_float_first() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -1884,7 +1884,7 @@ fn test_missing_float_last() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -1958,7 +1958,7 @@ fn test_missing_multi_valued_float_last() -> Result<()> {
     writer.add_document(doc)?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     assert_eq!(3, leaf.max_doc()?);
 
@@ -2017,7 +2017,7 @@ fn test_random1() -> Result<()> {
     writer.add_document(doc)?;
 
     if random.random_range(0..5) == 0 {
-      directory_reader_util::open_from_writer(&writer)?.close()?;
+      directory_reader::open_from_writer(&writer)?.close()?;
     } else if random.random_range(0..30) == 0 {
       writer.force_merge(2)?;
     } else if random.random_range(0..4) == 0 {
@@ -2027,7 +2027,7 @@ fn test_random1() -> Result<()> {
     }
   }
 
-  let reader = Arc::new(directory_reader_util::open_from_writer(&writer)?);
+  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
   let irc = get_context(reader.clone())?;
   for ctx in irc.leaves()? {
     let leaf = ctx.reader();
@@ -2110,7 +2110,7 @@ fn test_multi_valued_random1() -> Result<()> {
     writer.add_document(doc)?;
 
     if random.random_range(0..5) == 0 {
-      directory_reader_util::open_from_writer(&writer)?.close()?;
+      directory_reader::open_from_writer(&writer)?.close()?;
     } else if random.random_range(0..30) == 0 {
       writer.force_merge(2)?;
     } else if random.random_range(0..4) == 0 {
@@ -2120,7 +2120,7 @@ fn test_multi_valued_random1() -> Result<()> {
     }
   }
 
-  let reader = Arc::new(directory_reader_util::open_from_writer(&writer)?);
+  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
   let searcher = new_searcher_with_reader(reader.clone())?;
   let mut stored_fields = reader.stored_fields()?;
 
@@ -2238,7 +2238,7 @@ fn test_bad_add_indexes() -> Result<()> {
     }
     let w2 = IndexWriter::new(dir2.clone(), iwc2)?;
     w2.add_document(Document::new())?;
-    let reader = directory_reader_util::open_from_writer(&w2)?;
+    let reader = directory_reader::open_from_writer(&w2)?;
     w2.close()?;
     drop(w2);
 
@@ -2349,7 +2349,7 @@ where
     w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
   }
 
-  let reader2 = Arc::new(directory_reader_util::open_from_writer(&w2)?);
+  let reader2 = Arc::new(directory_reader::open_from_writer(&w2)?);
   let searcher = new_searcher_with_reader(reader.clone())?;
   let searcher2 = new_searcher_with_reader(reader2.clone())?;
 
@@ -2427,7 +2427,7 @@ fn test_illegal_change_sort() -> Result<()> {
   {
     let writer = IndexWriter::new(dir.clone(), iwc)?;
     writer.add_document(Document::new())?;
-    directory_reader_util::open_from_writer(&writer)?.close()?;
+    directory_reader::open_from_writer(&writer)?.close()?;
     writer.add_document(Document::new())?;
     writer.force_merge(1)?;
     writer.close()?;
@@ -2693,7 +2693,7 @@ fn test_random3() -> Result<()> {
     w2.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
   }
 
-  let r1 = Arc::new(directory_reader_util::open_from_writer(&w1)?);
+  let r1 = Arc::new(directory_reader::open_from_writer(&w1)?);
   let s1 = new_searcher_with_reader(r1.clone())?;
 
   if random.random::<bool>() {
@@ -2701,7 +2701,7 @@ fn test_random3() -> Result<()> {
     w2.force_merge(max_segment_count)?;
   }
 
-  let r2 = Arc::new(directory_reader_util::open_from_writer(&w2)?);
+  let r2 = Arc::new(directory_reader::open_from_writer(&w2)?);
   let s2 = new_searcher_with_reader(r2.clone())?;
 
   for _ in 0..100 {
@@ -2765,7 +2765,7 @@ fn test_tie_break() -> Result<()> {
 
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let mut stored_fields = reader.stored_fields()?;
 
   for doc_id in 0..1000 {
@@ -2826,7 +2826,7 @@ fn test_index_sort_with_sparse_field() -> Result<()> {
   writer.commit()?;
   writer.force_merge(1)?;
 
-  let reader = get_context(directory_reader_util::open_from_writer(&writer)?)?;
+  let reader = get_context(directory_reader::open_from_writer(&writer)?)?;
   let leaves = reader.leaves()?;
   assert_eq!(1, leaves.len());
 
@@ -2889,7 +2889,7 @@ fn test_index_sort_on_sparse_field() -> Result<()> {
   writer.commit()?;
   writer.force_merge(1)?;
 
-  let reader = get_context(directory_reader_util::open_from_writer(&writer)?)?;
+  let reader = get_context(directory_reader::open_from_writer(&writer)?)?;
   let leaves = reader.leaves()?;
   assert_eq!(1, leaves.len());
 
@@ -2968,7 +2968,7 @@ fn test_delete_by_term_or_query() -> Result<()> {
   }
 
   let mut doc_count = 0;
-  let reader = get_context(directory_reader_util::open_from_writer(&writer)?)?;
+  let reader = get_context(directory_reader::open_from_writer(&writer)?)?;
 
   for leaf_ctx in reader.leaves()? {
     let leaf = leaf_ctx.reader();
@@ -3045,7 +3045,7 @@ fn test_sort_docs() -> Result<()> {
   writer.add_document(doc)?;
 
   writer.force_merge(1)?;
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
   let leaf_reader = get_only_leaf_reader(&reader)?;
@@ -3122,7 +3122,7 @@ fn test_sort_docs_and_freqs() -> Result<()> {
   writer.add_document(doc)?;
 
   writer.force_merge(1)?;
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
   let leaf_reader = get_only_leaf_reader(&reader)?;
@@ -3200,7 +3200,7 @@ fn test_sort_docs_and_freqs_and_positions() -> Result<()> {
   writer.add_document(doc)?;
 
   writer.force_merge(1)?;
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
   let leaf_reader = get_only_leaf_reader(&reader)?;
@@ -3299,7 +3299,7 @@ fn test_sort_docs_and_freqs_and_positions_and_offsets() -> Result<()> {
   writer.add_document(doc)?;
 
   writer.force_merge(1)?;
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
   let leaf_reader = get_only_leaf_reader(&reader)?;
@@ -3487,7 +3487,7 @@ fn test_index_sort_with_blocks() -> Result<()> {
     writer.close()?;
   }
 
-  let reader = get_context(directory_reader_util::open(dir.clone())?)?;
+  let reader = get_context(directory_reader::open(dir.clone())?)?;
   for ctx in reader.leaves()? {
     let leaf = ctx.reader();
     let mut parent_disi = leaf.get_numeric_doc_values(parent_field)?.unwrap();

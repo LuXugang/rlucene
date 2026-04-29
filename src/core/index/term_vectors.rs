@@ -181,7 +181,7 @@ mod tests {
   use crate::core::document::field::Field;
   use crate::core::document::field_type::FieldType;
   use crate::core::document::text_field::text_field_type;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::fields::Fields;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter};
@@ -237,7 +237,7 @@ mod tests {
   where
     D: Directory,
   {
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
 
     let mut term_vectors = reader.term_vectors()?;
     let num_docs = reader.num_docs()?;

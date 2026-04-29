@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::directory_reader::{DirectoryReader, directory_reader_util};
+use crate::core::index::directory_reader::{self, DirectoryReader};
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::term::Term;
@@ -56,13 +56,13 @@ fn test_commit_on_close() -> Result<()> {
   let search_term = Term::from_text("content", "aaa");
 
   {
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
     let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
     assert_eq!(14, hits.score_docs.len(), "first number of hits");
   }
 
-  let reader = directory_reader_util::open(dir.clone())?;
+  let reader = directory_reader::open(dir.clone())?;
 
   let mock = MockAnalyzer::new(&mut random);
   let iwc2 = new_index_writer_config_with_analyzer(&mut random, mock);
@@ -73,7 +73,7 @@ fn test_commit_on_close() -> Result<()> {
       add_doc(&mut random, &writer, &mut field_types)?;
     }
 
-    let r = directory_reader_util::open(dir.clone())?;
+    let r = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(r)?;
     let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
     assert_eq!(
@@ -96,7 +96,7 @@ fn test_commit_on_close() -> Result<()> {
   );
 
   {
-    let r = directory_reader_util::open(dir.clone())?;
+    let r = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(r)?;
     let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
     assert_eq!(
@@ -167,7 +167,7 @@ fn test_prepare_commit_no_changes() -> Result<()> {
   writer.commit()?;
   writer.close()?;
 
-  let reader = directory_reader_util::open(dir.clone())?;
+  let reader = directory_reader::open(dir.clone())?;
   assert_eq!(0, reader.num_docs()?);
 
   Ok(())

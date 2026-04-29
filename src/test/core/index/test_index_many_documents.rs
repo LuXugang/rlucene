@@ -16,7 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
@@ -94,7 +94,7 @@ fn test_threaded_indexing() -> Result<()> {
 
   writer.close()?;
 
-  let reader = directory_reader_util::open(dir.clone())?;
+  let reader = directory_reader::open(dir.clone())?;
   assert_eq!(num_docs, reader.max_doc()?);
 
   Ok(())

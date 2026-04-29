@@ -848,7 +848,7 @@ mod test {
   use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
   use std::fmt::{Display, Formatter};
 
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader::{Identity, IndexReader};
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::term::Term;
@@ -922,7 +922,7 @@ mod test {
     let dir = new_directory_shared(&mut random)?;
     write_documents(&mut random, dir.clone())?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let clause1: Query = BoostQuery::new(
@@ -961,7 +961,7 @@ mod test {
     let dir = new_directory_shared(&mut random)?;
     write_documents(&mut random, dir.clone())?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let clause1: Query = BoostQuery::new(
@@ -1008,7 +1008,7 @@ mod test {
     let dir = new_directory_shared(&mut random)?;
     write_documents(&mut random, dir.clone())?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let clause1: Query = BoostQuery::new(
@@ -1051,7 +1051,7 @@ mod test {
     let dir = new_directory_shared(&mut random)?;
     write_documents(&mut random, dir.clone())?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let clause1: Query = BoostQuery::new(
@@ -1086,7 +1086,7 @@ mod test {
     let dir = new_directory_shared(&mut random)?;
     write_documents(&mut random, dir.clone())?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let clause1: Query = BoostQuery::new(
@@ -1130,7 +1130,7 @@ mod test {
     let dir = new_directory_shared(&mut random)?;
     write_documents(&mut random, dir.clone())?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let clause1: Query = BoostQuery::new(
@@ -1199,7 +1199,7 @@ mod test {
 
     w.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
     let mut builder = Builder::new();

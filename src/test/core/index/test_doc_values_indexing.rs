@@ -29,7 +29,7 @@ use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::string_field::{StringField, string_field_type};
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_infos::get_merged_field_infos;
 use crate::core::index::index_reader::IndexReader;
@@ -204,7 +204,7 @@ fn test_length_prefix_across_two_pages() -> Result<()> {
   doc.add(SortedDocValuesField::new("field", b.clone()));
   w.add_document(doc)?;
   w.force_merge(1)?;
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
 
   let leaf = get_only_leaf_reader(r)?;
   let mut s = leaf
@@ -250,7 +250,7 @@ fn test_doc_values_unstored() -> Result<()> {
     writer.add_document(doc)?;
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let fi = get_merged_field_infos(&reader)?;
   let dv_info = fi
     .field_info_by_name("dv")
@@ -296,7 +296,7 @@ fn test_mixed_types_same_document() -> Result<()> {
     res
   );
 
-  let ir = directory_reader_util::open_from_writer(&w)?;
+  let ir = directory_reader::open_from_writer(&w)?;
   assert_eq!(1, ir.num_docs()?);
 
   w.close()?;
@@ -329,7 +329,7 @@ fn test_mixed_types_different_documents() -> Result<()> {
     res
   );
 
-  let ir = directory_reader_util::open_from_writer(&w)?;
+  let ir = directory_reader::open_from_writer(&w)?;
   assert_eq!(1, ir.num_docs()?);
 
   w.close()?;
@@ -365,7 +365,7 @@ fn test_add_sorted_twice() -> Result<()> {
     res
   );
 
-  let ir = directory_reader_util::open_from_writer(&iwriter)?;
+  let ir = directory_reader::open_from_writer(&iwriter)?;
   assert_eq!(1, ir.num_docs()?);
   iwriter.close()?;
 
@@ -400,7 +400,7 @@ fn test_add_binary_twice() -> Result<()> {
     res
   );
 
-  let ir = directory_reader_util::open_from_writer(&iwriter)?;
+  let ir = directory_reader::open_from_writer(&iwriter)?;
   assert_eq!(1, ir.num_docs()?);
 
   iwriter.close()?;
@@ -430,7 +430,7 @@ fn test_add_numeric_twice() -> Result<()> {
     res
   );
 
-  let ir = directory_reader_util::open_from_writer(&iwriter)?;
+  let ir = directory_reader::open_from_writer(&iwriter)?;
   assert_eq!(1, ir.num_docs()?);
 
   iwriter.close()?;
@@ -465,7 +465,7 @@ fn test_too_large_sorted_bytes() -> Result<()> {
   let res = iwriter.add_document(huge_doc);
   assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
 
-  let ir = directory_reader_util::open_from_writer(&iwriter)?;
+  let ir = directory_reader::open_from_writer(&iwriter)?;
   assert_eq!(1, ir.num_docs()?);
 
   iwriter.close()?;
@@ -505,7 +505,7 @@ fn test_too_large_term_sorted_set_bytes() -> Result<()> {
     res
   );
 
-  let ir = directory_reader_util::open_from_writer(&iwriter)?;
+  let ir = directory_reader::open_from_writer(&iwriter)?;
   assert_eq!(1, ir.num_docs()?);
 
   iwriter.close()?;
@@ -733,7 +733,7 @@ fn test_illegal_type_change() -> Result<()> {
     res
   );
 
-  let ir = directory_reader_util::open_from_writer(&writer)?;
+  let ir = directory_reader::open_from_writer(&writer)?;
   assert_eq!(1, ir.num_docs()?);
 
   writer.close()?;

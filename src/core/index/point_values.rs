@@ -819,7 +819,7 @@ mod tests {
   use crate::core::document::int_point::IntPoint;
   use crate::core::document::long_point::LongPoint;
   use crate::core::index::composite_reader::get_context;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
 
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
@@ -1433,7 +1433,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
       }
     }
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     let reader = get_context(reader)?;
 
     for leaf in reader.leaves()? {
@@ -1473,7 +1473,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
 
     w.force_merge(1)?;
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
 
     let ctx = get_context(reader)?;
     let leaves = ctx.leaves()?;
@@ -1606,14 +1606,14 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     w.add_document(Document::new())?;
 
     {
-      directory_reader_util::open_from_writer(&w)?;
+      directory_reader::open_from_writer(&w)?;
     }
 
     let mut doc = Document::new();
     doc.add(IntPoint::new("field", vec![i32::MIN])?);
     w.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
 
     assert_eq!(get_min_packed_value(&reader, "field")?, Some(vec![0u8; 4]));
 
@@ -1664,7 +1664,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
 
     w.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
 
     assert_eq!(get_min_packed_value(&reader, "field")?, None);
     assert_eq!(get_max_packed_value(&reader, "field")?, None);
@@ -1726,14 +1726,14 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
       w.add_document(doc)?;
 
       if random.random_bool(0.5) {
-        directory_reader_util::open_from_writer(&w)?;
+        directory_reader::open_from_writer(&w)?;
       }
     }
 
-    let reader1 = directory_reader_util::open_from_writer(&w)?;
+    let reader1 = directory_reader::open_from_writer(&w)?;
     w.force_merge(1)?;
 
-    let reader2 = directory_reader_util::open_from_writer(&w)?;
+    let reader2 = directory_reader::open_from_writer(&w)?;
     let leaf = get_only_leaf_reader(&reader2)?;
     let expected_opt = leaf.get_point_values("field")?;
     match expected_opt {

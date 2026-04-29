@@ -151,7 +151,7 @@ impl QueryBase for NGramPhraseQuery {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::DefaultIndexSearchCR;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
@@ -168,7 +168,7 @@ mod tests {
     let writer = RandomIndexWriter::new(random, directory.clone());
     writer.close()?;
 
-    let reader = directory_reader_util::open(directory.clone())?;
+    let reader = directory_reader::open(directory.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     Ok(searcher)

@@ -29,9 +29,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::base_composite_reader::{BaseCompositeReader, BaseCompositeReaderBase};
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::directory_reader::{
-  DirectoryReader, DirectoryReaderBase, directory_reader_util,
-};
+use crate::core::index::directory_reader::{self, DirectoryReader, DirectoryReaderBase};
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_point_value_base::DummyPointValues;
@@ -110,7 +108,7 @@ fn test_long_sort_optimization() -> Result<()> {
     }
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
   let searcher = new_searcher_with_threads(reader, true, true, false)?;
   let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
@@ -234,7 +232,7 @@ fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> 
     writer.add_document(doc)?;
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
   // single-threaded so totalHits is deterministic
@@ -287,7 +285,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     }
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
   let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
   let num_hits = 3;
@@ -417,7 +415,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
     writer.add_document(doc)?;
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
   let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
   let num_hits = 3;
@@ -504,7 +502,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
     }
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
   let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
@@ -593,7 +591,7 @@ fn test_float_sort_optimization() -> Result<()> {
     writer.add_document(doc)?;
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
   let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
@@ -669,7 +667,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
     let mut top_docs_vec = Vec::new();
     #[allow(clippy::needless_range_loop)]
     for i in 0..num_indices {
-      let reader = directory_reader_util::open(dirs[i].clone())?;
+      let reader = directory_reader::open(dirs[i].clone())?;
       let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
       let collector_manager = TopFieldCollectorManager::with_after(
         sort.clone(),
@@ -726,7 +724,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
     }
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
   let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
   let num_hits = 10;
@@ -848,7 +846,7 @@ fn test_doc_sort_optimization_with_after_collects_all_docs() -> Result<()> {
   }
   writer.flush()?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let searcher = new_searcher_with_reader(reader)?;
   writer.close()?;
 
@@ -906,7 +904,7 @@ fn test_doc_sort_optimization() -> Result<()> {
     }
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
   let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
 
@@ -997,7 +995,7 @@ fn test_doc_sort() -> Result<()> {
     writer.add_document(doc)?;
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
   let mut searcher = new_searcher_with_threads(
@@ -1139,7 +1137,7 @@ fn test_max_doc_visited() -> Result<()> {
     }
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
   let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
 
@@ -1221,7 +1219,7 @@ fn test_random_long() -> Result<()> {
     seq_nos.sort_by(|a, b| b.cmp(a));
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
   let searcher = new_searcher_with_threads(
@@ -1307,7 +1305,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
     writer.add_document(doc)?;
   }
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
   let searcher = new_searcher_with_threads(reader, true, true, false)?;
 
@@ -1416,7 +1414,7 @@ fn test_string_sort_optimization() -> Result<()> {
     }
   }
 
-  let reader = Arc::new(directory_reader_util::open_from_writer(&writer)?);
+  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
   writer.close()?;
 
   do_test_string_sort_optimization(&mut random, reader.clone())?;
@@ -1450,7 +1448,7 @@ fn test_string_sort_optimization_with_missing_values() -> Result<()> {
   writer.flush()?;
   writer.add_document(Document::new())?;
 
-  let reader = Arc::new(directory_reader_util::open_from_writer(&writer)?);
+  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
   writer.close()?;
   do_test_string_sort_optimization(&mut random, reader.clone())?;
   Ok(())

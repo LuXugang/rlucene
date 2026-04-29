@@ -27,7 +27,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::composite_reader::get_context;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -457,7 +457,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
       w2.force_merge(1)?;
 
-      let reader = directory_reader_util::open_from_writer(&w2)?;
+      let reader = directory_reader::open_from_writer(&w2)?;
       let r = get_only_leaf_reader(&reader)?;
       let vector_values = r.get_float_vector_values(field_name)?.unwrap();
       let mut iterator = vector_values.iterator()?;
@@ -502,7 +502,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
       w2.force_merge(1)?;
 
-      let reader = directory_reader_util::open_from_writer(&w2)?;
+      let reader = directory_reader::open_from_writer(&w2)?;
       let r = get_only_leaf_reader(&reader)?;
       let vector_values = r.get_float_vector_values(field_name)?.unwrap();
       let mut iterator = vector_values.iterator()?;
@@ -562,7 +562,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
       w2.force_merge(1)?;
 
-      let reader = directory_reader_util::open_from_writer(&w2)?;
+      let reader = directory_reader::open_from_writer(&w2)?;
       let r = get_only_leaf_reader(&reader)?;
       let vector_values = r.get_float_vector_values(field_name)?.unwrap();
       let mut iterator = vector_values.iterator()?;
@@ -933,7 +933,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     w.commit()?;
 
     {
-      let reader = directory_reader_util::open_from_writer(&w)?;
+      let reader = directory_reader::open_from_writer(&w)?;
       let leaf = get_only_leaf_reader(reader)?;
       let values = leaf.get_float_vector_values("v")?.expect("vector values");
       assert_eq!(1, values.size());
@@ -942,7 +942,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
     w.force_merge(1)?;
     {
-      let reader = directory_reader_util::open_from_writer(&w)?;
+      let reader = directory_reader::open_from_writer(&w)?;
       let leaf = get_only_leaf_reader(reader)?;
       let values = leaf.get_float_vector_values("v")?.expect("vector values");
       assert_eq!(0, values.size());
@@ -1153,7 +1153,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let vector_to_score = Self::random_normalized_vector(random, dimension)?;
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     let reader = get_context(reader)?;
 
     for ctx in reader.leaves()? {
@@ -1243,7 +1243,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let vector_to_score = Self::random_vector8(random, dimension)?;
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     let reader = get_context(reader)?;
 
     for ctx in reader.leaves()? {
@@ -1301,7 +1301,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     w.commit()?;
     w.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     let r = get_only_leaf_reader(&reader)?;
     let values = r.get_float_vector_values("v")?;
     assert!(values.is_some());
@@ -1337,7 +1337,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     w.commit()?;
     w.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     let r = get_only_leaf_reader(&reader)?;
     let values = r.get_byte_vector_values("v")?;
     assert!(values.is_some());
@@ -1407,7 +1407,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
     iw.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     let r = get_only_leaf_reader(&reader)?;
     let vector_values = r.get_float_vector_values(field_name)?.unwrap();
 
@@ -1450,7 +1450,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     self.add_float_default_similarity(&iw, field_name, 2, 2, Some(vec![1.0, 0.0]))?;
     iw.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     let leaf = get_only_leaf_reader(&reader)?;
 
     let mut stored_fields = leaf.stored_fields()?;
@@ -1515,7 +1515,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     self.add_byte_default_similarity(&iw, field_name, 2, 2, Some(vec![1, 0]))?;
     iw.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     let leaf = get_only_leaf_reader(&reader)?;
 
     let mut stored_fields = leaf.stored_fields()?;
@@ -1607,7 +1607,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
     iw.force_merge(1)?;
 
-    let reader = get_context(directory_reader_util::open_from_writer(&iw)?)?;
+    let reader = get_context(directory_reader::open_from_writer(&iw)?)?;
     let leaf = &reader.leaves()?[0].reader();
 
     let vector_values = leaf.get_float_vector_values("field1")?.unwrap();
@@ -1710,7 +1710,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let mut num_deletes = 0i32;
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     let reader = get_context(reader)?;
     let mut value_count = 0i32;
     let mut total_size = 0i32;
@@ -1836,7 +1836,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let mut num_deletes = 0i32;
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     let reader = get_context(reader)?;
     let mut value_count = 0i32;
     let mut total_size = 0i32;
@@ -1925,7 +1925,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       iw.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
     }
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     let reader = get_context(reader)?;
     for ctx in reader.leaves()? {
       let live_docs = ctx.reader().get_live_docs()?;
@@ -1996,7 +1996,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       )?;
     }
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     let reader = get_context(reader)?;
     for ctx in reader.leaves()? {
       let live_docs = ctx.reader().get_live_docs()?;
@@ -2340,7 +2340,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
       w.force_merge(1)?;
 
-      let reader = directory_reader_util::open_from_writer(&w)?;
+      let reader = directory_reader::open_from_writer(&w)?;
       let r = get_only_leaf_reader(&reader)?;
       let mut vector_values = r.get_float_vector_values(field_name)?.unwrap();
       let mut vector_docs = vec![0; vector_values.size() + 1];

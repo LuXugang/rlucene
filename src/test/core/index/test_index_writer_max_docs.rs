@@ -16,7 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::term::Term;
@@ -65,7 +65,7 @@ fn test_exactly_at_true_limit() -> Result<()> {
 
   // first unoptimized, then optimized
   for _iter in 0..2 {
-    let ir = directory_reader_util::open(dir.clone())?;
+    let ir = directory_reader::open(dir.clone())?;
     assert_eq!(max_docs, ir.max_doc()?);
     assert_eq!(max_docs, ir.num_docs()?);
 

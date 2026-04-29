@@ -936,7 +936,7 @@ mod tests {
   use crate::core::document::field_type::FieldType;
   use crate::core::document::string_field::StringField;
   use crate::core::index::composite_reader::get_context;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::{IndexWriter, read_field_infos};
   use crate::core::index::leaf_reader::LeafReader;
@@ -1054,7 +1054,7 @@ mod tests {
     writer.commit()?;
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let fis = get_merged_field_infos(reader)?;
     assert_eq!(2, fis.size());
 
@@ -1113,7 +1113,7 @@ mod tests {
 
     writer.commit()?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let fis = get_merged_field_infos(reader)?;
 
     let fi1 = fis.field_info_by_name("f1").unwrap();
@@ -1135,7 +1135,7 @@ mod tests {
     let config = new_index_writer_config(&mut random);
     let writer = IndexWriter::new(dir.clone(), config)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let actual = get_merged_field_infos(reader)?;
 
     assert!(Arc::ptr_eq(&EMPTY.clone(), &actual));
@@ -1162,7 +1162,7 @@ mod tests {
 
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let actual = get_merged_field_infos(&reader)?;
     let reader = get_context(reader)?;
     let leaves = reader.leaves()?;

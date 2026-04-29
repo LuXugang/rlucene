@@ -2398,7 +2398,7 @@ mod tests {
   use crate::core::index::BytesRef;
   use crate::core::index::codec_reader::CodecReader;
   use crate::core::index::composite_reader::get_context;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
 
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
@@ -2452,7 +2452,7 @@ mod tests {
     let index_sort =
       Sort::with_fields(vec![SortedSetSortField::with_selector("foo", false, Min)?])?;
 
-    let reader = directory_reader_util::open(tmp_dir.clone())?;
+    let reader = directory_reader::open(tmp_dir.clone())?;
     let reader = get_context(reader)?;
     for ctx in reader.leaves()? {
       let leaf_reader = ctx.reader().clone();

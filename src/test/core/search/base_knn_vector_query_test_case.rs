@@ -19,7 +19,7 @@ use crate::core::document::field::Store;
 use crate::core::document::fields::Fields;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::string_field::StringField;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
@@ -221,7 +221,7 @@ pub trait BaseKnnVectorQueryTestCase {
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let kvq = self.get_knn_vector_query_no_filter("field", vec![0.0, 0.0], 10)?;
 
@@ -242,7 +242,7 @@ pub trait BaseKnnVectorQueryTestCase {
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let kvq = self.get_knn_vector_query_no_filter("field", vec![0.0, 0.0], 2)?;
 
@@ -263,7 +263,7 @@ pub trait BaseKnnVectorQueryTestCase {
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let vector_query: Query = self
@@ -291,7 +291,7 @@ pub trait BaseKnnVectorQueryTestCase {
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let filter: Query = TermQuery::new(Term::from_text("id", "id2")).into();
     let kvq: Query = self
@@ -313,7 +313,7 @@ pub trait BaseKnnVectorQueryTestCase {
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let filter: Query = TermQuery::new(Term::from_text("other", "value")).into();
@@ -332,7 +332,7 @@ pub trait BaseKnnVectorQueryTestCase {
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let kvq = self.get_knn_vector_query_no_filter("field", vec![0.0], 1)?;
@@ -357,7 +357,7 @@ pub trait BaseKnnVectorQueryTestCase {
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     self.assert_matches(
@@ -393,7 +393,7 @@ pub trait BaseKnnVectorQueryTestCase {
       vec![4.0, 4.0],
     ];
     let directory = self.get_stable_index_store(random, "field", &vectors)?;
-    let reader = directory_reader_util::open(directory.into())?;
+    let reader = directory_reader::open(directory.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let query = self.get_knn_vector_query_no_filter("field", vec![2.0, 3.0], 3)?;
@@ -450,7 +450,7 @@ pub trait BaseKnnVectorQueryTestCase {
     }
     writer.close()?;
 
-    let reader = directory_reader_util::open(directory.into())?;
+    let reader = directory_reader::open(directory.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     assert_eq!(1, searcher.get_leaf_contexts()?.len());
     let query = self.get_knn_vector_query_no_filter("field", vec![2.0, 3.0], 3)?;
@@ -494,7 +494,7 @@ pub trait BaseKnnVectorQueryTestCase {
       VectorSimilarityFunction::MaximumInnerProduct,
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let kvq = self.get_knn_vector_query_no_filter("field", vec![0.0, -1.0], 10)?;
 
@@ -523,7 +523,7 @@ pub trait BaseKnnVectorQueryTestCase {
     }
     writer.close()?;
 
-    let reader = directory_reader_util::open(directory.into())?;
+    let reader = directory_reader::open(directory.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let query = self.get_knn_vector_query_no_filter("field", vec![2.0, 3.0], 3)?;
 
@@ -555,7 +555,7 @@ pub trait BaseKnnVectorQueryTestCase {
     }
     writer.close()?;
 
-    let reader = directory_reader_util::open(directory.into())?;
+    let reader = directory_reader::open(directory.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let query = self.get_knn_vector_query_no_filter("field", vec![2.0, 3.0], 3)?;
 
@@ -596,7 +596,7 @@ pub trait BaseKnnVectorQueryTestCase {
     }
     writer.close()?;
 
-    let reader = directory_reader_util::open(directory.into())?;
+    let reader = directory_reader::open(directory.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let mut results = searcher.search(
@@ -639,7 +639,7 @@ pub trait BaseKnnVectorQueryTestCase {
     }
     writer.close()?;
 
-    let reader = directory_reader_util::open(directory.into())?;
+    let reader = directory_reader::open(directory.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     for _ in 0..num_iters {
       let k = random.random_range(1..=80);
@@ -690,7 +690,7 @@ pub trait BaseKnnVectorQueryTestCase {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(directory.into())?;
+    let reader = directory_reader::open(directory.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let lower = random.random_range(0..50);
 
@@ -756,7 +756,7 @@ pub trait BaseKnnVectorQueryTestCase {
     writer.close()?;
 
     let hits = 50usize;
-    let reader = directory_reader_util::open(directory.into())?;
+    let reader = directory_reader::open(directory.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let query =
       self.get_knn_vector_query_no_filter("vector", self.random_vector(random, dim), hits)?;
@@ -801,7 +801,7 @@ pub trait BaseKnnVectorQueryTestCase {
     writer.commit()?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(directory.into())?;
+    let reader = directory_reader::open(directory.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let query =
       self.get_knn_vector_query_no_filter("vector", self.random_vector(random, dim), num_docs)?;
@@ -831,7 +831,7 @@ pub trait BaseKnnVectorQueryTestCase {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(directory.into())?;
+    let reader = directory_reader::open(directory.into())?;
     let leaf_reader = get_only_leaf_reader(&reader)?;
     let field_info = leaf_reader
       .get_field_infos()?
@@ -881,7 +881,7 @@ pub trait BaseKnnVectorQueryTestCase {
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let leaf = &searcher.get_leaf_contexts()?[0];
 
@@ -916,7 +916,7 @@ pub trait BaseKnnVectorQueryTestCase {
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let mut searcher = new_searcher_with_reader(reader)?;
 
     let query = self.get_knn_vector_query_no_filter("field", vec![0.0, 1.0], 2)?;

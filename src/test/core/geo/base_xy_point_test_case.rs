@@ -25,7 +25,7 @@ use crate::core::geo::xy_geometry::XYGeometryEnum;
 use crate::core::geo::xy_point::XYPoint;
 use crate::core::geo::xy_polygon::XYPolygon;
 use crate::core::geo::xy_rectangle::XYRectangle;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
@@ -734,7 +734,7 @@ pub trait BaseXYPointTestCase {
     let mut deleted = HashSet::new();
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, xs, ys, &mut deleted, &w)?;
-    let r = Arc::new(directory_reader_util::open_from_writer(&w)?);
+    let r = Arc::new(directory_reader::open_from_writer(&w)?);
     w.close()?;
 
     let s = new_searcher_with_reader(r.clone())?;
@@ -798,7 +798,7 @@ pub trait BaseXYPointTestCase {
     let mut deleted = HashSet::new();
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, xs, ys, &mut deleted, &w)?;
-    let r = Arc::new(directory_reader_util::open_from_writer(&w)?);
+    let r = Arc::new(directory_reader::open_from_writer(&w)?);
     w.close()?;
 
     let s = new_searcher_with_reader(r.clone())?;
@@ -870,7 +870,7 @@ pub trait BaseXYPointTestCase {
     let mut deleted = HashSet::new();
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, xs, ys, &mut deleted, &w)?;
-    let r = Arc::new(directory_reader_util::open_from_writer(&w)?);
+    let r = Arc::new(directory_reader::open_from_writer(&w)?);
     w.close()?;
 
     let s = new_searcher_with_reader(r.clone())?;
@@ -933,7 +933,7 @@ pub trait BaseXYPointTestCase {
     let mut deleted = HashSet::new();
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, xs, ys, &mut deleted, &w)?;
-    let r = Arc::new(directory_reader_util::open_from_writer(&w)?);
+    let r = Arc::new(directory_reader::open_from_writer(&w)?);
     w.close()?;
 
     let s = new_searcher_with_reader(r.clone())?;

@@ -18,7 +18,7 @@ use crate::analysis::common::analysis_impl::core::whitespace_analyzer::Whitespac
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::search::fuzzy_query::FuzzyQuery;
@@ -145,7 +145,7 @@ where
   A: Into<AnalyzerEnum>,
 {
   let d = get_directory(random, analyzer, docs)?;
-  let r = directory_reader_util::open(d.clone())?;
+  let r = directory_reader::open(d.clone())?;
   let s = new_searcher_with_reader(r)?;
   let total_hits = s.count(q.clone())?;
   assert_eq!(expected, total_hits, "{}", q.as_string("")?);

@@ -147,7 +147,7 @@ mod tests {
   use crate::core::document::long_point::LongPoint;
   use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
   use crate::core::index::BytesRef;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::index_writer_config::IndexWriterConfig;
   use crate::core::index::stored_fields::StoredFields;
@@ -1525,7 +1525,7 @@ mod tests {
     writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
     writer.force_merge(1)?;
 
-    let ir = directory_reader_util::open_from_writer(&writer)?;
+    let ir = directory_reader::open_from_writer(&writer)?;
     writer.close()?;
 
     let searcher = new_searcher_with_reader(ir)?;
@@ -1590,7 +1590,7 @@ mod tests {
     writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
     writer.force_merge(1)?;
 
-    let ir = directory_reader_util::open_from_writer(&writer)?;
+    let ir = directory_reader::open_from_writer(&writer)?;
     writer.close()?;
 
     let searcher = new_searcher_with_reader(ir)?;
@@ -1654,7 +1654,7 @@ mod tests {
     writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
     writer.force_merge(1)?;
 
-    let ir = directory_reader_util::open_from_writer(&writer)?;
+    let ir = directory_reader::open_from_writer(&writer)?;
     writer.close()?;
 
     let searcher = new_searcher_with_reader(ir)?;
@@ -1718,7 +1718,7 @@ mod tests {
     writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
     writer.force_merge(1)?;
 
-    let ir = directory_reader_util::open_from_writer(&writer)?;
+    let ir = directory_reader::open_from_writer(&writer)?;
     writer.close()?;
 
     let searcher = new_searcher_with_reader(ir)?;
@@ -1782,7 +1782,7 @@ mod tests {
     writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
     writer.force_merge(1)?;
 
-    let ir = directory_reader_util::open_from_writer(&writer)?;
+    let ir = directory_reader::open_from_writer(&writer)?;
     writer.close()?;
 
     let searcher = new_searcher_with_reader(ir)?;

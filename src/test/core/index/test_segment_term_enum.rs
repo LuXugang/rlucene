@@ -19,7 +19,7 @@ use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::BytesRef;
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -78,7 +78,7 @@ fn test_prev_term_at_end() -> Result<()> {
   add_doc(&mut random, &mut writer, "aaa bbb", &mut field_types)?;
   writer.close()?;
 
-  let reader = get_only_leaf_reader(directory_reader_util::open(dir.clone())?)?;
+  let reader = get_only_leaf_reader(directory_reader::open(dir.clone())?)?;
   let terms = reader.terms("content")?.expect("terms should exist");
   let mut terms_enum = terms.iterator()?;
 
@@ -105,7 +105,7 @@ fn test_prev_term_at_end() -> Result<()> {
   Ok(())
 }
 fn verify_doc_freq(dir: Arc<DirEnum>) -> Result<()> {
-  let reader = directory_reader_util::open(dir)?;
+  let reader = directory_reader::open(dir)?;
 
   let terms = get_terms(&reader, "content")?.expect("terms should exist");
   let mut term_enum = terms.iterator()?;

@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::field_infos::get_indexed_fields;
 use crate::core::index::multi_terms::get_terms;
 use crate::core::index::term::Term;
@@ -86,7 +86,7 @@ fn test_sum_doc_freq() -> Result<()> {
   writer.close()?;
 
   {
-    let ir = directory_reader_util::open(dir.clone())?;
+    let ir = directory_reader::open(dir.clone())?;
     assert_sum_doc_freq(ir)?;
   }
   Ok(())

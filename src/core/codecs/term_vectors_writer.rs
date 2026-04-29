@@ -264,7 +264,7 @@ mod tests {
   use crate::core::document::string_field::string_field_type;
   use crate::core::document::text_field::text_field_type;
   use crate::core::index::BytesRef;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::fields::Fields;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_writer::IndexWriter;
@@ -323,7 +323,7 @@ mod tests {
     w.add_document(doc)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut tv_reader = reader.term_vectors()?;
     let field0 = tv_reader.get(0)?;
@@ -397,7 +397,7 @@ mod tests {
     w.add_document(doc)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut tv_reader = reader.term_vectors()?;
     let field = tv_reader.get(0)?;
@@ -458,7 +458,7 @@ mod tests {
     w.add_document(doc)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut tv_reader = reader.term_vectors()?;
     let field = tv_reader.get(0)?;
@@ -522,7 +522,7 @@ mod tests {
     w.add_document(doc)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut tv_reader = reader.term_vectors()?;
     let field = tv_reader.get(0)?;
@@ -588,7 +588,7 @@ mod tests {
     w.add_document(doc)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut tv_reader = reader.term_vectors()?;
     let field = tv_reader.get(0)?;
@@ -653,7 +653,7 @@ mod tests {
     w.add_document(doc)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut tv_reader = reader.term_vectors()?;
     let field = tv_reader.get(0)?;
@@ -724,7 +724,7 @@ mod tests {
     w.add_document(doc)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut tv_reader = reader.term_vectors()?;
     let field = tv_reader.get(0)?;
@@ -805,7 +805,7 @@ mod tests {
       writer.close()?;
       drop(writer);
 
-      let reader = directory_reader_util::open(dir.clone())?;
+      let reader = directory_reader::open(dir.clone())?;
       let mut stored_fields = reader.stored_fields()?;
       let mut term_vectors = reader.term_vectors()?;
       for i in 0..reader.num_docs()? {
@@ -885,7 +885,7 @@ mod tests {
       writer.force_merge(1)?;
       writer.close()?;
 
-      let reader = directory_reader_util::open(dir.clone())?;
+      let reader = directory_reader::open(dir.clone())?;
       let mut tv_reader = reader.term_vectors()?;
 
       assert!(tv_reader.get(0)?.is_none());
@@ -956,7 +956,7 @@ mod tests {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut stored_fields = reader.stored_fields()?;
     let mut term_vectors = reader.term_vectors()?;
@@ -1194,7 +1194,7 @@ mod tests {
       _ => unreachable!("unexpected error: {:?}", err),
     }
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     // Make sure the exc didn't lose our first document:
     assert_eq!(1, reader.num_docs()?);
 

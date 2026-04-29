@@ -308,7 +308,7 @@ mod tests {
   use crate::core::document::field::Store;
   use crate::core::document::field_type::FieldType;
 
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::stored_fields::StoredFields;
@@ -350,7 +350,7 @@ mod tests {
     add_doc(&mut random, "two", &iw, &mut field_types)?;
     add_doc(&mut random, "three four", &iw, &mut field_types)?;
 
-    let ir = directory_reader_util::open_from_writer(&iw)?;
+    let ir = directory_reader::open_from_writer(&iw)?;
     let mut searcher = new_searcher_with_reader(ir)?;
 
     let mut hits = searcher.search(MatchAllDocsQuery::new(), 1000)?.score_docs;
@@ -399,7 +399,7 @@ mod tests {
 
     iw.delete_documents_with_terms(vec![Term::from_text("key", "one")])?;
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     searcher = new_searcher_with_reader(reader)?;
 
     hits = searcher.search(MatchAllDocsQuery::new(), 1000)?.score_docs;
@@ -449,7 +449,7 @@ mod tests {
       add_doc(&mut random, &text, &iw, &mut field_types)?;
     }
 
-    let ir = directory_reader_util::open_from_writer(&iw)?;
+    let ir = directory_reader::open_from_writer(&iw)?;
     let ir_arc = Arc::new(ir);
 
     let single_threaded_searcher = new_searcher_with_threads(ir_arc.clone(), true, true, false)?;

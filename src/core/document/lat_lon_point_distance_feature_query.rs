@@ -853,7 +853,7 @@ mod tests {
   use super::*;
   use crate::core::document::document::Document;
   use crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::multi_reader::MultiReader;
@@ -1317,7 +1317,7 @@ mod tests {
       w.add_document(doc)?;
     }
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let num_iters = at_least(&mut random, 3);

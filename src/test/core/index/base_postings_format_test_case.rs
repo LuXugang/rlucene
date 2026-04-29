@@ -21,7 +21,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::text_field::{TextField, text_field_type};
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::get_context;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_writer::IndexWriter;
@@ -418,7 +418,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     iw.commit()?;
     iw.force_merge(1)?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let mut terms_enum = get_only_leaf_reader(reader)?
       .terms("id")?
       .unwrap()
@@ -471,7 +471,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     iw.commit()?;
     iw.force_merge(1)?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let mut terms_enum = get_only_leaf_reader(reader)?
       .terms("id")?
       .unwrap()
@@ -558,7 +558,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     iw.add_document(Document::new())?;
     iw.force_merge(1)?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = IndexSearcher::new(get_context(reader)?)?;
     assert_eq!(
       1,

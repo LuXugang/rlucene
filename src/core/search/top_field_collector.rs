@@ -1367,7 +1367,7 @@ mod tests {
   use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 
   use crate::core::index::composite_reader::{CompositeReader, get_context};
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
@@ -1633,7 +1633,7 @@ mod tests {
     }
     writer.flush()?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let reader = get_context(reader)?;
     assert_eq!(2, reader.leaves()?.len());
     writer.close()?;
@@ -1721,7 +1721,7 @@ mod tests {
     }
     writer.flush()?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let reader = get_context(reader)?;
     assert_eq!(2, reader.leaves()?.len());
     writer.close()?;
@@ -1796,7 +1796,7 @@ mod tests {
     }
     writer.flush()?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let reader = get_context(reader)?;
     assert_eq!(2, reader.leaves()?.len());
     writer.close()?;
@@ -2017,7 +2017,7 @@ mod tests {
     w.add_documents(vec![doc; 2])?;
     w.flush()?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     let reader = get_context(reader)?;
     assert_eq!(3, reader.leaves()?.len());
     w.close()?;

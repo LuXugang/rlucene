@@ -202,7 +202,7 @@ mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
   use crate::core::document::field_type::FieldType;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::term::Term;
@@ -272,7 +272,7 @@ mod tests {
     add_doc("two", &mut iw, &mut random, &mut field_to_type)?;
     add_doc("three", &mut iw, &mut random, &mut field_to_type)?;
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let mut query: Query = MatchNoDocsQuery::with_reason("field not found").into();

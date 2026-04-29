@@ -87,7 +87,7 @@ mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
   use crate::core::document::string_field::StringField;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::term::Term;
   use crate::core::search::boolean_clause::Occur;
@@ -127,7 +127,7 @@ mod tests {
     index_writer.add_document(document)?;
     index_writer.commit()?;
 
-    let index_reader = directory_reader_util::open(directory)?;
+    let index_reader = directory_reader::open(directory)?;
     let mut index_searcher = new_searcher_with_reader(index_reader)?;
     index_searcher.set_similarity(classic_similarity::new());
     Ok(index_searcher)

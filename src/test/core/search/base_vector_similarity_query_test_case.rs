@@ -19,7 +19,7 @@ use crate::core::document::field::Store;
 use crate::core::document::fields::Fields;
 use crate::core::document::int_field::IntField;
 use crate::core::document::string_field::StringField;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -252,7 +252,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     };
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let query = self.get_vector_query(
       vector_field,
@@ -276,7 +276,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     };
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     HnswUtil::graph_is_rooted(&reader, vector_field)?;
     let searcher = new_searcher_with_reader(reader)?;
 
@@ -315,7 +315,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
 
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     HnswUtil::graph_is_rooted(&reader, vector_field)?;
     let searcher = new_searcher_with_reader(reader)?;
     let query = self.get_vector_query(
@@ -345,7 +345,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     };
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let filter1: Query = TermQuery::new(Term::from_text("random_field", "random_value")).into();
@@ -381,7 +381,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     let new_dim = at_least_usize(random, dim + 1);
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let query = self.get_vector_query(
       vector_field,
@@ -409,7 +409,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     };
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let query1 = self.get_vector_query(
@@ -453,7 +453,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     writer.commit()?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     HnswUtil::graph_is_rooted(&reader, vector_field)?;
     let searcher = new_searcher_with_reader(reader)?;
     let query = self.get_vector_query(
@@ -493,7 +493,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     let delta = 1e-3;
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let query1: Query = self
@@ -545,7 +545,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     }
 
     let index_store = self.get_index_store(random, vectors)?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let searcher = new_searcher_with_reader(reader)?;
     let query = self.get_vector_query(
       vector_field,
@@ -593,7 +593,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     let query_vector = self.get_random_vector(random, dim);
 
     let index_store = self.get_index_store(random, vectors)?;
-    let reader = directory_reader_util::open(index_store.into())?;
+    let reader = directory_reader::open(index_store.into())?;
     let mut searcher = new_searcher_with_reader(reader)?;
 
     searcher.set_query_cache(None);

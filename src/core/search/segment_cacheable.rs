@@ -59,7 +59,7 @@ mod tests {
   use crate::core::document::field::Store;
   use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
   use crate::core::index::composite_reader::get_context;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::doc_values::DocValues;
   use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
   use crate::core::index::index_writer::IndexWriter;
@@ -178,7 +178,7 @@ mod tests {
     writer.add_document(doc)?;
     writer.commit()?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let reader_context = get_context(reader)?;
     let ctx = &reader_context.leaves()?[0];
 
@@ -190,7 +190,7 @@ mod tests {
     writer.update_numeric_doc_value(Term::from_text("text", "text"), "field3", 2)?;
     writer.commit()?;
     drop(reader_context);
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let reader_context = get_context(reader)?;
     let ctx = &reader_context.leaves()?[0];

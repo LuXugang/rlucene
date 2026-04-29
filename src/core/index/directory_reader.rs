@@ -14,13 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::IndexFileNames;
 use crate::core::index::base_composite_reader::BaseCompositeReader;
+use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
+
+use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
+use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::standard_directory_reader::{
+  StandardDirectoryReader, StandardDirectoryReaderType,
+};
+use crate::core::util::Comparator;
+use crate::core::util::dummy::dummy_comparator::DummyComparator;
 /// [`DirectoryReader`] is an implementation of [`CompositeReader`](crate::core::index::composite_reader::CompositeReader) that can read indexes
 /// from a [`Directory`].
 ///
@@ -129,211 +139,192 @@ pub trait DirectoryReader: BaseCompositeReader {
   fn directory(&self) -> &DirectoryReaderBase<Self::Directory>;
 }
 
-pub mod directory_reader_util {
-  use crate::core::index::IndexFileNames;
-  use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
-  use crate::core::index::index_commit::IndexCommit;
+/// Returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index in the given [`Directory`].
+///
+/// # Parameters
+///
+/// * `directory` – the index directory.
+///
+/// # Errors
+///
+/// Returns an error if there is a low-level I/O error.
+pub fn open<D>(
+  directory: Arc<D>,
+) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator, D>>
+where
+  D: Directory,
+{
+  StandardDirectoryReader::<DummyLeafReader, _, _>::open::<DummyIndexCommit<D>>(
+    directory, None, None,
+  )
+}
 
-  use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
-  use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-  use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-  use crate::core::index::segment_reader::SegmentReader;
-  use crate::core::index::standard_directory_reader::{
-    StandardDirectoryReader, StandardDirectoryReaderType,
-  };
-  use crate::core::store::directory::Directory;
-  use crate::core::util::Comparator;
-  use crate::core::util::dummy::dummy_comparator::DummyComparator;
-  use crate::core::util::error::lucene_error::Result;
-  use std::sync::Arc;
+/// Returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) for the index in the given [`Directory`].
+///
+/// # Parameters
+///
+/// * `directory` – the index directory.
+/// * `leaf_sorter` – a comparator for sorting leaf readers.
+///   Providing `leaf_sorter` is useful for indices expected to run many queries with particular sort
+///   criteria (e.g., for time-based indices this is usually a descending sort on timestamp).
+///   In this case, `leaf_sorter` should sort leaves according to this sort criteria.
+///   Providing `leaf_sorter` allows speeding up this particular type of sort queries by early
+///   termination while iterating through segments and their documents.
+///
+/// # Errors
+///
+/// Returns an error if there is a low-level I/O error.
+pub fn open_with_sorter<D, C>(
+  directory: Arc<D>,
+  leaf_sorter: Option<C>,
+) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
+where
+  D: Directory,
+  C: Comparator<Arc<SegmentReader<D>>>,
+{
+  StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, leaf_sorter)
+}
+/// Opens a near real-time `IndexReader` from the given [`IndexWriter`].
+///
+/// # Arguments
+///
+/// * `writer` - The [`IndexWriter`] to open from.
+///
+/// # Returns
+///
+/// The newly created `IndexReader`.
+///
+/// # Errors
+///
+/// * [`CorruptIndex`](crate::core::util::error::lucene_error::LuceneError::corrupt_index) – If the index is corrupt.
+/// * [`Io`](crate::core::util::error::lucene_error::LuceneError::io) – If a low-level I/O error occurs.
+pub fn open_from_writer<D, L, B>(
+  writer: &IndexWriter<D, L, B>,
+) -> Result<StandardDirectoryReaderType<D>>
+where
+  D: Directory,
+  L: LiveIndexWriterConfig,
+  B: IndexWriterBase,
+{
+  open_with_writer_deletes(writer, true, false)
+}
+/// Expert: Opens a near real-time `IndexReader` from the given [`IndexWriter`],
+/// controlling whether past deletions should be applied.
+///
+/// # Arguments
+///
+/// * `writer` - The [`IndexWriter`] to open from.
+/// * `apply_all_deletes` - If `true`, all buffered deletes will be applied (made visible)
+///   in the returned reader.
+///   If `false`, the deletes remain buffered in the `IndexWriter` and will be applied later.
+///   Applying deletes can be costly, so if your application can tolerate deleted documents
+///   being returned, you may gain some performance by passing `false`.
+/// * `write_all_deletes` - If `true`, new deletes will be written down to index files instead of
+///   being carried over directly in heap from writer to reader.
+///
+/// # See also
+///
+/// [`open`](open_from_writer)
+///
+/// # Lucene
+///
+/// This API is marked as **experimental** in Lucene.
+pub fn open_with_writer_deletes<D, L, B>(
+  writer: &IndexWriter<D, L, B>,
+  apply_all_deletes: bool,
+  write_all_deletes: bool,
+) -> Result<StandardDirectoryReaderType<D>>
+where
+  D: Directory,
+  L: LiveIndexWriterConfig,
+  B: IndexWriterBase,
+{
+  writer.get_reader(apply_all_deletes, write_all_deletes)
+}
 
-  /// Returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index in the given [`Directory`].
-  ///
-  /// # Parameters
-  ///
-  /// * `directory` – the index directory.
-  ///
-  /// # Errors
-  ///
-  /// Returns an error if there is a low-level I/O error.
-  pub fn open<D>(
-    directory: Arc<D>,
-  ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator, D>>
-  where
-    D: Directory,
-  {
-    StandardDirectoryReader::<DummyLeafReader, _, _>::open::<DummyIndexCommit<D>>(
-      directory, None, None,
-    )
-  }
+/// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index in the given `IndexCommit`.
+///
+/// # Parameters
+///
+/// * `commit` – the commit point to open.
+///
+/// # Errors
+///
+/// Returns an error if there is a low-level I/O error.
+pub fn open_from_commit<D, C, IC>(
+  commit: &IC,
+) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
+where
+  D: Directory,
+  C: Comparator<Arc<SegmentReader<D>>>,
+  IC: IndexCommit<Directory = D>,
+{
+  StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)
+}
 
-  /// Returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) for the index in the given [`Directory`].
-  ///
-  /// # Parameters
-  ///
-  /// * `directory` – the index directory.
-  /// * `leaf_sorter` – a comparator for sorting leaf readers.
-  ///   Providing `leaf_sorter` is useful for indices expected to run many queries with particular sort
-  ///   criteria (e.g., for time-based indices this is usually a descending sort on timestamp).
-  ///   In this case, `leaf_sorter` should sort leaves according to this sort criteria.
-  ///   Providing `leaf_sorter` allows speeding up this particular type of sort queries by early
-  ///   termination while iterating through segments and their documents.
-  ///
-  /// # Errors
-  ///
-  /// Returns an error if there is a low-level I/O error.
-  pub fn open_with_sorter<D, C>(
-    directory: Arc<D>,
-    leaf_sorter: Option<C>,
-  ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
-  where
-    D: Directory,
-    C: Comparator<Arc<SegmentReader<D>>>,
-  {
-    StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, leaf_sorter)
-  }
-  /// Opens a near real-time `IndexReader` from the given [`IndexWriter`].
-  ///
-  /// # Arguments
-  ///
-  /// * `writer` - The [`IndexWriter`] to open from.
-  ///
-  /// # Returns
-  ///
-  /// The newly created `IndexReader`.
-  ///
-  /// # Errors
-  ///
-  /// * [`CorruptIndex`](crate::core::util::error::lucene_error::LuceneError::corrupt_index) – If the index is corrupt.
-  /// * [`Io`](crate::core::util::error::lucene_error::LuceneError::io) – If a low-level I/O error occurs.
-  pub fn open_from_writer<D, L, B>(
-    writer: &IndexWriter<D, L, B>,
-  ) -> Result<StandardDirectoryReaderType<D>>
-  where
-    D: Directory,
-    L: LiveIndexWriterConfig,
-    B: IndexWriterBase,
-  {
-    open_with_writer_deletes(writer, true, false)
-  }
-  /// Expert: Opens a near real-time `IndexReader` from the given [`IndexWriter`],
-  /// controlling whether past deletions should be applied.
-  ///
-  /// # Arguments
-  ///
-  /// * `writer` - The [`IndexWriter`] to open from.
-  /// * `apply_all_deletes` - If `true`, all buffered deletes will be applied (made visible)
-  ///   in the returned reader.
-  ///   If `false`, the deletes remain buffered in the `IndexWriter` and will be applied later.
-  ///   Applying deletes can be costly, so if your application can tolerate deleted documents
-  ///   being returned, you may gain some performance by passing `false`.
-  /// * `write_all_deletes` - If `true`, new deletes will be written down to index files instead of
-  ///   being carried over directly in heap from writer to reader.
-  ///
-  /// # See also
-  ///
-  /// [`open`](open_from_writer)
-  ///
-  /// # Lucene
-  ///
-  /// This API is marked as **experimental** in Lucene.
-  pub fn open_with_writer_deletes<D, L, B>(
-    writer: &IndexWriter<D, L, B>,
-    apply_all_deletes: bool,
-    write_all_deletes: bool,
-  ) -> Result<StandardDirectoryReaderType<D>>
-  where
-    D: Directory,
-    L: LiveIndexWriterConfig,
-    B: IndexWriterBase,
-  {
-    writer.get_reader(apply_all_deletes, write_all_deletes)
-  }
+pub fn index_exists(directory: &impl Directory) -> Result<bool> {
+  // LUCENE-2812, LUCENE-2727, LUCENE-4738: this logic will
+  // return true in cases that should arguably be false,
+  // such as only IW.prepareCommit has been called, or a
+  // corrupt first commit, but it's too deadly to make
+  // this logic "smarter" and risk accidentally returning
+  // false due to various cases like file description
+  // exhaustion, access denied, etc., because in that
+  // case IndexWriter may delete the entire index.  It's
+  // safer to err towards "index exists" than try to be
+  // smart about detecting not-yet-fully-committed or
+  // corrupt indices.  This means that IndexWriter will
+  // throw an exception on such indices and the app must
+  // resolve the situation manually:
+  let files = directory.list_all()?; // returns Vec<String>
 
-  /// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index in the given `IndexCommit`.
-  ///
-  /// # Parameters
-  ///
-  /// * `commit` – the commit point to open.
-  ///
-  /// # Errors
-  ///
-  /// Returns an error if there is a low-level I/O error.
-  pub fn open_from_commit<D, C, IC>(
-    commit: &IC,
-  ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
-  where
-    D: Directory,
-    C: Comparator<Arc<SegmentReader<D>>>,
-    IC: IndexCommit<Directory = D>,
-  {
-    StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)
-  }
-
-  pub fn index_exists(directory: &impl Directory) -> Result<bool> {
-    // LUCENE-2812, LUCENE-2727, LUCENE-4738: this logic will
-    // return true in cases that should arguably be false,
-    // such as only IW.prepareCommit has been called, or a
-    // corrupt first commit, but it's too deadly to make
-    // this logic "smarter" and risk accidentally returning
-    // false due to various cases like file description
-    // exhaustion, access denied, etc., because in that
-    // case IndexWriter may delete the entire index.  It's
-    // safer to err towards "index exists" than try to be
-    // smart about detecting not-yet-fully-committed or
-    // corrupt indices.  This means that IndexWriter will
-    // throw an exception on such indices and the app must
-    // resolve the situation manually:
-    let files = directory.list_all()?; // returns Vec<String>
-
-    let prefix = format!("{}_", IndexFileNames::SEGMENTS);
-    for file in files {
-      if file.starts_with(&prefix) {
-        return Ok(true);
-      }
+  let prefix = format!("{}_", IndexFileNames::SEGMENTS);
+  for file in files {
+    if file.starts_with(&prefix) {
+      return Ok(true);
     }
-    Ok(false)
   }
-  /// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index on the given `IndexCommit`.
-  ///
-  /// This method allows opening indices that were created with a Lucene version older than N-1,
-  /// provided that all codecs for this index are available in the classpath and the segment file
-  /// format used was created with Lucene 7 or newer.
-  /// Users of this API must be aware that Lucene does not guarantee semantic compatibility for
-  /// indices created with versions older than N-1. All backwards compatibility aside from the file
-  /// format is optional and applied on a best-effort basis.
-  ///
-  /// # Parameters
-  ///
-  /// * `commit` – the commit point to open
-  /// * `min_supported_major_version` – the minimum supported major index version
-  /// * `leaf_sorter` – a comparator for sorting leaf readers.
-  ///   Providing `leaf_sorter` is useful for indices expected to run many queries with particular sort
-  ///   criteria (e.g., for time-based indices, this is usually a descending sort on timestamp).
-  ///   In this case, `leaf_sorter` should sort leaves according to this sort criteria.
-  ///   Providing `leaf_sorter` allows speeding up this type of sort queries by early termination
-  ///   while iterating through segments and their documents.
-  ///
-  /// # Errors
-  ///
-  /// Returns an error if there is a low-level I/O error.
-  pub fn open_with_commit_version_sorter<D, C, IC>(
-    commit: &IC,
-    min_supported_major_version: i32,
-    leaf_sorter: Option<C>,
-  ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
-  where
-    D: Directory,
-    C: Comparator<Arc<SegmentReader<D>>>,
-    IC: IndexCommit<Directory = D>,
-  {
-    StandardDirectoryReader::open_with_version(
-      commit.get_directory(),
-      min_supported_major_version,
-      Some(commit),
-      leaf_sorter,
-    )
-  }
+  Ok(false)
+}
+/// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index on the given `IndexCommit`.
+///
+/// This method allows opening indices that were created with a Lucene version older than N-1,
+/// provided that all codecs for this index are available in the classpath and the segment file
+/// format used was created with Lucene 7 or newer.
+/// Users of this API must be aware that Lucene does not guarantee semantic compatibility for
+/// indices created with versions older than N-1. All backwards compatibility aside from the file
+/// format is optional and applied on a best-effort basis.
+///
+/// # Parameters
+///
+/// * `commit` – the commit point to open
+/// * `min_supported_major_version` – the minimum supported major index version
+/// * `leaf_sorter` – a comparator for sorting leaf readers.
+///   Providing `leaf_sorter` is useful for indices expected to run many queries with particular sort
+///   criteria (e.g., for time-based indices, this is usually a descending sort on timestamp).
+///   In this case, `leaf_sorter` should sort leaves according to this sort criteria.
+///   Providing `leaf_sorter` allows speeding up this type of sort queries by early termination
+///   while iterating through segments and their documents.
+///
+/// # Errors
+///
+/// Returns an error if there is a low-level I/O error.
+pub fn open_with_commit_version_sorter<D, C, IC>(
+  commit: &IC,
+  min_supported_major_version: i32,
+  leaf_sorter: Option<C>,
+) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
+where
+  D: Directory,
+  C: Comparator<Arc<SegmentReader<D>>>,
+  IC: IndexCommit<Directory = D>,
+{
+  StandardDirectoryReader::open_with_version(
+    commit.get_directory(),
+    min_supported_major_version,
+    Some(commit),
+    leaf_sorter,
+  )
 }
 pub struct DirectoryReaderBase<D> {
   pub directory: Arc<D>,

@@ -207,7 +207,7 @@ mod tests {
   use crate::core::index::BytesRef;
   use crate::core::index::binary_doc_values::BinaryDocValues;
   use crate::core::index::composite_reader::get_context;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
@@ -349,9 +349,9 @@ mod tests {
     // Open reader: either NRT or non-NRT
     let reader = if random.random_bool(0.5) {
       writer.close()?;
-      directory_reader_util::open(dir.clone())?
+      directory_reader::open(dir.clone())?
     } else {
-      let r = directory_reader_util::open_from_writer(&writer)?;
+      let r = directory_reader::open_from_writer(&writer)?;
       writer.close()?;
       r
     };
@@ -403,9 +403,9 @@ mod tests {
 
     let reader = if random.random_bool(0.5) {
       writer.close()?;
-      directory_reader_util::open(dir.clone())?
+      directory_reader::open(dir.clone())?
     } else {
-      let r = directory_reader_util::open_from_writer(&writer)?;
+      let r = directory_reader::open_from_writer(&writer)?;
       writer.close()?;
       r
     };
@@ -463,9 +463,9 @@ mod tests {
 
     let reader = if random.random_bool(0.5) {
       writer.close()?;
-      directory_reader_util::open(dir.clone())?
+      directory_reader::open(dir.clone())?
     } else {
-      let r = directory_reader_util::open_from_writer(&writer)?;
+      let r = directory_reader::open_from_writer(&writer)?;
       writer.close()?;
       r
     };
@@ -515,9 +515,9 @@ mod tests {
     // open reader
     let reader = if random.random_bool(0.5) {
       writer.close()?;
-      directory_reader_util::open(dir.clone())?
+      directory_reader::open(dir.clone())?
     } else {
-      let r = directory_reader_util::open_from_writer(&writer)?;
+      let r = directory_reader::open_from_writer(&writer)?;
       writer.close()?;
       r
     };
@@ -575,7 +575,7 @@ mod tests {
     )?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     let leaves = reader.leaves()?;
     let r = leaves[0].reader();
@@ -651,7 +651,7 @@ mod tests {
     writer.close()?;
 
     // open reader
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     let leaves = reader.leaves()?;
     let r = leaves[0].reader();
@@ -699,7 +699,7 @@ mod tests {
     writer.close()?;
 
     // open reader
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     let leaves = reader.leaves()?;
     assert_eq!(1, leaves.len());
@@ -769,7 +769,7 @@ mod tests {
 
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut bdv = MultiDocValues::get_binary_values(&reader, "bdv")?.unwrap();
     let mut sdv = MultiDocValues::get_sorted_values(&reader, "sorted")?.unwrap();
@@ -812,7 +812,7 @@ mod tests {
 
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut bdv = MultiDocValues::get_binary_values(&reader, "bdv")?.unwrap();
 
@@ -890,9 +890,9 @@ mod tests {
 
       let reader = if random.random_bool(0.5) {
         writer.commit()?;
-        directory_reader_util::open(dir.clone())?
+        directory_reader::open(dir.clone())?
       } else {
-        directory_reader_util::open_from_writer(&writer)?
+        directory_reader::open_from_writer(&writer)?
       };
       let reader = get_context(reader)?;
       assert_eq!(1, reader.leaves()?.len());
@@ -940,7 +940,7 @@ mod tests {
 
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut bdv = MultiDocValues::get_binary_values(&reader, "bdv")?.unwrap();
 
@@ -1113,7 +1113,7 @@ mod tests {
     writer.close()?;
 
     // Validation phase
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let reader = get_context(reader)?;
     for ctx in reader.leaves()? {
       let r = ctx.reader();
@@ -1168,7 +1168,7 @@ mod tests {
     writer.commit()?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let reader = get_context(reader)?;
     let leaves = reader.leaves()?;
     let r1 = leaves[0].reader();
@@ -1208,7 +1208,7 @@ mod tests {
     writer.close()?;
 
     // verify BDV content unchanged
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     let mut bdv = reader.leaves()?[0]
       .reader()
@@ -1261,7 +1261,7 @@ mod tests {
         ],
       )?;
 
-      let reader = directory_reader_util::open_from_writer(&writer)?;
+      let reader = directory_reader::open_from_writer(&writer)?;
       let reader = get_context(reader)?;
 
       for ctx in reader.leaves()? {
@@ -1396,7 +1396,7 @@ mod tests {
 
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     for context in reader.leaves()? {
       let r = context.reader();
@@ -1445,7 +1445,7 @@ mod tests {
 
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
 
     let leaf = &reader.leaves()?[0];
@@ -1494,7 +1494,7 @@ mod tests {
     writer.close()?;
 
     // open reader and verify
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
 
     let leaf = &reader.leaves()?[0];
@@ -1527,7 +1527,7 @@ mod tests {
     writer.close()?;
 
     // open reader and verify value not changed
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
 
     let leaf = &reader.leaves()?[0];

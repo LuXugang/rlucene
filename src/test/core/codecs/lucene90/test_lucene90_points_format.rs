@@ -16,7 +16,7 @@
  */
 use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::document::Document;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -99,7 +99,7 @@ impl TestLucene90PointsFormat {
     w.force_merge(1)?;
     w.close()?;
 
-    let r = directory_reader_util::open(dir)?;
+    let r = directory_reader::open(dir)?;
     let lr = get_only_leaf_reader(r)?;
     let points = lr
       .get_point_values("f")?
@@ -204,7 +204,7 @@ impl TestLucene90PointsFormat {
     }
 
     w.force_merge(1)?;
-    let r = directory_reader_util::open_from_writer(&w)?;
+    let r = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
     let lr = get_only_leaf_reader(r)?;

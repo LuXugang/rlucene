@@ -21,7 +21,7 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::composite_reader::get_context;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
@@ -114,7 +114,7 @@ fn test_non_ram_delete() -> Result<()> {
   modifier.commit()?;
 
   {
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     assert_eq!(7, reader.num_docs()?);
   }
 
@@ -123,7 +123,7 @@ fn test_non_ram_delete() -> Result<()> {
   modifier.commit()?;
 
   {
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     assert_eq!(0, reader.num_docs()?);
   }
 
@@ -174,7 +174,7 @@ fn test_both_deletes() -> Result<()> {
   writer.commit()?;
 
   {
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     assert_eq!(5, reader.num_docs()?);
   }
 
@@ -205,7 +205,7 @@ fn test_batch_deletes() -> Result<()> {
   modifier.commit()?;
 
   {
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     assert_eq!(7, reader.num_docs()?);
   }
 
@@ -220,7 +220,7 @@ fn test_batch_deletes() -> Result<()> {
   modifier.commit()?;
 
   {
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     assert_eq!(5, reader.num_docs()?);
   }
 
@@ -234,7 +234,7 @@ fn test_batch_deletes() -> Result<()> {
   modifier.commit()?;
 
   {
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     assert_eq!(2, reader.num_docs()?);
   }
   modifier.close()?;
@@ -353,7 +353,7 @@ fn get_hit_count<D>(dir: Arc<D>, term: Term) -> Result<i64>
 where
   D: Directory + 'static,
 {
-  let reader = directory_reader_util::open(dir)?;
+  let reader = directory_reader::open(dir)?;
   let searcher = new_searcher_with_reader(reader)?;
   let top_docs = searcher.search(TermQuery::new(term.clone()), 1000)?;
   Ok(top_docs.total_hits.value() as i64)
@@ -466,7 +466,7 @@ fn test_only_deletes_triggers_merge_on_close() -> Result<()> {
 
   w.close()?;
 
-  let r = directory_reader_util::open(dir.clone())?;
+  let r = directory_reader::open(dir.clone())?;
   let reader = get_context(r)?;
   assert_eq!(1, reader.leaves()?.len());
   Ok(())
@@ -507,9 +507,9 @@ fn test_only_deletes_triggers_merge_on_get_reader() -> Result<()> {
   }
 
   // First one triggers, but does not reflect, the merge:
-  let _ = directory_reader_util::open_from_writer(&w)?;
+  let _ = directory_reader::open_from_writer(&w)?;
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   let reader = get_context(r)?;
   assert_eq!(1, reader.leaves()?.len());
 
@@ -551,8 +551,8 @@ fn test_only_deletes_triggers_merge_on_flush() -> Result<()> {
     w.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
   }
 
-  let _ = directory_reader_util::open_from_writer(&w)?;
-  let reader = directory_reader_util::open_from_writer(&w)?;
+  let _ = directory_reader::open_from_writer(&w)?;
+  let reader = directory_reader::open_from_writer(&w)?;
   let reader = get_context(reader)?;
   assert_eq!(1, reader.leaves()?.len());
   w.close()?;
@@ -592,7 +592,7 @@ fn test_only_deletes_delete_all_docs() -> Result<()> {
     w.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
   }
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
   assert_eq!(0, r.max_doc()?);
   let reader = get_context(r)?;
   assert_eq!(0, reader.leaves()?.len());

@@ -510,7 +510,7 @@ pub(crate) mod tests {
 
   use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
   use crate::core::document::string_field::StringField;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::index_writer_config::IndexWriterConfig;
   use crate::core::search::boolean_clause::Occur;
@@ -1385,7 +1385,7 @@ pub(crate) mod tests {
       writer.add_document(doc)?;
     }
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     writer.close()?;
 
     let searcher = new_searcher_with_reader(reader)?;

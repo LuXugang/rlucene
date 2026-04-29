@@ -225,7 +225,7 @@ mod tests {
   use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::multi_terms::get_terms;
   use crate::core::index::term::Term;
@@ -284,7 +284,7 @@ mod tests {
     let mut random = random();
 
     let index_store = get_index_store(&mut random, "field", &["nowildcard", "nowildcardx"])?;
-    let reader = directory_reader_util::open(index_store)?;
+    let reader = directory_reader::open(index_store)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let wq = WildcardQuery::new(Term::from_text("field", "nowildcard"))?;
@@ -328,7 +328,7 @@ mod tests {
     let mut random = random();
 
     let index_store = get_index_store(&mut random, "field", &["nowildcard", "nowildcardx"])?;
-    let reader = directory_reader_util::open(index_store.clone())?;
+    let reader = directory_reader::open(index_store.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let wq: Query = WildcardQuery::with_rewrite(
@@ -349,7 +349,7 @@ mod tests {
     let mut random = random();
 
     let index_store = get_index_store(&mut random, "field", &["prefix", "prefixx"])?;
-    let reader = directory_reader_util::open(index_store.clone())?;
+    let reader = directory_reader::open(index_store.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let mut wq: Query = WildcardQuery::new(Term::from_text("field", "prefix*"))?.into();
@@ -372,7 +372,7 @@ mod tests {
     let mut random = random();
 
     let index_store = get_index_store(&mut random, "body", &["metal", "metals"])?;
-    let reader = directory_reader_util::open(index_store.clone())?;
+    let reader = directory_reader::open(index_store.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let query1 = TermQuery::new(Term::from_text("body", "metal"));
@@ -427,7 +427,7 @@ mod tests {
       "body",
       &["metal", "metals", "mXtals", "mXtXls"],
     )?;
-    let reader = directory_reader_util::open(index_store.clone())?;
+    let reader = directory_reader::open(index_store.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let query1 = WildcardQuery::new(Term::from_text("body", "m?tal"))?;
@@ -461,7 +461,7 @@ mod tests {
         "foo\\",
       ],
     )?;
-    let reader = directory_reader_util::open(index_store.clone())?;
+    let reader = directory_reader::open(index_store.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     // without escape: matches foo??bar, fooCDbar, foo*bar, and fooSOMETHINGbar
@@ -619,7 +619,7 @@ mod tests {
     }
     iw.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(Arc::new(reader))?;
 
     // test queries that must find all
@@ -676,7 +676,7 @@ mod tests {
     writer.add_document(doc)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let query: Query = WildcardQuery::new(Term::from_text("body", format!("{}*", big)))?.into();
@@ -727,7 +727,7 @@ mod tests {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
     assert_eq!(searcher.get_leaf_contexts()?.len(), 1);
     let lrc = &searcher.get_leaf_contexts()?[0];

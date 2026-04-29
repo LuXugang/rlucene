@@ -22,7 +22,7 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::composite_reader::get_context;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -116,8 +116,8 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     if !docs.is_empty() {
       let ids_list = docs.keys().cloned().collect::<Vec<_>>();
       for _ in 0..2 {
-        let reader = self
-          .maybe_wrap_with_merging_reader(directory_reader_util::open_from_writer(&writer.w)?)?;
+        let reader =
+          self.maybe_wrap_with_merging_reader(directory_reader::open_from_writer(&writer.w)?)?;
         let searcher = new_searcher_with_reader(reader)?;
         let mut stored_fields = searcher.stored_fields()?;
 
@@ -277,7 +277,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let reader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open_from_writer(&writer.w)?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open_from_writer(&writer.w)?)?;
     writer.close()?;
     assert_eq!(num_docs as i32, reader.num_docs()?);
 
@@ -539,8 +539,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(2)?;
     writer.commit()?;
 
-    let reader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let mut stored_fields = reader.stored_fields()?;
     assert!(reader.num_docs()? > 0);
     let mut num_docs = 0;
@@ -644,8 +643,8 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.commit()?;
     writer.force_merge(1)?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir.clone())?)?;
-    let searcher = new_searcher_with_reader(directory_reader_util::open(dir.clone())?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
+    let searcher = new_searcher_with_reader(directory_reader::open(dir.clone())?)?;
     let mut stored_fields = reader.stored_fields()?;
 
     for i in 0..num_docs {

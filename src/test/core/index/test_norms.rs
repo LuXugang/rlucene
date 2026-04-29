@@ -17,7 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::text_field::TextField;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
@@ -62,7 +62,7 @@ fn test_max_byte_norms() -> Result<()> {
   )?;
   build_index(dir.clone())?;
 
-  let open = directory_reader_util::open(dir.clone())?;
+  let open = directory_reader::open(dir.clone())?;
   let mut norm_values = MultiDocValues::get_norm_values(&open, BYTE_TEST_FIELD)?
     .ok_or_else(|| LuceneError::illegal_state("norm_values is None"))?;
   let mut stored_fields = open.stored_fields()?;
@@ -143,7 +143,7 @@ fn test_empty_value_vs_no_value() -> Result<()> {
 
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
   let leaf_reader = get_only_leaf_reader(&reader)?;

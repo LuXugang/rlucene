@@ -113,7 +113,7 @@ mod tests {
   use crate::core::document::field::Store::No;
   use crate::core::document::field_type::FieldType;
   use crate::core::index::BytesRef;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::multi_terms::get_term_postings_enum_with_flag;
   use crate::core::index::postings_enum::{FREQS, NONE};
@@ -158,7 +158,7 @@ mod tests {
     iw.commit()?;
     iw.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     iw.close()?;
 
     let mut d1 = TestUtil::docs_with_reader(
@@ -207,7 +207,7 @@ mod tests {
     iw.commit()?;
     iw.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     iw.close()?;
 
     let mut de =

@@ -463,7 +463,7 @@ mod tests {
   use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
   use crate::core::document::string_field::StringField;
   use crate::core::index::BytesRef;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::doc_values::DocValues;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -489,7 +489,7 @@ mod tests {
     let doc = Document::new();
     writer.add_document(doc)?;
 
-    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let dr = directory_reader::open_from_writer(&writer)?;
     let r = get_only_leaf_reader(dr)?;
 
     let mut v = DocValues::get_binary(r.as_ref(), "bogus")?;
@@ -517,7 +517,7 @@ mod tests {
     doc.add(StringField::from_string("foo", "bar", Store::No)?);
     writer.add_document(doc)?;
 
-    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let dr = directory_reader::open_from_writer(&writer)?;
     let r = get_only_leaf_reader(dr)?;
 
     // errors
@@ -556,7 +556,7 @@ mod tests {
     doc.add(NumericDocValuesField::new("foo", 3));
     writer.add_document(doc)?;
 
-    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let dr = directory_reader::open_from_writer(&writer)?;
     let r = get_only_leaf_reader(dr)?;
 
     // ok
@@ -597,7 +597,7 @@ mod tests {
     ));
     writer.add_document(doc)?;
 
-    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let dr = directory_reader::open_from_writer(&writer)?;
     let r = get_only_leaf_reader(dr)?;
 
     // ok
@@ -639,7 +639,7 @@ mod tests {
     ));
     writer.add_document(doc)?;
 
-    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let dr = directory_reader::open_from_writer(&writer)?;
     let r = get_only_leaf_reader(dr)?;
 
     // ok
@@ -680,7 +680,7 @@ mod tests {
     ));
     writer.add_document(doc)?;
 
-    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let dr = directory_reader::open_from_writer(&writer)?;
     let r = get_only_leaf_reader(&dr)?;
 
     // ok
@@ -719,7 +719,7 @@ mod tests {
     doc.add(SortedNumericDocValuesField::new("foo", 3));
     writer.add_document(doc)?;
 
-    let dr = directory_reader_util::open_from_writer(&writer)?;
+    let dr = directory_reader::open_from_writer(&writer)?;
     let r = get_only_leaf_reader(dr)?;
 
     // ok

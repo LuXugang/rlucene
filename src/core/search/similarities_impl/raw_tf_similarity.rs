@@ -78,7 +78,7 @@ mod tests {
   use crate::core::document::field::Store;
   use std::collections::HashMap;
 
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::term::Term;
   use crate::core::search::boost_query::BoostQuery;
@@ -135,7 +135,7 @@ mod tests {
       index_writer.commit()?;
     }
 
-    let index_reader = directory_reader_util::open(directory)?;
+    let index_reader = directory_reader::open(directory)?;
     let mut index_searcher = new_searcher_with_reader(index_reader)?;
     index_searcher.set_similarity(RawTFSimilarity::default());
 

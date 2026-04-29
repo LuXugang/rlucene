@@ -16,7 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_writer::{
   IndexWriter, IndexWriterBase, Inner, SOURCE, SOURCE_FLUSH, SOURCE_MERGE,
@@ -102,7 +102,7 @@ pub trait BaseMergePolicyTestCase {
         writer.add_document(Document::new())?;
       }
 
-      let reader = directory_reader_util::open_from_writer(&writer)?;
+      let reader = directory_reader::open_from_writer(&writer)?;
       reader.close()?;
     }
 

@@ -531,7 +531,7 @@ mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
   use crate::core::index::BytesRef;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::multi_doc_values::MultiDocValues;
@@ -594,7 +594,7 @@ mod tests {
 
     iw.commit()?;
 
-    let r = directory_reader_util::open_from_writer(&iw)?;
+    let r = directory_reader::open_from_writer(&iw)?;
 
     let sdv = MultiDocValues::get_sorted_values(r, "sdv")?;
     assert!(sdv.is_some());

@@ -1025,7 +1025,7 @@ mod tests {
   use crate::core::document::long_point::LongPoint;
   use crate::core::document::string_field::StringField;
 
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
   use crate::core::index::index_writer::IndexWriter;
@@ -1520,7 +1520,7 @@ mod tests {
     )?);
     writer.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let mut bq = Builder::new();
@@ -1994,7 +1994,7 @@ mod tests {
     doc.add(long_point);
     writer.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
 
     let searcher = IndexSearcher::from_cr(reader)?;
 
@@ -2090,7 +2090,7 @@ mod tests {
     doc.add(long_point_3dim);
     writer.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let searcher = IndexSearcher::from_cr(reader)?;
 
     let leaf = &searcher.get_leaf_contexts()?[0];
@@ -2286,7 +2286,7 @@ mod tests {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     {
@@ -2455,7 +2455,7 @@ mod tests {
       w.close()?;
     }
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let q_a: Query = TermQuery::new(Term::from_text("foo", "A")).into();
@@ -2513,7 +2513,7 @@ mod tests {
     }
 
     let mut matched_docs_count: i32 = 0;
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let mut builder = Builder::new();
@@ -2548,7 +2548,7 @@ mod tests {
     doc.add(StringField::from_string("string", "xyz", No)?);
     writer.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     writer.close()?;
     let searcher = new_searcher_with_reader(reader)?;
     let leaves = searcher.get_top_reader_context().leaves()?;
@@ -2636,7 +2636,7 @@ mod tests {
     doc.add(StringField::from_string("string", "xyz", No)?);
     writer.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     writer.close()?;
     let searcher = new_searcher_with_reader(reader)?;
 

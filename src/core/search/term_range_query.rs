@@ -365,7 +365,7 @@ mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
   use crate::core::document::field_type::FieldType;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
   use crate::core::index::index_writer_config::OpenMode;
@@ -399,13 +399,13 @@ mod tests {
       &["A", "B", "C", "D"],
       &mut field_types,
     )?;
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
     let hits = searcher.search(query.clone(), 1000)?.score_docs;
     assert_eq!(1, hits.len(), "A,B,C,D, only B in range");
 
     initialize_index(&mut random, dir.clone(), &["A", "B", "D"], &mut field_types)?;
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
     let hits = searcher.search(query.clone(), 1000)?.score_docs;
     assert_eq!(1, hits.len(), "A,B,D, only B in range");
@@ -417,7 +417,7 @@ mod tests {
       &mut doc_count,
       &mut field_types,
     )?;
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
     let hits = searcher.search(query.clone(), 1000)?.score_docs;
     assert_eq!(1, hits.len(), "C added, still only B in range");
@@ -438,13 +438,13 @@ mod tests {
       &["A", "B", "C", "D"],
       &mut field_types,
     )?;
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
     let hits = searcher.search(query.clone(), 1000)?.score_docs;
     assert_eq!(3, hits.len(), "A,B,C,D - A,B,C in range");
 
     initialize_index(&mut random, dir.clone(), &["A", "B", "D"], &mut field_types)?;
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
     let hits = searcher.search(query.clone(), 1000)?.score_docs;
     assert_eq!(2, hits.len(), "A,B,D - A and B in range");
@@ -456,7 +456,7 @@ mod tests {
       &mut doc_count,
       &mut field_types,
     )?;
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
     let hits = searcher.search(query.clone(), 1000)?.score_docs;
     assert_eq!(3, hits.len(), "C added - A, B, C in range");
@@ -475,7 +475,7 @@ mod tests {
       &["A", "B", "C", "D"],
       &mut field_types,
     )?;
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(Arc::new(reader))?;
 
     let query = TermRangeQuery::new("content", None, None, true, true)?;
@@ -510,7 +510,7 @@ mod tests {
     //     &mut field_types,
     // )?;
     //
-    // let reader = directory_reader_util::open(dir.clone())?;
+    // let reader = directory_reader::open(dir.clone())?;
     // let searcher = new_searcher_with_reader(reader)?;
     //
     // let rewrite_method = TopTermsScoringBooleanQueryRewrite::new(50);

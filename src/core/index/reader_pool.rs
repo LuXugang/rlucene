@@ -529,7 +529,7 @@ mod tests {
   use crate::core::document::field::Store::Yes;
   use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
   use crate::core::document::string_field::StringField;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::doc_values_field_updates::{
     DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
   };
@@ -579,7 +579,7 @@ mod tests {
 
     let (field_numbers, index_created_version_major) = build_index(directory.clone(), &mut random)?;
 
-    let mut reader = directory_reader_util::open(directory.clone())?;
+    let mut reader = directory_reader::open(directory.clone())?;
     let segment_infos = reader.segment_infos.as_mut().unwrap();
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
@@ -621,7 +621,7 @@ mod tests {
 
     let (field_numbers, index_created_version_major) = build_index(directory.clone(), &mut random)?;
 
-    let mut reader = directory_reader_util::open(directory.clone())?;
+    let mut reader = directory_reader::open(directory.clone())?;
     let segment_infos = reader.segment_infos.as_mut().unwrap();
 
     let lock = directory.obtain_lock("writer_lock")?;
@@ -722,7 +722,7 @@ mod tests {
 
     let (field_numbers, index_created_version_major) = build_index(directory.clone(), &mut random)?;
 
-    let mut reader = directory_reader_util::open(directory.clone())?;
+    let mut reader = directory_reader::open(directory.clone())?;
     let segment_infos = reader.segment_infos.as_mut().unwrap();
 
     let lock = directory.obtain_lock("writer_lock")?;
@@ -871,7 +871,7 @@ mod tests {
 
     let (field_numbers, index_created_version_major) = build_index(directory.clone(), &mut random)?;
 
-    let mut reader = directory_reader_util::open(directory.clone())?;
+    let mut reader = directory_reader::open(directory.clone())?;
     let segment_infos = reader.segment_infos.as_mut().unwrap();
 
     let lock = directory.obtain_lock("writer_lock")?;

@@ -62,7 +62,7 @@ mod tests {
   use crate::core::document::field::Field;
   use crate::core::document::field_type::FieldType;
   use crate::core::document::text_field::text_field_type;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_options::IndexOptions;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_writer::IndexWriter;
@@ -186,7 +186,7 @@ mod tests {
     if from == to {
       w1.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
       w1.force_merge(1)?;
-      let reader = directory_reader_util::open_from_writer(&w1)?;
+      let reader = directory_reader::open_from_writer(&w1)?;
       let leaf = get_only_leaf_reader(&reader)?;
       let expected = if from == IndexOptions::None { to } else { from };
       assert_eq!(

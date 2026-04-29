@@ -27,7 +27,7 @@ use crate::core::geo::lat_lon_geometry;
 use crate::core::geo::lat_lon_geometry::LatLonGeometryEnum;
 use crate::core::geo::polygon::Polygon;
 use crate::core::geo::rectangle::Rectangle;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter};
@@ -744,7 +744,7 @@ pub trait BaseGeoPointTestCase {
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, lats, lons, &mut deleted, &w)?;
 
-    let r = directory_reader_util::open_from_writer(&w)?;
+    let r = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
     let s = new_searcher_with_reader(r)?;
@@ -827,7 +827,7 @@ pub trait BaseGeoPointTestCase {
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, lats, lons, &mut deleted, &w)?;
 
-    let r = directory_reader_util::open_from_writer(&w)?;
+    let r = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
     let s = new_searcher_with_reader(r)?;
@@ -917,7 +917,7 @@ pub trait BaseGeoPointTestCase {
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, lats, lons, &mut deleted, &w)?;
 
-    let r = directory_reader_util::open_from_writer(&w)?;
+    let r = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
     let s = new_searcher_with_reader(r)?;
@@ -995,7 +995,7 @@ pub trait BaseGeoPointTestCase {
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, lats, lons, &mut deleted, &w)?;
 
-    let r = directory_reader_util::open_from_writer(&w)?;
+    let r = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
     let s = new_searcher_with_reader(r)?;
@@ -1711,7 +1711,7 @@ pub trait BaseGeoPointTestCase {
     w.add_document(doc)?;
     w.flush()?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     let s = new_searcher_with_reader(reader)?;
 
     let min_lat = GeoEncodingUtils::decode_latitude(base - 3);

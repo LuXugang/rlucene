@@ -322,7 +322,7 @@ mod tests {
   use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
   use crate::core::document::document::Document;
   use crate::core::document::document_stored_field_visitor::DocumentStoredFieldVisitor;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::field_info::FieldInfo;
   use crate::core::index::field_infos::FieldNumbers;
   use crate::core::index::field_infos::build::Builder;
@@ -408,7 +408,7 @@ mod tests {
   #[test]
   fn test() -> Result<()> {
     let (_, dir) = before_class()?;
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let doc = reader.stored_fields()?.document(0)?;
     assert!(doc.get_field(TEXT_FIELD_1_KEY).is_some());
 

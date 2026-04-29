@@ -1087,7 +1087,7 @@ mod tests {
   use crate::core::document::string_field::string_field_type;
   use crate::core::index::codec_reader::CodecReader;
   use crate::core::index::composite_reader::get_context;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::{
@@ -1329,7 +1329,7 @@ mod tests {
 
     w.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     assert_eq!(num_docs, reader.max_doc()?);
     assert_eq!(num_docs, reader.num_docs()?);
     reader.close()?;
@@ -1341,14 +1341,14 @@ mod tests {
     let term_val = (42 + 17).to_string();
     w.delete_documents_with_terms(vec![Term::from_text("id", &term_val)])?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     assert_eq!(num_docs, reader.max_doc()?);
     assert_eq!(num_docs - 1, reader.num_docs()?);
     reader.close()?;
 
     w.force_merge_deletes()?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     assert_eq!(num_docs - 1, reader.max_doc()?);
     assert_eq!(num_docs - 1, reader.num_docs()?);
     reader.close()?;
@@ -1812,7 +1812,7 @@ mod tests {
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
-    let reader = directory_reader_util::open_from_writer(w)?;
+    let reader = directory_reader::open_from_writer(w)?;
     let reader = get_context(reader)?;
     let mut to_delete = Vec::new();
     for ctx in reader.leaves()? {
@@ -1982,7 +1982,7 @@ mod tests {
       w.add_document(doc)?;
     }
 
-    let r = get_context(directory_reader_util::open_from_writer(&w)?)?;
+    let r = get_context(directory_reader::open_from_writer(&w)?)?;
 
     for ctx in r.leaves()? {
       let num_docs = ctx.reader().num_docs()?;

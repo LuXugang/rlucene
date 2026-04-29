@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::BytesRef;
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_terms::get_terms;
@@ -88,7 +88,7 @@ fn test_non_flex() -> Result<()> {
       writer.force_merge(1)?;
     }
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let terms = get_terms(&reader, "field3")?
       .ok_or_else(|| LuceneError::illegal_state("terms for field3 is None"))?;
     let mut terms_enum = terms.iterator()?;
@@ -123,7 +123,7 @@ fn test_term_ord() -> Result<()> {
   writer.add_document(doc)?;
   writer.force_merge(1)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let leaf = get_only_leaf_reader(&reader)?;
   let terms = leaf
     .terms("f")?

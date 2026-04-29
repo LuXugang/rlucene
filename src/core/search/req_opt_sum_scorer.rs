@@ -576,7 +576,7 @@ mod tests {
   use crate::core::document::field::Store;
   use crate::core::document::float_point::FloatPoint;
   use crate::core::document::string_field::StringField;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -771,7 +771,7 @@ mod tests {
     w.force_merge(1)?;
     w.close()?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let searcher = new_searcher_with_reader(reader)?;
     let _ctx = &searcher.get_leaf_contexts()?[0];
 

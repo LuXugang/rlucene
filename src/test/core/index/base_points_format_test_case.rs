@@ -22,7 +22,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::composite_reader::get_context;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
@@ -81,7 +81,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     w.force_merge(1)?;
     w.close()?;
 
-    let sub = get_only_leaf_reader(directory_reader_util::open(dir)?)?;
+    let sub = get_only_leaf_reader(directory_reader::open(dir)?)?;
     let values = sub
       .get_point_values("dim")?
       .expect("point values should exist");
@@ -115,7 +115,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     w.force_merge(1)?;
     w.close()?;
 
-    let sub = get_only_leaf_reader(directory_reader_util::open(dir)?)?;
+    let sub = get_only_leaf_reader(directory_reader::open(dir)?)?;
     let values = sub
       .get_point_values("dim")?
       .expect("point values should exist");
@@ -157,7 +157,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     }
     w.close()?;
 
-    let r = directory_reader_util::open(dir)?;
+    let r = directory_reader::open(dir)?;
     assert_eq!(1, r.num_docs()?);
     let live_docs = get_live_docs(&r)?;
     let r = get_context(&r)?;

@@ -143,7 +143,7 @@ impl BulkScorer for BulkScorerImpl {
 mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -205,7 +205,7 @@ mod tests {
     writer.close()?;
 
     let query = TermQuery::new(Term::from_text("default", "ones"));
-    let directory_reader = directory_reader_util::open(directory.clone())?;
+    let directory_reader = directory_reader::open(directory.clone())?;
     let mut searcher = new_searcher_with_reader(directory_reader)?;
     searcher.set_timeout(QueryTimeoutEnum::Custom(Box::new(QueryTimeoutImpl::new(
       10,

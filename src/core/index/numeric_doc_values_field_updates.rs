@@ -215,7 +215,7 @@ mod tests {
   use crate::core::index::BytesRef;
   use crate::core::index::binary_doc_values::BinaryDocValues;
   use crate::core::index::composite_reader::get_context;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::doc_values_type::DocValuesType;
   use crate::core::index::field_infos::FieldInfos;
   use crate::core::index::index_reader::IndexReader;
@@ -301,9 +301,9 @@ mod tests {
 
     let reader = if random.random_bool(0.5) {
       writer.commit()?;
-      directory_reader_util::open(dir.clone())?
+      directory_reader::open(dir.clone())?
     } else {
-      directory_reader_util::open_from_writer(&writer)?
+      directory_reader::open_from_writer(&writer)?
     };
     let reader = get_context(reader)?;
     let searcher = IndexSearcher::new(reader)?;
@@ -388,7 +388,7 @@ mod tests {
 
     writer.commit()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let searcher = IndexSearcher::from_cr(reader)?;
 
@@ -471,9 +471,9 @@ mod tests {
 
     let reader = if random.random_bool(0.5) {
       writer.close()?;
-      directory_reader_util::open(dir.clone())?
+      directory_reader::open(dir.clone())?
     } else {
-      let r = directory_reader_util::open_from_writer(&writer)?;
+      let r = directory_reader::open_from_writer(&writer)?;
       writer.close()?;
       r
     };
@@ -520,9 +520,9 @@ mod tests {
 
     let reader = if random.random_bool(0.5) {
       writer.close()?;
-      directory_reader_util::open(dir.clone())?
+      directory_reader::open(dir.clone())?
     } else {
-      let r = directory_reader_util::open_from_writer(&writer)?;
+      let r = directory_reader::open_from_writer(&writer)?;
       writer.close()?;
       r
     };
@@ -574,9 +574,9 @@ mod tests {
 
     let reader = if random.random_bool(0.5) {
       writer.close()?;
-      directory_reader_util::open(dir.clone())?
+      directory_reader::open(dir.clone())?
     } else {
-      let reader = directory_reader_util::open_from_writer(&writer)?;
+      let reader = directory_reader::open_from_writer(&writer)?;
       writer.close()?;
       reader
     };
@@ -620,9 +620,9 @@ mod tests {
 
     let reader = if random.random_bool(0.5) {
       writer.close()?;
-      directory_reader_util::open(dir.clone())?
+      directory_reader::open(dir.clone())?
     } else {
-      let r = directory_reader_util::open_from_writer(&writer)?;
+      let r = directory_reader::open_from_writer(&writer)?;
       writer.close()?;
       r
     };
@@ -676,7 +676,7 @@ mod tests {
     writer.update_numeric_doc_value(Term::from_text("dvUpdateKey", "dv"), "ndv", 17)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let leaf = get_context(reader)?;
     let r = leaf.leaves()?;
     let r = r[0].reader();
@@ -741,7 +741,7 @@ mod tests {
     writer.update_numeric_doc_value(Term::from_text("dvUpdateKey", "dv"), "ndv1", 17)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     let r = reader.leaves()?;
     let r = r[0].reader();
@@ -781,7 +781,7 @@ mod tests {
     writer.update_numeric_doc_value(Term::from_text("dvUpdateKey", "dv"), "ndv", 17)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     let r = reader.leaves()?;
     let r = r[0].reader();
@@ -854,7 +854,7 @@ mod tests {
     writer.update_numeric_doc_value(Term::from_text("key", "doc"), "ndv", 17)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
 
     let mut ndv = MultiDocValues::get_numeric_values(&reader, "ndv")?.unwrap();
     let mut sdv = MultiDocValues::get_sorted_values(&reader, "sorted")?.unwrap();
@@ -891,7 +891,7 @@ mod tests {
     writer.update_numeric_doc_value(Term::from_text("key", "doc"), "ndv", 3)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let mut ndv = MultiDocValues::get_numeric_values(&reader, "ndv")?.unwrap();
     for i in 0..reader.max_doc()? {
       assert_eq!(i, ndv.next_doc()?);
@@ -998,12 +998,12 @@ mod tests {
           println!("\nTEST: commit and open non-NRT reader");
         }
         writer.commit()?;
-        directory_reader_util::open(dir.clone())?
+        directory_reader::open(dir.clone())?
       } else {
         if cfg!(feature = "test_log_verbose") {
           println!("\nTEST: open NRT reader");
         }
-        directory_reader_util::open_from_writer(&writer)?
+        directory_reader::open_from_writer(&writer)?
       };
 
       if cfg!(feature = "test_log_verbose") {
@@ -1060,7 +1060,7 @@ mod tests {
     writer.update_numeric_doc_value(Term::from_text("k2", "v2"), "ndv", 3)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let mut ndv = MultiDocValues::get_numeric_values(&reader, "ndv")?.unwrap();
     for i in 0..reader.max_doc()? {
       assert_eq!(i, ndv.next_doc()?);
@@ -1277,7 +1277,7 @@ mod tests {
     writer.update_numeric_doc_value(Term::from_text("id", "doc1"), "ndv", 5)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     for ctx in reader.leaves()? {
       let r = ctx.reader();
@@ -1325,7 +1325,7 @@ mod tests {
     writer.close()?;
     drop(writer);
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     for context in reader.leaves()? {
       let r = context.reader();
@@ -1343,7 +1343,7 @@ mod tests {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let ar = get_only_leaf_reader(&reader)?;
     assert_eq!(
       DocValuesType::Numeric,
@@ -1425,7 +1425,7 @@ mod tests {
     writer.close()?;
 
     // Verify index content
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     for ctx in reader.leaves()? {
       let r = ctx.reader();
@@ -1462,7 +1462,7 @@ mod tests {
     writer.close()?;
 
     // verify NDV content unchanged
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     let mut ndv = reader.leaves()?[0]
       .reader()
@@ -1515,7 +1515,7 @@ mod tests {
         ],
       )?;
 
-      let reader = directory_reader_util::open_from_writer(&writer)?;
+      let reader = directory_reader::open_from_writer(&writer)?;
       let reader = get_context(reader)?;
       for ctx in reader.leaves()? {
         let r = ctx.reader();
@@ -1595,14 +1595,14 @@ mod tests {
     // if random.random_bool(0.5) {
     //   writer.add_indexes_from_dir(&vec![dir1.clone()])?;
     // } else {
-    //   let reader = directory_reader_util::open(dir1.clone())?;
+    //   let reader = directory_reader::open(dir1.clone())?;
     //   TestUtil::add_indexes_slowly(&mut writer, &reader)?;
     //   reader.close()?;
     // }
     writer.close()?;
     drop(writer);
 
-    let reader = get_context(directory_reader_util::open(dir2.clone())?)?;
+    let reader = get_context(directory_reader::open(dir2.clone())?)?;
     for context in reader.leaves()? {
       let r = context.reader();
       let mut ndv = r.get_numeric_doc_values("ndv")?.unwrap();
@@ -1663,7 +1663,7 @@ mod tests {
 
       let mut original_field_infos = Vec::new();
       {
-        let reader = get_context(directory_reader_util::open_from_writer(&writer)?)?;
+        let reader = get_context(directory_reader::open_from_writer(&writer)?)?;
         for leaf in reader.leaves()? {
           original_field_infos.push(leaf.reader().get_field_infos()?);
         }
@@ -1680,7 +1680,7 @@ mod tests {
       }
 
       {
-        let reader = get_context(directory_reader_util::open_from_writer(&writer)?)?;
+        let reader = get_context(directory_reader::open_from_writer(&writer)?)?;
         let leaves = reader.leaves()?;
         for (i, leaf) in leaves.iter().enumerate() {
           let leaf_reader = leaf.reader();
@@ -1757,7 +1757,7 @@ mod tests {
 
       let mut original_field_infos = Vec::new();
       {
-        let reader = get_context(directory_reader_util::open_from_writer(&writer)?)?;
+        let reader = get_context(directory_reader::open_from_writer(&writer)?)?;
         for leaf in reader.leaves()? {
           original_field_infos.push(leaf.reader().get_field_infos()?);
         }
@@ -1779,7 +1779,7 @@ mod tests {
       )?;
 
       {
-        let reader_cr = Arc::new(directory_reader_util::open_from_writer(&writer)?);
+        let reader_cr = Arc::new(directory_reader::open_from_writer(&writer)?);
         let reader = get_context(reader_cr.clone())?;
         let leaves = reader.leaves()?;
         for (i, leaf) in leaves.iter().enumerate() {
@@ -1945,7 +1945,7 @@ mod tests {
     writer.close()?;
 
     // validate
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     for ctx in reader.leaves()? {
       let r = ctx.reader();
@@ -1994,7 +1994,7 @@ mod tests {
     writer.close()?;
 
     // verify the latest values
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     let r = reader.leaves()?;
     let r = r[0].reader();
@@ -2038,7 +2038,7 @@ mod tests {
     writer.close()?;
 
     // verify only one segment remains and update was applied
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     assert_eq!(reader.leaves()?.len(), 1);
 
@@ -2070,7 +2070,7 @@ mod tests {
     writer.close()?;
 
     // verify the value remains unchanged
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     let reader = get_context(reader)?;
     assert_eq!(reader.leaves()?.len(), 1);
 

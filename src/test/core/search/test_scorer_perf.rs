@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::index_writer::IndexWriter;
@@ -190,7 +190,7 @@ fn test_conjunctions() -> Result<()> {
   iw.add_document(Document::new())?;
   iw.close()?;
 
-  let r = directory_reader_util::open(dir)?;
+  let r = directory_reader::open(dir)?;
   let mut s = new_searcher_with_reader(r)?;
   s.set_query_cache(None);
   let num_sets = at_least_usize(&mut random, 1000);

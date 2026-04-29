@@ -17,7 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::text_field::text_field_type;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
@@ -126,7 +126,7 @@ where
 
   writer.close()?;
   drop(writer);
-  let little_reader = directory_reader_util::open(directory.clone())?;
+  let little_reader = directory_reader::open(directory.clone())?;
   let mut searcher = new_searcher_with_reader(little_reader)?;
   // this is intentionally using the baseline sim, because it compares against bigSearcher (which
   // uses a random one)
@@ -164,7 +164,7 @@ where
     w.close()?;
   }
 
-  let single_segment_reader = directory_reader_util::open(single_segment_directory.clone())?;
+  let single_segment_reader = directory_reader::open(single_segment_directory.clone())?;
   let mut single_segment_searcher = new_searcher_with_reader(single_segment_reader)?;
   single_segment_searcher.set_similarity(searcher.get_similarity());
 

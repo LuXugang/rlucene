@@ -168,12 +168,12 @@ where
       let mode = conf.get_open_mode();
       let (index_exists, create) = match mode {
         OpenMode::Create => {
-          let exists = directory_reader_util::index_exists(directory.as_ref())?;
+          let exists = directory_reader::index_exists(directory.as_ref())?;
           (exists, true)
         },
         OpenMode::Append => (true, false),
         OpenMode::CreateOrAppend => {
-          let exists = directory_reader_util::index_exists(directory.as_ref())?;
+          let exists = directory_reader::index_exists(directory.as_ref())?;
           (exists, !exists)
         },
       };
@@ -5980,7 +5980,7 @@ use crate::core::index::binary_doc_values_field_updates::BinaryDocValuesFieldUpd
 use crate::core::index::buffered_updates::MAX_INT;
 use crate::core::index::caching_merge_context::CachingMergeContext;
 use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::doc_values_field_updates::{
   DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
 };

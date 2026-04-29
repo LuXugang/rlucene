@@ -887,7 +887,7 @@ mod tests {
   use crate::core::document::field::Store;
   use crate::core::index::BytesRef;
   use crate::core::index::composite_reader::get_context;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::frozen_buffered_updates::{TermDocsIterator, TermsProviderImpl2};
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_reader_context::IndexReaderContext;
@@ -974,7 +974,7 @@ mod tests {
       writer.force_merge(1)?;
       writer.commit()?;
 
-      let reader = directory_reader_util::open(dir.clone())?;
+      let reader = directory_reader::open(dir.clone())?;
       let irc = get_context(&reader)?;
       let leaves = irc.leaves()?;
       assert_eq!(1, leaves.len());

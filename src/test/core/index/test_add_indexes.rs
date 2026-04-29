@@ -21,7 +21,7 @@ use crate::core::document::int_point::IntPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::text_field_type;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter, IndexWriterBase};
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
@@ -330,7 +330,7 @@ fn test_merge_after_copy() -> Result<()> {
   writer.close()?;
   drop(writer);
 
-  let reader = directory_reader_util::open(aux.clone())?;
+  let reader = directory_reader::open(aux.clone())?;
   assert_eq!(10, reader.num_docs()?);
   reader.close()?;
 
@@ -391,7 +391,7 @@ fn test_more_merges() -> Result<()> {
   writer.close()?;
   drop(writer);
 
-  let reader = directory_reader_util::open(aux.clone())?;
+  let reader = directory_reader::open(aux.clone())?;
   assert_eq!(3, reader.num_docs()?);
   reader.close()?;
 
@@ -405,7 +405,7 @@ fn test_more_merges() -> Result<()> {
   writer.close()?;
   drop(writer);
 
-  let reader = directory_reader_util::open(aux2.clone())?;
+  let reader = directory_reader::open(aux2.clone())?;
   assert_eq!(22, reader.num_docs()?);
   reader.close()?;
 
@@ -491,7 +491,7 @@ fn verify_num_docs<D>(dir: Arc<D>, num_docs: i32) -> Result<()>
 where
   D: Directory,
 {
-  let reader = directory_reader_util::open(dir)?;
+  let reader = directory_reader::open(dir)?;
   assert_eq!(num_docs, reader.max_doc()?);
   assert_eq!(num_docs, reader.num_docs()?);
   reader.close()?;
@@ -503,7 +503,7 @@ where
   D: Directory,
   R: Rng + ?Sized,
 {
-  let reader = directory_reader_util::open(dir)?;
+  let reader = directory_reader::open(dir)?;
   let mut postings_enum = TestUtil::docs_with_reader(
     random,
     &reader,

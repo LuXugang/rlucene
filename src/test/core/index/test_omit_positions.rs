@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
@@ -138,7 +138,7 @@ fn test_positions() -> Result<()> {
   writer.force_merge(1)?;
   writer.close()?;
 
-  let reader = directory_reader_util::open(ram.clone())?;
+  let reader = directory_reader::open(ram.clone())?;
   let leaf = get_only_leaf_reader(&reader)?;
 
   let fi = leaf.get_field_infos()?;

@@ -24,7 +24,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TextField, text_field_type};
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::get_context;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_reader::IndexReader;
@@ -110,7 +110,7 @@ fn test_doc_count() -> Result<()> {
   }
 
   {
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     assert_eq!(60, reader.num_docs()?);
     reader.close()?;
   }
@@ -126,7 +126,7 @@ fn test_doc_count() -> Result<()> {
   }
 
   {
-    let reader = directory_reader_util::open(dir.clone())?;
+    let reader = directory_reader::open(dir.clone())?;
     assert_eq!(60, reader.max_doc()?);
     assert_eq!(60, reader.num_docs()?);
     reader.close()?;
@@ -175,7 +175,7 @@ fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
   let empty_doc = Document::new();
   writer.add_document(empty_doc)?;
   writer.close()?;
-  let reader = directory_reader_util::open(dir.clone())?;
+  let reader = directory_reader::open(dir.clone())?;
   assert_eq!(2, reader.num_docs()?);
 
   Ok(())
@@ -235,7 +235,7 @@ fn test_unlimited_max_field_length() -> Result<()> {
   writer.add_document(doc)?;
   writer.close()?;
 
-  let reader = directory_reader_util::open(dir.clone())?;
+  let reader = directory_reader::open(dir.clone())?;
   let t = Term::from_text("field", "x");
   assert_eq!(1, reader.doc_freq(&t)?);
   Ok(())
@@ -284,7 +284,7 @@ fn test_empty_field_name_terms() -> Result<()> {
   writer.add_document(doc)?;
   writer.close()?;
 
-  let reader = directory_reader_util::open(dir)?;
+  let reader = directory_reader::open(dir)?;
   let subreader = get_only_leaf_reader(&reader)?;
 
   let terms = subreader.terms("")?.unwrap();
@@ -341,7 +341,7 @@ fn test_empty_field_name_with_empty_term() -> Result<()> {
   writer.add_document(doc)?;
   writer.close()?;
 
-  let reader = directory_reader_util::open(dir)?;
+  let reader = directory_reader::open(dir)?;
   let subreader = get_only_leaf_reader(&reader)?;
 
   let terms = subreader.terms("")?.unwrap();
@@ -426,7 +426,7 @@ fn test_do_before_after_flush() -> Result<()> {
 
   writer.close()?;
 
-  let reader = directory_reader_util::open(dir.clone())?;
+  let reader = directory_reader::open(dir.clone())?;
   assert_eq!(0, reader.num_docs()?);
 
   Ok(())
@@ -507,7 +507,7 @@ fn test_delete_same_term_across_fields() -> Result<()> {
     Term::from_text("b", "foo"),
   ])?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
   assert_eq!(1, reader.num_docs()?);
 
@@ -590,7 +590,7 @@ fn test_segment_info_is_snapshot() -> Result<()> {
   d.add(StringField::from_string("id", "doc-1", Store::Yes)?);
   writer.add_document(d)?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let context = get_context(reader)?;
   let r = context.leaves()?;
   let segment_reader = r.first().unwrap().reader();
@@ -1074,7 +1074,7 @@ fn test_merge_on_commit_keep_fully_deleted_segments() -> Result<()> {
   writer.update_documents_with_term(Term::from_text("id", "1"), d)?;
   writer.commit()?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   assert_eq!(1, reader.num_docs()?);
   reader.close()?;
   writer.close()?;

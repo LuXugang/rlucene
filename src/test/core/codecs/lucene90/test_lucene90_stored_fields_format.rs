@@ -16,7 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::stored_field::StoredField;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
@@ -174,7 +174,7 @@ impl TestLucene90StoredFieldsFormat {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(dir)?;
+    let reader = directory_reader::open(dir)?;
     let mut stored_fields = reader.stored_fields()?;
 
     counter.store(0, Ordering::SeqCst);

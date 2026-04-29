@@ -20,7 +20,7 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::composite_reader::{CompositeReader, get_context};
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -514,13 +514,13 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
 
     writer.commit()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir.clone())?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
     self.check_norms_vs_doc_values(&reader)?;
     reader.close()?;
 
     writer.force_merge(1)?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir)?)?;
     self.check_norms_vs_doc_values(&reader)?;
     reader.close()?;
 

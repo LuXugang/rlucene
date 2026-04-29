@@ -287,7 +287,7 @@ mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
   use crate::core::document::text_field::TextField;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::field_infos::FieldInfos;
   use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
   use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -528,7 +528,7 @@ mod tests {
       w.add_document(doc)?;
     }
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     w.close()?;
     let searcher = new_searcher_with_reader(reader)?;
 

@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
@@ -66,7 +66,7 @@ where
     "nutch is an internet search engine with web crawler and is using lucene and hadoop",
   )?)?;
 
-  let reader = directory_reader_util::open_from_writer(&w)?;
+  let reader = directory_reader::open_from_writer(&w)?;
   w.close()?;
 
   let mut searcher = new_searcher_with_reader(reader)?;
@@ -122,7 +122,7 @@ fn test_scorer_get_children() -> Result<()> {
 
   w.add_document(doc)?;
 
-  let r = directory_reader_util::open_from_writer(&w)?;
+  let r = directory_reader::open_from_writer(&w)?;
 
   let mut b = Builder::new();
   b.add(TermQuery::new(Term::from_text("field", "a")), Occur::Must)?;

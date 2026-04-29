@@ -111,7 +111,7 @@ mod tests {
   use crate::core::document::string_field::StringField;
   use crate::core::index::byte_vector_values::ByteVectorValues;
   use crate::core::index::composite_reader::get_context;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::float_vector_values::FloatVectorValues;
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::leaf_reader::LeafReader;
@@ -139,7 +139,7 @@ mod tests {
       encoding,
       &[&[0.0, 1.0], &[1.0, 2.0], &[0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store)?;
+    let reader = directory_reader::open(index_store)?;
     let reader = get_context(reader)?;
     let leafs = reader.leaves()?;
     assert_eq!(1, leafs.len());

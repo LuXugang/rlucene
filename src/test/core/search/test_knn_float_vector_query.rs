@@ -19,7 +19,7 @@ use crate::core::document::field::Store;
 use crate::core::document::fields::Fields;
 use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
 use crate::core::document::string_field::StringField;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
@@ -287,7 +287,7 @@ fn test_to_string() -> Result<()> {
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store)?;
+    let reader = directory_reader::open(index_store)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let query = case.get_knn_vector_query_no_filter("field", vec![0.0, 1.0], 10)?;
@@ -317,7 +317,7 @@ fn test_vector_encoding_mismatch() -> Result<()> {
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
     )?;
-    let reader = directory_reader_util::open(index_store)?;
+    let reader = directory_reader::open(index_store)?;
     let searcher = new_searcher_with_reader(reader)?;
     let filter = if random.random_bool(0.5) {
       Some(MatchAllDocsQuery::new().into())
@@ -365,7 +365,7 @@ fn test_score_negative_dot_product() -> Result<()> {
     writer.add_document(doc)?;
     writer.close()?;
 
-    let reader = directory_reader_util::open(directory)?;
+    let reader = directory_reader::open(directory)?;
     let searcher = new_searcher_with_reader(reader)?;
     assert_eq!(1, searcher.get_leaf_contexts()?.len());
     let query = case.get_knn_vector_query_no_filter("field", vec![1.0, 0.0], 2)?;
@@ -401,7 +401,7 @@ fn test_score_dot_product() -> Result<()> {
     }
     writer.close()?;
 
-    let reader = directory_reader_util::open(directory)?;
+    let reader = directory_reader::open(directory)?;
     let searcher = new_searcher_with_reader(reader)?;
     assert_eq!(1, searcher.get_leaf_contexts()?.len());
 

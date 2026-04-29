@@ -17,7 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::text_field::text_field_type;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -98,7 +98,7 @@ fn test_many_fields() -> Result<()> {
 
   writer.close()?;
 
-  let reader = directory_reader_util::open(dir.clone())?;
+  let reader = directory_reader::open(dir.clone())?;
   assert_eq!(100, reader.max_doc()?);
   assert_eq!(100, reader.num_docs()?);
   for j in 0..100 {
@@ -197,7 +197,7 @@ fn test_diverse_docs() -> Result<()> {
 
   writer.close()?;
 
-  let reader = directory_reader_util::open(dir.clone())?;
+  let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
   let total_hits = searcher.count(TermQuery::new(Term::from_text("field", "aaa")))?;
   assert_eq!(n * 100, total_hits);

@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::BytesRef;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::leaf_reader::LeafReader;
@@ -174,7 +174,7 @@ fn test_skip_to() -> Result<()> {
   writer.force_merge(1)?;
   writer.close()?;
 
-  let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+  let reader = Arc::new(directory_reader::open(dir.clone())?);
   let mut tdocs = TestUtil::docs_with_reader(
     &mut random,
     &reader,

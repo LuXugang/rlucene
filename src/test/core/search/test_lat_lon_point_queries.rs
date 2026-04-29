@@ -20,7 +20,7 @@ use crate::core::document::shape_field::QueryRelation;
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
 use crate::core::geo::lat_lon_geometry::LatLonGeometryEnum;
 use crate::core::geo::polygon::Polygon;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::search::query::Query;
 use crate::core::util::bkd::bkd_config::BKDConfig;
@@ -315,7 +315,7 @@ fn test_distance_query_with_inverted_intersection() -> Result<()> {
     w.close()?;
   }
 
-  let r = directory_reader_util::open(dir)?;
+  let r = directory_reader::open(dir)?;
   let searcher = new_searcher_with_reader(r)?;
   assert_eq!(
     num_matching_docs,

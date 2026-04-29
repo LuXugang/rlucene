@@ -469,7 +469,7 @@ mod tests {
   use crate::core::document::lat_lon_point::LatLonPoint;
   use crate::core::document::stored_field::StoredField;
   use crate::core::document::string_field::StringField;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::index_writer_config::IndexWriterConfig;
@@ -623,7 +623,7 @@ mod tests {
     doc.add(StringField::from_string("id", "1", Store::Yes)?);
     w.add_document(doc)?;
 
-    let r = Arc::new(directory_reader_util::open_from_writer(&w)?);
+    let r = Arc::new(directory_reader::open_from_writer(&w)?);
     // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
     // with its own points impl:
     let searcher = new_searcher_with_reader(r.clone())?;

@@ -27,7 +27,7 @@ use crate::core::document::stored_field::StoredField;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::composite_reader::{CompositeReader, get_context};
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::IndexReader;
@@ -103,7 +103,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let isearcher = new_searcher_with_reader(ireader)?;
     let mut stored_fields = isearcher.stored_fields()?;
 
@@ -158,7 +158,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let isearcher = new_searcher_with_reader(ireader)?;
     let mut stored_fields = isearcher.stored_fields()?;
 
@@ -214,7 +214,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let isearcher = new_searcher_with_reader(ireader)?;
     let mut stored_fields = isearcher.stored_fields()?;
 
@@ -280,7 +280,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let isearcher = new_searcher_with_reader(ireader)?;
     let mut stored_fields = isearcher.stored_fields()?;
 
@@ -356,7 +356,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let isearcher = new_searcher_with_reader(ireader)?;
     let mut stored_fields = isearcher.stored_fields()?;
 
@@ -413,7 +413,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let isearcher = new_searcher_with_reader(ireader)?;
     let mut stored_fields = isearcher.stored_fields()?;
 
@@ -483,7 +483,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let isearcher = new_searcher_with_reader(ireader)?;
 
     assert_eq!(
@@ -560,7 +560,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let isearcher = new_searcher_with_reader(ireader)?;
     let mut stored_fields = isearcher.stored_fields()?;
 
@@ -624,7 +624,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -674,7 +674,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -717,7 +717,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -751,7 +751,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -795,7 +795,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let isearcher = new_searcher_with_reader(ireader)?;
     let mut stored_fields = isearcher.stored_fields()?;
 
@@ -868,7 +868,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -967,7 +967,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let isearcher = new_searcher_with_reader(ireader)?;
 
     assert_eq!(
@@ -1023,7 +1023,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -1072,7 +1072,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -1133,7 +1133,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -1241,7 +1241,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -1275,7 +1275,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -1414,7 +1414,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -1455,7 +1455,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -1487,7 +1487,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -1517,7 +1517,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -1548,7 +1548,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -1578,7 +1578,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwriter.close()?;
 
     let ireader =
-      self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory.clone())?)?;
+      self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let top_reader_context = get_context(&ireader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
     let leaves = top_reader_context.leaves()?;
@@ -1616,7 +1616,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge_with_wait(1, true)?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir.clone())?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
     let top_reader_context = get_context(&reader)?;
     assert_eq!(1, top_reader_context.leaves()?.len());
 
@@ -1815,7 +1815,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   where
     D: Directory,
   {
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir)?)?;
     let context = get_context(&reader)?;
 
     for leaf in context.leaves()? {
@@ -2052,16 +2052,14 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     {
-      let reader =
-        self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir.clone())?)?;
+      let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
       self.compare_stored_field_with_sorted_numerics_dv(random, &reader, "stored", "dv")?;
     }
 
     writer.force_merge((num_docs / 256).max(1))?;
 
     {
-      let reader =
-        self.maybe_wrap_with_merging_reader(directory_reader_util::open(dir.clone())?)?;
+      let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
       self.compare_stored_field_with_sorted_numerics_dv(random, &reader, "stored", "dv")?;
     }
 
@@ -3611,7 +3609,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
     let context = get_context(&reader)?;
     let leaf = context.leaves()?[0].reader();
@@ -3657,7 +3655,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
     let context = get_context(&reader)?;
     let leaf = context.leaves()?[0].reader();
@@ -3714,7 +3712,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
     let context = get_context(&reader)?;
     let leaf = context.leaves()?[0].reader();
@@ -3763,7 +3761,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
     let context = get_context(&reader)?;
     let leaf = context.leaves()?[0].reader();
@@ -3815,7 +3813,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
     let context = get_context(&reader)?;
     let leaf = context.leaves()?[0].reader();
@@ -3881,7 +3879,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(1)?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
     let context = get_context(&reader)?;
     let leaf = context.leaves()?[0].reader();
@@ -3965,7 +3963,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.add_document(doc)?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     let context = get_context(&reader)?;
     assert_eq!(1, context.leaves()?.len());
     let mut dv = context.leaves()?[0]
@@ -3993,7 +3991,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.add_document(Document::new())?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     let context = get_context(&reader)?;
     assert_eq!(1, context.leaves()?.len());
     let mut dv = context.leaves()?[0]
@@ -4065,7 +4063,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.add_document(doc)?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     let context = get_context(&reader)?;
     assert_eq!(1, context.leaves()?.len());
     let mut dv = context.leaves()?[0]
@@ -4092,7 +4090,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.add_document(doc)?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     let context = get_context(&reader)?;
     assert_eq!(1, context.leaves()?.len());
     let mut dv = context.leaves()?[0]
@@ -4122,7 +4120,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.add_document(Document::new())?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     let context = get_context(&reader)?;
     assert_eq!(1, context.leaves()?.len());
     let mut dv = context.leaves()?[0]
@@ -4158,7 +4156,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge_with_wait(1, true)?;
     writer.close()?;
 
-    let reader = self.maybe_wrap_with_merging_reader(directory_reader_util::open(directory)?)?;
+    let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     let context = get_context(&reader)?;
     assert_eq!(1, context.leaves()?.len());
     let mut dv = context.leaves()?[0]
@@ -4684,7 +4682,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     writer.force_merge(1)?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(&reader)?;
     let mut dv = leaf
       .get_sorted_set_doc_values("sorted_set_dv")?

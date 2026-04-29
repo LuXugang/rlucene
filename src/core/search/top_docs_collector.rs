@@ -219,7 +219,7 @@ mod tests {
   use crate::core::document::field::Store;
   use crate::core::document::text_field::TextField;
   use crate::core::index::composite_reader::{CompositeReader, get_context};
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
   use crate::core::index::index_writer::IndexWriter;
 
@@ -642,7 +642,7 @@ mod tests {
     writer.add_documents(vec![Document::new(), Document::new()])?;
     writer.flush()?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let v = get_context(reader)?;
     assert_eq!(v.leaves()?.len(), 2);
     writer.close()?;
@@ -713,8 +713,8 @@ mod tests {
     writer.add_documents(vec![Document::new(), Document::new()])?;
     writer.flush()?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
-    let reader2 = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
+    let reader2 = directory_reader::open_from_writer(&writer)?;
     let v = get_context(&reader)?;
     assert_eq!(v.leaves()?.len(), 2);
     writer.close()?;
@@ -753,7 +753,7 @@ mod tests {
     ])?;
     writer.flush()?;
 
-    let reader = directory_reader_util::open_from_writer(&writer)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
     let v = get_context(reader)?;
     assert_eq!(v.leaves()?.len(), 2);
     writer.close()?;
@@ -858,7 +858,7 @@ mod tests {
     w.add_documents(vec![doc.clone(); 2])?;
     w.flush()?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     let reader = get_context(reader)?;
     assert_eq!(3, reader.leaves()?.len());
     w.close()?;

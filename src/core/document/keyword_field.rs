@@ -239,7 +239,7 @@ impl Clone for KeywordField {
 mod tests {
   use crate::core::document::field::{FieldBase, FieldDataEnum, Store};
   use crate::core::document::keyword_field::KeywordField;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::doc_values_iterator::DocValuesIterator;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_writer::IndexWriter;
@@ -385,7 +385,7 @@ mod tests {
       .into(),
     ])?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     w.close()?;
     let leaf = get_only_leaf_reader(reader)?;
     let mut terms = leaf.terms("field")?.unwrap().iterator()?;
@@ -424,7 +424,7 @@ mod tests {
       KeywordField::from_string("field", "value", Store::Yes)?.into(),
     ])?;
 
-    let reader = directory_reader_util::open_from_writer(&w)?;
+    let reader = directory_reader::open_from_writer(&w)?;
     w.close()?;
     let leaf = get_only_leaf_reader(reader)?;
     let mut terms = leaf.terms("field")?.unwrap().iterator()?;

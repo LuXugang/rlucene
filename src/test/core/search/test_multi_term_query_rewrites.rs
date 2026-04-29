@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader_context::CompositeReaderContext;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::filtered_terms_enum::{
   AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
 };
@@ -114,19 +114,19 @@ fn set_up<R: Rng + ?Sized>(
   swriter1.close()?;
   swriter2.close()?;
 
-  let reader = directory_reader_util::open(dir.clone())?;
+  let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
   // TODO IMPORTANT 这里没有调用close方法，有必要吗
 
   let multi_reader = MultiReader::with_composite_reader(vec![
-    directory_reader_util::open(sdir1.clone())?,
-    directory_reader_util::open(sdir2.clone())?,
+    directory_reader::open(sdir1.clone())?,
+    directory_reader::open(sdir2.clone())?,
   ])?;
   let multi_searcher = new_searcher_with_reader(multi_reader)?;
 
   let multi_reader_dupls = MultiReader::with_composite_reader(vec![
-    directory_reader_util::open(sdir1)?,
-    directory_reader_util::open(dir)?,
+    directory_reader::open(sdir1)?,
+    directory_reader::open(dir)?,
   ])?;
   let multi_searcher_dupls = new_searcher_with_reader(multi_reader_dupls)?;
 

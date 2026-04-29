@@ -413,7 +413,7 @@ where
 mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
-  use crate::core::index::directory_reader::directory_reader_util;
+  use crate::core::index::directory_reader;
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -695,7 +695,7 @@ mod tests {
       iw.add_document(doc)?;
     }
 
-    let ir = directory_reader_util::open_from_writer(&iw)?;
+    let ir = directory_reader::open_from_writer(&iw)?;
 
     let is = new_searcher_with_reader(ir)?;
 

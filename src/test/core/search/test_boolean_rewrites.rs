@@ -20,7 +20,7 @@ use crate::core::document::field_type::FieldType;
 
 use crate::core::document::field::FieldBase;
 use crate::core::document::text_field::TextField;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
@@ -68,7 +68,7 @@ fn test_one_clause_rewrite_optimization() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
   writer.close()?;
 
-  let reader = directory_reader_util::open(dir)?;
+  let reader = directory_reader::open(dir)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let expected: Query = TermQuery::new(Term::from_text(field, value)).into();
@@ -110,7 +110,7 @@ fn test_single_filter_clause() -> Result<()> {
   writer.add_document(doc)?;
   writer.commit()?;
 
-  let reader = directory_reader_util::open_from_writer(&writer)?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let searcher = IndexSearcher::from_cr(reader)?;
 
   let mut query1 = Builder::new();

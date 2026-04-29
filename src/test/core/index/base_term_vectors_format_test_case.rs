@@ -19,7 +19,7 @@ use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
-use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::postings_enum::{
@@ -146,7 +146,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     doc.add(Field::new("foo", "bar bar", ft));
     iw.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
 
     let leaf = get_only_leaf_reader(&reader)?;
     let mut term_vectors = leaf.term_vectors()?;
@@ -221,7 +221,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     doc.add(Field::new("foo", "bar bar", ft));
     iw.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
 
     let leaf = get_only_leaf_reader(&reader)?;
     let mut term_vectors = leaf.term_vectors()?;
@@ -394,7 +394,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     doc.add(Field::new("foo", "bar bar", ft));
     iw.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
 
     let leaf = get_only_leaf_reader(&reader)?;
     let mut term_vectors = leaf.term_vectors()?;
@@ -603,7 +603,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     doc.add(Field::new("foo", "bar bar", ft));
     iw.add_document(doc)?;
 
-    let reader = directory_reader_util::open_from_writer(&iw)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
 
     let leaf = get_only_leaf_reader(&reader)?;
     let mut term_vectors = leaf.term_vectors()?;
