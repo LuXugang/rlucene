@@ -14,10 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::document::Document;
+use crate::core::document::double_point::DoublePoint;
+use crate::core::document::field::Store;
+use crate::core::document::float_point::FloatPoint;
+use crate::core::document::int_point::IntPoint;
+use crate::core::document::long_point::LongPoint;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
+use crate::core::index::BytesRef;
+use crate::core::index::index_writer_config::OpenMode;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
-use rand::Rng;
+use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::util::DefaultCRReader;
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
+  new_string_field,
+};
+use crate::test::core::util::test_util::TestUtil;
+use rand::{Rng, RngExt};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -67,6 +87,133 @@ pub fn pad(n: i32) -> String {
   b.push_str(&s);
 
   b
+}
+pub fn set_up<R>(random: &mut R) -> Result<(i32, i32, i32, i32, DefaultCRReader, DefaultCRReader)>
+where
+  R: Rng + ?Sized,
+{
+  let min_id = 0;
+  let max_id = at_least(random, 500);
+  let mut signed_index_dir = TestIndex::new(random, i32::MAX, i32::MIN, true)?;
+  let mut unsigned_index_dir = TestIndex::new(random, i32::MAX, 0, false)?;
+
+  let signed_index_reader = build(random, &mut signed_index_dir, min_id, max_id)?;
+  let unsigned_index_reader = build(random, &mut unsigned_index_dir, min_id, max_id)?;
+
+  Ok((
+    min_id,
+    max_id,
+    signed_index_dir.min_r,
+    signed_index_dir.max_r,
+    signed_index_reader,
+    unsigned_index_reader,
+  ))
+}
+fn build<R>(
+  random: &mut R,
+  index: &mut TestIndex,
+  min_id: i32,
+  max_id: i32,
+) -> Result<StandardDirectoryReaderType<DirEnum>>
+where
+  R: Rng + ?Sized,
+{
+  loop {
+    let analyzer = MockAnalyzer::new(random);
+    let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+    config
+      .set_open_mode(OpenMode::Create)
+      .set_max_buffered_docs(TestUtil::next_int(random, 50, 1000))
+      .set_merge_policy(new_log_merge_policy(random)?);
+    let writer = RandomIndexWriter::with_config(random, index.index.clone(), config);
+    let mut field_to_type = HashMap::new();
+
+    let mut min_count = 0;
+    let mut max_count = 0;
+
+    for d in min_id..=max_id {
+      let id = pad(d);
+      let r = if index.allow_negative_random_ints {
+        random.random::<i32>()
+      } else {
+        random.random_range(0..i32::MAX)
+      };
+      let rand = pad(r);
+
+      if index.max_r < r {
+        index.max_r = r;
+        max_count = 1;
+      } else if index.max_r == r {
+        max_count += 1;
+      }
+
+      if r < index.min_r {
+        index.min_r = r;
+        min_count = 1;
+      } else if r == index.min_r {
+        min_count += 1;
+      }
+
+      let mut doc = Document::new();
+      doc.add(new_string_field(
+        random,
+        "id",
+        id.clone(),
+        Store::Yes,
+        &mut field_to_type,
+      )?);
+      doc.add(SortedDocValuesField::new(
+        "id",
+        BytesRef::from_bytes(id.into_bytes()),
+      ));
+      doc.add(IntPoint::new("id_int", [d])?);
+      doc.add(NumericDocValuesField::new("id_int", d as i64));
+      doc.add(FloatPoint::new("id_float", [d as f32])?);
+      doc.add(NumericDocValuesField::new(
+        "id_float",
+        (d as f32).to_bits() as i32 as i64,
+      ));
+      doc.add(LongPoint::new("id_long", [d as i64])?);
+      doc.add(NumericDocValuesField::new("id_long", d as i64));
+      doc.add(DoublePoint::new("id_double", [d as f64])?);
+      doc.add(NumericDocValuesField::new(
+        "id_double",
+        (d as f64).to_bits() as i64,
+      ));
+
+      doc.add(new_string_field(
+        random,
+        "rand",
+        rand.clone(),
+        Store::Yes,
+        &mut field_to_type,
+      )?);
+      doc.add(SortedDocValuesField::new(
+        "rand",
+        BytesRef::from_bytes(rand.into_bytes()),
+      ));
+      doc.add(new_string_field(
+        random,
+        "body",
+        "body",
+        Store::No,
+        &mut field_to_type,
+      )?);
+      doc.add(SortedDocValuesField::new(
+        "body",
+        BytesRef::from_bytes(b"body".to_vec()),
+      ));
+      writer.add_document(doc)?;
+    }
+
+    if min_count == 1 && max_count == 1 {
+      let reader = writer.get_reader()?;
+      writer.close()?;
+      return Ok(reader);
+    }
+    // TODO IMPORTANT delete_all实现后 这里的 loop 需要调整
+    writer.w.delete_all()?;
+  }
 }
 #[test]
 fn test_pad() {
