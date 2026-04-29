@@ -733,7 +733,9 @@ mod tests {
   use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
   use crate::core::index::index_reader::IndexReader;
 
-  use crate::core::index::composite_reader::CompositeReader;
+  use crate::core::index::composite_reader::{CompositeReader, get_context};
+  use crate::core::index::index_reader_context::IndexReaderContext;
+  use crate::core::index::index_writer_config::OpenMode;
   use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::log_merge_policy::LogMergePolicy;
@@ -1319,6 +1321,7 @@ mod tests {
     TestUtil::random_realistic_unicode_string(random)
   }
   // TODO 14049251577398709107 测试未通过
+  #[test]
   fn test_random_terms() -> Result<()> {
     let mut random = random();
     let upper = at_least(&mut random, 1000);
@@ -1618,9 +1621,67 @@ mod tests {
     // TODO PerThreadPKLookup未实现
     Ok(())
   }
+  #[ignore]
   #[test]
   fn test_varying_terms_per_segment() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut terms: HashSet<BytesRef<Vec<u8>>> = HashSet::new();
+    let max_terms = at_least(&mut random, 1000) as usize;
+    while terms.len() < max_terms {
+      let term = TestUtil::random_simple_string_range(&mut random, 1, 40);
+      terms.insert(BytesRef::from_string(&term));
+    }
+
+    let terms_list: Vec<BytesRef<Vec<u8>>> = terms.into_iter().collect();
+    let mut text = String::new();
+    let mut field_to_type = HashMap::new();
+    for term_count in 0..max_terms {
+      text.push(' ');
+      text.push_str(&terms_list[term_count].utf8_to_string()?);
+
+      let mock = MockAnalyzer::new(&mut random);
+      let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+      iwc.set_open_mode(OpenMode::Create);
+      let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+      let mut doc = Document::new();
+      doc.add(new_text_field(
+        &mut random,
+        "field",
+        text.as_str(),
+        No,
+        &mut field_to_type,
+      )?);
+      writer.add_document(doc)?;
+
+      let reader = writer.get_reader()?;
+      let context = get_context(&reader)?;
+      let leaves = context.leaves()?;
+      assert_eq!(1, leaves.len());
+      let terms = leaves[0]
+        .reader()
+        .terms("field")?
+        .expect("terms must exist");
+      let mut te = terms.iterator()?;
+
+      for term in terms_list.iter().take(term_count + 1) {
+        assert!(
+          te.seek_exact(term)?,
+          "term '{}' should exist but doesn't",
+          term.utf8_to_string()?
+        );
+      }
+      for term in terms_list.iter().skip(term_count + 1) {
+        assert!(
+          !te.seek_exact(term)?,
+          "term '{term}' shouldn't exist but does"
+        );
+      }
+
+      reader.close()?;
+      writer.close()?;
+    }
     Ok(())
   }
   #[test]
