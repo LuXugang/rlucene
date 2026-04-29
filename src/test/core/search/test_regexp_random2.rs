@@ -26,7 +26,7 @@ use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
-  ConstantScoreBlendedRewrite,  MultiTermQuery, RewriteMethod,
+  ConstantScoreBlendedRewrite, MultiTermQuery, RewriteMethod,
 };
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
