@@ -1033,6 +1033,7 @@ mod tests {
   use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::leaf_reader_context::LeafReaderContext;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+  use crate::core::index::multi_reader::MultiReader;
   use crate::core::index::term::Term;
   use crate::core::search::boolean_clause::{BooleanClause, Occur};
   use crate::core::search::boolean_query::{BooleanQuery, Builder};
@@ -1045,6 +1046,7 @@ mod tests {
   use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
   use crate::core::search::leaf_collector::LeafCollector;
   use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+  use crate::core::search::multi_term_query::SCORING_BOOLEAN_REWRITE;
   use crate::core::search::phrase_query::PhraseQuery;
   use crate::core::search::query::{Query, QueryBase};
   use crate::core::search::scorable::Scorable;
@@ -1056,7 +1058,9 @@ mod tests {
   use crate::core::search::term_query::TermQuery;
   use crate::core::search::top_docs::TopDocsLike;
   use crate::core::search::weight::Weight;
+  use crate::core::search::wildcard_query::WildcardQuery;
   use crate::core::util::CoreHelper;
+  use crate::core::util::automation::operations::Operations;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::core::util::fixed_bit_set::FixedBitSet;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
@@ -1333,7 +1337,51 @@ mod tests {
   }
   #[test]
   fn test_de_morgan() -> Result<()> {
-    // TODO WildcardQuery 相关逻辑尚未实现
+    let mut random = random();
+    let dir1 = new_directory_shared(&mut random)?;
+    let iw1 = RandomIndexWriter::new(&mut random, dir1);
+    let mut field_to_type = HashMap::new();
+    let mut doc1 = Document::new();
+    doc1.add(new_text_field(
+      &mut random,
+      "field",
+      "foo bar",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    iw1.add_document(doc1)?;
+    let reader1 = iw1.get_reader()?;
+    iw1.close()?;
+
+    let dir2 = new_directory_shared(&mut random)?;
+    let iw2 = RandomIndexWriter::new(&mut random, dir2);
+    let mut doc2 = Document::new();
+    doc2.add(new_text_field(
+      &mut random,
+      "field",
+      "foo baz",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    iw2.add_document(doc2)?;
+    let reader2 = iw2.get_reader()?;
+    iw2.close()?;
+
+    let mut query = Builder::new();
+    query.add(TermQuery::new(Term::from_text("field", "foo")), Occur::Must)?;
+    let wildcard_query = WildcardQuery::with_rewrite(
+      Term::from_text("field", "ba*"),
+      Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32,
+      SCORING_BOOLEAN_REWRITE,
+    )?;
+    query.add(wildcard_query, Occur::MustNot)?;
+    let query = query.build();
+
+    let multireader = MultiReader::with_composite_reader(vec![reader1, reader2])?;
+    let searcher = new_searcher_with_reader(multireader)?;
+    assert_eq!(0, searcher.search(query.clone(), 10)?.total_hits.value());
+
+    // TODO IMPORTATNT 多线程未实现
     Ok(())
   }
   #[test]
