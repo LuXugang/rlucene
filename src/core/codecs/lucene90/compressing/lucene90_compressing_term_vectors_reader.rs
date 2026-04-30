@@ -1555,6 +1555,9 @@ impl TVPostingsEnum {
 
     self.payload_index = payload_index;
 
+    self.payload_length = 0;
+    self.payload_offset = 0;
+
     self.doc = -1;
     self.i = None;
   }
@@ -1660,13 +1663,14 @@ impl PostingsEnum for TVPostingsEnum {
 
   fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     self.check_position()?;
-    if self.payload_index.is_empty() || self.payload.length == 0 {
+    if self.payload_index.is_empty() || self.payload_length == 0 {
       Ok(None)
     } else {
       // TODO: always data copy here
       let v =
         self.payload.bytes[self.payload_offset..self.payload_offset + self.payload_length].to_vec();
-      let v = BytesRef::from_slice(v, self.payload_offset, self.payload_length);
+
+      let v = BytesRef::from_slice(v, 0, self.payload_length);
       Ok(Some(Cow::Owned(v)))
     }
   }

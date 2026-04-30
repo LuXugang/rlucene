@@ -733,7 +733,7 @@ pub trait FieldBase {
       "set_double_value not implement",
     ))
   }
-  fn set_token_stream(&mut self, _token_stream: Arc<FieldTokenStreamEnum>) -> Result<()> {
+  fn set_token_stream(&mut self, _token_stream: FieldTokenStreamEnum) -> Result<()> {
     Err(LuceneError::not_implemented(
       "set_token_stream not implement",
     ))
@@ -1000,7 +1000,7 @@ impl TokenStream for StringTokenStream {
 
 #[cfg(test)]
 mod tests {
-  use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
+
   use crate::core::analysis::reader::ReaderEnum;
   use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 
@@ -1048,12 +1048,15 @@ mod tests {
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::core::util::number::Number;
   use crate::core::util::numeric_utils::NumericUtils;
+  use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
+  use crate::test::core::analysis::token;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
     new_searcher_with_reader, random,
   };
   use std::sync::Arc;
+  use std::vec;
 
   #[allow(dead_code)] // for quick search
   struct TestField;
@@ -2869,8 +2872,9 @@ mod tests {
   where
     F: FieldBase,
   {
-    let token_stream = FieldTokenStreamEnum::Dummy(DummyTokenStream);
-    f.set_token_stream(Arc::new(token_stream))
+    let tokens = vec![token::with_range(Some("foo"), 0, 3)?];
+    let token_stream = CannedTokenStream::new(tokens);
+    f.set_token_stream(FieldTokenStreamEnum::custom(token_stream))
   }
   #[test]
   fn test_disabled_field() -> Result<()> {

@@ -1092,7 +1092,7 @@ where
           }
           let code = ((code as u32) >> 1) as i32;
           position += code;
-          self.payload_lengths_buf[pay_start + i] = position;
+          self.positions_buf[pay_start + i] = position;
         }
       } else {
         for i in 0..num_prox {
