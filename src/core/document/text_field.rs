@@ -19,7 +19,7 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::AnalyzerTokenStreams;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
-use crate::core::document::fields::TokenStreamEnum;
+use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::{
@@ -122,9 +122,10 @@ impl TextField {
   /// # Parameters
   /// - `name`: Field name.
   /// - `stream`: `TokenStream` value.
-  pub fn from_token_stream<T>(name: T, stream: TokenStreamEnum) -> Result<Self>
+  pub fn from_token_stream<T, V>(name: T, stream: V) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<FieldTokenStreamEnum>,
   {
     let parent_field =
       Field::from_token_stream(name, stream, text_field_type::TYPE_NOT_STORED.clone())?;
@@ -198,10 +199,6 @@ impl IndexableField for TextField {
     } else {
       None
     }
-  }
-
-  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-    self.parent_field.take_stored_value()
   }
 
   fn invertable_type(&self) -> &InvertableType {

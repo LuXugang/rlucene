@@ -18,10 +18,13 @@
 
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStreamEnum2};
+use crate::core::analysis::token_stream::{
+  AnalyzerTokenStreams, IndexingTokenStreamEnum3, TokenStreamEnum2,
+};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field::FieldDataEnum;
 use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
+use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field_type::IndexableFieldType;
@@ -81,7 +84,6 @@ pub trait IndexableField: Display {
   /// Stored value. This method is called to populate stored fields and must
   /// return a non-null value if the field stored.
   fn stored_value(&self) -> Option<&FieldDataEnum>;
-  fn take_stored_value(&mut self) -> Option<FieldDataEnum>;
 
   /// Describes how this field should be inverted. This must return a non-null
   /// value if the field indexes terms and postings.
@@ -99,8 +101,13 @@ pub trait IndexableField: Display {
     Err(LuceneError::unsupported_operation(""))
   }
 }
-pub type IndexingTokenStream<'a> =
-  Option<TokenStreamEnum2<&'a mut AnalyzerTokenStreams, &'a mut ReusedIndexingTokenStream>>;
+pub type IndexingTokenStream<'a> = Option<
+  IndexingTokenStreamEnum3<
+    &'a mut AnalyzerTokenStreams,
+    &'a mut ReusedIndexingTokenStream,
+    &'a mut FieldTokenStreamEnum,
+  >,
+>;
 pub type ReusedIndexingTokenStream = TokenStreamEnum2<BinaryTokenStream, StringTokenStream>;
 
 #[cfg(test)]

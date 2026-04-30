@@ -87,10 +87,6 @@ impl IndexableField for DummyIndexableField {
     dummy_unreachable!()
   }
 
-  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-    dummy_unreachable!()
-  }
-
   fn invertable_type(&self) -> &InvertableType {
     dummy_unreachable!()
   }

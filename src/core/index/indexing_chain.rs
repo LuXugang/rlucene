@@ -2665,11 +2665,6 @@ where
   fn stored_value(&self) -> Option<&FieldDataEnum> {
     self.delegate.stored_value()
   }
-
-  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-    self.delegate.take_stored_value()
-  }
-
   fn invertable_type(&self) -> &InvertableType {
     self.delegate.invertable_type()
   }

@@ -17,7 +17,7 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::AnalyzerTokenStreams;
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::binary_point::BinaryPoint;
@@ -55,14 +55,14 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::index::indexing_chain::ReservedField;
+use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
 use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test::core::index::test_doc_values_indexing::FieldImpl;
 use std::borrow::Cow;
-use std::fmt::{Display, Formatter};
-use std::sync::Arc;
+use std::fmt::{Debug, Display, Formatter};
 
 pub enum Fields {
   Binary(BinaryPoint),
@@ -231,10 +231,6 @@ impl IndexableField for Fields {
     dispatch_fields!(self, |field| field.stored_value())
   }
 
-  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-    dispatch_fields!(self, |field| field.take_stored_value())
-  }
-
   fn invertable_type(&self) -> &InvertableType {
     dispatch_fields!(self, |field| field.invertable_type())
   }
@@ -261,8 +257,88 @@ impl Clone for Fields {
     dispatch_fields!(self, |field| field.clone().into())
   }
 }
+pub type CustomTokenStream = Box<dyn TokenStream + Send + Sync>;
+pub enum FieldTokenStreamEnum {
+  Dummy(DummyTokenStream),
+  Custom(CustomTokenStream),
+}
+impl TokenStream for FieldTokenStreamEnum {
+  fn increment_token(&mut self) -> Result<bool> {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.increment_token(),
+      FieldTokenStreamEnum::Custom(custom) => custom.increment_token(),
+    }
+  }
 
-#[derive(Debug, Clone)]
-pub enum TokenStreamEnum {
-  Dummy(Arc<DummyTokenStream>),
+  fn end(&mut self) -> Result<()> {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.end(),
+      FieldTokenStreamEnum::Custom(custom) => custom.end(),
+    }
+  }
+
+  fn default_end(&mut self) -> Result<()> {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.default_end(),
+      FieldTokenStreamEnum::Custom(custom) => custom.default_end(),
+    }
+  }
+
+  fn reset(&mut self) -> Result<()> {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.reset(),
+      FieldTokenStreamEnum::Custom(custom) => custom.reset(),
+    }
+  }
+
+  fn default_reset(&mut self) -> Result<()> {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.default_reset(),
+      FieldTokenStreamEnum::Custom(custom) => custom.default_reset(),
+    }
+  }
+
+  fn close(&mut self) -> Result<()> {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.close(),
+      FieldTokenStreamEnum::Custom(custom) => custom.close(),
+    }
+  }
+
+  fn get_attribute_source(&self) -> &Attributes {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.get_attribute_source(),
+      FieldTokenStreamEnum::Custom(custom) => custom.get_attribute_source(),
+    }
+  }
+
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.get_attribute_source_mut(),
+      FieldTokenStreamEnum::Custom(custom) => custom.get_attribute_source_mut(),
+    }
+  }
+
+  fn set_reader(&mut self, _input: ReaderEnum) -> Result<()> {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.set_reader(_input),
+      FieldTokenStreamEnum::Custom(custom) => custom.set_reader(_input),
+    }
+  }
+
+  fn set_reader_test_point(&mut self) {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.set_reader_test_point(),
+      FieldTokenStreamEnum::Custom(custom) => custom.set_reader_test_point(),
+    }
+  }
+}
+impl Debug for FieldTokenStreamEnum {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.fmt(f),
+      // TODO IMPORTANT
+      FieldTokenStreamEnum::Custom(_) => write!(f, "CustomTokenStream"),
+    }
+  }
 }

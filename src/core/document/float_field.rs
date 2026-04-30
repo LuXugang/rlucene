@@ -191,10 +191,6 @@ impl IndexableField for FloatField {
     self.stored_value.as_ref()
   }
 
-  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-    self.parent_field.take_stored_value()
-  }
-
   fn invertable_type(&self) -> &InvertableType {
     self.parent_field.invertable_type()
   }

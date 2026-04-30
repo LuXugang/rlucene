@@ -131,6 +131,7 @@ macro_rules! either_token_stream {
 }
 either_token_stream!(pub TokenStreamEnum { Whitespace: A, Dummy: B });
 either_token_stream!(pub TokenStreamEnum2 { A: A, B: B });
+either_token_stream!(pub IndexingTokenStreamEnum3 { A: A, B: B,C:C });
 
 either_token_stream!(pub TokenStreamEnum3 { Whitespace: A, Standard: B, Dummy: C });
 pub type AnalyzerTokenStreams =

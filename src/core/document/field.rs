@@ -21,11 +21,11 @@ use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttrib
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::packed_token_and_binary::BinaryTokenStreamAttributeImpl;
 use crate::core::analysis::token_stream::{
-  AnalyzerTokenStreams, TokenStream, TokenStreamBase, TokenStreamEnum2,
+  AnalyzerTokenStreams, IndexingTokenStreamEnum3, TokenStream, TokenStreamBase,
 };
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::fields::TokenStreamEnum;
+use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -158,13 +158,14 @@ impl Field {
   /// # Errors
   /// - Returns an error if the field's type is `stored()`, `tokenized()` is
   ///   `false`, or `indexed()` is `false`.
-  pub fn from_token_stream<T>(
+  pub fn from_token_stream<T, V>(
     name: T,
-    token_stream: TokenStreamEnum,
+    token_stream: V,
     indexable_field_type: FieldType,
   ) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<FieldTokenStreamEnum>,
   {
     if !indexable_field_type.tokenized()
       || indexable_field_type.index_options() == &IndexOptions::None
@@ -181,7 +182,7 @@ impl Field {
     Ok(Field {
       indexable_field_type,
       name: name.into(),
-      fields_data: FieldDataEnum::TokenStream(token_stream),
+      fields_data: token_stream.into().into(),
     })
   }
   /// Creates a field with a binary value.
@@ -317,9 +318,11 @@ impl Field {
   /// Returns the `TokenStream` for this field to be used when indexing, or
   /// `None` if not set. If `None`, the `Reader` value or `String` value
   /// is analyzed to produce the indexed tokens.
-  pub fn token_stream_value(&self) -> Result<Option<TokenStreamEnum>> {
-    // TODO: 这里要移除所有权
-    todo!()
+  pub fn token_stream_value(&mut self) -> Result<Option<&mut FieldTokenStreamEnum>> {
+    match self.fields_data {
+      FieldDataEnum::TokenStream(ref mut token_stream) => Ok(Some(token_stream)),
+      _ => Ok(None),
+    }
   }
   /// Expert: changes the value of this field. This can be used during
   /// indexing to re-use a single `Field` instance to improve indexing
@@ -478,7 +481,7 @@ impl Field {
     Ok(())
   }
   /// Expert: sets the token stream to be used for indexing.
-  pub fn set_token_stream(&mut self, token_stream: TokenStreamEnum) -> Result<()> {
+  pub fn set_token_stream(&mut self, token_stream: FieldTokenStreamEnum) -> Result<()> {
     match &self.fields_data {
       FieldDataEnum::TokenStream(_) => {},
       _ => {
@@ -529,7 +532,7 @@ impl IndexableField for Field {
           },
         }
 
-        return Ok(Some(TokenStreamEnum2::B(
+        return Ok(Some(IndexingTokenStreamEnum3::B(
           reuse_token_stream.as_mut().unwrap(),
         )));
       }
@@ -549,7 +552,7 @@ impl IndexableField for Field {
           },
         }
 
-        return Ok(Some(TokenStreamEnum2::B(
+        return Ok(Some(IndexingTokenStreamEnum3::B(
           reuse_token_stream.as_mut().unwrap(),
         )));
       }
@@ -559,8 +562,10 @@ impl IndexableField for Field {
 
     debug_assert!(reuse_token_stream.is_none());
 
-    if let Some(token_stream) = token_stream {
-      Ok(Some(TokenStreamEnum2::A(token_stream)))
+    if let Some(v) = self.token_stream_value()? {
+      Ok(Some(IndexingTokenStreamEnum3::C(v)))
+    } else if let Some(token_stream) = token_stream {
+      Ok(Some(IndexingTokenStreamEnum3::A(token_stream)))
     } else {
       Err(LuceneError::illegal_state(
         "not initialized Analyzer's token stream in IndexableField::init_token_stream()?",
@@ -657,10 +662,6 @@ impl IndexableField for Field {
     Some(&self.fields_data)
   }
 
-  fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
-    todo!()
-  }
-
   fn invertable_type(&self) -> &InvertableType {
     &InvertableType::TokenStream
   }
@@ -674,7 +675,6 @@ impl IndexableField for Field {
       return Ok(());
     }
     if field_type.tokenized() {
-      // TODO: 这里只考虑String value, tokenStreamValue暂时不考虑
       if let Some(reader) = self.take_reader_value()? {
         analyzer.token_stream(self.name(), reader)?;
       }
@@ -734,7 +734,7 @@ pub trait FieldBase {
       "set_double_value not implement",
     ))
   }
-  fn set_token_stream(&mut self, _token_stream: Arc<TokenStreamEnum>) -> Result<()> {
+  fn set_token_stream(&mut self, _token_stream: Arc<FieldTokenStreamEnum>) -> Result<()> {
     Err(LuceneError::not_implemented(
       "set_token_stream not implement",
     ))
@@ -770,16 +770,33 @@ impl From<Store> for bool {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum FieldDataEnum {
   Number(Number),
   Binary(BytesRef<Vec<u8>>),
   String(String),
   Reader(ReaderEnum),
-  TokenStream(TokenStreamEnum),
+  TokenStream(FieldTokenStreamEnum),
   // used to std::mem::replace(FieldDataEnum)
   Dummy(()),
   VectorValue(VectorValueEnum),
+}
+#[cfg(test)]
+impl Clone for FieldDataEnum {
+  fn clone(&self) -> Self {
+    match self {
+      Self::Number(n) => Self::Number(*n),
+      Self::Binary(b) => Self::Binary(b.clone()),
+      Self::String(s) => Self::String(s.clone()),
+      Self::Reader(r) => Self::Reader(r.clone()),
+      Self::TokenStream(_t) => unreachable!("token stream should not be cloned"),
+      Self::Dummy(d) => {
+        let _: () = *d;
+        Self::Dummy(())
+      },
+      Self::VectorValue(v) => Self::VectorValue(v.clone()),
+    }
+  }
 }
 
 impl From<i32> for FieldDataEnum {
@@ -822,7 +839,7 @@ impl_from_for_enum!(
     BytesRef<Vec<u8>> => Binary,
     String => String,
     ReaderEnum => Reader,
-    TokenStreamEnum => TokenStream,
+    FieldTokenStreamEnum => TokenStream,
      VectorValueEnum => VectorValue,
 );
 
@@ -995,7 +1012,7 @@ mod tests {
   use crate::core::document::double_point::DoublePoint;
   use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
   use crate::core::document::field_type::FieldType;
-  use crate::core::document::fields::TokenStreamEnum;
+  use crate::core::document::fields::FieldTokenStreamEnum;
   use crate::core::document::float_doc_values_field::FloatDocValuesField;
   use crate::core::document::float_field::FloatField;
   use crate::core::document::float_point::FloatPoint;
@@ -2853,7 +2870,7 @@ mod tests {
   where
     F: FieldBase,
   {
-    let token_stream = TokenStreamEnum::Dummy(Arc::new(DummyTokenStream));
+    let token_stream = FieldTokenStreamEnum::Dummy(DummyTokenStream);
     f.set_token_stream(Arc::new(token_stream))
   }
   #[test]
