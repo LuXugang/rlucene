@@ -726,7 +726,7 @@ define_terms_enum_enum!(
 #[cfg(test)]
 mod tests {
   use crate::core::document::document::Document;
-  use crate::core::document::field::Store::No;
+  use crate::core::document::field::Store::{No, Yes};
   use crate::core::document::field_type::FieldType;
   use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
   use crate::core::index::BytesRef;
@@ -744,6 +744,7 @@ mod tests {
   use crate::core::index::numeric_doc_values::NumericDocValues;
   use crate::core::index::postings_enum::NONE;
   use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+  use crate::core::index::stored_fields::StoredFields;
   use crate::core::index::term::Term;
   use crate::core::index::term_state::TermState;
   use crate::core::index::terms::Terms;
@@ -759,6 +760,7 @@ mod tests {
   use crate::core::util::bytes_ref_iterator::BytesRefIterator;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+  use crate::test::core::index::per_thread_pk_lookup::PerThreadPKLookup;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
@@ -1618,7 +1620,89 @@ mod tests {
   }
   #[test]
   fn test_common_prefix_terms() -> Result<()> {
-    // TODO PerThreadPKLookup未实现
+    let mut random = random();
+    let d = new_directory_shared(&mut random)?;
+    let w = RandomIndexWriter::new(&mut random, d);
+    let mut terms: HashSet<String> = HashSet::new();
+    let prefix = TestUtil::random_realistic_unicode_string_range(&mut random, 1, 20);
+    let num_terms = at_least(&mut random, 100);
+
+    while terms.len() < num_terms as usize {
+      terms.insert(format!(
+        "{}{}",
+        prefix,
+        TestUtil::random_realistic_unicode_string_range(&mut random, 1, 20)
+      ));
+    }
+
+    let mut field_to_type = HashMap::new();
+    for term in &terms {
+      let mut doc = Document::new();
+      doc.add(new_string_field(
+        &mut random,
+        "id",
+        term,
+        Yes,
+        &mut field_to_type,
+      )?);
+      w.add_document(doc)?;
+    }
+
+    let r = w.get_reader()?;
+    let mut terms_enum = get_terms(&r, "id")?.unwrap().iterator()?;
+    let mut postings_enum = None;
+    let context = get_context(&r)?;
+    let mut pk_lookup = PerThreadPKLookup::new(&context, "id")?;
+    let mut stored_fields = r.stored_fields()?;
+
+    let iters = at_least(&mut random, num_terms * 3);
+    let terms_list: Vec<String> = terms.iter().cloned().collect();
+    for _iter in 0..iters {
+      let term;
+      let should_exist;
+      if random.random_bool(0.5) {
+        term = terms_list[random.random_range(0..terms.len())].clone();
+        should_exist = true;
+      } else {
+        term = format!(
+          "{}{}",
+          prefix,
+          TestUtil::random_simple_string_range(&mut random, 1, 20)
+        );
+        should_exist = terms.contains(&term);
+      }
+
+      let term_bytes_ref = BytesRef::from_string(&term);
+
+      let actual_result = terms_enum.seek_exact(&term_bytes_ref)?;
+      assert_eq!(should_exist, actual_result);
+      if should_exist {
+        postings_enum = Some(terms_enum.postings_with_flags(postings_enum, NONE as i32)?);
+        let doc_id = postings_enum.as_mut().unwrap().next_doc()?;
+        assert_ne!(doc_id, NO_MORE_DOCS);
+        assert_eq!(doc_id, pk_lookup.lookup(&term_bytes_ref)?);
+        let doc = stored_fields.document(doc_id)?;
+        assert_eq!(term, *doc.get("id")?.unwrap());
+
+        if random.random_range(0..7) == 1 {
+          terms_enum.next()?;
+        }
+      } else {
+        assert_eq!(-1, pk_lookup.lookup(&term_bytes_ref)?);
+      }
+
+      if random.random_range(0..7) == 1 {
+        let status = terms_enum.seek_ceil(&term_bytes_ref)?;
+        if should_exist {
+          assert_eq!(SeekStatus::Found, status);
+        } else {
+          assert_ne!(SeekStatus::Found, status);
+        }
+      }
+    }
+
+    r.close()?;
+    w.close()?;
     Ok(())
   }
   #[ignore]
