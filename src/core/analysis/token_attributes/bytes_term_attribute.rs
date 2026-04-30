@@ -22,7 +22,9 @@ use crate::core::util::error::lucene_error::Result;
 /// if binary terms should be indexed.
 pub trait BytesTermAttribute: TermToBytesRefAttribute {
   #[cfg(debug_assertions)]
-  const ATTRIBUTE_NAME: &'static str = "BytesTermAttribute";
+  const ATTRIBUTE_NAME: &'static str = NAME;
   /// Sets the BytesRef of the term
   fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()>;
 }
+
+pub const NAME: &str = "BytesTermAttribute";

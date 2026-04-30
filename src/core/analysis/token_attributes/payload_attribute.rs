@@ -29,7 +29,7 @@ use crate::core::util::attribute::Attribute;
 /// See also: [`PostingsEnum`](crate::core::index::postings_enum::PostingsEnum)
 pub trait PayloadAttribute: Attribute {
   #[cfg(debug_assertions)]
-  const ATTRIBUTE_NAME: &'static str = "PayloadAttribute";
+  const ATTRIBUTE_NAME: &'static str = NAME;
 
   /// Returns this token's payload.
   ///
@@ -40,3 +40,5 @@ pub trait PayloadAttribute: Attribute {
   /// See also: [`Self::get_payload`]
   fn set_payload(&mut self, payload: Option<BytesRef<Vec<u8>>>);
 }
+
+pub const NAME: &str = "PayloadAttribute";

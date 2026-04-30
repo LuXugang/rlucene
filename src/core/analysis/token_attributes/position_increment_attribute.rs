@@ -38,7 +38,7 @@ use crate::core::util::error::lucene_error::Result;
 /// [`PostingsEnum`](crate::core::index::postings_enum::PostingsEnum)
 pub trait PositionIncrementAttribute: Attribute {
   #[cfg(debug_assertions)]
-  const ATTRIBUTE_NAME: &'static str = "PositionIncrementAttribute";
+  const ATTRIBUTE_NAME: &'static str = NAME;
 
   /// Set the position increment. The default value is `1`.
   ///
@@ -58,3 +58,5 @@ pub trait PositionIncrementAttribute: Attribute {
   /// [`set_position_increment`](PositionIncrementAttribute::set_position_increment)
   fn get_position_increment(&self) -> i32;
 }
+
+pub const NAME: &str = "PositionIncrementAttribute";

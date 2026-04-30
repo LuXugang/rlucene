@@ -24,10 +24,12 @@ use crate::core::util::attribute::Attribute;
 /// `TokenFilter`s.
 pub trait FlagsAttribute: Attribute {
   #[cfg(debug_assertions)]
-  const ATTRIBUTE_NAME: &'static str = "FlagsAttribute";
+  const ATTRIBUTE_NAME: &'static str = NAME;
 
   /// Get the bitset for any bits that have been set.
   fn get_flags(&self) -> i32;
   /// Set the flags to a new bitset.
   fn set_flags(&mut self, flags: i32);
 }
+
+pub const NAME: &str = "FlagsAttribute";

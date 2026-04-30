@@ -22,7 +22,7 @@ use std::borrow::Cow;
 /// customize the final `byte[]` encoding of terms.
 pub trait TermToBytesRefAttribute: Attribute {
   #[cfg(debug_assertions)]
-  const ATTRIBUTE_NAME: &'static str = "TermToBytesRefAttribute";
+  const ATTRIBUTE_NAME: &'static str = NAME;
 
   /// Retrieve this attribute’s `BytesRef`. The bytes are updated from the current term.
   /// The implementation may return a new instance or keep the previous one.
@@ -30,3 +30,5 @@ pub trait TermToBytesRefAttribute: Attribute {
   /// `increment_token()`.
   fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>>;
 }
+
+pub const NAME: &str = "TermToBytesRefAttribute";

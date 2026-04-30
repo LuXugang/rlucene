@@ -39,10 +39,12 @@ use std::collections::HashMap;
 pub trait BaseTokenStreamTestCase {}
 
 pub trait CheckClearAttributesAttribute: AttributeImpl {
-  const ATTRIBUTE_NAME: &'static str = "CheckClearAttributesAttribute";
+  const ATTRIBUTE_NAME: &'static str = NAME;
 
   fn get_and_reset_clear_called(&mut self) -> bool;
 }
+
+pub const NAME: &str = "CheckClearAttributesAttribute";
 pub struct CheckClearAttributesAttributeImpl {
   clear_called: bool,
 }

@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::Result;
 /// skip a term if [`is_keyword`](KeywordAttribute::is_keyword) returns `true`.
 pub trait KeywordAttribute: Attribute {
   #[cfg(debug_assertions)]
-  const ATTRIBUTE_NAME: &'static str = "KeywordAttribute";
+  const ATTRIBUTE_NAME: &'static str = NAME;
 
   /// Returns `true` if the current token is a keyword, otherwise `false`.
   ///
@@ -43,3 +43,5 @@ pub trait KeywordAttribute: Attribute {
   /// [`is_keyword`](KeywordAttribute::is_keyword)
   fn set_keyword(&mut self, is_keyword: bool) -> Result<()>;
 }
+
+pub const NAME: &str = "KeywordAttribute";
