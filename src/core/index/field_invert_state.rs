@@ -18,6 +18,7 @@ use crate::core::index::index_options::IndexOptions;
 /// This struct tracks the number and position / offset parameters of terms being
 /// added to the index. The information collected in This struct is also used to
 /// calculate the normalization factor for a field.
+#[cfg_attr(test, derive(Clone))]
 pub struct FieldInvertState {
   index_created_version_major: i32,
   name: String,

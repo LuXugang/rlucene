@@ -40,6 +40,7 @@ mod test_add_indexes;
 mod test_all_file_have_codec_header;
 mod test_binary_terms;
 mod test_consistent_field_numbers;
+mod test_custom_term_freq;
 mod test_doc_count;
 pub(crate) mod test_doc_values_indexing;
 mod test_docs_and_positions;

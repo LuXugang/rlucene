@@ -79,6 +79,9 @@ pub trait AttributeSource {
   }
 
   // TermFrequencyAttribute;
+  fn set_term_frequency(&mut self, _term_frequency: i32) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
   fn get_term_frequency(&self) -> Result<i32> {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -621,6 +624,17 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => Ok(attr.get_bytes_ref()),
       Attributes::BinaryTokenStream(attr) => Ok(attr.get_binary_mut().get_bytes_ref()),
       Attributes::BytesTerm(attr) => Ok(attr.get_bytes_ref()),
+    }
+  }
+
+  fn set_term_frequency(&mut self, term_frequency: i32) -> Result<()> {
+    match self {
+      Attributes::PackedToken(attr) => attr.sub.set_term_frequency(term_frequency),
+      Attributes::BinaryTokenStream(attr) => attr
+        .get_packed_token_mut()
+        .sub
+        .set_term_frequency(term_frequency),
+      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 

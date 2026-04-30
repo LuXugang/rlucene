@@ -179,10 +179,12 @@ impl Field {
         "TokenStream fields cannot be stored",
       ));
     }
+    let ts = token_stream.into();
+    // TODO IMPORTANT 这里应该 debug 是否具备分词必要的 Attribute
     Ok(Field {
       indexable_field_type,
       name: name.into(),
-      fields_data: token_stream.into().into(),
+      fields_data: ts.into(),
     })
   }
   /// Creates a field with a binary value.

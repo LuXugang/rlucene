@@ -1562,7 +1562,7 @@ impl PerField {
                 // update length
                 let tf = attribute_source.get_term_frequency()?;
                 invert_state.length = invert_state.length.checked_add(tf).ok_or_else(|| {
-                    LuceneError::number_overflow(format!(
+                    LuceneError::illegal_argument(format!(
                         "too many tokens for field {}",
                         field_name
                     ))
@@ -1581,22 +1581,29 @@ impl PerField {
                     attribute_source,
                     context,
                 ) {
-                    let bytes_ref = attribute_source.get_bytes_ref()?.ok_or_else(|| {
+                  match e {
+                    LuceneError::MaxBytesLengthExceeded(e) => {
+                      let bytes_ref = attribute_source.get_bytes_ref()?.ok_or_else(|| {
                         LuceneError::illegal_state(
-                            "BytesRef is None in attribute_source",
+                          "BytesRef is None in attribute_source",
                         )
-                    })?;
-                    let mut prefix = [0u8; 30];
-                    let len = 30.min(bytes_ref.length);
-                    prefix.copy_from(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + len], 0);
-                    // TODO IMPORTANT可能抛出其他错误 我们需要嵌套
-                    return Err(LuceneError::illegal_argument(format!(
+                      })?;
+                      let mut prefix = [0u8; 30];
+                      let len = 30.min(bytes_ref.length);
+                      prefix.copy_from(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + len], 0);
+                      // TODO IMPORTANT可能抛出其他错误 我们需要嵌套
+                      return Err(LuceneError::illegal_argument(format!(
                         "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
                         self.field_info.as_ref().unwrap().name,
                         MAX_TERM_LENGTH,
                         prefix,
                         e
-                    )));
+                      )));
+                    },
+                    _=> {
+                      return Err(e);
+                    }
+                  }
                 }
             }
             // trigger streams to perform end-of-stream operations
@@ -1684,21 +1691,25 @@ impl PerField {
       &mut attribute_source,
       context,
     ) {
-      let mut prefix = [0u8; 30];
-      prefix.copy_from(
-        &binary_value.bytes[binary_value.offset..binary_value.offset + 30],
-        0,
-      );
-      let msg = format!(
-        "Document contains at least one immense term in field=\"{}\" (whose length is longer than the max length {}), all of which were skipped. The prefix of the first immense term is: '{:?}...'",
-        self.field_info.as_ref().unwrap().name,
-        MAX_TERM_LENGTH,
-        prefix
-      );
-      // if self.info_stream.is_enabled("IW") {
-      //     self.self.info_stream.message("IW", &format!("ERROR: {}", msg));
-      // }
-      return Err(LuceneError::illegal_state(format!("{msg} {e}")));
+      match e {
+        LuceneError::MaxBytesLengthExceeded(e) => {
+          let mut prefix = [0u8; 30];
+          prefix.copy_from(
+            &binary_value.bytes[binary_value.offset..binary_value.offset + 30],
+            0,
+          );
+          let msg = format!(
+            "Document contains at least one immense term in field=\"{}\" (whose length is longer than the max length {}), all of which were skipped. The prefix of the first immense term is: '{:?}...'",
+            self.field_info.as_ref().unwrap().name,
+            MAX_TERM_LENGTH,
+            prefix
+          );
+          return Err(LuceneError::illegal_state(format!("{msg} {e}")));
+        },
+        _ => {
+          return Err(e);
+        },
+      }
     }
     Ok(())
   }

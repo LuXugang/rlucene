@@ -262,6 +262,14 @@ pub enum FieldTokenStreamEnum {
   Dummy(DummyTokenStream),
   Custom(CustomTokenStream),
 }
+impl FieldTokenStreamEnum {
+  pub fn custom<S>(sim: S) -> Self
+  where
+    S: TokenStream + Send + Sync + 'static,
+  {
+    FieldTokenStreamEnum::Custom(Box::new(sim))
+  }
+}
 impl TokenStream for FieldTokenStreamEnum {
   fn increment_token(&mut self) -> Result<bool> {
     match self {
