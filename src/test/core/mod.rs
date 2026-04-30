@@ -21,6 +21,7 @@ pub mod geo;
 pub mod index;
 pub mod search;
 pub mod store;
+mod test_demo;
 mod test_search;
 mod test_search_for_duplicates;
 pub mod util;

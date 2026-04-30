@@ -1,0 +1,86 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
+use crate::core::document::document::Document;
+use crate::core::document::field::Store;
+use crate::core::index::directory_reader;
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::stored_fields::StoredFields;
+use crate::core::index::term::Term;
+use crate::core::search::phrase_query::PhraseQuery;
+use crate::core::search::term_query::TermQuery;
+use crate::core::search::top_docs::TopDocsLike;
+use crate::core::util::error::lucene_error::Result;
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+  create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, new_text_field, random,
+};
+use std::collections::HashMap;
+
+#[allow(dead_code)] // for quick search
+pub struct TestDemo;
+
+#[test]
+fn test_demo() -> Result<()> {
+  let mut random = random();
+  let long_term = "longtermlongtermlongtermlongtermlongtermlongtermlongtermlong\
+                   termlongtermlongtermlongtermlongtermlongtermlongtermlongterm\
+                   longtermlongtermlongterm";
+  let text = format!("This is the text to be indexed. {}", long_term);
+
+  let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("tempIndex")?)?;
+  let analyzer = StandardAnalyzer::new();
+  let writer = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, analyzer),
+  )?;
+
+  let mut field_to_type = HashMap::new();
+  let mut doc = Document::new();
+  doc.add(new_text_field(
+    &mut random,
+    "fieldname",
+    &text,
+    Store::Yes,
+    &mut field_to_type,
+  )?);
+  writer.add_document(doc)?;
+  writer.close()?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  let searcher = new_searcher_with_reader(reader)?;
+
+  assert_eq!(
+    1,
+    searcher.count(TermQuery::new(Term::from_text("fieldname", long_term)))?
+  );
+
+  let query = TermQuery::new(Term::from_text("fieldname", "text"));
+  let hits = searcher.search(query, 1)?;
+  assert_eq!(1, hits.total_hits().value());
+
+  let mut stored_fields = searcher.stored_fields()?;
+  for hit in hits.score_docs() {
+    let hit_doc = stored_fields.document(hit.doc)?;
+    assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
+  }
+
+  let phrase_query = PhraseQuery::from_terms_no_slop("fieldname", &["to", "be"])?;
+  assert_eq!(1, searcher.count(phrase_query)?);
+
+  Ok(())
+}
