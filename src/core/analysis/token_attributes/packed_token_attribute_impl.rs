@@ -14,16 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::char_term_attribute_impl::{
   CharTermAttributeImpl, CharTermAttributeImplBase,
 };
+#[cfg(test)]
+use crate::core::analysis::token_attributes::flags_attribute::FlagsAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
+#[cfg(test)]
+use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
 use crate::core::analysis::token_attributes::position_length_attribute::PositionLengthAttribute;
 use crate::core::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::analysis::token_attributes::type_attribute::{DEFAULT_TYPE, TypeAttribute};
+use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
+use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
 use crate::test::core::analysis::base_token_stream_test_case::{
@@ -31,6 +39,7 @@ use crate::test::core::analysis::base_token_stream_test_case::{
 };
 #[cfg(test)]
 use crate::test::core::analysis::token::TokenBase;
+use std::borrow::Cow;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -283,6 +292,161 @@ impl Display for PackedTokenAttributeImpl {
 }
 
 impl CharTermAttributeImplBase for PackedTokenAttributeImpl {}
+
+impl AttributeSource for CharTermAttributeImpl<PackedTokenAttributeImpl> {
+  fn length(&self) -> Result<usize> {
+    Ok(CharTermAttribute::length(self))
+  }
+
+  fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) -> Result<()> {
+    CharTermAttribute::copy_buffer(self, buffer, offset, length);
+    Ok(())
+  }
+
+  fn buffer_mut(&mut self) -> Result<&mut [char]> {
+    Ok(CharTermAttribute::buffer_mut(self))
+  }
+
+  fn buffer(&self) -> Result<&[char]> {
+    Ok(CharTermAttribute::buffer(self))
+  }
+
+  fn resize_buffer(&mut self, new_size: usize) -> Result<&mut [char]> {
+    Ok(CharTermAttribute::resize_buffer(self, new_size))
+  }
+
+  fn set_length(&mut self, length: usize) -> Result<&mut Self> {
+    CharTermAttribute::set_length(self, length)?;
+    Ok(self)
+  }
+
+  fn set_empty(&mut self) -> Result<&mut Self> {
+    CharTermAttribute::set_empty(self);
+    Ok(self)
+  }
+
+  fn append_range(&mut self, csq: Option<&str>, start: usize, end: usize) -> Result<&mut Self> {
+    CharTermAttribute::append_range(self, csq, start, end)?;
+    Ok(self)
+  }
+
+  fn append_char(&mut self, c: char) -> Result<&mut Self> {
+    CharTermAttribute::append_char(self, c);
+    Ok(self)
+  }
+
+  fn append_str(&mut self, s: Option<&str>) -> Result<&mut Self> {
+    CharTermAttribute::append_str(self, s);
+    Ok(self)
+  }
+
+  fn append_term_attribute<C>(&mut self, term_att: Option<&mut C>) -> Result<&mut Self>
+  where
+    C: CharTermAttribute,
+  {
+    CharTermAttribute::append_term_attribute(self, term_att);
+    Ok(self)
+  }
+
+  fn start_offset(&self) -> Result<i32> {
+    Ok(self.sub.start_offset())
+  }
+
+  fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()> {
+    self.sub.set_offset(start_offset, end_offset)
+  }
+
+  fn end_offset(&self) -> Result<i32> {
+    Ok(self.sub.end_offset())
+  }
+
+  fn get_position_increment(&self) -> Result<i32> {
+    Ok(self.sub.get_position_increment())
+  }
+
+  fn set_position_increment(&mut self, position_increment: i32) -> Result<()> {
+    self.sub.set_position_increment(position_increment)
+  }
+  #[cfg(test)]
+  fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    Ok(self.sub.token.get_payload())
+  }
+  #[cfg(not(test))]
+  fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  #[cfg(test)]
+  fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) -> Result<()> {
+    self.sub.token.set_payload(Some(payload));
+    Ok(())
+  }
+
+  #[cfg(not(test))]
+  fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) -> Result<()> {
+    let _ = payload;
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    Ok(TermToBytesRefAttribute::get_bytes_ref(self))
+  }
+
+  fn set_term_frequency(&mut self, term_frequency: i32) -> Result<()> {
+    self.sub.set_term_frequency(term_frequency)
+  }
+
+  fn get_term_frequency(&self) -> Result<i32> {
+    Ok(self.sub.get_term_frequency())
+  }
+
+  fn set_position_length(&mut self, position_length: i32) -> Result<()> {
+    self.sub.set_position_length(position_length)
+  }
+
+  fn get_position_length(&self) -> Result<i32> {
+    Ok(self.sub.get_position_length())
+  }
+
+  #[cfg(test)]
+  fn get_flags(&self) -> Result<i32> {
+    Ok(self.sub.token.get_flags())
+  }
+
+  #[cfg(not(test))]
+  fn get_flags(&self) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  #[cfg(test)]
+  fn set_flags(&mut self, flags: i32) -> Result<()> {
+    self.sub.token.set_flags(flags);
+    Ok(())
+  }
+
+  #[cfg(not(test))]
+  fn set_flags(&mut self, flags: i32) -> Result<()> {
+    let _ = flags;
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn type_(&self) -> Result<&str> {
+    Ok(self.sub.type_())
+  }
+
+  fn set_type(&mut self, type_: &str) -> Result<()> {
+    self.sub.set_type(type_);
+    Ok(())
+  }
+
+  fn end_attributes(&mut self) {
+    self.end()
+  }
+
+  fn clear_attributes(&mut self) {
+    self.clear()
+  }
+}
 #[cfg(test)]
 impl CheckClearAttributesAttribute for PackedTokenAttributeImpl {
   fn get_and_reset_clear_called(&mut self) -> bool {

@@ -19,6 +19,7 @@ use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermTo
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
+use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::Result;
 #[cfg(test)]
 use crate::test::core::analysis::base_token_stream_test_case::{
@@ -128,6 +129,20 @@ impl PartialEq for BytesTermAttributeImpl {
 impl Display for BytesTermAttributeImpl {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
+  }
+}
+
+impl AttributeSource for BytesTermAttributeImpl {
+  fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+    BytesTermAttribute::set_bytes_ref(self, bytes)
+  }
+
+  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    Ok(TermToBytesRefAttribute::get_bytes_ref(self))
+  }
+
+  fn clear_attributes(&mut self) {
+    self.clear()
   }
 }
 
