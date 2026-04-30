@@ -30,7 +30,7 @@ use crate::test::core::analysis::base_token_stream_test_case::{
   CheckClearAttributesAttribute, CheckClearAttributesAttributeImpl,
 };
 #[cfg(test)]
-use crate::test::core::analysis::token::Token;
+use crate::test::core::analysis::token::TokenBase;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -56,7 +56,7 @@ pub struct PackedTokenAttributeImpl {
   #[cfg(debug_assertions)]
   attribute: HashSet<String>,
   #[cfg(test)]
-  pub(crate) token: Token,
+  pub(crate) token: TokenBase,
 }
 
 impl PackedTokenAttributeImpl {
@@ -73,7 +73,7 @@ impl PackedTokenAttributeImpl {
       attribute.insert(<Self as TermFrequencyAttribute>::ATTRIBUTE_NAME.to_string());
     }
     #[cfg(test)]
-    let token = Token::default();
+    let token = TokenBase::default();
     #[cfg(test)]
     {
       attribute.insert(<Self as CheckClearAttributesAttribute>::ATTRIBUTE_NAME.to_string());

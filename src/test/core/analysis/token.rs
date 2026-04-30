@@ -28,10 +28,11 @@ use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
-/// A [`Token`] is an occurrence of a term from the text of a field. It consists of a term's text, the
+/// A [`TokenBase`] is an occurrence of a term from the text of a field. It consists of a term's text, the
 /// start and end offset of the term in the text of the field, and a type string.
+pub type Token = CharTermAttributeImpl<PackedTokenAttributeImpl>;
 #[derive(Clone)]
-pub struct Token {
+pub struct TokenBase {
   flags: i32,
   payload: Option<BytesRef<Vec<u8>>>,
   attribute: HashSet<String>,
@@ -39,7 +40,7 @@ pub struct Token {
 pub fn new() -> Result<CharTermAttributeImpl<PackedTokenAttributeImpl>> {
   PackedTokenAttributeImpl::new()
 }
-/// Constructs a [`Token`] with the given term text, start and end offsets. The type defaults to
+/// Constructs a [`TokenBase`] with the given term text, start and end offsets. The type defaults to
 /// "word." **NOTE:** for better indexing speed you should instead use the `char[] termBuffer`
 /// methods to set the term text.
 ///
@@ -58,7 +59,7 @@ pub fn with_range(
   base.sub.set_offset(start, end)?;
   Ok(base)
 }
-/// Constructs a [`Token`] with the given term text, position increment, start and end offsets.
+/// Constructs a [`TokenBase`] with the given term text, position increment, start and end offsets.
 pub fn with_pos_inc(
   text: &str,
   pos_inc: i32,
@@ -86,29 +87,29 @@ pub fn with_all(
   base.sub.set_position_length(pos_length)?;
   Ok(base)
 }
-impl Default for Token {
+impl Default for TokenBase {
   fn default() -> Self {
-    let mut v = Token {
+    let mut v = TokenBase {
       flags: 0,
       payload: None,
       attribute: HashSet::new(),
     };
     v.attribute
-      .insert(<Token as FlagsAttribute>::ATTRIBUTE_NAME.to_string());
+      .insert(<TokenBase as FlagsAttribute>::ATTRIBUTE_NAME.to_string());
     v.attribute
-      .insert(<Token as PayloadAttribute>::ATTRIBUTE_NAME.to_string());
+      .insert(<TokenBase as PayloadAttribute>::ATTRIBUTE_NAME.to_string());
     v
   }
 }
 
-impl Attribute for Token {
+impl Attribute for TokenBase {
   #[cfg(debug_assertions)]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)
   }
 }
 
-impl FlagsAttribute for Token {
+impl FlagsAttribute for TokenBase {
   fn get_flags(&self) -> i32 {
     self.flags
   }
@@ -117,7 +118,7 @@ impl FlagsAttribute for Token {
     self.flags = flags;
   }
 }
-impl PayloadAttribute for Token {
+impl PayloadAttribute for TokenBase {
   fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
     self.payload.as_ref()
   }
@@ -127,7 +128,7 @@ impl PayloadAttribute for Token {
   }
 }
 
-impl AttributeImpl for Token {
+impl AttributeImpl for TokenBase {
   fn clear(&mut self) {
     self.flags = 0;
     self.payload = None;
@@ -140,13 +141,13 @@ impl AttributeImpl for Token {
     other.set_payload(self.payload.clone());
   }
 }
-impl PartialEq for Token {
+impl PartialEq for TokenBase {
   fn eq(&self, other: &Self) -> bool {
     self.flags == other.flags && self.payload == other.payload
   }
 }
-impl Eq for Token {}
-impl Hash for Token {
+impl Eq for TokenBase {}
+impl Hash for TokenBase {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.flags.hash(state);
     self.payload.hash(state)

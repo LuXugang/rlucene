@@ -735,6 +735,8 @@ impl<IE> Eq for PostingsAndFreq<IE> where IE: ImpactsEnum {}
 mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
+  use crate::core::document::fields::FieldTokenStreamEnum;
+  use crate::core::document::text_field::TextField;
   use crate::core::index::BytesRef;
   use crate::core::index::impact::Impact;
   use crate::core::index::impacts::Impacts;
@@ -754,6 +756,7 @@ mod tests {
   use crate::core::search::top_docs::TopDocsLike;
   use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
+  use crate::test::core::analysis::{canned_token_stream::CannedTokenStream, token};
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::search::check_hits::CheckHits;
   use crate::test::core::search::query_utils::QueryUtils;
@@ -1408,7 +1411,46 @@ mod tests {
   }
   #[test]
   fn test_zero_pos_incr() -> Result<()> {
-    // TODO Token 未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let tokens = vec![
+      token::with_pos_inc("a", 1, 0, 1)?,
+      token::with_pos_inc("aa", 0, 0, 2)?,
+      token::with_pos_inc("b", 1, 3, 4)?,
+    ];
+
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut doc = Document::new();
+    doc.add(TextField::from_token_stream(
+      "field",
+      FieldTokenStreamEnum::custom(CannedTokenStream::new(tokens)),
+    )?);
+    writer.add_document(doc)?;
+
+    let reader = writer.get_reader()?;
+    writer.close()?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    // Sanity check; simple "a b" phrase.
+    let mut pq_builder = crate::core::search::phrase_query::Builder::new();
+    pq_builder.add(Term::from_text("field", "a"), 0)?;
+    pq_builder.add(Term::from_text("field", "b"), 1)?;
+    assert_eq!(1, searcher.count(pq_builder.build()?)?);
+
+    // Now with "a|aa b".
+    let mut pq_builder = crate::core::search::phrase_query::Builder::new();
+    pq_builder.add(Term::from_text("field", "a"), 0)?;
+    pq_builder.add(Term::from_text("field", "aa"), 0)?;
+    pq_builder.add(Term::from_text("field", "b"), 1)?;
+    assert_eq!(1, searcher.count(pq_builder.build()?)?);
+
+    // Now with "a|z b" which should not match; this isn't a MultiPhraseQuery.
+    let mut pq_builder = crate::core::search::phrase_query::Builder::new();
+    pq_builder.add(Term::from_text("field", "a"), 0)?;
+    pq_builder.add(Term::from_text("field", "z"), 0)?;
+    pq_builder.add(Term::from_text("field", "b"), 1)?;
+    assert_eq!(0, searcher.count(pq_builder.build()?)?);
+
     Ok(())
   }
   #[test]
