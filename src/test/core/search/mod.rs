@@ -72,6 +72,7 @@ mod test_sort_optimization;
 pub(crate) mod test_sort_random;
 mod test_top_docs_merge;
 mod test_top_field_collector_early_termination;
+mod test_wildcard_random;
 mod test_xy_doc_values_queries;
 mod test_xy_point_distance_sort;
 mod test_xy_point_queries;
