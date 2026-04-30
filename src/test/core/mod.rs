@@ -22,4 +22,5 @@ pub mod index;
 pub mod search;
 pub mod store;
 mod test_search;
+mod test_search_for_duplicates;
 pub mod util;
