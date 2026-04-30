@@ -74,7 +74,7 @@ pub trait CharTermAttribute: Attribute + Display {
   /// # Returns
   ///
   /// `self` for chaining.
-  fn append_range(&mut self, csq: &str, start: usize, end: usize) -> &mut Self;
+  fn append_range(&mut self, csq: Option<&str>, start: usize, end: usize) -> Result<&mut Self>;
 
   /// Appends a single character `c` to this term.
   ///

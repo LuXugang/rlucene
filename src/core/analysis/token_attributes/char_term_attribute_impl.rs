@@ -162,8 +162,28 @@ where
     self
   }
 
-  fn append_range(&mut self, _csq: &str, _start: usize, _end: usize) -> &mut Self {
-    todo!()
+  fn append_range(&mut self, csq: Option<&str>, start: usize, end: usize) -> Result<&mut Self> {
+    let csq = csq.unwrap_or("null");
+    let csq_len = csq.chars().count();
+    CoreHelper::check_from_to_index(start, end, csq_len)?;
+
+    let len = end - start;
+    if len == 0 {
+      return Ok(self);
+    }
+
+    self.resize_buffer(self.term_length + len);
+    if len > 4 {
+      let chars: Vec<char> = csq.chars().skip(start).take(len).collect();
+      self.term_buffer.copy_from(&chars, self.term_length);
+      self.term_length += len;
+    } else {
+      for c in csq.chars().skip(start).take(len) {
+        self.term_buffer[self.term_length] = c;
+        self.term_length += 1;
+      }
+    }
+    Ok(self)
   }
 
   fn append_char(&mut self, c: char) -> &mut Self {

@@ -387,15 +387,15 @@ impl CharTermAttribute for Attributes {
     }
   }
 
-  fn append_range(&mut self, csq: &str, start: usize, end: usize) -> &mut Self {
+  fn append_range(&mut self, csq: Option<&str>, start: usize, end: usize) -> Result<&mut Self> {
     match self {
       Attributes::PackedToken(attr) => {
-        attr.append_range(csq, start, end);
-        self
+        attr.append_range(csq, start, end)?;
+        Ok(self)
       },
       Attributes::BinaryTokenStream(attr) => {
-        attr.get_packed_token_mut().append_range(csq, start, end);
-        self
+        attr.get_packed_token_mut().append_range(csq, start, end)?;
+        Ok(self)
       },
       _ => unimplemented!("not support"),
     }
@@ -538,7 +538,7 @@ impl BoostAttribute for Attributes {
   }
 }
 impl PayloadAttribute for Attributes {
-  fn get_payload(&self) -> &BytesRef<Vec<u8>> {
+  fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
     match self {
       Attributes::PackedToken(_attr) => unimplemented!("not support"),
       Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
@@ -546,7 +546,7 @@ impl PayloadAttribute for Attributes {
     }
   }
 
-  fn set_payload(&mut self, _payload: BytesRef<Vec<u8>>) {
+  fn set_payload(&mut self, _payload: Option<BytesRef<Vec<u8>>>) {
     match self {
       Attributes::PackedToken(_attr) => unimplemented!("not support"),
       Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
@@ -712,10 +712,10 @@ impl OffsetAttribute for Attributes {
 }
 
 impl TypeAttribute for Attributes {
-  fn type_value(&self) -> &str {
+  fn type_(&self) -> &str {
     match self {
-      Attributes::PackedToken(attr) => attr.sub.type_value(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.type_value(),
+      Attributes::PackedToken(attr) => attr.sub.type_(),
+      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.type_(),
       _ => unimplemented!("not support"),
     }
   }

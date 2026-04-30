@@ -26,13 +26,13 @@ pub trait TypeAttribute: Attribute {
   /// # See
   ///
   /// [`set_type`](TypeAttribute::set_type)
-  fn type_value(&self) -> &str;
+  fn type_(&self) -> &str;
 
   /// Set the lexical type.
   ///
   /// # See
   ///
-  /// [`type`](TypeAttribute::type_value)
+  /// [`type`](TypeAttribute::type_)
   fn set_type(&mut self, type_: &str);
 }
 

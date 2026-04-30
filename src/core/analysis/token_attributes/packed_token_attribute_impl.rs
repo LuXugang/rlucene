@@ -29,6 +29,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::base_token_stream_test_case::{
   CheckClearAttributesAttribute, CheckClearAttributesAttributeImpl,
 };
+#[cfg(test)]
+use crate::test::core::analysis::token::Token;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -53,6 +55,8 @@ pub struct PackedTokenAttributeImpl {
   check_clear_attributes: CheckClearAttributesAttributeImpl,
   #[cfg(debug_assertions)]
   attribute: HashSet<String>,
+  #[cfg(test)]
+  pub(crate) token: Token,
 }
 
 impl PackedTokenAttributeImpl {
@@ -69,8 +73,11 @@ impl PackedTokenAttributeImpl {
       attribute.insert(<Self as TermFrequencyAttribute>::ATTRIBUTE_NAME.to_string());
     }
     #[cfg(test)]
+    let token = Token::default();
+    #[cfg(test)]
     {
       attribute.insert(<Self as CheckClearAttributesAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute.extend(token.get_attribute_name()?.clone())
     }
     let sub = Self {
       start_offset: 0,
@@ -83,6 +90,8 @@ impl PackedTokenAttributeImpl {
       check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
       #[cfg(debug_assertions)]
       attribute,
+      #[cfg(test)]
+      token,
     };
     CharTermAttributeImpl::with_sub(sub)
   }
@@ -97,7 +106,7 @@ impl Attribute for PackedTokenAttributeImpl {
 
 impl TypeAttribute for PackedTokenAttributeImpl {
   /// Returns this Token's lexical type. Defaults to "word".
-  fn type_value(&self) -> &str {
+  fn type_(&self) -> &str {
     self.type_.as_str()
   }
   /// Set the lexical type.
@@ -191,6 +200,8 @@ impl Clone for PackedTokenAttributeImpl {
       check_clear_attributes: self.check_clear_attributes.clone(),
       #[cfg(debug_assertions)]
       attribute: self.attribute.clone(),
+      #[cfg(test)]
+      token: self.token.clone(),
     }
   }
 }
@@ -206,6 +217,8 @@ impl AttributeImpl for PackedTokenAttributeImpl {
     self.type_ = DEFAULT_TYPE.to_string();
     #[cfg(test)]
     self.check_clear_attributes.clear();
+    #[cfg(test)]
+    self.token.clear()
   }
 
   /// Resets the attributes at end
@@ -222,6 +235,8 @@ impl AttributeImpl for PackedTokenAttributeImpl {
     to.end_offset = self.end_offset;
     to.type_ = self.type_.clone();
     to.term_frequency = self.term_frequency;
+    #[cfg(test)]
+    self.token.copy_to(&mut to.token);
   }
 }
 impl Hash for PackedTokenAttributeImpl {
@@ -235,6 +250,8 @@ impl Hash for PackedTokenAttributeImpl {
     self.position_increment.hash(state);
     self.position_length.hash(state);
     self.term_frequency.hash(state);
+    #[cfg(test)]
+    self.token.hash(state);
   }
 }
 impl PartialEq for PackedTokenAttributeImpl {
@@ -245,6 +262,17 @@ impl PartialEq for PackedTokenAttributeImpl {
       && self.position_length == other.position_length
       && self.term_frequency == other.term_frequency
       && self.type_ == other.type_
+      && {
+        #[cfg(test)]
+        {
+          self.token == other.token
+        }
+
+        #[cfg(not(test))]
+        {
+          true
+        }
+      }
   }
 }
 impl Display for PackedTokenAttributeImpl {

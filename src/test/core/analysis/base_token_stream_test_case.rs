@@ -219,7 +219,13 @@ where
       if payload_att {
         PayloadAttribute::set_payload(
           attr,
-          BytesRef::from_bytes(vec![0x00, (-0x21i8) as u8, 0x12, (-0x43i8) as u8, 0x24]),
+          Some(BytesRef::from_bytes(vec![
+            0x00,
+            (-0x21i8) as u8,
+            0x12,
+            (-0x43i8) as u8,
+            0x24,
+          ])),
         )
       }
       if flags_att {
@@ -251,7 +257,7 @@ where
       assert_eq!(end_offsets[i], OffsetAttribute::end_offset(attr));
     }
     if let Some(types) = types {
-      assert_eq!(types[i], TypeAttribute::type_value(attr));
+      assert_eq!(types[i], TypeAttribute::type_(attr));
     }
     if let Some(pos_increments) = pos_increments {
       assert_eq!(
@@ -279,7 +285,7 @@ where
     {
       assert_eq!(
         &BytesRef::from_bytes(payload.clone()),
-        PayloadAttribute::get_payload(attr)
+        PayloadAttribute::get_payload(attr).unwrap()
       );
     }
     if pos_incr_att {
@@ -356,7 +362,13 @@ where
     if payload_att {
       PayloadAttribute::set_payload(
         attr,
-        BytesRef::from_bytes(vec![0x00, (-0x21i8) as u8, 0x12, (-0x43i8) as u8, 0x24]),
+        Some(BytesRef::from_bytes(vec![
+          0x00,
+          (-0x21i8) as u8,
+          0x12,
+          (-0x43i8) as u8,
+          0x24,
+        ])),
       );
     }
     if flags_att {

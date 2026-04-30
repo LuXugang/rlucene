@@ -23,11 +23,11 @@ pub struct DummyPayloadAttribute;
 impl Attribute for DummyPayloadAttribute {}
 
 impl PayloadAttribute for DummyPayloadAttribute {
-  fn get_payload(&self) -> &BytesRef<Vec<u8>> {
+  fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
     dummy_unreachable!()
   }
 
-  fn set_payload(&mut self, _payload: BytesRef<Vec<u8>>) {
+  fn set_payload(&mut self, _payload: Option<BytesRef<Vec<u8>>>) {
     dummy_unreachable!()
   }
 }
