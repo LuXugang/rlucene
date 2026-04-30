@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::BytesRef;
+#[cfg(debug_assertions)]
+use crate::core::index::BytesRefBuilder;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStates;
 use crate::core::index::terms_enum::TermsEnum;
-use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::search::boost_attribute::DEFAULT_BOOST;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::MultiTermQuery;
@@ -122,6 +124,7 @@ impl Compare<BytesRef<Vec<u8>>> for ScoreTermCmp {
 }
 
 pub(crate) struct TermCollectorImpl {
+  #[cfg(debug_assertions)]
   last_term: Option<BytesRefBuilder<Vec<u8>>>,
   st_queue: PriorityQueue<BytesRef<Vec<u8>>, ScoreTermCmp>,
   max_size: usize,
@@ -132,6 +135,7 @@ impl TermCollectorImpl {
     let cmp = ScoreTermCmp::new();
     let st_queue = PriorityQueue::new(max_size + 1, cmp)?;
     Ok(Self {
+      #[cfg(debug_assertions)]
       last_term: None,
       st_queue,
       max_size,
@@ -192,6 +196,7 @@ impl TermCollector for TermCollectorImpl {
       Err(e) => return Err(e),
     };
 
+    #[cfg(debug_assertions)]
     debug_assert!(self.compare_to_last_term(Some(&bytes)));
 
     if self.st_queue.size() == self.max_size {
@@ -280,6 +285,7 @@ impl TermCollector for TermCollectorImpl {
   where
     TE: TermsEnum,
   {
+    #[cfg(debug_assertions)]
     debug_assert!(self.compare_to_last_term(None));
     Ok(())
   }

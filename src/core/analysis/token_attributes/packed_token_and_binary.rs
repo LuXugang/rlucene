@@ -17,7 +17,7 @@
 use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
 use crate::core::analysis::token_attributes::char_term_attribute_impl::CharTermAttributeImpl;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
-#[cfg(test)]
+#[cfg(debug_assertions)]
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::Result;
@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::base_token_stream_test_case::CheckClearAttributesAttribute;
 #[cfg(test)]
 use crate::test::core::analysis::base_token_stream_test_case::CheckClearAttributesAttributeImpl;
-#[cfg(test)]
+#[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::fmt::Display;
 
@@ -34,7 +34,7 @@ pub struct BinaryTokenStreamAttributeImpl {
   binary: BytesTermAttributeImpl,
   #[cfg(test)]
   check_clear_attributes: CheckClearAttributesAttributeImpl,
-  #[cfg(test)]
+  #[cfg(debug_assertions)]
   attribute: HashSet<String>,
 }
 
@@ -43,9 +43,9 @@ impl BinaryTokenStreamAttributeImpl {
     let packed_token = PackedTokenAttributeImpl::new()?;
     let binary = BytesTermAttributeImpl::default();
     // TODO is there a better way to do this?
-    #[cfg(test)]
+    #[cfg(debug_assertions)]
     let mut attribute = HashSet::new();
-    #[cfg(test)]
+    #[cfg(debug_assertions)]
     {
       attribute.extend(packed_token.get_attribute_name()?.clone());
       attribute.extend(binary.get_attribute_name()?.clone());
@@ -55,7 +55,7 @@ impl BinaryTokenStreamAttributeImpl {
       binary,
       #[cfg(test)]
       check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
-      #[cfg(test)]
+      #[cfg(debug_assertions)]
       attribute,
     })
   }
@@ -97,7 +97,7 @@ impl AttributeImpl for BinaryTokenStreamAttributeImpl {
   }
 }
 
-#[cfg(test)]
+#[cfg(debug_assertions)]
 impl Attribute for BinaryTokenStreamAttributeImpl {
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)

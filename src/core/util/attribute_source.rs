@@ -38,7 +38,7 @@ use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test::core::analysis::base_token_stream_test_case::CheckClearAttributesAttribute;
 use std::borrow::Cow;
-#[cfg(test)]
+#[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
@@ -303,7 +303,7 @@ impl_from_for_enum!(
     BinaryTokenStreamAttributeImpl=> BinaryTokenStream,
 );
 impl Attribute for Attributes {
-  #[cfg(test)]
+  #[cfg(debug_assertions)]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     match self {
       Attributes::PackedToken(attr) => attr.get_attribute_name(),

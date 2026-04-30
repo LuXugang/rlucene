@@ -23,7 +23,7 @@ use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 use std::borrow::Cow;
-#[cfg(test)]
+#[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -38,7 +38,7 @@ where
   /// May be used by subclasses to convert to different charsets / encodings for implementing [`get_bytes_ref`](Self::get_bytes_ref).
   pub(crate) builder: BytesRefBuilder<Vec<u8>>,
   pub(crate) sub: T,
-  #[cfg(test)]
+  #[cfg(debug_assertions)]
   attribute: HashSet<String>,
 }
 impl CharTermAttributeImpl<EmptyAttributeImpl> {
@@ -54,9 +54,9 @@ where
   const MIN_BUFFER_SIZE: usize = 10;
 
   pub fn with_sub(sub: T) -> Result<Self> {
-    #[cfg(test)]
+    #[cfg(debug_assertions)]
     let mut attribute = HashSet::new();
-    #[cfg(test)]
+    #[cfg(debug_assertions)]
     {
       attribute.insert(<Self as CharTermAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as TermToBytesRefAttribute>::ATTRIBUTE_NAME.to_string());
@@ -70,7 +70,7 @@ where
       term_length: 0,
       builder: BytesRefBuilder::new(),
       sub,
-      #[cfg(test)]
+      #[cfg(debug_assertions)]
       attribute,
     })
   }
@@ -109,7 +109,7 @@ impl<T> Attribute for CharTermAttributeImpl<T>
 where
   T: AttributeImpl + CharTermAttributeImplBase,
 {
-  #[cfg(test)]
+  #[cfg(debug_assertions)]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)
   }
@@ -284,7 +284,7 @@ where
 }
 #[derive(Clone)]
 pub struct EmptyAttributeImpl {
-  #[cfg(test)]
+  #[cfg(debug_assertions)]
   attribute: HashSet<String>,
 }
 impl Default for EmptyAttributeImpl {
@@ -295,14 +295,14 @@ impl Default for EmptyAttributeImpl {
 impl EmptyAttributeImpl {
   fn new() -> Self {
     EmptyAttributeImpl {
-      #[cfg(test)]
+      #[cfg(debug_assertions)]
       attribute: HashSet::new(),
     }
   }
 }
 
 impl Attribute for EmptyAttributeImpl {
-  #[cfg(test)]
+  #[cfg(debug_assertions)]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)
   }

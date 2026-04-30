@@ -29,7 +29,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::base_token_stream_test_case::{
   CheckClearAttributesAttribute, CheckClearAttributesAttributeImpl,
 };
-#[cfg(test)]
+#[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -51,22 +51,25 @@ pub struct PackedTokenAttributeImpl {
   term_frequency: i32,
   #[cfg(test)]
   check_clear_attributes: CheckClearAttributesAttributeImpl,
-  #[cfg(test)]
+  #[cfg(debug_assertions)]
   attribute: HashSet<String>,
 }
 
 impl PackedTokenAttributeImpl {
   pub fn new() -> Result<CharTermAttributeImpl<Self>> {
     // TODO is there a better way to do this?
-    #[cfg(test)]
+    #[cfg(debug_assertions)]
     let mut attribute = HashSet::new();
-    #[cfg(test)]
+    #[cfg(debug_assertions)]
     {
       attribute.insert(<Self as TypeAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as PositionIncrementAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as PositionLengthAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as OffsetAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as TermFrequencyAttribute>::ATTRIBUTE_NAME.to_string());
+    }
+    #[cfg(test)]
+    {
       attribute.insert(<Self as CheckClearAttributesAttribute>::ATTRIBUTE_NAME.to_string());
     }
     let sub = Self {
@@ -78,7 +81,7 @@ impl PackedTokenAttributeImpl {
       term_frequency: 1,
       #[cfg(test)]
       check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
-      #[cfg(test)]
+      #[cfg(debug_assertions)]
       attribute,
     };
     CharTermAttributeImpl::with_sub(sub)
@@ -86,7 +89,7 @@ impl PackedTokenAttributeImpl {
 }
 
 impl Attribute for PackedTokenAttributeImpl {
-  #[cfg(test)]
+  #[cfg(debug_assertions)]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)
   }
@@ -186,7 +189,7 @@ impl Clone for PackedTokenAttributeImpl {
       term_frequency: self.term_frequency,
       #[cfg(test)]
       check_clear_attributes: self.check_clear_attributes.clone(),
-      #[cfg(test)]
+      #[cfg(debug_assertions)]
       attribute: self.attribute.clone(),
     }
   }

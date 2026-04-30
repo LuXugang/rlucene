@@ -27,7 +27,7 @@ use crate::core::util::attribute::Attribute;
 ///
 /// @lucene.internal
 pub trait BoostAttribute: Attribute {
-  #[cfg(test)]
+  #[cfg(debug_assertions)]
   const ATTRIBUTE_NAME: &'static str = "BoostAttribute";
 
   /// Sets the boost in this attribute.
