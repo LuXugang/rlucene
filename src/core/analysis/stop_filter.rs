@@ -18,9 +18,9 @@ use crate::core::analysis::char_array_set::CharArraySet;
 use crate::core::analysis::filtering_token_filter::{
   FilteringTokenFilter, FilteringTokenFilterBase,
 };
-use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_stream::TokenStream;
-use crate::core::util::attribute_source::Attributes;
+use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 pub struct StopFilter {
@@ -37,9 +37,13 @@ impl StopFilter {
 }
 
 impl FilteringTokenFilterBase for StopFilter {
-  fn accept(&self, att: &Attributes) -> bool {
-    debug_assert!(att.length() <= i32::MAX as usize);
-    let length = att.length() as i32;
-    !self.stop_words.contains_key(att.buffer(), 0, length)
+  fn accept(&self, att: &Attributes) -> Result<bool> {
+    let length = att.length().expect("CharTermAttribute length is required");
+    debug_assert!(length <= i32::MAX as usize);
+    Ok(
+      !self
+        .stop_words
+        .contains_key(att.buffer()?, 0, length as i32),
+    )
   }
 }

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};

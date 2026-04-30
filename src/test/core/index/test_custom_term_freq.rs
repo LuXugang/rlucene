@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
@@ -74,7 +73,7 @@ impl TokenStream for CannedTermFreqs {
 
     self.attrs.clear_attributes();
 
-    self.attrs.append_str(Some(&self.terms[self.upto]));
+    self.attrs.append_str(Some(&self.terms[self.upto]))?;
 
     self.attrs.set_term_frequency(self.term_freqs[self.upto])?;
 

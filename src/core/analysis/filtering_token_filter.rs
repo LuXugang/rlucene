@@ -72,7 +72,7 @@ where
         break;
       }
       let att = self.base.input.get_attribute_source_mut();
-      if self.sub.accept(att) {
+      if self.sub.accept(att)? {
         if self.skipped_positions != 0 {
           let new_pos = att.get_position_increment()? + self.skipped_positions;
           att.set_position_increment(new_pos)?;
@@ -123,5 +123,5 @@ where
 /// [`increment_token`](TokenStream::increment_token) uses this method to decide if a token should be passed to the caller.
 pub trait FilteringTokenFilterBase {
   /// Override this method and return if the current input token should be returned by #incrementToken.
-  fn accept(&self, att: &Attributes) -> bool;
+  fn accept(&self, att: &Attributes) -> Result<bool>;
 }

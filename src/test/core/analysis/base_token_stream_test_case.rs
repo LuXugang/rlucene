@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{Analyzer, REUSE_STRATEGY, ReuseStrategy};
-use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
-use crate::core::analysis::token_attributes::flags_attribute::FlagsAttribute;
-use crate::core::analysis::token_attributes::keyword_attribute::KeywordAttribute;
-use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::core::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
-use crate::core::analysis::token_attributes::position_length_attribute::PositionLengthAttribute;
-use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
-use crate::core::analysis::token_attributes::type_attribute::TypeAttribute;
+use crate::core::analysis::token_attributes::{
+  char_term_attribute, flags_attribute, keyword_attribute, offset_attribute, payload_attribute,
+  position_increment_attribute, position_length_attribute, term_to_bytes_ref_attribute,
+  type_attribute,
+};
 use crate::core::analysis::token_stream::AnalyzerTokenStreams;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::field::Field;
 use crate::core::index::BytesRef;
-use crate::core::search::boost_attribute::BoostAttribute;
+use crate::core::search::boost_attribute;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
-use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use rand::Rng;
 use std::collections::HashMap;
@@ -125,56 +121,56 @@ where
     let attribute_names = attr.get_attribute_name()?;
 
     if !output.is_empty() {
-      assert!(attribute_names.contains(<Attributes as CharTermAttribute>::ATTRIBUTE_NAME));
-      assert!(attribute_names.contains(<Attributes as TermToBytesRefAttribute>::ATTRIBUTE_NAME));
+      assert!(attribute_names.contains(char_term_attribute::NAME));
+      assert!(attribute_names.contains(term_to_bytes_ref_attribute::NAME));
       // TODO IMPORTANT BytesRefBuilderTermAttributeImpl未实现
     }
 
     let mut offset_att = false;
     if start_offsets.is_some() || end_offsets.is_some() || final_offset.is_some() {
-      assert!(attribute_names.contains(<Attributes as OffsetAttribute>::ATTRIBUTE_NAME));
+      assert!(attribute_names.contains(offset_attribute::NAME));
       offset_att = true;
     }
 
     let mut type_att = false;
     if types.is_some() {
-      assert!(attribute_names.contains(<Attributes as TypeAttribute>::ATTRIBUTE_NAME));
+      assert!(attribute_names.contains(type_attribute::NAME));
       type_att = true;
     }
 
     let mut pos_incr_att = false;
     if pos_increments.is_some() || final_pos_inc.is_some() {
-      assert!(attribute_names.contains(<Attributes as PositionIncrementAttribute>::ATTRIBUTE_NAME));
+      assert!(attribute_names.contains(position_increment_attribute::NAME));
       pos_incr_att = true;
     }
 
     let mut pos_length_att = false;
     if pos_lengths.is_some() {
-      assert!(attribute_names.contains(<Attributes as PositionLengthAttribute>::ATTRIBUTE_NAME));
+      assert!(attribute_names.contains(position_length_attribute::NAME));
       pos_length_att = true;
     }
 
     let mut keyword_att = false;
     if keyword_atts.is_some() {
-      assert!(attribute_names.contains(<Attributes as KeywordAttribute>::ATTRIBUTE_NAME));
+      assert!(attribute_names.contains(keyword_attribute::NAME));
       keyword_att = true;
     }
 
     let mut payload_att = false;
     if payloads.is_some() {
-      assert!(attribute_names.contains(<Attributes as PayloadAttribute>::ATTRIBUTE_NAME));
+      assert!(attribute_names.contains(payload_attribute::NAME));
       payload_att = true;
     }
 
     let mut flags_att = false;
     if flags.is_some() {
-      assert!(attribute_names.contains(<Attributes as FlagsAttribute>::ATTRIBUTE_NAME));
+      assert!(attribute_names.contains(flags_attribute::NAME));
       flags_att = true;
     }
 
     let mut boost_att = false;
     if boost.is_some() {
-      assert!(attribute_names.contains(<Attributes as BoostAttribute>::ATTRIBUTE_NAME));
+      assert!(attribute_names.contains(boost_attribute::NAME));
       boost_att = true;
     }
 
@@ -201,40 +197,37 @@ where
     ts.get_attribute_source_mut().clear_attributes();
     {
       let attr = ts.get_attribute_source_mut();
-      attr.set_empty().append_str(Some("bogusTerm"));
+      attr.set_empty()?.append_str(Some("bogusTerm"))?;
 
       if offset_att {
         attr.set_offset(14584724, 24683243)?;
       }
       if type_att {
-        attr.set_type("bogusType");
+        attr.set_type("bogusType")?;
       }
       if pos_incr_att {
-        PositionIncrementAttribute::set_position_increment(attr, 45987657)?;
+        attr.set_position_increment(45987657)?;
       }
       if pos_length_att {
-        PositionLengthAttribute::set_position_length(attr, 45987653)?;
+        attr.set_position_length(45987653)?;
       }
       if keyword_att {
-        KeywordAttribute::set_keyword(attr, (i & 1) == 0)?;
+        attr.set_keyword((i & 1) == 0)?;
       }
       if payload_att {
-        PayloadAttribute::set_payload(
-          attr,
-          Some(BytesRef::from_bytes(vec![
-            0x00,
-            (-0x21i8) as u8,
-            0x12,
-            (-0x43i8) as u8,
-            0x24,
-          ])),
-        )
+        attr.set_payload(BytesRef::from_bytes(vec![
+          0x00,
+          (-0x21i8) as u8,
+          0x12,
+          (-0x43i8) as u8,
+          0x24,
+        ]))?;
       }
       if flags_att {
-        FlagsAttribute::set_flags(attr, !0);
+        attr.set_flags(!0)?;
       }
       if boost_att {
-        BoostAttribute::set_boost(attr, -1.0);
+        attr.set_boost(-1.0)?;
       }
     }
     {
@@ -252,72 +245,66 @@ where
     assert_eq!(output[i], attr.to_string(), "term {}", i);
 
     if let Some(start_offsets) = start_offsets {
-      assert_eq!(start_offsets[i], OffsetAttribute::start_offset(attr));
+      assert_eq!(start_offsets[i], attr.start_offset()?);
     }
 
     if let Some(end_offsets) = end_offsets {
-      assert_eq!(end_offsets[i], OffsetAttribute::end_offset(attr));
+      assert_eq!(end_offsets[i], attr.end_offset()?);
     }
     if let Some(types) = types {
-      assert_eq!(types[i], TypeAttribute::type_(attr));
+      assert_eq!(types[i], attr.type_()?);
     }
     if let Some(pos_increments) = pos_increments {
-      assert_eq!(
-        pos_increments[i],
-        PositionIncrementAttribute::get_position_increment(attr)
-      );
+      assert_eq!(pos_increments[i], attr.get_position_increment()?);
     }
     if let Some(pos_lengths) = pos_lengths {
-      assert_eq!(
-        pos_lengths[i],
-        PositionLengthAttribute::get_position_length(attr)
-      );
+      assert_eq!(pos_lengths[i], attr.get_position_length()?);
     }
     if let Some(keyword_atts) = keyword_atts {
-      assert_eq!(keyword_atts[i], KeywordAttribute::is_keyword(attr)?);
+      assert_eq!(keyword_atts[i], attr.is_keyword()?);
     }
     if let Some(flags) = flags {
-      assert_eq!(flags[i], FlagsAttribute::get_flags(attr));
+      assert_eq!(flags[i], attr.get_flags()?);
     }
     if let Some(boost) = boost {
-      assert!((boost[i] - BoostAttribute::get_boost(attr)).abs() <= 0.001);
+      assert!((boost[i] - attr.get_boost()?).abs() <= 0.001);
     }
     if let Some(payloads) = payloads
       && let Some(payload) = &payloads[i]
     {
       assert_eq!(
         &BytesRef::from_bytes(payload.clone()),
-        PayloadAttribute::get_payload(attr).unwrap()
+        attr.get_payload()?.unwrap()
       );
     }
     if pos_incr_att {
       if i == 0 {
-        assert!(PositionIncrementAttribute::get_position_increment(attr) >= 1);
+        assert!(attr.get_position_increment()? >= 1);
       } else {
-        assert!(PositionIncrementAttribute::get_position_increment(attr) >= 0);
+        assert!(attr.get_position_increment()? >= 0);
       }
     }
     if pos_length_att {
-      assert!(PositionLengthAttribute::get_position_length(attr) >= 1);
+      assert!(attr.get_position_length()? >= 1);
     }
 
     if offset_att {
-      let start_offset = OffsetAttribute::start_offset(attr);
-      let end_offset = OffsetAttribute::end_offset(attr);
+      let start_offset = attr.start_offset()?;
+      let end_offset = attr.end_offset()?;
 
       if let Some(final_offset) = final_offset {
         assert!(start_offset <= final_offset);
         assert!(end_offset <= final_offset);
       }
 
-      assert!(OffsetAttribute::start_offset(attr) >= last_start_offset);
-      last_start_offset = OffsetAttribute::start_offset(attr);
+      assert!(attr.start_offset()? >= last_start_offset);
+      last_start_offset = attr.start_offset()?;
 
       if graph_offsets_are_correct && pos_length_att && pos_incr_att {
-        let pos_inc = PositionIncrementAttribute::get_position_increment(attr);
+        let pos_inc = attr.get_position_increment()?;
         pos += pos_inc;
 
-        let pos_length = PositionLengthAttribute::get_position_length(attr);
+        let pos_length = attr.get_position_length()?;
 
         if let Some(expected_start_offset) = pos_to_start_offset.get(&pos) {
           assert_eq!(*expected_start_offset, start_offset);
@@ -344,40 +331,37 @@ where
     let attr = ts.get_attribute_source_mut();
     attr.clear_attributes();
     if !output.is_empty() {
-      attr.set_empty().append_str(Some("bogusTerm"));
+      attr.set_empty()?.append_str(Some("bogusTerm"))?;
     }
     if offset_att {
       attr.set_offset(14584724, 24683243)?;
     }
     if type_att {
-      attr.set_type("bogusType");
+      attr.set_type("bogusType")?;
     }
     if pos_incr_att {
-      PositionIncrementAttribute::set_position_increment(attr, 45987657)?;
+      attr.set_position_increment(45987657)?;
     }
     if pos_length_att {
-      PositionLengthAttribute::set_position_length(attr, 45987653)?;
+      attr.set_position_length(45987653)?;
     }
     if keyword_att {
-      KeywordAttribute::set_keyword(attr, true)?;
+      attr.set_keyword(true)?;
     }
     if payload_att {
-      PayloadAttribute::set_payload(
-        attr,
-        Some(BytesRef::from_bytes(vec![
-          0x00,
-          (-0x21i8) as u8,
-          0x12,
-          (-0x43i8) as u8,
-          0x24,
-        ])),
-      );
+      attr.set_payload(BytesRef::from_bytes(vec![
+        0x00,
+        (-0x21i8) as u8,
+        0x12,
+        (-0x43i8) as u8,
+        0x24,
+      ]))?;
     }
     if flags_att {
-      FlagsAttribute::set_flags(attr, !0);
+      attr.set_flags(!0)?;
     }
     if boost_att {
-      BoostAttribute::set_boost(attr, -1.0);
+      attr.set_boost(-1.0)?;
     }
     attr.get_and_reset_clear_called()?;
   }
@@ -386,16 +370,13 @@ where
   assert!(ts.get_attribute_source_mut().get_and_reset_clear_called()?);
   let attr = ts.get_attribute_source();
   if let Some(final_offset) = final_offset {
-    assert_eq!(final_offset, OffsetAttribute::end_offset(attr));
+    assert_eq!(final_offset, attr.end_offset()?);
   }
   if offset_att {
-    assert!(OffsetAttribute::end_offset(attr) >= 0);
+    assert!(attr.end_offset()? >= 0);
   }
   if let Some(final_pos_inc) = final_pos_inc {
-    assert_eq!(
-      final_pos_inc,
-      PositionIncrementAttribute::get_position_increment(attr)
-    );
+    assert_eq!(final_pos_inc, attr.get_position_increment()?);
   }
 
   ts.close()?;

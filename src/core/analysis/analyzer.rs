@@ -18,8 +18,6 @@ use crate::analysis::common::analysis_impl::core::whitespace_analyzer::Whitespac
 use crate::core::analysis::reader::{Reader, ReaderEnum};
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
-use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
-use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream, TokenStreams};
 use crate::core::index::BytesRef;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
@@ -494,7 +492,7 @@ impl TokenStream for StringTokenStream {
       return Ok(false);
     }
     self.att.clear_attributes();
-    self.att.append_str(Some(&self.value));
+    self.att.append_str(Some(&self.value))?;
     self.att.set_offset(0, self.length)?;
     self.used = true;
     Ok(true)

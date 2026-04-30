@@ -18,11 +18,12 @@ use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttr
 use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::char_term_attribute_impl::CharTermAttributeImpl;
+#[cfg(test)]
 use crate::core::analysis::token_attributes::flags_attribute::FlagsAttribute;
-use crate::core::analysis::token_attributes::keyword_attribute::KeywordAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::packed_token_and_binary::BinaryTokenStreamAttributeImpl;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
+#[cfg(test)]
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
 use crate::core::analysis::token_attributes::position_length_attribute::PositionLengthAttribute;
@@ -30,7 +31,6 @@ use crate::core::analysis::token_attributes::term_frequency_attribute::TermFrequ
 use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::analysis::token_attributes::type_attribute::TypeAttribute;
 use crate::core::index::BytesRef;
-use crate::core::search::boost_attribute::BoostAttribute;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -43,11 +43,51 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
 pub trait AttributeSource {
+  // CharTermAttribute
+  fn length(&self) -> Result<usize> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn copy_buffer(&mut self, _buffer: &[char], _offset: usize, _length: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn buffer_mut(&mut self) -> Result<&mut [char]> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn buffer(&self) -> Result<&[char]> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn resize_buffer(&mut self, _new_size: usize) -> Result<&mut [char]> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn set_length(&mut self, _length: usize) -> Result<&mut Self> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn set_empty(&mut self) -> Result<&mut Self> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn append_range(&mut self, _csq: Option<&str>, _start: usize, _end: usize) -> Result<&mut Self> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn append_char(&mut self, _c: char) -> Result<&mut Self> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn append_str(&mut self, _s: Option<&str>) -> Result<&mut Self> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn append_term_attribute<C>(&mut self, _term_att: Option<&mut C>) -> Result<&mut Self>
+  where
+    C: CharTermAttribute,
+  {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   // OffsetAttribute
   fn start_offset(&self) -> Result<i32> {
     Err(LuceneError::unsupported_operation(""))
   }
-
+  fn set_offset(&mut self, _start_offset: i32, _end_offset: i32) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
   fn end_offset(&self) -> Result<i32> {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -127,6 +167,13 @@ pub trait AttributeSource {
   fn get_competitive_term(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     Err(LuceneError::unsupported_operation(""))
   }
+  // TypeAttribute;
+  fn type_(&self) -> Result<&str> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn set_type(&mut self, _type_: &str) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
 
   fn end_attributes(&mut self) {}
 
@@ -182,8 +229,65 @@ impl<T> AttributeSource for &mut T
 where
   T: AttributeSource,
 {
+  fn length(&self) -> Result<usize> {
+    (**self).length()
+  }
+
+  fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) -> Result<()> {
+    (**self).copy_buffer(buffer, offset, length)
+  }
+
+  fn buffer_mut(&mut self) -> Result<&mut [char]> {
+    (**self).buffer_mut()
+  }
+
+  fn buffer(&self) -> Result<&[char]> {
+    (**self).buffer()
+  }
+
+  fn resize_buffer(&mut self, new_size: usize) -> Result<&mut [char]> {
+    (**self).resize_buffer(new_size)
+  }
+
+  fn set_length(&mut self, length: usize) -> Result<&mut Self> {
+    (**self).set_length(length)?;
+    Ok(self)
+  }
+
+  fn set_empty(&mut self) -> Result<&mut Self> {
+    (**self).set_empty()?;
+    Ok(self)
+  }
+
+  fn append_range(&mut self, csq: Option<&str>, start: usize, end: usize) -> Result<&mut Self> {
+    (**self).append_range(csq, start, end)?;
+    Ok(self)
+  }
+
+  fn append_char(&mut self, c: char) -> Result<&mut Self> {
+    (**self).append_char(c)?;
+    Ok(self)
+  }
+
+  fn append_str(&mut self, s: Option<&str>) -> Result<&mut Self> {
+    (**self).append_str(s)?;
+    Ok(self)
+  }
+
+  fn append_term_attribute<C>(&mut self, term_att: Option<&mut C>) -> Result<&mut Self>
+  where
+    C: CharTermAttribute,
+  {
+    (**self).append_term_attribute(term_att)?;
+    Ok(self)
+  }
+
   fn start_offset(&self) -> Result<i32> {
     (**self).start_offset()
+  }
+
+  fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()> {
+    (**self).set_offset(start_offset, end_offset)
   }
 
   fn end_offset(&self) -> Result<i32> {
@@ -216,6 +320,10 @@ where
 
   fn get_term_frequency(&self) -> Result<i32> {
     (**self).get_term_frequency()
+  }
+
+  fn set_term_frequency(&mut self, term_frequency: i32) -> Result<()> {
+    (**self).set_term_frequency(term_frequency)
   }
 
   fn set_position_length(&mut self, position_length: i32) -> Result<()> {
@@ -264,6 +372,14 @@ where
 
   fn get_competitive_term(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     (**self).get_competitive_term()
+  }
+
+  fn type_(&self) -> Result<&str> {
+    (**self).type_()
+  }
+
+  fn set_type(&mut self, type_: &str) -> Result<()> {
+    (**self).set_type(type_)
   }
 
   fn end_attributes(&mut self) {
@@ -316,46 +432,62 @@ impl Attribute for Attributes {
   }
 }
 
-impl CharTermAttribute for Attributes {
-  fn length(&self) -> usize {
+impl Default for Attributes {
+  fn default() -> Self {
+    Attributes::PackedToken(
+      PackedTokenAttributeImpl::new().expect("new PackedTokenAttributeImpl fail"),
+    )
+  }
+}
+
+impl AttributeSource for Attributes {
+  fn length(&self) -> Result<usize> {
     match self {
-      Attributes::PackedToken(attr) => attr.length(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().length(),
-      _ => unimplemented!("not support"),
+      Attributes::PackedToken(attr) => Ok(attr.length()),
+      Attributes::BytesTerm(_attr) => Err(LuceneError::unsupported_operation("")),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().length()),
     }
   }
 
-  fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) {
+  fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) -> Result<()> {
     match self {
-      Attributes::PackedToken(attr) => attr.copy_buffer(buffer, offset, length),
-      Attributes::BinaryTokenStream(attr) => attr
-        .get_packed_token_mut()
-        .copy_buffer(buffer, offset, length),
-      _ => unimplemented!("not support"),
+      Attributes::PackedToken(attr) => {
+        attr.copy_buffer(buffer, offset, length);
+        Ok(())
+      },
+      Attributes::BinaryTokenStream(attr) => {
+        attr
+          .get_packed_token_mut()
+          .copy_buffer(buffer, offset, length);
+        Ok(())
+      },
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn buffer_mut(&mut self) -> &mut [char] {
+  fn buffer_mut(&mut self) -> Result<&mut [char]> {
     match self {
-      Attributes::PackedToken(attr) => attr.buffer_mut(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token_mut().buffer_mut(),
-      _ => unimplemented!("not support"),
+      Attributes::PackedToken(attr) => Ok(attr.buffer_mut()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token_mut().buffer_mut()),
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn buffer(&self) -> &[char] {
+  fn buffer(&self) -> Result<&[char]> {
     match self {
-      Attributes::PackedToken(attr) => attr.buffer(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().buffer(),
-      _ => unimplemented!("not support"),
+      Attributes::PackedToken(attr) => Ok(attr.buffer()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().buffer()),
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn resize_buffer(&mut self, new_size: usize) -> &mut [char] {
+  fn resize_buffer(&mut self, new_size: usize) -> Result<&mut [char]> {
     match self {
-      Attributes::PackedToken(attr) => attr.resize_buffer(new_size),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token_mut().resize_buffer(new_size),
-      _ => unimplemented!("not support"),
+      Attributes::PackedToken(attr) => Ok(attr.resize_buffer(new_size)),
+      Attributes::BinaryTokenStream(attr) => {
+        Ok(attr.get_packed_token_mut().resize_buffer(new_size))
+      },
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -369,21 +501,21 @@ impl CharTermAttribute for Attributes {
         attr.get_packed_token_mut().set_length(length)?;
         Ok(self)
       },
-      _ => Err(LuceneError::unsupported_operation("")),
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn set_empty(&mut self) -> &mut Self {
+  fn set_empty(&mut self) -> Result<&mut Self> {
     match self {
       Attributes::PackedToken(attr) => {
         attr.set_empty();
-        self
+        Ok(self)
       },
       Attributes::BinaryTokenStream(attr) => {
         attr.get_packed_token_mut().set_empty();
-        self
+        Ok(self)
       },
-      _ => unimplemented!("not support"),
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -397,177 +529,70 @@ impl CharTermAttribute for Attributes {
         attr.get_packed_token_mut().append_range(csq, start, end)?;
         Ok(self)
       },
-      _ => unimplemented!("not support"),
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn append_char(&mut self, c: char) -> &mut Self {
+  fn append_char(&mut self, c: char) -> Result<&mut Self> {
     match self {
       Attributes::PackedToken(attr) => {
         attr.append_char(c);
-        self
+        Ok(self)
       },
       Attributes::BinaryTokenStream(attr) => {
         attr.get_packed_token_mut().append_char(c);
-        self
+        Ok(self)
       },
-      _ => unimplemented!("not support"),
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn append_str(&mut self, s: Option<&str>) -> &mut Self {
+  fn append_str(&mut self, s: Option<&str>) -> Result<&mut Self> {
     match self {
       Attributes::PackedToken(attr) => {
         attr.append_str(s);
-        self
+        Ok(self)
       },
       Attributes::BinaryTokenStream(attr) => {
         attr.get_packed_token_mut().append_str(s);
-        self
+        Ok(self)
       },
-      _ => unimplemented!("not support"),
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn append_term_attribute<C>(&mut self, term_att: Option<&mut C>) -> &mut Self
+  fn append_term_attribute<C>(&mut self, term_att: Option<&mut C>) -> Result<&mut Self>
   where
     C: CharTermAttribute,
   {
     match self {
       Attributes::PackedToken(attr) => {
         attr.append_term_attribute(term_att);
-        self
+        Ok(self)
       },
       Attributes::BinaryTokenStream(attr) => {
         attr.get_packed_token_mut().append_term_attribute(term_att);
-        self
+        Ok(self)
       },
-      _ => unimplemented!("not support"),
-    }
-  }
-}
-impl PositionIncrementAttribute for Attributes {
-  fn set_position_increment(&mut self, position_increment: i32) -> Result<()> {
-    match self {
-      Attributes::PackedToken(attr) => attr.sub.set_position_increment(position_increment),
-      Attributes::BinaryTokenStream(attr) => attr
-        .get_packed_token_mut()
-        .sub
-        .set_position_increment(position_increment),
-      _ => Err(LuceneError::unsupported_operation("")),
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn get_position_increment(&self) -> i32 {
-    match self {
-      Attributes::PackedToken(attr) => attr.sub.get_position_increment(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.get_position_increment(),
-      _ => unimplemented!("not support"),
-    }
-  }
-}
-impl PositionLengthAttribute for Attributes {
-  fn set_position_length(&mut self, position_length: i32) -> Result<()> {
-    match self {
-      Attributes::PackedToken(attr) => attr.sub.set_position_length(position_length),
-      Attributes::BinaryTokenStream(attr) => attr
-        .get_packed_token_mut()
-        .sub
-        .set_position_length(position_length),
-      _ => Err(LuceneError::unsupported_operation("")),
-    }
-  }
-
-  fn get_position_length(&self) -> i32 {
-    match self {
-      Attributes::PackedToken(attr) => attr.sub.get_position_length(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.get_position_length(),
-      _ => unimplemented!("not support"),
-    }
-  }
-}
-impl FlagsAttribute for Attributes {
-  fn get_flags(&self) -> i32 {
-    match self {
-      Attributes::PackedToken(_attr) => unimplemented!("not support"),
-      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
-      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
-    }
-  }
-
-  fn set_flags(&mut self, _flags: i32) {
-    match self {
-      Attributes::PackedToken(_attr) => unimplemented!("not support"),
-      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
-      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
-    }
-  }
-}
-impl KeywordAttribute for Attributes {
-  fn is_keyword(&self) -> Result<bool> {
-    match self {
-      Attributes::PackedToken(_attr) => unimplemented!("not support"),
-      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
-      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
-    }
-  }
-
-  fn set_keyword(&mut self, _is_keyword: bool) -> Result<()> {
-    match self {
-      Attributes::PackedToken(_attr) => unimplemented!("not support"),
-      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
-      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
-    }
-  }
-}
-impl BoostAttribute for Attributes {
-  fn set_boost(&mut self, _boost: f32) {
-    match self {
-      Attributes::PackedToken(_attr) => unimplemented!("not support"),
-      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
-      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
-    }
-  }
-
-  fn get_boost(&self) -> f32 {
-    match self {
-      Attributes::PackedToken(_attr) => unimplemented!("not support"),
-      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
-      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
-    }
-  }
-}
-impl PayloadAttribute for Attributes {
-  fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
-    match self {
-      Attributes::PackedToken(_attr) => unimplemented!("not support"),
-      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
-      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
-    }
-  }
-
-  fn set_payload(&mut self, _payload: Option<BytesRef<Vec<u8>>>) {
-    match self {
-      Attributes::PackedToken(_attr) => unimplemented!("not support"),
-      Attributes::BinaryTokenStream(_attr) => unimplemented!("not support"),
-      Attributes::BytesTerm(_attr) => unimplemented!("not support"),
-    }
-  }
-}
-
-impl Default for Attributes {
-  fn default() -> Self {
-    Attributes::PackedToken(
-      PackedTokenAttributeImpl::new().expect("new PackedTokenAttributeImpl fail"),
-    )
-  }
-}
-
-impl AttributeSource for Attributes {
   fn start_offset(&self) -> Result<i32> {
     match self {
       Attributes::PackedToken(attr) => Ok(attr.sub.start_offset()),
       Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().sub.start_offset()),
+      _ => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()> {
+    match self {
+      Attributes::PackedToken(attr) => attr.sub.set_offset(start_offset, end_offset),
+      Attributes::BinaryTokenStream(attr) => attr
+        .get_packed_token_mut()
+        .sub
+        .set_offset(start_offset, end_offset),
       _ => Err(LuceneError::unsupported_operation("")),
     }
   }
@@ -613,9 +638,37 @@ impl AttributeSource for Attributes {
 
   fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     match self {
-      Attributes::PackedToken(_) => Ok(None),
-      Attributes::BinaryTokenStream(_) => Ok(None),
-      Attributes::BytesTerm(_) => Ok(None),
+      #[cfg(test)]
+      Attributes::PackedToken(v) => Ok(v.sub.token.get_payload()),
+      #[cfg(test)]
+      Attributes::BinaryTokenStream(v) => Ok(v.get_packed_token().sub.token.get_payload()),
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
+
+      #[cfg(not(test))]
+      _ => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn set_payload(&mut self, _payload: BytesRef<Vec<u8>>) -> Result<()> {
+    match self {
+      #[cfg(test)]
+      Attributes::PackedToken(v) => {
+        let _: () = v.sub.token.set_payload(Some(_payload));
+        Ok(())
+      },
+      #[cfg(test)]
+      Attributes::BinaryTokenStream(v) => {
+        let _: () = v
+          .get_packed_token_mut()
+          .sub
+          .token
+          .set_payload(Some(_payload));
+        Ok(())
+      },
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
+
+      #[cfg(not(test))]
+      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -665,6 +718,60 @@ impl AttributeSource for Attributes {
     }
   }
 
+  fn get_flags(&self) -> Result<i32> {
+    match self {
+      #[cfg(test)]
+      Attributes::PackedToken(v) => Ok(v.sub.token.get_flags()),
+      #[cfg(test)]
+      Attributes::BinaryTokenStream(v) => Ok(v.get_packed_token().sub.token.get_flags()),
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
+
+      #[cfg(not(test))]
+      _ => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn set_flags(&mut self, _flags: i32) -> Result<()> {
+    match self {
+      #[cfg(test)]
+      Attributes::PackedToken(v) => {
+        let _: () = v.sub.token.set_flags(_flags);
+        Ok(())
+      },
+      #[cfg(test)]
+      Attributes::BinaryTokenStream(v) => {
+        let _: () = v.get_packed_token_mut().sub.token.set_flags(_flags);
+        Ok(())
+      },
+      Attributes::BytesTerm(_) => Err(LuceneError::unsupported_operation("")),
+
+      #[cfg(not(test))]
+      _ => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn type_(&self) -> Result<&str> {
+    match self {
+      Attributes::PackedToken(attr) => Ok(attr.sub.type_()),
+      Attributes::BinaryTokenStream(attr) => Ok(attr.get_packed_token().sub.type_()),
+      Attributes::BytesTerm(_attr) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn set_type(&mut self, type_: &str) -> Result<()> {
+    match self {
+      Attributes::PackedToken(attr) => {
+        let _: () = attr.sub.set_type(type_);
+        Ok(())
+      },
+      Attributes::BinaryTokenStream(attr) => {
+        let _: () = attr.get_packed_token_mut().sub.set_type(type_);
+        Ok(())
+      },
+      Attributes::BytesTerm(_attr) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
   fn end_attributes(&mut self) {
     match self {
       Attributes::PackedToken(attr) => attr.end(),
@@ -678,77 +785,6 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.clear(),
       Attributes::BinaryTokenStream(attr) => attr.clear(),
       Attributes::BytesTerm(attr) => attr.clear(),
-    }
-  }
-}
-
-impl OffsetAttribute for Attributes {
-  fn start_offset(&self) -> i32 {
-    match self {
-      Attributes::PackedToken(attr) => attr.sub.start_offset(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.start_offset(),
-      _ => unimplemented!("not support"),
-    }
-  }
-
-  fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()> {
-    match self {
-      Attributes::PackedToken(attr) => attr.sub.set_offset(start_offset, end_offset),
-      Attributes::BinaryTokenStream(attr) => attr
-        .get_packed_token_mut()
-        .sub
-        .set_offset(start_offset, end_offset),
-      _ => Err(LuceneError::unsupported_operation("")),
-    }
-  }
-
-  fn end_offset(&self) -> i32 {
-    match self {
-      Attributes::PackedToken(attr) => attr.sub.end_offset(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.end_offset(),
-      _ => unimplemented!("not support"),
-    }
-  }
-}
-
-impl TypeAttribute for Attributes {
-  fn type_(&self) -> &str {
-    match self {
-      Attributes::PackedToken(attr) => attr.sub.type_(),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token().sub.type_(),
-      _ => unimplemented!("not support"),
-    }
-  }
-
-  fn set_type(&mut self, type_: &str) {
-    match self {
-      Attributes::PackedToken(attr) => attr.sub.set_type(type_),
-      Attributes::BinaryTokenStream(attr) => attr.get_packed_token_mut().sub.set_type(type_),
-      _ => unimplemented!("not support"),
-    }
-  }
-}
-
-impl TermToBytesRefAttribute for Attributes {
-  fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
-    match self {
-      Attributes::BytesTerm(attr) => TermToBytesRefAttribute::get_bytes_ref(attr),
-      Attributes::BinaryTokenStream(attr) => {
-        TermToBytesRefAttribute::get_bytes_ref(attr.get_binary_mut())
-      },
-      _ => unimplemented!("not support"),
-    }
-  }
-}
-
-impl BytesTermAttribute for Attributes {
-  fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
-    match self {
-      Attributes::BytesTerm(attr) => BytesTermAttribute::set_bytes_ref(attr, bytes),
-      Attributes::BinaryTokenStream(attr) => {
-        BytesTermAttribute::set_bytes_ref(attr.get_binary_mut(), bytes)
-      },
-      _ => Err(LuceneError::unsupported_operation("")),
     }
   }
 }
@@ -780,9 +816,102 @@ macro_rules! define_attribute_source_enum {
         where
             $($V: AttributeSource,)+
         {
+            fn length(&self) -> Result<usize> {
+                match self {
+                    $(Self::$V(t) => t.length(),)+
+                }
+            }
+
+            fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.copy_buffer(buffer, offset, length),)+
+                }
+            }
+
+            fn buffer_mut(&mut self) -> Result<&mut [char]> {
+                match self {
+                    $(Self::$V(t) => t.buffer_mut(),)+
+                }
+            }
+
+            fn buffer(&self) -> Result<&[char]> {
+                match self {
+                    $(Self::$V(t) => t.buffer(),)+
+                }
+            }
+
+            fn resize_buffer(&mut self, new_size: usize) -> Result<&mut [char]> {
+                match self {
+                    $(Self::$V(t) => t.resize_buffer(new_size),)+
+                }
+            }
+
+            fn set_length(&mut self, length: usize) -> Result<&mut Self> {
+                match self {
+                    $(Self::$V(t) => {
+                        t.set_length(length)?;
+                        Ok(self)
+                    },)+
+                }
+            }
+
+            fn set_empty(&mut self) -> Result<&mut Self> {
+                match self {
+                    $(Self::$V(t) => {
+                        t.set_empty()?;
+                        Ok(self)
+                    },)+
+                }
+            }
+
+            fn append_range(&mut self, csq: Option<&str>, start: usize, end: usize) -> Result<&mut Self> {
+                match self {
+                    $(Self::$V(t) => {
+                        t.append_range(csq, start, end)?;
+                        Ok(self)
+                    },)+
+                }
+            }
+
+            fn append_char(&mut self, c: char) -> Result<&mut Self> {
+                match self {
+                    $(Self::$V(t) => {
+                        t.append_char(c)?;
+                        Ok(self)
+                    },)+
+                }
+            }
+
+            fn append_str(&mut self, s: Option<&str>) -> Result<&mut Self> {
+                match self {
+                    $(Self::$V(t) => {
+                        t.append_str(s)?;
+                        Ok(self)
+                    },)+
+                }
+            }
+
+            fn append_term_attribute<TermAtt>(&mut self, term_att: Option<&mut TermAtt>) -> Result<&mut Self>
+            where
+                TermAtt: CharTermAttribute,
+            {
+                match self {
+                    $(Self::$V(t) => {
+                        t.append_term_attribute(term_att)?;
+                        Ok(self)
+                    },)+
+                }
+            }
+
             fn start_offset(&self) -> Result<i32> {
                 match self {
                     $(Self::$V(t) => t.start_offset(),)+
+                }
+            }
+
+            fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.set_offset(start_offset, end_offset),)+
                 }
             }
 
@@ -830,6 +959,11 @@ macro_rules! define_attribute_source_enum {
             fn get_term_frequency(&self) -> Result<i32> {
                 match self {
                     $(Self::$V(t) => t.get_term_frequency(),)+
+                }
+            }
+            fn set_term_frequency(&mut self, term_frequency: i32) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.set_term_frequency(term_frequency),)+
                 }
             }
             fn set_position_length(&mut self,position_length: i32) -> Result<()> {
@@ -891,6 +1025,16 @@ macro_rules! define_attribute_source_enum {
             fn get_competitive_term(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
                 match self {
                     $(Self::$V(t) => t.get_competitive_term(),)+
+                }
+            }
+            fn type_(&self) -> Result<&str> {
+                match self {
+                    $(Self::$V(t) => t.type_(),)+
+                }
+            }
+            fn set_type(&mut self, type_: &str) -> Result<()> {
+                match self {
+                    $(Self::$V(t) => t.set_type(type_),)+
                 }
             }
             fn end_attributes(&mut self) {

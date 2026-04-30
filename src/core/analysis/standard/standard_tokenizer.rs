@@ -17,9 +17,6 @@
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::standard::standard_analyzer::DEFAULT_MAX_TOKEN_LENGTH;
 use crate::core::analysis::standard::standard_tokenizer_impl::{StandardTokenizerImpl, YYEOF};
-use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
-use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::core::analysis::token_attributes::type_attribute::TypeAttribute;
 use crate::core::analysis::token_stream::{TokenStream, default_attribute};
 use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
@@ -152,10 +149,10 @@ impl TokenStream for StandardTokenizer {
         {
           let att = &mut self.tokenizer_base.token_stream_base.att;
           att.set_position_increment(self.skipped_positions + 1)?;
-          self.scanner.get_text(att);
+          self.scanner.get_text(att)?;
         }
         let start = self.scanner.yychar();
-        let end = start + self.tokenizer_base.token_stream_base.att.length() as i32;
+        let end = start + self.tokenizer_base.token_stream_base.att.length()? as i32;
         let start = self.correct_offset(start);
         let end = self.correct_offset(end);
         let att = &mut self.tokenizer_base.token_stream_base.att;
@@ -164,7 +161,7 @@ impl TokenStream for StandardTokenizer {
           TOKEN_TYPES
             .get(token_type as usize)
             .ok_or_else(|| LuceneError::illegal_state("invalid token type"))?,
-        );
+        )?;
         return Ok(true);
       }
 

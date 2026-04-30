@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 use crate::core::analysis::character_utils::CharacterUtils;
-use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_filter::{TokenFilter, TokenFilterBase};
 use crate::core::analysis::token_stream::TokenStream;
-use crate::core::util::attribute_source::Attributes;
+use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
 /// Normalizes token text to lower case.
 pub struct LowerCaseFilter<TS>
@@ -49,8 +48,8 @@ where
   fn increment_token(&mut self) -> Result<bool> {
     if self.token_filter_base.input.increment_token()? {
       let attr = self.get_attribute_source_mut();
-      let len = attr.length();
-      CharacterUtils::convert_to_lower_case(attr.buffer_mut(), 0, len);
+      let len = attr.length()?;
+      CharacterUtils::convert_to_lower_case(attr.buffer_mut()?, 0, len);
       Ok(true)
     } else {
       Ok(false)

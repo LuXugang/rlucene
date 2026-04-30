@@ -16,9 +16,6 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
-use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
-use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::packed_token_and_binary::BinaryTokenStreamAttributeImpl;
 use crate::core::analysis::token_stream::{
   AnalyzerTokenStreams, IndexingTokenStreamEnum3, TokenStream, TokenStreamBase,
@@ -900,7 +897,7 @@ impl TokenStream for BinaryTokenStream {
     }
     self.token_stream_base.att.clear_attributes();
     let value = self.value.take();
-    BytesTermAttribute::set_bytes_ref(&mut self.token_stream_base.att, value)?;
+    self.token_stream_base.att.set_bytes_ref(value)?;
     self.used = true;
     Ok(true)
   }
@@ -963,7 +960,7 @@ impl TokenStream for StringTokenStream {
       .value
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_argument("set_value() not call?"))?;
-    self.token_stream_base.att.append_str(Some(value));
+    self.token_stream_base.att.append_str(Some(value))?;
     debug_assert!(value.len() <= i32::MAX as usize);
     self
       .token_stream_base

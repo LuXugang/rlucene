@@ -18,7 +18,7 @@ use crate::core::analysis::reader::{Reader, ReaderEnum};
 use crate::core::analysis::standard::standard_tokenizer::{
   ALPHANUM, EMOJI, HANGUL, HIRAGANA, IDEOGRAPHIC, KATAKANA, NUM, SOUTHEAST_ASIAN,
 };
-use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
+use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::io::Error;
 use std::sync::LazyLock;
@@ -471,15 +471,15 @@ impl StandardTokenizerImpl {
     self.yychar as i32
   }
   /// Fills CharTermAttribute with the current token text
-  pub fn get_text<T>(&self, t: &mut T)
+  pub fn get_text<T>(&self, t: &mut T) -> Result<()>
   where
-    T: CharTermAttribute,
+    T: AttributeSource,
   {
     t.copy_buffer(
       &self.zz_buffer[self.zz_start_read..self.zz_marked_pos],
       0,
       self.zz_marked_pos - self.zz_start_read,
-    );
+    )
   }
   ///  Sets the scanner buffer size in chars
   pub fn set_buffer_size(&mut self, num_chars: usize) {

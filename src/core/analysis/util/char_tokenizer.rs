@@ -17,8 +17,6 @@
 use crate::core::analysis::character_utils::{CharacterBuffer, CharacterUtils};
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::standard::standard_tokenizer::MAX_TOKEN_LENGTH_LIMIT;
-use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
-use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_stream::{TokenStream, default_attribute};
 use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
@@ -111,15 +109,23 @@ where
           debug_assert_eq!(start, -1);
           start = self.offset + self.buffer_index - 1;
           end = start;
-        } else if length >= self.tokenizer_base.token_stream_base.att.buffer_mut().len() - 1 {
+        } else if length
+          >= self
+            .tokenizer_base
+            .token_stream_base
+            .att
+            .buffer_mut()?
+            .len()
+            - 1
+        {
           self
             .tokenizer_base
             .token_stream_base
             .att
-            .resize_buffer(2 + length);
+            .resize_buffer(2 + length)?;
         }
 
-        self.tokenizer_base.token_stream_base.att.buffer_mut()[length] = c;
+        self.tokenizer_base.token_stream_base.att.buffer_mut()?[length] = c;
         length += 1;
         end += 1;
 
