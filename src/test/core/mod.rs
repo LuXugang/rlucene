@@ -21,4 +21,5 @@ pub mod geo;
 pub mod index;
 pub mod search;
 pub mod store;
+mod test_search;
 pub mod util;
