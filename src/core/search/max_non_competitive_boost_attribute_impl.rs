@@ -18,6 +18,7 @@ use crate::core::index::BytesRef;
 use crate::core::search::max_non_competitive_boost_attribute::MaxNonCompetitiveBoostAttribute;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
+use crate::core::util::error::lucene_error::Result;
 /// Implementation class for [`MaxNonCompetitiveBoostAttribute`].
 #[derive(Clone)]
 pub struct MaxNonCompetitiveBoostAttributeImpl {
@@ -46,9 +47,10 @@ impl AttributeImpl for MaxNonCompetitiveBoostAttributeImpl {
 
   type AttributeImpl = Self;
 
-  fn copy_to(&self, other: &mut Self::AttributeImpl) {
+  fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
     other.set_max_non_competitive_boost(self.max_non_competitive_boost);
     other.set_competitive_term(self.competitive_term.clone());
+    Ok(())
   }
 }
 

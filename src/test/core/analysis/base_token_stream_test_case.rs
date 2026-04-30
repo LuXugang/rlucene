@@ -67,8 +67,9 @@ impl AttributeImpl for CheckClearAttributesAttributeImpl {
 
   type AttributeImpl = CheckClearAttributesAttributeImpl;
 
-  fn copy_to(&self, other: &mut Self::AttributeImpl) {
-    other.clear()
+  fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
+    other.clear();
+    Ok(())
   }
 }
 

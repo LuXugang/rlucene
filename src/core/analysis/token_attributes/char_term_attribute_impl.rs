@@ -265,7 +265,7 @@ where
 
   type AttributeImpl = CharTermAttributeImpl<T>;
 
-  fn copy_to(&self, other: &mut Self::AttributeImpl) {
+  fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
     other.copy_buffer(&self.term_buffer, 0, self.term_length);
     self.sub.copy_to(&mut other.sub)
   }
@@ -335,7 +335,9 @@ impl AttributeImpl for EmptyAttributeImpl {
 
   type AttributeImpl = EmptyAttributeImpl;
 
-  fn copy_to(&self, _other: &mut Self::AttributeImpl) {}
+  fn copy_to(&self, _other: &mut Self::AttributeImpl) -> Result<()> {
+    Ok(())
+  }
 }
 impl CharTermAttributeImplBase for EmptyAttributeImpl {}
 pub trait CharTermAttributeImplBase {}

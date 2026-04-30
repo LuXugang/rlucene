@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::util::attribute::Attribute;
+use crate::core::util::error::lucene_error::Result;
 
 pub trait AttributeImpl: Attribute + Clone {
   fn clear(&mut self);
@@ -23,5 +24,5 @@ pub trait AttributeImpl: Attribute + Clone {
     self.clear()
   }
   type AttributeImpl: AttributeImpl;
-  fn copy_to(&self, other: &mut Self::AttributeImpl);
+  fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()>;
 }

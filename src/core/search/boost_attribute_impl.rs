@@ -17,6 +17,7 @@
 use crate::core::search::boost_attribute::{BoostAttribute, DEFAULT_BOOST};
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
+use crate::core::util::error::lucene_error::Result;
 /// Implementation class for [`BoostAttribute`].
 pub struct BoostAttributeImpl {
   boost: f32,
@@ -50,8 +51,9 @@ impl AttributeImpl for BoostAttributeImpl {
 
   type AttributeImpl = Self;
 
-  fn copy_to(&self, other: &mut Self::AttributeImpl) {
-    other.boost = self.boost
+  fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
+    other.boost = self.boost;
+    Ok(())
   }
 }
 impl BoostAttribute for BoostAttributeImpl {

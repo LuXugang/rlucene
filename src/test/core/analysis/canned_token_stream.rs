@@ -52,7 +52,9 @@ impl TokenStream for CannedTokenStream {
       self.clear_attributes();
 
       match self.attr {
-        Attributes::PackedToken(ref mut token_attr) => self.tokens[self.upto].copy_to(token_attr),
+        Attributes::PackedToken(ref mut token_attr) => {
+          self.tokens[self.upto].copy_to(token_attr)?
+        },
         _ => unreachable!("PackedTokenAttribute not found in CannedTokenStream"),
       };
 

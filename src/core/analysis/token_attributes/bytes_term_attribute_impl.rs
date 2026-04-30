@@ -79,7 +79,7 @@ impl Attribute for BytesTermAttributeImpl {
 impl Clone for BytesTermAttributeImpl {
   fn clone(&self) -> Self {
     let mut c = BytesTermAttributeImpl::new();
-    self.copy_to(&mut c);
+    self.copy_to(&mut c).expect("copy_to should not fail");
     c
   }
 }
@@ -91,11 +91,12 @@ impl AttributeImpl for BytesTermAttributeImpl {
 
   type AttributeImpl = BytesTermAttributeImpl;
 
-  fn copy_to(&self, other: &mut Self::AttributeImpl) {
+  fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
     match self.bytes {
       Some(ref bytes) => other.bytes = Some(BytesRef::deep_copy_of(bytes)),
       None => other.bytes = None,
     }
+    Ok(())
   }
 }
 
@@ -160,7 +161,7 @@ mod tests {
   }
   fn assert_copy_is_equal(att: &BytesTermAttributeImpl) -> Result<BytesTermAttributeImpl> {
     let mut copy = BytesTermAttributeImpl::new();
-    att.copy_to(&mut copy);
+    att.copy_to(&mut copy)?;
     assert!(att == &copy, "Copied instance must be equal");
 
     let mut h1 = DefaultHasher::new();

@@ -136,9 +136,10 @@ impl AttributeImpl for TokenBase {
 
   type AttributeImpl = Self;
 
-  fn copy_to(&self, other: &mut Self::AttributeImpl) {
+  fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
     other.set_flags(self.flags);
     other.set_payload(self.payload.clone());
+    Ok(())
   }
 }
 impl PartialEq for TokenBase {

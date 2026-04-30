@@ -92,7 +92,7 @@ impl AttributeImpl for BinaryTokenStreamAttributeImpl {
 
   type AttributeImpl = CheckClearAttributesAttributeImpl;
 
-  fn copy_to(&self, other: &mut Self::AttributeImpl) {
+  fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
     self.check_clear_attributes.copy_to(other)
   }
 }

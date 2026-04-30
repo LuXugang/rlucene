@@ -228,7 +228,7 @@ impl AttributeImpl for PackedTokenAttributeImpl {
 
   type AttributeImpl = PackedTokenAttributeImpl;
 
-  fn copy_to(&self, to: &mut Self::AttributeImpl) {
+  fn copy_to(&self, to: &mut Self::AttributeImpl) -> Result<()> {
     to.position_increment = self.position_increment;
     to.position_length = self.position_length;
     to.start_offset = self.start_offset;
@@ -236,7 +236,8 @@ impl AttributeImpl for PackedTokenAttributeImpl {
     to.type_ = self.type_.clone();
     to.term_frequency = self.term_frequency;
     #[cfg(test)]
-    self.token.copy_to(&mut to.token);
+    self.token.copy_to(&mut to.token)?;
+    Ok(())
   }
 }
 impl Hash for PackedTokenAttributeImpl {

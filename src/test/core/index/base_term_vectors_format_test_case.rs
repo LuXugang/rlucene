@@ -22,7 +22,6 @@ use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
-use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::postings_enum::{
@@ -36,7 +35,6 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::sort::Sort;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::iterator::IteratorExt;
 use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::analysis::token;
