@@ -27,6 +27,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
@@ -48,6 +49,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::sort::Sort;
+use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
@@ -59,11 +61,13 @@ use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::analysis::token;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  get_only_leaf_reader, new_bytes_ref_from_bytes, new_directory_shared, new_index_writer_config,
-  new_index_writer_config_with_analyzer, rarely,
+  at_least, get_only_leaf_reader, is_night_mode, new_bytes_ref_from_bytes, new_directory_shared,
+  new_index_writer_config, new_index_writer_config_with_analyzer, rarely,
 };
 use crate::test::core::util::test_util::TestUtil;
+use rand::seq::SliceRandom;
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -88,11 +92,44 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     options[random.random_range(0..options.len())]
   }
 
-  fn test_rare_vectors<R>(&self, _random: &mut R) -> Result<()>
+  fn test_rare_vectors<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO RandomDocumentFactory未实现
+    let doc_factory = RandomDocumentFactory::new(random, 10, 20);
+    for options in self.valid_options() {
+      let num_docs = at_least(random, 200);
+      let doc_with_vectors = random.random_range(0..num_docs);
+      let empty_doc = Document::new();
+      let dir = new_directory_shared(random)?;
+      let writer = RandomIndexWriter::new(random, dir);
+      let field_count = TestUtil::next_int(random, 1, 3) as usize;
+      let doc = doc_factory.new_document(random, field_count, 20, options)?;
+      for i in 0..num_docs {
+        if i == doc_with_vectors {
+          writer.add_document(add_id(doc.to_document()?, "42")?)?;
+        } else {
+          writer.add_document(empty_doc.clone())?;
+        }
+      }
+      let reader = writer.get_reader()?;
+      let mut term_vectors = reader.term_vectors()?;
+      let doc_with_vectors_id = doc_id(reader, "42")?;
+      for _ in 0..10 {
+        let doc_id = random.random_range(0..num_docs);
+        let fields = term_vectors.get(doc_id)?;
+        if doc_id == doc_with_vectors_id {
+          assert_random_document_equals(random, &doc, fields.expect("term vectors should exist"))?;
+        } else {
+          assert!(fields.is_none());
+        }
+      }
+      let fields = term_vectors
+        .get(doc_with_vectors_id)?
+        .expect("term vectors should exist");
+      assert_random_document_equals(random, &doc, fields)?;
+      writer.close()?;
+    }
     Ok(())
   }
 
@@ -100,7 +137,24 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO RandomDocumentFactory未实现
+    let doc_factory = RandomDocumentFactory::new(_random, 3, 5);
+    for options in self.valid_options() {
+      if options == Options::None {
+        continue;
+      }
+      let dir = new_directory_shared(_random)?;
+      let writer = RandomIndexWriter::new(_random, dir);
+      let field_count = TestUtil::next_int(_random, 1, 2) as usize;
+      let max_term_count = at_least(_random, 2000) as usize;
+      let doc = doc_factory.new_document(_random, field_count, max_term_count, options)?;
+      writer.add_document(doc.to_document()?)?;
+      let reader = writer.get_reader()?;
+      let mut term_vectors = reader.term_vectors()?;
+      let fields = term_vectors.get(0)?.expect("term vectors should exist");
+      assert_random_document_equals(_random, &doc, fields)?;
+      reader.close()?;
+      writer.close()?;
+    }
     Ok(())
   }
 
@@ -108,7 +162,25 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO RandomDocumentFactory未实现
+    let field_count = if is_night_mode() {
+      at_least(_random, 100)
+    } else {
+      at_least(_random, 10)
+    } as usize;
+    let doc_factory = RandomDocumentFactory::new(_random, field_count, 10);
+    for options in self.valid_options() {
+      let dir = new_directory_shared(_random)?;
+      let writer = RandomIndexWriter::new(_random, dir);
+      let doc_field_count = TestUtil::next_int(_random, 5, field_count as i32) as usize;
+      let doc = doc_factory.new_document(_random, doc_field_count, 5, options)?;
+      writer.add_document(doc.to_document()?)?;
+      let reader = writer.get_reader()?;
+      let mut term_vectors = reader.term_vectors()?;
+      let fields = term_vectors.get(0)?.expect("term vectors should exist");
+      assert_random_document_equals(_random, &doc, fields)?;
+      reader.close()?;
+      writer.close()?;
+    }
     Ok(())
   }
 
@@ -116,7 +188,39 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO RandomDocumentFactory未实现
+    let num_fields = TestUtil::next_int(_random, 1, 3) as usize;
+    let doc_factory = RandomDocumentFactory::new(_random, num_fields, 10);
+    for options1 in self.valid_options() {
+      for options2 in self.valid_options() {
+        if options1 == options2 {
+          continue;
+        }
+        let dir = new_directory_shared(_random)?;
+        let writer = RandomIndexWriter::new(_random, dir);
+        let doc1 = doc_factory.new_document(_random, num_fields, 20, options1)?;
+        let doc2 = doc_factory.new_document(_random, num_fields, 20, options2)?;
+        writer.add_document(add_id(doc1.to_document()?, "1")?)?;
+        writer.add_document(add_id(doc2.to_document()?, "2")?)?;
+
+        let reader_for_doc1 = writer.get_reader()?;
+        let doc1_id = doc_id(reader_for_doc1, "1")?;
+        let reader_for_doc2 = writer.get_reader()?;
+        let doc2_id = doc_id(reader_for_doc2, "2")?;
+        let reader = writer.get_reader()?;
+        let mut term_vectors = reader.term_vectors()?;
+
+        let fields1 = term_vectors
+          .get(doc1_id)?
+          .expect("term vectors should exist");
+        assert_random_document_equals(_random, &doc1, fields1)?;
+        let fields2 = term_vectors
+          .get(doc2_id)?
+          .expect("term vectors should exist");
+        assert_random_document_equals(_random, &doc2, fields2)?;
+        reader.close()?;
+        writer.close()?;
+      }
+    }
     Ok(())
   }
 
@@ -124,19 +228,158 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO RandomDocumentFactory未实现
+    let doc_factory = RandomDocumentFactory::new(_random, 5, 20);
+    let num_docs = at_least(_random, 50) as usize;
+    let mut docs = Vec::with_capacity(num_docs);
+    for _ in 0..num_docs {
+      let field_count = TestUtil::next_int(_random, 1, 3) as usize;
+      let max_term_count = TestUtil::next_int(_random, 10, 50) as usize;
+      let options = self.random_options(_random);
+      docs.push(doc_factory.new_document(_random, field_count, max_term_count, options)?);
+    }
+    let dir = new_directory_shared(_random)?;
+    let writer = RandomIndexWriter::new(_random, dir);
+    for (i, doc) in docs.iter().enumerate() {
+      writer.add_document(add_id(doc.to_document()?, &i.to_string())?)?;
+    }
+    let reader = writer.get_reader()?;
+    let mut term_vectors = reader.term_vectors()?;
+    for (i, doc) in docs.iter().enumerate() {
+      let reader_for_search = writer.get_reader()?;
+      let doc_id = doc_id(reader_for_search, &i.to_string())?;
+      let fields = term_vectors
+        .get(doc_id)?
+        .expect("term vectors should exist");
+      assert_random_document_equals(_random, doc, fields)?;
+    }
+    reader.close()?;
+    writer.close()?;
     Ok(())
   }
-  fn do_test_merge<R>(
-    &self,
-    _random: &mut R,
-    _sort: Option<Sort>,
-    _allow_deletes: bool,
-  ) -> Result<()>
+  fn do_test_merge<R>(&self, random: &mut R, sort: Option<Sort>, allow_deletes: bool) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO RandomDocumentFactory未实现
+    let doc_factory = RandomDocumentFactory::new(random, 5, 20);
+    let num_docs = if is_night_mode() {
+      at_least(random, 100)
+    } else {
+      at_least(random, 10)
+    };
+    for options in self.valid_options() {
+      let mut docs = HashMap::new();
+      for i in 0..num_docs {
+        let field_count = TestUtil::next_int(random, 1, 3) as usize;
+        let max_term_count = at_least(random, 10) as usize;
+        docs.insert(
+          i.to_string(),
+          doc_factory.new_document(random, field_count, max_term_count, options)?,
+        );
+      }
+      let dir = new_directory_shared(random)?;
+      let mut iwc = new_index_writer_config(random);
+      if let Some(sort) = sort.clone() {
+        iwc.set_index_sort(sort)?;
+      }
+      let writer = RandomIndexWriter::with_config(random, dir, iwc);
+      let mut live_doc_ids = Vec::new();
+      let mut ids = docs.keys().cloned().collect::<Vec<_>>();
+      ids.shuffle(random);
+      for id in ids {
+        let mut doc = add_id(
+          docs
+            .get(&id)
+            .expect("document id should exist")
+            .to_document()?,
+          &id,
+        )?;
+        if let Some(sort) = &sort {
+          for sort_field in sort.get_sort() {
+            if let Some(field) = sort_field.get_field() {
+              doc.add(NumericDocValuesField::new(
+                field,
+                TestUtil::next_int(random, 0, 1024) as i64,
+              ));
+            }
+          }
+        }
+        writer.add_document(doc)?;
+        live_doc_ids.push(id);
+        if allow_deletes && random.random_range(0..100) < 20 {
+          let delete_idx = random.random_range(0..live_doc_ids.len());
+          let delete_id = live_doc_ids.remove(delete_idx);
+          writer.delete_documents_with_terms(vec![Term::from_text("id", delete_id)])?;
+        }
+        if rarely(random) {
+          writer.commit()?;
+          let reader = writer.get_reader()?;
+          let mut term_vectors = reader.term_vectors()?;
+          for id in &live_doc_ids {
+            let reader_for_search = writer.get_reader()?;
+            let doc_id = doc_id(reader_for_search, id)?;
+            let fields = term_vectors
+              .get(doc_id)?
+              .expect("term vectors should exist");
+            assert_random_document_equals(
+              random,
+              docs.get(id).expect("document id should exist"),
+              fields,
+            )?;
+          }
+          reader.close()?;
+        }
+        if rarely(random) {
+          writer.force_merge(1)?;
+          let reader = writer.get_reader()?;
+          let mut term_vectors = reader.term_vectors()?;
+          for id in &live_doc_ids {
+            let reader_for_search = writer.get_reader()?;
+            let doc_id = doc_id(reader_for_search, id)?;
+            let fields = term_vectors
+              .get(doc_id)?
+              .expect("term vectors should exist");
+            assert_random_document_equals(
+              random,
+              docs.get(id).expect("document id should exist"),
+              fields,
+            )?;
+          }
+          reader.close()?;
+        }
+      }
+      let reader = writer.get_reader()?;
+      let mut term_vectors = reader.term_vectors()?;
+      for id in &live_doc_ids {
+        let reader_for_search = writer.get_reader()?;
+        let doc_id = doc_id(reader_for_search, id)?;
+        let fields = term_vectors
+          .get(doc_id)?
+          .expect("term vectors should exist");
+        assert_random_document_equals(
+          random,
+          docs.get(id).expect("document id should exist"),
+          fields,
+        )?;
+      }
+      reader.close()?;
+      writer.force_merge(1)?;
+      let reader = writer.get_reader()?;
+      let mut term_vectors = reader.term_vectors()?;
+      for id in &live_doc_ids {
+        let reader_for_search = writer.get_reader()?;
+        let doc_id = doc_id(reader_for_search, id)?;
+        let fields = term_vectors
+          .get(doc_id)?
+          .expect("term vectors should exist");
+        assert_random_document_equals(
+          random,
+          docs.get(id).expect("document id should exist"),
+          fields,
+        )?;
+      }
+      reader.close()?;
+      writer.close()?;
+    }
     Ok(())
   }
 
@@ -154,20 +397,32 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     self.do_test_merge(random, None, true)
   }
 
-  fn test_merge_with_index_sort<R>(&self, _random: &mut R) -> Result<()>
+  fn test_merge_with_index_sort<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO RandomDocumentFactory未实现
-    Ok(())
+    let mut sort_fields = Vec::new();
+    for i in 0..TestUtil::next_int(random, 1, 2) {
+      sort_fields.push(SortField::new(
+        Some(format!("sort_field_{i}")),
+        SortFieldType::Long,
+      )?);
+    }
+    self.do_test_merge(random, Some(Sort::with_fields(sort_fields)?), false)
   }
 
-  fn test_merge_with_index_sort_and_deletes<R>(&self, _random: &mut R) -> Result<()>
+  fn test_merge_with_index_sort_and_deletes<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO RandomDocumentFactory未实现
-    Ok(())
+    let mut sort_fields = Vec::new();
+    for i in 0..TestUtil::next_int(random, 1, 2) {
+      sort_fields.push(SortField::new(
+        Some(format!("sort_field_{i}")),
+        SortFieldType::Long,
+      )?);
+    }
+    self.do_test_merge(random, Some(Sort::with_fields(sort_fields)?), true)
   }
 
   fn test_clone<R>(&self, _random: &mut R) -> Result<()>
@@ -1751,7 +2006,7 @@ impl RandomTokenStream {
   }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Options {
   None,
   Positions,
