@@ -14,38 +14,80 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::token_attributes::payload_attribute_impl::PayloadAttributeImpl;
+use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
+use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::core::analysis::token_attributes::packed_token_attribute_impl::{
+  PackedTokenAttribute, PackedTokenAttributeImpl,
+};
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
-use crate::core::document::field::Field;
+use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
+use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
+use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader;
+use crate::core::index::fields::Fields as IndexFields;
+use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::postings_enum::{
   ALL, FREQS, NONE, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum,
 };
+use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::sort::Sort;
+use crate::core::search::term_query::TermQuery;
+use crate::core::util::attribute::Attribute;
+use crate::core::util::attribute_impl::AttributeImpl;
+use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::iterator::IteratorExt;
 use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::analysis::token;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  get_only_leaf_reader, new_directory_shared, new_index_writer_config,
-  new_index_writer_config_with_analyzer,
+  get_only_leaf_reader, new_bytes_ref_from_bytes, new_directory_shared, new_index_writer_config,
+  new_index_writer_config_with_analyzer, rarely,
 };
-use rand::Rng;
+use crate::test::core::util::test_util::TestUtil;
+use rand::{Rng, RngExt};
+use std::borrow::Cow;
+use std::collections::{HashMap, HashSet};
 
 pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
+  fn valid_options(&self) -> Vec<Options> {
+    vec![
+      Options::None,
+      Options::Positions,
+      Options::Offsets,
+      Options::PositionsAndOffsets,
+      Options::PositionsAndPayloads,
+      Options::PositionsOffsetsPayloads,
+    ]
+  }
+
+  fn random_options<R>(&self, random: &mut R) -> Options
+  where
+    R: Rng + ?Sized,
+  {
+    let options = self.valid_options();
+    options[random.random_range(0..options.len())]
+  }
+
   fn test_rare_vectors<R>(&self, _random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1321,4 +1363,763 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
     Ok(())
   }
+}
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct PermissiveOffsetAttributeImpl {
+  start: i32,
+  end: i32,
+}
+impl PermissiveOffsetAttributeImpl {
+  fn new() -> Self {
+    PermissiveOffsetAttributeImpl { start: 0, end: 0 }
+  }
+}
+
+impl Attribute for PermissiveOffsetAttributeImpl {}
+
+impl OffsetAttribute for PermissiveOffsetAttributeImpl {
+  fn start_offset(&self) -> i32 {
+    self.start
+  }
+
+  fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()> {
+    self.start = start_offset;
+    self.end = end_offset;
+    Ok(())
+  }
+
+  fn end_offset(&self) -> i32 {
+    self.end
+  }
+}
+
+impl AttributeImpl for PermissiveOffsetAttributeImpl {
+  fn clear(&mut self) {
+    self.start = 0;
+    self.end = 0;
+  }
+
+  type AttributeImpl = Self;
+
+  fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
+    other.set_offset(self.start, self.end)
+  }
+}
+
+pub struct RandomTokenStream {
+  attr: Attributes,
+  terms: Vec<String>,
+  term_bytes: Vec<BytesRef<Vec<u8>>>,
+  positions_increments: Vec<i32>,
+  positions: Vec<i32>,
+  start_offsets: Vec<i32>,
+  end_offsets: Vec<i32>,
+  payloads: Vec<Option<BytesRef<Vec<u8>>>>,
+
+  freqs: HashMap<String, i32>,
+  position_to_terms: HashMap<i32, HashSet<i32>>,
+  start_offset_to_terms: HashMap<i32, HashSet<i32>>,
+  i: usize,
+}
+impl RandomTokenStream {
+  pub fn new<R>(
+    random: &mut R,
+    len: usize,
+    sample_terms: &[String],
+    sample_term_bytes: &[BytesRef<Vec<u8>>],
+  ) -> Result<Self>
+  where
+    R: Rng + ?Sized,
+  {
+    let mut terms = vec![String::new(); len];
+    let mut term_bytes = vec![BytesRef::default(); len];
+    let mut positions_increments = vec![0; len];
+    let mut positions = vec![0; len];
+    let mut start_offsets = vec![0; len];
+    let mut end_offsets = vec![0; len];
+    let mut payloads = vec![None; len];
+
+    for i in 0..len {
+      let o = random.random_range(0..sample_terms.len());
+      terms[i] = sample_terms[o].clone();
+      term_bytes[i] = sample_term_bytes[o].clone();
+      positions_increments[i] = TestUtil::next_int(random, if i == 0 { 1 } else { 0 }, 10);
+
+      if i == 0 {
+        start_offsets[i] = TestUtil::next_int(random, 0, 1 << 16);
+      } else {
+        let v = if rarely(random) { 1 << 16 } else { 20 };
+        start_offsets[i] = start_offsets[i - 1] + TestUtil::next_int(random, 0, v);
+      }
+      let v = if rarely(random) { 1 << 10 } else { 20 };
+      end_offsets[i] = start_offsets[i] + TestUtil::next_int(random, 0, v);
+    }
+
+    for i in 0..len {
+      if i == 0 {
+        positions[i] = positions_increments[i] - 1;
+      } else {
+        positions[i] = positions[i - 1] + positions_increments[i];
+      }
+    }
+
+    if rarely(random) {
+      let payload = Self::random_payload(random);
+      payloads.fill(payload);
+    } else {
+      for payload in &mut payloads {
+        *payload = Self::random_payload(random);
+      }
+    }
+
+    let mut position_to_terms: HashMap<i32, HashSet<i32>> = HashMap::with_capacity(len);
+    let mut start_offset_to_terms: HashMap<i32, HashSet<i32>> = HashMap::with_capacity(len);
+
+    for i in 0..len {
+      position_to_terms
+        .entry(positions[i])
+        .or_insert_with(|| HashSet::with_capacity(1))
+        .insert(i as i32);
+
+      start_offset_to_terms
+        .entry(start_offsets[i])
+        .or_insert_with(|| HashSet::with_capacity(1))
+        .insert(i as i32);
+    }
+
+    let mut freqs = HashMap::new();
+    for term in &terms {
+      *freqs.entry(term.clone()).or_insert(0) += 1;
+    }
+
+    Ok(Self {
+      attr: RandomTokenStreamAttr::new()
+        .expect("RandomTokenStreamAttr::new should not fail")
+        .into(),
+      terms,
+      term_bytes,
+      positions_increments,
+      positions,
+      start_offsets,
+      end_offsets,
+      payloads,
+      freqs,
+      position_to_terms,
+      start_offset_to_terms,
+      i: 0,
+    })
+  }
+  fn random_payload<R>(random: &mut R) -> Option<BytesRef<Vec<u8>>>
+  where
+    R: Rng + ?Sized,
+  {
+    let len = random.random_range(0..5);
+    if len == 0 {
+      return None;
+    }
+
+    let mut bytes = vec![0u8; len];
+    random.fill_bytes(&mut bytes);
+    Some(new_bytes_ref_from_bytes(random, bytes.as_slice()).expect("valid bytes"))
+  }
+}
+impl TokenStream for RandomTokenStream {
+  fn increment_token(&mut self) -> Result<bool> {
+    if self.i < self.terms.len() {
+      self.attr.clear_attributes();
+
+      self
+        .attr
+        .set_length(0)?
+        .append_str(Some(&self.terms[self.i]))?;
+
+      self
+        .attr
+        .set_position_increment(self.positions_increments[self.i])?;
+
+      self
+        .attr
+        .set_offset(self.start_offsets[self.i], self.end_offsets[self.i])?;
+
+      self.attr.set_payload(self.payloads[self.i].clone())?;
+
+      self.i += 1;
+      Ok(true)
+    } else {
+      Ok(false)
+    }
+  }
+
+  fn end(&mut self) -> Result<()> {
+    self.attr.end_attributes();
+    Ok(())
+  }
+
+  fn reset(&mut self) -> Result<()> {
+    self.i = 0;
+    Ok(())
+  }
+
+  fn get_attribute_source(&self) -> &Attributes {
+    &self.attr
+  }
+
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    &mut self.attr
+  }
+}
+
+pub struct RandomTokenStreamAttr {
+  packed: PackedTokenAttribute,
+  o_att: PermissiveOffsetAttributeImpl,
+  p_att: PayloadAttributeImpl,
+  #[cfg(debug_assertions)]
+  attribute: HashSet<String>,
+}
+impl RandomTokenStreamAttr {
+  fn new() -> Result<Self> {
+    let packed = PackedTokenAttributeImpl::new()?;
+    let p_att = PayloadAttributeImpl::new();
+    #[cfg(debug_assertions)]
+    let mut attribute = HashSet::new();
+    #[cfg(debug_assertions)]
+    {
+      attribute.extend(packed.get_attribute_name()?.clone());
+      attribute
+        .insert(<PermissiveOffsetAttributeImpl as OffsetAttribute>::ATTRIBUTE_NAME.to_string());
+      attribute.extend(p_att.get_attribute_name()?.clone());
+    }
+    Ok(Self {
+      packed,
+      o_att: PermissiveOffsetAttributeImpl::new(),
+      p_att,
+      #[cfg(debug_assertions)]
+      attribute,
+    })
+  }
+}
+
+impl Attribute for RandomTokenStreamAttr {
+  #[cfg(debug_assertions)]
+  fn get_attribute_name(&self) -> Result<&HashSet<String>> {
+    Ok(&self.attribute)
+  }
+}
+
+impl std::fmt::Display for RandomTokenStreamAttr {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    self.packed.fmt(f)
+  }
+}
+
+impl AttributeSource for RandomTokenStreamAttr {
+  fn length(&self) -> Result<usize> {
+    Ok(CharTermAttribute::length(&self.packed))
+  }
+
+  fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) -> Result<()> {
+    CharTermAttribute::copy_buffer(&mut self.packed, buffer, offset, length);
+    Ok(())
+  }
+
+  fn buffer_mut(&mut self) -> Result<&mut [char]> {
+    Ok(CharTermAttribute::buffer_mut(&mut self.packed))
+  }
+
+  fn buffer(&self) -> Result<&[char]> {
+    Ok(CharTermAttribute::buffer(&self.packed))
+  }
+
+  fn resize_buffer(&mut self, new_size: usize) -> Result<&mut [char]> {
+    Ok(CharTermAttribute::resize_buffer(&mut self.packed, new_size))
+  }
+
+  fn set_length(&mut self, length: usize) -> Result<&mut Self> {
+    CharTermAttribute::set_length(&mut self.packed, length)?;
+    Ok(self)
+  }
+
+  fn set_empty(&mut self) -> Result<&mut Self> {
+    CharTermAttribute::set_empty(&mut self.packed);
+    Ok(self)
+  }
+
+  fn append_range(&mut self, csq: Option<&str>, start: usize, end: usize) -> Result<&mut Self> {
+    CharTermAttribute::append_range(&mut self.packed, csq, start, end)?;
+    Ok(self)
+  }
+
+  fn append_char(&mut self, c: char) -> Result<&mut Self> {
+    CharTermAttribute::append_char(&mut self.packed, c);
+    Ok(self)
+  }
+
+  fn append_str(&mut self, s: Option<&str>) -> Result<&mut Self> {
+    CharTermAttribute::append_str(&mut self.packed, s);
+    Ok(self)
+  }
+
+  fn append_term_attribute<C>(&mut self, term_att: Option<&mut C>) -> Result<&mut Self>
+  where
+    C: CharTermAttribute,
+  {
+    CharTermAttribute::append_term_attribute(&mut self.packed, term_att);
+    Ok(self)
+  }
+
+  fn start_offset(&self) -> Result<i32> {
+    self.packed.start_offset()
+  }
+
+  fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()> {
+    self.packed.set_offset(start_offset, end_offset)
+  }
+
+  fn end_offset(&self) -> Result<i32> {
+    self.packed.end_offset()
+  }
+
+  fn get_position_increment(&self) -> Result<i32> {
+    self.packed.get_position_increment()
+  }
+
+  fn set_position_increment(&mut self, position_increment: i32) -> Result<()> {
+    self.packed.set_position_increment(position_increment)
+  }
+  fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    Ok(self.p_att.get_payload())
+  }
+
+  fn set_payload(&mut self, payload: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+    self.p_att.set_payload(payload);
+    Ok(())
+  }
+
+  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    Ok(TermToBytesRefAttribute::get_bytes_ref(&mut self.packed))
+  }
+
+  fn set_term_frequency(&mut self, term_frequency: i32) -> Result<()> {
+    self.packed.set_term_frequency(term_frequency)
+  }
+
+  fn get_term_frequency(&self) -> Result<i32> {
+    self.packed.get_term_frequency()
+  }
+
+  fn set_position_length(&mut self, position_length: i32) -> Result<()> {
+    self.packed.set_position_length(position_length)
+  }
+
+  fn get_position_length(&self) -> Result<i32> {
+    self.packed.get_position_length()
+  }
+
+  fn get_flags(&self) -> Result<i32> {
+    self.packed.get_flags()
+  }
+
+  #[cfg(test)]
+  fn set_flags(&mut self, flags: i32) -> Result<()> {
+    self.packed.set_flags(flags)
+  }
+
+  fn type_(&self) -> Result<&str> {
+    self.packed.type_()
+  }
+
+  fn set_type(&mut self, type_: &str) -> Result<()> {
+    self.packed.set_type(type_)
+  }
+
+  fn end_attributes(&mut self) {
+    self.packed.end_attributes();
+    self.o_att.end();
+    self.p_att.end();
+  }
+
+  fn clear_attributes(&mut self) {
+    self.packed.clear_attributes();
+    self.o_att.clear();
+    self.p_att.clear();
+  }
+}
+
+impl RandomTokenStream {
+  fn has_payloads(&self) -> bool {
+    self.payloads.iter().any(Option::is_some)
+  }
+}
+
+#[derive(Clone, Copy)]
+pub enum Options {
+  None,
+  Positions,
+  Offsets,
+  PositionsAndOffsets,
+  PositionsAndPayloads,
+  PositionsOffsetsPayloads,
+}
+
+impl Options {
+  fn positions(self) -> bool {
+    matches!(
+      self,
+      Options::Positions
+        | Options::PositionsAndOffsets
+        | Options::PositionsAndPayloads
+        | Options::PositionsOffsetsPayloads
+    )
+  }
+
+  fn offsets(self) -> bool {
+    matches!(
+      self,
+      Options::Offsets | Options::PositionsAndOffsets | Options::PositionsOffsetsPayloads
+    )
+  }
+
+  fn payloads(self) -> bool {
+    matches!(
+      self,
+      Options::PositionsAndPayloads | Options::PositionsOffsetsPayloads
+    )
+  }
+}
+
+fn field_type(options: Options) -> Result<FieldType> {
+  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  ft.set_store_term_vectors(true)?;
+  ft.set_index_options(if options.offsets() {
+    IndexOptions::DocsAndFreqsAndPositionsAndOffsets
+  } else if options.positions() {
+    IndexOptions::DocsAndFreqsAndPositions
+  } else {
+    IndexOptions::DocsAndFreqs
+  })?;
+  if options.positions() {
+    ft.set_store_term_vector_positions(true)?;
+  }
+  if options.offsets() {
+    ft.set_store_term_vector_offsets(true)?;
+  }
+  if options.payloads() {
+    ft.set_store_term_vector_payloads(true)?;
+  }
+  Ok(ft)
+}
+/// Randomly generated document: call toDocument to index it
+pub struct RandomDocument {
+  field_names: Vec<String>,
+  field_types: Vec<FieldType>,
+  token_streams: Vec<RandomTokenStream>,
+}
+
+impl RandomDocument {
+  pub fn new<R>(
+    random: &mut R,
+    field_count: usize,
+    max_term_count: usize,
+    options: Options,
+    field_names: &[String],
+    sample_terms: &[String],
+    sample_term_bytes: &[BytesRef<Vec<u8>>],
+  ) -> Result<Self>
+  where
+    R: Rng + ?Sized,
+  {
+    if field_count > field_names.len() {
+      return Err(LuceneError::illegal_argument(""));
+    }
+    let mut doc_field_names = Vec::with_capacity(field_count);
+    let mut doc_field_types = Vec::with_capacity(field_count);
+    let mut token_streams = Vec::with_capacity(field_count);
+    let mut used_field_names = HashSet::new();
+    for _ in 0..field_count {
+      let field_name = loop {
+        let field_name = field_names[random.random_range(0..field_names.len())].clone();
+        if used_field_names.insert(field_name.clone()) {
+          break field_name;
+        }
+      };
+      doc_field_names.push(field_name);
+      doc_field_types.push(field_type(options)?);
+      let term_count = TestUtil::next_int(random, 1, max_term_count as i32) as usize;
+      token_streams.push(RandomTokenStream::new(
+        random,
+        term_count,
+        sample_terms,
+        sample_term_bytes,
+      )?);
+    }
+    Ok(Self {
+      field_names: doc_field_names,
+      field_types: doc_field_types,
+      token_streams,
+    })
+  }
+
+  pub fn to_document(&self) -> Result<Document> {
+    let mut doc = Document::new();
+    for i in 0..self.field_names.len() {
+      doc.add(Field::from_token_stream(
+        self.field_names[i].clone(),
+        FieldTokenStreamEnum::custom(self.token_streams[i].clone()),
+        self.field_types[i].clone(),
+      )?);
+    }
+    Ok(doc)
+  }
+}
+
+pub struct RandomDocumentFactory {
+  field_names: Vec<String>,
+  terms: Vec<String>,
+  term_bytes: Vec<BytesRef<Vec<u8>>>,
+}
+
+impl RandomDocumentFactory {
+  pub fn new<R>(random: &mut R, distinct_field_names: usize, distinct_terms: usize) -> Self
+  where
+    R: Rng + ?Sized,
+  {
+    let mut field_names = HashSet::new();
+    while field_names.len() < distinct_field_names {
+      let field_name = TestUtil::random_simple_string(random);
+      if field_name != "id" {
+        field_names.insert(field_name);
+      }
+    }
+    let mut terms = Vec::with_capacity(distinct_terms);
+    let mut term_bytes = Vec::with_capacity(distinct_terms);
+    for _ in 0..distinct_terms {
+      let term = TestUtil::random_realistic_unicode_string(random);
+      term_bytes.push(BytesRef::from_string(&term));
+      terms.push(term);
+    }
+    Self {
+      field_names: field_names.into_iter().collect(),
+      terms,
+      term_bytes,
+    }
+  }
+
+  pub fn new_document<R>(
+    &self,
+    random: &mut R,
+    field_count: usize,
+    max_term_count: usize,
+    options: Options,
+  ) -> Result<RandomDocument>
+  where
+    R: Rng + ?Sized,
+  {
+    RandomDocument::new(
+      random,
+      field_count,
+      max_term_count,
+      options,
+      &self.field_names,
+      &self.terms,
+      &self.term_bytes,
+    )
+  }
+}
+
+impl Clone for RandomTokenStream {
+  fn clone(&self) -> Self {
+    Self {
+      attr: RandomTokenStreamAttr::new()
+        .expect("RandomTokenStreamAttr::new should not fail")
+        .into(),
+      terms: self.terms.clone(),
+      term_bytes: self.term_bytes.clone(),
+      positions_increments: self.positions_increments.clone(),
+      positions: self.positions.clone(),
+      start_offsets: self.start_offsets.clone(),
+      end_offsets: self.end_offsets.clone(),
+      payloads: self.payloads.clone(),
+      freqs: self.freqs.clone(),
+      position_to_terms: self.position_to_terms.clone(),
+      start_offset_to_terms: self.start_offset_to_terms.clone(),
+      i: 0,
+    }
+  }
+}
+
+fn equals(o1: Option<&BytesRef<Vec<u8>>>, o2: Option<Cow<'_, BytesRef<Vec<u8>>>>) -> bool {
+  match (o1, o2) {
+    (None, None) => true,
+    (Some(a), Some(b)) => a == b.as_ref(),
+    _ => false,
+  }
+}
+
+fn assert_random_token_stream_equals<R, T>(
+  random: &mut R,
+  tk: &RandomTokenStream,
+  ft: &FieldType,
+  terms: T,
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+  T: Terms,
+{
+  assert_eq!(1, terms.get_doc_count()?);
+  let term_count = tk.terms.iter().collect::<HashSet<_>>().len();
+  assert_eq!(term_count as i64, terms.size()?);
+  assert_eq!(term_count as i64, terms.get_sum_doc_freq()?);
+  assert_eq!(ft.store_term_vector_positions(), terms.has_positions());
+  assert_eq!(ft.store_term_vector_offsets(), terms.has_offsets());
+  assert_eq!(
+    ft.store_term_vector_payloads() && tk.has_payloads(),
+    terms.has_payloads()
+  );
+  let mut sorted_terms = tk
+    .freqs
+    .keys()
+    .map(|term| BytesRef::from_string(term))
+    .collect::<Vec<_>>();
+  sorted_terms.sort();
+  let mut terms_enum = terms.iterator()?;
+  for sorted_term in &sorted_terms {
+    let next_term = terms_enum.next()?;
+    assert!(next_term.is_some());
+    assert_eq!(sorted_term, next_term.unwrap().as_ref());
+    assert_eq!(sorted_term, terms_enum.term()?.as_ref());
+    assert_eq!(1, terms_enum.doc_freq()?);
+
+    let mut postings_enum = terms_enum.postings(None)?;
+    let v = if random.random_bool(0.5) {
+      Some(postings_enum)
+    } else {
+      None
+    };
+    postings_enum = terms_enum.postings(v)?;
+    assert_eq!(0, postings_enum.next_doc()?);
+    assert_eq!(0, postings_enum.doc_id());
+    assert_eq!(
+      *tk
+        .freqs
+        .get(&terms_enum.term()?.utf8_to_string()?)
+        .expect("term must exist"),
+      postings_enum.freq()?
+    );
+    assert_eq!(NO_MORE_DOCS, postings_enum.next_doc()?);
+
+    let mut docs_and_positions_enum = terms_enum.postings_with_flags(None, POSITIONS as i32)?;
+    let v = if random.random_bool(0.5) {
+      Some(docs_and_positions_enum)
+    } else {
+      None
+    };
+    docs_and_positions_enum = terms_enum.postings_with_flags(v, POSITIONS as i32)?;
+    if terms.has_positions() || terms.has_offsets() {
+      assert_eq!(0, docs_and_positions_enum.next_doc()?);
+      let freq = docs_and_positions_enum.freq()?;
+      assert_eq!(
+        *tk
+          .freqs
+          .get(&terms_enum.term()?.utf8_to_string()?)
+          .expect("term must exist"),
+        freq
+      );
+      for _ in 0..freq {
+        let position = docs_and_positions_enum.next_position()?;
+        let indexes = if terms.has_positions() {
+          tk.position_to_terms
+            .get(&position)
+            .expect("position must exist")
+        } else {
+          tk.start_offset_to_terms
+            .get(&docs_and_positions_enum.start_offset()?)
+            .expect("start offset must exist")
+        };
+        if terms.has_positions() {
+          assert!(indexes.iter().any(|index| {
+            let index = *index as usize;
+            tk.term_bytes[index] == *terms_enum.term().expect("term must exist")
+              && tk.positions[index] == position
+          }));
+        }
+        if terms.has_offsets() {
+          assert!(indexes.iter().any(|index| {
+            let index = *index as usize;
+            tk.term_bytes[index] == *terms_enum.term().expect("term must exist")
+              && tk.start_offsets[index]
+                == docs_and_positions_enum
+                  .start_offset()
+                  .expect("start offset must exist")
+              && tk.end_offsets[index]
+                == docs_and_positions_enum
+                  .end_offset()
+                  .expect("end offset must exist")
+          }));
+        }
+        if terms.has_payloads() {
+          assert!(indexes.iter().any(|index| {
+            let index = *index as usize;
+            tk.term_bytes[index] == *terms_enum.term().expect("term must exist")
+              && equals(
+                tk.payloads[index].as_ref(),
+                docs_and_positions_enum
+                  .get_payload()
+                  .expect("payload must read"),
+              )
+          }));
+        }
+      }
+      // TODO IMPORTANT 这里少一个判断
+      assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
+    }
+  }
+  assert!(terms_enum.next()?.is_none());
+  for _ in 0..5 {
+    let idx = random.random_range(0..tk.term_bytes.len());
+    let term = &tk.term_bytes[idx];
+    assert!(terms_enum.seek_exact(term)?);
+    assert_eq!(SeekStatus::Found, terms_enum.seek_ceil(term)?);
+  }
+  Ok(())
+}
+
+fn assert_random_document_equals<R, F>(
+  random: &mut R,
+  doc: &RandomDocument,
+  fields: F,
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+  F: IndexFields,
+{
+  assert_eq!(doc.field_names.len() as i32, fields.size()?);
+  let fields1 = doc.field_names.iter().collect::<HashSet<_>>();
+  let mut fields2 = HashSet::new();
+  let mut field_iter = fields.iterator()?;
+  while let Some(field) = field_iter.next()? {
+    fields2.insert(field);
+  }
+  assert_eq!(fields1, fields2);
+
+  for i in 0..doc.field_names.len() {
+    let terms = fields
+      .terms(&doc.field_names[i])?
+      .expect("term vectors should exist for random document field");
+    assert_random_token_stream_equals(random, &doc.token_streams[i], &doc.field_types[i], terms)?;
+  }
+  Ok(())
+}
+
+pub fn add_id(mut doc: Document, id: &str) -> Result<Document> {
+  doc.add(StringField::from_string("id", id, Store::No)?);
+  Ok(doc)
+}
+
+pub fn doc_id<CR>(reader: CR, id: &str) -> Result<i32>
+where
+  CR: CompositeReader + 'static,
+{
+  let searcher = IndexSearcher::from_cr(reader)?;
+  let top_docs = searcher.search(TermQuery::new(Term::from_text("id", id)), 1)?;
+  Ok(top_docs.score_docs[0].doc)
 }

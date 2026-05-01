@@ -216,13 +216,13 @@ where
         attr.set_keyword((i & 1) == 0)?;
       }
       if payload_att {
-        attr.set_payload(BytesRef::from_bytes(vec![
+        attr.set_payload(Some(BytesRef::from_bytes(vec![
           0x00,
           (-0x21i8) as u8,
           0x12,
           (-0x43i8) as u8,
           0x24,
-        ]))?;
+        ])))?;
       }
       if flags_att {
         attr.set_flags(!0)?;
@@ -350,13 +350,13 @@ where
       attr.set_keyword(true)?;
     }
     if payload_att {
-      attr.set_payload(BytesRef::from_bytes(vec![
+      attr.set_payload(Some(BytesRef::from_bytes(vec![
         0x00,
         (-0x21i8) as u8,
         0x12,
         (-0x43i8) as u8,
         0x24,
-      ]))?;
+      ])))?;
     }
     if flags_att {
       attr.set_flags(!0)?;

@@ -170,7 +170,7 @@ impl AttributeSource for BinaryTokenStreamAttributeImpl {
     self.packed_token.get_payload()
   }
 
-  fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_payload(&mut self, payload: Option<BytesRef<Vec<u8>>>) -> Result<()> {
     self.packed_token.set_payload(payload)
   }
 

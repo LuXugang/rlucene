@@ -25,6 +25,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test::core::analysis::base_token_stream_test_case::CheckClearAttributesAttribute;
+#[cfg(test)]
+use crate::test::core::index::base_term_vectors_format_test_case::RandomTokenStreamAttr;
 use std::borrow::Cow;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
@@ -97,7 +99,7 @@ pub trait AttributeSource {
   fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     Ok(None)
   }
-  fn set_payload(&mut self, _payload: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_payload(&mut self, _payload: Option<BytesRef<Vec<u8>>>) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -298,7 +300,7 @@ where
     (**self).get_payload()
   }
 
-  fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_payload(&mut self, payload: Option<BytesRef<Vec<u8>>>) -> Result<()> {
     (**self).set_payload(payload)
   }
 
@@ -383,6 +385,8 @@ pub enum Attributes {
   PackedToken(CharTermAttributeImpl<PackedTokenAttributeImpl>),
   BytesTerm(BytesTermAttributeImpl),
   BinaryTokenStream(BinaryTokenStreamAttributeImpl),
+  #[cfg(test)]
+  RandomTokenStream(RandomTokenStreamAttr),
 }
 impl Display for Attributes {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -390,6 +394,8 @@ impl Display for Attributes {
       Attributes::PackedToken(attr) => attr.fmt(f),
       Attributes::BytesTerm(attr) => attr.fmt(f),
       Attributes::BinaryTokenStream(attr) => attr.fmt(f),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.fmt(f),
     }
   }
 }
@@ -400,6 +406,7 @@ impl Attributes {
       Attributes::PackedToken(attr) => Ok(attr.get_and_reset_clear_called()),
       Attributes::BytesTerm(attr) => Ok(attr.get_and_reset_clear_called()),
       Attributes::BinaryTokenStream(attr) => Ok(attr.get_and_reset_clear_called()),
+      Attributes::RandomTokenStream(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 }
@@ -409,6 +416,12 @@ impl_from_for_enum!(
     BytesTermAttributeImpl=> BytesTerm,
     BinaryTokenStreamAttributeImpl=> BinaryTokenStream,
 );
+#[cfg(test)]
+impl From<RandomTokenStreamAttr> for Attributes {
+  fn from(v: RandomTokenStreamAttr) -> Self {
+    Attributes::RandomTokenStream(v)
+  }
+}
 impl Attribute for Attributes {
   #[cfg(debug_assertions)]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
@@ -416,6 +429,8 @@ impl Attribute for Attributes {
       Attributes::PackedToken(attr) => attr.get_attribute_name(),
       Attributes::BytesTerm(attr) => attr.get_attribute_name(),
       Attributes::BinaryTokenStream(attr) => attr.get_attribute_name(),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.get_attribute_name(),
     }
   }
 }
@@ -434,6 +449,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => AttributeSource::length(attr),
       Attributes::BytesTerm(attr) => AttributeSource::length(attr),
       Attributes::BinaryTokenStream(attr) => AttributeSource::length(attr),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => AttributeSource::length(attr),
     }
   }
 
@@ -444,6 +461,10 @@ impl AttributeSource for Attributes {
       Attributes::BinaryTokenStream(attr) => {
         AttributeSource::copy_buffer(attr, buffer, offset, length)
       },
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => {
+        AttributeSource::copy_buffer(attr, buffer, offset, length)
+      },
     }
   }
 
@@ -452,6 +473,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => AttributeSource::buffer_mut(attr),
       Attributes::BytesTerm(attr) => AttributeSource::buffer_mut(attr),
       Attributes::BinaryTokenStream(attr) => AttributeSource::buffer_mut(attr),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => AttributeSource::buffer_mut(attr),
     }
   }
 
@@ -460,6 +483,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => AttributeSource::buffer(attr),
       Attributes::BytesTerm(attr) => AttributeSource::buffer(attr),
       Attributes::BinaryTokenStream(attr) => AttributeSource::buffer(attr),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => AttributeSource::buffer(attr),
     }
   }
 
@@ -468,6 +493,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => AttributeSource::resize_buffer(attr, new_size),
       Attributes::BytesTerm(attr) => AttributeSource::resize_buffer(attr, new_size),
       Attributes::BinaryTokenStream(attr) => AttributeSource::resize_buffer(attr, new_size),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => AttributeSource::resize_buffer(attr, new_size),
     }
   }
 
@@ -482,6 +509,11 @@ impl AttributeSource for Attributes {
         Ok(self)
       },
       Attributes::BinaryTokenStream(attr) => {
+        AttributeSource::set_length(attr, length)?;
+        Ok(self)
+      },
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => {
         AttributeSource::set_length(attr, length)?;
         Ok(self)
       },
@@ -502,6 +534,11 @@ impl AttributeSource for Attributes {
         AttributeSource::set_empty(attr)?;
         Ok(self)
       },
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => {
+        AttributeSource::set_empty(attr)?;
+        Ok(self)
+      },
     }
   }
 
@@ -516,6 +553,11 @@ impl AttributeSource for Attributes {
         Ok(self)
       },
       Attributes::BinaryTokenStream(attr) => {
+        AttributeSource::append_range(attr, csq, start, end)?;
+        Ok(self)
+      },
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => {
         AttributeSource::append_range(attr, csq, start, end)?;
         Ok(self)
       },
@@ -536,6 +578,11 @@ impl AttributeSource for Attributes {
         AttributeSource::append_char(attr, c)?;
         Ok(self)
       },
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => {
+        AttributeSource::append_char(attr, c)?;
+        Ok(self)
+      },
     }
   }
 
@@ -550,6 +597,11 @@ impl AttributeSource for Attributes {
         Ok(self)
       },
       Attributes::BinaryTokenStream(attr) => {
+        AttributeSource::append_str(attr, s)?;
+        Ok(self)
+      },
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => {
         AttributeSource::append_str(attr, s)?;
         Ok(self)
       },
@@ -573,6 +625,11 @@ impl AttributeSource for Attributes {
         AttributeSource::append_term_attribute(attr, term_att)?;
         Ok(self)
       },
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => {
+        AttributeSource::append_term_attribute(attr, term_att)?;
+        Ok(self)
+      },
     }
   }
 
@@ -581,6 +638,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.start_offset(),
       Attributes::BytesTerm(attr) => attr.start_offset(),
       Attributes::BinaryTokenStream(attr) => attr.start_offset(),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.start_offset(),
     }
   }
 
@@ -589,6 +648,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.set_offset(start_offset, end_offset),
       Attributes::BytesTerm(attr) => attr.set_offset(start_offset, end_offset),
       Attributes::BinaryTokenStream(attr) => attr.set_offset(start_offset, end_offset),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.set_offset(start_offset, end_offset),
     }
   }
 
@@ -597,6 +658,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.end_offset(),
       Attributes::BytesTerm(attr) => attr.end_offset(),
       Attributes::BinaryTokenStream(attr) => attr.end_offset(),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.end_offset(),
     }
   }
 
@@ -605,6 +668,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.set_bytes_ref(bytes),
       Attributes::BytesTerm(attr) => AttributeSource::set_bytes_ref(attr, bytes),
       Attributes::BinaryTokenStream(attr) => attr.set_bytes_ref(bytes),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.set_bytes_ref(bytes),
     }
   }
 
@@ -613,6 +678,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.get_position_increment(),
       Attributes::BytesTerm(attr) => attr.get_position_increment(),
       Attributes::BinaryTokenStream(attr) => attr.get_position_increment(),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.get_position_increment(),
     }
   }
 
@@ -621,6 +688,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.set_position_increment(position_increment),
       Attributes::BytesTerm(attr) => attr.set_position_increment(position_increment),
       Attributes::BinaryTokenStream(attr) => attr.set_position_increment(position_increment),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.set_position_increment(position_increment),
     }
   }
 
@@ -629,14 +698,18 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.get_payload(),
       Attributes::BytesTerm(attr) => attr.get_payload(),
       Attributes::BinaryTokenStream(attr) => attr.get_payload(),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.get_payload(),
     }
   }
 
-  fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_payload(&mut self, payload: Option<BytesRef<Vec<u8>>>) -> Result<()> {
     match self {
       Attributes::PackedToken(attr) => attr.set_payload(payload),
       Attributes::BytesTerm(attr) => attr.set_payload(payload),
       Attributes::BinaryTokenStream(attr) => attr.set_payload(payload),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.set_payload(payload),
     }
   }
 
@@ -645,6 +718,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => AttributeSource::get_bytes_ref(attr),
       Attributes::BytesTerm(attr) => AttributeSource::get_bytes_ref(attr),
       Attributes::BinaryTokenStream(attr) => AttributeSource::get_bytes_ref(attr),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => AttributeSource::get_bytes_ref(attr),
     }
   }
 
@@ -653,6 +728,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.set_term_frequency(term_frequency),
       Attributes::BytesTerm(attr) => attr.set_term_frequency(term_frequency),
       Attributes::BinaryTokenStream(attr) => attr.set_term_frequency(term_frequency),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.set_term_frequency(term_frequency),
     }
   }
 
@@ -661,6 +738,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.get_term_frequency(),
       Attributes::BytesTerm(attr) => attr.get_term_frequency(),
       Attributes::BinaryTokenStream(attr) => attr.get_term_frequency(),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.get_term_frequency(),
     }
   }
 
@@ -669,6 +748,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.set_position_length(position_length),
       Attributes::BytesTerm(attr) => attr.set_position_length(position_length),
       Attributes::BinaryTokenStream(attr) => attr.set_position_length(position_length),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.set_position_length(position_length),
     }
   }
 
@@ -677,6 +758,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.get_position_length(),
       Attributes::BytesTerm(attr) => attr.get_position_length(),
       Attributes::BinaryTokenStream(attr) => attr.get_position_length(),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.get_position_length(),
     }
   }
 
@@ -685,6 +768,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.get_flags(),
       Attributes::BytesTerm(attr) => attr.get_flags(),
       Attributes::BinaryTokenStream(attr) => attr.get_flags(),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.get_flags(),
     }
   }
 
@@ -693,6 +778,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.set_flags(flags),
       Attributes::BytesTerm(attr) => attr.set_flags(flags),
       Attributes::BinaryTokenStream(attr) => attr.set_flags(flags),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.set_flags(flags),
     }
   }
 
@@ -701,6 +788,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.type_(),
       Attributes::BytesTerm(attr) => attr.type_(),
       Attributes::BinaryTokenStream(attr) => attr.type_(),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.type_(),
     }
   }
 
@@ -709,6 +798,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.set_type(type_),
       Attributes::BytesTerm(attr) => attr.set_type(type_),
       Attributes::BinaryTokenStream(attr) => attr.set_type(type_),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.set_type(type_),
     }
   }
 
@@ -717,6 +808,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.end_attributes(),
       Attributes::BytesTerm(attr) => attr.end_attributes(),
       Attributes::BinaryTokenStream(attr) => attr.end_attributes(),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.end_attributes(),
     }
   }
 
@@ -725,6 +818,8 @@ impl AttributeSource for Attributes {
       Attributes::PackedToken(attr) => attr.clear_attributes(),
       Attributes::BytesTerm(attr) => attr.clear_attributes(),
       Attributes::BinaryTokenStream(attr) => attr.clear_attributes(),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(attr) => attr.clear_attributes(),
     }
   }
 }
@@ -884,7 +979,7 @@ macro_rules! define_attribute_source_enum {
                     $(Self::$V(t) => t.get_payload(),)+
                 }
             }
-            fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) -> Result<()> {
+            fn set_payload(&mut self, payload: Option<BytesRef<Vec<u8>>>) -> Result<()> {
                 match self {
                     $(Self::$V(t) => t.set_payload(payload),)+
                 }

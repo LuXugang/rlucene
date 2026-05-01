@@ -45,6 +45,7 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
+pub type PackedTokenAttribute = CharTermAttributeImpl<PackedTokenAttributeImpl>;
 /// Default implementation of the common attributes used by Lucene:
 ///
 /// - [`CharTermAttribute`]
@@ -377,13 +378,13 @@ impl AttributeSource for CharTermAttributeImpl<PackedTokenAttributeImpl> {
   }
 
   #[cfg(test)]
-  fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) -> Result<()> {
-    self.sub.token.set_payload(Some(payload));
+  fn set_payload(&mut self, payload: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+    self.sub.token.set_payload(payload);
     Ok(())
   }
 
   #[cfg(not(test))]
-  fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_payload(&mut self, payload: Option<BytesRef<Vec<u8>>>) -> Result<()> {
     let _ = payload;
     Err(LuceneError::unsupported_operation(""))
   }
