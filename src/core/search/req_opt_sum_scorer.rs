@@ -572,11 +572,16 @@ where
 }
 #[cfg(test)]
 mod tests {
+  use crate::core::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+  use crate::core::analysis::token_stream::TokenStream;
   use crate::core::document::document::Document;
-  use crate::core::document::field::Store;
+  use crate::core::document::field::{Field, Store};
+  use crate::core::document::field_type::FieldType;
+  use crate::core::document::fields::FieldTokenStreamEnum;
   use crate::core::document::float_point::FloatPoint;
   use crate::core::document::string_field::StringField;
   use crate::core::index::directory_reader;
+  use crate::core::index::index_options::IndexOptions;
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -592,9 +597,11 @@ mod tests {
   use crate::core::search::scorable::Scorable;
   use crate::core::search::score_mode::ScoreMode;
   use crate::core::search::scorer::{Scorer, TwoPhaseState};
+  use crate::core::search::similarities_impl::similarities::tests::new_simple_similarity;
   use crate::core::search::term_query::TermQuery;
   use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
   use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+  use crate::core::util::attribute_source::{AttributeSource, Attributes};
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::search::check_hits::CheckHits;
@@ -734,7 +741,66 @@ mod tests {
   }
   #[test]
   fn test_max_block() -> Result<()> {
-    // TODO TermFreqTokenStream未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
+
+    let mut ft = FieldType::new();
+    ft.set_index_options(IndexOptions::DocsAndFreqs)?;
+    ft.set_tokenized(true)?;
+    ft.freeze();
+
+    for i in 0..1024 {
+      let mut doc = Document::new();
+      doc.add(Field::from_token_stream(
+        "foo",
+        FieldTokenStreamEnum::custom(TermFreqTokenStream::new("a".to_string(), i + 1)),
+        ft.clone(),
+      )?);
+
+      if random.random::<f32>() < 0.5 {
+        doc.add(Field::from_token_stream(
+          "foo",
+          FieldTokenStreamEnum::custom(TermFreqTokenStream::new("b".to_string(), 1)),
+          ft.clone(),
+        )?);
+      }
+
+      w.add_document(doc)?;
+    }
+
+    w.force_merge(1)?;
+    w.close()?;
+
+    let reader = directory_reader::open(dir)?;
+    let mut searcher = new_searcher_with_reader(reader)?;
+    searcher.set_similarity(new_simple_similarity());
+
+    let req_q = TermQuery::new(Term::from_text("foo", "a"));
+    let opt_q = TermQuery::new(Term::from_text("foo", "b"));
+
+    let mut builder = Builder::new();
+    builder.add(req_q.clone(), Occur::Must)?;
+    builder.add(opt_q.clone(), Occur::Should)?;
+    let bool_q: Query = builder.build().into();
+
+    let mut actual = req_opt_scorer(&searcher, req_q, opt_q, true)?;
+
+    let leaves = searcher.get_leaf_contexts()?;
+    let expected_weight = searcher.create_weight(bool_q, ScoreMode::Complete, 1.0)?;
+    let mut expected = expected_weight.scorer(&leaves[0], &searcher)?.unwrap();
+
+    actual.set_min_competitive_score(f32::next_up(1.0))?;
+
+    for i in 0..1024 {
+      assert_eq!(i, actual.iterator_mut().next_doc()?);
+      assert_eq!(i, expected.iterator_mut().next_doc()?);
+      assert_eq!(actual.score()?, expected.score()?);
+    }
+
     Ok(())
   }
   #[test]
@@ -1123,6 +1189,67 @@ mod tests {
 
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
       self.base.approximation_mut()
+    }
+  }
+  pub struct TermFreqTokenStream {
+    attr: Attributes,
+    term: String,
+    term_freq: i32,
+    finish: bool,
+  }
+
+  impl TermFreqTokenStream {
+    pub fn new(term: String, term_freq: i32) -> Self {
+      Self {
+        attr: Attributes::default(),
+        term,
+        term_freq,
+        finish: false,
+      }
+    }
+  }
+
+  impl TokenStream for TermFreqTokenStream {
+    fn increment_token(&mut self) -> Result<bool> {
+      if self.finish {
+        return Ok(false);
+      }
+
+      self.clear_attributes();
+
+      match self.attr {
+        Attributes::PackedToken(ref mut token_attr) => {
+          token_attr.append_str(Some(&self.term))?;
+          token_attr.sub.set_term_frequency(self.term_freq)?;
+        },
+        _ => unreachable!("PackedTokenAttribute not found in TermFreqTokenStream"),
+      }
+
+      self.finish = true;
+      Ok(true)
+    }
+
+    fn end(&mut self) -> Result<()> {
+      Ok(())
+    }
+
+    fn reset(&mut self) -> Result<()> {
+      self.finish = false;
+      Ok(())
+    }
+
+    fn get_attribute_source(&self) -> &Attributes {
+      &self.attr
+    }
+
+    fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+      &mut self.attr
+    }
+  }
+
+  impl AttributeSource for TermFreqTokenStream {
+    fn clear_attributes(&mut self) {
+      self.attr.clear_attributes()
     }
   }
 }
