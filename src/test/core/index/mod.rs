@@ -53,6 +53,7 @@ mod test_index_writer_delete;
 mod test_index_writer_max_docs;
 pub mod test_lucene90_doc_values_format;
 mod test_many_fields;
+mod test_max_position;
 mod test_non_flex;
 mod test_norms;
 mod test_omit_norms;
