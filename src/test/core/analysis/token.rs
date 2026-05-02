@@ -138,7 +138,7 @@ impl AttributeImpl for TokenBase {
 
   fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
     other.set_flags(self.flags);
-    other.set_payload(self.payload.clone());
+    other.set_payload(self.payload.as_ref().map(BytesRef::deep_copy_of));
     Ok(())
   }
 }

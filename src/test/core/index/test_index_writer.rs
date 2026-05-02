@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
@@ -48,7 +50,9 @@ use crate::core::store::directory::Directory;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper};
+use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::analysis::token;
 use crate::test::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   get_only_leaf_reader, new_directory_shared, new_field, new_index_writer_config,
@@ -739,7 +743,29 @@ fn test_not_allow_using_existing_field_as_soft_deletes() -> Result<()> {
 }
 #[test]
 fn test_broken_payload() -> Result<()> {
-  // TODO CannedTokenStream未实现
+  let mut random = random();
+  let d = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let w = IndexWriter::new(d, iwc)?;
+
+  let mut doc = Document::new();
+  let mut token = token::with_range(Some("bar"), 0, 3)?;
+
+  let mut evil = BytesRef::from_bytes(vec![0u8; 1024]);
+  evil.offset = 1000;
+
+  token.sub.token.set_payload(Some(evil));
+
+  doc.add(TextField::from_token_stream(
+    "foo",
+    FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![token])),
+  )?);
+
+  let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| w.add_document(doc)));
+  assert!(result.is_err());
+  // TODO IMPORTANT 这里close 会死锁
+  // w.close()?;
   Ok(())
 }
 fn test_soft_and_hard_live_docs() -> Result<()> {
