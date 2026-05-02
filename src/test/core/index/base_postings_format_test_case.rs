@@ -1336,11 +1336,302 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_postings_enum_all<R>(&self, _random: &mut R) -> Result<()>
+  fn test_postings_enum_all<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO Token未实现
+    let dir = new_directory_shared(random)?;
+    let iwc = new_index_writer_config(random);
+    let w = RandomIndexWriter::with_config(random, dir, iwc);
+
+    let mut token1 = token::with_range(Some("bar"), 0, 3)?;
+    token1
+      .sub
+      .token
+      .set_payload(Some(BytesRef::from_string("pay1")));
+
+    let mut token2 = token::with_range(Some("bar"), 4, 7)?;
+    token2
+      .sub
+      .token
+      .set_payload(Some(BytesRef::from_string("pay2")));
+
+    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
+
+    let mut doc = Document::new();
+    doc.add(Field::from_token_stream(
+      "foo",
+      FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![token1, token2])),
+      ft,
+    )?);
+    w.add_document(doc)?;
+
+    let reader = w.get_reader()?;
+    let leaf = get_only_leaf_reader(reader)?;
+
+    let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
+      PostingsEnumEnum2::A(p) => p,
+      PostingsEnumEnum2::B(_) => unreachable!(),
+    };
+    assert_eq!(-1, postings.doc_id());
+    assert_eq!(0, postings.next_doc()?);
+    assert_eq!(2, postings.freq()?);
+    assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
+
+    let mut terms_enum = leaf.terms("foo")?.unwrap().iterator()?;
+    assert!(terms_enum.seek_exact(&BytesRef::from_string("bar"))?);
+
+    let mut postings2 = terms_enum.postings(Some(postings))?;
+    assert_eq!(-1, postings2.doc_id());
+    assert_eq!(0, postings2.next_doc()?);
+    assert_eq!(2, postings2.freq()?);
+    assert_eq!(NO_MORE_DOCS, postings2.next_doc()?);
+
+    let mut docs_only = terms_enum.postings_with_flags(None, NONE as i32)?;
+    assert_eq!(-1, docs_only.doc_id());
+    assert_eq!(0, docs_only.next_doc()?);
+    assert!(docs_only.freq()? == 1 || docs_only.freq()? == 2);
+    assert_eq!(NO_MORE_DOCS, docs_only.next_doc()?);
+
+    let mut docs_only2 = terms_enum.postings_with_flags(Some(docs_only), NONE as i32)?;
+    assert_eq!(-1, docs_only2.doc_id());
+    assert_eq!(0, docs_only2.next_doc()?);
+    assert!(docs_only2.freq()? == 1 || docs_only2.freq()? == 2);
+    assert_eq!(NO_MORE_DOCS, docs_only2.next_doc()?);
+
+    let mut docs_and_positions_enum = leaf
+      .postings_with_flag(&Term::from_text("foo", "bar"), POSITIONS as i32)?
+      .unwrap();
+    assert_eq!(-1, docs_and_positions_enum.doc_id());
+    assert_eq!(0, docs_and_positions_enum.next_doc()?);
+    assert_eq!(2, docs_and_positions_enum.freq()?);
+    assert_eq!(0, docs_and_positions_enum.next_position()?);
+    assert!(
+      docs_and_positions_enum.start_offset()? == -1 || docs_and_positions_enum.start_offset()? == 0
+    );
+    assert!(
+      docs_and_positions_enum.end_offset()? == -1 || docs_and_positions_enum.end_offset()? == 3
+    );
+    assert!(
+      docs_and_positions_enum.get_payload()?.is_none()
+        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+          == &BytesRef::from_string("pay1")
+    );
+    assert_eq!(1, docs_and_positions_enum.next_position()?);
+    assert!(
+      docs_and_positions_enum.start_offset()? == -1 || docs_and_positions_enum.start_offset()? == 4
+    );
+    assert!(
+      docs_and_positions_enum.end_offset()? == -1 || docs_and_positions_enum.end_offset()? == 7
+    );
+    assert!(
+      docs_and_positions_enum.get_payload()?.is_none()
+        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+          == &BytesRef::from_string("pay2")
+    );
+    assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
+
+    let docs_and_positions_enum = match docs_and_positions_enum {
+      PostingsEnumEnum2::A(p) => p,
+      PostingsEnumEnum2::B(_) => unreachable!(),
+    };
+    let mut docs_and_positions_enum2 =
+      terms_enum.postings_with_flags(Some(docs_and_positions_enum), POSITIONS as i32)?;
+    assert_eq!(-1, docs_and_positions_enum2.doc_id());
+    assert_eq!(0, docs_and_positions_enum2.next_doc()?);
+    assert_eq!(2, docs_and_positions_enum2.freq()?);
+    assert_eq!(0, docs_and_positions_enum2.next_position()?);
+    assert!(
+      docs_and_positions_enum2.start_offset()? == -1
+        || docs_and_positions_enum2.start_offset()? == 0
+    );
+    assert!(
+      docs_and_positions_enum2.end_offset()? == -1 || docs_and_positions_enum2.end_offset()? == 3
+    );
+    assert!(
+      docs_and_positions_enum2.get_payload()?.is_none()
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+          == &BytesRef::from_string("pay1")
+    );
+    assert_eq!(1, docs_and_positions_enum2.next_position()?);
+    assert!(
+      docs_and_positions_enum2.start_offset()? == -1
+        || docs_and_positions_enum2.start_offset()? == 4
+    );
+    assert!(
+      docs_and_positions_enum2.end_offset()? == -1 || docs_and_positions_enum2.end_offset()? == 7
+    );
+    assert!(
+      docs_and_positions_enum2.get_payload()?.is_none()
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+          == &BytesRef::from_string("pay2")
+    );
+    assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
+
+    let mut docs_and_positions_enum = leaf
+      .postings_with_flag(&Term::from_text("foo", "bar"), PAYLOADS as i32)?
+      .unwrap();
+    assert_eq!(-1, docs_and_positions_enum.doc_id());
+    assert_eq!(0, docs_and_positions_enum.next_doc()?);
+    assert_eq!(2, docs_and_positions_enum.freq()?);
+    assert_eq!(0, docs_and_positions_enum.next_position()?);
+    assert!(
+      docs_and_positions_enum.start_offset()? == -1 || docs_and_positions_enum.start_offset()? == 0
+    );
+    assert!(
+      docs_and_positions_enum.end_offset()? == -1 || docs_and_positions_enum.end_offset()? == 3
+    );
+    assert_eq!(
+      &BytesRef::from_string("pay1"),
+      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+    );
+    assert_eq!(1, docs_and_positions_enum.next_position()?);
+    assert!(
+      docs_and_positions_enum.start_offset()? == -1 || docs_and_positions_enum.start_offset()? == 4
+    );
+    assert!(
+      docs_and_positions_enum.end_offset()? == -1 || docs_and_positions_enum.end_offset()? == 7
+    );
+    assert_eq!(
+      &BytesRef::from_string("pay2"),
+      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+    );
+    assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
+
+    let docs_and_positions_enum = match docs_and_positions_enum {
+      PostingsEnumEnum2::A(p) => p,
+      PostingsEnumEnum2::B(_) => unreachable!(),
+    };
+    let mut docs_and_positions_enum2 =
+      terms_enum.postings_with_flags(Some(docs_and_positions_enum), PAYLOADS as i32)?;
+    assert_eq!(-1, docs_and_positions_enum2.doc_id());
+    assert_eq!(0, docs_and_positions_enum2.next_doc()?);
+    assert_eq!(2, docs_and_positions_enum2.freq()?);
+    assert_eq!(0, docs_and_positions_enum2.next_position()?);
+    assert!(
+      docs_and_positions_enum2.start_offset()? == -1
+        || docs_and_positions_enum2.start_offset()? == 0
+    );
+    assert!(
+      docs_and_positions_enum2.end_offset()? == -1 || docs_and_positions_enum2.end_offset()? == 3
+    );
+    assert_eq!(
+      &BytesRef::from_string("pay1"),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+    );
+    assert_eq!(1, docs_and_positions_enum2.next_position()?);
+    assert!(
+      docs_and_positions_enum2.start_offset()? == -1
+        || docs_and_positions_enum2.start_offset()? == 4
+    );
+    assert!(
+      docs_and_positions_enum2.end_offset()? == -1 || docs_and_positions_enum2.end_offset()? == 7
+    );
+    assert_eq!(
+      &BytesRef::from_string("pay2"),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+    );
+    assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
+
+    let mut docs_and_positions_enum = leaf
+      .postings_with_flag(&Term::from_text("foo", "bar"), OFFSETS as i32)?
+      .unwrap();
+    assert_eq!(-1, docs_and_positions_enum.doc_id());
+    assert_eq!(0, docs_and_positions_enum.next_doc()?);
+    assert_eq!(2, docs_and_positions_enum.freq()?);
+    assert_eq!(0, docs_and_positions_enum.next_position()?);
+    assert_eq!(0, docs_and_positions_enum.start_offset()?);
+    assert_eq!(3, docs_and_positions_enum.end_offset()?);
+    assert!(
+      docs_and_positions_enum.get_payload()?.is_none()
+        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+          == &BytesRef::from_string("pay1")
+    );
+    assert_eq!(1, docs_and_positions_enum.next_position()?);
+    assert_eq!(4, docs_and_positions_enum.start_offset()?);
+    assert_eq!(7, docs_and_positions_enum.end_offset()?);
+    assert!(
+      docs_and_positions_enum.get_payload()?.is_none()
+        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+          == &BytesRef::from_string("pay2")
+    );
+    assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
+
+    let docs_and_positions_enum = match docs_and_positions_enum {
+      PostingsEnumEnum2::A(p) => p,
+      PostingsEnumEnum2::B(_) => unreachable!(),
+    };
+    let mut docs_and_positions_enum2 =
+      terms_enum.postings_with_flags(Some(docs_and_positions_enum), OFFSETS as i32)?;
+    assert_eq!(-1, docs_and_positions_enum2.doc_id());
+    assert_eq!(0, docs_and_positions_enum2.next_doc()?);
+    assert_eq!(2, docs_and_positions_enum2.freq()?);
+    assert_eq!(0, docs_and_positions_enum2.next_position()?);
+    assert_eq!(0, docs_and_positions_enum2.start_offset()?);
+    assert_eq!(3, docs_and_positions_enum2.end_offset()?);
+    assert!(
+      docs_and_positions_enum2.get_payload()?.is_none()
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+          == &BytesRef::from_string("pay1")
+    );
+    assert_eq!(1, docs_and_positions_enum2.next_position()?);
+    assert_eq!(4, docs_and_positions_enum2.start_offset()?);
+    assert_eq!(7, docs_and_positions_enum2.end_offset()?);
+    assert!(
+      docs_and_positions_enum2.get_payload()?.is_none()
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+          == &BytesRef::from_string("pay2")
+    );
+    assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
+
+    let mut docs_and_positions_enum = leaf
+      .postings_with_flag(&Term::from_text("foo", "bar"), ALL as i32)?
+      .unwrap();
+    assert_eq!(-1, docs_and_positions_enum.doc_id());
+    assert_eq!(0, docs_and_positions_enum.next_doc()?);
+    assert_eq!(2, docs_and_positions_enum.freq()?);
+    assert_eq!(0, docs_and_positions_enum.next_position()?);
+    assert_eq!(0, docs_and_positions_enum.start_offset()?);
+    assert_eq!(3, docs_and_positions_enum.end_offset()?);
+    assert_eq!(
+      &BytesRef::from_string("pay1"),
+      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+    );
+    assert_eq!(1, docs_and_positions_enum.next_position()?);
+    assert_eq!(4, docs_and_positions_enum.start_offset()?);
+    assert_eq!(7, docs_and_positions_enum.end_offset()?);
+    assert_eq!(
+      &BytesRef::from_string("pay2"),
+      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+    );
+    assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
+
+    let docs_and_positions_enum = match docs_and_positions_enum {
+      PostingsEnumEnum2::A(p) => p,
+      PostingsEnumEnum2::B(_) => unreachable!(),
+    };
+    let mut docs_and_positions_enum2 =
+      terms_enum.postings_with_flags(Some(docs_and_positions_enum), ALL as i32)?;
+    assert_eq!(-1, docs_and_positions_enum2.doc_id());
+    assert_eq!(0, docs_and_positions_enum2.next_doc()?);
+    assert_eq!(2, docs_and_positions_enum2.freq()?);
+    assert_eq!(0, docs_and_positions_enum2.next_position()?);
+    assert_eq!(0, docs_and_positions_enum2.start_offset()?);
+    assert_eq!(3, docs_and_positions_enum2.end_offset()?);
+    assert_eq!(
+      &BytesRef::from_string("pay1"),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+    );
+    assert_eq!(1, docs_and_positions_enum2.next_position()?);
+    assert_eq!(4, docs_and_positions_enum2.start_offset()?);
+    assert_eq!(7, docs_and_positions_enum2.end_offset()?);
+    assert_eq!(
+      &BytesRef::from_string("pay2"),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+    );
+    assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
+
     Ok(())
   }
 
