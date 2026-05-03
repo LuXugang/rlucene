@@ -363,7 +363,7 @@ pub fn to_automaton(
 #[cfg(test)]
 pub(crate) mod tests {
   use crate::core::analysis::analyzer::{
-    Analyzer, AnalyzerBase, AnalyzerEnum, GlobalReuseStrategy, TokenStreamComponents,
+    Analyzer, AnalyzerBase, AnalyzerEnum, BoxedAnalyzer, GlobalReuseStrategy, TokenStreamComponents,
   };
   use crate::core::analysis::reader::Reader;
   use crate::core::analysis::token_stream::{TokenStream, default_attribute};
@@ -916,7 +916,18 @@ pub(crate) mod tests {
     );
     Ok(())
   }
-
+  #[cfg(test)]
+  impl From<SingleCharAnalyzer> for AnalyzerEnum {
+    fn from(_analyzer: SingleCharAnalyzer) -> Self {
+      AnalyzerEnum::Custom(BoxedAnalyzer::new(|_field| {
+        Ok(TokenStreamComponents::new(
+          Box::new(crate::core::search::term_range_query::tests::SingleCharTokenizer::new())
+            as Box<dyn TokenStream + Send + Sync>,
+          None,
+        ))
+      }))
+    }
+  }
   pub struct SingleCharAnalyzer {
     base: AnalyzerBase<GlobalReuseStrategy>,
   }

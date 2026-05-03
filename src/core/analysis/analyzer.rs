@@ -20,8 +20,6 @@ use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
 use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream, TokenStreams};
 use crate::core::index::BytesRef;
-#[cfg(test)]
-use crate::core::search::term_range_query::tests::SingleCharAnalyzer;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
@@ -326,56 +324,6 @@ impl Analyzer for AnalyzerEnum {
   }
 }
 
-#[cfg(test)]
-pub struct BoxedAnalyzer {
-  #[allow(clippy::type_complexity)]
-  create_components_fn: Arc<dyn Fn(&str) -> Result<TokenStreamComponents> + Send + Sync>,
-}
-
-#[cfg(test)]
-impl BoxedAnalyzer {
-  pub fn new<F>(create_components_fn: F) -> Self
-  where
-    F: Fn(&str) -> Result<TokenStreamComponents> + Send + Sync + 'static,
-  {
-    Self {
-      create_components_fn: Arc::new(create_components_fn),
-    }
-  }
-}
-
-#[cfg(test)]
-impl Analyzer for BoxedAnalyzer {
-  fn create_components(&self, field: &str) -> Result<TokenStreamComponents> {
-    (self.create_components_fn)(field)
-  }
-
-  type TokenStream<TS>
-    = TS
-  where
-    TS: TokenStream;
-
-  fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-  where
-    TS: TokenStream,
-  {
-    self.default_normalize_from_ts(field_name, in_)
-  }
-}
-
-#[cfg(test)]
-impl From<SingleCharAnalyzer> for AnalyzerEnum {
-  fn from(_analyzer: SingleCharAnalyzer) -> Self {
-    AnalyzerEnum::Custom(BoxedAnalyzer::new(|_field| {
-      Ok(TokenStreamComponents::new(
-        Box::new(crate::core::search::term_range_query::tests::SingleCharTokenizer::new())
-          as Box<dyn TokenStream + Send + Sync>,
-        None,
-      ))
-    }))
-  }
-}
-
 pub enum ReuseStrategyEnum {
   Global(Box<GlobalReuseStrategy>),
   PerField(PerFieldReuseStrategy),
@@ -596,5 +544,42 @@ impl TokenStream for StringTokenStream {
 
   fn get_attribute_source_mut(&mut self) -> &mut Attributes {
     &mut self.att
+  }
+}
+
+#[cfg(test)]
+pub struct BoxedAnalyzer {
+  #[allow(clippy::type_complexity)]
+  create_components_fn: Arc<dyn Fn(&str) -> Result<TokenStreamComponents> + Send + Sync>,
+}
+
+#[cfg(test)]
+impl BoxedAnalyzer {
+  pub fn new<F>(create_components_fn: F) -> Self
+  where
+    F: Fn(&str) -> Result<TokenStreamComponents> + Send + Sync + 'static,
+  {
+    Self {
+      create_components_fn: Arc::new(create_components_fn),
+    }
+  }
+}
+
+#[cfg(test)]
+impl Analyzer for BoxedAnalyzer {
+  fn create_components(&self, field: &str) -> Result<TokenStreamComponents> {
+    (self.create_components_fn)(field)
+  }
+
+  type TokenStream<TS>
+    = TS
+  where
+    TS: TokenStream;
+
+  fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
+  where
+    TS: TokenStream,
+  {
+    self.default_normalize_from_ts(field_name, in_)
   }
 }
