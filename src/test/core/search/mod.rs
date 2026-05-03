@@ -26,6 +26,7 @@ pub mod random_approximation_query;
 pub mod scorer_index_searcher;
 mod search_equivalence_test_base;
 pub mod similarities;
+mod test_approximation_search_equivalence;
 mod test_automaton_query_unicode;
 pub(crate) mod test_base_range_filter;
 mod test_block_max_conjunction;
