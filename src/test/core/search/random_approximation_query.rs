@@ -28,8 +28,10 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
-use crate::core::search::weight::Weight;
+use crate::core::search::two_phase_iterator::{
+  TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
+};
+use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::random_from_seed;
@@ -39,7 +41,7 @@ use rand::prelude::StdRng;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
-
+/// A Query that adds random approximations to its scorers.
 #[derive(Clone, Debug)]
 pub struct RandomApproximationQuery {
   id: Identity,
@@ -90,15 +92,22 @@ impl QueryBase for RandomApproximationQuery {
 
   fn create_weight<IRC>(
     self,
-    _searcher: &IndexSearcher<IRC>,
-    _score_mode: &ScoreMode,
-    _boost: f32,
+    searcher: &IndexSearcher<IRC>,
+    score_mode: &ScoreMode,
+    boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    todo!()
+    let query = self.clone();
+    let weight = self.query.create_weight(searcher, score_mode, boost)?;
+    let mut random = random_from_seed(self.random_seed);
+    Ok(Box::new(RandomApproximationWeight::new(
+      query,
+      random.random(),
+      weight,
+    )))
   }
 
   fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -106,7 +115,14 @@ impl QueryBase for RandomApproximationQuery {
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    todo!()
+    let query_id = self.query.identity().clone();
+    let rewritten = self.query.rewrite(_searcher)?;
+    if query_id != *rewritten.identity() {
+      let mut random = random_from_seed(self.random_seed);
+      Ok(RandomApproximationQuery::new(rewritten, &mut random).into())
+    } else {
+      Ok(rewritten)
+    }
   }
 
   fn visit<QV>(&self, visitor: &QV)
@@ -184,10 +200,20 @@ where
 
   fn scorer_supplier(
     &self,
-    _context: &LeafReaderContext<IRCLeafReader<LR>>,
-    _searcher: &IndexSearcher<LR>,
+    context: &LeafReaderContext<IRCLeafReader<LR>>,
+    searcher: &IndexSearcher<LR>,
   ) -> Result<Option<Self::ScorerSupplier>> {
-    todo!()
+    let scorer_supplier = self.in_.scorer_supplier(context, searcher)?;
+
+    if let Some(mut scorer_supplier) = scorer_supplier {
+      let sub_scorer = scorer_supplier.get(i64::MAX, context, searcher)?;
+      let mut random = random_from_seed(self.random_seed);
+      let scorer = RandomApproximationScorer::new(random.random(), sub_scorer);
+
+      Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
+    } else {
+      Ok(None)
+    }
   }
 }
 
@@ -196,24 +222,29 @@ where
   S: Scorer,
 {
   random_seed: u64,
-  scorer: S,
-  two_phase_view: RandomTwoPhaseView<Box<dyn DocIdSetIterator>>,
+  two_phase_view: RandomTwoPhaseView<ScorerDISI<S>>,
 }
 impl<S> RandomApproximationScorer<S>
 where
   S: Scorer,
 {
-  pub fn new(_random_seed: u64, _scorer: S) -> Self {
-    todo!()
+  pub fn new(random_seed: u64, scorer: S) -> Self {
+    let disi = ScorerDISI::new(scorer);
+    let mut random = random_from_seed(random_seed);
+    let two_phase_view = RandomTwoPhaseView::new(&mut random, disi);
+    Self {
+      random_seed,
+      two_phase_view,
+    }
   }
 }
 
 impl<S> Scorable for RandomApproximationScorer<S>
 where
-  S: Scorer,
+  S: Scorer + 'static,
 {
   fn score(&mut self) -> Result<f32> {
-    self.scorer.score()
+    self.two_phase_view.disi_mut().scorer.score()
   }
 
   fn cost(&self) -> Result<i64> {
@@ -221,42 +252,77 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for RandomApproximationScorer<S> where S: Scorer {}
+impl<S> crate::core::search::scorable::FixedScore for RandomApproximationScorer<S> where
+  S: Scorer + 'static
+{
+}
 
 impl<S> Scorer for RandomApproximationScorer<S>
 where
-  S: Scorer,
+  S: Scorer + 'static,
 {
   fn doc_id(&mut self) -> Result<i32> {
-    todo!()
+    Ok(self.two_phase_view.approximation().doc_id())
   }
 
   fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    todo!()
+    Box::new(TwoPhaseIteratorAsDocIdSetIterator::new(
+      &self.two_phase_view,
+    ))
   }
 
   fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    todo!()
+    Box::new(TwoPhaseIteratorAsDocIdSetIterator::new(
+      &mut self.two_phase_view,
+    ))
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    todo!()
+    Box::new(TwoPhaseIteratorAsDocIdSetIterator::new(self.two_phase_view))
   }
 
-  fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
-    todo!()
+  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+    Some(Box::new(&self.two_phase_view))
+  }
+
+  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+    Some(Box::new(&mut self.two_phase_view))
+  }
+
+  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
+    Some(Box::new(self.two_phase_view))
+  }
+
+  fn advance_shallow(&mut self, mut target: i32) -> Result<i32> {
+    let scorer_doc = self.two_phase_view.disi().doc_id();
+    let approx_doc = self.two_phase_view.approximation().doc_id();
+    if scorer_doc > target && approx_doc != scorer_doc {
+      // The random approximation can return doc ids that are not present in the underlying
+      // scorer. These additional doc ids are always *before* the next matching doc so we
+      // cannot use them to shallow advance the main scorer which is already ahead.
+      target = scorer_doc;
+    }
+    self
+      .two_phase_view
+      .disi_mut()
+      .scorer
+      .advance_shallow(target)
+  }
+
+  fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+    self.two_phase_view.disi_mut().scorer.get_max_score(up_to)
   }
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
-    todo!()
+    TwoPhaseState::Yes
   }
 
   fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    todo!()
+    self.two_phase_view.approximation()
   }
 
   fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    todo!()
+    self.two_phase_view.approximation_mut()
   }
 }
 
@@ -382,5 +448,44 @@ where
 
   fn cost(&self) -> Result<i64> {
     self.disi.cost()
+  }
+}
+
+pub struct ScorerDISI<S>
+where
+  S: Scorer,
+{
+  scorer: S,
+}
+impl<S> ScorerDISI<S>
+where
+  S: Scorer,
+{
+  pub fn new(scorer: S) -> Self {
+    Self { scorer }
+  }
+}
+impl<S> DocIdSetIterator for ScorerDISI<S>
+where
+  S: Scorer,
+{
+  fn doc_id(&self) -> i32 {
+    self.scorer.iterator().doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.scorer.iterator().next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.scorer.iterator().advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.scorer.iterator().slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.scorer.iterator().cost()
   }
 }
