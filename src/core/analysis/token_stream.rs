@@ -21,6 +21,8 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzerTS;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 use crate::core::document::field::StringTokenStream;
+#[cfg(test)]
+use crate::core::search::term_range_query::tests::SingleCharTokenizer;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
@@ -135,14 +137,26 @@ either_token_stream!(pub TokenStreamEnum { Whitespace: A, Dummy: B });
 either_token_stream!(pub TokenStreamEnum2 { A: A, B: B });
 either_token_stream!(pub IndexingTokenStreamEnum3 { A: A, B: B,C:C });
 
+#[cfg(not(test))]
 either_token_stream!(pub TokenStreamEnum3 { Whitespace: A, Standard: B, Dummy: C });
+#[cfg(test)]
+either_token_stream!(pub TokenStreamEnum3 { Whitespace: A, Standard: B, Dummy: C, SingleChar: D });
+#[cfg(not(test))]
 pub type AnalyzerTokenStreams =
   TokenStreamEnum3<WhitespaceAnalyzerTS, StandardAnalyzerTS, DummyTokenStream>;
+#[cfg(test)]
+pub type AnalyzerTokenStreams =
+  TokenStreamEnum3<WhitespaceAnalyzerTS, StandardAnalyzerTS, DummyTokenStream, SingleCharTokenizer>;
 impl_from_for_enum!(
     AnalyzerTokenStreams,
     WhitespaceAnalyzerTS=> Whitespace,
     StandardAnalyzerTS => Standard,
     DummyTokenStream => Dummy,
+);
+#[cfg(test)]
+impl_from_for_enum!(
+    AnalyzerTokenStreams,
+    SingleCharTokenizer => SingleChar,
 );
 impl<T> TokenStream for &mut T
 where

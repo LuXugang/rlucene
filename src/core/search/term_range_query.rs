@@ -361,7 +361,13 @@ pub fn to_automaton(
   Automata::make_binary_interval(lower_term, include_lower, upper_term, include_upper)
 }
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
+  use crate::core::analysis::analyzer::{
+    Analyzer, AnalyzerBase, AnalyzerEnum, GlobalReuseStrategy, TokenStreamComponents,
+  };
+  use crate::core::analysis::reader::Reader;
+  use crate::core::analysis::token_stream::{TokenStream, default_attribute};
+  use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
   use crate::core::document::field_type::FieldType;
@@ -374,6 +380,7 @@ mod tests {
   use crate::core::search::query::Query;
   use crate::core::search::term_range_query::TermRangeQuery;
   use crate::core::store::directory::Directory;
+  use crate::core::util::attribute_source::{AttributeSource, Attributes};
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
@@ -695,6 +702,33 @@ mod tests {
     writer.close()?;
     Ok(())
   }
+
+  fn initialize_index_with_analyzer<D, A, R>(
+    random: &mut R,
+    dir: Arc<D>,
+    values: &[&str],
+    analyzer: A,
+    field_to_type: &mut HashMap<String, FieldType>,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+    D: Directory,
+    A: Into<AnalyzerEnum>,
+  {
+    let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+    config.set_open_mode(OpenMode::Create);
+
+    let mut writer = IndexWriter::new(dir, config)?;
+    let mut doc_count: i32 = 0;
+
+    for v in values {
+      insert_doc(random, &mut writer, &mut doc_count, v, field_to_type)?;
+    }
+
+    writer.close()?;
+    Ok(())
+  }
+
   fn add_doc<D, R>(
     random: &mut R,
     dir: Arc<D>,
@@ -714,6 +748,29 @@ mod tests {
     writer.close()?;
     Ok(())
   }
+
+  fn add_doc_with_analyzer<D, A, R>(
+    random: &mut R,
+    dir: Arc<D>,
+    content: &str,
+    doc_count: &mut i32,
+    analyzer: A,
+    field_to_type: &mut HashMap<String, FieldType>,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+    D: Directory,
+    A: Into<AnalyzerEnum>,
+  {
+    let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+    config.set_open_mode(OpenMode::Append);
+
+    let mut writer = IndexWriter::new(dir, config)?;
+    insert_doc(random, &mut writer, doc_count, content, field_to_type)?;
+    writer.close()?;
+    Ok(())
+  }
+
   fn insert_doc<D, L, B, R>(
     random: &mut R,
     writer: &mut IndexWriter<D, L, B>,
@@ -750,12 +807,222 @@ mod tests {
   }
   #[test]
   fn test_exclusive_lower_null() -> Result<()> {
-    // TODO IMPORTANT SingleCharTokenizer未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut field_types = HashMap::new();
+    let mut doc_count = 0;
+    let query =
+      TermRangeQuery::new_string_range("content", None::<String>, Some("C"), false, false)?;
+
+    initialize_index_with_analyzer(
+      &mut random,
+      dir.clone(),
+      &["A", "B", "", "C", "D"],
+      SingleCharAnalyzer::new(),
+      &mut field_types,
+    )?;
+    let reader = directory_reader::open(dir.clone())?;
+    let searcher = new_searcher_with_reader(reader)?;
+    assert_eq!(
+      3,
+      searcher.search(query.clone(), 1000)?.total_hits.value(),
+      "A,B,<empty string>,C,D => A, B & <empty string> are in range"
+    );
+
+    initialize_index_with_analyzer(
+      &mut random,
+      dir.clone(),
+      &["A", "B", "", "D"],
+      SingleCharAnalyzer::new(),
+      &mut field_types,
+    )?;
+    let reader = directory_reader::open(dir.clone())?;
+    let searcher = new_searcher_with_reader(reader)?;
+    assert_eq!(
+      3,
+      searcher.search(query.clone(), 1000)?.total_hits.value(),
+      "A,B,<empty string>,D => A, B & <empty string> are in range"
+    );
+
+    add_doc_with_analyzer(
+      &mut random,
+      dir.clone(),
+      "C",
+      &mut doc_count,
+      SingleCharAnalyzer::new(),
+      &mut field_types,
+    )?;
+    let reader = directory_reader::open(dir.clone())?;
+    let searcher = new_searcher_with_reader(reader)?;
+    assert_eq!(
+      3,
+      searcher.search(query, 1000)?.total_hits.value(),
+      "C added, still A, B & <empty string> are in range"
+    );
     Ok(())
   }
   #[test]
   fn test_inclusive_lower_null() -> Result<()> {
-    // TODO IMPORTANT SingleCharTokenizer未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut field_types = HashMap::new();
+    let mut doc_count = 0;
+    let query = TermRangeQuery::new_string_range("content", None::<String>, Some("C"), true, true)?;
+
+    initialize_index_with_analyzer(
+      &mut random,
+      dir.clone(),
+      &["A", "B", "", "C", "D"],
+      SingleCharAnalyzer::new(),
+      &mut field_types,
+    )?;
+    let reader = directory_reader::open(dir.clone())?;
+    let searcher = new_searcher_with_reader(reader)?;
+    assert_eq!(
+      4,
+      searcher.search(query.clone(), 1000)?.total_hits.value(),
+      "A,B,<empty string>,C,D => A,B,<empty string>,C in range"
+    );
+
+    initialize_index_with_analyzer(
+      &mut random,
+      dir.clone(),
+      &["A", "B", "", "D"],
+      SingleCharAnalyzer::new(),
+      &mut field_types,
+    )?;
+    let reader = directory_reader::open(dir.clone())?;
+    let searcher = new_searcher_with_reader(reader)?;
+    assert_eq!(
+      3,
+      searcher.search(query.clone(), 1000)?.total_hits.value(),
+      "A,B,<empty string>,D - A, B and <empty string> in range"
+    );
+
+    add_doc_with_analyzer(
+      &mut random,
+      dir.clone(),
+      "C",
+      &mut doc_count,
+      SingleCharAnalyzer::new(),
+      &mut field_types,
+    )?;
+    let reader = directory_reader::open(dir.clone())?;
+    let searcher = new_searcher_with_reader(reader)?;
+    assert_eq!(
+      4,
+      searcher.search(query, 1000)?.total_hits.value(),
+      "C added => A,B,<empty string>,C in range"
+    );
     Ok(())
+  }
+
+  pub struct SingleCharAnalyzer {
+    base: AnalyzerBase<GlobalReuseStrategy>,
+  }
+
+  impl SingleCharAnalyzer {
+    #[allow(dead_code)]
+    pub fn new() -> Self {
+      Self {
+        base: AnalyzerBase::new(),
+      }
+    }
+  }
+
+  impl Default for SingleCharAnalyzer {
+    fn default() -> Self {
+      Self::new()
+    }
+  }
+
+  impl Analyzer for SingleCharAnalyzer {
+    fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
+      Ok(TokenStreamComponents::new(SingleCharTokenizer::new(), None))
+    }
+
+    type TokenStream<TS>
+      = TS
+    where
+      TS: TokenStream;
+
+    fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
+    where
+      TS: TokenStream,
+    {
+      self.default_normalize_from_ts(field_name, in_)
+    }
+  }
+
+  pub struct SingleCharTokenizer {
+    buffer: [char; 1],
+    done: bool,
+    tokenizer_base: TokenizerBase,
+  }
+
+  impl SingleCharTokenizer {
+    pub fn new() -> Self {
+      Self {
+        buffer: ['\0'; 1],
+        done: false,
+        tokenizer_base: TokenizerBase::new(default_attribute()),
+      }
+    }
+  }
+
+  impl TokenStream for SingleCharTokenizer {
+    fn increment_token(&mut self) -> Result<bool> {
+      if self.done {
+        return Ok(false);
+      }
+
+      let count = self.tokenizer_base.input.read_buf(&mut self.buffer)?;
+      self.tokenizer_base.token_stream_base.att.clear_attributes();
+      self.done = true;
+      if count == 1 {
+        self
+          .tokenizer_base
+          .token_stream_base
+          .att
+          .copy_buffer(&self.buffer, 0, 1)?;
+      }
+      Ok(true)
+    }
+
+    fn end(&mut self) -> Result<()> {
+      self.tokenizer_base.end()
+    }
+
+    fn reset(&mut self) -> Result<()> {
+      self.tokenizer_base.reset()?;
+      self.done = false;
+      Ok(())
+    }
+
+    fn close(&mut self) -> Result<()> {
+      self.tokenizer_base.close()
+    }
+
+    fn get_attribute_source(&self) -> &Attributes {
+      self.tokenizer_base.get_attribute_source()
+    }
+
+    fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+      self.tokenizer_base.get_attribute_source_mut()
+    }
+
+    fn set_reader(&mut self, input: crate::core::analysis::reader::ReaderEnum) -> Result<()> {
+      self.tokenizer_base.set_reader(input)
+    }
+  }
+
+  impl Tokenizer for SingleCharTokenizer {
+    fn get_tokenizer_base_mut(&mut self) -> &mut TokenizerBase {
+      &mut self.tokenizer_base
+    }
+
+    fn get_tokenizer_base(&self) -> &TokenizerBase {
+      &self.tokenizer_base
+    }
   }
 }

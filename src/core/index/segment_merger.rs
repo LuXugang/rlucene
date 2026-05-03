@@ -484,7 +484,7 @@ mod tests {
   #[allow(dead_code)] // for quick search
   struct TestSegmentMerger;
 
-  // TODO IMPORTANT 有 MappingMultiPostingsEnum 有bug
+  #[test]
   fn test_merge() -> Result<()> {
     let mut random = random();
     let merged_segment = "test";
