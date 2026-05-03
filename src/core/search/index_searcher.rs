@@ -23,7 +23,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeoutEnum;
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
-use crate::core::index::terms::{Terms, terms_util};
+use crate::core::index::terms::{Terms, get_terms};
 use crate::core::search::QueryCache;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::collection_statistics::CollectionStatistics;
@@ -731,7 +731,7 @@ where
 
     for leaf in self.reader_context.leaves()? {
       let reader = leaf.reader();
-      let terms = terms_util::get_terms(reader, field)?;
+      let terms = get_terms(reader, field)?;
       doc_count += terms.get_doc_count()? as i64;
       sum_total_term_freq += terms.get_sum_total_term_freq()?;
       sum_doc_freq += terms.get_sum_doc_freq()?;

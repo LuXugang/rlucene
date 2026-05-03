@@ -16,6 +16,7 @@
  */
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2};
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -259,31 +260,26 @@ where
   }
 }
 
-pub mod terms_util {
-  use crate::core::index::leaf_reader::LeafReader;
-  use crate::core::index::terms::{EmptyTerms, TermsEnum2, TermsEnum2Type};
-  use crate::core::util::error::lucene_error::Result;
-
-  /// Returns the [`Terms`] index for this field, or [`crate::core::index::terms::Terms::EMPTY`] if it
-  /// has none.
-  ///
-  /// Returns:
-  /// - A `Terms` instance, or an empty instance if the field does not exist
-  ///   in this reader.
-  ///
-  /// Errors:
-  /// - Returns an error if an I/O error occurs.
-  pub(crate) fn get_terms<LR>(reader: &LR, field: &str) -> Result<TermsEnum2Type<LR::Terms>>
-  where
-    LR: LeafReader,
-  {
-    let terms = reader.terms(field)?;
-    match terms {
-      Some(t) => Ok(TermsEnum2::A(t)),
-      None => Ok(TermsEnum2::B(EmptyTerms)),
-    }
+/// Returns the [`Terms`] index for this field, or [`crate::core::index::terms::Terms::EMPTY`] if it
+/// has none.
+///
+/// Returns:
+/// - A `Terms` instance, or an empty instance if the field does not exist
+///   in this reader.
+///
+/// Errors:
+/// - Returns an error if an I/O error occurs.
+pub(crate) fn get_terms<LR>(reader: &LR, field: &str) -> Result<TermsEnum2Type<LR::Terms>>
+where
+  LR: LeafReader,
+{
+  let terms = reader.terms(field)?;
+  match terms {
+    Some(t) => Ok(TermsEnum2::A(t)),
+    None => Ok(TermsEnum2::B(EmptyTerms)),
   }
 }
+
 pub type TermsEnum2Type<T> = TermsEnum2<T, EmptyTerms>;
 
 #[derive(Default)]

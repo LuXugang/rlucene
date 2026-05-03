@@ -32,7 +32,7 @@ use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::term::Term;
-use crate::core::index::terms::{Terms, TermsPosting, terms_util};
+use crate::core::index::terms::{Terms, TermsPosting, get_terms};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum5;
 use crate::core::search::knn_collector::KnnCollector;
@@ -53,7 +53,7 @@ pub trait LeafReader: IndexReader {
   where
     Self: Sized,
   {
-    let terms = terms_util::get_terms(self, term.field())?;
+    let terms = get_terms(self, term.field())?;
     let mut terms_enum = terms.iterator()?;
 
     if terms_enum.seek_exact(term.bytes())? {
@@ -70,7 +70,7 @@ pub trait LeafReader: IndexReader {
   where
     Self: Sized,
   {
-    let terms = terms_util::get_terms(self, term.field())?;
+    let terms = get_terms(self, term.field())?;
     let mut terms_enum = terms.iterator()?;
 
     if terms_enum.seek_exact(term.bytes())? {
@@ -128,7 +128,7 @@ pub trait LeafReader: IndexReader {
   where
     Self: Sized,
   {
-    let terms = terms_util::get_terms(self, term.field())?;
+    let terms = get_terms(self, term.field())?;
     let mut terms_enum = terms.iterator()?;
     if terms_enum.seek_exact(term.bytes())? {
       Ok(Some(terms_enum.postings_with_flags(None, flags)?))

@@ -329,7 +329,6 @@ where
 
     for ctx in context.leaves()? {
       // TODO IMPORTANT 这里跟Java Lucene 不同, 空的Term总是返回空的 为什么要加载Term呢
-      // let terms = terms_util::get_terms(ctx.reader(), term.field())?;
       let terms = ctx.reader().terms(term.field())?;
       match terms {
         None => {
