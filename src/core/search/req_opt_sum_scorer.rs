@@ -605,6 +605,7 @@ mod tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::search::check_hits::CheckHits;
+  use crate::test::core::search::random_approximation_query::RandomApproximationQuery;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
     new_searcher_with_reader, random,
@@ -914,7 +915,6 @@ mod tests {
   where
     R: Rng + ?Sized,
   {
-    // TODO RandomApproximationQuery未实现
     let dir = new_directory_shared(random)?;
     let config = new_index_writer_config(random);
     let w = RandomIndexWriter::with_config(random, dir.clone(), config);
@@ -980,20 +980,25 @@ mod tests {
     {
       let mut q: Query = {
         let mut b = Builder::new();
-        b.add(must_term.clone(), req_occur)?
-          .add(should_term.clone(), Occur::Should)?;
+        b.add(
+          RandomApproximationQuery::new(must_term.clone(), random),
+          req_occur,
+        )?
+        .add(should_term.clone(), Occur::Should)?;
         b.build().into()
       };
 
       let collector_manager = TopScoreDocCollectorManager::new(10, 1)?;
-      let top_docs = searcher.search_with_collector_manager(q, &collector_manager)?;
+      let top_docs = searcher.search_with_collector_manager(q.clone(), &collector_manager)?;
       let actual = top_docs.score_docs;
       CheckHits::check_equal(&query, &expected, &actual)?;
 
       q = {
         let mut b = Builder::new();
-        b.add(must_term.clone(), req_occur)?
-          .add(should_term.clone(), Occur::Should)?;
+        b.add(must_term.clone(), req_occur)?.add(
+          RandomApproximationQuery::new(should_term.clone(), random),
+          Occur::Should,
+        )?;
         b.build().into()
       };
 
@@ -1004,8 +1009,14 @@ mod tests {
 
       q = {
         let mut b = Builder::new();
-        b.add(must_term.clone(), req_occur)?
-          .add(should_term.clone(), Occur::Should)?;
+        b.add(
+          RandomApproximationQuery::new(must_term.clone(), random),
+          req_occur,
+        )?
+        .add(
+          RandomApproximationQuery::new(should_term.clone(), random),
+          Occur::Should,
+        )?;
         b.build().into()
       };
 
@@ -1027,8 +1038,10 @@ mod tests {
 
       query = {
         let mut b = Builder::new();
-        b.add(query, Occur::Must)?
-          .add(TermQuery::new(Term::from_text("f", "C")), Occur::Filter)?;
+        b.add(query.clone(), Occur::Must)?.add(
+          RandomApproximationQuery::new(TermQuery::new(Term::from_text("f", "C")), random),
+          Occur::Filter,
+        )?;
         b.build().into()
       };
 

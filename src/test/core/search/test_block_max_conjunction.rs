@@ -27,6 +27,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
 use crate::test::core::search::check_hits::CheckHits;
+use crate::test::core::search::random_approximation_query::RandomApproximationQuery;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, new_directory_shared, new_index_writer_config, new_searcher_with_threads, random,
 };
@@ -52,10 +53,11 @@ where
   R: Rng + ?Sized,
 {
   if random.random_bool(0.5) {
-    // TODO RandomApproximationQuery
+    Ok(RandomApproximationQuery::new(query, random).into())
     // TODO AssertingQuery未实现
+  } else {
+    Ok(query)
   }
-  Ok(query)
 }
 #[test]
 fn test_random() -> Result<()> {

@@ -22,7 +22,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -51,10 +51,10 @@ pub struct RandomApproximationQuery {
 impl RandomApproximationQuery {
   pub(crate) fn new<Q, R>(query: Q, random: &mut R) -> Self
   where
-    Q: Into<Box<Query>>,
+    Q: IntoBoxQuery,
     R: Rng + ?Sized,
   {
-    let query = query.into();
+    let query = query.into_box_query();
     let random_seed = random.random();
     Self {
       id: Identity::new(),
