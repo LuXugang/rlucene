@@ -88,7 +88,7 @@ impl TokenStream for TokenizerBase {
       ));
     }
     self.input_pending = input;
-    self.set_reader_test_point();
+    self.set_reader_test_point()?;
     Ok(())
   }
 }

@@ -334,7 +334,7 @@ impl TokenStream for FieldTokenStreamEnum {
     }
   }
 
-  fn set_reader_test_point(&mut self) {
+  fn set_reader_test_point(&mut self) -> Result<()> {
     match self {
       FieldTokenStreamEnum::Dummy(dummy) => dummy.set_reader_test_point(),
       FieldTokenStreamEnum::Custom(custom) => custom.set_reader_test_point(),

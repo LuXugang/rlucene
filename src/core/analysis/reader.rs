@@ -33,6 +33,9 @@ pub trait Reader {
     }
     Ok(cb[0] as i32)
   }
+  fn read_buf(&mut self, cbuf: &mut [char]) -> Result<i32> {
+    self.read_range(cbuf, 0, cbuf.len())
+  }
   /// Reads characters into the buffer, starting at `off`,
   /// up to `len` characters. Returns the number of chars read,
   /// or -1 on EOF.
@@ -82,6 +85,19 @@ impl Reader for ReaderEnum {
       ReaderEnum::CharFilter2(r) => r.read(),
       #[cfg(test)]
       ReaderEnum::MockCharFilter(r) => r.read(),
+    }
+  }
+
+  fn read_buf(&mut self, cbuf: &mut [char]) -> Result<i32> {
+    match self {
+      ReaderEnum::ReusedString(r) => r.read_buf(cbuf),
+      ReaderEnum::IllegalState(r) => r.read_buf(cbuf),
+      #[cfg(test)]
+      ReaderEnum::CharFilter1(r) => r.read_buf(cbuf),
+      #[cfg(test)]
+      ReaderEnum::CharFilter2(r) => r.read_buf(cbuf),
+      #[cfg(test)]
+      ReaderEnum::MockCharFilter(r) => r.read_buf(cbuf),
     }
   }
 

@@ -50,7 +50,9 @@ pub trait TokenStream {
   fn set_reader(&mut self, _input: ReaderEnum) -> Result<()> {
     Ok(())
   }
-  fn set_reader_test_point(&mut self) {}
+  fn set_reader_test_point(&mut self) -> Result<()> {
+    Ok(())
+  }
 }
 
 pub struct TokenStreamBase {
@@ -123,7 +125,7 @@ macro_rules! either_token_stream {
             }
 
             #[inline]
-            fn set_reader_test_point(&mut self) {
+            fn set_reader_test_point(&mut self) -> Result<()> {
                 match self { $( Self::$Variant(inner) => inner.set_reader_test_point(), )+ }
             }
         }
@@ -182,7 +184,7 @@ where
     (**self).set_reader(input)
   }
 
-  fn set_reader_test_point(&mut self) {
+  fn set_reader_test_point(&mut self) -> Result<()> {
     (**self).set_reader_test_point()
   }
 }
@@ -311,7 +313,7 @@ where
     }
   }
 
-  fn set_reader_test_point(&mut self) {
+  fn set_reader_test_point(&mut self) -> Result<()> {
     match self {
       TokenStreams::Whitespace(v) => v.set_reader_test_point(),
       TokenStreams::Standard(v) => v.set_reader_test_point(),
