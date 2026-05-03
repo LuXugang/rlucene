@@ -938,7 +938,11 @@ pub(crate) mod tests {
 
   impl Analyzer for SingleCharAnalyzer {
     fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
-      Ok(TokenStreamComponents::new(SingleCharTokenizer::new(), None))
+      Ok(TokenStreamComponents::new(
+        Box::new(SingleCharTokenizer::new())
+          as Box<dyn crate::core::analysis::token_stream::TokenStream + Send + Sync>,
+        None,
+      ))
     }
 
     type TokenStream<TS>

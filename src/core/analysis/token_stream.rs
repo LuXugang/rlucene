@@ -21,8 +21,6 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzerTS;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 use crate::core::document::field::StringTokenStream;
-#[cfg(test)]
-use crate::core::search::term_range_query::tests::SingleCharTokenizer;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
@@ -136,28 +134,66 @@ macro_rules! either_token_stream {
 either_token_stream!(pub TokenStreamEnum { Whitespace: A, Dummy: B });
 either_token_stream!(pub TokenStreamEnum2 { A: A, B: B });
 either_token_stream!(pub IndexingTokenStreamEnum3 { A: A, B: B,C:C });
+either_token_stream!(pub TokenStreamEnum4 { Whitespace: A, Standard: B, Dummy: C, Custom: D });
 
-#[cfg(not(test))]
-either_token_stream!(pub TokenStreamEnum3 { Whitespace: A, Standard: B, Dummy: C });
-#[cfg(test)]
-either_token_stream!(pub TokenStreamEnum3 { Whitespace: A, Standard: B, Dummy: C, SingleChar: D });
-#[cfg(not(test))]
-pub type AnalyzerTokenStreams =
-  TokenStreamEnum3<WhitespaceAnalyzerTS, StandardAnalyzerTS, DummyTokenStream>;
-#[cfg(test)]
-pub type AnalyzerTokenStreams =
-  TokenStreamEnum3<WhitespaceAnalyzerTS, StandardAnalyzerTS, DummyTokenStream, SingleCharTokenizer>;
+type CustomAnalyzerTokenStream = Box<dyn TokenStream + Send + Sync>;
+
+pub type AnalyzerTokenStreams = TokenStreamEnum4<
+  WhitespaceAnalyzerTS,
+  StandardAnalyzerTS,
+  DummyTokenStream,
+  CustomAnalyzerTokenStream,
+>;
+
 impl_from_for_enum!(
     AnalyzerTokenStreams,
     WhitespaceAnalyzerTS=> Whitespace,
     StandardAnalyzerTS => Standard,
     DummyTokenStream => Dummy,
+    Box<dyn TokenStream + Send + Sync> => Custom,
 );
-#[cfg(test)]
-impl_from_for_enum!(
-    AnalyzerTokenStreams,
-    SingleCharTokenizer => SingleChar,
-);
+
+impl TokenStream for Box<dyn TokenStream + Send + Sync> {
+  fn increment_token(&mut self) -> Result<bool> {
+    (**self).increment_token()
+  }
+
+  fn end(&mut self) -> Result<()> {
+    (**self).end()
+  }
+
+  fn default_end(&mut self) -> Result<()> {
+    (**self).default_end()
+  }
+
+  fn reset(&mut self) -> Result<()> {
+    (**self).reset()
+  }
+
+  fn default_reset(&mut self) -> Result<()> {
+    (**self).default_reset()
+  }
+
+  fn close(&mut self) -> Result<()> {
+    (**self).close()
+  }
+
+  fn get_attribute_source(&self) -> &Attributes {
+    (**self).get_attribute_source()
+  }
+
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    (**self).get_attribute_source_mut()
+  }
+
+  fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
+    (**self).set_reader(input)
+  }
+
+  fn set_reader_test_point(&mut self) -> Result<()> {
+    (**self).set_reader_test_point()
+  }
+}
 impl<T> TokenStream for &mut T
 where
   T: TokenStream,

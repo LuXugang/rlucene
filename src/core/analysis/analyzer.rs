@@ -29,6 +29,8 @@ use crate::impl_from_for_enum;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use std::cell::RefCell;
 use std::collections::HashMap;
+#[cfg(test)]
+use std::sync::Arc;
 
 thread_local! {
     pub static REUSE_STRATEGY: RefCell<Option<ReuseStrategyEnum>> = const { RefCell::new(None) };
@@ -167,7 +169,7 @@ impl_from_for_enum!(
 impl_from_for_enum!(
     AnalyzerEnum,
     MockAnalyzer=> Mock,
-    SingleCharAnalyzer => SingleChar,
+    BoxedAnalyzer => Custom,
 );
 
 pub enum AnalyzerEnum {
@@ -176,7 +178,7 @@ pub enum AnalyzerEnum {
   #[cfg(test)]
   Mock(MockAnalyzer),
   #[cfg(test)]
-  SingleChar(SingleCharAnalyzer),
+  Custom(BoxedAnalyzer),
 }
 impl Default for AnalyzerEnum {
   fn default() -> Self {
@@ -191,7 +193,7 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.create_components(field),
       #[cfg(test)]
-      AnalyzerEnum::SingleChar(v) => v.create_components(field),
+      AnalyzerEnum::Custom(v) => v.create_components(field),
     }
   }
 
@@ -202,7 +204,7 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.init_reuse_strategy(),
       #[cfg(test)]
-      AnalyzerEnum::SingleChar(v) => v.init_reuse_strategy(),
+      AnalyzerEnum::Custom(v) => v.init_reuse_strategy(),
     }
   }
 
@@ -225,7 +227,7 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => Ok(TokenStreams::Mock(v.normalize_from_ts(field_name, in_)?)),
       #[cfg(test)]
-      AnalyzerEnum::SingleChar(v) => Ok(TokenStreams::Mock(v.normalize_from_ts(field_name, in_)?)),
+      AnalyzerEnum::Custom(v) => Ok(TokenStreams::Mock(v.normalize_from_ts(field_name, in_)?)),
     }
   }
 
@@ -239,7 +241,7 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.ensure_reuse_strategy(slot),
       #[cfg(test)]
-      AnalyzerEnum::SingleChar(v) => v.ensure_reuse_strategy(slot),
+      AnalyzerEnum::Custom(v) => v.ensure_reuse_strategy(slot),
     }
   }
 
@@ -253,7 +255,7 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.token_stream(field_name, input),
       #[cfg(test)]
-      AnalyzerEnum::SingleChar(v) => v.token_stream(field_name, input),
+      AnalyzerEnum::Custom(v) => v.token_stream(field_name, input),
     }
   }
 
@@ -264,7 +266,7 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.normalize(field_name, text),
       #[cfg(test)]
-      AnalyzerEnum::SingleChar(v) => v.normalize(field_name, text),
+      AnalyzerEnum::Custom(v) => v.normalize(field_name, text),
     }
   }
 
@@ -275,7 +277,7 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.init_reader(_filed_name, reader),
       #[cfg(test)]
-      AnalyzerEnum::SingleChar(v) => v.init_reader(_filed_name, reader),
+      AnalyzerEnum::Custom(v) => v.init_reader(_filed_name, reader),
     }
   }
 
@@ -286,7 +288,7 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.init_reader_for_normalization(_filed_name, reader),
       #[cfg(test)]
-      AnalyzerEnum::SingleChar(v) => v.init_reader_for_normalization(_filed_name, reader),
+      AnalyzerEnum::Custom(v) => v.init_reader_for_normalization(_filed_name, reader),
     }
   }
 
@@ -297,7 +299,7 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.attribute_factory(field_name),
       #[cfg(test)]
-      AnalyzerEnum::SingleChar(v) => v.attribute_factory(field_name),
+      AnalyzerEnum::Custom(v) => v.attribute_factory(field_name),
     }
   }
 
@@ -308,7 +310,7 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.get_position_increment_gap(field_name),
       #[cfg(test)]
-      AnalyzerEnum::SingleChar(v) => v.get_position_increment_gap(field_name),
+      AnalyzerEnum::Custom(v) => v.get_position_increment_gap(field_name),
     }
   }
 
@@ -319,8 +321,58 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.get_offset_gap(field_name),
       #[cfg(test)]
-      AnalyzerEnum::SingleChar(v) => v.get_offset_gap(field_name),
+      AnalyzerEnum::Custom(v) => v.get_offset_gap(field_name),
     }
+  }
+}
+
+#[cfg(test)]
+pub struct BoxedAnalyzer {
+  #[allow(clippy::type_complexity)]
+  create_components_fn: Arc<dyn Fn(&str) -> Result<TokenStreamComponents> + Send + Sync>,
+}
+
+#[cfg(test)]
+impl BoxedAnalyzer {
+  pub fn new<F>(create_components_fn: F) -> Self
+  where
+    F: Fn(&str) -> Result<TokenStreamComponents> + Send + Sync + 'static,
+  {
+    Self {
+      create_components_fn: Arc::new(create_components_fn),
+    }
+  }
+}
+
+#[cfg(test)]
+impl Analyzer for BoxedAnalyzer {
+  fn create_components(&self, field: &str) -> Result<TokenStreamComponents> {
+    (self.create_components_fn)(field)
+  }
+
+  type TokenStream<TS>
+    = TS
+  where
+    TS: TokenStream;
+
+  fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
+  where
+    TS: TokenStream,
+  {
+    self.default_normalize_from_ts(field_name, in_)
+  }
+}
+
+#[cfg(test)]
+impl From<SingleCharAnalyzer> for AnalyzerEnum {
+  fn from(_analyzer: SingleCharAnalyzer) -> Self {
+    AnalyzerEnum::Custom(BoxedAnalyzer::new(|_field| {
+      Ok(TokenStreamComponents::new(
+        Box::new(crate::core::search::term_range_query::tests::SingleCharTokenizer::new())
+          as Box<dyn TokenStream + Send + Sync>,
+        None,
+      ))
+    }))
   }
 }
 
@@ -481,8 +533,7 @@ impl TokenStreamComponents {
       AnalyzerTokenStreams::Whitespace(ref mut ts) => {
         ts.set_reader(reader)?;
       },
-      #[cfg(test)]
-      AnalyzerTokenStreams::SingleChar(ref mut ts) => {
+      AnalyzerTokenStreams::Custom(ref mut ts) => {
         ts.set_reader(reader)?;
       },
       _ => return Err(LuceneError::unsupported_operation("")),
