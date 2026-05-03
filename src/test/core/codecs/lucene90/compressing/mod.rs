@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 mod test_compressing_stored_fields_format;
+mod test_compressing_term_vectors_format;
