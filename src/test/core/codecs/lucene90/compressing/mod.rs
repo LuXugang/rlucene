@@ -14,9 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod compressing;
-mod test_lucene90_compound_format;
-pub mod test_lucene90_norms_format;
-mod test_lucene90_points_format;
-pub mod test_lucene90_stored_fields_format;
-mod test_lucene90_term_vectors_format;
+mod test_compressing_stored_fields_format;

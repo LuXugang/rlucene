@@ -95,7 +95,7 @@ mod lucene90_doc_values_format_tests {
     TestLucene90DocValuesFormatTests, run_case,
   };
 
-  // TODO IMPORTANT 测试未通过
+  #[test]
   fn test_sorted_set_variable_length_big_vs_stored_fields() -> Result<()> {
     run_case(|case, random| case.test_sorted_set_variable_length_big_vs_stored_fields(random))
   }
