@@ -18,6 +18,7 @@ pub mod base_token_stream_test_case;
 pub(crate) mod canned_token_stream;
 pub mod mock_analyzer;
 pub(crate) mod mock_char_filter;
+mod mock_token_filter;
 pub mod mock_tokenizer;
 mod test_token;
 pub(crate) mod token;
