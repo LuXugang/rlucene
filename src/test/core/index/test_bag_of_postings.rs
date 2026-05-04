@@ -21,7 +21,6 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::text_field::text_field_type;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
-use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
@@ -34,65 +33,39 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   random,
 };
 use crate::test::core::util::test_util::TestUtil;
-use rand::Rng;
-use rand::RngExt;
-use rand::SeedableRng;
-use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 
-/// Simple test that adds numeric terms, where each term has the totalTermFreq of its integer
-/// value, and checks that the totalTermFreq is correct.
+/// Simple test that adds numeric terms, where each term has the docFreq of its integer value, and
+/// checks that the docFreq is correct.
 #[allow(dead_code)] // for quick search
-pub struct TestBagOfPositions;
-
+pub struct TestBagOfPostings;
 // TODO IMPORTANT 多线程未实现
 fn test() -> Result<()> {
   let mut random = random();
   let mut postings_list: Vec<String> = Vec::new();
-  let num_terms = at_least(&mut random, 100);
+  let num_terms = at_least(&mut random, 300);
   let max_terms_per_doc = TestUtil::next_int(&mut random, 10, 20);
 
-  // Build postings list: term "i" appears i times
   for i in 0..num_terms {
     let term = i.to_string();
     for _ in 0..i {
       postings_list.push(term.clone());
     }
   }
-
-  // Shuffle
   postings_list.shuffle(&mut random);
 
   let postings = Arc::new(Mutex::new(VecDeque::from(postings_list)));
+  let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("bagofpostings")?)?;
 
-  let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("bagofpositions")?)?;
-
-  let a = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
-  let iw = RandomIndexWriter::with_config(&mut random, dir, iwc);
+  let analyzer = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iw = Arc::new(RandomIndexWriter::with_config(&mut random, dir, iwc));
 
   let thread_count = TestUtil::next_int(&mut random, 1, 5);
-
-  // Build field type
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-  if random.random_bool(0.5) {
-    field_type.set_omit_norms(true)?;
-  }
-  let options = random.random_range(0..3);
-  if options == 0 {
-    field_type.set_index_options(IndexOptions::DocsAndFreqs)?;
-    // we dont actually need positions, but enforce term vectors when we do this so we check
-    // SOMETHING
-    field_type.set_store_term_vectors(true)?;
-  } else if options == 1 {
-    field_type.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
-  }
-  // else just positions (default)
-
-  let iw = Arc::new(iw);
+  let field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
   let barrier = Arc::new(Barrier::new(thread_count as usize + 1));
   let mut handles = Vec::new();
 
@@ -100,16 +73,12 @@ fn test() -> Result<()> {
     let postings = postings.clone();
     let iw = iw.clone();
     let barrier = barrier.clone();
-    let thread_seed = random.next_u64();
     let field_type = field_type.clone();
 
     handles.push(thread::spawn(move || {
-      let mut thread_random = StdRng::seed_from_u64(thread_seed);
-
       let _ = barrier.wait();
 
       loop {
-        // Check if the queue is empty (equivalent to Java's ConcurrentLinkedQueue.isEmpty())
         {
           let queue = postings.lock().unwrap();
           if queue.is_empty() {
@@ -117,10 +86,9 @@ fn test() -> Result<()> {
           }
         }
 
-        // Build text from queue
         let mut text = String::new();
-        let num_terms_in_doc = thread_random.random_range(0..max_terms_per_doc);
-        for _ in 0..num_terms_in_doc {
+        let mut visited = HashSet::new();
+        for _ in 0..max_terms_per_doc {
           let token = {
             let mut queue = postings.lock().unwrap();
             queue.pop_front()
@@ -129,11 +97,17 @@ fn test() -> Result<()> {
             Some(t) => t,
             None => break,
           };
+
+          if !visited.insert(token.clone()) {
+            let mut queue = postings.lock().unwrap();
+            queue.push_back(token);
+            break;
+          }
+
           text.push(' ');
           text.push_str(&token);
         }
 
-        // Create document and add field
         let mut doc = Document::new();
         doc.add(Field::new("field", text.as_str(), field_type.clone()));
         if let Err(e) = iw.add_document(doc) {
@@ -166,8 +140,8 @@ fn test() -> Result<()> {
       Some(t) => t,
       None => break,
     };
-    let value: i32 = term.utf8_to_string()?.parse().unwrap();
-    assert_eq!(value as i64, terms_enum.total_term_freq()?);
+    let value: i32 = term.utf8_to_string()?.parse()?;
+    assert_eq!(value, terms_enum.doc_freq()?);
   }
 
   drop(ir);
