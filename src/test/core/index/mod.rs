@@ -38,6 +38,7 @@ pub mod random_index_writer;
 pub(crate) mod random_postings_tester;
 mod test_add_indexes;
 mod test_all_file_have_codec_header;
+mod test_bag_of_positions;
 mod test_binary_terms;
 mod test_consistent_field_numbers;
 mod test_custom_term_freq;
