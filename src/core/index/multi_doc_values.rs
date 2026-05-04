@@ -54,7 +54,7 @@ use std::sync::Arc;
 /// A wrapper for `CompositeIndexReader` providing access to `DocValues`.
 ///
 /// **NOTE**: for multi readers, you'll get better performance by gathering the
-/// sub readers using [`IndexReader::get_context`] to get the atomic leaves and
+/// sub readers using `IndexReader::get_context` to get the atomic leaves and
 /// then operate per-`LeafReader`, instead of using this class.
 ///
 /// **NOTE**: This is very costly.
@@ -384,7 +384,7 @@ pub struct MultiSortedDocValues<S>
 where
   S: SortedDocValues,
 {
-  /// docbase for each leaf: parallel with [`values`]
+  /// docbase for each leaf: parallel with `values`
   pub doc_starts: Arc<Vec<usize>>,
   /// leaf values
   pub values: Vec<S>,

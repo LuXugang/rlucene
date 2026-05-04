@@ -161,7 +161,8 @@ mod tests {
   use crate::test::core::util::test_util::TestUtil;
   use std::sync::{Arc, mpsc};
   use std::thread;
-
+  #[allow(dead_code)] // for quick search
+  struct TestConcurrentApproximatePriorityQueue;
   impl Lock for i32 {
     fn lock(&self) {
       unreachable!()

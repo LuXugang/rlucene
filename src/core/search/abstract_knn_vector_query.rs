@@ -62,7 +62,7 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 pub static NO_RESULTS: LazyLock<TopDocs<ScoreDoc>> = LazyLock::new(|| EMPTY_TOP_DOCS.clone());
-/// Uses [`KnnVectorsReader::search`] to perform nearest neighbour search.
+/// Uses `KnnVectorsReader::search` to perform nearest neighbour search.
 ///
 /// This query also allows for performing a kNN search subject to a filter. In this case, it first
 /// executes the filter for each leaf, then chooses a strategy dynamically:

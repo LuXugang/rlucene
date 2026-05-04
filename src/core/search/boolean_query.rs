@@ -34,7 +34,7 @@ use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 /// A query that matches documents matching boolean combinations of other queries, e.g.
-/// [`TermQuery`](crate::core::search::term_query::TermQuery)s, `PhraseQuery`s or other [`BooleanQuery`]s.
+/// `TermQuery`s, `PhraseQuery`s or other `BooleanQuery`s.
 #[derive(Debug, Clone)]
 pub struct BooleanQuery {
   id: Identity,

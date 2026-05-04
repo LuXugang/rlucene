@@ -107,7 +107,7 @@ impl KeywordField {
       has_stored_value,
     })
   }
-  /// Create a new [`SortField`] for [`BytesRef`] values.
+  /// Create a new `SortField` for `BytesRef` values.
   ///
   /// * `field` - field name. must not be `null`.
   /// * `reverse` - true if natural order should be reversed.

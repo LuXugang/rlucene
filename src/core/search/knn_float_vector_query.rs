@@ -40,7 +40,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::vector_util::VectorUtil;
 use std::hash::{Hash, Hasher};
 
-/// Uses [`KnnVectorsReader::search`] to perform nearest neighbour search.
+/// Uses `KnnVectorsReader::search` to perform nearest neighbour search.
 ///
 /// This query also allows for performing a kNN search subject to a filter. In this case, it first
 /// executes the filter for each leaf, then chooses a strategy dynamically:
@@ -61,7 +61,7 @@ impl KnnFloatVectorQuery {
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`].
+  /// * `field` - a field that has been indexed as a `KnnFloatVectorField`.
   /// * `target` - the target of the search
   /// * `k` - the number of documents to find
   ///
@@ -80,7 +80,7 @@ impl KnnFloatVectorQuery {
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`].
+  /// * `field` - a field that has been indexed as a `KnnFloatVectorField`.
   /// * `target` - the target of the search
   /// * `k` - the number of documents to find
   /// * `filter` - a filter applied before the vector search

@@ -1606,7 +1606,7 @@ where
   }
 
   /// Forces merging of all segments that have deleted documents. The actual merges to be executed
-  /// are determined by the [`MergePolicy`]. For example, the default [`TieredMergePolicy`]
+  /// are determined by the `MergePolicy`. For example, the default `TieredMergePolicy`
   /// will only pick a segment if the percentage of deleted docs is over 10%.
   ///
   /// This is often a horribly costly operation; rarely is it warranted.
@@ -2411,7 +2411,7 @@ where
   ///
   /// The provided `IndexReader`s are not closed.
   ///
-  /// See [`Self::add_indexes`] for details on transactional semantics, temporary free space
+  /// See `Self::add_indexes` for details on transactional semantics, temporary free space
   /// required in the `Directory`, and non-CFS segments on an exception.
   ///
   /// **NOTE:** empty segments are dropped by this method and not added to this index.

@@ -69,15 +69,15 @@ pub(crate) static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
 /// - [`newDistanceSort`](#newdistancesort) for ordering documents by distance from a specified
 ///   location.
 ///
-/// If you also need query operations, you should add a separate [`LatLonPoint`] instance. If you
-/// also need to store the value, you should add a separate [`StoredField`] instance.
+/// If you also need query operations, you should add a separate `LatLonPoint` instance. If you
+/// also need to store the value, you should add a separate `StoredField` instance.
 ///
 /// **WARNING**: Values are indexed with some loss of precision from the original `double` values
 /// (4.190951585769653E-8 for the latitude component and 8.381903171539307E-8 for longitude).
 ///
 /// # See also
 ///
-/// [`LatLonPoint`]
+/// `LatLonPoint`
 pub struct LatLonDocValuesField {
   parent_field: Field,
 }
@@ -146,10 +146,10 @@ impl LatLonDocValuesField {
   /// Creates a `SortField` for sorting by distance from a location.
   ///
   /// This sort orders documents by ascending distance from the location. The value returned in
-  /// [`FieldDoc`] for the hits contains a `Double` instance with the distance in meters.
+  /// `FieldDoc` for the hits contains a `Double` instance with the distance in meters.
   ///
   /// If a document is missing the field, then by default it is treated as having
-  /// [`Double::POSITIVE_INFINITY`] distance (missing values sort last).
+  /// `Double::POSITIVE_INFINITY` distance (missing values sort last).
   ///
   /// If a document contains multiple values for the field, the *closest* distance to the location is
   /// used.
@@ -179,8 +179,8 @@ impl LatLonDocValuesField {
   }
   /// Create a query for matching a bounding box using doc values. This query is usually slow as it
   /// does not use an index structure and needs to verify documents one-by-one in order to know
-  /// whether they match. It is best used wrapped in an [`IndexOrDocValuesQuery`] alongside a
-  /// [`LatLonPoint::newBoxQuery`].
+  /// whether they match. It is best used wrapped in an `IndexOrDocValuesQuery` alongside a
+  /// `LatLonPoint::newBoxQuery`.
   pub fn new_slow_box_query(
     field: &str,
     min_latitude: f64,
@@ -220,7 +220,7 @@ impl LatLonDocValuesField {
   /// Create a query for matching points within the specified distance of the supplied location. This
   /// query is usually slow as it does not use an index structure and needs to verify documents
   /// one-by-one in order to know whether they match. It is best used wrapped in an
-  /// [`IndexOrDocValuesQuery`] alongside a [`LatLonPoint::newDistanceQuery`].
+  /// `IndexOrDocValuesQuery` alongside a `LatLonPoint::newDistanceQuery`.
   ///
   /// # Parameters
   ///
@@ -248,8 +248,8 @@ impl LatLonDocValuesField {
   }
   /// Create a query for matching points within the supplied polygons. This query is usually slow as
   /// it does not use an index structure and needs to verify documents one-by-one in order to know
-  /// whether they match. It is best used wrapped in an [`IndexOrDocValuesQuery`] alongside a
-  /// [`LatLonPoint::newPolygonQuery`].
+  /// whether they match. It is best used wrapped in an `IndexOrDocValuesQuery` alongside a
+  /// `LatLonPoint::newPolygonQuery`.
   ///
   /// # Parameters
   ///
@@ -267,10 +267,10 @@ impl LatLonDocValuesField {
     Self::new_slow_geometry_query(field, QueryRelation::Intersects, polygons)
   }
   /// Create a query for matching one or more geometries against the provided
-  /// [`ShapeField::QueryRelation`]. Line geometries are not supported for the `WITHIN` relationship.
+  /// `ShapeField::QueryRelation`. Line geometries are not supported for the `WITHIN` relationship.
   /// This query is usually slow as it does not use an index structure and needs to verify documents
   /// one-by-one in order to know whether they match. It is best used wrapped in an
-  /// [`IndexOrDocValuesQuery`] alongside a [`LatLonPoint::newGeometryQuery`].
+  /// `IndexOrDocValuesQuery` alongside a `LatLonPoint::newGeometryQuery`.
   ///
   /// # Parameters
   ///

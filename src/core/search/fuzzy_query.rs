@@ -49,10 +49,10 @@ use std::hash::{Hash, Hasher};
 ///
 /// This query uses [`TopTermsBlendedFreqScoringRewrite`] as default. So terms will be collected and
 /// scored according to their edit distance. Only the top terms are used for building the
-/// [`BooleanQuery`]. It is not recommended to change the rewrite mode for fuzzy queries.
+/// `BooleanQuery`. It is not recommended to change the rewrite mode for fuzzy queries.
 ///
 /// At most, this query will match terms up to
-/// [`LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE`] edits. Higher distances (especially with
+/// `LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE` edits. Higher distances (especially with
 /// transpositions enabled), are generally not useful and will match a significant amount of the term
 /// dictionary. If you really want this, consider using an n-gram indexing technique instead.
 ///
@@ -126,10 +126,10 @@ impl FuzzyQuery {
   /// # Parameters
   ///
   /// - `term`: the term to search for.
-  /// - `max_edits`: must be `>= 0` and `<=` [`LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE`].
+  /// - `max_edits`: must be `>= 0` and `<=` `LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE`.
   /// - `prefix_length`: length of common (non-fuzzy) prefix.
   /// - `max_expansions`: the maximum number of terms to match. If this number is greater than
-  ///   [`IndexSearcher::get_max_clause_count`] when the query is rewritten, then the
+  ///   `IndexSearcher::get_max_clause_count` when the query is rewritten, then the
   ///   `max_clause_count` will be used instead.
   /// - `transpositions`: `true` if transpositions should be treated as a primitive edit operation.
   ///   If this is `false`, comparisons will implement the classic Levenshtein algorithm.
@@ -199,7 +199,7 @@ impl FuzzyQuery {
   ///
   /// - `term`: the term to search for.
   /// - `max_edits`: must be `>= 0` and `<=`
-  ///   [`LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE`].
+  ///   `LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE`.
   /// - `prefix_length`: length of common (non-fuzzy) prefix.
   /// - `transpositions`: `true` if transpositions should be treated as a primitive edit operation.
   ///   If this is `false`, comparisons will implement the classic Levenshtein algorithm.

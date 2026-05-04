@@ -44,17 +44,17 @@ use std::sync::Arc;
 /// The purpose of [`Weight`] is to ensure searching does not modify a [`Query`],
 /// so that a [`Query`] instance can be reused.
 ///
-/// - [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher)-dependent state of the query should reside in the [`Weight`].
+/// - `IndexSearcher`-dependent state of the query should reside in the `Weight`.
 /// - [`LeafReader`]-dependent state should reside in the `Scorer`.
 ///
 /// Since [`Weight`] creates `Scorer` instances for a given [`LeafReaderContext`]
 /// (via [`Weight::scorer`]), callers must maintain the relationship between the
-/// searcher's top-level [`IndexReaderContext`](crate::core::index::index_reader_context::IndexReaderContext) and the context used to create a
+/// searcher's top-level `IndexReaderContext` and the context used to create a
 /// `Scorer`.
 ///
 /// A `Weight` is used in the following way:
 ///
-/// 1. A `Weight` is constructed by a top-level query, given an [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher)
+/// 1. A `Weight` is constructed by a top-level query, given an `IndexSearcher`
 ///    (see `Query::create_weight`).
 /// 2. A `Scorer` is constructed by [`Weight::scorer`].
 pub trait Weight<IRC: IndexReaderContext>: SegmentCacheable<IRC> {

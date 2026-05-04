@@ -62,20 +62,20 @@ pub(crate) static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
 ///
 /// This field defines static factory methods for common operations:
 ///
-/// - [`new_box_query`] for matching points within a bounding box.
-/// - [`new_distance_query`] for matching points within a specified
+/// - `new_box_query` for matching points within a bounding box.
+/// - `new_distance_query` for matching points within a specified
 ///   distance.
-/// - [`new_polygon_query`] for matching points within an arbitrary polygon.
-/// - [`new_geometry_query`] for matching points within an arbitrary
+/// - `new_polygon_query` for matching points within an arbitrary polygon.
+/// - `new_geometry_query` for matching points within an arbitrary
 ///   geometry collection.
 ///
 /// If you also need per-document operations such as sort by distance, add a separate
-/// [`XYDocValuesField`] instance. If you also need to store the value, you should add a separate
-/// [`StoredField`] instance.
+/// `XYDocValuesField` instance. If you also need to store the value, you should add a separate
+/// `StoredField` instance.
 ///
-/// See [`PointValues`].
+/// See `PointValues`.
 ///
-/// See [`XYDocValuesField`].
+/// See `XYDocValuesField`.
 pub struct XYPointField {
   parent_field: Field,
 }
@@ -226,7 +226,7 @@ impl XYPointField {
   ///
   /// Returns an error if `field` is null, `polygons` is null or empty
   ///
-  /// See [`Polygon`].
+  /// See `Polygon`.
   pub fn new_polygon_query<T>(field: T, polygons: Vec<XYPolygon>) -> Result<Query>
   where
     T: Into<String>,

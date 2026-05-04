@@ -67,14 +67,14 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
   }
 
   type RandomVectorScorerF32: RandomVectorScorer;
-  /// Returns a [`RandomVectorScorer`] for the given field and target vector.
+  /// Returns a `RandomVectorScorer` for the given field and target vector.
   ///
   /// # Arguments
   /// * `field` - the field to search
   /// * `target` - the target vector
   ///
   /// # Returns
-  /// a [`RandomVectorScorer`] for the given field and target vector.
+  /// a `RandomVectorScorer` for the given field and target vector.
   ///
   /// # Errors
   /// if an I/O error occurs when reading from the index.
@@ -85,14 +85,14 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
   ) -> Result<Self::RandomVectorScorerF32>;
 
   type RandomVectorScorerU8: RandomVectorScorer;
-  /// Returns a [`RandomVectorScorer`] for the given field and target vector.
+  /// Returns a `RandomVectorScorer` for the given field and target vector.
   ///
   /// # Arguments
   /// * `field` - the field to search
   /// * `target` - the target vector
   ///
   /// # Returns
-  /// a [`RandomVectorScorer`] for the given field and target vector.
+  /// a `RandomVectorScorer` for the given field and target vector.
   ///
   /// # Errors
   /// if an I/O error occurs when reading from the index.

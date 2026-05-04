@@ -264,12 +264,12 @@ where
 
     self.search_with_collector_manager(query, &manager)
   }
-  /// Get the configured [`QueryTimeout`] for all searches that run through this [`IndexSearcher`],
+  /// Get the configured `QueryTimeout` for all searches that run through this `IndexSearcher`,
   /// or `None` if not set.
   pub fn get_timeout<T>(&self) -> Option<Arc<QueryTimeoutEnum>> {
     self.query_timeout.clone()
   }
-  /// Set a [`QueryTimeout`] for all searches that run through this [`IndexSearcher`].
+  /// Set a `QueryTimeout` for all searches that run through this `IndexSearcher`.
   pub fn set_timeout<T>(&mut self, query_timeout: T)
   where
     T: Into<QueryTimeoutEnum>,
@@ -652,7 +652,7 @@ where
   ///
   /// # Errors
   ///
-  /// Returns an error if a query would exceed [`IndexSearcher::get_max_clause_count`] clauses.
+  /// Returns an error if a query would exceed `IndexSearcher::get_max_clause_count` clauses.
   pub fn explain_from_weight(&self, weight: &QueryWeight<IRC>, doc: i32) -> Result<Explanation> {
     let leaf_contexts = self.reader_context.leaves()?;
     let n = ReaderUtil::sub_index_with_leaves(doc, leaf_contexts);

@@ -41,26 +41,26 @@ use crate::test::core::search::test_prefix_random::DumbPrefixQuery;
 use crate::test::core::search::test_regexp_random2::DumbRegexpQuery;
 use std::fmt::Debug;
 /// An abstract [`Query`] that matches documents containing a subset of terms provided by a
-/// [`FilteredTermsEnum`] enumeration.
+/// `FilteredTermsEnum` enumeration.
 ///
 /// This query cannot be used directly; you must subclass it and define
-/// [`MultiTermQuery::get_terms_enum`] to provide a [`FilteredTermsEnum`] that iterates
+/// `MultiTermQuery::get_terms_enum` to provide a `FilteredTermsEnum` that iterates
 /// through the terms to be matched.
 ///
-/// **NOTE**: if [`RewriteMethod`] is either [`MultiTermQuery::CONSTANT_SCORE_BOOLEAN_REWRITE`] or
-/// [`MultiTermQuery::SCORING_BOOLEAN_REWRITE`], you may encounter a
-/// [`IndexSearcherError::TooManyClauses`] error during searching, which happens when the number of
-/// terms to be searched exceeds [`IndexSearcher::get_max_clause_count`]. Setting [`RewriteMethod`]
-/// to [`MultiTermQuery::CONSTANT_SCORE_BLENDED_REWRITE`] or
-/// [`MultiTermQuery::CONSTANT_SCORE_REWRITE`] prevents this.
+/// **NOTE**: if `RewriteMethod` is either `MultiTermQuery::CONSTANT_SCORE_BOOLEAN_REWRITE` or
+/// `MultiTermQuery::SCORING_BOOLEAN_REWRITE`, you may encounter a
+/// `IndexSearcherError::TooManyClauses` error during searching, which happens when the number of
+/// terms to be searched exceeds `IndexSearcher::get_max_clause_count`. Setting `RewriteMethod`
+/// to `MultiTermQuery::CONSTANT_SCORE_BLENDED_REWRITE` or
+/// `MultiTermQuery::CONSTANT_SCORE_REWRITE` prevents this.
 ///
-/// The recommended rewrite method is [`MultiTermQuery::CONSTANT_SCORE_BLENDED_REWRITE`]: it doesn't
+/// The recommended rewrite method is `MultiTermQuery::CONSTANT_SCORE_BLENDED_REWRITE`: it doesn't
 /// spend CPU computing unhelpful scores, and is the most performant rewrite method given the query.
 /// If you need scoring (like [`FuzzyQuery`], use [`TopTermsScoringBooleanQueryRewrite`] which uses
 /// a priority queue to only collect competitive terms and not hit this limitation.
 ///
 /// Note that org.apache.lucene.queryparser.classic.QueryParser produces MultiTermQueries using
-/// [`MultiTermQuery::CONSTANT_SCORE_REWRITE`] by default.
+/// `MultiTermQuery::CONSTANT_SCORE_REWRITE` by default.
 pub trait MultiTermQuery: QueryBase + Clone {
   /// Returns the field name for this query
   fn get_field(&self) -> &str;
@@ -69,10 +69,10 @@ pub trait MultiTermQuery: QueryBase + Clone {
     T: Terms;
   /// Construct the enumeration to be used, expanding the pattern term. This method should only be
   /// called if the field exists (ie, implementations can assume the field does exist). This method
-  /// should not return `None` (should instead return [`TermsEnum::EMPTY`] if no terms match). The
+  /// should not return `None` (should instead return `TermsEnum::EMPTY` if no terms match). The
   /// [`TermsEnum`] must already be positioned to the first matching term. The given
-  /// [`AttributeSource`] is passed by the [`RewriteMethod`] to share information between segments,
-  /// for example [`TopTermsRewrite`] uses it to share maximum competitive boosts.
+  /// `AttributeSource` is passed by the `RewriteMethod` to share information between segments,
+  /// for example `TopTermsRewrite` uses it to share maximum competitive boosts.
   fn get_terms_enum<T>(&self, terms: T) -> Result<Self::TermsEnum<T>>
   where
     T: Terms + Clone;
@@ -110,7 +110,7 @@ pub trait RewriteMethod {
 /// while limiting the overhead of a BooleanQuery with many terms. It also ensures you cannot hit
 /// `IndexSearcher.TooManyClauses`. For some use-cases with all low
 /// cost terms, [`ConstantScoreRewrite`] may be more performant. While for some use-cases
-/// with all high cost terms, [`ConstantScoreBooleanRewrite`] may be better.
+/// with all high cost terms, `ConstantScoreBooleanRewrite` may be better.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreBlendedRewrite;
 impl RewriteMethod for ConstantScoreBlendedRewrite {
@@ -168,18 +168,18 @@ impl RewriteMethod for RewriteMethodEnum {
   }
 }
 /// A rewrite method that first translates each term into [`Occur::Should`] clause
-/// in a [`BooleanQuery`], and keeps the scores as computed by the query. Note that typically such
+/// in a `BooleanQuery`, and keeps the scores as computed by the query. Note that typically such
 /// scores are meaningless to the user, and require non-trivial CPU to compute, so it's almost
-/// always better to use [`MultiTermQuery::CONSTANT_SCORE_REWRITE`] instead.
+/// always better to use `MultiTermQuery::CONSTANT_SCORE_REWRITE` instead.
 ///
-/// **NOTE**: This rewrite method will hit [`IndexSearcherError::TooManyClauses`] if the number
-/// of terms exceeds [`IndexSearcher::get_max_clause_count`].
+/// **NOTE**: This rewrite method will hit `IndexSearcherError::TooManyClauses` if the number
+/// of terms exceeds `IndexSearcher::get_max_clause_count`.
 pub const SCORING_BOOLEAN_REWRITE: ScoringBooleanRewrite = ScoringBooleanRewrite;
-/// Like [`Self::SCORING_BOOLEAN_REWRITE`] except scores are not computed. Instead, each matching
+/// Like `Self::SCORING_BOOLEAN_REWRITE` except scores are not computed. Instead, each matching
 /// document receives a constant score equal to the query's boost.
 ///
-/// **NOTE**: This rewrite method will hit [`IndexSearcherError::TooManyClauses`] if the number
-/// of terms exceeds [`IndexSearcher::get_max_clause_count`].
+/// **NOTE**: This rewrite method will hit `IndexSearcherError::TooManyClauses` if the number
+/// of terms exceeds `IndexSearcher::get_max_clause_count`.
 pub const CONSTANT_SCORE_BOOLEAN_REWRITE: ConstantScoreBooleanRewrite = ConstantScoreBooleanRewrite;
 impl_from_for_enum!(
     RewriteMethodEnum,
@@ -212,7 +212,7 @@ macro_rules! dispatch_multi_term_query {
 }
 
 /// A rewrite method that first translates each term into [`Occur::Should`] clause
-/// in a [`BooleanQuery`], and keeps the scores as computed by the query.
+/// in a `BooleanQuery`, and keeps the scores as computed by the query.
 ///
 /// This rewrite method only uses the top scoring terms so it will not overflow the boolean max
 /// clause count.
@@ -224,7 +224,7 @@ pub struct TopTermsScoringBooleanQueryRewrite {
 impl TopTermsScoringBooleanQueryRewrite {
   /// Create a [`TopTermsScoringBooleanQueryRewrite`] for at most `size` terms.
   ///
-  /// NOTE: if [`IndexSearcher::get_max_clause_count`] is smaller than `size`, then
+  /// NOTE: if `IndexSearcher::get_max_clause_count` is smaller than `size`, then
   /// it will be used instead.
   pub fn new(size: usize) -> Self {
     Self { size }
@@ -276,7 +276,7 @@ impl TopTermsRewrite for TopTermsScoringBooleanQueryRewrite {
   }
 }
 /// A rewrite method that first translates each term into [`Occur::Should`] clause
-/// in a [`BooleanQuery`], but adjusts the frequencies used for scoring to be blended across the
+/// in a `BooleanQuery`, but adjusts the frequencies used for scoring to be blended across the
 /// terms, otherwise the rarest term typically ranks highest (often not useful eg in the set of
 /// expanded terms in a [`FuzzyQuery`]).
 ///
@@ -290,7 +290,7 @@ pub struct TopTermsBlendedFreqScoringRewrite {
 impl TopTermsBlendedFreqScoringRewrite {
   /// Create a [`TopTermsBlendedFreqScoringRewrite`] for at most `size` terms.
   ///
-  /// NOTE: if [`IndexSearcher::get_max_clause_count`] is smaller than `size`, then
+  /// NOTE: if `IndexSearcher::get_max_clause_count` is smaller than `size`, then
   /// it will be used instead.
   pub fn new(size: usize) -> Self {
     Self { size }
@@ -344,7 +344,7 @@ impl TopTermsRewrite for TopTermsBlendedFreqScoringRewrite {
 }
 
 /// A rewrite method that first translates each term into [`Occur::Should`] clause
-/// in a [`BooleanQuery`], and keeps the scores as computed by the query.
+/// in a `BooleanQuery`, and keeps the scores as computed by the query.
 ///
 /// This rewrite method only uses the top scoring terms so it will not overflow the boolean max
 /// clause count.
@@ -355,7 +355,7 @@ pub struct TopTermsBoostOnlyBooleanQueryRewrite {
 impl TopTermsBoostOnlyBooleanQueryRewrite {
   /// Create a [`TopTermsScoringBooleanQueryRewrite`] for at most `size` terms.
   ///
-  /// NOTE: if [`IndexSearcher::get_max_clause_count`] is smaller than `size`, then
+  /// NOTE: if `IndexSearcher::get_max_clause_count` is smaller than `size`, then
   /// it will be used instead.
   pub fn new(size: usize) -> Self {
     Self { size }

@@ -62,20 +62,20 @@ pub(crate) static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
 ///
 /// This field defines static factory methods for common operations:
 ///
-/// - [`new_slow_box_query`] for matching points within a bounding box.
-/// - [`new_slow_distance_query`] for matching points within a specified
+/// - `new_slow_box_query` for matching points within a bounding box.
+/// - `new_slow_distance_query` for matching points within a specified
 ///   distance.
-/// - [`new_slow_polygon_query`] for matching points within an arbitrary
+/// - `new_slow_polygon_query` for matching points within an arbitrary
 ///   polygon.
-/// - [`new_slow_geometry_query`] for matching points within an
+/// - `new_slow_geometry_query` for matching points within an
 ///   arbitrary geometry.
-/// - [`new_distance_sort`] for ordering documents by distance from a
+/// - `new_distance_sort` for ordering documents by distance from a
 ///   specified location.
 ///
-/// If you also need query operations, you should add a separate [`XYPointField`] instance. If
-/// you also need to store the value, you should add a separate [`StoredField`] instance.
+/// If you also need query operations, you should add a separate `XYPointField` instance. If
+/// you also need to store the value, you should add a separate `StoredField` instance.
 ///
-/// See [`XYPointField`].
+/// See `XYPointField`.
 pub struct XYDocValuesField {
   parent_field: Field,
 }
@@ -148,7 +148,7 @@ impl XYDocValuesField {
   /// Creates a SortField for sorting by distance from a location.
   ///
   /// This sort orders documents by ascending distance from the location. The value returned in
-  /// [`FieldDoc`] for the hits contains a Double instance with the distance in meters.
+  /// `FieldDoc` for the hits contains a Double instance with the distance in meters.
   ///
   /// If a document is missing the field, then by default it is treated as having
   /// [`f64::INFINITY`] distance (missing values sort last).
@@ -178,8 +178,8 @@ impl XYDocValuesField {
 
   /// Create a query for matching a bounding box using doc values. This query is usually slow as it
   /// does not use an index structure and needs to verify documents one-by-one in order to know
-  /// whether they match. It is best used wrapped in an [`IndexOrDocValuesQuery`] alongside a
-  /// [`XYPointField::new_box_query`].
+  /// whether they match. It is best used wrapped in an `IndexOrDocValuesQuery` alongside a
+  /// `XYPointField::new_box_query`.
   pub fn new_slow_box_query<T>(
     field: T,
     min_x: f32,
@@ -197,7 +197,7 @@ impl XYDocValuesField {
   /// Create a query for matching points within the specified distance of the supplied location. This
   /// query is usually slow as it does not use an index structure and needs to verify documents
   /// one-by-one in order to know whether they match. It is best used wrapped in an
-  /// [`IndexOrDocValuesQuery`] alongside a [`XYPointField::new_distance_query`].
+  /// `IndexOrDocValuesQuery` alongside a `XYPointField::new_distance_query`.
   ///
   /// # Parameters
   ///
@@ -224,8 +224,8 @@ impl XYDocValuesField {
 
   /// Create a query for matching points within the supplied polygons. This query is usually slow as
   /// it does not use an index structure and needs to verify documents one-by-one in order to know
-  /// whether they match. It is best used wrapped in an [`IndexOrDocValuesQuery`] alongside a
-  /// [`XYPointField::new_polygon_query`].
+  /// whether they match. It is best used wrapped in an `IndexOrDocValuesQuery` alongside a
+  /// `XYPointField::new_polygon_query`.
   ///
   /// # Parameters
   ///
@@ -249,7 +249,7 @@ impl XYDocValuesField {
   /// Create a query for matching points within the supplied geometries. XYLine geometries are not
   /// supported. This query is usually slow as it does not use an index structure and needs to verify
   /// documents one-by-one in order to know whether they match. It is best used wrapped in an
-  /// [`IndexOrDocValuesQuery`] alongside a [`XYPointField::new_geometry_query`].
+  /// `IndexOrDocValuesQuery` alongside a `XYPointField::new_geometry_query`.
   ///
   /// # Parameters
   ///

@@ -121,7 +121,7 @@ impl Rectangle {
   }
   /// Calculate the latitude of a circle's intersections with its bbox meridians.
   ///
-  /// **NOTE:** the returned value will be +/- [`AXISLAT_ERROR`] of the actual value.
+  /// **NOTE:** the returned value will be +/- `AXISLAT_ERROR` of the actual value.
   ///
   /// # Arguments
   ///

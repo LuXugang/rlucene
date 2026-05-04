@@ -400,7 +400,7 @@ impl ByteRunnable for NFARunAutomaton {
   /// - `c`: The Unicode codepoint to transition on
   ///
   /// Returns:
-  /// - The next state, or [`Self::MISSING`] if the transition doesn't exist.
+  /// - The next state, or `Self::MISSING` if the transition doesn't exist.
   fn step(&self, state: i32, c: i32) -> i32 {
     debug_assert!(self.dstates.lock().get(state as usize).is_some());
     self.step_with_dstate_index(state as usize, c)

@@ -46,25 +46,25 @@ pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 /// - Vector data ordered by field, document ordinal, and vector dimension. When the
 ///   vectorEncoding is BYTE, each sample is stored as a single byte. When it is FLOAT32, each
 ///   sample is stored as an IEEE float in little-endian byte order.
-/// - DocIds encoded by [`IndexedDISI::write_bit_set`]
+/// - DocIds encoded by `IndexedDISI::write_bit_set`
 ///   note that only in sparse case
-/// - OrdToDoc was encoded by [`DirectMonotonicWriter`], note
+/// - OrdToDoc was encoded by `DirectMonotonicWriter`, note
 ///   that only in sparse case
 ///
 /// ## .vemf (vector metadata) file
 ///
 /// For each field:
 ///
-/// - **[int32]** field number
-/// - **[int32]** vector similarity function ordinal
-/// - **[vlong]** offset to this field's vectors in the .vec file
-/// - **[vlong]** length of this field's vectors, in bytes
-/// - **[vint]** dimension of this field's vectors
-/// - **[int]** the number of documents having values for this field
-/// - **[int8]** if equals to -2, empty - no vector values. If equals to -1, dense – all
+/// - **`int32`** field number
+/// - **`int32`** vector similarity function ordinal
+/// - **`vlong`** offset to this field's vectors in the .vec file
+/// - **`vlong`** length of this field's vectors, in bytes
+/// - **`vint`** dimension of this field's vectors
+/// - **`int`** the number of documents having values for this field
+/// - **`int8`** if equals to -2, empty - no vector values. If equals to -1, dense – all
 ///   documents have values for a field. If equals to 0, sparse – some documents missing values.
-/// - DocIds were encoded by [`IndexedDISI::write_bit_set`]
-/// - OrdToDoc was encoded by [`DirectMonotonicWriter`], note
+/// - DocIds were encoded by `IndexedDISI::write_bit_set`
+/// - OrdToDoc was encoded by `DirectMonotonicWriter`, note
 ///   that only in sparse case
 #[derive(Debug)]
 pub struct Lucene99FlatVectorsFormat<F>

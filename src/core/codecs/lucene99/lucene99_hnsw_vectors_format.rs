@@ -68,7 +68,7 @@ pub static FLAT_VECTORS_FORMAT: LazyLock<Lucene99FlatVectorsFormat<DefaultFlatVe
 pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 /// Lucene 9.9 vector format, which encodes numeric vector values into an associated graph connecting
 /// the documents having values. The graph is used to power HNSW search. The format consists of two
-/// files, and requires a [`FlatVectorsFormat`] to store the actual vectors:
+/// files, and requires a `FlatVectorsFormat` to store the actual vectors:
 ///
 /// ## .vex (vector index)
 ///
@@ -77,26 +77,26 @@ pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 ///
 /// - For each level:
 ///   - For each node:
-///     - **[vint]** the number of neighbor nodes
-///     - **array[vint]** the delta encoded neighbor ordinals
+///     - **`vint`** the number of neighbor nodes
+///     - **``array`vint```** the delta encoded neighbor ordinals
 /// - After all levels are encoded, memory offsets for each node's neighbor nodes are appended to
-///   the end of the file. The offsets are encoded by [`DirectMonotonicWriter`].
+///   the end of the file. The offsets are encoded by `DirectMonotonicWriter`.
 ///
 /// ## .vem (vector metadata) file
 ///
 /// For each field:
 ///
-/// - **[int32]** field number
-/// - **[int32]** vector similarity function ordinal
-/// - **[vlong]** offset to this field's index in the .vex file
-/// - **[vlong]** length of this field's index data, in bytes
-/// - **[vint]** dimension of this field's vectors
-/// - **[int]** the number of documents having values for this field
-/// - **[vint]** the maximum number of connections (neighbours) that each node can have
-/// - **[vint]** number of levels in the graph
+/// - **`int32`** field number
+/// - **`int32`** vector similarity function ordinal
+/// - **`vlong`** offset to this field's index in the .vex file
+/// - **`vlong`** length of this field's index data, in bytes
+/// - **`vint`** dimension of this field's vectors
+/// - **`int`** the number of documents having values for this field
+/// - **`vint`** the maximum number of connections (neighbours) that each node can have
+/// - **`vint`** number of levels in the graph
 /// - Graph nodes by level. For each level:
-///   - **[vint]** the number of nodes on this level
-///   - **array[vint]** for levels greater than 0 list of nodes on this level, stored as
+///   - **`vint`** the number of nodes on this level
+///   - **``array`vint```** for levels greater than 0 list of nodes on this level, stored as
 ///     the level 0th delta encoded nodes' ordinals.
 pub struct Lucene99HnswVectorsFormat {
   max_conn: usize,
@@ -118,7 +118,7 @@ impl Lucene99HnswVectorsFormat {
   /// - `max_conn`: the maximum number of connections to a node in the HNSW graph
   /// - `beam_width`: the size of the queue maintained during graph construction.
   /// - `num_merge_workers`: number of workers (threads) that will be used when doing merge. If
-  ///   larger than 1, a non-null [`ExecutorService`] must be passed as `merge_exec`
+  ///   larger than 1, a non-null `ExecutorService` must be passed as `merge_exec`
   ///
   /// # Errors
   ///

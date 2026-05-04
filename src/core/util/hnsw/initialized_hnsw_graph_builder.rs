@@ -25,7 +25,7 @@ use crate::core::util::hnsw::hnsw_graph_builder::{
 use crate::core::util::hnsw::hnsw_graph_searcher::HnswGraphSearcherBaseDefault;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
-/// This creates a graph builder that is initialized with the provided [`HnswGraph`]. This is useful for
+/// This creates a graph builder that is initialized with the provided `HnswGraph`. This is useful for
 /// merging HnswGraphs from multiple segments.
 pub struct InitializedHnswGraphBuilder<B>
 where
@@ -59,7 +59,7 @@ where
     self.initialized_nodes.get(node)
   }
 }
-/// Create a new [`HnswGraphBuilder`] that is initialized with the provided [`HnswGraph`].
+/// Create a new `HnswGraphBuilder` that is initialized with the provided `HnswGraph`.
 ///
 /// # Arguments
 ///
@@ -75,7 +75,7 @@ where
 ///
 /// # Returns
 ///
-/// A new [`HnswGraphBuilder`] that is initialized with the provided [`HnswGraph`].
+/// A new `HnswGraphBuilder` that is initialized with the provided `HnswGraph`.
 ///
 /// # Errors
 ///

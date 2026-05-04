@@ -40,13 +40,13 @@ pub trait KnnVectorsReader: HnswGraphProvider {
 
   type FloatVectorValues: FloatVectorValues;
   /// Returns the [`FloatVectorValues`] for the given `field`. The behavior is undefined if
-  /// the given field doesn't have KNN vectors enabled on its [`FieldInfo`]. The return value is
+  /// the given field doesn't have KNN vectors enabled on its `FieldInfo`. The return value is
   /// never `None`.
   fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues>;
 
   type ByteVectorValues: ByteVectorValues;
   /// Returns the [`ByteVectorValues`] for the given `field`. The behavior is undefined if
-  /// the given field doesn't have KNN vectors enabled on its [`FieldInfo`]. The return value is
+  /// the given field doesn't have KNN vectors enabled on its `FieldInfo`. The return value is
   /// never `None`.
   fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues>;
 
@@ -59,13 +59,13 @@ pub trait KnnVectorsReader: HnswGraphProvider {
   /// true k closest neighbors. For large values of k (for example when k is close to the total
   /// number of documents), the search may also retrieve fewer than k documents.
   ///
-  /// The returned [`TopDocs`] will contain a [`ScoreDoc`] for each nearest neighbor, in
-  /// order of their similarity to the query vector (decreasing scores). The [`TotalHits`]
+  /// The returned `TopDocs` will contain a `ScoreDoc` for each nearest neighbor, in
+  /// order of their similarity to the query vector (decreasing scores). The `TotalHits`
   /// contains the number of documents visited during the search. If the search stopped early because
   /// it hit `visitedLimit`, it is indicated through the relation
   /// `TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO`.
   ///
-  /// The behavior is undefined if the given field doesn't have KNN vectors enabled on its [`FieldInfo`].
+  /// The behavior is undefined if the given field doesn't have KNN vectors enabled on its `FieldInfo`.
   /// The return value is never `None`.
   ///
   /// # Arguments
@@ -94,13 +94,13 @@ pub trait KnnVectorsReader: HnswGraphProvider {
   /// true k closest neighbors. For large values of k (for example when k is close to the total
   /// number of documents), the search may also retrieve fewer than k documents.
   ///
-  /// The returned [`TopDocs`] will contain a [`ScoreDoc`] for each nearest neighbor, in
-  /// order of their similarity to the query vector (decreasing scores). The [`TotalHits`]
+  /// The returned `TopDocs` will contain a `ScoreDoc` for each nearest neighbor, in
+  /// order of their similarity to the query vector (decreasing scores). The `TotalHits`
   /// contains the number of documents visited during the search. If the search stopped early because
   /// it hit `visitedLimit`, it is indicated through the relation
   /// `TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO`.
   ///
-  /// The behavior is undefined if the given field doesn't have KNN vectors enabled on its [`FieldInfo`].
+  /// The behavior is undefined if the given field doesn't have KNN vectors enabled on its `FieldInfo`.
   /// The return value is never `None`.
   ///
   /// # Arguments

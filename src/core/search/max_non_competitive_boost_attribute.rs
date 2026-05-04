@@ -17,14 +17,14 @@
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 
-/// Add this [`Attribute`] to a fresh [`AttributeSource`] before calling
-/// [`MultiTermQuery::get_terms_enum`]. [`FuzzyQuery`] is using this to control
+/// Add this `Attribute` to a fresh `AttributeSource` before calling
+/// `MultiTermQuery::get_terms_enum`. `FuzzyQuery` is using this to control
 /// its internal behaviour to only return competitive terms.
 ///
 /// **Please note:** This attribute is intended to be added by the
-/// [`MultiTermQueryRewriteMethod`] to an empty [`AttributeSource`] that is shared
+/// `MultiTermQueryRewriteMethod` to an empty `AttributeSource` that is shared
 /// for all segments during query rewrite. This attribute source is passed to all
-/// segment enums on [`MultiTermQuery::get_terms_enum`]. [`TopTermsRewrite`] uses
+/// segment enums on `MultiTermQuery::get_terms_enum`. `TopTermsRewrite` uses
 /// this attribute to inform all enums about the current boost, that is not
 /// competitive.
 ///

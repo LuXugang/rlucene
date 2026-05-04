@@ -36,14 +36,14 @@ pub trait FlatVectorsScorer: Display {
   where
     B: ByteVectorValues + TryClone,
     F: FloatVectorValues + TryClone;
-  /// Returns a [`RandomVectorScorerSupplier`] that can be used to score vectors
+  /// Returns a `RandomVectorScorerSupplier` that can be used to score vectors
   ///
   /// # Parameters
   /// - `similarity_function`: the similarity function to use
   /// - `vector_values`: the vector values to score
   ///
   /// # Returns
-  /// a [`RandomVectorScorerSupplier`] that can be used to score vectors
+  /// a `RandomVectorScorerSupplier` that can be used to score vectors
   ///
   /// # Errors
   /// Returns an error if an I/O error occurs
@@ -59,7 +59,7 @@ pub trait FlatVectorsScorer: Display {
   type RandomVectorScorerF32<T>: RandomVectorScorer
   where
     T: FloatVectorValues;
-  /// Returns a [`RandomVectorScorer`] for the given set of vectors and target vector.
+  /// Returns a `RandomVectorScorer` for the given set of vectors and target vector.
   ///
   /// # Parameters
   /// - `similarity_function`: the similarity function to use
@@ -67,7 +67,7 @@ pub trait FlatVectorsScorer: Display {
   /// - `target`: the target vector
   ///
   /// # Returns
-  /// a [`RandomVectorScorer`] for the given field and target vector.
+  /// a `RandomVectorScorer` for the given field and target vector.
   ///
   /// # Errors
   /// Returns an error if an I/O error occurs when reading from the index.
@@ -83,7 +83,7 @@ pub trait FlatVectorsScorer: Display {
   type RandomVectorScorerU8<T>: RandomVectorScorer
   where
     T: ByteVectorValues;
-  /// Returns a [`RandomVectorScorer`] for the given set of vectors and target vector.
+  /// Returns a `RandomVectorScorer` for the given set of vectors and target vector.
   ///
   /// # Parameters
   /// - `similarity_function`: the similarity function to use
@@ -91,7 +91,7 @@ pub trait FlatVectorsScorer: Display {
   /// - `target`: the target vector
   ///
   /// # Returns
-  /// a [`RandomVectorScorer`] for the given field and target vector.
+  /// a `RandomVectorScorer` for the given field and target vector.
   ///
   /// # Errors
   /// Returns an error if an I/O error occurs when reading from the index.

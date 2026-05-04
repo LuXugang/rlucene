@@ -293,7 +293,7 @@ impl BitUtil {
 
   /// Interleaves the first 32 bits of each long value
   ///
-  /// Adapted from: http://graphics.stanford.edu/~seander/bithacks.html#InterleaveBMN
+  /// Adapted from: <http://graphics.stanford.edu/~seander/bithacks.html#InterleaveBMN>
   pub fn interleave(even: i32, odd: i32) -> i64 {
     let mut v1 = Self::MAGIC5 & (even as u32 as u64);
     let mut v2 = Self::MAGIC5 & (odd as u32 as u64);

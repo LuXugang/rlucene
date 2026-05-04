@@ -231,7 +231,7 @@ impl GeoUtils {
   ///
   /// e.g., (plus sign) + == true, and (capital 't') T == true
   ///
-  /// Use [`line_crosses_line`] to exclude lines that terminate on each other from the truth table
+  /// Use `line_crosses_line` to exclude lines that terminate on each other from the truth table
   #[allow(clippy::too_many_arguments)]
   pub fn line_crosses_line_with_boundary(
     a1x: f64,

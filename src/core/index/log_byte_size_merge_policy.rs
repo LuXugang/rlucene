@@ -94,7 +94,7 @@ impl LogMergePolicy<LogByteSizeMergePolicy> {
 
   /// Determines the largest segment (measured by total byte size of the segment's files, in MB) that
   /// may be merged with other segments during forceMerge. Setting it low will leave the index with
-  /// more than 1 segment, even if [`IndexWriter::force_merge`] is called.
+  /// more than 1 segment, even if `IndexWriter::force_merge` is called.
   pub fn set_max_merge_mb_for_forced_merge(&mut self, mb: f64) {
     self.max_merge_size_for_forced_merge = (mb * 1024.0 * 1024.0) as i64;
   }

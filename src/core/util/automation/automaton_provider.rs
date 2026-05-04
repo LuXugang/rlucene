@@ -18,7 +18,7 @@ use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::error::lucene_error::Result;
 
 /// Automaton provider for [`RegExp`](crate::core::util::automation::reg_exp::RegExp)
-/// used by [`RegExp::get_automaton`](crate::core::util::automation::reg_exp::RegExp::get_automaton).
+/// used by `RegExp::get_automaton`.
 pub trait AutomatonProvider {
   /// Returns the automaton associated with the given name.
   fn get_automaton(&self, name: &str) -> Result<Option<Automaton>>;

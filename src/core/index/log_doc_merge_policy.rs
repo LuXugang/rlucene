@@ -83,7 +83,7 @@ impl LogMergePolicy<LogDocMergePolicy> {
 
   /// Get the minimum size for a segment to remain un-merged.
   ///
-  /// @see LogMergePolicy::<LogDocMergePolicy>::set_min_merge_docs *
+  /// @see `LogMergePolicy::<LogDocMergePolicy>::set_min_merge_docs` *
   pub fn get_min_merge_docs(&self) -> i32 {
     self.min_merge_size as i32
   }

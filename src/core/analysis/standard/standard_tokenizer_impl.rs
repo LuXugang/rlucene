@@ -454,7 +454,7 @@ impl StandardTokenizerImpl {
   /// together as as a single token rather than broken up, because the logic
   /// required to break them at word boundaries is too complex for UAX#29.
   ///
-  /// See Unicode Line Breaking Algorithm: http://www.unicode.org/reports/tr14/#SA
+  /// See Unicode Line Breaking Algorithm: <http://www.unicode.org/reports/tr14/#SA>
   pub const SOUTH_EAST_ASIAN_TYPE: i32 = SOUTHEAST_ASIAN;
   /// Ideographic token type
   pub const IDEOGRAPHIC_TYPE: i32 = IDEOGRAPHIC;

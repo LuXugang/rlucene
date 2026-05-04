@@ -35,7 +35,7 @@ use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 /// A base shape utility class used for both LatLon (spherical) and XY (cartesian) shape fields.
 ///
-/// [`Polygon`]'s and [`Line`]'s are decomposed into a triangular mesh using the [`Tessellator`]
+/// `Polygon`'s and `Line`'s are decomposed into a triangular mesh using the `Tessellator`
 /// utility class. Each [`Triangle`] is encoded by this base class and indexed as a seven dimension
 /// multi-value field.
 ///
@@ -511,7 +511,7 @@ pub fn resolve_triangle_type(triangle: &mut DecodedTriangle) {
     triangle.type_ = DecodedTriangleType::Triangle;
   }
 }
-/// Represents a encoded triangle using [`ShapeField::decode_triangle`].
+/// Represents a encoded triangle using `ShapeField::decode_triangle`.
 #[derive(Clone, Debug, Default)]
 pub struct DecodedTriangle {
   /// x coordinate, vertex one

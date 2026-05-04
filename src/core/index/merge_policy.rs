@@ -103,7 +103,7 @@ pub trait MergePolicy: Display {
     MC: MergeContext<D>;
 
   /// Define the set of merge operations to perform on provided codec readers in
-  /// [`IndexWriter::add_indexes`].
+  /// `IndexWriter::add_indexes`.
   ///
   /// The merge operation is required to convert provided readers into segments
   /// that can be added to the writer. This API can be overridden in custom merge

@@ -29,13 +29,13 @@ pub trait QuantizedByteVectorValues: ByteVectorValues + HasIndexSlice {
 
   fn get_score_correction_constant(&self, ord: usize) -> Result<f32>;
 
-  /// Return a [`VectorScorer`] for the given query vector.
+  /// Return a `VectorScorer` for the given query vector.
   ///
   /// # Arguments
   /// * `query` - the query vector
   ///
   /// # Returns
-  /// a [`VectorScorer`] instance or null
+  /// a `VectorScorer` instance or null
   fn scorer(&self, _query: &[f32]) -> Result<Self::VectorScorer> {
     Err(LuceneError::unsupported_operation(""))
   }

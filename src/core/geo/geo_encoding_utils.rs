@@ -146,7 +146,7 @@ impl GeoEncodingUtils {
     Ok((longitude / Self::LON_DECODE).ceil() as i32)
   }
 
-  /// Turns quantized value from [`encode_latitude`] back into a double.
+  /// Turns quantized value from `encode_latitude` back into a double.
   ///
   /// # Arguments
   ///

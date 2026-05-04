@@ -88,27 +88,27 @@ pub trait TermsEnum: BytesRefIterator {
   /// by [`ord()`](TermsEnum::ord). The target ordinal may be before or
   /// after the current ordinal, and must be within bounds.
   fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()>;
-  /// Expert: Seeks a specific position by [`TermState`] previously obtained
+  /// Expert: Seeks a specific position by `TermState` previously obtained
   /// from [`term_state()`](TermsEnum::term_state). Callers should
-  /// maintain the [`TermState`] to use this method.
+  /// maintain the `TermState` to use this method.
   /// Low-level implementations may position the [`TermsEnum`] without
   /// re-seeking the term dictionary.
   ///
-  /// Seeking by [`TermState`] should only be used if the state was obtained
+  /// Seeking by `TermState` should only be used if the state was obtained
   /// from the same [`TermsEnum`] instance.
   ///
-  /// **NOTE**: Using this method with an incompatible [`TermState`] might
+  /// **NOTE**: Using this method with an incompatible `TermState` might
   /// leave this [`TermsEnum`] in an undefined state. On a segment level,
-  /// [`TermState`] instances are compatible only if the source and target
+  /// `TermState` instances are compatible only if the source and target
   /// [`TermsEnum`] operate on the same field. If operating on segment level,
-  /// [`TermState`] instances must not be used across segments.
+  /// `TermState` instances must not be used across segments.
   ///
-  /// **NOTE**: A seek by [`TermState`] might not restore the
+  /// **NOTE**: A seek by `TermState` might not restore the
   /// [`AttributeSource`]'s state. [`AttributeSource`] states must be
   /// maintained separately if this method is used.
   ///
-  /// - `term`: the term the [`TermState`] corresponds to
-  /// - `state`: the [`TermState`]
+  /// - `term`: the term the `TermState` corresponds to
+  /// - `state`: the `TermState`
   fn seek_exact_with_state(
     &mut self,
     term: &BytesRef<Vec<u8>>,
@@ -176,11 +176,11 @@ pub trait TermsEnum: BytesRefIterator {
   /// Expert: Returns the [`TermsEnum`]'s internal state to position the enum
   /// without re-seeking the term dictionary.
   ///
-  /// **NOTE**: A seek by [`TermState`] might not capture the
+  /// **NOTE**: A seek by `TermState` might not capture the
   /// [`AttributeSource`]'s state. Callers must maintain
   /// [`AttributeSource`] states separately.
   ///
-  /// See also: [`TermState`],
+  /// See also: `TermState`,
   /// [`seek_exact_with_state`](TermsEnum::seek_exact_with_state).
   fn term_state(&mut self) -> Result<TermStateEnum>;
 }

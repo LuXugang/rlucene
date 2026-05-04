@@ -32,7 +32,7 @@ use std::sync::Arc;
 
 /// Default maximum allowed token length
 pub const DEFAULT_MAX_TOKEN_LENGTH: usize = 255;
-/// Filters [`StandardTokenizer`] with [`LowerCaseFilter`] and [`StopFilter`],
+/// Filters `StandardTokenizer` with `LowerCaseFilter` and `StopFilter`,
 /// using a configurable list of stop words.
 pub struct StandardAnalyzer {
   base: AnalyzerBase<GlobalReuseStrategy>,

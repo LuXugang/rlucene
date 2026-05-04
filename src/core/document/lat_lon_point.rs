@@ -81,15 +81,15 @@ pub(crate) static TYPE_: LazyLock<FieldType> = LazyLock::new(|| {
 /// * [`Self::new_geometry_query`] for matching points within an arbitrary geometry collection.
 ///
 /// If you also need per-document operations such as sort by distance, add a separate
-/// [`LatLonDocValuesField`] instance. If you also need to store the value, you should add a
-/// separate [`StoredField`] instance.
+/// `LatLonDocValuesField` instance. If you also need to store the value, you should add a
+/// separate `StoredField` instance.
 ///
 /// **WARNING**: Values are indexed with some loss of precision from the original `double` values
 /// (`4.190951585769653E-8` for the latitude component and `8.381903171539307E-8` for
 /// longitude).
 ///
 /// See also [`PointValues`].
-/// See also [`LatLonDocValuesField`].
+/// See also `LatLonDocValuesField`.
 pub struct LatLonPoint {
   parent_field: Field,
 }
@@ -305,7 +305,7 @@ impl LatLonPoint {
   }
 
   /// Create a query for matching one or more geometries against the provided
-  /// [`ShapeField::QueryRelation`]. Line geometries are not supported for WITHIN relationship.
+  /// `ShapeField::QueryRelation`. Line geometries are not supported for WITHIN relationship.
   ///
   /// * `field` - field name.
   /// * `query_relation` - The relation the points needs to satisfy with the provided geometries,
@@ -390,14 +390,14 @@ impl LatLonPoint {
   }
 
   /// Given a field that indexes point values into a [`LatLonPoint`] and doc values into
-  /// [`LatLonDocValuesField`], this returns a query that scores documents based on their haversine
+  /// `LatLonDocValuesField`, this returns a query that scores documents based on their haversine
   /// distance in meters to `(origin_lat, origin_lon)`: `score = weight * pivot_distance_meters /
   /// (pivot_distance_meters + distance)`, ie. score is in the `[0, weight]` range, is equal to
   /// `weight` when the document's value is equal to `(origin_lat, origin_lon)` and is equal to
   /// `weight / 2` when the document's value is distant of `pivot_distance_meters` from
   /// `(origin_lat, origin_lon)`. In case of multi-valued fields, only the closest point to
   /// `(origin_lat, origin_lon)` will be considered. This query is typically useful to boost results
-  /// based on distance by adding this query to a [`Occur::Should`] clause of a [`BooleanQuery`].
+  /// based on distance by adding this query to a `Occur::Should` clause of a `BooleanQuery`.
   pub fn new_distance_feature_query(
     field: &str,
     weight: f32,
@@ -420,8 +420,8 @@ impl LatLonPoint {
 
   /// Finds the `n` nearest indexed points to the provided point, according to Haversine distance.
   ///
-  /// This is functionally equivalent to running [`MatchAllDocsQuery`] with a
-  /// [`LatLonDocValuesField::new_distance_sort`], but is far more efficient since it takes
+  /// This is functionally equivalent to running `MatchAllDocsQuery` with a
+  /// `LatLonDocValuesField::new_distance_sort`, but is far more efficient since it takes
   /// advantage of properties the indexed BKD tree. Multi-valued fields are currently not
   /// de-duplicated, so if a document had multiple instances of the specified field that make it
   /// into the top n, that document will appear more than once.
