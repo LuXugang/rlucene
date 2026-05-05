@@ -140,6 +140,7 @@ impl Analyzer for MockAnalyzer {
     let filter = MockTokenFilter::new(tokenizer, self.filter.clone());
     let v = MockFilterWrap::new(filter);
     let _ = field;
+    // TODO IMPORTANT maybePayload未实现
     Ok(TokenStreamComponents::new(
       Box::new(v) as Box<dyn TokenStream + Send + Sync>,
       None,
