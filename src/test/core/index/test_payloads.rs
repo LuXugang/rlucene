@@ -18,7 +18,8 @@ use crate::core::analysis::analyzer::{
   Analyzer, AnalyzerEnum, BoxedAnalyzer, PerFieldReuseStrategy, ReuseStrategyEnum,
   TokenStreamComponents,
 };
-use crate::core::analysis::reader::ReaderEnum;
+use crate::core::analysis::reader::{ReaderEnum, StringReader};
+use crate::core::analysis::token_attributes::payload_attribute;
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_filter::{TokenFilter, TokenFilterBase};
 use crate::core::analysis::token_stream::TokenStream;
@@ -32,11 +33,14 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::multi_terms::get_term_postings_enum_with_flag;
+use crate::core::index::multi_terms::{get_term_postings_enum_with_flag, get_terms};
 use crate::core::index::postings_enum::{PAYLOADS, PostingsEnum};
 use crate::core::index::term::Term;
+use crate::core::index::terms::Terms;
+use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::Directory;
+use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
@@ -46,10 +50,11 @@ use crate::test::core::analysis::{mock_tokenizer, token};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_log_merge_policy, random,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
+use rand::RngExt;
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -434,7 +439,7 @@ fn test_across_fields() -> Result<()> {
 
   Ok(())
 }
-
+/// some docs have payload att, some not
 // #[test]
 fn test_mixup_docs() -> Result<()> {
   let mut random = random();
@@ -444,50 +449,52 @@ fn test_mixup_docs() -> Result<()> {
   let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
   let mut doc = Document::new();
+  let v = random_from_seed(random.random());
+  let mut ts = MockTokenizer::new(v);
+  ts.set_reader(StringReader::new("here we go").into())?;
   let mut field = Field::from_token_stream(
     "field",
-    FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![
-      token::with_range(Some("here"), 0, 4)?,
-      token::with_range(Some("we"), 5, 7)?,
-      token::with_range(Some("go"), 8, 10)?,
-    ])),
+    FieldTokenStreamEnum::custom(ts),
     text_field_type::TYPE_NOT_STORED.clone(),
   )?;
   doc.add(field.clone());
   writer.add_document(doc.clone())?;
 
+  let mut with_payload = token::with_range(Some("withPayload"), 0, 11)?;
+  with_payload
+    .sub
+    .token
+    .set_payload(Some(BytesRef::from_string("test")));
+  assert!(
+    with_payload
+      .get_attribute_name()?
+      .contains(payload_attribute::NAME)
+  );
   field.set_token_stream(FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![
-    {
-      let mut t = token::with_range(Some("withPayload"), 0, 11)?;
-      t.sub.token.set_payload(Some(BytesRef::from_string("test")));
-      t
-    },
+    with_payload,
   ])))?;
   let mut doc = Document::new();
   doc.add(field.clone());
   writer.add_document(doc)?;
 
-  field.set_token_stream(FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![
-    token::with_range(Some("another"), 0, 7)?,
-  ])))?;
+  let v = random_from_seed(random.random());
+  let mut ts = MockTokenizer::new(v);
+  ts.set_reader(StringReader::new("another").into())?;
+  field.set_token_stream(FieldTokenStreamEnum::custom(ts))?;
   let mut doc = Document::new();
   doc.add(field);
   writer.add_document(doc)?;
 
   let reader = writer.get_reader()?;
-  let mut postings = get_term_postings_enum_with_flag(
-    &reader,
-    "field",
-    &BytesRef::from_string("withPayload"),
-    PAYLOADS as i32,
-  )?
-  .ok_or_else(|| LuceneError::illegal_state("withPayload postings not found"))?;
-  postings.next_doc()?;
-  postings.next_position()?;
+  let terms = get_terms(&reader, "field")?.unwrap();
+  let mut te = terms.iterator()?;
+  assert!(te.seek_exact(&BytesRef::from_string("withPayload"))?);
+  let mut de = te.postings_with_flags(None, PAYLOADS as i32)?;
+  de.next_doc()?;
+  de.next_position()?;
   assert_eq!(
     &BytesRef::from_string("test"),
-    postings
-      .get_payload()?
+    de.get_payload()?
       .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
       .as_ref()
   );
@@ -496,53 +503,55 @@ fn test_mixup_docs() -> Result<()> {
   Ok(())
 }
 
+/// some field instances have payload att, some not
 // #[test]
 fn test_mixup_multi_valued() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir);
   let mut doc = Document::new();
+  let v = random_from_seed(random.random());
+  let mut ts = MockTokenizer::new(v);
+  ts.set_reader(StringReader::new("here we go").into())?;
+  let field = Field::from_token_stream(
+    "field",
+    FieldTokenStreamEnum::custom(ts),
+    text_field_type::TYPE_NOT_STORED.clone(),
+  )?;
+  doc.add(field);
 
-  doc.add(Field::from_token_stream(
+  let mut t = token::with_range(Some("withPayload"), 0, 11)?;
+  t.sub.token.set_payload(Some(BytesRef::from_string("test")));
+  assert!(t.get_attribute_name()?.contains(payload_attribute::NAME));
+  let fields2 = Field::from_token_stream(
     "field",
-    FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![
-      token::with_range(Some("here"), 0, 4)?,
-      token::with_range(Some("we"), 5, 7)?,
-      token::with_range(Some("go"), 8, 10)?,
-    ])),
+    FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![t])),
     text_field_type::TYPE_NOT_STORED.clone(),
-  )?);
-  doc.add(Field::from_token_stream(
+  )?;
+  doc.add(fields2);
+
+  let v = random_from_seed(random.random());
+  let mut ts =
+    MockTokenizer::with_default_max_token_length(v, mock_tokenizer::WHITESPACE.clone(), true);
+  ts.set_reader(StringReader::new("nopayload").into())?;
+  let field3 = Field::from_token_stream(
     "field",
-    FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![{
-      let mut t = token::with_range(Some("withPayload"), 0, 11)?;
-      t.sub.token.set_payload(Some(BytesRef::from_string("test")));
-      t
-    }])),
+    FieldTokenStreamEnum::custom(ts),
     text_field_type::TYPE_NOT_STORED.clone(),
-  )?);
-  doc.add(Field::from_token_stream(
-    "field",
-    FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![token::with_range(
-      Some("nopayload"),
-      0,
-      9,
-    )?])),
-    text_field_type::TYPE_NOT_STORED.clone(),
-  )?);
+  )?;
+  doc.add(field3);
   writer.add_document(doc)?;
 
   let reader = writer.get_reader()?;
   let leaf = get_only_leaf_reader(&reader)?;
-  let mut postings = leaf
+  let mut de = leaf
     .postings(&Term::from_text("field", "withPayload"))?
     .ok_or_else(|| LuceneError::illegal_state("withPayload postings not found"))?;
-  postings.next_doc()?;
-  postings.next_position()?;
+  de.next_doc()?;
+  de.next_position()?;
   assert_eq!(
     &BytesRef::from_string("test"),
-    postings
-      .get_payload()?
+    de.get_payload()?
       .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
       .as_ref()
   );
