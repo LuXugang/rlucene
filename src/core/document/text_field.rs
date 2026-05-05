@@ -84,9 +84,10 @@ impl TextField {
   /// # Parameters
   /// - `name`: Field name.
   /// - `reader`: `ReaderEnum` value.
-  pub fn from_reader<T>(name: T, reader: ReaderEnum) -> Result<Self>
+  pub fn from_reader<T, R>(name: T, reader: R) -> Result<Self>
   where
     T: Into<String>,
+    R: Into<ReaderEnum>,
   {
     let parent_field = Field::from_reader(name, reader, text_field_type::TYPE_NOT_STORED.clone())?;
     Ok(Self {

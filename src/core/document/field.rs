@@ -121,13 +121,10 @@ impl Field {
   /// # Errors
   /// - Returns an error if the field's type is `stored()`, or if
   ///   `tokenized()` is `false`.
-  pub fn from_reader<T>(
-    name: T,
-    reader: ReaderEnum,
-    indexable_field_type: FieldType,
-  ) -> Result<Self>
+  pub fn from_reader<T, R>(name: T, reader: R, indexable_field_type: FieldType) -> Result<Self>
   where
     T: Into<String>,
+    R: Into<ReaderEnum>,
   {
     if indexable_field_type.stored() {
       return Err(LuceneError::illegal_argument(
@@ -142,7 +139,7 @@ impl Field {
     Ok(Field {
       indexable_field_type,
       name: name.into(),
-      fields_data: FieldDataEnum::Reader(reader),
+      fields_data: reader.into().into(),
     })
   }
   /// Creates a field with a `TokenStream` value.
