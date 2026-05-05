@@ -33,9 +33,10 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::analysis::mock_tokenizer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_searcher_with_reader, new_string_field, new_text_field, random,
+  new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
+  new_string_field, new_text_field, random,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -52,8 +53,8 @@ fn test_simple_case() -> Result<()> {
   let text = ["Amsterdam", "Venice"];
 
   let dir = new_directory_shared(&mut random)?;
-  // TODO: MockAnalyzer 未实现
-  let iwc = new_index_writer_config(&mut random);
+  let a = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
   let modifier = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut custom1 = FieldType::new();
@@ -92,8 +93,8 @@ fn test_non_ram_delete() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut field_types = HashMap::new();
 
-  // TODO: MockAnalyzer 未实现
-  let mut iwc = new_index_writer_config(&mut random);
+  let a = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
   iwc.set_max_buffered_docs(2);
 
   let mut modifier = IndexWriter::new(dir.clone(), iwc)?;
@@ -142,8 +143,8 @@ fn test_both_deletes() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut field_types = HashMap::new();
 
-  // TODO: MockAnalyzer 未实现
-  let mut iwc = new_index_writer_config(&mut random);
+  let a = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
   iwc.set_max_buffered_docs(100);
 
   let mut writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -188,8 +189,8 @@ fn test_batch_deletes() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut field_types = HashMap::new();
 
-  // TODO: MockAnalyzer 未实现
-  let mut iwc = new_index_writer_config(&mut random);
+  let a = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
   iwc.set_max_buffered_docs(2);
 
   let mut modifier = IndexWriter::new(dir.clone(), iwc)?;

@@ -37,6 +37,7 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::analysis::mock_tokenizer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::query_utils::QueryUtils;
 use crate::test::core::util::DefaultIRCRC;
@@ -242,7 +243,7 @@ where
   let query = builder.build()?;
 
   let dir = new_directory_shared(random)?;
-  let analyzer = MockAnalyzer::new(random);
+  let analyzer = MockAnalyzer::with_automaton(random, mock_tokenizer::WHITESPACE.clone(), false);
   let config = new_index_writer_config_with_analyzer(random, analyzer);
   let writer = RandomIndexWriter::with_config(random, dir.clone(), config);
   writer.add_document(doc)?;

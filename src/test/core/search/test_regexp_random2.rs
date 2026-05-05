@@ -38,12 +38,14 @@ use crate::core::util::automation::character_run_automaton::CharacterRunAutomato
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::analysis::mock_tokenizer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::util::DefaultIndexSearchCR;
 use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
+  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
   new_string_field, random,
 };
 use crate::test::core::util::test_util::TestUtil;
@@ -69,8 +71,8 @@ where
   } else {
     "".to_string()
   };
-  // TODO IMPORTANT 要使用MockAnalyzer带分词器
-  let mut config = new_index_writer_config(random);
+  let a = MockAnalyzer::with_automaton(random, mock_tokenizer::KEYWORD.clone(), false);
+  let mut config = new_index_writer_config_with_analyzer(random, a);
   config.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
 
   let writer = RandomIndexWriter::with_config(random, dir, config);

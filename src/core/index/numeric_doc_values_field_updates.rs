@@ -255,7 +255,7 @@ mod tests {
   use crate::core::index::multi_bits::get_live_docs;
   use crate::core::index::multi_doc_values::MultiDocValues;
   use crate::core::index::stored_fields::StoredFields;
-
+  use crate::test::core::analysis::mock_analyzer;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
 
   #[allow(dead_code)]
@@ -420,7 +420,7 @@ mod tests {
   fn test_updates_are_flushed() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
+    let mock = MockAnalyzer::with_automaton(&mut random, mock_analyzer::WHITESPACE.clone(), false);
     let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
     config.set_ram_buffer_size_mb(0.00000001);
     let mut writer = IndexWriter::new(dir.clone(), config)?;

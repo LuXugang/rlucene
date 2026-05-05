@@ -154,7 +154,8 @@ pub trait Analyzer {
   fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
     0
   }
-  fn get_offset_gap(&self, _field_name: &str) -> i32 {
+  fn get_offset_gap(&self, _field_name: &str) -> i32;
+  fn default_get_offset_gap(&self, _field_name: &str) -> i32 {
     1
   }
 }
@@ -322,6 +323,17 @@ impl Analyzer for AnalyzerEnum {
       AnalyzerEnum::Custom(v) => v.get_offset_gap(field_name),
     }
   }
+
+  fn default_get_offset_gap(&self, field_name: &str) -> i32 {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.default_get_offset_gap(field_name),
+      AnalyzerEnum::Standard(v) => v.default_get_offset_gap(field_name),
+      #[cfg(test)]
+      AnalyzerEnum::Mock(v) => v.default_get_offset_gap(field_name),
+      #[cfg(test)]
+      AnalyzerEnum::Custom(v) => v.default_get_offset_gap(field_name),
+    }
+  }
 }
 
 pub enum ReuseStrategyEnum {
@@ -424,9 +436,15 @@ impl ReuseStrategy for GlobalReuseStrategy {
     Ok(())
   }
 }
-#[derive(Default)]
 pub struct PerFieldReuseStrategy {
   store_value: Option<HashMap<String, TokenStreamComponents>>,
+}
+impl Default for PerFieldReuseStrategy {
+  fn default() -> Self {
+    Self {
+      store_value: Some(HashMap::new()),
+    }
+  }
 }
 impl ReuseStrategy for PerFieldReuseStrategy {
   fn get_reusable_components(
@@ -581,5 +599,9 @@ impl Analyzer for BoxedAnalyzer {
     TS: TokenStream,
   {
     self.default_normalize_from_ts(field_name, in_)
+  }
+
+  fn get_offset_gap(&self, field_name: &str) -> i32 {
+    self.default_get_offset_gap(field_name)
   }
 }

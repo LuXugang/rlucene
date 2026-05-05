@@ -546,6 +546,7 @@ mod tests {
   use crate::core::search::similarities_impl::classic_similarity;
   use crate::core::store::directory::DirEnum;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+  use crate::test::core::analysis::mock_tokenizer;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_merge_policy,
@@ -1070,8 +1071,7 @@ mod tests {
   fn test2() -> Result<()> {
     let mut random = random();
     let directory = new_directory_shared(&mut random)?;
-    // TODO IMPORTANT: Java uses MockTokenizer.KEYWORD here. Use the default MockAnalyzer for now.
-    let mock = MockAnalyzer::new(&mut random);
+    let mock = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::KEYWORD.clone(), false);
     let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), iwc);
     let mut field_to_type = HashMap::new();

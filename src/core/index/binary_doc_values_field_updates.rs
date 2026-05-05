@@ -231,6 +231,7 @@ mod tests {
   use crate::core::util::bits::Bits;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+  use crate::test::core::analysis::mock_tokenizer;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, is_night_mode, new_bytes_ref_from_string, new_bytes_ref_with_length,
@@ -295,7 +296,7 @@ mod tests {
   fn test_updates_are_flushed() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let mock = MockAnalyzer::new(&mut random);
+    let mock = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
     let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
     config.set_ram_buffer_size_mb(0.00000001);
     let mut writer = IndexWriter::new(dir.clone(), config)?;

@@ -175,12 +175,10 @@ fn test_field_number_gaps() -> Result<()> {
   for _ in 0..num_iters {
     let dir = new_directory_shared(&mut random)?;
     {
-      let mut conf = new_index_writer_config(&mut random);
-      conf.set_merge_policy(NoMergePolicy::default());
-      let writer = IndexWriter::new(
-        dir.clone(),
-        conf, // TODO: MockAnalyzer & NoMergePolicy
-      )?;
+      let a = MockAnalyzer::new(&mut random);
+      let mut config = new_index_writer_config_with_analyzer(&mut random, a);
+      config.set_merge_policy(NoMergePolicy::default());
+      let writer = IndexWriter::new(dir.clone(), config)?;
 
       let mut d = Document::new();
       d.add(TextField::from_string("f1", "d1 first field", Store::Yes)?);

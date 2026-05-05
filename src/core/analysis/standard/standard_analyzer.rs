@@ -100,6 +100,10 @@ impl Analyzer for StandardAnalyzer {
   {
     Ok(LowerCaseFilter::new(in_))
   }
+
+  fn get_offset_gap(&self, field_name: &str) -> i32 {
+    self.default_get_offset_gap(field_name)
+  }
 }
 impl StopWordAnalyzerBase for StandardAnalyzer {
   fn get_stop_words(&self) -> &CharArraySet {

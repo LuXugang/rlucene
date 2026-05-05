@@ -383,9 +383,10 @@ pub(crate) mod tests {
   use crate::core::util::attribute_source::{AttributeSource, Attributes};
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+  use crate::test::core::analysis::mock_tokenizer;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-    new_searcher_with_reader, new_string_field, new_text_field, random,
+    new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
+    new_string_field, new_text_field, random,
   };
   use rand::Rng;
   use std::collections::{HashMap, HashSet};
@@ -688,19 +689,8 @@ pub(crate) mod tests {
     R: Rng + ?Sized,
     D: Directory,
   {
-    let a = MockAnalyzer::new(random);
-    let mut config = new_index_writer_config_with_analyzer(random, a);
-    config.set_open_mode(OpenMode::Create);
-
-    let mut writer = IndexWriter::new(dir, config)?;
-    let mut doc_count: i32 = 0;
-
-    for v in values {
-      insert_doc(random, &mut writer, &mut doc_count, v, field_to_type)?;
-    }
-
-    writer.close()?;
-    Ok(())
+    let a = MockAnalyzer::with_automaton(random, mock_tokenizer::WHITESPACE.clone(), false);
+    initialize_index_with_analyzer(random, dir, values, a, field_to_type)
   }
 
   fn initialize_index_with_analyzer<D, A, R>(
@@ -740,31 +730,9 @@ pub(crate) mod tests {
     R: Rng + ?Sized,
     D: Directory,
   {
-    let mut config = new_index_writer_config(random);
+    let a = MockAnalyzer::with_automaton(random, mock_tokenizer::WHITESPACE.clone(), false);
+    let mut config = new_index_writer_config_with_analyzer(random, a);
     config.set_open_mode(OpenMode::Append);
-
-    let mut writer = IndexWriter::new(dir, config)?;
-    insert_doc(random, &mut writer, doc_count, content, field_to_type)?;
-    writer.close()?;
-    Ok(())
-  }
-
-  fn add_doc_with_analyzer<D, A, R>(
-    random: &mut R,
-    dir: Arc<D>,
-    content: &str,
-    doc_count: &mut i32,
-    analyzer: A,
-    field_to_type: &mut HashMap<String, FieldType>,
-  ) -> Result<()>
-  where
-    R: Rng + ?Sized,
-    D: Directory,
-    A: Into<AnalyzerEnum>,
-  {
-    let mut config = new_index_writer_config_with_analyzer(random, analyzer);
-    config.set_open_mode(OpenMode::Append);
-
     let mut writer = IndexWriter::new(dir, config)?;
     insert_doc(random, &mut writer, doc_count, content, field_to_type)?;
     writer.close()?;
@@ -844,12 +812,11 @@ pub(crate) mod tests {
       "A,B,<empty string>,D => A, B & <empty string> are in range"
     );
 
-    add_doc_with_analyzer(
+    add_doc(
       &mut random,
       dir.clone(),
       "C",
       &mut doc_count,
-      SingleCharAnalyzer::new(),
       &mut field_types,
     )?;
     let reader = directory_reader::open(dir.clone())?;
@@ -899,12 +866,11 @@ pub(crate) mod tests {
       "A,B,<empty string>,D - A, B and <empty string> in range"
     );
 
-    add_doc_with_analyzer(
+    add_doc(
       &mut random,
       dir.clone(),
       "C",
       &mut doc_count,
-      SingleCharAnalyzer::new(),
       &mut field_types,
     )?;
     let reader = directory_reader::open(dir.clone())?;
@@ -966,6 +932,10 @@ pub(crate) mod tests {
       TS: TokenStream,
     {
       self.default_normalize_from_ts(field_name, in_)
+    }
+
+    fn get_offset_gap(&self, field_name: &str) -> i32 {
+      self.default_get_offset_gap(field_name)
     }
   }
 

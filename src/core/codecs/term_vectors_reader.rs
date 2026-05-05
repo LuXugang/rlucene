@@ -767,6 +767,10 @@ mod tests {
     {
       self.default_normalize_from_ts(field_name, in_)
     }
+
+    fn get_offset_gap(&self, field_name: &str) -> i32 {
+      self.default_get_offset_gap(field_name)
+    }
   }
 
   #[derive(Clone, Eq, PartialEq)]

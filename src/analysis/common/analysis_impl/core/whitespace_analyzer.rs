@@ -67,6 +67,10 @@ impl Analyzer for WhitespaceAnalyzer {
   {
     self.default_normalize_from_ts(_field_name, in_)
   }
+
+  fn get_offset_gap(&self, field_name: &str) -> i32 {
+    self.default_get_offset_gap(field_name)
+  }
 }
 pub type WhitespaceAnalyzerTS = CharTokenizer<WhitespaceTokenizer>;
 #[cfg(test)]

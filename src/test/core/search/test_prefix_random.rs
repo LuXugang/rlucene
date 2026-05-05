@@ -36,6 +36,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, StringHelper};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::analysis::mock_tokenizer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::util::DefaultIndexSearchCR;
@@ -59,8 +60,7 @@ where
   R: Rng + ?Sized,
 {
   let dir = new_directory_shared(random)?;
-  // TODO IMPORTANT 要使用MockAnalyzer带分词器
-  let mock = MockAnalyzer::new(random);
+  let mock = MockAnalyzer::with_automaton(random, mock_tokenizer::KEYWORD.clone(), false);
   let mut iwc = new_index_writer_config_with_analyzer(random, mock);
   iwc.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
 

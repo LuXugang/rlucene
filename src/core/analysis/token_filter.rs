@@ -36,15 +36,6 @@ where
   }
 }
 
-impl<T> Drop for TokenFilterBase<T>
-where
-  T: TokenStream,
-{
-  fn drop(&mut self) {
-    self.close().expect("should not fail");
-  }
-}
-
 impl<T> TokenStream for TokenFilterBase<T>
 where
   T: TokenStream,

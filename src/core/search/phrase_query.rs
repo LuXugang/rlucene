@@ -775,7 +775,7 @@ mod tests {
   struct TestPhraseQuery;
   pub const SCORE_COMP_THRESH: f32 = 1e-6;
 
-  fn before_class<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+  fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
   where
     R: Rng + ?Sized,
   {
@@ -845,7 +845,7 @@ mod tests {
   #[test]
   fn test_not_close_enough() -> Result<()> {
     let mut random = random();
-    let searcher = before_class(&mut random)?;
+    let searcher = set_up(&mut random)?;
     let query = PhraseQuery::from_terms(2, "field", &["one", "five"])?;
     let top_docs = searcher.search(query.clone(), 1000)?;
     let hits = top_docs.score_docs();
@@ -858,7 +858,7 @@ mod tests {
   #[test]
   fn test_barely_close_enough() -> Result<()> {
     let mut random = random();
-    let searcher = before_class(&mut random)?;
+    let searcher = set_up(&mut random)?;
     let query = PhraseQuery::from_terms(3, "field", &["one", "five"])?;
     let top_docs = searcher.search(query.clone(), 1000)?;
     let hits = top_docs.score_docs();
@@ -872,7 +872,7 @@ mod tests {
   #[test]
   fn test_exact() -> Result<()> {
     let mut random = random();
-    let searcher = before_class(&mut random)?;
+    let searcher = set_up(&mut random)?;
     // slop is zero by default
     let query = PhraseQuery::from_terms(0, "field", &["four", "five"])?;
     let top_docs = searcher.search(query.clone(), 1000)?;
@@ -892,7 +892,7 @@ mod tests {
   #[test]
   fn test_slop1() -> Result<()> {
     let mut random = random();
-    let searcher = before_class(&mut random)?;
+    let searcher = set_up(&mut random)?;
 
     // Ensures slop of 1 works with terms in order.
     let query = PhraseQuery::from_terms(1, "field", &["one", "two"])?;
@@ -916,7 +916,7 @@ mod tests {
   #[test]
   fn test_order_doesnt_matter() -> Result<()> {
     let mut random = random();
-    let searcher = before_class(&mut random)?;
+    let searcher = set_up(&mut random)?;
 
     // must be at least two for reverse order match
     let query = PhraseQuery::from_terms(2, "field", &["two", "one"])?;
@@ -938,7 +938,7 @@ mod tests {
   #[test]
   fn test_multiple_terms() -> Result<()> {
     let mut random = random();
-    let searcher = before_class(&mut random)?;
+    let searcher = set_up(&mut random)?;
 
     let query = PhraseQuery::from_terms(2, "field", &["one", "three", "five"])?;
     let top_docs = searcher.search(query.clone(), 1000)?;
@@ -1256,7 +1256,7 @@ mod tests {
   #[test]
   fn test_non_existing_phrase() -> Result<()> {
     let mut random = random();
-    let searcher = before_class(&mut random)?;
+    let searcher = set_up(&mut random)?;
 
     // phrase without repetitions that exists in 2 docs
     let query = PhraseQuery::from_terms(2, "nonexist", &["phrase", "notexist", "found"])?;
@@ -1299,7 +1299,7 @@ mod tests {
   #[test]
   fn test_palyndrome2() -> Result<()> {
     let mut random = random();
-    let searcher = before_class(&mut random)?;
+    let searcher = set_up(&mut random)?;
 
     // search on non palyndrome, find phrase with no slop, using exact phrase scorer
     let query = PhraseQuery::from_terms(0, "field", &["two", "three"])?; // to use exact phrase scorer
@@ -1340,7 +1340,7 @@ mod tests {
   #[test]
   fn test_palyndrome3() -> Result<()> {
     let mut random = random();
-    let searcher = before_class(&mut random)?;
+    let searcher = set_up(&mut random)?;
 
     // search on non palyndrome, find phrase with no slop, using exact phrase scorer
     // slop=0 to use exact phrase scorer
@@ -1401,7 +1401,7 @@ mod tests {
   #[test]
   fn test_rewrite() -> Result<()> {
     let mut random = random();
-    let searcher = before_class(&mut random)?;
+    let searcher = set_up(&mut random)?;
 
     let pq: Query = PhraseQuery::from_terms(0, "foo", &["bar"])?.into();
     let rewritten = pq.rewrite(&searcher)?;

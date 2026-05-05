@@ -144,6 +144,14 @@ where
     self.token_filter_base.close()
   }
 
+  fn set_reader(&mut self, input: crate::core::analysis::reader::ReaderEnum) -> Result<()> {
+    self.token_filter_base.input.set_reader(input)
+  }
+
+  fn set_reader_test_point(&mut self) -> Result<()> {
+    self.token_filter_base.input.set_reader_test_point()
+  }
+
   fn get_attribute_source(&self) -> &Attributes {
     self.token_filter_base.input.get_attribute_source()
   }

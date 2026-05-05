@@ -55,4 +55,8 @@ impl Analyzer for DummyAnalyzer {
   fn get_offset_gap(&self, _field_name: &str) -> i32 {
     dummy_unreachable!()
   }
+
+  fn default_get_offset_gap(&self, _field_name: &str) -> i32 {
+    dummy_unreachable!()
+  }
 }
