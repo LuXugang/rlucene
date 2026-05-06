@@ -69,6 +69,7 @@ pub fn default_attribute() -> Attributes {
     .expect("new PackedTokenAttributeImpl should never failed")
     .into()
 }
+#[macro_export]
 macro_rules! either_token_stream {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
         $vis enum $name<$( $T ),+> {
@@ -133,7 +134,6 @@ macro_rules! either_token_stream {
 }
 either_token_stream!(pub TokenStreamEnum { Whitespace: A, Dummy: B });
 either_token_stream!(pub TokenStreamEnum2 { A: A, B: B });
-either_token_stream!(pub IndexingTokenStreamEnum3 { A: A, B: B,C:C });
 either_token_stream!(pub TokenStreamEnum4 { Whitespace: A, Standard: B, Dummy: C, Custom: D });
 
 type CustomAnalyzerTokenStream = Box<dyn TokenStream + Send + Sync>;

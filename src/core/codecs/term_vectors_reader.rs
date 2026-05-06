@@ -178,7 +178,7 @@ where
 #[cfg(test)]
 mod tests {
   use crate::core::analysis::analyzer::{
-    Analyzer, AnalyzerBase, AnalyzerEnum, BoxedAnalyzer, GlobalReuseStrategy, TokenStreamComponents,
+    Analyzer, AnalyzerEnum, BoxedAnalyzer, TokenStreamComponents,
   };
   use crate::core::analysis::reader::ReaderEnum;
   use crate::core::analysis::token_stream::{TokenStream, default_attribute};
@@ -723,16 +723,12 @@ mod tests {
   }
 
   struct MyAnalyzer {
-    base: AnalyzerBase<GlobalReuseStrategy>,
     tokens: Vec<TestToken>,
   }
 
   impl MyAnalyzer {
     fn new(tokens: Vec<TestToken>) -> Self {
-      Self {
-        base: AnalyzerBase::new(),
-        tokens,
-      }
+      Self { tokens }
     }
   }
 

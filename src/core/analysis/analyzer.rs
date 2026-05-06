@@ -362,27 +362,6 @@ impl ReuseStrategy for ReuseStrategyEnum {
     }
   }
 }
-pub struct AnalyzerBase<RS>
-where
-  RS: ReuseStrategy,
-{
-  reuse_strategy: RS,
-}
-impl AnalyzerBase<GlobalReuseStrategy> {
-  pub(crate) fn new() -> Self {
-    Self {
-      reuse_strategy: GlobalReuseStrategy::default(),
-    }
-  }
-}
-impl<RS> AnalyzerBase<RS>
-where
-  RS: ReuseStrategy,
-{
-  fn with_rs(reuse_strategy: RS) -> Self {
-    Self { reuse_strategy }
-  }
-}
 
 pub trait ReuseStrategy {
   fn get_reusable_components(

@@ -18,12 +18,10 @@
 
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{
-  AnalyzerTokenStreams, IndexingTokenStreamEnum3, TokenStreamEnum2,
-};
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStreamEnum2};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
-use crate::core::document::field::FieldDataEnum;
 use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
+use crate::core::document::field::{FieldDataEnum, IndexingTokenStreamEnum3};
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;

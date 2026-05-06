@@ -17,9 +17,7 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_attributes::packed_token_and_binary::BinaryTokenStreamAttributeImpl;
-use crate::core::analysis::token_stream::{
-  AnalyzerTokenStreams, IndexingTokenStreamEnum3, TokenStream, TokenStreamBase,
-};
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream, TokenStreamBase};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
@@ -34,7 +32,7 @@ use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
-use crate::impl_from_for_enum;
+use crate::{either_token_stream, impl_from_for_enum};
 use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -528,7 +526,7 @@ impl IndexableField for Field {
           },
         }
 
-        return Ok(Some(IndexingTokenStreamEnum3::B(
+        return Ok(Some(IndexingTokenStreamEnum3::Reused(
           reuse_token_stream.as_mut().unwrap(),
         )));
       }
@@ -548,7 +546,7 @@ impl IndexableField for Field {
           },
         }
 
-        return Ok(Some(IndexingTokenStreamEnum3::B(
+        return Ok(Some(IndexingTokenStreamEnum3::Reused(
           reuse_token_stream.as_mut().unwrap(),
         )));
       }
@@ -559,9 +557,11 @@ impl IndexableField for Field {
     debug_assert!(reuse_token_stream.is_none());
 
     if let Some(v) = self.token_stream_value()? {
-      Ok(Some(IndexingTokenStreamEnum3::C(v)))
+      Ok(Some(IndexingTokenStreamEnum3::FieldTokenStream(v)))
     } else if let Some(token_stream) = token_stream {
-      Ok(Some(IndexingTokenStreamEnum3::A(token_stream)))
+      Ok(Some(IndexingTokenStreamEnum3::AnalyzerTokenStream(
+        token_stream,
+      )))
     } else {
       Err(LuceneError::illegal_state(
         "not initialized Analyzer's token stream in IndexableField::init_token_stream()?",
@@ -994,7 +994,7 @@ impl TokenStream for StringTokenStream {
     &mut self.token_stream_base.att
   }
 }
-
+either_token_stream!(pub IndexingTokenStreamEnum3 { AnalyzerTokenStream: A, Reused: B,FieldTokenStream:C });
 #[cfg(test)]
 mod tests {
 

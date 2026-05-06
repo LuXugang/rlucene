@@ -14,9 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::{
-  Analyzer, AnalyzerBase, GlobalReuseStrategy, TokenStreamComponents,
-};
+use crate::core::analysis::analyzer::{Analyzer, TokenStreamComponents};
 use crate::core::analysis::char_array_set::CharArraySet;
 use crate::core::analysis::filtering_token_filter::FilteringTokenFilter;
 use crate::core::analysis::lower_case_filter::LowerCaseFilter;
@@ -35,7 +33,6 @@ pub const DEFAULT_MAX_TOKEN_LENGTH: usize = 255;
 /// Filters `StandardTokenizer` with `LowerCaseFilter` and `StopFilter`,
 /// using a configurable list of stop words.
 pub struct StandardAnalyzer {
-  base: AnalyzerBase<GlobalReuseStrategy>,
   max_token_length: usize,
   stop_words: Arc<CharArraySet>,
 }
@@ -50,7 +47,6 @@ impl StandardAnalyzer {
   pub fn new() -> Self {
     let stop_words = Arc::new(init_stop_wors(None));
     Self {
-      base: AnalyzerBase::new(),
       max_token_length: DEFAULT_MAX_TOKEN_LENGTH,
       stop_words,
     }

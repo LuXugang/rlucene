@@ -363,7 +363,7 @@ pub fn to_automaton(
 #[cfg(test)]
 pub(crate) mod tests {
   use crate::core::analysis::analyzer::{
-    Analyzer, AnalyzerBase, AnalyzerEnum, BoxedAnalyzer, GlobalReuseStrategy, TokenStreamComponents,
+    Analyzer, AnalyzerEnum, BoxedAnalyzer, TokenStreamComponents,
   };
   use crate::core::analysis::reader::Reader;
   use crate::core::analysis::token_stream::{TokenStream, default_attribute};
@@ -894,16 +894,11 @@ pub(crate) mod tests {
       }))
     }
   }
-  pub struct SingleCharAnalyzer {
-    base: AnalyzerBase<GlobalReuseStrategy>,
-  }
+  pub struct SingleCharAnalyzer;
 
   impl SingleCharAnalyzer {
-    #[allow(dead_code)]
     pub fn new() -> Self {
-      Self {
-        base: AnalyzerBase::new(),
-      }
+      Self {}
     }
   }
 
