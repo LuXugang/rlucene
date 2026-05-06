@@ -79,3 +79,4 @@ mod test_sum_doc_freq;
 mod test_terms;
 mod test_tiered_merge_policy;
 mod test_unique_term_count;
+mod test_upgrade_index_merge_policy;
