@@ -19,6 +19,7 @@ pub(crate) mod canned_token_stream;
 pub mod mock_analyzer;
 pub(crate) mod mock_char_filter;
 pub(crate) mod mock_fixed_length_payload_filter;
+pub(crate) mod mock_payload_analyzer;
 mod mock_token_filter;
 pub mod mock_tokenizer;
 pub(crate) mod mock_variable_length_payload_filter;
