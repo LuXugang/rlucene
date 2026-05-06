@@ -62,7 +62,7 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 pub struct TestPayloads;
 
-// #[test]
+#[test]
 fn test_payload() -> Result<()> {
   let payload: BytesRef<Vec<u8>> = BytesRef::from_string("This is a test!");
   assert_eq!("This is a test!".len(), payload.length);
@@ -78,7 +78,8 @@ fn test_payload() -> Result<()> {
 
   Ok(())
 }
-
+// Tests whether the DocumentWriter and SegmentMerger correctly enable the
+// payload bit in the FieldInfo
 // #[test]
 fn test_payload_field_bit() -> Result<()> {
   let mut random = random();
@@ -96,6 +97,9 @@ fn test_payload_field_bit() -> Result<()> {
     "This field has no payloads",
     Store::No,
   )?);
+  // this field will have payloads in all docs, however not for all term positions,
+  // so this field is used to check if the DocumentWriter correctly enables the payloads bit
+  // even if only some term positions have payloads
   d.add(TextField::from_string(
     "f2",
     "This field has payloads in all docs",
@@ -106,6 +110,9 @@ fn test_payload_field_bit() -> Result<()> {
     "This field has payloads in all docs NO PAYLOAD",
     Store::No,
   )?);
+  // this field is used to verify if the SegmentMerger enables payloads for a field if it has
+  // payloads
+  // enabled in only some documents
   d.add(TextField::from_string(
     "f3",
     "This field has payloads in some docs",
@@ -405,160 +412,6 @@ fn generate_terms(field_name: &str, n: usize) -> Vec<Term> {
 
   terms
 }
-
-// #[test]
-fn test_across_fields() -> Result<()> {
-  let mut random = random();
-  let dir = new_directory_shared(&mut random)?;
-  let analyzer =
-    MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
-  let writer = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer);
-  let mut doc = Document::new();
-  doc.add(TextField::from_string(
-    "hasMaybepayload",
-    "here we go",
-    Store::Yes,
-  )?);
-  writer.add_document(doc)?;
-  writer.close()?;
-
-  let analyzer =
-    MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
-  let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
-  let mut doc = Document::new();
-  doc.add(TextField::from_string(
-    "hasMaybepayload2",
-    "here we go",
-    Store::Yes,
-  )?);
-  writer.add_document(doc.clone())?;
-  writer.add_document(doc)?;
-  writer.force_merge(1)?;
-  writer.close()?;
-
-  Ok(())
-}
-/// some docs have payload att, some not
-// #[test]
-fn test_mixup_docs() -> Result<()> {
-  let mut random = random();
-  let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
-  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
-  let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
-
-  let mut doc = Document::new();
-  let v = random_from_seed(random.random());
-  let mut ts = MockTokenizer::new(v);
-  ts.set_reader(StringReader::new("here we go").into())?;
-  let mut field = Field::from_token_stream(
-    "field",
-    FieldTokenStreamEnum::custom(ts),
-    text_field_type::TYPE_NOT_STORED.clone(),
-  )?;
-  doc.add(field.clone());
-  writer.add_document(doc.clone())?;
-
-  let mut with_payload = token::with_range(Some("withPayload"), 0, 11)?;
-  with_payload
-    .sub
-    .token
-    .set_payload(Some(BytesRef::from_string("test")));
-  assert!(
-    with_payload
-      .get_attribute_name()?
-      .contains(payload_attribute::NAME)
-  );
-  field.set_token_stream(FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![
-    with_payload,
-  ])))?;
-  let mut doc = Document::new();
-  doc.add(field.clone());
-  writer.add_document(doc)?;
-
-  let v = random_from_seed(random.random());
-  let mut ts = MockTokenizer::new(v);
-  ts.set_reader(StringReader::new("another").into())?;
-  field.set_token_stream(FieldTokenStreamEnum::custom(ts))?;
-  let mut doc = Document::new();
-  doc.add(field);
-  writer.add_document(doc)?;
-
-  let reader = writer.get_reader()?;
-  let terms = get_terms(&reader, "field")?.unwrap();
-  let mut te = terms.iterator()?;
-  assert!(te.seek_exact(&BytesRef::from_string("withPayload"))?);
-  let mut de = te.postings_with_flags(None, PAYLOADS as i32)?;
-  de.next_doc()?;
-  de.next_position()?;
-  assert_eq!(
-    &BytesRef::from_string("test"),
-    de.get_payload()?
-      .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
-      .as_ref()
-  );
-  writer.close()?;
-
-  Ok(())
-}
-
-/// some field instances have payload att, some not
-// #[test]
-fn test_mixup_multi_valued() -> Result<()> {
-  let mut random = random();
-  let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir);
-  let mut doc = Document::new();
-  let v = random_from_seed(random.random());
-  let mut ts = MockTokenizer::new(v);
-  ts.set_reader(StringReader::new("here we go").into())?;
-  let field = Field::from_token_stream(
-    "field",
-    FieldTokenStreamEnum::custom(ts),
-    text_field_type::TYPE_NOT_STORED.clone(),
-  )?;
-  doc.add(field);
-
-  let mut t = token::with_range(Some("withPayload"), 0, 11)?;
-  t.sub.token.set_payload(Some(BytesRef::from_string("test")));
-  assert!(t.get_attribute_name()?.contains(payload_attribute::NAME));
-  let fields2 = Field::from_token_stream(
-    "field",
-    FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![t])),
-    text_field_type::TYPE_NOT_STORED.clone(),
-  )?;
-  doc.add(fields2);
-
-  let v = random_from_seed(random.random());
-  let mut ts =
-    MockTokenizer::with_default_max_token_length(v, mock_tokenizer::WHITESPACE.clone(), true);
-  ts.set_reader(StringReader::new("nopayload").into())?;
-  let field3 = Field::from_token_stream(
-    "field",
-    FieldTokenStreamEnum::custom(ts),
-    text_field_type::TYPE_NOT_STORED.clone(),
-  )?;
-  doc.add(field3);
-  writer.add_document(doc)?;
-
-  let reader = writer.get_reader()?;
-  let leaf = get_only_leaf_reader(&reader)?;
-  let mut de = leaf
-    .postings(&Term::from_text("field", "withPayload"))?
-    .ok_or_else(|| LuceneError::illegal_state("withPayload postings not found"))?;
-  de.next_doc()?;
-  de.next_position()?;
-  assert_eq!(
-    &BytesRef::from_string("test"),
-    de.get_payload()?
-      .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
-      .as_ref()
-  );
-  writer.close()?;
-
-  Ok(())
-}
 fn assert_byte_array_equals(b1: &[u8], b2: &[u8]) {
   assert_eq!(
     b1.len(),
@@ -677,7 +530,6 @@ impl From<PayloadAnalyzer> for AnalyzerEnum {
     }))
   }
 }
-
 struct PayloadFilter<TS>
 where
   TS: TokenStream,
@@ -858,4 +710,166 @@ impl ByteArrayPool {
   fn size(&self) -> usize {
     self.pool.lock().len()
   }
+}
+
+#[test]
+fn test_across_fields() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer =
+    MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let writer = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer);
+  let mut doc = Document::new();
+  doc.add(TextField::from_string(
+    "hasMaybepayload",
+    "here we go",
+    Store::Yes,
+  )?);
+  writer.add_document(doc)?;
+  writer.close()?;
+  drop(writer);
+
+  let analyzer =
+    MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), true);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
+  let mut doc = Document::new();
+  doc.add(TextField::from_string(
+    "hasMaybepayload2",
+    "here we go",
+    Store::Yes,
+  )?);
+  writer.add_document(doc.clone())?;
+  writer.add_document(doc)?;
+  writer.force_merge(1)?;
+  writer.close()?;
+
+  Ok(())
+}
+/// some docs have payload att, some not
+#[test]
+fn test_mixup_docs() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
+
+  let mut doc = Document::new();
+  let v = random_from_seed(random.random());
+  let mut ts = MockTokenizer::new(v);
+  ts.set_reader(StringReader::new("here we go").into())?;
+  let field = Field::from_token_stream(
+    "field",
+    FieldTokenStreamEnum::custom(ts),
+    text_field_type::TYPE_NOT_STORED.clone(),
+  )?;
+  doc.add(field);
+  writer.add_document(doc)?;
+
+  let mut with_payload = token::with_range(Some("withPayload"), 0, 11)?;
+  with_payload
+    .sub
+    .token
+    .set_payload(Some(BytesRef::from_string("test")));
+  assert!(
+    with_payload
+      .get_attribute_name()?
+      .contains(payload_attribute::NAME)
+  );
+  let field = Field::from_token_stream(
+    "field",
+    FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![with_payload])),
+    text_field_type::TYPE_NOT_STORED.clone(),
+  )?;
+  let mut doc = Document::new();
+  doc.add(field);
+  writer.add_document(doc)?;
+
+  let v = random_from_seed(random.random());
+  let mut ts =
+    MockTokenizer::with_default_max_token_length(v, mock_tokenizer::WHITESPACE.clone(), true);
+  ts.set_reader(StringReader::new("another").into())?;
+  let field = Field::from_token_stream(
+    "field",
+    FieldTokenStreamEnum::custom(ts),
+    text_field_type::TYPE_NOT_STORED.clone(),
+  )?;
+  let mut doc = Document::new();
+  doc.add(field);
+  writer.add_document(doc)?;
+
+  let reader = writer.get_reader()?;
+  let terms = get_terms(&reader, "field")?.unwrap();
+  let mut te = terms.iterator()?;
+  assert!(te.seek_exact(&BytesRef::from_string("withPayload"))?);
+  let mut de = te.postings_with_flags(None, PAYLOADS as i32)?;
+  de.next_doc()?;
+  de.next_position()?;
+  assert_eq!(
+    &BytesRef::from_string("test"),
+    de.get_payload()?
+      .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
+      .as_ref()
+  );
+  writer.close()?;
+
+  Ok(())
+}
+
+/// some field instances have payload att, some not
+#[test]
+fn test_mixup_multi_valued() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let writer = RandomIndexWriter::new(&mut random, dir);
+  let mut doc = Document::new();
+  let v = random_from_seed(random.random());
+  let mut ts = MockTokenizer::new(v);
+  ts.set_reader(StringReader::new("here we go").into())?;
+  let field = Field::from_token_stream(
+    "field",
+    FieldTokenStreamEnum::custom(ts),
+    text_field_type::TYPE_NOT_STORED.clone(),
+  )?;
+  doc.add(field);
+
+  let mut t = token::with_range(Some("withPayload"), 0, 11)?;
+  t.sub.token.set_payload(Some(BytesRef::from_string("test")));
+  assert!(t.get_attribute_name()?.contains(payload_attribute::NAME));
+  let fields2 = Field::from_token_stream(
+    "field",
+    FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![t])),
+    text_field_type::TYPE_NOT_STORED.clone(),
+  )?;
+  doc.add(fields2);
+
+  let v = random_from_seed(random.random());
+  let mut ts =
+    MockTokenizer::with_default_max_token_length(v, mock_tokenizer::WHITESPACE.clone(), true);
+  ts.set_reader(StringReader::new("nopayload").into())?;
+  let field3 = Field::from_token_stream(
+    "field",
+    FieldTokenStreamEnum::custom(ts),
+    text_field_type::TYPE_NOT_STORED.clone(),
+  )?;
+  doc.add(field3);
+  writer.add_document(doc)?;
+
+  let reader = writer.get_reader()?;
+  let leaf = get_only_leaf_reader(&reader)?;
+  let mut de = leaf
+    .postings_with_flag(&Term::from_text("field", "withPayload"), PAYLOADS as i32)?
+    .ok_or_else(|| LuceneError::illegal_state("withPayload postings not found"))?;
+  de.next_doc()?;
+  de.next_position()?;
+  assert_eq!(
+    &BytesRef::from_string("test"),
+    de.get_payload()?
+      .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
+      .as_ref()
+  );
+  writer.close()?;
+
+  Ok(())
 }
