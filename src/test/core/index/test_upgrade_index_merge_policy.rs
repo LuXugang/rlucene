@@ -20,16 +20,13 @@ use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::upgrade_index_merge_policy::UpgradeIndexMergePolicy;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::index::base_merge_policy_test_case::{
-  BaseMergePolicyTestCase, FakeDirectory,
-};
+use crate::test::core::index::base_merge_policy_test_case::BaseMergePolicyTestCase;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_tiered_merge_policy, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;
-use std::sync::Arc;
 
 struct TestUpgradeIndexMergePolicy;
 
@@ -75,9 +72,9 @@ impl BaseMergePolicyTestCase for TestUpgradeIndexMergePolicy {
 }
 mod base_merge_policy_test_case_tests {
   use super::*;
-  use std::sync::Arc;
   use crate::test::core::index::base_merge_policy_test_case::FakeDirectory;
   use crate::test::core::index::test_upgrade_index_merge_policy::run_case;
+  use std::sync::Arc;
 
   #[test]
   fn test_force_merge_not_needed() -> crate::core::util::error::lucene_error::Result<()> {
@@ -112,5 +109,4 @@ mod base_merge_policy_test_case_tests {
       case.test_no_pathological_merges(random, &mp, Arc::new(FakeDirectory::new()))
     })
   }
-
 }

@@ -27,70 +27,42 @@ use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::version::LATEST;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-/// This [`MergePolicy`] is used for upgrading all existing segments of an index when calling
-/// [`IndexWriter::force_merge`].
-///
-/// All other methods delegate to the base [`MergePolicy`] given to the constructor. This allows
-/// for an as-cheap-as possible upgrade of an older index by only upgrading segments that are
-/// created by previous Lucene versions. `force_merge` does no longer really merge; it is just
-/// used to "force_merge" older segment versions away.
-///
-/// In general one would use `IndexUpgrader`, but for a fully customizable upgrade, you can use
-/// this like any other [`MergePolicy`] and call [`IndexWriter::force_merge`]:
-///
-/// ```ignore
-/// let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
-/// iwc.set_merge_policy(UpgradeIndexMergePolicy::new(iwc.get_merge_policy().clone()));
-/// let w = IndexWriter::new(dir, iwc)?;
-/// w.force_merge(1)?;
-/// w.close()?;
-/// ```
-///
-/// **Warning:** This merge policy may reorder documents if the index was partially upgraded
-/// before calling `force_merge` (e.g., documents were added). If your application relies on
-/// "monotonicity" of doc IDs (which means that the order in which the documents were added to
-/// the index is preserved), do a `force_merge(1)` instead. Please note, the delegate
-/// [`MergePolicy`] may also reorder documents.
-///
-/// @see IndexUpgrader
 #[derive(Clone)]
-pub struct UpgradeIndexMergePolicy {
+pub struct MergeOnFlushMergePolicy {
   base: MergePolicyBase,
   inner: Box<MergePolicyEnum>,
+  small_segment_threshold_bytes: i64,
 }
 
-impl UpgradeIndexMergePolicy {
-  /// Wrap the given [`MergePolicy`] and intercept `force_merge` requests to only upgrade
-  /// segments written with previous Lucene versions.
+impl MergeOnFlushMergePolicy {
   pub fn new(inner: MergePolicyEnum) -> Self {
     Self {
       base: MergePolicyBase::default(),
       inner: Box::new(inner),
+      small_segment_threshold_bytes: Units::mb_to_bytes(100.0),
     }
   }
 
-  /// Returns `true` if the given segment should be upgraded.
-  ///
-  /// The default implementation returns `sci.info.get_version_ref() != Some(&*LATEST)`,
-  /// so all segments created with a different version number than this Lucene version will
-  /// get upgraded.
-  pub fn should_upgrade_segment<D: Directory>(sci: &SegmentCommitInfo<D>) -> bool {
-    sci.info.get_version_ref() != Some(&*LATEST)
+  pub fn get_small_segment_threshold_mb(&self) -> f64 {
+    Units::bytes_to_mb(self.small_segment_threshold_bytes)
+  }
+
+  pub fn set_small_segment_threshold_mb(&mut self, small_segment_threshold_mb: f64) {
+    self.small_segment_threshold_bytes = Units::mb_to_bytes(small_segment_threshold_mb);
   }
 }
 
-impl Display for UpgradeIndexMergePolicy {
+impl Display for MergeOnFlushMergePolicy {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 
-impl MergePolicy for UpgradeIndexMergePolicy {
+impl MergePolicy for MergeOnFlushMergePolicy {
   fn get_base(&self) -> &MergePolicyBase {
     &self.base
   }
@@ -138,61 +110,13 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    // first find all old segments
-    let mut old_segments: HashMap<String, Option<bool>> = HashMap::new();
-    for i in 0..segment_infos.size() {
-      if let Some(sci) = segment_infos.info(i) {
-        let seg_key = sci.info.get_id_key().to_string();
-        if let Some(v) = segments_to_merge.get(&seg_key)
-          && Self::should_upgrade_segment(sci)
-        {
-          old_segments.insert(seg_key, *v);
-        }
-      }
-    }
-
-    if old_segments.is_empty() {
-      return Ok(None);
-    }
-
-    let mut spec = self.inner.find_forced_merges(
+    self.inner.find_forced_merges(
       segment_infos,
       max_segment_count,
-      &old_segments,
+      segments_to_merge,
       inner,
       merge_context,
-    )?;
-
-    // remove segments that the inner policy decided to merge
-    if let Some(ref spec_inner) = spec {
-      for om in &spec_inner.merges {
-        for seg_key in &om.stat.segments {
-          old_segments.remove(seg_key);
-        }
-      }
-    }
-
-    // merge any remaining old segments that the inner policy didn't handle
-    if !old_segments.is_empty() {
-      let mut new_infos: Vec<SegmentDocAndID> = Vec::new();
-      for i in 0..segment_infos.size() {
-        if let Some(sci) = segment_infos.info(i) {
-          let seg_key = sci.info.get_id_key().to_string();
-          if old_segments.contains_key(&seg_key) {
-            new_infos.push(SegmentDocAndID::new(seg_key, sci.info.max_doc()?));
-          }
-        }
-      }
-      if !new_infos.is_empty() {
-        let merge = OneMerge::new(new_infos)?;
-        if spec.is_none() {
-          spec = Some(MergeSpecificationNoReader::new());
-        }
-        spec.as_mut().unwrap().add(merge);
-      }
-    }
-
-    Ok(spec)
+    )
   }
 
   fn find_forced_deletes_merges<D, MC>(
@@ -212,7 +136,7 @@ impl MergePolicy for UpgradeIndexMergePolicy {
 
   fn find_full_flush_merges<D, MC>(
     &self,
-    merge_trigger: MergeTrigger,
+    _merge_trigger: MergeTrigger,
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
@@ -221,9 +145,26 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    self
-      .inner
-      .find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+    let merging_segments = merge_context.get_merging_segments(inner);
+    let mut small_segments = Vec::new();
+    for sci in segment_infos.iter() {
+      if sci.size_in_bytes()? < self.small_segment_threshold_bytes
+        && !merging_segments.contains(sci.info.get_id_key())
+      {
+        small_segments.push(SegmentDocAndID::new(
+          sci.info.get_id_key().to_string(),
+          sci.info.max_doc()?,
+        ));
+      }
+    }
+
+    if small_segments.len() > 1 {
+      let mut merge_spec = MergeSpecificationNoReader::new();
+      merge_spec.add(OneMerge::new(small_segments)?);
+      Ok(Some(merge_spec))
+    } else {
+      Ok(None)
+    }
   }
 
   fn use_compound_file<D, MC>(
@@ -311,5 +252,17 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     D: Directory,
   {
     self.inner.verbose(merge_context)
+  }
+}
+
+pub struct Units;
+
+impl Units {
+  pub fn bytes_to_mb(bytes: i64) -> f64 {
+    bytes as f64 / 1024.0 / 1024.0
+  }
+
+  pub fn mb_to_bytes(megabytes: f64) -> i64 {
+    (megabytes * 1024.0 * 1024.0) as i64
   }
 }
