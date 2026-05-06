@@ -2725,7 +2725,7 @@ where
     let index_bytes =
       data.random_access_slice(entry.terms_index_offset, entry.terms_index_length)?;
 
-    let term = BytesRef::with_capacity(entry.max_term_length as usize);
+    let term = BytesRef::with_capacity(entry.max_term_length as usize)?;
     // add the max term length for the dictionary
     // add 7 padding bytes can help decompression run faster.
     let buffer_size =

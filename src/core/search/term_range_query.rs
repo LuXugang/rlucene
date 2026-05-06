@@ -376,7 +376,10 @@ pub(crate) mod tests {
   use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
   use crate::core::index::index_writer_config::OpenMode;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-  use crate::core::search::index_searcher::IndexSearcher;
+  use crate::core::search::index_searcher::{
+    IndexSearcher, get_max_clause_count, set_max_clause_count,
+  };
+  use crate::core::search::multi_term_query::TopTermsScoringBooleanQueryRewrite;
   use crate::core::search::query::Query;
   use crate::core::search::term_range_query::TermRangeQuery;
   use crate::core::store::directory::Directory;
@@ -506,37 +509,40 @@ pub(crate) mod tests {
   /// terms is put into the range
   #[test]
   fn test_top_terms_rewrite() -> Result<()> {
-    // TODO IMPORTANT
-    // let mut random = random();
-    // let dir = new_directory_shared(&mut random)?;
-    // let mut field_types = HashMap::new();
-    //
-    // initialize_index(
-    //     &mut random,
-    //     dir.clone(),
-    //     &["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"],
-    //     &mut field_types,
-    // )?;
-    //
-    // let reader = directory_reader::open(dir.clone())?;
-    // let searcher = new_searcher_with_reader(reader)?;
-    //
-    // let rewrite_method = TopTermsScoringBooleanQueryRewrite::new(50);
-    // let query = TermRangeQuery::new_string_range_with_rewrite(
-    //     "content",
-    //     Some("B"),
-    //     Some("J"),
-    //     true,
-    //     true,
-    //     rewrite_method,
-    // )?;
-    //
-    // check_boolean_terms(&searcher, query.clone(), &["B", "C", "D", "E", "F", "G", "H", "I", "J"])?;
-    //
-    // let saved_clause_count = get_max_clause_count();
-    // set_max_clause_count(3);
-    // check_boolean_terms(&searcher, query.clone(), &["B", "C", "D"])?;
-    // set_max_clause_count(saved_clause_count);
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut field_types = HashMap::new();
+
+    initialize_index(
+      &mut random,
+      dir.clone(),
+      &["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"],
+      &mut field_types,
+    )?;
+
+    let reader = directory_reader::open(dir.clone())?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let rewrite_method = TopTermsScoringBooleanQueryRewrite::new(50);
+    let query = TermRangeQuery::new_string_range_with_rewrite(
+      "content",
+      Some("B"),
+      Some("J"),
+      true,
+      true,
+      rewrite_method,
+    )?;
+
+    check_boolean_terms(
+      &searcher,
+      query.clone(),
+      &["B", "C", "D", "E", "F", "G", "H", "I", "J"],
+    )?;
+
+    let saved_clause_count = get_max_clause_count();
+    set_max_clause_count(3)?;
+    check_boolean_terms(&searcher, query.clone(), &["B", "C", "D"])?;
+    set_max_clause_count(saved_clause_count)?;
     Ok(())
   }
 

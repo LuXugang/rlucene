@@ -503,10 +503,10 @@ where
         (
           Some(BytesRef::with_capacity(
             reader.max_impact_num_bytes_at_level0 as usize,
-          )),
+          )?),
           Some(BytesRef::with_capacity(
             reader.max_impact_num_bytes_at_level1 as usize,
-          )),
+          )?),
           MutableImpactList::with_capacity(reader.max_num_impacts_at_level0.try_convert()?),
           MutableImpactList::with_capacity(reader.max_num_impacts_at_level1.try_convert()?),
         )

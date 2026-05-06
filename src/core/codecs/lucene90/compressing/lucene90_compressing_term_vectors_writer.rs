@@ -180,7 +180,7 @@ where
       pending_docs: VecDeque::new(),
       cur_doc: 0,
       cur_field: 0,
-      last_term: BytesRef::with_capacity(ArrayUtil::oversize(30, 1)),
+      last_term: BytesRef::with_capacity(ArrayUtil::oversize(30, 1))?,
       positions_buf: vec![0; 1024],
       start_offsets_buf: vec![0; 1024],
       lengths_buf: vec![0; 1024],

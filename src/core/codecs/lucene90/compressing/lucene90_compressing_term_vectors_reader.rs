@@ -1210,7 +1210,7 @@ impl Terms for TVTerms {
         self.term_bytes.offset,
         self.term_bytes.length,
       ),
-    );
+    )?;
     Ok(terms_enum)
   }
 
@@ -1293,7 +1293,7 @@ impl TVTermsEnum {
     payload_index: Rc<Vec<usize>>,
     payloads: BytesRef<Rc<Vec<u8>>>,
     input: ByteArrayDataInput<Rc<Vec<u8>>>,
-  ) -> Self {
+  ) -> Result<Self> {
     let start_pos = input.get_position();
     debug_assert!(start_pos <= i32::MAX as usize);
 
@@ -1311,11 +1311,11 @@ impl TVTermsEnum {
       input,
       start_pos,
       ord: None,
-      term: BytesRef::with_capacity(16),
+      term: BytesRef::with_capacity(16)?,
     };
 
     term_enum.reset();
-    term_enum
+    Ok(term_enum)
   }
   pub fn reset(&mut self) {
     self.term.length = 0;

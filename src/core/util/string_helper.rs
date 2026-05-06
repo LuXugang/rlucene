@@ -307,7 +307,7 @@ impl StringHelper {
     AV: SharedAccessVec<i32>,
     AV1: SharedAccessVec<u8> + WritableVec<u8>,
   {
-    let mut bytes = AV1::with_capacity(ints.length);
+    let mut bytes = AV1::with_capacity(ints.length)?;
     for i in 0..ints.length {
       ints.ints.access(|v| {
         let x = v[ints.offset + i];
@@ -317,7 +317,7 @@ impl StringHelper {
           )));
         }
         bytes.access_mut(|v| {
-          v.push(x as u8);
+          v[i] = x as u8;
         });
         // Help the compiler infer types.
         Ok::<(), LuceneError>(())

@@ -16,6 +16,7 @@
  */
 use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -89,7 +90,7 @@ pub trait SharedAccessVec<T>: Clone + Default {
     F: FnOnce(&Vec<T>) -> R;
   fn slice_clone(&self, offset: usize, length: usize) -> Self;
   fn new() -> Self;
-  fn with_capacity(capacity: usize) -> Self;
+  fn with_capacity(capacity: usize) -> Result<Self>;
   fn from_vec(v: Vec<T>) -> Self;
 }
 
@@ -113,8 +114,8 @@ where
     Vec::new()
   }
 
-  fn with_capacity(capacity: usize) -> Self {
-    vec![T::default(); capacity]
+  fn with_capacity(capacity: usize) -> Result<Self> {
+    Ok(vec![T::default(); capacity])
   }
 
   fn from_vec(v: Vec<T>) -> Self {
@@ -142,8 +143,8 @@ where
     Rc::new(Vec::new())
   }
 
-  fn with_capacity(_capacity: usize) -> Self {
-    Rc::new(Vec::new()) // Rc<Vec<T>> can't preallocate meaningfully
+  fn with_capacity(_capacity: usize) -> Result<Self> {
+    Err(LuceneError::unsupported_operation(""))
   }
 
   fn from_vec(v: Vec<T>) -> Self {
@@ -171,8 +172,8 @@ where
     Arc::new(Vec::new())
   }
 
-  fn with_capacity(_capacity: usize) -> Self {
-    Arc::new(Vec::new()) // Rc<Vec<T>> can't preallocate meaningfully
+  fn with_capacity(_capacity: usize) -> Result<Self> {
+    Err(LuceneError::unsupported_operation(""))
   }
 
   fn from_vec(v: Vec<T>) -> Self {

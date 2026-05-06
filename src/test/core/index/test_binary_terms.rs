@@ -38,7 +38,7 @@ fn test_binary() -> Result<()> {
 
   let iw = RandomIndexWriter::new(&mut random, directory.clone());
   let mut field_types = HashMap::new();
-  let mut bytes: BytesRef<Vec<u8>> = BytesRef::with_capacity(2);
+  let mut bytes: BytesRef<Vec<u8>> = BytesRef::with_capacity(2)?;
 
   for i in 0..256u16 {
     bytes.bytes[0] = i as u8;

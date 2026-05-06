@@ -93,12 +93,12 @@ where
   }
 
   /// Create an IntsRef pointing to a new array of size `capacity`.
-  pub fn with_capacity(capacity: usize) -> Self {
-    IntsRef {
-      ints: AV::with_capacity(capacity),
+  pub fn with_capacity(capacity: usize) -> Result<Self> {
+    Ok(IntsRef {
+      ints: AV::with_capacity(capacity)?,
       offset: 0,
       length: 0,
-    }
+    })
   }
   pub fn from_slice(ints: AV, offset: usize, length: usize) -> Self {
     let instance = IntsRef {

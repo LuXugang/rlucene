@@ -40,7 +40,7 @@ where
   /// `do_floor` controls the behavior of advance: if it's true,
   /// `advance` positions to the biggest term before target.
   pub fn new(fst: FST<O, F>) -> Result<Self> {
-    let mut result_input = BytesRef::with_capacity(10);
+    let mut result_input = BytesRef::with_capacity(10)?;
     result_input.offset = 1;
     let base = FSTEnum::new(fst)?;
     Ok(Self {

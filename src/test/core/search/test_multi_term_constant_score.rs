@@ -484,14 +484,13 @@ fn test_range_query_id() -> Result<()> {
       )?
       .score_docs;
     assert_eq!(0, result.len(), "max,max,F,F");
-    // TODO IMPORTANT 测试未通过
-    // result = search
-    //     .search(
-    //       csrq("id", Some(&min_ip), Some(&min_ip), T, T, rw.clone())?,
-    //       num_docs as usize,
-    //     )?
-    //     .score_docs;
-    // assert_eq!(1, result.len(), "min,min,T,T");
+    result = search
+      .search(
+        csrq("id", Some(&min_ip), Some(&min_ip), T, T, rw.clone())?,
+        num_docs as usize,
+      )?
+      .score_docs;
+    assert_eq!(1, result.len(), "min,min,T,T");
 
     result = search
       .search(
@@ -500,14 +499,13 @@ fn test_range_query_id() -> Result<()> {
       )?
       .score_docs;
     assert_eq!(1, result.len(), "nul,min,F,T");
-    // TODO IMPORTANT 测试未通过
-    // result = search
-    //     .search(
-    //       csrq("id", Some(&max_ip), Some(&max_ip), T, T, rw.clone())?,
-    //       num_docs as usize,
-    //     )?
-    //     .score_docs;
-    // assert_eq!(1, result.len(), "max,max,T,T");
+    result = search
+      .search(
+        csrq("id", Some(&max_ip), Some(&max_ip), T, T, rw.clone())?,
+        num_docs as usize,
+      )?
+      .score_docs;
+    assert_eq!(1, result.len(), "max,max,T,T");
 
     result = search
       .search(
@@ -516,14 +514,13 @@ fn test_range_query_id() -> Result<()> {
       )?
       .score_docs;
     assert_eq!(1, result.len(), "max,nul,T,T");
-    // TODO IMPORTANT 测试未通过
-    // result = search
-    //     .search(
-    //       csrq("id", Some(&med_ip), Some(&med_ip), T, T, rw.clone())?,
-    //       num_docs as usize,
-    //     )?
-    //     .score_docs;
-    // assert_eq!(1, result.len(), "med,med,T,T");
+    result = search
+      .search(
+        csrq("id", Some(&med_ip), Some(&med_ip), T, T, rw.clone())?,
+        num_docs as usize,
+      )?
+      .score_docs;
+    assert_eq!(1, result.len(), "med,med,T,T");
   }
 
   Ok(())
@@ -632,14 +629,13 @@ fn test_range_query_rand() -> Result<()> {
       )?
       .score_docs;
     assert_eq!(0, result.len(), "max,max,F,F");
-    // TODO IMPORTANT 测试未通过
-    // result = search
-    //     .search(
-    //       csrq("rand", Some(&min_rp), Some(&min_rp), T, T, rw.clone())?,
-    //       num_docs as usize,
-    //     )?
-    //     .score_docs;
-    // assert_eq!(1, result.len(), "min,min,T,T");
+    result = search
+      .search(
+        csrq("rand", Some(&min_rp), Some(&min_rp), T, T, rw.clone())?,
+        num_docs as usize,
+      )?
+      .score_docs;
+    assert_eq!(1, result.len(), "min,min,T,T");
 
     result = search
       .search(
@@ -648,14 +644,13 @@ fn test_range_query_rand() -> Result<()> {
       )?
       .score_docs;
     assert_eq!(1, result.len(), "nul,min,F,T");
-    // TODO IMPORTANT 测试未通过
-    // result = search
-    //     .search(
-    //       csrq("rand", Some(&max_rp), Some(&max_rp), T, T, rw.clone())?,
-    //       num_docs as usize,
-    //     )?
-    //     .score_docs;
-    // assert_eq!(1, result.len(), "max,max,T,T");
+    result = search
+      .search(
+        csrq("rand", Some(&max_rp), Some(&max_rp), T, T, rw.clone())?,
+        num_docs as usize,
+      )?
+      .score_docs;
+    assert_eq!(1, result.len(), "max,max,T,T");
 
     result = search
       .search(

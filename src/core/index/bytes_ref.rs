@@ -75,12 +75,12 @@ where
     }
   }
 
-  pub fn with_capacity(capacity: usize) -> Self {
-    BytesRef {
-      bytes: AV::with_capacity(capacity),
+  pub fn with_capacity(capacity: usize) -> Result<Self> {
+    Ok(BytesRef {
+      bytes: AV::with_capacity(capacity)?,
       offset: 0,
       length: 0,
-    }
+    })
   }
   pub fn from_slice(bytes: AV, offset: usize, length: usize) -> Self {
     BytesRef {
