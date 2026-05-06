@@ -38,6 +38,10 @@ pub(crate) mod id_set_common;
 pub(crate) mod index_package_access;
 pub(crate) mod lucene_test_case;
 mod packed;
+mod test_fixed_bit_doc_id_set;
+mod test_int_array_doc_id_set;
+mod test_not_doc_id_set;
+mod test_roaring_doc_id_set;
 pub mod test_util;
 
 pub type DefaultCRReaderShared = Arc<StandardDirectoryReaderType<DirEnum>>;

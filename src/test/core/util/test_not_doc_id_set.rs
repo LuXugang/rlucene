@@ -1,0 +1,108 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::core::search::doc_id_set::{DocIdSet, EmptyDocIdSet};
+use crate::core::util::bit_doc_id_set::BitDocIdSet;
+use crate::core::util::bit_set::BitSet;
+use crate::core::util::bits::Bits;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::not_doc_id_set::NotDocIdSet;
+use crate::test::core::util::base_doc_id_set_test_case::{
+  BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
+};
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use rand::Rng;
+use rand::prelude::StdRng;
+
+pub struct TestNotDocIdSet;
+impl BaseDocIdSetTestCase for TestNotDocIdSet {
+  type DocIdSet = BitDocIdSet<FixedBitSet>;
+
+  fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> Result<Self::DocIdSet> {
+    let mut set = FixedBitSet::new(length);
+    let iter = bs.iter();
+    for doc in iter {
+      set.set(doc);
+    }
+    BitDocIdSet::new(Some(set))
+  }
+
+  fn assert_equals<R>(
+    &self,
+    random: &mut R,
+    num_bits: usize,
+    ds1: &bit_set::BitSet,
+    ds2: impl DocIdSet,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let bits = ds2.bits().ok_or_else(|| LuceneError::illegal_state(""))?;
+    assert_eq!(num_bits, bits.length());
+    for i in 0..num_bits {
+      assert_eq!(ds1.contains(i), bits.get(i)?);
+    }
+    BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
+  }
+}
+fn run_case<F>(f: F) -> Result<()>
+where
+  F: FnOnce(&TestNotDocIdSet, &mut StdRng) -> Result<()>,
+{
+  let mut random = random();
+  let case = TestNotDocIdSet;
+  f(&case, &mut random)
+}
+impl BaseDocIdSetTestCaseSupperImpl for TestNotDocIdSet {}
+
+mod base_doc_id_set_test_case {
+  use super::*;
+
+  #[test]
+  fn test_bit_0() -> Result<()> {
+    run_case(|case, random| case.test_bit_0(random))
+  }
+  #[test]
+  fn test_bit_1() -> Result<()> {
+    run_case(|case, random| case.test_bit_1(random))
+  }
+  #[test]
+  fn test_bit_2() -> Result<()> {
+    run_case(|case, random| case.test_bit_2(random))
+  }
+  #[test]
+  fn test_against_bit_set() -> Result<()> {
+    run_case(|case, random| case.test_against_bit_set(random))
+  }
+  #[test]
+  fn test_ram_bytes_used() -> Result<()> {
+    run_case(|case, random| {
+      let _: () = case.test_ram_bytes_used(random);
+      Ok(())
+    })
+  }
+}
+#[test]
+fn test_bits() -> Result<()> {
+  assert!(NotDocIdSet::new(3, EmptyDocIdSet).bits().is_none());
+  assert!(
+    NotDocIdSet::new(3, BitDocIdSet::new(Some(FixedBitSet::new(3)))?)
+      .bits()
+      .is_some()
+  );
+  Ok(())
+}
