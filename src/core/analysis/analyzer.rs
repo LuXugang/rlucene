@@ -165,17 +165,19 @@ impl_from_for_enum!(
     StandardAnalyzer => Standard,
 );
 #[cfg(test)]
-impl_from_for_enum!(
-    AnalyzerEnum,
-    MockAnalyzer=> Mock,
-    BoxedAnalyzer => Custom,
-);
+impl From<MockAnalyzer> for AnalyzerEnum {
+  fn from(v: MockAnalyzer) -> Self {
+    AnalyzerEnum::Mock(Box::new(v))
+  }
+}
+#[cfg(test)]
+impl_from_for_enum!(AnalyzerEnum, BoxedAnalyzer => Custom);
 
 pub enum AnalyzerEnum {
   Whitespace(WhitespaceAnalyzer),
   Standard(StandardAnalyzer),
   #[cfg(test)]
-  Mock(MockAnalyzer),
+  Mock(Box<MockAnalyzer>),
   #[cfg(test)]
   Custom(BoxedAnalyzer),
 }
