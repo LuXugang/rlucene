@@ -92,7 +92,7 @@ fn test() -> Result<()> {
   let analyzer = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::SIMPLE.clone(), true);
   let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
   config.set_merge_policy(new_log_merge_policy(&mut random)?);
-  config.set_similarity(SimilarityEnum::custom(TestSimilarity::default()));
+  config.set_similarity(SimilarityEnum::custom(TestSimilarity));
 
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
