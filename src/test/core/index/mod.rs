@@ -65,6 +65,7 @@ pub(crate) mod test_omit_tf;
 mod test_payloads;
 mod test_payloads_on_vectors;
 mod test_postings_offsets;
+mod test_read_only_index;
 mod test_segment_term_docs;
 mod test_segment_term_enum;
 mod test_size_bounded_force_merge;
