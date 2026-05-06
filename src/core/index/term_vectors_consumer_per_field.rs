@@ -331,7 +331,9 @@ impl TermVectorsConsumerPerField {
         if self.do_vector_positions {
           let pos = field_state.position - postings.last_positions[term_id];
 
-          if let Some(payload) = attribute_source.get_payload()? {
+          if self.do_vector_payloads
+            && let Some(payload) = attribute_source.get_payload()?
+          {
             if payload.length > 0 {
               self
                 .base

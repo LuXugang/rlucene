@@ -34,7 +34,6 @@ use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields as IndexFields;
-use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::indexable_field_type::IndexableFieldType;
@@ -2045,13 +2044,6 @@ impl Options {
 fn field_type(options: Options) -> Result<FieldType> {
   let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
   ft.set_store_term_vectors(true)?;
-  ft.set_index_options(if options.offsets() {
-    IndexOptions::DocsAndFreqsAndPositionsAndOffsets
-  } else if options.positions() {
-    IndexOptions::DocsAndFreqsAndPositions
-  } else {
-    IndexOptions::DocsAndFreqs
-  })?;
   if options.positions() {
     ft.set_store_term_vector_positions(true)?;
   }
@@ -2061,6 +2053,7 @@ fn field_type(options: Options) -> Result<FieldType> {
   if options.payloads() {
     ft.set_store_term_vector_payloads(true)?;
   }
+  ft.freeze();
   Ok(ft)
 }
 /// Randomly generated document: call toDocument to index it
