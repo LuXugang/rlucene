@@ -299,8 +299,7 @@ where
   }
 
   fn size(&self) -> Result<i32> {
-    debug_assert!(self.field_map.len() <= i32::MAX as usize);
-    Ok(self.field_map.len() as i32)
+    self.field_map.len().try_convert()
   }
 }
 impl<I, PR> Display for Lucene90BlockTreeTermsReader<I, PR>
@@ -331,6 +330,7 @@ where
 }
 
 use crate::core::index::BytesRef;
+use crate::core::util::TryIntoInt;
 use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
