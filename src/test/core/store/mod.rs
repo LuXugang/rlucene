@@ -16,6 +16,7 @@
  */
 pub mod base_data_output_test_case;
 pub mod base_directory_test_case;
+mod test_checksum_index_input;
 mod test_index_output_alignment;
 mod test_nio_fs_directory;
 mod test_tracking_directory_wrapper;

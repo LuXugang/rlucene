@@ -49,7 +49,7 @@ where
   where
     Self: Sized,
   {
-    unreachable!("unsupported operation")
+    Err(LuceneError::unsupported_operation(""))
   }
 }
 
