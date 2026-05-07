@@ -377,7 +377,6 @@ macro_rules! either_terms {
                 }
             }
 
-
             fn size(&self) -> Result<i64> {
                 match self { $( Self::$Variant(inner) => inner.size(), )+ }
             }
@@ -409,6 +408,18 @@ macro_rules! either_terms {
 
             fn has_payloads(&self) -> bool {
                 match self { $( Self::$Variant(inner) => inner.has_payloads(), )+ }
+            }
+
+            fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+                match self { $( Self::$Variant(inner) => inner.get_min(), )+ }
+            }
+
+            fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+                match self { $( Self::$Variant(inner) => inner.get_max(), )+ }
+            }
+
+            fn get_stats(&self) -> Result<String> {
+                match self { $( Self::$Variant(inner) => inner.get_stats(), )+ }
             }
         }
     };

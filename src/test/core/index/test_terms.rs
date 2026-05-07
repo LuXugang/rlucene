@@ -34,7 +34,7 @@ use rand::Rng;
 
 #[allow(dead_code)] // for quick search
 struct TestTerms;
-
+#[test]
 fn test_term_min_max_basic() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -59,6 +59,7 @@ fn test_term_min_max_basic() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_term_min_max_random() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
