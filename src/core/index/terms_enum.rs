@@ -732,6 +732,7 @@ mod tests {
   use crate::core::index::BytesRef;
   use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
   use crate::core::index::index_reader::IndexReader;
+  use crate::core::index::index_writer::MAX_TERM_LENGTH;
 
   use crate::core::index::composite_reader::{CompositeReader, get_context};
   use crate::core::index::index_reader_context::IndexReaderContext;
@@ -762,10 +763,11 @@ mod tests {
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::index::per_thread_pk_lookup::PerThreadPKLookup;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
+  use crate::test::core::util::line_file_docs::LineFileDocs;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
     new_index_writer_config_with_analyzer, new_string_field, new_text_field, random,
-    random_multiplier,
+    random_from_seed, random_multiplier,
   };
   use crate::test::core::util::test_util::TestUtil;
   use rand::Rng;
@@ -780,7 +782,91 @@ mod tests {
 
   #[test]
   fn test() -> Result<()> {
-    // TODO LineFileDocs未实现
+    let mut random = random();
+    let seed = random.random::<u64>();
+    let mut line_random = random_from_seed(seed);
+    let mut docs = LineFileDocs::new(&mut line_random)?;
+    let d = new_directory_shared(&mut random)?;
+    let mut analyzer = MockAnalyzer::new(&mut random);
+    analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
+    let w = RandomIndexWriter::with_analyzer(&mut random, d.clone(), analyzer);
+    let num_docs = at_least(&mut random, 10);
+    for _doc_count in 0..num_docs {
+      w.add_document(docs.next_doc()?)?;
+    }
+    let r = w.get_reader()?;
+    w.close()?;
+
+    let mut terms: Vec<BytesRef<Vec<u8>>> = Vec::new();
+    let mut terms_enum = get_terms(&r, "body")?
+      .expect("body terms should exist")
+      .iterator()?;
+    while let Some(term) = terms_enum.next()? {
+      terms.push(term.into_owned());
+    }
+
+    let mut upto: isize = -1;
+    let iters = at_least(&mut random, 200);
+    for _iter in 0..iters {
+      if upto != -1 && random.random_bool(0.5) {
+        let is_end = terms_enum.next()?.is_none();
+        upto += 1;
+        if is_end {
+          assert_eq!(upto as usize, terms.len());
+          upto = -1;
+        } else {
+          assert!(upto < terms.len() as isize);
+          assert_eq!(&terms[upto as usize], terms_enum.term()?.as_ref());
+        }
+      } else {
+        let target = if random.random_bool(0.5) {
+          if random.random_bool(0.5) {
+            let s = TestUtil::random_simple_string(&mut random);
+            new_bytes_ref_from_string(&mut random, &s)?
+          } else {
+            let s = TestUtil::random_realistic_unicode_string(&mut random);
+            new_bytes_ref_from_string(&mut random, &s)?
+          }
+        } else {
+          terms[random.random_range(0..terms.len())].clone()
+        };
+
+        upto = match terms.binary_search(&target) {
+          Ok(pos) => pos as isize,
+          Err(pos) => -(pos as isize) - 1,
+        };
+
+        if random.random_bool(0.5) {
+          let status = terms_enum.seek_ceil(&target)?;
+
+          if upto < 0 {
+            upto = -(upto + 1);
+            if upto >= terms.len() as isize {
+              assert_eq!(SeekStatus::End, status);
+              upto = -1;
+            } else {
+              assert_eq!(SeekStatus::NotFound, status);
+              assert_eq!(&terms[upto as usize], terms_enum.term()?.as_ref());
+            }
+          } else {
+            assert_eq!(SeekStatus::Found, status);
+            assert_eq!(&terms[upto as usize], terms_enum.term()?.as_ref());
+          }
+        } else {
+          let result = terms_enum.seek_exact(&target)?;
+          if upto < 0 {
+            assert!(!result);
+            upto = -1;
+          } else {
+            assert!(result);
+            assert_eq!(&target, terms_enum.term()?.as_ref());
+          }
+        }
+      }
+    }
+
+    r.close()?;
+    docs.close();
     Ok(())
   }
   fn add_doc<D, R>(

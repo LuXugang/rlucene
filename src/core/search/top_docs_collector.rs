@@ -222,6 +222,8 @@ mod tests {
   use crate::core::index::directory_reader;
   use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
   use crate::core::index::index_writer::IndexWriter;
+  use crate::core::index::multi_terms::get_terms;
+  use crate::core::index::terms::Terms;
 
   use crate::core::index::leaf_reader_context::LeafReaderContext;
   use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
@@ -230,6 +232,7 @@ mod tests {
   use crate::core::search::collector_manager::CollectorManager;
 
   use crate::core::document::string_field::StringField;
+  use crate::core::index::BytesRef;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::no_merge_policy::NoMergePolicy;
   use crate::core::search::boolean_clause::Occur;
@@ -254,10 +257,12 @@ mod tests {
   use crate::core::search::weight::Weight;
   use crate::core::store::directory::Directory;
   use crate::core::util::TryIntoInt;
+  use crate::core::util::bytes_ref_iterator::BytesRefIterator;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::core::util::priority_queue::PriorityQueue;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::search::check_hits::CheckHits;
+  use crate::test::core::util::line_file_docs::LineFileDocs;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
     new_searcher_with_threads, random,
@@ -1043,7 +1048,47 @@ mod tests {
   }
   #[test]
   fn test_realistic_concurrent_minimum_score() -> Result<()> {
-    // TODO LineFileDocs未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+    {
+      let mut line_docs = LineFileDocs::new(&mut random)?;
+      let num_docs = at_least(&mut random, 100);
+      for _ in 0..num_docs {
+        writer.add_document(line_docs.next_doc()?)?;
+      }
+    }
+
+    let index_reader = Arc::new(writer.get_reader()?);
+    writer.close()?;
+
+    let terms = get_terms(index_reader.clone(), "body")?
+      .ok_or_else(|| LuceneError::illegal_state("no terms for field 'body'"))?;
+
+    let mut term_count = 0;
+    {
+      let mut terms_enum = terms.iterator()?;
+      while terms_enum.next()?.is_some() {
+        term_count += 1;
+      }
+    }
+    assert!(term_count > 0);
+
+    let chance = 10.0 / term_count as f64;
+    let mut terms_enum = terms.iterator()?;
+    while let Some(term) = terms_enum.next()? {
+      if random.random::<f64>() <= chance {
+        let term_bytes = BytesRef::deep_copy_of(&*term);
+        let query: Query = TermQuery::new(Term::new("body", term_bytes)).into();
+
+        let tdc = do_concurrent_search_with_threshold(5, 0, query.clone(), index_reader.clone())?;
+        let tdc2 = do_search_with_threshold(5, 0, query.clone(), index_reader.clone())?;
+
+        CheckHits::check_equal(&query, &tdc.score_docs, &tdc2.score_docs)?;
+      }
+    }
+
     Ok(())
   }
 }

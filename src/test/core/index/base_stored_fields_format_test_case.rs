@@ -26,6 +26,8 @@ use crate::core::index::directory_reader;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::leaf_reader::LeafReader;
@@ -41,10 +43,11 @@ use crate::core::util::number::Number;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::util::line_file_docs::LineFileDocs;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, create_temp_dir_with_prefix, new_directory_shared, new_field, new_fs_directory,
-  new_index_writer_config, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  new_string_field,
+  at_least, create_temp_dir, create_temp_dir_with_prefix, new_directory_shared, new_field,
+  new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, new_string_field,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -719,7 +722,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     // addIndexesSlowly未实现
     Ok(())
   }
-
+  /// Test realistic data, which typically compresses better than random data.
   fn test_random_stored_fields_with_index_sort<R>(&self, _random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -728,11 +731,44 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_line_file_docs<R>(&self, _random: &mut R) -> Result<()>
+  fn test_line_file_docs<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT LineFileDocs未实现
+    // Use an FS dir and a non-randomized IWC to not slow down indexing
+    let dir = new_fs_directory(random, create_temp_dir()?)?;
+
+    {
+      let mut docs = LineFileDocs::new(random)?;
+      let w = IndexWriter::new(dir.clone(), IndexWriterConfig::default())?;
+
+      let num_docs = at_least(random, 10_000);
+
+      for _ in 0..num_docs {
+        // Only keep stored fields
+        let doc = docs.next_doc()?;
+        let mut stored_doc = Document::new();
+
+        for field in doc.get_fields() {
+          if field.field_type().stored() {
+            if let Some(value) = field.string_value()? {
+              // Disable indexing
+              stored_doc.add(StoredField::from_string(field.name(), value.into_owned())?);
+            } else {
+              stored_doc.add(field.clone());
+            }
+          }
+        }
+
+        w.add_document(stored_doc)?;
+      }
+
+      w.force_merge(1)?;
+      w.close()?;
+    }
+
+    TestUtil::check_index(dir)?;
+
     Ok(())
   }
 }

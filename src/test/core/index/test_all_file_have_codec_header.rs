@@ -17,10 +17,18 @@
 use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
 use crate::core::index::IndexFileNames;
 use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::term::Term;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IOContext};
 use crate::core::util::StringHelper;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::util::line_file_docs::LineFileDocs;
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+  new_directory_shared, new_index_writer_config_with_analyzer, random,
+};
+use rand::RngExt;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -28,42 +36,41 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 pub struct TestAllFilesHaveCodecHeader;
 
-// TODO LineFileDocs未实现
 #[test]
 fn test() -> Result<()> {
-  // let mut random = random();
-  // let dir = new_directory_shared(&mut random)?;
-  //
-  // let analyzer = MockAnalyzer::new(&mut random);
-  // let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
-  //
-  // let mut riw = RandomIndexWriter::with_config(&mut random, dir.clone(), conf);
-  //
-  // let mut docs = LineFileDocs::new(&mut random);
-  //
-  // for i in 0..100 {
-  //     riw.add_document(docs.next_doc()?)?;
-  //
-  //     if random.random_range(0..7) == 0 {
-  //         riw.commit()?;
-  //     }
-  //
-  //     if random.random_range(0..20) == 0 {
-  //         riw.delete_documents_with_terms(vec![Term::from_text("docid", i.to_string())])?;
-  //     }
-  //
-  //     if random.random_range(0..15) == 0 {
-  //         riw.w.update_numeric_doc_value(
-  //             Term::from_text("docid", i.to_string()),
-  //             "page_views",
-  //             i as i64,
-  //         )?;
-  //     }
-  // }
-  //
-  // riw.close()?;
-  //
-  // check_headers(dir.clone(), &mut HashMap::<String, String>::new())?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+
+  let riw = RandomIndexWriter::with_config(&mut random, dir.clone(), conf);
+
+  let mut docs = LineFileDocs::new(&mut random)?;
+
+  for i in 0..100 {
+    riw.add_document(docs.next_doc()?)?;
+
+    if random.random_range(0..7) == 0 {
+      riw.commit()?;
+    }
+
+    if random.random_range(0..20) == 0 {
+      riw.delete_documents_with_terms(vec![Term::from_text("docid", i.to_string())])?;
+    }
+
+    if random.random_range(0..15) == 0 {
+      riw.w.update_numeric_doc_value(
+        Term::from_text("docid", i.to_string()),
+        "page_views",
+        i as i64,
+      )?;
+    }
+  }
+
+  riw.close()?;
+
+  check_headers(dir.clone(), &mut HashMap::<String, String>::new())?;
   Ok(())
 }
 fn check_headers<D>(dir: Arc<D>, names_to_extensions: &mut HashMap<String, String>) -> Result<()>

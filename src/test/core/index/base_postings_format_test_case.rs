@@ -27,6 +27,9 @@ use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
+use crate::core::index::indexable_field::IndexableField;
+use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::postings_enum::{
   ALL, FREQS, NONE, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum, PostingsEnumEnum2,
@@ -47,11 +50,14 @@ use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFor
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::index::random_postings_tester::Option_;
 use crate::test::core::index::random_postings_tester::RandomPostingsTester;
+use crate::test::core::util::line_file_docs::LineFileDocs;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  create_temp_dir_with_prefix, get_only_leaf_reader, new_directory_shared, new_fs_directory,
-  new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
-  new_string_field, new_text_field, new_tiered_merge_policy,
+  at_least, create_temp_dir, create_temp_dir_with_prefix, get_only_leaf_reader,
+  new_directory_shared, new_fs_directory, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, new_string_field, new_text_field,
+  new_tiered_merge_policy,
 };
+use crate::test::core::util::test_util::TestUtil;
 use rand::prelude::SliceRandom;
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
@@ -1635,11 +1641,50 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_line_file_docs<R>(&self, _random: &mut R) -> Result<()>
+  /// Test realistic data, which is often better at uncovering real bugs.
+  fn test_line_file_docs<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO LineFileDocs 未实现
+    // Use a FS dir and a non-randomized IWC to not slow down indexing
+    let path = create_temp_dir()?;
+    let dir = new_fs_directory(random, path)?;
+
+    {
+      let mut docs = LineFileDocs::new(random)?;
+      let w = IndexWriter::new(dir.clone(), IndexWriterConfig::default())?;
+
+      let num_docs = at_least(random, 10_000);
+      let mut field_to_type = HashMap::new();
+
+      for _ in 0..num_docs {
+        // Only keep the body field, and don't index term vectors on it, we only care about
+        // postings
+        let doc = docs.next_doc()?;
+        let body = doc.get_field("body").unwrap();
+        let body_value = body.string_value()?.unwrap();
+
+        assert_ne!(IndexOptions::None, *body.field_type().index_options());
+
+        let body = new_text_field(
+          random,
+          "body",
+          body_value.into_owned(),
+          Store::No,
+          &mut field_to_type,
+        )?;
+
+        let mut new_doc = Document::new();
+        new_doc.add(body);
+        w.add_document(new_doc)?;
+      }
+
+      w.force_merge(1)?;
+      w.close()?;
+    }
+
+    TestUtil::check_index(dir)?;
+
     Ok(())
   }
 
