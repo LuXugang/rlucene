@@ -43,6 +43,7 @@ mod test_bag_of_positions;
 mod test_bag_of_postings;
 mod test_binary_terms;
 mod test_consistent_field_numbers;
+mod test_custom_norms;
 mod test_custom_term_freq;
 mod test_doc_count;
 pub(crate) mod test_doc_values_indexing;
