@@ -580,7 +580,7 @@ mod legacy_base_doc_values_format_test_case_tests {
     run_case(|case, random| case.test_binary_variable_length_vs_stored_fields(random))
   }
 
-  // TODO IMPORTANT 10801203880150049781 测试未通过
+  #[test]
   fn test_sparse_binary_variable_length_vs_stored_fields() -> Result<()> {
     run_case(|case, random| case.test_sparse_binary_variable_length_vs_stored_fields(random))
   }
