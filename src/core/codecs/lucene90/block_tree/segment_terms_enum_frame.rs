@@ -1045,6 +1045,7 @@ impl SegmentTermsEnumFrame {
 
             let next_prefix = ste.term.length();
             current_frame_idx = ste.push_frame(None, last_sub_fp, next_prefix)?;
+            ste.current_frame_idx = current_frame_idx;
             Self::load_block(current_frame_idx, ste)?;
           }
         }
