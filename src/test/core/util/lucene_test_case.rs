@@ -84,6 +84,8 @@ pub mod lucene_test_case_util {
   use std::sync::Arc;
   use tempfile::TempDir;
 
+  pub const DEFAULT_LINE_DOCS_FILE: &str = "europarl.lines.txt.gz";
+
   pub(crate) fn random_multiplier() -> i32 {
     let multiplier = std::env::var(Multiplier.to_string()).ok();
 
