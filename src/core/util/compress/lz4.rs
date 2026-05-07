@@ -255,32 +255,39 @@ impl LZ4 {
       ht.reset(dict_off, dict_len + len);
       ht.init_dictionary(dict_len, bytes);
 
-      'outer: while off <= limit {
+      'main: while off <= limit {
         // find a match
-        let mut ref_idx;
-        while {
+        let mut ref_;
+
+        loop {
           if off >= match_limit {
-            break 'outer;
+            break 'main;
           }
-          ref_idx = ht.get(off, bytes)?;
-          ref_idx == -1
-        } {
+
+          ref_ = ht.get(off, bytes)?;
+
+          if ref_ != -1 {
+            debug_assert!(ref_ >= dict_off && ref_ < off);
+            debug_assert_eq!(LZ4::read_int(bytes, ref_), LZ4::read_int(bytes, off));
+            break;
+          }
+
           off += 1;
         }
 
         // Compute match length
         let mut match_len = LZ4::MIN_MATCH
-          + LZ4::common_bytes(bytes, ref_idx + LZ4::MIN_MATCH, off + LZ4::MIN_MATCH, limit);
+          + LZ4::common_bytes(bytes, ref_ + LZ4::MIN_MATCH, off + LZ4::MIN_MATCH, limit);
 
         // Try to find a better match
         let min = (off - LZ4::MAX_DISTANCE + 1).max(dict_off);
-        let mut r = ht.previous(ref_idx, bytes);
+        let mut r = ht.previous(ref_, bytes);
         while r >= min {
           debug_assert_eq!(LZ4::read_int(bytes, r), LZ4::read_int(bytes, off));
           let r_match_len = LZ4::MIN_MATCH
             + LZ4::common_bytes(bytes, r + LZ4::MIN_MATCH, off + LZ4::MIN_MATCH, limit);
           if r_match_len > match_len {
-            ref_idx = r;
+            ref_ = r;
             match_len = r_match_len;
           }
 
@@ -288,7 +295,7 @@ impl LZ4 {
         }
 
         // Encode match
-        LZ4::encode_sequence(bytes, anchor, ref_idx, off, match_len, out)?;
+        LZ4::encode_sequence(bytes, anchor, ref_, off, match_len, out)?;
         off += match_len;
         anchor = off;
       }
@@ -516,7 +523,7 @@ impl HashTable for FastCompressionHashTable {
     let v = LZ4::read_int(bytes, off);
     let h = LZ4::hash(v, self.hash_log);
 
-    let ref_idx = self.base
+    let ref_ = self.base
       + self
         .hash_table
         .as_mut()
@@ -524,8 +531,8 @@ impl HashTable for FastCompressionHashTable {
         .get_and_set(h, off - self.base);
     self.last_off = off;
 
-    if ref_idx < off && off - ref_idx < LZ4::MAX_DISTANCE && LZ4::read_int(bytes, ref_idx) == v {
-      Ok(ref_idx)
+    if ref_ < off && off - ref_ < LZ4::MAX_DISTANCE && LZ4::read_int(bytes, ref_) == v {
+      Ok(ref_)
     } else {
       Ok(-1)
     }
