@@ -113,8 +113,8 @@ impl LineFileDocs {
     };
 
     let is: Box<dyn Read> = if need_skip {
-      let seek_file_path = seek_file_path(&self.path)?;
-      let seek_file = resolve_line_file_path(&seek_file_path)?;
+      let v = seek_file_path(&self.path)?;
+      let seek_file = resolve_line_file_path(&v)?;
       let mut skip_points = Vec::new();
       skip_points.push(0);
 
@@ -347,43 +347,20 @@ fn seek_file_path(path: &str) -> Result<String> {
 
 fn resolve_line_file_path(path: &str) -> Result<File> {
   let path = Path::new(path);
-  let mut candidates = Vec::new();
 
-  if path.is_absolute() {
-    candidates.push(path.to_path_buf());
+  let resolved_path = if path.is_absolute() {
+    path.to_path_buf()
   } else {
-    candidates.push(path.to_path_buf());
-    candidates.push(
-      PathBuf::from("../lucene/lucene/test-framework/src/resources/org/apache/lucene/tests/util")
-        .join(path),
-    );
-    candidates.push(
-      PathBuf::from("lucene/lucene/test-framework/src/resources/org/apache/lucene/tests/util")
-        .join(path),
-    );
-    candidates.push(
-      PathBuf::from(
-        "../lucene/lucene/test-framework/build/resources/main/org/apache/lucene/tests/util",
-      )
-      .join(path),
-    );
-    candidates.push(
-      PathBuf::from(
-        "lucene/lucene/test-framework/build/resources/main/org/apache/lucene/tests/util",
-      )
-      .join(path),
-    );
-  }
+    let source_file_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(file!());
+    let source_dir = source_file_path.parent().ok_or_else(|| {
+      LuceneError::illegal_state(format!(
+        "could not determine LineFileDocs source directory from {}",
+        source_file_path.display()
+      ))
+    })?;
+    source_dir.join(path)
+  };
 
-  for candidate in candidates {
-    match File::open(&candidate) {
-      Ok(file) => return Ok(file),
-      Err(_) => continue,
-    }
-  }
-
-  Err(LuceneError::io_with_path(
-    path.display().to_string(),
-    std::io::Error::new(std::io::ErrorKind::NotFound, "line file not found"),
-  ))
+  File::open(&resolved_path)
+    .map_err(|err| LuceneError::io_with_path(resolved_path.display().to_string(), err))
 }
