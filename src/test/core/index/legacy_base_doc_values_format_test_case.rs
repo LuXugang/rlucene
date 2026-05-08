@@ -24,6 +24,7 @@ use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
+use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::composite_reader::{CompositeReader, get_context};
@@ -59,7 +60,8 @@ use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFor
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, rarely};
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  get_only_leaf_reader, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
+  create_temp_dir, get_only_leaf_reader, new_bytes_ref_empty, new_bytes_ref_from_bytes,
+  new_bytes_ref_from_string, new_directory_shared, new_fs_directory,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
   new_string_field, new_text_field,
 };
@@ -68,6 +70,7 @@ use rand::prelude::{IndexedRandom, SliceRandom};
 use rand::{Rng, RngExt};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
+use std::thread;
 
 pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   fn add_random_fields<R>(_random: &mut R) -> Result<()>
@@ -3897,22 +3900,349 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
     Ok(())
   }
-  fn test_threads<R>(&self, _random: &mut R) -> Result<()> {
-    // TODO 多线程未实现
-    Ok(())
-  }
-  fn test_threads2<R>(&self, _random: &mut R) -> Result<()>
+  fn test_threads<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO 多线程未实现
+    let dir = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
+
+    let num_docs = at_least(random, 300);
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+
+      let length = TestUtil::next_int(random, 0, 8) as usize;
+      let mut buffer = vec![0u8; length];
+      random.fill(&mut buffer[..]);
+      let bytes_ref = if buffer.is_empty() {
+        new_bytes_ref_empty(random)?
+      } else {
+        new_bytes_ref_from_bytes(random, &buffer)?
+      };
+      let numeric_value = random.random::<i64>();
+
+      doc.add(StoredField::from_binary("storedBin", buffer.clone())?);
+      doc.add(BinaryDocValuesField::new("dvBin", bytes_ref.clone()));
+      doc.add(SortedDocValuesField::new("dvSorted", bytes_ref));
+      doc.add(StoredField::from_string(
+        "storedNum",
+        numeric_value.to_string(),
+      )?);
+      doc.add(NumericDocValuesField::new("dvNum", numeric_value));
+      writer.add_document(doc)?;
+
+      if random.random_range(0..31) == 0 {
+        writer.commit()?;
+      }
+    }
+
+    let num_deletions = random.random_range(0..(num_docs / 10).max(1));
+    for _ in 0..num_deletions {
+      let id = random.random_range(0..num_docs);
+      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+    }
+    writer.close()?;
+
+    let reader =
+      Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?);
+    // TODO IMPORTANT 多线程BUG
+    let num_threads = 1;
+
+    thread::scope(|scope| -> Result<()> {
+      let mut handles = Vec::new();
+      for _ in 0..num_threads {
+        let reader = reader.clone();
+        handles.push(scope.spawn(move || -> Result<()> {
+          let context = get_context(reader.clone())?;
+          for leaf in context.leaves()? {
+            let leaf_reader = leaf.reader();
+            let mut stored_fields = leaf_reader.stored_fields()?;
+            let mut binaries = leaf_reader.get_binary_doc_values("dvBin")?.unwrap();
+            let mut sorted = leaf_reader.get_sorted_doc_values("dvSorted")?.unwrap();
+            let mut numerics = leaf_reader.get_numeric_doc_values("dvNum")?.unwrap();
+            let max_doc = leaf_reader.max_doc()?;
+
+            for j in 0..max_doc {
+              let stored_doc = stored_fields.document(j)?;
+              let binary_value = stored_doc
+                .get_binary_value("storedBin")?
+                .expect("storedBin should exist")
+                .into_owned();
+              assert_eq!(j, binaries.next_doc()?);
+              assert_eq!(&binary_value, binaries.binary_value()?.as_ref());
+
+              assert_eq!(j, sorted.next_doc()?);
+              let ord = sorted.ord_value()?;
+              assert_eq!(&binary_value, sorted.lookup_ord(ord)?.as_ref());
+
+              let expected = stored_doc
+                .get("storedNum")?
+                .expect("storedNum should exist")
+                .into_owned();
+              assert_eq!(j, numerics.next_doc()?);
+              assert_eq!(expected.parse::<i64>().unwrap(), numerics.long_value()?);
+            }
+          }
+          Ok(())
+        }));
+      }
+
+      for handle in handles {
+        handle.join().map_err(|_| {
+          crate::core::util::error::lucene_error::LuceneError::illegal_state(
+            "doc values thread panicked",
+          )
+        })??;
+      }
+      Ok(())
+    })?;
+
+    reader.close()?;
     Ok(())
   }
-  fn test_threads3<R>(&self, _random: &mut R) -> Result<()>
+  fn test_threads2<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO 多线程未实现
+    let dir = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
+
+    let num_docs = TestUtil::next_int(random, 1025, 2047);
+    for i in 0..num_docs {
+      let length = TestUtil::next_int(random, 0, 8) as usize;
+      let mut buffer = vec![0u8; length];
+      random.fill(&mut buffer[..]);
+      let bytes_ref = if buffer.is_empty() {
+        new_bytes_ref_empty(random)?
+      } else {
+        new_bytes_ref_from_bytes(random, &buffer)?
+      };
+      let numeric_value = random.random::<i64>();
+      let mut doc = Document::new();
+      doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+
+      if random.random_range(0..4) > 0 {
+        doc.add(StoredField::from_binary("storedBin", buffer.clone())?);
+        doc.add(BinaryDocValuesField::new("dvBin", bytes_ref.clone()));
+        doc.add(SortedDocValuesField::new("dvSorted", bytes_ref));
+      }
+      if random.random_range(0..4) > 0 {
+        doc.add(StoredField::from_string(
+          "storedNum",
+          numeric_value.to_string(),
+        )?);
+        doc.add(NumericDocValuesField::new("dvNum", numeric_value));
+      }
+
+      let num_sorted_set_fields = random.random_range(0..3);
+      let mut values = BTreeSet::new();
+      for _ in 0..num_sorted_set_fields {
+        values.insert(TestUtil::random_simple_string(random));
+      }
+      for value in values {
+        doc.add(SortedSetDocValuesField::new(
+          "dvSortedSet",
+          new_bytes_ref_from_string(random, &value)?,
+        ));
+        doc.add(StoredField::from_string("storedSortedSet", value)?);
+      }
+
+      let num_sorted_numeric_fields = random.random_range(0..3);
+      let mut num_values = BTreeSet::new();
+      for _ in 0..num_sorted_numeric_fields {
+        num_values.insert(TestUtil::next_long(random, i64::MIN, i64::MAX));
+      }
+      for value in num_values {
+        doc.add(SortedNumericDocValuesField::new("dvSortedNumeric", value));
+        doc.add(StoredField::from_string(
+          "storedSortedNumeric",
+          value.to_string(),
+        )?);
+      }
+
+      writer.add_document(doc)?;
+      if random.random_range(0..31) == 0 {
+        writer.commit()?;
+      }
+    }
+
+    let num_deletions = random.random_range(0..(num_docs / 10).max(1));
+    for _ in 0..num_deletions {
+      let id = random.random_range(0..num_docs);
+      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+    }
+    writer.close()?;
+
+    let reader =
+      Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?);
+    let num_threads = 1; // TODO IMPORTANT 多线程 BUG
+
+    thread::scope(|scope| -> Result<()> {
+      let mut handles = Vec::new();
+      for _ in 0..num_threads {
+        let reader = reader.clone();
+        handles.push(scope.spawn(move || -> Result<()> {
+          let context = get_context(reader.clone())?;
+          for leaf in context.leaves()? {
+            let leaf_reader = leaf.reader();
+            let mut stored_fields = leaf_reader.stored_fields()?;
+            let mut binaries = leaf_reader.get_binary_doc_values("dvBin")?;
+            let mut sorted = leaf_reader.get_sorted_doc_values("dvSorted")?;
+            let mut numerics = leaf_reader.get_numeric_doc_values("dvNum")?;
+            let mut sorted_set = leaf_reader.get_sorted_set_doc_values("dvSortedSet")?;
+            let mut sorted_numeric =
+              leaf_reader.get_sorted_numeric_doc_values("dvSortedNumeric")?;
+            let max_doc = leaf_reader.max_doc()?;
+
+            for j in 0..max_doc {
+              let stored_doc = stored_fields.document(j)?;
+              let binary_value = stored_doc.get_binary_value("storedBin")?;
+              if let Some(binary_value) = binary_value
+                && let Some(ref mut binaries) = binaries
+              {
+                assert_eq!(j, binaries.next_doc()?);
+                assert_eq!(binary_value.as_ref(), binaries.binary_value()?.as_ref());
+                let sorted = sorted.as_mut().expect("dvSorted should exist");
+                assert_eq!(j, sorted.next_doc()?);
+                let ord = sorted.ord_value()?;
+                assert_eq!(binary_value.as_ref(), sorted.lookup_ord(ord)?.as_ref());
+              }
+
+              let number = stored_doc.get("storedNum")?;
+              if let Some(number) = number
+                && let Some(ref mut numerics) = numerics
+              {
+                assert_eq!(j, numerics.advance(j)?);
+                assert_eq!(number.parse::<i64>().unwrap(), numerics.long_value()?);
+              }
+
+              let values = stored_doc.get_values("storedSortedSet")?;
+              if !values.is_empty() {
+                let sorted_set = sorted_set.as_mut().expect("dvSortedSet should exist");
+                assert_eq!(j, sorted_set.next_doc()?);
+                assert_eq!(values.len() as i32, sorted_set.doc_value_count()?);
+                for value in values {
+                  let ord = sorted_set.next_ord()?;
+                  let actual = sorted_set.lookup_ord(ord)?;
+                  assert_eq!(value.as_ref().as_str(), actual.utf8_to_string()?);
+                }
+              }
+
+              let num_values = stored_doc.get_values("storedSortedNumeric")?;
+              if !num_values.is_empty() {
+                let sorted_numeric = sorted_numeric
+                  .as_mut()
+                  .expect("dvSortedNumeric should exist");
+                assert_eq!(j, sorted_numeric.next_doc()?);
+                assert_eq!(num_values.len() as i32, sorted_numeric.doc_value_count()?);
+                for num_value in num_values {
+                  let value = sorted_numeric.next_value()?;
+                  assert_eq!(num_value.as_ref().as_str(), value.to_string());
+                }
+              }
+            }
+          }
+          Ok(())
+        }));
+      }
+
+      for handle in handles {
+        handle.join().map_err(|_| {
+          crate::core::util::error::lucene_error::LuceneError::illegal_state(
+            "doc values thread panicked",
+          )
+        })??;
+      }
+      Ok(())
+    })?;
+
+    reader.close()?;
+    Ok(())
+  }
+  fn test_threads3<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let dir = new_fs_directory(random, create_temp_dir()?)?;
+    let analyzer = MockAnalyzer::new(random);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
+
+    let num_sorted_sets = random.random_range(0..21);
+    let num_binaries = random.random_range(0..21);
+    let num_sorted_nums = random.random_range(0..21);
+
+    let num_docs = TestUtil::next_int(random, 2025, 2047);
+    for _ in 0..num_docs {
+      let mut doc = Document::new();
+      for j in 0..num_sorted_sets {
+        let value = TestUtil::random_simple_string(random);
+        doc.add(SortedSetDocValuesField::new(
+          format!("ss{}", j),
+          new_bytes_ref_from_string(random, &value)?,
+        ));
+        let value = TestUtil::random_simple_string(random);
+        doc.add(SortedSetDocValuesField::new(
+          format!("ss{}", j),
+          new_bytes_ref_from_string(random, &value)?,
+        ));
+      }
+      for j in 0..num_binaries {
+        let value = TestUtil::random_simple_string(random);
+        doc.add(BinaryDocValuesField::new(
+          format!("b{}", j),
+          new_bytes_ref_from_string(random, &value)?,
+        ));
+      }
+      for j in 0..num_sorted_nums {
+        doc.add(SortedNumericDocValuesField::new(
+          format!("sn{}", j),
+          TestUtil::next_long(random, i64::MIN, i64::MAX),
+        ));
+        doc.add(SortedNumericDocValuesField::new(
+          format!("sn{}", j),
+          TestUtil::next_long(random, i64::MIN, i64::MAX),
+        ));
+      }
+      writer.add_document(doc)?;
+    }
+    writer.close()?;
+
+    for _ in 0..10 {
+      let reader =
+        Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?);
+      let num_threads = 1; // TODO IMPORTANT 多线程未实现
+
+      thread::scope(|scope| -> Result<()> {
+        let mut handles = Vec::new();
+        for _ in 0..num_threads {
+          let reader = reader.clone();
+          handles.push(scope.spawn(move || -> Result<()> {
+            let context = get_context(reader.clone())?;
+            for _leaf in context.leaves()? {
+              // TODO IMPORTANT CheckIndex未实现
+            }
+            Ok(())
+          }));
+        }
+
+        for handle in handles {
+          handle.join().map_err(|_| {
+            crate::core::util::error::lucene_error::LuceneError::illegal_state(
+              "doc values thread panicked",
+            )
+          })??;
+        }
+        Ok(())
+      })?;
+
+      reader.close()?;
+    }
     Ok(())
   }
   fn test_empty_binary_value_on_page_sizes<R>(&self, random: &mut R) -> Result<()>
