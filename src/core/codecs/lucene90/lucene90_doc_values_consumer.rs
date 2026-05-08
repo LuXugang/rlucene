@@ -498,7 +498,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
   ) -> Result<i64> {
     let mut offsets: Vec<i64> = vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES)];
     let mut offsets_index: usize = 0;
-    let mut buffer = [0i64; Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize];
+    const NUMERIC_BLOCK_SIZE: usize = Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize;
+    let mut buffer = [0i64; NUMERIC_BLOCK_SIZE];
     let mut encode_buffer = ByteBuffersDataOutput::new_resettable_instance();
     let mut upto = 0;
 
@@ -508,11 +509,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         buffer[upto] = values.next_value()?;
         upto += 1;
 
-        if upto == Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize {
+        if upto == NUMERIC_BLOCK_SIZE {
           ArrayUtil::grow_with_len(&mut offsets, offsets_index + 1);
-          offsets.push(self.data.get_file_pointer() as i64);
+          offsets[offsets_index] = self.data.get_file_pointer() as i64;
           offsets_index += 1;
-          self.write_block(&buffer, gcd, &mut encode_buffer)?;
+          self.write_block(&buffer, NUMERIC_BLOCK_SIZE, gcd, &mut encode_buffer)?;
           upto = 0;
         }
       }
@@ -522,7 +523,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       ArrayUtil::grow_with_len(&mut offsets, offsets_index);
       offsets[offsets_index] = self.data.get_file_pointer() as i64;
       offsets_index += 1;
-      self.write_block(&buffer[..upto], gcd, &mut encode_buffer)?;
+      self.write_block(&buffer[..upto], upto, gcd, &mut encode_buffer)?;
     }
     // All blocks has been written. Flush the offset jump-table
     let offsets_origo = self.data.get_file_pointer().try_convert()?;
@@ -536,16 +537,20 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
   fn write_block(
     &mut self,
     values: &[i64],
+    length: usize,
     gcd: i64,
     buffer: &mut ByteBuffersDataOutput,
   ) -> Result<()> {
-    debug_assert!(!values.is_empty());
+    debug_assert!(length > 0);
+    debug_assert!(length <= values.len());
+
+    let values = &values[..length];
 
     let mut min = values[0];
     let mut max = values[0];
 
     for &v in &values[1..] {
-      debug_assert!(((v - min).rem_euclid(gcd)) == 0);
+      debug_assert_eq!((v - min).rem_euclid(gcd), 0);
       min = min.min(v);
       max = max.max(v);
     }
@@ -559,7 +564,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       buffer.reset();
       debug_assert_eq!(buffer.size(), 0);
 
-      let mut w = DirectWriter::get_instance(buffer, values.len() as i64, bits_per_value)?;
+      let mut w = DirectWriter::get_instance(buffer, length as i64, bits_per_value)?;
       for &v in values {
         w.add((v - min) / gcd)?;
       }
@@ -567,7 +572,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
       self.data.write_byte(bits_per_value as u8)?;
       self.data.write_long(min)?;
-      self.data.write_int(buffer.size() as i32)?;
+
+      let buffer_size = buffer.size().try_convert()?;
+      self.data.write_int(buffer_size)?;
+
       buffer.copy_to(&mut self.data)?;
     }
 
