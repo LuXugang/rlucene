@@ -245,7 +245,7 @@ pub(crate) mod tests {
     Ok(())
   }
 
-  // TODO IMPORTANT 测试未通过
+  #[test]
   fn test_boolean_queries() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;

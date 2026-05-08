@@ -198,10 +198,7 @@ impl BooleanQuery {
       } else {
         &ScoreMode::CompleteNoScores
       };
-      let weight = c
-        .query
-        .clone()
-        .create_weight(searcher, clause_score_mode, boost)?;
+      let weight = searcher.create_weight(c.query.clone(), *clause_score_mode, boost)?;
 
       weighted_clauses.push(WeightedBooleanClause::new(c, weight));
     }

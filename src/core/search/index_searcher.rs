@@ -361,7 +361,7 @@ where
       }
     }
     let v = TotalHitCountCollectorManager::new(self.get_slices()?.as_slice());
-    self.search_with_collector_manager(query, &v)
+    self.search_with_collector_manager(ConstantScoreQuery::new(query), &v)
   }
 
   pub fn search_after_field_with_score<Q, T>(
