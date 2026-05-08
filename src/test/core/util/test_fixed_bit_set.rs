@@ -602,8 +602,9 @@ where
   R: Rng + ?Sized,
 {
   let mut rv = vec![0; count];
-  for _i in 0..count {
-    rv.push(random.random_range(min..=max));
+  #[allow(clippy::needless_range_loop)]
+  for i in 0..count {
+    rv[i] = random.random_range(min..=max);
   }
   rv
 }

@@ -216,6 +216,10 @@ impl ByteBuffersDataOutput {
         let end = block.position() as usize;
         output.write_bytes_range(block.get_ref(), 0, end)?;
       } else {
+        // this block is reused
+        if block.position() == 0 {
+          continue;
+        }
         let len = block.get_ref().len();
         debug_assert!(len == 1 << self.block_bits);
         output.write_bytes_with_len(block.get_ref(), len)?;

@@ -37,8 +37,7 @@ pub struct Inner {
 }
 impl BlockingFloatHeap {
   pub fn new(max_size: usize) -> Self {
-    let mut heap = vec![0f32; max_size + 1];
-    heap.push(0.0);
+    let heap = vec![0f32; max_size + 1];
     let inner = Inner { heap, size: 0 };
     Self {
       max_size,

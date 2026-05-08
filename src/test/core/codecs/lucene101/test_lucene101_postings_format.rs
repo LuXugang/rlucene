@@ -261,7 +261,7 @@ mod base_postings_format_test_case_tests {
   fn test_postings_enum_all() -> Result<()> {
     run_case(|case, random| case.test_postings_enum_all(random))
   }
-  // 测试未通过
+  #[test]
   fn test_line_file_docs() -> Result<()> {
     run_case(|case, random| case.test_line_file_docs(random))
   }
