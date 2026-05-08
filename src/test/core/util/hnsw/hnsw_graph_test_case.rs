@@ -56,6 +56,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::at_least_u
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::HashSet;
+use std::thread;
 
 pub trait HnswGraphTestCase<T>
 where
@@ -684,11 +685,85 @@ where
     Ok(())
   }
 
-  fn test_on_heap_hnsw_graph_search<R>(&self, _random: &mut R) -> Result<()>
+  fn test_on_heap_hnsw_graph_search<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
+    Self: Sync,
+    T: Send,
   {
-    // TODO 多线程未实现
+    let size = at_least_usize(random, 100);
+    let dim = at_least_usize(random, 10);
+    let vectors = self.vector_values(size, dim, random);
+    let scorer_supplier = self.build_scorer_supplier(vectors.try_clone()?, random)?;
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, 10, 30, random.random::<u64>())?;
+    let hnsw = &*builder.build(vectors.size())?;
+    let accept_ords = if random.random_bool(0.5) {
+      None
+    } else {
+      Some(create_random_accept_ords(0, size, random))
+    };
+
+    let mut queries = Vec::new();
+    let mut expects = Vec::new();
+    for _ in 0..100 {
+      let query = self.random_vector(random, dim);
+      queries.push(query.clone());
+      let scorer = self.build_scorer(vectors.try_clone()?, query)?;
+      let expect = hnsw_graph_searcher::search_with_top_k(
+        &scorer,
+        100,
+        hnsw,
+        accept_ords.as_ref(),
+        i32::MAX as usize,
+      )?;
+      expects.push(expect);
+    }
+
+    let actuals = thread::scope(|scope| -> Result<Vec<TopKnnCollector>> {
+      let mut futures = Vec::new();
+      for query in queries {
+        let vectors = vectors.try_clone()?;
+        let accept_ords = accept_ords.as_ref();
+        futures.push(scope.spawn(move || -> Result<TopKnnCollector> {
+          let scorer = self.build_scorer(vectors, query)?;
+          let actual = hnsw_graph_searcher::search_with_top_k(
+            &scorer,
+            100,
+            hnsw,
+            accept_ords,
+            i32::MAX as usize,
+          )?;
+          Ok(actual)
+        }));
+      }
+
+      let mut actuals = Vec::new();
+      for future in futures {
+        actuals.push(
+          future
+            .join()
+            .map_err(|_| LuceneError::illegal_state("onHeapHnswSearch panicked"))??,
+        );
+      }
+      Ok(actuals)
+    })?;
+
+    for (mut expect, mut actual) in expects.into_iter().zip(actuals) {
+      let expect = expect.top_docs()?;
+      let actual = actual.top_docs()?;
+      let expected_docs = expect
+        .score_docs
+        .iter()
+        .map(|score_doc| score_doc.doc)
+        .collect::<Vec<_>>();
+      let actual_docs = actual
+        .score_docs
+        .iter()
+        .map(|score_doc| score_doc.doc)
+        .collect::<Vec<_>>();
+      assert_eq!(expected_docs, actual_docs);
+    }
+
     Ok(())
   }
 

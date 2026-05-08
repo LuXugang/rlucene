@@ -328,7 +328,7 @@ impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
   }
 
   fn graph_next_neighbor(&mut self, graph: &mut impl HnswGraph) -> Result<usize> {
-    let neighbors = graph.get_neighbors_mut(self.cur_level, self.cur_node)?;
+    let neighbors = graph.get_neighbors(self.cur_level, self.cur_node)?;
     self.upto += 1;
     if (self.upto as usize) < neighbors.size() {
       Ok(neighbors.nodes()[self.upto as usize])
@@ -391,13 +391,14 @@ where
 pub fn search_with_top_k<S>(
   scorer: &S,
   top_k: usize,
-  graph: &mut OnHeapHnswGraph,
+  graph: &OnHeapHnswGraph,
   accept_ords: Option<&impl Bits>,
   visited_limit: usize,
 ) -> Result<TopKnnCollector>
 where
   S: RandomVectorScorer,
 {
+  let mut graph = graph;
   let mut knn_collector = TopKnnCollector::new(top_k, visited_limit)?;
   let bitset = SparseFixedBitSet::new(get_graph_size(graph))?;
   let neighbor_queue = NeighborQueue::new(top_k, true)?;
@@ -406,7 +407,7 @@ where
   search_with_searcher(
     scorer,
     &mut knn_collector,
-    graph,
+    &mut graph,
     &mut graph_searcher,
     accept_ords,
   )?;

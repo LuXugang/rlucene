@@ -347,6 +347,41 @@ impl HnswGraph for OnHeapHnswGraph {
     Ok(self.graph[node][level].as_ref().unwrap())
   }
 }
+impl HnswGraph for &OnHeapHnswGraph {
+  fn seek(&mut self, _level: usize, _target_node: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn size(&self) -> usize {
+    (*self).size()
+  }
+
+  fn max_node_id(&self) -> Option<usize> {
+    (*self).max_node_id()
+  }
+
+  fn next_neighbor(&mut self) -> Result<usize> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn num_levels(&self) -> Result<usize> {
+    (*self).num_levels()
+  }
+
+  fn entry_node(&self) -> Result<Option<usize>> {
+    (*self).entry_node()
+  }
+
+  type NodeIterator = <OnHeapHnswGraph as HnswGraph>::NodeIterator;
+
+  fn get_nodes_on_level(&mut self, _level: usize) -> Result<Self::NodeIterator> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
+    (*self).get_neighbors(level, node)
+  }
+}
 #[cfg(debug_assertions)]
 fn check_graph(graph: &[Vec<Option<NeighborArray>>], level: usize, node: usize) {
   debug_assert!(node < graph.len(),);

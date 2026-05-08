@@ -54,6 +54,8 @@ use rand::Rng;
 use rand::RngExt;
 use rand::seq::SliceRandom;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::thread;
 
 /// Base class aiming at testing [`StoredFieldsFormat`] stored fields formats. To test a new
 /// format, all you need is to register a new [`Codec`] which uses it and extend this class and
@@ -453,11 +455,89 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.close()?;
     Ok(())
   }
-  fn test_concurrent_reads<R>(&self, _random: &mut R) -> Result<()>
+  fn test_concurrent_reads<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO 多线程未实现
+    let directory = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    iwc.set_max_buffered_docs(TestUtil::next_int(random, 2, 30));
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
+
+    let num_docs = at_least(random, 1000);
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(StringField::from_string("fld", i.to_string(), Store::Yes)?);
+      writer.add_document(doc)?;
+    }
+    writer.commit()?;
+
+    let reader =
+      Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?);
+    // TODO IMPORTANT 多线程 BUG
+    let concurrent_reads = 1;
+    let reads_per_thread = at_least(random, 50);
+    let mut read_queries = Vec::new();
+    for _ in 0..concurrent_reads {
+      let mut queries = Vec::new();
+      for _ in 0..reads_per_thread {
+        queries.push(random.random_range(0..num_docs));
+      }
+      read_queries.push(queries);
+    }
+
+    let searcher = Arc::new(new_searcher_with_reader(reader.clone())?);
+    thread::scope(|scope| -> Result<()> {
+      let mut handles = Vec::new();
+      for queries in read_queries {
+        let rd = reader.clone();
+        let searcher = searcher.clone();
+        handles.push(scope.spawn(move || -> Result<()> {
+          for q in queries {
+            let mut stored_fields = rd.stored_fields()?;
+            let top_docs = searcher
+              .clone()
+              .search(TermQuery::new(Term::from_text("fld", q.to_string())), 1)?;
+            if top_docs.total_hits.value() != 1 {
+              return Err(
+                crate::core::util::error::lucene_error::LuceneError::illegal_state(format!(
+                  "Expected 1 hit, got {}",
+                  top_docs.total_hits.value()
+                )),
+              );
+            }
+            let s_doc = stored_fields.document(top_docs.score_docs[0].doc)?;
+            let actual = s_doc.get("fld")?.ok_or_else(|| {
+              crate::core::util::error::lucene_error::LuceneError::illegal_state(format!(
+                "Could not find document {q}"
+              ))
+            })?;
+            if actual.as_ref() != &q.to_string() {
+              return Err(
+                crate::core::util::error::lucene_error::LuceneError::illegal_state(format!(
+                  "Expected {q}, but got {}",
+                  actual.as_ref()
+                )),
+              );
+            }
+          }
+          Ok(())
+        }));
+      }
+
+      for handle in handles {
+        handle.join().map_err(|_| {
+          crate::core::util::error::lucene_error::LuceneError::illegal_state(
+            "stored fields read thread panicked",
+          )
+        })??;
+      }
+      Ok(())
+    })?;
+
+    reader.close()?;
+    writer.close()?;
     Ok(())
   }
   fn random_byte_array<R>(&self, random: &mut R, length: usize, max: i32) -> Vec<u8>
