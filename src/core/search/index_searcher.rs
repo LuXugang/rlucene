@@ -765,6 +765,10 @@ where
     self.query_cache.as_ref()
   }
 
+  pub fn get_query_caching_policy(&self) -> Arc<QueryCachingPolicyEnum> {
+    self.query_caching_policy.clone()
+  }
+
   pub fn set_query_caching_policy<T>(&mut self, query_caching_policy: T)
   where
     T: QueryCachingPolicyArc,
