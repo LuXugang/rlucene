@@ -6,6 +6,8 @@ tidy  = "xtask tidy"
 commit = "xtask commit"
 # Github Actions CI
 ci = "xtask ci"
+# nightly(#[ignore]) test
+nightly = "xtask nightly"
 # Check for uncommitted changes
 check-uncommitted = "xtask check-uncommitted"
 # Check License header

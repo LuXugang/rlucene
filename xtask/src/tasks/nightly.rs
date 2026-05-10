@@ -14,10 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod check_uncommitted;
-pub(crate) mod ci;
-pub(crate) mod commit;
-pub(crate) mod license;
-pub(crate) mod nextest;
-pub(crate) mod nightly;
-pub(crate) mod tidy;
+use crate::{LogColor, colorize, log, run_cargo};
+
+pub(crate) fn run() {
+  super::tidy::run();
+  super::check_uncommitted::run();
+  log(&colorize(
+    "Running Cargo nightly test ",
+    LogColor::Green,
+    true,
+  ));
+  run_cargo(&["test", "-q", "--", "--ignored"]);
+  log(&colorize(
+    "✅ ✅ ✅ Finished Cargo ignored test ",
+    LogColor::Green,
+    true,
+  ));
+}
