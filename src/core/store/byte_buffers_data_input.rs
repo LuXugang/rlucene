@@ -46,7 +46,7 @@ pub struct ByteBuffersDataInput<B: AsRef<[u8]>> {
 /// arbitrary remaining length.
 impl<B: AsRef<[u8]>> ByteBuffersDataInput<B> {
   pub fn new(blocks: Vec<Cursor<B>>, length: usize) -> Result<Self> {
-    let (block_bits, block_mask) = if blocks.len() == 1 {
+    let (block_bits, block_mask) = if blocks.len() <= 1 {
       (32, !0)
     } else {
       let block_bytes = blocks[0].get_ref().as_ref().len();
