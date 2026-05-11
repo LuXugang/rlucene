@@ -79,6 +79,7 @@ mod test_size_bounded_force_merge;
 mod test_stress_advance;
 mod test_sum_doc_freq;
 mod test_terms;
+mod test_threaded_force_merge;
 mod test_tiered_merge_policy;
 mod test_unique_term_count;
 mod test_upgrade_index_merge_policy;
