@@ -66,6 +66,20 @@ where
       w: IndexWriter::new(dir, config).expect("should not fail"),
     }
   }
+  pub fn with_soft_deletes<R>(
+    _r: &mut R,
+    dir: Arc<D>,
+    config: IndexWriterConfig,
+    _use_soft_deletes: bool,
+  ) -> Self
+  where
+    R: Rng + ?Sized,
+    D: Directory,
+  {
+    Self {
+      w: IndexWriter::new(dir, config).expect("should not fail"),
+    }
+  }
   pub fn get_reader(&self) -> Result<StandardDirectoryReaderType<D>> {
     self.w.get_reader(true, false)
   }
@@ -118,6 +132,13 @@ where
   }
 
   pub fn set_do_random_force_merge(&mut self, _v: bool) {}
+  pub fn update_documents_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
+  where
+    T: Into<Option<Term>>,
+    DF: IntoIterator<Item = Fields>,
+  {
+    self.w.update_documents_with_term(del_term, docs)
+  }
   pub fn add_indexes_from_dir(&self, dirs: &[Arc<D>]) -> Result<i64> {
     self.w.add_indexes_from_dir(dirs)
   }

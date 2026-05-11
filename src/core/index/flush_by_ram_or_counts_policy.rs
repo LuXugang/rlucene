@@ -23,7 +23,6 @@ use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::info_stream::InfoStream;
 use parking_lot::MutexGuard;
 use std::sync::Arc;
 
@@ -51,28 +50,11 @@ impl FlushByRamOrCountsPolicy {
 }
 
 impl FlushByRamOrCountsPolicy {
-  fn flush_deletes<D, L>(
-    &self,
-    control: &DocumentsWriterFlushControl<D>,
-    index_writer_config: &L,
-    delete_queue: &DocumentsWriterDeleteQueue,
-  ) -> Result<()>
+  fn flush_deletes<D>(&self, control: &DocumentsWriterFlushControl<D>) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
   {
     control.set_apply_all_deletes();
-
-    if control.info_stream.enabled("FP") {
-      control.info_stream.message(
-        "FP",
-        &format!(
-          "force apply deletes bytesUsed={} vs ramBufferMB={}",
-          control.get_delete_bytes_used(delete_queue)?,
-          index_writer_config.get_ram_buffer_size_mb()
-        ),
-      );
-    }
 
     Ok(())
   }
@@ -80,7 +62,6 @@ impl FlushByRamOrCountsPolicy {
     &self,
     control: &DocumentsWriterFlushControl<D>,
     per_thread: &DocumentsWriterPerThread<D>,
-    delete_queue: &DocumentsWriterDeleteQueue,
     inner: &mut Inner<D>,
     config: &L,
   ) -> Result<()>
@@ -88,18 +69,6 @@ impl FlushByRamOrCountsPolicy {
     D: Directory,
     L: LiveIndexWriterConfig,
   {
-    if control.info_stream.enabled("FP") {
-      control.info_stream.message(
-        "FP",
-        &format!(
-          "trigger flush: activeBytes={} deleteBytes={} vs ramBufferMB={}",
-          control.active_bytes(Some(inner)),
-          control.get_delete_bytes_used(delete_queue)?,
-          config.get_ram_buffer_size_mb()
-        ),
-      );
-    }
-
     self.mark_largest_writer_pending(control, per_thread, inner, config)?;
     Ok(())
   }
@@ -178,17 +147,17 @@ impl FlushPolicy for FlushByRamOrCountsPolicy {
         && active_ram >= limit
         && let Some(pt) = per_thread
       {
-        self.flush_deletes(control, index_writer_config, delete_queue)?;
-        self.flush_active_bytes(control, pt, delete_queue, inner, config)?;
+        self.flush_deletes(control)?;
+        self.flush_active_bytes(control, pt, inner, config)?;
         return Ok(());
       }
 
       if deletes_ram >= limit {
-        self.flush_deletes(control, index_writer_config, delete_queue)?;
+        self.flush_deletes(control)?;
       } else if active_ram + deletes_ram >= limit
         && let Some(pt) = per_thread
       {
-        self.flush_active_bytes(control, pt, delete_queue, inner, config)?;
+        self.flush_active_bytes(control, pt, inner, config)?;
       }
     }
     Ok(())

@@ -42,6 +42,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::Directory;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
@@ -49,7 +50,7 @@ use crate::test::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test::core::analysis::{mock_tokenizer, token};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  get_only_leaf_reader, new_directory_shared, new_index_writer_config,
+  at_least, get_only_leaf_reader, new_directory_shared, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy, random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
@@ -58,6 +59,7 @@ use rand::RngExt;
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::thread;
 
 #[allow(dead_code)] // for quick search
 pub struct TestPayloads;
@@ -379,7 +381,7 @@ fn generate_random_data<R>(random: &mut R, data: &mut [u8])
 where
   R: Rng + ?Sized,
 {
-  let s = TestUtil::random_unicode_string_with_len(random, data.len());
+  let s = TestUtil::random_fixed_byte_length_unicode_string(random, data.len());
   let b = s.as_bytes();
 
   debug_assert_eq!(b.len(), data.len());
@@ -628,6 +630,74 @@ where
 
 impl<TS> TokenFilter for PayloadFilter<TS> where TS: TokenStream {}
 
+#[test]
+fn test_thread_safety() -> Result<()> {
+  let mut random = random();
+  let num_threads = 5;
+  let num_docs = at_least(&mut random, 50);
+  let pool = Arc::new(ByteArrayPool::new(num_threads, 5));
+
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let writer = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, analyzer),
+  )?;
+  let field = "test";
+  let random = Mutex::new(random);
+  thread::scope(|scope| -> Result<()> {
+    let mut ingesters = Vec::new();
+    for _ in 0..num_threads {
+      let writer = &writer;
+      let pool = pool.clone();
+      let random = &random;
+      ingesters.push(scope.spawn(move || -> Result<()> {
+        for _ in 0..num_docs {
+          let mut d = Document::new();
+          let mut random = random.lock();
+          d.add(TextField::from_token_stream(
+            field,
+            FieldTokenStreamEnum::custom(PoolingPayloadTokenStream::new(
+              &mut *random,
+              pool.clone(),
+            )),
+          )?);
+          writer.add_document(d)?;
+        }
+        Ok(())
+      }));
+    }
+
+    for ingester in ingesters {
+      ingester.join().expect("thread panicked")?;
+    }
+    Ok(())
+  })?;
+
+  writer.close()?;
+  let reader = directory_reader::open(dir)?;
+  let terms =
+    get_terms(&reader, field)?.ok_or_else(|| LuceneError::illegal_state("terms missing"))?;
+  let mut terms_enum = terms.iterator()?;
+  while let Some(term) = terms_enum.next()? {
+    let term_text = term.utf8_to_string()?;
+    let mut tp = terms_enum.postings_with_flags(None, PAYLOADS as i32)?;
+    while tp.next_doc()? != NO_MORE_DOCS {
+      let freq = tp.freq()?;
+      for _ in 0..freq {
+        tp.next_position()?;
+        let payload = tp
+          .get_payload()?
+          .ok_or_else(|| LuceneError::illegal_state("payload missing"))?;
+        assert_eq!(term_text, payload.utf8_to_string()?);
+      }
+    }
+  }
+  drop(reader);
+  assert_eq!(pool.size(), num_threads);
+  Ok(())
+}
+
 struct PoolingPayloadTokenStream {
   payload: Option<Vec<u8>>,
   first: bool,
@@ -637,8 +707,12 @@ struct PoolingPayloadTokenStream {
 }
 
 impl PoolingPayloadTokenStream {
-  fn new(pool: Arc<ByteArrayPool>) -> Self {
-    let payload = pool.get();
+  fn new<R>(random: &mut R, pool: Arc<ByteArrayPool>) -> Self
+  where
+    R: Rng + ?Sized,
+  {
+    let mut payload = pool.get();
+    generate_random_data(random, &mut payload);
     let term = String::from_utf8_lossy(&payload).into_owned();
     Self {
       payload: Some(payload),

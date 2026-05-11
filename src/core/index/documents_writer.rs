@@ -398,13 +398,16 @@ where
       if dwpt_wrapper.state.is_aborted() {
         self.flush_control.do_on_abort(&dwpt_wrapper, config);
       }
+      // TODO IMPORTANT 这里还要额外定义一个 Result 封装
       if let Ok(sno) = &res {
         seq_no = *sno;
-        flushing_dwpt_opt = self.flush_control.do_after_document(
-          &dwpt_wrapper.dwpt.lock(),
-          self.inner.lock().delete_queue.as_ref(),
-          config,
-        )?;
+        flushing_dwpt_opt = {
+          let dw = &dwpt_wrapper.dwpt.lock();
+          let lock = self.inner.lock();
+          self
+            .flush_control
+            .do_after_document(dw, lock.delete_queue.as_ref(), config)?
+        };
       }
 
       {
@@ -665,15 +668,17 @@ where
       self
         .pending_changes_in_current_full_flush
         .store(pending, Ordering::SeqCst);
-      let fq = inner.delete_queue.clone();
+      let flushing_delete_queue = inner.delete_queue.clone();
       // Cutover to a new delete queue.  This must be synced on the flush control
       // otherwise a new DWPT could sneak into the loop with an already flushing
       // delete queue
       let sn = self
         .flush_control
         .mark_for_full_flush(self, &mut inner, config)?;
-      debug_assert!(self.set_flushing_delete_queue(Some(Arc::clone(&fq)), Some(&mut inner)));
-      (fq, sn)
+      debug_assert!(
+        self.set_flushing_delete_queue(Some(Arc::clone(&flushing_delete_queue)), Some(&mut inner))
+      );
+      (flushing_delete_queue, sn)
     };
     debug_assert!({
       let inner = self.inner.lock();
@@ -711,11 +716,13 @@ where
       debug_assert!(!flushing_delete_queue.any_changes(None));
       Ok(())
     })();
-    let inner = self.inner.lock();
-    debug_assert!(Arc::ptr_eq(
-      &flushing_delete_queue,
-      inner.current_full_flush_del_queue.as_ref().unwrap()
-    ));
+    debug_assert!({
+      let inner = self.inner.lock();
+      Arc::ptr_eq(
+        &flushing_delete_queue,
+        inner.current_full_flush_del_queue.as_ref().unwrap(),
+      )
+    });
     // all DWPT have been processed and this queue has been fully flushed to the
     // ticket-queue
     flushing_delete_queue.close()?;

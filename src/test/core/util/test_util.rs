@@ -415,6 +415,48 @@ impl TestUtil {
       }
     }
   }
+
+  /// Returns random string, with a given UTF-8 byte length.
+  pub fn random_fixed_byte_length_unicode_string<R>(random: &mut R, length: usize) -> String
+  where
+    R: Rng + ?Sized,
+  {
+    let mut bytes = length;
+    let mut result = String::new();
+    while bytes != 0 {
+      let t = if bytes >= 4 {
+        random.random_range(0..5)
+      } else if bytes == 3 {
+        random.random_range(0..4)
+      } else if bytes == 2 {
+        random.random_range(0..2)
+      } else {
+        0
+      };
+
+      if t == 0 {
+        result.push(char::from_u32(random.random_range(0..0x80)).unwrap());
+        bytes -= 1;
+      } else if t == 1 {
+        result.push(char::from_u32(random.random_range(0x80..=0x7ff)).unwrap());
+        bytes -= 2;
+      } else if t == 2 {
+        result.push(char::from_u32(random.random_range(0x800..=0xd7ff)).unwrap());
+        bytes -= 3;
+      } else if t == 3 {
+        result.push(char::from_u32(random.random_range(0xe000..=0xffff)).unwrap());
+        bytes -= 3;
+      } else if t == 4 {
+        let high = random.random_range(0xd800..=0xdbff);
+        let low = random.random_range(0xdc00..=0xdfff);
+        let codepoint = 0x10000 + ((high - 0xd800) << 10) + (low - 0xdc00);
+        result.push(char::from_u32(codepoint).unwrap());
+        bytes -= 4;
+      }
+    }
+    result
+  }
+
   /// Returns a string that's "regexpish" — it contains many characters
   /// typically found in regular expressions. If you call this enough
   /// times, you might get a valid regex!

@@ -19,9 +19,12 @@ use crate::core::index::index_reader::Identity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
 use bit_set::BitSet;
+use parking_lot::{Mutex, MutexGuard};
 use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
+use std::thread;
+use std::time::{Duration, Instant};
 
 pub struct CoreHelper;
 impl CoreHelper {
@@ -93,6 +96,26 @@ The purpose of implementing the Clone trait is to make it could be used with Cow
       let (a, b) = slice.split_at_mut(i);
       (&mut b[0], &mut a[j])
     }
+  }
+  pub fn debug_lock<'a, T>(name: &str, mutex: &'a Mutex<T>) -> MutexGuard<'a, T> {
+    let tid = thread::current().id();
+    let start = Instant::now();
+    let timeout = Duration::from_secs(5);
+
+    eprintln!("[{:?}] before lock {}", tid, name);
+
+    let guard = mutex.try_lock_for(timeout).unwrap_or_else(|| {
+      panic!(
+        "[{:?}] lock {} timeout after {:?}",
+        tid,
+        name,
+        start.elapsed()
+      )
+    });
+
+    eprintln!("[{:?}] after lock {} cost={:?}", tid, name, start.elapsed());
+
+    guard
   }
 }
 
