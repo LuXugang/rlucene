@@ -1117,7 +1117,7 @@ where
     )?;
 
     let level = self.level;
-    let dims = self.config.num_dims;
+    let dims = self.config.num_index_dims;
 
     index.leaf_block_fp_stack[level] = self.leaf_block_fp_stack[level];
 
