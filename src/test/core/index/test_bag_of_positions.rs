@@ -40,7 +40,7 @@ use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use std::collections::VecDeque;
-use std::sync::{Arc, Barrier, Mutex};
+use std::sync::{Barrier, Mutex};
 use std::thread;
 
 /// Simple test that adds numeric terms, where each term has the totalTermFreq of its integer
@@ -48,7 +48,7 @@ use std::thread;
 #[allow(dead_code)] // for quick search
 pub struct TestBagOfPositions;
 
-// TODO IMPORTANT 多线程未实现
+#[test]
 fn test() -> Result<()> {
   let mut random = random();
   let mut postings_list: Vec<String> = Vec::new();
@@ -66,7 +66,7 @@ fn test() -> Result<()> {
   // Shuffle
   postings_list.shuffle(&mut random);
 
-  let postings = Arc::new(Mutex::new(VecDeque::from(postings_list)));
+  let postings = Mutex::new(VecDeque::from(postings_list));
 
   let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("bagofpositions")?)?;
 
@@ -92,62 +92,66 @@ fn test() -> Result<()> {
   }
   // else just positions (default)
 
-  let iw = Arc::new(iw);
-  let barrier = Arc::new(Barrier::new(thread_count as usize + 1));
-  let mut handles = Vec::new();
+  let barrier = Barrier::new(thread_count as usize + 1);
 
-  for _thread_id in 0..thread_count {
-    let postings = postings.clone();
-    let iw = iw.clone();
-    let barrier = barrier.clone();
-    let thread_seed = random.next_u64();
-    let field_type = field_type.clone();
+  thread::scope(|scope| -> Result<()> {
+    let mut handles = Vec::new();
 
-    handles.push(thread::spawn(move || {
-      let mut thread_random = StdRng::seed_from_u64(thread_seed);
+    for _thread_id in 0..thread_count {
+      let postings = &postings;
+      let iw = &iw;
+      let barrier = &barrier;
+      let thread_seed = random.next_u64();
+      let field_type = field_type.clone();
 
-      let _ = barrier.wait();
+      handles.push(scope.spawn(move || -> Result<()> {
+        let mut thread_random = StdRng::seed_from_u64(thread_seed);
 
-      loop {
-        // Check if the queue is empty (equivalent to Java's ConcurrentLinkedQueue.isEmpty())
-        {
-          let queue = postings.lock().unwrap();
-          if queue.is_empty() {
-            break;
+        let _ = barrier.wait();
+
+        loop {
+          // Check if the queue is empty (equivalent to Java's ConcurrentLinkedQueue.isEmpty())
+          {
+            let queue = postings.lock().unwrap();
+            if queue.is_empty() {
+              break;
+            }
           }
+
+          // Build text from queue
+          let mut text = String::new();
+          let num_terms_in_doc = thread_random.random_range(0..max_terms_per_doc);
+          for _ in 0..num_terms_in_doc {
+            let token = {
+              let mut queue = postings.lock().unwrap();
+              queue.pop_front()
+            };
+            let token = match token {
+              Some(t) => t,
+              None => break,
+            };
+            text.push(' ');
+            text.push_str(&token);
+          }
+
+          // Create document and add field
+          let mut doc = Document::new();
+          doc.add(Field::new("field", text.as_str(), field_type.clone()));
+          iw.add_document(doc)?;
         }
 
-        // Build text from queue
-        let mut text = String::new();
-        let num_terms_in_doc = thread_random.random_range(0..max_terms_per_doc);
-        for _ in 0..num_terms_in_doc {
-          let token = {
-            let mut queue = postings.lock().unwrap();
-            queue.pop_front()
-          };
-          let token = match token {
-            Some(t) => t,
-            None => break,
-          };
-          text.push(' ');
-          text.push_str(&token);
-        }
+        Ok(())
+      }));
+    }
 
-        // Create document and add field
-        let mut doc = Document::new();
-        doc.add(Field::new("field", text.as_str(), field_type.clone()));
-        if let Err(e) = iw.add_document(doc) {
-          panic!("thread indexing failed: {:?}", e);
-        }
-      }
-    }));
-  }
+    let _ = barrier.wait();
 
-  let _ = barrier.wait();
+    for handle in handles {
+      handle.join().expect("thread panicked")?;
+    }
 
-  for handle in handles {
-    handle.join().expect("thread panicked");
-  }
+    Ok(())
+  })?;
 
   iw.force_merge(1)?;
   let ir = iw.get_reader()?;
@@ -166,7 +170,7 @@ fn test() -> Result<()> {
       Some(t) => t,
       None => break,
     };
-    let value: i32 = term.utf8_to_string()?.parse().unwrap();
+    let value: i32 = term.utf8_to_string()?.parse()?;
     assert_eq!(value as i64, terms_enum.total_term_freq()?);
   }
 

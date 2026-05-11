@@ -57,6 +57,9 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use rand::Rng;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Barrier};
+use std::thread;
 
 #[allow(dead_code)] // for quick search
 struct TestDocValuesIndexing;
@@ -700,7 +703,69 @@ fn test_mixed_types_after_reopen_append3() -> Result<()> {
 }
 #[test]
 fn test_mixed_types_different_threads() -> Result<()> {
-  // TODO 多线程未完成
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let starting_gun = Arc::new(Barrier::new(4));
+  let hit_exc = Arc::new(AtomicBool::new(false));
+  let mut docs = Vec::new();
+  for i in 0..3 {
+    let mut doc = Document::new();
+    if i == 0 {
+      doc.add(SortedDocValuesField::new(
+        "foo",
+        new_bytes_ref_from_string(&mut random, "hello")?,
+      ));
+    } else if i == 1 {
+      doc.add(NumericDocValuesField::new("foo", 0));
+    } else {
+      doc.add(BinaryDocValuesField::new(
+        "foo",
+        new_bytes_ref_from_string(&mut random, "bazz")?,
+      ));
+    }
+    docs.push(doc);
+  }
+
+  let thread_results = thread::scope(|scope| {
+    let mut handles = Vec::new();
+    for doc in docs {
+      let starting_gun = starting_gun.clone();
+      let hit_exc = hit_exc.clone();
+      let writer = &w;
+      handles.push(scope.spawn(move || -> Result<()> {
+        starting_gun.wait();
+        let res = writer.add_document(doc);
+        match res {
+          Ok(_) => Ok(()),
+          Err(LuceneError::IllegalArgument(_)) => {
+            hit_exc.store(true, Ordering::SeqCst);
+            Ok(())
+          },
+          Err(err) => Err(err),
+        }
+      }));
+    }
+
+    starting_gun.wait();
+
+    let mut results = Vec::new();
+    for handle in handles {
+      results.push(handle.join());
+    }
+    results
+  });
+
+  for thread_result in thread_results {
+    thread_result.map_err(|_| LuceneError::illegal_state("thread hit exception"))??;
+  }
+
+  assert!(hit_exc.load(Ordering::SeqCst));
+  w.close()?;
   Ok(())
 }
 #[test]
