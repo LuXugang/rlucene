@@ -140,13 +140,6 @@ where
     }
     None
   }
-  pub(crate) fn get_index(&self, o: &str) -> Option<usize> {
-    if let Some(mutex) = self.queues.first() {
-      let queue = mutex.lock();
-      return queue.get_idx(o);
-    }
-    None
-  }
 }
 
 #[cfg(test)]

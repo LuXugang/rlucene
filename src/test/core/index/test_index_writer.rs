@@ -907,7 +907,7 @@ fn test_set_index_created_version() -> Result<()> {
 
 #[test]
 fn test_flush_while_starting_new_threads() -> Result<()> {
-  // TODO IMPORTANT 多线程未实现
+  // TODO IMPORTANT PR: PostingsReaderBase + TryClone,未实现
   Ok(())
 }
 

@@ -28,13 +28,12 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use crate::test::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexManyDocuments;
-// TODO 测试未通过
+#[test]
 fn test_threaded_indexing() -> Result<()> {
   let mut random = random();
 
@@ -46,51 +45,48 @@ fn test_threaded_indexing() -> Result<()> {
 
   let num_docs = at_least(&mut random, 10000);
 
-  let writer = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  let counter = Arc::new(AtomicI32::new(0));
-  let mut threads = Vec::new();
+  let counter = AtomicI32::new(0);
+  let random = Mutex::new(random);
+  let shared_field_types = Mutex::new(HashMap::new());
+  let threads = 5;
+  thread::scope(|scope| {
+    for _ in 0..threads {
+      let writer = &writer;
+      let counter = &counter;
+      let random = &random;
+      let field_types = &shared_field_types;
 
-  // TODO IMPORTANT 这里使用多线程的测试未通过
-  let random = Arc::new(Mutex::new(random));
-  let shared_field_types = Arc::new(Mutex::new(HashMap::new()));
-  for _ in 0..1 {
-    let r = random.clone();
-    let writer = writer.clone();
-    let counter_cloned = counter.clone();
-    let field_types = shared_field_types.clone();
+      scope.spawn(move || {
+        loop {
+          let curr = counter.fetch_add(1, Ordering::SeqCst);
+          if curr >= num_docs {
+            break;
+          }
 
-    threads.push(thread::spawn(move || {
-      loop {
-        let curr = counter_cloned.fetch_add(1, Ordering::SeqCst);
-        if curr >= num_docs {
-          break;
+          let mut doc = Document::new();
+          doc.add(
+            new_text_field(
+              &mut random.lock(),
+              "field",
+              "text",
+              No,
+              &mut field_types.lock(),
+            )
+            .unwrap(),
+          );
+
+          if let Err(e) = writer.add_document(doc) {
+            unreachable!("thread indexing failed: {:?}", e);
+          }
         }
-
-        let mut doc = Document::new();
-        doc.add(
-          new_text_field(&mut r.lock(), "field", "text", No, &mut field_types.lock()).unwrap(),
-        );
-
-        if let Err(e) = writer.add_document(doc) {
-          unreachable!("thread indexing failed: {:?}", e);
-        }
-      }
-    }));
-  }
-
-  for t in threads {
-    t.join().expect("thread panicked");
-  }
+      });
+    }
+  });
 
   let stats = writer.get_doc_stats()?;
-  assert_eq!(
-    num_docs,
-    stats.max_doc,
-    "lost {} documents; maxBufferedDocs={}",
-    num_docs - stats.max_doc,
-    max_buffered_docs
-  );
+  assert_eq!(num_docs, stats.max_doc,);
 
   writer.close()?;
 

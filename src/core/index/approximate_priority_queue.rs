@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
-use std::collections::HashMap;
 use std::vec::Vec;
 
 /// An approximate priority queue, which attempts to poll items by decreasing
@@ -33,7 +32,6 @@ where
   /// A bitset where ones indicate that the corresponding index in `slots` is
   /// taken.
   used_slots: i64,
-  pub(crate) map_to_idx: HashMap<String, usize>,
 }
 impl<T> ApproximatePriorityQueue<T>
 where
@@ -45,7 +43,6 @@ where
     ApproximatePriorityQueue {
       slots,
       used_slots: 0,
-      map_to_idx: HashMap::new(),
     }
   }
   /// Add an entry to this queue that has the provided weight.
@@ -64,14 +61,10 @@ where
     if destination_slot < i64::BITS as usize {
       self.used_slots |= 1 << destination_slot;
       debug_assert!(self.slots[destination_slot].is_none());
-      self
-        .map_to_idx
-        .insert(entry.id().to_string(), destination_slot);
       self.slots[destination_slot] = Some(entry);
       self.slots[destination_slot].as_mut().unwrap().unlock();
     } else {
       let len = self.slots.len();
-      self.map_to_idx.insert(entry.id().to_string(), len);
       self.slots.push(Some(entry));
       self.slots[len].as_mut().unwrap().unlock();
     }
@@ -94,7 +87,6 @@ where
       if let Some(ref entry) = self.slots[next_used_slot] {
         if predicate(entry) {
           self.used_slots &= !(1 << next_used_slot);
-          self.map_to_idx.remove(entry.id());
           return self.slots[next_used_slot].take();
         } else {
           next_slot = next_used_slot + 1;
@@ -110,7 +102,6 @@ where
       if let Some(ref entry) = self.slots[i]
         && predicate(entry)
       {
-        self.map_to_idx.remove(entry.id());
         return self.slots.remove(i);
       }
     }
@@ -119,7 +110,10 @@ where
   }
   // Only used for assertions
   pub(crate) fn contains(&self, o: &str) -> bool {
-    self.map_to_idx.contains_key(o)
+    self
+      .slots
+      .iter()
+      .any(|slot| slot.as_ref().is_some_and(|v| v.id() == o))
   }
 
   pub(crate) fn is_empty(&self) -> bool {
@@ -127,22 +121,17 @@ where
   }
 
   pub(crate) fn remove(&mut self, o: &str) -> Option<T> {
-    match self.map_to_idx.get(o) {
-      Some(&index) => {
-        let t = if index < i64::BITS as usize {
-          self.used_slots &= !(1 << index);
-          self.slots[index].take().unwrap()
-        } else {
-          self.slots.remove(index).unwrap()
-        };
-        self.map_to_idx.remove(o);
-        Some(t)
-      },
-      None => None,
+    let index = self
+      .slots
+      .iter()
+      .position(|slot| slot.as_ref().is_some_and(|v| v.id() == o))?;
+
+    if index < i64::BITS as usize {
+      self.used_slots &= !(1i64 << index);
+      self.slots[index].take()
+    } else {
+      self.slots.remove(index)
     }
-  }
-  pub(crate) fn get_idx(&self, id: &str) -> Option<usize> {
-    self.map_to_idx.get(id).copied()
   }
 }
 
@@ -323,6 +312,5 @@ mod tests {
     assert!(pq.remove(&U64Wrapper::new(0).id).is_none());
     assert!(pq.remove(&U64Wrapper::new(32).id).is_some());
     assert!(pq.is_empty());
-    assert!(pq.map_to_idx.is_empty());
   }
 }
