@@ -95,7 +95,7 @@ where
   pending_changes_in_current_full_flush: AtomicBool,
   pub(crate) guard: Mutex<()>,
   pub(crate) inner: Mutex<Inner>,
-  flush_control: DocumentsWriterFlushControl<D>,
+  pub(crate) flush_control: DocumentsWriterFlushControl<D>,
   index_created_version_major: i32,
   enable_test_points: bool,
   flush_notifications: FN,

@@ -58,7 +58,7 @@ where
   pending_commit_change_count: AtomicI64,
   // TODO IMPORTANT 必须要用Mutext封装吗
   pub(crate) global_field_number_map: FieldNumbersLock,
-  doc_writer: DocumentsWriter<D, FlushNotificationsImpl>,
+  pub(crate) doc_writer: DocumentsWriter<D, FlushNotificationsImpl>,
   event_queue: Arc<EventQueue>,
   write_doc_values_lock: Mutex<()>,
 
@@ -3209,9 +3209,10 @@ where
     {
       let tragedy = self.tragedy.lock();
       let error_opt = tragedy.as_ref();
+      let message = "this IndexWriter is closed";
       match error_opt {
-        Some(err) => Err(LuceneError::already_closed(format!("{err}"))),
-        None => Err(LuceneError::illegal_state("no tragic error set")),
+        Some(err) => Err(LuceneError::already_closed(format!("{} {}", message, err))),
+        None => Err(LuceneError::already_closed(message)),
       }
     } else {
       Ok(())
