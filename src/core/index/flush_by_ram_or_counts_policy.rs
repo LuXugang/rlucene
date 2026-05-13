@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::core::index::documents_writer_flush_control::{DocumentsWriterFlushControl, Inner};
 
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
@@ -121,7 +120,6 @@ impl FlushPolicy for FlushByRamOrCountsPolicy {
     control: &DocumentsWriterFlushControl<D>,
     inner: &mut Inner<D>,
     per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
-    delete_queue: &DocumentsWriterDeleteQueue,
     config: &L,
   ) -> Result<()>
   where
@@ -141,7 +139,7 @@ impl FlushPolicy for FlushByRamOrCountsPolicy {
     if self.flush_on_ram(index_writer_config) {
       let limit = (index_writer_config.get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64;
       let active_ram = control.active_bytes(Some(inner));
-      let deletes_ram = control.get_delete_bytes_used(delete_queue)?;
+      let deletes_ram = control.get_delete_bytes_used()?;
 
       if deletes_ram >= limit
         && active_ram >= limit

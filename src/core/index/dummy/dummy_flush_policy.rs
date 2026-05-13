@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::core::index::documents_writer_flush_control::{DocumentsWriterFlushControl, Inner};
 
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
@@ -31,7 +30,6 @@ impl FlushPolicy for DummyFlushPolicy {
     _control: &DocumentsWriterFlushControl<D>,
     _inner: &mut Inner<D>,
     _per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
-    _delete_queue: &DocumentsWriterDeleteQueue,
     _config: &L,
   ) -> Result<()>
   where

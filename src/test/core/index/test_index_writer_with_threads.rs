@@ -35,7 +35,6 @@ use std::thread;
 pub struct TestIndexWriterWithThreads;
 
 const SOFT_DELETES_FIELD: &str = "___soft_deletes";
-// #[test]
 fn test_update_single_doc_with_threads() -> Result<()> {
   let mut random = random();
   let force_merge = rarely(&mut random);

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::core::index::documents_writer_flush_control::{DocumentsWriterFlushControl, Inner};
 
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
@@ -60,7 +59,6 @@ pub trait FlushPolicy {
     #[allow(clippy::type_complexity)] per_thread: Option<
       &MutexGuard<'_, DocumentsWriterPerThread<D>>,
     >,
-    delete_queue: &DocumentsWriterDeleteQueue,
     config: &L,
   ) -> Result<()>
   where
