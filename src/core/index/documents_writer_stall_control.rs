@@ -143,6 +143,9 @@ mod tests {
   use std::thread::{JoinHandle, ThreadId};
   use std::time::Duration;
 
+  #[allow(dead_code)] // for quick search
+  struct TestDocumentsWriterStallControl;
+
   #[test]
   fn test_simple_stall() {
     let mut random = random();

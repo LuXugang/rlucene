@@ -29,8 +29,8 @@ use crate::core::index::field_infos::build::Builder;
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 
 use crate::core::index::index_writer::{
-  ACTUAL_MAX_DOCS, IndexWriter, IndexWriterBase, IndexWriterDir, SOURCE_FLUSH,
-  create_compound_file, set_diagnostics,
+  IndexWriter, IndexWriterBase, IndexWriterDir, SOURCE_FLUSH, create_compound_file,
+  get_actual_max_docs, set_diagnostics,
 };
 use crate::core::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -298,7 +298,7 @@ where
       .fetch_add(1, Ordering::SeqCst)
       .wrapping_add(1);
 
-    let max = ACTUAL_MAX_DOCS as i64;
+    let max = get_actual_max_docs() as i64;
     if new_count > max {
       self.pending_num_docs.fetch_sub(1, Ordering::SeqCst);
       return Err(LuceneError::illegal_argument(format!(

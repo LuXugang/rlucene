@@ -4780,7 +4780,7 @@ where
   fn reserve_docs(&self, added_num_docs: i64) -> Result<()> {
     debug_assert!(added_num_docs >= 0);
 
-    if self.adjust_pending_num_docs(added_num_docs) > ACTUAL_MAX_DOCS as i64 {
+    if self.adjust_pending_num_docs(added_num_docs) > get_actual_max_docs() as i64 {
       // Reserve failed: put the docs back and throw error
       self.adjust_pending_num_docs(-added_num_docs);
       return self.too_many_docs(added_num_docs);
@@ -4795,7 +4795,8 @@ where
   fn test_reserve_docs(&self, added_num_docs: i64) -> Result<()> {
     debug_assert!(added_num_docs >= 0);
 
-    if self.pending_num_docs.load(Ordering::Acquire) + added_num_docs > ACTUAL_MAX_DOCS as i64 {
+    if self.pending_num_docs.load(Ordering::Acquire) + added_num_docs > get_actual_max_docs() as i64
+    {
       return self.too_many_docs(added_num_docs);
     }
     Ok(())
@@ -4804,7 +4805,7 @@ where
     debug_assert!(added_num_docs >= 0);
     Err(LuceneError::illegal_argument(format!(
       "number of documents in the index cannot exceed {} (current document count is {}; added numDocs is {})",
-      ACTUAL_MAX_DOCS,
+      get_actual_max_docs(),
       self.pending_num_docs.load(Ordering::Acquire),
       added_num_docs
     )))
@@ -6051,9 +6052,7 @@ use std::time::{Duration, Instant};
 pub const MAX_DOCS: i32 = i32::MAX - 128;
 /// Maximum value for the token position in an indexed field.
 pub const MAX_POSITION: i32 = i32::MAX - 128;
-/// A variable that holds the actual maximum number of documents, which can
-/// be adjusted for testing purposes.
-pub const ACTUAL_MAX_DOCS: i32 = MAX_DOCS;
+static ACTUAL_MAX_DOCS: AtomicI32 = AtomicI32::new(MAX_DOCS);
 
 pub const MAX_TERM_LENGTH: i32 = BYTE_BLOCK_SIZE - 1;
 const UNBOUNDED_MAX_MERGE_SEGMENTS: i32 = -1;
@@ -6069,7 +6068,16 @@ pub const SOURCE_FLUSH: &str = "flush";
 pub const MAX_STORED_STRING_LENGTH: i32 =
   ArrayUtil::MAX_ARRAY_LENGTH as i32 / UnicodeUtil::MAX_UTF8_BYTES_PER_CHAR;
 pub(crate) fn get_actual_max_docs() -> i32 {
-  ACTUAL_MAX_DOCS
+  ACTUAL_MAX_DOCS.load(Ordering::Relaxed)
+}
+pub(crate) fn set_max_docs(max_docs: i32) -> Result<()> {
+  if max_docs > MAX_DOCS {
+    return Err(LuceneError::illegal_argument(format!(
+      "maxDocs must be <= IndexWriter.MAX_DOCS={MAX_DOCS}; got: {max_docs}"
+    )));
+  }
+  ACTUAL_MAX_DOCS.store(max_docs, Ordering::Relaxed);
+  Ok(())
 }
 /// Convenience overload: no extra details.
 pub(crate) fn set_diagnostics<D>(info: &mut SegmentInfo<D>, source: &str)
