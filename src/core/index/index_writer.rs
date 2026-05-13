@@ -6039,6 +6039,8 @@ use crate::core::util::{
 };
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
+#[cfg(test)]
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::Ordering::SeqCst;
@@ -6052,7 +6054,12 @@ use std::time::{Duration, Instant};
 pub const MAX_DOCS: i32 = i32::MAX - 128;
 /// Maximum value for the token position in an indexed field.
 pub const MAX_POSITION: i32 = i32::MAX - 128;
+#[cfg(not(test))]
 static ACTUAL_MAX_DOCS: AtomicI32 = AtomicI32::new(MAX_DOCS);
+#[cfg(test)]
+thread_local! {
+  static ACTUAL_MAX_DOCS: Cell<i32> = const { Cell::new(MAX_DOCS) };
+}
 
 pub const MAX_TERM_LENGTH: i32 = BYTE_BLOCK_SIZE - 1;
 const UNBOUNDED_MAX_MERGE_SEGMENTS: i32 = -1;
@@ -6068,7 +6075,14 @@ pub const SOURCE_FLUSH: &str = "flush";
 pub const MAX_STORED_STRING_LENGTH: i32 =
   ArrayUtil::MAX_ARRAY_LENGTH as i32 / UnicodeUtil::MAX_UTF8_BYTES_PER_CHAR;
 pub(crate) fn get_actual_max_docs() -> i32 {
-  ACTUAL_MAX_DOCS.load(Ordering::Relaxed)
+  #[cfg(test)]
+  {
+    ACTUAL_MAX_DOCS.with(Cell::get)
+  }
+  #[cfg(not(test))]
+  {
+    ACTUAL_MAX_DOCS.load(Ordering::Relaxed)
+  }
 }
 pub(crate) fn set_max_docs(max_docs: i32) -> Result<()> {
   if max_docs > MAX_DOCS {
@@ -6076,7 +6090,14 @@ pub(crate) fn set_max_docs(max_docs: i32) -> Result<()> {
       "maxDocs must be <= IndexWriter.MAX_DOCS={MAX_DOCS}; got: {max_docs}"
     )));
   }
-  ACTUAL_MAX_DOCS.store(max_docs, Ordering::Relaxed);
+  #[cfg(test)]
+  {
+    ACTUAL_MAX_DOCS.with(|actual_max_docs| actual_max_docs.set(max_docs));
+  }
+  #[cfg(not(test))]
+  {
+    ACTUAL_MAX_DOCS.store(max_docs, Ordering::Relaxed);
+  }
   Ok(())
 }
 /// Convenience overload: no extra details.

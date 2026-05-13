@@ -40,7 +40,7 @@ fn test_illegal_argument_exception_on_zero() -> Result<()> {
   let msg = result.unwrap_err().to_string();
   assert!(msg.contains("maxClauseCount must be >= 1"));
   assert_eq!(current, get_max_clause_count());
-
+  set_max_clause_count(current)?;
   Ok(())
 }
 

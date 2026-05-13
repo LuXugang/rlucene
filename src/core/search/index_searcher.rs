@@ -60,15 +60,18 @@ use crate::core::util::{HasIdentity, TryIntoInt};
 #[cfg(test)]
 use crate::test::core::search::scorer_index_searcher::ScorerIndexSearcherSearchLeafHelper;
 use parking_lot::Mutex;
+#[cfg(test)]
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
-#[cfg(test)]
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock};
 use sysinfo::System;
 
 const DEFAULT_MAX_CLAUSE_COUNT: usize = 1024;
+#[cfg(not(test))]
+static MAX_CLAUSE_COUNT: AtomicUsize = AtomicUsize::new(DEFAULT_MAX_CLAUSE_COUNT);
+#[cfg(test)]
 thread_local! {
   static MAX_CLAUSE_COUNT: Cell<usize> = const { Cell::new(DEFAULT_MAX_CLAUSE_COUNT) };
 }
@@ -783,14 +786,28 @@ where
 ///
 /// Tests can override this value with `set_max_clause_count`.
 pub fn get_max_clause_count() -> usize {
-  MAX_CLAUSE_COUNT.with(Cell::get)
+  #[cfg(test)]
+  {
+    MAX_CLAUSE_COUNT.with(Cell::get)
+  }
+  #[cfg(not(test))]
+  {
+    MAX_CLAUSE_COUNT.load(Ordering::Relaxed)
+  }
 }
 /// Set the maximum number of clauses permitted per Query. Default value is 1024.
 pub fn set_max_clause_count(value: usize) -> Result<()> {
   if value < 1 {
     return Err(LuceneError::illegal_argument("maxClauseCount must be >= 1"));
   }
-  MAX_CLAUSE_COUNT.with(|max_clause_count| max_clause_count.set(value));
+  #[cfg(test)]
+  {
+    MAX_CLAUSE_COUNT.with(|max_clause_count| max_clause_count.set(value));
+  }
+  #[cfg(not(test))]
+  {
+    MAX_CLAUSE_COUNT.store(value, Ordering::Relaxed);
+  }
   Ok(())
 }
 pub fn do_slices<LR>(
