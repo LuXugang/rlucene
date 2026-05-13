@@ -102,20 +102,14 @@ The purpose of implementing the Clone trait is to make it could be used with Cow
     let start = Instant::now();
     let timeout = Duration::from_secs(5);
 
-    eprintln!("[{:?}] before lock {}", tid, name);
-
-    let guard = mutex.try_lock_for(timeout).unwrap_or_else(|| {
+    mutex.try_lock_for(timeout).unwrap_or_else(|| {
       panic!(
         "[{:?}] lock {} timeout after {:?}",
         tid,
         name,
         start.elapsed()
       )
-    });
-
-    eprintln!("[{:?}] after lock {} cost={:?}", tid, name, start.elapsed());
-
-    guard
+    })
   }
 }
 
