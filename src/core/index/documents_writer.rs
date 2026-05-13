@@ -35,7 +35,7 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::supplier::Supplier;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, MutexGuard};
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
@@ -93,6 +93,7 @@ where
   // isCurrent while there are actually changes currently committed. See also
   // #anyChanges() & #flushAllThreads
   pending_changes_in_current_full_flush: AtomicBool,
+  pub(crate) guard: Mutex<()>,
   pub(crate) inner: Mutex<Inner>,
   flush_control: DocumentsWriterFlushControl<D>,
   index_created_version_major: i32,
@@ -126,6 +127,7 @@ where
       num_docs_in_ram: AtomicI32::new(0),
       ticket_queue: DocumentsWriterFlushQueue::new(),
       pending_changes_in_current_full_flush: AtomicBool::new(false),
+      guard: Mutex::new(()),
       inner: Mutex::new(Inner {
         delete_queue,
         current_full_flush_del_queue: None,
@@ -168,27 +170,24 @@ where
     // Check the applyAllDeletes flag first. This helps exit early most of the time without checking
     // isFullFlush(), which takes a lock and introduces contention on small documents that are quick
     // to index.
-    let inner = self.inner.lock();
-    let mut seq_no = func(&inner.delete_queue)?;
-    self
-      .flush_control
-      .do_on_delete(inner.delete_queue.as_ref(), config)?;
-    if self.apply_all_deletes(Some(&inner))? {
+    let _guard = &self.guard.lock();
+    let mut seq_no = {
+      let delete_queue = &self.inner.lock().delete_queue;
+      let seq_no = func(delete_queue)?;
+      self.flush_control.do_on_delete(delete_queue, config)?;
+      seq_no
+    };
+    if self.apply_all_deletes()? {
       seq_no = -seq_no;
     }
     Ok(seq_no)
   }
   /// If buffered deletes are using too much heap, resolve them and write disk and return true.
-  fn apply_all_deletes(&self, inner: Option<&Inner>) -> Result<bool> {
+  fn apply_all_deletes(&self) -> Result<bool> {
     // Check the applyAllDeletes flag first. This helps exit early most of the time without checking
     // isFullFlush(), which takes a lock and introduces contention on small documents that are quick
     // to index.
-    let delete_queue = {
-      match inner {
-        Some(inner) => &inner.delete_queue,
-        None => &*self.inner.lock().delete_queue,
-      }
-    };
+    let delete_queue = &self.inner.lock().delete_queue;
     if self.flush_control.get_apply_all_deletes()
             && !self.flush_control.is_full_flush()
             // never apply deletes during full flush this breaks happens before relationship.
@@ -279,14 +278,14 @@ where
     let inner = self.inner.lock();
     inner.delete_queue.get_max_completed_seq_no()
   }
-  pub(crate) fn any_changes(&self, inner: Option<&Inner>) -> bool {
+  pub(crate) fn any_changes(&self) -> bool {
     // changes are either in a DWPT or in the deleteQueue.
     // yet if we currently flush deletes and / or dwpt there
     // could be a window where all changes are in the ticket queue
     // before they are published to the IW. ie we need to check if the
     // ticket queue has any tickets.
     let num_docs = self.num_docs_in_ram.load(Ordering::SeqCst) != 0;
-    let deletions = self.any_deletions(inner);
+    let deletions = self.any_deletions();
     let tickets = self.ticket_queue.has_tickets();
     let pending_full = self
       .pending_changes_in_current_full_flush
@@ -305,19 +304,15 @@ where
 
     any
   }
-  pub(crate) fn get_buffered_delete_terms_size(&self, inner: Option<&Inner>) -> Result<i32> {
-    let inner = match inner {
-      Some(inner) => inner,
-      None => &self.inner.lock(),
-    };
-    inner.delete_queue.get_buffered_updates_terms_size()
+  pub(crate) fn get_buffered_delete_terms_size(&self) -> Result<i32> {
+    self
+      .inner
+      .lock()
+      .delete_queue
+      .get_buffered_updates_terms_size()
   }
-  pub(crate) fn any_deletions(&self, inner: Option<&Inner>) -> bool {
-    let inner = match inner {
-      Some(inner) => inner,
-      None => &self.inner.lock(),
-    };
-    inner.delete_queue.any_changes(None)
+  pub(crate) fn any_deletions(&self) -> bool {
+    self.inner.lock().delete_queue.any_changes(None)
   }
   fn close(&self) {
     self.closed.store(true, Ordering::SeqCst);
@@ -355,7 +350,7 @@ where
     B: IndexWriterBase,
     L: LiveIndexWriterConfig,
   {
-    has_events |= self.apply_all_deletes(None)?;
+    has_events |= self.apply_all_deletes()?;
     if let Some(dwpt) = flushing_dwpt {
       self.do_flush(dwpt, writer)?;
       has_events = true;
@@ -571,15 +566,17 @@ where
     Ok(())
   }
   pub(crate) fn get_next_sequence_number(&self) -> i64 {
+    let _guard = self.guard.lock();
     let delete_queue = &self.inner.lock().delete_queue;
     delete_queue.get_next_sequence_number()
   }
 
   pub(crate) fn reset_delete_queue(
     &self,
-    inner: &mut Inner,
+    _guard: &MutexGuard<'_, ()>,
     max_num_pending_ops: i64,
   ) -> Result<i64> {
+    let mut inner = self.inner.lock();
     let new_queue = inner.delete_queue.advance_queue(max_num_pending_ops)?;
     debug_assert!(inner.delete_queue.is_advanced());
     debug_assert!(!new_queue.is_advanced());
@@ -616,12 +613,13 @@ where
   fn set_flushing_delete_queue(
     &self,
     session: Option<Arc<DocumentsWriterDeleteQueue>>,
-    inner: Option<&mut Inner>,
+    guard: Option<&mut MutexGuard<'_, ()>>,
   ) -> bool {
-    let inner = match inner {
-      Some(inner) => inner,
-      None => &mut *self.inner.lock(),
+    let _guard = match guard {
+      Some(v) => v,
+      None => &self.guard.lock(),
     };
+    let mut inner = self.inner.lock();
     debug_assert!(
       inner
         .current_full_flush_del_queue
@@ -663,20 +661,20 @@ where
       self.info_stream.message("DW", "startFullFlush");
     }
     let (flushing_delete_queue, seq_no) = {
-      let mut inner = self.inner.lock();
-      let pending = self.any_changes(Some(&inner));
+      let mut guard = self.guard.lock();
+      let pending = self.any_changes();
       self
         .pending_changes_in_current_full_flush
         .store(pending, Ordering::SeqCst);
-      let flushing_delete_queue = inner.delete_queue.clone();
+      let flushing_delete_queue = self.inner.lock().delete_queue.clone();
       // Cutover to a new delete queue.  This must be synced on the flush control
       // otherwise a new DWPT could sneak into the loop with an already flushing
       // delete queue
       let sn = self
         .flush_control
-        .mark_for_full_flush(self, &mut inner, config)?;
+        .mark_for_full_flush(self, &guard, config)?;
       debug_assert!(
-        self.set_flushing_delete_queue(Some(Arc::clone(&flushing_delete_queue)), Some(&mut inner))
+        self.set_flushing_delete_queue(Some(Arc::clone(&flushing_delete_queue)), Some(&mut guard))
       );
       (flushing_delete_queue, sn)
     };
@@ -756,7 +754,7 @@ where
       .store(false, Ordering::SeqCst);
     // make sure we do execute this since we block applying deletes during full
     // flush
-    self.apply_all_deletes(None)?;
+    self.apply_all_deletes()?;
 
     Ok(())
   }

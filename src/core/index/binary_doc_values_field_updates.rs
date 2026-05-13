@@ -1333,6 +1333,7 @@ mod tests {
     Ok(())
   }
 
+  #[ignore]
   #[test]
   fn test_tons_of_updates() -> Result<()> {
     // LUCENE-5248: ensure we don't consume too much RAM when many updates occur

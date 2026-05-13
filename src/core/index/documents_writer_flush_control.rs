@@ -684,7 +684,7 @@ where
   pub(crate) fn mark_for_full_flush<FN, L>(
     &self,
     documents_writer: &DocumentsWriter<D, FN>,
-    documents_writer_inner: &mut crate::core::index::documents_writer::Inner,
+    guard: &MutexGuard<'_, ()>,
     config: &L,
   ) -> Result<i64>
   where
@@ -704,7 +704,7 @@ where
       );
 
       inner.full_flush = true;
-      flushing_queue = documents_writer_inner.delete_queue.clone();
+      flushing_queue = documents_writer.inner.lock().delete_queue.clone();
       // Set a new delete queue - all subsequent DWPT will use this queue until
       // we do another full flush
       self.per_thread_pool.lock_new_writers();
@@ -716,7 +716,7 @@ where
       // Insert a gap in seqNo of current active thread count, in the worst case each of those
       // threads now have one operation in flight.  It's fine
       // if we have some sequence numbers that were never assigned:
-      let result = documents_writer.reset_delete_queue(documents_writer_inner, size as i64);
+      let result = documents_writer.reset_delete_queue(guard, size as i64);
       self.per_thread_pool.unlock_new_writers();
       result
     }?;
@@ -761,13 +761,15 @@ where
       // blocking indexing
       let mut inner = self.inner.lock();
       self.prune_blocked_queue(&flushing_queue, &mut inner);
-      debug_assert!(self.assert_blocked_flushes(&documents_writer_inner.delete_queue, &inner));
+      debug_assert!(
+        self.assert_blocked_flushes(&documents_writer.inner.lock().delete_queue, &inner)
+      );
       inner.flush_queue.extend(full_flush_buffer);
       self.update_stall_state(&mut inner, config);
       inner.full_flush_mark_done = true;
     }
 
-    debug_assert!(self.assert_active_delete_queue(&documents_writer_inner.delete_queue));
+    debug_assert!(self.assert_active_delete_queue(&documents_writer.inner.lock().delete_queue));
     debug_assert!(flushing_queue.get_last_sequence_number() <= flushing_queue.get_max_seq_no());
 
     Ok(seq_no)

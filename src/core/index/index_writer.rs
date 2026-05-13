@@ -1147,7 +1147,7 @@ where
   pub fn has_deletions(&self) -> Result<bool> {
     let inner = self.inner.lock();
     self.ensure_open()?;
-    if self.buffered_updates_stream.any() || self.doc_writer.any_deletions(None) || {
+    if self.buffered_updates_stream.any() || self.doc_writer.any_deletions() || {
       self.reader_pool.any_deletions(&inner.segment_infos)?
     } {
       return Ok(true);
@@ -4599,7 +4599,7 @@ where
     self.do_ensure_open(true)?;
 
     let is_current = version == inner.segment_infos.get_version()
-      && !self.doc_writer.any_changes(None)
+      && !self.doc_writer.any_changes()
       && !self.buffered_updates_stream.any()
       && !self.reader_pool.any_doc_values_changes();
 
@@ -4609,7 +4609,7 @@ where
         &format!(
           "nrtIsCurrent: infoVersion matches: {}; DW changes: {}; BD changes: {}",
           version == inner.segment_infos.get_version(),
-          self.doc_writer.any_changes(None),
+          self.doc_writer.any_changes(),
           self.buffered_updates_stream.any(),
         ),
       );
