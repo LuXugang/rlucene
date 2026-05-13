@@ -36,6 +36,7 @@ use parking_lot::{Condvar, Mutex, MutexGuard};
 use std::collections::VecDeque;
 use std::fmt;
 use std::sync::Arc;
+use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
@@ -762,7 +763,11 @@ where
   pub(crate) fn assert_active_delete_queue(&self, queue: &Arc<DocumentsWriterDeleteQueue>) -> bool {
     let dwpts = self.per_thread_pool.iterator(None);
     for (_, next) in dwpts.iter() {
-      debug_assert!(Arc::ptr_eq(&next.state.delete_queue, queue));
+      debug_assert!(
+        Arc::ptr_eq(&next.state.delete_queue, queue),
+        "{}",
+        format!("num_docs: {}", next.state.num_docs_in_ram.load(Relaxed))
+      );
     }
     true
   }

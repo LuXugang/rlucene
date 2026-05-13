@@ -18,7 +18,7 @@ use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
-use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
+use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::live_index_writer_config::{
   LiveIndexWriterConfig, LiveIndexWriterConfigBase,
 };
@@ -99,6 +99,15 @@ impl IndexWriterConfig {
     self.base.created_version_major = index_created_version_major;
     Ok(self)
   }
+
+  pub fn set_index_deletion_policy<T>(&mut self, deletion_policy: T) -> &mut Self
+  where
+    T: Into<IndexDeletionPolicyEnum>,
+  {
+    self.base.index_deletion_policy = deletion_policy.into();
+    self
+  }
+
   pub fn set_index_sort<T>(&mut self, sort: T) -> Result<&mut Self>
   where
     T: Into<Arc<Sort>>,
@@ -157,21 +166,15 @@ impl Display for IndexWriterConfig {
 }
 
 impl LiveIndexWriterConfig for IndexWriterConfig {
-  type Analyzer = AnalyzerEnum;
-
-  fn get_analyzer(&self) -> &Self::Analyzer {
+  fn get_analyzer(&self) -> &AnalyzerEnum {
     &self.base.analyzer
   }
 
-  type Similarity = SimilarityEnum;
-
-  fn get_similarity(&self) -> &Self::Similarity {
+  fn get_similarity(&self) -> &SimilarityEnum {
     self.base.similarity.as_ref()
   }
 
-  type MergeScheduler = MergeSchedulerEnum;
-
-  fn get_merge_scheduler(&self) -> &Self::MergeScheduler {
+  fn get_merge_scheduler(&self) -> &MergeSchedulerEnum {
     &self.base.merge_scheduler
   }
 
@@ -205,12 +208,10 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
     self.base.parent_field.as_ref()
   }
 
-  type MergePolicy = MergePolicyEnum;
-
-  fn get_merge_policy(&self) -> &Self::MergePolicy {
+  fn get_merge_policy(&self) -> &MergePolicyEnum {
     &self.base.merge_policy
   }
-  fn get_merge_policy_mut(&mut self) -> &mut Self::MergePolicy {
+  fn get_merge_policy_mut(&mut self) -> &mut MergePolicyEnum {
     &mut self.base.merge_policy
   }
   type FlushPolicy = FlushByRamOrCountsPolicy;
@@ -235,9 +236,7 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
     self.base.check_pending_flush_on_update
   }
 
-  type IndexDeletionPolicy = KeepOnlyLastCommitDeletionPolicy;
-
-  fn get_index_deletion_policy(&self) -> &Self::IndexDeletionPolicy {
+  fn get_index_deletion_policy(&self) -> &IndexDeletionPolicyEnum {
     &self.base.index_deletion_policy
   }
 

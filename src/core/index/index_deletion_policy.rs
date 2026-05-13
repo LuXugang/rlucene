@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 use crate::core::index::index_commit::IndexCommit;
+use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
+use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::util::error::lucene_error::Result;
-use std::fmt::Display;
+use crate::impl_from_for_enum;
+use std::fmt::{Display, Formatter};
 /// This [`IndexDeletionPolicy`] implementation keeps only the most recent commit and
 /// immediately removes all prior commits after a new commit is done. This is the default deletion
 /// policy.
@@ -30,4 +33,46 @@ pub trait IndexDeletionPolicy: Display {
   fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
   where
     IC: IndexCommit;
+}
+
+pub enum IndexDeletionPolicyEnum {
+  KeepOnlyLastCommit(KeepOnlyLastCommitDeletionPolicy),
+  No(NoDeletionPolicy),
+}
+
+impl_from_for_enum!(
+  IndexDeletionPolicyEnum,
+  KeepOnlyLastCommitDeletionPolicy => KeepOnlyLastCommit,
+  NoDeletionPolicy => No,
+);
+
+impl Display for IndexDeletionPolicyEnum {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::KeepOnlyLastCommit(policy) => write!(f, "{policy}"),
+      Self::No(policy) => write!(f, "{policy}"),
+    }
+  }
+}
+
+impl IndexDeletionPolicy for IndexDeletionPolicyEnum {
+  fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
+  where
+    IC: IndexCommit,
+  {
+    match self {
+      Self::KeepOnlyLastCommit(policy) => policy.on_init(commits),
+      Self::No(policy) => policy.on_init(commits),
+    }
+  }
+
+  fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
+  where
+    IC: IndexCommit,
+  {
+    match self {
+      Self::KeepOnlyLastCommit(policy) => policy.on_commit(commits),
+      Self::No(policy) => policy.on_commit(commits),
+    }
+  }
 }

@@ -22,7 +22,8 @@ use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::index_file_deleter::IndexFileDeleter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
-  MergeContext, MergeReaderSR, MergeSpecificationNoReader, OneMergeBase, OneMergeSR,
+  MergeContext, MergePolicyEnum, MergeReaderSR, MergeSpecificationNoReader, OneMergeBase,
+  OneMergeSR,
 };
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_state::{DocMap, DocMapEnum2};
@@ -1198,7 +1199,7 @@ where
   }
 
   /// Does the actual (time-consuming) work of the merge, but without holding synchronized lock on IndexWriter instance
-  fn merge_middle(&self, merge: &mut OneMergeSR<D>, merge_policy: &L::MergePolicy) -> Result<i32> {
+  fn merge_middle(&self, merge: &mut OneMergeSR<D>, merge_policy: &MergePolicyEnum) -> Result<i32> {
     let mut max_doc = -1;
     self.test_point("mergeMiddleStart");
     {
@@ -1844,7 +1845,7 @@ where
 
   fn maybe_merge_with_max_num_segments(
     &self,
-    merge_policy: &L::MergePolicy,
+    merge_policy: &MergePolicyEnum,
     trigger: MergeTrigger,
     max_num_segments: i32,
   ) -> Result<()> {
@@ -1863,7 +1864,7 @@ where
   }
   fn update_pending_merges(
     &self,
-    merge_policy: &L::MergePolicy,
+    merge_policy: &MergePolicyEnum,
     trigger: MergeTrigger,
     max_num_segments: i32,
     inner: Option<&mut Inner<D>>,
@@ -3247,7 +3248,7 @@ where
     self.commit_internal(self.config.get_merge_policy())
   }
 
-  pub(crate) fn commit_internal(&self, merge_policy: &L::MergePolicy) -> Result<i64> {
+  pub(crate) fn commit_internal(&self, merge_policy: &MergePolicyEnum) -> Result<i64> {
     if self.info_stream.enabled("IW") {
       self.info_stream.message("IW", "commit: start");
     }

@@ -57,6 +57,7 @@ mod test_index_writer_commit;
 mod test_index_writer_delete;
 mod test_index_writer_max_docs;
 mod test_index_writer_with_threads;
+mod test_indexing_sequence_numbers;
 mod test_log_merge_policy;
 pub mod test_lucene90_doc_values_format;
 mod test_many_fields;

@@ -14,25 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::{Analyzer, AnalyzerEnum};
+use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::codecs::Codec;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
 use crate::core::index::flush_policy::FlushPolicy;
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_deletion_policy::IndexDeletionPolicy;
+use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::index_writer_config::{
   DEFAULT_COMMIT_ON_CLOSE, DEFAULT_MAX_BUFFERED_DOCS, DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS,
   DEFAULT_RAM_BUFFER_SIZE_MB, DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB, DEFAULT_READER_POOLING,
   DEFAULT_USE_COMPOUND_FILE_SYSTEM, OpenMode,
 };
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
-use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
-use crate::core::index::merge_scheduler::{MergeScheduler, MergeSchedulerEnum};
+use crate::core::index::merge_policy::MergePolicyEnum;
+use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::search::index_searcher::default_similarity;
-use crate::core::search::similarities_impl::similarities::{Similarity, SimilarityEnum};
+use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::LATEST;
@@ -42,14 +42,11 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 pub trait LiveIndexWriterConfig: Display {
-  type Analyzer: Analyzer;
-  fn get_analyzer(&self) -> &Self::Analyzer;
+  fn get_analyzer(&self) -> &AnalyzerEnum;
 
-  type Similarity: Similarity;
-  fn get_similarity(&self) -> &Self::Similarity;
+  fn get_similarity(&self) -> &SimilarityEnum;
 
-  type MergeScheduler: MergeScheduler;
-  fn get_merge_scheduler(&self) -> &Self::MergeScheduler;
+  fn get_merge_scheduler(&self) -> &MergeSchedulerEnum;
 
   type Codec: Codec;
   fn get_codec(&self) -> &Self::Codec;
@@ -65,9 +62,8 @@ pub trait LiveIndexWriterConfig: Display {
 
   fn get_parent_field(&self) -> Option<&String>;
 
-  type MergePolicy: MergePolicy;
-  fn get_merge_policy(&self) -> &Self::MergePolicy;
-  fn get_merge_policy_mut(&mut self) -> &mut Self::MergePolicy;
+  fn get_merge_policy(&self) -> &MergePolicyEnum;
+  fn get_merge_policy_mut(&mut self) -> &mut MergePolicyEnum;
 
   type FlushPolicy: FlushPolicy;
   fn get_flush_policy(&self) -> &Self::FlushPolicy;
@@ -80,8 +76,7 @@ pub trait LiveIndexWriterConfig: Display {
 
   fn get_check_pending_flush_on_update(&self) -> bool;
 
-  type IndexDeletionPolicy: IndexDeletionPolicy;
-  fn get_index_deletion_policy(&self) -> &Self::IndexDeletionPolicy;
+  fn get_index_deletion_policy(&self) -> &IndexDeletionPolicyEnum;
 
   fn get_max_full_flush_merge_wait_millis(&self) -> i64;
 
@@ -125,7 +120,7 @@ pub struct LiveIndexWriterConfigBase {
   pub analyzer: AnalyzerEnum,
   pub ram_buffer_size_mb: f64,
   pub max_buffered_docs: i32,
-  pub index_deletion_policy: KeepOnlyLastCommitDeletionPolicy,
+  pub index_deletion_policy: IndexDeletionPolicyEnum,
   pub index_commit: Option<DummyIndexCommit<DummyDirectory>>,
   pub use_compound_file: bool,
   pub open_mode: OpenMode,
@@ -166,7 +161,7 @@ impl LiveIndexWriterConfigBase {
       analyzer: AnalyzerEnum::default(),
       ram_buffer_size_mb: DEFAULT_RAM_BUFFER_SIZE_MB,
       max_buffered_docs: DEFAULT_MAX_BUFFERED_DOCS,
-      index_deletion_policy: KeepOnlyLastCommitDeletionPolicy,
+      index_deletion_policy: KeepOnlyLastCommitDeletionPolicy.into(),
       index_commit: None,
       use_compound_file: DEFAULT_USE_COMPOUND_FILE_SYSTEM,
       open_mode: OpenMode::CreateOrAppend,

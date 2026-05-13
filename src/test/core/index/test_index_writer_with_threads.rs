@@ -35,12 +35,13 @@ use std::thread;
 pub struct TestIndexWriterWithThreads;
 
 const SOFT_DELETES_FIELD: &str = "___soft_deletes";
+/// TODO IMPORTANT openIfChanged未实现
 fn test_update_single_doc_with_threads() -> Result<()> {
   let mut random = random();
   let force_merge = rarely(&mut random);
   stress_update_single_doc_with_threads(&mut random, false, force_merge)
 }
-
+/// TODO IMPORTANT openIfChanged未实现
 fn test_soft_update_single_doc_with_threads() -> Result<()> {
   let mut random = random();
   let force_merge = rarely(&mut random);
@@ -72,7 +73,7 @@ where
   // } else {
   //   3
   // };
-  let num_threads = 1;
+  let num_threads = 2;
   let done = Arc::new(AtomicUsize::new(0));
   let barrier = Arc::new(Barrier::new(num_threads + 1));
 
@@ -109,6 +110,7 @@ where
       if force_merge && random.random_bool(0.5) {
         writer.force_merge(1)?;
       }
+      // TODO IMPORTANT 这里没有用openIfChanged
       let open = writer.get_reader()?;
       assert_eq!(1, open.num_docs()?);
     }
