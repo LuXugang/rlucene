@@ -2870,6 +2870,33 @@ where
     Ok(self.pending_seq_no.load(Ordering::Acquire))
   }
 
+  /// Expert: Flushes the next pending writer per thread buffer if available or the largest active
+  /// non-pending writer per thread buffer in the calling thread. This can be used to flush documents
+  /// to disk outside of an indexing thread. In contrast to [`Self::flush`] this won't mark all
+  /// currently active indexing buffers as flush-pending.
+  ///
+  /// Note: this method is best-effort and might not flush any segments to disk. If there is a
+  /// full flush happening concurrently multiple segments might have been flushed. Users of this API
+  /// can access the [`IndexWriter`]'s current memory consumption via [`Self::ram_bytes_used`].
+  ///
+  /// Returns `true` iff this method flushed at least one segment to disk.
+  pub fn flush_next_buffer(&self) -> Result<bool> {
+    let result = (|| -> Result<bool> {
+      if self.doc_writer.flush_one_dwpt(self)? {
+        self.process_events(true)?;
+        Ok(true)
+      } else {
+        Ok(false)
+      }
+    })();
+
+    if let Err(err) = &result {
+      self.tragic_event(err, "flush_next_buffer");
+    }
+    self.maybe_close_on_tragic_event()?;
+    result
+  }
+
   fn prepare_commit_internal(&self, commit_lock: Option<&mut CommitInner<D>>) -> Result<i64> {
     let commit_lock = match commit_lock {
       Some(lock) => lock,

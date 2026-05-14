@@ -46,6 +46,7 @@ use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::index::merge_policy::{
   MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecification,
   MergeSpecificationNoReader, OneMerge,
@@ -2184,34 +2185,76 @@ fn test_records_index_created_version() -> Result<()> {
   );
   Ok(())
 }
-
-#[ignore]
 #[test]
 fn test_flush_largest_writer() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  let iwc = IndexWriterConfig::new();
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let num_docs = index_docs_for_multiple_dwpts(&w, &mut random)?;
+
+  let largest_non_pending_writer = w
+    .doc_writer
+    .flush_control
+    .find_largest_non_pending_writer()
+    .unwrap();
+
+  assert!(!largest_non_pending_writer.dwpt.lock().is_flush_pending());
+
+  let num_ram_docs = w.num_ram_docs()?;
+  let num_docs_in_dwpt = largest_non_pending_writer.dwpt.lock().get_num_docs_in_ram();
+
+  assert!(w.flush_next_buffer()?);
+  assert!(largest_non_pending_writer.dwpt.lock().has_flushed());
+  assert_eq!(num_ram_docs - num_docs_in_dwpt, w.num_ram_docs()?);
+
+  // Make sure it's not locked.
+  {
+    largest_non_pending_writer.lock();
+    largest_non_pending_writer.unlock();
+  }
+
+  if random.random_bool(0.5) {
+    w.commit()?;
+  }
+
+  let reader = directory_reader::open_with_writer_deletes(&w, true, true)?;
+  assert_eq!(num_docs, reader.num_docs()?);
+
+  w.close()?;
+
   Ok(())
 }
 
-fn index_docs_for_multiple_dwpts(
-  writer: Arc<IndexWriter<DirEnum, IndexWriterConfig, EmptyIndexWriterBase>>,
-  random: &mut impl Rng,
-) -> Result<i32> {
+fn index_docs_for_multiple_dwpts<R>(
+  writer: &IndexWriter<DirEnum, IndexWriterConfig, EmptyIndexWriterBase>,
+  random: &mut R,
+) -> Result<i32>
+where
+  R: Rng + ?Sized,
+{
   let num_threads = 3;
   let latch = Arc::new(Barrier::new(num_threads));
   let num_docs_per_thread = 10 + random.random_range(0..30);
 
   thread::scope(|scope| -> Result<()> {
     let mut threads = Vec::new();
+
     for _ in 0..num_threads {
-      let writer = writer.clone();
       let latch = latch.clone();
+
       threads.push(scope.spawn(move || -> Result<()> {
         latch.wait();
+
         for _ in 0..num_docs_per_thread {
           let mut doc = Document::new();
           doc.add(StringField::from_string("id", "foo", Store::Yes)?);
           writer.add_document(doc)?;
         }
+
         Ok(())
       }));
     }
@@ -2219,6 +2262,7 @@ fn index_docs_for_multiple_dwpts(
     for handle in threads {
       handle.join().expect("thread panicked")?;
     }
+
     Ok(())
   })?;
 

@@ -906,6 +906,34 @@ where
     max_ram_using_writer
   }
 
+  /// Returns the largest non-pending flushable DWPT or `None` if there is none.
+  pub(crate) fn checkout_largest_non_pending_writer<L>(
+    &self,
+    config: &L,
+  ) -> Result<Option<Arc<DwptWrapper<D>>>>
+  where
+    L: LiveIndexWriterConfig,
+  {
+    if let Some(largest_non_pending_writer) = self.find_largest_non_pending_writer() {
+      largest_non_pending_writer.lock();
+      let result = {
+        let per_thread = largest_non_pending_writer.dwpt.lock();
+        if self.per_thread_pool.is_registered(&per_thread.state.id) {
+          let mut inner = self.inner.lock();
+          let mark_pending = !per_thread.is_flush_pending();
+          let result = self.checkout(&mut inner, &per_thread, mark_pending, config);
+          self.update_stall_state(&mut inner, config);
+          result
+        } else {
+          Ok(None)
+        }
+      };
+      largest_non_pending_writer.unlock();
+      return result;
+    }
+    Ok(None)
+  }
+
   pub(crate) fn get_peak_active_bytes(&self) -> i64 {
     let inner = self.inner.lock();
     inner.peak_active_bytes
@@ -916,10 +944,6 @@ where
     inner.peak_net_bytes
   }
 }
-pub(crate) type DWPTEnum<D> = (
-  Option<DocumentsWriterPerThread<D>>,
-  Option<DocumentsWriterPerThread<D>>,
-);
 impl<D> Drop for DocumentsWriterFlushControl<D>
 where
   D: Directory,

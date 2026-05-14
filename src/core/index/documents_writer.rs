@@ -239,12 +239,14 @@ where
     }
 
     if !self.maybe_flush(writer)? {
-      // if let Some(dwpt) = self.flush_control.checkout_largest_non_pending_writer() {
-      //     self.do_flush(dwpt)?;
-      //     return Ok(true);
-      // }
-      // return Ok(false);
-      unimplemented!()
+      if let Some(dwpt) = self
+        .flush_control
+        .checkout_largest_non_pending_writer(&writer.config)?
+      {
+        self.do_flush(dwpt, writer)?;
+        return Ok(true);
+      }
+      return Ok(false);
     }
     Ok(true)
   }
