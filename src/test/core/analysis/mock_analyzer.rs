@@ -137,8 +137,8 @@ impl Analyzer for MockAnalyzer {
       self.max_token_length,
     );
     tokenizer.set_enable_checks(self.enable_checks);
-    let filter = MockTokenFilter::new(tokenizer, self.filter.clone());
-    let v = MockFilterWrap::new(filter);
+    let filt = MockTokenFilter::new(tokenizer, self.filter.clone());
+    let v = MockFilterWrap::new(filt);
     let _ = field;
     // TODO IMPORTANT maybePayload未实现
     Ok(TokenStreamComponents::new(
