@@ -27,6 +27,8 @@ use crate::impl_from_for_enum;
 use crate::test::core::index::base_knn_vectors_format_test_case::TestMergeScheduler;
 #[cfg(test)]
 use crate::test::core::index::base_merge_policy_test_case::SerialMergeSchedulerImpl;
+#[cfg(test)]
+use crate::test::core::index::test_index_writer_merging::MyMergeScheduler;
 use parking_lot::MutexGuard;
 
 pub trait MergeScheduler: Closeable {
@@ -106,6 +108,20 @@ pub trait MergeSource {
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase;
+
+  fn merge_segment_ids<'a, D>(&self, _merge: &'a Self::OneMerge<D>) -> Option<&'a [String]>
+  where
+    D: Directory,
+  {
+    None
+  }
+
+  fn merge_info_max_doc<D>(&self, _merge: &Self::OneMerge<D>) -> Result<Option<i32>>
+  where
+    D: Directory,
+  {
+    Ok(None)
+  }
 }
 pub enum MergeSchedulerEnum {
   Serial(SerialMergeScheduler),
@@ -114,6 +130,8 @@ pub enum MergeSchedulerEnum {
   SerialTest(SerialMergeSchedulerImpl),
   #[cfg(test)]
   KnnMergeScheduler(TestMergeScheduler),
+  #[cfg(test)]
+  IndexWriterMerging(MyMergeScheduler),
 }
 impl_from_for_enum!(
     MergeSchedulerEnum,
@@ -135,6 +153,8 @@ impl Closeable for MergeSchedulerEnum {
       MergeSchedulerEnum::SerialTest(s) => s.close(),
       #[cfg(test)]
       MergeSchedulerEnum::KnnMergeScheduler(s) => s.close(),
+      #[cfg(test)]
+      MergeSchedulerEnum::IndexWriterMerging(s) => s.close(),
     }
   }
 }
@@ -159,6 +179,8 @@ impl MergeScheduler for MergeSchedulerEnum {
       MergeSchedulerEnum::SerialTest(s) => s.merge(merge_source, trigger, index_writer),
       #[cfg(test)]
       MergeSchedulerEnum::KnnMergeScheduler(s) => s.merge(merge_source, trigger, index_writer),
+      #[cfg(test)]
+      MergeSchedulerEnum::IndexWriterMerging(s) => s.merge(merge_source, trigger, index_writer),
     }
   }
 
@@ -181,6 +203,8 @@ impl MergeScheduler for MergeSchedulerEnum {
       MergeSchedulerEnum::SerialTest(s) => Ok(DirectoryEnum2::A(s.wrap_for_merge(in_)?)),
       #[cfg(test)]
       MergeSchedulerEnum::KnnMergeScheduler(s) => Ok(DirectoryEnum2::A(s.wrap_for_merge(in_)?)),
+      #[cfg(test)]
+      MergeSchedulerEnum::IndexWriterMerging(s) => Ok(DirectoryEnum2::A(s.wrap_for_merge(in_)?)),
     }
   }
 }

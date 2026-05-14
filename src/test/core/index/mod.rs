@@ -56,6 +56,7 @@ pub(crate) mod test_index_writer;
 mod test_index_writer_commit;
 mod test_index_writer_delete;
 mod test_index_writer_max_docs;
+pub(crate) mod test_index_writer_merging;
 mod test_index_writer_threads_to_segments;
 mod test_index_writer_with_threads;
 mod test_indexing_sequence_numbers;

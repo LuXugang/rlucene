@@ -58,6 +58,10 @@ impl IndexWriterConfig {
       base: LiveIndexWriterConfigBase::with_analyzer(analyzer),
     }
   }
+  pub fn set_commit_on_close(&mut self, commit_on_close: bool) -> &mut Self {
+    self.base.commit_on_close = commit_on_close;
+    self
+  }
   pub fn set_max_full_flush_merge_wait_millis(
     &mut self,
     max_full_flush_merge_wait_millis: i64,

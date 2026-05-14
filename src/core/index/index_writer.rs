@@ -6670,6 +6670,24 @@ impl MergeSource for IndexWriterMergeSource {
   {
     writer.merge(merge)
   }
+
+  fn merge_segment_ids<'a, D>(&self, merge: &'a Self::OneMerge<D>) -> Option<&'a [String]>
+  where
+    D: Directory,
+  {
+    Some(&merge.stat.segments)
+  }
+
+  fn merge_info_max_doc<D>(&self, merge: &Self::OneMerge<D>) -> Result<Option<i32>>
+  where
+    D: Directory,
+  {
+    merge
+      .info
+      .as_ref()
+      .map(|info| info.info.max_doc())
+      .transpose()
+  }
 }
 #[derive(Default)]
 struct AddIndexesMergeSource;
@@ -6792,5 +6810,23 @@ impl MergeSource for AddIndexesMergeSource {
       close_result?;
       Ok(())
     }
+  }
+
+  fn merge_segment_ids<'a, D>(&self, merge: &'a Self::OneMerge<D>) -> Option<&'a [String]>
+  where
+    D: Directory,
+  {
+    Some(&merge.stat.segments)
+  }
+
+  fn merge_info_max_doc<D>(&self, merge: &Self::OneMerge<D>) -> Result<Option<i32>>
+  where
+    D: Directory,
+  {
+    merge
+      .info
+      .as_ref()
+      .map(|info| info.info.max_doc())
+      .transpose()
   }
 }

@@ -275,7 +275,7 @@ fn test_many_threads_close() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
-  iwc.base.commit_on_close = false;
+  iwc.set_commit_on_close(false);
   let mut writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
   writer.set_do_random_force_merge(false);
   let w = Arc::new(writer);
