@@ -58,6 +58,7 @@ mod test_index_writer_delete;
 mod test_index_writer_max_docs;
 pub(crate) mod test_index_writer_merging;
 mod test_index_writer_threads_to_segments;
+mod test_index_writer_unicode;
 mod test_index_writer_with_threads;
 mod test_indexing_sequence_numbers;
 mod test_log_merge_policy;
