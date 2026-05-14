@@ -304,7 +304,7 @@ where
   )?);
   doc.add(NumericDocValuesField::new("dv", value as i64));
 
-  modifier.update_documents_with_term(Term::from_text("id", id.to_string()), doc)?;
+  modifier.update_document_with_term(Term::from_text("id", id.to_string()), doc)?;
   Ok(())
 }
 

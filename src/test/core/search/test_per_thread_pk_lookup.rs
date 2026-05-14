@@ -141,12 +141,12 @@ fn test_pk_lookup_with_update() -> Result<()> {
   doc = Document::new();
   doc.add(KeywordField::from_string("PK", "1", Store::No)?);
   doc.add(KeywordField::from_string("version", "2", Store::No)?);
-  writer.update_documents_with_term(Term::from_text("PK", "1"), doc)?;
+  writer.update_document_with_term(Term::from_text("PK", "1"), doc)?;
 
   doc = Document::new();
   doc.add(KeywordField::from_string("PK", "1", Store::No)?);
   doc.add(KeywordField::from_string("version", "3", Store::No)?);
-  writer.update_documents_with_term(Term::from_text("PK", "1"), doc)?;
+  writer.update_document_with_term(Term::from_text("PK", "1"), doc)?;
   writer.flush()?;
   writer.close()?;
 

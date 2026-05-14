@@ -79,7 +79,7 @@ where
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "1", Store::No)?);
-  writer.update_documents_with_term(Term::from_text("id", "1"), doc)?;
+  writer.update_document_with_term(Term::from_text("id", "1"), doc)?;
 
   let iters_per_thread = 100 + random.random_range(0..2000);
   thread::scope(|scope| -> Result<()> {
@@ -94,7 +94,7 @@ where
           for _ in 0..iters_per_thread {
             let mut d = Document::new();
             d.add(StringField::from_string("id", "1", Store::No)?);
-            writer.update_documents_with_term(Term::from_text("id", "1"), d)?;
+            writer.update_document_with_term(Term::from_text("id", "1"), d)?;
           }
           Ok(())
         })();

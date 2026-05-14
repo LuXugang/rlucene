@@ -14,12 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::reader::StringReader;
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
@@ -31,6 +34,8 @@ use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::index::fields::Fields;
+use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{
@@ -38,6 +43,7 @@ use crate::core::index::index_writer::{
 };
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::index_writer_config::OpenMode;
+use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
@@ -46,30 +52,37 @@ use crate::core::index::merge_policy::{
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
-use crate::core::index::postings_enum::{FREQS, PostingsEnum};
+use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::postings_enum::{ALL, FREQS, NONE, PostingsEnum};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
+use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::terms::Terms;
+use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::term_query::TermQuery;
-use crate::core::store::IOContext;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::{DirEnum, Directory};
+use crate::core::store::{DataOutput, IOContext};
+use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper};
 use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
 use crate::test::core::analysis::token;
 use crate::test::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   get_only_leaf_reader, new_directory_shared, new_field, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
-  new_searcher_with_reader, new_string_field, new_text_field, random,
+  new_index_writer_config_with_analyzer, new_io_context, new_log_merge_policy,
+  new_log_merge_policy_with_merge_factor, new_searcher_with_reader, new_string_field,
+  new_text_field, random, random_from_seed, slow_file_exists,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -215,6 +228,35 @@ where
   }
 }
 
+pub(crate) fn assert_no_unreferenced_files<D>(dir: Arc<D>, message: &str) -> Result<()>
+where
+  D: Directory,
+{
+  let mut start_files = dir.list_all()?;
+  let mut random = random();
+  let mock = MockAnalyzer::new(&mut random);
+  let writer = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, mock),
+  )?;
+  writer.close()?;
+  let mut end_files = dir.list_all()?;
+
+  start_files.sort();
+  end_files.sort();
+
+  assert_eq!(
+    start_files,
+    end_files,
+    "{}: before delete:\n    {}\n  after delete:\n    {}",
+    message,
+    start_files.join("\n    "),
+    end_files.join("\n    ")
+  );
+
+  Ok(())
+}
+
 #[test]
 fn test_create_with_reader() -> Result<()> {
   // TODO
@@ -272,13 +314,13 @@ fn test_index_no_documents() -> Result<()> {
 
 #[test]
 fn test_small_ram_buffer() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT
   Ok(())
 }
 
 #[test]
 fn test_changing_ram_buffer() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT
   Ok(())
 }
 
@@ -493,13 +535,93 @@ fn test_bad_segment() -> Result<()> {
 
 #[test]
 fn test_max_thread_priority() -> Result<()> {
-  // TODO
+  // this test is not required in Rust Lucene
   Ok(())
 }
 
 #[test]
 fn test_variable_schema() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mut field_types = HashMap::new();
+
+  for i in 0..20 {
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    iwc.set_max_buffered_docs(2);
+    iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+    let mut doc = Document::new();
+    let contents = "aa bb cc dd ee ff gg hh ii jj kk";
+
+    let custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+
+    if i == 7 {
+      doc.add(new_text_field(
+        &mut random,
+        "content3",
+        "",
+        Store::No,
+        &mut field_types,
+      )?);
+    } else {
+      let field_type = if i % 2 == 0 {
+        doc.add(new_field(
+          &mut random,
+          "content4",
+          contents,
+          &custom_type,
+          &mut field_types,
+        )?);
+        custom_type.clone()
+      } else {
+        FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?
+      };
+
+      doc.add(new_text_field(
+        &mut random,
+        "content1",
+        contents,
+        Store::No,
+        &mut field_types,
+      )?);
+
+      doc.add(new_field(
+        &mut random,
+        "content3",
+        "",
+        &custom_type,
+        &mut field_types,
+      )?);
+
+      doc.add(new_field(
+        &mut random,
+        "content5",
+        "",
+        &field_type,
+        &mut field_types,
+      )?);
+    }
+
+    for _ in 0..4 {
+      writer.add_document(doc.clone())?;
+    }
+
+    writer.close()?;
+    drop(writer);
+
+    if i % 4 == 0 {
+      let mock = MockAnalyzer::new(&mut random);
+      let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+      let writer = IndexWriter::new(dir.clone(), iwc)?;
+      writer.force_merge(1)?;
+      writer.close()?;
+    }
+  }
+
   Ok(())
 }
 
@@ -703,31 +825,365 @@ fn test_do_before_after_flush() -> Result<()> {
 
 #[test]
 fn test_negative_positions() -> Result<()> {
-  // TODO TokenStream 不支持
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let writer = IndexWriter::new(dir, iwc)?;
+
+  let mut doc = Document::new();
+  doc.add(TextField::from_token_stream(
+    "field",
+    FieldTokenStreamEnum::custom(NegativePositionsTokenStream::new()),
+  )?);
+
+  let result = writer.add_document(doc);
+  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+
+  writer.close()?;
   Ok(())
 }
 
 #[test]
 fn test_position_increment_gap_empty_field() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  let mut analyzer = MockAnalyzer::new(&mut random);
+  analyzer.set_position_increment_gap(100);
+
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut field_types = HashMap::new();
+
+  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  custom_type.set_store_term_vectors(true)?;
+  custom_type.set_store_term_vector_positions(true)?;
+
+  let mut doc = Document::new();
+  doc.add(new_field(
+    &mut random,
+    "field",
+    "",
+    &custom_type,
+    &mut field_types,
+  )?);
+  doc.add(new_field(
+    &mut random,
+    "field",
+    "crunch man",
+    &custom_type,
+    &mut field_types,
+  )?);
+
+  w.add_document(doc)?;
+  w.close()?;
+
+  let r = directory_reader::open(dir)?;
+  let mut term_vectors = r.term_vectors()?;
+  let fields = term_vectors.get(0)?.unwrap();
+  let tpv = fields.terms("field")?.unwrap();
+
+  let mut terms_enum = tpv.iterator()?;
+
+  assert!(terms_enum.next()?.is_some());
+  let mut dp_enum = terms_enum.postings_with_flags(None, ALL as i32)?;
+  assert_ne!(NO_MORE_DOCS, dp_enum.next_doc()?);
+  assert_eq!(1, dp_enum.freq()?);
+  assert_eq!(100, dp_enum.next_position()?);
+
+  assert!(terms_enum.next()?.is_some());
+  let mut dp_enum = terms_enum.postings_with_flags(Some(dp_enum), ALL as i32)?;
+  assert_ne!(NO_MORE_DOCS, dp_enum.next_doc()?);
+  assert_eq!(1, dp_enum.freq()?);
+  assert_eq!(101, dp_enum.next_position()?);
+
+  assert!(terms_enum.next()?.is_none());
+
   Ok(())
 }
 
 #[test]
 fn test_deadlock() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_max_buffered_docs(2);
+
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut field_types = HashMap::new();
+
+  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  custom_type.set_store_term_vectors(true)?;
+  custom_type.set_store_term_vector_positions(true)?;
+  custom_type.set_store_term_vector_offsets(true)?;
+
+  let mut doc = Document::new();
+  doc.add(new_field(
+    &mut random,
+    "content",
+    "aaa bbb ccc ddd eee fff ggg hhh iii",
+    &custom_type,
+    &mut field_types,
+  )?);
+
+  writer.add_document(doc.clone())?;
+  writer.add_document(doc.clone())?;
+  writer.add_document(doc.clone())?;
+  writer.commit()?;
+
+  let dir2 = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer2 = IndexWriter::new(dir2.clone(), iwc)?;
+  writer2.add_document(doc)?;
+  writer2.close()?;
+
+  let _r1 = directory_reader::open(dir2.clone())?;
+  // TODO add_indexes_slowly未实现
+  // TestUtil::add_indexes_slowly(&mut writer, &r1, &r1)?;
+  // writer.close()?;
+  //
+  // let r3 = directory_reader::open(dir.clone())?;
+  // assert_eq!(5, r3.num_docs()?);
+
   Ok(())
 }
 
 #[test]
 fn test_thread_interrupt_deadlock() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT
   Ok(())
 }
 
 #[test]
 fn test_index_store_combos() -> Result<()> {
-  // TODO
+  let mut rng = random();
+  let dir = new_directory_shared(&mut rng)?;
+  let mock = MockAnalyzer::new(&mut rng);
+  let iwc = new_index_writer_config_with_analyzer(&mut rng, mock);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let b: Vec<u8> = (0..50).map(|i| i + 77).collect();
+
+  let mut custom_type = FieldType::new();
+  custom_type.set_tokenized(true)?;
+  custom_type.set_index_options(IndexOptions::Docs)?;
+
+  let custom_type2 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+
+  let r = random_from_seed(rng.random());
+  let mut field1 = MockTokenizer::with_default_max_token_length(r, WHITESPACE.clone(), false);
+  field1.set_reader(StringReader::new("doc1field1").into())?;
+  let r = random_from_seed(rng.random());
+  let mut field2 = MockTokenizer::with_default_max_token_length(r, WHITESPACE.clone(), false);
+  field2.set_reader(StringReader::new("doc1field2").into())?;
+  let mut doc = Document::new();
+  doc.add(StoredField::from_binary_with_range(
+    "binary",
+    b.clone(),
+    10,
+    17,
+  )?);
+  doc.add(Field::from_token_stream(
+    "binary",
+    FieldTokenStreamEnum::custom(field1),
+    custom_type.clone(),
+  )?);
+  doc.add(Field::from_string(
+    "string",
+    "value",
+    FieldType::from_ref(&*text_field_type::TYPE_STORED)?,
+  )?);
+  doc.add(Field::from_token_stream(
+    "string",
+    FieldTokenStreamEnum::custom(field2),
+    custom_type2.clone(),
+  )?);
+  writer.add_document(doc)?;
+
+  let r = random_from_seed(rng.random());
+  let mut field1 = MockTokenizer::with_default_max_token_length(r, WHITESPACE.clone(), false);
+  field1.set_reader(StringReader::new("doc2field1").into())?;
+  let r = random_from_seed(rng.random());
+  let mut field2 = MockTokenizer::with_default_max_token_length(r, WHITESPACE.clone(), false);
+  field2.set_reader(StringReader::new("doc2field2").into())?;
+  let mut doc = Document::new();
+  doc.add(StoredField::from_binary_with_range(
+    "binary",
+    b.clone(),
+    10,
+    17,
+  )?);
+  doc.add(Field::from_token_stream(
+    "binary",
+    FieldTokenStreamEnum::custom(field1),
+    custom_type.clone(),
+  )?);
+  doc.add(Field::from_string(
+    "string",
+    "value",
+    FieldType::from_ref(&*text_field_type::TYPE_STORED)?,
+  )?);
+  doc.add(Field::from_token_stream(
+    "string",
+    FieldTokenStreamEnum::custom(field2),
+    custom_type2.clone(),
+  )?);
+  writer.add_document(doc)?;
+
+  writer.commit()?;
+  let r = random_from_seed(rng.random());
+  let mut field1 = MockTokenizer::with_default_max_token_length(r, WHITESPACE.clone(), false);
+  field1.set_reader(StringReader::new("doc3field1").into())?;
+  let r = random_from_seed(rng.random());
+  let mut field2 = MockTokenizer::with_default_max_token_length(r, WHITESPACE.clone(), false);
+  field2.set_reader(StringReader::new("doc3field2").into())?;
+  let mut doc = Document::new();
+  doc.add(StoredField::from_binary_with_range(
+    "binary",
+    b.clone(),
+    10,
+    17,
+  )?);
+  doc.add(Field::from_token_stream(
+    "binary",
+    FieldTokenStreamEnum::custom(field1),
+    custom_type,
+  )?);
+  doc.add(Field::from_string(
+    "string",
+    "value",
+    FieldType::from_ref(&*text_field_type::TYPE_STORED)?,
+  )?);
+  doc.add(Field::from_token_stream(
+    "string",
+    FieldTokenStreamEnum::custom(field2),
+    custom_type2,
+  )?);
+  writer.add_document(doc)?;
+  writer.commit()?;
+  writer.force_merge(1)?;
+  writer.close()?;
+
+  let reader = directory_reader::open(dir)?;
+  let mut stored_fields = reader.stored_fields()?;
+  let doc2 = stored_fields.document(0)?;
+  let f3 = doc2.get_field("binary").expect("binary field should exist");
+  let b = f3.binary_value()?.expect("binary value should exist");
+  assert_eq!(17, b.length);
+  assert_eq!(87, b.bytes[b.offset]);
+
+  for doc_id in 0..3 {
+    assert!(
+      stored_fields
+        .document(doc_id)?
+        .get_field("binary")
+        .expect("binary field should exist")
+        .binary_value()?
+        .is_some()
+    );
+  }
+
+  assert_eq!(
+    "value",
+    stored_fields.document(0)?.get("string")?.unwrap().as_ref()
+  );
+  assert_eq!(
+    "value",
+    stored_fields.document(1)?.get("string")?.unwrap().as_ref()
+  );
+  assert_eq!(
+    "value",
+    stored_fields.document(2)?.get("string")?.unwrap().as_ref()
+  );
+
+  assert_ne!(
+    TestUtil::docs_with_reader(
+      &mut rng,
+      &reader,
+      "binary",
+      &BytesRef::from_string("doc1field1"),
+      None,
+      NONE as i32,
+    )?
+    .expect("term should exist")
+    .next_doc()?,
+    NO_MORE_DOCS
+  );
+  assert_ne!(
+    TestUtil::docs_with_reader(
+      &mut rng,
+      &reader,
+      "binary",
+      &BytesRef::from_string("doc2field1"),
+      None,
+      NONE as i32,
+    )?
+    .expect("term should exist")
+    .next_doc()?,
+    NO_MORE_DOCS
+  );
+  assert_ne!(
+    TestUtil::docs_with_reader(
+      &mut rng,
+      &reader,
+      "binary",
+      &BytesRef::from_string("doc3field1"),
+      None,
+      NONE as i32,
+    )?
+    .expect("term should exist")
+    .next_doc()?,
+    NO_MORE_DOCS
+  );
+  assert_ne!(
+    TestUtil::docs_with_reader(
+      &mut rng,
+      &reader,
+      "string",
+      &BytesRef::from_string("doc1field2"),
+      None,
+      NONE as i32,
+    )?
+    .expect("term should exist")
+    .next_doc()?,
+    NO_MORE_DOCS
+  );
+  assert_ne!(
+    TestUtil::docs_with_reader(
+      &mut rng,
+      &reader,
+      "string",
+      &BytesRef::from_string("doc2field2"),
+      None,
+      NONE as i32,
+    )?
+    .expect("term should exist")
+    .next_doc()?,
+    NO_MORE_DOCS
+  );
+  assert_ne!(
+    TestUtil::docs_with_reader(
+      &mut rng,
+      &reader,
+      "string",
+      &BytesRef::from_string("doc3field2"),
+      None,
+      NONE as i32,
+    )?
+    .expect("term should exist")
+    .next_doc()?,
+    NO_MORE_DOCS
+  );
+
+  reader.close()?;
   Ok(())
 }
 
@@ -770,7 +1226,65 @@ fn test_empty_dir_rollback() -> Result<()> {
 
 #[test]
 fn test_no_unwanted_tv_files() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  config.set_ram_buffer_size_mb(0.01);
+  let mut merge_policy = new_log_merge_policy(&mut random)?;
+  merge_policy.get_base_mut().set_no_cfs_ratio(0.0)?;
+  config.set_merge_policy(merge_policy);
+  let writer = IndexWriter::new(dir.clone(), config)?;
+
+  let mut big =
+    "alskjhlaksjghlaksjfhalksvjepgjioefgjnsdfjgefgjhelkgjhqewlrkhgwlekgrhwelkgjhwelkgrhwlkejg"
+      .to_string();
+  big = big.repeat(4);
+
+  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  custom_type.set_omit_norms(true)?;
+  let mut custom_type2 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  custom_type2.set_tokenized(false)?;
+  let mut custom_type3 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  custom_type3.set_tokenized(false)?;
+  custom_type3.set_omit_norms(true)?;
+
+  for i in 0..2 {
+    let text = format!("{i}{big}");
+    let mut doc = Document::new();
+    doc.add(Field::from_string(
+      "id",
+      text.clone(),
+      custom_type3.clone(),
+    )?);
+    doc.add(Field::from_string(
+      "str",
+      text.clone(),
+      custom_type2.clone(),
+    )?);
+    doc.add(Field::from_string(
+      "str2",
+      text.clone(),
+      STORED_TEXT_TYPE.clone(),
+    )?);
+    doc.add(Field::from_string("str3", text, custom_type.clone())?);
+    writer.add_document(doc)?;
+  }
+
+  writer.close()?;
+  drop(writer);
+
+  TestUtil::check_index(dir.clone())?;
+
+  assert_no_unreferenced_files(dir.clone(), "no tv files")?;
+
+  let reader = directory_reader::open(dir)?;
+  let context = get_context(&reader)?;
+  for ctx in context.leaves()? {
+    assert!(!ctx.reader().get_field_infos()?.has_term_vectors());
+  }
+
+  reader.close()?;
   Ok(())
 }
 
@@ -782,13 +1296,87 @@ fn test_wicked_long_term() -> Result<()> {
 
 #[test]
 fn test_delete_all_nrt_leftover_files() -> Result<()> {
-  // TODO
+  // TODO writer.delete_all未实现
+  // let mut random = random();
+  //
+  // let dir = new_directory_shared(&mut random)?;
+  //
+  // let mock = MockAnalyzer::new(&mut random);
+  // let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  // let mut w = IndexWriter::new(dir.clone(), iwc)?;
+  //
+  // let doc = Document::new();
+  //
+  // for _ in 0..20 {
+  //   for _ in 0..100 {
+  //     w.add_document(doc.clone())?;
+  //   }
+  //
+  //   w.commit()?;
+  //
+  //   drop(directory_reader::open_from_writer(&w)?);
+  //
+  //   w.delete_all()?;
+  //   w.commit()?;
+  //
+  //   // Make sure we accumulate no files except for empty segments_N and segments.gen.
+  //   let files = dir.list_all()?;
+  //   assert!(
+  //     files.len() <= 2,
+  //     "unexpected leftover files: {files:?}"
+  //   );
+  // }
+  //
+  // w.close()?;
+
   Ok(())
 }
-
 #[test]
 fn test_nrt_reader_version() -> Result<()> {
-  // TODO
+  // TODO OpenIFchange未实现
+  // let mut random = random();
+  //
+  // let dir = new_directory_shared(&mut random)?;
+  //
+  // let mock = MockAnalyzer::new(&mut random);
+  // let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  // let mut w = IndexWriter::new(dir.clone(), iwc)?;
+  //
+  // let mut field_types = HashMap::new();
+  //
+  // let mut doc = Document::new();
+  // doc.add(new_string_field(
+  //   &mut random,
+  //   "id",
+  //   "0",
+  //   Store::Yes,
+  //   &mut field_types,
+  // )?);
+  //
+  // w.add_document(doc.clone())?;
+  //
+  // let r = directory_reader::open_from_writer(&w)?;
+  // let version = r.get_version();
+  // drop(r);
+  //
+  // w.add_document(doc.clone())?;
+  //
+  // let r = directory_reader::open_from_writer(&w)?;
+  // let version2 = r.get_version();
+  // drop(r);
+  //
+  // assert!(version2 > version);
+  //
+  // w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+  //
+  // let r = directory_reader::open_from_writer(&w)?;
+  // w.close()?;
+  //
+  // let version3 = r.get_version();
+  // drop(r);
+  //
+  // assert!(version3 > version2);
+
   Ok(())
 }
 
@@ -800,37 +1388,198 @@ fn test_whether_delete_all_deletes_write_lock() -> Result<()> {
 
 #[test]
 fn test_has_blocks_merge_fully_del_segments() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+  let new_doc = || -> Result<Document> {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("foo", "bar", Store::No)?);
+    Ok(doc)
+  };
+
+  let docs = vec![new_doc()?, new_doc()?];
+  writer.update_documents_with_term(Term::from_text("foo", "bar"), docs.clone())?;
+  writer.commit()?;
+
+  if random.random_bool(0.5) {
+    writer.update_documents_with_term(Term::from_text("foo", "bar"), docs)?;
+    writer.commit()?;
+  }
+
+  writer.update_document_with_term(Term::from_text("foo", "bar"), new_doc()?)?;
+
+  if random.random_bool(0.5) {
+    writer.force_merge_deletes_with_wait(true)?;
+  } else {
+    writer.force_merge_with_wait(1, true)?;
+  }
+
+  writer.commit()?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  let reader = get_context(reader)?;
+  let leaves = reader.leaves()?;
+  assert_eq!(1, leaves.len());
+
+  assert!(
+    !leaves[0].reader().get_metadata()?.get_has_blocks(),
+    "hasBlocks should be cleared"
+  );
+
+  writer.close()?;
+
   Ok(())
 }
 
 #[test]
 fn test_single_docs_do_not_trigger_has_blocks() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_max_buffered_docs(i32::MAX);
+  iwc.set_ram_buffer_size_mb(100.0);
+
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let docs = TestUtil::next_int(&mut random, 1, 100);
+  for i in 0..docs {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+    w.add_documents(vec![doc])?;
+  }
+
+  w.commit()?;
+
+  let si = w.clone_segment_infos()?;
+  assert_eq!(1, si.size());
+  assert!(!si.iter()[0].info.get_has_blocks());
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "XXX", Store::No)?);
+
+  w.add_documents(vec![doc.clone(), doc])?;
+  w.commit()?;
+
+  let si = w.clone_segment_infos()?;
+  assert_eq!(2, si.size());
+
+  let infos = si.iter();
+  assert!(!infos[0].info.get_has_blocks());
+  assert!(infos[1].info.get_has_blocks());
+
+  w.force_merge(1)?;
+  w.commit()?;
+
+  let si = w.clone_segment_infos()?;
+  assert_eq!(1, si.size());
+  assert!(si.iter()[0].info.get_has_blocks());
+
+  w.close()?;
+
   Ok(())
 }
 
 #[test]
 fn test_carry_over_has_blocks() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut docs = vec![Document::new()];
+  w.update_documents_with_term(Term::from_text("foo", "bar"), docs.clone())?;
+  w.commit()?;
+
+  {
+    let reader = directory_reader::open(dir.clone())?;
+    let reader = get_context(reader)?;
+    let leaves = reader.leaves()?;
+    let segment_info = leaves[0].reader().get_segment_info();
+    assert!(!segment_info.info.get_has_blocks());
+  }
+
+  docs.push(Document::new());
+
+  w.update_documents_with_term(Term::from_text("foo", "bar"), docs)?;
+  w.commit()?;
+
+  {
+    let reader = directory_reader::open(dir.clone())?;
+    let reader = get_context(reader)?;
+    let leaves = reader.leaves()?;
+    assert_eq!(2, leaves.len());
+
+    let segment_info = leaves[0].reader().get_segment_info();
+    assert!(!segment_info.info.get_has_blocks(),);
+
+    let segment_info = leaves[1].reader().get_segment_info();
+    assert!(segment_info.info.get_has_blocks(),);
+  }
+
+  w.force_merge_with_wait(1, true)?;
+  w.commit()?;
+
+  {
+    let reader = directory_reader::open(dir.clone())?;
+    let reader = get_context(reader)?;
+    let leaves = reader.leaves()?;
+    assert_eq!(1, leaves.len());
+
+    let segment_info = leaves[0].reader().get_segment_info();
+    assert!(segment_info.info.get_has_blocks(),);
+  }
+
+  w.commit()?;
+  w.close()?;
+
   Ok(())
 }
 
 #[test]
 fn test_prepare_commit_then_close() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  w.prepare_commit()?;
+
+  let err = w.close();
+  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+
+  w.commit()?;
+  w.close()?;
+  drop(w);
+
+  let r = directory_reader::open(dir)?;
+  assert_eq!(0, r.max_doc()?);
+
   Ok(())
 }
 
 #[test]
 fn test_prepare_commit_then_rollback() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT: rollback 未实现
   Ok(())
 }
 
 #[test]
 fn test_prepare_commit_then_rollback2() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT: rollback 未实现
   Ok(())
 }
 
@@ -842,7 +1591,32 @@ fn test_dont_invoke_analyzer_for_un_analyzed_fields() -> Result<()> {
 
 #[test]
 fn test_other_files() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iw = IndexWriter::new(dir.clone(), iwc)?;
+  iw.add_document(Document::new())?;
+  iw.close()?;
+  drop(iw);
+
+  {
+    // Create my own random file.
+    let context = new_io_context(&mut random)?;
+    let mut out = dir.create_output("myrandomfile", &context)?;
+    out.write_byte(42)?;
+    out.close()?;
+  }
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iw = IndexWriter::new(dir.clone(), iwc)?;
+  iw.close()?;
+
+  assert!(slow_file_exists(&dir, "myrandomfile")?);
+
   Ok(())
 }
 
@@ -860,37 +1634,136 @@ fn test_stopwords_pos_inc_hole2() -> Result<()> {
 
 #[test]
 fn test_commit_with_user_data_only() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT get_index_commit未实现
+  // let mut random = random();
+  //
+  // let dir = new_directory_shared(&mut random)?;
+  //
+  // let iwc = new_index_writer_config(None);
+  // let mut writer = IndexWriter::new(dir.clone(), iwc)?;
+  //
+  // writer.commit()?; // first commit to complete IW create transaction.
+  //
+  // // This should store the commit data, even though no other changes were made.
+  // let mut data = HashMap::new();
+  // data.insert("key".to_string(), "value".to_string());
+  // writer.set_live_commit_data(data);
+  // writer.commit()?;
+  //
+  // let r = directory_reader::open(dir.clone())?;
+  // assert_eq!(
+  //   Some(&"value".to_string()),
+  //   r.get_index_commit()?.get_user_data().get("key")
+  // );
+  //
+  // // Now check setCommitData and prepareCommit/commit sequence.
+  // let mut data = HashMap::new();
+  // data.insert("key".to_string(), "value1".to_string());
+  // writer.set_live_commit_data(data);
+  //
+  // writer.prepare_commit()?;
+  //
+  // let mut data = HashMap::new();
+  // data.insert("key".to_string(), "value2".to_string());
+  // writer.set_live_commit_data(data);
+  //
+  // // Should commit the first commitData only, per protocol.
+  // writer.commit()?;
+  //
+  // let r = directory_reader::open(dir.clone())?;
+  // assert_eq!(
+  //   Some(&"value1".to_string()),
+  //   r.get_index_commit()?.get_user_data().get("key")
+  // );
+  //
+  // // Now should commit the second commitData - there was a bug where
+  // // IndexWriter.finishCommit overrode the second commitData.
+  // writer.commit()?;
+  //
+  // let r = directory_reader::open(dir.clone())?;
+  // assert_eq!(
+  //   Some(&"value2".to_string()),
+  //   r.get_index_commit()?.get_user_data().get("key"),
+  //   "IndexWriter.finishCommit may have overridden the second commitData"
+  // );
+  //
+  // writer.close()?;
+
   Ok(())
+}
+
+fn get_live_commit_data<D, L, B>(writer: &IndexWriter<D, L, B>) -> HashMap<String, String>
+where
+  D: Directory,
+  L: LiveIndexWriterConfig,
+  B: IndexWriterBase,
+{
+  let mut data = HashMap::new();
+
+  if let Some(iter) = writer.get_live_commit_data() {
+    for ent in iter {
+      data.insert(ent.0.clone(), ent.1.clone());
+    }
+  }
+
+  data
 }
 
 #[test]
 fn test_get_commit_data() -> Result<()> {
-  // TODO
+  let dir = new_directory_shared(&mut random())?;
+  let mut random = random();
+
+  let iwc = new_index_writer_config(&mut random);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+  writer.set_live_commit_data(HashMap::from([("key".to_string(), "value".to_string())]));
+
+  assert_eq!(
+    Some("value"),
+    get_live_commit_data(&writer).get("key").map(String::as_str)
+  );
+
+  writer.close()?;
+  drop(writer);
+
+  // Validate that it's also visible when opening a new IndexWriter.
+  let mut iwc = new_index_writer_config(&mut random);
+  iwc.set_open_mode(OpenMode::Append);
+
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+  assert_eq!(
+    Some("value"),
+    get_live_commit_data(&writer).get("key").map(String::as_str)
+  );
+
+  writer.close()?;
+
   Ok(())
 }
 
 #[test]
 fn test_get_commit_data_from_old_snapshot() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT SnapshotDeletionPolicy未实现
   Ok(())
 }
 
 #[test]
 fn test_null_analyzer() -> Result<()> {
-  // TODO
+  // this test is not required in Rust Lucene
   Ok(())
 }
 
 #[test]
 fn test_null_document() -> Result<()> {
-  // TODO
+  // this test is not required in Rust Lucene
   Ok(())
 }
 
 #[test]
 fn test_null_documents() -> Result<()> {
-  // TODO
+  // this test is not required in Rust Lucene
   Ok(())
 }
 
@@ -920,7 +1793,53 @@ fn test_corrupt_first_commit() -> Result<()> {
 
 #[test]
 fn test_has_uncommitted_changes() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_merge_policy(NoMergePolicy::default());
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+  assert!(writer.has_uncommitted_changes());
+
+  let mut doc = Document::new();
+  doc.add(TextField::from_string("myfield", "a b c", Store::No)?);
+  writer.add_document(doc.clone())?;
+  assert!(writer.has_uncommitted_changes());
+
+  writer.commit()?;
+  writer.wait_for_merges()?;
+  writer.commit()?;
+  assert!(!writer.has_uncommitted_changes());
+
+  writer.add_document(doc)?;
+  assert!(writer.has_uncommitted_changes());
+  writer.commit()?;
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "xyz", Store::Yes)?);
+  writer.add_document(doc.clone())?;
+  assert!(writer.has_uncommitted_changes());
+
+  writer.commit()?;
+  assert!(!writer.has_uncommitted_changes());
+  writer.delete_documents_with_terms(vec![Term::from_text("id", "xyz")])?;
+  assert!(writer.has_uncommitted_changes());
+
+  writer.commit()?;
+  assert!(!writer.has_uncommitted_changes());
+  writer.close()?;
+  drop(writer);
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  assert!(!writer.has_uncommitted_changes());
+  writer.add_document(doc)?;
+  assert!(writer.has_uncommitted_changes());
+
+  writer.close()?;
+
   Ok(())
 }
 
@@ -957,13 +1876,53 @@ fn test_delete_same_term_across_fields() -> Result<()> {
 
 #[test]
 fn test_has_uncommitted_changes_after_exception() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let analyzer = MockAnalyzer::new(&mut random);
+
+  let directory = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let iwriter = IndexWriter::new(directory, iwc)?;
+
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    BytesRef::from_string("foo!"),
+  ));
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    BytesRef::from_string("bar!"),
+  ));
+  let result = iwriter.add_document(doc);
+  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+
+  iwriter.commit()?;
+  assert!(!iwriter.has_uncommitted_changes());
+  iwriter.close()?;
+
   Ok(())
 }
 
 #[test]
 fn test_double_close() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let w = IndexWriter::new(
+    dir,
+    new_index_writer_config_with_analyzer(&mut random, analyzer),
+  )?;
+
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    BytesRef::from_string("foo!"),
+  ));
+  w.add_document(doc)?;
+  w.close()?;
+  // TODO IMPORTANT // TODO: roll_back未实现 再次 close 有 bug
+  // w.close()?;
+
   Ok(())
 }
 
@@ -993,13 +1952,71 @@ fn test_close_during_commit() -> Result<()> {
 
 #[test]
 fn test_ids() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let d = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let w = IndexWriter::new(
+    d.clone(),
+    new_index_writer_config_with_analyzer(&mut random, analyzer),
+  )?;
+  w.add_document(Document::new())?;
+  w.close()?;
+
+  let sis = SegmentInfos::read_latest_commit(d.clone())?;
+  let id1 = sis
+    .get_id()
+    .ok_or_else(|| LuceneError::illegal_state("missing segment infos id"))?;
+  assert_eq!(StringHelper::ID_LENGTH, id1.len());
+
+  let id2 = sis.info(0).unwrap().info.get_id();
+  let sci_id2 = sis
+    .info(0)
+    .unwrap()
+    .get_id()
+    .ok_or_else(|| LuceneError::illegal_state("missing segment commit info id"))?;
+  assert_eq!(StringHelper::ID_LENGTH, id2.len());
+  assert_eq!(StringHelper::ID_LENGTH, sci_id2.len());
+  // TODO IMPORTANT CheckIndex未实现
+  //   TestUtil::check_index(d.clone())?;
+
+  let id1 = StringHelper::id_to_string(Some(id1));
+  assert_ne!("(null)", id1);
+
+  let mut ids = HashSet::new();
+  for i in 0..100000 {
+    let id = StringHelper::id_to_string(Some(&StringHelper::random_id()));
+    assert!(ids.insert(id.clone()), "id={} i={}", id, i);
+  }
+
   Ok(())
 }
 
 #[test]
 fn test_empty_norm() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let d = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let w = IndexWriter::new(
+    d.clone(),
+    new_index_writer_config_with_analyzer(&mut random, analyzer),
+  )?;
+  let mut doc = Document::new();
+  doc.add(TextField::from_token_stream(
+    "foo",
+    FieldTokenStreamEnum::custom(CannedTokenStream::new(Vec::new())),
+  )?);
+  w.add_document(doc)?;
+  w.commit()?;
+  w.close()?;
+
+  let r = directory_reader::open(d)?;
+  let leaf = get_only_leaf_reader(&r)?;
+  let mut norms = LeafReader::get_norm_values(&leaf, "foo")?
+    .ok_or_else(|| LuceneError::illegal_state("missing norms for field foo"))?;
+  assert_eq!(0, norms.next_doc()?);
+  assert_eq!(0, norms.long_value()?);
+  r.close()?;
+
   Ok(())
 }
 
@@ -1444,7 +2461,7 @@ fn test_not_allow_using_existing_field_as_soft_deletes() -> Result<()> {
 
     if random.random_bool(0.5) {
       d.add(NumericDocValuesField::new("dv_field", 1));
-      w.update_documents_with_term(Term::from_text("id", "1"), d)?;
+      w.update_document_with_term(Term::from_text("id", "1"), d)?;
     } else {
       w.soft_update_document(
         Term::from_text("id", "1"),
@@ -1541,7 +2558,7 @@ fn test_soft_and_hard_live_docs() -> Result<()> {
     )?);
 
     if doc_id % 2 == 0 {
-      writer.update_documents_with_term(Term::from_text("id", doc_id.to_string()), doc)?;
+      writer.update_document_with_term(Term::from_text("id", doc_id.to_string()), doc)?;
     } else {
       writer.soft_update_document(
         Term::from_text("id", doc_id.to_string()),
@@ -1746,7 +2763,7 @@ fn test_segment_commit_info_id() -> Result<()> {
       let mut doc = Document::new();
       doc.add(NumericDocValuesField::new("num", 5));
       doc.add(StringField::from_string("id", "1", Store::No)?);
-      writer.update_documents_with_term(Term::from_text("id", "1"), doc)?;
+      writer.update_document_with_term(Term::from_text("id", "1"), doc)?;
       writer.commit()?;
 
       let segment_commit_infos = SegmentInfos::read_latest_commit(dir.clone())?;
@@ -1841,7 +2858,7 @@ fn test_merge_on_commit_keep_fully_deleted_segments() -> Result<()> {
   d.add(StringField::from_string("id", "1", Store::Yes)?);
   writer.add_document(d.clone())?;
   writer.commit()?;
-  writer.update_documents_with_term(Term::from_text("id", "1"), d)?;
+  writer.update_document_with_term(Term::from_text("id", "1"), d)?;
   writer.commit()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
@@ -2298,6 +3315,60 @@ impl MockIndexWriter {
     }
   }
 }
+
+struct NegativePositionsTokenStream {
+  attrs: Attributes,
+  terms: [&'static str; 3],
+  upto: usize,
+  first: bool,
+}
+
+impl NegativePositionsTokenStream {
+  fn new() -> Self {
+    Self {
+      attrs: Attributes::default(),
+      terms: ["a", "b", "c"],
+      upto: 0,
+      first: true,
+    }
+  }
+}
+
+impl TokenStream for NegativePositionsTokenStream {
+  fn increment_token(&mut self) -> Result<bool> {
+    if self.upto == self.terms.len() {
+      return Ok(false);
+    }
+
+    self.attrs.clear_attributes();
+    self.attrs.append_str(Some(self.terms[self.upto]))?;
+    self
+      .attrs
+      .set_position_increment(if self.first { 0 } else { 1 })?;
+    self.first = false;
+    self.upto += 1;
+    Ok(true)
+  }
+
+  fn end(&mut self) -> Result<()> {
+    self.default_end()
+  }
+
+  fn reset(&mut self) -> Result<()> {
+    self.upto = 0;
+    self.first = true;
+    Ok(())
+  }
+
+  fn get_attribute_source(&self) -> &Attributes {
+    &self.attrs
+  }
+
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    &mut self.attrs
+  }
+}
+
 impl IndexWriterBase for MockIndexWriter {
   fn do_after_flush(&self) -> Result<()> {
     self.after_was_called.store(true, SeqCst);

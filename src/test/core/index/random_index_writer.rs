@@ -132,9 +132,17 @@ where
   }
 
   pub fn set_do_random_force_merge(&mut self, _v: bool) {}
-  pub fn update_documents_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
+  pub fn update_document_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
   where
     T: Into<Option<Term>>,
+    DF: IntoIterator<Item = Fields>,
+  {
+    self.w.update_document_with_term(del_term, docs)
+  }
+  pub fn update_documents_with_term<T, DI, DF>(&self, del_term: T, docs: DI) -> Result<i64>
+  where
+    T: Into<Option<Term>>,
+    DI: IntoIterator<Item = DF>,
     DF: IntoIterator<Item = Fields>,
   {
     self.w.update_documents_with_term(del_term, docs)

@@ -653,7 +653,7 @@ where
   where
     DF: IntoIterator<Item = Fields>,
   {
-    self.update_documents_with_term(None, doc)
+    self.update_document_with_term(None, doc)
   }
 
   /// Atomically adds a block of documents with sequentially assigned document IDs, such that an
@@ -702,7 +702,7 @@ where
   /// # Errors
   /// - Returns a `CorruptIndexException` if the index is corrupt.
   /// - Returns an `io::Error` if there is a low-level I/O error.
-  pub fn update_documents_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
+  pub fn update_document_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
   where
     T: Into<Option<Term>>,
     DF: IntoIterator<Item = Fields>,
@@ -713,8 +713,36 @@ where
 
     self.update_documents(del_node, vec![docs])
   }
+  /// Atomically deletes documents matching the provided delTerm and adds a block of documents with
+  /// sequentially assigned document IDs, such that an external reader will see all or none of the
+  /// documents.
+  ///
+  /// See [`Self::add_documents`].
+  ///
+  /// Returns the sequence number for this operation.
+  ///
+  /// # Errors
+  ///
+  /// Returns [`LuceneError::CorruptIndex`] if the index is corrupt.
+  ///
+  /// Returns an error if there is a low-level IO error.
+  ///
+  /// # Experimental
+  ///
+  /// This API is experimental and might change in incompatible ways in the next release.
+  pub fn update_documents_with_term<T, DI, DF>(&self, del_term: T, docs: DI) -> Result<i64>
+  where
+    T: Into<Option<Term>>,
+    DI: IntoIterator<Item = DF>,
+    DF: IntoIterator<Item = Fields>,
+  {
+    let del_node = del_term
+      .into()
+      .map(|t| Arc::new(DocumentsWriterDeleteQueue::new_node_with_term(t)));
 
-  /// Similar to [`update_documents(Term, Iterable)`](Self::update_documents_with_term), but takes a query instead of a term to
+    self.update_documents(del_node, docs)
+  }
+  /// Similar to [`update_documents(Term, Iterable)`](Self::update_document_with_term), but takes a query instead of a term to
   /// identify the documents to be updated.
   pub fn update_documents_with_query<T, DI, DF>(&self, del_query: T, docs: DI) -> Result<i64>
   where
@@ -3092,6 +3120,13 @@ where
     }
     inner.change_count += 1;
   }
+  /// Returns the commit user data previously set with
+  /// [`Self::set_live_commit_data`], or `None` if nothing has been set yet.
+  pub fn get_live_commit_data(&self) -> Option<HashMap<String, String>> {
+    let inner = self.inner.lock();
+    inner.commit_user_data.clone()
+  }
+
   pub(crate) fn write_some_doc_values_updates(&self) -> Result<()> {
     if let Some(_guard) = self.write_doc_values_lock.try_lock() {
       let ram_buffer_size_mb = self.config.get_ram_buffer_size_mb();
@@ -3247,6 +3282,25 @@ where
   pub fn commit(&self) -> Result<i64> {
     self.ensure_open()?;
     self.commit_internal(self.config.get_merge_policy())
+  }
+
+  /// Returns true if there may be changes that have not been committed. There
+  /// are cases where this may return true when there are no actual "real"
+  /// changes to the index, for example if you've deleted by Term or Query but
+  /// that Term or Query does not match any documents. Also, if a merge kicked
+  /// off as a result of flushing a new segment during [`commit`](Self::commit),
+  /// or a concurrent merged finished, this method may return true right after
+  /// you had just called [`commit`](Self::commit).
+  pub fn has_uncommitted_changes(&self) -> bool {
+    let change_count = self.inner.lock().change_count;
+    change_count != self.last_commit_change_count.load(Ordering::SeqCst)
+      || self.has_changes_in_ram()
+  }
+
+  /// Returns true if there are any changes or deletes that are not flushed or
+  /// applied.
+  pub(crate) fn has_changes_in_ram(&self) -> bool {
+    self.doc_writer.any_changes() || self.buffered_updates_stream.any()
   }
 
   pub(crate) fn commit_internal(&self, merge_policy: &MergePolicyEnum) -> Result<i64> {

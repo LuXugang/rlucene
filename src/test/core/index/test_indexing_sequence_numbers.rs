@@ -116,7 +116,7 @@ fn test_stress_update_same_id() -> Result<()> {
           doc.add(StringField::from_string("id", "id", Store::No)?);
           starting_gun.wait();
           for _ in 0..100 {
-            let seq_no = w.update_documents_with_term(id.clone(), doc.clone())?;
+            let seq_no = w.update_document_with_term(id.clone(), doc.clone())?;
             seq_nos.lock().unwrap()[thread_id] = seq_no;
           }
           Ok(())
@@ -217,7 +217,7 @@ fn test_stress_concurrent_commit() -> Result<()> {
                 op.id.to_string(),
                 Store::No,
               )?);
-              op.seq_no = w.update_documents_with_term(id_term, doc)?;
+              op.seq_no = w.update_document_with_term(id_term, doc)?;
               op.what = 0;
             }
             ops.lock().unwrap().push(op);

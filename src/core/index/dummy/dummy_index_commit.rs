@@ -104,7 +104,7 @@ where
     dummy_unreachable!()
   }
 
-  fn user_data(&self) -> &HashMap<String, String> {
+  fn get_user_data(&self) -> &HashMap<String, String> {
     dummy_unreachable!()
   }
 

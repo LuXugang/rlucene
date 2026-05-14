@@ -47,7 +47,7 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
   /// Returns the generation (the _N in segments_N) for this IndexCommit
   fn get_generation(&self) -> i64;
   /// Returns `user_data`, previously passed to [`IndexWriter::set_live_commit_data()`](crate::core::index::index_writer::IndexWriter::set_live_commit_data) for this commit. The map is `String` → `String`.
-  fn user_data(&self) -> &HashMap<String, String>;
+  fn get_user_data(&self) -> &HashMap<String, String>;
   type LeafReader: LeafReader + Clone;
   type Comparator: Comparator<Self::LeafReader>;
   fn get_reader(

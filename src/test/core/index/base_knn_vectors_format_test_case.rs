@@ -2173,7 +2173,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       Store::Yes,
     )?);
     let id_term = Term::from_text("id", &id_string);
-    iw.update_documents_with_term(id_term, doc)?;
+    iw.update_document_with_term(id_term, doc)?;
     Ok(())
   }
 
@@ -2230,7 +2230,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       Store::Yes,
     )?);
     let id_term = Term::from_text("id", &id_string);
-    iw.update_documents_with_term(id_term, doc)?;
+    iw.update_document_with_term(id_term, doc)?;
     Ok(())
   }
   fn random_vector<R>(random: &mut R, dim: usize) -> Vec<f32>

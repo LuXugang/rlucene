@@ -284,16 +284,16 @@ mod tests {
     config.set_max_buffered_docs(3); // small number of docs
     let writer = IndexWriter::new(dir.clone(), config)?;
 
-    writer.update_documents_with_term(
+    writer.update_document_with_term(
       Term::from_text("id", "doc-1"),
       doc_with_val(1, 1_000_000_000)?,
     )?;
     writer.update_numeric_doc_value(Term::from_text("id", "doc-1"), "val", 1_000_001_111)?;
-    writer.update_documents_with_term(
+    writer.update_document_with_term(
       Term::from_text("id", "doc-2"),
       doc_with_val(2, 2_000_000_000)?,
     )?;
-    writer.update_documents_with_term(
+    writer.update_document_with_term(
       Term::from_text("id", "doc-2"),
       doc_with_val(2, 2_222_222_222)?,
     )?;
@@ -372,7 +372,7 @@ mod tests {
         let id = TestUtil::next_int(&mut random, 0, expected.len() as i32 - 1);
         expected.insert(id, val);
         if op <= upd_cutoff {
-          writer.update_documents_with_term(
+          writer.update_document_with_term(
             Term::from_text("id", format!("doc-{id}")),
             doc_with_val(id, val)?,
           )?;

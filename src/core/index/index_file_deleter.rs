@@ -667,7 +667,7 @@ where
     self.generation
   }
 
-  fn user_data(&self) -> &HashMap<String, String> {
+  fn get_user_data(&self) -> &HashMap<String, String> {
     &self.user_data
   }
 
