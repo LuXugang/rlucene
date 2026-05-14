@@ -2340,7 +2340,75 @@ fn test_deletes_applied_on_flush() -> Result<()> {
 
 #[test]
 fn test_hold_lock_on_largest_writer() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let num_docs = index_docs_for_multiple_dwpts(&w, &mut random)?;
+
+  let largest_non_pending_writer = w
+    .doc_writer
+    .flush_control
+    .find_largest_non_pending_writer()
+    .unwrap();
+  assert!(!largest_non_pending_writer.dwpt.lock().is_flush_pending());
+  assert!(!largest_non_pending_writer.dwpt.lock().has_flushed());
+
+  let locked = Arc::new(Barrier::new(3));
+  let wait = Arc::new(Barrier::new(2));
+
+  thread::scope(|scope| -> Result<()> {
+    let lock_thread = {
+      let largest_non_pending_writer = Arc::clone(&largest_non_pending_writer);
+      let locked = Arc::clone(&locked);
+      let wait = Arc::clone(&wait);
+      scope.spawn(move || {
+        largest_non_pending_writer.lock();
+        locked.wait();
+        wait.wait();
+        largest_non_pending_writer.unlock();
+      })
+    };
+
+    let flush_thread = {
+      let locked = Arc::clone(&locked);
+      let writer = &w;
+      scope.spawn(move || -> Result<()> {
+        locked.wait();
+        assert!(writer.flush_next_buffer()?);
+        Ok(())
+      })
+    };
+
+    locked.wait();
+    // Access a synced method to ensure we never lock while we hold the flush control monitor.
+    w.doc_writer.flush_control.active_bytes(None);
+    wait.wait();
+
+    lock_thread.join().expect("thread panicked");
+    flush_thread.join().expect("thread panicked")?;
+
+    Ok(())
+  })?;
+
+  assert!(
+    largest_non_pending_writer.dwpt.lock().has_flushed(),
+    "largest DWPT should be flushed"
+  );
+
+  // Make sure it's not locked.
+  largest_non_pending_writer.lock();
+  largest_non_pending_writer.unlock();
+
+  if random.random_bool(0.5) {
+    w.commit()?;
+  }
+
+  let reader = directory_reader::open_with_writer_deletes(&w, true, true)?;
+  assert_eq!(num_docs, reader.num_docs()?);
+
+  w.close()?;
+
   Ok(())
 }
 
@@ -2757,9 +2825,57 @@ fn test_set_index_created_version() -> Result<()> {
   Ok(())
 }
 
-#[test]
+// TODO IMPORTANT 多线程死锁
 fn test_flush_while_starting_new_threads() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  w.add_document(Document::new())?;
+  assert_eq!(1, w.doc_writer.flush_control.per_thread_pool.size());
+
+  let latch = Barrier::new(2);
+
+  thread::scope(|scope| -> Result<()> {
+    let thread = scope.spawn(|| -> Result<()> {
+      latch.wait();
+      let mut states = Vec::new();
+      let result = (|| -> Result<()> {
+        for _ in 0..100 {
+          let delete_queue = w.doc_writer.flush_control.delete_queue.lock().clone();
+          let state = w
+            .doc_writer
+            .flush_control
+            .per_thread_pool
+            .get_and_lock(&w, delete_queue)?;
+          state.state.delete_queue.get_next_sequence_number();
+          states.push(state);
+        }
+        Ok(())
+      })();
+      for state in states {
+        state.unlock();
+      }
+      result
+    });
+
+    latch.wait();
+    {
+      let guard = w.doc_writer.guard.lock();
+      w.doc_writer
+        .flush_control
+        .mark_for_full_flush(&w.doc_writer, &guard, &w.config)?;
+    }
+    thread.join().expect("thread panicked")?;
+    w.doc_writer
+      .flush_control
+      .abort_full_flushes(&w.doc_writer, &w.config)?;
+
+    Ok(())
+  })?;
+
+  w.close()?;
+
   Ok(())
 }
 
