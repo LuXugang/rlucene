@@ -102,6 +102,20 @@ impl MergePolicy for NoMergePolicy {
     Ok(None)
   }
 
+  fn find_full_flush_merges<D, MC>(
+    &self,
+    _merge_trigger: MergeTrigger,
+    _segment_infos: &SegmentInfos<D>,
+    _inner: Option<&Inner<D>>,
+    _merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    Ok(None)
+  }
+
   fn use_compound_file<D, MC>(
     &self,
     _infos: &SegmentInfos<D>,

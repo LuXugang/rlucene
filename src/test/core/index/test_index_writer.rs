@@ -26,6 +26,7 @@ use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TextField, text_field_type};
 use crate::core::index::BytesRef;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -40,7 +41,8 @@ use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecificationNoReader, OneMerge,
+  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecification,
+  MergeSpecificationNoReader, OneMerge,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
@@ -576,7 +578,7 @@ fn test_empty_field_name_terms() -> Result<()> {
   let reader = directory_reader::open(dir)?;
   let subreader = get_only_leaf_reader(&reader)?;
 
-  let terms = subreader.terms("")?.unwrap();
+  let terms = LeafReader::terms(&subreader, "")?.unwrap();
   let mut te = terms.iterator()?;
 
   assert_eq!(&BytesRef::from_string("a"), te.next()?.unwrap().as_ref());
@@ -634,7 +636,7 @@ fn test_empty_field_name_with_empty_term() -> Result<()> {
   let reader = directory_reader::open(dir)?;
   let subreader = get_only_leaf_reader(&reader)?;
 
-  let terms = subreader.terms("")?.unwrap();
+  let terms = LeafReader::terms(&subreader, "")?.unwrap();
   let mut te = terms.iterator()?;
 
   assert_eq!(&BytesRef::from_string(""), te.next()?.unwrap().as_ref());
@@ -2398,6 +2400,17 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
       .find_merges(merge_trigger, segment_infos, inner, merge_context)
   }
 
+  fn find_merges_readers<CR, D>(
+    &self,
+    readers: Vec<CR>,
+  ) -> Result<Option<MergeSpecification<D, CR>>>
+  where
+    CR: CodecReader,
+    D: Directory,
+  {
+    self.in_.find_merges_readers(readers)
+  }
+
   fn find_forced_merges<D, MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
@@ -2495,11 +2508,30 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     self.in_.size(info, merge_context)
   }
 
+  fn max_full_flush_merge_size(&self) -> i64 {
+    self.in_.max_full_flush_merge_size()
+  }
+
   fn keep_fully_deleted_segment<D, F>(&self, _reader_supplier: F) -> Result<bool>
   where
     D: Directory,
     F: Fn() -> Result<Arc<SegmentReader<D>>>,
   {
     Ok(true)
+  }
+
+  fn num_deletes_to_merge<D, F>(
+    &self,
+    info: &SegmentCommitInfo<D>,
+    del_count: i32,
+    reader_supplier: F,
+  ) -> Result<i32>
+  where
+    D: Directory,
+    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+  {
+    self
+      .in_
+      .num_deletes_to_merge(info, del_count, reader_supplier)
   }
 }
