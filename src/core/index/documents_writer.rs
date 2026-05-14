@@ -550,7 +550,9 @@ where
         Ok(())
       })();
       let config = &writer.config;
-      self.flush_control.do_after_flush(flushing_dwpt, config);
+      self
+        .flush_control
+        .do_after_flush(None, flushing_dwpt, config);
       res?;
       let v = self.flush_control.next_pending_flush(None, config)?;
 
@@ -743,9 +745,7 @@ where
     if success {
       self.flush_control.finish_full_flush(config)?;
     } else {
-      // TODO
-      // self.flush_control.abort_full_flushes(delete_queue)?;
-      todo!()
+      self.flush_control.abort_full_flushes(self, config)?;
     }
     self
       .pending_changes_in_current_full_flush

@@ -367,11 +367,18 @@ where
     }
     true
   }
-  pub(crate) fn do_after_flush<L>(&self, dwpt: Arc<DwptWrapper<D>>, config: &L)
-  where
+  pub(crate) fn do_after_flush<L>(
+    &self,
+    inner: Option<&mut Inner<D>>,
+    dwpt: Arc<DwptWrapper<D>>,
+    config: &L,
+  ) where
     L: LiveIndexWriterConfig,
   {
-    let mut inner = self.inner.lock();
+    let inner = match inner {
+      Some(inner) => inner,
+      None => &mut *self.inner.lock(),
+    };
     debug_assert!(inner.flushing_writers.contains(&dwpt));
     {
       if let Some(pos) = inner
@@ -382,9 +389,9 @@ where
         inner.flushing_writers.remove(pos);
       }
       inner.flush_bytes += dwpt.state.get_last_committed_bytes_used();
-      debug_assert!(self.assert_memory(&mut inner, config));
+      debug_assert!(self.assert_memory(inner, config));
     };
-    let _ = self.update_stall_state(&mut inner, config);
+    let _ = self.update_stall_state(inner, config);
     self.pausing.notify_all();
   }
   fn update_stall_state<L>(&self, inner: &mut Inner<D>, config: &L) -> bool
@@ -832,6 +839,80 @@ where
       debug_assert!(Arc::ptr_eq(&blocked.state.delete_queue, flushing_queue));
     }
     true
+  }
+  pub(crate) fn abort_full_flushes<FN, L>(
+    &self,
+    documents_writer: &DocumentsWriter<D, FN>,
+    config: &L,
+  ) -> Result<()>
+  where
+    FN: FlushNotifications,
+    L: LiveIndexWriterConfig,
+  {
+    let mut inner = self.inner.lock();
+
+    let result = self.abort_pending_flushes_locked(&mut inner, config, documents_writer);
+
+    inner.full_flush_mark_done = false;
+    inner.full_flush = false;
+
+    result
+  }
+  fn abort_pending_flushes_locked<FN, L>(
+    &self,
+    inner: &mut Inner<D>,
+    config: &L,
+    documents_writer: &DocumentsWriter<D, FN>,
+  ) -> Result<()>
+  where
+    FN: FlushNotifications,
+    L: LiveIndexWriterConfig,
+  {
+    let result = (|| -> Result<()> {
+      let flush_queue = std::mem::take(&mut inner.flush_queue);
+
+      for dwpt_wrapper in flush_queue {
+        let result = (|| -> Result<()> {
+          let num_docs_in_ram = {
+            let dwpt = dwpt_wrapper.dwpt.lock();
+            dwpt.get_num_docs_in_ram()
+          };
+          documents_writer.subtract_flushed_num_docs(num_docs_in_ram);
+          dwpt_wrapper.dwpt.lock().abort()?;
+          Ok(())
+        })();
+
+        self.do_after_flush(Some(inner), dwpt_wrapper.clone(), config);
+        result?;
+      }
+
+      let blocked_flushes = std::mem::take(&mut inner.blocked_flushes);
+
+      for dwpt_wrapper in blocked_flushes {
+        let result = (|| -> Result<()> {
+          // add the blockedFlushes for correct accounting in doAfterFlush
+          self.add_flushing_dwpt(dwpt_wrapper.clone(), inner);
+          let num_docs_in_ram = {
+            let dwpt = dwpt_wrapper.dwpt.lock();
+            dwpt.get_num_docs_in_ram()
+          };
+          documents_writer.subtract_flushed_num_docs(num_docs_in_ram);
+          dwpt_wrapper.dwpt.lock().abort()?;
+          Ok(())
+        })();
+        self.do_after_flush(Some(inner), dwpt_wrapper.clone(), config);
+        result?;
+      }
+
+      Ok(())
+    })();
+
+    inner.flush_queue.clear();
+    inner.blocked_flushes.clear();
+
+    self.update_stall_state(inner, config);
+
+    result
   }
 
   /// Returns `true` if a full flush is currently running

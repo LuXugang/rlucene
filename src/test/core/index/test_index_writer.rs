@@ -2271,7 +2271,58 @@ where
 
 #[test]
 fn test_never_check_out_on_full_flush() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+  index_docs_for_multiple_dwpts(&w, &mut random)?;
+
+  let largest_non_pending_writer = w
+    .doc_writer
+    .flush_control
+    .find_largest_non_pending_writer()
+    .unwrap();
+
+  assert!(!largest_non_pending_writer.dwpt.lock().is_flush_pending());
+  assert!(!largest_non_pending_writer.dwpt.lock().has_flushed());
+
+  let thread_pool_size = w.doc_writer.flush_control.per_thread_pool.size();
+
+  {
+    let guard = w.doc_writer.guard.lock();
+    w.doc_writer
+      .flush_control
+      .mark_for_full_flush(&w.doc_writer, &guard, &w.config)?;
+  }
+
+  let documents_writer_per_thread = w
+    .doc_writer
+    .flush_control
+    .checkout_largest_non_pending_writer(&w.config)?;
+
+  assert!(documents_writer_per_thread.is_none());
+  assert_eq!(
+    thread_pool_size,
+    w.doc_writer.flush_control.num_queued_flushes()
+  );
+
+  w.doc_writer
+    .flush_control
+    .abort_full_flushes(&w.doc_writer, &w.config)?;
+
+  assert!(
+    w.doc_writer
+      .flush_control
+      .checkout_largest_non_pending_writer(&w.config)?
+      .is_none(),
+    "was aborted"
+  );
+
+  assert_eq!(0, w.doc_writer.flush_control.num_queued_flushes());
+
+  w.close()?;
+
   Ok(())
 }
 
