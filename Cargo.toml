@@ -1,46 +1,47 @@
 [package]
+edition = "2024"
+license = "Apache-2.0"
 name = "rlucene"
 version = "0.1.0"
-edition = "2024"
-license ="Apache-2.0"
 
 [dependencies]
-derive_getters = { path = "libs/derive_getters" }
-crc32fast = "1.5.0"
+bit-set = "0.10.0"
 byteorder = "1.5.0"
-thiserror = "2.0.18"
-num-bigint = "0.4.6"
-regex = { version = "1.12.3", default-features = false, features = ["std", "unicode"] }
-rand = "0.10.1"
+chrono = { default-features = false, features = ["clock", "std"], version = "0.4.44" }
+crossbeam = "0.8.4"
+crc32fast = "1.5.0"
+derive_getters = { path = "libs/derive_getters" }
+flate2 = { default-features = false, features = ["rust_backend"], version = "1.1.9" }
 fs2 = "0.4.3"
-chrono = { version = "0.4.44", default-features = false, features = ["clock", "std"] }
+linked-hash-map = "0.5.6"
+log = "0.4.29"
+num-bigint = "0.4.6"
 num-traits = "0.2.19"
-flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
+os_info = "3.14.0"
+parking_lot = "0.12.5"
+rand = "0.10.1"
+rand_chacha = "0.10.0"
+regex = { default-features = false, features = ["std", "unicode"], version = "1.12.3" }
 strum = "0.28.0"
 strum_macros = "0.28.0"
-parking_lot = "0.12.5"
-bit-set = "0.10.0"
-rand_chacha = "0.10.0"
-os_info = "3.14.0"
-crossbeam= "0.8.4"
-linked-hash-map = "0.5.6"
 sysinfo = "0.38.4"
-log = "0.4.29"
+thiserror = "2.0.18"
 thread_local = "1.1.9"
 
 
 [dev-dependencies]
+num-integer = "0.1.46"
 rand_xoshiro = "0.8.0"
 tempfile = "3.27.0"
-num-integer="0.1.46"
 
 [profile.dev]
 overflow-checks = false
 
 [features]
-default= ["not_required_in_rust_lucene"]
+default = ["not_required_in_rust_lucene"]
 not_required_in_rust_lucene = []
 test_log_verbose = []
+
 [workspace]
 members = [
     ".",
