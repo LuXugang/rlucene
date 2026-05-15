@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{
-  Analyzer, AnalyzerEnum, BoxedAnalyzer, TokenStreamComponents,
+  Analyzer, AnalyzerEnum, AnalyzerStoredValue, BoxedAnalyzer, TokenStreamComponents,
 };
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::TokenStream;
@@ -130,6 +130,7 @@ struct RepeatingAnalyzer {
   random: Mutex<StdRng>,
   percent_docs: f32,
   max_tf: i32,
+  stored_value: AnalyzerStoredValue,
 }
 
 impl RepeatingAnalyzer {
@@ -142,6 +143,7 @@ impl RepeatingAnalyzer {
       random: Mutex::new(StdRng::seed_from_u64(random.random())),
       percent_docs,
       max_tf,
+      stored_value: AnalyzerStoredValue::new(),
     }
   }
 
@@ -161,6 +163,10 @@ impl Analyzer for RepeatingAnalyzer {
       )) as Box<dyn TokenStream + Send + Sync>,
       None,
     ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
   }
 
   type TokenStream<TS>

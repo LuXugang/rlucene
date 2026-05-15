@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{
-  Analyzer, AnalyzerEnum, BoxedAnalyzer, PerFieldReuseStrategy, ReuseStrategyEnum,
-  TokenStreamComponents,
+  Analyzer, AnalyzerEnum, AnalyzerStoredValue, BoxedAnalyzer, TokenStreamComponents,
 };
 use crate::core::analysis::reader::{ReaderEnum, StringReader};
 use crate::core::analysis::token_attributes::payload_attribute;
@@ -467,15 +466,25 @@ impl PayloadData {
   }
 }
 
-#[derive(Clone)]
 struct PayloadAnalyzer {
   field_to_data: Arc<Mutex<HashMap<String, PayloadData>>>,
+  stored_value: AnalyzerStoredValue,
+}
+
+impl Clone for PayloadAnalyzer {
+  fn clone(&self) -> Self {
+    Self {
+      field_to_data: self.field_to_data.clone(),
+      stored_value: AnalyzerStoredValue::per_field(),
+    }
+  }
 }
 
 impl PayloadAnalyzer {
   fn new() -> Self {
     Self {
       field_to_data: Arc::new(Mutex::new(HashMap::new())),
+      stored_value: AnalyzerStoredValue::per_field(),
     }
   }
 
@@ -504,8 +513,8 @@ impl Analyzer for PayloadAnalyzer {
     Ok(TokenStreamComponents::new(token_stream, None))
   }
 
-  fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
-    ReuseStrategyEnum::PerField(PerFieldReuseStrategy::default())
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
   }
 
   type TokenStream<TS>

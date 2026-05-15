@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::{Analyzer, REUSE_STRATEGY, ReuseStrategy};
+use crate::core::analysis::analyzer::{Analyzer, ReuseStrategy};
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
@@ -60,38 +60,32 @@ where
     }
     let field_name = "foo";
     a.token_stream(field_name, &s)?;
-    let unchanged_single_token = REUSE_STRATEGY.with(|reuse_strategy| {
-      (|| -> Result<bool> {
-        let mut reuse_strategy = reuse_strategy.borrow_mut();
-        let ts = match reuse_strategy.as_mut() {
-          Some(rs) => rs
-            .get_reusable_components(field_name)?
-            .expect("reuse strategy components must exist after token_stream")
-            .get_token_stream(),
-          None => panic!("reuse strategy is not initialized"),
-        };
-        ts.reset()?;
+    let unchanged_single_token = a.with_reuse_strategy(|reuse_strategy| {
+      let ts = reuse_strategy
+        .get_reusable_components(field_name)?
+        .expect("reuse strategy components must exist after token_stream")
+        .get_token_stream();
+      ts.reset()?;
 
-        let mut count = 0;
-        let mut changed = false;
+      let mut count = 0;
+      let mut changed = false;
 
-        while ts.increment_token()? {
-          let term_bytes = ts.get_attribute_source_mut().get_bytes_ref()?;
-          if count == 0 {
-            if let Some(term_bytes) = term_bytes {
-              if term_bytes.utf8_to_string()? != s {
-                changed = true;
-              }
-            } else {
+      while ts.increment_token()? {
+        let term_bytes = ts.get_attribute_source_mut().get_bytes_ref()?;
+        if count == 0 {
+          if let Some(term_bytes) = term_bytes {
+            if term_bytes.utf8_to_string()? != s {
               changed = true;
             }
+          } else {
+            changed = true;
           }
-          count += 1;
         }
+        count += 1;
+      }
 
-        ts.end()?;
-        Ok(!changed && count == 1)
-      })()
+      ts.end()?;
+      Ok(!changed && count == 1)
     })?;
     if unchanged_single_token {
       return Ok(s);

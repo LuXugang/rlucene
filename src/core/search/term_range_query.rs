@@ -363,7 +363,7 @@ pub fn to_automaton(
 #[cfg(test)]
 pub(crate) mod tests {
   use crate::core::analysis::analyzer::{
-    Analyzer, AnalyzerEnum, BoxedAnalyzer, TokenStreamComponents,
+    Analyzer, AnalyzerEnum, AnalyzerStoredValue, BoxedAnalyzer, TokenStreamComponents,
   };
   use crate::core::analysis::reader::Reader;
   use crate::core::analysis::token_stream::{TokenStream, default_attribute};
@@ -900,11 +900,15 @@ pub(crate) mod tests {
       }))
     }
   }
-  pub struct SingleCharAnalyzer;
+  pub struct SingleCharAnalyzer {
+    stored_value: AnalyzerStoredValue,
+  }
 
   impl SingleCharAnalyzer {
     pub fn new() -> Self {
-      Self {}
+      Self {
+        stored_value: AnalyzerStoredValue::new(),
+      }
     }
   }
 
@@ -921,6 +925,10 @@ pub(crate) mod tests {
           as Box<dyn crate::core::analysis::token_stream::TokenStream + Send + Sync>,
         None,
       ))
+    }
+
+    fn stored_value(&self) -> &AnalyzerStoredValue {
+      &self.stored_value
     }
 
     type TokenStream<TS>

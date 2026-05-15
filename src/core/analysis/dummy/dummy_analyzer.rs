@@ -14,19 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::{Analyzer, ReuseStrategyEnum, TokenStreamComponents};
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::error::lucene_error::Result;
 
-pub struct DummyAnalyzer;
+pub struct DummyAnalyzer {
+  stored_value: AnalyzerStoredValue,
+}
+
+impl DummyAnalyzer {
+  pub fn new() -> Self {
+    Self {
+      stored_value: AnalyzerStoredValue::new(),
+    }
+  }
+}
+
+impl Default for DummyAnalyzer {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl Analyzer for DummyAnalyzer {
   fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
     dummy_unreachable!()
   }
 
-  fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
-    dummy_unreachable!()
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
   }
 
   type TokenStream<TS>

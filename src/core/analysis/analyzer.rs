@@ -29,17 +29,72 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 #[cfg(test)]
 use std::sync::Arc;
+use thread_local::ThreadLocal;
 
-thread_local! {
-    pub static REUSE_STRATEGY: RefCell<Option<ReuseStrategyEnum>> = const { RefCell::new(None) };
+pub struct AnalyzerStoredValue {
+  reuse_strategy: ReuseStrategyFactory,
+  stored_value: ThreadLocal<RefCell<ReuseStrategyEnum>>,
+}
+
+impl AnalyzerStoredValue {
+  pub fn new() -> Self {
+    Self::global()
+  }
+
+  pub fn global() -> Self {
+    Self {
+      reuse_strategy: ReuseStrategyFactory::Global,
+      stored_value: ThreadLocal::new(),
+    }
+  }
+
+  pub fn per_field() -> Self {
+    Self {
+      reuse_strategy: ReuseStrategyFactory::PerField,
+      stored_value: ThreadLocal::new(),
+    }
+  }
+
+  fn get(&self) -> &RefCell<ReuseStrategyEnum> {
+    self
+      .stored_value
+      .get_or(|| RefCell::new(self.reuse_strategy.new_reuse_strategy()))
+  }
+
+  pub fn with_reuse_strategy<R>(
+    &self,
+    f: impl FnOnce(&mut ReuseStrategyEnum) -> Result<R>,
+  ) -> Result<R> {
+    let stored_value = self.get();
+    let mut reuse_strategy = stored_value.borrow_mut();
+    f(&mut reuse_strategy)
+  }
+}
+
+impl Default for AnalyzerStoredValue {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
+enum ReuseStrategyFactory {
+  Global,
+  PerField,
+}
+
+impl ReuseStrategyFactory {
+  fn new_reuse_strategy(&self) -> ReuseStrategyEnum {
+    match self {
+      ReuseStrategyFactory::Global => ReuseStrategyEnum::Global(Box::default()),
+      ReuseStrategyFactory::PerField => {
+        ReuseStrategyEnum::PerField(PerFieldReuseStrategy::default())
+      },
+    }
+  }
 }
 
 pub trait Analyzer {
   fn create_components(&self, field: &str) -> Result<TokenStreamComponents>;
-  /// Default reuse strategy is GlobalReuseStrategy
-  fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
-    ReuseStrategyEnum::Global(Box::default())
-  }
   type TokenStream<TS>: TokenStream
   where
     TS: TokenStream;
@@ -53,38 +108,30 @@ pub trait Analyzer {
     Ok(in_)
   }
 
-  fn ensure_reuse_strategy<'a>(
-    &'a self,
-    slot: &'a mut Option<ReuseStrategyEnum>,
-  ) -> &'a mut ReuseStrategyEnum {
-    if slot.is_none() {
-      *slot = Some(self.init_reuse_strategy());
-    }
-    slot.as_mut().unwrap()
+  fn with_reuse_strategy<R>(
+    &self,
+    f: impl FnOnce(&mut ReuseStrategyEnum) -> Result<R>,
+  ) -> Result<R> {
+    self.stored_value().with_reuse_strategy(f)
   }
+
   fn token_stream<R>(&self, field_name: &str, input: R) -> Result<()>
   where
     R: Into<ReaderEnum>,
   {
     let reader = self.init_reader(field_name, input.into());
-    REUSE_STRATEGY.with(move |reuse_strategy| {
-      (|| -> Result<()> {
-        let mut reuse_strategy = reuse_strategy.borrow_mut();
-        let reuse_strategy = self.ensure_reuse_strategy(&mut reuse_strategy);
+    self.with_reuse_strategy(|reuse_strategy| {
+      let mut components = reuse_strategy.get_reusable_components(field_name)?;
+      if components.is_none() {
+        let v = self.create_components(field_name)?;
+        reuse_strategy.set_reusable_components(field_name, v)?;
+        components = reuse_strategy.get_reusable_components(field_name)?;
+      }
 
-        let mut components = reuse_strategy.get_reusable_components(field_name)?;
-        if components.is_none() {
-          let v = self.create_components(field_name)?;
-          reuse_strategy.set_reusable_components(field_name, v)?;
-          components = reuse_strategy.get_reusable_components(field_name)?;
-        }
-
-        let components = components.as_mut().unwrap();
-        components.set_reader(reader)?;
-        Ok(())
-      })()
-    })?;
-    Ok(())
+      let components = components.as_mut().unwrap();
+      components.set_reader(reader)?;
+      Ok(())
+    })
   }
 
   fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
@@ -158,6 +205,8 @@ pub trait Analyzer {
   fn default_get_offset_gap(&self, _field_name: &str) -> i32 {
     1
   }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue;
 }
 impl_from_for_enum!(
     AnalyzerEnum,
@@ -198,14 +247,14 @@ impl Analyzer for AnalyzerEnum {
     }
   }
 
-  fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
+  fn stored_value(&self) -> &AnalyzerStoredValue {
     match self {
-      AnalyzerEnum::Whitespace(v) => v.init_reuse_strategy(),
-      AnalyzerEnum::Standard(v) => v.init_reuse_strategy(),
+      AnalyzerEnum::Whitespace(v) => v.stored_value(),
+      AnalyzerEnum::Standard(v) => v.stored_value(),
       #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.init_reuse_strategy(),
+      AnalyzerEnum::Mock(v) => v.stored_value(),
       #[cfg(test)]
-      AnalyzerEnum::Custom(v) => v.init_reuse_strategy(),
+      AnalyzerEnum::Custom(v) => v.stored_value(),
     }
   }
 
@@ -229,20 +278,6 @@ impl Analyzer for AnalyzerEnum {
       AnalyzerEnum::Mock(v) => Ok(TokenStreams::Mock(v.normalize_from_ts(field_name, in_)?)),
       #[cfg(test)]
       AnalyzerEnum::Custom(v) => Ok(TokenStreams::Mock(v.normalize_from_ts(field_name, in_)?)),
-    }
-  }
-
-  fn ensure_reuse_strategy<'a>(
-    &'a self,
-    slot: &'a mut Option<ReuseStrategyEnum>,
-  ) -> &'a mut ReuseStrategyEnum {
-    match self {
-      AnalyzerEnum::Whitespace(v) => v.ensure_reuse_strategy(slot),
-      AnalyzerEnum::Standard(v) => v.ensure_reuse_strategy(slot),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.ensure_reuse_strategy(slot),
-      #[cfg(test)]
-      AnalyzerEnum::Custom(v) => v.ensure_reuse_strategy(slot),
     }
   }
 
@@ -550,6 +585,7 @@ impl TokenStream for StringTokenStream {
 pub struct BoxedAnalyzer {
   #[allow(clippy::type_complexity)]
   create_components_fn: Arc<dyn Fn(&str) -> Result<TokenStreamComponents> + Send + Sync>,
+  stored_value: AnalyzerStoredValue,
 }
 
 #[cfg(test)]
@@ -560,6 +596,7 @@ impl BoxedAnalyzer {
   {
     Self {
       create_components_fn: Arc::new(create_components_fn),
+      stored_value: AnalyzerStoredValue::new(),
     }
   }
 }
@@ -568,6 +605,10 @@ impl BoxedAnalyzer {
 impl Analyzer for BoxedAnalyzer {
   fn create_components(&self, field: &str) -> Result<TokenStreamComponents> {
     (self.create_components_fn)(field)
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
   }
 
   type TokenStream<TS>

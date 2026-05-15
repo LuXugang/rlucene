@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::{Analyzer, REUSE_STRATEGY, ReuseStrategy};
+use crate::core::analysis::analyzer::{Analyzer, ReuseStrategy};
 use crate::core::analysis::token_attributes::{
   char_term_attribute, flags_attribute, keyword_attribute, offset_attribute, payload_attribute,
   position_increment_attribute, position_length_attribute, term_to_bytes_ref_attribute,
@@ -870,16 +870,12 @@ where
 {
   let field = "dummy";
   a.token_stream(field, input)?;
-  REUSE_STRATEGY.with(|reuse_strategy| {
-    (|| -> Result<()> {
-      let mut reuse_strategy = reuse_strategy.borrow_mut();
-      let ts = reuse_strategy
-        .as_mut()
-        .and_then(|rs| rs.get_reusable_components(field).ok().flatten())
-        .map(|ts_ref| ts_ref.get_token_stream())
-        .ok_or_else(|| LuceneError::illegal_state("missing reusable token stream"))?;
-      f(ts)
-    })()
+  a.with_reuse_strategy(|reuse_strategy| {
+    let ts = reuse_strategy
+      .get_reusable_components(field)?
+      .map(|ts_ref| ts_ref.get_token_stream())
+      .ok_or_else(|| LuceneError::illegal_state("missing reusable token stream"))?;
+    f(ts)
   })
 }
 
@@ -1205,55 +1201,42 @@ where
 {
   let field = "bogus";
   a.token_stream(field, input)?;
-  REUSE_STRATEGY.with(|reuse_strategy| {
-    (|| -> Result<()> {
-      let mut reuse_strategy = reuse_strategy.borrow_mut();
-      let ts_ref = match reuse_strategy.as_mut() {
-        Some(rs) => rs
-          .get_reusable_components(field)?
-          .map(|ts_ref| ts_ref.get_token_stream()),
-        None => None,
-      };
-      let ts = ts_ref.unwrap();
-      match ts.increment_token() {
-        Err(e) => {
-          match e {
-            LuceneError::IllegalState(_) => {
-              // ok
-            },
-            _ => unreachable!(""),
-          }
-        },
-        Ok(_) => {
-          unreachable!("didn't get expected exception when reset() not called")
-        },
-      }
-      ts.reset()?;
-      while ts.increment_token()? {}
-      ts.end()?;
-      ts.close()?;
-      Ok(())
-    })()
+  a.with_reuse_strategy(|reuse_strategy| {
+    let ts = reuse_strategy
+      .get_reusable_components(field)?
+      .map(|ts_ref| ts_ref.get_token_stream())
+      .unwrap();
+    match ts.increment_token() {
+      Err(e) => {
+        match e {
+          LuceneError::IllegalState(_) => {
+            // ok
+          },
+          _ => unreachable!(""),
+        }
+      },
+      Ok(_) => {
+        unreachable!("didn't get expected exception when reset() not called")
+      },
+    }
+    ts.reset()?;
+    while ts.increment_token()? {}
+    ts.end()?;
+    ts.close()?;
+    Ok(())
   })?;
   // check for a missing close()
   a.token_stream(field, input)?;
-  REUSE_STRATEGY.with(|reuse_strategy| {
-    (|| -> Result<()> {
-      let mut reuse_strategy = reuse_strategy.borrow_mut();
+  a.with_reuse_strategy(|reuse_strategy| {
+    let ts = reuse_strategy
+      .get_reusable_components(field)?
+      .map(|ts_ref| ts_ref.get_token_stream())
+      .unwrap();
 
-      let ts_ref = match reuse_strategy.as_mut() {
-        Some(rs) => rs
-          .get_reusable_components(field)?
-          .map(|ts_ref| ts_ref.get_token_stream()),
-        None => None,
-      };
-      let ts = ts_ref.unwrap();
-
-      ts.reset()?;
-      while ts.increment_token()? {}
-      ts.end()?;
-      Ok(())
-    })()
+    ts.reset()?;
+    while ts.increment_token()? {}
+    ts.end()?;
+    Ok(())
   })?;
   match a.token_stream(field, input) {
     Err(e) => {
@@ -1268,20 +1251,13 @@ where
       unreachable!("didn't get expected exception when close() not called")
     },
   }
-  REUSE_STRATEGY.with(|reuse_strategy| {
-    (|| -> Result<()> {
-      let mut reuse_strategy = reuse_strategy.borrow_mut();
-
-      let ts_ref = match reuse_strategy.as_mut() {
-        Some(rs) => rs
-          .get_reusable_components(field)?
-          .map(|ts_ref| ts_ref.get_token_stream()),
-        None => None,
-      };
-      let ts = ts_ref.unwrap();
-      ts.close()?;
-      Ok(())
-    })()
+  a.with_reuse_strategy(|reuse_strategy| {
+    let ts = reuse_strategy
+      .get_reusable_components(field)?
+      .map(|ts_ref| ts_ref.get_token_stream())
+      .unwrap();
+    ts.close()?;
+    Ok(())
   })?;
   Ok(())
 }

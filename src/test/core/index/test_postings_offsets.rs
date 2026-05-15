@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{
-  Analyzer, AnalyzerEnum, BoxedAnalyzer, PerFieldReuseStrategy, ReuseStrategyEnum,
-  TokenStreamComponents,
+  Analyzer, AnalyzerEnum, AnalyzerStoredValue, BoxedAnalyzer, TokenStreamComponents,
 };
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
@@ -144,7 +143,7 @@ fn do_test_numbers(with_payloads: bool) -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer: AnalyzerEnum = if with_payloads {
-    MockPayloadAnalyzer.into()
+    MockPayloadAnalyzer::new().into()
   } else {
     MockAnalyzer::new(&mut random).into()
   };
@@ -493,7 +492,7 @@ fn test_stacked_tokens() -> Result<()> {
 fn test_crazy_offset_gap() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let analyzer = CrazyOffsetGapAnalyzer;
+  let analyzer = CrazyOffsetGapAnalyzer::new();
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -582,7 +581,17 @@ fn check_tokens(field1: Vec<token::Token>, field2: Option<Vec<token::Token>>) ->
   Ok(())
 }
 
-struct CrazyOffsetGapAnalyzer;
+struct CrazyOffsetGapAnalyzer {
+  stored_value: AnalyzerStoredValue,
+}
+
+impl CrazyOffsetGapAnalyzer {
+  fn new() -> Self {
+    Self {
+      stored_value: AnalyzerStoredValue::per_field(),
+    }
+  }
+}
 
 impl Analyzer for CrazyOffsetGapAnalyzer {
   fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
@@ -593,8 +602,8 @@ impl Analyzer for CrazyOffsetGapAnalyzer {
     ))
   }
 
-  fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
-    ReuseStrategyEnum::PerField(PerFieldReuseStrategy::default())
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
   }
 
   type TokenStream<TS>

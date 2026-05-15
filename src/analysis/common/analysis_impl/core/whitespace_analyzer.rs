@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 use crate::analysis::common::analysis_impl::core::whitespace_tokenizer::WhitespaceTokenizer;
-use crate::core::analysis::analyzer::{Analyzer, TokenStreamComponents};
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::analysis::util::char_tokenizer::{CharTokenizer, DEFAULT_MAX_WORD_LEN};
 use crate::core::util::error::lucene_error::Result;
 /// An Analyzer that uses [`WhitespaceTokenizer`]
 pub struct WhitespaceAnalyzer {
   max_token_length: usize,
+  stored_value: AnalyzerStoredValue,
 }
 impl Default for WhitespaceAnalyzer {
   fn default() -> Self {
@@ -38,7 +39,10 @@ impl WhitespaceAnalyzer {
   /// # Parameters
   /// - `max_token_length`: the maximum token length the analyzer will emit.
   pub fn with_max_token_length(max_token_length: usize) -> Self {
-    Self { max_token_length }
+    Self {
+      max_token_length,
+      stored_value: AnalyzerStoredValue::new(),
+    }
   }
 }
 impl Analyzer for WhitespaceAnalyzer {
@@ -47,6 +51,10 @@ impl Analyzer for WhitespaceAnalyzer {
       WhitespaceTokenizer::with_max_token_len(self.max_token_length)?,
       None,
     ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
   }
 
   type TokenStream<TS>

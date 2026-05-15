@@ -178,7 +178,7 @@ where
 #[cfg(test)]
 mod tests {
   use crate::core::analysis::analyzer::{
-    Analyzer, AnalyzerEnum, BoxedAnalyzer, TokenStreamComponents,
+    Analyzer, AnalyzerEnum, AnalyzerStoredValue, BoxedAnalyzer, TokenStreamComponents,
   };
   use crate::core::analysis::reader::ReaderEnum;
   use crate::core::analysis::token_stream::{TokenStream, default_attribute};
@@ -724,11 +724,15 @@ mod tests {
 
   struct MyAnalyzer {
     tokens: Vec<TestToken>,
+    stored_value: AnalyzerStoredValue,
   }
 
   impl MyAnalyzer {
     fn new(tokens: Vec<TestToken>) -> Self {
-      Self { tokens }
+      Self {
+        tokens,
+        stored_value: AnalyzerStoredValue::new(),
+      }
     }
   }
 
@@ -750,6 +754,10 @@ mod tests {
         Box::new(MyTokenizer::new(self.tokens.clone())) as Box<dyn TokenStream + Send + Sync>,
         None,
       ))
+    }
+
+    fn stored_value(&self) -> &AnalyzerStoredValue {
+      &self.stored_value
     }
 
     type TokenStream<TS>

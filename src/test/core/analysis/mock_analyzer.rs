@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-use crate::core::analysis::analyzer::{
-  Analyzer, PerFieldReuseStrategy, ReuseStrategyEnum, TokenStreamComponents,
-};
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::Attributes;
@@ -53,6 +51,7 @@ pub struct MockAnalyzer {
   random: Mutex<StdRng>,
   enable_checks: bool,
   max_token_length: i32,
+  stored_value: AnalyzerStoredValue,
 }
 impl MockAnalyzer {
   /// Create a Whitespace-lowercasing analyzer with no stopwords removal.
@@ -99,6 +98,7 @@ impl MockAnalyzer {
       random: Mutex::new(StdRng::seed_from_u64(random.random())),
       enable_checks: true,
       max_token_length: DEFAULT_MAX_TOKEN_LENGTH,
+      stored_value: AnalyzerStoredValue::per_field(),
     }
   }
 
@@ -147,8 +147,8 @@ impl Analyzer for MockAnalyzer {
     ))
   }
 
-  fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
-    ReuseStrategyEnum::PerField(PerFieldReuseStrategy::default())
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
   }
 
   type TokenStream<TS>

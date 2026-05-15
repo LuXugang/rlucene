@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::{Analyzer, REUSE_STRATEGY, ReuseStrategy};
+use crate::core::analysis::analyzer::{Analyzer, ReuseStrategy};
 use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
@@ -1492,21 +1492,16 @@ impl PerField {
 
     // try init Analyzer's TokenStream
     field.init_token_stream(analyzer)?;
-    REUSE_STRATEGY.with(|reuse_strategy| {
-            (|| -> Result<()> {
-              let mut reuse_strategy = reuse_strategy.borrow_mut();
-              let ts = match reuse_strategy.as_mut() {
-                Some(rs) => rs
+    analyzer.with_reuse_strategy(|reuse_strategy| {
+            let ts = reuse_strategy
                     .get_reusable_components(&field_name)?
-                    .map(|ts_ref| ts_ref.get_token_stream()),
-                None => None,
-              };
+                    .map(|ts_ref| ts_ref.get_token_stream());
 
          let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
                 terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
         let mut stream = field
             .token_stream(ts, &mut self.token_stream)?
-            .ok_or_else(|| LuceneError::illegal_state("token_stream is None"))?;
+            .ok_or_else(|| LuceneError::illegal_state("Analyzer token_stream is not initialized"))?;
         let result = (|| {
             stream.reset()?;
             while stream.increment_token()? {
@@ -1627,7 +1622,6 @@ impl PerField {
                 }
 
         result
-            })()
         })?;
 
     if analyzed {

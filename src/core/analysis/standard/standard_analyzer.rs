@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::{Analyzer, TokenStreamComponents};
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
 use crate::core::analysis::char_array_set::CharArraySet;
 use crate::core::analysis::filtering_token_filter::FilteringTokenFilter;
 use crate::core::analysis::lower_case_filter::LowerCaseFilter;
@@ -35,6 +35,7 @@ pub const DEFAULT_MAX_TOKEN_LENGTH: usize = 255;
 pub struct StandardAnalyzer {
   max_token_length: usize,
   stop_words: Arc<CharArraySet>,
+  stored_value: AnalyzerStoredValue,
 }
 
 impl Default for StandardAnalyzer {
@@ -49,6 +50,7 @@ impl StandardAnalyzer {
     Self {
       max_token_length: DEFAULT_MAX_TOKEN_LENGTH,
       stop_words,
+      stored_value: AnalyzerStoredValue::new(),
     }
   }
   /// Sets the maximum allowed token length.
@@ -83,6 +85,10 @@ impl Analyzer for StandardAnalyzer {
     src.set_max_token_length(self.max_token_length)?;
     let tok = StopFilter::new(LowerCaseFilter::new(src), self.stop_words.clone());
     Ok(TokenStreamComponents::new(tok, Some(self.max_token_length)))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
   }
 
   type TokenStream<TS>
