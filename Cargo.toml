@@ -24,7 +24,7 @@ rand_chacha = "0.10.0"
 regex = { default-features = false, features = ["std", "unicode"], version = "1.12.3" }
 strum = "0.28.0"
 strum_macros = "0.28.0"
-sysinfo = "0.38.4"
+sysinfo = "0.39.1"
 thiserror = "2.0.18"
 thread_local = "1.1.9"
 
