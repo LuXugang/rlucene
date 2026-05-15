@@ -449,8 +449,7 @@ mod tests {
 
   #[test]
   fn test_get_fields_immutable() -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]

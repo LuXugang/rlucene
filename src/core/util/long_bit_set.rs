@@ -800,8 +800,8 @@ mod tests {
     );
   }
   #[test]
-  fn test_negative_num_bits() {
-    // this test is not required in Rust Lucene
+  fn test_negative_num_bits() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_small_bitsets() -> Result<()> {

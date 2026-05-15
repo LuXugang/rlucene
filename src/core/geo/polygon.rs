@@ -245,13 +245,13 @@ mod test_polygon {
   #[allow(dead_code)] // for quick search
   struct TestPolygon;
   #[test]
-  fn test_polygon_null_poly_lats() {
-    // this test is not required in Rust Lucene
+  fn test_polygon_null_poly_lats() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]
-  fn test_polygon_null_poly_lons() {
-    // this test is not required in Rust Lucene
+  fn test_polygon_null_poly_lons() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]

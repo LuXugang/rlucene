@@ -749,7 +749,6 @@ mod tests {
   }
   #[test]
   fn test_add_null_numeric_doc_values() -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
 }

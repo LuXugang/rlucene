@@ -86,19 +86,16 @@ mod tests {
   struct NoMergeScheduler;
   #[test]
   fn test_no_merge_scheduler() -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]
   fn test_final_singleton() -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]
   fn test_methods_overridden() -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
 }

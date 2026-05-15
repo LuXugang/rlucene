@@ -23,6 +23,13 @@ macro_rules! dummy_unreachable {
   };
 }
 
+#[macro_export]
+macro_rules! test_not_required_in_rust_lucene {
+  () => {
+    return Ok(());
+  };
+}
+
 pub mod analysis;
 pub mod core;
 pub mod migration_notes;

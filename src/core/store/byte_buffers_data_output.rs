@@ -730,13 +730,11 @@ mod tests {
   }
   #[test]
   fn test_to_buffer_list_returns_read_only_buffers() -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_to_writeable_buffer_list_returns_original_buffers() -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]

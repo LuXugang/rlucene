@@ -373,8 +373,8 @@ pub mod tests {
     }
   }
   #[test]
-  fn test_set_length_oob() {
-    // this test is not required in Rust Lucene
+  fn test_set_length_oob() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_grow() {
@@ -464,8 +464,8 @@ pub mod tests {
   }
 
   #[test]
-  fn test_attribute_reflection() {
-    // this test is not required in Rust Lucene
+  fn test_attribute_reflection() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_char_sequence_interface() -> Result<()> {
@@ -496,12 +496,12 @@ pub mod tests {
     Ok(())
   }
   #[test]
-  fn test_appendable_interface() {
-    // this test is not required in Rust Lucene
+  fn test_appendable_interface() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
   #[test]
-  fn test_appendable_interface_with_longsequences() {
-    // this test is not required in Rust Lucene
+  fn test_appendable_interface_with_longsequences() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_non_char_sequence_append() {

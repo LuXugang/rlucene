@@ -177,8 +177,7 @@ pub trait BaseXYPointTestCase {
 
   /// Null field name not allowed.
   fn test_box_null(&self) -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
 
   /// Box should not accept invalid x/y.
@@ -212,8 +211,7 @@ pub trait BaseXYPointTestCase {
 
   /// Null field name not allowed.
   fn test_distance_null(&self) -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
 
   /// Distance query should not accept invalid x/y as origin.
@@ -384,8 +382,7 @@ pub trait BaseXYPointTestCase {
 
   /// Null field name not allowed.
   fn test_polygon_null_field(&self) -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
   // A particularly tricky adversary for BKD tree.
   fn test_same_point_many_times<R>(&self, random: &mut R) -> Result<()>

@@ -201,8 +201,8 @@ mod tests {
     }
   }
   #[test]
-  fn test_single_high_surrogate() {
-    // this test is not required in Rust Lucene
+  fn test_single_high_surrogate() -> crate::core::util::error::lucene_error::Result<()> {
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_copy_char_array_set_bw_compat() {
@@ -213,8 +213,8 @@ mod tests {
     // TODO
   }
   #[test]
-  fn test_copy_jdk_set() {
-    // this test is not required in Rust Lucene
+  fn test_copy_jdk_set() -> crate::core::util::error::lucene_error::Result<()> {
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_copy_empty_set() {

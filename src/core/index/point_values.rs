@@ -1293,14 +1293,12 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
   }
   #[test]
   fn test_different_codecs_1() -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]
   fn test_different_codecs_2() -> Result<()> {
-    // this test is not required in Rust Lucene
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_invalid_int_point_usage() -> Result<()> {

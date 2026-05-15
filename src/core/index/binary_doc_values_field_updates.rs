@@ -1286,8 +1286,8 @@ mod tests {
   }
 
   #[test]
-  fn test_change_codec() {
-    // this test is not required in Rust Lucene
+  fn test_change_codec() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]

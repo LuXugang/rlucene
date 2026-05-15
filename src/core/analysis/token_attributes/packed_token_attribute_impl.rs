@@ -501,11 +501,11 @@ mod tests {
     Ok(())
   }
   #[test]
-  fn test_packed_token_attribute_factory() {
-    // this test is not required in Rust Lucene
+  fn test_packed_token_attribute_factory() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
   #[test]
-  fn test_attribute_reflection() {
-    // this test is not required in Rust Lucene
+  fn test_attribute_reflection() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
 }

@@ -753,11 +753,11 @@ fn test_and_not_count() -> Result<()> {
 }
 
 #[test]
-fn test_copy_of() {
-  // this test is not required in Rust Lucene
+fn test_copy_of() -> Result<()> {
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]
-fn test_as_bits() {
-  // this test is not required in Rust Lucene
+fn test_as_bits() -> Result<()> {
+  test_not_required_in_rust_lucene!();
 }

@@ -536,8 +536,7 @@ fn test_bad_segment() -> Result<()> {
 
 #[test]
 fn test_max_thread_priority() -> Result<()> {
-  // this test is not required in Rust Lucene
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]
@@ -1752,20 +1751,17 @@ fn test_get_commit_data_from_old_snapshot() -> Result<()> {
 
 #[test]
 fn test_null_analyzer() -> Result<()> {
-  // this test is not required in Rust Lucene
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]
 fn test_null_document() -> Result<()> {
-  // this test is not required in Rust Lucene
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]
 fn test_null_documents() -> Result<()> {
-  // this test is not required in Rust Lucene
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]

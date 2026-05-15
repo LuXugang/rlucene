@@ -1459,12 +1459,12 @@ mod tests {
     Ok(())
   }
   #[test]
-  fn test_negative_slop() {
-    // this test is not required in Rust Lucene
+  fn test_negative_slop() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
   #[test]
-  fn test_negative_position() {
-    // this test is not required in Rust Lucene
+  fn test_negative_position() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_backward_positions() -> Result<()> {

@@ -151,13 +151,13 @@ mod test_xy_line {
   #[allow(dead_code)] // for quick search
   struct TestXYLine;
   #[test]
-  fn test_line_null_xs() {
-    // this test is not required in Rust Lucene
+  fn test_line_null_xs() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]
-  fn test_polygon_null_ys() {
-    // this test is not required in Rust Lucene
+  fn test_polygon_null_ys() -> Result<()> {
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]

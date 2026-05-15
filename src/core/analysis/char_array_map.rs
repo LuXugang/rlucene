@@ -260,8 +260,8 @@ mod tests {
     // TODO
   }
   #[test]
-  fn test_modify_on_unmodifiable() {
-    // this test is not required in Rust Lucene
+  fn test_modify_on_unmodifiable() -> crate::core::util::error::lucene_error::Result<()> {
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_to_string() {
