@@ -86,6 +86,7 @@ mod test_segment_term_enum;
 mod test_segment_to_thread_mapping;
 mod test_size_bounded_force_merge;
 mod test_stress_advance;
+mod test_stress_deletes;
 mod test_sum_doc_freq;
 mod test_terms;
 mod test_threaded_force_merge;
