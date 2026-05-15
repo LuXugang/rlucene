@@ -20,7 +20,7 @@ use crate::core::document::text_field::TextField;
 use crate::core::index::directory_reader;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_doc_values::MultiDocValues;
@@ -86,14 +86,9 @@ fn test_max_byte_norms() -> Result<()> {
 }
 pub fn build_index(dir: Arc<DirEnum>) -> Result<()> {
   let mut random = random();
-  // TODO MockAnalyzer setMaxTokenLength未实现
-  let analyzer = MockAnalyzer::new(&mut random);
+  let mut analyzer = MockAnalyzer::new(&mut random);
   // we need at least 3 for maxTokenLength otherwise norms are messed up
-  // analyzer.set_max_token_length(TestUtil::next_i32(
-  //     &mut random,
-  //     3,
-  //     IndexWriter::<DirEnum>::MAX_TERM_LENGTH,
-  // )?)?;
+  analyzer.set_max_token_length(TestUtil::next_int(&mut random, 3, MAX_TERM_LENGTH));
 
   let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
   let provider = MySimProvider;

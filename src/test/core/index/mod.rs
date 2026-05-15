@@ -72,6 +72,7 @@ mod test_newest_segment;
 mod test_no_merge_policy;
 mod test_non_flex;
 mod test_norms;
+mod test_nrt_reader_cleanup;
 mod test_omit_norms;
 mod test_omit_positions;
 pub(crate) mod test_omit_tf;
