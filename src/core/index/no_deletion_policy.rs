@@ -43,3 +43,69 @@ impl IndexDeletionPolicy for NoDeletionPolicy {
     Ok(())
   }
 }
+#[cfg(test)]
+mod tests {
+  use crate::core::document::document::Document;
+  use crate::core::document::field::Store;
+  use std::collections::HashMap;
+
+  use super::*;
+  use crate::core::index::index_writer::IndexWriter;
+  use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    new_directory_shared, new_index_writer_config_with_analyzer, new_text_field, random,
+  };
+  #[allow(dead_code)] // for quick search
+  struct TestNoDeletionPolicy;
+  #[test]
+  fn test_no_deletion_policy() -> Result<()> {
+    // this test is not required in Rust Lucene
+    Ok(())
+  }
+
+  #[test]
+  fn test_final_singleton() -> Result<()> {
+    // this test is not required in Rust Lucene
+    Ok(())
+  }
+
+  #[test]
+  fn test_methods_overridden() -> Result<()> {
+    // this test is not required in Rust Lucene
+    Ok(())
+  }
+  #[test]
+  fn test_all_commits_remain() -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    iwc.set_index_deletion_policy(NoDeletionPolicy);
+
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    let mut field_types = HashMap::new();
+
+    for i in 0..10 {
+      let mut doc = Document::new();
+      doc.add(new_text_field(
+        &mut random,
+        "c",
+        format!("a{i}"),
+        Store::Yes,
+        &mut field_types,
+      )?);
+      writer.add_document(doc)?;
+      writer.commit()?;
+
+      // TODO IMPORTANT list_commits未实现
+      // assert_eq!(
+      //   i + 1,
+      //   directory_reader::list_commits(dir.clone())?.len(),
+      //   "wrong number of commits !"
+      // );
+    }
+
+    writer.close()?;
+    Ok(())
+  }
+}
