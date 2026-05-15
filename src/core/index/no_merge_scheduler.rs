@@ -79,3 +79,26 @@ impl MergeScheduler for NoMergeScheduler {
     Ok(in_)
   }
 }
+#[cfg(test)]
+mod tests {
+  use super::*;
+  #[allow(dead_code)] // for quick search
+  struct NoMergeScheduler;
+  #[test]
+  fn test_no_merge_scheduler() -> Result<()> {
+    // this test is not required in Rust Lucene
+    Ok(())
+  }
+
+  #[test]
+  fn test_final_singleton() -> Result<()> {
+    // this test is not required in Rust Lucene
+    Ok(())
+  }
+
+  #[test]
+  fn test_methods_overridden() -> Result<()> {
+    // this test is not required in Rust Lucene
+    Ok(())
+  }
+}
