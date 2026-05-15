@@ -47,7 +47,7 @@ use rand::{Rng, RngExt, SeedableRng};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-pub struct RepeatingTokenizer {
+struct RepeatingTokenizer {
   tokenizer_base: TokenizerBase,
   random: StdRng,
   percent_docs: f32,

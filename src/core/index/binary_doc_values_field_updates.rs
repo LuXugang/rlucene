@@ -208,12 +208,13 @@ mod tests {
   use crate::core::index::binary_doc_values::BinaryDocValues;
   use crate::core::index::composite_reader::get_context;
   use crate::core::index::directory_reader;
-  use crate::core::index::index_reader::IndexReader;
+  use crate::core::index::index_reader::{CacheHelper, IndexReader};
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::index_writer_config::{DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH};
   use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+  use crate::core::index::merge_policy::MergePolicyEnum;
   use crate::core::index::multi_bits::get_live_docs;
   use crate::core::index::multi_doc_values::MultiDocValues;
   use crate::core::index::no_merge_policy::NoMergePolicy;
@@ -235,12 +236,16 @@ mod tests {
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, is_night_mode, new_bytes_ref_from_string, new_bytes_ref_with_length,
-    new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer, random,
+    new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+    new_log_merge_policy, random, random_from_seed,
   };
   use crate::test::core::util::test_util::TestUtil;
-  use rand::RngExt;
   use rand::seq::IndexedRandom;
+  use rand::{Rng, RngExt};
   use std::collections::HashSet;
+  use std::sync::Arc;
+  use std::sync::atomic::{AtomicI32, Ordering};
+  use std::thread;
 
   #[allow(dead_code)] // for quick search
   struct TestBinaryDocValuesUpdates;
@@ -264,9 +269,11 @@ mod tests {
     Ok(value)
   }
   // encodes a long into a BytesRef as VLong so that we get varying number of bytes when we update
-  fn to_bytes(mut value: i64) -> Result<BytesRef<Vec<u8>>> {
-    let mut random = random();
-    let mut bytes: BytesRef<Vec<u8>> = new_bytes_ref_with_length(10, &mut random)?;
+  fn to_bytes<R>(random: &mut R, mut value: i64) -> Result<BytesRef<Vec<u8>>>
+  where
+    R: Rng + ?Sized,
+  {
+    let mut bytes: BytesRef<Vec<u8>> = new_bytes_ref_with_length(10, random)?;
     let mut upto = 0usize;
 
     while (value & !0x7f) != 0 {
@@ -281,13 +288,16 @@ mod tests {
 
     Ok(bytes)
   }
-  fn doc(id: i32) -> Result<Document> {
+  fn doc<R>(random: &mut R, id: i32) -> Result<Document>
+  where
+    R: Rng + ?Sized,
+  {
     let mut doc = Document::new();
 
     let id_field = StringField::from_string("id", format!("doc-{}", id), Store::No)?;
     doc.add(id_field);
 
-    let val_bytes = to_bytes((id + 1) as i64)?;
+    let val_bytes = to_bytes(random, (id + 1) as i64)?;
     let val_field = BinaryDocValuesField::new("val", val_bytes);
     doc.add(val_field);
     Ok(doc)
@@ -300,24 +310,40 @@ mod tests {
     let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
     config.set_ram_buffer_size_mb(0.00000001);
     let mut writer = IndexWriter::new(dir.clone(), config)?;
-    writer.add_document(doc(0)?)?; // val=1
-    writer.add_document(doc(1)?)?; // val=2
-    writer.add_document(doc(3)?)?; // val=4
+    writer.add_document(doc(&mut random, 0)?)?; // val=1
+    writer.add_document(doc(&mut random, 1)?)?; // val=2
+    writer.add_document(doc(&mut random, 3)?)?; // val=4
     writer.commit()?;
 
     assert_eq!(1, writer.get_flush_deletes_count());
 
-    writer.update_binary_doc_value(Term::from_text("id", "doc-0"), "val", to_bytes(5)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc-0"),
+      "val",
+      to_bytes(&mut random, 5)?,
+    )?;
     assert_eq!(2, writer.get_flush_deletes_count());
 
-    writer.update_binary_doc_value(Term::from_text("id", "doc-1"), "val", to_bytes(6)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc-1"),
+      "val",
+      to_bytes(&mut random, 6)?,
+    )?;
     assert_eq!(3, writer.get_flush_deletes_count());
 
-    writer.update_binary_doc_value(Term::from_text("id", "doc-2"), "val", to_bytes(7)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc-2"),
+      "val",
+      to_bytes(&mut random, 7)?,
+    )?;
     assert_eq!(4, writer.get_flush_deletes_count());
 
     writer.get_config_mut().set_ram_buffer_size_mb(1000.0);
-    writer.update_binary_doc_value(Term::from_text("id", "doc-2"), "val", to_bytes(7)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc-2"),
+      "val",
+      to_bytes(&mut random, 7)?,
+    )?;
     assert_eq!(4, writer.get_flush_deletes_count());
 
     writer.close()?;
@@ -337,15 +363,19 @@ mod tests {
 
     let writer = IndexWriter::new(dir.clone(), config)?;
 
-    writer.add_document(doc(0)?)?; // val=1
-    writer.add_document(doc(1)?)?; // val=2
+    writer.add_document(doc(&mut random, 0)?)?; // val=1
+    writer.add_document(doc(&mut random, 1)?)?; // val=2
 
     if random.random_bool(0.5) {
       // randomly commit before the update is sent
       writer.commit()?;
     }
 
-    writer.update_binary_doc_value(Term::from_text("id", "doc-0"), "val", to_bytes(2)?)?; // doc=0, exp=2
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc-0"),
+      "val",
+      to_bytes(&mut random, 2)?,
+    )?; // doc=0, exp=2
 
     // Open reader: either NRT or non-NRT
     let reader = if random.random_bool(0.5) {
@@ -384,7 +414,7 @@ mod tests {
     let num_docs = 10;
     let mut expected_values = vec![0i64; num_docs];
     for (i, expected) in expected_values.iter_mut().take(num_docs).enumerate() {
-      writer.add_document(doc(i as i32)?)?;
+      writer.add_document(doc(&mut random, i as i32)?)?;
       *expected = (i + 1) as i64;
     }
     writer.commit()?;
@@ -396,7 +426,7 @@ mod tests {
         writer.update_binary_doc_value(
           Term::from_text("id", format!("doc-{i}")),
           "val",
-          to_bytes(value)?,
+          to_bytes(&mut random, value)?,
         )?;
         *expected = value;
       }
@@ -430,7 +460,57 @@ mod tests {
   }
   #[test]
   fn test_reopen() -> Result<()> {
-    // TODO IMPORTANT openIfChange未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+
+    writer.add_document(doc(&mut random, 0)?)?;
+    writer.add_document(doc(&mut random, 1)?)?;
+
+    let is_nrt = random.random_bool(0.5);
+    let reader1 = if is_nrt {
+      directory_reader::open_from_writer(&writer)?
+    } else {
+      writer.commit()?;
+      directory_reader::open(dir.clone())?
+    };
+
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc-0"),
+      "val",
+      to_bytes(&mut random, 10)?,
+    )?;
+
+    if !is_nrt {
+      writer.commit()?;
+    }
+
+    println!("TEST: now reopen");
+
+    // TODO IMPORTANT : open_if_change 未实现
+    let reader2 = directory_reader::open_from_writer(&writer)?;
+    assert_ne!(
+      reader1.get_reader_cache_helper()?.unwrap().get_key(),
+      reader2.get_reader_cache_helper()?.unwrap().get_key()
+    );
+
+    let v = get_context(reader1)?;
+    let leaves1 = v.leaves()?;
+    let mut bdv1 = leaves1[0].reader().get_binary_doc_values("val")?.unwrap();
+
+    let v = get_context(reader2)?;
+    let leaves2 = v.leaves()?;
+    let mut bdv2 = leaves2[0].reader().get_binary_doc_values("val")?.unwrap();
+
+    assert_eq!(0, bdv1.next_doc()?);
+    assert_eq!(1, get_value(&mut bdv1)?);
+
+    assert_eq!(0, bdv2.next_doc()?);
+    assert_eq!(10, get_value(&mut bdv2)?);
+
+    writer.close()?;
     Ok(())
   }
   #[test]
@@ -446,7 +526,7 @@ mod tests {
     let writer = IndexWriter::new(dir.clone(), conf)?;
 
     for i in 0..6 {
-      writer.add_document(doc(i)?)?;
+      writer.add_document(doc(&mut random, i)?)?;
       if i % 2 == 1 {
         writer.commit()?; // create 2-docs segments
       }
@@ -459,8 +539,16 @@ mod tests {
     ])?;
 
     // update docs 3 and 5
-    writer.update_binary_doc_value(Term::from_text("id", "doc-3"), "val", to_bytes(17)?)?;
-    writer.update_binary_doc_value(Term::from_text("id", "doc-5"), "val", to_bytes(17)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc-3"),
+      "val",
+      to_bytes(&mut random, 17)?,
+    )?;
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc-5"),
+      "val",
+      to_bytes(&mut random, 17)?,
+    )?;
 
     let reader = if random.random_bool(0.5) {
       writer.close()?;
@@ -502,8 +590,8 @@ mod tests {
     config.set_merge_policy(NoMergePolicy::default());
     let writer = IndexWriter::new(dir.clone(), config)?;
 
-    writer.add_document(doc(0)?)?;
-    writer.add_document(doc(1)?)?;
+    writer.add_document(doc(&mut random, 0)?)?;
+    writer.add_document(doc(&mut random, 1)?)?;
 
     if random.random_bool(0.5) {
       writer.commit()?;
@@ -511,7 +599,11 @@ mod tests {
 
     // update and delete different documents in the same commit session
     writer.delete_documents_with_terms(vec![Term::from_text("id", "doc-0")])?;
-    writer.update_binary_doc_value(Term::from_text("id", "doc-1"), "val", to_bytes(17_i64)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc-1"),
+      "val",
+      to_bytes(&mut random, 17_i64)?,
+    )?;
 
     // open reader
     let reader = if random.random_bool(0.5) {
@@ -572,7 +664,7 @@ mod tests {
     writer.update_binary_doc_value(
       Term::from_text("dvUpdateKey", "dv"),
       "bdv",
-      to_bytes(17_i64)?,
+      to_bytes(&mut random, 17_i64)?,
     )?;
     writer.close()?;
 
@@ -637,8 +729,14 @@ mod tests {
     for i in 0..2 {
       let mut doc = Document::new();
       doc.add(StringField::from_string("dvUpdateKey", "dv", Store::No)?);
-      doc.add(BinaryDocValuesField::new("bdv1", to_bytes(i as i64)?));
-      doc.add(BinaryDocValuesField::new("bdv2", to_bytes(i as i64)?));
+      doc.add(BinaryDocValuesField::new(
+        "bdv1",
+        to_bytes(&mut random, i as i64)?,
+      ));
+      doc.add(BinaryDocValuesField::new(
+        "bdv2",
+        to_bytes(&mut random, i as i64)?,
+      ));
       writer.add_document(doc)?;
     }
     writer.commit()?;
@@ -647,7 +745,7 @@ mod tests {
     writer.update_binary_doc_value(
       Term::from_text("dvUpdateKey", "dv"),
       "bdv1",
-      to_bytes(17_i64)?,
+      to_bytes(&mut random, 17_i64)?,
     )?;
     writer.close()?;
 
@@ -685,7 +783,10 @@ mod tests {
       doc.add(StringField::from_string("dvUpdateKey", "dv", Store::No)?);
       if i == 0 {
         // index only one document with value
-        doc.add(BinaryDocValuesField::new("bdv", to_bytes(5_i64)?));
+        doc.add(BinaryDocValuesField::new(
+          "bdv",
+          to_bytes(&mut random, 5_i64)?,
+        ));
       }
       writer.add_document(doc)?;
     }
@@ -695,7 +796,7 @@ mod tests {
     writer.update_binary_doc_value(
       Term::from_text("dvUpdateKey", "dv"),
       "bdv",
-      to_bytes(17_i64)?,
+      to_bytes(&mut random, 17_i64)?,
     )?;
     writer.close()?;
 
@@ -733,12 +834,18 @@ mod tests {
     doc.add(StringField::from_string("foo", "bar", Store::No)?);
     writer.add_document(doc)?; // in-memory document
 
-    let result =
-      writer.update_binary_doc_value(Term::from_text("key", "doc"), "bdv", to_bytes(17_i64)?);
+    let result = writer.update_binary_doc_value(
+      Term::from_text("key", "doc"),
+      "bdv",
+      to_bytes(&mut random, 17_i64)?,
+    );
     assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 
-    let result =
-      writer.update_binary_doc_value(Term::from_text("key", "doc"), "foo", to_bytes(17_i64)?);
+    let result = writer.update_binary_doc_value(
+      Term::from_text("key", "doc"),
+      "foo",
+      to_bytes(&mut random, 17_i64)?,
+    );
     assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 
     writer.close()?;
@@ -756,7 +863,7 @@ mod tests {
 
     let mut doc = Document::new();
     doc.add(StringField::from_string("key", "doc", Store::No)?);
-    doc.add(BinaryDocValuesField::new("bdv", to_bytes(5)?));
+    doc.add(BinaryDocValuesField::new("bdv", to_bytes(&mut random, 5)?));
     doc.add(SortedDocValuesField::new(
       "sorted",
       BytesRef::from_string("value"),
@@ -766,7 +873,11 @@ mod tests {
     writer.commit()?;
     writer.add_document(doc)?; // in-memory document
 
-    writer.update_binary_doc_value(Term::from_text("key", "doc"), "bdv", to_bytes(17)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("key", "doc"),
+      "bdv",
+      to_bytes(&mut random, 17)?,
+    )?;
 
     writer.close()?;
 
@@ -801,15 +912,23 @@ mod tests {
 
     let mut doc = Document::new();
     doc.add(StringField::from_string("key", "doc", Store::No)?);
-    doc.add(BinaryDocValuesField::new("bdv", to_bytes(5)?));
+    doc.add(BinaryDocValuesField::new("bdv", to_bytes(&mut random, 5)?));
 
     writer.add_document(doc.clone())?; // flushed document
     writer.commit()?;
     writer.add_document(doc)?; // in-memory document
 
-    writer.update_binary_doc_value(Term::from_text("key", "doc"), "bdv", to_bytes(17)?)?; // update existing field
+    writer.update_binary_doc_value(
+      Term::from_text("key", "doc"),
+      "bdv",
+      to_bytes(&mut random, 17)?,
+    )?; // update existing field
 
-    writer.update_binary_doc_value(Term::from_text("key", "doc"), "bdv", to_bytes(3)?)?; // update existing field 2nd time in this commit
+    writer.update_binary_doc_value(
+      Term::from_text("key", "doc"),
+      "bdv",
+      to_bytes(&mut random, 3)?,
+    )?; // update existing field 2nd time in this commit
 
     writer.close()?;
 
@@ -841,7 +960,7 @@ mod tests {
     for rnd in 0..num_rounds {
       let mut doc = Document::new();
       doc.add(StringField::from_string("key", "doc", Store::No)?);
-      doc.add(BinaryDocValuesField::new("bdv", to_bytes(-1)?));
+      doc.add(BinaryDocValuesField::new("bdv", to_bytes(&mut random, -1)?));
 
       let num_docs = at_least(&mut random, 30);
       for _ in 0..num_docs {
@@ -857,7 +976,11 @@ mod tests {
 
       let value = rnd as i64 + 1;
 
-      writer.update_binary_doc_value(Term::from_text("key", "doc"), "bdv", to_bytes(value)?)?;
+      writer.update_binary_doc_value(
+        Term::from_text("key", "doc"),
+        "bdv",
+        to_bytes(&mut random, value)?,
+      )?;
 
       if random.random::<f64>() < 0.2 {
         writer.delete_documents_with_terms(vec![Term::from_text(
@@ -883,7 +1006,10 @@ mod tests {
         Store::No,
       )?);
       doc.add(StringField::from_string("key", "doc", Store::No)?);
-      doc.add(BinaryDocValuesField::new("bdv", to_bytes(value)?));
+      doc.add(BinaryDocValuesField::new(
+        "bdv",
+        to_bytes(&mut random, value)?,
+      ));
       writer.add_document(doc)?;
       docid += 1;
 
@@ -929,15 +1055,23 @@ mod tests {
     let mut doc = Document::new();
     doc.add(StringField::from_string("k1", "v1", Store::No)?);
     doc.add(StringField::from_string("k2", "v2", Store::No)?);
-    doc.add(BinaryDocValuesField::new("bdv", to_bytes(5)?));
+    doc.add(BinaryDocValuesField::new("bdv", to_bytes(&mut random, 5)?));
 
     writer.add_document(doc.clone())?; // flushed document
     writer.commit()?;
     writer.add_document(doc)?; // in-memory document
 
-    writer.update_binary_doc_value(Term::from_text("k1", "v1"), "bdv", to_bytes(17)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("k1", "v1"),
+      "bdv",
+      to_bytes(&mut random, 17)?,
+    )?;
 
-    writer.update_binary_doc_value(Term::from_text("k2", "v2"), "bdv", to_bytes(3)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("k2", "v2"),
+      "bdv",
+      to_bytes(&mut random, 3)?,
+    )?;
 
     writer.close()?;
 
@@ -986,7 +1120,8 @@ mod tests {
     };
 
     for _ in 0..num_iters {
-      let value = to_bytes(random.random_range(0..value_range) as i64)?;
+      let value = random.random_range(0..value_range) as i64;
+      let value = to_bytes(&mut random, value)?;
 
       if docs.is_empty() || random.random_range(0..3) == 1 {
         let id = docs.len() as i32;
@@ -1072,7 +1207,150 @@ mod tests {
   }
   #[test]
   fn test_many_reopens_and_fields() -> Result<()> {
-    // TODO IMPORTANT openIfChange 系列未完成
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+
+    let mut lmp = new_log_merge_policy(&mut random)?;
+    match lmp {
+      MergePolicyEnum::LogDoc(ref mut v) => {
+        v.set_merge_factor(3)?;
+      },
+      MergePolicyEnum::LogBytesSize(ref mut v) => {
+        v.set_merge_factor(3)?;
+      },
+      _ => unreachable!(""),
+    }
+    conf.set_merge_policy(lmp);
+
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+
+    let is_nrt = random.random_bool(0.5);
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: isNRT={is_nrt}");
+    }
+
+    let mut reader = if is_nrt {
+      directory_reader::open_from_writer(&writer)?
+    } else {
+      writer.commit()?;
+      directory_reader::open(dir.clone())?
+    };
+
+    let num_fields = random.random_range(3..7);
+    let mut field_values = vec![1i64; num_fields];
+
+    let num_rounds = at_least(&mut random, 15);
+    let mut doc_id = 0;
+
+    for i in 0..num_rounds {
+      let num_docs = at_least(&mut random, 5);
+
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: round={i}, numDocs={num_docs}");
+      }
+
+      for _ in 0..num_docs {
+        let mut doc = Document::new();
+        doc.add(StringField::from_string(
+          "id",
+          format!("doc-{doc_id}"),
+          Store::Yes,
+        )?);
+        doc.add(StringField::from_string("key", "all", Store::No)?);
+
+        for (f, value) in field_values.iter().enumerate() {
+          doc.add(NumericDocValuesField::new(format!("f{f}"), *value));
+        }
+
+        writer.add_document(doc)?;
+
+        doc_id += 1;
+      }
+
+      let field_idx = random.random_range(0..field_values.len());
+      let update_field = format!("f{field_idx}");
+
+      if cfg!(feature = "test_log_verbose") {
+        println!(
+          "TEST: update field={} for all docs to value={}",
+          update_field,
+          field_values[field_idx] + 1
+        );
+      }
+
+      field_values[field_idx] += 1;
+      writer.update_numeric_doc_value(
+        Term::from_text("key", "all"),
+        update_field,
+        field_values[field_idx],
+      )?;
+
+      if random.random_bool(0.2) {
+        let delete_doc = random.random_range(0..num_docs);
+
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: delete doc id={delete_doc}");
+        }
+
+        writer
+          .delete_documents_with_terms(vec![Term::from_text("id", format!("doc-{delete_doc}"))])?;
+      }
+
+      if !is_nrt {
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: now commit");
+        }
+        writer.commit()?;
+      }
+
+      // TODO IMPORTANT: openIfChanged 未实现
+      let new_reader = directory_reader::open_from_writer(&writer)?;
+      reader.close()?;
+      reader = new_reader;
+
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: got reader maxDoc={} {}", reader.max_doc()?, reader);
+      }
+
+      assert!(reader.num_docs()? > 0);
+
+      let reader_ctx = get_context(&reader)?;
+      for context in reader_ctx.leaves()? {
+        let r = context.reader();
+        let live_docs = r.get_live_docs()?;
+        let mut stored_fields = r.stored_fields()?;
+
+        for (field, expected_value) in field_values.iter().enumerate() {
+          let f = format!("f{field}");
+          let mut ndv = r.get_numeric_doc_values(&f)?.unwrap();
+          let max_doc = r.max_doc()?;
+
+          for doc in 0..max_doc {
+            if live_docs
+              .as_ref()
+              .is_none_or(|bits| bits.get(doc as usize).expect(""))
+            {
+              assert_eq!(doc, ndv.advance(doc)?, "advanced to wrong doc in seg={r}");
+              assert_eq!(
+                *expected_value,
+                ndv.long_value()?,
+                "invalid value for docID={} id={} field={} reader={} doc={}",
+                doc,
+                stored_fields.document(doc)?.get("id")?.unwrap(),
+                f,
+                r,
+                stored_fields.document(doc)?
+              );
+            }
+          }
+        }
+      }
+    }
+
+    writer.close()?;
+    reader.close()?;
     Ok(())
   }
   #[test]
@@ -1087,7 +1365,10 @@ mod tests {
     // First segment with BDV
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", "doc0", Store::No)?);
-    doc.add(BinaryDocValuesField::new("bdv", to_bytes(3i64)?));
+    doc.add(BinaryDocValuesField::new(
+      "bdv",
+      to_bytes(&mut random, 3i64)?,
+    ));
     writer.add_document(doc)?;
 
     let mut doc = Document::new();
@@ -1107,10 +1388,18 @@ mod tests {
 
     // update document in the first segment - should not affect docsWithField of
     // the document without BDV field
-    writer.update_binary_doc_value(Term::from_text("id", "doc0"), "bdv", to_bytes(5i64)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc0"),
+      "bdv",
+      to_bytes(&mut random, 5i64)?,
+    )?;
     // update document in the second segment - field should be added and we should
     // be able to handle the other document correctly (e.g. no NPE)
-    writer.update_binary_doc_value(Term::from_text("id", "doc1"), "bdv", to_bytes(5i64)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc1"),
+      "bdv",
+      to_bytes(&mut random, 5i64)?,
+    )?;
     writer.close()?;
 
     // Validation phase
@@ -1139,7 +1428,10 @@ mod tests {
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", "doc0", Store::No)?);
     doc.add(StringField::from_string("bdv", "mock-value", Store::No)?);
-    doc.add(BinaryDocValuesField::new("bdv", to_bytes(5i64)?));
+    doc.add(BinaryDocValuesField::new(
+      "bdv",
+      to_bytes(&mut random, 5i64)?,
+    ));
     writer.add_document(doc)?;
     writer.commit()?;
 
@@ -1156,12 +1448,19 @@ mod tests {
     let mut doc2 = Document::new();
     doc2.add(StringField::from_string("id", "doc1", Store::No)?);
     doc2.add(StringField::from_string("bdv", "mock-value", Store::No)?);
-    doc2.add(BinaryDocValuesField::new("bdv", to_bytes(10i64)?));
+    doc2.add(BinaryDocValuesField::new(
+      "bdv",
+      to_bytes(&mut random, 10i64)?,
+    ));
     writer.add_document(doc2)?;
 
     // update doc values of bdv field in the second segment
     let err = writer
-      .update_binary_doc_value(Term::from_text("id", "doc1"), "bdv", to_bytes(5i64)?)
+      .update_binary_doc_value(
+        Term::from_text("id", "doc1"),
+        "bdv",
+        to_bytes(&mut random, 5i64)?,
+      )
       .unwrap_err();
     let expected_err_msg = "Can't update [Binary] doc values; the field [bdv] must be doc values only field, but is also indexed with postings.";
     assert_eq!(err.to_string(), expected_err_msg);
@@ -1196,12 +1495,18 @@ mod tests {
     // add document with both posting field and BDV field of the same name
     let mut doc = Document::new();
     doc.add(StringField::from_string("f", "mock-value", Store::No)?);
-    doc.add(BinaryDocValuesField::new("f", to_bytes(5_i64)?));
+    doc.add(BinaryDocValuesField::new(
+      "f",
+      to_bytes(&mut random, 5_i64)?,
+    ));
     writer.add_document(doc)?;
     writer.commit()?;
 
-    let result =
-      writer.update_binary_doc_value(Term::from_text("f", "mock-value"), "f", to_bytes(17_i64)?);
+    let result = writer.update_binary_doc_value(
+      Term::from_text("f", "mock-value"),
+      "f",
+      to_bytes(&mut random, 17_i64)?,
+    );
     assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
     let actual_err_msg = "Can't update [Binary] doc values; the field [f] must be doc values only field, but is also indexed with postings.";
     assert_eq!(actual_err_msg, result.unwrap_err().to_string());
@@ -1221,7 +1526,166 @@ mod tests {
   }
   #[test]
   fn test_stress_multi_threading() -> Result<()> {
-    // TODO 多线程未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = Arc::new(IndexWriter::new(dir.clone(), conf)?);
+
+    let num_fields = TestUtil::next_int(&mut random, 1, 4);
+    let num_docs = if is_night_mode() {
+      at_least(&mut random, 2000)
+    } else {
+      at_least(&mut random, 200)
+    };
+
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(StringField::from_string(
+        "id",
+        format!("doc{i}"),
+        Store::No,
+      )?);
+
+      let group = random.random::<f64>();
+      let g = if group < 0.1 {
+        "g0"
+      } else if group < 0.5 {
+        "g1"
+      } else if group < 0.8 {
+        "g2"
+      } else {
+        "g3"
+      };
+      doc.add(StringField::from_string("updKey", g, Store::No)?);
+
+      for j in 0..num_fields {
+        let value = random.random::<i32>() as i64;
+        doc.add(BinaryDocValuesField::new(
+          format!("f{j}"),
+          to_bytes(&mut random, value)?,
+        ));
+        doc.add(BinaryDocValuesField::new(
+          format!("cf{j}"),
+          to_bytes(&mut random, value * 2)?,
+        ));
+      }
+
+      writer.add_document(doc)?;
+    }
+
+    let num_threads = if is_night_mode() {
+      TestUtil::next_int(&mut random, 3, 6)
+    } else {
+      2
+    };
+    let num_updates = AtomicI32::new(at_least(&mut random, 100));
+
+    thread::scope(|scope| -> Result<()> {
+      let mut handles = Vec::new();
+
+      for i in 0..num_threads {
+        let writer = writer.clone();
+        let num_updates = &num_updates;
+        let seed = random.random();
+
+        handles.push(
+          thread::Builder::new()
+            .name(format!("UpdateThread-{i}"))
+            .spawn_scoped(scope, move || -> Result<()> {
+              let mut random = random_from_seed(seed);
+              let mut reader = None;
+
+              while num_updates.fetch_sub(1, Ordering::SeqCst) > 0 {
+                let group = random.random::<f64>();
+                let t = if group < 0.1 {
+                  Term::from_text("updKey", "g0")
+                } else if group < 0.5 {
+                  Term::from_text("updKey", "g1")
+                } else if group < 0.8 {
+                  Term::from_text("updKey", "g2")
+                } else {
+                  Term::from_text("updKey", "g3")
+                };
+
+                let field = random.random_range(0..num_fields);
+                let f = format!("f{field}");
+                let cf = format!("cf{field}");
+                let upd_value = random.random::<i32>() as i64;
+
+                writer.update_doc_values(
+                  t,
+                  vec![
+                    BinaryDocValuesField::new(f, to_bytes(&mut random, upd_value)?).into(),
+                    BinaryDocValuesField::new(cf, to_bytes(&mut random, upd_value * 2)?).into(),
+                  ],
+                )?;
+
+                if random.random_bool(0.2) {
+                  let doc = random.random_range(0..num_docs);
+                  writer.delete_documents_with_terms(vec![Term::from_text(
+                    "id",
+                    format!("doc{doc}"),
+                  )])?;
+                }
+
+                if random.random_bool(0.05) {
+                  writer.commit()?;
+                }
+
+                if random.random_bool(0.1) {
+                  // TODO IMPORTANT: openIfChanged 未实现
+                  reader = Some(directory_reader::open_from_writer(&writer)?);
+                }
+              }
+
+              if let Some(reader) = reader {
+                reader.close()?;
+              }
+
+              Ok(())
+            })?,
+        );
+      }
+
+      for handle in handles {
+        handle
+          .join()
+          .map_err(|_| LuceneError::illegal_state("update thread panicked"))??;
+      }
+
+      Ok(())
+    })?;
+
+    writer.close()?;
+
+    let reader = directory_reader::open(dir.clone())?;
+    let reader = get_context(reader)?;
+
+    for context in reader.leaves()? {
+      let r = context.reader();
+
+      for i in 0..num_fields {
+        let mut bdv = r.get_binary_doc_values(&format!("f{i}"))?.unwrap();
+        let mut control = r.get_binary_doc_values(&format!("cf{i}"))?.unwrap();
+        let live_docs = r.get_live_docs()?;
+
+        for j in 0..r.max_doc()? {
+          if live_docs
+            .as_ref()
+            .is_none_or(|bits| bits.get(j as usize).expect(""))
+          {
+            assert_eq!(j, bdv.advance(j)?);
+            assert_eq!(j, control.advance(j)?);
+
+            let value = get_value(&mut bdv)?;
+            let control_value = get_value(&mut control)?;
+            assert_eq!(control_value, value * 2);
+          }
+        }
+      }
+    }
+
     Ok(())
   }
 
@@ -1244,8 +1708,14 @@ mod tests {
         Store::No,
       )?);
       let value = random.random();
-      doc.add(BinaryDocValuesField::new("f", to_bytes(value)?));
-      doc.add(BinaryDocValuesField::new("cf", to_bytes(value * 2)?));
+      doc.add(BinaryDocValuesField::new(
+        "f",
+        to_bytes(&mut random, value)?,
+      ));
+      doc.add(BinaryDocValuesField::new(
+        "cf",
+        to_bytes(&mut random, value * 2)?,
+      ));
       writer.add_document(doc)?;
     }
 
@@ -1257,8 +1727,8 @@ mod tests {
       writer.update_doc_values(
         t,
         vec![
-          BinaryDocValuesField::new("f", to_bytes(value)?).into(),
-          BinaryDocValuesField::new("cf", to_bytes(value * 2)?).into(),
+          BinaryDocValuesField::new("f", to_bytes(&mut random, value)?).into(),
+          BinaryDocValuesField::new("cf", to_bytes(&mut random, value * 2)?).into(),
         ],
       )?;
 
@@ -1306,19 +1776,33 @@ mod tests {
 
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", "d0", Store::No)?);
-    doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
-    doc.add(BinaryDocValuesField::new("f2", to_bytes(1_i64)?));
+    doc.add(BinaryDocValuesField::new(
+      "f1",
+      to_bytes(&mut random, 1_i64)?,
+    ));
+    doc.add(BinaryDocValuesField::new(
+      "f2",
+      to_bytes(&mut random, 1_i64)?,
+    ));
     writer.add_document(doc)?;
 
     // update each field twice to make sure all unneeded files are deleted
     for f in ["f1", "f2"] {
-      writer.update_binary_doc_value(Term::from_text("id", "d0"), f, to_bytes(2_i64)?)?;
+      writer.update_binary_doc_value(
+        Term::from_text("id", "d0"),
+        f,
+        to_bytes(&mut random, 2_i64)?,
+      )?;
       writer.commit()?;
       let num_files = dir.list_all()?.len();
 
       // update again, number of files shouldn't change (old field's gen is
       // removed)
-      writer.update_binary_doc_value(Term::from_text("id", "d0"), f, to_bytes(3_i64)?)?;
+      writer.update_binary_doc_value(
+        Term::from_text("id", "d0"),
+        f,
+        to_bytes(&mut random, 3_i64)?,
+      )?;
       writer.commit()?;
 
       // assert: file count should not grow
@@ -1364,10 +1848,13 @@ mod tests {
 
       for j in 0..num_binary_fields {
         let val = random.random();
-        doc.add(BinaryDocValuesField::new(format!("f{j}"), to_bytes(val)?));
+        doc.add(BinaryDocValuesField::new(
+          format!("f{j}"),
+          to_bytes(&mut random, val)?,
+        ));
         doc.add(BinaryDocValuesField::new(
           format!("cf{j}"),
-          to_bytes(val * 2)?,
+          to_bytes(&mut random, val * 2)?,
         ));
       }
 
@@ -1390,8 +1877,8 @@ mod tests {
       writer.update_doc_values(
         update_term,
         vec![
-          BinaryDocValuesField::new(format!("f{field}"), to_bytes(value)?).into(),
-          BinaryDocValuesField::new(format!("cf{field}"), to_bytes(value * 2)?).into(),
+          BinaryDocValuesField::new(format!("f{field}"), to_bytes(&mut random, value)?).into(),
+          BinaryDocValuesField::new(format!("cf{field}"), to_bytes(&mut random, value * 2)?).into(),
         ],
       )?;
     }
@@ -1433,17 +1920,43 @@ mod tests {
     let mut doc = Document::new();
     doc.add(StringField::from_string("upd", "t1", Store::No)?);
     doc.add(StringField::from_string("upd", "t2", Store::No)?);
-    doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
-    doc.add(BinaryDocValuesField::new("f2", to_bytes(1_i64)?));
+    doc.add(BinaryDocValuesField::new(
+      "f1",
+      to_bytes(&mut random, 1_i64)?,
+    ));
+    doc.add(BinaryDocValuesField::new(
+      "f2",
+      to_bytes(&mut random, 1_i64)?,
+    ));
     writer.add_document(doc)?;
 
     // update operations — MUST respect order
-    writer.update_binary_doc_value(Term::from_text("upd", "t1"), "f1", to_bytes(2_i64)?)?; // update f1 to 2
-    writer.update_binary_doc_value(Term::from_text("upd", "t1"), "f2", to_bytes(2_i64)?)?; // update f2 to 2
-    writer.update_binary_doc_value(Term::from_text("upd", "t2"), "f1", to_bytes(3_i64)?)?; // update f1 to 3
-    writer.update_binary_doc_value(Term::from_text("upd", "t2"), "f2", to_bytes(3_i64)?)?; // update f2 to 3
+    writer.update_binary_doc_value(
+      Term::from_text("upd", "t1"),
+      "f1",
+      to_bytes(&mut random, 2_i64)?,
+    )?; // update f1 to 2
+    writer.update_binary_doc_value(
+      Term::from_text("upd", "t1"),
+      "f2",
+      to_bytes(&mut random, 2_i64)?,
+    )?; // update f2 to 2
+    writer.update_binary_doc_value(
+      Term::from_text("upd", "t2"),
+      "f1",
+      to_bytes(&mut random, 3_i64)?,
+    )?; // update f1 to 3
+    writer.update_binary_doc_value(
+      Term::from_text("upd", "t2"),
+      "f2",
+      to_bytes(&mut random, 3_i64)?,
+    )?; // update f2 to 3
     // last update only affects f1
-    writer.update_binary_doc_value(Term::from_text("upd", "t1"), "f1", to_bytes(4_i64)?)?; // update f1 to 4 (but not f2)
+    writer.update_binary_doc_value(
+      Term::from_text("upd", "t1"),
+      "f1",
+      to_bytes(&mut random, 4_i64)?,
+    )?; // update f1 to 4 (but not f2)
 
     writer.close()?;
 
@@ -1475,23 +1988,36 @@ mod tests {
     // create base document
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", "doc", Store::No)?);
-    doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
+    doc.add(BinaryDocValuesField::new(
+      "f1",
+      to_bytes(&mut random, 1_i64)?,
+    ));
 
     // add two docs, then commit
     writer.add_document(doc)?;
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", "doc", Store::No)?);
-    doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
+    doc.add(BinaryDocValuesField::new(
+      "f1",
+      to_bytes(&mut random, 1_i64)?,
+    ));
     writer.add_document(doc)?;
     writer.commit()?;
 
     writer.delete_documents_with_terms(vec![Term::from_text("id", "doc")])?;
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", "doc", Store::No)?);
-    doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
+    doc.add(BinaryDocValuesField::new(
+      "f1",
+      to_bytes(&mut random, 1_i64)?,
+    ));
     writer.add_document(doc)?;
 
-    writer.update_binary_doc_value(Term::from_text("id", "doc"), "f1", to_bytes(2_i64)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("id", "doc"),
+      "f1",
+      to_bytes(&mut random, 2_i64)?,
+    )?;
 
     writer.close()?;
 
@@ -1520,12 +2046,23 @@ mod tests {
     // create initial document
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", "doc", Store::No)?);
-    doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
+    doc.add(BinaryDocValuesField::new(
+      "f1",
+      to_bytes(&mut random, 1_i64)?,
+    ));
     writer.add_document(doc)?;
 
     // update with multiple non-existing terms in same field
-    writer.update_binary_doc_value(Term::from_text("c", "foo"), "f1", to_bytes(2_i64)?)?;
-    writer.update_binary_doc_value(Term::from_text("c", "bar"), "f1", to_bytes(2_i64)?)?;
+    writer.update_binary_doc_value(
+      Term::from_text("c", "foo"),
+      "f1",
+      to_bytes(&mut random, 2_i64)?,
+    )?;
+    writer.update_binary_doc_value(
+      Term::from_text("c", "bar"),
+      "f1",
+      to_bytes(&mut random, 2_i64)?,
+    )?;
     writer.close()?;
 
     // open reader and verify value not changed
