@@ -85,6 +85,7 @@ where
       }
 
       ts.end()?;
+      ts.close()?;
       Ok(!changed && count == 1)
     })?;
     if unchanged_single_token {
@@ -93,7 +94,7 @@ where
   }
 }
 
-// #[test]
+#[test]
 fn test_long_postings() -> Result<()> {
   let mut random = random();
   let dir_suffix = random.random::<i64>();
@@ -233,7 +234,7 @@ fn test_long_postings() -> Result<()> {
   Ok(())
 }
 
-// #[test]
+#[test]
 fn test_long_postings_no_positions() -> Result<()> {
   do_test_long_postings_no_positions(IndexOptions::Docs)?;
   do_test_long_postings_no_positions(IndexOptions::DocsAndFreqs)?;

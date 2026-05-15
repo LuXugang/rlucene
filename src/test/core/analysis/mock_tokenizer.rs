@@ -388,20 +388,7 @@ where
   }
 
   fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
-    if !matches!(self.tokenizer_base.input, ReaderEnum::IllegalState(_)) {
-      return Err(LuceneError::illegal_state(
-        "TokenStream contract violation: close() call missing",
-      ));
-    }
-    if self.stream_state != State::Close {
-      self.fail(format!(
-        "set_reader() called in wrong state: {:?}",
-        self.stream_state
-      ))?;
-    }
-    self.tokenizer_base.input_pending = input;
-    self.stream_state = State::SetReader;
-    Ok(())
+    self.tokenizer_base.set_reader(input)
   }
 
   fn set_reader_test_point(&mut self) -> Result<()> {
