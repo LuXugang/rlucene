@@ -218,16 +218,21 @@ mod tests {
   use crate::core::index::directory_reader;
   use crate::core::index::doc_values_type::DocValuesType;
   use crate::core::index::field_infos::FieldInfos;
-  use crate::core::index::index_reader::IndexReader;
+  use crate::core::index::index_reader::{CacheHelper, IndexReader};
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::index_writer_config::{DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH};
   use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+
+  use crate::core::index::merge_policy::MergePolicyEnum;
+  use crate::core::index::multi_bits::get_live_docs;
+  use crate::core::index::multi_doc_values::MultiDocValues;
   use crate::core::index::no_merge_policy::NoMergePolicy;
   use crate::core::index::numeric_doc_values::NumericDocValues;
   use crate::core::index::sorted_doc_values::SortedDocValues;
   use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
+  use crate::core::index::stored_fields::StoredFields;
   use crate::core::index::term::Term;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
   use crate::core::search::index_searcher::IndexSearcher;
@@ -239,24 +244,22 @@ mod tests {
   use crate::core::util::TryIntoInt;
   use crate::core::util::bits::Bits;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
+  use crate::test::core::analysis::mock_analyzer;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+  use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, get_only_leaf_reader, is_night_mode, new_bytes_ref_from_string, new_directory_shared,
-    new_index_writer_config, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-    random,
+    new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
+    new_searcher_with_reader, random,
   };
   use crate::test::core::util::test_util::TestUtil;
   use rand::RngExt;
   use rand::seq::IndexedRandom;
   use std::collections::HashSet;
   use std::sync::Arc;
+  use std::sync::atomic::{AtomicI32, Ordering};
+  use std::thread;
   use std::vec;
-
-  use crate::core::index::multi_bits::get_live_docs;
-  use crate::core::index::multi_doc_values::MultiDocValues;
-  use crate::core::index::stored_fields::StoredFields;
-  use crate::test::core::analysis::mock_analyzer;
-  use crate::test::core::index::random_index_writer::RandomIndexWriter;
 
   #[allow(dead_code)]
   struct TestNumericDocValuesUpdates;
@@ -543,7 +546,57 @@ mod tests {
   }
   #[test]
   fn test_reopen() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+
+    writer.add_document(doc(0)?)?;
+    writer.add_document(doc(1)?)?;
+
+    let is_nrt = random.random_bool(0.5);
+    let reader1 = if is_nrt {
+      directory_reader::open_from_writer(&writer)?
+    } else {
+      writer.commit()?;
+      directory_reader::open(dir.clone())?
+    };
+
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: isNRT={is_nrt}");
+    }
+
+    writer.update_numeric_doc_value(Term::from_text("id", "doc-0"), "val", 10)?;
+
+    if !is_nrt {
+      writer.commit()?;
+    }
+
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: openIfChanged");
+    }
+
+    // TODO IMPORTANT : open_if_change 未实现
+    let reader2 = directory_reader::open_from_writer(&writer)?;
+    assert_ne!(
+      reader1.get_reader_cache_helper()?.unwrap().get_key(),
+      reader2.get_reader_cache_helper()?.unwrap().get_key()
+    );
+
+    let v = get_context(reader1)?;
+    let leaves1 = v.leaves()?;
+    let mut dvs1 = leaves1[0].reader().get_numeric_doc_values("val")?.unwrap();
+    assert_eq!(0, dvs1.next_doc()?);
+    assert_eq!(1, dvs1.long_value()?);
+
+    let v = get_context(reader2)?;
+    let leaves2 = v.leaves()?;
+    let mut dvs2 = leaves2[0].reader().get_numeric_doc_values("val")?.unwrap();
+    assert_eq!(0, dvs2.next_doc()?);
+    assert_eq!(10, dvs2.long_value()?);
+
+    writer.close()?;
     Ok(())
   }
   #[test]
@@ -1236,7 +1289,136 @@ mod tests {
   }
   #[test]
   fn test_many_reopens_and_fields() -> Result<()> {
-    // TODO IMPORTANT open_if_changed未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut lmp = new_log_merge_policy(&mut random)?;
+    match lmp {
+      MergePolicyEnum::LogDoc(ref mut v) => {
+        v.set_merge_factor(3)?;
+      },
+      MergePolicyEnum::LogBytesSize(ref mut v) => {
+        v.set_merge_factor(3)?;
+      },
+      _ => unreachable!(""),
+    }
+    conf.set_merge_policy(lmp);
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+
+    let is_nrt = random.random_bool(0.5);
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: isNRT={is_nrt}");
+    }
+
+    let mut reader = if is_nrt {
+      directory_reader::open_from_writer(&writer)?
+    } else {
+      writer.commit()?;
+      directory_reader::open(dir.clone())?
+    };
+
+    let num_fields = random.random_range(3..7);
+    let mut field_values = vec![1i64; num_fields];
+
+    let num_rounds = at_least(&mut random, 15);
+    let mut doc_id = 0;
+    for i in 0..num_rounds {
+      let num_docs = at_least(&mut random, 5);
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: round={i}, numDocs={num_docs}");
+      }
+      for _ in 0..num_docs {
+        let mut doc = Document::new();
+        doc.add(StringField::from_string(
+          "id",
+          format!("doc-{doc_id}"),
+          Store::Yes,
+        )?);
+        doc.add(StringField::from_string("key", "all", Store::No)?);
+        for (f, value) in field_values.iter().enumerate() {
+          doc.add(NumericDocValuesField::new(format!("f{f}"), *value));
+        }
+        writer.add_document(doc)?;
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST add doc id={doc_id}");
+        }
+        doc_id += 1;
+      }
+
+      let field_idx = random.random_range(0..field_values.len());
+      let update_field = format!("f{field_idx}");
+      field_values[field_idx] += 1;
+      if cfg!(feature = "test_log_verbose") {
+        println!(
+          "TEST: update field={} for all docs to value={}",
+          update_field, field_values[field_idx]
+        );
+      }
+      writer.update_numeric_doc_value(
+        Term::from_text("key", "all"),
+        update_field,
+        field_values[field_idx],
+      )?;
+
+      if random.random_bool(0.2) {
+        let delete_doc = random.random_range(0..num_docs);
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: delete doc id={delete_doc}");
+        }
+        writer
+          .delete_documents_with_terms(vec![Term::from_text("id", format!("doc-{delete_doc}"))])?;
+      }
+
+      if !is_nrt {
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: now commit");
+        }
+        writer.commit()?;
+      }
+
+      // TODO IMPORTANT: openIfChanged未实现
+      let new_reader = directory_reader::open_from_writer(&writer)?;
+      reader.close()?;
+      reader = new_reader;
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: got reader maxDoc={} {}", reader.max_doc()?, reader);
+      }
+      assert!(reader.num_docs()? > 0);
+
+      let reader_ctx = get_context(&reader)?;
+      for context in reader_ctx.leaves()? {
+        let r = context.reader();
+        let live_docs = r.get_live_docs()?;
+        let mut stored_fields = r.stored_fields()?;
+        for (field, expected_value) in field_values.iter().enumerate() {
+          let f = format!("f{field}");
+          let mut ndv = r.get_numeric_doc_values(&f)?.unwrap();
+          let max_doc = r.max_doc()?;
+          for doc in 0..max_doc {
+            if live_docs
+              .as_ref()
+              .is_none_or(|bits| bits.get(doc as usize).expect(""))
+            {
+              assert_eq!(doc, ndv.advance(doc)?);
+              assert_eq!(
+                *expected_value,
+                ndv.long_value()?,
+                "invalid value for docID={} id={} field={} reader={} doc={}",
+                doc,
+                stored_fields.document(doc)?.get("id")?.unwrap(),
+                f,
+                r,
+                stored_fields.document(doc)?
+              );
+            }
+          }
+        }
+      }
+    }
+
+    reader.close()?;
+    writer.close()?;
     Ok(())
   }
   #[test]
@@ -1475,7 +1657,144 @@ mod tests {
   }
   #[test]
   fn test_stress_multi_threading() -> Result<()> {
-    // TODO IMPORTANT 多线程未实现
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = Arc::new(IndexWriter::new(dir.clone(), conf)?);
+
+    let num_fields = TestUtil::next_int(&mut random, 1, 4);
+    let num_docs = if is_night_mode() {
+      at_least(&mut random, 2000)
+    } else {
+      at_least(&mut random, 200)
+    };
+
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(StringField::from_string(
+        "id",
+        format!("doc{i}"),
+        Store::No,
+      )?);
+      let group = random.random::<f64>();
+      let g = if group < 0.1 {
+        "g0"
+      } else if group < 0.5 {
+        "g1"
+      } else if group < 0.8 {
+        "g2"
+      } else {
+        "g3"
+      };
+      doc.add(StringField::from_string("updKey", g, Store::No)?);
+      for j in 0..num_fields {
+        let value = random.random::<i32>() as i64;
+        doc.add(NumericDocValuesField::new(format!("f{j}"), value));
+        doc.add(NumericDocValuesField::new(format!("cf{j}"), value * 2));
+      }
+      writer.add_document(doc)?;
+    }
+
+    let num_threads = if is_night_mode() {
+      TestUtil::next_int(&mut random, 3, 6)
+    } else {
+      4
+    };
+    let num_updates = AtomicI32::new(at_least(&mut random, 100));
+
+    thread::scope(|scope| -> Result<()> {
+      let mut handles = Vec::new();
+      for i in 0..num_threads {
+        let writer = writer.clone();
+        let num_updates = &num_updates;
+        handles.push(
+          thread::Builder::new()
+            .name(format!("UpdateThread-{i}"))
+            .spawn_scoped(scope, move || -> Result<()> {
+              let mut random =
+                crate::test::core::util::lucene_test_case::lucene_test_case_util::random();
+              let mut reader = None;
+              while num_updates.fetch_sub(1, Ordering::SeqCst) > 0 {
+                let group = random.random::<f64>();
+                let t = if group < 0.1 {
+                  Term::from_text("updKey", "g0")
+                } else if group < 0.5 {
+                  Term::from_text("updKey", "g1")
+                } else if group < 0.8 {
+                  Term::from_text("updKey", "g2")
+                } else {
+                  Term::from_text("updKey", "g3")
+                };
+
+                let field = random.random_range(0..num_fields);
+                let f = format!("f{field}");
+                let cf = format!("cf{field}");
+                let upd_value = random.random::<i32>() as i64;
+                writer.update_doc_values(
+                  t,
+                  vec![
+                    NumericDocValuesField::new(f, upd_value).into(),
+                    NumericDocValuesField::new(cf, upd_value * 2).into(),
+                  ],
+                )?;
+
+                if random.random_bool(0.2) {
+                  let doc = random.random_range(0..num_docs);
+                  writer.delete_documents_with_terms(vec![Term::from_text(
+                    "id",
+                    format!("doc{doc}"),
+                  )])?;
+                }
+
+                if random.random_bool(0.05) {
+                  writer.commit()?;
+                }
+
+                if random.random_bool(0.1) {
+                  // TODO IMPORTANT: openIfChanged未实现
+                  reader = Some(directory_reader::open_from_writer(&writer)?);
+                }
+              }
+              if let Some(reader) = reader {
+                reader.close()?;
+              }
+              Ok(())
+            })?,
+        );
+      }
+
+      for handle in handles {
+        handle
+          .join()
+          .map_err(|_| LuceneError::illegal_state("update thread panicked"))??;
+      }
+      Ok(())
+    })?;
+
+    writer.close()?;
+
+    let reader = directory_reader::open(dir.clone())?;
+    let reader = get_context(reader)?;
+    for context in reader.leaves()? {
+      let r = context.reader();
+      for i in 0..num_fields {
+        let mut ndv = r.get_numeric_doc_values(&format!("f{i}"))?.unwrap();
+        let mut control = r.get_numeric_doc_values(&format!("cf{i}"))?.unwrap();
+        let live_docs = r.get_live_docs()?;
+        for j in 0..r.max_doc()? {
+          if live_docs
+            .as_ref()
+            .is_none_or(|bits| bits.get(j as usize).expect(""))
+          {
+            assert_eq!(j, ndv.advance(j)?);
+            assert_eq!(j, control.advance(j)?);
+            assert_eq!(control.long_value()?, ndv.long_value()? * 2);
+          }
+        }
+      }
+    }
+
     Ok(())
   }
   #[test]
@@ -2083,7 +2402,7 @@ mod tests {
   }
   #[test]
   fn test_io_context() -> Result<()> {
-    // TODO
+    // TODO IMPORTANT NRTCachingDirectory未实现
     Ok(())
   }
 }
