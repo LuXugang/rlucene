@@ -210,7 +210,11 @@ fn do_next_set_bit(a: &bit_set::BitSet, b: &FixedBitSet) {
   assert_eq!(a.count(), b.cardinality());
   let mut bb = 0;
   loop {
-    bb = b.next_set_bit(bb);
+    bb = if bb + 1 >= b.length() {
+      NO_MORE_DOCS as usize
+    } else {
+      b.next_set_bit(bb)
+    };
 
     if bb == NO_MORE_DOCS as usize {
       assert!(!a.contains(bb));
@@ -218,7 +222,7 @@ fn do_next_set_bit(a: &bit_set::BitSet, b: &FixedBitSet) {
     }
     assert!(a.contains(bb));
     bb += 1;
-    if bb > b.length() - 1 {
+    if bb + 1 > b.length() {
       assert!(!a.contains(bb));
       break;
     }
