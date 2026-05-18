@@ -37,7 +37,7 @@ use std::thread;
 use std::time::Duration;
 #[allow(dead_code)] // for quick search
 pub struct TestNeverDelete;
-
+#[test]
 fn test_indexing() -> Result<()> {
   let mut rng = random();
   let tmp_dir = create_temp_dir_with_prefix("TestNeverDelete")?;
