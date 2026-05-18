@@ -547,7 +547,7 @@ fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
   Ok(())
 }
 
-// TODO writer.delete_all未实现
+#[test]
 fn test_delete_all() -> Result<()> {
   let mut random = new_random();
   let dir = new_directory_shared(&mut random)?;

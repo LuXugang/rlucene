@@ -1290,44 +1290,41 @@ fn test_no_unwanted_tv_files() -> Result<()> {
 
 #[test]
 fn test_wicked_long_term() -> Result<()> {
-  // TODO
+  // TODO StringSplitAnalyzer未实现
   Ok(())
 }
 
-#[test]
+// TODO IMPORTANT IndexReader#do_close需要重新设计
 fn test_delete_all_nrt_leftover_files() -> Result<()> {
-  // TODO writer.delete_all未实现
-  // let mut random = random();
-  //
-  // let dir = new_directory_shared(&mut random)?;
-  //
-  // let mock = MockAnalyzer::new(&mut random);
-  // let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-  // let mut w = IndexWriter::new(dir.clone(), iwc)?;
-  //
-  // let doc = Document::new();
-  //
-  // for _ in 0..20 {
-  //   for _ in 0..100 {
-  //     w.add_document(doc.clone())?;
-  //   }
-  //
-  //   w.commit()?;
-  //
-  //   drop(directory_reader::open_from_writer(&w)?);
-  //
-  //   w.delete_all()?;
-  //   w.commit()?;
-  //
-  //   // Make sure we accumulate no files except for empty segments_N and segments.gen.
-  //   let files = dir.list_all()?;
-  //   assert!(
-  //     files.len() <= 2,
-  //     "unexpected leftover files: {files:?}"
-  //   );
-  // }
-  //
-  // w.close()?;
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let doc = Document::new();
+
+  for _ in 0..20 {
+    for _ in 0..100 {
+      w.add_document(doc.clone())?;
+    }
+
+    w.commit()?;
+
+    let reader = directory_reader::open_from_writer(&w)?;
+    reader.close()?;
+
+    w.delete_all()?;
+    w.commit()?;
+
+    // Make sure we accumulate no files except for empty segments_N and segments.gen.
+    let files = dir.list_all()?;
+    assert!(files.len() <= 2, "unexpected leftover files: {files:?}");
+  }
+
+  w.close()?;
 
   Ok(())
 }
@@ -1382,7 +1379,7 @@ fn test_nrt_reader_version() -> Result<()> {
 
 #[test]
 fn test_whether_delete_all_deletes_write_lock() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT SimpleFSLockFactory未实现
   Ok(())
 }
 
@@ -1573,19 +1570,48 @@ fn test_prepare_commit_then_close() -> Result<()> {
 
 #[test]
 fn test_prepare_commit_then_rollback() -> Result<()> {
-  // TODO IMPORTANT: rollback 未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), conf)?;
+
+  w.prepare_commit()?;
+  w.rollback()?;
+
+  assert!(!directory_reader::index_exists(&dir)?);
+
   Ok(())
 }
 
 #[test]
 fn test_prepare_commit_then_rollback2() -> Result<()> {
-  // TODO IMPORTANT: rollback 未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), conf)?;
+
+  w.commit()?;
+  w.add_document(Document::new())?;
+  w.prepare_commit()?;
+  w.rollback()?;
+
+  assert!(directory_reader::index_exists(&dir)?);
+
+  let r = directory_reader::open(dir.clone())?;
+  assert_eq!(0, r.max_doc()?);
+
+  r.close()?;
+
   Ok(())
 }
 
 #[test]
 fn test_dont_invoke_analyzer_for_un_analyzed_fields() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT  自定义分词器有 bug
   Ok(())
 }
 
@@ -1622,13 +1648,13 @@ fn test_other_files() -> Result<()> {
 
 #[test]
 fn test_stopwords_pos_inc_hole() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT  自定义分词器有 bug
   Ok(())
 }
 
 #[test]
 fn test_stopwords_pos_inc_hole2() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT  自定义分词器有 bug
   Ok(())
 }
 

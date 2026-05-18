@@ -47,6 +47,7 @@ where
   pub(crate) enable_test_points: bool,
   // when unrecoverable disaster strikes, we populate this with the reason that we had to close
   // IndexWriter
+  // TODO IMPORTANT 这里的类型需要优化 要满足 only set it once
   tragedy: TragicException,
   // original user directory
   pub(crate) directory_orig: Arc<D>,
@@ -129,12 +130,6 @@ where
 {
   fn drop(&mut self) {
     // TODO IMPORTANT 其他close需要用到IndexWriter的字段都需要在这里处理
-    match self.event_queue.close(self) {
-      Ok(_) => {},
-      Err(e) => {
-        eprintln!("IndexWriter drop: event_queue close error: {}", e);
-      },
-    }
   }
 }
 pub type DefaultIndexWriterType<D> = IndexWriter<D, IndexWriterConfig, EmptyIndexWriterBase>;
@@ -489,7 +484,9 @@ where
     // }
     Ok(())
   }
-
+  /// Gracefully closes (commits, waits for merges), but calls rollback if there's an error so the
+  /// [`IndexWriter`] is always closed. This is called from [`close`] when
+  /// [`IndexWriterConfig::commit_on_close`] is `true`.
   fn shut_down(&self) -> Result<()> {
     if self.commit_lock.lock().pending_commit.is_some() {
       return Err(LuceneError::illegal_state(
@@ -507,11 +504,17 @@ where
         Ok(())
       })();
       match result {
-        Ok(_) => {
-          // TODO : rollback 未实现
+        Ok(()) => {
+          // if we got that far lets rollback and close
+          self.rollback_internal()?;
         },
         Err(e) => {
-          // TODO : rollback 未实现
+          // TODO IMPORTANT 错误嵌套需要优化
+          if let Err(rollback_err) = self.rollback_internal() {
+            return Err(LuceneError::illegal_state(format!(
+              "{e}; suppressed rollback error: {rollback_err}"
+            )));
+          }
           return Err(e);
         },
       }
@@ -588,7 +591,7 @@ where
     })();
 
     if let Err(ref e) = res {
-      self.tragic_event(e, "deleteDocuments(Term..)");
+      self.tragic_event(e, "deleteDocuments(Term..)")?;
     }
 
     res
@@ -620,7 +623,7 @@ where
     })();
 
     if let Err(ref e) = res {
-      self.tragic_event(e, "deleteDocuments(Query..)");
+      self.tragic_event(e, "deleteDocuments(Query..)")?;
     }
 
     res
@@ -771,7 +774,7 @@ where
     })();
 
     if let Err(ref e) = res {
-      self.tragic_event(e, "updateDocuments");
+      self.tragic_event(e, "updateDocuments")?;
       if self.info_stream.enabled("IW") {
         self
           .info_stream
@@ -961,7 +964,7 @@ where
     })();
 
     if let Err(ref e) = res {
-      self.tragic_event(e, "updateNumericDocValue");
+      self.tragic_event(e, "updateNumericDocValue")?;
     }
     res
   }
@@ -1022,7 +1025,7 @@ where
     })();
 
     if let Err(ref e) = res {
-      self.tragic_event(e, "updateBinaryDocValue");
+      self.tragic_event(e, "updateBinaryDocValue")?;
     }
     res
   }
@@ -1059,7 +1062,7 @@ where
     })();
 
     if let Err(ref e) = res {
-      self.tragic_event(e, "updateDocValues");
+      self.tragic_event(e, "updateDocValues")?;
     }
     res
   }
@@ -2069,7 +2072,7 @@ where
         !self.inner.is_locked(),
         "IndexWriter lock should never be held when aborting"
       );
-      self.doc_writer.abort();
+      self.doc_writer.abort(self.get_config())?;
       self.doc_writer.flush_control.wait_for_flush();
       self.publish_flushed_segments(true)?;
       self.event_queue.close(self)?;
@@ -2272,7 +2275,7 @@ where
     })();
 
     if let Err(ref e) = result {
-      self.tragic_event(e, "deleteAll");
+      self.tragic_event(e, "deleteAll")?;
     }
 
     result
@@ -3228,7 +3231,7 @@ where
     })();
 
     if let Err(err) = &result {
-      self.tragic_event(err, "flush_next_buffer");
+      self.tragic_event(err, "flush_next_buffer")?;
     }
     self.maybe_close_on_tragic_event()?;
     result
@@ -3357,7 +3360,7 @@ where
     let tragic_res = match tragic_res {
       Err(e) => {
         // TODO IMPORTANT 这里没有处理好嵌套错误
-        self.tragic_event(&e, "prepareCommit");
+        self.tragic_event(&e, "prepareCommit")?;
         Err(e)
       },
       Ok(()) => Ok(()),
@@ -3802,7 +3805,7 @@ where
           .message("IW", &format!("hit exception during finishCommit: {}", t));
       }
       if commit_completed {
-        self.tragic_event(&t, "finishCommit");
+        self.tragic_event(&t, "finishCommit")?;
       }
       return Err(t);
     }
@@ -3929,7 +3932,7 @@ where
     match res {
       Ok(v) => Ok(v),
       Err(t) => {
-        self.tragic_event(&t, "doFlush");
+        self.tragic_event(&t, "doFlush")?;
         Err(t)
       },
     }
@@ -4421,7 +4424,7 @@ where
       Ok(())
     })();
     if let Err(e) = result {
-      self.tragic_event(&e, "merge");
+      self.tragic_event(&e, "merge")?;
       return Err(e);
     }
     Ok(())
@@ -4972,7 +4975,7 @@ where
     match result {
       Ok(()) => {},
       Err(e) => {
-        self.tragic_event(&e, "startCommit");
+        self.tragic_event(&e, "startCommit")?;
         return Err(e);
       },
     }
@@ -4986,21 +4989,39 @@ where
   ///
   /// Note: This method will not close the writer, but it can be called from any location without
   /// respecting any lock order.
-  ///
-  /// @lucene.internal
-  fn on_tragic_event(&self, _tragedy: &LuceneError, _location: &str) -> Result<()> {
-    // TODO
+  fn on_tragic_event(&self, tragedy: &LuceneError, location: &str) -> Result<()> {
+    // This is not supposed to be tragic: IW is supposed to catch this and
+    // ignore, because it means we asked the merge to abort:
+    debug_assert!(!matches!(tragedy, LuceneError::MergeAborted(_)));
+
+    if self.info_stream.enabled("IW") {
+      self.info_stream.message(
+        "IW",
+        &format!("hit tragic {:?} inside {}", tragedy, location),
+      );
+    }
+    // TODO IMPORTANT  Error 跟 Exception 需要能区分出来
+    // let mut current = self.tragedy.lock();
+    // if current.is_none() {
+    //   let v = LuceneError::illegal_state(format!("{} {}", tragedy, location));
+    //   *current = Some(v);
+    // }
     Ok(())
   }
 
   /// This method set the tragic exception unless it's already set and closes the writer if necessary.
   /// Note this method will not rethrow the throwable passed to it.
-  fn tragic_event(&self, _tragedy: &LuceneError, _location: &str) {
-    // TODO
+  fn tragic_event(&self, tragedy: &LuceneError, location: &str) -> Result<()> {
+    let result = self.on_tragic_event(tragedy, location);
+    self.maybe_close_on_tragic_event()?;
+    result
   }
 
   fn maybe_close_on_tragic_event(&self) -> Result<()> {
-    // TODO
+    if self.tragedy.lock().is_some() && self.should_close(false) {
+      self.rollback_internal()?;
+    }
+
     Ok(())
   }
 
@@ -5883,7 +5904,7 @@ where
     match result1 {
       Ok(v) => Ok(v),
       Err(e) => {
-        self.tragic_event(&e, "get_reader");
+        self.tragic_event(&e, "get_reader")?;
         Err(e)
       },
     }

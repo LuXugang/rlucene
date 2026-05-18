@@ -36,8 +36,10 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   create_temp_dir_with_prefix, new_directory_shared, new_fs_directory, new_index_writer_config,
   new_string_field, random,
 };
+use crate::test::core::util::test_util::TestUtil;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Barrier};
+use std::thread;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterMaxDocs;
@@ -380,182 +382,173 @@ fn test_too_large_max_docs() {
 
 #[test]
 fn test_delete_all() -> Result<()> {
-  // TODO IMPORTANT writer.delete_all未实现
-  // set_max_docs(1)?;
-  // let result = (|| -> Result<()> {
-  //     let mut random = random();
-  //     let dir = new_directory_shared(&mut random)?;
-  //     let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
-  //
-  //     w.add_document(Document::new())?;
-  //
-  //     let err = w.add_document(Document::new());
-  //     assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  //
-  //     w.delete_all()?;
-  //
-  //     w.add_document(Document::new())?;
-  //
-  //     let err = w.add_document(Document::new());
-  //     assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  //
-  //     w.close()?;
-  //     Ok(())
-  // })();
-  //
-  // set_max_docs(MAX_DOCS)?;
-  // result
-  Ok(())
+  set_max_docs(1)?;
+  let result = (|| -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+    w.add_document(Document::new())?;
+
+    let err = w.add_document(Document::new());
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+    w.delete_all()?;
+
+    w.add_document(Document::new())?;
+
+    let err = w.add_document(Document::new());
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+    w.close()?;
+    Ok(())
+  })();
+
+  set_max_docs(MAX_DOCS)?;
+  result
 }
 #[test]
 fn test_delete_all_after_flush() -> Result<()> {
-  // TODO IMPORTANT writer.delete_all未实现
-  // set_max_docs(2)?;
-  // let result = (|| -> Result<()> {
-  //   let mut random = random();
-  //   let dir = new_directory_shared(&mut random)?;
-  //   let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
-  //
-  //   w.add_document(Document::new())?;
-  //   directory_reader::open_from_writer(&w)?.close()?;
-  //
-  //   w.add_document(Document::new())?;
-  //
-  //   let err = w.add_document(Document::new());
-  //   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  //
-  //   w.delete_all()?;
-  //
-  //   w.add_document(Document::new())?;
-  //   w.add_document(Document::new())?;
-  //
-  //   let err = w.add_document(Document::new());
-  //   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  //
-  //   w.close()?;
-  //   Ok(())
-  // })();
-  //
-  // set_max_docs(MAX_DOCS)?;
-  // result
-  Ok(())
+  set_max_docs(2)?;
+  let result = (|| -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+    w.add_document(Document::new())?;
+    directory_reader::open_from_writer(&w)?.close()?;
+
+    w.add_document(Document::new())?;
+
+    let err = w.add_document(Document::new());
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+    w.delete_all()?;
+
+    w.add_document(Document::new())?;
+    w.add_document(Document::new())?;
+
+    let err = w.add_document(Document::new());
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+    w.close()?;
+    Ok(())
+  })();
+
+  set_max_docs(MAX_DOCS)?;
+  result
 }
 
 #[test]
 fn test_delete_all_after_commit() -> Result<()> {
-  // TODO IMPORTANT writer.delete_all未实现
-  // set_max_docs(2)?;
-  // let result = (|| -> Result<()> {
-  //   let mut random = random();
-  //   let dir = new_directory_shared(&mut random)?;
-  //   let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
-  //
-  //   w.add_document(Document::new())?;
-  //   w.commit()?;
-  //
-  //   w.add_document(Document::new())?;
-  //
-  //   let err = w.add_document(Document::new());
-  //   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  //
-  //   w.delete_all()?;
-  //
-  //   w.add_document(Document::new())?;
-  //   w.add_document(Document::new())?;
-  //
-  //   let err = w.add_document(Document::new());
-  //   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  //
-  //   w.close()?;
-  //   Ok(())
-  // })();
-  //
-  // set_max_docs(MAX_DOCS)?;
-  // result
-  Ok(())
+  set_max_docs(2)?;
+  let result = (|| -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+    w.add_document(Document::new())?;
+    w.commit()?;
+
+    w.add_document(Document::new())?;
+
+    let err = w.add_document(Document::new());
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+    w.delete_all()?;
+
+    w.add_document(Document::new())?;
+    w.add_document(Document::new())?;
+
+    let err = w.add_document(Document::new());
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+    w.close()?;
+    Ok(())
+  })();
+
+  set_max_docs(MAX_DOCS)?;
+  result
 }
 
 #[test]
 fn test_delete_all_multiple_threads() -> Result<()> {
-  // TODO IMPORTANT writer.delete_all未实现
-  // let mut random = random();
-  // let limit = TestUtil::next_int(&mut random, 2, 10);
-  // set_max_docs(limit)?;
-  // let result = (|| -> Result<()> {
-  //   let dir = new_directory_shared(&mut random)?;
-  //   let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
-  //
-  //   let starting_gun = Arc::new(Barrier::new(limit as usize + 1));
-  //   thread::scope(|scope| -> Result<()> {
-  //     let mut threads = Vec::new();
-  //     for _ in 0..limit {
-  //       let starting_gun = starting_gun.clone();
-  //       let w = &w;
-  //       threads.push(scope.spawn(move || -> Result<()> {
-  //         set_max_docs(limit)?;
-  //         starting_gun.wait();
-  //         w.add_document(Document::new())?;
-  //         Ok(())
-  //       }));
-  //     }
-  //
-  //     starting_gun.wait();
-  //
-  //     for thread in threads {
-  //       thread.join().expect("thread panicked")?;
-  //     }
-  //
-  //     Ok(())
-  //   })?;
-  //
-  //   let err = w.add_document(Document::new());
-  //   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  //
-  //   w.delete_all()?;
-  //   for _ in 0..limit {
-  //     w.add_document(Document::new())?;
-  //   }
-  //   let err = w.add_document(Document::new());
-  //   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  //
-  //   w.close()?;
-  //   Ok(())
-  // })();
-  //
-  // set_max_docs(MAX_DOCS)?;
-  // result
-  Ok(())
+  let mut random = random();
+  let limit = TestUtil::next_int(&mut random, 2, 10);
+  set_max_docs(limit)?;
+  let result = (|| -> Result<()> {
+    let dir = new_directory_shared(&mut random)?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+    let starting_gun = Arc::new(Barrier::new(limit as usize + 1));
+    thread::scope(|scope| -> Result<()> {
+      let mut threads = Vec::new();
+      for _ in 0..limit {
+        let starting_gun = starting_gun.clone();
+        let w = &w;
+        threads.push(scope.spawn(move || -> Result<()> {
+          set_max_docs(limit)?;
+          starting_gun.wait();
+          w.add_document(Document::new())?;
+          Ok(())
+        }));
+      }
+
+      starting_gun.wait();
+
+      for thread in threads {
+        thread.join().expect("thread panicked")?;
+      }
+
+      Ok(())
+    })?;
+
+    let err = w.add_document(Document::new());
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+    w.delete_all()?;
+    for _ in 0..limit {
+      w.add_document(Document::new())?;
+    }
+    let err = w.add_document(Document::new());
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+    w.close()?;
+    Ok(())
+  })();
+
+  set_max_docs(MAX_DOCS)?;
+  result
 }
 
 #[test]
 fn test_delete_all_after_close() -> Result<()> {
-  // TODO IMPORTANT writer.delete_all未实现
-  // set_max_docs(2)?;
-  // let result = (|| -> Result<()> {
-  //   let mut random = random();
-  //   let dir = new_directory_shared(&mut random)?;
-  //   let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
-  //   w.add_document(Document::new())?;
-  //   w.close()?;
-  //
-  //   let w2 = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
-  //   w2.add_document(Document::new())?;
-  //   let err = w2.add_document(Document::new());
-  //   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  //
-  //   w2.delete_all()?;
-  //   w2.add_document(Document::new())?;
-  //   w2.add_document(Document::new())?;
-  //   let err = w2.add_document(Document::new());
-  //   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  //
-  //   w2.close()?;
-  //   Ok(())
-  // })();
-  //
-  // set_max_docs(MAX_DOCS)?;
-  // result
-  Ok(())
+  set_max_docs(2)?;
+  let result = (|| -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    w.add_document(Document::new())?;
+    w.close()?;
+    drop(w);
+
+    let w2 = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    w2.add_document(Document::new())?;
+    let err = w2.add_document(Document::new());
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+    w2.delete_all()?;
+    w2.add_document(Document::new())?;
+    w2.add_document(Document::new())?;
+    let err = w2.add_document(Document::new());
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+    w2.close()?;
+    Ok(())
+  })();
+
+  set_max_docs(MAX_DOCS)?;
+  result
 }
 
 #[test]

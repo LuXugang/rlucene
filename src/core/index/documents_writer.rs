@@ -330,7 +330,6 @@ where
   where
     L: LiveIndexWriterConfig,
   {
-    debug_assert!(self.inner.is_locked());
     {
       let num = per_thread.state.get_num_docs_in_ram();
       self.subtract_flushed_num_docs(num);
@@ -388,8 +387,69 @@ where
     self.closed.store(true, Ordering::SeqCst);
     // TODO
   }
-  pub(crate) fn abort(&self) {
-    // TODO
+  /// Called if we hit an error at a bad time (when updating the index files) and must discard
+  /// all currently buffered docs. This resets our state, discarding any docs added since last flush.
+  pub(crate) fn abort<L>(&self, config: &L) -> Result<()>
+  where
+    L: LiveIndexWriterConfig,
+  {
+    let _guard = self.guard.lock();
+
+    let mut success = false;
+
+    let result = (|| -> Result<()> {
+      self.flush_control.delete_queue.lock().clear();
+
+      if self.info_stream.enabled("DW") {
+        self.info_stream.message("DW", "abort");
+      }
+
+      for per_thread in self
+        .flush_control
+        .per_thread_pool
+        .filter_and_lock(|_| true)?
+      {
+        let result = self.abort_documents_writer_per_thread(per_thread.clone(), config);
+        per_thread.unlock();
+        result?;
+      }
+
+      self.flush_control.abort_pending_flushes(self, config)?;
+      self.flush_control.wait_for_flush();
+
+      debug_assert_eq!(
+        0,
+        self.flush_control.per_thread_pool.size(),
+        "There are still active DWPT in the pool: {}",
+        self.flush_control.per_thread_pool.size()
+      );
+
+      success = true;
+      Ok(())
+    })();
+
+    if success {
+      debug_assert_eq!(
+        0,
+        self.flush_control.get_flushing_bytes(None),
+        "flushingBytes has unexpected value 0 != {}",
+        self.flush_control.get_flushing_bytes(None)
+      );
+      debug_assert_eq!(
+        0,
+        self.flush_control.net_bytes(None),
+        "netBytes has unexpected value 0 != {}",
+        self.flush_control.net_bytes(None)
+      );
+    }
+
+    if self.info_stream.enabled("DW") {
+      self
+        .info_stream
+        .message("DW", &format!("done abort success={success}"));
+    }
+
+    result
   }
   fn pre_update<L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
   where

@@ -548,7 +548,26 @@ fn test_mixed_types_different_segments() -> Result<()> {
 
 #[test]
 fn test_mixed_types_after_delete_all() -> Result<()> {
-  // TODO writer.delete_all未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("foo", 0));
+  w.add_document(doc)?;
+
+  w.delete_all()?;
+
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "foo",
+    BytesRef::from_string("hello"),
+  ));
+  w.add_document(doc)?;
+  w.close()?;
   Ok(())
 }
 #[test]
@@ -874,12 +893,56 @@ fn test_type_change_after_close_and_delete_all() -> Result<()> {
 
 #[test]
 fn test_type_change_after_delete_all() -> Result<()> {
-  // TODO writer.delete_all未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), conf)?;
+
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("dv", 0));
+  writer.add_document(doc)?;
+
+  writer.delete_all()?;
+
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    BytesRef::from_string("foo"),
+  ));
+  writer.add_document(doc)?;
+
+  writer.close()?;
+
   Ok(())
 }
+
 #[test]
 fn test_type_change_after_commit_and_delete_all() -> Result<()> {
-  // TODO writer.delete_all未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), conf)?;
+
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("dv", 0));
+  writer.add_document(doc)?;
+
+  writer.commit()?;
+  writer.delete_all()?;
+
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    BytesRef::from_string("foo"),
+  ));
+  writer.add_document(doc)?;
+
+  writer.close()?;
+
   Ok(())
 }
 #[test]
@@ -1008,10 +1071,7 @@ fn test_same_field_name_for_posting_and_doc_value() -> Result<()> {
   let res = writer.add_document(doc2);
   assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
 
-  // TODO: rollback未实现
-  // writer.rollback()?;
-  // TODO: 这里不需要close
-  writer.close()?;
+  writer.rollback()?;
   Ok(())
 }
 

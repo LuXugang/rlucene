@@ -137,12 +137,6 @@ macro_rules! error_ctor {
   };
 }
 impl LuceneError {
-  pub fn with_payload<T>(self, payload: T) -> PayloadError<T> {
-    PayloadError {
-      error: self,
-      payload,
-    }
-  }
   pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
     LuceneError::IoWithPath {
       source: err,
