@@ -881,8 +881,7 @@ where
       let v = self.inner.lock().reader.clone();
       debug_assert!(v.is_some());
       Ok(v.unwrap())
-    })?;
-    Ok(false)
+    })
   }
   pub(crate) fn get_info_id(&self) -> &str {
     &self.info_id

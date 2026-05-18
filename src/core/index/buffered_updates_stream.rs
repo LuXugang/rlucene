@@ -434,14 +434,22 @@ impl FinishedSegments {
 /// - `any_new_deletes`: true if any actual deletes took place
 /// - `all_deleted`: if `Some`, contains segments_id that are 100% deleted
 pub(crate) struct ApplyDeletesResult {
-  pub any_new_deletes: bool,
-  pub all_deleted: Option<Vec<String>>,
+  pub(crate) any_deletes: bool,
+  pub(crate) all_deleted: Option<Vec<String>>,
+}
+impl ApplyDeletesResult {
+  pub(crate) fn any_deletes(&self) -> bool {
+    self.any_deletes
+  }
+  pub(crate) fn all_deleted(&self) -> Option<&Vec<String>> {
+    self.all_deleted.as_ref()
+  }
 }
 
 impl ApplyDeletesResult {
   pub fn new(any_new_deletes: bool, all_deleted: Option<Vec<String>>) -> Self {
     Self {
-      any_new_deletes,
+      any_deletes: any_new_deletes,
       all_deleted,
     }
   }

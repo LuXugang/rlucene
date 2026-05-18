@@ -3097,7 +3097,7 @@ where
 
     for info in inner.segment_infos.iter() {
       if let Some(rld) = self.reader_pool.get(info.into(), false, None)?
-        && rld.is_fully_deleted(info)?
+        && self.is_fully_deleted(rld.as_ref(), info)?
       {
         to_drop.push(info.info.get_id_key().to_string());
       }
@@ -5078,9 +5078,10 @@ where
           success = true;
           Ok(())
         })();
-        let mut inner = self.inner.lock();
-        self.finish_apply(&mut seg_states, success, del_files, &mut inner)?;
-
+        {
+          let mut inner = self.inner.lock();
+          self.finish_apply(&mut seg_states, success, del_files, &mut inner)?;
+        }
         match result {
           Ok(_) => {},
           Err(e) => {
@@ -5207,17 +5208,12 @@ where
     inner.deleter.dec_ref(del_files.iter())?;
     let result = close_res?;
 
-    if result.any_new_deletes {
+    if result.any_deletes() {
       self.maybe_merge.store(true, Ordering::Release);
       self.checkpoint(inner)?;
     }
 
-    if let Some(all) = result.all_deleted.as_ref() {
-      if self.info_stream.enabled("IW") {
-        // let segs = all.join(",");
-        // self.info_stream
-        //     .message("IW", &format!("drop 100% deleted segments: {}", segs));
-      }
+    if let Some(all) = result.all_deleted() {
       for seg_id in all {
         self.drop_deleted_segment(seg_id, inner)?;
       }
@@ -5259,8 +5255,14 @@ where
             info.info.max_doc()?
           );
 
-          // TODO: 这里没有加入MergePolic的判断
-          if seg_state.rld.is_fully_deleted(info)? {
+          if seg_state.rld.is_fully_deleted(info)?
+            && !self
+              .get_config()
+              .get_merge_policy()
+              .keep_fully_deleted_segment(|| {
+                Ok(seg_state.rld.inner.lock().reader.as_ref().unwrap().clone())
+              })?
+          {
             all_deleted.push(
               seg_state
                 .rld
@@ -5296,7 +5298,7 @@ where
     }
 
     let result = ApplyDeletesResult {
-      any_new_deletes: tot_del_count > 0,
+      any_deletes: tot_del_count > 0,
       all_deleted: if all_deleted.is_empty() {
         None
       } else {
