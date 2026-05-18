@@ -94,9 +94,11 @@ impl FuzzyAutomatonBuilder {
 
     match CompiledAutomaton::new(automaton, true, false) {
       Ok(compiled) => Ok(compiled),
-      Err(err @ LuceneError::TooComplexToDeterminize(_)) => Err(
-        LuceneError::fuzzy_terms_error_source(self.term.clone(), err),
-      ),
+      Err(err @ LuceneError::TooComplexToDeterminize(_)) => {
+        let mut fuzzy_error = LuceneError::fuzzy_terms(self.term.clone());
+        fuzzy_error.add_suppressed(err)?;
+        Err(fuzzy_error)
+      },
       Err(err) => Err(err),
     }
   }

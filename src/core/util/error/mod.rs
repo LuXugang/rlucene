@@ -40,6 +40,19 @@ macro_rules! message_error {
           source: Some(Box::new(err)),
         }
       }
+
+      pub fn add_suppressed(
+        &mut self,
+        source: $crate::core::util::error::lucene_error::LuceneError,
+      ) {
+        self.source = Some(Box::new(source));
+      }
+
+      pub fn get_suppressed(
+        &self,
+      ) -> Option<&$crate::core::util::error::lucene_error::LuceneError> {
+        self.source.as_deref()
+      }
     }
 
     impl From<String> for $name {
@@ -85,7 +98,7 @@ message_error!(CorruptIndexError);
 message_error!(IndexFormatTooNewError);
 message_error!(IndexFormatTooOldError);
 message_error!(UnsupportedOperationError);
-message_error!(NotFoundError);
+message_error!(NotSuchFileError);
 message_error!(LockAlreadyHeldError);
 message_error!(LockHeldByOtherError);
 message_error!(ArrayIndexOutOfBoundsError);

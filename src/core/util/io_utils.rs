@@ -60,7 +60,7 @@ impl IOUtils {
     if is_dir {
       if cfg!(windows) {
         if !file_to_sync.exists() {
-          return Err(LuceneError::not_found(format!(
+          return Err(LuceneError::not_such_file(format!(
             "Directory not found: {}",
             file_to_sync.display()
           )));
@@ -73,7 +73,7 @@ impl IOUtils {
         .open(file_to_sync)
         .map_err(|e| match e.kind() {
           io::ErrorKind::NotFound => {
-            LuceneError::not_found(format!("Directory not found: {}", file_to_sync.display()))
+            LuceneError::not_such_file(format!("Directory not found: {}", file_to_sync.display()))
           },
           _ => LuceneError::io_with_path(file_to_sync.to_string_lossy().to_string(), e),
         })?;

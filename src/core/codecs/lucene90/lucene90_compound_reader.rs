@@ -193,7 +193,7 @@ where
     let entry = self
       .entries
       .get(stripped_name)
-      .ok_or_else(|| LuceneError::not_found(format!("{name} not found")))?;
+      .ok_or_else(|| LuceneError::not_such_file(format!("{name} not found")))?;
     Ok(entry.length)
   }
 
@@ -248,7 +248,7 @@ where
           "",
           Lucene90CompoundFormat::DATA_EXTENSION,
         );
-        return Err(LuceneError::not_found(format!(
+        return Err(LuceneError::not_such_file(format!(
           "No sub-file with id {} found in compound file \"{}\" (fileName={} files: {:?})",
           id,
           dat_file_name,

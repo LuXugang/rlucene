@@ -519,8 +519,6 @@ impl CodecUtil {
   ///   the stream.
   /// - `PriorException`: If a prior exception is provided and rethrown after
   ///   adding supplemental information.
-  // TODO:Implemented a naive error propagation mechanism; we may use this
-  // error#[source] to standardize error nesting.
   pub fn check_footer_with_error(
     checksum_in: &mut impl ChecksumIndexInput,
     mut prior_error: LuceneError,
@@ -546,30 +544,33 @@ impl CodecUtil {
         // now check the footer
         let checksum = Self::check_footer(checksum_in)?;
         if !matches!(prior_error, LuceneError::IndexFormatTooOld(_)) {
-          let old = std::mem::replace(prior_error, LuceneError::illegal_state("dummy"));
-          *prior_error = LuceneError::corrupt_index_with_source(
-            format!(
-              "checksum passed ({checksum}). possibly transient resource issue, or a Lucene bug"
-            ),
-            old,
-          );
+          let suppressed = LuceneError::corrupt_index(format!(
+            "checksum passed ({checksum}). possibly transient resource issue, or a Lucene bug"
+          ));
+          prior_error.add_suppressed(suppressed)?;
         }
       }
       Ok(())
     })(&mut prior_error);
     match result {
       Ok(_) => prior_error,
-      Err(t) => {
+      Err(mut t) => {
         if matches!(t, LuceneError::CorruptIndex(_)) {
-          LuceneError::corrupt_index_with_source(t.to_string(), prior_error)
+          if let Err(e) = t.add_suppressed(prior_error) {
+            e
+          } else {
+            t
+          }
         } else {
-          LuceneError::corrupt_index_with_source(
-            format!(
-              "checksum status indeterminate: unexpected exception: {}",
-              checksum_in,
-            ),
-            t,
-          )
+          let suppressed = LuceneError::corrupt_index(format!(
+            "checksum status indeterminate: unexpected exception: {}",
+            checksum_in,
+          ));
+          if let Err(e) = prior_error.add_suppressed(suppressed) {
+            e
+          } else {
+            prior_error
+          }
         }
       },
     }
@@ -880,8 +881,6 @@ mod tests {
     Ok(())
   }
   #[test]
-  // TODO:This test does not reflect the nested error; it needs to be
-  // improved.
   fn test_check_footer_valid() -> Result<()> {
     let mut out = ByteBuffersDataOutput::new();
     {
@@ -897,13 +896,17 @@ mod tests {
     ));
     let mine = LuceneError::illegal_argument("fake exception");
     let result = CodecUtil::check_footer_with_error(&mut input, mine);
-    assert!(result.to_string().contains("checksum passed"));
+    match result.get_suppressed()? {
+      Some(suppressed) => {
+        let suppressed_message = suppressed.to_string();
+        assert!(suppressed_message.contains("checksum passed"));
+      },
+      None => unreachable!(""),
+    }
     Ok(())
   }
 
   #[test]
-  // TODO:This test does not reflect the nested error; it needs to be
-  // improved.
   fn test_check_footer_valid_at_footer() -> Result<()> {
     let mut out = ByteBuffersDataOutput::new();
     {
@@ -924,12 +927,16 @@ mod tests {
     let result = CodecUtil::check_footer_with_error(&mut input, mine);
     let err_message = result.to_string();
     assert!(err_message.contains("fake exception"));
-    assert!(err_message.contains("checksum passed"));
+    match result.get_suppressed()? {
+      Some(suppressed) => {
+        let suppressed_message = suppressed.to_string();
+        assert!(suppressed_message.contains("checksum passed"));
+      },
+      None => unreachable!(""),
+    }
     Ok(())
   }
   #[test]
-  // TODO: This test does not fully reflect the nested error; it needs to be
-  // improved.
   fn test_check_footer_valid_past_footer() -> Result<()> {
     let mut out = ByteBuffersDataOutput::new();
     {
@@ -955,13 +962,16 @@ mod tests {
     let result = CodecUtil::check_footer_with_error(&mut input, mine);
     let err_message = result.to_string();
     assert!(err_message.contains("checksum status indeterminate"));
-    assert!(err_message.contains("fake exception"));
-
+    match result.get_suppressed()? {
+      Some(suppressed) => {
+        let suppressed_message = suppressed.to_string();
+        assert!(suppressed_message.contains("fake exception"));
+      },
+      None => unreachable!(""),
+    }
     Ok(())
   }
   #[test]
-  // TODO: This test does not fully reflect the nested error; it needs to be
-  // improved.
   fn test_check_footer_invalid() -> Result<()> {
     let mut out = ByteBuffersDataOutput::new();
     {
@@ -985,7 +995,15 @@ mod tests {
     assert!(result.source().is_some());
     let err_message = result.to_string();
     assert!(err_message.contains("checksum failed"));
-    assert!(err_message.contains("fake exception"));
+    match result.get_suppressed()? {
+      Some(suppressed) => {
+        let suppressed_message = suppressed.to_string();
+        assert!(suppressed_message.contains("fake exception"));
+      },
+      None => {
+        unreachable!("suppressed is None");
+      },
+    }
     Ok(())
   }
   #[test]
@@ -1116,8 +1134,6 @@ mod tests {
     Ok(())
   }
   #[test]
-  // TODO: This test does not fully reflect the nested error; it needs to be
-  // improved.
   fn test_truncated_file_throws_corrupt_index_exception() -> Result<()> {
     let mut out = ByteBuffersDataOutput::new();
     let _output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
@@ -1141,7 +1157,7 @@ mod tests {
 
   #[test]
   fn test_retrieve_checksum() {
-    // TODO: newDirectory not Implement
+    // TODO IMPORTANT : newDirectory not Implement
   }
 
   struct FakeOutput<'a> {
@@ -1175,7 +1191,7 @@ mod tests {
 
   impl Closeable for FakeOutput<'_> {
     fn close(&mut self) -> Result<()> {
-      todo!()
+      Ok(())
     }
   }
 

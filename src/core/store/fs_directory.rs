@@ -232,7 +232,7 @@ where
   fn ensure_can_read(&self, name: &str) -> Result<()> {
     let pending_deletes = self.pending_deletes.lock();
     if pending_deletes.contains(name) {
-      return Err(LuceneError::not_found(format!(
+      return Err(LuceneError::not_such_file(format!(
         "file \"{name}\" is pending delete and cannot be opened for read"
       )));
     }
@@ -274,7 +274,7 @@ where
   fn delete_file(&self, name: &str) -> Result<()> {
     let mut pending_deletes = self.pending_deletes.lock();
     if pending_deletes.contains(name) {
-      return Err(LuceneError::not_found(format!(
+      return Err(LuceneError::not_such_file(format!(
         "file \"{name}\" is already pending delete"
       )));
     }
@@ -292,7 +292,7 @@ where
 
   fn file_length(&self, name: &str) -> Result<usize> {
     if self.pending_deletes.lock().contains(name) {
-      return Err(LuceneError::not_found(format!(
+      return Err(LuceneError::not_such_file(format!(
         "file \"{name}\" is pending delete"
       )));
     }
@@ -407,7 +407,7 @@ where
   fn rename(&self, source: &str, dest: &str) -> Result<()> {
     let mut pending_deletes = self.pending_deletes.lock();
     if pending_deletes.contains(source) {
-      return Err(LuceneError::not_found(format!(
+      return Err(LuceneError::not_such_file(format!(
         "File \"{source}\" is pending delete and cannot be moved"
       )));
     }

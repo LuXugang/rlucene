@@ -639,7 +639,7 @@ pub trait BaseCompoundFormatTestCase {
     let cr = create_large_cfs(random, dir.clone())?;
 
     let result = cr.open_input("bogus", &new_io_context(random)?);
-    assert!(matches!(result, Err(LuceneError::NotFound(_))));
+    assert!(matches!(result, Err(LuceneError::NoSuchFile(_))));
     Ok(())
   }
   fn test_read_past_eof<R>(&self, random: &mut R) -> Result<()>
