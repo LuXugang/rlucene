@@ -102,4 +102,18 @@ impl IOUtils {
 
     Ok(())
   }
+  /// Returns the second error if the first is [`None`], otherwise adds the second
+  /// as suppressed to the first and returns it.
+  pub fn use_or_suppress(first: Option<LuceneError>, second: LuceneError) -> LuceneError {
+    match first {
+      None => second,
+      Some(mut first) => {
+        if let Err(e) = first.add_suppressed(second) {
+          e
+        } else {
+          first
+        }
+      },
+    }
+  }
 }

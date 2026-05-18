@@ -50,6 +50,7 @@ use crate::core::search::term_scorer::TermScorer;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
+use crate::core::util::error::UncheckedIOError;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::fmt::{Debug, Formatter};
@@ -649,7 +650,11 @@ where
     })();
     match result {
       Ok(v) => Ok(v as i64),
-      Err(e) => Err(LuceneError::unchecked_io_error(e)),
+      Err(e) => {
+        let mut err = UncheckedIOError::new("");
+        err.add_suppressed(e);
+        Err(err.into())
+      },
     }
   }
 }

@@ -33,14 +33,6 @@ macro_rules! message_error {
           source: None,
         }
       }
-
-      pub fn from_error(err: $crate::core::util::error::lucene_error::LuceneError) -> Self {
-        Self {
-          message: err.to_string(),
-          source: Some(Box::new(err)),
-        }
-      }
-
       pub fn add_suppressed(
         &mut self,
         source: $crate::core::util::error::lucene_error::LuceneError,
@@ -66,13 +58,6 @@ macro_rules! message_error {
         Self::new(msg)
       }
     }
-
-    impl From<$crate::core::util::error::lucene_error::LuceneError> for $name {
-      fn from(err: $crate::core::util::error::lucene_error::LuceneError) -> Self {
-        Self::from_error(err)
-      }
-    }
-
     impl std::fmt::Display for $name {
       fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.message)

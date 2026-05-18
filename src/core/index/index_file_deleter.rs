@@ -325,6 +325,7 @@ where
 
     // then decref all files that had been referred to by
     // the now-deleted commits:
+    let mut first_error = None;
     for mut commit in removed {
       if self.info_stream.enabled("IFD") {
         self.info_stream.message(
@@ -336,10 +337,18 @@ where
         );
       }
       let files = std::mem::take(&mut commit.files);
-      self.dec_ref(files.iter())?
+      match self.dec_ref(files.iter()) {
+        Ok(_) => {},
+        Err(e) => {
+          first_error = Some(IOUtils::use_or_suppress(first_error, e));
+        },
+      }
     }
     self.commits_to_delete.store(false, SeqCst);
-    Ok(())
+    match first_error {
+      Some(e) => Err(e),
+      None => Ok(()),
+    }
   }
 
   /// Writer calls this when it has hit an error and had to roll back, to tell us that there may now be unreferenced files in the filesystem.
@@ -701,6 +710,7 @@ impl Messenger for MessengerImpl {
 use crate::core::index::index_writer::WRITE_LOCK_NAME;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::segment_infos::generation_from_segments_file_name;
+use crate::core::util::IOUtils;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 
 /// Set all gens beyond what we currently see in the directory, to avoid double-write in cases

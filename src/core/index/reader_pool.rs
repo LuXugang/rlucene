@@ -29,7 +29,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::long_supplier::LongSupplier;
-use crate::core::util::{Comparator, HasIdentity};
+use crate::core::util::{Comparator, HasIdentity, IOUtils};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -356,20 +356,19 @@ where
   /// Remove all our references to readers, and commits any pending changes.
   pub(crate) fn drop_all(&self) -> Result<()> {
     // TODO: IMPORT 这里需要实现LuceneError的嵌套返回
-    let mut prior_errs = vec![];
+    let mut prior_errs = None;
 
     let mut inner = self.inner.lock();
     for (_, rld) in inner.reader_map.drain() {
       if let Err(e) = rld.drop_readers() {
-        prior_errs.push(e);
+        prior_errs = Some(IOUtils::use_or_suppress(prior_errs, e));
       }
     }
     debug_assert!(inner.reader_map.is_empty());
-
-    if let Some(err) = prior_errs.into_iter().next() {
-      return Err(LuceneError::illegal_state(err));
+    match prior_errs {
+      Some(e) => Err(e),
+      None => Ok(()),
     }
-    Ok(())
   }
   /// Commit live docs changes for the segment readers for the provided infos.
   pub(crate) fn commit(
