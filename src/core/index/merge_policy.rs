@@ -1191,11 +1191,11 @@ where
     )
   }
   pub fn set_aborted(&mut self) -> Result<()> {
+    self.merge_progress.abort();
     Ok(())
   }
   pub fn is_aborted(&self) -> bool {
-    // TODO
-    false
+    self.merge_progress.is_aborted()
   }
   pub fn check_aborted(&self, segments: &SegmentInfos<D>) -> Result<()> {
     if self.is_aborted() {

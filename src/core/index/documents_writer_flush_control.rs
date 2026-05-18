@@ -858,6 +858,18 @@ where
 
     result
   }
+  pub(crate) fn abort_pending_flushes<FN, L>(
+    &self,
+    documents_writer: &DocumentsWriter<D, FN>,
+    config: &L,
+  ) -> Result<()>
+  where
+    FN: FlushNotifications,
+    L: LiveIndexWriterConfig,
+  {
+    let mut inner = self.inner.lock();
+    self.abort_pending_flushes_locked(&mut inner, config, documents_writer)
+  }
   fn abort_pending_flushes_locked<FN, L>(
     &self,
     inner: &mut Inner<D>,

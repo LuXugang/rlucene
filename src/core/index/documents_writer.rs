@@ -93,6 +93,7 @@ where
   // isCurrent while there are actually changes currently committed. See also
   // #anyChanges() & #flushAllThreads
   pending_changes_in_current_full_flush: AtomicBool,
+  pending_num_docs: Arc<AtomicI64>,
   pub(crate) guard: Mutex<()>,
   pub(crate) inner: Mutex<Inner>,
   pub(crate) flush_control: DocumentsWriterFlushControl<D>,
@@ -113,6 +114,7 @@ where
     flush_notifications: FN,
     index_created_version_major: i32,
     enable_test_points: bool,
+    pending_num_docs: Arc<AtomicI64>,
     config: &L,
   ) -> Result<Self>
   where
@@ -126,6 +128,7 @@ where
       num_docs_in_ram: AtomicI32::new(0),
       ticket_queue: DocumentsWriterFlushQueue::new(),
       pending_changes_in_current_full_flush: AtomicBool::new(false),
+      pending_num_docs,
       guard: Mutex::new(()),
       inner: Mutex::new(Inner {
         current_full_flush_del_queue: None,
@@ -253,8 +256,70 @@ where
 
   /// Locks all currently active DWPT and aborts them.
   /// The returned Closeable should be closed once the locks for the aborted DWPTs can be released.
-  fn lock_and_abort_all(&self) {
-    // TODO
+  pub(crate) fn lock_and_abort_all<L>(&self, config: &L) -> Result<LockAndAbortAllGuard<'_, D, FN>>
+  where
+    L: LiveIndexWriterConfig,
+  {
+    let _guard = self.guard.lock();
+    if self.info_stream.enabled("DW") {
+      self.info_stream.message("DW", "lockAndAbortAll");
+    }
+    // Make sure we move all pending tickets into the flush queue:
+    self.ticket_queue.force_purge(|mut ticket| {
+      if let Some(flushed_segment) = ticket.get_flushed_segment()
+        && let Some(segment_info) = &flushed_segment.segment_info
+      {
+        self
+          .pending_num_docs
+          .fetch_add(-(segment_info.info.max_doc()? as i64), Ordering::SeqCst);
+      }
+      Ok(())
+    })?;
+
+    let mut finalizer = LockAndAbortAllGuard::new(self);
+
+    let result = (|| -> Result<()> {
+      self.flush_control.delete_queue.lock().clear();
+      self.flush_control.per_thread_pool.lock_new_writers();
+      finalizer.writers = self
+        .flush_control
+        .per_thread_pool
+        .filter_and_lock(|_| true)?;
+      for per_thread in &finalizer.writers {
+        debug_assert!(per_thread.state.is_locked());
+        self.abort_documents_writer_per_thread(per_thread.clone(), config)?;
+      }
+      self.flush_control.delete_queue.lock().clear();
+
+      // jump over any possible in flight ops:
+      self
+        .flush_control
+        .delete_queue
+        .lock()
+        .skip_sequence_numbers(self.flush_control.per_thread_pool.size() as i64 + 1);
+
+      self.flush_control.abort_pending_flushes(self, config)?;
+      self.flush_control.wait_for_flush();
+      if self.info_stream.enabled("DW") {
+        self
+          .info_stream
+          .message("DW", "finished lockAndAbortAll success=true");
+      }
+      Ok(())
+    })();
+
+    match result {
+      Ok(()) => Ok(finalizer),
+      Err(e) => {
+        if self.info_stream.enabled("DW") {
+          self
+            .info_stream
+            .message("DW", "finished lockAndAbortAll success=false");
+        }
+        drop(finalizer);
+        Err(e)
+      },
+    }
   }
   /// Returns how many documents were aborted.
   fn abort_documents_writer_per_thread<L>(
@@ -319,8 +384,11 @@ where
   pub(crate) fn any_deletions(&self) -> bool {
     self.flush_control.delete_queue.lock().any_changes(None)
   }
-  fn close(&self) {
+  pub(crate) fn close(&self) {
     self.closed.store(true, Ordering::SeqCst);
+    // TODO
+  }
+  pub(crate) fn abort(&self) {
     // TODO
   }
   fn pre_update<L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
@@ -770,6 +838,59 @@ where
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(self.flush_control.get_delete_bytes_used()? + self.flush_control.net_bytes(None))
+  }
+}
+
+pub(crate) struct LockAndAbortAllGuard<'a, D, FN>
+where
+  D: Directory,
+  FN: FlushNotifications,
+{
+  documents_writer: &'a DocumentsWriter<D, FN>,
+  writers: Vec<Arc<DwptWrapper<D>>>,
+  released: AtomicBool,
+}
+
+impl<'a, D, FN> LockAndAbortAllGuard<'a, D, FN>
+where
+  D: Directory,
+  FN: FlushNotifications,
+{
+  fn new(documents_writer: &'a DocumentsWriter<D, FN>) -> Self {
+    Self {
+      documents_writer,
+      writers: Vec::new(),
+      released: AtomicBool::new(false),
+    }
+  }
+}
+
+impl<D, FN> Drop for LockAndAbortAllGuard<'_, D, FN>
+where
+  D: Directory,
+  FN: FlushNotifications,
+{
+  fn drop(&mut self) {
+    if self
+      .released
+      .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+      .is_ok()
+    {
+      if self.documents_writer.info_stream.enabled("DW") {
+        self
+          .documents_writer
+          .info_stream
+          .message("DW", "unlockAllAbortedThread");
+      }
+      self
+        .documents_writer
+        .flush_control
+        .per_thread_pool
+        .unlock_new_writers();
+      for writer in &self.writers {
+        writer.unlock();
+      }
+    }
   }
 }
 

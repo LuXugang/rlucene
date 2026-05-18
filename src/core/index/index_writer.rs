@@ -309,6 +309,7 @@ where
         FlushNotificationsImpl::new(event_queue.clone()),
         segment_infos.get_index_created_version_major(),
         enable_test_points,
+        pending_num_docs.clone(),
         &conf,
       )?;
 
@@ -1907,7 +1908,7 @@ where
 
     debug_assert!(max_num_segments == UNBOUNDED_MAX_MERGE_SEGMENTS || max_num_segments > 0);
 
-    if !inner.merges.are_enabled(inner) {
+    if !inner.merges.are_enabled() {
       return Ok(false);
     }
 
@@ -2008,10 +2009,346 @@ where
     Ok(!inner.pending_merges.is_empty())
   }
 
+  /// Close the `IndexWriter` without committing any changes that have occurred since the last
+  /// commit, or since it was opened if commit hasn't been called.
+  pub fn rollback(&self) -> Result<()> {
+    // don't call ensureOpen here: this acts like "close()" in closeable.
+
+    // Ensure that only one thread actually gets to do the
+    // closing, and make sure no commit is also in progress:
+    if self.should_close(true) {
+      self.rollback_internal()?;
+    }
+    Ok(())
+  }
+
+  fn rollback_internal(&self) -> Result<()> {
+    // Make sure no commit is running, else e.g. we can close while another thread is still
+    // fsync'ing.
+    let mut commit_lock = self.commit_lock.lock();
+    self.rollback_internal_no_commit(&mut commit_lock)?;
+
+    debug_assert!({
+      let pending_num_docs = self.pending_num_docs.load(Ordering::Acquire);
+      let total_max_doc = self.inner.lock().segment_infos.total_max_doc()? as i64;
+      pending_num_docs == total_max_doc
+    });
+    Ok(())
+  }
+
+  fn rollback_internal_no_commit(&self, commit_lock: &mut CommitInner<D>) -> Result<()> {
+    if self.info_stream.enabled("IW") {
+      self.info_stream.message("IW", "rollback");
+    }
+
+    let mut result = (|| -> Result<()> {
+      {
+        let mut inner = self.inner.lock();
+        // must be synced otherwise register merge might throw an exception if merges
+        // change concurrently; abort_merges is synced as well.
+        self.abort_merges(&mut inner)?;
+        debug_assert!(
+          inner.merging_segments.is_empty(),
+          "we aborted all merges but still have merging segments: {:?}",
+          inner.merging_segments
+        );
+      }
+
+      if self.info_stream.enabled("IW") {
+        self
+          .info_stream
+          .message("IW", "rollback: done finish merges");
+      }
+
+      // Must pre-close in case it increments change_count so that we can then
+      // set it to false before calling rollback_internal.
+      // TODO IMPORTANT : merge scheduler close requires mutable config access in this port.
+
+      self.doc_writer.close();
+      debug_assert!(
+        !self.inner.is_locked(),
+        "IndexWriter lock should never be held when aborting"
+      );
+      self.doc_writer.abort();
+      self.doc_writer.flush_control.wait_for_flush();
+      self.publish_flushed_segments(true)?;
+      self.event_queue.close(self)?;
+
+      let mut inner = self.inner.lock();
+
+      if let Some(mut pending_commit) = commit_lock.pending_commit.take() {
+        pending_commit.rollback_commit(self.directory.as_ref());
+        let dec_res = inner.deleter.dec_ref_from_segment(&pending_commit);
+        self.pausing.notify_all();
+        dec_res?;
+      }
+
+      let total_max_doc = inner.segment_infos.total_max_doc()?;
+      // Keep the same segmentInfos instance but replace all
+      // of its SegmentInfo instances so IFD below will remove
+      // any segments we flushed since the last commit:
+      let rollback_segments = inner.rollback_segments.clone();
+      inner
+        .segment_infos
+        .rollback_segment_infos(rollback_segments);
+      let rollback_max_doc = inner.segment_infos.total_max_doc()?;
+      // now we need to adjust this back to the rolled back SI but don't set it to the absolute
+      // value
+      // otherwise we might hide internal bugsf
+      self.adjust_pending_num_docs(-((total_max_doc - rollback_max_doc) as i64));
+
+      if self.info_stream.enabled("IW") {
+        self.info_stream.message(
+          "IW",
+          &format!(
+            "rollback: infos={}",
+            self.seg_string_from_infos(inner.segment_infos.iter())?
+          ),
+        );
+      }
+
+      self.test_point("rollback before checkpoint");
+      // Ask deleter to locate unreferenced files & remove
+      // them ... only when we are not experiencing a tragedy, else
+      // these methods throw ACE:
+      if self.tragedy.lock().is_none() {
+        let (deleter, segment_infos) = {
+          let v = &mut *inner;
+          (&mut v.deleter, &v.segment_infos)
+        };
+        deleter.checkpoint(
+          segment_infos,
+          false,
+          self.config.get_index_deletion_policy(),
+        )?;
+        inner.deleter.refresh()?;
+        inner.deleter.close()?;
+      }
+
+      self
+        .last_commit_change_count
+        .store(inner.change_count, Ordering::Release);
+      // Don't bother saving any changes in our segmentInfos
+      self.reader_pool.close()?;
+      // Must set closed while inside same sync block where we call deleter.refresh, else
+      // concurrent threads may try to sneak a flush in,
+      // after we leave this sync block and before we enter the sync block in the finally clause
+      // below that sets closed:
+      self.closed.store(true, Ordering::SeqCst);
+
+      Ok(())
+    })();
+
+    if result.is_err() {
+      let cleanup_result = (|| -> Result<()> {
+        let mut inner = self.inner.lock();
+
+        if let Some(mut pending_commit) = commit_lock.pending_commit.take() {
+          pending_commit.rollback_commit(self.directory.as_ref());
+          inner.deleter.dec_ref_from_segment(&pending_commit)?;
+        }
+
+        let mut cleanup_err = None;
+        if let Err(e) = self.reader_pool.close() {
+          cleanup_err = Some(e);
+        }
+        if let Err(e) = inner.deleter.close()
+          && cleanup_err.is_none()
+        {
+          cleanup_err = Some(e);
+        }
+        self.closed.store(true, Ordering::SeqCst);
+
+        match cleanup_err {
+          Some(e) => Err(e),
+          None => Ok(()),
+        }
+      })();
+
+      if let Err(cleanup_err) = cleanup_result {
+        result = result.map_err(|err| LuceneError::illegal_state(format!("{err}, {cleanup_err}")));
+      }
+    }
+
+    self.closing.store(false, Ordering::SeqCst);
+    self.pausing.notify_all();
+    // TODO IMPORTANT write_lock 应该 close 还是使用 None
+    result
+  }
+  /// Delete all documents in the index.
+  ///
+  /// This method will drop all buffered documents and will remove all segments from the index.
+  /// This change will not be visible until [`commit`] has been called. This method can be
+  /// rolled back using [`rollback`].
+  ///
+  /// NOTE: this method is much faster than using `delete_documents(new MatchAllDocsQuery())`. Yet,
+  /// this method also has different semantics compared to [`delete_documents`] since
+  /// internal data-structures are cleared as well as all segment information is forcefully dropped
+  /// anti-viral semantics like omitting norms are reset or doc value types are cleared. Essentially
+  /// a call to [`delete_all`] is equivalent to creating a new [`IndexWriter`] with
+  /// [`OpenMode::Create`] which a delete query only marks documents as deleted.
+  ///
+  /// NOTE: this method will forcefully abort all merges in progress. If other threads are running
+  /// [`force_merge`], [`add_indexes`] or [`force_merge_deletes`] methods,
+  /// they may receive [`MergeAbortedError`] errors.
+  ///
+  /// Returns the sequence number for this operation.
   pub fn delete_all(&self) -> Result<i64> {
-    // TODO IMPORTANT: 未实现
-    self.global_field_number_map.lock().clear();
-    Ok(0)
+    self.ensure_open()?;
+
+    // Remove any buffered docs. Hold the full flush lock to prevent concurrent commits / NRT
+    // reopens from getting in our way and doing unnecessary work.
+    /* hold the full flush lock to prevent concurrency commits / NRT reopens to
+     * get in our way and do unnecessary work. -- if we don't lock this here we might
+     * get in trouble if */
+    /*
+     * We first abort and trash everything we have in-memory
+     * and keep the thread-states locked, the lockAndAbortAll operation
+     * also guarantees "point in time semantics" ie. the checkpoint that we need in terms
+     * of logical happens-before relationship in the DW. So we do
+     * abort all in memory structures
+     * We also drop global field numbering before during abort to make
+     * sure it's just like a fresh index.
+     */
+    let result = (|| -> Result<i64> {
+      let _full_flush_guard = self.full_flush_lock.lock();
+      let _finalizer = self.doc_writer.lock_and_abort_all(&self.config)?;
+      self.process_events(false)?;
+
+      let mut inner = self.inner.lock();
+
+      // Abort any running merges.
+      let abort_result = (|| -> Result<()> {
+        self.abort_merges(&mut inner)?;
+        debug_assert!(
+          !inner.merges.are_enabled(),
+          "merges should be disabled - who enabled them?"
+        );
+        debug_assert!(
+          inner.merging_segments.is_empty(),
+          "found merging segments but merges are disabled: {:?}",
+          inner.merging_segments
+        );
+        Ok(())
+      })();
+
+      let enable_result = inner.merges.enable(self);
+      match abort_result {
+        Ok(()) => enable_result?,
+        Err(abort_err) => {
+          if let Err(enable_err) = enable_result {
+            return Err(LuceneError::illegal_state(format!(
+              "{abort_err}, {enable_err}"
+            )));
+          }
+          return Err(abort_err);
+        },
+      }
+
+      self.adjust_pending_num_docs(-(inner.segment_infos.total_max_doc()? as i64));
+
+      // Remove all segments.
+      inner.segment_infos.clear();
+
+      // Ask deleter to locate unreferenced files & remove them:
+      let (deleter, segment_infos) = {
+        let v = &mut *inner;
+        (&mut v.deleter, &v.segment_infos)
+      };
+      deleter.checkpoint(
+        segment_infos,
+        false,
+        self.config.get_index_deletion_policy(),
+      )?;
+
+      // Don't bother saving any changes in our segmentInfos.
+      self.reader_pool.drop_all()?;
+
+      // Mark that the index has changed.
+      inner.change_count += 1;
+      inner.segment_infos.changed();
+      self.global_field_number_map.lock().clear();
+      Ok(self.doc_writer.get_next_sequence_number())
+    })();
+
+    if let Err(ref e) = result {
+      self.tragic_event(e, "deleteAll");
+    }
+
+    result
+  }
+  /// Aborts running merges. Be careful when using this method: when you abort a long-running merge,
+  /// you lose a lot of work that must later be redone.
+  fn abort_merges(&self, inner: &mut MutexGuard<'_, Inner<D>>) -> Result<()> {
+    inner.merges.disable();
+
+    // Abort all pending & running merges:
+    while let Some(mut merge) = inner.pending_merges.pop_front() {
+      if self.info_stream.enabled("IW") {
+        self.info_stream.message(
+          "IW",
+          &format!(
+            "now abort pending merge {}",
+            merge.seg_string(&inner.segment_infos)?
+          ),
+        );
+      }
+      self.abort_one_merge(&mut merge, inner)?;
+      self.merge_finish(&mut merge, Some(inner));
+    }
+    inner.pending_merges.clear();
+
+    // abort any merges pending from addIndexes(CodecReader...)
+    self
+      .add_indexes_merge_source
+      .abort_pending_merges(self, inner)?;
+
+    for merge_stat in &inner.running_merges {
+      if self.info_stream.enabled("IW") {
+        self.info_stream.message(
+          "IW",
+          &format!(
+            "now abort running merge {}",
+            self.seg_string_from_ids(&merge_stat.segments, &inner.segment_infos)?
+          ),
+        );
+      }
+      // TODO IMPORTANT 需要调用set_aborted方法
+    }
+
+    // We wait here to make all merges stop. It should not take very long because they
+    // periodically check if they are aborted.
+    while !inner.running_merges.is_empty() || !inner.running_add_indexes_merges.is_empty() {
+      if self.info_stream.enabled("IW") {
+        self.info_stream.message(
+          "IW",
+          &format!(
+            "now wait for {} running merge/s to abort; currently running addIndexes: {}",
+            inner.running_merges.len(),
+            inner.running_add_indexes_merges.len()
+          ),
+        );
+      }
+      self.do_wait(inner);
+    }
+
+    self.pausing.notify_all();
+    if self.info_stream.enabled("IW") {
+      self
+        .info_stream
+        .message("IW", "all running merges have aborted");
+    }
+    Ok(())
+  }
+
+  fn seg_string_from_ids(&self, ids: &[String], segment_infos: &SegmentInfos<D>) -> Result<String> {
+    let mut infos = Vec::with_capacity(ids.len());
+    for id in ids {
+      infos.push(segment_infos.index_of(id).ok_or_else(|| {
+        LuceneError::illegal_state(format!("{} not in IndexWriter's segment_infos", id))
+      })?);
+    }
+    self.seg_string_from_infos(infos)
   }
   /// Waits for any currently outstanding merges to finish.
   ///
@@ -4092,6 +4429,10 @@ where
   fn merge_success(&self, _merge: &mut OneMergeSR<D>) -> Result<()> {
     Ok(())
   }
+  fn abort_one_merge(&self, merge: &mut OneMergeSR<D>, inner: &mut Inner<D>) -> Result<()> {
+    merge.set_aborted()?;
+    self.close_merge_readers(merge, true, false, Some(inner))
+  }
 
   /// Checks whether this merge involves any segments already participating in a merge.
   /// If not, this merge is "registered", meaning we record that its segments are now participating in a merge,
@@ -4102,7 +4443,7 @@ where
     }
     debug_assert!(!merge.stat.segments.is_empty());
 
-    if !inner.merges.are_enabled(inner) {
+    if !inner.merges.are_enabled() {
       // TODO: self.abort_one_merge(merge)?;
       return Err(LuceneError::merge_abort("merge is aborted"));
     }
@@ -5781,25 +6122,15 @@ impl Merges {
 }
 
 impl Merges {
-  pub(crate) fn are_enabled<D>(&self, _inner: &Inner<D>) -> bool
-  where
-    D: Directory,
-  {
+  pub(crate) fn are_enabled(&self) -> bool {
     self.merges_enabled
   }
 
-  pub(crate) fn disable<D>(&mut self, _inner: &Inner<D>)
-  where
-    D: Directory,
-  {
+  pub(crate) fn disable(&mut self) {
     self.merges_enabled = false;
   }
 
-  pub(crate) fn enable<D, L, B>(
-    &mut self,
-    writer: &IndexWriter<D, L, B>,
-    _inner: &Inner<D>,
-  ) -> Result<()>
+  pub(crate) fn enable<D, L, B>(&mut self, writer: &IndexWriter<D, L, B>) -> Result<()>
   where
     D: Directory,
     L: LiveIndexWriterConfig,
@@ -6702,13 +7033,16 @@ impl AddIndexesMergeSource {
     inner.pending_add_indexes_merges.push_back(merge);
   }
 
-  fn abort_pending_merges<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn abort_pending_merges<D, L, B>(
+    &self,
+    writer: &IndexWriter<D, L, B>,
+    inner: &mut Inner<D>,
+  ) -> Result<()>
   where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
-    let mut inner = writer.inner.lock();
     while let Some(mut merge) = inner.pending_add_indexes_merges.pop_front() {
       if writer.info_stream.enabled("IW") {
         writer
@@ -6717,9 +7051,8 @@ impl AddIndexesMergeSource {
       }
       merge.set_aborted()?;
       merge.close(false, false, |_| Ok(()))?;
-      self.on_merge_finished(&mut merge, writer);
-      inner.pending_add_indexes_merges.clear();
     }
+    inner.pending_add_indexes_merges.clear();
 
     Ok(())
   }
