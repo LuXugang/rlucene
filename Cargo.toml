@@ -38,8 +38,7 @@ tempfile = "3.27.0"
 overflow-checks = false
 
 [features]
-default = ["not_required_in_rust_lucene"]
-not_required_in_rust_lucene = []
+default = []
 test_log_verbose = []
 
 [workspace]

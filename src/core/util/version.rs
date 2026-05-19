@@ -320,8 +320,7 @@ impl VersionError {
     }
   }
 }
-
-#[cfg(feature = "not_required_in_rust_lucene")]
+#[allow(dead_code)]
 fn get_package_implementation_version() {
   unimplemented!()
 }

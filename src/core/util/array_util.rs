@@ -244,7 +244,7 @@ impl ArrayUtil {
   }
 
   /// Swaps the values stored in indices `i` and `j` of the given slice.
-  #[cfg(feature = "not_required_in_rust_lucene")]
+  #[allow(dead_code)]
   pub fn swap<T>(_arr: &mut [T], _i: usize, _j: usize) {
     unimplemented!()
   }
