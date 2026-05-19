@@ -29,6 +29,7 @@ use crate::core::index::index_reader::{
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, Inner};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::{FindSegmentsFile, SegmentInfos};
 use crate::core::index::segment_reader::SegmentReader;
@@ -173,8 +174,12 @@ where
         };
         debug_assert!(Arc::ptr_eq(&info.info.dir, &dir));
         let reader = reader_function.apply(info)?;
-        // TODO IMPORTANT 这里合并规则没有判断
-        if reader.num_docs()? > 0 {
+        if reader.num_docs()? > 0
+          || writer
+            .get_config()
+            .get_merge_policy()
+            .keep_fully_deleted_segment(|| Ok(reader.clone()))?
+        {
           // Steal the ref
           readers.push(reader);
           infos_upto += 1;
