@@ -18,7 +18,6 @@ use std::fmt::{Display, Formatter};
 
 use crate::core::store::DataInput;
 use crate::core::store::random_access_input::RandomAccessInput;
-use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::BytesReader;
 use crate::core::util::group_vint_util::GroupVIntUtil;
@@ -67,7 +66,11 @@ where
   }
 
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-    let num_bytes = num_bytes.try_convert()?;
+    let num_bytes = if num_bytes >= 0 {
+      num_bytes as usize
+    } else {
+      (-num_bytes) as usize
+    };
     self.pos = self.pos.checked_sub(num_bytes).ok_or_else(|| {
       LuceneError::illegal_state(format!(
         "underflow, pos {}, num_bytes {} ",

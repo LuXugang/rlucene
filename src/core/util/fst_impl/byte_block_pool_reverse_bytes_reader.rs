@@ -17,10 +17,10 @@
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::DataInput;
+use crate::core::util::ByteBlockPool;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::BytesReader;
 use crate::core::util::group_vint_util::GroupVIntUtil;
-use crate::core::util::{ByteBlockPool, TryIntoInt};
 
 /// Reads in reverse from a ByteBlockPool.
 pub struct ByteBlockPoolReverseBytesReader {
@@ -67,7 +67,11 @@ impl DataInput for ByteBlockPoolReverseBytesReader {
   }
 
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-    let num_bytes = num_bytes.try_convert()?;
+    let num_bytes = if num_bytes >= 0 {
+      num_bytes as usize
+    } else {
+      (-num_bytes) as usize
+    };
     self.pos = self.pos.checked_sub(num_bytes).ok_or_else(|| {
       LuceneError::illegal_state(format!(
         "underflow pos {}, num_bytes {}",

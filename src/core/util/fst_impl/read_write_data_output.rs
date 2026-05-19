@@ -18,7 +18,6 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
-use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::{BytesReader, BytesReaderEnum2};
@@ -205,7 +204,11 @@ impl DataInput for BytesReaderImpl {
   }
 
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-    let num_bytes: usize = num_bytes.try_convert()?;
+    let num_bytes = if num_bytes >= 0 {
+      num_bytes as usize
+    } else {
+      (-num_bytes) as usize
+    };
     self.set_position(self.get_position() - num_bytes);
     Ok(())
   }

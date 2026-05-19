@@ -537,8 +537,6 @@ where
     arc: &mut Arc<O::V>,
     reader: &mut impl BytesReader,
   ) -> Result<()> {
-    // TODO: can't assert this because we call from readFirstArc
-    // assert !flag(arc.flags, BIT_LAST_ARC);
     match arc.node_flags {
       ARCS_FOR_BINARY_SEARCH | ARCS_FOR_CONTINUOUS => {
         debug_assert!(arc.bytes_per_arc > 0);
@@ -1281,7 +1279,6 @@ pub(crate) const BIT_FINAL_ARC: u8 = 1 << 0;
 pub(crate) const BIT_LAST_ARC: u8 = 1 << 1;
 pub(crate) const BIT_TARGET_NEXT: u8 = 1 << 2;
 
-// TODO: we can free up a bit if we can nuke this:
 pub(crate) const BIT_STOP_NODE: i32 = 1 << 3;
 
 /// This flag is set if the arc has an output.
@@ -1474,7 +1471,11 @@ mod tests {
   use crate::core::document::string_field::StringField;
   use crate::core::index::BytesRef;
 
+  use crate::core::index::index_writer_config::OpenMode;
+  use crate::core::index::multi_terms;
   use crate::core::index::term::Term;
+  use crate::core::index::terms::Terms;
+  use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
   use crate::core::search::index_searcher::IndexSearcher;
   use crate::core::search::term_query::TermQuery;
   use crate::core::store::directory::Directory;
@@ -1496,6 +1497,7 @@ mod tests {
   use crate::core::util::fst_impl::util::Util;
   use crate::core::util::ints_ref::IntsRef;
   use crate::core::util::ints_ref_builder::IntsRefBuilder;
+  use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::fst::fst_tester::{
     DummyFSTTesterBaseImpl, FSTTester, InputOutput, get_random_string, simple_random_string,
@@ -1503,7 +1505,8 @@ mod tests {
   };
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, is_night_mode, new_bytes_ref_from_string, new_directory, new_directory_shared,
-    random, random_from_seed, random_multiplier,
+    new_index_writer_config_with_analyzer, new_searcher_with_reader, random, random_from_seed,
+    random_multiplier,
   };
   use crate::test::core::util::test_util::TestUtil;
   use rand::Rng;
@@ -1983,7 +1986,154 @@ mod tests {
   }
   #[test]
   fn test_primary_keys() -> Result<()> {
-    // TODO : IndexWriter not implement
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    for cycle in 0..2 {
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: cycle={}", cycle);
+      }
+
+      let analyzer = MockAnalyzer::new(&mut random);
+      let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+      config.set_open_mode(OpenMode::Create);
+      let w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
+
+      let mut id_field = StringField::from_string("id", "", Store::No)?;
+
+      let num_ids = at_least(&mut random, 200);
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: NUM_IDS={}", num_ids);
+      }
+      let mut all_ids = HashSet::new();
+      for id in 0..num_ids {
+        let id_string = if cycle == 0 {
+          format!("{:07}", id)
+        } else {
+          loop {
+            let s = random.random::<i64>().to_string();
+            if !all_ids.contains(&s) {
+              break s;
+            }
+          }
+        };
+        all_ids.insert(id_string.clone());
+        id_field.set_string_value(id_string)?;
+
+        let mut doc = Document::new();
+        doc.add(id_field.clone());
+        w.add_document(doc)?;
+      }
+
+      // turn writer into reader:
+      let r = w.get_reader()?;
+      let terms_reader = w.get_reader()?;
+      let s = new_searcher_with_reader(r)?;
+      w.close()?;
+
+      let mut all_ids_list: Vec<String> = all_ids.iter().cloned().collect();
+      let mut sorted_all_ids_list = all_ids_list.clone();
+      sorted_all_ids_list.sort();
+
+      // Sprinkle in some non-existent PKs:
+      let mut out_of_bounds = HashSet::new();
+      for idx in 0..num_ids / 10 {
+        let id_string = if cycle == 0 {
+          format!("{:07}", num_ids + idx)
+        } else {
+          loop {
+            let s = random.random::<i64>().to_string();
+            if !all_ids.contains(&s) {
+              break s;
+            }
+          }
+        };
+        out_of_bounds.insert(id_string.clone());
+        all_ids_list.push(id_string);
+      }
+
+      // Verify w/ TermQuery
+      for _ in 0..2 * num_ids {
+        let id = &all_ids_list[random.random_range(0..all_ids_list.len())];
+        let exists = !out_of_bounds.contains(id);
+        if cfg!(feature = "test_log_verbose") {
+          println!(
+            "TEST: TermQuery {}id={}",
+            if exists { "" } else { "non-exist " },
+            id
+          );
+        }
+        assert_eq!(
+          if exists { 1 } else { 0 },
+          s.count(TermQuery::new(Term::from_text("id", id)))?,
+          "{}id={}",
+          if exists { "" } else { "non-exist " },
+          id
+        );
+      }
+
+      // Verify w/ MultiTermsEnum
+      let mut terms_enum = multi_terms::get_terms(terms_reader, "id")?
+        .expect("terms should exist")
+        .iterator()?;
+      for _ in 0..2 * num_ids {
+        let (id, next_id, exists): (String, Option<String>, bool) = if random.random::<bool>() {
+          let id = all_ids_list[random.random_range(0..all_ids_list.len())].clone();
+          let exists = !out_of_bounds.contains(&id);
+          if cfg!(feature = "test_log_verbose") {
+            println!(
+              "TEST: exactOnly {}id={}",
+              if exists { "" } else { "non-exist " },
+              id
+            );
+          }
+          (id, None, exists)
+        } else {
+          // Pick ID between two IDs:
+          let idv = random.random_range(0..num_ids - 1) as usize;
+          let (id, next_id) = if cycle == 0 {
+            (format!("{:07}a", idv), format!("{:07}", idv + 1))
+          } else {
+            (
+              format!("{}a", sorted_all_ids_list[idv]),
+              sorted_all_ids_list[idv + 1].clone(),
+            )
+          };
+          if cfg!(feature = "test_log_verbose") {
+            println!("TEST: not exactOnly id={} nextID={}", id, next_id);
+          }
+          (id, Some(next_id), false)
+        };
+
+        let status = if next_id.is_none() {
+          if terms_enum.seek_exact(&BytesRef::from_string(&id))? {
+            SeekStatus::Found
+          } else {
+            SeekStatus::NotFound
+          }
+        } else {
+          terms_enum.seek_ceil(&BytesRef::from_string(&id))?
+        };
+
+        if let Some(next_id) = next_id {
+          assert_eq!(SeekStatus::NotFound, status);
+          let expected = BytesRef::from_string(&next_id);
+          let actual = terms_enum.term()?;
+          assert_eq!(
+            expected,
+            *actual,
+            "expected={} actual={}",
+            next_id,
+            actual.utf8_to_string()?
+          );
+        } else if !exists {
+          assert_eq!(SeekStatus::NotFound, status);
+        } else {
+          assert_eq!(SeekStatus::Found, status);
+        }
+      }
+    }
+
     Ok(())
   }
   #[test]
@@ -2032,34 +2182,9 @@ mod tests {
     Ok(())
   }
 
-  // fn test_expanded_close_to_root() -> Result<()> {
-  //     struct SyntheticData;
-  //     impl SyntheticData {
-  //         fn compile_terms<T>(lines: &[T]) -> Result<FST<O, F>>
-  // where T: AsRef<str>{
-  //
-  //             let outputs = NoOutputs::get_singleton();
-  //             let nothing = outputs.get_no_output();
-  //             let mut fst_compiler = Builder::new(InputType::Byte1,
-  // outputs.clone()).build()?;
-  //
-  //             let mut builder = IntsRefBuilder::new();
-  //             for line in lines {
-  //                 let text = line.as_ref();
-  //                 let term = BytesRef::from_string(text);
-  //                 Util::get_ints_ref(&term, &mut builder);
-  //                 fst_compiler.add(builder.get(), nothing)?;
-  //             }
-  //
-  //             let metadata = fst_compiler.compile()?.unwrap();
-  //             let reader = fst_compiler.get_fst_reader()?;
-  //             let fst = FST::from_fst_reader(metadata, reader)?;
-  //             Ok(fst)
-  //         }
-  //
-  //     }
-  //     Ok(())
-  // }
+  fn test_expanded_close_to_root() -> Result<()> {
+    todo!()
+  }
   // https://github.com/apache/lucene/issues/12697
   // Make sure the FST can be saved and loaded with different DataOutput for
   // metadata
