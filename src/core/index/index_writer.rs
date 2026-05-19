@@ -271,7 +271,6 @@ where
         } else {
           SegmentInfos::read_commit(directory_orig.clone(), &last_segments_file)?
         };
-        // TODO: rollback_segments 未实现
         let _rollback_segments = segment_infos.create_backup_segment_infos();
       }
 
@@ -541,7 +540,7 @@ where
     if self.config.get_commit_on_close() {
       self.shut_down()?;
     } else {
-      // TODO: roll back 未实现
+      self.rollback()?;
     }
     Ok(())
   }
@@ -610,8 +609,7 @@ where
     // LUCENE-6379: Specialize MatchAllDocsQuery
     for query in &queries {
       if matches!(query, Query::MatchAllDocs(_)) {
-        // TODO
-        // return self.delete_all();
+        return self.delete_all();
       }
     }
 
@@ -2357,9 +2355,10 @@ where
   /// It is guaranteed that any merges started prior to calling this method
   /// will have completed once this method returns.
   pub(crate) fn wait_for_merges(&self) -> Result<()> {
-    // TODO IMPORTANT: 合并逻辑还未实现
-    // self.merge_scheduler
-    //     .merge(&self.merge_source, MergeTrigger::Closing)?;
+    self
+      .config
+      .get_merge_scheduler()
+      .merge(&self.merge_source, MergeTrigger::Closing, self)?;
     let inner = self.inner.lock();
     self.do_ensure_open(false)?;
     if self.info_stream.enabled("IW") {
