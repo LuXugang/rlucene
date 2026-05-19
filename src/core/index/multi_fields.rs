@@ -138,7 +138,7 @@ mod tests {
   #[allow(dead_code)] // for quick search
   struct TestMultiFields;
 
-  // TODO IMPORTANT 测试未通过(不稳定)
+  #[test]
   fn test_random() -> Result<()> {
     let mut random = random();
     let num = at_least(&mut random, 2);

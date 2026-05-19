@@ -738,6 +738,9 @@ where
   }
 
   fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    if len == 0 {
+      return Ok(());
+    }
     self.resolve_position_in_buffer(pos, len)?;
     self.read_bytes(pos, len, &mut buf[offset..(offset + len)], true)?;
     Ok(())
