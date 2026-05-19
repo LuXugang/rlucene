@@ -355,7 +355,6 @@ where
   }
   /// Remove all our references to readers, and commits any pending changes.
   pub(crate) fn drop_all(&self) -> Result<()> {
-    // TODO: IMPORT 这里需要实现LuceneError的嵌套返回
     let mut prior_errs = None;
 
     let mut inner = self.inner.lock();
@@ -365,10 +364,7 @@ where
       }
     }
     debug_assert!(inner.reader_map.is_empty());
-    match prior_errs {
-      Some(e) => Err(e),
-      None => Ok(()),
-    }
+    prior_errs.map_or(Ok(()), Err)
   }
   /// Commit live docs changes for the segment readers for the provided infos.
   pub(crate) fn commit(

@@ -25,7 +25,7 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_doc_values::SegmentDocValues;
 use crate::core::store::directory::Directory;
 use crate::core::util::IdentityArc;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -93,13 +93,9 @@ where
       Ok(())
     })();
 
-    // TODO: IMPORT 这里需要实现LuceneError的嵌套返回
-    if let Err(e) = result {
+    if let Err(mut e) = result {
       if let Err(dec_err) = seg_doc_values.dec_ref(&dv_gens) {
-        return Err(LuceneError::illegal_state(format!(
-          "{}, caused by {}",
-          dec_err, e
-        )));
+        e.add_suppressed(dec_err)?;
       }
       return Err(e);
     }

@@ -859,7 +859,7 @@ pub trait BaseDirectoryTestCase {
               Err(LuceneError::IoWithPath { source, .. })
                 if source.kind() == ErrorKind::PermissionDenied =>
               {
-                // 忽略 AccessDenied 错误
+                // ignore
               },
               Err(e) => {
                 return Err(LuceneError::IoWithPath {

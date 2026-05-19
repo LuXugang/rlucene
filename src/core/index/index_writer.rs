@@ -508,14 +508,13 @@ where
           // if we got that far lets rollback and close
           self.rollback_internal()?;
         },
-        Err(e) => {
-          // TODO IMPORTANT 错误嵌套需要优化
-          if let Err(rollback_err) = self.rollback_internal() {
-            return Err(LuceneError::illegal_state(format!(
-              "{e}; suppressed rollback error: {rollback_err}"
-            )));
+        Err(mut t) => {
+          if let Err(t1) = self.rollback_internal()
+            && let Err(e) = t.add_suppressed(t1)
+          {
+            t = e;
           }
-          return Err(e);
+          return Err(t);
         },
       }
     }
@@ -3393,17 +3392,15 @@ where
     })();
     match ret {
       Ok(v) => Ok(v),
-      Err(t) => {
+      Err(mut t) => {
         let mut inner = self.inner.lock();
         match std::mem::take(&mut commit_lock.files_to_commit) {
           Some(files_to_commit) => {
-            match inner.deleter.dec_ref(files_to_commit.iter()) {
-              Ok(()) => Err(t),
-              Err(e) => {
-                // TODO IMPORTANT 这里没有处理好嵌套错误
-                Err(LuceneError::illegal_state(format!("{}, {}", t, e)))
-              },
+            if let Err(e) = inner.deleter.dec_ref(files_to_commit.iter()) {
+              t.add_suppressed(e)?
             }
+
+            Err(t)
           },
           None => Err(t),
         }
@@ -3776,10 +3773,7 @@ where
 
             body_res = match inner.deleter.dec_ref(files.iter()) {
               Ok(()) => body_res,
-              Err(e) => {
-                // TODO IMPORTANT 这里没有处理好嵌套错误
-                Err(LuceneError::illegal_state(format!("{:?}, {}", body_res, e)))
-              },
+              Err(e) => return Err(e),
             };
           }
 
@@ -4929,7 +4923,7 @@ where
 
       let res = match res {
         Ok(()) => Ok(()),
-        Err(t) => {
+        Err(mut t) => {
           let mut inner = self.inner.lock();
           if !pending_commit_set {
             if self.info_stream.enabled("IW") {
@@ -4940,9 +4934,9 @@ where
             let files = commit_lock.files_to_commit.take().unwrap();
             match inner.deleter.dec_ref(files.iter()) {
               Ok(()) => Err(t),
-              Err(e) => {
-                // TODO IMPORTANT 这里没有正确的嵌套错误
-                Err(LuceneError::illegal_state(format!("{} {}", e, t)))
+              Err(e) => match t.add_suppressed(e) {
+                Ok(_) => Err(t),
+                Err(e) => Err(e),
               },
             }
           } else {
@@ -5730,23 +5724,22 @@ where
       Ok(())
     })();
 
-    if let Err(e) = result {
-      let mut errors = Vec::new();
+    if let Err(mut e) = result {
+      let mut suppressed = None;
+
       for s in seg_states.iter_mut() {
-        let res: Result<()> = s.close(self, inner);
-        match res {
-          Ok(_) => continue,
-          Err(se) => {
-            errors.push(se);
-          },
+        if let Err(se) = s.close(self, inner) {
+          suppressed = Some(IOUtils::use_or_suppress(suppressed, se));
         }
       }
-      return if errors.is_empty() {
-        Err(e)
-      } else {
-        // TODO IMPORTANT 这里没有正确的嵌套error
-        Err(LuceneError::illegal_state(format!("{} {:?}", e, errors)))
-      };
+
+      if let Some(suppressed) = suppressed
+        && let Err(new_err) = e.add_suppressed(suppressed)
+      {
+        e = new_err;
+      }
+
+      return Err(e);
     }
 
     Ok(seg_states)
@@ -6471,7 +6464,8 @@ use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::{
-  BYTE_BLOCK_SIZE, CoreHelper, HasIdentity, LATEST, SerialCounter, StringHelper, TryIntoInt,
+  BYTE_BLOCK_SIZE, CoreHelper, HasIdentity, IOUtils, LATEST, SerialCounter, StringHelper,
+  TryIntoInt,
 };
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;

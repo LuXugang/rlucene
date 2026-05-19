@@ -1586,16 +1586,18 @@ impl PerField {
                       let mut prefix = [0u8; 30];
                       let len = 30.min(bytes_ref.length);
                       prefix.copy_from(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + len], 0);
-                      // TODO IMPORTANT可能抛出其他错误 我们需要嵌套
-                      return Err(LuceneError::illegal_argument(format!(
+                      let mut ia = LuceneError::illegal_argument(format!(
                         "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
                         self.field_info.as_ref().unwrap().name,
                         MAX_TERM_LENGTH,
                         prefix,
                         e
-                      )));
+                      ));
+                      ia.add_suppressed(e.into())?;
+                      return Err(ia);
                     },
                     _=> {
+                      // TODO IMPORTANT onAbortingException未实现
                       return Err(e);
                     }
                   }
