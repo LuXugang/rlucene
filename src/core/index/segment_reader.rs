@@ -341,6 +341,19 @@ where
   pub fn get_original_dir(&self) -> Arc<D> {
     self.original_si_dir.clone()
   }
+
+  pub fn get_hard_live_docs(&self) -> Result<Option<DocBits>> {
+    match &self.hard_live_docs {
+      Some(DocBits::A(a)) => Ok(Some(DocBits::A(Arc::clone(a)))),
+      Some(DocBits::B(b)) => match b {
+        BitsEnum2::A(a) => Ok(Some(DocBits::B(BitsEnum2::A(Arc::clone(a))))),
+        BitsEnum2::B(_) => Err(LuceneError::illegal_state(
+          "hard live docs should be FixedBitSet",
+        )),
+      },
+      None => Ok(None),
+    }
+  }
 }
 pub type DocValuesProducers<D> = DocValuesProducerEnum2<
   SegmentDocValuesProducer<D>,

@@ -70,6 +70,7 @@ use crate::core::store::IndexOutput;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::{DataOutput, IOContext};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -100,6 +101,7 @@ use std::vec;
 static STORED_TEXT_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED).expect("should not fail")
 });
+#[allow(dead_code)]
 pub(crate) struct TestIndexWriter;
 
 #[test]
@@ -3615,15 +3617,42 @@ impl IndexWriterBase for MockIndexWriter {
 }
 
 fn assert_hard_live_docs<D, L, B>(
-  _writer: &IndexWriter<D, L, B>,
-  _unique_docs: &HashSet<i32>,
+  writer: &IndexWriter<D, L, B>,
+  unique_docs: &HashSet<i32>,
 ) -> Result<()>
 where
   D: Directory,
   L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
-  // TODO IMPORTANT 未实现
+  let reader = directory_reader::open_from_writer(writer)?;
+  assert_eq!(unique_docs.len() as i32, reader.num_docs()?);
+  let context = get_context(&reader)?;
+  for ctx in context.leaves()? {
+    let sr = ctx.reader();
+    if let Some(hard_live_docs) = sr.get_hard_live_docs()? {
+      let id = LeafReader::terms(sr, "id")?.unwrap();
+      let mut iterator = id.iterator()?;
+      let live_docs = sr.get_live_docs()?.unwrap();
+      for d_id in unique_docs {
+        let must_be_hard_deleted = d_id % 2 == 0;
+        if iterator.seek_exact(&BytesRef::from_string(&d_id.to_string()))? {
+          let mut postings = iterator.postings(None)?;
+          while postings.next_doc()? != NO_MORE_DOCS {
+            let doc_id = postings.doc_id() as usize;
+            if live_docs.get(doc_id)? {
+              assert!(hard_live_docs.get(doc_id)?);
+            } else if must_be_hard_deleted {
+              assert!(!hard_live_docs.get(doc_id)?);
+            } else {
+              assert!(hard_live_docs.get(doc_id)?);
+            }
+          }
+        }
+      }
+    }
+  }
+  reader.close()?;
   Ok(())
 }
 
