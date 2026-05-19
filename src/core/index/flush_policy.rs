@@ -18,10 +18,14 @@ use crate::core::index::documents_writer_flush_control::{DocumentsWriterFlushCon
 
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
+use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
+#[cfg(test)]
+use crate::core::index::flush_by_ram_or_counts_policy::tests::MockDefaultFlushPolicy;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
+use crate::impl_from_for_enum;
 use parking_lot::MutexGuard;
 use std::sync::Arc;
 
@@ -94,5 +98,72 @@ pub trait FlushPolicy {
       info_stream.message("FP", s);
     }
     true
+  }
+}
+
+pub enum FlushPolicyEnum {
+  FlushByRamOrCounts(FlushByRamOrCountsPolicy),
+  #[cfg(test)]
+  MockDefault(MockDefaultFlushPolicy),
+}
+
+impl_from_for_enum!(
+  FlushPolicyEnum,
+  FlushByRamOrCountsPolicy => FlushByRamOrCounts
+);
+
+#[cfg(test)]
+impl From<MockDefaultFlushPolicy> for FlushPolicyEnum {
+  fn from(v: MockDefaultFlushPolicy) -> Self {
+    FlushPolicyEnum::MockDefault(v)
+  }
+}
+
+impl FlushPolicy for FlushPolicyEnum {
+  fn on_change<D, L>(
+    &self,
+    control: &DocumentsWriterFlushControl<D>,
+    inner: &mut Inner<D>,
+    per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
+    config: &L,
+  ) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+  {
+    match self {
+      FlushPolicyEnum::FlushByRamOrCounts(policy) => {
+        policy.on_change(control, inner, per_thread, config)
+      },
+      #[cfg(test)]
+      FlushPolicyEnum::MockDefault(policy) => policy.on_change(control, inner, per_thread, config),
+    }
+  }
+
+  fn find_largest_non_pending_writer_for_thread<D>(
+    &self,
+    control: &DocumentsWriterFlushControl<D>,
+    per_thread: &DocumentsWriterPerThread<D>,
+  ) -> Option<Arc<DwptWrapper<D>>>
+  where
+    D: Directory,
+  {
+    match self {
+      FlushPolicyEnum::FlushByRamOrCounts(policy) => {
+        policy.find_largest_non_pending_writer_for_thread(control, per_thread)
+      },
+      #[cfg(test)]
+      FlushPolicyEnum::MockDefault(policy) => {
+        policy.find_largest_non_pending_writer_for_thread(control, per_thread)
+      },
+    }
+  }
+
+  fn assert_message(&self, s: &str, info_stream: &InfoStreamEnum) -> bool {
+    match self {
+      FlushPolicyEnum::FlushByRamOrCounts(policy) => policy.assert_message(s, info_stream),
+      #[cfg(test)]
+      FlushPolicyEnum::MockDefault(policy) => policy.assert_message(s, info_stream),
+    }
   }
 }

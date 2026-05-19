@@ -19,7 +19,7 @@ use crate::core::codecs::Codec;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
-use crate::core::index::flush_policy::FlushPolicy;
+use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::index_writer_config::{
@@ -65,8 +65,7 @@ pub trait LiveIndexWriterConfig: Display {
   fn get_merge_policy(&self) -> &MergePolicyEnum;
   fn get_merge_policy_mut(&mut self) -> &mut MergePolicyEnum;
 
-  type FlushPolicy: FlushPolicy;
-  fn get_flush_policy(&self) -> &Self::FlushPolicy;
+  fn get_flush_policy(&self) -> &FlushPolicyEnum;
 
   fn get_ram_buffer_size_mb(&self) -> f64;
 
@@ -114,6 +113,15 @@ pub trait LiveIndexWriterConfig: Display {
     self.get_base_mut().merge_policy = v;
     self
   }
+
+  fn set_flush_policy<T>(&mut self, flush_policy: T) -> &mut Self
+  where
+    T: Into<FlushPolicyEnum>,
+  {
+    let v = flush_policy.into();
+    self.get_base_mut().flush_policy = Arc::new(v);
+    self
+  }
 }
 
 pub struct LiveIndexWriterConfigBase {
@@ -128,7 +136,7 @@ pub struct LiveIndexWriterConfigBase {
   pub codec: Lucene101Codec,
   pub info_stream: InfoStreamMT,
   pub merge_policy: MergePolicyEnum,
-  pub flush_policy: Arc<FlushByRamOrCountsPolicy>,
+  pub flush_policy: Arc<FlushPolicyEnum>,
   pub reader_pooling: bool,
   pub per_thread_hard_limit_mb: i32,
   pub created_version_major: i32,
@@ -169,7 +177,7 @@ impl LiveIndexWriterConfigBase {
       codec: Lucene101Codec,
       info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
       merge_policy: MergePolicyEnum::Tiered(TieredMergePolicy::default()),
-      flush_policy: Arc::new(FlushByRamOrCountsPolicy::new()),
+      flush_policy: Arc::new(FlushByRamOrCountsPolicy::new().into()),
       reader_pooling: DEFAULT_READER_POOLING,
       per_thread_hard_limit_mb: DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB,
       created_version_major: LATEST.major,
@@ -183,5 +191,9 @@ impl LiveIndexWriterConfigBase {
       // TODO IMPORTANT 这里的默认不对
       merge_scheduler: MergeSchedulerEnum::default(),
     }
+  }
+
+  pub fn get_flush_policy(&self) -> &FlushPolicyEnum {
+    &self.flush_policy
   }
 }

@@ -17,7 +17,7 @@
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
-use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
+use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::live_index_writer_config::{
   LiveIndexWriterConfig, LiveIndexWriterConfigBase,
@@ -218,10 +218,8 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
   fn get_merge_policy_mut(&mut self) -> &mut MergePolicyEnum {
     &mut self.base.merge_policy
   }
-  type FlushPolicy = FlushByRamOrCountsPolicy;
-
-  fn get_flush_policy(&self) -> &Self::FlushPolicy {
-    &self.base.flush_policy
+  fn get_flush_policy(&self) -> &FlushPolicyEnum {
+    self.base.get_flush_policy()
   }
 
   fn get_ram_buffer_size_mb(&self) -> f64 {

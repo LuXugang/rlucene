@@ -1036,6 +1036,16 @@ where
     let inner = self.inner.lock();
     inner.peak_net_bytes
   }
+
+  #[cfg(test)]
+  pub(crate) fn was_stalled(&self) -> bool {
+    self.stall_control.was_stalled()
+  }
+
+  #[cfg(test)]
+  pub(crate) fn has_blocked(&self) -> bool {
+    self.stall_control.has_blocked()
+  }
 }
 impl<D> Drop for DocumentsWriterFlushControl<D>
 where
