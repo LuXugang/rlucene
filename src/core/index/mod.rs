@@ -124,6 +124,7 @@ pub(crate) mod norm_values_writer;
 pub mod numeric_doc_values;
 pub mod numeric_doc_values_field_updates;
 pub(crate) mod numeric_doc_values_writer;
+pub mod one_merge_wrapping_merge_policy;
 pub mod ord_term_state;
 pub mod ordinal_map;
 mod parallel_postings_array;
