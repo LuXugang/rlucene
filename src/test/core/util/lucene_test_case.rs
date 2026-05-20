@@ -871,11 +871,11 @@ pub mod lucene_test_case_util {
     let temp_dir = TempDir::new()?;
     Ok(temp_dir)
   }
-  pub fn create_temp_dir_with_prefix<T>(name: T) -> Result<TempDir>
+  pub fn create_temp_dir_with_prefix<T>(prefix: T) -> Result<TempDir>
   where
     T: Into<String>,
   {
-    let name = name.into();
+    let name = prefix.into();
     let temp_dir = TempDir::with_prefix(name)?;
     Ok(temp_dir)
   }
