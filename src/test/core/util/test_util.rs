@@ -24,6 +24,7 @@ use std::sync::{Arc, LazyLock};
 
 use crate::core::index::CODEC_FILE_PATTERN;
 use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::multi_terms::{TermsType, get_terms};
 use crate::core::index::postings_enum::{ALL, FREQS, OFFSETS, PAYLOADS, POSITIONS};
 use crate::core::index::terms::Terms;
@@ -168,6 +169,18 @@ impl TestUtil {
     Ok(())
   }
   pub fn check_index_with_level<T>(_dir: T, _level: i32) -> Result<()> {
+    Ok(())
+  }
+  pub fn check_reader<I>(_reader: &I) -> Result<()>
+  where
+    I: IndexReader,
+  {
+    Ok(())
+  }
+  pub fn check_reader_with_level<I>(_reader: &I) -> Result<()>
+  where
+    I: IndexReader,
+  {
     Ok(())
   }
 

@@ -454,6 +454,7 @@ mod tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
+  /// Unit test for BufferedUpdate
   #[allow(dead_code)] // for quick search
   pub struct TestBufferedUpdates;
 

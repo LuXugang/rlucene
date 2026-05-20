@@ -29,6 +29,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 };
 use std::collections::HashMap;
 
+/// Test indexing and searching some byte[] terms
 #[allow(dead_code)] // for quick search
 struct TestBinaryTerms;
 #[test]
