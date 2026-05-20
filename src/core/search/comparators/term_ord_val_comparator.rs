@@ -511,7 +511,6 @@ where
 
     if self.top_same_reader {
       // ord is precisely comparable, even in the equal case
-      // System.out.println("compareTop doc=" + doc + " ord=" + ord + " ret=" + (topOrd-ord));
       Ok(self.top_ord - ord)
     } else if ord <= self.top_ord {
       // the equals case always means doc is < value

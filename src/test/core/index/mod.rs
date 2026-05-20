@@ -81,6 +81,7 @@ mod test_payloads_on_vectors;
 mod test_postings_offsets;
 mod test_read_only_index;
 mod test_rollback;
+mod test_same_scores_with_threads;
 mod test_same_token_same_position;
 mod test_segment_term_docs;
 mod test_segment_term_enum;

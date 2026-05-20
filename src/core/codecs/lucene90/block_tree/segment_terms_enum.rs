@@ -312,13 +312,6 @@ where
       }
 
       if cmp < 0 {
-        // Common case: target term is after current
-        // term, ie, app is seeking multiple terms
-        // in sorted order
-        // if (DEBUG) {
-        //   System.out.println("  target is after current (shares prefixLen=" +
-        // targetUpto + "); frame.ord=" + lastFrame.ord);
-        // }
         self.current_frame_idx = last_frame;
       } else if cmp > 0 {
         // Uncommon case: target term
