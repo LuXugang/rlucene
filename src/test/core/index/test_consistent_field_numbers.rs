@@ -24,8 +24,10 @@ use crate::core::index::index_writer::{IndexWriter, read_field_infos};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
@@ -239,23 +241,34 @@ fn test_field_number_gaps() -> Result<()> {
     }
 
     {
-      // force_merge_deletes 未实现
+      let a = MockAnalyzer::new(&mut random);
+      let mut config = new_index_writer_config_with_analyzer(&mut random, a);
+      config.set_merge_policy(NoMergePolicy::default());
+      let writer = IndexWriter::new(dir.clone(), config)?;
+
+      writer.delete_documents_with_terms(vec![Term::from_text("f1", "d1")])?;
+      // nuke the first segment entirely so that the segment with gaps is
+      // loaded first!
+      writer.force_merge_deletes()?;
+      writer.close()?;
     }
 
     {
-      // let writer = IndexWriter::new(
-      //     dir.clone(),
-      //     new_index_writer_config(&mut random), // TODO: LogByteSizeMergePolicy & FailOnNonBulkMergesInfoStream
-      // )?;
-      // writer.force_merge(1)?;
-      // writer.close()?;
-      // let sis = SegmentInfos::read_latest_commit(dir.clone())?;
-      // assert_eq!(1, sis.size());
-      // let fis = read_field_infos(sis.info_idx(0).unwrap())?;
-      // assert_eq!("f1", fis.field_info_by_number(0)?.unwrap().name);
-      // assert_eq!("f2", fis.field_info_by_number(1)?.unwrap().name);
-      // assert_eq!("f3", fis.field_info_by_number(2)?.unwrap().name);
+      let a = MockAnalyzer::new(&mut random);
+      let mut config = new_index_writer_config_with_analyzer(&mut random, a);
+      config.set_merge_policy(LogMergePolicy::log_bytes_size());
+      let writer = IndexWriter::new(dir.clone(), config)?;
+
+      writer.force_merge(1)?;
+      writer.close()?;
     }
+
+    let sis = SegmentInfos::read_latest_commit(dir.clone())?;
+    assert_eq!(1, sis.size());
+    let fis1 = read_field_infos(sis.info(0).unwrap())?;
+    assert_eq!("f1", fis1.field_info_by_number(0)?.unwrap().name);
+    assert_eq!("f2", fis1.field_info_by_number(1)?.unwrap().name);
+    assert_eq!("f3", fis1.field_info_by_number(2)?.unwrap().name);
   }
 
   Ok(())
@@ -276,9 +289,10 @@ fn test_many_fields() -> Result<()> {
   }
 
   let dir = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config(&mut random), // TODO: MockAnalyzer
+    new_index_writer_config_with_analyzer(&mut random, a),
   )?;
 
   for doc_fields in &docs {
