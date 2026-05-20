@@ -172,6 +172,7 @@ pub mod tests {
   use crate::core::index::flush_policy::FlushPolicyEnum;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, MAX_TERM_LENGTH};
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::util::line_file_docs::LineFileDocs;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{

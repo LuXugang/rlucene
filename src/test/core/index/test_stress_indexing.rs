@@ -25,6 +25,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;

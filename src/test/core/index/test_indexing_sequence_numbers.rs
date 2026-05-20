@@ -30,6 +30,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::query::Query;
 use crate::core::search::term_query::TermQuery;

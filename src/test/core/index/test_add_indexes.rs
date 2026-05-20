@@ -32,6 +32,7 @@ use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::postings_enum::NONE;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::sort::Sort;

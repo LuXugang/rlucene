@@ -2009,19 +2009,6 @@ where
     Ok(!inner.pending_merges.is_empty())
   }
 
-  /// Close the `IndexWriter` without committing any changes that have occurred since the last
-  /// commit, or since it was opened if commit hasn't been called.
-  pub fn rollback(&self) -> Result<()> {
-    // don't call ensureOpen here: this acts like "close()" in closeable.
-
-    // Ensure that only one thread actually gets to do the
-    // closing, and make sure no commit is also in progress:
-    if self.should_close(true) {
-      self.rollback_internal()?;
-    }
-    Ok(())
-  }
-
   fn rollback_internal(&self) -> Result<()> {
     // Make sure no commit is running, else e.g. we can close while another thread is still
     // fsync'ing.
@@ -3180,34 +3167,6 @@ where
     Ok(new_info_per_commit)
   }
 
-  /// **Expert:** Prepares for commit. This is the first phase of a 2-phase commit.
-  /// This method performs all steps necessary to commit changes since this writer was opened:
-  /// flushes pending added and deleted docs, syncs the index files, and writes most of the next
-  /// `segments_N` file. After calling this you must then call either [`commit()`](Self::commit) to finish the commit,
-  /// or [`rollback()`](Self::rollback) to revert the commit and undo all changes made since the writer was opened.
-  ///
-  /// You can also call [`commit()`](Self::commit) directly without calling `prepare_commit` first, in which case
-  /// that method will internally call `prepare_commit`.
-  ///
-  /// # Returns
-  /// The `sequence number` of the last operation in the commit.
-  /// All sequence numbers `<=` this value will be reflected in the commit, and all others will not.
-  pub(crate) fn prepare_commit(&self) -> Result<i64> {
-    self.do_ensure_open(false)?;
-    self
-      .pending_seq_no
-      .store(self.prepare_commit_internal(None)?, Ordering::Release);
-    // we must do this outside of the commitLock else we can deadlock:
-    if self.maybe_merge.swap(false, Ordering::AcqRel) {
-      self.maybe_merge_with_max_num_segments(
-        self.config.get_merge_policy(),
-        MergeTrigger::FullFlush,
-        UNBOUNDED_MAX_MERGE_SEGMENTS,
-      )?;
-    }
-    Ok(self.pending_seq_no.load(Ordering::Acquire))
-  }
-
   /// Expert: Flushes the next pending writer per thread buffer if available or the largest active
   /// non-pending writer per thread buffer in the calling thread. This can be used to flush documents
   /// to disk outside of an indexing thread. In contrast to [`Self::flush`] this won't mark all
@@ -3618,33 +3577,6 @@ where
   }
   pub(crate) fn ensure_open(&self) -> Result<()> {
     self.do_ensure_open(true)
-  }
-  /// Commits all pending changes (added and deleted documents, segment merges, added indexes, etc.)
-  /// to the index, and syncs all referenced index files, such that a reader will see the changes and
-  /// the index updates will survive an OS or machine crash or power loss.
-  /// Note that this does not wait for any running background merges to finish.
-  /// This may be a costly operation, so you should test the cost in your application and do it only when necessary.
-  ///
-  /// This operation calls `Directory::sync` on the index files. That call should not return until the
-  /// file contents and metadata are on stable storage. For `FSDirectory`, this calls the OS’s `fsync`.
-  /// However, beware: some hardware devices may cache writes even during `fsync` and return before the
-  /// bits are actually on stable storage, to give the appearance of faster performance.
-  /// If you have such a device, and it does not have a battery backup (for example), then on power loss
-  /// it may still lose data. Lucene cannot guarantee consistency on such devices.
-  ///
-  /// If nothing was committed, because there were no pending changes, this returns `-1`. Otherwise,
-  /// it returns the sequence number such that all indexing operations prior to this sequence will be
-  /// included in the commit point, and all other operations will not.
-  ///
-  /// # See also
-  /// `prepare_commit`
-  ///
-  /// # Returns
-  /// The `sequence number` of the last operation in the commit.
-  /// All sequence numbers `<=` this value will be reflected in the commit, and all others will not.
-  pub fn commit(&self) -> Result<i64> {
-    self.ensure_open()?;
-    self.commit_internal(self.config.get_merge_policy())
   }
 
   /// Returns true if there may be changes that have not been committed. There
@@ -5906,6 +5838,79 @@ where
     inner.segment_infos.get_version()
   }
 }
+impl<D, L, B> TwoPhaseCommit for IndexWriter<D, L, B>
+where
+  D: Directory,
+  L: LiveIndexWriterConfig,
+  B: IndexWriterBase,
+{
+  /// **Expert:** Prepares for commit. This is the first phase of a 2-phase commit.
+  /// This method performs all steps necessary to commit changes since this writer was opened:
+  /// flushes pending added and deleted docs, syncs the index files, and writes most of the next
+  /// `segments_N` file. After calling this you must then call either [`commit()`](Self::commit) to finish the commit,
+  /// or [`rollback()`](Self::rollback) to revert the commit and undo all changes made since the writer was opened.
+  ///
+  /// You can also call [`commit()`](Self::commit) directly without calling `prepare_commit` first, in which case
+  /// that method will internally call `prepare_commit`.
+  ///
+  /// # Returns
+  /// The `sequence number` of the last operation in the commit.
+  /// All sequence numbers `<=` this value will be reflected in the commit, and all others will not.
+  fn prepare_commit(&self) -> Result<i64> {
+    self.do_ensure_open(false)?;
+    self
+      .pending_seq_no
+      .store(self.prepare_commit_internal(None)?, Ordering::Release);
+    // we must do this outside of the commitLock else we can deadlock:
+    if self.maybe_merge.swap(false, Ordering::AcqRel) {
+      self.maybe_merge_with_max_num_segments(
+        self.config.get_merge_policy(),
+        MergeTrigger::FullFlush,
+        UNBOUNDED_MAX_MERGE_SEGMENTS,
+      )?;
+    }
+    Ok(self.pending_seq_no.load(Ordering::Acquire))
+  }
+  /// Commits all pending changes (added and deleted documents, segment merges, added indexes, etc.)
+  /// to the index, and syncs all referenced index files, such that a reader will see the changes and
+  /// the index updates will survive an OS or machine crash or power loss.
+  /// Note that this does not wait for any running background merges to finish.
+  /// This may be a costly operation, so you should test the cost in your application and do it only when necessary.
+  ///
+  /// This operation calls `Directory::sync` on the index files. That call should not return until the
+  /// file contents and metadata are on stable storage. For `FSDirectory`, this calls the OS’s `fsync`.
+  /// However, beware: some hardware devices may cache writes even during `fsync` and return before the
+  /// bits are actually on stable storage, to give the appearance of faster performance.
+  /// If you have such a device, and it does not have a battery backup (for example), then on power loss
+  /// it may still lose data. Lucene cannot guarantee consistency on such devices.
+  ///
+  /// If nothing was committed, because there were no pending changes, this returns `-1`. Otherwise,
+  /// it returns the sequence number such that all indexing operations prior to this sequence will be
+  /// included in the commit point, and all other operations will not.
+  ///
+  /// # See also
+  /// `prepare_commit`
+  ///
+  /// # Returns
+  /// The `sequence number` of the last operation in the commit.
+  /// All sequence numbers `<=` this value will be reflected in the commit, and all others will not.
+  fn commit(&self) -> Result<i64> {
+    self.ensure_open()?;
+    self.commit_internal(self.config.get_merge_policy())
+  }
+  /// Close the `IndexWriter` without committing any changes that have occurred since the last
+  /// commit, or since it was opened if commit hasn't been called.
+  fn rollback(&self) -> Result<()> {
+    // don't call ensureOpen here: this acts like "close()" in closeable.
+
+    // Ensure that only one thread actually gets to do the
+    // closing, and make sure no commit is also in progress:
+    if self.should_close(true) {
+      self.rollback_internal()?;
+    }
+    Ok(())
+  }
+}
 /// If `open(IndexWriter)` has been called (ie, this writer is in near
 /// real-time mode), then after a merge completes, this class can be invoked to warm the reader on
 /// the newly merged segment, before the merge commits. This is not required for near real-time
@@ -6444,6 +6449,7 @@ use crate::core::index::standard_directory_reader::{
   StandardDirectoryReaderType, open_with_reader_function,
 };
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;

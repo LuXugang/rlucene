@@ -29,6 +29,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::{QueryTimeout, QueryTimeoutEnum};
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::abstract_vector_similarity_query::AbstractVectorSimilarityQuery;
 use crate::core::search::boost_query::BoostQuery;

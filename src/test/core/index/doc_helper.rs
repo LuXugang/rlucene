@@ -29,6 +29,7 @@ use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::index_searcher::get_default_similarity;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::store::directory::Directory;

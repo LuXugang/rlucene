@@ -403,6 +403,7 @@ mod tests {
   use crate::core::document::field::Store;
   use crate::core::document::field_type::FieldType;
   use crate::core::document::text_field::{TextField, text_field_type};
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
 
   use crate::core::index::composite_reader::get_context;
   use crate::core::index::fields::Fields;

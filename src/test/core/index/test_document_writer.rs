@@ -51,6 +51,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::io_context::IOContext;

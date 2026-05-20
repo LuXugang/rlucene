@@ -28,6 +28,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::collection_statistics::CollectionStatistics;

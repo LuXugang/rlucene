@@ -149,6 +149,7 @@ mod tests {
   use crate::core::index::leaf_reader_context::LeafReaderContext;
   use crate::core::index::query_timeout::{QueryTimeout, QueryTimeoutEnum};
   use crate::core::index::term::Term;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use crate::core::search::collector::Collector;
   use crate::core::search::leaf_collector::LeafCollector;
   use crate::core::search::scorable::Scorable;

@@ -24,6 +24,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortField;

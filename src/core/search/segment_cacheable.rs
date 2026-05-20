@@ -68,6 +68,7 @@ mod tests {
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::no_merge_policy::NoMergePolicy;
   use crate::core::index::term::Term;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     new_directory_shared, new_index_writer_config, new_text_field, random,

@@ -37,6 +37,7 @@ use crate::core::index::postings_enum::{PAYLOADS, PostingsEnum};
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::Directory;
 use crate::core::util::attribute::Attribute;

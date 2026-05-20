@@ -47,6 +47,7 @@ impl IndexDeletionPolicy for NoDeletionPolicy {
 mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use std::collections::HashMap;
 
   use super::*;

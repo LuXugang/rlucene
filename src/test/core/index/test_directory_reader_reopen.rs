@@ -30,6 +30,7 @@ use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;

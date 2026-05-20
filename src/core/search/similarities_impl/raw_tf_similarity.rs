@@ -76,6 +76,7 @@ impl SimScorer for RawTFSimScorer {
 mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use std::collections::HashMap;
 
   use crate::core::index::directory_reader;

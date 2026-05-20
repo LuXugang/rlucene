@@ -189,6 +189,7 @@ pub mod terms_hash;
 pub(crate) mod terms_hash_per_field;
 pub mod tiered_merge_policy;
 pub mod tracking_tmp_output_directory_wrapper;
+pub mod two_phase_commit;
 pub mod upgrade_index_merge_policy;
 pub mod vector_encoding;
 pub mod vector_similarity_function;

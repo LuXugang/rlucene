@@ -224,6 +224,7 @@ mod tests {
   use crate::core::index::index_writer_config::{DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH};
   use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
 
   use crate::core::index::merge_policy::MergePolicyEnum;
   use crate::core::index::multi_bits::get_live_docs;

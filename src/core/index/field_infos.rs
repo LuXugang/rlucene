@@ -927,6 +927,7 @@ mod tests {
   use crate::core::index::field_info::FieldInfo;
   use crate::core::index::field_infos::{EMPTY, FieldNumbers, get_merged_field_infos};
   use crate::core::index::index_options::IndexOptions;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use crate::core::index::vector_encoding::VectorEncoding;
   use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
   use crate::core::util::error::lucene_error::Result;

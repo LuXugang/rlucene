@@ -892,6 +892,7 @@ mod tests {
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
   use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::util::bit_set::BitSet;

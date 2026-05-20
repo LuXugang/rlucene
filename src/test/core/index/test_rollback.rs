@@ -22,6 +22,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;

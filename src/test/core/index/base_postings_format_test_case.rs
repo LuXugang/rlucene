@@ -37,6 +37,7 @@ use crate::core::index::postings_enum::{
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;

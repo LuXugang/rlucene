@@ -90,6 +90,7 @@ mod tests {
   use crate::core::index::directory_reader;
   use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::term::Term;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use crate::core::search::boolean_clause::Occur;
   use crate::core::search::boolean_query::Builder;
 

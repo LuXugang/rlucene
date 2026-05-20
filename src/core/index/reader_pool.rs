@@ -537,6 +537,7 @@ mod tests {
   use crate::core::index::numeric_doc_values_field_updates::NumericDocValuesFieldUpdates;
   use crate::core::index::reader_pool::ReaderPool;
   use crate::core::index::term::Term;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
   use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::store::IOContext;

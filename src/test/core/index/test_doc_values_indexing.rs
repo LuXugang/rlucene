@@ -45,6 +45,7 @@ use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::stored_fields::StoredFields;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;

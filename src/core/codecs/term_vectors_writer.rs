@@ -277,6 +277,7 @@ mod tests {
   use crate::core::index::term_vectors::TermVectors;
   use crate::core::index::terms::Terms;
   use crate::core::index::terms_enum::TermsEnum;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
   use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::util::bytes_ref_iterator::BytesRefIterator;

@@ -17,6 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 
 use crate::core::document::field::FieldBase;
 use crate::core::document::text_field::TextField;

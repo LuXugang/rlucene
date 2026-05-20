@@ -26,6 +26,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::multi_terms::get_term_postings_enum;
 use crate::core::index::postings_enum::{FREQS, PostingsEnum};
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::{DirEnum, Directory};

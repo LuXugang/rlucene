@@ -18,6 +18,7 @@ use crate::core::index::directory_reader::{self, DirectoryReader};
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;

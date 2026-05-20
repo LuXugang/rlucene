@@ -21,6 +21,7 @@ use crate::core::index::index_writer::{DefaultIndexWriterType, DocStats, IndexWr
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::query::Query;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;

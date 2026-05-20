@@ -44,6 +44,7 @@ use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;

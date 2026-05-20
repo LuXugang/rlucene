@@ -35,6 +35,7 @@ use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::LATEST;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;

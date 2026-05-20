@@ -23,6 +23,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;

@@ -537,6 +537,7 @@ mod tests {
   use crate::core::index::multi_doc_values::MultiDocValues;
   use crate::core::index::no_merge_policy::NoMergePolicy;
   use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use crate::core::util::error::lucene_error::Result;
   use crate::core::util::long_values::LongValuesEnum2;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;

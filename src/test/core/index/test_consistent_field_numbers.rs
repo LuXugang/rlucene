@@ -28,6 +28,7 @@ use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{

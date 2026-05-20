@@ -820,6 +820,7 @@ mod tests {
   use crate::core::document::long_point::LongPoint;
   use crate::core::index::composite_reader::get_context;
   use crate::core::index::directory_reader;
+  use crate::core::index::two_phase_commit::TwoPhaseCommit;
 
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
