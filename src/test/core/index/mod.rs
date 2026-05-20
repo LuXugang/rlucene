@@ -44,6 +44,7 @@ mod test_bag_of_positions;
 mod test_bag_of_postings;
 mod test_binary_terms;
 mod test_codec_holds_open_files;
+mod test_codecs;
 mod test_consistent_field_numbers;
 mod test_custom_norms;
 mod test_custom_term_freq;
