@@ -48,6 +48,7 @@ mod test_codecs;
 mod test_consistent_field_numbers;
 mod test_custom_norms;
 mod test_custom_term_freq;
+mod test_directory_reader_reopen;
 mod test_doc_count;
 pub(crate) mod test_doc_values_indexing;
 mod test_docs_and_positions;
