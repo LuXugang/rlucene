@@ -39,6 +39,7 @@ pub(crate) mod random_postings_tester;
 mod repeating_tokenizer;
 mod test_add_indexes;
 mod test_all_file_have_codec_header;
+mod test_atomic_update;
 mod test_bag_of_positions;
 mod test_bag_of_postings;
 mod test_binary_terms;
