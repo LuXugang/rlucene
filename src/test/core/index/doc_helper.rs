@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
+use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field::Store::{No, Yes};
@@ -29,8 +29,13 @@ use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::search::index_searcher::get_default_similarity;
+use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::analysis::mock_analyzer;
+use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use rand::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -350,12 +355,33 @@ impl DocHelper {
       doc.add(f.clone());
     }
   }
-  pub fn write_doc<D>(dir: Arc<D>, doc: Document) -> Result<SegmentCommitInfo<D>>
+  pub fn write_doc<D, R>(random: &mut R, dir: Arc<D>, doc: Document) -> Result<SegmentCommitInfo<D>>
   where
     D: Directory,
+    R: Rng + ?Sized,
   {
-    // TODO MockTokenizer.WHITESPACE未实现 使用WhitespaceAnalyzer临时替换
-    let config = IndexWriterConfig::with_analyzer(WhitespaceAnalyzer::new());
+    let mock = MockAnalyzer::with_automaton(random, mock_analyzer::WHITESPACE.clone(), false);
+    Self::write_doc_with_analyzer(random, dir, mock, None::<SimilarityEnum>, doc)
+  }
+  pub fn write_doc_with_analyzer<D, R, A, S>(
+    _random: &mut R,
+    dir: Arc<D>,
+    analyzer: A,
+    similarity: Option<S>,
+    doc: Document,
+  ) -> Result<SegmentCommitInfo<D>>
+  where
+    D: Directory,
+    R: Rng + ?Sized,
+    A: Into<AnalyzerEnum>,
+    S: Into<SimilarityEnum>,
+  {
+    let mut config = IndexWriterConfig::with_analyzer(analyzer);
+    let s = match similarity {
+      Some(v) => v.into(),
+      None => get_default_similarity(),
+    };
+    config.set_similarity(s);
 
     let writer = IndexWriter::new(dir.clone(), config)?;
     writer.add_document(doc)?;

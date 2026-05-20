@@ -56,7 +56,7 @@ where
   let dir = new_directory_shared(random)?;
   let mut document = Document::new();
   DocHelper::setup_doc(&mut document);
-  let info = DocHelper::write_doc(dir.clone(), document.clone())?;
+  let info = DocHelper::write_doc(random, dir.clone(), document.clone())?;
   Ok((dir, document, info))
 }
 #[test]

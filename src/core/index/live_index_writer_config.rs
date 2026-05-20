@@ -31,7 +31,7 @@ use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommi
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
-use crate::core::search::index_searcher::default_similarity;
+use crate::core::search::index_searcher::get_default_similarity;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
@@ -173,7 +173,7 @@ impl LiveIndexWriterConfigBase {
       index_commit: None,
       use_compound_file: DEFAULT_USE_COMPOUND_FILE_SYSTEM,
       open_mode: OpenMode::CreateOrAppend,
-      similarity: Arc::new(default_similarity()),
+      similarity: Arc::new(get_default_similarity()),
       codec: Lucene101Codec,
       info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
       merge_policy: MergePolicyEnum::Tiered(TieredMergePolicy::default()),

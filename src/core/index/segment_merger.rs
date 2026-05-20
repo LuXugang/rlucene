@@ -491,13 +491,13 @@ mod tests {
     let mut doc1 = Document::new();
     DocHelper::setup_doc(&mut doc1);
     let dir = new_directory_shared(&mut random)?;
-    let info1 = DocHelper::write_doc(dir, doc1.clone())?;
+    let info1 = DocHelper::write_doc(&mut random, dir, doc1.clone())?;
     let reader1 = SegmentReader::new(&info1, LATEST.major, &new_io_context(&mut random)?)?;
 
     let mut doc2 = Document::new();
     DocHelper::setup_doc(&mut doc2);
     let dir = new_directory_shared(&mut random)?;
-    let info2 = DocHelper::write_doc(dir, doc2.clone())?;
+    let info2 = DocHelper::write_doc(&mut random, dir, doc2.clone())?;
     let reader2 = SegmentReader::new(&info2, LATEST.major, &new_io_context(&mut random)?)?;
 
     let merged_dir = new_directory_shared(&mut random)?;

@@ -727,7 +727,7 @@ pub(crate) mod tests {
     let dir = new_directory_shared(random)?;
     let mut documnet = Document::new();
     DocHelper::setup_doc(&mut documnet);
-    let info = DocHelper::write_doc(dir.clone(), documnet.clone())?;
+    let info = DocHelper::write_doc(random, dir.clone(), documnet.clone())?;
     let reader = SegmentReader::new(&info, LATEST.major, &IOContext::default_io_context()?)?;
     Ok((dir, documnet, reader))
   }
