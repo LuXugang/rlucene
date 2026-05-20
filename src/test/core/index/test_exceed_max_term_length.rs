@@ -42,7 +42,6 @@ where
   new_directory(random).unwrap()
 }
 
-// TODO token_stream 未实现
 fn test_token_stream() -> Result<()> {
   let mut random = random();
   let dir = Arc::new(create_dir(&mut random));
