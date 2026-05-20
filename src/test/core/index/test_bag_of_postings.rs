@@ -42,7 +42,8 @@ use std::thread;
 /// checks that the docFreq is correct.
 #[allow(dead_code)] // for quick search
 pub struct TestBagOfPostings;
-// TODO IMPORTANT 多线程未实现
+
+#[test]
 fn test() -> Result<()> {
   let mut random = random();
   let mut postings_list: Vec<String> = Vec::new();
