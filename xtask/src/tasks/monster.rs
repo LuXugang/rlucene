@@ -20,7 +20,7 @@ pub(crate) fn run() {
   super::tidy::run();
   super::check_uncommitted::run();
   log(&colorize(
-    "Running Cargo nightly test ",
+    "Running Cargo monster test ",
     LogColor::Green,
     true,
   ));
@@ -30,12 +30,12 @@ pub(crate) fn run() {
     "-p",
     "rlucene",
     "--features",
-    "nightly",
+    "monster",
     "--",
     "--ignored",
   ]);
   log(&colorize(
-    "✅ ✅ ✅ Finished Cargo nightly test ",
+    "✅ ✅ ✅ Finished Cargo monster test ",
     LogColor::Green,
     true,
   ));

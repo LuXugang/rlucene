@@ -119,8 +119,9 @@ mod base_stored_fields_format_test_case_test {
     run_case(|case, random| case.test_merge_filter_reader(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_big_documents() -> Result<()> {
     run_case(|case, random| case.test_big_documents(random))
   }

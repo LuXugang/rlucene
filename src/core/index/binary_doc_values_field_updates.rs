@@ -211,7 +211,9 @@ mod tests {
   use crate::core::index::index_reader::{CacheHelper, IndexReader};
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
-  use crate::core::index::index_writer_config::{DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH};
+  #[cfg(feature = "nightly")]
+  use crate::core::index::index_writer_config::DEFAULT_RAM_BUFFER_SIZE_MB;
+  use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
   use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::merge_policy::MergePolicyEnum;
@@ -240,8 +242,10 @@ mod tests {
     new_log_merge_policy, random, random_from_seed,
   };
   use crate::test::core::util::test_util::TestUtil;
-  use rand::seq::IndexedRandom;
+  #[cfg(feature = "nightly")]
+  use rand::prelude::IndexedRandom;
   use rand::{Rng, RngExt};
+  #[cfg(feature = "nightly")]
   use std::collections::HashSet;
   use std::sync::Arc;
   use std::sync::atomic::{AtomicI32, Ordering};
@@ -1817,8 +1821,9 @@ mod tests {
     Ok(())
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_tons_of_updates() -> Result<()> {
     // LUCENE-5248: ensure we don't consume too much RAM when many updates occur
     let mut random = random();

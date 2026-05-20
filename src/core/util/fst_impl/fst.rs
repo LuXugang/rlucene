@@ -1508,6 +1508,7 @@ mod tests {
     new_index_writer_config_with_analyzer, new_searcher_with_reader, random, random_from_seed,
     random_multiplier,
   };
+  #[cfg(feature = "nightly")]
   use crate::test::core::util::test_util::TestUtil;
   use rand::Rng;
   use rand::RngExt;
@@ -1843,8 +1844,9 @@ mod tests {
     Ok(())
   }
 
+  #[cfg(feature = "nightly")]
   #[test]
-  #[ignore]
+  #[ignore = "nightly"]
   fn test_big_set() -> Result<()> {
     let mut random = random();
     let max_num_words = TestUtil::next_usize(&mut random, 50000, 60000);

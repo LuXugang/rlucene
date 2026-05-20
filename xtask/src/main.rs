@@ -76,12 +76,13 @@ fn main() {
     Some("commit") => tasks::commit::run(),
     Some("ci") => tasks::ci::run(),
     Some("nightly") => tasks::nightly::run(),
+    Some("monster") => tasks::monster::run(),
     Some("check-uncommitted") => tasks::check_uncommitted::run(),
     Some("license-check") => tasks::license::license_check::run(),
     Some("nextest-run") => tasks::nextest::run(),
     _ => {
       log(&format!(
-        "{:?} not support,Available commands: tidy, commit, ci, nightly, check-uncommitted, license-check",
+        "{:?} not support,Available commands: tidy, commit, ci, nightly, monster, check-uncommitted, license-check",
         args
       ));
       process::exit(1);

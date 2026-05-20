@@ -735,7 +735,9 @@ mod tests {
   use crate::core::index::index_writer::MAX_TERM_LENGTH;
 
   use crate::core::index::composite_reader::{CompositeReader, get_context};
+  #[cfg(feature = "nightly")]
   use crate::core::index::index_reader_context::IndexReaderContext;
+  #[cfg(feature = "nightly")]
   use crate::core::index::index_writer_config::OpenMode;
   use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -1790,8 +1792,9 @@ mod tests {
     w.close()?;
     Ok(())
   }
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_varying_terms_per_segment() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;

@@ -476,8 +476,10 @@ mod tests {
   use rand::RngExt;
 
   use crate::core::index::BytesRef;
+  #[cfg(feature = "nightly")]
+  use crate::core::store::IndexOutput;
   use crate::core::store::directory::Directory;
-  use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput, IndexOutput};
+  use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
   use crate::core::util::clone::TryClone;
   use crate::core::util::error::lucene_error::Result;
   use crate::core::util::paged_bytes::{PagedBytes, get_data_input, get_data_output};
@@ -652,8 +654,9 @@ mod tests {
 
     Ok(())
   }
+  #[cfg(feature = "nightly")]
   #[test]
-  #[ignore] // memory hole
+  #[ignore = "nightly"] // memory hole
   fn test_overflow() -> Result<()> {
     let mut random = random();
     // TODO: BaseDirectoryWrapper not implement

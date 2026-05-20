@@ -18,6 +18,7 @@ pub(crate) mod check_uncommitted;
 pub(crate) mod ci;
 pub(crate) mod commit;
 pub(crate) mod license;
+pub(crate) mod monster;
 pub(crate) mod nextest;
 pub(crate) mod nightly;
 pub(crate) mod tidy;

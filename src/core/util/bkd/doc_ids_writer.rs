@@ -471,18 +471,26 @@ impl DocIdsWriter {
 
 #[cfg(test)]
 mod tests {
+  #[cfg(feature = "nightly")]
   use crate::core::document::document::Document;
+  #[cfg(feature = "nightly")]
   use crate::core::document::int_point::IntPoint;
+  #[cfg(feature = "nightly")]
   use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+  #[cfg(feature = "nightly")]
   use crate::core::index::index_writer::IndexWriter;
-  use crate::core::index::index_writer_config::IndexWriterConfig;
+
   use crate::core::index::point_values::{IntersectVisitor, Relation};
   use crate::core::store::directory::Directory;
   use crate::core::store::{DataOutput, IOContext, IndexInput, IndexOutput};
   use crate::core::util::bkd::doc_ids_writer::DocIdsWriter;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory, new_directory_shared, random,
+    at_least, new_directory, random,
+  };
+  #[cfg(feature = "nightly")]
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    new_directory_shared, new_index_writer_config,
   };
   use crate::test::core::util::test_util::TestUtil;
   use rand::Rng;
@@ -616,8 +624,9 @@ mod tests {
     Ok(())
   }
 
+  #[cfg(feature = "nightly")]
   #[test]
-  #[ignore]
+  #[ignore = "nightly"]
   fn test_crash() -> Result<()> {
     let mut random = random();
     let itrs = at_least(&mut random, 100);
@@ -625,7 +634,7 @@ mod tests {
     for _ in 0..itrs {
       let dir = new_directory_shared(&mut random)?;
 
-      let config = IndexWriterConfig::new();
+      let config = new_index_writer_config(&mut random);
       let iw = IndexWriter::new(dir.clone(), config)?;
 
       for _d in 0..20_000 {

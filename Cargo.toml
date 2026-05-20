@@ -40,6 +40,8 @@ overflow-checks = false
 [features]
 default = []
 test_log_verbose = []
+nightly = []
+monster = []
 
 [workspace]
 members = [

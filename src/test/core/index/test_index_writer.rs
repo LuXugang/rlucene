@@ -38,8 +38,10 @@ use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
+#[cfg(feature = "nightly")]
+use crate::core::index::index_writer::MAX_STORED_STRING_LENGTH;
 use crate::core::index::index_writer::{
-  EmptyIndexWriterBase, IndexWriter, IndexWriterBase, MAX_STORED_STRING_LENGTH, read_field_infos,
+  EmptyIndexWriterBase, IndexWriter, IndexWriterBase, read_field_infos,
 };
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::index_writer_config::OpenMode;
@@ -2159,8 +2161,9 @@ fn test_leftover_temp_files() -> Result<()> {
   Ok(())
 }
 
-#[ignore]
+#[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_massive_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

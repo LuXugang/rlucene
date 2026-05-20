@@ -1235,8 +1235,9 @@ mod tests {
     Ok(())
   }
 
+  #[cfg(feature = "nightly")]
   #[test]
-  #[ignore]
+  #[ignore = "nightly"]
   fn test_empty_blocks() -> Result<()> {
     const B: usize = 65536;
     let mut random = random();
@@ -1323,8 +1324,9 @@ mod tests {
     Ok(())
   }
 
+  #[cfg(feature = "nightly")]
   #[test]
-  #[ignore]
+  #[ignore = "nightly"]
   fn test_random_blocks() -> Result<()> {
     let mut random = random();
     let dir = new_directory(&mut random)?;

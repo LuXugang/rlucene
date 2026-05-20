@@ -519,8 +519,9 @@ fn test_next_varying_number_of_terms() -> Result<()> {
   Ok(())
 }
 /// test advance with varying numbers of terms with varying minShouldMatch
-#[ignore]
+#[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_advance_varying_number_of_terms() -> Result<()> {
   let mut random = random();
   let searcher = set_up(&mut random)?;

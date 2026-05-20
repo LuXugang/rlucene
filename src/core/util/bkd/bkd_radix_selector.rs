@@ -1106,8 +1106,9 @@ mod tests {
       do_test_random_binary(&mut random, 25000)
     }
 
+    #[cfg(feature = "nightly")]
     #[test]
-    #[ignore]
+    #[ignore = "nightly"]
     fn test_random_binary_big() -> Result<()> {
       let mut random = random();
       do_test_random_binary(&mut random, 500000)

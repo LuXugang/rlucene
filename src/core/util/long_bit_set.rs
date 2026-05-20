@@ -920,8 +920,9 @@ mod tests {
     assert!(!new_bits.get(1));
     Ok(())
   }
+  #[cfg(feature = "nightly")]
   #[test]
-  #[ignore]
+  #[ignore = "nightly"]
   fn test_huge_capacity() -> Result<()> {
     let more_than_max_int = i32::MAX as usize + 5;
 

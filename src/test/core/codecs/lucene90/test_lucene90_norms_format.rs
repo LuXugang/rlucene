@@ -155,14 +155,16 @@ mod base_norms_format_test_case_test {
     run_case(|case, random| case.test_sparse_n_common(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_n_common_big() -> Result<()> {
     run_case(|case, random| case.test_n_common_big(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_sparse_n_common_big() -> Result<()> {
     run_case(|case, random| case.test_sparse_n_common_big(random))
   }

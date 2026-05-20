@@ -100,8 +100,9 @@ mod lucene90_doc_values_format_tests {
     run_case(|case, random| case.test_sorted_set_variable_length_big_vs_stored_fields(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_sorted_set_variable_length_many_vs_stored_fields() -> Result<()> {
     run_case(|case, random| case.test_sorted_set_variable_length_many_vs_stored_fields(random))
   }
@@ -111,29 +112,34 @@ mod lucene90_doc_values_format_tests {
     run_case(|case, random| case.test_sorted_variable_length_big_vs_stored_fields(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_sorted_variable_length_many_vs_stored_fields() -> Result<()> {
     run_case(|case, random| case.test_sorted_variable_length_many_vs_stored_fields(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_terms_enum_fixed_width() -> Result<()> {
     run_case(|case, random| case.test_terms_enum_fixed_width(random))
   }
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_terms_enum_variable_width() -> Result<()> {
     run_case(|case, random| case.test_terms_enum_variable_width(random))
   }
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_terms_enum_random_many() -> Result<()> {
     run_case(|case, random| case.test_terms_enum_random_many(random))
   }
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_terms_enum_long_shared_prefixes() -> Result<()> {
     run_case(|case, random| case.test_terms_enum_long_shared_prefixes(random))
   }
@@ -143,45 +149,52 @@ mod lucene90_doc_values_format_tests {
     run_case(|case, random| case.test_sparse_doc_values_vs_stored_fields(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_sorted_set_around_block_size() -> Result<()> {
     run_case(|case, random| case.test_sorted_set_around_block_size(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_sorted_numeric_around_block_size() -> Result<()> {
     run_case(|case, random| case.test_sorted_numeric_around_block_size(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_sorted_numeric_blocks_of_various_bits_per_value() -> Result<()> {
     run_case(|case, random| case.test_sorted_numeric_blocks_of_various_bits_per_value(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_sparse_sorted_numeric_blocks_of_various_bits_per_value() -> Result<()> {
     run_case(|case, random| {
       case.test_sparse_sorted_numeric_blocks_of_various_bits_per_value(random)
     })
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_numeric_blocks_of_various_bits_per_value() -> Result<()> {
     run_case(|case, random| case.test_numeric_blocks_of_various_bits_per_value(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_sparse_numeric_blocks_of_various_bits_per_value() -> Result<()> {
     run_case(|case, random| case.test_sparse_numeric_blocks_of_various_bits_per_value(random))
   }
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_numeric_field_jump_tables() -> Result<()> {
     run_case(|case, random| case.test_numeric_field_jump_tables(random))
   }
@@ -300,8 +313,9 @@ mod base_doc_values_format_test_case_tests {
     run_case(|case, random| case.test_numeric_doc_values_with_skipper_medium(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_numeric_doc_values_with_skipper_big() -> Result<()> {
     run_case(|case, random| case.test_numeric_doc_values_with_skipper_big(random))
   }
@@ -315,8 +329,9 @@ mod base_doc_values_format_test_case_tests {
   fn test_sorted_numeric_doc_values_with_skipper_medium() -> Result<()> {
     run_case(|case, random| case.test_sorted_numeric_doc_values_with_skipper_medium(random))
   }
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_sorted_numeric_doc_values_with_skipper_big() -> Result<()> {
     run_case(|case, random| case.test_sorted_numeric_doc_values_with_skipper_big(random))
   }
@@ -330,8 +345,9 @@ mod base_doc_values_format_test_case_tests {
     run_case(|case, random| case.test_sorted_doc_values_with_skipper_medium(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_sorted_doc_values_with_skipper_big() -> Result<()> {
     run_case(|case, random| case.test_sorted_doc_values_with_skipper_big(random))
   }
@@ -346,8 +362,9 @@ mod base_doc_values_format_test_case_tests {
     run_case(|case, random| case.test_sorted_set_doc_values_with_skipper_medium(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_sorted_set_doc_values_with_skipper_big() -> Result<()> {
     run_case(|case, random| case.test_sorted_set_doc_values_with_skipper_big(random))
   }
@@ -895,8 +912,9 @@ mod legacy_base_doc_values_format_test_case_tests {
     run_case(|case, random| case.test_random_advance_binary(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_high_ords_sorted_set_dv() -> Result<()> {
     run_case(|case, random| case.test_high_ords_sorted_set_dv(random))
   }

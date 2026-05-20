@@ -315,6 +315,7 @@ impl StateListNode {
 #[cfg(test)]
 mod tests {
   use crate::core::util::automation::operations::Operations;
+  #[cfg(feature = "nightly")]
   use crate::core::util::automation::reg_exp::RegExp;
   use crate::core::util::automation::transition_accessor::TransitionAccessor;
   use crate::core::util::error::lucene_error::Result;
@@ -369,8 +370,9 @@ mod tests {
 
     Ok(())
   }
+  #[cfg(feature = "nightly")]
   #[test]
-  #[ignore]
+  #[ignore = "nightly"]
   fn test_minimize_huge() -> Result<()> {
     let a = RegExp::parse("+-*(A|.....|BC)*]", RegExp::NONE, 0)?.to_automaton()?;
     let b = MinimizationOperations::minimize(&a, 1_000_000)?;

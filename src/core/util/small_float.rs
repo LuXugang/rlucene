@@ -362,8 +362,9 @@ mod tests {
     Ok(())
   }
 
+  #[cfg(feature = "nightly")]
   #[test]
-  #[ignore]
+  #[ignore = "nightly"]
   fn test_all_floats() -> Result<()> {
     let mut i = i32::MIN;
     loop {

@@ -37,6 +37,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
+#[cfg(feature = "nightly")]
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
@@ -44,6 +45,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
+#[cfg(feature = "nightly")]
 use std::collections::HashSet;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Barrier, Mutex};
@@ -89,8 +91,9 @@ fn test_after_commit() -> Result<()> {
   Ok(())
 }
 
-#[ignore]
+#[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_stress_update_same_id() -> Result<()> {
   let mut random = new_random();
   let iters = at_least(&mut random, 100);

@@ -408,8 +408,9 @@ mod base_points_format_test_case_tests {
   fn test_random_binary_medium() -> Result<()> {
     run_case(|case, random| case.test_random_binary_medium(random))
   }
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_random_binary_big() -> Result<()> {
     run_case(|case, random| case.test_random_binary_big(random))
   }

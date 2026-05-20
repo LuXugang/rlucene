@@ -40,6 +40,7 @@ use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::search::query::Query;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
 use crate::core::util::bits::Bits;
+#[cfg(feature = "nightly")]
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
@@ -2244,8 +2245,9 @@ fn test_next_down() -> Result<()> {
 
   Ok(())
 }
-#[ignore]
+#[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_inverse_point_range() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

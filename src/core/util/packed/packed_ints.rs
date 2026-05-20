@@ -1550,8 +1550,9 @@ mod tests {
 
     Ok(())
   }
+  #[cfg(feature = "nightly")]
   #[test]
-  #[ignore]
+  #[ignore = "nightly"]
   fn test_int_overflow() -> Result<()> {
     // TODO:
     Ok(())

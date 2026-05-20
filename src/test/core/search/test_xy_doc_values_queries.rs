@@ -158,8 +158,9 @@ mod base_xy_point_test_case_tests {
     run_case(|case, random| case.test_random_medium(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_random_big() -> Result<()> {
     run_case(|case, random| case.test_random_big(random))
   }
@@ -174,8 +175,9 @@ mod base_xy_point_test_case_tests {
     run_case(|case, random| case.test_random_distance(random))
   }
 
-  #[ignore]
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_random_distance_huge() -> Result<()> {
     run_case(|case, random| case.test_random_distance_huge(random))
   }
