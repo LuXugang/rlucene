@@ -167,6 +167,9 @@ impl TestUtil {
   pub fn check_index<T>(_dir: T) -> Result<()> {
     Ok(())
   }
+  pub fn check_index_with_level<T>(_dir: T, _level: i32) -> Result<()> {
+    Ok(())
+  }
 
   pub fn random_htmlish_string<R>(random: &mut R, num_elements: usize) -> String
   where
