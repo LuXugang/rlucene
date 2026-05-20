@@ -61,6 +61,8 @@ use crate::core::util::number::Number;
 use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test::core::index::test_doc_values_indexing::FieldImpl;
+#[cfg(test)]
+use crate::test::core::index::test_document_writer::MockIndexableField;
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
@@ -73,6 +75,8 @@ pub enum Fields {
   Field(Field),
   #[cfg(test)]
   FieldImpl(FieldImpl),
+  #[cfg(test)]
+  MockIndexableField(MockIndexableField),
   FloatDocValues(FloatDocValuesField),
   FloatField(FloatField),
   FloatPoint(FloatPoint),
@@ -110,6 +114,8 @@ macro_rules! dispatch_fields {
       Fields::Field($inner) => $body,
       #[cfg(test)]
       Fields::FieldImpl($inner) => $body,
+      #[cfg(test)]
+      Fields::MockIndexableField($inner) => $body,
       Fields::FloatDocValues($inner) => $body,
       Fields::FloatField($inner) => $body,
       Fields::FloatPoint($inner) => $body,
@@ -173,6 +179,8 @@ impl_from_for_enum!(
 );
 #[cfg(test)]
 impl_from_for_enum!(Fields, FieldImpl => FieldImpl);
+#[cfg(test)]
+impl_from_for_enum!(Fields, MockIndexableField => MockIndexableField);
 
 impl Display for Fields {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

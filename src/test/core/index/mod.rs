@@ -52,6 +52,7 @@ mod test_directory_reader_reopen;
 mod test_doc_count;
 pub(crate) mod test_doc_values_indexing;
 mod test_docs_and_positions;
+pub(crate) mod test_document_writer;
 mod test_exceed_max_term_length;
 mod test_field_invert_state;
 mod test_index_many_documents;
