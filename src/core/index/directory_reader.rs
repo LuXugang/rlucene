@@ -404,10 +404,13 @@ mod tests {
   use crate::core::document::field_type::FieldType;
   use crate::core::document::text_field::{TextField, text_field_type};
 
+  use crate::core::index::composite_reader::get_context;
   use crate::core::index::fields::Fields;
   use crate::core::index::index_reader::IndexReader;
+  use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
   use crate::core::index::index_writer_config::OpenMode;
+  use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::multi_reader::MultiReader;
 
@@ -419,18 +422,22 @@ mod tests {
   use crate::core::index::{BytesRef, directory_reader, field_infos, multi_terms};
   use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
   use crate::core::store::directory::{DirEnum, Directory};
-  use crate::core::util::error::lucene_error::Result;
+  use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::index::doc_helper;
   use crate::test::core::index::doc_helper::{DATA, DocHelper};
+  use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_field, new_index_writer_config_with_analyzer, new_log_merge_policy,
+    at_least, create_temp_dir_with_prefix, get_only_leaf_reader, new_directory_shared, new_field,
+    new_fs_directory, new_index_writer_config_with_analyzer, new_log_merge_policy,
     new_string_field, new_text_field, random,
   };
   use crate::test::core::util::test_util::TestUtil;
   use rand::Rng;
   use std::collections::{HashMap, HashSet};
   use std::sync::Arc;
+  use std::thread;
+  use std::time::Duration;
 
   use crate::core::index::index_options::IndexOptions;
   use crate::core::index::indexable_field::IndexableField;
@@ -574,6 +581,7 @@ mod tests {
     iw.close()?;
     Ok(())
   }
+  // TODO IMPORTANT StandardDirectoryReader#is_current()
   #[test]
   fn test_is_current() -> Result<()> {
     // let mut random = random();
@@ -1213,7 +1221,13 @@ mod tests {
 
   #[test]
   fn test_no_dir() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let temp_dir = create_temp_dir_with_prefix("doesnotexist")?;
+    let dir = new_fs_directory(&mut random, temp_dir)?;
+    match directory_reader::open(dir) {
+      Ok(_) => panic!("expected IndexNotFound"),
+      Err(err) => assert!(matches!(err, LuceneError::IndexNotFound(_))),
+    }
     Ok(())
   }
 
@@ -1225,7 +1239,44 @@ mod tests {
 
   #[test]
   fn test_unique_term_count() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+    let mut doc = Document::new();
+    doc.add(TextField::from_string(
+      "field",
+      "a b c d e f g h i j k l m n o p q r s t u v w x y z",
+      Store::No,
+    )?);
+    doc.add(TextField::from_string(
+      "number",
+      "0 1 2 3 4 5 6 7 8 9",
+      Store::No,
+    )?);
+    writer.add_document(doc.clone())?;
+    writer.add_document(doc.clone())?;
+    writer.commit()?;
+
+    let r = directory_reader::open(dir.clone())?;
+    let r1 = get_only_leaf_reader(&r)?;
+    assert_eq!(26, r1.terms("field")?.unwrap().size()?);
+    assert_eq!(10, r1.terms("number")?.unwrap().size()?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+    // TODO IMPORTANT: openIfChanged 未实现
+    let r2 = directory_reader::open_from_writer(&writer)?;
+    r.close()?;
+
+    let context = get_context(&r2)?;
+    for leaf_context in context.leaves()? {
+      assert_eq!(26, leaf_context.reader().terms("field")?.unwrap().size()?);
+      assert_eq!(10, leaf_context.reader().terms("number")?.unwrap().size()?);
+    }
+    r2.close()?;
+    writer.close()?;
     Ok(())
   }
 
@@ -1243,25 +1294,115 @@ mod tests {
 
   #[test]
   fn test_total_term_freq_cached() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    let mut d = Document::new();
+    d.add(TextField::from_string("f", "a a b", Store::No)?);
+    writer.add_document(d)?;
+    let r = directory_reader::open_from_writer(&writer)?;
+    writer.close()?;
+
+    if r.total_term_freq(&crate::core::index::term::Term::new(
+      "f",
+      BytesRef::from_string("b"),
+    ))?
+      != -1
+    {
+      assert_eq!(
+        1,
+        r.total_term_freq(&crate::core::index::term::Term::new(
+          "f",
+          BytesRef::from_string("b")
+        ))?
+      );
+      assert_eq!(
+        2,
+        r.total_term_freq(&crate::core::index::term::Term::new(
+          "f",
+          BytesRef::from_string("a")
+        ))?
+      );
+      assert_eq!(
+        1,
+        r.total_term_freq(&crate::core::index::term::Term::new(
+          "f",
+          BytesRef::from_string("b")
+        ))?
+      );
+    }
+    r.close()?;
     Ok(())
   }
 
   #[test]
   fn test_get_sum_doc_freq() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    let mut d = Document::new();
+    d.add(TextField::from_string("f", "a", Store::No)?);
+    writer.add_document(d)?;
+    let mut d = Document::new();
+    d.add(TextField::from_string("f", "b", Store::No)?);
+    writer.add_document(d)?;
+    let r = directory_reader::open_from_writer(&writer)?;
+    writer.close()?;
+
+    if r.get_sum_doc_freq("f")? != -1 {
+      assert_eq!(2, r.get_sum_doc_freq("f")?);
+    }
+    r.close()?;
     Ok(())
   }
 
   #[test]
   fn test_get_doc_count() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    let mut d = Document::new();
+    d.add(TextField::from_string("f", "a", Store::No)?);
+    writer.add_document(d)?;
+    let mut d = Document::new();
+    d.add(TextField::from_string("f", "a", Store::No)?);
+    writer.add_document(d)?;
+    let r = directory_reader::open_from_writer(&writer)?;
+    writer.close()?;
+
+    if r.get_doc_count("f")? != -1 {
+      assert_eq!(2, r.get_doc_count("f")?);
+    }
+    r.close()?;
     Ok(())
   }
 
   #[test]
   fn test_get_sum_total_term_freq() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    let mut d = Document::new();
+    d.add(TextField::from_string("f", "a b b", Store::No)?);
+    writer.add_document(d)?;
+    let mut d = Document::new();
+    d.add(TextField::from_string("f", "a a b", Store::No)?);
+    writer.add_document(d)?;
+    let r = directory_reader::open_from_writer(&writer)?;
+    writer.close()?;
+
+    if r.get_sum_total_term_freq("f")? != -1 {
+      assert_eq!(6, r.get_sum_total_term_freq("f")?);
+    }
+    r.close()?;
     Ok(())
   }
 
@@ -1273,31 +1414,128 @@ mod tests {
 
   #[test]
   fn test_oob_doc_id() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    writer.add_document(Document::new())?;
+    let r = directory_reader::open_from_writer(&writer)?;
+    writer.close()?;
+    let mut stored_fields = r.stored_fields()?;
+    stored_fields.document(0)?;
+    assert!(stored_fields.document(1).is_err());
+    r.close()?;
     Ok(())
   }
 
   #[test]
   fn test_try_inc_ref() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    writer.add_document(Document::new())?;
+    writer.commit()?;
+    let r = directory_reader::open(dir.clone())?;
+    assert!(r.try_inc_ref());
+    r.dec_ref()?;
+    r.close()?;
+    assert!(!r.try_inc_ref());
+    writer.close()?;
     Ok(())
   }
 
   #[test]
   fn test_stress_try_inc_ref() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    writer.add_document(Document::new())?;
+    writer.commit()?;
+    let r = directory_reader::open(dir.clone())?;
+    let num_threads = at_least(&mut random, 5);
+
+    thread::scope(|s| -> Result<()> {
+      let mut threads = Vec::new();
+      for _ in 0..num_threads {
+        threads.push(s.spawn(|| -> Result<()> {
+          while r.try_inc_ref() {
+            assert!(!r.has_deletions()?);
+            r.dec_ref()?;
+          }
+          assert!(!r.try_inc_ref());
+          Ok(())
+        }));
+      }
+
+      thread::sleep(Duration::from_millis(100));
+
+      assert!(r.try_inc_ref());
+      r.dec_ref()?;
+      r.close()?;
+
+      for thread in threads {
+        thread.join().expect("thread should not panic")?;
+      }
+      Ok(())
+    })?;
+
+    assert!(!r.try_inc_ref());
+    writer.close()?;
     Ok(())
   }
 
   #[test]
   fn test_load_certain_fields() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let mut field_to_type = HashMap::new();
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      &mut random,
+      "field1",
+      "foobar",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    doc.add(new_string_field(
+      &mut random,
+      "field2",
+      "foobaz",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+    let r = writer.get_reader()?;
+    writer.close()?;
+    let mut fields_to_load = HashSet::new();
+    let mut stored_fields = r.stored_fields()?;
+    assert_eq!(
+      0,
+      stored_fields
+        .document_with_fields(0, &fields_to_load)?
+        .get_fields()
+        .len()
+    );
+    fields_to_load.insert("field1".to_string());
+    let doc2 = stored_fields.document_with_fields(0, &fields_to_load)?;
+    assert_eq!(1, doc2.get_fields().len());
+    assert_eq!("foobar", doc2.get("field1")?.unwrap().as_ref());
+    r.close()?;
     Ok(())
   }
 
   #[test]
   fn test_index_exists_on_non_existent_directory() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let temp_dir = create_temp_dir_with_prefix("testIndexExistsOnNonExistentDirectory")?;
+    let dir = new_fs_directory(&mut random, temp_dir)?;
+    assert!(!directory_reader::index_exists(dir.as_ref())?);
     Ok(())
   }
 
