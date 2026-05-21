@@ -28,7 +28,6 @@ use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TextField, text_field_type};
-use crate::core::index::BytesRef;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
@@ -41,7 +40,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 #[cfg(feature = "nightly")]
 use crate::core::index::index_writer::MAX_STORED_STRING_LENGTH;
 use crate::core::index::index_writer::{
-  EmptyIndexWriterBase, IndexWriter, IndexWriterBase, read_field_infos,
+  EmptyIndexWriterBase, IndexWriter, IndexWriterBase, WRITE_LOCK_NAME, read_field_infos,
 };
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::index_writer_config::OpenMode;
@@ -67,6 +66,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::index::{BytesRef, CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::IndexOutput;
@@ -84,10 +84,10 @@ use crate::test::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
 use crate::test::core::analysis::token;
 use crate::test::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  get_only_leaf_reader, new_directory_shared, new_field, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_io_context, new_log_merge_policy,
-  new_log_merge_policy_with_merge_factor, new_searcher_with_reader, new_string_field,
-  new_text_field, random, random_from_seed, slow_file_exists,
+  create_temp_dir, get_only_leaf_reader, new_directory_shared, new_field, new_fs_directory,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
+  new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_searcher_with_reader,
+  new_string_field, new_text_field, random, random_from_seed, slow_file_exists,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -1225,7 +1225,95 @@ fn test_empty_fs_dir_with_no_lock() -> Result<()> {
 
 #[test]
 fn test_empty_dir_rollback() -> Result<()> {
-  // TODO : rollback 未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let orig_files = dir.list_all()?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  config.set_max_buffered_docs(2);
+  config.set_merge_policy(new_log_merge_policy(&mut random)?);
+  config.set_use_compound_file(false);
+  let writer = IndexWriter::new(dir.clone(), config)?;
+  let mut files = dir.list_all()?;
+
+  let extra_file_count = files.len() - orig_files.len();
+  if extra_file_count == 1 {
+    assert!(files.contains(&WRITE_LOCK_NAME.to_string()));
+  } else {
+    let mut sorted_orig_files = orig_files.clone();
+    sorted_orig_files.sort();
+    files.sort();
+    assert_eq!(sorted_orig_files, files);
+  }
+
+  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  custom_type.set_store_term_vectors(true)?;
+  custom_type.set_store_term_vector_positions(true)?;
+  custom_type.set_store_term_vector_offsets(true)?;
+
+  let mut field_types = HashMap::new();
+  let mut doc = Document::new();
+  doc.add(new_field(
+    &mut random,
+    "c",
+    "val",
+    &custom_type,
+    &mut field_types,
+  )?);
+  writer.add_document(doc)?;
+
+  let mut computed_extra_file_count = 0;
+  for file in dir.list_all()? {
+    if file == WRITE_LOCK_NAME
+      || file.starts_with(IndexFileNames::SEGMENTS)
+      || CODEC_FILE_PATTERN.is_match(&file)
+    {
+      let should_count = match file.rsplit_once('.') {
+        None => true,
+        Some((_, ext)) => !matches!(ext, "fdm" | "fdt" | "tvm" | "tvd" | "tmp"),
+      };
+      if should_count {
+        computed_extra_file_count += 1;
+      }
+    }
+  }
+  assert_eq!(
+    extra_file_count, computed_extra_file_count,
+    "only the stored and term vector files should exist in the directory"
+  );
+
+  let mut doc = Document::new();
+  doc.add(new_field(
+    &mut random,
+    "c",
+    "val",
+    &custom_type,
+    &mut field_types,
+  )?);
+  writer.add_document(doc)?;
+
+  assert!(
+    dir.list_all()?.len() > 5 + extra_file_count,
+    "flush should have occurred and files should have been created"
+  );
+
+  writer.rollback()?;
+  let all_files = dir.list_all()?;
+  assert_eq!(
+    orig_files.len() + extra_file_count,
+    all_files.len(),
+    "no files should exist in the directory after rollback"
+  );
+
+  writer.close()?;
+  let all_files = dir.list_all()?;
+  assert_eq!(
+    orig_files.len() + extra_file_count,
+    all_files.len(),
+    "expected a no-op close after IW.rollback()"
+  );
+
   Ok(())
 }
 
@@ -1948,21 +2036,53 @@ fn test_double_close() -> Result<()> {
   ));
   w.add_document(doc)?;
   w.close()?;
-  // TODO IMPORTANT // TODO: roll_back未实现 再次 close 有 bug
-  // w.close()?;
-
+  w.close()?;
   Ok(())
 }
 
 #[test]
 fn test_rollback_then_close() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let w = IndexWriter::new(
+    dir,
+    new_index_writer_config_with_analyzer(&mut random, analyzer),
+  )?;
+
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    BytesRef::from_string("foo!"),
+  ));
+  w.add_document(doc)?;
+  w.rollback()?;
+  // Close after rollback should have no effect
+  w.close()?;
+
   Ok(())
 }
 
 #[test]
 fn test_close_then_rollback() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let w = IndexWriter::new(
+    dir,
+    new_index_writer_config_with_analyzer(&mut random, analyzer),
+  )?;
+
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    BytesRef::from_string("foo!"),
+  ));
+  w.add_document(doc)?;
+  w.close()?;
+  // Rollback after close should have no effect
+  w.rollback()?;
+
   Ok(())
 }
 
@@ -2110,13 +2230,109 @@ fn test_commit_immediately_after_nrt_reopen() -> Result<()> {
 
 #[test]
 fn test_pending_delete_dv_generation() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  iwc.set_use_compound_file(false);
+  iwc.set_merge_policy(NoMergePolicy::default());
+  iwc.set_max_buffered_docs(2);
+  iwc.set_ram_buffer_size_mb(-1.0);
+  let mut w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut d = Document::new();
+  d.add(StringField::from_string("id", "1", Store::Yes)?);
+  d.add(NumericDocValuesField::new("nvd", 1));
+  w.add_document(d)?;
+
+  let mut d = Document::new();
+  d.add(StringField::from_string("id", "2", Store::Yes)?);
+  d.add(NumericDocValuesField::new("nvd", 2));
+  w.add_document(d)?;
+  w.flush()?;
+
+  let mut d = Document::new();
+  d.add(StringField::from_string("id", "1", Store::Yes)?);
+  d.add(NumericDocValuesField::new("nvd", 1));
+  w.update_document_with_term(Term::from_text("id", "1"), d)?;
+  w.commit()?;
+
+  let files: HashSet<String> = dir.list_all()?.into_iter().collect();
+  let num_iters = 10 + random.random_range(0..50);
+  let mut to_close = Vec::new();
+  for _ in 0..num_iters {
+    if random.random_bool(0.5) {
+      let mut d = Document::new();
+      d.add(StringField::from_string("id", "1", Store::Yes)?);
+      d.add(NumericDocValuesField::new("nvd", 1));
+      w.update_document_with_term(Term::from_text("id", "1"), d)?;
+    } else if random.random_bool(0.5) {
+      w.delete_documents_with_terms(vec![Term::from_text("id", "2")])?;
+    } else {
+      w.update_numeric_doc_value(Term::from_text("id", "1"), "nvd", 2)?;
+    }
+    w.prepare_commit()?;
+    let mut new_files = dir.list_all()?;
+    new_files.retain(|file| !files.contains(file));
+    let random_file = new_files[random.random_range(0..new_files.len())].clone();
+    to_close.push(dir.open_input(&random_file, &IOContext::default_io_context()?)?);
+    w.rollback()?;
+    drop(w);
+
+    let analyzer = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    iwc.set_use_compound_file(false);
+    iwc.set_merge_policy(NoMergePolicy::default());
+    iwc.set_max_buffered_docs(2);
+    iwc.set_ram_buffer_size_mb(-1.0);
+    w = IndexWriter::new(dir.clone(), iwc)?;
+    assert!(dir.delete_file(&random_file).is_err());
+  }
+
+  drop(to_close);
+  w.close()?;
+
   Ok(())
 }
 
 #[test]
 fn test_pending_deletions_rollback_with_reader() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut d = Document::new();
+  d.add(StringField::from_string("id", "1", Store::Yes)?);
+  d.add(NumericDocValuesField::new("numval", 1));
+  w.add_document(d.clone())?;
+  w.commit()?;
+  w.add_document(d.clone())?;
+  w.flush()?;
+  let reader = directory_reader::open_from_writer(&w)?;
+  w.rollback()?;
+  drop(w);
+
+  // try-delete superfluous files (some will fail due to open readers)
+  let analyzer = MockAnalyzer::new(&mut random);
+  let iwc2 = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let writer = IndexWriter::new(dir.clone(), iwc2)?;
+  writer.close()?;
+  drop(writer);
+
+  // test that we can index on top of pending deletions
+  let analyzer = MockAnalyzer::new(&mut random);
+  let iwc3 = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  w = IndexWriter::new(dir.clone(), iwc3)?;
+  w.add_document(d)?;
+  w.commit()?;
+
+  reader.close()?;
+  w.close()?;
+
   Ok(())
 }
 
