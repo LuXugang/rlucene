@@ -278,8 +278,7 @@ pub mod tests {
     assert_eq!(0, flush_control.active_bytes(None));
     Ok(())
   }
-
-  // TODO IMPORTANT 多线程死锁
+  #[test]
   fn test_flush_doc_count() -> Result<()> {
     let mut random = random();
     let num_threads = [2 + at_least(&mut random, 1), 1];
@@ -546,7 +545,7 @@ pub mod tests {
   ) where
     D: Directory,
   {
-    for (_id, next) in flush_control.per_thread_pool.iterator(None) {
+    for (_id, next) in flush_control.per_thread_pool.iterator() {
       if next.state.is_flush_pending() {
         pending.push(next);
       } else {
@@ -598,7 +597,7 @@ pub mod tests {
     D: Directory,
   {
     let mut _bytes_used = 0;
-    for (_id, next) in flush_control.per_thread_pool.iterator(None) {
+    for (_id, next) in flush_control.per_thread_pool.iterator() {
       if !next.state.is_flush_pending() {
         _bytes_used += next.state.get_last_committed_bytes_used();
       }

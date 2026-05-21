@@ -570,7 +570,7 @@ where
       num_pending = inner.num_pending;
     }
     if num_pending > 0 && !full_flush {
-      let dwpts = self.per_thread_pool.iterator(None);
+      let dwpts = self.per_thread_pool.iterator();
       for (id, next) in &dwpts {
         if next.state.is_flush_pending() && next.try_lock() {
           let result = (|| {
@@ -768,7 +768,7 @@ where
     Ok(seq_no)
   }
   pub(crate) fn assert_active_delete_queue(&self, queue: &Arc<DocumentsWriterDeleteQueue>) -> bool {
-    let dwpts = self.per_thread_pool.iterator(None);
+    let dwpts = self.per_thread_pool.iterator();
     for (_, next) in dwpts.iter() {
       debug_assert!(
         Arc::ptr_eq(&next.state.delete_queue, queue),
@@ -966,7 +966,7 @@ where
     let mut max_ram_so_far: i64 = -1;
     let mut count = 0;
 
-    for (_id, next) in self.per_thread_pool.iterator(None) {
+    for (_id, next) in self.per_thread_pool.iterator() {
       if !next.state.is_flush_pending() && next.state.get_num_docs_in_ram() > 0 {
         let next_ram = next.state.get_last_committed_bytes_used();
 

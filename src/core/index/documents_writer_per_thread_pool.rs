@@ -209,11 +209,8 @@ where
     self.free_list.add_and_unlock(v, ram_bytes_used);
     Ok(())
   }
-  pub(crate) fn iterator(&self, inner: Option<&Inner<D>>) -> HashMap<String, Arc<DwptWrapper<D>>> {
-    let inner = match inner {
-      Some(s) => s,
-      None => &*self.inner.lock(),
-    };
+  pub(crate) fn iterator(&self) -> HashMap<String, Arc<DwptWrapper<D>>> {
+    let inner = self.inner.lock();
     inner.dwpts.clone()
   }
 
@@ -224,12 +221,11 @@ where
     F1: Fn(&Arc<DwptWrapper<D>>) -> bool,
   {
     let mut list = Vec::new();
-    let inner = self.inner.lock();
-    let cloned_dwpt = self.iterator(Some(&inner));
+    let cloned_dwpt = self.iterator();
     for (id, state) in cloned_dwpt.iter() {
       if predicate(state) {
         state.lock();
-        if self.is_registered_with_state(id, Some(&inner)) {
+        if self.is_registered_with_state(id, None) {
           list.push(state.clone());
         } else {
           state.state.unlock();
