@@ -496,7 +496,7 @@ where
         collectors.push(Some(collector));
       }
       let mut list_tasks = Vec::with_capacity(leaf_slices.len());
-      // TODO IMPORTANT： 这里需要使用多线程,但是设计较大改动 暂时不懂
+      // TODO IMPORTANT： 多线程查询 不支持
       for i in 0..leaf_slices.len() {
         let leaves = leaf_slices[i].partitions.as_slice();
         let mut collector = collectors[i].take().unwrap();

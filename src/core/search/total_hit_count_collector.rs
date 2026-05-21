@@ -158,7 +158,7 @@ mod tests {
     let reader = writer.get_reader()?;
     writer.close()?;
 
-    // TODO IMPORTANT 多线程未实现
+    // TODO IMPORTANT 多线程查询未实现
     let searcher = new_searcher_with_reader(reader)?;
     let collector_manager = TotalHitCountCollectorManager::new(searcher.get_slices()?.as_slice());
     let mut total_hits =

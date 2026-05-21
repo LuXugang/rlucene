@@ -597,7 +597,7 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.close()?;
     Ok(())
   }
-  // TODO 多线程未实现
+  // TODO 多线程查询 未实现
   fn test_threads<R>(&self, _random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

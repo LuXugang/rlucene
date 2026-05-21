@@ -178,7 +178,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       postings_tester.test_fields(&fields_producer)?;
 
       let mut opts: HashSet<Option_> = Option_::iter().collect();
-      // TODO IMPORTANT 多线程不支持
+      // TODO IMPORTANT 多线程查询不支持
       opts.remove(&Option_::Threads);
 
       postings_tester.test_terms(

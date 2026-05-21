@@ -1953,7 +1953,7 @@ impl RandomPostingsTester {
     self.test_fields(&fields_producer)?;
 
     let mut all_options: HashSet<Option_> = Option_::iter().collect();
-    // TODO IMPORTANT 多线程不支持
+    // TODO IMPORTANT 多线程查询不支持
     all_options.remove(&Option_::Threads);
 
     let all_index_options: Vec<IndexOptions> = IndexOptions::values().collect();

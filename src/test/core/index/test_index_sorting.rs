@@ -19,6 +19,7 @@ use crate::core::document::document::Document;
 use crate::core::document::double_doc_values_field::DoubleDocValuesField;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::document::float_doc_values_field::FloatDocValuesField;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
@@ -37,6 +38,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, SOURCE, SOURCE_FLUSH, SOURCE_MERGE};
 use crate::core::index::indexable_field::IndexableField;
+use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicyEnum;
@@ -76,9 +78,12 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_text_field, random, rarely,
 };
 use crate::test::core::util::test_util::TestUtil;
-use rand::{Rng, RngExt};
+use rand::prelude::StdRng;
+use rand::{Rng, RngExt, SeedableRng};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::{Arc, Barrier, Mutex};
+use std::thread;
 
 #[allow(dead_code)] // for quick search
 pub struct TestIndexSorting;
@@ -2148,9 +2153,90 @@ fn test_multi_valued_random1() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-#[test]
+// TODO IMPORTANT 多线程索引 BUG
 fn test_concurrent_updates() -> Result<()> {
-  // TODO 多线程未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Long)?])?;
+  iwc.set_index_sort(index_sort)?;
+
+  let writer = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  let values = Arc::new(Mutex::new(HashMap::new()));
+
+  let num_docs = at_least(&mut random, 100) as usize;
+  let update_count = AtomicI32::new(at_least(&mut random, 1000));
+  let latch = Arc::new(Barrier::new(3));
+
+  thread::scope(|scope| -> Result<()> {
+    let mut handles = Vec::new();
+    for _ in 0..2 {
+      let mut thread_random = StdRng::seed_from_u64(random.random());
+      let latch = latch.clone();
+      let writer = writer.clone();
+      let values = values.clone();
+      let update_count = &update_count;
+      handles.push(scope.spawn(move || -> Result<()> {
+        latch.wait();
+        while update_count.fetch_sub(1, Ordering::SeqCst) > 0 {
+          let id = thread_random.random_range(0..num_docs);
+          let value = thread_random.random_range(0..20);
+          let mut doc = Document::new();
+          doc.add(StringField::from_string("id", id.to_string(), Store::No)?);
+          doc.add(NumericDocValuesField::new("foo", value));
+
+          {
+            let mut values = values.lock().expect("values mutex poisoned");
+            writer.update_document_with_term(Term::from_text("id", id.to_string()), doc)?;
+            values.insert(id, value);
+          }
+
+          match thread_random.random_range(0..10) {
+            0 | 1 => {
+              directory_reader::open_from_writer(&writer)?.close()?;
+            },
+            2 => {
+              writer.force_merge(3)?;
+            },
+            _ => {},
+          }
+        }
+        Ok(())
+      }));
+    }
+
+    latch.wait();
+
+    for handle in handles {
+      handle
+        .join()
+        .map_err(|_| LuceneError::illegal_state("update thread panicked"))??;
+    }
+    Ok(())
+  })?;
+
+  writer.force_merge(1)?;
+  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
+  let searcher = new_searcher_with_reader(reader.clone())?;
+  let values = values.lock().expect("values mutex poisoned");
+
+  for i in 0..num_docs {
+    let top_docs = searcher.search(TermQuery::new(Term::from_text("id", i.to_string())), 1)?;
+    if let Some(value) = values.get(&i) {
+      assert_eq!(1, top_docs.total_hits.value());
+      let mut dvs = MultiDocValues::get_numeric_values(&reader, "foo")?.unwrap();
+      let doc_id = top_docs.score_docs[0].doc;
+      assert_eq!(doc_id, dvs.advance(doc_id)?);
+      assert_eq!(*value, dvs.long_value()?);
+    } else {
+      assert_eq!(0, top_docs.total_hits.value());
+    }
+  }
+
+  reader.close()?;
+  writer.close()?;
   Ok(())
 }
 #[test]
@@ -2209,7 +2295,96 @@ fn test_bad_dv_update() -> Result<()> {
 }
 #[test]
 fn test_concurrent_dv_updates() -> Result<()> {
-  // TODO 多线程未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Long)?])?;
+  iwc.set_index_sort(index_sort)?;
+
+  let writer = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  let values = Arc::new(Mutex::new(HashMap::new()));
+
+  let num_docs = at_least(&mut random, 100) as usize;
+  for i in 0..num_docs {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+    doc.add(NumericDocValuesField::new(
+      "foo",
+      random.random::<i32>() as i64,
+    ));
+    doc.add(NumericDocValuesField::new("bar", -1));
+    writer.add_document(doc)?;
+    values.lock().expect("values mutex poisoned").insert(i, -1);
+  }
+
+  let update_count = AtomicI32::new(at_least(&mut random, 1000));
+  let latch = Arc::new(Barrier::new(3));
+
+  thread::scope(|scope| -> Result<()> {
+    let mut handles = Vec::new();
+    for _ in 0..2 {
+      let mut thread_random = StdRng::seed_from_u64(random.random());
+      let latch = latch.clone();
+      let writer = writer.clone();
+      let values = values.clone();
+      let update_count = &update_count;
+      handles.push(scope.spawn(move || -> Result<()> {
+        latch.wait();
+        while update_count.fetch_sub(1, Ordering::SeqCst) > 0 {
+          let id = thread_random.random_range(0..num_docs);
+          let value = thread_random.random_range(0..20);
+
+          {
+            let mut values = values.lock().expect("values mutex poisoned");
+            writer.update_doc_values(
+              Term::from_text("id", id.to_string()),
+              vec![NumericDocValuesField::new("bar", value).into()],
+            )?;
+            values.insert(id, value);
+          }
+
+          match thread_random.random_range(0..10) {
+            0 | 1 => {
+              directory_reader::open_from_writer(&writer)?.close()?;
+            },
+            2 => {
+              writer.force_merge(3)?;
+            },
+            _ => {},
+          }
+        }
+        Ok(())
+      }));
+    }
+
+    latch.wait();
+
+    for handle in handles {
+      handle
+        .join()
+        .map_err(|_| LuceneError::illegal_state("dv update thread panicked"))??;
+    }
+    Ok(())
+  })?;
+
+  writer.force_merge(1)?;
+  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
+  let searcher = new_searcher_with_reader(reader.clone())?;
+  let values = values.lock().expect("values mutex poisoned");
+
+  for i in 0..num_docs {
+    let top_docs = searcher.search(TermQuery::new(Term::from_text("id", i.to_string())), 1)?;
+    assert_eq!(1, top_docs.total_hits.value());
+    let mut dvs = MultiDocValues::get_numeric_values(&reader, "bar")?.unwrap();
+    let hit_doc = top_docs.score_docs[0].doc;
+    assert_eq!(hit_doc, dvs.advance(hit_doc)?);
+    assert_eq!(*values.get(&i).unwrap(), dvs.long_value()?);
+  }
+
+  reader.close()?;
+  writer.close()?;
   Ok(())
 }
 #[test]
@@ -2912,7 +3087,69 @@ fn test_index_sort_on_sparse_field() -> Result<()> {
 
 #[test]
 fn test_wrong_sort_field_type() -> Result<()> {
-  // TODO rollback未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let dvs: Vec<Fields> = vec![
+    SortedDocValuesField::new("field", new_bytes_ref_from_string(&mut random, "")?).into(),
+    SortedSetDocValuesField::new("field", new_bytes_ref_from_string(&mut random, "")?).into(),
+    NumericDocValuesField::new("field", 42).into(),
+    SortedNumericDocValuesField::new("field", 42).into(),
+  ];
+
+  let sort_fields: Vec<SortFieldEnum> = vec![
+    SortField::new(Some("field"), SortFieldType::String)?.into(),
+    SortedSetSortField::new("field", false)?.into(),
+    SortField::new(Some("field"), SortFieldType::Int)?.into(),
+    SortedNumericSortField::new("field", SortFieldType::Int)?.into(),
+  ];
+
+  for (i, sort_field) in sort_fields.iter().enumerate() {
+    for (j, dv) in dvs.iter().enumerate() {
+      if i == j {
+        continue;
+      }
+
+      let index_sort = Sort::with_fields(vec![sort_field.clone()])?;
+      let analyzer = MockAnalyzer::new(&mut random);
+      let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+      iwc.set_index_sort(index_sort)?;
+      let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+      let mut doc = Document::new();
+      doc.add(dv.clone());
+      let err = writer.add_document(doc.clone()).unwrap_err();
+      match err {
+        LuceneError::IllegalArgument(msg) => {
+          assert!(msg.to_string().contains("expected field [field] to be "));
+        },
+        _ => unreachable!("expected IllegalArgument"),
+      }
+
+      doc.clear();
+      doc.add(dvs[i].clone());
+      writer.add_document(doc.clone())?;
+      doc.add(dv.clone());
+      let err = writer.add_document(doc).unwrap_err();
+      match err {
+        LuceneError::IllegalArgument(msg) => {
+          assert_eq!(
+            format!(
+              "Inconsistency of field data structures across documents for field [field] of doc [2]. doc values type: expected '{}', but it has '{}'.",
+              dvs[i].field_type().doc_values_type(),
+              dv.field_type().doc_values_type()
+            ),
+            msg.to_string()
+          );
+        },
+        _ => unreachable!("expected IllegalArgument"),
+      }
+
+      writer.rollback()?;
+      writer.close()?;
+    }
+  }
+
   Ok(())
 }
 
@@ -3411,7 +3648,69 @@ fn test_parent_field_not_configured() -> Result<()> {
 
 #[test]
 fn test_block_contains_parent_field() -> Result<()> {
-  // TODO 多线程未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let parent_field = "parent";
+  iwc.set_parent_field(parent_field);
+  let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Int)?])?;
+  iwc.set_index_sort(index_sort)?;
+
+  let writer = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+
+  let cases = if random.random_bool(0.5) {
+    vec![0, 1]
+  } else {
+    vec![1, 0]
+  };
+  let latch = Arc::new(Barrier::new(cases.len() + 1));
+  thread::scope(|scope| -> Result<()> {
+    let mut handles = Vec::new();
+    for case in cases {
+      let writer = writer.clone();
+      let latch = latch.clone();
+      handles.push(scope.spawn(move || -> Result<()> {
+        latch.wait();
+        let err = if case == 0 {
+          let mut doc = Document::new();
+          doc.add(NumericDocValuesField::new("parent", 0));
+          writer
+            .add_documents(vec![doc, Document::new()])
+            .unwrap_err()
+        } else {
+          let mut doc = Document::new();
+          doc.add(NumericDocValuesField::new("parent", 0));
+          writer
+            .add_documents(vec![Document::new(), doc])
+            .unwrap_err()
+        };
+
+        match err {
+          LuceneError::IllegalArgument(msg) => {
+            assert_eq!(
+              "\"parent\" is a reserved field and should not be added to any document",
+              msg.to_string()
+            );
+          },
+          _ => unreachable!("expected IllegalArgument"),
+        }
+        Ok(())
+      }));
+    }
+
+    latch.wait();
+
+    for handle in handles {
+      handle
+        .join()
+        .map_err(|_| LuceneError::illegal_state("block parent field thread panicked"))??;
+    }
+    Ok(())
+  })?;
+
+  writer.close()?;
   Ok(())
 }
 

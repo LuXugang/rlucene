@@ -1378,7 +1378,7 @@ mod tests {
     let searcher = new_searcher_with_reader(multireader)?;
     assert_eq!(0, searcher.search(query.clone(), 10)?.total_hits.value());
 
-    // TODO IMPORTATNT 多线程未实现
+    // TODO IMPORTANT 多线程未实现
     Ok(())
   }
   #[test]

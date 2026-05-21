@@ -475,7 +475,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
 
     let reader =
       Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?);
-    // TODO IMPORTANT 多线程 BUG
+    // TODO IMPORTANT 多线程查询 BUG
     let concurrent_reads = 1;
     let reads_per_thread = at_least(random, 50);
     let mut read_queries = Vec::new();

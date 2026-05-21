@@ -4081,7 +4081,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     let reader =
       Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?);
-    let num_threads = 1; // TODO IMPORTANT 多线程 BUG
+    let num_threads = 1; // TODO IMPORTANT 多线程查询 BUG
 
     thread::scope(|scope| -> Result<()> {
       let mut handles = Vec::new();
@@ -4217,7 +4217,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     for _ in 0..10 {
       let reader =
         Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?);
-      let num_threads = 1; // TODO IMPORTANT 多线程未实现
+      let num_threads = 1; // TODO IMPORTANT 多线程查询未实现
 
       thread::scope(|scope| -> Result<()> {
         let mut handles = Vec::new();

@@ -2853,7 +2853,7 @@ fn test_set_index_created_version() -> Result<()> {
   Ok(())
 }
 
-// TODO IMPORTANT 多线程死锁
+// TODO IMPORTANT 多线程索引BUG
 fn test_flush_while_starting_new_threads() -> Result<()> {
   let mut random = random();
 

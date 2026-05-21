@@ -92,7 +92,7 @@ pub trait AbstractKnnVectorQuery: QueryBase {
     let knn_collector_manager =
       TimeLimitingKnnCollectorManager::new(kcm, index_searcher.get_timeout::<()>());
 
-    // TODO IMPORTANT 多线程不支持
+    // TODO IMPORTANT 多线程查询不支持
     let leaf_reader_contexts = index_searcher.get_leaf_contexts()?;
 
     let mut per_leaf_results = Vec::with_capacity(leaf_reader_contexts.len());
