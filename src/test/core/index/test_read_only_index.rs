@@ -30,7 +30,8 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 };
 use std::collections::HashMap;
 
-pub struct TestReadOnlyIndex;
+#[allow(dead_code)] // for quick search
+struct TestReadOnlyIndex;
 
 const LONG_TERM: &str = "longtermlongtermlongtermlongtermlongtermlongtermlongtermlongtermlongtermlongtermlongtermlongtermlongtermlongtermlongtermlongtermlongtermlongterm";
 const TEXT_PREFIX: &str = "This is the text to be indexed. ";

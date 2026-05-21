@@ -51,7 +51,7 @@ use rand::seq::SliceRandom;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 #[allow(dead_code)] // for quick search
-pub struct TestSegmentToThreadMapping;
+struct TestSegmentToThreadMapping;
 
 #[derive(Clone)]
 struct DummyIndexReader {
