@@ -432,7 +432,15 @@ impl MergeScheduler for MyMergeScheduler {
   }
 }
 
-// TODO IMPORTANT : roll_back未实现导致这个测试不能通过
+#[test]
+fn test() -> Result<()> {
+  for _i in 0..50 {
+    test_no_wait_close()?;
+  }
+  Ok(())
+}
+
+#[test]
 fn test_no_wait_close() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
