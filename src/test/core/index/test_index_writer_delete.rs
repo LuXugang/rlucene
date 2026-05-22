@@ -18,6 +18,8 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+#[cfg(feature = "nightly")]
+use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::composite_reader::get_context;
@@ -35,12 +37,17 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::analysis::mock_tokenizer;
+use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  new_string_field, new_text_field, random,
+  at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, new_string_field, new_text_field, random,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
+#[cfg(feature = "nightly")]
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::{Arc, Barrier, Condvar, Mutex};
+use std::thread;
+use std::time::Duration;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterDelete;
@@ -244,27 +251,266 @@ fn test_batch_deletes() -> Result<()> {
 }
 #[test]
 fn test_delete_all_simple() -> Result<()> {
-  // TODO delete_all未实现
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mut field_types = HashMap::new();
+
+  let a = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  iwc.set_max_buffered_docs(2);
+
+  let mut modifier = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut id = 0;
+  let value = 100;
+
+  for _ in 0..7 {
+    id += 1;
+    add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+  }
+  modifier.commit()?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  assert_eq!(7, reader.num_docs()?);
+  reader.close()?;
+
+  add_doc(&mut random, &mut modifier, 99, value, &mut field_types)?;
+
+  modifier.delete_all()?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  assert_eq!(7, reader.num_docs()?);
+  reader.close()?;
+
+  add_doc(&mut random, &mut modifier, 101, value, &mut field_types)?;
+  update_doc(&mut random, &mut modifier, 102, value, &mut field_types)?;
+
+  modifier.commit()?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  assert_eq!(2, reader.num_docs()?);
+  reader.close()?;
+
+  modifier.close()?;
   Ok(())
 }
-#[test]
 fn test_delete_all_no_dead_lock() -> Result<()> {
-  // TODO 多线程未实现
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let iwc = new_index_writer_config(&mut random);
+  // TODO IMPORTANT: MockRandomMergePolicy 未实现
+  let modifier = Arc::new(RandomIndexWriter::with_config(
+    &mut random,
+    dir.clone(),
+    iwc,
+  ));
+  let num_threads = at_least(&mut random, 2) as usize;
+  let latch = Arc::new(Barrier::new(num_threads + 1));
+  let done_latch = Arc::new((Mutex::new(0_usize), Condvar::new()));
+  let mut threads = Vec::new();
+
+  for i in 0..num_threads {
+    let modifier = modifier.clone();
+    let latch = latch.clone();
+    let done_latch = done_latch.clone();
+    threads.push(thread::spawn(move || -> Result<()> {
+      let mut id = (i as i32) * 1000;
+      let value = 100;
+      latch.wait();
+      let result = (|| -> Result<()> {
+        for _ in 0..1000 {
+          let mut doc = Document::new();
+          doc.add(TextField::from_string("content", "aaa", Store::No)?);
+          doc.add(StringField::from_string("id", id.to_string(), Store::Yes)?);
+          id += 1;
+          doc.add(StringField::from_string(
+            "value",
+            value.to_string(),
+            Store::No,
+          )?);
+          doc.add(NumericDocValuesField::new("dv", value as i64));
+          modifier.add_document(doc)?;
+        }
+        Ok(())
+      })();
+      let (lock, cvar) = &*done_latch;
+      *lock.lock().unwrap() += 1;
+      cvar.notify_one();
+      result
+    }));
+  }
+
+  latch.wait();
+  loop {
+    let (lock, cvar) = &*done_latch;
+    let done_count = lock.lock().unwrap();
+    let (done_count, _) = cvar
+      .wait_timeout_while(done_count, Duration::from_millis(1), |done_count| {
+        *done_count < num_threads
+      })
+      .unwrap();
+    if *done_count >= num_threads {
+      break;
+    }
+    drop(done_count);
+    modifier.w.delete_all()?;
+  }
+
+  modifier.w.delete_all()?;
+  for thread in threads {
+    match thread.join() {
+      Ok(result) => result?,
+      Err(e) => std::panic::resume_unwind(e),
+    }
+  }
+
+  modifier.close()?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  assert_eq!(0, reader.max_doc()?);
+  assert_eq!(0, reader.num_docs()?);
+  assert_eq!(0, reader.num_deleted_docs()?);
+  reader.close()?;
+
   Ok(())
 }
 #[test]
 fn test_delete_all_rollback() -> Result<()> {
-  // TODO delete_all未实现
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mut field_types = HashMap::new();
+
+  let a = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  iwc.set_max_buffered_docs(2);
+
+  let mut modifier = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut id = 0;
+  let value = 100;
+
+  for _ in 0..7 {
+    id += 1;
+    add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+  }
+  modifier.commit()?;
+
+  id += 1;
+  add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  assert_eq!(7, reader.num_docs()?);
+  reader.close()?;
+
+  modifier.delete_all()?;
+
+  modifier.rollback()?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  assert_eq!(7, reader.num_docs()?);
+  reader.close()?;
+
   Ok(())
 }
 #[test]
 fn test_delete_all_nrt() -> Result<()> {
-  // TODO delete_all未实现
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mut field_types = HashMap::new();
+
+  let a = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  iwc.set_max_buffered_docs(2);
+
+  let mut modifier = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut id = 0;
+  let value = 100;
+
+  for _ in 0..7 {
+    id += 1;
+    add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+  }
+  modifier.commit()?;
+
+  let reader = directory_reader::open_from_writer(&modifier)?;
+  assert_eq!(7, reader.num_docs()?);
+  reader.close()?;
+
+  id += 1;
+  add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+  id += 1;
+  add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+
+  modifier.delete_all()?;
+
+  let reader = directory_reader::open_from_writer(&modifier)?;
+  assert_eq!(0, reader.num_docs()?);
+  reader.close()?;
+
+  modifier.rollback()?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  assert_eq!(7, reader.num_docs()?);
+  reader.close()?;
+
   Ok(())
 }
+#[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_delete_all_repeated() -> Result<()> {
-  // TODO delete_all未实现
+  let breaking_field_count = 50_000_000_i64;
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mut conf = new_index_writer_config(&mut random);
+  conf.set_max_buffered_docs(1000);
+  conf.set_ram_buffer_size_mb(1000.0);
+  conf.get_base_mut().per_thread_hard_limit_mb = 1000;
+  conf.get_base_mut().check_pending_flush_on_update = false;
+
+  let modifier = Arc::new(IndexWriter::new(dir.clone(), conf)?);
+  let fields_per_doc = 1_000_i64;
+  let num_fields = Arc::new(AtomicI64::new(0));
+  let n_threads = at_least(&mut random, 8) as usize;
+  let mut threads = Vec::new();
+
+  for _ in 0..n_threads {
+    let modifier = modifier.clone();
+    let num_fields = num_fields.clone();
+    threads.push(thread::spawn(move || -> Result<()> {
+      while num_fields.fetch_add(fields_per_doc, Ordering::SeqCst) < breaking_field_count {
+        let mut document = Document::new();
+        for i in 0..fields_per_doc {
+          document.add(StoredField::from_string(format!("field{i}"), "")?);
+        }
+        modifier.add_document(document)?;
+        modifier.delete_all()?;
+      }
+      Ok(())
+    }));
+  }
+
+  for thread in threads {
+    match thread.join() {
+      Ok(result) => result?,
+      Err(e) => std::panic::resume_unwind(e),
+    }
+  }
+
+  let mut document = Document::new();
+  for i in 0..fields_per_doc {
+    document.add(StoredField::from_string(format!("field{i}"), "")?);
+  }
+  modifier.add_document(document)?;
+  modifier.flush()?;
+  modifier.close()?;
+
   Ok(())
 }
 fn update_doc<D, L, B, R>(
@@ -603,6 +849,42 @@ fn test_only_deletes_delete_all_docs() -> Result<()> {
 }
 #[test]
 fn test_merging_after_delete_all() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_max_buffered_docs(2);
+
+  let mut mp = LogMergePolicy::log_doc();
+  mp.set_min_merge_docs(1);
+  iwc.set_merge_policy(mp);
+  iwc.set_merge_scheduler(SerialMergeScheduler::new());
+
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+  for i in 0..10 {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+    writer.add_document(doc)?;
+  }
+
+  writer.commit()?;
+  writer.delete_all()?;
+
+  for i in 0..100 {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+    writer.add_document(doc)?;
+  }
+
+  writer.force_merge(1)?;
+
+  let reader = directory_reader::open_from_writer(&writer)?;
+  assert_eq!(1, get_context(&reader)?.leaves()?.len());
+  reader.close()?;
+
+  writer.close()?;
+
   Ok(())
 }

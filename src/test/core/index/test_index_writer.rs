@@ -2745,14 +2745,13 @@ fn test_apply_deletes_without_flushes() -> Result<()> {
   w.close()?;
   Ok(())
 }
-
+#[test]
 fn test_deletes_applied_on_flush() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-
+  let mut field_types = HashMap::new();
   {
     let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
-    let mut field_types = HashMap::new();
     let mut doc = Document::new();
     doc.add(new_field(
       &mut random,
@@ -2805,7 +2804,6 @@ fn test_deletes_applied_on_flush() -> Result<()> {
   {
     let w = RandomIndexWriter::with_config(&mut random, dir.clone(), IndexWriterConfig::new());
     let num_docs = random.random_range(1..100);
-    let mut field_types = HashMap::new();
     for i in 0..num_docs {
       let mut doc = Document::new();
       doc.add(new_field(
@@ -3057,8 +3055,9 @@ fn test_fully_deleted_segments_release_files() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let config = new_index_writer_config(&mut random);
-  // TODO: 没有定义flush条件
+  let mut config = new_index_writer_config(&mut random);
+  config.set_ram_buffer_size_mb(i32::MAX as f64);
+  config.set_max_buffered_docs(2);
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   let mut d = Document::new();
@@ -3460,7 +3459,7 @@ fn test_flush_while_starting_new_threads() -> Result<()> {
 
 #[test]
 fn test_refresh_and_rollback_concurrently() -> Result<()> {
-  // TODO IMPORTANT 多线程未实现
+  // TODO IMPORTANT 多线程 SearcherManager 未实现
   Ok(())
 }
 

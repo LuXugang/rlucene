@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::document::Document;
+use crate::core::document::field::Store;
+use crate::core::document::string_field::StringField;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::{self, DirectoryReader};
 use crate::core::index::index_reader::IndexReader;
@@ -34,6 +37,9 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_log_merge_policy_with_merge_factor, new_searcher_with_reader, random,
 };
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterCommit;
@@ -261,7 +267,75 @@ fn test_commit_on_close_force_merge() -> Result<()> {
 }
 #[test]
 fn test_commit_thread_safety() -> Result<()> {
-  // TODO: 多线程未实现
+  const NUM_THREADS: usize = 5;
+  const MAX_ITERATIONS: usize = 10;
+
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
+  let writer = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  writer.commit()?;
+
+  let failed = Arc::new(AtomicBool::new(false));
+  let mut threads = Vec::new();
+
+  for i in 0..NUM_THREADS {
+    let dir = dir.clone();
+    let writer = writer.clone();
+    let failed = failed.clone();
+    threads.push(thread::spawn(move || -> Result<()> {
+      let mut reader = directory_reader::open(dir.clone())?;
+      let mut iterations = 0;
+      let mut count = 0;
+      loop {
+        if failed.load(Ordering::SeqCst) {
+          break;
+        }
+        for _ in 0..10 {
+          let s = format!("{}_{}", i, count);
+          count += 1;
+          let mut doc = Document::new();
+          doc.add(StringField::from_string("f", s.clone(), Store::No)?);
+          writer.add_document(doc)?;
+          writer.commit()?;
+
+          // TODO IMPORTANT: openIfChanged 未实现
+          let reader2 = directory_reader::open_from_writer(&writer)?;
+          reader.close()?;
+          reader = reader2;
+          assert_eq!(1, reader.doc_freq(&Term::from_text("f", &s))?);
+        }
+        iterations += 1;
+        if iterations >= MAX_ITERATIONS {
+          break;
+        }
+      }
+      reader.close()?;
+      Ok(())
+    }));
+  }
+
+  for thread in threads {
+    match thread.join() {
+      Ok(result) => {
+        if result.is_err() {
+          failed.store(true, Ordering::SeqCst);
+        }
+        result?;
+      },
+      Err(e) => {
+        failed.store(true, Ordering::SeqCst);
+        std::panic::resume_unwind(e);
+      },
+    }
+  }
+
+  assert!(!failed.load(Ordering::SeqCst));
+  writer.close()?;
+
   Ok(())
 }
 #[test]
