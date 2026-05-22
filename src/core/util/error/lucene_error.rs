@@ -35,90 +35,90 @@ use crate::core::util::error::{
 
 #[derive(Debug, Error)]
 pub enum LuceneError {
-  #[error("parse int error: {0}")]
-  ParseIntError(#[from] std::num::ParseIntError),
-  #[error("IO error: {0}")]
-  Io(#[from] Error),
-  #[error("conversion failed: {0}")]
-  Fmt(#[from] fmt::Error),
-  #[error("IO error on {path}: {source}")]
-  IoWithPath { source: Error, path: String },
+  #[error("{0}")]
+  AlreadyClosed(#[from] AlreadyClosedError),
+  #[error("{0}")]
+  ArrayIndexOutOfBounds(#[from] ArrayIndexOutOfBoundsError),
   #[error("{0}")]
   BorrowError(String),
   #[error("{0}")]
-  LockError(String),
-  #[error("UTF-8 decoding error: {0}")]
-  Utf8Error(#[from] std::str::Utf8Error),
+  BufferAllocation(#[from] BufferAllocationError),
+  #[error("{0}")]
+  CollectionTerminated(#[from] CollectionTerminatedError),
+  #[error("{0}")]
+  CorruptIndex(#[from] CorruptIndexError),
+  #[error("{0}")]
+  Eof(#[from] Eof),
+  #[error("conversion failed: {0}")]
+  Fmt(#[from] fmt::Error),
+  #[error("UTF-8 conversion error: {0}")]
+  FromUtf8Error(#[from] FromUtf8Error),
+  #[error("{0}")]
+  FuzzyTerms(#[from] FuzzyTermsError),
   #[error("{0}")]
   IllegalArgument(#[from] IllegalArgumentError),
   #[error("{0}")]
   IllegalState(#[from] IllegalStateError),
   #[error("{0}")]
-  Eof(#[from] Eof),
-  #[error("{0}")]
-  NumberOverflow(#[from] NumberOverflow),
-  #[error("{0}")]
-  CorruptIndex(#[from] CorruptIndexError),
-  #[error("{0}")]
   IndexFormatTooNew(#[from] IndexFormatTooNewError),
   #[error("{0}")]
   IndexFormatTooOld(#[from] IndexFormatTooOldError),
   #[error("{0}")]
-  UnsupportedOperation(#[from] UnsupportedOperationError),
-  #[error("{0}")]
-  NoSuchFile(#[from] NotSuchFileError),
-  #[error("UTF-8 conversion error: {0}")]
-  FromUtf8Error(#[from] FromUtf8Error),
+  IndexNotFound(#[from] IndexNotFound),
+  #[error("IO error: {0}")]
+  Io(#[from] Error),
+  #[error("IO error on {path}: {source}")]
+  IoWithPath { source: Error, path: String },
   #[error("{0}")]
   LockAlreadyHeld(#[from] LockAlreadyHeldError),
   #[error("{0}")]
+  LockError(String),
+  #[error("{0}")]
   LockHeldByOther(#[from] LockHeldByOtherError),
   #[error("{0}")]
-  ArrayIndexOutOfBounds(#[from] ArrayIndexOutOfBoundsError),
-  #[error("{0}")]
-  IndexNotFound(#[from] IndexNotFound),
-  #[error("{0}")]
-  NumberFormat(#[from] NumberFormatError),
-  #[error("{0}")]
-  NeedImplemented(#[from] NeedImplementedError),
+  LockObtainFailed(#[from] LockObtainFailedError),
   #[error("{0}")]
   MaxBytesLengthExceeded(#[from] MaxBytesLengthExceededError),
-  #[error("{0}")]
-  BufferAllocation(#[from] BufferAllocationError),
   #[error("{0}")]
   Merge(#[from] MergeError),
   #[error("{0}")]
   MergeAborted(#[from] MergeAbortedError),
   #[error("{0}")]
-  AlreadyClosed(#[from] AlreadyClosedError),
+  NeedImplemented(#[from] NeedImplementedError),
   #[error("{0}")]
-  NotImplemented(#[from] NotImplementedError),
-  #[error("{0}")]
-  VersionError(#[from] VersionError),
-  #[error("{0}")]
-  Unreachable(#[from] UnreachableError),
-  #[error("{0}")]
-  Parse(#[from] Parse),
-  #[error("{0}")]
-  TooComplexToDeterminize(#[from] TooComplexToDeterminizeError),
+  NoMoreTerms(#[from] NoMoreTermsError),
   #[error("{0}")]
   NoSuchElement(#[from] NoSuchElementError),
   #[error("{0}")]
-  UncheckedIO(#[from] UncheckedIOError),
+  NoSuchFile(#[from] NotSuchFileError),
   #[error("{0}")]
-  CollectionTerminated(#[from] CollectionTerminatedError),
+  NotImplemented(#[from] NotImplementedError),
+  #[error("{0}")]
+  NumberFormat(#[from] NumberFormatError),
+  #[error("{0}")]
+  NumberOverflow(#[from] NumberOverflow),
+  #[error("{0}")]
+  Parse(#[from] Parse),
+  #[error("parse int error: {0}")]
+  ParseIntError(#[from] std::num::ParseIntError),
+  #[error("{0}")]
+  TimeExceeded(#[from] TimeExceededError),
+  #[error("{0}")]
+  TooComplexToDeterminize(#[from] TooComplexToDeterminizeError),
   #[error("{0}")]
   TooManyClauses(#[from] TooManyClausesError),
   #[error("{0}")]
   TooManyNestedClauses(#[from] TooManyNestedClausesError),
   #[error("{0}")]
-  TimeExceeded(#[from] TimeExceededError),
+  UncheckedIO(#[from] UncheckedIOError),
   #[error("{0}")]
-  LockObtainFailed(#[from] LockObtainFailedError),
+  Unreachable(#[from] UnreachableError),
   #[error("{0}")]
-  NoMoreTerms(#[from] NoMoreTermsError),
+  UnsupportedOperation(#[from] UnsupportedOperationError),
+  #[error("UTF-8 decoding error: {0}")]
+  Utf8Error(#[from] std::str::Utf8Error),
   #[error("{0}")]
-  FuzzyTerms(#[from] FuzzyTermsError),
+  VersionError(#[from] VersionError),
 }
 macro_rules! error_ctor {
   (@add_suppressed $(($variant:ident)),+ $(,)?) => {
@@ -166,11 +166,23 @@ impl LuceneError {
     Self::io_with_path("", err)
   }
 
+  error_ctor!(already_closed, AlreadyClosed, AlreadyClosedError);
+  error_ctor!(
+    array_index_out_of_bounds,
+    ArrayIndexOutOfBounds,
+    ArrayIndexOutOfBoundsError
+  );
+  error_ctor!(buffer_allocation, BufferAllocation, BufferAllocationError);
+  error_ctor!(
+    collection_terminated,
+    CollectionTerminated,
+    CollectionTerminatedError
+  );
+  error_ctor!(corrupt_index, CorruptIndex, CorruptIndexError);
+  error_ctor!(eof, Eof, Eof);
+  error_ctor!(fuzzy_terms, FuzzyTerms, FuzzyTermsError);
   error_ctor!(illegal_argument, IllegalArgument, IllegalArgumentError);
   error_ctor!(illegal_state, IllegalState, IllegalStateError);
-  error_ctor!(eof, Eof, Eof);
-  error_ctor!(number_overflow, NumberOverflow, NumberOverflow);
-  error_ctor!(corrupt_index, CorruptIndex, CorruptIndexError);
   error_ctor!(
     index_format_too_new,
     IndexFormatTooNew,
@@ -181,44 +193,29 @@ impl LuceneError {
     IndexFormatTooOld,
     IndexFormatTooOldError
   );
-  error_ctor!(
-    unsupported_operation,
-    UnsupportedOperation,
-    UnsupportedOperationError
-  );
-  error_ctor!(not_such_file, NoSuchFile, NotSuchFileError);
+  error_ctor!(index_not_found, IndexNotFound, IndexNotFound);
   error_ctor!(lock_already_held, LockAlreadyHeld, LockAlreadyHeldError);
   error_ctor!(lock_held_by_other, LockHeldByOther, LockHeldByOtherError);
-  error_ctor!(
-    array_index_out_of_bounds,
-    ArrayIndexOutOfBounds,
-    ArrayIndexOutOfBoundsError
-  );
-  error_ctor!(index_not_found, IndexNotFound, IndexNotFound);
-  error_ctor!(number_format, NumberFormat, NumberFormatError);
-  error_ctor!(need_implemented, NeedImplemented, NeedImplementedError);
+  error_ctor!(lock_obtain_failed, LockObtainFailed, LockObtainFailedError);
   error_ctor!(
     max_bytes_length_exceeded,
     MaxBytesLengthExceeded,
     MaxBytesLengthExceededError
   );
-  error_ctor!(buffer_allocation, BufferAllocation, BufferAllocationError);
   error_ctor!(merge, Merge, MergeError);
   error_ctor!(merge_abort, MergeAborted, MergeAbortedError);
-  error_ctor!(already_closed, AlreadyClosed, AlreadyClosedError);
+  error_ctor!(need_implemented, NeedImplemented, NeedImplementedError);
+  error_ctor!(no_more_terms, NoMoreTerms, NoMoreTermsError);
+  error_ctor!(no_such_element, NoSuchElement, NoSuchElementError);
+  error_ctor!(not_such_file, NoSuchFile, NotSuchFileError);
   error_ctor!(not_implemented, NotImplemented, NotImplementedError);
-  error_ctor!(unreachable, Unreachable, UnreachableError);
+  error_ctor!(number_format, NumberFormat, NumberFormatError);
+  error_ctor!(number_overflow, NumberOverflow, NumberOverflow);
+  error_ctor!(time_exceeded, TimeExceeded, TimeExceededError);
   error_ctor!(
     too_complex_to_determinize,
     TooComplexToDeterminize,
     TooComplexToDeterminizeError
-  );
-  error_ctor!(no_such_element, NoSuchElement, NoSuchElementError);
-  error_ctor!(unchecked_io_error, UncheckedIO, UncheckedIOError);
-  error_ctor!(
-    collection_terminated,
-    CollectionTerminated,
-    CollectionTerminatedError
   );
   error_ctor!(too_many_clauses, TooManyClauses, TooManyClausesError);
   error_ctor!(
@@ -226,45 +223,48 @@ impl LuceneError {
     TooManyNestedClauses,
     TooManyNestedClausesError
   );
-  error_ctor!(time_exceeded, TimeExceeded, TimeExceededError);
-  error_ctor!(lock_obtain_failed, LockObtainFailed, LockObtainFailedError);
-  error_ctor!(no_more_terms, NoMoreTerms, NoMoreTermsError);
-  error_ctor!(fuzzy_terms, FuzzyTerms, FuzzyTermsError);
+  error_ctor!(unchecked_io_error, UncheckedIO, UncheckedIOError);
+  error_ctor!(unreachable, Unreachable, UnreachableError);
+  error_ctor!(
+    unsupported_operation,
+    UnsupportedOperation,
+    UnsupportedOperationError
+  );
 
   error_ctor!(
     @add_suppressed
+    (AlreadyClosed),
+    (ArrayIndexOutOfBounds),
+    (BufferAllocation),
+    (CollectionTerminated),
+    (CorruptIndex),
+    (Eof),
+    (FuzzyTerms),
     (IllegalArgument),
     (IllegalState),
-    (Eof),
-    (NumberOverflow),
-    (CorruptIndex),
     (IndexFormatTooNew),
     (IndexFormatTooOld),
-    (UnsupportedOperation),
-    (NoSuchFile),
+    (IndexNotFound),
     (LockAlreadyHeld),
     (LockHeldByOther),
-    (ArrayIndexOutOfBounds),
-    (IndexNotFound),
-    (NumberFormat),
-    (NeedImplemented),
+    (LockObtainFailed),
     (MaxBytesLengthExceeded),
-    (BufferAllocation),
     (Merge),
     (MergeAborted),
-    (AlreadyClosed),
-    (NotImplemented),
-    (Unreachable),
-    (TooComplexToDeterminize),
+    (NeedImplemented),
+    (NoMoreTerms),
     (NoSuchElement),
-    (UncheckedIO),
-    (CollectionTerminated),
+    (NoSuchFile),
+    (NotImplemented),
+    (NumberFormat),
+    (NumberOverflow),
+    (TimeExceeded),
+    (TooComplexToDeterminize),
     (TooManyClauses),
     (TooManyNestedClauses),
-    (TimeExceeded),
-    (LockObtainFailed),
-    (NoMoreTerms),
-    (FuzzyTerms),
+    (UncheckedIO),
+    (Unreachable),
+    (UnsupportedOperation),
   );
 }
 
