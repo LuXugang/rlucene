@@ -473,7 +473,7 @@ impl TermsEnum for FreqProxTermsEnum {
       return Ok(PostingsEnumEnum2::A(pos_enum));
     }
 
-    if !has_freq && !feature_requested(flags, FREQS) {
+    if !has_freq && feature_requested(flags, FREQS) {
       // Caller wants offsets but we didn't index them;
       // don't lie:
       return Err(LuceneError::illegal_state("did not index freq"));

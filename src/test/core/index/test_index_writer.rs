@@ -41,7 +41,8 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 #[cfg(feature = "nightly")]
 use crate::core::index::index_writer::MAX_STORED_STRING_LENGTH;
 use crate::core::index::index_writer::{
-  EmptyIndexWriterBase, IndexWriter, IndexWriterBase, WRITE_LOCK_NAME, read_field_infos,
+  EmptyIndexWriterBase, EventEnum, EventImplTest, EventQueue, IndexWriter, IndexWriterBase,
+  WRITE_LOCK_NAME, read_field_infos,
 };
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
@@ -97,8 +98,8 @@ use rand_xoshiro::rand_core::Rng;
 use std::clone::Clone;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64};
 use std::sync::{Arc, Barrier, LazyLock};
 use std::thread;
 use std::vec;
@@ -3130,8 +3131,7 @@ fn test_broken_payload() -> Result<()> {
 
   let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| w.add_document(doc)));
   assert!(result.is_err());
-  // TODO IMPORTANT 这里close 会死锁
-  // w.close()?;
+  w.close()?;
   Ok(())
 }
 // TODO IMPORTANT PendingSoftDeletes# on_new_reader未实现
@@ -3184,7 +3184,7 @@ fn test_soft_and_hard_live_docs() -> Result<()> {
 
 #[test]
 fn test_abort_fully_deleted_segment() -> Result<()> {
-  // TODO 未实现
+  // TODO IMPORTANT OneMergeWrappingMergePolicy未实现
   Ok(())
 }
 
@@ -3324,25 +3324,62 @@ fn test_refresh_and_rollback_concurrently() -> Result<()> {
 
 #[test]
 fn test_closeable_queue() -> Result<()> {
-  // TODO IMPORTANT 多线程未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let queue = Arc::new(EventQueue::new());
+  let executed = Arc::new(AtomicI32::new(0));
+
+  queue.add(EventEnum::Test(EventImplTest::new(executed.clone())))?;
+  queue.add(EventEnum::Test(EventImplTest::new(executed.clone())))?;
+  queue.process_events(&writer)?;
+  assert_eq!(2, executed.load(SeqCst));
+  queue.process_events(&writer)?;
+  assert_eq!(2, executed.load(SeqCst));
+
+  queue.add(EventEnum::Test(EventImplTest::new(executed.clone())))?;
+  queue.add(EventEnum::Test(EventImplTest::new(executed.clone())))?;
+
+  thread::scope(|scope| -> Result<()> {
+    let thread_queue = queue.clone();
+    let writer = &writer;
+    let t = scope.spawn(move || -> Result<()> {
+      match thread_queue.process_events(writer) {
+        Ok(_) => Ok(()),
+        Err(LuceneError::AlreadyClosed(_)) => Ok(()),
+        Err(e) => Err(e),
+      }
+    });
+    queue.close(writer)?;
+    t.join().expect("thread panicked")?;
+    Ok(())
+  })?;
+
+  assert_eq!(4, executed.load(SeqCst));
+  let err = queue.process_events(&writer);
+  assert!(matches!(err, Err(LuceneError::AlreadyClosed(_))));
+  let err = queue.add(EventEnum::Test(EventImplTest::new(executed.clone())));
+  assert!(matches!(err, Err(LuceneError::AlreadyClosed(_))));
+
+  writer.close()?;
   Ok(())
 }
 
 #[test]
 fn test_random_operations() -> Result<()> {
-  // TODO IMPORTANT 多线程未实现
+  // TODO IMPORTANT 多线程 SearcherManager未实现
   Ok(())
 }
 
 #[test]
 fn test_random_operations_with_soft_deletes() -> Result<()> {
-  // TODO IMPORTANT 多线程未实现
+  // TODO IMPORTANT 多线程SearcherManager 未实现
   Ok(())
 }
 
 #[test]
 fn test_max_completed_sequence_number() -> Result<()> {
-  // TODO IMPORTANT 多线程未实现
+  // TODO IMPORTANT 多线程 SearcherManager未实现
   Ok(())
 }
 
@@ -3547,7 +3584,48 @@ fn test_pending_num_docs() -> Result<()> {
 
 #[test]
 fn test_index_writer_blocks_on_stall() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let stall_control = &writer.get_docs_writer().flush_control.stall_control;
+  stall_control.update_stalled(true);
+  let num_threads = random.random_range(0..3) + 1;
+  let num_threads_completed = AtomicI64::new(0);
+
+  thread::scope(|scope| -> Result<()> {
+    let mut threads = Vec::new();
+    for _ in 0..num_threads {
+      threads.push(scope.spawn(|| -> Result<()> {
+        let mut d = Document::new();
+        d.add(StringField::from_string("id", 0.to_string(), Store::Yes)?);
+        writer.add_document(d)?;
+        num_threads_completed.fetch_add(1, SeqCst);
+        Ok(())
+      }));
+    }
+
+    let result = {
+      for _ in 0..10 {
+        while stall_control.get_num_waiting() != num_threads {
+          // wait for all threads to be stalled again
+          assert_eq!(0, writer.get_pending_num_docs());
+          assert_eq!(0, num_threads_completed.load(SeqCst));
+          thread::yield_now();
+        }
+      }
+      Ok(())
+    };
+
+    stall_control.update_stalled(false);
+    for thread in threads {
+      thread.join().expect("thread panicked")?;
+    }
+    result
+  })?;
+
+  writer.commit()?;
+  assert_eq!(num_threads, writer.get_doc_stats()?.max_doc);
+  writer.close()?;
   Ok(())
 }
 

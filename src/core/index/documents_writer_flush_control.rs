@@ -48,7 +48,7 @@ where
   flush_deletes: AtomicBool,
   pub(crate) info_stream: InfoStreamMT,
   pub(crate) inner: Mutex<Inner<D>>,
-  stall_control: DocumentsWriterStallControl,
+  pub(crate) stall_control: DocumentsWriterStallControl,
   pausing: Condvar,
   pub(crate) per_thread_pool: DocumentsWriterPerThreadPool<D>,
   pub(crate) delete_queue: Mutex<Arc<DocumentsWriterDeleteQueue>>,

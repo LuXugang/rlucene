@@ -6725,7 +6725,7 @@ pub(crate) struct EventQueue {
 }
 
 impl EventQueue {
-  fn new() -> Self {
+  pub(crate) fn new() -> Self {
     Self {
       closed: AtomicBool::new(false),
       permits: Permits::new(),
@@ -6743,13 +6743,13 @@ impl EventQueue {
     }
     Ok(())
   }
-  fn add(&self, event: EventEnum) -> Result<()> {
+  pub(crate) fn add(&self, event: EventEnum) -> Result<()> {
     self.acquire()?;
     self.queue.push(event);
     self.permits.release();
     Ok(())
   }
-  fn process_events<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  pub(crate) fn process_events<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
   where
     D: Directory,
     L: LiveIndexWriterConfig,
@@ -6776,7 +6776,7 @@ impl EventQueue {
     }
     Ok(())
   }
-  fn close<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  pub(crate) fn close<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
   where
     D: Directory,
     L: LiveIndexWriterConfig,
@@ -6824,7 +6824,7 @@ where
     L: LiveIndexWriterConfig,
     B: IndexWriterBase;
 }
-struct EventImpl1 {
+pub(crate) struct EventImpl1 {
   files: HashSet<String>,
 }
 impl EventImpl1 {
@@ -6845,7 +6845,7 @@ where
   }
 }
 
-struct EventImpl2 {
+pub(crate) struct EventImpl2 {
   info_files: HashSet<String>,
 }
 impl EventImpl2 {
@@ -6866,7 +6866,7 @@ where
   }
 }
 
-struct EventImpl3;
+pub(crate) struct EventImpl3;
 impl<D> Event<D> for EventImpl3
 where
   D: Directory,
@@ -6881,7 +6881,7 @@ where
     result
   }
 }
-struct EventImpl4;
+pub(crate) struct EventImpl4;
 impl<D> Event<D> for EventImpl4
 where
   D: Directory,
@@ -6894,7 +6894,7 @@ where
     writer.publish_flushed_segments(true)
   }
 }
-struct EventImpl5 {
+pub(crate) struct EventImpl5 {
   packet: Arc<FrozenBufferedUpdates>,
 }
 impl EventImpl5 {
@@ -6935,12 +6935,41 @@ where
   }
 }
 
-enum EventEnum {
+#[cfg(test)]
+pub(crate) struct EventImplTest {
+  executed: Arc<AtomicI32>,
+}
+
+#[cfg(test)]
+impl EventImplTest {
+  pub(crate) fn new(executed: Arc<AtomicI32>) -> Self {
+    Self { executed }
+  }
+}
+
+#[cfg(test)]
+impl<D> Event<D> for EventImplTest
+where
+  D: Directory,
+{
+  fn process<L, B>(&mut self, _writer: &IndexWriter<D, L, B>) -> Result<()>
+  where
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+  {
+    self.executed.fetch_add(1, Ordering::SeqCst);
+    Ok(())
+  }
+}
+
+pub(crate) enum EventEnum {
   A(EventImpl1),
   B(EventImpl2),
   C(EventImpl3),
   D(EventImpl4),
   E(EventImpl5),
+  #[cfg(test)]
+  Test(EventImplTest),
 }
 impl<D> Event<D> for EventEnum
 where
@@ -6957,6 +6986,8 @@ where
       EventEnum::C(e) => e.process(writer),
       EventEnum::D(e) => e.process(writer),
       EventEnum::E(e) => e.process(writer),
+      #[cfg(test)]
+      EventEnum::Test(e) => e.process(writer),
     }
   }
 }
