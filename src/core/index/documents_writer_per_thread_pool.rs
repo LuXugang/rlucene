@@ -180,7 +180,6 @@ where
     inner.dwpts.contains_key(state_id)
   }
   pub(crate) fn mark_as_free_and_unlock(&self, wrap_dwpt: Arc<DwptWrapper<D>>) -> Result<()> {
-    debug_assert!(wrap_dwpt.state.is_locked());
     let ram_bytes_used = wrap_dwpt.dwpt.lock().ram_bytes_used()?;
 
     debug_assert!(

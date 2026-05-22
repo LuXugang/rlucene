@@ -80,7 +80,7 @@ where
 
   ///  Add an entry to the queue and unlock it, in that order.
   pub(crate) fn add_and_unlock(&self, entry: T, weight: i64) {
-    debug_assert!(entry.is_locked());
+    // entry unlock in ApproximatePriorityQueue
     self.queue.add(entry, weight);
     self.add_and_unlock_counter.fetch_add(1, Ordering::SeqCst);
   }

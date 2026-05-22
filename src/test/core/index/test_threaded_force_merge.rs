@@ -182,7 +182,7 @@ impl TestThreadedForceMerge {
   }
 }
 
-// TODO IMPORTANT 测试未通过 会卡死
+// TODO IMPORTANT 多线程 BUG 会卡死
 fn test_threaded_force_merge() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;

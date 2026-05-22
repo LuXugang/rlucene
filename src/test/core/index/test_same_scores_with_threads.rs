@@ -40,7 +40,7 @@ use std::thread;
 #[allow(dead_code)] // for quick search
 struct TestSameScoresWithThreads;
 
-// TODO IMPORTANT 多线程 BUG
+// TODO IMPORTANT 多线程查询 BUG
 fn test() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

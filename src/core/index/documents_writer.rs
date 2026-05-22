@@ -298,7 +298,9 @@ where
         .lock()
         .skip_sequence_numbers(self.flush_control.per_thread_pool.size() as i64 + 1);
 
-      self.flush_control.abort_pending_flushes(self, config)?;
+      self
+        .flush_control
+        .abort_pending_flushes(None, config, self)?;
       self.flush_control.wait_for_flush();
       if self.info_stream.enabled("DW") {
         self
@@ -335,9 +337,7 @@ where
       self.subtract_flushed_num_docs(num);
       per_thread.dwpt.lock().abort()?;
     }
-    self.flush_control.do_on_abort(&per_thread, config);
-
-    Ok(())
+    self.flush_control.do_on_abort(&per_thread, config)
   }
   /// returns the maximum sequence number for all previously completed operations
   pub(crate) fn get_max_completed_sequence_number(&self) -> i64 {
@@ -414,7 +414,9 @@ where
         result?;
       }
 
-      self.flush_control.abort_pending_flushes(self, config)?;
+      self
+        .flush_control
+        .abort_pending_flushes(None, config, self)?;
       self.flush_control.wait_for_flush();
 
       debug_assert_eq!(
@@ -522,7 +524,7 @@ where
         writer,
       );
       if dwpt_wrapper.state.is_aborted() {
-        self.flush_control.do_on_abort(&dwpt_wrapper, config);
+        self.flush_control.do_on_abort(&dwpt_wrapper, config)?;
       }
       // TODO IMPORTANT 这里还要额外定义一个 Result 封装
       if let Ok(sno) = &res {
@@ -680,7 +682,7 @@ where
       let config = &writer.config;
       self
         .flush_control
-        .do_after_flush(None, flushing_dwpt, config);
+        .do_after_flush(None, flushing_dwpt, config)?;
       res?;
       let v = self.flush_control.next_pending_flush(None, config)?;
 

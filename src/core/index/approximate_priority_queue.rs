@@ -58,15 +58,13 @@ where
     let offset = (free_slots >> expected_slot).trailing_zeros() as usize;
     let destination_slot = expected_slot + offset;
 
+    entry.unlock();
     if destination_slot < i64::BITS as usize {
       self.used_slots |= 1 << destination_slot;
       debug_assert!(self.slots[destination_slot].is_none());
       self.slots[destination_slot] = Some(entry);
-      self.slots[destination_slot].as_mut().unwrap().unlock();
     } else {
-      let len = self.slots.len();
       self.slots.push(Some(entry));
-      self.slots[len].as_mut().unwrap().unlock();
     }
   }
   /// Return an entry matching the predicate. This will usually be one of the
