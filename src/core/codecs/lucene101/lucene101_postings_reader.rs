@@ -355,7 +355,7 @@ where
     CodecUtil::checksum_entire_file(&self.doc_in)?;
     if let Some(ref pos_in) = self.pos_in {
       CodecUtil::checksum_entire_file(pos_in)?;
-    };
+    }
     if let Some(ref pay_in) = self.pay_in {
       CodecUtil::checksum_entire_file(pay_in)?;
     }
@@ -493,10 +493,11 @@ where
     let needs_offsets_or_payloads = needs_offsets || needs_payloads;
     let needs_docs_and_freqs_only = !needs_pos && !needs_impacts;
 
-    let mut freq_buffer = [0; ForUtil::BLOCK_SIZE];
-    if !needs_freq {
-      freq_buffer = [1; ForUtil::BLOCK_SIZE];
-    }
+    let freq_buffer = if needs_freq {
+      [0; ForUtil::BLOCK_SIZE]
+    } else {
+      [1; ForUtil::BLOCK_SIZE]
+    };
 
     let (level0_serialized_impacts, level1_serialized_impacts, level0_impacts, level1_impacts) =
       if needs_freq && needs_impacts {
@@ -634,8 +635,8 @@ where
       max_num_impacts_at_level0: reader.max_num_impacts_at_level0,
       max_num_impacts_at_level1: reader.max_num_impacts_at_level1,
 
-      max_impact_num_bytes_at_level0: reader.max_num_impacts_at_level0,
-      max_impact_num_bytes_at_level1: reader.max_impact_num_bytes_at_level0,
+      max_impact_num_bytes_at_level0: reader.max_impact_num_bytes_at_level0,
+      max_impact_num_bytes_at_level1: reader.max_impact_num_bytes_at_level1,
     })
   }
   pub fn can_reuse(
@@ -1349,7 +1350,7 @@ where
     if !self.needs_payloads || self.payload_length == 0 {
       Ok(None)
     } else {
-      Ok(Option::from(Cow::Borrowed(self.payload.as_ref().unwrap())))
+      Ok(Some(Cow::Borrowed(self.payload.as_ref().unwrap())))
     }
   }
 }
@@ -1584,12 +1585,7 @@ pub(crate) fn read_impacts(
   Ok(())
 }
 fn sum_over_range(arr: &[i32], start: usize, end: usize) -> i32 {
-  let mut res = 0;
-  for &v in &arr[start..end] {
-    res += v;
-  }
-
-  res
+  arr[start..end].iter().sum()
 }
 
 fn prefetch_postings(doc_in: &mut impl IndexInput, state: &IntBlockTermState) -> Result<()> {
