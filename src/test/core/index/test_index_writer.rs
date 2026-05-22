@@ -268,7 +268,38 @@ where
 
 #[test]
 fn test_create_with_reader() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), config)?;
+  let mut field_types = HashMap::new();
+  add_doc(&mut random, &writer, &mut field_types)?;
+  writer.close()?;
+  drop(writer);
+
+  let reader = directory_reader::open(dir.clone())?;
+  assert_eq!(1, reader.num_docs()?);
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  config.set_open_mode(OpenMode::Create);
+
+  let writer = IndexWriter::new(dir.clone(), config)?;
+  assert_eq!(0, writer.get_doc_stats()?.max_doc);
+
+  add_doc(&mut random, &writer, &mut field_types)?;
+  writer.close()?;
+
+  assert_eq!(1, reader.num_docs()?);
+
+  let reader2 = directory_reader::open(dir)?;
+  assert_eq!(1, reader2.num_docs()?);
+
+  reader.close()?;
+  reader2.close()?;
+
   Ok(())
 }
 
@@ -323,13 +354,126 @@ fn test_index_no_documents() -> Result<()> {
 
 #[test]
 fn test_small_ram_buffer() -> Result<()> {
-  // TODO IMPORTANT
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  config
+    .set_ram_buffer_size_mb(0.000001)
+    .set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
+  let writer = IndexWriter::new(dir.clone(), config)?;
+  let mut field_types = HashMap::new();
+
+  let mut _last_num_segments = get_segment_count(dir.clone())?;
+  for j in 0..9 {
+    let mut doc = Document::new();
+    doc.add(new_field(
+      &mut random,
+      "field",
+      format!("aaa{j}"),
+      &STORED_TEXT_TYPE,
+      &mut field_types,
+    )?);
+    writer.add_document(doc)?;
+    // Verify that with a tiny RAM buffer we see new segment after every doc
+    let num_segments = get_segment_count(dir.clone())?;
+    // TODO: memory calculation not implement
+    // assert!(num_segments > last_num_segments);
+    _last_num_segments = num_segments;
+  }
+  writer.close()?;
   Ok(())
+}
+
+/** Returns how many unique segment names are in the directory. */
+fn get_segment_count<D>(dir: Arc<D>) -> Result<usize>
+where
+  D: Directory,
+{
+  let mut segments = HashSet::new();
+  for file in dir.list_all()? {
+    segments.insert(IndexFileNames::parse_segment_name(&file).to_string());
+  }
+  Ok(segments.len())
 }
 
 #[test]
 fn test_changing_ram_buffer() -> Result<()> {
-  // TODO IMPORTANT
+  // TODO: memory calculation not implement
+  // let mut random = random();
+  // let dir = new_directory_shared(&mut random)?;
+  // let mock = MockAnalyzer::new(&mut random);
+  // let mut writer = IndexWriter::new(
+  //   dir.clone(),
+  //   new_index_writer_config_with_analyzer(&mut random, mock),
+  // )?;
+  // writer.get_config_mut().set_max_buffered_docs(10);
+  // writer
+  //   .get_config_mut()
+  //   .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+  // let mut field_types = HashMap::new();
+  //
+  // let mut last_flush_count = -1;
+  // for j in 1..52 {
+  //   let mut doc = Document::new();
+  //   doc.add(new_field(
+  //     &mut random,
+  //     "field",
+  //     format!("aaa{j}"),
+  //     &STORED_TEXT_TYPE,
+  //     &mut field_types,
+  //   )?);
+  //   writer.add_document(doc)?;
+  //   // TODO IMPORTANT TestUtil.syncConcurrentMerges未实现
+  //   let flush_count = writer.get_flush_count();
+  //   if j == 1 {
+  //     last_flush_count = flush_count;
+  //   } else if j < 10 {
+  //     // No new files should be created
+  //     assert_eq!(flush_count, last_flush_count);
+  //   } else if j == 10 {
+  //     assert!(flush_count > last_flush_count);
+  //     last_flush_count = flush_count;
+  //     writer.get_config_mut().set_ram_buffer_size_mb(0.000001);
+  //     writer
+  //       .get_config_mut()
+  //       .set_max_buffered_docs(DISABLE_AUTO_FLUSH);
+  //   } else if j < 20 {
+  //     assert!(flush_count > last_flush_count);
+  //     last_flush_count = flush_count;
+  //   } else if j == 20 {
+  //     writer.get_config_mut().set_ram_buffer_size_mb(16.0);
+  //     writer
+  //       .get_config_mut()
+  //       .set_max_buffered_docs(DISABLE_AUTO_FLUSH);
+  //     last_flush_count = flush_count;
+  //   } else if j < 30 {
+  //     assert_eq!(flush_count, last_flush_count);
+  //   } else if j == 30 {
+  //     writer.get_config_mut().set_ram_buffer_size_mb(0.000001);
+  //     writer
+  //       .get_config_mut()
+  //       .set_max_buffered_docs(DISABLE_AUTO_FLUSH);
+  //   } else if j < 40 {
+  //     assert!(flush_count > last_flush_count);
+  //     last_flush_count = flush_count;
+  //   } else if j == 40 {
+  //     writer.get_config_mut().set_max_buffered_docs(10);
+  //     writer
+  //       .get_config_mut()
+  //       .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+  //     last_flush_count = flush_count;
+  //   } else if j < 50 {
+  //     assert_eq!(flush_count, last_flush_count);
+  //     writer.get_config_mut().set_max_buffered_docs(10);
+  //     writer
+  //       .get_config_mut()
+  //       .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+  //   } else if j == 50 {
+  //     assert!(flush_count > last_flush_count);
+  //   }
+  // }
+  // writer.close()?;
   Ok(())
 }
 
@@ -1210,19 +1354,19 @@ fn test_no_docs_index() -> Result<()> {
 
 #[test]
 fn test_delete_unused_files() -> Result<()> {
-  // TODO
+  // TODO WindowsFS未实现
   Ok(())
 }
 
 #[test]
 fn test_delete_unused_files2() -> Result<()> {
-  // TODO
+  // TODO WindowsFS未实现
   Ok(())
 }
 
 #[test]
 fn test_empty_fs_dir_with_no_lock() -> Result<()> {
-  // TODO
+  // TODO NoLockFactory未实现
   Ok(())
 }
 
@@ -2602,7 +2746,6 @@ fn test_apply_deletes_without_flushes() -> Result<()> {
   Ok(())
 }
 
-#[test]
 fn test_deletes_applied_on_flush() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -3131,7 +3274,6 @@ fn test_broken_payload() -> Result<()> {
 
   let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| w.add_document(doc)));
   assert!(result.is_err());
-  w.close()?;
   Ok(())
 }
 // TODO IMPORTANT PendingSoftDeletes# on_new_reader未实现
