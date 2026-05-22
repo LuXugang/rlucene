@@ -34,6 +34,7 @@ use crate::core::index::directory_reader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::fields::Fields;
+use crate::core::index::flush_policy::ApplyDeletesFlushPolicy;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -42,8 +43,8 @@ use crate::core::index::index_writer::MAX_STORED_STRING_LENGTH;
 use crate::core::index::index_writer::{
   EmptyIndexWriterBase, IndexWriter, IndexWriterBase, WRITE_LOCK_NAME, read_field_infos,
 };
-use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::index_writer_config::OpenMode;
+use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -82,12 +83,13 @@ use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
 use crate::test::core::analysis::token;
+use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   create_temp_dir, get_only_leaf_reader, new_directory_shared, new_field, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
   new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_searcher_with_reader,
-  new_string_field, new_text_field, random, random_from_seed, slow_file_exists,
+  new_string_field, new_text_field, random, random_from_seed, rarely, slow_file_exists,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -2572,13 +2574,127 @@ fn test_never_check_out_on_full_flush() -> Result<()> {
 
 #[test]
 fn test_apply_deletes_without_flushes() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut index_writer_config = IndexWriterConfig::new();
+  let flush_deletes = Arc::new(AtomicBool::new(false));
+  index_writer_config.set_flush_policy(ApplyDeletesFlushPolicy::new(flush_deletes.clone()));
+  let w = IndexWriter::new(dir.clone(), index_writer_config)?;
+
+  assert_eq!(0, w.doc_writer.flush_control.get_delete_bytes_used()?);
+  w.delete_documents_with_terms(vec![Term::from_text("foo", "bar")])?;
+  let mut _bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
+  // TODO: memory calculation not implement
+  // assert!(bytes_used > 0, "{bytes_used} > 0");
+  w.delete_documents_with_terms(vec![Term::from_text("foo", "baz")])?;
+  _bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
+  // TODO: memory calculation not implement
+  // assert!(bytes_used > 0, "{bytes_used} > 0");
+  assert_eq!(2, w.doc_writer.get_buffered_delete_terms_size()?);
+  assert_eq!(0, w.get_flush_deletes_count());
+  flush_deletes.store(true, SeqCst);
+  w.delete_documents_with_terms(vec![Term::from_text("foo", "bar")])?;
+  assert_eq!(0, w.doc_writer.flush_control.get_delete_bytes_used()?);
+  assert_eq!(1, w.get_flush_deletes_count());
+
+  w.close()?;
   Ok(())
 }
 
 #[test]
 fn test_deletes_applied_on_flush() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  {
+    let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+    let mut field_types = HashMap::new();
+    let mut doc = Document::new();
+    doc.add(new_field(
+      &mut random,
+      "id",
+      "1",
+      &STORED_TEXT_TYPE,
+      &mut field_types,
+    )?);
+    w.add_document(doc.clone())?;
+    w.update_document_with_term(Term::from_text("id", "1"), doc)?;
+    let mut _delete_bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
+    // TODO: memory calculation not implement
+    // assert!(
+    //   delete_bytes_used > 0,
+    //   "deletedBytesUsed: {delete_bytes_used}"
+    // );
+    assert_eq!(0, w.get_flush_deletes_count());
+    assert!(w.flush_next_buffer()?);
+    assert_eq!(1, w.get_flush_deletes_count());
+    assert_eq!(0, w.doc_writer.flush_control.get_delete_bytes_used()?);
+    w.delete_all()?;
+    w.commit()?;
+    assert_eq!(2, w.get_flush_deletes_count());
+    if random.random_bool(0.5) {
+      w.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+    } else {
+      w.update_numeric_doc_value(Term::from_text("id", "1"), "foo", 1)?;
+    }
+    _delete_bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
+    // TODO: memory calculation not implement
+    // assert!(
+    //   delete_bytes_used > 0,
+    //   "deletedBytesUsed: {delete_bytes_used}"
+    // );
+    doc = Document::new();
+    doc.add(new_field(
+      &mut random,
+      "id",
+      "5",
+      &STORED_TEXT_TYPE,
+      &mut field_types,
+    )?);
+    w.add_document(doc)?;
+    assert!(w.flush_next_buffer()?);
+    assert_eq!(0, w.doc_writer.flush_control.get_delete_bytes_used()?);
+    assert_eq!(3, w.get_flush_deletes_count());
+    w.close()?;
+  }
+
+  {
+    let w = RandomIndexWriter::with_config(&mut random, dir.clone(), IndexWriterConfig::new());
+    let num_docs = random.random_range(1..100);
+    let mut field_types = HashMap::new();
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(new_field(
+        &mut random,
+        "id",
+        i.to_string(),
+        &STORED_TEXT_TYPE,
+        &mut field_types,
+      )?);
+      w.add_document(doc)?;
+    }
+    for i in 0..num_docs {
+      if random.random_bool(0.5) {
+        let mut doc = Document::new();
+        doc.add(new_field(
+          &mut random,
+          "id",
+          i.to_string(),
+          &STORED_TEXT_TYPE,
+          &mut field_types,
+        )?);
+        w.update_document_with_term(Term::from_text("id", i.to_string()), doc)?;
+      }
+    }
+
+    let delete_bytes_used = w.w.doc_writer.flush_control.get_delete_bytes_used()?;
+    if delete_bytes_used > 0 {
+      assert!(w.w.flush_next_buffer()?);
+      assert_eq!(0, w.w.doc_writer.flush_control.get_delete_bytes_used()?);
+    }
+    w.close()?;
+  }
+
   Ok(())
 }
 
@@ -2655,11 +2771,88 @@ fn test_hold_lock_on_largest_writer() -> Result<()> {
 
   Ok(())
 }
-
-#[test]
+// TODO IMPORTANT 多线程索引 BUG
 fn test_check_pending_flush_post_update() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  // TODO IMPORTANT MockDirectoryWrapper未实现
+  let dir = new_directory_shared(&mut random)?;
+  let mut config = IndexWriterConfig::new();
+  config.get_base_mut().check_pending_flush_on_update = false;
+  config.set_max_buffered_docs(i32::MAX);
+  config.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+  let w = IndexWriter::new(dir.clone(), config)?;
+  let done = AtomicBool::new(false);
+  let num_threads = 2 + random.random_range(0..3);
+  let latch = Barrier::new(num_threads + 1);
+
+  thread::scope(|scope| -> Result<()> {
+    let mut threads = Vec::new();
+    for _ in 0..num_threads {
+      threads.push(scope.spawn(|| -> Result<()> {
+        latch.wait();
+        let mut num_docs = 0;
+        while !done.load(SeqCst) {
+          let mut doc = Document::new();
+          doc.add(StringField::from_string("id", "foo", Store::Yes)?);
+          w.add_document(doc)?;
+          if num_docs % 10 == 0 {
+            thread::yield_now();
+          }
+          num_docs += 1;
+        }
+        Ok(())
+      }));
+    }
+    latch.wait();
+
+    let result = (|| -> Result<()> {
+      let num_iters = if rarely(&mut random) {
+        1 + random.random_range(0..5)
+      } else {
+        1
+      };
+      for _ in 0..num_iters {
+        wait_for_docs_in_buffers(&w, std::cmp::min(2, num_threads));
+        w.commit()?;
+        // TODO IMPORTANT MockDirectoryWrapper未实现, 无法断言flush发生在当前线程且不在indexing线程.
+      }
+      Ok(())
+    })();
+
+    done.store(true, SeqCst);
+    for handle in threads {
+      handle.join().expect("thread panicked")?;
+    }
+    result
+  })?;
+  w.close()?;
   Ok(())
+}
+
+fn wait_for_docs_in_buffers<D, L, B>(w: &IndexWriter<D, L, B>, buffers_with_docs: usize)
+where
+  D: Directory,
+  L: LiveIndexWriterConfig,
+  B: IndexWriterBase,
+{
+  // wait until at least N DWPTs have a doc in order to observe who flushes the segments.
+  loop {
+    let mut num_states_with_docs = 0;
+    let per_thread_pool = &w.doc_writer.flush_control.per_thread_pool;
+    for (_id, dwpt) in per_thread_pool.iterator() {
+      dwpt.lock();
+      let num_docs_in_ram = dwpt.dwpt.lock().get_num_docs_in_ram();
+      dwpt.unlock();
+      if num_docs_in_ram > 1 {
+        num_states_with_docs += 1;
+      }
+    }
+    if num_states_with_docs >= buffers_with_docs {
+      return;
+    }
+    thread::yield_now();
+  }
 }
 
 #[test]

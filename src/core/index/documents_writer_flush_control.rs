@@ -789,7 +789,12 @@ where
       debug_assert!(
         Arc::ptr_eq(&next.state.delete_queue, queue),
         "{}",
-        format!("num_docs: {}", next.state.num_docs_in_ram.load(Relaxed))
+        format!(
+          "num_docs: {}, next_queue_gen: {}, dwpt_queue_gen: {}",
+          next.state.num_docs_in_ram.load(Relaxed),
+          queue.generation,
+          next.state.delete_queue.generation
+        )
       );
     }
     true

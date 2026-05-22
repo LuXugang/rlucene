@@ -28,6 +28,8 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::impl_from_for_enum;
 use parking_lot::MutexGuard;
 use std::sync::Arc;
+#[cfg(test)]
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// [`FlushPolicy`] controls when segments are flushed from a RAM resident internal
 /// data structure to the [`IndexWriter`](crate::core::index::index_writer::IndexWriter)'s [`Directory`](crate::core::store::directory::Directory).
@@ -105,6 +107,8 @@ pub enum FlushPolicyEnum {
   FlushByRamOrCounts(FlushByRamOrCountsPolicy),
   #[cfg(test)]
   MockDefault(MockDefaultFlushPolicy),
+  #[cfg(test)]
+  ApplyDeletes(ApplyDeletesFlushPolicy),
 }
 
 impl_from_for_enum!(
@@ -116,6 +120,45 @@ impl_from_for_enum!(
 impl From<MockDefaultFlushPolicy> for FlushPolicyEnum {
   fn from(v: MockDefaultFlushPolicy) -> Self {
     FlushPolicyEnum::MockDefault(v)
+  }
+}
+
+#[cfg(test)]
+impl From<ApplyDeletesFlushPolicy> for FlushPolicyEnum {
+  fn from(v: ApplyDeletesFlushPolicy) -> Self {
+    FlushPolicyEnum::ApplyDeletes(v)
+  }
+}
+
+#[cfg(test)]
+pub struct ApplyDeletesFlushPolicy {
+  flush_deletes: Arc<AtomicBool>,
+}
+
+#[cfg(test)]
+impl ApplyDeletesFlushPolicy {
+  pub(crate) fn new(flush_deletes: Arc<AtomicBool>) -> Self {
+    Self { flush_deletes }
+  }
+}
+
+#[cfg(test)]
+impl FlushPolicy for ApplyDeletesFlushPolicy {
+  fn on_change<D, L>(
+    &self,
+    control: &DocumentsWriterFlushControl<D>,
+    _inner: &mut Inner<D>,
+    _per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
+    _config: &L,
+  ) -> Result<()>
+  where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+  {
+    if self.flush_deletes.load(Ordering::SeqCst) {
+      control.set_apply_all_deletes();
+    }
+    Ok(())
   }
 }
 
@@ -137,6 +180,8 @@ impl FlushPolicy for FlushPolicyEnum {
       },
       #[cfg(test)]
       FlushPolicyEnum::MockDefault(policy) => policy.on_change(control, inner, per_thread, config),
+      #[cfg(test)]
+      FlushPolicyEnum::ApplyDeletes(policy) => policy.on_change(control, inner, per_thread, config),
     }
   }
 
@@ -156,6 +201,10 @@ impl FlushPolicy for FlushPolicyEnum {
       FlushPolicyEnum::MockDefault(policy) => {
         policy.find_largest_non_pending_writer_for_thread(control, per_thread)
       },
+      #[cfg(test)]
+      FlushPolicyEnum::ApplyDeletes(policy) => {
+        policy.find_largest_non_pending_writer_for_thread(control, per_thread)
+      },
     }
   }
 
@@ -164,6 +213,8 @@ impl FlushPolicy for FlushPolicyEnum {
       FlushPolicyEnum::FlushByRamOrCounts(policy) => policy.assert_message(s, info_stream),
       #[cfg(test)]
       FlushPolicyEnum::MockDefault(policy) => policy.assert_message(s, info_stream),
+      #[cfg(test)]
+      FlushPolicyEnum::ApplyDeletes(policy) => policy.assert_message(s, info_stream),
     }
   }
 }
