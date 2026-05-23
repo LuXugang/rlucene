@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, Inner};
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_scheduler::NoMergeScheduler;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
@@ -32,16 +31,15 @@ use crate::test::core::index::test_index_writer_merging::MyMergeScheduler;
 use parking_lot::MutexGuard;
 
 pub trait MergeScheduler: Closeable {
-  fn merge<MS, D, L, B>(
+  fn merge<MS, D, B>(
     &self,
     merge_source: &MS,
     trigger: MergeTrigger,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     MS: MergeSource,
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase;
   type Directory<D>: Directory
   where
@@ -67,43 +65,32 @@ pub trait MergeSource {
 
   /// The `MergeScheduler` calls this method to retrieve the next merge
   /// requested by the `MergePolicy`.
-  fn get_next_merge<D, L, B>(
-    &self,
-    writer: &IndexWriter<D, L, B>,
-  ) -> Result<Option<Self::OneMerge<D>>>
+  fn get_next_merge<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<Option<Self::OneMerge<D>>>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase;
 
   /// Does finishing for a merge.
-  fn on_merge_finished<D, L, B>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D, L, B>)
+  fn on_merge_finished<D, B>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D, B>)
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase;
 
   /// Expert: returns true if there are merges waiting to be scheduled.
-  fn has_pending_merges<D, L, B>(
+  fn has_pending_merges<D, B>(
     &self,
     inner: Option<&MutexGuard<'_, Inner<D>>>,
-    writer: Option<&IndexWriter<D, L, B>>,
+    writer: Option<&IndexWriter<D, B>>,
   ) -> Result<bool>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase;
 
   /// Merges the indicated segments, replacing them in the stack
   /// with a single segment.
-  fn merge<D, L, B>(
-    &self,
-    merge: &mut Self::OneMerge<D>,
-    writer: &IndexWriter<D, L, B>,
-  ) -> Result<()>
+  fn merge<D, B>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D, B>) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase;
 
   fn merge_segment_ids<'a, D>(&self, _merge: &'a Self::OneMerge<D>) -> Option<&'a [String]>
@@ -157,16 +144,15 @@ impl Closeable for MergeSchedulerEnum {
 }
 
 impl MergeScheduler for MergeSchedulerEnum {
-  fn merge<MS, D, L, B>(
+  fn merge<MS, D, B>(
     &self,
     merge_source: &MS,
     trigger: MergeTrigger,
-    index_writer: &IndexWriter<D, L, B>,
+    index_writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     MS: MergeSource,
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     match self {

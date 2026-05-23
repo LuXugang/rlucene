@@ -2071,10 +2071,10 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     iw.close()?;
     Ok(())
   }
-  fn add_float<R, D, L, B>(
+  fn add_float<R, D, B>(
     &self,
     random: &mut R,
-    iw: &IndexWriter<D, L, B>,
+    iw: &IndexWriter<D, B>,
     field: &str,
     id: i32,
     vector: Option<Vec<f32>>,
@@ -2083,7 +2083,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     self.add_float_with_sort_key(
@@ -2096,10 +2095,10 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     )
   }
 
-  fn add_byte<R, D, L, B>(
+  fn add_byte<R, D, B>(
     &self,
     random: &mut R,
-    iw: &IndexWriter<D, L, B>,
+    iw: &IndexWriter<D, B>,
     field: &str,
     id: i32,
     vector: Option<Vec<u8>>,
@@ -2108,7 +2107,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     self.add_byte_with_sort_key(
@@ -2121,9 +2119,9 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     )
   }
 
-  fn add_byte_default_similarity<D, L, B>(
+  fn add_byte_default_similarity<D, B>(
     &self,
-    iw: &IndexWriter<D, L, B>,
+    iw: &IndexWriter<D, B>,
     field: &str,
     id: i32,
     sort_key: i32,
@@ -2131,7 +2129,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     self.add_byte_with_sort_key(
@@ -2144,9 +2141,9 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     )
   }
 
-  fn add_byte_with_sort_key<D, L, B>(
+  fn add_byte_with_sort_key<D, B>(
     &self,
-    iw: &IndexWriter<D, L, B>,
+    iw: &IndexWriter<D, B>,
     field: &str,
     id: i32,
     sort_key: i32,
@@ -2155,7 +2152,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let mut doc = Document::new();
@@ -2178,9 +2174,9 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn add_float_default_similarity<D, L, B>(
+  fn add_float_default_similarity<D, B>(
     &self,
-    iw: &IndexWriter<D, L, B>,
+    iw: &IndexWriter<D, B>,
     field: &str,
     id: i32,
     sort_key: i32,
@@ -2188,7 +2184,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     self.add_float_with_sort_key(
@@ -2201,9 +2196,9 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     )
   }
 
-  fn add_float_with_sort_key<D, L, B>(
+  fn add_float_with_sort_key<D, B>(
     &self,
-    iw: &IndexWriter<D, L, B>,
+    iw: &IndexWriter<D, B>,
     field: &str,
     id: i32,
     sort_key: i32,
@@ -2212,7 +2207,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let mut doc = Document::new();
@@ -2570,16 +2564,15 @@ impl TestMergeScheduler {
 impl Closeable for TestMergeScheduler {}
 
 impl MergeScheduler for TestMergeScheduler {
-  fn merge<MS, D, L, B>(
+  fn merge<MS, D, B>(
     &self,
     merge_source: &MS,
     _trigger: MergeTrigger,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     MS: MergeSource,
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     while let Some(mut merge) = merge_source.get_next_merge(writer)? {

@@ -971,17 +971,16 @@ pub trait BaseXYPointTestCase {
 
     Ok(())
   }
-  fn index_points<R, D, L, B>(
+  fn index_points<R, D, B>(
     &self,
     random: &mut R,
     xs: &[f32],
     ys: &[f32],
     deleted: &mut HashSet<i32>,
-    w: &IndexWriter<D, L, B>,
+    w: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
     R: Rng + ?Sized,
   {

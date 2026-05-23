@@ -17,7 +17,6 @@
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::IOContext;
@@ -125,10 +124,9 @@ impl BufferedUpdatesStream {
   /// Returns `true` if there were any new deletes or updates.
   ///
   /// This is called during refresh and commit.
-  pub(crate) fn wait_apply_all<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  pub(crate) fn wait_apply_all<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let wait_for = {
@@ -171,14 +169,13 @@ impl BufferedUpdatesStream {
   }
   /// Waits only for those in-flight packets that apply to these merge segments.
   /// This is called when a merge needs to finish and must ensure all deletes to the merging segments are resolved.
-  pub(crate) fn wait_apply_for_merge<D, L, B>(
+  pub(crate) fn wait_apply_for_merge<D, B>(
     &self,
     merge_infos_id: &[String],
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let mut max_del_gen = i64::MIN;
@@ -223,14 +220,13 @@ impl BufferedUpdatesStream {
     self.wait_apply(wait_for, writer)
   }
 
-  fn wait_apply<D, L, B>(
+  fn wait_apply<D, B>(
     &self,
     wait_for: HashMap<Identity, Arc<FrozenBufferedUpdates>>,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let start_ns = std::time::Instant::now();
@@ -331,13 +327,12 @@ where
       start_del_count: info.get_del_count(),
     })
   }
-  pub(crate) fn close<L, B>(
+  pub(crate) fn close<B>(
     &self,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
     inner: &mut crate::core::index::index_writer::Inner<D>,
   ) -> Result<()>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     {

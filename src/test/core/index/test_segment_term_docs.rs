@@ -22,7 +22,6 @@ use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::postings_enum::{FREQS, PostingsEnum};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -351,15 +350,14 @@ fn test_skip_to() -> Result<()> {
   reader.close()?;
   Ok(())
 }
-fn add_doc<D, L, B, R>(
+fn add_doc<D, B, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D, L, B>,
+  writer: &mut IndexWriter<D, B>,
   value: &str,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
   R: Rng + ?Sized,
 {

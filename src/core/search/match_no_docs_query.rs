@@ -341,16 +341,15 @@ mod tests {
     Ok(())
   }
 
-  fn add_doc<R, D, L, B>(
+  fn add_doc<R, D, B>(
     text: &str,
-    iw: &mut IndexWriter<D, L, B>,
+    iw: &mut IndexWriter<D, B>,
     random: &mut R,
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let mut doc = Document::new();

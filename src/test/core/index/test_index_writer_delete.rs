@@ -513,16 +513,15 @@ fn test_delete_all_repeated() -> Result<()> {
 
   Ok(())
 }
-fn update_doc<D, L, B, R>(
+fn update_doc<D, B, R>(
   random: &mut R,
-  modifier: &mut IndexWriter<D, L, B>,
+  modifier: &mut IndexWriter<D, B>,
   id: i32,
   value: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
   R: rand::Rng + ?Sized,
 {
@@ -555,16 +554,15 @@ where
   Ok(())
 }
 
-fn add_doc<D, L, B, R>(
+fn add_doc<D, B, R>(
   random: &mut R,
-  modifier: &mut IndexWriter<D, L, B>,
+  modifier: &mut IndexWriter<D, B>,
   id: i32,
   value: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
   R: rand::Rng + ?Sized,
 {

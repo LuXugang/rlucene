@@ -786,16 +786,15 @@ impl Closeable for SerialMergeSchedulerImpl {
 }
 
 impl MergeScheduler for SerialMergeSchedulerImpl {
-  fn merge<MS, D, L, B>(
+  fn merge<MS, D, B>(
     &self,
     merge_source: &MS,
     trigger: MergeTrigger,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     MS: MergeSource,
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     if !self.may_merge.load(Ordering::SeqCst) {

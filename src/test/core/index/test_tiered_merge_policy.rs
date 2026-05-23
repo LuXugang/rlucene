@@ -854,14 +854,13 @@ where
 // differences.
 // this should be called after forceDeletesMerges with the boolean always false,
 // Depending on the state, forceMerge may call with the boolean true or false.
-fn check_segments_in_expectations<D, L, B>(
-  w: &IndexWriter<D, L, B>,
+fn check_segments_in_expectations<D, B>(
+  w: &IndexWriter<D, B>,
   seg_names_before: &[String],
   two_may_have_been_merged: bool,
 ) -> Result<()>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   let seg_names_after = get_segment_names(w)?;
@@ -907,10 +906,9 @@ where
 
   Ok(())
 }
-fn get_segment_names<D, L, B>(w: &IndexWriter<D, L, B>) -> Result<Vec<String>>
+fn get_segment_names<D, B>(w: &IndexWriter<D, B>) -> Result<Vec<String>>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   let infos = w.clone_segment_infos()?;
@@ -922,14 +920,13 @@ where
   Ok(names)
 }
 
-fn delete_pct_docs_from_each_seg<D, L, B>(
-  w: &mut IndexWriter<D, L, B>,
+fn delete_pct_docs_from_each_seg<D, B>(
+  w: &mut IndexWriter<D, B>,
   pct: i32,
   round_up: bool,
 ) -> Result<i32>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   let reader = directory_reader::open_from_writer(w)?;

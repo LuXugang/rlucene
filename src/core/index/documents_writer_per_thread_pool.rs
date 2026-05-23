@@ -19,7 +19,6 @@ use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueu
 use crate::core::index::documents_writer_per_thread::{DocumentsWriterPerThread, State};
 use crate::core::index::field_infos::build::Builder;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::{
   Lock, LockableConcurrentApproximatePriorityQueue,
 };
@@ -96,12 +95,11 @@ where
       self.pausing.notify_all();
     }
   }
-  pub(crate) fn new_dwpt<L, B>(
-    index_writer: &IndexWriter<D, L, B>,
+  pub(crate) fn new_dwpt<B>(
+    index_writer: &IndexWriter<D, B>,
     delete_queue: Arc<DocumentsWriterDeleteQueue>,
   ) -> Result<Arc<DwptWrapper<D>>>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let infos = Builder::new(index_writer.global_field_number_map.clone());
@@ -119,13 +117,12 @@ where
     Ok(Arc::new(DwptWrapper::new(dwpt)))
   }
   /// Returns a new already locked [`DocumentsWriterPerThread`]
-  pub(crate) fn new_writer<L, B>(
+  pub(crate) fn new_writer<B>(
     &self,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
     delete_queue: Arc<DocumentsWriterDeleteQueue>,
   ) -> Result<Arc<DwptWrapper<D>>>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let mut inner = self.inner.lock();
@@ -148,13 +145,12 @@ where
   }
   /// This method is used by `DocumentsWriter`/`FlushControl` to obtain a DWPT to do an indexing
   /// operation (add/updateDocument).
-  pub(crate) fn get_and_lock<L, B>(
+  pub(crate) fn get_and_lock<B>(
     &self,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
     delete_queue: Arc<DocumentsWriterDeleteQueue>,
   ) -> Result<Arc<DwptWrapper<D>>>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     self.ensure_open()?;

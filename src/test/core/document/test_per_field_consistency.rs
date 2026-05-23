@@ -151,15 +151,14 @@ fn add_field(doc: &mut Document, field: &Fields) {
   doc.add(clone_field(field));
 }
 
-fn do_test_doc_with_missing_schema_options_throws_error<D, L, B>(
+fn do_test_doc_with_missing_schema_options_throws_error<D, B>(
   fields: &[Fields],
   missing: usize,
-  writer: &IndexWriter<D, L, B>,
+  writer: &IndexWriter<D, B>,
   error_msg: &str,
 ) -> Result<()>
 where
   D: crate::core::store::directory::Directory,
-  L: crate::core::index::live_index_writer_config::LiveIndexWriterConfig,
   B: crate::core::index::index_writer::IndexWriterBase,
 {
   let mut doc = Document::new();
@@ -178,15 +177,14 @@ where
   Ok(())
 }
 
-fn do_test_doc_with_extra_schema_options_throws_error<D, L, B>(
+fn do_test_doc_with_extra_schema_options_throws_error<D, B>(
   existing: &Fields,
   extra: &Fields,
-  writer: &IndexWriter<D, L, B>,
+  writer: &IndexWriter<D, B>,
   error_msg: &str,
 ) -> Result<()>
 where
   D: crate::core::store::directory::Directory,
-  L: crate::core::index::live_index_writer_config::LiveIndexWriterConfig,
   B: crate::core::index::index_writer::IndexWriterBase,
 {
   let mut doc = Document::new();

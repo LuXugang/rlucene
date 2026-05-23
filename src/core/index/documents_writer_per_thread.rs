@@ -307,19 +307,18 @@ where
     }
     Ok(())
   }
-  pub(crate) fn update_documents<DI, DF, FN, L, B>(
+  pub(crate) fn update_documents<DI, DF, FN, B>(
     &mut self,
     docs: DI,
     delete_node: Option<Arc<Node>>,
     flush_notifications: &FN,
     num_docs_in_ram: &AtomicI32,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<i64>
   where
     DI: IntoIterator<Item = DF>,
     DF: IntoIterator<Item = Fields>,
     FN: FlushNotifications,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     self.test_point("DocumentsWriterPerThread addDocuments start");
@@ -498,14 +497,13 @@ where
     Ok(global_updates)
   }
   ///  Flush all pending docs to a new segment
-  pub(crate) fn flush<FN, L, B>(
+  pub(crate) fn flush<FN, B>(
     &mut self,
     flush_notifications: &FN,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<Option<FlushedSegment<D>>>
   where
     FN: FlushNotifications,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     debug_assert_eq!(self.state.flush_pending.get(), Some(&true));
@@ -743,15 +741,14 @@ where
     result
   }
 
-  fn maybe_abort<FN, L, B>(
+  fn maybe_abort<FN, B>(
     &mut self,
     location: &str,
     flush_notifications: &FN,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     FN: FlushNotifications,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     match self.aborting_exception {

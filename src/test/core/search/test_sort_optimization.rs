@@ -1985,13 +1985,12 @@ where
     self.wrap_directory_reader(v)
   }
 
-  fn do_open_if_changed_with_index_writer<L, B>(
+  fn do_open_if_changed_with_index_writer<B>(
     &self,
-    writer: IndexWriter<Self::Directory, L, B>,
+    writer: IndexWriter<Self::Directory, B>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let v = self
@@ -2004,10 +2003,9 @@ where
     self.in_.get_version()
   }
 
-  fn is_current<D, L, B>(&self, index_writer: &IndexWriter<D, L, B>) -> Result<bool>
+  fn is_current<D, B>(&self, index_writer: &IndexWriter<D, B>) -> Result<bool>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     self.in_.is_current(index_writer)

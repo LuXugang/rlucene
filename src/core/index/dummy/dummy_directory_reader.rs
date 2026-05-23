@@ -26,7 +26,6 @@ use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
@@ -148,13 +147,12 @@ where
     dummy_unreachable!()
   }
 
-  fn do_open_if_changed_with_index_writer<L, B>(
+  fn do_open_if_changed_with_index_writer<B>(
     &self,
-    _writer: IndexWriter<Self::Directory, L, B>,
+    _writer: IndexWriter<Self::Directory, B>,
     _apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     dummy_unreachable!()
@@ -164,10 +162,9 @@ where
     dummy_unreachable!()
   }
 
-  fn is_current<D1, L, B>(&self, _index_writer: &IndexWriter<D1, L, B>) -> Result<bool>
+  fn is_current<D1, B>(&self, _index_writer: &IndexWriter<D1, B>) -> Result<bool>
   where
     D1: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     dummy_unreachable!()

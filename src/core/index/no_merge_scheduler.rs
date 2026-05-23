@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
@@ -52,16 +51,15 @@ impl Closeable for NoMergeScheduler {
 }
 
 impl MergeScheduler for NoMergeScheduler {
-  fn merge<MS, D, L, B>(
+  fn merge<MS, D, B>(
     &self,
     _merge_source: &MS,
     _trigger: MergeTrigger,
-    _index_writer: &IndexWriter<D, L, B>,
+    _index_writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     MS: MergeSource,
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     Ok(())

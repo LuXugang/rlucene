@@ -650,13 +650,9 @@ where
     self.flush_deletes.store(true, Ordering::SeqCst);
   }
 
-  pub(crate) fn obtain_and_lock<B, L>(
-    &self,
-    writer: &IndexWriter<D, L, B>,
-  ) -> Result<Arc<DwptWrapper<D>>>
+  pub(crate) fn obtain_and_lock<B>(&self, writer: &IndexWriter<D, B>) -> Result<Arc<DwptWrapper<D>>>
   where
     B: IndexWriterBase,
-    L: LiveIndexWriterConfig,
   {
     loop {
       {

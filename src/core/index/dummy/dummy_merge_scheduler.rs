@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
@@ -31,16 +30,15 @@ impl Closeable for DummyMergeScheduler {
 }
 
 impl MergeScheduler for DummyMergeScheduler {
-  fn merge<MS, D, L, B>(
+  fn merge<MS, D, B>(
     &self,
     _merge_source: &MS,
     _trigger: MergeTrigger,
-    _writer: &IndexWriter<D, L, B>,
+    _writer: &IndexWriter<D, B>,
   ) -> crate::core::util::error::lucene_error::Result<()>
   where
     MS: MergeSource,
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     dummy_unreachable!()

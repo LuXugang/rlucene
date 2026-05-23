@@ -430,15 +430,14 @@ where
   conf.set_merge_policy(LogMergePolicy::log_doc());
   IndexWriter::new(dir, conf)
 }
-fn add_docs<D, L, B, R>(
+fn add_docs<D, B, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D, L, B>,
+  writer: &mut IndexWriter<D, B>,
   num_docs: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
   R: Rng + ?Sized,
 {
@@ -459,15 +458,14 @@ where
   Ok(())
 }
 
-fn add_docs2<D, L, B, R>(
+fn add_docs2<D, B, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D, L, B>,
+  writer: &mut IndexWriter<D, B>,
   num_docs: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
   R: Rng + ?Sized,
 {
@@ -524,9 +522,9 @@ where
   reader.close()?;
   Ok(())
 }
-fn add_docs_with_id<R, D, L, B>(
+fn add_docs_with_id<R, D, B>(
   random: &mut R,
-  writer: &IndexWriter<D, L, B>,
+  writer: &IndexWriter<D, B>,
   num_docs: i32,
   doc_start: i32,
   field_to_type: &mut HashMap<String, FieldType>,
@@ -534,7 +532,6 @@ fn add_docs_with_id<R, D, L, B>(
 where
   R: Rng + ?Sized,
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   for i in 0..num_docs {
@@ -722,14 +719,13 @@ fn test_hang_on_close() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-fn add_doc<D, L, B, R>(
+fn add_doc<D, B, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D, L, B>,
+  writer: &mut IndexWriter<D, B>,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
   R: Rng + ?Sized,
 {

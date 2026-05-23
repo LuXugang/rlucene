@@ -38,10 +38,9 @@ use crate::core::util::long_supplier::LongSupplier;
 use parking_lot::{Condvar, Mutex, MutexGuard};
 use std::sync::Arc;
 
-pub struct IndexWriter<D, L, B>
+pub struct IndexWriter<D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   pub(crate) enable_test_points: bool,
@@ -75,7 +74,7 @@ where
   reader_pool: ReaderPool<D, LongSupplierImpl>,
   buffered_updates_stream: Arc<BufferedUpdatesStream>,
   merge_finished_gen: AtomicI64,
-  pub(crate) config: L,
+  pub(crate) config: IndexWriterConfig,
   pub(crate) pending_num_docs: Arc<AtomicI64>,
   soft_deletes_enabled: bool,
   info_stream: InfoStreamMT,
@@ -122,34 +121,31 @@ where
   files_to_commit: Option<Vec<String>>,
   start_commit_time: Instant,
 }
-impl<D, L, B> Drop for IndexWriter<D, L, B>
+impl<D, B> Drop for IndexWriter<D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   fn drop(&mut self) {
     // TODO IMPORTANT 其他close需要用到IndexWriter的字段都需要在这里处理
   }
 }
-pub type DefaultIndexWriterType<D> = IndexWriter<D, IndexWriterConfig, EmptyIndexWriterBase>;
-impl<D, L> IndexWriter<D, L, EmptyIndexWriterBase>
+pub type DefaultIndexWriterType<D> = IndexWriter<D, EmptyIndexWriterBase>;
+impl<D> IndexWriter<D, EmptyIndexWriterBase>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
 {
-  pub fn new(d: Arc<D>, conf: L) -> Result<Self> {
+  pub fn new(d: Arc<D>, conf: IndexWriterConfig) -> Result<Self> {
     Self::with_sub(d, conf, Some(EmptyIndexWriterBase))
   }
 }
 
-impl<D, L, B> IndexWriter<D, L, B>
+impl<D, B> IndexWriter<D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
-  pub fn with_sub(d: Arc<D>, mut conf: L, sub: Option<B>) -> Result<Self> {
+  pub fn with_sub(d: Arc<D>, mut conf: IndexWriterConfig, sub: Option<B>) -> Result<Self> {
     let enable_test_points = sub.as_ref().unwrap().is_enable_test_points();
     let info_stream = conf.get_info_stream();
     let soft_deletes_enabled = conf.get_soft_deletes_field().is_some();
@@ -428,7 +424,10 @@ where
   }
 
   /// Confirms that the incoming index sort (if any) matches the existing index sort (if any).
-  fn validate_index_sort(config: &L, segment_infos: &SegmentInfos<D>) -> Result<()> {
+  fn validate_index_sort(
+    config: &IndexWriterConfig,
+    segment_infos: &SegmentInfos<D>,
+  ) -> Result<()> {
     if let Some(index_sort) = config.get_index_sort() {
       for info in segment_infos.iter() {
         let segment_index_sort = info.info.get_index_sort();
@@ -450,7 +449,10 @@ where
 
   /// Loads or returns the already loaded the global field number map for this [`SegmentInfos`].
   /// If this [`SegmentInfos`] has no global field number map the returned instance is empty
-  fn get_field_number_map(config: &L, segment_infos: &SegmentInfos<D>) -> Result<FieldNumbers> {
+  fn get_field_number_map(
+    config: &IndexWriterConfig,
+    segment_infos: &SegmentInfos<D>,
+  ) -> Result<FieldNumbers> {
     let mut map = FieldNumbers::new(config.get_soft_deletes_field(), config.get_parent_field())?;
     for info in segment_infos.iter() {
       let fis = read_field_infos(info)?;
@@ -461,10 +463,10 @@ where
 
     Ok(map)
   }
-  pub fn get_config(&self) -> &L {
+  pub fn get_config(&self) -> &IndexWriterConfig {
     &self.config
   }
-  pub fn get_config_mut(&mut self) -> &mut L {
+  pub fn get_config_mut(&mut self) -> &mut IndexWriterConfig {
     &mut self.config
   }
   fn message_state(&self) -> Result<()> {
@@ -5840,10 +5842,9 @@ where
     inner.segment_infos.get_version()
   }
 }
-impl<D, L, B> TwoPhaseCommit for IndexWriter<D, L, B>
+impl<D, B> TwoPhaseCommit for IndexWriter<D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   /// **Expert:** Prepares for commit. This is the first phase of a 2-phase commit.
@@ -5929,28 +5930,25 @@ pub trait IndexReaderWarmer {
     LR: LeafReader;
 }
 
-struct IOConsumerImpl1<'a, D, L, B>
+struct IOConsumerImpl1<'a, D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
-  index_writer: &'a IndexWriter<D, L, B>,
+  index_writer: &'a IndexWriter<D, B>,
 }
-impl<'a, D, L, B> IOConsumerImpl1<'a, D, L, B>
+impl<'a, D, B> IOConsumerImpl1<'a, D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
-  fn new(index_writer: &'a IndexWriter<D, L, B>) -> Self {
+  fn new(index_writer: &'a IndexWriter<D, B>) -> Self {
     Self { index_writer }
   }
 }
-impl<'a, D, L, B> IOConsumer<HashSet<String>> for IOConsumerImpl1<'a, D, L, B>
+impl<'a, D, B> IOConsumer<HashSet<String>> for IOConsumerImpl1<'a, D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   fn accept(&mut self, input: HashSet<String>) -> Result<()> {
@@ -6053,10 +6051,9 @@ where
     self.hard_live_docs.length()
   }
 }
-impl<D, L, B> MergeContext<D> for IndexWriter<D, L, B>
+impl<D, B> MergeContext<D> for IndexWriter<D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   /// Returns the number of deletes a merge would claim back if the given segment is merged.
@@ -6150,10 +6147,9 @@ impl Merges {
     self.merges_enabled = false;
   }
 
-  pub(crate) fn enable<D, L, B>(&mut self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  pub(crate) fn enable<D, B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     writer.ensure_open()?;
@@ -6162,27 +6158,25 @@ impl Merges {
   }
 }
 
-pub(crate) struct IOConsumerImpl<'a, D, L, B>
+pub(crate) struct IOConsumerImpl<'a, D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   deleter: &'a mut IndexFileDeleter<D>,
   merge_readers: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
-  reader_factory: &'a mut IOFunctionImpl<'a, D, L, B>,
+  reader_factory: &'a mut IOFunctionImpl<'a, D, B>,
   stop_collecting_merged_readers: &'a AtomicBool,
 }
-impl<'a, D, L, B> IOConsumerImpl<'a, D, L, B>
+impl<'a, D, B> IOConsumerImpl<'a, D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   pub(crate) fn new(
     deleter: &'a mut IndexFileDeleter<D>,
     merge_readers: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
-    reader_factory: &'a mut IOFunctionImpl<'a, D, L, B>,
+    reader_factory: &'a mut IOFunctionImpl<'a, D, B>,
     stop_collecting_merged_readers: &'a AtomicBool,
   ) -> Self {
     Self {
@@ -6193,10 +6187,9 @@ where
     }
   }
 }
-impl<'a, D, L, B> IOConsumer<SegmentCommitInfo<D>> for IOConsumerImpl<'a, D, L, B>
+impl<'a, D, B> IOConsumer<SegmentCommitInfo<D>> for IOConsumerImpl<'a, D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   fn accept_ref(&mut self, sci: &SegmentCommitInfo<D>) -> Result<()> {
@@ -6214,23 +6207,21 @@ where
   }
 }
 
-pub(crate) struct IOFunctionImpl<'a, D, L, B>
+pub(crate) struct IOFunctionImpl<'a, D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
-  writer: &'a IndexWriter<D, L, B>,
+  writer: &'a IndexWriter<D, B>,
   opened_read_only_clones: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
 }
-impl<'a, D, L, B> IOFunctionImpl<'a, D, L, B>
+impl<'a, D, B> IOFunctionImpl<'a, D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   pub(crate) fn new(
-    writer: &'a IndexWriter<D, L, B>,
+    writer: &'a IndexWriter<D, B>,
     opened_read_only_clones: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
   ) -> Self {
     Self {
@@ -6239,11 +6230,9 @@ where
     }
   }
 }
-impl<'a, D, L, B> IOFunction<SegmentCommitInfo<D>, Arc<SegmentReader<D>>>
-  for IOFunctionImpl<'a, D, L, B>
+impl<'a, D, B> IOFunction<SegmentCommitInfo<D>, Arc<SegmentReader<D>>> for IOFunctionImpl<'a, D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   fn apply(&mut self, sci: &SegmentCommitInfo<D>) -> Result<Arc<SegmentReader<D>>> {
@@ -6266,10 +6255,9 @@ where
     }
   }
 }
-impl<D, L, B> Display for IndexWriter<D, L, B>
+impl<D, B> Display for IndexWriter<D, B>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -6361,24 +6349,22 @@ impl FlushNotifications for FlushNotificationsImpl {
     }
   }
 
-  fn after_segments_flushed<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn after_segments_flushed<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     writer.publish_flushed_segments(false)
   }
 
-  fn on_tragic_event<D, L, B>(
+  fn on_tragic_event<D, B>(
     &self,
     event: LuceneError,
     message: &str,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     writer.on_tragic_event(&event, message)
@@ -6751,10 +6737,9 @@ impl EventQueue {
     self.permits.release();
     Ok(())
   }
-  pub(crate) fn process_events<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  pub(crate) fn process_events<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     self.acquire()?;
@@ -6762,10 +6747,9 @@ impl EventQueue {
     self.permits.release();
     result
   }
-  fn process_events_internal<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn process_events_internal<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     debug_assert!(
@@ -6778,10 +6762,9 @@ impl EventQueue {
     }
     Ok(())
   }
-  pub(crate) fn close<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  pub(crate) fn close<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let _guard = self.guard.lock();
@@ -6821,9 +6804,8 @@ where
   /// # Arguments
   ///
   /// * `writer` — the [`IndexWriter`] that executes the event.
-  fn process<L, B>(&mut self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase;
 }
 pub(crate) struct EventImpl1 {
@@ -6838,9 +6820,8 @@ impl<D> Event<D> for EventImpl1
 where
   D: Directory,
 {
-  fn process<L, B>(&mut self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     writer.delete_new_files(self.files.iter(), None)
@@ -6859,9 +6840,8 @@ impl<D> Event<D> for EventImpl2
 where
   D: Directory,
 {
-  fn process<L, B>(&mut self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     writer.flush_failed(std::mem::take(&mut self.info_files))
@@ -6873,9 +6853,8 @@ impl<D> Event<D> for EventImpl3
 where
   D: Directory,
 {
-  fn process<L, B>(&mut self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let result = writer.publish_flushed_segments(true);
@@ -6888,9 +6867,8 @@ impl<D> Event<D> for EventImpl4
 where
   D: Directory,
 {
-  fn process<L, B>(&mut self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     writer.publish_flushed_segments(true)
@@ -6908,9 +6886,8 @@ impl<D> Event<D> for EventImpl5
 where
   D: Directory,
 {
-  fn process<L, B>(&mut self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
     B: IndexWriterBase,
   {
@@ -6954,9 +6931,8 @@ impl<D> Event<D> for EventImplTest
 where
   D: Directory,
 {
-  fn process<L, B>(&mut self, _writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn process<B>(&mut self, _writer: &IndexWriter<D, B>) -> Result<()>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     self.executed.fetch_add(1, Ordering::SeqCst);
@@ -6977,9 +6953,8 @@ impl<D> Event<D> for EventEnum
 where
   D: Directory,
 {
-  fn process<L, B>(&mut self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     match self {
@@ -7001,13 +6976,9 @@ impl MergeSource for IndexWriterMergeSource {
   where
     D: Directory;
 
-  fn get_next_merge<D, L, B>(
-    &self,
-    writer: &IndexWriter<D, L, B>,
-  ) -> Result<Option<Self::OneMerge<D>>>
+  fn get_next_merge<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<Option<Self::OneMerge<D>>>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     match writer.get_next_merge()? {
@@ -7019,23 +6990,21 @@ impl MergeSource for IndexWriterMergeSource {
     }
   }
 
-  fn on_merge_finished<D, L, B>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D, L, B>)
+  fn on_merge_finished<D, B>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D, B>)
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     writer.merge_finish(merge, None)
   }
 
-  fn has_pending_merges<D, L, B>(
+  fn has_pending_merges<D, B>(
     &self,
     _inner: Option<&MutexGuard<'_, Inner<D>>>,
-    writer: Option<&IndexWriter<D, L, B>>,
+    writer: Option<&IndexWriter<D, B>>,
   ) -> Result<bool>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     writer
@@ -7044,14 +7013,9 @@ impl MergeSource for IndexWriterMergeSource {
       .has_pending_merges()
   }
 
-  fn merge<D, L, B>(
-    &self,
-    merge: &mut Self::OneMerge<D>,
-    writer: &IndexWriter<D, L, B>,
-  ) -> Result<()>
+  fn merge<D, B>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D, B>) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     writer.merge(merge)
@@ -7086,14 +7050,13 @@ impl AddIndexesMergeSource {
     inner.pending_add_indexes_merges.push_back(merge);
   }
 
-  fn abort_pending_merges<D, L, B>(
+  fn abort_pending_merges<D, B>(
     &self,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
     inner: &mut Inner<D>,
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     while let Some(merge) = inner.pending_add_indexes_merges.pop_front() {
@@ -7116,17 +7079,13 @@ impl MergeSource for AddIndexesMergeSource {
   where
     D: Directory;
 
-  fn get_next_merge<D, L, B>(
-    &self,
-    writer: &IndexWriter<D, L, B>,
-  ) -> Result<Option<Self::OneMerge<D>>>
+  fn get_next_merge<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<Option<Self::OneMerge<D>>>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let mut inner = writer.inner.lock();
-    if !self.has_pending_merges::<D, L, B>(Some(&inner), None)? {
+    if !self.has_pending_merges::<D, B>(Some(&inner), None)? {
       return Ok(None);
     }
     let merge = inner
@@ -7137,24 +7096,22 @@ impl MergeSource for AddIndexesMergeSource {
     Ok(Some(merge))
   }
 
-  fn on_merge_finished<D, L, B>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D, L, B>)
+  fn on_merge_finished<D, B>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D, B>)
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let mut inner = writer.inner.lock();
     inner.running_merges.remove(&merge.stat);
   }
 
-  fn has_pending_merges<D, L, B>(
+  fn has_pending_merges<D, B>(
     &self,
     inner: Option<&MutexGuard<'_, Inner<D>>>,
-    _writer: Option<&IndexWriter<D, L, B>>,
+    _writer: Option<&IndexWriter<D, B>>,
   ) -> Result<bool>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     Ok(
@@ -7165,14 +7122,9 @@ impl MergeSource for AddIndexesMergeSource {
     )
   }
 
-  fn merge<D, L, B>(
-    &self,
-    merge: &mut Self::OneMerge<D>,
-    writer: &IndexWriter<D, L, B>,
-  ) -> Result<()>
+  fn merge<D, B>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D, B>) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let mut success = false;

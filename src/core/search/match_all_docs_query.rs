@@ -415,15 +415,14 @@ mod tests {
     assert_eq!(q1, q2);
     Ok(())
   }
-  fn add_doc<D, L, B, R>(
+  fn add_doc<D, B, R>(
     random: &mut R,
     text: &str,
-    iw: &IndexWriter<D, L, B>,
+    iw: &IndexWriter<D, B>,
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
     R: Rng + ?Sized,
   {

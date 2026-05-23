@@ -564,15 +564,14 @@ pub mod tests {
       .cloned()
   }
 
-  fn index_thread<D, L, B>(
+  fn index_thread<D, B>(
     seed: u64,
     pending_docs: &AtomicI32,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
     do_random_commit: bool,
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let mut random = random_from_seed(seed);

@@ -26,7 +26,6 @@ use crate::core::index::index_file_names::IndexFileNames;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{EmptyIndexWriterBase, IndexWriter};
-use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
@@ -138,7 +137,7 @@ struct CheckSegmentCount {
 
 impl CheckSegmentCount {
   fn new(
-    w: &IndexWriter<DirEnum, IndexWriterConfig, EmptyIndexWriterBase>,
+    w: &IndexWriter<DirEnum, EmptyIndexWriterBase>,
     max_thread_count_per_iter: Arc<AtomicUsize>,
     indexing_count: Arc<AtomicUsize>,
     random: &mut impl rand::Rng,
@@ -156,7 +155,7 @@ impl CheckSegmentCount {
 
   fn run(
     &mut self,
-    w: &IndexWriter<DirEnum, IndexWriterConfig, EmptyIndexWriterBase>,
+    w: &IndexWriter<DirEnum, EmptyIndexWriterBase>,
     random: &mut impl rand::Rng,
   ) -> Result<()> {
     let old_segment_count = get_context(&self.r)?.leaves()?.len();

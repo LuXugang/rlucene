@@ -271,9 +271,8 @@ where
     index_file_deleter.delete_commits()?;
     Ok(index_file_deleter)
   }
-  fn ensure_open<L, B>(&self, index_writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn ensure_open<B>(&self, index_writer: &IndexWriter<D, B>) -> Result<()>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     index_writer.do_ensure_open(false)?;
@@ -289,9 +288,8 @@ where
 
     Ok(())
   }
-  pub(crate) fn is_closed<L, B>(&self, index_writer: &IndexWriter<D, L, B>) -> Result<bool>
+  pub(crate) fn is_closed<B>(&self, index_writer: &IndexWriter<D, B>) -> Result<bool>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     match self.ensure_open(index_writer) {
@@ -706,7 +704,6 @@ impl Messenger for MessengerImpl {
 }
 
 use crate::core::index::index_writer::WRITE_LOCK_NAME;
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::segment_infos::generation_from_segments_file_name;
 use crate::core::util::IOUtils;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
@@ -870,7 +867,6 @@ mod tests {
   use std::collections::HashMap;
 
   use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-  use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::store::directory::Directory;
   use crate::core::store::{DataInput, DataOutput, IndexInput};
   use crate::core::util::error::lucene_error::Result;
@@ -936,16 +932,15 @@ mod tests {
 
     Ok(())
   }
-  fn add_doc<D, L, B, R>(
+  fn add_doc<D, B, R>(
     random: &mut R,
-    writer: &mut IndexWriter<D, L, B>,
+    writer: &mut IndexWriter<D, B>,
     id: i32,
     field_types: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     let mut doc = Document::new();

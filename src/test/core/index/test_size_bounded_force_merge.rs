@@ -37,23 +37,21 @@ use rand::Rng;
 #[allow(dead_code)] // for quick search
 pub struct TestSizeBoundedForceMerge;
 
-fn add_docs<D, L, B>(writer: &mut IndexWriter<D, L, B>, num_docs: i32) -> Result<()>
+fn add_docs<D, B>(writer: &mut IndexWriter<D, B>, num_docs: i32) -> Result<()>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   add_docs_with_id(writer, num_docs, false)
 }
 
-fn add_docs_with_id<D, L, B>(
-  writer: &mut IndexWriter<D, L, B>,
+fn add_docs_with_id<D, B>(
+  writer: &mut IndexWriter<D, B>,
   num_docs: i32,
   with_id: bool,
 ) -> Result<()>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
 {
   for i in 0..num_docs {

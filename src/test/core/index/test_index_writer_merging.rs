@@ -379,16 +379,15 @@ impl Closeable for MyMergeScheduler {
 }
 
 impl MergeScheduler for MyMergeScheduler {
-  fn merge<MS, D, L, B>(
+  fn merge<MS, D, B>(
     &self,
     merge_source: &MS,
     _trigger: MergeTrigger,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     MS: MergeSource,
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     loop {

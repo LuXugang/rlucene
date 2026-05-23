@@ -22,7 +22,6 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_terms::get_terms;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
@@ -140,15 +139,14 @@ fn verify_doc_freq(dir: Arc<DirEnum>) -> Result<()> {
   Ok(())
 }
 
-fn add_doc<D, L, B, R>(
+fn add_doc<D, B, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D, L, B>,
+  writer: &mut IndexWriter<D, B>,
   value: &str,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
   R: Rng + ?Sized,
 {

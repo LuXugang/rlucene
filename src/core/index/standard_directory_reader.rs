@@ -124,8 +124,8 @@ where
   }
 }
 pub type StandardDirectoryReaderType<D> = StandardDirectoryReader<DummyComparator, D>;
-pub(crate) fn open_with_reader_function<D, L, B, IO>(
-  writer: &IndexWriter<D, L, B>,
+pub(crate) fn open_with_reader_function<D, B, IO>(
+  writer: &IndexWriter<D, B>,
   reader_function: &mut IO,
   infos: Option<&SegmentInfos<D>>,
   inner: &mut Inner<D>, // hold IndexWriter lock
@@ -134,7 +134,6 @@ pub(crate) fn open_with_reader_function<D, L, B, IO>(
 ) -> Result<StandardDirectoryReaderType<D>>
 where
   D: Directory,
-  L: LiveIndexWriterConfig,
   B: IndexWriterBase,
   IO: IOFunction<SegmentCommitInfo<D>, Arc<SegmentReader<D>>>,
 {
@@ -345,13 +344,12 @@ where
     todo!()
   }
 
-  fn do_open_if_changed_with_index_writer<L, B>(
+  fn do_open_if_changed_with_index_writer<B>(
     &self,
-    _writer: IndexWriter<Self::Directory, L, B>,
+    _writer: IndexWriter<Self::Directory, B>,
     _apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     todo!()
@@ -361,10 +359,9 @@ where
     todo!()
   }
 
-  fn is_current<D1, L, B>(&self, index_writer: &IndexWriter<D1, L, B>) -> Result<bool>
+  fn is_current<D1, B>(&self, index_writer: &IndexWriter<D1, B>) -> Result<bool>
   where
     D1: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
     self.ensure_open()?;

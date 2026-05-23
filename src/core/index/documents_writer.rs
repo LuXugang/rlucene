@@ -230,10 +230,9 @@ where
       Ok(())
     }
   }
-  pub(crate) fn flush_one_dwpt<B, L>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+  pub(crate) fn flush_one_dwpt<B>(&self, writer: &IndexWriter<D, B>) -> Result<bool>
   where
     B: IndexWriterBase,
-    L: LiveIndexWriterConfig,
   {
     {
       if self.info_stream.enabled("DW") {
@@ -453,10 +452,9 @@ where
 
     result
   }
-  fn pre_update<L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+  fn pre_update<B>(&self, writer: &IndexWriter<D, B>) -> Result<bool>
   where
     B: IndexWriterBase,
-    L: LiveIndexWriterConfig,
   {
     self.ensure_open()?;
     let mut has_events = false;
@@ -475,15 +473,14 @@ where
     Ok(has_events)
   }
 
-  fn post_update<B, L>(
+  fn post_update<B>(
     &self,
     flushing_dwpt: Option<Arc<DwptWrapper<D>>>,
     mut has_events: bool,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<bool>
   where
     B: IndexWriterBase,
-    L: LiveIndexWriterConfig,
   {
     has_events |= self.apply_all_deletes()?;
     if let Some(dwpt) = flushing_dwpt {
@@ -494,17 +491,16 @@ where
     }
     Ok(has_events)
   }
-  pub(crate) fn update_documents<DI, DF, B, L>(
+  pub(crate) fn update_documents<DI, DF, B>(
     &self,
     docs: DI,
     del_node: Option<Arc<Node>>,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<i64>
   where
     DI: IntoIterator<Item = DF>,
     DF: IntoIterator<Item = Fields>,
     B: IndexWriterBase,
-    L: LiveIndexWriterConfig,
   {
     let has_events = self.pre_update(writer)?;
 
@@ -563,10 +559,9 @@ where
     Ok(seq_no)
   }
 
-  fn maybe_flush<B, L>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+  fn maybe_flush<B>(&self, writer: &IndexWriter<D, B>) -> Result<bool>
   where
     B: IndexWriterBase,
-    L: LiveIndexWriterConfig,
   {
     let flushing_dwpt = self
       .flush_control
@@ -579,14 +574,13 @@ where
       Ok(false)
     }
   }
-  fn do_flush<B, L>(
+  fn do_flush<B>(
     &self,
     mut flushing_dwpt: Arc<DwptWrapper<D>>,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     B: IndexWriterBase,
-    L: LiveIndexWriterConfig,
   {
     loop {
       debug_assert!(!flushing_dwpt.state.has_flushed());
@@ -783,7 +777,7 @@ where
   // is called after this method, to release the flush lock in DWFlushControl
   pub(crate) fn flush_all_threads<B, L>(
     &self,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
     config: &L,
   ) -> Result<i64>
   where
@@ -967,23 +961,21 @@ pub(crate) trait FlushNotifications {
     D: Directory;
 
   /// Called after one or more segments were flushed to disk.
-  fn after_segments_flushed<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+  fn after_segments_flushed<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase;
 
   /// Should be called if a flush or an indexing operation caused
   /// a tragic / unrecoverable event.
-  fn on_tragic_event<D, L, B>(
+  fn on_tragic_event<D, B>(
     &self,
     event: LuceneError,
     message: &str,
-    writer: &IndexWriter<D, L, B>,
+    writer: &IndexWriter<D, B>,
   ) -> Result<()>
   where
     D: Directory,
-    L: LiveIndexWriterConfig,
     B: IndexWriterBase;
 
   /// Called once deletes have been applied either after a flush or on a deletes call.

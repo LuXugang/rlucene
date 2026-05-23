@@ -687,10 +687,9 @@ fn test_try_update_multi_threaded() -> Result<()> {
   Ok(())
 }
 
-fn do_update<D, L, B>(doc: Term, writer: &IndexWriter<D, L, B>, updates: Vec<Fields>) -> Result<()>
+fn do_update<D, B>(doc: Term, writer: &IndexWriter<D, B>, updates: Vec<Fields>) -> Result<()>
 where
   D: Directory + 'static,
-  L: LiveIndexWriterConfig + 'static,
   B: IndexWriterBase + 'static,
 {
   let reader = directory_reader::open_from_writer(writer)?;
