@@ -77,11 +77,8 @@ pub trait MergeSource {
     B: IndexWriterBase;
 
   /// Does finishing for a merge.
-  fn on_merge_finished<D, L, B>(
-    &self,
-    merge: &mut Self::OneMerge<D>,
-    writer: &IndexWriter<D, L, B>,
-  ) where
+  fn on_merge_finished<D, L, B>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D, L, B>)
+  where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase;

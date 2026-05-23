@@ -594,6 +594,7 @@ impl SegmentCommitInfoMeta {
     }
   }
 }
+#[derive(Clone)]
 pub struct SegmentDocAndID {
   pub(crate) seg_id: String,
   pub(crate) max_doc: i32,

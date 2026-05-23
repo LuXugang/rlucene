@@ -1017,7 +1017,7 @@ where
   D: Directory,
   CR: CodecReader,
 {
-  pub(crate) register_done: bool,
+  pub(crate) register_done: AtomicBool,
   pub(crate) is_external: bool,
   pub(crate) uses_pooled_readers: bool,
   /// Estimated size in bytes of the merged segment.
@@ -1030,6 +1030,8 @@ where
   pub(crate) merge_start_ns: Instant,
   /// Total number of documents in segments to be merged, not accounting for deletions.
   pub(crate) total_max_doc: i32,
+  #[cfg(test)]
+  pub(crate) segments: Vec<SegmentDocAndID>,
   error: Mutex<Option<LuceneError>>,
   pub(crate) stat: MergeStat,
   pub(crate) info: Option<SegmentCommitInfo<D>>,
@@ -1076,13 +1078,15 @@ where
     }
     let mut v = Vec::with_capacity(segments.len());
     let mut total_max_doc = 0;
+    #[cfg(test)]
+    let original_segments = segments.clone();
     for s in segments.into_iter() {
       v.push(s.seg_id);
       total_max_doc += s.max_doc
     }
 
     Ok(Self {
-      register_done: false,
+      register_done: AtomicBool::new(false),
       is_external: false,
       uses_pooled_readers: true,
       estimated_merge_bytes: AtomicI64::new(0),
@@ -1091,6 +1095,8 @@ where
       merge_progress: OneMergeProgress::new(),
       merge_start_ns: Instant::now(),
       total_max_doc,
+      #[cfg(test)]
+      segments: original_segments,
       error: Mutex::new(None),
       stat: MergeStat {
         id: Identity::new(),
@@ -1116,9 +1122,11 @@ where
     let mut one_merge = Self {
       merge_readers: one_merge.merge_readers,
       total_max_doc: one_merge.total_max_doc,
+      #[cfg(test)]
+      segments: one_merge.segments,
       merge_progress: OneMergeProgress::new(),
       uses_pooled_readers: one_merge.uses_pooled_readers,
-      register_done: false,
+      register_done: AtomicBool::new(false),
       is_external: false,
       estimated_merge_bytes: AtomicI64::new(0),
       total_merge_bytes: AtomicI64::new(0),
@@ -1146,7 +1154,7 @@ where
     }
 
     Ok(Self {
-      register_done: false,
+      register_done: AtomicBool::new(false),
       is_external: false,
       uses_pooled_readers: false,
       estimated_merge_bytes: AtomicI64::new(0),
@@ -1155,6 +1163,8 @@ where
       merge_progress: OneMergeProgress::new(),
       merge_start_ns: Instant::now(),
       total_max_doc: total_docs,
+      #[cfg(test)]
+      segments: Vec::new(),
       error: Mutex::new(None),
       stat: MergeStat {
         id: Identity::new(),
@@ -1225,7 +1235,7 @@ where
       self.stat.max_num_segments,
     )
   }
-  pub fn set_aborted(&mut self) -> Result<()> {
+  pub fn set_aborted(&self) -> Result<()> {
     self.merge_progress.abort();
     Ok(())
   }
@@ -1254,7 +1264,7 @@ where
   D: Directory,
 {
   pub(crate) fn close<F>(
-    &mut self,
+    &self,
     success: bool,
     segment_dropped: bool,
     reader_consumer: F,
@@ -1269,8 +1279,7 @@ where
       self.merge_finished(success, segment_dropped)?;
       Ok(())
     })();
-    let merge_readers = std::mem::take(&mut self.merge_readers);
-    reader_consumer(merge_readers.as_ref())?;
+    reader_consumer(self.merge_readers.as_ref())?;
     result
   }
 }
@@ -1341,9 +1350,6 @@ where
   fn init_merge_readers<F>(&mut self, reader_factory: F) -> Result<()>
   where
     F: Fn(&String) -> Result<MergeReader<Self::MergeCodecReader, Self::Bits>>;
-  fn close(&mut self) -> Result<()> {
-    todo!()
-  }
 }
 pub type MergeSpecificationNoReader<D> = MergeSpecification<D, Arc<SegmentReader<D>>>;
 pub struct MergeSpecification<D, CR>
@@ -1380,6 +1386,22 @@ where
 {
   pub fn add(&mut self, merge: OneMerge<D, CR>) {
     self.merges.push(merge);
+  }
+
+  pub fn r#await(&self, timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    loop {
+      if self.merges.iter().all(|merge| merge.has_finished()) {
+        return true;
+      }
+
+      let now = Instant::now();
+      if now >= deadline {
+        return false;
+      }
+
+      thread::sleep(std::cmp::min(Duration::from_millis(1), deadline - now));
+    }
   }
 }
 

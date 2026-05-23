@@ -2270,7 +2270,7 @@ where
     inner.merges.disable();
 
     // Abort all pending & running merges:
-    while let Some(mut merge) = inner.pending_merges.pop_front() {
+    while let Some(merge) = inner.pending_merges.pop_front() {
       if self.info_stream.enabled("IW") {
         self.info_stream.message(
           "IW",
@@ -2280,8 +2280,8 @@ where
           ),
         );
       }
-      self.abort_one_merge(&mut merge, inner)?;
-      self.merge_finish(&mut merge, Some(inner));
+      self.abort_one_merge(&merge, inner)?;
+      self.merge_finish(&merge, Some(inner));
     }
     inner.pending_merges.clear();
 
@@ -4147,7 +4147,7 @@ where
       )));
     }
 
-    debug_assert!(merge.register_done);
+    debug_assert!(merge.register_done.load(Ordering::Acquire));
 
     // If merge was explicitly aborted, or, if rollback() or
     // rollbackTransaction() had been called since our merge
@@ -4291,11 +4291,7 @@ where
     Ok(true)
   }
 
-  fn handle_merge_exception(
-    &self,
-    t: LuceneError,
-    _merge: &mut OneMergeSR<D>,
-  ) -> Result<LuceneError> {
+  fn handle_merge_exception(&self, t: LuceneError, _merge: &OneMergeSR<D>) -> Result<LuceneError> {
     // TODO IMPORTANT
     Ok(t)
   }
@@ -4354,10 +4350,10 @@ where
     }
     Ok(())
   }
-  fn merge_success(&self, _merge: &mut OneMergeSR<D>) -> Result<()> {
+  fn merge_success(&self, _merge: &OneMergeSR<D>) -> Result<()> {
     Ok(())
   }
-  fn abort_one_merge(&self, merge: &mut OneMergeSR<D>, inner: &mut Inner<D>) -> Result<()> {
+  fn abort_one_merge(&self, merge: &OneMergeSR<D>, inner: &mut Inner<D>) -> Result<()> {
     merge.set_aborted()?;
     self.close_merge_readers(merge, true, false, Some(inner))
   }
@@ -4366,7 +4362,7 @@ where
   /// If not, this merge is "registered", meaning we record that its segments are now participating in a merge,
   /// and true is returned. Else (the merge conflicts) false is returned.
   fn register_merge(&self, mut merge: OneMergeSR<D>, inner: &mut Inner<D>) -> Result<bool> {
-    if merge.register_done {
+    if merge.register_done.load(Ordering::Acquire) {
       return Ok(true);
     }
     debug_assert!(!merge.stat.segments.is_empty());
@@ -4443,7 +4439,7 @@ where
       .total_merge_bytes
       .store(total_bytes, Ordering::Release);
     // Merge is now registered
-    merge.register_done = true;
+    merge.register_done.store(true, Ordering::Release);
     inner.pending_merges.push_back(merge);
     Ok(true)
   }
@@ -4471,7 +4467,7 @@ where
     let mut inner = self.inner.lock();
     self.test_point("startMergeInit");
 
-    debug_assert!(merge.register_done);
+    debug_assert!(merge.register_done.load(Ordering::Acquire));
     debug_assert!(
       merge.stat.max_num_segments == UNBOUNDED_MAX_MERGE_SEGMENTS
         || merge.stat.max_num_segments > 0
@@ -4562,7 +4558,7 @@ where
   }
 
   /// Does finishing for a merge, which is fast but holds the synchronized lock on IndexWriter instance.
-  fn merge_finish(&self, merge: &mut OneMergeSR<D>, inner: Option<&mut Inner<D>>) {
+  fn merge_finish(&self, merge: &OneMergeSR<D>, inner: Option<&mut Inner<D>>) {
     let inner = match inner {
       Some(i) => i,
       None => &mut *self.inner.lock(),
@@ -4573,11 +4569,11 @@ where
 
     // It's possible we are called twice, e.g. if there was an
     // exception inside mergeInit
-    if merge.register_done {
+    if merge.register_done.load(Ordering::Acquire) {
       for seg_id in &merge.stat.segments {
         inner.merging_segments.remove(seg_id);
       }
-      merge.register_done = false;
+      merge.register_done.store(false, Ordering::Release);
     }
 
     inner.running_merges.remove(&merge.stat);
@@ -4585,7 +4581,7 @@ where
 
   fn close_merge_readers(
     &self,
-    merge: &mut OneMergeSR<D>,
+    merge: &OneMergeSR<D>,
     suppress_error: bool,
     dropper_segment: bool,
     inner: Option<&mut Inner<D>>,
@@ -7017,7 +7013,7 @@ impl MergeSource for IndexWriterMergeSource {
     }
   }
 
-  fn on_merge_finished<D, L, B>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D, L, B>)
+  fn on_merge_finished<D, L, B>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D, L, B>)
   where
     D: Directory,
     L: LiveIndexWriterConfig,
@@ -7094,7 +7090,7 @@ impl AddIndexesMergeSource {
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
   {
-    while let Some(mut merge) = inner.pending_add_indexes_merges.pop_front() {
+    while let Some(merge) = inner.pending_add_indexes_merges.pop_front() {
       if writer.info_stream.enabled("IW") {
         writer
           .info_stream
@@ -7135,7 +7131,7 @@ impl MergeSource for AddIndexesMergeSource {
     Ok(Some(merge))
   }
 
-  fn on_merge_finished<D, L, B>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D, L, B>)
+  fn on_merge_finished<D, L, B>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D, L, B>)
   where
     D: Directory,
     L: LiveIndexWriterConfig,
