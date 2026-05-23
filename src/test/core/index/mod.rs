@@ -96,6 +96,7 @@ mod test_payloads_on_vectors;
 pub(crate) mod test_per_segment_deletes;
 mod test_postings_offsets;
 mod test_read_only_index;
+mod test_reader_closed;
 mod test_reader_wrapper_dv_type_check;
 mod test_rollback;
 mod test_same_scores_with_threads;
