@@ -1275,7 +1275,10 @@ where
       // Let the merge wrap readers
       let mut merge_readers = Vec::new();
       let _soft_delete_count = SerialCounter::new();
-      for merge_reader in merge.get_merge_reader().iter() {
+      let merge_reader = merge
+        .get_merge_reader()
+        .ok_or_else(|| LuceneError::illegal_state("merge.get_merge_reader() is none"))?;
+      for merge_reader in merge_reader {
         let reader = &merge_reader.reader;
         let wrapped_reader = merge.wrap_for_merge(reader.clone())?;
         self.validate_merge_reader(&wrapped_reader)?;
@@ -2928,7 +2931,10 @@ where
 
     let mut num_soft_deleted = 0;
     let mut has_blocks = false;
-    for reader in merge.get_merge_reader() {
+    let merge_reader = merge
+      .get_merge_reader()
+      .ok_or_else(|| LuceneError::illegal_state("merge.get_merge_reader() is none"))?;
+    for reader in merge_reader {
       let leaf = &reader.reader;
       num_docs += i64::from(leaf.num_docs()?);
       let v = get_context(leaf)?;
@@ -2974,9 +2980,11 @@ where
       HashMap::new(),
       self.config.get_index_sort(),
     )?;
-
-    let mut readers = Vec::with_capacity(merge.get_merge_reader().len());
-    for mr in merge.get_merge_reader() {
+    let merge_reader = merge
+      .get_merge_reader()
+      .ok_or_else(|| LuceneError::illegal_state("merge.get_merge_reader() is none"))?;
+    let mut readers = Vec::with_capacity(merge_reader.len());
+    for mr in merge_reader {
       let wrapped_reader = merge.wrap_for_merge(mr.reader.clone())?;
       readers.push(wrapped_reader);
     }
@@ -3962,10 +3970,13 @@ where
 
       // TODO IMPORTANT
       // carry over hard deletes
+      let merge_reader = merge
+        .get_merge_reader()
+        .ok_or_else(|| LuceneError::illegal_state("merge.get_merge_reader() is none"))?;
       Self::carry_over_hard_deletes(
         merged_deletes_and_updates.as_ref(),
         max_doc,
-        merge.get_merge_reader()[i].hard_live_docs.as_ref(),
+        merge_reader[i].hard_live_docs.as_ref(),
         rld.get_hard_live_docs().as_ref(),
         seg_doc_map,
         sci,
@@ -4623,7 +4634,7 @@ where
       merge.close(!suppress_error, dropper_segment, c)?;
     } else {
       debug_assert!(
-        merge.get_merge_reader().is_empty(),
+        merge.get_merge_reader().is_none(),
         "we are done but still have readers"
       );
       debug_assert!(

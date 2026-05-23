@@ -99,6 +99,7 @@ mod test_read_only_index;
 mod test_reader_closed;
 mod test_reader_wrapper_dv_type_check;
 mod test_rollback;
+mod test_rolling_updates;
 mod test_same_scores_with_threads;
 mod test_same_token_same_position;
 mod test_segment_term_docs;

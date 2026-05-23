@@ -1299,8 +1299,12 @@ where
     }
     Ok(())
   }
-  pub fn get_merge_reader(&self) -> &[MergeReader<CR, CR::Bits>] {
-    &self.merge_readers
+  pub fn get_merge_reader(&self) -> Option<&[MergeReader<CR, CR::Bits>]> {
+    if self.merge_completed.get() == Some(&true) {
+      None
+    } else {
+      Some(&self.merge_readers)
+    }
   }
 
   pub(crate) fn has_finished(&self) -> bool {
