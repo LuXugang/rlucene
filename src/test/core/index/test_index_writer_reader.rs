@@ -14,15 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
+use crate::core::document::long_point::LongPoint;
 use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::multi_bits::get_live_docs;
+use crate::core::index::point_values::PointValues;
 use crate::core::index::term::Term;
+use crate::core::index::BytesRef;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::Comparator;
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
+use std::cmp::Ordering;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterReader;
@@ -170,4 +175,52 @@ fn test_reopen_nrt_reader_on_commit() -> Result<()> {
 #[test]
 fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
   Ok(())
+}
+#[derive(Clone)]
+pub struct PointValueLeafSorter {
+  asc_sort: bool,
+  field_name: String,
+  missing_value: i64,
+}
+
+impl PointValueLeafSorter {
+  fn sort_key<LR>(&self, reader: &LR) -> Result<i64>
+  where
+    LR: LeafReader,
+  {
+    let result = (|| -> Result<i64> {
+      let Some(points) = reader.get_point_values(&self.field_name)? else {
+        return Ok(self.missing_value);
+      };
+      let sort_value = if self.asc_sort {
+        points.get_min_packed_value()?
+      } else {
+        points.get_max_packed_value()?
+      };
+      Ok(
+        sort_value
+          .map(|value| LongPoint::decode_dimension(&value, 0))
+          .unwrap_or(self.missing_value),
+      )
+    })();
+    Ok(result.unwrap_or(self.missing_value))
+  }
+}
+
+impl<LR> Comparator<LR> for PointValueLeafSorter
+where
+  LR: LeafReader,
+{
+  const TYPE: &'static str = "PointValueLeafSorter";
+
+  fn compare(&self, a: &LR, b: &LR) -> Result<i32> {
+    let ord = self.sort_key(a)?.cmp(&self.sort_key(b)?);
+    let ord = if self.asc_sort { ord } else { ord.reverse() };
+
+    Ok(match ord {
+      Ordering::Less => -1,
+      Ordering::Equal => 0,
+      Ordering::Greater => 1,
+    })
+  }
 }

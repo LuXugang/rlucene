@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::AnalyzerEnum;
-use crate::core::codecs::Codec;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
+use crate::core::codecs::Codec;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
 use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::index_writer_config::{
-  DEFAULT_COMMIT_ON_CLOSE, DEFAULT_MAX_BUFFERED_DOCS, DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS,
-  DEFAULT_RAM_BUFFER_SIZE_MB, DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB, DEFAULT_READER_POOLING,
-  DEFAULT_USE_COMPOUND_FILE_SYSTEM, OpenMode,
+  OpenMode, DEFAULT_COMMIT_ON_CLOSE, DEFAULT_MAX_BUFFERED_DOCS,
+  DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS, DEFAULT_RAM_BUFFER_SIZE_MB,
+  DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB, DEFAULT_READER_POOLING, DEFAULT_USE_COMPOUND_FILE_SYSTEM,
 };
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
@@ -35,8 +36,10 @@ use crate::core::search::index_searcher::get_default_similarity;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
-use crate::core::util::LATEST;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
+use crate::core::util::{Comparator, LATEST};
+use std::any::{type_name, Any};
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -53,7 +56,7 @@ pub trait LiveIndexWriterConfig: Display {
 
   fn get_index_sort(&self) -> Option<Arc<Sort>>;
   fn get_index_sort_fields(&self) -> &HashSet<String>;
-
+  fn get_leaf_sorter(&self) -> Option<&LeafSorter>;
   fn get_use_compound_file(&self) -> bool;
 
   fn get_soft_deletes_field(&self) -> Option<&String>;
@@ -146,6 +149,7 @@ pub struct LiveIndexWriterConfigBase {
   pub check_pending_flush_on_update: bool,
   pub parent_field: Option<String>,
   pub index_sort: Option<Arc<Sort>>,
+  pub leaf_sorter: Option<LeafSorter>,
   pub index_sort_fields: HashSet<String>,
   pub merge_scheduler: MergeSchedulerEnum,
 }
@@ -187,6 +191,7 @@ impl LiveIndexWriterConfigBase {
       check_pending_flush_on_update: true,
       parent_field: None,
       index_sort: None,
+      leaf_sorter: None,
       index_sort_fields: HashSet::new(),
       // TODO IMPORTANT 这里的默认不对
       merge_scheduler: MergeSchedulerEnum::default(),
@@ -195,5 +200,48 @@ impl LiveIndexWriterConfigBase {
 
   pub fn get_flush_policy(&self) -> &FlushPolicyEnum {
     &self.flush_policy
+  }
+}
+#[derive(Clone)]
+pub enum LeafSorter {
+  Custom(CustomLeafReaderComparator),
+}
+
+pub type CustomLeafReaderComparator = Arc<dyn Fn(&dyn Any, &dyn Any) -> Result<i32> + Send + Sync>;
+
+impl LeafSorter {
+  pub fn custom<LR, C>(comparator: C) -> Self
+  where
+    LR: LeafReader + 'static,
+    C: Comparator<LR> + Send + Sync + 'static,
+  {
+    Self::Custom(Arc::new(move |a, b| {
+      let Some(a) = a.downcast_ref::<LR>() else {
+        return Err(LuceneError::illegal_state(format!(
+          "LeafReaderComparator custom comparator is not compatible with {}",
+          type_name::<LR>()
+        )));
+      };
+      let Some(b) = b.downcast_ref::<LR>() else {
+        return Err(LuceneError::illegal_state(format!(
+          "LeafReaderComparator custom comparator is not compatible with {}",
+          type_name::<LR>()
+        )));
+      };
+      comparator.compare(a, b)
+    }))
+  }
+}
+
+impl<LR> Comparator<LR> for LeafSorter
+where
+  LR: LeafReader + 'static,
+{
+  const TYPE: &'static str = "LeafReaderComparator";
+
+  fn compare(&self, a: &LR, b: &LR) -> Result<i32> {
+    match self {
+      Self::Custom(cmp) => cmp(a, b),
+    }
   }
 }

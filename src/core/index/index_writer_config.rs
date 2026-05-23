@@ -20,7 +20,7 @@ use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::live_index_writer_config::{
-  LiveIndexWriterConfig, LiveIndexWriterConfigBase,
+  LeafSorter, LiveIndexWriterConfig, LiveIndexWriterConfigBase,
 };
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
@@ -28,9 +28,9 @@ use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
-use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
+use crate::core::util::LATEST;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -136,6 +136,16 @@ impl IndexWriterConfig {
     Ok(self)
   }
 
+  /// Set the comparator for sorting leaf readers. A DirectoryReader opened from a IndexWriter with
+  /// this configuration will have its leaf readers sorted with the provided leaf sorter.
+  pub fn set_leaf_sorter<T>(&mut self, leaf_sorter: T) -> &mut Self
+  where
+    T: Into<LeafSorter>,
+  {
+    self.base.leaf_sorter = Some(leaf_sorter.into());
+    self
+  }
+
   pub fn set_merge_scheduler<T>(&mut self, merge_scheduler: T) -> &mut Self
   where
     T: Into<MergeSchedulerEnum>,
@@ -194,6 +204,10 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
 
   fn get_index_sort_fields(&self) -> &HashSet<String> {
     &self.base.index_sort_fields
+  }
+
+  fn get_leaf_sorter(&self) -> Option<&LeafSorter> {
+    self.base.leaf_sorter.as_ref()
   }
 
   fn get_use_compound_file(&self) -> bool {
