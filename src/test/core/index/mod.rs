@@ -93,6 +93,7 @@ mod test_omit_positions;
 pub(crate) mod test_omit_tf;
 mod test_payloads;
 mod test_payloads_on_vectors;
+pub(crate) mod test_per_segment_deletes;
 mod test_postings_offsets;
 mod test_read_only_index;
 mod test_reader_wrapper_dv_type_check;
