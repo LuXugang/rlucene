@@ -196,7 +196,7 @@ impl AbstractIteratorBase for AbstractIteratorBinary {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
   use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
@@ -255,7 +255,7 @@ mod tests {
   #[allow(dead_code)] // for quick search
   struct TestBinaryDocValuesUpdates;
 
-  fn get_value(bdv: &mut impl BinaryDocValues) -> Result<i64> {
+  pub(crate) fn get_value(bdv: &mut impl BinaryDocValues) -> Result<i64> {
     let term = bdv.binary_value()?;
     let mut idx = term.offset;
     debug_assert!(term.length > 0);
@@ -274,7 +274,7 @@ mod tests {
     Ok(value)
   }
   // encodes a long into a BytesRef as VLong so that we get varying number of bytes when we update
-  fn to_bytes<R>(random: &mut R, mut value: i64) -> Result<BytesRef<Vec<u8>>>
+  pub(crate) fn to_bytes<R>(random: &mut R, mut value: i64) -> Result<BytesRef<Vec<u8>>>
   where
     R: Rng + ?Sized,
   {

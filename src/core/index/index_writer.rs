@@ -1107,7 +1107,7 @@ where
         DocValuesType::Numeric => {
           let value = match f.numeric_value()? {
             Some(v) => match v.to_i64() {
-              Some(n) => n,
+              Some(n) => Some(n),
               None => {
                 return Err(LuceneError::illegal_argument(format!(
                   "numeric value for field={} can not convert to i64: {:?}",
@@ -1115,14 +1115,9 @@ where
                 )));
               },
             },
-            None => {
-              return Err(LuceneError::illegal_argument(format!(
-                "missing numeric value for field={}",
-                name
-              )));
-            },
+            None => None,
           };
-          let sub_update = DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Some(value)));
+          let sub_update = DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(value));
           DocValuesUpdate::new(
             DocValuesType::Numeric,
             term.clone(),
