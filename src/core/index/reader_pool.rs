@@ -16,7 +16,6 @@
  */
 use crate::core::index::field_infos::FieldNumbers;
 use crate::core::index::index_writer::IndexWriterDir;
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesEnum};
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
@@ -80,19 +79,18 @@ where
   D: Directory,
   F: LongSupplier,
 {
-  pub(crate) fn new<S, LR, C, D1>(
+  pub(crate) fn new<S, C, D1>(
     directory: Arc<IndexWriterDir<D>>,
     original_directory: Arc<D>,
     info_stream: InfoStreamMT,
     soft_deletes_field: Option<S>,
     completed_del_gen_supplier: F,
-    _reader: Option<StandardDirectoryReader<LR, C, D1>>,
+    _reader: Option<StandardDirectoryReader<C, D1>>,
     index_created_version_major: i32,
   ) -> Self
   where
     S: Into<String>,
-    LR: LeafReader + Clone,
-    C: Comparator<LR>,
+    C: Comparator<Arc<SegmentReader<D1>>>,
     D1: Directory,
   {
     Self {
@@ -528,11 +526,9 @@ mod tests {
   use crate::core::index::doc_values_field_updates::{
     DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
   };
-  use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
   use crate::core::index::field_infos::FieldNumbersLock;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_writer::IndexWriter;
-  use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::numeric_doc_values::NumericDocValues;
   use crate::core::index::numeric_doc_values_field_updates::NumericDocValuesFieldUpdates;
   use crate::core::index::reader_pool::ReaderPool;
@@ -553,6 +549,7 @@ mod tests {
     new_directory_shared, new_index_writer_config, random,
   };
 
+  use crate::core::index::leaf_reader::LeafReader;
   use rand::Rng;
   use rand::RngExt;
   use std::sync::Arc;
@@ -579,7 +576,7 @@ mod tests {
     let segment_infos = reader.segment_infos.as_mut().unwrap();
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
-    let pool = ReaderPool::new::<String, DummyLeafReader, DummyComparator, DummyDirectory>(
+    let pool = ReaderPool::new::<String, DummyComparator, DummyDirectory>(
       lock_dir,
       directory.clone(),
       Arc::new(InfoStreamEnum::default()),
@@ -623,7 +620,7 @@ mod tests {
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
 
-    let pool = ReaderPool::new::<String, DummyLeafReader, DummyComparator, DummyDirectory>(
+    let pool = ReaderPool::new::<String, DummyComparator, DummyDirectory>(
       lock_dir,
       directory.clone(),
       Arc::new(InfoStreamEnum::default()),
@@ -724,7 +721,7 @@ mod tests {
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
 
-    let pool = ReaderPool::new::<String, DummyLeafReader, DummyComparator, DummyDirectory>(
+    let pool = ReaderPool::new::<String, DummyComparator, DummyDirectory>(
       lock_dir,
       directory.clone(),
       Arc::new(InfoStreamEnum::default()),
@@ -873,7 +870,7 @@ mod tests {
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
 
-    let pool = ReaderPool::new::<String, DummyLeafReader, DummyComparator, DummyDirectory>(
+    let pool = ReaderPool::new::<String, DummyComparator, DummyDirectory>(
       lock_dir,
       directory.clone(),
       Arc::new(InfoStreamEnum::default()),

@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::AnalyzerEnum;
-use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::codecs::Codec;
+use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
 use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::index_writer_config::{
-  OpenMode, DEFAULT_COMMIT_ON_CLOSE, DEFAULT_MAX_BUFFERED_DOCS,
-  DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS, DEFAULT_RAM_BUFFER_SIZE_MB,
-  DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB, DEFAULT_READER_POOLING, DEFAULT_USE_COMPOUND_FILE_SYSTEM,
+  DEFAULT_COMMIT_ON_CLOSE, DEFAULT_MAX_BUFFERED_DOCS, DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS,
+  DEFAULT_RAM_BUFFER_SIZE_MB, DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB, DEFAULT_READER_POOLING,
+  DEFAULT_USE_COMPOUND_FILE_SYSTEM, OpenMode,
 };
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::leaf_reader::LeafReader;
@@ -39,7 +39,7 @@ use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
 use crate::core::util::{Comparator, LATEST};
-use std::any::{type_name, Any};
+use std::any::{Any, type_name};
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::Arc;

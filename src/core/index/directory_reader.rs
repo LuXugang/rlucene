@@ -24,13 +24,11 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
-use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::standard_directory_reader::{
   StandardDirectoryReader, StandardDirectoryReaderType,
 };
 use crate::core::util::Comparator;
-use crate::core::util::dummy::dummy_comparator::DummyComparator;
 /// [`DirectoryReader`] is an implementation of [`CompositeReader`](crate::core::index::composite_reader::CompositeReader) that can read indexes
 /// from a [`Directory`].
 ///
@@ -148,15 +146,11 @@ pub trait DirectoryReader: BaseCompositeReader {
 /// # Errors
 ///
 /// Returns an error if there is a low-level I/O error.
-pub fn open<D>(
-  directory: Arc<D>,
-) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator, D>>
+pub fn open<D>(directory: Arc<D>) -> Result<StandardDirectoryReaderType<D>>
 where
   D: Directory,
 {
-  StandardDirectoryReader::<DummyLeafReader, _, _>::open::<DummyIndexCommit<D>>(
-    directory, None, None,
-  )
+  StandardDirectoryReader::<_, _>::open::<DummyIndexCommit<D>>(directory, None, None)
 }
 
 /// Returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) for the index in the given [`Directory`].
@@ -177,7 +171,7 @@ where
 pub fn open_with_sorter<D, C>(
   directory: Arc<D>,
   leaf_sorter: Option<C>,
-) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
+) -> Result<StandardDirectoryReader<C, D>>
 where
   D: Directory,
   C: Comparator<Arc<SegmentReader<D>>>,
@@ -251,9 +245,7 @@ where
 /// # Errors
 ///
 /// Returns an error if there is a low-level I/O error.
-pub fn open_from_commit<D, C, IC>(
-  commit: &IC,
-) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
+pub fn open_from_commit<D, C, IC>(commit: &IC) -> Result<StandardDirectoryReader<C, D>>
 where
   D: Directory,
   C: Comparator<Arc<SegmentReader<D>>>,
@@ -313,7 +305,7 @@ pub fn open_with_commit_version_sorter<D, C, IC>(
   commit: &IC,
   min_supported_major_version: i32,
   leaf_sorter: Option<C>,
-) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
+) -> Result<StandardDirectoryReader<C, D>>
 where
   D: Directory,
   C: Comparator<Arc<SegmentReader<D>>>,

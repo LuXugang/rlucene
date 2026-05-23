@@ -48,16 +48,12 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
   fn get_generation(&self) -> i64;
   /// Returns `user_data`, previously passed to [`IndexWriter::set_live_commit_data()`](crate::core::index::index_writer::IndexWriter::set_live_commit_data) for this commit. The map is `String` → `String`.
   fn get_user_data(&self) -> &HashMap<String, String>;
-  type LeafReader: LeafReader + Clone;
-  type Comparator: Comparator<Self::LeafReader>;
-  fn get_reader(
-    &self,
-  ) -> Option<StandardDirectoryReader<Self::LeafReader, Self::Comparator, Self::Directory>> where
-  {
+  type Comparator: Comparator<Arc<SegmentReader<Self::Directory>>>;
+  fn get_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>> where {
     None
   }
 }
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::segment_reader::SegmentReader;
 use crate::core::util::Comparator;
 use std::cmp::Ordering;
 
@@ -78,7 +74,7 @@ where
 #[cfg(test)]
 mod tests {
   use super::{IndexCommit, cmp_commit, is_same_commit};
-  use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
+
   use crate::core::index::standard_directory_reader::StandardDirectoryReader;
   use crate::core::store::directory::DirEnum;
   use crate::core::util::dummy::dummy_comparator::DummyComparator;
@@ -186,12 +182,9 @@ mod tests {
       &self.user_data
     }
 
-    type LeafReader = DummyLeafReader;
     type Comparator = DummyComparator;
 
-    fn get_reader(
-      &self,
-    ) -> Option<StandardDirectoryReader<Self::LeafReader, Self::Comparator, Self::Directory>> {
+    fn get_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>> {
       None
     }
   }

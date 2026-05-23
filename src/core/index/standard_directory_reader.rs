@@ -27,7 +27,6 @@ use crate::core::index::index_reader::{
   CacheHelper, CacheKey, IndexReader, IndexReaderBase, IndexReaderEnum,
 };
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, Inner};
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -45,17 +44,13 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
 
-pub struct StandardDirectoryReader<LR, C, D>
+pub struct StandardDirectoryReader<C, D>
 where
-  // LR should implement Clone to support reuse sub_reader_sorter,
-  // after StandardDirectoryReader convert to CompositeReaderContext,
-  // we still need to access sub readers.
-  // we Implement `LeafReader` for Arc<LR> already
-  LR: LeafReader + Clone,
-  C: Comparator<LR>,
+  C: Comparator<Arc<SegmentReader<D>>>,
   D: Directory,
 {
-  base_composite_reader_base: BaseCompositeReaderBase<LR, DummyCompositeReader<LR>>,
+  base_composite_reader_base:
+    BaseCompositeReaderBase<Arc<SegmentReader<D>>, DummyCompositeReader<Arc<SegmentReader<D>>>>,
   directory_reader_base: DirectoryReaderBase<D>,
   apply_all_deletes: bool,
   write_all_deletes: bool,
@@ -66,15 +61,14 @@ where
   closed: Option<Arc<AtomicBool>>,
   cache_helper: CacheHelperImpl,
 }
-impl<LR, C, D> StandardDirectoryReader<LR, C, D>
+impl<C, D> StandardDirectoryReader<C, D>
 where
-  LR: LeafReader + Clone,
-  C: Comparator<LR>,
+  C: Comparator<Arc<SegmentReader<D>>>,
   D: Directory,
 {
   pub(crate) fn new(
     directory: Arc<D>,
-    readers: Vec<LR>,
+    readers: Vec<Arc<SegmentReader<D>>>,
     segment_infos: SegmentInfos<D>,
     leaf_sorter: Option<C>,
     apply_all_deletes: bool,
@@ -101,7 +95,7 @@ where
     directory: Arc<D>,
     commit: Option<&IC>,
     leaf_sorter: Option<C>,
-  ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
+  ) -> Result<StandardDirectoryReader<C, D>>
   where
     D: Directory,
     C: Comparator<Arc<SegmentReader<D>>>,
@@ -115,7 +109,7 @@ where
     min_supported_major_version: i32,
     commit: Option<&IC>,
     leaf_sorter: Option<C>,
-  ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
+  ) -> Result<StandardDirectoryReader<C, D>>
   where
     D: Directory,
     C: Comparator<Arc<SegmentReader<D>>>,
@@ -129,8 +123,7 @@ where
     }
   }
 }
-pub type StandardDirectoryReaderType<D> =
-  StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator, D>;
+pub type StandardDirectoryReaderType<D> = StandardDirectoryReader<DummyComparator, D>;
 pub(crate) fn open_with_reader_function<D, L, B, IO>(
   writer: &IndexWriter<D, L, B>,
   reader_function: &mut IO,
@@ -226,23 +219,21 @@ where
   }
 }
 
-impl<LR, C, D> BaseCompositeReader for StandardDirectoryReader<LR, C, D>
+impl<C, D> BaseCompositeReader for StandardDirectoryReader<C, D>
 where
-  C: Comparator<LR>,
+  C: Comparator<Arc<SegmentReader<D>>>,
   D: Directory,
-  LR: LeafReader + Clone,
 {
 }
 
-impl<LR, C, D> CompositeReader for StandardDirectoryReader<LR, C, D>
+impl<C, D> CompositeReader for StandardDirectoryReader<C, D>
 where
-  C: Comparator<LR>,
+  C: Comparator<Arc<SegmentReader<D>>>,
   D: Directory,
-  LR: LeafReader + Clone,
 {
-  type LeafReader = LR;
+  type LeafReader = Arc<SegmentReader<D>>;
 
-  type SubCompositeReader = DummyCompositeReader<LR>;
+  type SubCompositeReader = DummyCompositeReader<Arc<SegmentReader<D>>>;
 
   fn get_sequential_sub_readers(
     &self,
@@ -255,13 +246,13 @@ where
   }
 }
 
-impl<LR, C, D> IndexReader for StandardDirectoryReader<LR, C, D>
+impl<C, D> IndexReader for StandardDirectoryReader<C, D>
 where
-  C: Comparator<LR>,
+  C: Comparator<Arc<SegmentReader<D>>>,
   D: Directory,
-  LR: LeafReader + Clone,
 {
-  type TermVectors = BCRTermVectorsImpl<LR, DummyCompositeReader<LR>>;
+  type TermVectors =
+    BCRTermVectorsImpl<Arc<SegmentReader<D>>, DummyCompositeReader<Arc<SegmentReader<D>>>>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
     self.base_composite_reader_base.term_vector(self)
@@ -275,7 +266,8 @@ where
     self.base_composite_reader_base.num_docs()
   }
 
-  type StoredFields = BCRStoredFieldsImpl<LR, DummyCompositeReader<LR>>;
+  type StoredFields =
+    BCRStoredFieldsImpl<Arc<SegmentReader<D>>, DummyCompositeReader<Arc<SegmentReader<D>>>>;
 
   fn stored_fields(&self) -> Result<Self::StoredFields> {
     self.base_composite_reader_base.stored_fields(self)
@@ -321,11 +313,10 @@ where
   }
 }
 
-impl<LR, C, D> Display for StandardDirectoryReader<LR, C, D>
+impl<C, D> Display for StandardDirectoryReader<C, D>
 where
-  C: Comparator<LR>,
+  C: Comparator<Arc<SegmentReader<D>>>,
   D: Directory,
-  LR: LeafReader + Clone,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     // TODO
@@ -333,10 +324,9 @@ where
   }
 }
 
-impl<LR, C, D> DirectoryReader for StandardDirectoryReader<LR, C, D>
+impl<C, D> DirectoryReader for StandardDirectoryReader<C, D>
 where
-  LR: LeafReader + Clone,
-  C: Comparator<LR>,
+  C: Comparator<Arc<SegmentReader<D>>>,
   D: Directory,
 {
   type DirectoryReader = DummyDirectoryReader<D>;
@@ -430,38 +420,34 @@ impl CacheHelper for CacheHelperImpl {
     self.cache_key.clone()
   }
 }
-pub struct FindSegmentsFileImpl1<D, LR, C>
+pub struct FindSegmentsFileImpl1<D, C>
 where
   D: Directory,
-  LR: LeafReader + Clone,
-  C: Comparator<LR>,
+  C: Comparator<Arc<SegmentReader<D>>>,
 {
   min_supported_major_version: i32,
   directory: Arc<D>,
   leaf_sorter: Option<C>,
-  _marker: std::marker::PhantomData<LR>,
 }
-impl<D, LR, C> FindSegmentsFileImpl1<D, LR, C>
+impl<D, C> FindSegmentsFileImpl1<D, C>
 where
   D: Directory,
-  LR: LeafReader + Clone,
-  C: Comparator<LR>,
+  C: Comparator<Arc<SegmentReader<D>>>,
 {
   pub fn new(min_supported_major_version: i32, directory: Arc<D>, leaf_sorter: Option<C>) -> Self {
     FindSegmentsFileImpl1 {
       min_supported_major_version,
       directory,
       leaf_sorter,
-      _marker: std::marker::PhantomData,
     }
   }
 }
-impl<D, C> FindSegmentsFile for FindSegmentsFileImpl1<D, Arc<SegmentReader<D>>, C>
+impl<D, C> FindSegmentsFile for FindSegmentsFileImpl1<D, C>
 where
   D: Directory,
   C: Comparator<Arc<SegmentReader<D>>>,
 {
-  type V = StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>;
+  type V = StandardDirectoryReader<C, D>;
   type D = D;
 
   fn get_directory_point(&self) -> Arc<Self::D> {

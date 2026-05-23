@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 use crate::core::document::long_point::LongPoint;
+use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::multi_bits::get_live_docs;
 use crate::core::index::point_values::PointValues;
 use crate::core::index::term::Term;
-use crate::core::index::BytesRef;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::util::Comparator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::Comparator;
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::cmp::Ordering;

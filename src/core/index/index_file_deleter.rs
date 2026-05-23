@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::core::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, IndexWriterDir};
@@ -680,7 +679,6 @@ where
     &self.user_data
   }
 
-  type LeafReader = DummyLeafReader;
   type Comparator = DummyComparator;
 }
 

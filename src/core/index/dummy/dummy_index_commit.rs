@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::directory::Directory;
@@ -108,12 +107,9 @@ where
     dummy_unreachable!()
   }
 
-  type LeafReader = DummyLeafReader;
   type Comparator = DummyComparator;
 
-  fn get_reader(
-    &self,
-  ) -> Option<StandardDirectoryReader<Self::LeafReader, Self::Comparator, Self::Directory>>
+  fn get_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>>
 where {
     dummy_unreachable!()
   }
