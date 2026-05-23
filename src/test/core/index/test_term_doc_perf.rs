@@ -47,6 +47,8 @@ use rand::{Rng, RngExt, SeedableRng};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+#[allow(dead_code)] // for quick search
+struct TestTermDocPerf;
 struct RepeatingTokenizer {
   tokenizer_base: TokenizerBase,
   random: StdRng,

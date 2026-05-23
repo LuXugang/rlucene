@@ -63,7 +63,13 @@ fn test_term_enum() -> Result<()> {
 
   // verify document frequency of terms in a multi-segment index
   verify_doc_freq(dir.clone())?;
-  // TODO IMPORTANT OpenMode::Append is not yet supported
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  writer.force_merge(1)?;
+  writer.close()?;
+  verify_doc_freq(dir.clone())?;
   Ok(())
 }
 #[test]
