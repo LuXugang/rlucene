@@ -76,6 +76,7 @@ mod test_long_postings;
 pub mod test_lucene90_doc_values_format;
 mod test_many_fields;
 mod test_max_position;
+mod test_max_term_frequency;
 mod test_merge_on_flush_merge_policy;
 mod test_never_delete;
 mod test_newest_segment;

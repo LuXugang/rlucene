@@ -111,9 +111,8 @@ impl CompetitiveImpactAccumulator {
       return;
     }
     freq_norm_pairs.insert(new_entry.clone());
-    // TODO: drain_filter is not stable in Rust 1.86.0
     let mut to_remove = Vec::new();
-    for e in freq_norm_pairs.range(..&new_entry) {
+    for e in freq_norm_pairs.range(..&new_entry).rev() {
       if (e.norm as u64) >= (new_entry.norm as u64) {
         to_remove.push(e.clone());
       } else {
@@ -128,12 +127,12 @@ impl CompetitiveImpactAccumulator {
   fn assert_consistent(&self) -> bool {
     let mut prev_freq = 0;
     let mut prev_norm = 0u64;
-    for imp in &self.other_freq_norm_pairs {
-      debug_assert!(imp.norm < i8::MIN as i64 || imp.norm > i8::MAX as i64);
-      debug_assert!(prev_freq < imp.freq);
-      debug_assert!(prev_norm < imp.norm as u64);
-      prev_freq = imp.freq;
-      prev_norm = imp.norm as u64;
+    for impact in &self.other_freq_norm_pairs {
+      debug_assert!(impact.norm < i8::MIN as i64 || impact.norm > i8::MAX as i64);
+      debug_assert!(prev_freq < impact.freq);
+      debug_assert!(prev_norm < impact.norm as u64);
+      prev_freq = impact.freq;
+      prev_norm = impact.norm as u64;
     }
     true
   }
