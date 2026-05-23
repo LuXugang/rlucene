@@ -79,6 +79,7 @@ pub mod lucene_test_case_util {
   use crate::core::analysis::analyzer::AnalyzerEnum;
   use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::leaf_reader_context::LeafReaderContext;
+  use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::tiered_merge_policy::TieredMergePolicy;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use std::sync::Arc;
@@ -699,6 +700,31 @@ pub mod lucene_test_case_util {
       Err(_) => Ok(false),
     }
   }
+  /// Ensures that the MergePolicy has sane values for tests that test with lots of documents.
+  pub(crate) fn ensure_sane_iwc_on_nightly(conf: &mut IndexWriterConfig) -> Result<()> {
+    if is_night_mode() {
+      conf.set_use_compound_file(true);
+      let mp = conf.get_merge_policy_mut();
+
+      match mp {
+        MergePolicyEnum::Tiered(mp) => {
+          mp.set_max_merged_segment_mb(5000.0)?;
+        },
+        MergePolicyEnum::LogBytesSize(mp) => {
+          mp.set_max_merge_mb(1000.0);
+        },
+        MergePolicyEnum::LogDoc(mp) => {
+          mp.set_max_merge_docs(100000);
+        },
+        _ => {},
+      }
+
+      let no_cfs_ratio = mp.get_base().get_no_cfs_ratio();
+      mp.get_base_mut().set_no_cfs_ratio(no_cfs_ratio.max(0.25))?;
+    }
+    Ok(())
+  }
+
   /// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
   /// that sometimes uses a non-zero offset and non-zero end-padding to
   /// tickle latent bugs that fail to look at `BytesRef.offset`.

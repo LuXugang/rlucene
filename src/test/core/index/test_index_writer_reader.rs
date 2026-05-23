@@ -14,10 +14,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::BytesRef;
+use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::multi_bits::get_live_docs;
+use crate::core::index::term::Term;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::util::test_util::TestUtil;
+use rand::Rng;
+
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterReader;
+pub(crate) fn count<R, CR>(random: &mut R, t: &Term, r: &CR) -> Result<i32>
+where
+  R: Rng + ?Sized,
+  CR: CompositeReader,
+{
+  let mut count = 0;
+  let term_bytes = BytesRef::from_string(&t.text()?);
+  let mut td = TestUtil::docs_with_reader(random, r, t.field(), &term_bytes, None, 0)?;
 
+  if let Some(td) = td.as_mut() {
+    let live_docs = get_live_docs(r)?;
+    while td.next_doc()? != NO_MORE_DOCS {
+      let doc_id = td.doc_id();
+      if live_docs
+        .as_ref()
+        .is_none_or(|bits| bits.get(doc_id as usize).expect(""))
+      {
+        count += 1;
+      }
+    }
+  }
+
+  Ok(count)
+}
 #[test]
 fn test_add_close_open() -> Result<()> {
   Ok(())
