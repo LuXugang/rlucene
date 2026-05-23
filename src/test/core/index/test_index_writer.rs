@@ -2745,7 +2745,7 @@ fn test_apply_deletes_without_flushes() -> Result<()> {
   w.close()?;
   Ok(())
 }
-// TODO IMPORTANT 测试未通过663713609771432610/3224610466376724667/17709928100904590619
+#[test]
 fn test_deletes_applied_on_flush() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -2778,7 +2778,10 @@ fn test_deletes_applied_on_flush() -> Result<()> {
     if random.random_bool(0.5) {
       w.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
     } else {
-      w.update_numeric_doc_value(Term::from_text("id", "1"), "foo", 1)?;
+      w.update_doc_values(
+        Term::from_text("id", "1"),
+        vec![NumericDocValuesField::new("foo", 1).into()],
+      )?;
     }
     _delete_bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
     // TODO: memory calculation not implement
