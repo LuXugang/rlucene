@@ -109,7 +109,8 @@ mod native_fs_lock_factory_tests {
     dir.close()?;
     Ok(())
   }
-
+  /// This test relies on Unix directory write permissions; Windows readonly directories can still create files.
+  #[cfg(unix)]
   #[test]
   fn test_bad_permissions() -> Result<()> {
     let case = TestNativeFSLockFactory;
