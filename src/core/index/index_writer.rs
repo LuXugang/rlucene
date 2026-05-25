@@ -4306,6 +4306,10 @@ where
 
   /// Merges the indicated segments, replacing them in the stack with a single segment.
   fn merge(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
+    #[cfg(test)]
+    if let Some(s) = &self.sub {
+      s.do_before_merge(&merge.stat)?;
+    }
     let mut success = false;
     let merge_policy = self.config.get_merge_policy();
     let result = (|| -> Result<()> {
@@ -6292,6 +6296,12 @@ impl DocStats {
 }
 
 pub trait IndexWriterBase {
+  /// A hook for extending classes to execute operations before a merge begins.
+  #[cfg(test)]
+  fn do_before_merge(&self, _merge: &MergeStat) -> Result<()> {
+    Ok(())
+  }
+
   /// A hook for extending classes to execute operations after pending added and deleted documents have been flushed to the Directory
   /// but before the change is committed (new segments_N file written).
   fn do_after_flush(&self) -> Result<()> {
