@@ -47,6 +47,7 @@ mod test_not_doc_id_set;
 mod test_roaring_doc_id_set;
 mod test_sparse_fixed_bit_set;
 pub mod test_util;
+pub mod throttled_index_output;
 
 pub type DefaultCRReaderShared = Arc<StandardDirectoryReaderType<DirEnum>>;
 pub type DefaultCRReader = StandardDirectoryReaderType<DirEnum>;
