@@ -38,6 +38,7 @@ pub mod random_index_writer;
 pub(crate) mod random_postings_tester;
 mod test_add_indexes;
 mod test_all_file_have_codec_header;
+mod test_all_files_have_checksum_footer;
 mod test_atomic_update;
 mod test_bag_of_positions;
 mod test_bag_of_postings;
