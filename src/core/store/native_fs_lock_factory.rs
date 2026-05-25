@@ -19,6 +19,7 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::{File, Metadata, OpenOptions};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 
@@ -136,6 +137,10 @@ impl FSLockFactory for NativeFSLockFactory {
           file,
           path: real_path,
           metadata,
+          closed: AtomicBool::new(false),
+          #[cfg(test)]
+          lock_released_for_test: AtomicBool::new(false),
+          close_lock: Mutex::new(()),
         };
         Ok(lock)
       },
@@ -151,9 +156,9 @@ impl FSLockFactory for NativeFSLockFactory {
 
 impl Drop for NativeFSLock {
   fn drop(&mut self) {
-    let real_path_str = self.path.to_string_lossy().to_string();
-    let locks = get_lock_held();
-    locks.lock().remove(&real_path_str);
+    self
+      .close()
+      .unwrap_or_else(|e| eprintln!("Failed to release lock on drop: {}", e));
   }
 }
 
@@ -167,11 +172,22 @@ fn get_lock_held() -> Arc<Mutex<HashSet<String>>> {
 
 pub struct NativeFSLock {
   file: File,
-  path: PathBuf,
-  metadata: Metadata,
+  pub(crate) path: PathBuf,
+  pub(crate) metadata: Metadata,
+  pub(crate) closed: AtomicBool,
+  #[cfg(test)]
+  lock_released_for_test: AtomicBool,
+  close_lock: Mutex<()>,
 }
 
 impl NativeFSLock {
+  #[cfg(test)]
+  pub(crate) fn release_lock_for_test(&self) -> Result<()> {
+    self.file.unlock()?;
+    self.lock_released_for_test.store(true, Ordering::SeqCst);
+    Ok(())
+  }
+
   fn format_metadata(&self) -> String {
     let size = self.metadata.len();
     let permissions = self.metadata.permissions();
@@ -202,7 +218,14 @@ impl Display for NativeFSLock {
 
 impl Closeable for NativeFSLock {
   fn close(&mut self) -> Result<()> {
-    // TODO IMPORTANT 未实现
+    let _guard = self.close_lock.lock();
+    if !self.closed.load(Ordering::SeqCst) {
+      let _ = self.file.unlock();
+      self.closed.store(true, Ordering::SeqCst);
+      let real_path_str = self.path.to_string_lossy().to_string();
+      let locks = get_lock_held();
+      locks.lock().remove(&real_path_str);
+    }
     Ok(())
   }
 }
@@ -217,17 +240,25 @@ impl Lock for NativeFSLock {
   ///   - The lock file size is not 0.
   ///   - The lock file has been deleted or is inaccessible.
   fn ensure_valid(&self) -> Result<()> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Err(LuceneError::already_closed(format!(
+        "Lock already released: {:?}",
+        self.path
+      )));
+    }
+
     let lock_held = LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
     let lock_held = lock_held.lock();
     if !lock_held.contains(&self.path.to_string_lossy().to_string()) {
-      return Err(LuceneError::illegal_state(format!(
+      return Err(LuceneError::already_closed(format!(
         "Lock path unexpectedly cleared from map: {:?}",
         self.path
       )));
     }
 
-    if self.file.try_lock_exclusive().is_err() {
-      return Err(LuceneError::illegal_state(format!(
+    #[cfg(test)]
+    if self.lock_released_for_test.load(Ordering::SeqCst) {
+      return Err(LuceneError::already_closed(format!(
         "File lock invalidated by an external force: {:?}",
         self.path
       )));

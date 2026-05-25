@@ -69,7 +69,7 @@ where
   D: LockFactory,
   T: FSDirectoryBase,
 {
-  directory: PathBuf,
+  pub(crate) directory: PathBuf,
   /// Maps files that we are trying to delete (or we tried already but
   /// failed) before attempting to delete that key.
   pending_deletes: Arc<Mutex<HashSet<String>>>,
