@@ -23,14 +23,13 @@ use crate::core::index::merge_policy::{
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::version::LATEST;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
 /// This [`MergePolicy`] is used for upgrading all existing segments of an index when calling
 /// [`IndexWriter::force_merge`].
@@ -269,7 +268,7 @@ impl MergePolicy for UpgradeIndexMergePolicy {
   fn keep_fully_deleted_segment<D, F>(&self, reader_supplier: F) -> Result<bool>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     self.inner.keep_fully_deleted_segment(reader_supplier)
   }
@@ -282,7 +281,7 @@ impl MergePolicy for UpgradeIndexMergePolicy {
   ) -> Result<i32>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     self
       .inner

@@ -654,6 +654,7 @@ impl CacheHelper for CacheHelperImpl {
     self.cache_key.clone()
   }
 }
+pub type DefaultLeafReader<D> = Arc<SegmentReader<D>>;
 
 #[cfg(test)]
 pub(crate) mod tests {

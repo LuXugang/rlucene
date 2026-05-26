@@ -43,7 +43,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::pending_deletes::{DocBits, PendingDeletesBase, PendingDeletesEnum};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -89,7 +89,7 @@ where
   D: Directory,
 {
   // Set once (None, and then maybe set, and never set again):
-  pub(crate) reader: Option<Arc<SegmentReader<D>>>,
+  pub(crate) reader: Option<DefaultLeafReader<D>>,
   // How many further deletions we've done against
   // liveDocs vs when we loaded it or last wrote it:
   pending_deletes: PendingDeletesEnum,
@@ -137,7 +137,7 @@ where
   /// Init from a previously opened SegmentReader.
   pub(crate) fn with_reader(
     index_created_version_major: i32,
-    reader: Arc<SegmentReader<D>>,
+    reader: DefaultLeafReader<D>,
     info: &SegmentCommitInfo<D>,
     pending_deletes: PendingDeletesEnum,
   ) -> Result<Self> {
@@ -289,7 +289,7 @@ where
     &self,
     context: &IOContext,
     info: &SegmentCommitInfo<D>,
-  ) -> Result<Option<Arc<SegmentReader<D>>>> {
+  ) -> Result<Option<DefaultLeafReader<D>>> {
     let mut inner = self.inner.lock();
     if inner.reader.is_none() {
       self.get_reader(context, info, Some(&mut inner))?;

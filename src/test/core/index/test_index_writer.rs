@@ -60,7 +60,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{ALL, FREQS, NONE, PostingsEnum};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
@@ -4473,7 +4473,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
   fn keep_fully_deleted_segment<D, F>(&self, _reader_supplier: F) -> Result<bool>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     Ok(true)
   }
@@ -4486,7 +4486,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
   ) -> Result<i32>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     self
       .in_

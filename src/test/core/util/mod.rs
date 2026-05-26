@@ -19,7 +19,7 @@ use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
 use crate::core::store::directory::DirEnum;
@@ -51,7 +51,7 @@ pub mod throttled_index_output;
 
 pub type DefaultCRReaderShared = Arc<StandardDirectoryReaderType<DirEnum>>;
 pub type DefaultCRReader = StandardDirectoryReaderType<DirEnum>;
-pub type DefaultLRReader = Arc<SegmentReader<DirEnum>>;
+pub type DefaultLRReader = DefaultLeafReader<DirEnum>;
 pub type DefaultIRCRC = CompositeReaderContext<DefaultCRReader>;
 pub type DefaultIRCLR = LeafReaderContext<DefaultLRReader>;
 pub type DefaultIndexSearchCRShared =

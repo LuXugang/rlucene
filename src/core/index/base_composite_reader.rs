@@ -285,8 +285,8 @@ where
     self.sub_reader.as_slice()
   }
 }
-pub type BCRTermVectorsImpl<IR, CR> = TermVectorsImpl<IR, CR>;
-pub type BCRStoredFieldsImpl<IR, CR> = StoredFieldsImpl<IR, CR>;
+pub type BCRTermVectorsImpl<LR, CR> = TermVectorsImpl<LR, CR>;
+pub type BCRStoredFieldsImpl<LR, CR> = StoredFieldsImpl<LR, CR>;
 
 pub struct TermVectorsImpl<LR, CR>
 where

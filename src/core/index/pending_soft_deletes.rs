@@ -23,12 +23,11 @@ use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::pending_deletes::{DocBits, PendingDeletes, PendingDeletesBase};
 use crate::core::index::readers_and_updates::IOSupplierImpl;
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use num_bigint::BigInt;
-use std::sync::Arc;
 
 pub(crate) struct PendingSoftDeletes {
   pub(crate) field: String,
@@ -223,7 +222,7 @@ impl PendingDeletesBase for PendingSoftDeletes {
   where
     P: MergePolicy,
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     todo!()
   }

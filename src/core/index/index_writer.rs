@@ -6168,7 +6168,7 @@ where
   B: IndexWriterBase,
 {
   deleter: &'a mut IndexFileDeleter<D>,
-  merge_readers: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
+  merge_readers: &'a mut HashMap<String, DefaultLeafReader<D>>,
   reader_factory: &'a mut IOFunctionImpl<'a, D, B>,
   stop_collecting_merged_readers: &'a AtomicBool,
 }
@@ -6179,7 +6179,7 @@ where
 {
   pub(crate) fn new(
     deleter: &'a mut IndexFileDeleter<D>,
-    merge_readers: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
+    merge_readers: &'a mut HashMap<String, DefaultLeafReader<D>>,
     reader_factory: &'a mut IOFunctionImpl<'a, D, B>,
     stop_collecting_merged_readers: &'a AtomicBool,
   ) -> Self {
@@ -6217,7 +6217,7 @@ where
   B: IndexWriterBase,
 {
   writer: &'a IndexWriter<D, B>,
-  opened_read_only_clones: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
+  opened_read_only_clones: &'a mut HashMap<String, DefaultLeafReader<D>>,
 }
 impl<'a, D, B> IOFunctionImpl<'a, D, B>
 where
@@ -6226,7 +6226,7 @@ where
 {
   pub(crate) fn new(
     writer: &'a IndexWriter<D, B>,
-    opened_read_only_clones: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
+    opened_read_only_clones: &'a mut HashMap<String, DefaultLeafReader<D>>,
   ) -> Self {
     Self {
       writer,
@@ -6234,12 +6234,12 @@ where
     }
   }
 }
-impl<'a, D, B> IOFunction<SegmentCommitInfo<D>, Arc<SegmentReader<D>>> for IOFunctionImpl<'a, D, B>
+impl<'a, D, B> IOFunction<SegmentCommitInfo<D>, DefaultLeafReader<D>> for IOFunctionImpl<'a, D, B>
 where
   D: Directory,
   B: IndexWriterBase,
 {
-  fn apply(&mut self, sci: &SegmentCommitInfo<D>) -> Result<Arc<SegmentReader<D>>> {
+  fn apply(&mut self, sci: &SegmentCommitInfo<D>) -> Result<DefaultLeafReader<D>> {
     let rld = self.writer.get_pooled_instance(sci.into(), true, None)?;
     match rld {
       Some(r) => match r.get_read_only_clone(&IOContext::default_io_context()?, sci)? {
@@ -6439,7 +6439,7 @@ use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_merger::SegmentMerger;
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::slow_composite_codec_reader_wrapper::wrap;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::sorting_codec_reader::wrap_with_doc_map;

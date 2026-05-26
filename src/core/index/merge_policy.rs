@@ -27,7 +27,7 @@ use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::one_merge_wrapping_merge_policy::OneMergeWrappingMergePolicy;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::tiered_merge_policy::{
   SegmentCommitInfoMeta, SegmentDocAndID, TieredMergePolicy,
@@ -51,9 +51,9 @@ use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
+use std::sync::OnceLock;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
-use std::sync::{Arc, OnceLock};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
 
@@ -338,7 +338,7 @@ pub trait MergePolicy: Display {
   fn keep_fully_deleted_segment<D, F>(&self, _reader_supplier: F) -> Result<bool>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     Ok(false)
   }
@@ -366,7 +366,7 @@ pub trait MergePolicy: Display {
   ) -> Result<i32>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     Ok(del_count)
   }
@@ -858,7 +858,7 @@ impl MergePolicy for MergePolicyEnum {
   fn keep_fully_deleted_segment<D, F>(&self, reader_supplier: F) -> Result<bool>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     match self {
       MergePolicyEnum::No(mp) => mp.keep_fully_deleted_segment(reader_supplier),
@@ -887,7 +887,7 @@ impl MergePolicy for MergePolicyEnum {
   ) -> Result<i32>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     match self {
       MergePolicyEnum::No(mp) => mp.num_deletes_to_merge(info, del_count, reader_supplier),
@@ -1053,7 +1053,7 @@ impl MergePolicyBase {
     Ok(())
   }
 }
-pub type OneMergeSR<D> = OneMerge<D, Arc<SegmentReader<D>>>;
+pub type OneMergeSR<D> = OneMerge<D, DefaultLeafReader<D>>;
 /// OneMerge provides the information necessary to perform an individual
 /// primitive merge operation, resulting in a single new segment.
 ///
@@ -1311,7 +1311,7 @@ where
     self.merge_completed.get().copied().unwrap_or(false)
   }
 }
-impl<D> OneMerge<D, Arc<SegmentReader<D>>>
+impl<D> OneMerge<D, DefaultLeafReader<D>>
 where
   D: Directory,
 {
@@ -1335,13 +1335,13 @@ where
     result
   }
 }
-impl<D> OneMergeBase<D, Arc<SegmentReader<D>>> for OneMerge<D, Arc<SegmentReader<D>>>
+impl<D> OneMergeBase<D, DefaultLeafReader<D>> for OneMerge<D, DefaultLeafReader<D>>
 where
   D: Directory,
 {
-  type CodecReader = Arc<SegmentReader<D>>;
+  type CodecReader = DefaultLeafReader<D>;
 
-  fn wrap_for_merge(&self, reader: Arc<SegmentReader<D>>) -> Result<Self::CodecReader> {
+  fn wrap_for_merge(&self, reader: DefaultLeafReader<D>) -> Result<Self::CodecReader> {
     Ok(reader.clone())
   }
 
@@ -1353,8 +1353,8 @@ where
     self.info = Some(info);
   }
 
-  type MergeCodecReader = Arc<SegmentReader<D>>;
-  type Bits = <Arc<SegmentReader<D>> as LeafReader>::Bits;
+  type MergeCodecReader = DefaultLeafReader<D>;
+  type Bits = <DefaultLeafReader<D> as LeafReader>::Bits;
 
   fn init_merge_readers<F>(&mut self, reader_factory: F) -> Result<()>
   where
@@ -1403,7 +1403,7 @@ where
   where
     F: Fn(&String) -> Result<MergeReader<Self::MergeCodecReader, Self::Bits>>;
 }
-pub type MergeSpecificationNoReader<D> = MergeSpecification<D, Arc<SegmentReader<D>>>;
+pub type MergeSpecificationNoReader<D> = MergeSpecification<D, DefaultLeafReader<D>>;
 pub struct MergeSpecification<D, CR>
 where
   D: Directory,
@@ -1630,7 +1630,7 @@ where
 }
 
 pub type MergeReaderSR<D> =
-  MergeReader<Arc<SegmentReader<D>>, <Arc<SegmentReader<D>> as LeafReader>::Bits>;
+  MergeReader<DefaultLeafReader<D>, <DefaultLeafReader<D> as LeafReader>::Bits>;
 pub struct MergeReader<CR, B>
 where
   CR: CodecReader,

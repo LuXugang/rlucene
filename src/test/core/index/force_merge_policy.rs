@@ -21,12 +21,11 @@ use crate::core::index::merge_policy::{
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 #[derive(Clone)]
 pub struct ForceMergePolicy<MP>
 where
@@ -173,7 +172,7 @@ where
   fn keep_fully_deleted_segment<D, F>(&self, reader_supplier: F) -> Result<bool>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     self.in_.keep_fully_deleted_segment(reader_supplier)
   }
@@ -186,7 +185,7 @@ where
   ) -> Result<i32>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     self
       .in_

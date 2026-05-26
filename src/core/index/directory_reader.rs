@@ -23,7 +23,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::standard_directory_reader::{
   StandardDirectoryReader, StandardDirectoryReaderType,
 };
@@ -171,7 +171,7 @@ pub fn open_with_sorter<D, C>(
 ) -> Result<StandardDirectoryReader<C, D>>
 where
   D: Directory,
-  C: Comparator<Arc<SegmentReader<D>>>,
+  C: Comparator<DefaultLeafReader<D>>,
 {
   StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, leaf_sorter)
 }
@@ -241,7 +241,7 @@ where
 pub fn open_from_commit<D, C, IC>(commit: &IC) -> Result<StandardDirectoryReader<C, D>>
 where
   D: Directory,
-  C: Comparator<Arc<SegmentReader<D>>>,
+  C: Comparator<DefaultLeafReader<D>>,
   IC: IndexCommit<Directory = D>,
 {
   StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)
@@ -301,7 +301,7 @@ pub fn open_with_commit_version_sorter<D, C, IC>(
 ) -> Result<StandardDirectoryReader<C, D>>
 where
   D: Directory,
-  C: Comparator<Arc<SegmentReader<D>>>,
+  C: Comparator<DefaultLeafReader<D>>,
   IC: IndexCommit<Directory = D>,
 {
   StandardDirectoryReader::open_with_version(

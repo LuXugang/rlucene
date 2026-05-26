@@ -26,7 +26,7 @@ use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::readers_and_updates::IOSupplierImpl;
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
@@ -395,7 +395,7 @@ pub(crate) trait PendingDeletesBase: Display {
   where
     P: MergePolicy,
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     let dec_count = self.get_del_count(info);
     policy.num_deletes_to_merge(info, dec_count, reader_io_supplier)

@@ -21,12 +21,11 @@ use crate::core::index::merge_policy::{
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
 pub struct DummyMergePolicy;
 
@@ -138,7 +137,7 @@ impl MergePolicy for DummyMergePolicy {
   fn keep_fully_deleted_segment<D, F>(&self, _reader_supplier: F) -> Result<bool>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     dummy_unreachable!()
   }
@@ -151,7 +150,7 @@ impl MergePolicy for DummyMergePolicy {
   ) -> Result<i32>
   where
     D: Directory,
-    F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     dummy_unreachable!()
   }

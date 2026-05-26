@@ -48,12 +48,12 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
   fn get_generation(&self) -> i64;
   /// Returns `user_data`, previously passed to [`IndexWriter::set_live_commit_data()`](crate::core::index::index_writer::IndexWriter::set_live_commit_data) for this commit. The map is `String` → `String`.
   fn get_user_data(&self) -> &HashMap<String, String>;
-  type Comparator: Comparator<Arc<SegmentReader<Self::Directory>>>;
+  type Comparator: Comparator<DefaultLeafReader<Self::Directory>>;
   fn get_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>> where {
     None
   }
 }
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::util::Comparator;
 use std::cmp::Ordering;
 

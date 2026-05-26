@@ -21,7 +21,7 @@ use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_infos::SegmentInfos;
-use crate::core::index::segment_reader::SegmentReader;
+use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::directory::Directory;
@@ -90,7 +90,7 @@ where
   ) -> Self
   where
     S: Into<String>,
-    C: Comparator<Arc<SegmentReader<D1>>>,
+    C: Comparator<DefaultLeafReader<D1>>,
     D1: Directory,
   {
     Self {
