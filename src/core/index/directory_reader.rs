@@ -168,7 +168,7 @@ pub fn open_with_sorter<D, C>(
 ) -> Result<StandardDirectoryReader<C, D>>
 where
   D: Directory,
-  C: Comparator<DefaultLeafReader<D>>,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, leaf_sorter)
 }
@@ -191,6 +191,16 @@ where
   D: Directory,
 {
   open_with_writer_deletes(writer, true, false)
+}
+pub fn open_from_writer_with_leaf_sorter<D, C>(
+  writer: &IndexWriter<D>,
+  leaf_sorter: C,
+) -> Result<StandardDirectoryReader<C, D>>
+where
+  D: Directory,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+{
+  open_with_writer_deletes_and_leaf_sorter(writer, true, false, leaf_sorter)
 }
 /// Expert: Opens a near real-time `IndexReader` from the given [`IndexWriter`],
 /// controlling whether past deletions should be applied.
@@ -223,6 +233,18 @@ where
 {
   writer.get_reader(apply_all_deletes, write_all_deletes)
 }
+pub fn open_with_writer_deletes_and_leaf_sorter<D, C>(
+  writer: &IndexWriter<D>,
+  apply_all_deletes: bool,
+  write_all_deletes: bool,
+  leaf_sorter: C,
+) -> Result<StandardDirectoryReader<C, D>>
+where
+  D: Directory,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+{
+  writer.get_reader_with_leaf_sorter(apply_all_deletes, write_all_deletes, Some(leaf_sorter))
+}
 
 /// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index in the given `IndexCommit`.
 ///
@@ -236,7 +258,7 @@ where
 pub fn open_from_commit<D, C, IC>(commit: &IC) -> Result<StandardDirectoryReader<C, D>>
 where
   D: Directory,
-  C: Comparator<DefaultLeafReader<D>>,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
   IC: IndexCommit<Directory = D>,
 {
   StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)
@@ -296,7 +318,7 @@ pub fn open_with_commit_version_sorter<D, C, IC>(
 ) -> Result<StandardDirectoryReader<C, D>>
 where
   D: Directory,
-  C: Comparator<DefaultLeafReader<D>>,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
   IC: IndexCommit<Directory = D>,
 {
   StandardDirectoryReader::open_with_version(

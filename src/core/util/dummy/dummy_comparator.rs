@@ -16,6 +16,7 @@
  */
 use crate::core::util::Comparator;
 
+#[derive(Clone)]
 pub struct DummyComparator {}
 impl<T> Comparator<T> for DummyComparator {
   const TYPE: &'static str = "DummyComparator";

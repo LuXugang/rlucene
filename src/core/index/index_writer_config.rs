@@ -16,7 +16,6 @@
  */
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
-use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::live_index_writer_config::{
@@ -27,7 +26,6 @@ use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
-use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
@@ -252,12 +250,6 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
 
   fn get_open_mode(&self) -> &OpenMode {
     &self.base.open_mode
-  }
-
-  type IndexCommit = DummyIndexCommit<DummyDirectory>;
-
-  fn get_index_commit(&mut self) -> Option<Self::IndexCommit> {
-    self.base.index_commit.take()
   }
 
   fn get_index_created_version_major(&self) -> i32 {

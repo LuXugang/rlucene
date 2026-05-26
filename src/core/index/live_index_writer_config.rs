@@ -17,10 +17,8 @@
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::codecs::Codec;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
-use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
 use crate::core::index::flush_policy::FlushPolicyEnum;
-use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::index_writer_config::{
   DEFAULT_COMMIT_ON_CLOSE, DEFAULT_MAX_BUFFERED_DOCS, DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS,
@@ -34,7 +32,6 @@ use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::search::index_searcher::get_default_similarity;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
-use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::LATEST;
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
 use std::collections::HashSet;
@@ -82,9 +79,6 @@ pub trait LiveIndexWriterConfig: Display {
 
   fn get_open_mode(&self) -> &OpenMode;
 
-  type IndexCommit: IndexCommit;
-  fn get_index_commit(&mut self) -> Option<Self::IndexCommit>;
-
   fn get_index_created_version_major(&self) -> i32;
 
   fn get_reader_pooling(&self) -> bool;
@@ -128,7 +122,6 @@ pub struct LiveIndexWriterConfigBase {
   pub ram_buffer_size_mb: f64,
   pub max_buffered_docs: i32,
   pub index_deletion_policy: IndexDeletionPolicyEnum,
-  pub index_commit: Option<DummyIndexCommit<DummyDirectory>>,
   pub use_compound_file: bool,
   pub open_mode: OpenMode,
   pub similarity: Arc<SimilarityEnum>,
@@ -169,7 +162,6 @@ impl LiveIndexWriterConfigBase {
       ram_buffer_size_mb: DEFAULT_RAM_BUFFER_SIZE_MB,
       max_buffered_docs: DEFAULT_MAX_BUFFERED_DOCS,
       index_deletion_policy: KeepOnlyLastCommitDeletionPolicy.into(),
-      index_commit: None,
       use_compound_file: DEFAULT_USE_COMPOUND_FILE_SYSTEM,
       open_mode: OpenMode::CreateOrAppend,
       similarity: Arc::new(get_default_similarity()),

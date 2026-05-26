@@ -5699,6 +5699,17 @@ where
     apply_all_deletes: bool,
     write_all_deletes: bool,
   ) -> Result<StandardDirectoryReaderType<D>> {
+    self.get_reader_with_leaf_sorter::<EmptyLeafSorter>(apply_all_deletes, write_all_deletes, None)
+  }
+  pub(crate) fn get_reader_with_leaf_sorter<C>(
+    &self,
+    apply_all_deletes: bool,
+    write_all_deletes: bool,
+    leaf_sorter: Option<C>,
+  ) -> Result<StandardDirectoryReader<C, D>>
+  where
+    C: Comparator<DefaultLeafReader<D>> + Clone,
+  {
     self.do_ensure_open(true)?;
 
     if write_all_deletes && !apply_all_deletes {
@@ -5740,7 +5751,7 @@ where
 
     let mut reader_factory = IOFunctionImpl::new(self, &mut opened_read_only_clones);
     let _opening_segment_infos: Option<SegmentInfos<D>> = None;
-    let result1: Result<StandardDirectoryReaderType<D>> = (|| {
+    let result1 = (|| {
       /*
       This is the essential part of the getReader method. We need to take care of the following things:
        - flush all currently in-memory DWPTs to disk
@@ -5762,7 +5773,7 @@ where
       let mut success = false;
       let res = {
         let _full_flush_lock = self.full_flush_lock.lock();
-        let result2: Result<StandardDirectoryReaderType<D>> = (|| {
+        let result2 = (|| {
           any_changes = self.doc_writer.flush_all_threads(self, &self.config)? < 0;
           if !any_changes {
             self.flush_count.fetch_add(1, Ordering::AcqRel);
@@ -5793,6 +5804,7 @@ where
               &mut inner,
               apply_all_deletes,
               write_all_deletes,
+              leaf_sorter,
             )?;
 
             if max_full_flush_merge_wait_millis > 0 {
@@ -6482,7 +6494,7 @@ use crate::core::index::slow_composite_codec_reader_wrapper::wrap;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::sorting_codec_reader::wrap_with_doc_map;
 use crate::core::index::standard_directory_reader::{
-  StandardDirectoryReaderType, open_with_reader_function,
+  EmptyLeafSorter, StandardDirectoryReader, StandardDirectoryReaderType, open_with_reader_function,
 };
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -6505,8 +6517,8 @@ use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::{
-  BYTE_BLOCK_SIZE, CoreHelper, HasIdentity, IOUtils, LATEST, SerialCounter, StringHelper,
-  TryIntoInt,
+  BYTE_BLOCK_SIZE, Comparator, CoreHelper, HasIdentity, IOUtils, LATEST, SerialCounter,
+  StringHelper, TryIntoInt,
 };
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
