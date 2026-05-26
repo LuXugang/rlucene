@@ -19,13 +19,14 @@ use crate::core::index::base_composite_reader::BaseCompositeReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::segment_infos::{SegmentInfos, generation_from_segments_file_name};
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
 use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::standard_directory_reader::{
-  StandardDirectoryReader, StandardDirectoryReaderType,
+  EmptyLeafSorter, ReaderCommit, StandardDirectoryReader, StandardDirectoryReaderType,
 };
 use crate::core::util::Comparator;
 /// [`DirectoryReader`] is an implementation of [`CompositeReader`](crate::core::index::composite_reader::CompositeReader) that can read indexes
@@ -267,7 +268,64 @@ where
 {
   StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)
 }
+/// Returns all commit points that exist in the [`Directory`]. Normally, because the default is
+/// [`KeepOnlyLastCommitDeletionPolicy`], there would be only one commit point. But if you're using a
+/// custom [`IndexDeletionPolicy`] then there could be many commits. Once you have a given commit, you
+/// can open a reader on it by calling [`DirectoryReader::open`]. There must be at least one commit in
+/// the [`Directory`], else this method returns [`IndexNotFound`]. Note that if a commit is in progress
+/// while this method is running, that commit may or may not be returned.
+///
+/// # Returns
+///
+/// A sorted list of [`IndexCommit`]s, from oldest to latest.
+pub fn list_commits<D>(dir: Arc<D>) -> Result<Vec<ReaderCommit<EmptyLeafSorter, D>>>
+where
+  D: Directory,
+{
+  let files = dir.list_all()?;
 
+  let mut commits = Vec::new();
+
+  let latest = SegmentInfos::read_latest_commit(dir.clone())?;
+  let current_gen = latest.get_generation();
+
+  commits.push(ReaderCommit::new(None, &latest, dir.clone())?);
+
+  for file_name in files {
+    if file_name.starts_with(IndexFileNames::SEGMENTS)
+      && generation_from_segments_file_name(&file_name)? < current_gen
+    {
+      let sis = match SegmentInfos::read_commit(dir.clone(), &file_name) {
+        Ok(sis) => Some(sis),
+        Err(LuceneError::Io(err)) if err.kind() == std::io::ErrorKind::NotFound => None,
+        Err(LuceneError::IoWithPath { source, .. })
+          if source.kind() == std::io::ErrorKind::NotFound =>
+        {
+          None
+        },
+        Err(err) => return Err(err),
+      };
+
+      if let Some(sis) = sis {
+        commits.push(ReaderCommit::new(None, &sis, dir.clone())?);
+      }
+    }
+  }
+
+  commits.sort();
+
+  Ok(commits)
+}
+/// Returns `true` if an index likely exists at the specified directory. Note that if a
+/// corrupt index exists, or if an index in the process of committing
+///
+/// # Parameters
+///
+/// - `directory`: the directory to check for an index
+///
+/// # Returns
+///
+/// `true` if an index exists; `false` otherwise
 pub fn index_exists(directory: &impl Directory) -> Result<bool> {
   // LUCENE-2812, LUCENE-2727, LUCENE-4738: this logic will
   // return true in cases that should arguably be false,
@@ -315,7 +373,7 @@ pub fn index_exists(directory: &impl Directory) -> Result<bool> {
 /// # Errors
 ///
 /// Returns an error if there is a low-level I/O error.
-pub fn open_with_commit_version_sorter<D, C, IC>(
+pub fn open_with_version<D, C, IC>(
   commit: &IC,
   min_supported_major_version: i32,
   leaf_sorter: Option<C>,

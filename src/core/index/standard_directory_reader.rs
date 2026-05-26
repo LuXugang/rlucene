@@ -855,7 +855,7 @@ where
   C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
-  pub fn new(
+  pub(crate) fn new(
     reader: Option<StandardDirectoryReader<C, D>>,
     infos: &SegmentInfos<D>,
     dir: Arc<D>,
