@@ -19,15 +19,18 @@ use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::{self, DirectoryReader};
+use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer::{IndexCommitWrapper, IndexWriter};
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::no_deletion_policy::NoDeletionPolicy;
+use crate::core::index::standard_directory_reader::EmptyLeafSorter;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::test_index_writer::{
   add_doc, add_doc_with_index, assert_no_unreferenced_files,
@@ -381,13 +384,95 @@ fn test_force_commit() -> Result<()> {
 }
 #[test]
 fn test_future_commit() -> Result<()> {
-  // TODO: ReaderCommit未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_index_deletion_policy(NoDeletionPolicy);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let doc = Document::new();
+  writer.add_document(doc.clone())?;
+
+  // commit to "first"
+  let mut commit_data = HashMap::new();
+  commit_data.insert("tag".to_string(), "first".to_string());
+  writer.set_live_commit_data(commit_data.clone());
+  writer.commit()?;
+
+  // commit to "second"
+  writer.add_document(doc.clone())?;
+  commit_data.insert("tag".to_string(), "second".to_string());
+  writer.set_live_commit_data(commit_data.clone());
+  writer.close()?;
+  drop(writer);
+
+  // open "first" with IndexWriter
+  let commit = directory_reader::list_commits(dir.clone())?
+    .into_iter()
+    .find(|commit| {
+      commit
+        .get_user_data()
+        .get("tag")
+        .is_some_and(|tag| tag == "first")
+    });
+
+  assert!(commit.is_some());
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_index_deletion_policy(NoDeletionPolicy);
+  let commit = commit.unwrap();
+  let writer = IndexWriter::with_index_commit(
+    dir.clone(),
+    iwc,
+    IndexCommitWrapper::<_, EmptyLeafSorter, _>::new(Some(commit), None),
+  )?;
+
+  assert_eq!(1, writer.get_doc_stats()?.num_docs);
+
+  // commit IndexWriter to "third"
+  writer.add_document(doc)?;
+  commit_data.insert("tag".to_string(), "third".to_string());
+  writer.set_live_commit_data(commit_data);
+  writer.close()?;
+
+  // make sure "second" commit is still there
+  let commit = directory_reader::list_commits(dir.clone())?
+    .into_iter()
+    .find(|commit| {
+      commit
+        .get_user_data()
+        .get("tag")
+        .is_some_and(|tag| tag == "second")
+    });
+
+  assert!(commit.is_some());
+
   Ok(())
 }
 
 #[test]
 fn test_zero_commits() -> Result<()> {
-  // TODO: ReaderCommit未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let writer = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, mock),
+  )?;
+  match directory_reader::list_commits(dir.clone()) {
+    Ok(_) => panic!("expected IndexNotFound"),
+    Err(err) => assert!(matches!(err, LuceneError::IndexNotFound(_))),
+  }
+
+  // No changes still should generate a commit, because it's a new index.
+  writer.close()?;
+  assert_eq!(
+    1,
+    directory_reader::list_commits(dir.clone())?.len(),
+    "expected 1 commits!"
+  );
   Ok(())
 }
 #[test]
@@ -525,6 +610,123 @@ fn test_prepare_commit_no_changes() -> Result<()> {
 
   let reader = directory_reader::open(dir.clone())?;
   assert_eq!(0, reader.num_docs()?);
+
+  Ok(())
+}
+
+#[test]
+fn test_commit_user_data() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut field_types = HashMap::new();
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_max_buffered_docs(2);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  for _ in 0..17 {
+    add_doc(&mut random, &writer, &mut field_types)?;
+  }
+  writer.close()?;
+  drop(writer);
+
+  let r = directory_reader::open(dir.clone())?;
+  // commit(Map) never called for this index
+  assert_eq!(0, r.get_index_commit()?.get_user_data().len());
+  r.close()?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_max_buffered_docs(2);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  for _ in 0..17 {
+    add_doc(&mut random, &writer, &mut field_types)?;
+  }
+  let mut data = HashMap::new();
+  data.insert("label".to_string(), "test1".to_string());
+  writer.set_live_commit_data(data);
+  writer.close()?;
+  drop(writer);
+
+  let r = directory_reader::open(dir.clone())?;
+  assert_eq!(
+    Some("test1"),
+    r.get_index_commit()?
+      .get_user_data()
+      .get("label")
+      .map(String::as_str)
+  );
+  r.close()?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let writer = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, mock),
+  )?;
+  writer.force_merge(1)?;
+  writer.close()?;
+
+  Ok(())
+}
+
+#[test]
+fn test_prepare_commit_then_close() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let writer = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, mock),
+  )?;
+  writer.add_document(Document::new())?;
+
+  writer.prepare_commit()?;
+  let err = writer.close();
+  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  writer.commit()?;
+  writer.close()?;
+
+  let r = directory_reader::open(dir.clone())?;
+  assert_eq!(1, r.max_doc()?);
+  r.close()?;
+
+  Ok(())
+}
+
+#[test]
+fn test_commit_data_is_live() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let writer = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, mock),
+  )?;
+  writer.add_document(Document::new())?;
+
+  let mut commit_data = HashMap::new();
+  commit_data.insert("foo".to_string(), "bar".to_string());
+
+  // make sure "foo" / "bar" doesn't take
+  writer.set_live_commit_data(commit_data.clone());
+  {
+    let mut inner = writer.inner.lock();
+    let commit_data = inner.commit_user_data.as_mut().unwrap();
+    commit_data.clear();
+    commit_data.insert("boo".to_string(), "baz".to_string());
+  }
+
+  // this finally does the commit, and should burn "boo" / "baz"
+  writer.close()?;
+
+  let commits = directory_reader::list_commits(dir.clone())?;
+  assert_eq!(1, commits.len());
+
+  let data = commits[0].get_user_data();
+  assert_eq!(1, data.len());
+  assert_eq!(Some("baz"), data.get("boo").map(String::as_str));
 
   Ok(())
 }

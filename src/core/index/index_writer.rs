@@ -98,7 +98,7 @@ where
   rollback_segments: Vec<SegmentCommitInfo<D>>,
   // increments every time a change is completed
   change_count: i64,
-  commit_user_data: Option<HashMap<String, String>>,
+  pub(crate) commit_user_data: Option<HashMap<String, String>>,
   pending_merges: VecDeque<OneMergeSR<D>>,
   running_merges: HashSet<MergeStat>,
   merge_exceptions: Vec<MergeStat>,

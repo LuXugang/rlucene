@@ -22,10 +22,12 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TextField, text_field_type};
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader;
+use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::stored_fields::StoredFields;
@@ -36,7 +38,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_string_field, random,
+  new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_string_field, random,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -163,7 +165,65 @@ fn create_document(n: i32, num_fields: i32) -> Result<Document> {
 
 #[test]
 fn test_reopen_on_commit() -> Result<()> {
-  // TODO IMPORTANT list_commits未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut field_to_type = HashMap::new();
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  iwc.set_index_deletion_policy(NoDeletionPolicy);
+  iwc.set_max_buffered_docs(-1);
+  iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  for i in 0..4 {
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      &mut random,
+      "id",
+      i.to_string(),
+      Store::No,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+    let mut data = HashMap::new();
+    data.insert("index".to_string(), i.to_string());
+    writer.set_live_commit_data(data);
+    writer.commit()?;
+  }
+  for i in 0..4 {
+    writer.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
+    let mut data = HashMap::new();
+    data.insert("index".to_string(), (4 + i).to_string());
+    writer.set_live_commit_data(data);
+    writer.commit()?;
+  }
+  writer.close()?;
+
+  let mut r = directory_reader::open(dir.clone())?;
+  assert_eq!(0, r.num_docs()?);
+
+  let commits = directory_reader::list_commits(dir.clone())?;
+  for commit in &commits {
+    let r2 = directory_reader::open_if_changed_with_commit(&r, Some(commit), &writer)?.unwrap();
+
+    let s = commit.get_user_data();
+    let v = if s.is_empty() {
+      // First commit created by IW
+      -1
+    } else {
+      s.get("index")
+        .ok_or_else(|| LuceneError::illegal_state("missing commit index"))?
+        .parse::<i32>()
+        .map_err(|err| LuceneError::illegal_state(err.to_string()))?
+    };
+    if v < 4 {
+      assert_eq!(1 + v, r2.num_docs()?);
+    } else {
+      assert_eq!(7 - v, r2.num_docs()?);
+    }
+    r.close()?;
+    r = r2;
+  }
+  r.close()?;
   Ok(())
 }
 

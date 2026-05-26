@@ -1349,7 +1349,7 @@ fn test_delete_unused_files() -> Result<()> {
 
 #[test]
 fn test_delete_unused_files2() -> Result<()> {
-  // TODO WindowsFS未实现
+  // TODO SnapshotDeletionPolicy未实现
   Ok(())
 }
 
