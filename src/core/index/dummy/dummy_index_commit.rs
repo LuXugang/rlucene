@@ -113,4 +113,9 @@ where
 where {
     dummy_unreachable!()
   }
+
+  fn take_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>>
+where {
+    dummy_unreachable!()
+  }
 }

@@ -144,9 +144,21 @@ where
 {
   pub fn with_hooks(
     d: Arc<D>,
-    mut conf: IndexWriterConfig,
-    hooks: Option<IndexWriterHooksEnum>,
+    conf: IndexWriterConfig,
+    sub: Option<IndexWriterHooksEnum>,
   ) -> Result<Self> {
+    Self::with_index_commit_and_sub::<DummyIndexCommit<D>>(d, conf, sub, None)
+  }
+
+  pub fn with_index_commit_and_sub<IC>(
+    d: Arc<D>,
+    conf: IndexWriterConfig,
+    hooks: Option<IndexWriterHooksEnum>,
+    mut index_commit: Option<IC>,
+  ) -> Result<Self>
+  where
+    IC: IndexCommit<Directory = D>,
+  {
     let enable_test_points = hooks.as_ref().unwrap().is_enable_test_points();
     let info_stream = conf.get_info_stream();
     let soft_deletes_enabled = conf.get_soft_deletes_field().is_some();
@@ -177,37 +189,25 @@ where
       let files = directory.list_all()?;
 
       // Set up our initial SegmentInfos:
-      let commit = conf.get_index_commit();
-      let reader = commit.as_ref().map(|c| c.get_reader());
+      let has_reader = match index_commit {
+        Some(ref commit) => commit.get_reader().is_some(),
+        None => false,
+      };
       let mut change_count = 0;
       // TODO IMPORTANT 这里的SegmentInfos 这里不需要初始哈
       let mut segment_infos = SegmentInfos::new(conf.get_index_created_version_major())?;
-      let is_reader_some = reader.is_some();
-      let is_commit_some = commit.is_some();
       let did_message_state = false;
-      let rollback_segments = Vec::new();
-      let (reader, has_commit, _commit_dir, commit_files) = match commit {
-        Some(c) => (
-          c.get_reader(),
-          true,
-          Some(c.get_directory().clone()),
-          Some(c.get_segments_file_name().to_string()),
-        ),
-        None => (None, false, None, None),
-      };
-      if create {
-        if has_commit {
-          // We cannot both open from a commit point and create:
-          return match conf.get_open_mode() {
-            OpenMode::Create => Err(LuceneError::illegal_argument(
-              "cannot use IndexWriterConfig.setIndexCommit() with OpenMode.CREATE",
-            )),
-            _ => Err(LuceneError::illegal_argument(
-              "cannot use IndexWriterConfig.setIndexCommit() when index has no commit",
-            )),
-          };
+      let mut rollback_segments = Vec::new();
+      let reader = if create {
+        if index_commit.is_some() {
+          return Err(LuceneError::illegal_argument(
+            if *conf.get_open_mode() == OpenMode::Create {
+              "cannot use IndexCommit with OpenMode.CREATE"
+            } else {
+              "cannot use IndexCommit when index has no commit"
+            },
+          ));
         }
-
         // Try to read first. This is to allow creation
         // against an index that's currently open for
         // searching. In this case we write the next
@@ -220,12 +220,21 @@ where
         }
 
         segment_infos = sis;
-        let _rollback_segments = segment_infos.create_backup_segment_infos();
+        // TODO IMPORTANT
+        rollback_segments = segment_infos.create_backup_segment_infos()?;
 
         // Record that we have a change (zero out all segments) pending:
         Self::changed(&mut change_count, &mut segment_infos);
-      } else if reader.is_some() {
-        todo!()
+        None
+      } else if has_reader {
+        let commit = index_commit
+          .take()
+          .ok_or_else(|| LuceneError::illegal_argument("IndexCommit should be provided"))?;
+        let reader = commit.get_reader().ok_or_else(|| {
+          LuceneError::illegal_argument("IndexCommit must have a reader when reader is provided")
+        })?;
+        // TODO IMPORTANT
+        Some(reader)
       } else {
         // Init from either the latest commit point, or an explicit prior commit point:
 
@@ -240,36 +249,34 @@ where
         };
         // Do not use SegmentInfos.read(Directory) since the spooky
         // retrying it does is not necessary here (we hold the write lock):
-        segment_infos = if is_commit_some {
-          // Swap out all segments, but, keep metadata in
-          // SegmentInfos, like version & generation, to
-          // preserve write-once.  This is important if
-          // readers are open against the future commit
-          // points.
-          // TODO
-          // if !Arc::ptr_eq(&commit.get_directory(), directory_orig.as_ref()) {
-          //     return Err(LuceneError::illegal_argument(format!(
-          //         "IndexCommit's directory doesn't match my directory, expected={:?}, got={:?}",
-          //         directory_orig,
-          //         commit.get_directory()
-          //     )));
-          // }
+        segment_infos = SegmentInfos::read_commit(directory_orig.clone(), &last_segments_file)?;
+        if let Some(commit) = index_commit {
+          if !Arc::ptr_eq(&commit.get_directory(), &directory_orig) {
+            return Err(LuceneError::illegal_argument(format!(
+              "IndexCommit's directory doesn't match my directory, expected={}, got={}",
+              directory_orig,
+              commit.get_directory()
+            )));
+          }
+
           let old_infos =
-            SegmentInfos::read_commit(directory_orig.clone(), commit_files.as_ref().unwrap())?;
+            SegmentInfos::read_commit(directory_orig.clone(), commit.get_segments_file_name())?;
+          segment_infos.replace(old_infos);
           Self::changed(&mut change_count, &mut segment_infos);
 
           if info_stream.enabled("IW") {
             info_stream.message(
               "IW",
-              &format!("init: loaded commit \"{}\"", commit_files.as_ref().unwrap()),
+              &format!(
+                "init: loaded commit \"{}\"",
+                commit.get_segments_file_name()
+              ),
             );
           }
-          old_infos
-        } else {
-          SegmentInfos::read_commit(directory_orig.clone(), &last_segments_file)?
-        };
-        let _rollback_segments = segment_infos.create_backup_segment_infos();
-      }
+        }
+        rollback_segments = segment_infos.create_backup_segment_infos()?;
+        None
+      };
 
       let commit_user_data = segment_infos.get_user_data().clone();
       let pending_num_docs = Arc::new(AtomicI64::new(segment_infos.total_max_doc()? as i64));
@@ -304,6 +311,7 @@ where
         &conf,
       )?;
 
+      let has_reader = reader.is_some();
       let reader_pool = ReaderPool::new(
         directory.clone(),
         directory_orig.clone(),
@@ -325,7 +333,7 @@ where
         &mut segment_infos,
         info_stream.clone(),
         index_exists,
-        is_reader_some,
+        has_reader,
       )?;
       // We incRef all files when we return an NRT reader from IW,
       // so all files must exist even in the NRT case:
@@ -339,18 +347,12 @@ where
         Self::changed(&mut change_count, &mut segment_infos);
       }
 
-      if is_reader_some {
+      if has_reader {
         // We always assume we are carrying over incoming changes when opening from reader:
         segment_infos.changed();
         Self::changed(&mut change_count, &mut segment_infos);
       }
 
-      if info_stream.enabled("IW") {
-        info_stream.message(
-          "IW",
-          &format!("init: create={} reader={:?}", create, is_reader_some),
-        );
-      }
       let iw = Self {
         enable_test_points,
         tragedy: Arc::new(Mutex::new(None)),
@@ -6458,6 +6460,7 @@ use crate::core::index::doc_values_update::{
 };
 use crate::core::index::documents_writer_delete_queue::{DocumentsWriterDeleteQueue, Node};
 use crate::core::index::documents_writer_flush_queue::FlushTicket;
+use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::field_infos::{FieldInfos, FieldNumbers, FieldNumbersLock};
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::{Identity, IndexReader};

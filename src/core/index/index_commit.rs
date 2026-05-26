@@ -52,6 +52,10 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
   fn get_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>> where {
     None
   }
+  fn take_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>> where
+  {
+    None
+  }
 }
 use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::util::Comparator;
@@ -75,7 +79,6 @@ where
 mod tests {
   use super::{IndexCommit, cmp_commit, is_same_commit};
 
-  use crate::core::index::standard_directory_reader::StandardDirectoryReader;
   use crate::core::store::directory::DirEnum;
   use crate::core::util::dummy::dummy_comparator::DummyComparator;
   use crate::core::util::error::lucene_error::Result;
@@ -183,10 +186,6 @@ mod tests {
     }
 
     type Comparator = DummyComparator;
-
-    fn get_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>> {
-      None
-    }
   }
 
   #[test]
