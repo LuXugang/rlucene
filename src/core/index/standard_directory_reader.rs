@@ -22,7 +22,7 @@ use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase}
 use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_directory_reader::DummyDirectoryReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
-use crate::core::index::index_commit::IndexCommit;
+use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::core::index::index_reader::{
   CacheHelper, CacheKey, IndexReader, IndexReaderBase, IndexReaderEnum,
 };
@@ -38,6 +38,8 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::{Comparator, LATEST, MIN_SUPPORTED_MAJOR};
+use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -54,8 +56,7 @@ where
   directory_reader_base: DirectoryReaderBase<D>,
   apply_all_deletes: bool,
   write_all_deletes: bool,
-  // if Some, this reader owns the SegmentInfos, else from IndexWriter
-  pub(crate) segment_infos: Option<SegmentInfos<D>>,
+  pub(crate) segment_infos: SegmentInfos<D>,
   sub_reader_sorter: Option<C>,
   index_base: IndexReaderBase,
   closed: Option<Arc<AtomicBool>>,
@@ -83,7 +84,7 @@ where
       directory_reader_base,
       apply_all_deletes,
       write_all_deletes,
-      segment_infos: Some(segment_infos),
+      segment_infos,
       sub_reader_sorter: leaf_sorter,
       index_base: IndexReaderBase::new(),
       closed,
@@ -368,27 +369,22 @@ where
     };
     if reader_from_dir {
       let latest = SegmentInfos::read_latest_commit(self.directory().directory.clone())?;
-      let version = match self.segment_infos {
-        // writer is null
-        Some(ref sis) => sis.get_version(),
-        // writer != null and writer.isClosed is true
-        None => index_writer.get_segment_infos_version(),
-      };
+      let version = self.segment_infos.get_version();
       Ok(latest.get_version() == version)
     } else {
-      match self.segment_infos {
-        Some(ref sis) => index_writer.nrt_is_current(sis.get_version()),
-        None => Err(LuceneError::illegal_state(
-          "StandardDirectoryReader should own segment_infos ",
-        )),
-      }
+      index_writer.nrt_is_current(self.segment_infos.get_version())
     }
   }
 
-  type IndexCommit = DummyIndexCommit<D>;
+  type IndexCommit = ReaderCommit<C, D>;
 
   fn get_index_commit(&self) -> Result<Self::IndexCommit> {
-    todo!()
+    self.ensure_open()?;
+    ReaderCommit::new(
+      None,
+      &self.segment_infos,
+      self.directory().directory.clone(),
+    )
   }
 
   type Directory = D;
@@ -529,5 +525,155 @@ where
 
   fn compare(&self, _a: &DefaultLeafReader<D>, _b: &DefaultLeafReader<D>) -> Result<i32> {
     Ok(0)
+  }
+}
+
+pub struct ReaderCommit<C, D>
+where
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+  D: Directory,
+{
+  segments_file_name: String,
+  files: Vec<String>,
+  dir: Arc<D>,
+  generation: i64,
+  user_data: HashMap<String, String>,
+  segment_count: usize,
+  reader: Option<StandardDirectoryReader<C, D>>,
+}
+
+impl<C, D> ReaderCommit<C, D>
+where
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+  D: Directory,
+{
+  pub fn new(
+    reader: Option<StandardDirectoryReader<C, D>>,
+    infos: &SegmentInfos<D>,
+    dir: Arc<D>,
+  ) -> Result<Self> {
+    let segments_file_name = infos
+      .get_segments_file_name()
+      .ok_or_else(|| LuceneError::illegal_state("segments file name is None"))?;
+    let mut files: Vec<String> = infos.files(true)?.into_iter().collect();
+    files.sort();
+    let user_data = infos.get_user_data().clone();
+    let generation = infos.get_generation();
+    let segment_count = infos.size();
+
+    // NOTE: we intentionally do not incRef this! Else we'd need to make IndexCommit Closeable.
+    Ok(Self {
+      segments_file_name,
+      files,
+      dir,
+      generation,
+      user_data,
+      segment_count,
+      reader,
+    })
+  }
+}
+
+impl<C, D> Display for ReaderCommit<C, D>
+where
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+  D: Directory,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(
+      f,
+      "StandardDirectoryReader.ReaderCommit({} files={:?})",
+      self.segments_file_name, self.files
+    )
+  }
+}
+
+impl<C, D> PartialEq for ReaderCommit<C, D>
+where
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+  D: Directory,
+{
+  fn eq(&self, other: &Self) -> bool {
+    is_same_commit(self, other)
+  }
+}
+
+impl<C, D> Eq for ReaderCommit<C, D>
+where
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+  D: Directory,
+{
+}
+
+impl<C, D> PartialOrd for ReaderCommit<C, D>
+where
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+  D: Directory,
+{
+  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl<C, D> Ord for ReaderCommit<C, D>
+where
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+  D: Directory,
+{
+  fn cmp(&self, other: &Self) -> Ordering {
+    cmp_commit(self, other)
+  }
+}
+
+impl<C, D> IndexCommit for ReaderCommit<C, D>
+where
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+  D: Directory,
+{
+  fn get_segments_file_name(&self) -> &str {
+    &self.segments_file_name
+  }
+
+  fn get_file_names(&self) -> Result<&[String]> {
+    Ok(&self.files)
+  }
+
+  type Directory = D;
+
+  fn get_directory(&self) -> Arc<Self::Directory> {
+    self.dir.clone()
+  }
+
+  fn delete(&mut self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "This IndexCommit does not support deletions",
+    ))
+  }
+
+  fn is_deleted(&self) -> bool {
+    false
+  }
+
+  fn get_segment_count(&self) -> usize {
+    self.segment_count
+  }
+
+  fn get_generation(&self) -> i64 {
+    self.generation
+  }
+
+  fn get_user_data(&self) -> &HashMap<String, String> {
+    &self.user_data
+  }
+
+  type Comparator = C;
+
+  fn get_reader(&self) -> Option<&StandardDirectoryReader<Self::Comparator, Self::Directory>> {
+    self.reader.as_ref()
+  }
+
+  fn take_reader(&mut self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>>
+where {
+    self.reader.take()
   }
 }

@@ -49,10 +49,11 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
   /// Returns `user_data`, previously passed to [`IndexWriter::set_live_commit_data()`](crate::core::index::index_writer::IndexWriter::set_live_commit_data) for this commit. The map is `String` → `String`.
   fn get_user_data(&self) -> &HashMap<String, String>;
   type Comparator: Comparator<DefaultLeafReader<Self::Directory>> + Clone;
-  fn get_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>> where {
+  fn get_reader(&self) -> Option<&StandardDirectoryReader<Self::Comparator, Self::Directory>> where
+  {
     None
   }
-  fn take_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>> where
+  fn take_reader(&mut self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>> where
   {
     None
   }

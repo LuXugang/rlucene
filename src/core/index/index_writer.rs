@@ -227,10 +227,10 @@ where
         Self::changed(&mut change_count, &mut segment_infos);
         None
       } else if has_reader {
-        let commit = index_commit
+        let mut commit = index_commit
           .take()
           .ok_or_else(|| LuceneError::illegal_argument("IndexCommit should be provided"))?;
-        let reader = commit.get_reader().ok_or_else(|| {
+        let reader = commit.take_reader().ok_or_else(|| {
           LuceneError::illegal_argument("IndexCommit must have a reader when reader is provided")
         })?;
         // TODO IMPORTANT

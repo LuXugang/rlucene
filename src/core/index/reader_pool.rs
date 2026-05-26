@@ -573,7 +573,7 @@ mod tests {
     let (field_numbers, index_created_version_major) = build_index(directory.clone(), &mut random)?;
 
     let mut reader = directory_reader::open(directory.clone())?;
-    let segment_infos = reader.segment_infos.as_mut().unwrap();
+    let segment_infos = &mut reader.segment_infos;
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
     let pool = ReaderPool::new::<String, DummyComparator, DummyDirectory>(
@@ -615,7 +615,7 @@ mod tests {
     let (field_numbers, index_created_version_major) = build_index(directory.clone(), &mut random)?;
 
     let mut reader = directory_reader::open(directory.clone())?;
-    let segment_infos = reader.segment_infos.as_mut().unwrap();
+    let segment_infos = &mut reader.segment_infos;
 
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
@@ -716,7 +716,7 @@ mod tests {
     let (field_numbers, index_created_version_major) = build_index(directory.clone(), &mut random)?;
 
     let mut reader = directory_reader::open(directory.clone())?;
-    let segment_infos = reader.segment_infos.as_mut().unwrap();
+    let segment_infos = &mut reader.segment_infos;
 
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
@@ -865,7 +865,7 @@ mod tests {
     let (field_numbers, index_created_version_major) = build_index(directory.clone(), &mut random)?;
 
     let mut reader = directory_reader::open(directory.clone())?;
-    let segment_infos = reader.segment_infos.as_mut().unwrap();
+    let segment_infos = &mut reader.segment_infos;
 
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));

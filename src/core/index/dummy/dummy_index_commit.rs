@@ -109,12 +109,12 @@ where
 
   type Comparator = DummyComparator;
 
-  fn get_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>>
+  fn get_reader(&self) -> Option<&StandardDirectoryReader<Self::Comparator, Self::Directory>>
 where {
     dummy_unreachable!()
   }
 
-  fn take_reader(&self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>>
+  fn take_reader(&mut self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>>
 where {
     dummy_unreachable!()
   }
