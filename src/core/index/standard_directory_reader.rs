@@ -587,14 +587,14 @@ where
 
   fn do_open_if_changed(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
   ) -> Result<Option<Self::DirectoryReader>> {
     self.do_open_if_changed_with_commit::<DummyIndexCommit<D>>(writer, None)
   }
 
   fn do_open_if_changed_with_commit<IC>(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
@@ -602,15 +602,15 @@ where
   {
     self.ensure_open()?;
     if self.writer_closed.is_some() {
-      self.do_open_from_writer(&writer, commit)
+      self.do_open_from_writer(writer, commit)
     } else {
-      self.do_open_no_writer(&writer, commit)
+      self.do_open_no_writer(writer, commit)
     }
   }
 
-  fn do_open_if_changed_with_writer(
+  fn do_open_if_changed_with_deletes(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>> {
     self.ensure_open()?;
@@ -620,7 +620,7 @@ where
       .is_some_and(|closed| Arc::ptr_eq(closed, &writer.closed))
       && apply_deletes == self.apply_all_deletes
     {
-      self.do_open_from_writer::<DummyIndexCommit<D>>(&writer, None)
+      self.do_open_from_writer::<DummyIndexCommit<D>>(writer, None)
     } else {
       Ok(Some(writer.get_reader_with_leaf_sorter(
         apply_deletes,

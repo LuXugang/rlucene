@@ -65,7 +65,7 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// Returns an error if a low-level I/O failure occurs.
   fn do_open_if_changed(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
   ) -> Result<Option<Self::DirectoryReader>>;
   /// If this reader does not support reopen, return `None` so that client code behaves correctly.
   /// This should be consistent with [`is_current`](Self::is_current),
@@ -81,7 +81,7 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// Returns an error if a low-level I/O failure occurs.
   fn do_open_if_changed_with_commit<IC>(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
@@ -97,9 +97,9 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// # Errors
   ///
   /// Returns an error if a low-level I/O failure occurs.
-  fn do_open_if_changed_with_writer(
+  fn do_open_if_changed_with_deletes(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>>;
   /// Version number when this `IndexReader` was opened.
@@ -268,6 +268,122 @@ where
 {
   StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)
 }
+
+/// If the index has changed since the provided reader was opened, open and return a new reader;
+/// otherwise, return `None`. The new reader, if any, will be the same type of reader as the
+/// previous one, i.e. an NRT reader will open a new NRT reader.
+///
+/// This method is typically far less costly than opening a fully new [`DirectoryReader`] as it
+/// shares resources, for example sub-readers, with the provided reader when possible.
+///
+/// The provided reader is not closed; callers are responsible for closing it. If a new reader is
+/// returned, callers must eventually close it too.
+///
+/// # Returns
+///
+/// `None` if there are no changes; otherwise, a new reader instance which must eventually be
+/// closed.
+///
+/// # Errors
+///
+/// Returns an error if the index is corrupt or if there is a low-level I/O error.
+pub fn open_if_changed<D, C>(
+  old_reader: &StandardDirectoryReader<C, D>,
+  writer: &IndexWriter<D>,
+) -> Result<Option<StandardDirectoryReader<C, D>>>
+where
+  D: Directory,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+{
+  old_reader.do_open_if_changed(writer)
+}
+
+/// If the [`IndexCommit`] differs from what the provided reader is searching, open and return a new
+/// reader; otherwise, return `None`.
+///
+/// # Errors
+///
+/// Returns an error if there is a low-level I/O error.
+pub fn open_if_changed_with_commit<D, C, IC>(
+  old_reader: &StandardDirectoryReader<C, D>,
+  commit: Option<&IC>,
+  writer: &IndexWriter<D>,
+) -> Result<Option<StandardDirectoryReader<C, D>>>
+where
+  D: Directory,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+  IC: IndexCommit<Directory = D>,
+{
+  old_reader.do_open_if_changed_with_commit(writer, commit)
+}
+
+/// Expert: If there are committed or uncommitted changes in the [`IndexWriter`] versus what the
+/// provided reader is searching, open and return a new reader searching both committed and
+/// uncommitted changes from the writer; otherwise, return `None`.
+///
+/// This provides near real-time searching: changes made during an [`IndexWriter`] session can be
+/// quickly made available for searching without closing the writer or calling commit.
+///
+/// The first time this method is called, this writer instance will make every effort to pool the
+/// readers it opens for merges, applying deletes, and related work. This means additional resources
+/// such as RAM, file descriptors, and CPU time may be consumed.
+///
+/// Once the writer is closed, outstanding readers may continue to be used. However, attempting to
+/// reopen any of those readers will hit an already-closed error.
+///
+/// # Returns
+///
+/// A reader that covers the entire index plus all changes made so far by this writer, or `None` if
+/// there are no new changes.
+///
+/// # Errors
+///
+/// Returns an error if there is a low-level I/O error.
+///
+/// # Lucene
+///
+/// This API is marked as experimental in Lucene.
+pub fn open_if_changed_with_writer<D, C>(
+  old_reader: &StandardDirectoryReader<C, D>,
+  writer: &IndexWriter<D>,
+) -> Result<Option<StandardDirectoryReader<C, D>>>
+where
+  D: Directory,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+{
+  open_if_changed_with_writer_deletes(old_reader, writer, true)
+}
+
+/// Expert: Opens a new reader, if there are any changes, controlling whether past deletions should
+/// be applied.
+///
+/// # Arguments
+///
+/// * `writer` - The [`IndexWriter`] to open from.
+/// * `apply_all_deletes` - If `true`, all buffered deletes will be applied and made visible in the
+///   returned reader. If `false`, deletes are not applied but remain buffered in the writer so that
+///   they will be applied in the future. Applying deletes can be costly, so applications that can
+///   tolerate deleted documents being returned may gain performance by passing `false`.
+///
+/// # Errors
+///
+/// Returns an error if there is a low-level I/O error.
+///
+/// # Lucene
+///
+/// This API is marked as experimental in Lucene.
+pub fn open_if_changed_with_writer_deletes<D, C>(
+  old_reader: &StandardDirectoryReader<C, D>,
+  writer: &IndexWriter<D>,
+  apply_all_deletes: bool,
+) -> Result<Option<StandardDirectoryReader<C, D>>>
+where
+  D: Directory,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+{
+  old_reader.do_open_if_changed_with_deletes(writer, apply_all_deletes)
+}
+
 /// Returns all commit points that exist in the [`Directory`]. Normally, because the default is
 /// [`KeepOnlyLastCommitDeletionPolicy`], there would be only one commit point. But if you're using a
 /// custom [`IndexDeletionPolicy`] then there could be many commits. Once you have a given commit, you
@@ -412,14 +528,14 @@ where
 
   fn do_open_if_changed(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
   ) -> Result<Option<Self::DirectoryReader>> {
     (**self).do_open_if_changed(writer)
   }
 
   fn do_open_if_changed_with_commit<IC>(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
@@ -428,12 +544,12 @@ where
     (**self).do_open_if_changed_with_commit(writer, commit)
   }
 
-  fn do_open_if_changed_with_writer(
+  fn do_open_if_changed_with_deletes(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>> {
-    (**self).do_open_if_changed_with_writer(writer, apply_deletes)
+    (**self).do_open_if_changed_with_deletes(writer, apply_deletes)
   }
 
   fn get_version(&self) -> Result<i64> {
@@ -464,11 +580,13 @@ mod tests {
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
   use crate::core::document::field_type::FieldType;
+
   use crate::core::document::text_field::{TextField, text_field_type};
   use crate::core::index::two_phase_commit::TwoPhaseCommit;
 
   use crate::core::index::composite_reader::get_context;
   use crate::core::index::fields::Fields;
+  use crate::core::index::index_commit::IndexCommit;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_reader_context::IndexReaderContext;
   use crate::core::index::index_writer::IndexWriter;
@@ -478,6 +596,13 @@ mod tests {
   use crate::core::index::multi_reader::MultiReader;
 
   use crate::core::document::stored_field::StoredField;
+  use crate::core::index::directory_reader::DirectoryReader;
+  use crate::core::index::index_options::IndexOptions;
+  use crate::core::index::indexable_field::IndexableField;
+  use crate::core::index::log_merge_policy::LogMergePolicy;
+  use crate::core::index::merge_policy::MergePolicyEnum;
+  use crate::core::index::segment_infos::SegmentInfos;
+  use crate::core::index::standard_directory_reader::EmptyLeafSorter;
   use crate::core::index::stored_fields::StoredFields;
   use crate::core::index::term_vectors::TermVectors;
   use crate::core::index::terms::Terms;
@@ -485,6 +610,7 @@ mod tests {
   use crate::core::index::{BytesRef, directory_reader, field_infos, multi_terms};
   use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
   use crate::core::store::directory::{DirEnum, Directory};
+  use crate::core::util::LATEST;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::index::doc_helper;
@@ -492,8 +618,8 @@ mod tests {
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     at_least, create_temp_dir_with_prefix, get_only_leaf_reader, new_directory_shared, new_field,
-    new_fs_directory, new_index_writer_config_with_analyzer, new_log_merge_policy,
-    new_string_field, new_text_field, random,
+    new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
+    new_log_merge_policy, new_string_field, new_text_field, random,
   };
   use crate::test::core::util::test_util::TestUtil;
   use rand::Rng;
@@ -501,11 +627,6 @@ mod tests {
   use std::sync::Arc;
   use std::thread;
   use std::time::Duration;
-
-  use crate::core::index::index_options::IndexOptions;
-  use crate::core::index::indexable_field::IndexableField;
-  use crate::core::index::log_merge_policy::LogMergePolicy;
-  use crate::core::index::merge_policy::MergePolicyEnum;
 
   #[allow(dead_code)] // for quick search
   struct TestDirectoryReader;
@@ -644,46 +765,47 @@ mod tests {
     iw.close()?;
     Ok(())
   }
-  // TODO IMPORTANT StandardDirectoryReader#is_current()
   #[test]
   fn test_is_current() -> Result<()> {
-    // let mut random = random();
-    // let d = new_directory_shared(&mut random)?;
-    // let mut field_to_type = HashMap::new();
-    //
-    // let mock = MockAnalyzer::new(&mut random);
-    // let writer = IndexWriter::new(
-    //   d.clone(),
-    //   new_index_writer_config_with_analyzer(&mut random, mock),
-    // )?;
-    // add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
-    // writer.close()?;
-    //
-    // // set up reader:
-    // let reader = directory_reader::open(d.clone())?;
-    // assert!(reader.is_current(&writer)?);
-    //
-    // // modify index by adding another document:
-    // let mock = MockAnalyzer::new(&mut random);
-    // let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
-    // config.set_open_mode(OpenMode::Append);
-    // let writer = IndexWriter::new(d.clone(), config)?;
-    // add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
-    // writer.close()?;
-    //
-    // assert!(!reader.is_current(&writer)?);
-    //
-    // // re-create index:
-    // let mock = MockAnalyzer::new(&mut random);
-    // let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
-    // config.set_open_mode(OpenMode::Create);
-    // let writer = IndexWriter::new(d.clone(), config)?;
-    // add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
-    // writer.close()?;
-    //
-    // assert!(!reader.is_current(&writer)?);
-    //
-    // reader.close()?;
+    let mut random = random();
+    let d = new_directory_shared(&mut random)?;
+    let mut field_to_type = HashMap::new();
+
+    let mock = MockAnalyzer::new(&mut random);
+    let writer = IndexWriter::new(
+      d.clone(),
+      new_index_writer_config_with_analyzer(&mut random, mock),
+    )?;
+    add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
+    writer.close()?;
+
+    // set up reader:
+    let reader = directory_reader::open(d.clone())?;
+    assert!(reader.is_current(&writer)?);
+    drop(writer);
+
+    // modify index by adding another document:
+    let mock = MockAnalyzer::new(&mut random);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+    config.set_open_mode(OpenMode::Append);
+    let writer = IndexWriter::new(d.clone(), config)?;
+    add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
+    writer.close()?;
+
+    assert!(!reader.is_current(&writer)?);
+    drop(writer);
+
+    // re-create index:
+    let mock = MockAnalyzer::new(&mut random);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+    config.set_open_mode(OpenMode::Create);
+    let writer = IndexWriter::new(d.clone(), config)?;
+    add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
+    writer.close()?;
+
+    assert!(!reader.is_current(&writer)?);
+
+    reader.close()?;
     Ok(())
   }
   fn test_get_field_names() -> Result<()> {
@@ -1088,12 +1210,12 @@ mod tests {
   }
   #[test]
   fn test_files_open_close() -> Result<()> {
-    // TODO IMPORTANT 需要优化new_fs_directory的参数
+    // TODO IMPORTANT
     Ok(())
   }
   #[test]
   fn test_open_reader_after_delete() -> Result<()> {
-    // TODO IMPORTANT test_files_open_close未实现
+    // TODO IMPORTANT
     Ok(())
   }
   fn add_document_with_fields<D, R>(
@@ -1270,8 +1392,84 @@ mod tests {
   }
   #[test]
   fn test_get_index_commit() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let d = new_directory_shared(&mut random)?;
+    let mut field_to_type = HashMap::new();
+
+    let mock = MockAnalyzer::new(&mut random);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+    config.set_max_buffered_docs(2);
+    let mut merge_policy = LogMergePolicy::log_doc();
+    merge_policy.set_merge_factor(10)?;
+    config.set_merge_policy(merge_policy);
+    let writer = IndexWriter::new(d.clone(), config)?;
+    for _ in 0..27 {
+      add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
+    }
+    writer.close()?;
+    drop(writer);
+
+    let sis = SegmentInfos::read_latest_commit(d.clone())?;
+    let r = directory_reader::open(d.clone())?;
+    let c = r.get_index_commit()?;
+
+    assert_eq!(
+      sis.get_segments_file_name().as_deref(),
+      Some(c.get_segments_file_name())
+    );
+    assert!(c == r.get_index_commit()?);
+
+    let mock = MockAnalyzer::new(&mut random);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+    config.set_open_mode(OpenMode::Append);
+    config.set_max_buffered_docs(2);
+    let mut merge_policy = LogMergePolicy::log_doc();
+    merge_policy.set_merge_factor(10)?;
+    config.set_merge_policy(merge_policy);
+    let writer = IndexWriter::new(d.clone(), config)?;
+    for _ in 0..7 {
+      add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
+    }
+    writer.close()?;
+
+    let r2 = directory_reader::open_if_changed(&r, &writer)?.unwrap();
+    assert!(c != r2.get_index_commit()?);
+    assert_ne!(1, r2.get_index_commit()?.get_segment_count());
+    r2.close()?;
+    drop(writer);
+
+    let mock = MockAnalyzer::new(&mut random);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+    config.set_open_mode(OpenMode::Append);
+    let writer = IndexWriter::new(d.clone(), config)?;
+    writer.force_merge(1)?;
+    writer.close()?;
+
+    let r2 = directory_reader::open_if_changed(&r, &writer)?.unwrap();
+    // TODO IMPORTANT Segmentinfos的版本跟 Java 不一样
+    assert!(directory_reader::open_if_changed(&r2, &writer)?.is_none());
+    assert_eq!(1, r2.get_index_commit()?.get_segment_count());
+
+    r.close()?;
+    r2.close()?;
     Ok(())
+  }
+
+  fn create_document<R>(
+    random: &mut R,
+    id: &str,
+    field_to_type: &mut HashMap<String, FieldType>,
+  ) -> Result<Document>
+  where
+    R: Rng + ?Sized,
+  {
+    let mut doc = Document::new();
+    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+    custom_type.set_tokenized(false)?;
+    custom_type.set_omit_norms(true)?;
+
+    doc.add(new_field(random, "id", id, &custom_type, field_to_type)?);
+    Ok(doc)
   }
 
   #[test]
@@ -1288,7 +1486,34 @@ mod tests {
 
   #[test]
   fn test_no_dup_commit_file_names() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mut field_to_type = HashMap::new();
+
+    let mock = MockAnalyzer::new(&mut random);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+    config.set_max_buffered_docs(2);
+    let writer = IndexWriter::new(dir.clone(), config)?;
+    writer.add_document(create_document(&mut random, "a", &mut field_to_type)?)?;
+    writer.add_document(create_document(&mut random, "a", &mut field_to_type)?)?;
+    writer.add_document(create_document(&mut random, "a", &mut field_to_type)?)?;
+    writer.close()?;
+    drop(writer);
+
+    let commits = directory_reader::list_commits(dir.clone())?;
+    for commit in commits {
+      let files = commit.get_file_names()?;
+      let mut seen = HashSet::new();
+      for file_name in files {
+        assert!(
+          !seen.contains(file_name),
+          "file {} was duplicated",
+          file_name
+        );
+        seen.insert(file_name.clone());
+      }
+    }
+
     Ok(())
   }
 
@@ -1322,7 +1547,7 @@ mod tests {
     writer.add_document(doc)?;
     writer.commit()?;
     // TODO IMPORTANT: openIfChanged 未实现
-    let r2 = directory_reader::open_from_writer(&writer)?;
+    let r2 = directory_reader::open_if_changed(&r, &writer)?.unwrap();
     r.close()?;
 
     let context = get_context(&r2)?;
@@ -1337,13 +1562,33 @@ mod tests {
 
   #[test]
   fn test_prepare_commit_is_current() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let writer = IndexWriter::new(
+      dir.clone(),
+      new_index_writer_config_with_analyzer(&mut random, mock),
+    )?;
+    writer.commit()?;
+    let doc = Document::new();
+    writer.add_document(doc.clone())?;
+    let r = directory_reader::open(dir.clone())?;
+    assert!(r.is_current(&writer)?);
+    writer.add_document(doc)?;
+    writer.prepare_commit()?;
+    assert!(r.is_current(&writer)?);
+    let r2 = directory_reader::open_if_changed(&r, &writer)?;
+    assert!(r2.is_none());
+    writer.commit()?;
+    assert!(!r.is_current(&writer)?);
+    writer.close()?;
+    r.close()?;
     Ok(())
   }
 
   #[test]
   fn test_list_commits() -> Result<()> {
-    // TODO
+    // TODO SnapshotDeletionPolicy未实现
     Ok(())
   }
 
@@ -1463,7 +1708,7 @@ mod tests {
 
   #[test]
   fn test_reader_finished_listener() -> Result<()> {
-    // TODO
+    // TODO  ClosedListener未实现
     Ok(())
   }
 
@@ -1596,7 +1841,41 @@ mod tests {
 
   #[test]
   fn test_open_with_invalid_min_compat_version() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let mut field_to_type = HashMap::new();
+    let dir = new_directory_shared(&mut random)?;
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      &mut random,
+      "field1",
+      "foobar",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    doc.add(new_string_field(
+      &mut random,
+      "field2",
+      "foobaz",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let commits = directory_reader::list_commits(dir.clone())?;
+    let commit = &commits[0];
+
+    match directory_reader::open_with_version::<_, EmptyLeafSorter, _>(commit, -1, None) {
+      Ok(reader) => {
+        reader.close()?;
+        unreachable!("expected IllegalArgument");
+      },
+      Err(err) => assert!(matches!(err, LuceneError::IllegalArgument(_))),
+    }
+
+    directory_reader::open_with_version::<_, EmptyLeafSorter, _>(commit, LATEST.major, None)?
+      .close()?;
     Ok(())
   }
 }

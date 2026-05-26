@@ -1971,7 +1971,7 @@ where
 
   fn do_open_if_changed(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
   ) -> Result<Option<Self::DirectoryReader>> {
     let v = self.in_.do_open_if_changed(writer)?;
     self.wrap_directory_reader(v)
@@ -1979,7 +1979,7 @@ where
 
   fn do_open_if_changed_with_commit<IC>(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
@@ -1989,14 +1989,14 @@ where
     self.wrap_directory_reader(v)
   }
 
-  fn do_open_if_changed_with_writer(
+  fn do_open_if_changed_with_deletes(
     &self,
-    writer: IndexWriter<Self::Directory>,
+    writer: &IndexWriter<Self::Directory>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>> {
     let v = self
       .in_
-      .do_open_if_changed_with_writer(writer, apply_deletes)?;
+      .do_open_if_changed_with_deletes(writer, apply_deletes)?;
     self.wrap_directory_reader(v)
   }
 
