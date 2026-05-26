@@ -71,7 +71,7 @@ where
   seg_doc_values: Arc<SegmentDocValues<D>>,
   /// True if we are holding RAM only liveDocs or DV updates,
   /// i.e. the SegmentCommitInfo delGen doesn't match our liveDocs.
-  is_nrt: bool,
+  pub(crate) is_nrt: bool,
   doc_values_producer: Option<Arc<DocValuesProducers<D>>>,
   field_infos: Arc<FieldInfos>,
   index_base: IndexReaderBase,

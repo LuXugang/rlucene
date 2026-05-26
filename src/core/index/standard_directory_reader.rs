@@ -14,21 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codec;
+use crate::core::codecs::LATEST_CODEC;
+use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::index::base_composite_reader::{
   BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
 };
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
 use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
-use crate::core::index::dummy::dummy_directory_reader::DummyDirectoryReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::core::index::index_reader::{
   CacheHelper, CacheKey, IndexReader, IndexReaderBase, IndexReaderEnum,
 };
 use crate::core::index::index_writer::{IndexWriter, Inner};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
+use crate::core::index::pending_deletes::DocBits;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::{FindSegmentsFile, SegmentInfos};
 use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
@@ -59,7 +63,7 @@ where
   pub(crate) segment_infos: SegmentInfos<D>,
   sub_reader_sorter: Option<C>,
   index_base: IndexReaderBase,
-  closed: Option<Arc<AtomicBool>>,
+  writer_closed: Option<Arc<AtomicBool>>,
   cache_helper: CacheHelperImpl,
 }
 impl<C, D> StandardDirectoryReader<C, D>
@@ -87,7 +91,7 @@ where
       segment_infos,
       sub_reader_sorter: leaf_sorter,
       index_base: IndexReaderBase::new(),
-      closed,
+      writer_closed: closed,
       cache_helper: CacheHelperImpl::new(),
     })
   }
@@ -122,6 +126,89 @@ where
       Some(c) => finder.run_with_commit(c),
       None => finder.run(),
     }
+  }
+
+  fn do_open_from_commit<IC>(&self, commit: Option<&IC>) -> Result<Self>
+  where
+    IC: IndexCommit<Directory = D>,
+  {
+    let mut leaf_reads = Vec::new();
+    for v in self.get_sequential_sub_readers() {
+      match v {
+        IndexReaderEnum::Leaf(lr) => {
+          leaf_reads.push(lr.clone());
+        },
+        _ => return Err(LuceneError::illegal_state("should leaf reader")),
+      }
+    }
+    let mut finder = FindSegmentsFileImpl2::new(
+      self.directory().directory.clone(),
+      leaf_reads,
+      self.sub_reader_sorter.clone(),
+    );
+
+    match commit {
+      Some(commit) => finder.run_with_commit(commit),
+      None => finder.run(),
+    }
+  }
+
+  fn do_open_from_writer<IC>(
+    &self,
+    writer: &IndexWriter<D>,
+    commit: Option<&IC>,
+  ) -> Result<Option<Self>>
+  where
+    IC: IndexCommit<Directory = D>,
+  {
+    if let Some(commit) = commit {
+      return Ok(Some(self.do_open_from_commit(Some(commit))?));
+    }
+
+    if writer.nrt_is_current(self.segment_infos.get_version())? {
+      return Ok(None);
+    }
+
+    let reader = writer.get_reader_with_leaf_sorter(
+      self.apply_all_deletes,
+      self.write_all_deletes,
+      self.sub_reader_sorter.clone(),
+    )?;
+
+    // If in fact no changes took place, return None:
+    if reader.get_version()? == self.segment_infos.get_version() {
+      reader.dec_ref()?;
+      return Ok(None);
+    }
+
+    Ok(Some(reader))
+  }
+
+  fn do_open_no_writer<IC>(
+    &self,
+    writer: &IndexWriter<D>,
+    commit: Option<&IC>,
+  ) -> Result<Option<Self>>
+  where
+    IC: IndexCommit<Directory = D>,
+  {
+    if let Some(commit) = commit {
+      if !Arc::ptr_eq(&self.directory().directory, &commit.get_directory()) {
+        return Err(
+          std::io::Error::other("the specified commit does not match the specified Directory")
+            .into(),
+        );
+      }
+      if let Some(segments_file_name) = self.segment_infos.get_segments_file_name()
+        && commit.get_segments_file_name() == segments_file_name
+      {
+        return Ok(None);
+      }
+    } else if self.is_current(writer)? {
+      return Ok(None);
+    }
+
+    Ok(Some(self.do_open_from_commit(commit)?))
   }
 }
 pub type StandardDirectoryReaderType<D> = StandardDirectoryReader<EmptyLeafSorter, D>;
@@ -218,6 +305,158 @@ where
     },
   }
 }
+pub(crate) fn open_with_leaf_sorter<D, C>(
+  directory: Arc<D>,
+  infos: SegmentInfos<D>,
+  old_readers: Vec<DefaultLeafReader<D>>,
+  leaf_sorter: Option<C>,
+) -> Result<StandardDirectoryReader<C, D>>
+where
+  D: Directory,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+{
+  // we put the old SegmentReaders in a map, that allows us
+  // to lookup a reader using its segment name
+  let mut segment_readers = HashMap::with_capacity(old_readers.len());
+  for (i, sr) in old_readers.iter().enumerate() {
+    segment_readers.insert(sr.get_segment_name().to_string(), i);
+  }
+
+  let mut new_readers: Vec<Option<DefaultLeafReader<D>>> =
+    (0..infos.size()).map(|_| None).collect();
+  let result: Result<()> = (|| {
+    for i in (0..infos.size()).rev() {
+      let commit_info = infos
+        .info(i)
+        .ok_or_else(|| LuceneError::illegal_state("segment info is missing"))?;
+
+      // find SegmentReader for this segment
+      let old_reader = segment_readers
+        .get(&commit_info.info.name)
+        .map(|old_reader_index| old_readers[*old_reader_index].clone());
+
+      // Make a best effort to detect when the app illegally "rm -rf" their
+      // index while a reader was open, and then called openIfChanged:
+      if let Some(old_reader) = &old_reader
+        && commit_info.info.get_id() != old_reader.get_segment_info().info.get_id()
+      {
+        return Err(LuceneError::illegal_state(format!(
+          "same segment {} has invalid doc count change; likely you are re-opening a reader after illegally removing index files yourself and building a new index in their place.  Use IndexWriter.deleteAll or open a new IndexWriter using OpenMode.CREATE instead",
+          commit_info.info.name
+        )));
+      }
+
+      let new_reader = match old_reader {
+        None => Arc::new(SegmentReader::new(
+          commit_info,
+          infos.get_index_created_version_major(),
+          &IOContext::default_io_context()?,
+        )?),
+        Some(old_reader)
+          if commit_info.info.get_use_compound_file()
+            != old_reader.get_segment_info().info.get_use_compound_file() =>
+        {
+          Arc::new(SegmentReader::new(
+            commit_info,
+            infos.get_index_created_version_major(),
+            &IOContext::default_io_context()?,
+          )?)
+        },
+        Some(old_reader) => {
+          if old_reader.is_nrt {
+            // We must load liveDocs/DV updates from disk:
+            let (live_docs, hard_live_docs) = if commit_info.has_deletions() {
+              let live_docs = Arc::new(LATEST_CODEC.live_docs_format().read_live_docs(
+                commit_info.info.dir.as_ref(),
+                commit_info,
+                &IOContext::read_once_io_context()?,
+              )?);
+              (
+                Some(DocBits::A(live_docs.clone())),
+                Some(DocBits::A(live_docs)),
+              )
+            } else {
+              (None, None)
+            };
+            Arc::new(SegmentReader::new_from_reader(
+              commit_info,
+              &old_reader,
+              live_docs,
+              hard_live_docs,
+              commit_info.info.max_doc()? - commit_info.get_del_count(),
+              false,
+            )?)
+          } else if old_reader.get_segment_info().get_del_gen() == commit_info.get_del_gen()
+            && old_reader.get_segment_info().get_field_infos_gen()
+              == commit_info.get_field_infos_gen()
+          {
+            // No change; this reader will be shared between
+            // the old and the new one, so we must incRef
+            // it:
+            old_reader.inc_ref()?;
+            old_reader
+          } else if old_reader.get_segment_info().get_del_gen() == commit_info.get_del_gen() {
+            // only DV updates
+            Arc::new(SegmentReader::new_from_reader(
+              commit_info,
+              &old_reader,
+              old_reader.get_live_docs()?,
+              old_reader.get_hard_live_docs()?,
+              old_reader.num_docs()?,
+              false,
+            )?)
+          } else {
+            // both DV and liveDocs have changed
+            let (live_docs, hard_live_docs) = if commit_info.has_deletions() {
+              let live_docs = Arc::new(LATEST_CODEC.live_docs_format().read_live_docs(
+                commit_info.info.dir.as_ref(),
+                commit_info,
+                &IOContext::read_once_io_context()?,
+              )?);
+              (
+                Some(DocBits::A(live_docs.clone())),
+                Some(DocBits::A(live_docs)),
+              )
+            } else {
+              (None, None)
+            };
+            Arc::new(SegmentReader::new_from_reader(
+              commit_info,
+              &old_reader,
+              live_docs,
+              hard_live_docs,
+              commit_info.info.max_doc()? - commit_info.get_del_count(),
+              false,
+            )?)
+          }
+        },
+      };
+      new_readers[i] = Some(new_reader);
+    }
+    Ok(())
+  })();
+
+  if let Err(e) = result {
+    dec_ref_while_handling_exception(new_readers);
+    return Err(e);
+  }
+
+  let readers = new_readers
+    .into_iter()
+    .map(|reader| reader.ok_or_else(|| LuceneError::illegal_state("segment reader is missing")))
+    .collect::<Result<Vec<_>>>()?;
+  StandardDirectoryReader::new(directory, readers, infos, leaf_sorter, false, false, None)
+}
+
+fn dec_ref_while_handling_exception<D, I>(readers: I)
+where
+  D: Directory,
+  I: IntoIterator<Item = Option<DefaultLeafReader<D>>>,
+{
+  for reader in readers.into_iter().flatten() {
+    let _ = reader.dec_ref();
+  }
+}
 
 impl<C, D> BaseCompositeReader for StandardDirectoryReader<C, D>
 where
@@ -241,8 +480,24 @@ where
     self.base_composite_reader_base.get_sequential_sub_readers()
   }
 
-  fn to_string(&self) -> String {
-    todo!()
+  fn as_string(&self) -> String {
+    let mut buffer = String::new();
+    buffer.push_str("StandardDirectoryReader");
+    buffer.push('(');
+    if let Some(segments_file) = self.segment_infos.get_segments_file_name() {
+      buffer.push_str(&segments_file);
+      buffer.push(':');
+      buffer.push_str(&self.segment_infos.get_version().to_string());
+    }
+    if self.writer_closed.is_some() {
+      buffer.push_str(":nrt");
+    }
+    for r in self.get_sequential_sub_readers() {
+      buffer.push(' ');
+      buffer.push_str(&r.to_string());
+    }
+    buffer.push(')');
+    buffer
   }
 }
 
@@ -319,8 +574,7 @@ where
   D: Directory,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    // TODO
-    write!(f, "{}", std::any::type_name::<Self>())
+    write!(f, "{}", self.as_string())
   }
 }
 
@@ -329,32 +583,56 @@ where
   C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
-  type DirectoryReader = DummyDirectoryReader<D>;
+  type DirectoryReader = StandardDirectoryReader<C, D>;
 
-  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
-    self.do_open_if_changed_with_commit::<DummyIndexCommit<D>>(None)
+  fn do_open_if_changed(
+    &self,
+    writer: IndexWriter<Self::Directory>,
+  ) -> Result<Option<Self::DirectoryReader>> {
+    self.do_open_if_changed_with_commit::<DummyIndexCommit<D>>(writer, None)
   }
 
   fn do_open_if_changed_with_commit<IC>(
     &self,
-    _commit: Option<&IC>,
+    writer: IndexWriter<Self::Directory>,
+    commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    IC: IndexCommit,
+    IC: IndexCommit<Directory = D>,
   {
-    todo!()
+    self.ensure_open()?;
+    if self.writer_closed.is_some() {
+      self.do_open_from_writer(&writer, commit)
+    } else {
+      self.do_open_no_writer(&writer, commit)
+    }
   }
 
-  fn do_open_if_changed_with_index_writer(
+  fn do_open_if_changed_with_writer(
     &self,
-    _writer: IndexWriter<Self::Directory>,
-    _apply_deletes: bool,
+    writer: IndexWriter<Self::Directory>,
+    apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>> {
-    todo!()
+    self.ensure_open()?;
+    if self
+      .writer_closed
+      .as_ref()
+      .is_some_and(|closed| Arc::ptr_eq(closed, &writer.closed))
+      && apply_deletes == self.apply_all_deletes
+    {
+      self.do_open_from_writer::<DummyIndexCommit<D>>(&writer, None)
+    } else {
+      Ok(Some(writer.get_reader_with_leaf_sorter(
+        apply_deletes,
+        self.write_all_deletes,
+        self.sub_reader_sorter.clone(),
+      )?))
+    }
   }
 
-  fn get_version(&self) -> i64 {
-    todo!()
+  fn get_version(&self) -> Result<i64> {
+    self.ensure_open()?;
+    Ok(self.segment_infos.get_version())
   }
 
   fn is_current<D1>(&self, index_writer: &IndexWriter<D1>) -> Result<bool>
@@ -363,7 +641,7 @@ where
   {
     self.ensure_open()?;
 
-    let reader_from_dir = match self.closed {
+    let reader_from_dir = match self.writer_closed {
       Some(ref closed) => closed.load(SeqCst),
       None => true,
     };
@@ -485,25 +763,38 @@ where
   }
 }
 
-pub struct FindSegmentsFileImpl2<D>
+pub struct FindSegmentsFileImpl2<D, C>
 where
   D: Directory,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   directory: Arc<D>,
+  old_readers: Vec<DefaultLeafReader<D>>,
+  leaf_sorter: Option<C>,
 }
-impl<D> FindSegmentsFileImpl2<D>
+impl<D, C> FindSegmentsFileImpl2<D, C>
 where
   D: Directory,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
-  pub fn new(directory: Arc<D>) -> Self {
-    FindSegmentsFileImpl2 { directory }
+  pub fn new(
+    directory: Arc<D>,
+    old_readers: Vec<DefaultLeafReader<D>>,
+    leaf_sorter: Option<C>,
+  ) -> Self {
+    FindSegmentsFileImpl2 {
+      directory,
+      old_readers,
+      leaf_sorter,
+    }
   }
 }
-impl<D> FindSegmentsFile for FindSegmentsFileImpl2<D>
+impl<D, C> FindSegmentsFile for FindSegmentsFileImpl2<D, C>
 where
   D: Directory,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
-  type V = ();
+  type V = StandardDirectoryReader<C, D>;
   type D = D;
 
   fn get_directory_point(&self) -> Arc<Self::D> {
@@ -511,9 +802,26 @@ where
   }
 
   fn do_body(&mut self, segment_file_name: &str) -> Result<Self::V> {
-    let _infos = SegmentInfos::read_commit(self.directory.clone(), segment_file_name)?;
-    todo!()
+    let infos = SegmentInfos::read_commit(self.directory.clone(), segment_file_name)?;
+    do_open_if_changed(
+      infos,
+      self.directory.clone(),
+      self.old_readers.clone(),
+      self.leaf_sorter.clone(),
+    )
   }
+}
+pub(crate) fn do_open_if_changed<D, C>(
+  infos: SegmentInfos<D>,
+  directory: Arc<D>,
+  old_readers: Vec<DefaultLeafReader<D>>,
+  sub_readers_sorter: Option<C>,
+) -> Result<StandardDirectoryReader<C, D>>
+where
+  D: Directory,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+{
+  open_with_leaf_sorter(directory, infos, old_readers, sub_readers_sorter)
 }
 #[derive(Clone)]
 pub struct EmptyLeafSorter;

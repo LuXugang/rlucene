@@ -20,7 +20,6 @@ pub mod dummy_cache_helper;
 pub mod dummy_codec_reader;
 pub mod dummy_comparable_provider;
 pub mod dummy_composite_reader;
-pub mod dummy_directory_reader;
 pub mod dummy_doc_index_iterator;
 pub mod dummy_doc_map;
 pub mod dummy_doc_map_sorter;

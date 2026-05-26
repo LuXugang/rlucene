@@ -1969,34 +1969,38 @@ where
 {
   type DirectoryReader = DR::DirectoryReader;
 
-  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
-    let v = self.in_.do_open_if_changed()?;
+  fn do_open_if_changed(
+    &self,
+    writer: IndexWriter<Self::Directory>,
+  ) -> Result<Option<Self::DirectoryReader>> {
+    let v = self.in_.do_open_if_changed(writer)?;
     self.wrap_directory_reader(v)
   }
 
   fn do_open_if_changed_with_commit<IC>(
     &self,
+    writer: IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    IC: crate::core::index::index_commit::IndexCommit,
+    IC: crate::core::index::index_commit::IndexCommit<Directory = Self::Directory>,
   {
-    let v = self.in_.do_open_if_changed_with_commit(commit)?;
+    let v = self.in_.do_open_if_changed_with_commit(writer, commit)?;
     self.wrap_directory_reader(v)
   }
 
-  fn do_open_if_changed_with_index_writer(
+  fn do_open_if_changed_with_writer(
     &self,
     writer: IndexWriter<Self::Directory>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>> {
     let v = self
       .in_
-      .do_open_if_changed_with_index_writer(writer, apply_deletes)?;
+      .do_open_if_changed_with_writer(writer, apply_deletes)?;
     self.wrap_directory_reader(v)
   }
 
-  fn get_version(&self) -> i64 {
+  fn get_version(&self) -> Result<i64> {
     self.in_.get_version()
   }
 

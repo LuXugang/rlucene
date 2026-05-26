@@ -122,7 +122,7 @@ where
     &self.leaf_reader
   }
 
-  fn to_string(&self) -> String {
+  fn as_string(&self) -> String {
     todo!()
   }
 }

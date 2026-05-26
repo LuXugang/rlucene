@@ -62,7 +62,10 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// # Errors
   ///
   /// Returns an error if a low-level I/O failure occurs.
-  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>>;
+  fn do_open_if_changed(
+    &self,
+    writer: IndexWriter<Self::Directory>,
+  ) -> Result<Option<Self::DirectoryReader>>;
   /// If this reader does not support reopen, return `None` so that client code behaves correctly.
   /// This should be consistent with [`is_current`](Self::is_current),
   /// which should always return `true` if reopen is not supported.
@@ -77,10 +80,11 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// Returns an error if a low-level I/O failure occurs.
   fn do_open_if_changed_with_commit<IC>(
     &self,
+    writer: IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    IC: IndexCommit;
+    IC: IndexCommit<Directory = Self::Directory>;
   /// If this reader does not support reopen from an [`IndexWriter`],
   /// this method should return an [`unsupported_operation`](crate::core::util::error::lucene_error::LuceneError::unsupported_operation) error.
   ///
@@ -92,7 +96,7 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// # Errors
   ///
   /// Returns an error if a low-level I/O failure occurs.
-  fn do_open_if_changed_with_index_writer(
+  fn do_open_if_changed_with_writer(
     &self,
     writer: IndexWriter<Self::Directory>,
     apply_deletes: bool,
@@ -101,7 +105,7 @@ pub trait DirectoryReader: BaseCompositeReader {
   ///
   /// This method returns the version recorded in the commit that the reader opened.
   /// The version number is advanced every time a change is made using an [`IndexWriter`].
-  fn get_version(&self) -> i64;
+  fn get_version(&self) -> Result<i64>;
   /// Check whether any new changes have occurred to the index since this reader was opened.
   ///
   /// If this reader was created by calling `open`, then this method checks if any
@@ -348,29 +352,33 @@ where
 {
   type DirectoryReader = T::DirectoryReader;
 
-  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
-    (**self).do_open_if_changed()
+  fn do_open_if_changed(
+    &self,
+    writer: IndexWriter<Self::Directory>,
+  ) -> Result<Option<Self::DirectoryReader>> {
+    (**self).do_open_if_changed(writer)
   }
 
   fn do_open_if_changed_with_commit<IC>(
     &self,
+    writer: IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    IC: IndexCommit,
+    IC: IndexCommit<Directory = Self::Directory>,
   {
-    (**self).do_open_if_changed_with_commit(commit)
+    (**self).do_open_if_changed_with_commit(writer, commit)
   }
 
-  fn do_open_if_changed_with_index_writer(
+  fn do_open_if_changed_with_writer(
     &self,
     writer: IndexWriter<Self::Directory>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>> {
-    (**self).do_open_if_changed_with_index_writer(writer, apply_deletes)
+    (**self).do_open_if_changed_with_writer(writer, apply_deletes)
   }
 
-  fn get_version(&self) -> i64 {
+  fn get_version(&self) -> Result<i64> {
     (**self).get_version()
   }
 

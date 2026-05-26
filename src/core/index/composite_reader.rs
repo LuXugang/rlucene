@@ -27,7 +27,7 @@ pub trait CompositeReader: IndexReader {
   fn get_sequential_sub_readers(
     &self,
   ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>];
-  fn to_string(&self) -> String {
+  fn as_string(&self) -> String {
     todo!()
   }
 }
@@ -51,8 +51,8 @@ where
     (**self).get_sequential_sub_readers()
   }
 
-  fn to_string(&self) -> String {
-    (**self).to_string()
+  fn as_string(&self) -> String {
+    (**self).as_string()
   }
 }
 impl<CR> CompositeReader for Arc<CR>
@@ -68,8 +68,8 @@ where
     (**self).get_sequential_sub_readers()
   }
 
-  fn to_string(&self) -> String {
-    (**self).to_string()
+  fn as_string(&self) -> String {
+    (**self).as_string()
   }
 }
 impl<CR> CompositeReader for Rc<CR>
@@ -85,8 +85,8 @@ where
     (**self).get_sequential_sub_readers()
   }
 
-  fn to_string(&self) -> String {
-    (**self).to_string()
+  fn as_string(&self) -> String {
+    (**self).as_string()
   }
 }
 

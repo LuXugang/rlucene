@@ -215,7 +215,7 @@ where
     self.base_composite_reader_base.get_sequential_sub_readers()
   }
 
-  fn to_string(&self) -> String {
+  fn as_string(&self) -> String {
     todo!()
   }
 }
