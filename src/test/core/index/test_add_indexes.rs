@@ -23,7 +23,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::text_field_type;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
@@ -423,22 +423,21 @@ fn test_more_merges() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-fn new_writer<D>(dir: Arc<D>, mut conf: IndexWriterConfig) -> Result<DefaultIndexWriterType<D>>
+fn new_writer<D>(dir: Arc<D>, mut conf: IndexWriterConfig) -> Result<IndexWriter<D>>
 where
   D: Directory,
 {
   conf.set_merge_policy(LogMergePolicy::log_doc());
   IndexWriter::new(dir, conf)
 }
-fn add_docs<D, B, R>(
+fn add_docs<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D, B>,
+  writer: &mut IndexWriter<D>,
   num_docs: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
   R: Rng + ?Sized,
 {
   for i in 0..num_docs {
@@ -458,15 +457,14 @@ where
   Ok(())
 }
 
-fn add_docs2<D, B, R>(
+fn add_docs2<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D, B>,
+  writer: &mut IndexWriter<D>,
   num_docs: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
   R: Rng + ?Sized,
 {
   for i in 0..num_docs {
@@ -522,9 +520,9 @@ where
   reader.close()?;
   Ok(())
 }
-fn add_docs_with_id<R, D, B>(
+fn add_docs_with_id<R, D>(
   random: &mut R,
-  writer: &IndexWriter<D, B>,
+  writer: &IndexWriter<D>,
   num_docs: i32,
   doc_start: i32,
   field_to_type: &mut HashMap<String, FieldType>,
@@ -532,7 +530,6 @@ fn add_docs_with_id<R, D, B>(
 where
   R: Rng + ?Sized,
   D: Directory,
-  B: IndexWriterBase,
 {
   for i in 0..num_docs {
     let mut doc = Document::new();
@@ -719,14 +716,13 @@ fn test_hang_on_close() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-fn add_doc<D, B, R>(
+fn add_doc<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D, B>,
+  writer: &mut IndexWriter<D>,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();

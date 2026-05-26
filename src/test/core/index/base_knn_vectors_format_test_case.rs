@@ -31,7 +31,7 @@ use crate::core::index::directory_reader;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::knn_vector_values::{DocIndexIterator, KnnVectorValues};
@@ -2071,10 +2071,10 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     iw.close()?;
     Ok(())
   }
-  fn add_float<R, D, B>(
+  fn add_float<R, D>(
     &self,
     random: &mut R,
-    iw: &IndexWriter<D, B>,
+    iw: &IndexWriter<D>,
     field: &str,
     id: i32,
     vector: Option<Vec<f32>>,
@@ -2083,7 +2083,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
     D: Directory,
-    B: IndexWriterBase,
   {
     self.add_float_with_sort_key(
       iw,
@@ -2095,10 +2094,10 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     )
   }
 
-  fn add_byte<R, D, B>(
+  fn add_byte<R, D>(
     &self,
     random: &mut R,
-    iw: &IndexWriter<D, B>,
+    iw: &IndexWriter<D>,
     field: &str,
     id: i32,
     vector: Option<Vec<u8>>,
@@ -2107,7 +2106,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
     D: Directory,
-    B: IndexWriterBase,
   {
     self.add_byte_with_sort_key(
       iw,
@@ -2119,9 +2117,9 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     )
   }
 
-  fn add_byte_default_similarity<D, B>(
+  fn add_byte_default_similarity<D>(
     &self,
-    iw: &IndexWriter<D, B>,
+    iw: &IndexWriter<D>,
     field: &str,
     id: i32,
     sort_key: i32,
@@ -2129,7 +2127,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     self.add_byte_with_sort_key(
       iw,
@@ -2141,9 +2138,9 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     )
   }
 
-  fn add_byte_with_sort_key<D, B>(
+  fn add_byte_with_sort_key<D>(
     &self,
-    iw: &IndexWriter<D, B>,
+    iw: &IndexWriter<D>,
     field: &str,
     id: i32,
     sort_key: i32,
@@ -2152,7 +2149,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     let mut doc = Document::new();
     if let Some(vector) = vector {
@@ -2174,9 +2170,9 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn add_float_default_similarity<D, B>(
+  fn add_float_default_similarity<D>(
     &self,
-    iw: &IndexWriter<D, B>,
+    iw: &IndexWriter<D>,
     field: &str,
     id: i32,
     sort_key: i32,
@@ -2184,7 +2180,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     self.add_float_with_sort_key(
       iw,
@@ -2196,9 +2191,9 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     )
   }
 
-  fn add_float_with_sort_key<D, B>(
+  fn add_float_with_sort_key<D>(
     &self,
-    iw: &IndexWriter<D, B>,
+    iw: &IndexWriter<D>,
     field: &str,
     id: i32,
     sort_key: i32,
@@ -2207,7 +2202,6 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     let mut doc = Document::new();
     if let Some(vector) = vector {
@@ -2564,16 +2558,15 @@ impl TestMergeScheduler {
 impl Closeable for TestMergeScheduler {}
 
 impl MergeScheduler for TestMergeScheduler {
-  fn merge<MS, D, B>(
+  fn merge<MS, D>(
     &self,
     merge_source: &MS,
     _trigger: MergeTrigger,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
   ) -> Result<()>
   where
     MS: MergeSource,
     D: Directory,
-    B: IndexWriterBase,
   {
     while let Some(mut merge) = merge_source.get_next_merge(writer)? {
       let result: Result<()> = merge_source.merge(&mut merge, writer);

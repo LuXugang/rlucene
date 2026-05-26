@@ -41,7 +41,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 #[cfg(feature = "nightly")]
 use crate::core::index::index_writer::MAX_STORED_STRING_LENGTH;
 use crate::core::index::index_writer::{
-  EmptyIndexWriterBase, EventEnum, EventImplTest, EventQueue, IndexWriter, IndexWriterBase,
+  EventEnum, EventImplTest, EventQueue, IndexWriter, IndexWriterHooks, IndexWriterHooksEnum,
   WRITE_LOCK_NAME, read_field_infos,
 };
 use crate::core::index::index_writer_config::OpenMode;
@@ -183,14 +183,13 @@ fn test_doc_count() -> Result<()> {
   }
   Ok(())
 }
-pub(crate) fn add_doc<D, B, R>(
+pub(crate) fn add_doc<D, R>(
   random: &mut R,
-  writer: &IndexWriter<D, B>,
+  writer: &IndexWriter<D>,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
@@ -204,15 +203,14 @@ where
   let _ = writer.add_document(doc)?;
   Ok(())
 }
-pub(crate) fn add_doc_with_index<D, B, R>(
+pub(crate) fn add_doc_with_index<D, R>(
   random: &mut R,
-  writer: &IndexWriter<D, B>,
+  writer: &IndexWriter<D>,
   index: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
@@ -925,10 +923,12 @@ fn test_do_before_after_flush() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock_index_writer = MockIndexWriter::new();
-  let writer = IndexWriter::with_sub(
+  let before_was_called = mock_index_writer.before_was_called.clone();
+  let after_was_called = mock_index_writer.after_was_called.clone();
+  let writer = IndexWriter::with_hooks(
     dir.clone(),
     new_index_writer_config(&mut random),
-    Some(mock_index_writer),
+    Some(IndexWriterHooksEnum::custom(mock_index_writer)),
   )?;
 
   let mut field_types = HashMap::new();
@@ -944,26 +944,16 @@ fn test_do_before_after_flush() -> Result<()> {
   writer.add_document(doc)?;
   writer.commit()?;
 
-  assert!(writer.sub.as_ref().unwrap().before_was_called.load(SeqCst));
-  assert!(writer.sub.as_ref().unwrap().after_was_called.load(SeqCst));
-  writer
-    .sub
-    .as_ref()
-    .unwrap()
-    .before_was_called
-    .store(false, SeqCst);
-  writer
-    .sub
-    .as_ref()
-    .unwrap()
-    .after_was_called
-    .store(false, SeqCst);
+  assert!(before_was_called.load(SeqCst));
+  assert!(after_was_called.load(SeqCst));
+  before_was_called.store(false, SeqCst);
+  after_was_called.store(false, SeqCst);
 
   writer.delete_documents_with_terms(vec![Term::from_text("field", "field"); 1])?;
   writer.commit()?;
 
-  assert!(writer.sub.as_ref().unwrap().before_was_called.load(SeqCst));
-  assert!(writer.sub.as_ref().unwrap().after_was_called.load(SeqCst));
+  assert!(before_was_called.load(SeqCst));
+  assert!(after_was_called.load(SeqCst));
 
   writer.close()?;
 
@@ -1956,10 +1946,9 @@ fn test_commit_with_user_data_only() -> Result<()> {
   Ok(())
 }
 
-fn get_live_commit_data<D, B>(writer: &IndexWriter<D, B>) -> HashMap<String, String>
+fn get_live_commit_data<D>(writer: &IndexWriter<D>) -> HashMap<String, String>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   let mut data = HashMap::new();
 
@@ -2617,10 +2606,7 @@ fn test_flush_largest_writer() -> Result<()> {
   Ok(())
 }
 
-fn index_docs_for_multiple_dwpts<R>(
-  writer: &IndexWriter<DirEnum, EmptyIndexWriterBase>,
-  random: &mut R,
-) -> Result<i32>
+fn index_docs_for_multiple_dwpts<R>(writer: &IndexWriter<DirEnum>, random: &mut R) -> Result<i32>
 where
   R: Rng + ?Sized,
 {
@@ -2972,10 +2958,9 @@ fn test_check_pending_flush_post_update() -> Result<()> {
   Ok(())
 }
 
-fn wait_for_docs_in_buffers<D, B>(w: &IndexWriter<D, B>, buffers_with_docs: usize)
+fn wait_for_docs_in_buffers<D>(w: &IndexWriter<D>, buffers_with_docs: usize)
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   // wait until at least N DWPTs have a doc in order to observe who flushes the segments.
   loop {
@@ -3019,10 +3004,9 @@ fn test_delete_happens_before_while_flush() -> Result<()> {
   // TODO
   Ok(())
 }
-fn assert_files<D, B>(writer: &IndexWriter<D, B>) -> Result<()>
+fn assert_files<D>(writer: &IndexWriter<D>) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   use std::collections::HashSet;
 
@@ -4169,14 +4153,14 @@ fn test_doc_values_skipping_index_without_doc_values() -> Result<()> {
 
 // Make sure we can flush segment w/ norms, then add empty doc (no norms) and flush
 struct MockIndexWriter {
-  after_was_called: AtomicBool,
-  before_was_called: AtomicBool,
+  after_was_called: Arc<AtomicBool>,
+  before_was_called: Arc<AtomicBool>,
 }
 impl MockIndexWriter {
   fn new() -> Self {
     MockIndexWriter {
-      after_was_called: AtomicBool::new(false),
-      before_was_called: AtomicBool::new(false),
+      after_was_called: Arc::new(AtomicBool::new(false)),
+      before_was_called: Arc::new(AtomicBool::new(false)),
     }
   }
 }
@@ -4234,7 +4218,7 @@ impl TokenStream for NegativePositionsTokenStream {
   }
 }
 
-impl IndexWriterBase for MockIndexWriter {
+impl IndexWriterHooks for MockIndexWriter {
   fn do_after_flush(&self) -> Result<()> {
     self.after_was_called.store(true, SeqCst);
     Ok(())
@@ -4246,10 +4230,9 @@ impl IndexWriterBase for MockIndexWriter {
   }
 }
 
-fn assert_hard_live_docs<D, B>(writer: &IndexWriter<D, B>, unique_docs: &HashSet<i32>) -> Result<()>
+fn assert_hard_live_docs<D>(writer: &IndexWriter<D>, unique_docs: &HashSet<i32>) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   let reader = directory_reader::open_from_writer(writer)?;
   assert_eq!(unique_docs.len() as i32, reader.num_docs()?);
@@ -4282,15 +4265,14 @@ where
   Ok(())
 }
 
-fn add_doc_with_field<D, B, R>(
+fn add_doc_with_field<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D, B>,
+  writer: &mut IndexWriter<D>,
   field: &str,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();

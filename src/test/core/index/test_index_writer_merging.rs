@@ -21,7 +21,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::text_field_type;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -379,16 +379,15 @@ impl Closeable for MyMergeScheduler {
 }
 
 impl MergeScheduler for MyMergeScheduler {
-  fn merge<MS, D, B>(
+  fn merge<MS, D>(
     &self,
     merge_source: &MS,
     _trigger: MergeTrigger,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
   ) -> Result<()>
   where
     MS: MergeSource,
     D: Directory,
-    B: IndexWriterBase,
   {
     loop {
       let mut merge = match merge_source.get_next_merge(writer)? {

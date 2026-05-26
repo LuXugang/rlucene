@@ -151,15 +151,14 @@ fn add_field(doc: &mut Document, field: &Fields) {
   doc.add(clone_field(field));
 }
 
-fn do_test_doc_with_missing_schema_options_throws_error<D, B>(
+fn do_test_doc_with_missing_schema_options_throws_error<D>(
   fields: &[Fields],
   missing: usize,
-  writer: &IndexWriter<D, B>,
+  writer: &IndexWriter<D>,
   error_msg: &str,
 ) -> Result<()>
 where
   D: crate::core::store::directory::Directory,
-  B: crate::core::index::index_writer::IndexWriterBase,
 {
   let mut doc = Document::new();
   for (i, field) in fields.iter().enumerate() {
@@ -177,15 +176,14 @@ where
   Ok(())
 }
 
-fn do_test_doc_with_extra_schema_options_throws_error<D, B>(
+fn do_test_doc_with_extra_schema_options_throws_error<D>(
   existing: &Fields,
   extra: &Fields,
-  writer: &IndexWriter<D, B>,
+  writer: &IndexWriter<D>,
   error_msg: &str,
 ) -> Result<()>
 where
   D: crate::core::store::directory::Directory,
-  B: crate::core::index::index_writer::IndexWriterBase,
 {
   let mut doc = Document::new();
   add_field(&mut doc, existing);

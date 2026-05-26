@@ -373,7 +373,7 @@ pub(crate) mod tests {
   use crate::core::document::field_type::FieldType;
   use crate::core::index::directory_reader;
   use crate::core::index::index_reader_context::IndexReaderContext;
-  use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+  use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::index_writer_config::OpenMode;
   use crate::core::search::index_searcher::{
     IndexSearcher, get_max_clause_count, set_max_clause_count,
@@ -744,16 +744,15 @@ pub(crate) mod tests {
     Ok(())
   }
 
-  fn insert_doc<D, B, R>(
+  fn insert_doc<D, R>(
     random: &mut R,
-    writer: &mut IndexWriter<D, B>,
+    writer: &mut IndexWriter<D>,
     doc_count: &mut i32,
     content: &str,
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
     R: Rng + ?Sized,
   {
     let mut doc = Document::new();

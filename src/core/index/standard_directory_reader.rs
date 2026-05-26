@@ -26,7 +26,7 @@ use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::{
   CacheHelper, CacheKey, IndexReader, IndexReaderBase, IndexReaderEnum,
 };
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, Inner};
+use crate::core::index::index_writer::{IndexWriter, Inner};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -125,8 +125,8 @@ where
   }
 }
 pub type StandardDirectoryReaderType<D> = StandardDirectoryReader<DummyComparator, D>;
-pub(crate) fn open_with_reader_function<D, B, IO>(
-  writer: &IndexWriter<D, B>,
+pub(crate) fn open_with_reader_function<D, IO>(
+  writer: &IndexWriter<D>,
   reader_function: &mut IO,
   infos: Option<&SegmentInfos<D>>,
   inner: &mut Inner<D>, // hold IndexWriter lock
@@ -135,7 +135,6 @@ pub(crate) fn open_with_reader_function<D, B, IO>(
 ) -> Result<StandardDirectoryReaderType<D>>
 where
   D: Directory,
-  B: IndexWriterBase,
   IO: IOFunction<SegmentCommitInfo<D>, DefaultLeafReader<D>>,
 {
   let (segment_infos, dir, readers) = {
@@ -345,14 +344,11 @@ where
     todo!()
   }
 
-  fn do_open_if_changed_with_index_writer<B>(
+  fn do_open_if_changed_with_index_writer(
     &self,
-    _writer: IndexWriter<Self::Directory, B>,
+    _writer: IndexWriter<Self::Directory>,
     _apply_deletes: bool,
-  ) -> Result<Option<Self::DirectoryReader>>
-  where
-    B: IndexWriterBase,
-  {
+  ) -> Result<Option<Self::DirectoryReader>> {
     todo!()
   }
 
@@ -360,10 +356,9 @@ where
     todo!()
   }
 
-  fn is_current<D1, B>(&self, index_writer: &IndexWriter<D1, B>) -> Result<bool>
+  fn is_current<D1>(&self, index_writer: &IndexWriter<D1>) -> Result<bool>
   where
     D1: Directory,
-    B: IndexWriterBase,
   {
     self.ensure_open()?;
 

@@ -16,7 +16,7 @@
  */
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::IOContext;
@@ -124,10 +124,9 @@ impl BufferedUpdatesStream {
   /// Returns `true` if there were any new deletes or updates.
   ///
   /// This is called during refresh and commit.
-  pub(crate) fn wait_apply_all<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
+  pub(crate) fn wait_apply_all<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     let wait_for = {
       let inner = self.inner.lock();
@@ -169,14 +168,13 @@ impl BufferedUpdatesStream {
   }
   /// Waits only for those in-flight packets that apply to these merge segments.
   /// This is called when a merge needs to finish and must ensure all deletes to the merging segments are resolved.
-  pub(crate) fn wait_apply_for_merge<D, B>(
+  pub(crate) fn wait_apply_for_merge<D>(
     &self,
     merge_infos_id: &[String],
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     let mut max_del_gen = i64::MIN;
     {
@@ -220,14 +218,13 @@ impl BufferedUpdatesStream {
     self.wait_apply(wait_for, writer)
   }
 
-  fn wait_apply<D, B>(
+  fn wait_apply<D>(
     &self,
     wait_for: HashMap<Identity, Arc<FrozenBufferedUpdates>>,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     let start_ns = std::time::Instant::now();
     let packet_count = wait_for.len();
@@ -327,14 +324,11 @@ where
       start_del_count: info.get_del_count(),
     })
   }
-  pub(crate) fn close<B>(
+  pub(crate) fn close(
     &self,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
     inner: &mut crate::core::index::index_writer::Inner<D>,
-  ) -> Result<()>
-  where
-    B: IndexWriterBase,
-  {
+  ) -> Result<()> {
     {
       let rld_inner = self.rld.inner.lock();
       let reader = match rld_inner.reader {

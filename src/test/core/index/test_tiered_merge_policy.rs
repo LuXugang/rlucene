@@ -24,7 +24,7 @@ use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, SOURCE_FLUSH, SOURCE_MERGE};
+use crate::core::index::index_writer::{IndexWriter, SOURCE_FLUSH, SOURCE_MERGE};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -854,14 +854,13 @@ where
 // differences.
 // this should be called after forceDeletesMerges with the boolean always false,
 // Depending on the state, forceMerge may call with the boolean true or false.
-fn check_segments_in_expectations<D, B>(
-  w: &IndexWriter<D, B>,
+fn check_segments_in_expectations<D>(
+  w: &IndexWriter<D>,
   seg_names_before: &[String],
   two_may_have_been_merged: bool,
 ) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   let seg_names_after = get_segment_names(w)?;
 
@@ -906,10 +905,9 @@ where
 
   Ok(())
 }
-fn get_segment_names<D, B>(w: &IndexWriter<D, B>) -> Result<Vec<String>>
+fn get_segment_names<D>(w: &IndexWriter<D>) -> Result<Vec<String>>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   let infos = w.clone_segment_infos()?;
   let mut names = Vec::with_capacity(infos.size());
@@ -920,14 +918,9 @@ where
   Ok(names)
 }
 
-fn delete_pct_docs_from_each_seg<D, B>(
-  w: &mut IndexWriter<D, B>,
-  pct: i32,
-  round_up: bool,
-) -> Result<i32>
+fn delete_pct_docs_from_each_seg<D>(w: &mut IndexWriter<D>, pct: i32, round_up: bool) -> Result<i32>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   let reader = directory_reader::open_from_writer(w)?;
   let reader = get_context(reader)?;

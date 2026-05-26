@@ -38,10 +38,9 @@ use crate::core::util::long_supplier::LongSupplier;
 use parking_lot::{Condvar, Mutex, MutexGuard};
 use std::sync::Arc;
 
-pub struct IndexWriter<D, B>
+pub struct IndexWriter<D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   pub(crate) enable_test_points: bool,
   // when unrecoverable disaster strikes, we populate this with the reason that we had to close
@@ -80,7 +79,7 @@ where
   info_stream: InfoStreamMT,
   pub(crate) inner: Mutex<Inner<D>>,
   pausing: Condvar,
-  pub(crate) sub: Option<B>,
+  pub(crate) hooks: Option<IndexWriterHooksEnum>,
   commit_lock: Mutex<CommitInner<D>>,
   full_flush_lock: Mutex<()>,
   add_indexes_merge_source: AddIndexesMergeSource,
@@ -121,32 +120,34 @@ where
   files_to_commit: Option<Vec<String>>,
   start_commit_time: Instant,
 }
-impl<D, B> Drop for IndexWriter<D, B>
+impl<D> Drop for IndexWriter<D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   fn drop(&mut self) {
     // TODO IMPORTANT 其他close需要用到IndexWriter的字段都需要在这里处理
   }
 }
-pub type DefaultIndexWriterType<D> = IndexWriter<D, EmptyIndexWriterBase>;
-impl<D> IndexWriter<D, EmptyIndexWriterBase>
+pub type DefaultIndexWriterType<D> = IndexWriter<D>;
+impl<D> IndexWriter<D>
 where
   D: Directory,
 {
   pub fn new(d: Arc<D>, conf: IndexWriterConfig) -> Result<Self> {
-    Self::with_sub(d, conf, Some(EmptyIndexWriterBase))
+    Self::with_hooks(d, conf, Some(EmptyIndexWriterHooks.into()))
   }
 }
 
-impl<D, B> IndexWriter<D, B>
+impl<D> IndexWriter<D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
-  pub fn with_sub(d: Arc<D>, mut conf: IndexWriterConfig, sub: Option<B>) -> Result<Self> {
-    let enable_test_points = sub.as_ref().unwrap().is_enable_test_points();
+  pub fn with_hooks(
+    d: Arc<D>,
+    mut conf: IndexWriterConfig,
+    hooks: Option<IndexWriterHooksEnum>,
+  ) -> Result<Self> {
+    let enable_test_points = hooks.as_ref().unwrap().is_enable_test_points();
     let info_stream = conf.get_info_stream();
     let soft_deletes_enabled = conf.get_soft_deletes_field().is_some();
 
@@ -394,7 +395,7 @@ where
           running_add_indexes_merges: HashSet::new(),
         }),
         pausing: Condvar::new(),
-        sub,
+        hooks,
         commit_lock: Mutex::new(CommitInner {
           pending_commit: None,
           files_to_commit: None,
@@ -2527,7 +2528,7 @@ where
       self.adjust_pending_num_docs(-(max_doc as i64));
     }
     self.flush_count.fetch_add(1, Ordering::AcqRel);
-    if let Some(ref s) = self.sub {
+    if let Some(ref s) = self.hooks {
       s.do_after_flush()?
     }
 
@@ -3228,7 +3229,7 @@ where
       ));
     }
 
-    if let Some(ref s) = self.sub {
+    if let Some(ref s) = self.hooks {
       s.do_before_flush()?
     }
     self.test_point("startDoFlush");
@@ -3314,7 +3315,7 @@ where
       self
         .doc_writer
         .finish_full_flush(flush_success, &self.config)?;
-      if let Some(ref s) = self.sub {
+      if let Some(ref s) = self.hooks {
         s.do_after_flush()?
       }
       body_res
@@ -3796,7 +3797,7 @@ where
       )));
     }
 
-    if let Some(ref s) = self.sub {
+    if let Some(ref s) = self.hooks {
       s.do_before_flush()?;
     }
 
@@ -3844,7 +3845,7 @@ where
       {
         let mut inner = self.inner.lock();
         self.write_reader_pool(apply_all_deletes, &mut *inner)?;
-        if let Some(ref s) = self.sub {
+        if let Some(ref s) = self.hooks {
           s.do_after_flush()?;
         }
         success = true;
@@ -4015,13 +4016,13 @@ where
                 )?
               },
               DocValuesType::Binary => {
-                let sub = BinaryDocValuesFieldUpdates::new()?;
+                let sub_update2 = BinaryDocValuesFieldUpdates::new()?;
                 DocValuesFieldUpdates::new(
                   merge.info.as_ref().unwrap().info.max_doc()?,
                   updates.del_gen,
                   updates.field.clone(),
-                  sub.sub_type(),
-                  sub,
+                  sub_update2.sub_type(),
+                  sub_update2,
                 )?
               },
               _ => {
@@ -4307,7 +4308,7 @@ where
   /// Merges the indicated segments, replacing them in the stack with a single segment.
   fn merge(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
     #[cfg(test)]
-    if let Some(s) = &self.sub {
+    if let Some(s) = &self.hooks {
       s.do_before_merge(&merge.stat)?;
     }
     let mut success = false;
@@ -5715,7 +5716,7 @@ where
     // this method is called:
     self.reader_pool.enable_reader_pooling();
 
-    if let Some(ref s) = self.sub {
+    if let Some(ref s) = self.hooks {
       s.do_before_flush()?;
     }
 
@@ -5806,7 +5807,7 @@ where
         self.doc_writer.finish_full_flush(success, &self.config)?;
         if success {
           self.process_events(false)?;
-          if let Some(ref s) = self.sub {
+          if let Some(ref s) = self.hooks {
             s.do_after_flush()?
           }
         } else if self.info_stream.enabled("IW") {
@@ -5846,10 +5847,9 @@ where
     inner.segment_infos.get_version()
   }
 }
-impl<D, B> TwoPhaseCommit for IndexWriter<D, B>
+impl<D> TwoPhaseCommit for IndexWriter<D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   /// **Expert:** Prepares for commit. This is the first phase of a 2-phase commit.
   /// This method performs all steps necessary to commit changes since this writer was opened:
@@ -5934,26 +5934,23 @@ pub trait IndexReaderWarmer {
     LR: LeafReader;
 }
 
-struct IOConsumerImpl1<'a, D, B>
+struct IOConsumerImpl1<'a, D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
-  index_writer: &'a IndexWriter<D, B>,
+  index_writer: &'a IndexWriter<D>,
 }
-impl<'a, D, B> IOConsumerImpl1<'a, D, B>
+impl<'a, D> IOConsumerImpl1<'a, D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
-  fn new(index_writer: &'a IndexWriter<D, B>) -> Self {
+  fn new(index_writer: &'a IndexWriter<D>) -> Self {
     Self { index_writer }
   }
 }
-impl<'a, D, B> IOConsumer<HashSet<String>> for IOConsumerImpl1<'a, D, B>
+impl<'a, D> IOConsumer<HashSet<String>> for IOConsumerImpl1<'a, D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   fn accept(&mut self, input: HashSet<String>) -> Result<()> {
     self.index_writer.delete_new_files(input.iter(), None)
@@ -6055,10 +6052,9 @@ where
     self.hard_live_docs.length()
   }
 }
-impl<D, B> MergeContext<D> for IndexWriter<D, B>
+impl<D> MergeContext<D> for IndexWriter<D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   /// Returns the number of deletes a merge would claim back if the given segment is merged.
   ///
@@ -6151,10 +6147,9 @@ impl Merges {
     self.merges_enabled = false;
   }
 
-  pub(crate) fn enable<D, B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
+  pub(crate) fn enable<D>(&mut self, writer: &IndexWriter<D>) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     writer.ensure_open()?;
     self.merges_enabled = true;
@@ -6162,25 +6157,23 @@ impl Merges {
   }
 }
 
-pub(crate) struct IOConsumerImpl<'a, D, B>
+pub(crate) struct IOConsumerImpl<'a, D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   deleter: &'a mut IndexFileDeleter<D>,
   merge_readers: &'a mut HashMap<String, DefaultLeafReader<D>>,
-  reader_factory: &'a mut IOFunctionImpl<'a, D, B>,
+  reader_factory: &'a mut IOFunctionImpl<'a, D>,
   stop_collecting_merged_readers: &'a AtomicBool,
 }
-impl<'a, D, B> IOConsumerImpl<'a, D, B>
+impl<'a, D> IOConsumerImpl<'a, D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   pub(crate) fn new(
     deleter: &'a mut IndexFileDeleter<D>,
     merge_readers: &'a mut HashMap<String, DefaultLeafReader<D>>,
-    reader_factory: &'a mut IOFunctionImpl<'a, D, B>,
+    reader_factory: &'a mut IOFunctionImpl<'a, D>,
     stop_collecting_merged_readers: &'a AtomicBool,
   ) -> Self {
     Self {
@@ -6191,10 +6184,9 @@ where
     }
   }
 }
-impl<'a, D, B> IOConsumer<SegmentCommitInfo<D>> for IOConsumerImpl<'a, D, B>
+impl<'a, D> IOConsumer<SegmentCommitInfo<D>> for IOConsumerImpl<'a, D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   fn accept_ref(&mut self, sci: &SegmentCommitInfo<D>) -> Result<()> {
     debug_assert!(
@@ -6211,21 +6203,19 @@ where
   }
 }
 
-pub(crate) struct IOFunctionImpl<'a, D, B>
+pub(crate) struct IOFunctionImpl<'a, D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
-  writer: &'a IndexWriter<D, B>,
+  writer: &'a IndexWriter<D>,
   opened_read_only_clones: &'a mut HashMap<String, DefaultLeafReader<D>>,
 }
-impl<'a, D, B> IOFunctionImpl<'a, D, B>
+impl<'a, D> IOFunctionImpl<'a, D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   pub(crate) fn new(
-    writer: &'a IndexWriter<D, B>,
+    writer: &'a IndexWriter<D>,
     opened_read_only_clones: &'a mut HashMap<String, DefaultLeafReader<D>>,
   ) -> Self {
     Self {
@@ -6234,10 +6224,9 @@ where
     }
   }
 }
-impl<'a, D, B> IOFunction<SegmentCommitInfo<D>, DefaultLeafReader<D>> for IOFunctionImpl<'a, D, B>
+impl<'a, D> IOFunction<SegmentCommitInfo<D>, DefaultLeafReader<D>> for IOFunctionImpl<'a, D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   fn apply(&mut self, sci: &SegmentCommitInfo<D>) -> Result<DefaultLeafReader<D>> {
     let rld = self.writer.get_pooled_instance(sci.into(), true, None)?;
@@ -6259,10 +6248,9 @@ where
     }
   }
 }
-impl<D, B> Display for IndexWriter<D, B>
+impl<D> Display for IndexWriter<D>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
@@ -6295,7 +6283,7 @@ impl DocStats {
   }
 }
 
-pub trait IndexWriterBase {
+pub trait IndexWriterHooks {
   /// A hook for extending classes to execute operations before a merge begins.
   #[cfg(test)]
   fn do_before_merge(&self, _merge: &MergeStat) -> Result<()> {
@@ -6317,8 +6305,57 @@ pub trait IndexWriterBase {
   }
 }
 #[derive(Default)]
-pub struct EmptyIndexWriterBase;
-impl IndexWriterBase for EmptyIndexWriterBase {}
+pub struct EmptyIndexWriterHooks;
+impl IndexWriterHooks for EmptyIndexWriterHooks {}
+
+pub type CustomIndexWriterHooks = Box<dyn IndexWriterHooks + Send + Sync>;
+pub enum IndexWriterHooksEnum {
+  EmptyIndexWriterHooks(EmptyIndexWriterHooks),
+  Custom(CustomIndexWriterHooks),
+}
+impl IndexWriterHooksEnum {
+  pub fn custom<B>(base: B) -> Self
+  where
+    B: IndexWriterHooks + Send + Sync + 'static,
+  {
+    Self::Custom(Box::new(base))
+  }
+}
+impl From<EmptyIndexWriterHooks> for IndexWriterHooksEnum {
+  fn from(base: EmptyIndexWriterHooks) -> Self {
+    Self::EmptyIndexWriterHooks(base)
+  }
+}
+impl IndexWriterHooks for IndexWriterHooksEnum {
+  #[cfg(test)]
+  fn do_before_merge(&self, merge: &MergeStat) -> Result<()> {
+    match self {
+      Self::EmptyIndexWriterHooks(inner) => inner.do_before_merge(merge),
+      Self::Custom(inner) => inner.do_before_merge(merge),
+    }
+  }
+
+  fn do_after_flush(&self) -> Result<()> {
+    match self {
+      Self::EmptyIndexWriterHooks(inner) => inner.do_after_flush(),
+      Self::Custom(inner) => inner.do_after_flush(),
+    }
+  }
+
+  fn do_before_flush(&self) -> Result<()> {
+    match self {
+      Self::EmptyIndexWriterHooks(inner) => inner.do_before_flush(),
+      Self::Custom(inner) => inner.do_before_flush(),
+    }
+  }
+
+  fn is_enable_test_points(&self) -> bool {
+    match self {
+      Self::EmptyIndexWriterHooks(inner) => inner.is_enable_test_points(),
+      Self::Custom(inner) => inner.is_enable_test_points(),
+    }
+  }
+}
 pub(crate) type TragicException = Arc<Mutex<Option<LuceneError>>>;
 
 #[derive(Default)]
@@ -6359,23 +6396,21 @@ impl FlushNotifications for FlushNotificationsImpl {
     }
   }
 
-  fn after_segments_flushed<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
+  fn after_segments_flushed<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     writer.publish_flushed_segments(false)
   }
 
-  fn on_tragic_event<D, B>(
+  fn on_tragic_event<D>(
     &self,
     event: LuceneError,
     message: &str,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     writer.on_tragic_event(&event, message)
   }
@@ -6747,20 +6782,18 @@ impl EventQueue {
     self.permits.release();
     Ok(())
   }
-  pub(crate) fn process_events<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
+  pub(crate) fn process_events<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     self.acquire()?;
     let result = self.process_events_internal(writer);
     self.permits.release();
     result
   }
-  fn process_events_internal<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
+  fn process_events_internal<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     debug_assert!(
       (Permits::MAX - self.permits.available()) > 0,
@@ -6772,10 +6805,9 @@ impl EventQueue {
     }
     Ok(())
   }
-  pub(crate) fn close<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
+  pub(crate) fn close<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     let _guard = self.guard.lock();
     debug_assert!(
@@ -6814,9 +6846,7 @@ where
   /// # Arguments
   ///
   /// * `writer` — the [`IndexWriter`] that executes the event.
-  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
-  where
-    B: IndexWriterBase;
+  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()>;
 }
 pub(crate) struct EventImpl1 {
   files: HashSet<String>,
@@ -6830,10 +6860,7 @@ impl<D> Event<D> for EventImpl1
 where
   D: Directory,
 {
-  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
-  where
-    B: IndexWriterBase,
-  {
+  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
     writer.delete_new_files(self.files.iter(), None)
   }
 }
@@ -6850,10 +6877,7 @@ impl<D> Event<D> for EventImpl2
 where
   D: Directory,
 {
-  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
-  where
-    B: IndexWriterBase,
-  {
+  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
     writer.flush_failed(std::mem::take(&mut self.info_files))
   }
 }
@@ -6863,10 +6887,7 @@ impl<D> Event<D> for EventImpl3
 where
   D: Directory,
 {
-  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
-  where
-    B: IndexWriterBase,
-  {
+  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
     let result = writer.publish_flushed_segments(true);
     writer.flush_count.fetch_add(1, Ordering::SeqCst);
     result
@@ -6877,10 +6898,7 @@ impl<D> Event<D> for EventImpl4
 where
   D: Directory,
 {
-  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
-  where
-    B: IndexWriterBase,
-  {
+  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
     writer.publish_flushed_segments(true)
   }
 }
@@ -6896,11 +6914,7 @@ impl<D> Event<D> for EventImpl5
 where
   D: Directory,
 {
-  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
-  where
-    B: IndexWriterBase,
-    B: IndexWriterBase,
-  {
+  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
     // we call tryApply here since we don't want to block if a refresh or a flush is already
     // applying the
     // packet. The flush will retry this packet anyway to ensure all of them are applied
@@ -6941,10 +6955,7 @@ impl<D> Event<D> for EventImplTest
 where
   D: Directory,
 {
-  fn process<B>(&mut self, _writer: &IndexWriter<D, B>) -> Result<()>
-  where
-    B: IndexWriterBase,
-  {
+  fn process(&mut self, _writer: &IndexWriter<D>) -> Result<()> {
     self.executed.fetch_add(1, Ordering::SeqCst);
     Ok(())
   }
@@ -6963,10 +6974,7 @@ impl<D> Event<D> for EventEnum
 where
   D: Directory,
 {
-  fn process<B>(&mut self, writer: &IndexWriter<D, B>) -> Result<()>
-  where
-    B: IndexWriterBase,
-  {
+  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
     match self {
       EventEnum::A(e) => e.process(writer),
       EventEnum::B(e) => e.process(writer),
@@ -6986,10 +6994,9 @@ impl MergeSource for IndexWriterMergeSource {
   where
     D: Directory;
 
-  fn get_next_merge<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<Option<Self::OneMerge<D>>>
+  fn get_next_merge<D>(&self, writer: &IndexWriter<D>) -> Result<Option<Self::OneMerge<D>>>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     match writer.get_next_merge()? {
       Some(next_merge) => {
@@ -7000,22 +7007,20 @@ impl MergeSource for IndexWriterMergeSource {
     }
   }
 
-  fn on_merge_finished<D, B>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D, B>)
+  fn on_merge_finished<D>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D>)
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     writer.merge_finish(merge, None)
   }
 
-  fn has_pending_merges<D, B>(
+  fn has_pending_merges<D>(
     &self,
     _inner: Option<&MutexGuard<'_, Inner<D>>>,
-    writer: Option<&IndexWriter<D, B>>,
+    writer: Option<&IndexWriter<D>>,
   ) -> Result<bool>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     writer
       .as_ref()
@@ -7023,10 +7028,9 @@ impl MergeSource for IndexWriterMergeSource {
       .has_pending_merges()
   }
 
-  fn merge<D, B>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D, B>) -> Result<()>
+  fn merge<D>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D>) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     writer.merge(merge)
   }
@@ -7060,14 +7064,9 @@ impl AddIndexesMergeSource {
     inner.pending_add_indexes_merges.push_back(merge);
   }
 
-  fn abort_pending_merges<D, B>(
-    &self,
-    writer: &IndexWriter<D, B>,
-    inner: &mut Inner<D>,
-  ) -> Result<()>
+  fn abort_pending_merges<D>(&self, writer: &IndexWriter<D>, inner: &mut Inner<D>) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     while let Some(merge) = inner.pending_add_indexes_merges.pop_front() {
       if writer.info_stream.enabled("IW") {
@@ -7089,13 +7088,12 @@ impl MergeSource for AddIndexesMergeSource {
   where
     D: Directory;
 
-  fn get_next_merge<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<Option<Self::OneMerge<D>>>
+  fn get_next_merge<D>(&self, writer: &IndexWriter<D>) -> Result<Option<Self::OneMerge<D>>>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     let mut inner = writer.inner.lock();
-    if !self.has_pending_merges::<D, B>(Some(&inner), None)? {
+    if !self.has_pending_merges::<D>(Some(&inner), None)? {
       return Ok(None);
     }
     let merge = inner
@@ -7106,23 +7104,21 @@ impl MergeSource for AddIndexesMergeSource {
     Ok(Some(merge))
   }
 
-  fn on_merge_finished<D, B>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D, B>)
+  fn on_merge_finished<D>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D>)
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     let mut inner = writer.inner.lock();
     inner.running_merges.remove(&merge.stat);
   }
 
-  fn has_pending_merges<D, B>(
+  fn has_pending_merges<D>(
     &self,
     inner: Option<&MutexGuard<'_, Inner<D>>>,
-    _writer: Option<&IndexWriter<D, B>>,
+    _writer: Option<&IndexWriter<D>>,
   ) -> Result<bool>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     Ok(
       !inner
@@ -7132,10 +7128,9 @@ impl MergeSource for AddIndexesMergeSource {
     )
   }
 
-  fn merge<D, B>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D, B>) -> Result<()>
+  fn merge<D>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D>) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     let mut success = false;
     let result = (|| -> Result<()> {

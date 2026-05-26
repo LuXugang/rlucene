@@ -19,7 +19,7 @@ use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
@@ -199,14 +199,13 @@ pub trait BaseLockFactoryTestCase {
     Ok(())
   }
 
-  fn add_doc<D, B, R>(
-    writer: &IndexWriter<D, B>,
+  fn add_doc<D, R>(
+    writer: &IndexWriter<D>,
     random: &mut R,
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
     R: Rng + ?Sized,
   {
     let mut doc = Document::new();
@@ -285,13 +284,12 @@ where
     })
   }
 
-  fn add_doc<B, R>(
-    writer: &IndexWriter<D, B>,
+  fn add_doc<R>(
+    writer: &IndexWriter<D>,
     random: &mut R,
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
-    B: IndexWriterBase,
     R: Rng + ?Sized,
   {
     let mut doc = Document::new();

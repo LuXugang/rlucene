@@ -19,7 +19,7 @@ use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::index::term::Term;
@@ -82,7 +82,7 @@ fn test_update_same_doc() -> Result<()> {
 
 fn indexing_thread<D>(
   seed: u64,
-  writer: &DefaultIndexWriterType<D>,
+  writer: &IndexWriter<D>,
   num: i32,
   field_to_type: &Mutex<HashMap<String, FieldType>>,
 ) -> Result<()>

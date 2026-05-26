@@ -18,9 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::{Identity, IndexReader};
-use crate::core::index::index_writer::{
-  IndexWriter, IndexWriterBase, Inner, SOURCE, SOURCE_FLUSH, SOURCE_MERGE,
-};
+use crate::core::index::index_writer::{IndexWriter, Inner, SOURCE, SOURCE_FLUSH, SOURCE_MERGE};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
   MergeContext, MergePolicy, MergePolicyEnum, MergeSpecification, OneMerge,
@@ -786,16 +784,15 @@ impl Closeable for SerialMergeSchedulerImpl {
 }
 
 impl MergeScheduler for SerialMergeSchedulerImpl {
-  fn merge<MS, D, B>(
+  fn merge<MS, D>(
     &self,
     merge_source: &MS,
     trigger: MergeTrigger,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
   ) -> Result<()>
   where
     MS: MergeSource,
     D: Directory,
-    B: IndexWriterBase,
   {
     if !self.may_merge.load(Ordering::SeqCst) {
       let merge = merge_source.get_next_merge(writer)?;

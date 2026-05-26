@@ -18,7 +18,7 @@ use crate::core::index::IndexFileNames;
 use crate::core::index::base_composite_reader::BaseCompositeReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -92,13 +92,11 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// # Errors
   ///
   /// Returns an error if a low-level I/O failure occurs.
-  fn do_open_if_changed_with_index_writer<B>(
+  fn do_open_if_changed_with_index_writer(
     &self,
-    writer: IndexWriter<Self::Directory, B>,
+    writer: IndexWriter<Self::Directory>,
     apply_deletes: bool,
-  ) -> Result<Option<Self::DirectoryReader>>
-  where
-    B: IndexWriterBase;
+  ) -> Result<Option<Self::DirectoryReader>>;
   /// Version number when this `IndexReader` was opened.
   ///
   /// This method returns the version recorded in the commit that the reader opened.
@@ -122,10 +120,9 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// # Errors
   ///
   /// Returns an error if there is a low-level I/O error.
-  fn is_current<D, B>(&self, index_writer: &IndexWriter<D, B>) -> Result<bool>
+  fn is_current<D>(&self, index_writer: &IndexWriter<D>) -> Result<bool>
   where
-    D: Directory,
-    B: IndexWriterBase;
+    D: Directory;
   type IndexCommit: IndexCommit;
   /// Expert: return the IndexCommit that this reader has opened.
   fn get_index_commit(&self) -> Result<Self::IndexCommit>;
@@ -189,10 +186,9 @@ where
 ///
 /// * [`CorruptIndex`](crate::core::util::error::lucene_error::LuceneError::corrupt_index) – If the index is corrupt.
 /// * [`Io`](crate::core::util::error::lucene_error::LuceneError::io) – If a low-level I/O error occurs.
-pub fn open_from_writer<D, B>(writer: &IndexWriter<D, B>) -> Result<StandardDirectoryReaderType<D>>
+pub fn open_from_writer<D>(writer: &IndexWriter<D>) -> Result<StandardDirectoryReaderType<D>>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   open_with_writer_deletes(writer, true, false)
 }
@@ -217,14 +213,13 @@ where
 /// # Lucene
 ///
 /// This API is marked as **experimental** in Lucene.
-pub fn open_with_writer_deletes<D, B>(
-  writer: &IndexWriter<D, B>,
+pub fn open_with_writer_deletes<D>(
+  writer: &IndexWriter<D>,
   apply_all_deletes: bool,
   write_all_deletes: bool,
 ) -> Result<StandardDirectoryReaderType<D>>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   writer.get_reader(apply_all_deletes, write_all_deletes)
 }
@@ -345,14 +340,11 @@ where
     (**self).do_open_if_changed_with_commit(commit)
   }
 
-  fn do_open_if_changed_with_index_writer<B>(
+  fn do_open_if_changed_with_index_writer(
     &self,
-    writer: IndexWriter<Self::Directory, B>,
+    writer: IndexWriter<Self::Directory>,
     apply_deletes: bool,
-  ) -> Result<Option<Self::DirectoryReader>>
-  where
-    B: IndexWriterBase,
-  {
+  ) -> Result<Option<Self::DirectoryReader>> {
     (**self).do_open_if_changed_with_index_writer(writer, apply_deletes)
   }
 
@@ -360,10 +352,9 @@ where
     (**self).get_version()
   }
 
-  fn is_current<D, B>(&self, index_writer: &IndexWriter<D, B>) -> Result<bool>
+  fn is_current<D>(&self, index_writer: &IndexWriter<D>) -> Result<bool>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     (**self).is_current(index_writer)
   }
@@ -392,7 +383,7 @@ mod tests {
   use crate::core::index::fields::Fields;
   use crate::core::index::index_reader::IndexReader;
   use crate::core::index::index_reader_context::IndexReaderContext;
-  use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+  use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::index_writer_config::OpenMode;
   use crate::core::index::leaf_reader::LeafReader;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -1017,14 +1008,13 @@ mod tests {
     // TODO IMPORTANT test_files_open_close未实现
     Ok(())
   }
-  fn add_document_with_fields<D, B, R>(
+  fn add_document_with_fields<D, R>(
     random: &mut R,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
     R: Rng + ?Sized,
   {
     let mut doc = Document::new();
@@ -1059,14 +1049,13 @@ mod tests {
     Ok(())
   }
 
-  fn add_document_with_different_fields<D, B, R>(
+  fn add_document_with_different_fields<D, R>(
     random: &mut R,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
     R: Rng + ?Sized,
   {
     let mut doc = Document::new();
@@ -1101,14 +1090,13 @@ mod tests {
     Ok(())
   }
 
-  fn add_document_with_term_vector_fields<D, B, R>(
+  fn add_document_with_term_vector_fields<D, R>(
     random: &mut R,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
     R: Rng + ?Sized,
   {
     let mut doc = Document::new();
@@ -1169,15 +1157,14 @@ mod tests {
     Ok(())
   }
 
-  fn add_doc<D, B, R>(
+  fn add_doc<D, R>(
     random: &mut R,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
     value: &str,
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
     R: Rng + ?Sized,
   {
     let mut doc = Document::new();

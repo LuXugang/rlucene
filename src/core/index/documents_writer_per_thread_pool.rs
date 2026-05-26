@@ -18,7 +18,7 @@ use crate::core::index::approximate_priority_queue::IdentityId;
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::core::index::documents_writer_per_thread::{DocumentsWriterPerThread, State};
 use crate::core::index::field_infos::build::Builder;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::{
   Lock, LockableConcurrentApproximatePriorityQueue,
 };
@@ -95,13 +95,10 @@ where
       self.pausing.notify_all();
     }
   }
-  pub(crate) fn new_dwpt<B>(
-    index_writer: &IndexWriter<D, B>,
+  pub(crate) fn new_dwpt(
+    index_writer: &IndexWriter<D>,
     delete_queue: Arc<DocumentsWriterDeleteQueue>,
-  ) -> Result<Arc<DwptWrapper<D>>>
-  where
-    B: IndexWriterBase,
-  {
+  ) -> Result<Arc<DwptWrapper<D>>> {
     let infos = Builder::new(index_writer.global_field_number_map.clone());
     let dwpt = DocumentsWriterPerThread::new(
       index_writer.get_index_major_version_created(),
@@ -117,14 +114,11 @@ where
     Ok(Arc::new(DwptWrapper::new(dwpt)))
   }
   /// Returns a new already locked [`DocumentsWriterPerThread`]
-  pub(crate) fn new_writer<B>(
+  pub(crate) fn new_writer(
     &self,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
     delete_queue: Arc<DocumentsWriterDeleteQueue>,
-  ) -> Result<Arc<DwptWrapper<D>>>
-  where
-    B: IndexWriterBase,
-  {
+  ) -> Result<Arc<DwptWrapper<D>>> {
     let mut inner = self.inner.lock();
     debug_assert!(inner.taken_writer_permits >= 0);
     while inner.taken_writer_permits > 0 {
@@ -145,14 +139,11 @@ where
   }
   /// This method is used by `DocumentsWriter`/`FlushControl` to obtain a DWPT to do an indexing
   /// operation (add/updateDocument).
-  pub(crate) fn get_and_lock<B>(
+  pub(crate) fn get_and_lock(
     &self,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
     delete_queue: Arc<DocumentsWriterDeleteQueue>,
-  ) -> Result<Arc<DwptWrapper<D>>>
-  where
-    B: IndexWriterBase,
-  {
+  ) -> Result<Arc<DwptWrapper<D>>> {
     self.ensure_open()?;
 
     if let Some(dwpt) = self.free_list.lock_and_poll() {

@@ -24,7 +24,7 @@ use crate::core::index::documents_writer_per_thread_pool::{
 };
 use crate::core::index::documents_writer_stall_control::DocumentsWriterStallControl;
 use crate::core::index::flush_policy::FlushPolicy;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
@@ -650,10 +650,7 @@ where
     self.flush_deletes.store(true, Ordering::SeqCst);
   }
 
-  pub(crate) fn obtain_and_lock<B>(&self, writer: &IndexWriter<D, B>) -> Result<Arc<DwptWrapper<D>>>
-  where
-    B: IndexWriterBase,
-  {
+  pub(crate) fn obtain_and_lock(&self, writer: &IndexWriter<D>) -> Result<Arc<DwptWrapper<D>>> {
     loop {
       {
         let inner = self.inner.lock();

@@ -23,7 +23,7 @@ use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
 use crate::core::index::field_infos::FieldNumbersLock;
 use crate::core::index::field_infos::build::Builder;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, IndexWriterDir};
+use crate::core::index::index_writer::{IndexWriter, IndexWriterDir};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::index::segment_info::SegmentInfo;
@@ -230,10 +230,7 @@ where
       Ok(())
     }
   }
-  pub(crate) fn flush_one_dwpt<B>(&self, writer: &IndexWriter<D, B>) -> Result<bool>
-  where
-    B: IndexWriterBase,
-  {
+  pub(crate) fn flush_one_dwpt(&self, writer: &IndexWriter<D>) -> Result<bool> {
     {
       if self.info_stream.enabled("DW") {
         self.info_stream.message("DW", "startFlushOneDWPT");
@@ -452,10 +449,7 @@ where
 
     result
   }
-  fn pre_update<B>(&self, writer: &IndexWriter<D, B>) -> Result<bool>
-  where
-    B: IndexWriterBase,
-  {
+  fn pre_update(&self, writer: &IndexWriter<D>) -> Result<bool> {
     self.ensure_open()?;
     let mut has_events = false;
 
@@ -473,15 +467,12 @@ where
     Ok(has_events)
   }
 
-  fn post_update<B>(
+  fn post_update(
     &self,
     flushing_dwpt: Option<Arc<DwptWrapper<D>>>,
     mut has_events: bool,
-    writer: &IndexWriter<D, B>,
-  ) -> Result<bool>
-  where
-    B: IndexWriterBase,
-  {
+    writer: &IndexWriter<D>,
+  ) -> Result<bool> {
     has_events |= self.apply_all_deletes()?;
     if let Some(dwpt) = flushing_dwpt {
       self.do_flush(dwpt, writer)?;
@@ -491,16 +482,15 @@ where
     }
     Ok(has_events)
   }
-  pub(crate) fn update_documents<DI, DF, B>(
+  pub(crate) fn update_documents<DI, DF>(
     &self,
     docs: DI,
     del_node: Option<Arc<Node>>,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
   ) -> Result<i64>
   where
     DI: IntoIterator<Item = DF>,
     DF: IntoIterator<Item = Fields>,
-    B: IndexWriterBase,
   {
     let has_events = self.pre_update(writer)?;
 
@@ -559,10 +549,7 @@ where
     Ok(seq_no)
   }
 
-  fn maybe_flush<B>(&self, writer: &IndexWriter<D, B>) -> Result<bool>
-  where
-    B: IndexWriterBase,
-  {
+  fn maybe_flush(&self, writer: &IndexWriter<D>) -> Result<bool> {
     let flushing_dwpt = self
       .flush_control
       .next_pending_flush(None, &writer.config)?;
@@ -574,14 +561,11 @@ where
       Ok(false)
     }
   }
-  fn do_flush<B>(
+  fn do_flush(
     &self,
     mut flushing_dwpt: Arc<DwptWrapper<D>>,
-    writer: &IndexWriter<D, B>,
-  ) -> Result<()>
-  where
-    B: IndexWriterBase,
-  {
+    writer: &IndexWriter<D>,
+  ) -> Result<()> {
     loop {
       debug_assert!(!flushing_dwpt.state.has_flushed());
 
@@ -775,13 +759,8 @@ where
   // FlushAllThreads is synced by IW fullFlushLock. Flushing all threads is a
   // two stage operation; the caller must ensure (in try/finally) that finishFlush
   // is called after this method, to release the flush lock in DWFlushControl
-  pub(crate) fn flush_all_threads<B, L>(
-    &self,
-    writer: &IndexWriter<D, B>,
-    config: &L,
-  ) -> Result<i64>
+  pub(crate) fn flush_all_threads<L>(&self, writer: &IndexWriter<D>, config: &L) -> Result<i64>
   where
-    B: IndexWriterBase,
     L: LiveIndexWriterConfig,
   {
     if self.info_stream.enabled("DW") {
@@ -961,22 +940,20 @@ pub(crate) trait FlushNotifications {
     D: Directory;
 
   /// Called after one or more segments were flushed to disk.
-  fn after_segments_flushed<D, B>(&self, writer: &IndexWriter<D, B>) -> Result<()>
+  fn after_segments_flushed<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
-    D: Directory,
-    B: IndexWriterBase;
+    D: Directory;
 
   /// Should be called if a flush or an indexing operation caused
   /// a tragic / unrecoverable event.
-  fn on_tragic_event<D, B>(
+  fn on_tragic_event<D>(
     &self,
     event: LuceneError,
     message: &str,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
   ) -> Result<()>
   where
-    D: Directory,
-    B: IndexWriterBase;
+    D: Directory;
 
   /// Called once deletes have been applied either after a flush or on a deletes call.
   fn on_deletes_applied(&self) -> Result<()>;

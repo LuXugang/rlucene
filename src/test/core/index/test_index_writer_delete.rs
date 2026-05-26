@@ -26,7 +26,7 @@ use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
@@ -513,16 +513,15 @@ fn test_delete_all_repeated() -> Result<()> {
 
   Ok(())
 }
-fn update_doc<D, B, R>(
+fn update_doc<D, R>(
   random: &mut R,
-  modifier: &mut IndexWriter<D, B>,
+  modifier: &mut IndexWriter<D>,
   id: i32,
   value: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
   R: rand::Rng + ?Sized,
 {
   let mut doc = Document::new();
@@ -554,16 +553,15 @@ where
   Ok(())
 }
 
-fn add_doc<D, B, R>(
+fn add_doc<D, R>(
   random: &mut R,
-  modifier: &mut IndexWriter<D, B>,
+  modifier: &mut IndexWriter<D>,
   id: i32,
   value: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
   R: rand::Rng + ?Sized,
 {
   let mut doc = Document::new();

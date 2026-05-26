@@ -16,7 +16,7 @@
  */
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::core::index::index_deletion_policy::IndexDeletionPolicy;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, IndexWriterDir};
+use crate::core::index::index_writer::{IndexWriter, IndexWriterDir};
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::store::directory::Directory;
@@ -271,10 +271,7 @@ where
     index_file_deleter.delete_commits()?;
     Ok(index_file_deleter)
   }
-  fn ensure_open<B>(&self, index_writer: &IndexWriter<D, B>) -> Result<()>
-  where
-    B: IndexWriterBase,
-  {
+  fn ensure_open(&self, index_writer: &IndexWriter<D>) -> Result<()> {
     index_writer.do_ensure_open(false)?;
 
     let tragic_arc = index_writer.get_tragic_exception();
@@ -288,10 +285,7 @@ where
 
     Ok(())
   }
-  pub(crate) fn is_closed<B>(&self, index_writer: &IndexWriter<D, B>) -> Result<bool>
-  where
-    B: IndexWriterBase,
-  {
+  pub(crate) fn is_closed(&self, index_writer: &IndexWriter<D>) -> Result<bool> {
     match self.ensure_open(index_writer) {
       Ok(_) => Ok(false),
       Err(e) => {
@@ -866,7 +860,7 @@ mod tests {
   use rand::Rng;
   use std::collections::HashMap;
 
-  use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+  use crate::core::index::index_writer::IndexWriter;
   use crate::core::store::directory::Directory;
   use crate::core::store::{DataInput, DataOutput, IndexInput};
   use crate::core::util::error::lucene_error::Result;
@@ -932,16 +926,15 @@ mod tests {
 
     Ok(())
   }
-  fn add_doc<D, B, R>(
+  fn add_doc<D, R>(
     random: &mut R,
-    writer: &mut IndexWriter<D, B>,
+    writer: &mut IndexWriter<D>,
     id: i32,
     field_types: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
     D: Directory,
-    B: IndexWriterBase,
   {
     let mut doc = Document::new();
 

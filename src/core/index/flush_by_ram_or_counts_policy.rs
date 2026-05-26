@@ -171,7 +171,7 @@ pub mod tests {
   use crate::core::index::directory_reader;
   use crate::core::index::flush_policy::FlushPolicyEnum;
   use crate::core::index::index_reader::IndexReader;
-  use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, MAX_TERM_LENGTH};
+  use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
   use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::util::line_file_docs::LineFileDocs;
@@ -564,15 +564,14 @@ pub mod tests {
       .cloned()
   }
 
-  fn index_thread<D, B>(
+  fn index_thread<D>(
     seed: u64,
     pending_docs: &AtomicI32,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
     do_random_commit: bool,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     let mut random = random_from_seed(seed);
     let mut docs = LineFileDocs::new(&mut random)?;

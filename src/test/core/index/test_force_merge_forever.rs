@@ -16,7 +16,9 @@
  */
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, MAX_TERM_LENGTH};
+use crate::core::index::index_writer::{
+  IndexWriter, IndexWriterHooks, IndexWriterHooksEnum, MAX_TERM_LENGTH,
+};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{MergePolicyEnum, MergeStat};
 use crate::core::index::term::Term;
@@ -28,6 +30,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::thread;
 #[allow(dead_code)] // for quick search
@@ -35,20 +38,20 @@ struct TestForceMergeForever;
 
 // Just counts how many merges are done
 struct MyIndexWriter {
-  merge_count: AtomicI32,
-  first: AtomicBool,
+  merge_count: Arc<AtomicI32>,
+  first: Arc<AtomicBool>,
 }
 
 impl MyIndexWriter {
   fn new() -> Self {
     Self {
-      merge_count: AtomicI32::new(0),
-      first: AtomicBool::new(true),
+      merge_count: Arc::new(AtomicI32::new(0)),
+      first: Arc::new(AtomicBool::new(true)),
     }
   }
 }
 
-impl IndexWriterBase for MyIndexWriter {
+impl IndexWriterHooks for MyIndexWriter {
   fn do_before_merge(&self, merge: &MergeStat) -> Result<()> {
     if merge.max_num_segments != -1
       && (self.first.load(Ordering::SeqCst) || merge.segments.len() == 1)
@@ -68,7 +71,13 @@ fn test() -> Result<()> {
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   // TODO IMPORTANT ConcurrentMergeScheduler 未实现
-  let mut w = IndexWriter::with_sub(d.clone(), iwc, Some(MyIndexWriter::new()))?;
+  let my_index_writer = MyIndexWriter::new();
+  let merge_count = my_index_writer.merge_count.clone();
+  let mut w = IndexWriter::with_hooks(
+    d.clone(),
+    iwc,
+    Some(IndexWriterHooksEnum::custom(my_index_writer)),
+  )?;
 
   // Try to make an index that requires merging:
   w.get_config_mut()
@@ -128,9 +137,9 @@ fn test() -> Result<()> {
   })?;
 
   assert!(
-    w.sub.as_ref().unwrap().merge_count.load(Ordering::SeqCst) <= 1,
+    merge_count.load(Ordering::SeqCst) <= 1,
     "merge count is {}",
-    w.sub.as_ref().unwrap().merge_count.load(Ordering::SeqCst)
+    merge_count.load(Ordering::SeqCst)
   );
   w.close()?;
   docs.close();

@@ -28,7 +28,7 @@ use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_bits::get_live_docs;
@@ -971,17 +971,16 @@ pub trait BaseXYPointTestCase {
 
     Ok(())
   }
-  fn index_points<R, D, B>(
+  fn index_points<R, D>(
     &self,
     random: &mut R,
     xs: &[f32],
     ys: &[f32],
     deleted: &mut HashSet<i32>,
-    w: &IndexWriter<D, B>,
+    w: &IndexWriter<D>,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
     R: Rng + ?Sized,
   {
     for id in 0..xs.len() {

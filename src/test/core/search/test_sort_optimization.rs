@@ -40,7 +40,7 @@ use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubRead
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -1985,14 +1985,11 @@ where
     self.wrap_directory_reader(v)
   }
 
-  fn do_open_if_changed_with_index_writer<B>(
+  fn do_open_if_changed_with_index_writer(
     &self,
-    writer: IndexWriter<Self::Directory, B>,
+    writer: IndexWriter<Self::Directory>,
     apply_deletes: bool,
-  ) -> Result<Option<Self::DirectoryReader>>
-  where
-    B: IndexWriterBase,
-  {
+  ) -> Result<Option<Self::DirectoryReader>> {
     let v = self
       .in_
       .do_open_if_changed_with_index_writer(writer, apply_deletes)?;
@@ -2003,10 +2000,9 @@ where
     self.in_.get_version()
   }
 
-  fn is_current<D, B>(&self, index_writer: &IndexWriter<D, B>) -> Result<bool>
+  fn is_current<D>(&self, index_writer: &IndexWriter<D>) -> Result<bool>
   where
     D: Directory,
-    B: IndexWriterBase,
   {
     self.in_.is_current(index_writer)
   }

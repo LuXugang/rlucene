@@ -309,7 +309,7 @@ mod tests {
   use crate::core::document::field_type::FieldType;
 
   use crate::core::index::directory_reader;
-  use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+  use crate::core::index::index_writer::IndexWriter;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::stored_fields::StoredFields;
   use crate::core::index::term::Term;
@@ -415,15 +415,14 @@ mod tests {
     assert_eq!(q1, q2);
     Ok(())
   }
-  fn add_doc<D, B, R>(
+  fn add_doc<D, R>(
     random: &mut R,
     text: &str,
-    iw: &IndexWriter<D, B>,
+    iw: &IndexWriter<D>,
     field_to_type: &mut HashMap<String, FieldType>,
   ) -> Result<()>
   where
     D: Directory,
-    B: IndexWriterBase,
     R: Rng + ?Sized,
   {
     let mut doc = Document::new();

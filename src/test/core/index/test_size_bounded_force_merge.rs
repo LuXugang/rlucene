@@ -17,7 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::{
   DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH, IndexWriterConfig,
 };
@@ -37,22 +37,16 @@ use rand::Rng;
 #[allow(dead_code)] // for quick search
 pub struct TestSizeBoundedForceMerge;
 
-fn add_docs<D, B>(writer: &mut IndexWriter<D, B>, num_docs: i32) -> Result<()>
+fn add_docs<D>(writer: &mut IndexWriter<D>, num_docs: i32) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   add_docs_with_id(writer, num_docs, false)
 }
 
-fn add_docs_with_id<D, B>(
-  writer: &mut IndexWriter<D, B>,
-  num_docs: i32,
-  with_id: bool,
-) -> Result<()>
+fn add_docs_with_id<D>(writer: &mut IndexWriter<D>, num_docs: i32, with_id: bool) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
 {
   for i in 0..num_docs {
     let mut doc = Document::new();

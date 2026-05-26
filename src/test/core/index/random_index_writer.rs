@@ -17,7 +17,7 @@
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::fields::Fields;
 use crate::core::index::BytesRef;
-use crate::core::index::index_writer::{DefaultIndexWriterType, DocStats, IndexWriter};
+use crate::core::index::index_writer::{DocStats, IndexWriter};
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::index::term::Term;
@@ -33,7 +33,7 @@ pub struct RandomIndexWriter<D>
 where
   D: Directory,
 {
-  pub(crate) w: DefaultIndexWriterType<D>,
+  pub(crate) w: IndexWriter<D>,
 }
 
 impl<D> RandomIndexWriter<D>

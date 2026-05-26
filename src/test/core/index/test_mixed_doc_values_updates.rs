@@ -29,7 +29,7 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -687,10 +687,9 @@ fn test_try_update_multi_threaded() -> Result<()> {
   Ok(())
 }
 
-fn do_update<D, B>(doc: Term, writer: &IndexWriter<D, B>, updates: Vec<Fields>) -> Result<()>
+fn do_update<D>(doc: Term, writer: &IndexWriter<D>, updates: Vec<Fields>) -> Result<()>
 where
   D: Directory + 'static,
-  B: IndexWriterBase + 'static,
 {
   let reader = directory_reader::open_from_writer(writer)?;
   let searcher = new_searcher_with_reader(reader)?;

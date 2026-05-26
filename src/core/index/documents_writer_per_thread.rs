@@ -29,8 +29,8 @@ use crate::core::index::field_infos::build::Builder;
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 
 use crate::core::index::index_writer::{
-  IndexWriter, IndexWriterBase, IndexWriterDir, SOURCE_FLUSH, create_compound_file,
-  get_actual_max_docs, set_diagnostics,
+  IndexWriter, IndexWriterDir, SOURCE_FLUSH, create_compound_file, get_actual_max_docs,
+  set_diagnostics,
 };
 use crate::core::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -307,19 +307,18 @@ where
     }
     Ok(())
   }
-  pub(crate) fn update_documents<DI, DF, FN, B>(
+  pub(crate) fn update_documents<DI, DF, FN>(
     &mut self,
     docs: DI,
     delete_node: Option<Arc<Node>>,
     flush_notifications: &FN,
     num_docs_in_ram: &AtomicI32,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
   ) -> Result<i64>
   where
     DI: IntoIterator<Item = DF>,
     DF: IntoIterator<Item = Fields>,
     FN: FlushNotifications,
-    B: IndexWriterBase,
   {
     self.test_point("DocumentsWriterPerThread addDocuments start");
     debug_assert!(
@@ -497,14 +496,13 @@ where
     Ok(global_updates)
   }
   ///  Flush all pending docs to a new segment
-  pub(crate) fn flush<FN, B>(
+  pub(crate) fn flush<FN>(
     &mut self,
     flush_notifications: &FN,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
   ) -> Result<Option<FlushedSegment<D>>>
   where
     FN: FlushNotifications,
-    B: IndexWriterBase,
   {
     debug_assert_eq!(self.state.flush_pending.get(), Some(&true));
     debug_assert!(self.state.num_docs_in_ram.load(SeqCst) > 0);
@@ -741,15 +739,14 @@ where
     result
   }
 
-  fn maybe_abort<FN, B>(
+  fn maybe_abort<FN>(
     &mut self,
     location: &str,
     flush_notifications: &FN,
-    writer: &IndexWriter<D, B>,
+    writer: &IndexWriter<D>,
   ) -> Result<()>
   where
     FN: FlushNotifications,
-    B: IndexWriterBase,
   {
     match self.aborting_exception {
       Some(_) if !self.state.aborted.load(Ordering::SeqCst) => {

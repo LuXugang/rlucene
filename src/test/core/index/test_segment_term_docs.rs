@@ -20,7 +20,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::postings_enum::{FREQS, PostingsEnum};
@@ -350,15 +350,14 @@ fn test_skip_to() -> Result<()> {
   reader.close()?;
   Ok(())
 }
-fn add_doc<D, B, R>(
+fn add_doc<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D, B>,
+  writer: &mut IndexWriter<D>,
   value: &str,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
   D: Directory,
-  B: IndexWriterBase,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
