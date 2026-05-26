@@ -32,12 +32,13 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, random,
+  new_log_merge_policy, new_string_field, random,
 };
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -118,10 +119,10 @@ where
     }
     iwriter.commit()?;
     if with_reopen {
-      // TODO IMPORTANT: openIfChanged未实现
-      let r2 = directory_reader::open_from_writer(&iwriter)?;
-      reader.close()?;
-      reader = r2;
+      if let Some(v) = directory_reader::open_if_changed(&reader, &iwriter)? {
+        reader.close()?;
+        reader = v;
+      }
     } else {
       reader.close()?;
       reader = directory_reader::open(dir.clone())?;
@@ -170,24 +171,32 @@ fn test_reopen_on_commit() -> Result<()> {
 fn test_open_if_changed_nrt_to_commit() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-
+  let mut field_to_type = HashMap::new();
+  // Can't use RIW because it randomly commits:
   let analyzer = MockAnalyzer::new(&mut random);
   let w = IndexWriter::new(
     dir.clone(),
     new_index_writer_config_with_analyzer(&mut random, analyzer),
   )?;
   let mut doc = Document::new();
-  doc.add(StringField::from_string("field", "value", Store::No)?);
+  doc.add(new_string_field(
+    &mut random,
+    "field",
+    "value",
+    Store::No,
+    &mut field_to_type,
+  )?);
   w.add_document(doc.clone())?;
   w.commit()?;
+  let commits = directory_reader::list_commits(dir.clone())?;
+  assert_eq!(1, commits.len());
   w.add_document(doc)?;
   let r = directory_reader::open_from_writer(&w)?;
 
   assert_eq!(2, r.num_docs()?);
-  // TODO IMPORTANT: openIfChanged未实现
-  let r2 = directory_reader::open_from_writer(&w)?;
+  let r2 = directory_reader::open_if_changed_with_commit(&r, Some(&commits[0]), &w)?.unwrap();
   r.close()?;
-  assert_eq!(2, r2.num_docs()?);
+  assert_eq!(1, r2.num_docs()?);
   w.close()?;
   r2.close()?;
   Ok(())
@@ -253,9 +262,8 @@ fn test_npe_after_invalid_reindex1() -> Result<()> {
   w.commit()?;
   w.close()?;
 
-  // TODO IMPORTANT: openIfChanged 未实现
-  // let err = directory_reader::open_if_changed(&r);
-  // assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  let err = directory_reader::open_if_changed(&r, &w);
+  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
 
   r.close()?;
   Ok(())
@@ -303,9 +311,8 @@ fn test_npe_after_invalid_reindex2() -> Result<()> {
   w.add_document(doc)?;
   w.commit()?;
 
-  // TODO IMPORTANT: openIfChanged 未实现
-  // let err = directory_reader::open_if_changed(&r);
-  // assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  let err = directory_reader::open_if_changed(&r, &w);
+  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
 
   w.close()?;
   r.close()?;
@@ -375,12 +382,10 @@ fn test_delete_index_files_while_reader_still_open() -> Result<()> {
   w.delete_documents_with_terms(vec![Term::from_text("field", "value2")])?;
 
   w.add_document(doc)?;
-
-  // TODO IMPORTANT: openIfChanged 未实现
-  // let err = directory_reader::open_if_changed(&r);
-  // assert!(matches!(err, Err(LuceneError::IllegalState(_))));
-
   w.close()?;
+  let err = directory_reader::open_if_changed(&r, &w);
+  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+
   r.close()?;
   Ok(())
 }
@@ -416,8 +421,7 @@ fn test_reuse_unchanged_leaf_reader_on_dv_update() -> Result<()> {
     vec![NumericDocValuesField::new("some_docvalue", 1).into()],
   )?;
   writer.commit()?;
-  // TODO IMPORTANT: openIfChanged未实现
-  let mut new_reader = directory_reader::open_from_writer(&writer)?;
+  let mut new_reader = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
   reader.close()?;
   reader = new_reader;
   assert_eq!(2, reader.num_docs()?);
@@ -430,8 +434,7 @@ fn test_reuse_unchanged_leaf_reader_on_dv_update() -> Result<()> {
   writer.update_document_with_term(Some(Term::from_text("id", "3")), doc)?;
   writer.commit()?;
 
-  // TODO IMPORTANT: openIfChanged未实现
-  new_reader = directory_reader::open_from_writer(&writer)?;
+  new_reader = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
   assert_eq!(2, new_reader.get_sequential_sub_readers().len());
   assert_eq!(1, reader.get_sequential_sub_readers().len());
   reader.close()?;

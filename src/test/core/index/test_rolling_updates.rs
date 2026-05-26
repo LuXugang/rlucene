@@ -102,8 +102,15 @@ where
     writer.update_document_with_term(Term::from_text("id", "test"), doc)?;
 
     if TestUtil::next_int(&mut random, 0, 2) == 0 {
-      if open.is_none() {
-        // TODO IMPORTANT: openIfChanged 未实现
+      if let Some(old_reader) = open.take() {
+        open = match directory_reader::open_if_changed(&old_reader, writer)? {
+          Some(new_reader) => {
+            old_reader.close()?;
+            Some(new_reader)
+          },
+          None => Some(old_reader),
+        };
+      } else {
         open = Some(directory_reader::open_from_writer(writer)?);
       }
 

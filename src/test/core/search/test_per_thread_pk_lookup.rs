@@ -30,6 +30,7 @@ use crate::test::core::index::per_thread_pk_lookup::PerThreadPKLookup;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
+use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 pub struct TestPerThreadPKLookup;
 
@@ -62,8 +63,8 @@ fn test_reopen() -> Result<()> {
   writer.add_document(doc)?;
   writer.flush()?;
 
-  let reader1 = directory_reader::open_from_writer(&writer)?;
-  let context1 = get_context(reader1)?;
+  let reader1 = Arc::new(directory_reader::open_from_writer(&writer)?);
+  let context1 = get_context(reader1.clone())?;
   let mut pk_lookup1 = PerThreadPKLookup::new(&context1, "PK")?;
 
   doc = Document::new();
@@ -90,9 +91,8 @@ fn test_reopen() -> Result<()> {
   assert_eq!(1, pk_lookup1.lookup(&BytesRef::from_string("2"))?);
   assert_eq!(-1, pk_lookup1.lookup(&BytesRef::from_string("5"))?);
   assert_eq!(-1, pk_lookup1.lookup(&BytesRef::from_string("8"))?);
-  // TODO IMPORTANT openIfChanged 未实现
-  let reader2 = directory_reader::open_from_writer(&writer)?;
-  let context2 = get_context(reader2)?;
+  let reader2 = Arc::new(directory_reader::open_if_changed(reader1.as_ref(), &writer)?.unwrap());
+  let context2 = get_context(reader2.clone())?;
   let mut pk_lookup2 = pk_lookup1.reopen(Some(&context2))?.unwrap();
 
   assert_eq!(-1, pk_lookup2.lookup(&BytesRef::from_string("1"))?);
@@ -110,15 +110,12 @@ fn test_reopen() -> Result<()> {
   writer.flush()?;
 
   assert_eq!(-1, pk_lookup2.lookup(&BytesRef::from_string("9"))?);
-  // TODO IMPORTANT openIfChanged 未实现
-  let reader3 = directory_reader::open_from_writer(&writer)?;
-  let context3 = get_context(reader3)?;
+  let reader3 = Arc::new(directory_reader::open_if_changed(reader2.as_ref(), &writer)?.unwrap());
+  let context3 = get_context(reader3.clone())?;
   let mut pk_lookup3 = pk_lookup2.reopen(Some(&context3))?.unwrap();
   assert_eq!(8, pk_lookup3.lookup(&BytesRef::from_string("9"))?);
-  // TODO IMPORTANT openIfChanged 未实现
-  let reader4 = if false { Some(&context3) } else { None };
-  assert!(pk_lookup3.reopen(reader4)?.is_none());
-
+  let reader4 = directory_reader::open_if_changed(reader3.as_ref(), &writer)?;
+  assert!(reader4.is_none());
   writer.close()?;
   Ok(())
 }

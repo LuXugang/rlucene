@@ -31,6 +31,7 @@ use crate::core::document::text_field::{TextField, text_field_type};
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
+use crate::core::index::directory_reader::DirectoryReader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::fields::Fields;
@@ -1558,50 +1559,48 @@ fn test_delete_all_nrt_leftover_files() -> Result<()> {
 }
 #[test]
 fn test_nrt_reader_version() -> Result<()> {
-  // TODO OpenIFchange未实现
-  // let mut random = random();
-  //
-  // let dir = new_directory_shared(&mut random)?;
-  //
-  // let mock = MockAnalyzer::new(&mut random);
-  // let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-  // let mut w = IndexWriter::new(dir.clone(), iwc)?;
-  //
-  // let mut field_types = HashMap::new();
-  //
-  // let mut doc = Document::new();
-  // doc.add(new_string_field(
-  //   &mut random,
-  //   "id",
-  //   "0",
-  //   Store::Yes,
-  //   &mut field_types,
-  // )?);
-  //
-  // w.add_document(doc.clone())?;
-  //
-  // let r = directory_reader::open_from_writer(&w)?;
-  // let version = r.get_version();
-  // drop(r);
-  //
-  // w.add_document(doc.clone())?;
-  //
-  // let r = directory_reader::open_from_writer(&w)?;
-  // let version2 = r.get_version();
-  // drop(r);
-  //
-  // assert!(version2 > version);
-  //
-  // w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
-  //
-  // let r = directory_reader::open_from_writer(&w)?;
-  // w.close()?;
-  //
-  // let version3 = r.get_version();
-  // drop(r);
-  //
-  // assert!(version3 > version2);
+  let mut random = random();
 
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut field_types = HashMap::new();
+
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "0",
+    Store::Yes,
+    &mut field_types,
+  )?);
+
+  w.add_document(doc.clone())?;
+
+  let r = directory_reader::open_from_writer(&w)?;
+  let version = r.get_version()?;
+  drop(r);
+
+  w.add_document(doc.clone())?;
+
+  let r = directory_reader::open_from_writer(&w)?;
+  let version2 = r.get_version()?;
+  drop(r);
+
+  assert!(version2 > version);
+
+  w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+
+  let r = directory_reader::open_from_writer(&w)?;
+  w.close()?;
+
+  let version3 = r.get_version()?;
+  drop(r);
+
+  assert!(version3 > version2);
   Ok(())
 }
 

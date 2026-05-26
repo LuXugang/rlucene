@@ -578,8 +578,7 @@ mod tests {
       println!("TEST: openIfChanged");
     }
 
-    // TODO IMPORTANT : open_if_change 未实现
-    let reader2 = directory_reader::open_from_writer(&writer)?;
+    let reader2 = directory_reader::open_if_changed(&reader1, &writer)?.unwrap();
     assert_ne!(
       reader1.get_reader_cache_helper()?.unwrap().get_key(),
       reader2.get_reader_cache_helper()?.unwrap().get_key()
@@ -1378,8 +1377,7 @@ mod tests {
         writer.commit()?;
       }
 
-      // TODO IMPORTANT: openIfChanged未实现
-      let new_reader = directory_reader::open_from_writer(&writer)?;
+      let new_reader = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
       reader.close()?;
       reader = new_reader;
       if cfg!(feature = "test_log_verbose") {
@@ -1753,8 +1751,18 @@ mod tests {
                 }
 
                 if random.random_bool(0.1) {
-                  // TODO IMPORTANT: openIfChanged未实现
-                  reader = Some(directory_reader::open_from_writer(&writer)?);
+                  if let Some(old_reader) = reader.take() {
+                    if let Some(new_reader) =
+                      directory_reader::open_if_changed(&old_reader, &writer)?
+                    {
+                      old_reader.close()?;
+                      reader = Some(new_reader);
+                    } else {
+                      reader = Some(old_reader);
+                    }
+                  } else {
+                    reader = Some(directory_reader::open_from_writer(&writer)?);
+                  }
                 }
               }
               if let Some(reader) = reader {

@@ -17,6 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
@@ -31,17 +32,15 @@ use rand::RngExt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Barrier};
 use std::thread;
-
+#[allow(dead_code)] // for quick search
 pub struct TestIndexWriterWithThreads;
 
 const SOFT_DELETES_FIELD: &str = "___soft_deletes";
-/// TODO IMPORTANT openIfChanged未实现
 fn test_update_single_doc_with_threads() -> Result<()> {
   let mut random = random();
   let force_merge = rarely(&mut random);
   stress_update_single_doc_with_threads(&mut random, false, force_merge)
 }
-/// TODO IMPORTANT openIfChanged未实现
 fn test_soft_update_single_doc_with_threads() -> Result<()> {
   let mut random = random();
   let force_merge = rarely(&mut random);
@@ -103,17 +102,20 @@ where
       }));
     }
 
-    let open = writer.get_reader()?;
+    let mut open = writer.get_reader()?;
     assert_eq!(1, open.num_docs()?);
     barrier.wait();
     while done.load(Ordering::SeqCst) < num_threads {
       if force_merge && random.random_bool(0.5) {
         writer.force_merge(1)?;
       }
-      // TODO IMPORTANT 这里没有用openIfChanged
-      let open = writer.get_reader()?;
+      if let Some(new_open) = directory_reader::open_if_changed(&open, &writer.w)? {
+        open.close()?;
+        open = new_open;
+      }
       assert_eq!(1, open.num_docs()?);
     }
+    open.close()?;
 
     for handle in handles {
       handle.join().expect("thread panicked")?;

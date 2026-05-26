@@ -1546,7 +1546,6 @@ mod tests {
     assert_eq!(10, r1.terms("number")?.unwrap().size()?);
     writer.add_document(doc)?;
     writer.commit()?;
-    // TODO IMPORTANT: openIfChanged 未实现
     let r2 = directory_reader::open_if_changed(&r, &writer)?.unwrap();
     r.close()?;
 

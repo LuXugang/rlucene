@@ -142,13 +142,9 @@ fn test_many_reopens_and_fields() -> Result<()> {
       writer.commit()?;
     }
 
-    // TODO IMPORTANT openIfChanged未实现
+    let new_reader = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
     reader.close()?;
-    reader = if is_nrt {
-      directory_reader::open_from_writer(&writer)?
-    } else {
-      directory_reader::open(dir.clone())?
-    };
+    reader = new_reader;
 
     assert!(reader.num_docs()? > 0);
     let context = get_context(&reader)?;
@@ -293,8 +289,17 @@ fn test_stress_multi_threading() -> Result<()> {
               }
 
               if random.random_bool(0.1) {
-                // TODO IMPORTANT openIfChanged未实现
-                reader = Some(directory_reader::open_from_writer(&writer)?);
+                if let Some(old_reader) = reader.take() {
+                  if let Some(new_reader) = directory_reader::open_if_changed(&old_reader, &writer)?
+                  {
+                    old_reader.close()?;
+                    reader = Some(new_reader);
+                  } else {
+                    reader = Some(old_reader);
+                  }
+                } else {
+                  reader = Some(directory_reader::open_from_writer(&writer)?);
+                }
               }
             }
 

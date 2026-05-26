@@ -155,8 +155,7 @@ impl CheckSegmentCount {
 
   fn run(&mut self, w: &IndexWriter<DirEnum>, random: &mut impl rand::Rng) -> Result<()> {
     let old_segment_count = get_context(&self.r)?.leaves()?.len();
-    // TODO IMPORTANT 应该使用openIfChanged
-    let r2 = directory_reader::open_from_writer(w)?;
+    let r2 = directory_reader::open_if_changed(&self.r, w)?.unwrap();
     self.r.close()?;
     self.r = r2;
     let max_expected_segments =

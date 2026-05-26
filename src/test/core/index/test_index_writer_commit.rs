@@ -302,8 +302,7 @@ fn test_commit_thread_safety() -> Result<()> {
           writer.add_document(doc)?;
           writer.commit()?;
 
-          // TODO IMPORTANT: openIfChanged 未实现
-          let reader2 = directory_reader::open_from_writer(&writer)?;
+          let reader2 = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
           reader.close()?;
           reader = reader2;
           assert_eq!(1, reader.doc_freq(&Term::from_text("f", &s))?);
@@ -358,8 +357,7 @@ fn test_force_commit() -> Result<()> {
   let reader = directory_reader::open(dir.clone())?;
   assert_eq!(0, reader.num_docs()?);
   writer.commit()?;
-  // TODO IMPORTANT: openIfChanged 未实现
-  let reader2 = directory_reader::open_from_writer(&writer)?;
+  let reader2 = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
   assert_eq!(0, reader.num_docs()?);
   assert_eq!(23, reader2.num_docs()?);
   reader.close()?;
@@ -419,8 +417,7 @@ fn test_prepare_commit() -> Result<()> {
 
   writer.commit()?;
 
-  // TODO IMPORTANT: openIfChanged 未实现
-  let reader3 = directory_reader::open_from_writer(&writer)?;
+  let reader3 = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
   assert_eq!(0, reader.num_docs()?);
   assert_eq!(0, reader2.num_docs()?);
   assert_eq!(23, reader3.num_docs()?);
@@ -479,10 +476,8 @@ fn test_prepare_commit_rollback() -> Result<()> {
 
   writer.rollback()?;
 
-  // TODO IMPORTANT: openIfChanged 未实现
-  let reader3 = directory_reader::open(dir.clone())?;
-  assert_eq!(0, reader3.num_docs()?);
-  reader3.close()?;
+  let reader3 = directory_reader::open_if_changed(&reader, &writer)?;
+  assert!(reader3.is_none());
   assert_eq!(0, reader.num_docs()?);
   assert_eq!(0, reader2.num_docs()?);
   reader.close()?;
