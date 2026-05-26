@@ -26,7 +26,7 @@ use std::sync::Arc;
 
 use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::standard_directory_reader::{
-  EmptyLeafSorter, ReaderCommit, StandardDirectoryReader, StandardDirectoryReaderType,
+  ReaderCommit, StandardDirectoryReader, StandardDirectoryReaderType,
 };
 use crate::core::util::Comparator;
 /// [`DirectoryReader`] is an implementation of [`CompositeReader`](crate::core::index::composite_reader::CompositeReader) that can read indexes
@@ -278,7 +278,7 @@ where
 /// # Returns
 ///
 /// A sorted list of [`IndexCommit`]s, from oldest to latest.
-pub fn list_commits<D>(dir: Arc<D>) -> Result<Vec<ReaderCommit<EmptyLeafSorter, D>>>
+pub fn list_commits<D>(dir: Arc<D>) -> Result<Vec<ReaderCommit<D>>>
 where
   D: Directory,
 {
@@ -289,7 +289,7 @@ where
   let latest = SegmentInfos::read_latest_commit(dir.clone())?;
   let current_gen = latest.get_generation();
 
-  commits.push(ReaderCommit::new(None, &latest, dir.clone())?);
+  commits.push(ReaderCommit::new(&latest, dir.clone())?);
 
   for file_name in files {
     if file_name.starts_with(IndexFileNames::SEGMENTS)
@@ -307,7 +307,7 @@ where
       };
 
       if let Some(sis) = sis {
-        commits.push(ReaderCommit::new(None, &sis, dir.clone())?);
+        commits.push(ReaderCommit::new(&sis, dir.clone())?);
       }
     }
   }

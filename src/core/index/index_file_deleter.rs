@@ -670,8 +670,6 @@ where
   fn get_user_data(&self) -> &HashMap<String, String> {
     &self.user_data
   }
-
-  type Comparator = EmptyLeafSorter;
 }
 
 pub(crate) struct MessengerImpl {
@@ -699,7 +697,6 @@ impl Messenger for MessengerImpl {
 
 use crate::core::index::index_writer::WRITE_LOCK_NAME;
 use crate::core::index::segment_infos::generation_from_segments_file_name;
-use crate::core::index::standard_directory_reader::EmptyLeafSorter;
 use crate::core::util::IOUtils;
 
 /// Set all gens beyond what we currently see in the directory, to avoid double-write in cases

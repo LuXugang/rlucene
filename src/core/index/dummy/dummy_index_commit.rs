@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::directory::Directory;
-use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -104,18 +102,6 @@ where
   }
 
   fn get_user_data(&self) -> &HashMap<String, String> {
-    dummy_unreachable!()
-  }
-
-  type Comparator = DummyComparator;
-
-  fn get_reader(&self) -> Option<&StandardDirectoryReader<Self::Comparator, Self::Directory>>
-where {
-    dummy_unreachable!()
-  }
-
-  fn take_reader(&mut self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>>
-where {
     dummy_unreachable!()
   }
 }

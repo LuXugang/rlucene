@@ -654,15 +654,11 @@ where
     }
   }
 
-  type IndexCommit = ReaderCommit<C, D>;
+  type IndexCommit = ReaderCommit<D>;
 
   fn get_index_commit(&self) -> Result<Self::IndexCommit> {
     self.ensure_open()?;
-    ReaderCommit::new(
-      None,
-      &self.segment_infos,
-      self.directory().directory.clone(),
-    )
+    ReaderCommit::new(&self.segment_infos, self.directory().directory.clone())
   }
 
   type Directory = D;
@@ -836,9 +832,8 @@ where
   }
 }
 
-pub struct ReaderCommit<C, D>
+pub struct ReaderCommit<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   segments_file_name: String,
@@ -847,19 +842,13 @@ where
   generation: i64,
   user_data: HashMap<String, String>,
   segment_count: usize,
-  reader: Option<StandardDirectoryReader<C, D>>,
 }
 
-impl<C, D> ReaderCommit<C, D>
+impl<D> ReaderCommit<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
-  pub(crate) fn new(
-    reader: Option<StandardDirectoryReader<C, D>>,
-    infos: &SegmentInfos<D>,
-    dir: Arc<D>,
-  ) -> Result<Self> {
+  pub(crate) fn new(infos: &SegmentInfos<D>, dir: Arc<D>) -> Result<Self> {
     let segments_file_name = infos
       .get_segments_file_name()
       .ok_or_else(|| LuceneError::illegal_state("segments file name is None"))?;
@@ -877,14 +866,12 @@ where
       generation,
       user_data,
       segment_count,
-      reader,
     })
   }
 }
 
-impl<C, D> Display for ReaderCommit<C, D>
+impl<D> Display for ReaderCommit<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -896,9 +883,8 @@ where
   }
 }
 
-impl<C, D> PartialEq for ReaderCommit<C, D>
+impl<D> PartialEq for ReaderCommit<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   fn eq(&self, other: &Self) -> bool {
@@ -906,16 +892,10 @@ where
   }
 }
 
-impl<C, D> Eq for ReaderCommit<C, D>
-where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
-  D: Directory,
-{
-}
+impl<D> Eq for ReaderCommit<D> where D: Directory {}
 
-impl<C, D> PartialOrd for ReaderCommit<C, D>
+impl<D> PartialOrd for ReaderCommit<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -923,9 +903,8 @@ where
   }
 }
 
-impl<C, D> Ord for ReaderCommit<C, D>
+impl<D> Ord for ReaderCommit<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   fn cmp(&self, other: &Self) -> Ordering {
@@ -933,9 +912,8 @@ where
   }
 }
 
-impl<C, D> IndexCommit for ReaderCommit<C, D>
+impl<D> IndexCommit for ReaderCommit<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   fn get_segments_file_name(&self) -> &str {
@@ -972,16 +950,5 @@ where
 
   fn get_user_data(&self) -> &HashMap<String, String> {
     &self.user_data
-  }
-
-  type Comparator = C;
-
-  fn get_reader(&self) -> Option<&StandardDirectoryReader<Self::Comparator, Self::Directory>> {
-    self.reader.as_ref()
-  }
-
-  fn take_reader(&mut self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>>
-where {
-    self.reader.take()
   }
 }

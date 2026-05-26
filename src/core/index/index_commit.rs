@@ -18,7 +18,6 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::Arc;
 
-use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 
@@ -48,18 +47,7 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
   fn get_generation(&self) -> i64;
   /// Returns `user_data`, previously passed to [`IndexWriter::set_live_commit_data()`](crate::core::index::index_writer::IndexWriter::set_live_commit_data) for this commit. The map is `String` → `String`.
   fn get_user_data(&self) -> &HashMap<String, String>;
-  type Comparator: Comparator<DefaultLeafReader<Self::Directory>> + Clone;
-  fn get_reader(&self) -> Option<&StandardDirectoryReader<Self::Comparator, Self::Directory>> where
-  {
-    None
-  }
-  fn take_reader(&mut self) -> Option<StandardDirectoryReader<Self::Comparator, Self::Directory>> where
-  {
-    None
-  }
 }
-use crate::core::index::segment_reader::DefaultLeafReader;
-use crate::core::util::Comparator;
 use std::cmp::Ordering;
 
 pub fn is_same_commit<T>(a: &T, b: &T) -> bool
@@ -81,7 +69,7 @@ mod tests {
   use super::{IndexCommit, cmp_commit, is_same_commit};
 
   use crate::core::store::directory::DirEnum;
-  use crate::core::util::dummy::dummy_comparator::DummyComparator;
+
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     new_directory_shared, random,
@@ -185,8 +173,6 @@ mod tests {
     fn get_user_data(&self) -> &HashMap<String, String> {
       &self.user_data
     }
-
-    type Comparator = DummyComparator;
   }
 
   #[test]

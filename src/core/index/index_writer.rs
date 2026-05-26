@@ -147,17 +147,29 @@ where
     conf: IndexWriterConfig,
     sub: Option<IndexWriterHooksEnum>,
   ) -> Result<Self> {
-    Self::with_index_commit_and_sub::<DummyIndexCommit<D>>(d, conf, sub, None)
+    Self::with_index_commit_and_hook(d, conf, sub, IndexCommitWrapper::default())
   }
-
-  pub fn with_index_commit_and_sub<IC>(
+  pub fn with_index_commit<IC, C>(
     d: Arc<D>,
     conf: IndexWriterConfig,
-    hooks: Option<IndexWriterHooksEnum>,
-    mut index_commit: Option<IC>,
+    index_commit: IndexCommitWrapper<IC, C, D>,
   ) -> Result<Self>
   where
     IC: IndexCommit<Directory = D>,
+    C: Comparator<DefaultLeafReader<D>> + Clone,
+  {
+    Self::with_index_commit_and_hook(d, conf, Some(EmptyIndexWriterHooks.into()), index_commit)
+  }
+
+  pub fn with_index_commit_and_hook<IC, C>(
+    d: Arc<D>,
+    conf: IndexWriterConfig,
+    hooks: Option<IndexWriterHooksEnum>,
+    mut index_commit_wrapper: IndexCommitWrapper<IC, C, D>,
+  ) -> Result<Self>
+  where
+    IC: IndexCommit<Directory = D>,
+    C: Comparator<DefaultLeafReader<D>> + Clone,
   {
     let enable_test_points = hooks.as_ref().unwrap().is_enable_test_points();
     let info_stream = conf.get_info_stream();
@@ -188,18 +200,13 @@ where
 
       let files = directory.list_all()?;
 
-      // Set up our initial SegmentInfos:
-      let has_reader = match index_commit {
-        Some(ref commit) => commit.get_reader().is_some(),
-        None => false,
-      };
       let mut change_count = 0;
       // TODO IMPORTANT 这里的SegmentInfos 这里不需要初始哈
       let mut segment_infos = SegmentInfos::new(conf.get_index_created_version_major())?;
       let did_message_state = false;
       let mut rollback_segments = Vec::new();
       let reader = if create {
-        if index_commit.is_some() {
+        if index_commit_wrapper.commit.is_some() {
           return Err(LuceneError::illegal_argument(
             if *conf.get_open_mode() == OpenMode::Create {
               "cannot use IndexCommit with OpenMode.CREATE"
@@ -226,15 +233,9 @@ where
         // Record that we have a change (zero out all segments) pending:
         Self::changed(&mut change_count, &mut segment_infos);
         None
-      } else if has_reader {
-        let mut commit = index_commit
-          .take()
-          .ok_or_else(|| LuceneError::illegal_argument("IndexCommit should be provided"))?;
-        let reader = commit.take_reader().ok_or_else(|| {
-          LuceneError::illegal_argument("IndexCommit must have a reader when reader is provided")
-        })?;
-        // TODO IMPORTANT
-        Some(reader)
+      } else if index_commit_wrapper.reader.is_some() {
+        index_commit_wrapper.reader.take()
+        // TODO
       } else {
         // Init from either the latest commit point, or an explicit prior commit point:
 
@@ -250,7 +251,7 @@ where
         // Do not use SegmentInfos.read(Directory) since the spooky
         // retrying it does is not necessary here (we hold the write lock):
         segment_infos = SegmentInfos::read_commit(directory_orig.clone(), &last_segments_file)?;
-        if let Some(commit) = index_commit {
+        if let Some(commit) = index_commit_wrapper.commit {
           if !Arc::ptr_eq(&commit.get_directory(), &directory_orig) {
             return Err(LuceneError::illegal_argument(format!(
               "IndexCommit's directory doesn't match my directory, expected={}, got={}",
@@ -5930,6 +5931,33 @@ where
       self.rollback_internal()?;
     }
     Ok(())
+  }
+}
+pub struct IndexCommitWrapper<IC, C, D>
+where
+  IC: IndexCommit<Directory = D>,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+  D: Directory,
+{
+  pub(crate) commit: Option<IC>,
+  pub(crate) reader: Option<StandardDirectoryReader<C, D>>,
+}
+impl<IC, C, D> IndexCommitWrapper<IC, C, D>
+where
+  IC: IndexCommit<Directory = D>,
+  C: Comparator<DefaultLeafReader<D>> + Clone,
+  D: Directory,
+{
+  pub fn new(commit: Option<IC>, reader: Option<StandardDirectoryReader<C, D>>) -> Self {
+    Self { commit, reader }
+  }
+}
+impl<D> Default for IndexCommitWrapper<DummyIndexCommit<D>, EmptyLeafSorter, D>
+where
+  D: Directory,
+{
+  fn default() -> Self {
+    Self::new(None, None)
   }
 }
 /// If `open(IndexWriter)` has been called (ie, this writer is in near
