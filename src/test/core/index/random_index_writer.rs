@@ -25,6 +25,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::query::Query;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_index_writer_config_with_analyzer;
 use rand::Rng;
 use std::sync::Arc;
@@ -40,13 +41,15 @@ impl<D> RandomIndexWriter<D>
 where
   D: Directory,
 {
-  pub fn new<R>(_r: &mut R, dir: Arc<D>) -> Self
+  pub fn new<R>(r: &mut R, dir: Arc<D>) -> Self
   where
     R: Rng + ?Sized,
     D: Directory,
   {
+    let a = MockAnalyzer::new(r);
+    let config = new_index_writer_config_with_analyzer(r, a);
     Self {
-      w: IndexWriter::new(dir, IndexWriterConfig::new()).expect("should not fail"),
+      w: IndexWriter::new(dir, config).expect("should not fail"),
     }
   }
   pub fn with_analyzer<R, T>(r: &mut R, dir: Arc<D>, analyzer: T) -> Self

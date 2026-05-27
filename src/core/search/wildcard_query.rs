@@ -222,7 +222,7 @@ pub fn to_automaton(wildcard_query: &Term, determinize_work_limit: i32) -> Resul
 }
 #[cfg(test)]
 mod tests {
-  use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
+
   use crate::core::document::document::Document;
   use crate::core::document::field::Store;
   use crate::core::index::directory_reader;
@@ -246,9 +246,11 @@ mod tests {
   use crate::core::util::automation::compiled_automaton::CompiledAutomatonTE;
   use crate::core::util::automation::operations::Operations;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
+  use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::index::random_index_writer::RandomIndexWriter;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field, random,
+    new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
+    new_string_field, new_text_field, random,
   };
   use rand::Rng;
   use std::collections::HashMap;
@@ -491,8 +493,7 @@ mod tests {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    // TODO IMPORTANT MockTokenizer.WHITESPACE未实现 暂时使用WhitespaceAnalyzer
-    let writer = RandomIndexWriter::with_analyzer(random, dir.clone(), WhitespaceAnalyzer::new());
+    let writer = RandomIndexWriter::new(random, dir.clone());
     let mut field_to_type = HashMap::new();
 
     for content in contents {
@@ -602,8 +603,9 @@ mod tests {
 
     // prepare the index
     let dir = new_directory_shared(&mut random)?;
-    // TODO IMPORTANT MockTokenizer.WHITESPACE未实现 暂时使用WhitespaceAnalyzer
-    let iw = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), WhitespaceAnalyzer::new());
+    let a = MockAnalyzer::new(&mut random);
+    let conf = new_index_writer_config_with_analyzer(&mut random, a);
+    let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), conf);
     let mut field_to_type = HashMap::new();
 
     for d in docs {
