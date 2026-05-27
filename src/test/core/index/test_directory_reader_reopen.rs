@@ -20,26 +20,39 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TextField, text_field_type};
-use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::directory_reader;
+use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
+use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::log_merge_policy::LogMergePolicy;
+use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::no_merge_policy::NoMergePolicy;
+use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::postings_enum::{ALL, PostingsEnum};
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
+use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
+use crate::core::index::terms::Terms;
+use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::index::{directory_reader, field_infos, multi_bits, multi_terms};
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::Directory;
+use crate::core::util::bits::Bits;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_string_field, random,
 };
+use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -48,7 +61,19 @@ struct TestDirectoryReaderReopen;
 
 #[test]
 fn test_reopen() -> Result<()> {
-  // TODO IMPORTANT
+  let mut random = random();
+  let dir1 = new_directory_shared(&mut random)?;
+
+  let iw = create_index(&mut random, dir1.clone(), false)?;
+  let test = TestReopen { dir: dir1.clone() };
+  perform_default_tests(&mut random, &test, iw)?;
+
+  let dir2 = new_directory_shared(&mut random)?;
+
+  let iw = create_index(&mut random, dir2.clone(), true)?;
+  let test = TestReopen { dir: dir2.clone() };
+  perform_default_tests(&mut random, &test, iw)?;
+
   Ok(())
 }
 
@@ -141,6 +166,392 @@ fn test_thread_safety() -> Result<()> {
   // TODO IMPORTANT
   Ok(())
 }
+
+struct ReaderCouple<D>
+where
+  D: Directory,
+{
+  new_reader: Option<StandardDirectoryReaderType<D>>,
+  refreshed_reader: RefreshedReader<D>,
+}
+#[allow(clippy::large_enum_variant)]
+enum RefreshedReader<D>
+where
+  D: Directory,
+{
+  Same,
+  New(StandardDirectoryReaderType<D>),
+}
+
+struct TestReopen<D>
+where
+  D: Directory,
+{
+  dir: Arc<D>,
+}
+
+impl<D> TestReopen<D>
+where
+  D: Directory,
+{
+  fn open_reader(&self) -> Result<StandardDirectoryReaderType<D>> {
+    directory_reader::open(self.dir.clone())
+  }
+
+  fn modify_index<R>(&self, random: &mut R, i: i32, iw: IndexWriter<D>) -> Result<IndexWriter<D>>
+  where
+    R: Rng + ?Sized,
+  {
+    modify_index(random, i, self.dir.clone(), iw)
+  }
+}
+
+fn perform_default_tests<R, D>(
+  random: &mut R,
+  test: &TestReopen<D>,
+  iw: IndexWriter<D>,
+) -> Result<()>
+where
+  D: Directory,
+  R: Rng + ?Sized,
+{
+  let mut index1 = test.open_reader()?;
+  let mut index2 = test.open_reader()?;
+
+  assert_index_equals(&index1, &index2)?;
+
+  // verify that reopen() does not return a new reader instance
+  // in case the index has no changes
+  let (couple, iw) = refresh_reader(random, &index2, false, iw)?;
+  match couple.refreshed_reader {
+    RefreshedReader::Same => {},
+    RefreshedReader::New(_) => panic!(
+      "New DirectoryReader instance created during refresh even though index had no changes."
+    ),
+  }
+
+  let (couple, iw) = refresh_reader_with_test(random, &index2, Some(test), 0, true, iw)?;
+  index1.close()?;
+  index1 = couple.new_reader.unwrap();
+
+  let index2_refreshed = match couple.refreshed_reader {
+    RefreshedReader::New(reader) => reader,
+    RefreshedReader::Same => panic!("No new DirectoryReader instance created during refresh."),
+  };
+  index2.close()?;
+
+  // test if refreshed reader and newly opened reader return equal results
+  assert_index_equals(&index1, &index2_refreshed)?;
+
+  index2_refreshed.close()?;
+  assert_reader_closed(&index2, true);
+  assert_reader_closed(&index2_refreshed, true);
+
+  index2 = test.open_reader()?;
+  let mut writer = iw;
+  for i in 1..4 {
+    index1.close()?;
+    let (couple, iw) = refresh_reader_with_test(random, &index2, Some(test), i, true, writer)?;
+    writer = iw;
+    // refresh DirectoryReader
+    index2.close()?;
+
+    index2 = match couple.refreshed_reader {
+      RefreshedReader::New(reader) => reader,
+      RefreshedReader::Same => panic!("No new DirectoryReader instance created during refresh."),
+    };
+    index1 = couple.new_reader.unwrap();
+    assert_index_equals(&index1, &index2)?;
+  }
+
+  index1.close()?;
+  index2.close()?;
+  assert_reader_closed(&index1, true);
+  assert_reader_closed(&index2, true);
+  Ok(())
+}
+
+fn refresh_reader<R, D>(
+  random: &mut R,
+  reader: &StandardDirectoryReaderType<D>,
+  has_changes: bool,
+  iw: IndexWriter<D>,
+) -> Result<(ReaderCouple<D>, IndexWriter<D>)>
+where
+  D: Directory,
+  R: Rng + ?Sized,
+{
+  refresh_reader_with_test(random, reader, None, -1, has_changes, iw)
+}
+
+fn refresh_reader_with_test<R, D>(
+  random: &mut R,
+  reader: &StandardDirectoryReaderType<D>,
+  test: Option<&TestReopen<D>>,
+  modify: i32,
+  has_changes: bool,
+  mut iw: IndexWriter<D>,
+) -> Result<(ReaderCouple<D>, IndexWriter<D>)>
+where
+  D: Directory,
+  R: Rng + ?Sized,
+{
+  let mut r = None;
+  if let Some(test) = test {
+    iw = test.modify_index(random, modify, iw)?;
+    r = Some(test.open_reader()?);
+  }
+
+  let refreshed_reader = match directory_reader::open_if_changed(reader, &iw) {
+    Ok(Some(refreshed)) => RefreshedReader::New(refreshed),
+    Ok(None) => RefreshedReader::Same,
+    Err(err) => {
+      if let Some(reader) = r.as_ref() {
+        let _ = reader.close();
+      }
+      return Err(err);
+    },
+  };
+
+  if has_changes {
+    if matches!(refreshed_reader, RefreshedReader::Same) {
+      panic!("No new DirectoryReader instance created during refresh.");
+    }
+  } else if matches!(refreshed_reader, RefreshedReader::New(_)) {
+    panic!("New DirectoryReader instance created during refresh even though index had no changes.");
+  }
+
+  Ok((
+    ReaderCouple {
+      new_reader: r,
+      refreshed_reader,
+    },
+    iw,
+  ))
+}
+
+fn create_index<R, D>(random: &mut R, dir: Arc<D>, multi_segment: bool) -> Result<IndexWriter<D>>
+where
+  R: rand::Rng + ?Sized,
+  D: Directory,
+{
+  let analyzer = MockAnalyzer::new(random);
+  let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+  config.set_merge_policy(LogMergePolicy::log_doc());
+  let writer = IndexWriter::new(dir.clone(), config)?;
+
+  for i in 0..100 {
+    writer.add_document(create_document(i, 4)?)?;
+    if multi_segment && (i % 10) == 0 {
+      writer.commit()?;
+    }
+  }
+
+  if !multi_segment {
+    writer.force_merge(1)?;
+  }
+  writer.close()?;
+
+  let r = directory_reader::open(dir.clone())?;
+  if multi_segment {
+    assert!(get_context(&r)?.leaves()?.len() > 1);
+  } else {
+    assert_eq!(1, get_context(&r)?.leaves()?.len());
+  }
+  r.close()?;
+
+  Ok(writer)
+}
+
+fn modify_index<D, R>(
+  random: &mut R,
+  i: i32,
+  dir: Arc<D>,
+  iw: IndexWriter<D>,
+) -> Result<IndexWriter<D>>
+where
+  D: Directory,
+  R: Rng + ?Sized,
+{
+  let iw = match i {
+    0 => {
+      drop(iw);
+      let analyzer = MockAnalyzer::new(random);
+      let writer = IndexWriter::new(dir, new_index_writer_config_with_analyzer(random, analyzer))?;
+      writer.delete_documents_with_terms(vec![Term::from_text("field2", "a11")])?;
+      writer.delete_documents_with_terms(vec![Term::from_text("field2", "b30")])?;
+      writer.close()?;
+      writer
+    },
+    1 => {
+      drop(iw);
+      let analyzer = MockAnalyzer::new(random);
+      let writer = IndexWriter::new(dir, new_index_writer_config_with_analyzer(random, analyzer))?;
+      writer.force_merge(1)?;
+      writer.close()?;
+      writer
+    },
+    2 => {
+      drop(iw);
+      let analyzer = MockAnalyzer::new(random);
+      let writer = IndexWriter::new(dir, new_index_writer_config_with_analyzer(random, analyzer))?;
+      writer.add_document(create_document(101, 4)?)?;
+      writer.force_merge(1)?;
+      writer.add_document(create_document(102, 4)?)?;
+      writer.add_document(create_document(103, 4)?)?;
+      writer.close()?;
+      writer
+    },
+    3 => {
+      drop(iw);
+      let analyzer = MockAnalyzer::new(random);
+      let writer = IndexWriter::new(dir, new_index_writer_config_with_analyzer(random, analyzer))?;
+      writer.add_document(create_document(101, 4)?)?;
+      writer.close()?;
+      writer
+    },
+    _ => iw,
+  };
+  Ok(iw)
+}
+
+fn assert_reader_closed<D>(reader: &StandardDirectoryReaderType<D>, _check_sub_readers: bool)
+where
+  D: Directory,
+{
+  assert_eq!(0, reader.get_ref_count());
+  // TODO IMPORTANT StandardDirectoryReader#do_close未实现
+  // if check_sub_readers {
+  //   for sub_reader in reader.get_sequential_sub_readers() {
+  //     assert_eq!(0, sub_reader.get_ref_count());
+  //   }
+  // }
+}
+
+fn assert_index_equals<D>(
+  index1: &StandardDirectoryReaderType<D>,
+  index2: &StandardDirectoryReaderType<D>,
+) -> Result<()>
+where
+  D: Directory,
+{
+  assert_eq!(index1.num_docs()?, index2.num_docs()?);
+  assert_eq!(index1.max_doc()?, index2.max_doc()?);
+  assert_eq!(index1.has_deletions()?, index2.has_deletions()?);
+  assert_eq!(
+    get_context(index1)?.leaves()?.len() == 1,
+    get_context(index2)?.leaves()?.len() == 1
+  );
+
+  let field_infos1 = field_infos::get_merged_field_infos(index1)?;
+  let field_infos2 = field_infos::get_merged_field_infos(index2)?;
+  assert_eq!(field_infos1.size(), field_infos2.size());
+  for (field_info1, field_info2) in field_infos1.iter().zip(field_infos2.iter()) {
+    assert_eq!(field_info1.name, field_info2.name);
+  }
+
+  for field_info in field_infos1.iter() {
+    let cur_field = &field_info.name;
+    let mut norms1 = MultiDocValues::get_norm_values(index1, cur_field)?;
+    let mut norms2 = MultiDocValues::get_norm_values(index2, cur_field)?;
+    if norms1.is_some() && norms2.is_some() {
+      #[allow(clippy::unnecessary_unwrap)]
+      let norms1 = norms1.as_mut().unwrap();
+      #[allow(clippy::unnecessary_unwrap)]
+      let norms2 = norms2.as_mut().unwrap();
+      loop {
+        let doc_id = norms1.next_doc()?;
+        assert_eq!(doc_id, norms2.next_doc()?);
+        if doc_id == NO_MORE_DOCS {
+          break;
+        }
+        assert_eq!(norms1.long_value()?, norms2.long_value()?);
+      }
+    } else {
+      assert!(norms1.is_none());
+      assert!(norms2.is_none());
+    }
+  }
+
+  let live_docs1 = multi_bits::get_live_docs(index1)?;
+  let live_docs2 = multi_bits::get_live_docs(index2)?;
+  for i in 0..index1.max_doc()? {
+    assert_eq!(
+      live_docs1
+        .as_ref()
+        .is_none_or(|live_docs| !live_docs.get(i as usize).expect("")),
+      live_docs2
+        .as_ref()
+        .is_none_or(|live_docs| !live_docs.get(i as usize).expect("")),
+      "Doc {} only deleted in one index.",
+      i
+    );
+  }
+
+  let mut stored_fields1 = index1.stored_fields()?;
+  let mut stored_fields2 = index2.stored_fields()?;
+  for i in 0..index1.max_doc()? {
+    if live_docs1
+      .as_ref()
+      .is_none_or(|live_docs| live_docs.get(i as usize).expect(""))
+    {
+      let doc1 = stored_fields1.document(i)?;
+      let doc2 = stored_fields2.document(i)?;
+      assert_eq!(doc1.get_fields().len(), doc2.get_fields().len());
+      for (field1, field2) in doc1.get_fields().iter().zip(doc2.get_fields().iter()) {
+        assert_eq!(field1.name(), field2.name());
+        assert_eq!(
+          field1.string_value()?.map(|value| value.into_owned()),
+          field2.string_value()?.map(|value| value.into_owned())
+        );
+      }
+    }
+  }
+
+  let mut fields1: Vec<_> = field_infos::get_indexed_fields(index1)?
+    .into_iter()
+    .collect();
+  let mut fields2: Vec<_> = field_infos::get_indexed_fields(index2)?
+    .into_iter()
+    .collect();
+  fields1.sort();
+  fields2.sort();
+  let mut fenum2 = fields2.iter();
+  for field1 in fields1 {
+    assert_eq!(&field1, fenum2.next().unwrap());
+    let terms1 = multi_terms::get_terms(index1, &field1)?;
+    if terms1.is_none() {
+      assert!(multi_terms::get_terms(index2, &field1)?.is_none());
+      continue;
+    }
+    let terms1 = terms1.unwrap();
+    let mut enum1 = terms1.iterator()?;
+
+    let terms2 = multi_terms::get_terms(index2, &field1)?;
+    assert!(terms2.is_some());
+    let terms2 = terms2.unwrap();
+    let mut enum2 = terms2.iterator()?;
+
+    while enum1.next()?.is_some() {
+      assert_eq!(enum1.term()?, enum2.next()?.unwrap());
+      let mut tp1 = enum1.postings_with_flags(None, ALL as i32)?;
+      let mut tp2 = enum2.postings_with_flags(None, ALL as i32)?;
+
+      while tp1.next_doc()? != NO_MORE_DOCS {
+        assert_ne!(NO_MORE_DOCS, tp2.next_doc()?);
+        assert_eq!(tp1.doc_id(), tp2.doc_id());
+        let freq = tp1.freq()?;
+        assert_eq!(freq, tp2.freq()?);
+        for _ in 0..freq {
+          assert_eq!(tp1.next_position()?, tp2.next_position()?);
+        }
+      }
+    }
+  }
+  assert!(fenum2.next().is_none());
+  Ok(())
+}
+
 fn create_document(n: i32, num_fields: i32) -> Result<Document> {
   let mut value = format!("a{n}");
   let mut doc = Document::new();
