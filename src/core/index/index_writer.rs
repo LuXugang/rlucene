@@ -226,7 +226,6 @@ where
         }
 
         segment_infos = sis;
-        // TODO IMPORTANT
         rollback_segments = segment_infos.create_backup_segment_infos()?;
 
         // Record that we have a change (zero out all segments) pending:
@@ -261,7 +260,6 @@ where
         }
 
         if reader.segment_infos.get_last_generation() == 0 {
-          // TODO: maybe we could allow this?  It's tricky...
           return Err(LuceneError::illegal_argument(
             "index must already have an initial commit to open from reader",
           ));
@@ -4852,14 +4850,6 @@ where
           return Ok(());
         }
 
-        if self.info_stream.enabled("IW") {
-          // TODO
-          // let segs = self.seg_string_with_infos(self.to_live_infos(to_sync, inner)?);
-          // self.info_stream.message(
-          //     "IW",
-          //     &format!("startCommit index={} changeCount={}", segs, change_count),
-          // );
-        }
         debug_assert!(Self::files_exist(
           to_sync.as_ref().unwrap(),
           &inner.deleter
@@ -6506,14 +6496,6 @@ impl IndexWriterHooks for IndexWriterHooksEnum {
   }
 }
 pub(crate) type TragicException = Arc<Mutex<Option<LuceneError>>>;
-
-#[derive(Default)]
-pub struct DocMapIndexWriter;
-impl DocMap for DocMapIndexWriter {
-  fn get(&self, _doc_id: i32) -> Result<i32> {
-    todo!()
-  }
-}
 
 pub(crate) struct FlushNotificationsImpl {
   event_queue: Arc<EventQueue>,
