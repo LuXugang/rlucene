@@ -205,7 +205,7 @@ mod tests {
     AllocatorIntEnum, DirectAllocatorI32, INT_BLOCK_SIZE, IntBlockPool,
   };
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
-  #[allow(dead_code)]
+  #[allow(dead_code)] // for quick search
   struct TestIntBlockPool;
   #[test]
   fn test_write_read_reset() -> Result<()> {

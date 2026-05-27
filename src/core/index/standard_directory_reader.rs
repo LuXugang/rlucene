@@ -844,6 +844,22 @@ where
   segment_count: usize,
 }
 
+impl<D> Clone for ReaderCommit<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      segments_file_name: self.segments_file_name.clone(),
+      files: self.files.clone(),
+      dir: self.dir.clone(),
+      generation: self.generation,
+      user_data: self.user_data.clone(),
+      segment_count: self.segment_count,
+    }
+  }
+}
+
 impl<D> ReaderCommit<D>
 where
   D: Directory,

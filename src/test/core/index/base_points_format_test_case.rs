@@ -1317,7 +1317,7 @@ impl PointValues for TestPointValues {
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestPointTree {
   estimated_point_count: usize,
 }

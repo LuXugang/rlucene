@@ -19,6 +19,10 @@ use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommi
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::util::error::lucene_error::Result;
 use crate::impl_from_for_enum;
+#[cfg(test)]
+use crate::test::core::index::test_deletion_policy::{
+  KeepAllDeletionPolicy, KeepLastNDeletionPolicy, KeepNoneOnInitDeletionPolicy,
+};
 use std::fmt::{Display, Formatter};
 /// This [`IndexDeletionPolicy`] implementation keeps only the most recent commit and
 /// immediately removes all prior commits after a new commit is done. This is the default deletion
@@ -38,6 +42,12 @@ pub trait IndexDeletionPolicy: Display {
 pub enum IndexDeletionPolicyEnum {
   KeepOnlyLastCommit(KeepOnlyLastCommitDeletionPolicy),
   No(NoDeletionPolicy),
+  #[cfg(test)]
+  KeepAll(KeepAllDeletionPolicy),
+  #[cfg(test)]
+  KeepNoneOnInit(KeepNoneOnInitDeletionPolicy),
+  #[cfg(test)]
+  KeepLastN(KeepLastNDeletionPolicy),
 }
 
 impl_from_for_enum!(
@@ -46,11 +56,25 @@ impl_from_for_enum!(
   NoDeletionPolicy => No,
 );
 
+#[cfg(test)]
+impl_from_for_enum!(
+  IndexDeletionPolicyEnum,
+  KeepAllDeletionPolicy => KeepAll,
+  KeepNoneOnInitDeletionPolicy => KeepNoneOnInit,
+  KeepLastNDeletionPolicy => KeepLastN,
+);
+
 impl Display for IndexDeletionPolicyEnum {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::KeepOnlyLastCommit(policy) => write!(f, "{policy}"),
       Self::No(policy) => write!(f, "{policy}"),
+      #[cfg(test)]
+      Self::KeepAll(policy) => write!(f, "{policy}"),
+      #[cfg(test)]
+      Self::KeepNoneOnInit(policy) => write!(f, "{policy}"),
+      #[cfg(test)]
+      Self::KeepLastN(policy) => write!(f, "{policy}"),
     }
   }
 }
@@ -63,6 +87,12 @@ impl IndexDeletionPolicy for IndexDeletionPolicyEnum {
     match self {
       Self::KeepOnlyLastCommit(policy) => policy.on_init(commits),
       Self::No(policy) => policy.on_init(commits),
+      #[cfg(test)]
+      Self::KeepAll(policy) => policy.on_init(commits),
+      #[cfg(test)]
+      Self::KeepNoneOnInit(policy) => policy.on_init(commits),
+      #[cfg(test)]
+      Self::KeepLastN(policy) => policy.on_init(commits),
     }
   }
 
@@ -73,6 +103,12 @@ impl IndexDeletionPolicy for IndexDeletionPolicyEnum {
     match self {
       Self::KeepOnlyLastCommit(policy) => policy.on_commit(commits),
       Self::No(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::KeepAll(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::KeepNoneOnInit(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::KeepLastN(policy) => policy.on_commit(commits),
     }
   }
 }
