@@ -426,7 +426,7 @@ fn test_future_commit() -> Result<()> {
   let writer = IndexWriter::with_index_commit(
     dir.clone(),
     iwc,
-    IndexCommitWrapper::<_, EmptyLeafSorter, _>::new(Some(commit), None),
+    IndexCommitWrapper::<_, EmptyLeafSorter, _>::new(Some(commit), None, None)?,
   )?;
 
   assert_eq!(1, writer.get_doc_stats()?.num_docs);

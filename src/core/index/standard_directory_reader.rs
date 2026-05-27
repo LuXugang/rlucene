@@ -63,7 +63,7 @@ where
   pub(crate) segment_infos: SegmentInfos<D>,
   sub_reader_sorter: Option<C>,
   index_base: IndexReaderBase,
-  writer_closed: Option<Arc<AtomicBool>>,
+  pub(crate) writer_closed: Option<Arc<AtomicBool>>,
   cache_helper: CacheHelperImpl,
 }
 impl<C, D> StandardDirectoryReader<C, D>

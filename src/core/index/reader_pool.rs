@@ -14,8 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::composite_reader::get_context;
 use crate::core::index::field_infos::FieldNumbers;
+use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriterDir;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesEnum};
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
@@ -79,33 +83,72 @@ where
   D: Directory,
   F: LongSupplier,
 {
-  pub(crate) fn new<S, C, D1>(
+  #[allow(clippy::too_many_arguments)]
+  pub(crate) fn new<S, C>(
     directory: Arc<IndexWriterDir<D>>,
     original_directory: Arc<D>,
+    segment_infos: &SegmentInfos<D>,
     info_stream: InfoStreamMT,
     soft_deletes_field: Option<S>,
     completed_del_gen_supplier: F,
-    _reader: Option<StandardDirectoryReader<C, D1>>,
+    reader: Option<StandardDirectoryReader<C, D>>,
     index_created_version_major: i32,
-  ) -> Self
+  ) -> Result<Self>
   where
     S: Into<String>,
-    C: Comparator<DefaultLeafReader<D1>> + Clone,
-    D1: Directory,
+    C: Comparator<DefaultLeafReader<D>> + Clone,
   {
-    Self {
+    let soft_deletes_field = soft_deletes_field.map(Into::into);
+    let mut reader_map = HashMap::new();
+
+    if let Some(reader) = reader {
+      // Pre-enroll all segment readers into the reader pool; this is necessary so
+      // any in-memory NRT live docs are correctly carried over, and so NRT readers
+      // pulled from this IW share the same segment reader:
+      let reader = get_context(reader)?;
+      let leaves = reader.leaves()?;
+      debug_assert_eq!(segment_infos.size(), leaves.len());
+      for (i, leaf) in leaves.iter().enumerate() {
+        let seg_reader = leaf.reader().as_ref();
+        let info = segment_infos
+          .info(i)
+          .ok_or_else(|| LuceneError::illegal_state("SegmentCommitInfo missing"))?;
+        let new_reader = SegmentReader::new_from_reader(
+          info,
+          seg_reader,
+          seg_reader.get_live_docs()?,
+          seg_reader.get_hard_live_docs()?,
+          seg_reader.num_docs()?,
+          true,
+        )?;
+        let info_id = new_reader.get_original_segment_info_id().to_string();
+        let pending_deletes =
+          Self::new_pending_deletes_with_reader(&soft_deletes_field, &new_reader, info)?;
+        reader_map.insert(
+          info_id,
+          Arc::new(ReadersAndUpdates::with_reader(
+            index_created_version_major,
+            Arc::new(new_reader),
+            info,
+            pending_deletes,
+          )?),
+        );
+      }
+    }
+
+    Ok(Self {
       directory,
       original_directory,
       info_stream,
-      soft_deletes_field: soft_deletes_field.map(Into::into),
+      soft_deletes_field,
       pool_readers: AtomicBool::new(false),
       inner: Mutex::new(Inner {
-        reader_map: HashMap::new(),
+        reader_map,
         closed: AtomicBool::new(false),
       }),
       completed_del_gen_supplier,
       index_created_version_major,
-    }
+    })
   }
   /// Asserts this info still exists in IW's segment infos
   pub(crate) fn assert_info_is_live(&self, _info: &SegmentCommitInfoMeta<D>) -> bool {
@@ -481,11 +524,11 @@ where
   }
 
   fn new_pending_deletes_with_reader(
-    &self,
+    soft_deletes_field: &Option<String>,
     reader: &SegmentReader<D>,
     info: &SegmentCommitInfo<D>,
   ) -> Result<PendingDeletesEnum> {
-    match &self.soft_deletes_field {
+    match soft_deletes_field {
       Some(field) => Ok(PendingDeletesEnum::B(PendingSoftDeletes::from_reader(
         field, reader, info,
       )?)),
@@ -538,7 +581,6 @@ mod tests {
   use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
   use crate::core::store::IOContext;
   use crate::core::store::directory::Directory;
-  use crate::core::store::dummy::dummy_directory::DummyDirectory;
   use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
   use crate::core::util::bits::Bits;
   use crate::core::util::dummy::dummy_comparator::DummyComparator;
@@ -576,15 +618,16 @@ mod tests {
     let segment_infos = &mut reader.segment_infos;
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
-    let pool = ReaderPool::new::<String, DummyComparator, DummyDirectory>(
+    let pool = ReaderPool::new::<String, DummyComparator>(
       lock_dir,
       directory.clone(),
+      segment_infos,
       Arc::new(InfoStreamEnum::default()),
       None,
       LongSupplierImpl,
       None,
       index_created_version_major,
-    );
+    )?;
     let idx = random.random_range(0..segment_infos.segments.len());
     let commit_info = segment_infos.info_idx_mut(idx).unwrap();
 
@@ -620,15 +663,16 @@ mod tests {
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
 
-    let pool = ReaderPool::new::<String, DummyComparator, DummyDirectory>(
+    let pool = ReaderPool::new::<String, DummyComparator>(
       lock_dir,
       directory.clone(),
+      segment_infos,
       Arc::new(InfoStreamEnum::default()),
       None,
       LongSupplierImpl,
       None,
       index_created_version_major,
-    );
+    )?;
 
     let idx = random.random_range(0..segment_infos.segments.len());
     let commit_info = segment_infos.info_idx_mut(idx).unwrap();
@@ -721,15 +765,16 @@ mod tests {
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
 
-    let pool = ReaderPool::new::<String, DummyComparator, DummyDirectory>(
+    let pool = ReaderPool::new::<String, DummyComparator>(
       lock_dir,
       directory.clone(),
+      segment_infos,
       Arc::new(InfoStreamEnum::default()),
       None,
       LongSupplierImpl,
       None,
       index_created_version_major,
-    );
+    )?;
 
     let id = random.random_range(0..10);
 
@@ -870,15 +915,16 @@ mod tests {
     let lock = directory.obtain_lock("writer_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
 
-    let pool = ReaderPool::new::<String, DummyComparator, DummyDirectory>(
+    let pool = ReaderPool::new::<String, DummyComparator>(
       lock_dir,
       directory.clone(),
+      segment_infos,
       Arc::new(InfoStreamEnum::default()),
       None,
       LongSupplierImpl,
       None,
       index_created_version_major,
-    );
+    )?;
 
     let id = random.random_range(0..10);
 

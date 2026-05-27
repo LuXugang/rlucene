@@ -228,7 +228,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   let writer = IndexWriter::with_index_commit(
     dir.clone(),
     conf,
-    IndexCommitWrapper::<_, DummyComparator, _>::new(Some(last_commit.clone()), None),
+    IndexCommitWrapper::<_, DummyComparator, _>::new(Some(last_commit.clone()), None, None)?,
   )?;
   assert_eq!(10, writer.get_doc_stats()?.num_docs);
 
@@ -247,7 +247,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   let writer = IndexWriter::with_index_commit(
     dir.clone(),
     conf,
-    IndexCommitWrapper::<_, DummyComparator, _>::new(Some(last_commit.clone()), None),
+    IndexCommitWrapper::<_, DummyComparator, _>::new(Some(last_commit.clone()), None, None)?,
   )?;
   assert_eq!(10, writer.get_doc_stats()?.num_docs);
   writer.close()?;
@@ -278,7 +278,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   let writer = IndexWriter::with_index_commit(
     dir.clone(),
     conf,
-    IndexCommitWrapper::<_, DummyComparator, _>::new(Some(last_commit.clone()), None),
+    IndexCommitWrapper::<_, DummyComparator, _>::new(Some(last_commit.clone()), None, None)?,
   )?;
   assert_eq!(10, writer.get_doc_stats()?.num_docs);
 

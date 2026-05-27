@@ -201,10 +201,9 @@ where
       let files = directory.list_all()?;
 
       let mut change_count = 0;
-      // TODO IMPORTANT 这里的SegmentInfos 这里不需要初始哈
-      let mut segment_infos = SegmentInfos::new(conf.get_index_created_version_major())?;
+      let mut segment_infos;
       let did_message_state = false;
-      let mut rollback_segments = Vec::new();
+      let rollback_segments;
       let reader = if create {
         if index_commit_wrapper.commit.is_some() {
           return Err(LuceneError::illegal_argument(
@@ -234,8 +233,83 @@ where
         Self::changed(&mut change_count, &mut segment_infos);
         None
       } else if index_commit_wrapper.reader.is_some() {
-        index_commit_wrapper.reader.take()
-        // TODO
+        let reader = index_commit_wrapper.reader.take().unwrap();
+
+        if reader.segment_infos.get_index_created_version_major() < *MIN_SUPPORTED_MAJOR {
+          // second line of defence in the case somebody tries to trick us.
+          return Err(LuceneError::illegal_argument(format!(
+            "createdVersionMajor must be >= {}, got: {}",
+            *MIN_SUPPORTED_MAJOR,
+            reader.segment_infos.get_index_created_version_major()
+          )));
+        }
+        // Init from an existing already opened NRT or non-NRT reader:
+
+        let commit = index_commit_wrapper.commit.as_ref().ok_or_else(|| {
+          LuceneError::illegal_argument("IndexCommit must be provided when opening from reader")
+        })?;
+        if !Arc::ptr_eq(&reader.directory().directory, &commit.get_directory()) {
+          return Err(LuceneError::illegal_argument(
+            "IndexCommit's reader must have the same directory as the IndexCommit",
+          ));
+        }
+
+        if !Arc::ptr_eq(&reader.directory().directory, &directory_orig) {
+          return Err(LuceneError::illegal_argument(
+            "IndexCommit's reader must have the same directory passed to IndexWriter",
+          ));
+        }
+
+        if reader.segment_infos.get_last_generation() == 0 {
+          // TODO: maybe we could allow this?  It's tricky...
+          return Err(LuceneError::illegal_argument(
+            "index must already have an initial commit to open from reader",
+          ));
+        }
+
+        // Must clone because we don't want the incoming NRT reader to "see" any changes this writer
+        // now makes:
+        segment_infos = reader.segment_infos.try_clone()?;
+
+        let segments_file_name = segment_infos.get_segments_file_name().ok_or_else(|| {
+          LuceneError::illegal_argument(
+            "the provided reader is stale: it has no segments file associated with it",
+          )
+        })?;
+        let mut last_commit = SegmentInfos::read_commit(
+          directory_orig.clone(),
+          &segments_file_name,
+        )
+        .map_err(|e| {
+          LuceneError::illegal_argument(format!(
+            "the provided reader is stale: its prior commit file \"{}\" is missing from index: {}",
+            segments_file_name, e
+          ))
+        })?;
+        if let Some(_v) = &reader.writer_closed {
+          if let Some(si) = index_commit_wrapper.segment_infos.as_ref() {
+            // The old writer better be closed (we have the write lock now!):
+            debug_assert!(
+              index_commit_wrapper
+                .old_index_writer_closed
+                .as_ref()
+                .unwrap()
+                .load(Ordering::SeqCst)
+            );
+
+            // In case the old writer wrote further segments (which we are now dropping),
+            // update SIS metadata so we remain write-once:
+            segment_infos.update_generation_version_and_counter(si);
+            last_commit.update_generation_version_and_counter(si);
+          } else {
+            return Err(LuceneError::illegal_state(
+              "StandardDirectoryReader build with IndexWriter, you should provide it",
+            ));
+          }
+        }
+
+        rollback_segments = last_commit.create_backup_segment_infos()?;
+        Some(reader)
       } else {
         // Init from either the latest commit point, or an explicit prior commit point:
 
@@ -316,12 +390,13 @@ where
       let reader_pool = ReaderPool::new(
         directory.clone(),
         directory_orig.clone(),
+        &segment_infos,
         info_stream.clone(),
         conf.get_soft_deletes_field(),
         LongSupplierImpl::new(buffered_updates_stream.clone()),
         reader,
         conf.get_index_created_version_major(),
-      );
+      )?;
 
       if conf.get_reader_pooling() {
         reader_pool.enable_reader_pooling();
@@ -5941,6 +6016,9 @@ where
 {
   pub(crate) commit: Option<IC>,
   pub(crate) reader: Option<StandardDirectoryReader<C, D>>,
+  #[cfg(debug_assertions)]
+  pub(crate) old_index_writer_closed: Option<Arc<AtomicBool>>,
+  pub segment_infos: Option<SegmentInfos<D>>,
 }
 impl<IC, C, D> IndexCommitWrapper<IC, C, D>
 where
@@ -5948,8 +6026,37 @@ where
   C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
-  pub fn new(commit: Option<IC>, reader: Option<StandardDirectoryReader<C, D>>) -> Self {
-    Self { commit, reader }
+  pub fn new(
+    commit: Option<IC>,
+    reader: Option<StandardDirectoryReader<C, D>>,
+    old_writer: Option<IndexWriter<D>>,
+  ) -> Result<Self> {
+    let (old_index_writer_closed, segment_infos) = if let (Some(reader), Some(old_writer)) =
+      (&reader, old_writer)
+      && let Some(v) = &reader.writer_closed
+    {
+      if !Arc::ptr_eq(v, &old_writer.closed) {
+        return Err(LuceneError::illegal_state(
+          "old_writer do not match reader's indexWriter ",
+        ));
+      }
+      let segment_infos = {
+        let mut inner = old_writer.inner.lock();
+        let version = inner.segment_infos.get_index_created_version_major();
+        std::mem::replace(&mut inner.segment_infos, SegmentInfos::new(version)?)
+      };
+      (Some(old_writer.closed.clone()), Some(segment_infos))
+    } else {
+      (None, None)
+    };
+
+    Ok(Self {
+      commit,
+      reader,
+      #[cfg(debug_assertions)]
+      old_index_writer_closed,
+      segment_infos,
+    })
   }
 }
 impl<D> Default for IndexCommitWrapper<DummyIndexCommit<D>, EmptyLeafSorter, D>
@@ -5957,7 +6064,7 @@ where
   D: Directory,
 {
   fn default() -> Self {
-    Self::new(None, None)
+    Self::new(None, None, None).expect("")
   }
 }
 /// If `open(IndexWriter)` has been called (ie, this writer is in near
@@ -6491,6 +6598,7 @@ use crate::core::index::buffered_updates::MAX_INT;
 use crate::core::index::caching_merge_context::CachingMergeContext;
 use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
 use crate::core::index::directory_reader;
+use crate::core::index::directory_reader::DirectoryReader;
 use crate::core::index::doc_values_field_updates::{
   DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
 };
@@ -6545,8 +6653,8 @@ use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::{
-  BYTE_BLOCK_SIZE, Comparator, CoreHelper, HasIdentity, IOUtils, LATEST, SerialCounter,
-  StringHelper, TryIntoInt,
+  BYTE_BLOCK_SIZE, Comparator, CoreHelper, HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR,
+  SerialCounter, StringHelper, TryIntoInt,
 };
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
