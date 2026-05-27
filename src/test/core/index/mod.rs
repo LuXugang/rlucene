@@ -74,6 +74,7 @@ mod test_index_writer_threads_to_segments;
 mod test_index_writer_unicode;
 mod test_index_writer_with_threads;
 mod test_indexing_sequence_numbers;
+mod test_is_current;
 mod test_log_merge_policy;
 mod test_long_postings;
 pub mod test_lucene90_doc_values_format;
