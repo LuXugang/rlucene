@@ -578,9 +578,10 @@ where
 #[cfg(test)]
 mod tests {
   use crate::core::document::document::Document;
-  use crate::core::document::field::Store;
+  use crate::core::document::field::{Field, Store};
   use crate::core::document::field_type::FieldType;
 
+  use crate::core::document::string_field::StringField;
   use crate::core::document::text_field::{TextField, text_field_type};
   use crate::core::index::two_phase_commit::TwoPhaseCommit;
 
@@ -808,10 +809,10 @@ mod tests {
     reader.close()?;
     Ok(())
   }
+  #[test]
   fn test_get_field_names() -> Result<()> {
     let mut random = random();
     let d = new_directory_shared(&mut random)?;
-    let mut field_to_type = HashMap::new();
 
     // set up writer
     let mock = MockAnalyzer::new(&mut random);
@@ -824,26 +825,12 @@ mod tests {
     custom_type3.set_stored(true)?;
 
     let mut doc = Document::new();
-    doc.add(new_string_field(
-      &mut random,
-      "keyword",
-      "test1",
-      Store::Yes,
-      &mut field_to_type,
-    )?);
-    doc.add(new_text_field(
-      &mut random,
-      "text",
-      "test1",
-      Store::Yes,
-      &mut field_to_type,
-    )?);
-    doc.add(new_field(
-      &mut random,
+    doc.add(StringField::from_string("keyword", "test1", Store::Yes)?);
+    doc.add(TextField::from_string("text", "test1", Store::Yes)?);
+    doc.add(Field::from_string(
       "unindexed",
       "test1",
-      &custom_type3,
-      &mut field_to_type,
+      custom_type3.clone(),
     )?);
     doc.add(TextField::from_string("unstored", "test1", Store::No)?);
     writer.add_document(doc)?;
@@ -874,26 +861,12 @@ mod tests {
     // want to get some more segments here
     for _ in 0..5 * merge_factor {
       let mut doc = Document::new();
-      doc.add(new_string_field(
-        &mut random,
-        "keyword",
-        "test1",
-        Store::Yes,
-        &mut field_to_type,
-      )?);
-      doc.add(new_text_field(
-        &mut random,
-        "text",
-        "test1",
-        Store::Yes,
-        &mut field_to_type,
-      )?);
-      doc.add(new_field(
-        &mut random,
+      doc.add(StringField::from_string("keyword", "test1", Store::Yes)?);
+      doc.add(TextField::from_string("text", "test1", Store::Yes)?);
+      doc.add(Field::from_string(
         "unindexed",
         "test1",
-        &custom_type3,
-        &mut field_to_type,
+        custom_type3.clone(),
       )?);
       doc.add(TextField::from_string("unstored", "test1", Store::No)?);
       writer.add_document(doc)?;
@@ -902,26 +875,12 @@ mod tests {
     // new fields are in some different segments (we hope)
     for _ in 0..5 * merge_factor {
       let mut doc = Document::new();
-      doc.add(new_string_field(
-        &mut random,
-        "keyword2",
-        "test1",
-        Store::Yes,
-        &mut field_to_type,
-      )?);
-      doc.add(new_text_field(
-        &mut random,
-        "text2",
-        "test1",
-        Store::Yes,
-        &mut field_to_type,
-      )?);
-      doc.add(new_field(
-        &mut random,
+      doc.add(StringField::from_string("keyword2", "test1", Store::Yes)?);
+      doc.add(TextField::from_string("text2", "test1", Store::Yes)?);
+      doc.add(Field::from_string(
         "unindexed2",
         "test1",
-        &custom_type3,
-        &mut field_to_type,
+        custom_type3.clone(),
       )?);
       doc.add(TextField::from_string("unstored2", "test1", Store::No)?);
       writer.add_document(doc)?;
@@ -947,33 +906,25 @@ mod tests {
     for _ in 0..5 * merge_factor {
       let mut doc = Document::new();
       doc.add(TextField::from_string("tvnot", "tvnot", Store::Yes)?);
-      doc.add(new_field(
-        &mut random,
+      doc.add(Field::from_string(
         "termvector",
         "termvector",
-        &custom_type5,
-        &mut field_to_type,
+        custom_type5.clone(),
       )?);
-      doc.add(new_field(
-        &mut random,
+      doc.add(Field::from_string(
         "tvoffset",
         "tvoffset",
-        &custom_type6,
-        &mut field_to_type,
+        custom_type6.clone(),
       )?);
-      doc.add(new_field(
-        &mut random,
+      doc.add(Field::from_string(
         "tvposition",
         "tvposition",
-        &custom_type7,
-        &mut field_to_type,
+        custom_type7.clone(),
       )?);
-      doc.add(new_field(
-        &mut random,
+      doc.add(Field::from_string(
         "tvpositionoffset",
         "tvpositionoffset",
-        &custom_type8,
-        &mut field_to_type,
+        custom_type8.clone(),
       )?);
 
       writer.add_document(doc)?;
