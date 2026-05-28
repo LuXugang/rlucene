@@ -57,8 +57,9 @@ pub mod random_access_input;
 pub mod read_advice;
 pub mod simple_fs_lock_factory;
 pub mod single_instance_lock_factory;
+pub mod sleeping_lock_wrapper;
 pub mod tracking_directory_wrapper;
-mod verifying_lock_factory;
+pub mod verifying_lock_factory;
 
 pub use buffered_checksum::*;
 pub use buffered_index_input::*;
